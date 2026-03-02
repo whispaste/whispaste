@@ -661,7 +661,7 @@ body {
       <div class="form-group">
         <div class="radio-cards" role="radiogroup" aria-label="Recording mode">
           <div class="radio-card" role="radio" aria-checked="true" tabindex="0" onclick="selectMode('push')" onkeydown="handleRadioKey(event, 'push')">
-            <input type="radio" name="mode" value="push" id="mode-push" checked>
+            <input type="radio" name="mode" value="push_to_talk" id="mode-push" checked>
             <span class="radio-card-icon" aria-hidden="true">🎙️</span>
             <span class="radio-card-label" data-i18n="modePush">Push to Talk</span>
             <span class="radio-card-desc" data-i18n="modePushDesc">Hold the hotkey to record</span>
@@ -1084,25 +1084,25 @@ function openExternal(url) {
 /* ── Gather Config ────────────────────────────────────── */
 function gatherConfig() {
   return {
-    apiKey: document.getElementById('input-apikey').value,
-    mode: document.querySelector('[name="mode"]:checked')?.value || 'push',
+    api_key: document.getElementById('input-apikey').value,
+    mode: document.querySelector('[name="mode"]:checked')?.value || 'push_to_talk',
     language: document.getElementById('select-language').value,
-    overlayPosition: document.querySelector('[name="overlay"]:checked')?.value || 'top',
-    soundFeedback: document.getElementById('toggle-sound').checked,
-    autoPaste: document.getElementById('toggle-autopaste').checked
+    overlay_position: document.querySelector('[name="overlay"]:checked')?.value || 'top_center',
+    play_sounds: document.getElementById('toggle-sound').checked,
+    auto_paste: document.getElementById('toggle-autopaste').checked
   };
 }
 
 /* ── Apply Config ─────────────────────────────────────── */
 function applyConfig(cfg) {
   if (!cfg) return;
-  if (cfg.apiKey != null) document.getElementById('input-apikey').value = cfg.apiKey;
+  if (cfg.api_key != null) document.getElementById('input-apikey').value = cfg.api_key;
   if (cfg.mode) selectMode(cfg.mode);
   if (cfg.language) document.getElementById('select-language').value = cfg.language;
-  if (cfg.overlayPosition) selectOverlay(cfg.overlayPosition);
-  if (cfg.soundFeedback != null) document.getElementById('toggle-sound').checked = cfg.soundFeedback;
-  if (cfg.autoPaste != null) document.getElementById('toggle-autopaste').checked = cfg.autoPaste;
-  if (cfg.hotkey && Array.isArray(cfg.hotkey)) setHotkeyDisplay(cfg.hotkey);
+  if (cfg.overlay_position) selectOverlay(cfg.overlay_position);
+  if (cfg.play_sounds != null) document.getElementById('toggle-sound').checked = cfg.play_sounds;
+  if (cfg.auto_paste != null) document.getElementById('toggle-autopaste').checked = cfg.auto_paste;
+  if (cfg.hotkey_modifiers && Array.isArray(cfg.hotkey_modifiers)) setHotkeyDisplay(cfg.hotkey_modifiers);
 }
 
 /* ── Save ──────────────────────────────────────────────── */

@@ -277,7 +277,7 @@ func NewOverlay() (*Overlay, error) {
 			ret, _, _ := procGetMessageW.Call(
 				uintptr(unsafe.Pointer(&msg)), 0, 0, 0,
 			)
-			if ret == 0 {
+			if ret == 0 || ret == ^uintptr(0) { // 0 = WM_QUIT, -1 = error
 				break
 			}
 			procTranslateMessage.Call(uintptr(unsafe.Pointer(&msg)))

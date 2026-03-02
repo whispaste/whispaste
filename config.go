@@ -107,6 +107,13 @@ func (c *Config) GetAPIKey() string {
 	return c.APIKey
 }
 
+// GetUILanguage returns the UI language (thread-safe).
+func (c *Config) GetUILanguage() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.UILanguage
+}
+
 // SetAPIKey sets the API key (thread-safe).
 func (c *Config) SetAPIKey(key string) {
 	c.mu.Lock()

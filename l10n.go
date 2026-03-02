@@ -1,8 +1,18 @@
 package main
 
+import "sync"
+
+var (
+	langMu      sync.RWMutex
+	currentLang = "en"
+)
+
 // T returns the localized string for the given key.
 func T(key string) string {
-	if s, ok := translations[currentLang][key]; ok {
+	langMu.RLock()
+	lang := currentLang
+	langMu.RUnlock()
+	if s, ok := translations[lang][key]; ok {
 		return s
 	}
 	if s, ok := translations["en"][key]; ok {
@@ -14,12 +24,16 @@ func T(key string) string {
 // SetLanguage sets the current UI language ("en" or "de").
 func SetLanguage(lang string) {
 	if _, ok := translations[lang]; ok {
+		langMu.Lock()
 		currentLang = lang
+		langMu.Unlock()
 	}
 }
 
 // GetLanguage returns the current UI language.
 func GetLanguage() string {
+	langMu.RLock()
+	defer langMu.RUnlock()
 	return currentLang
 }
 
@@ -27,8 +41,6 @@ func GetLanguage() string {
 func SupportedLanguages() []string {
 	return []string{"en", "de"}
 }
-
-var currentLang = "en"
 
 var translations = map[string]map[string]string{
 	"en": {
