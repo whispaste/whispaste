@@ -65,7 +65,7 @@ Config is stored in `%APPDATA%\Whispaste\config.json`.
 
 ```powershell
 # Clone
-git clone https://github.com/silvi/whispaste.git
+git clone https://github.com/silvio-l/whispaste.git
 cd whispaste
 
 # Build (debug)
@@ -105,6 +105,13 @@ whispaste/
 └── README.md          # This file
 ```
 
+## ❤️ Support
+
+Whispaste is free and open source. If you find it useful, consider supporting its development:
+
+- [💜 GitHub Sponsors](https://github.com/sponsors/silvio-l)
+- [☕ Ko-fi](https://ko-fi.com/silviol)
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please:
@@ -117,6 +124,8 @@ Contributions are welcome! Please:
 ## 📄 License
 
 MIT License – see [LICENSE](LICENSE) for details.
+
+© 2025 [Silvio Lindstedt](https://github.com/silvio-l)
 
 ## 💡 How It Works
 

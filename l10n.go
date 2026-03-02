@@ -53,6 +53,7 @@ var translations = map[string]map[string]string{
 		"tray.tooltip":   "Whispaste – Voice to Text",
 		"tray.settings":  "Settings",
 		"tray.about":     "About",
+		"tray.support":   "❤️ Support Whispaste",
 		"tray.quit":      "Quit",
 
 		// States
@@ -123,6 +124,7 @@ var translations = map[string]map[string]string{
 		"tray.tooltip":   "Whispaste – Sprache zu Text",
 		"tray.settings":  "Einstellungen",
 		"tray.about":     "Über",
+		"tray.support":   "❤️ Whispaste unterstützen",
 		"tray.quit":      "Beenden",
 
 		// States
