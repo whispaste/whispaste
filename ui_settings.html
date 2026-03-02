@@ -522,6 +522,45 @@ body {
   text-align: center;
 }
 
+.about-support {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.about-support-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.about-support-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 320px;
+  margin: 0 auto 12px;
+}
+
+.about-support-links {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.support-link {
+  background: rgba(219,39,119,.06) !important;
+  border-color: rgba(219,39,119,.15) !important;
+  color: #db2777 !important;
+}
+
+.support-link:hover {
+  background: rgba(219,39,119,.12) !important;
+  border-color: rgba(219,39,119,.25) !important;
+}
+
 .about-credits-title {
   font-size: 11px;
   font-weight: 600;
@@ -789,14 +828,14 @@ body {
         <span class="about-license" data-i18n="aboutLicense">📄 Open Source – MIT License</span>
 
         <div class="about-links">
-          <a href="#" class="about-link" onclick="openExternal('https://github.com/your/whispaste'); return false;" data-i18n="aboutGithub">⭐ GitHub</a>
-          <a href="#" class="about-link" onclick="openExternal('https://github.com/your/whispaste/issues'); return false;" data-i18n="aboutIssue">🐛 Report Issue</a>
+          <a href="#" class="about-link" onclick="openExternal('https://github.com/silvio-l/whispaste'); return false;" data-i18n="aboutGithub">⭐ GitHub</a>
+          <a href="#" class="about-link" onclick="openExternal('https://github.com/silvio-l/whispaste/issues'); return false;" data-i18n="aboutIssue">🐛 Report Issue</a>
         </div>
       </div>
 
       <div class="about-credits">
         <div class="about-credits-title" data-i18n="aboutCreditsTitle">Credits</div>
-        <p class="about-credits-text" data-i18n="aboutCreditsText">Powered by OpenAI Whisper API. Built with Go and WebView2.</p>
+        <p class="about-credits-text" data-i18n="aboutCreditsText">Made by Silvio Lindstedt. Powered by OpenAI Whisper API. Built with Go and WebView2.</p>
       </div>
     </div>
 
@@ -865,7 +904,9 @@ const translations = {
     aboutGithub: '⭐ GitHub',
     aboutIssue: '🐛 Report Issue',
     aboutCreditsTitle: 'Credits',
-    aboutCreditsText: 'Powered by OpenAI Whisper API. Built with Go and WebView2.',
+    aboutCreditsText: 'Made by Silvio Lindstedt. Powered by OpenAI Whisper API. Built with Go and WebView2.',
+    aboutSupportTitle: '❤️ Support this project',
+    aboutSupportText: 'Whispaste is free and open source. If you find it useful, please consider supporting its development!',
     btnTest: 'Test',
     btnCancel: 'Cancel',
     btnSave: 'Save',
@@ -923,7 +964,9 @@ const translations = {
     aboutGithub: '⭐ GitHub',
     aboutIssue: '🐛 Fehler melden',
     aboutCreditsTitle: 'Danksagungen',
-    aboutCreditsText: 'Basierend auf der OpenAI Whisper API. Erstellt mit Go und WebView2.',
+    aboutCreditsText: 'Erstellt von Silvio Lindstedt. Basierend auf der OpenAI Whisper API. Entwickelt mit Go und WebView2.',
+    aboutSupportTitle: '❤️ Projekt unterstützen',
+    aboutSupportText: 'Whispaste ist kostenlos und Open Source. Wenn du es nützlich findest, unterstütze gerne die Weiterentwicklung!',
     btnTest: 'Testen',
     btnCancel: 'Abbrechen',
     btnSave: 'Speichern',

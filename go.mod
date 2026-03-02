@@ -1,4 +1,4 @@
-module github.com/silvi/whispaste
+module github.com/silvio-l/whispaste
 
 go 1.25.0
 
