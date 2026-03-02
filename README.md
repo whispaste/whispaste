@@ -109,6 +109,8 @@ whispaste/
 
 Whispaste is free and open source. If you find it useful, consider supporting its development:
 
+<a href="https://github.com/sponsors/silvio-l"><img src="https://img.shields.io/badge/Sponsor-❤-ea4aaa?logo=github" alt="Sponsor silvio-l"></a>
+
 - [💜 GitHub Sponsors](https://github.com/sponsors/silvio-l)
 - [☕ Ko-fi](https://ko-fi.com/silviol)
 
