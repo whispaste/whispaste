@@ -22,6 +22,7 @@
 - **🔑 BYOK** – Bring Your Own Key: uses your OpenAI API key, no subscription
 - **⚡ Lightweight** – Single ~8MB portable `.exe`, no installer needed
 - **🌐 UI Languages** – English and German interface (auto-detected)
+- **🔄 Auto-Update** – Secure self-updater with SHA256 verification, notifies via tray
 - **♿ Accessible** – Full keyboard navigation and screen reader support in settings
 
 ## 📦 Quick Start
@@ -44,6 +45,7 @@ Right-click the tray icon → **Settings** to configure:
 | Model | `whisper-1` | OpenAI Whisper model |
 | Auto-Paste | On | Automatically paste after transcription |
 | Sound Effects | On | Play audio feedback |
+| Check Updates | On | Automatically check for new versions |
 
 Config is stored in `%APPDATA%\Whispaste\config.json`.
 
@@ -51,6 +53,7 @@ Config is stored in `%APPDATA%\Whispaste\config.json`.
 
 - **Your API key stays local** – stored only in your user profile directory
 - **Audio is never saved** – recorded audio is sent directly to OpenAI's API and discarded
+- **Secure updates** – auto-updater verifies SHA256 checksums before applying, HTTPS only, no silent updates
 - **No telemetry** – zero analytics, tracking, or phone-home
 - **Open source** – audit every line of code yourself
 
@@ -97,6 +100,7 @@ whispaste/
 ├── ui.go              # Settings window (WebView2)
 ├── ui_settings.html   # Settings UI (HTML/CSS/JS)
 ├── config.go          # Configuration management
+├── update.go          # Secure auto-updater (GitHub Releases)
 ├── l10n.go            # Localization (EN/DE)
 ├── sound.go           # Audio feedback
 ├── types.go           # Shared types and constants
