@@ -1,34 +1,59 @@
 package main
 
 import (
-	"time"
+	_ "embed"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
+//go:embed resources/snd_start.wav
+var sndStart []byte
+
+//go:embed resources/snd_stop.wav
+var sndStop []byte
+
+//go:embed resources/snd_success.wav
+var sndSuccess []byte
+
+//go:embed resources/snd_error.wav
+var sndError []byte
+
 var (
-	sndKernel32 = windows.NewLazySystemDLL("kernel32.dll")
-	sndBeep     = sndKernel32.NewProc("Beep")
+	winmm        = windows.NewLazySystemDLL("winmm.dll")
+	procPlaySound = winmm.NewProc("PlaySoundW")
 )
 
-func beep(frequency, durationMs uint32) {
-	sndBeep.Call(uintptr(frequency), uintptr(durationMs))
-}
+const (
+	sndMemory = 0x00000004
+	sndAsync  = 0x00000001
+	sndNoDefault = 0x00000002
+)
 
-// PlayFeedback plays an audio cue asynchronously.
+// PlayFeedback plays an audio cue asynchronously using embedded WAV data.
+// SND_ASYNC makes PlaySoundW non-blocking, so no goroutine needed.
 func PlayFeedback(soundType SoundType) {
-	go func() {
-		switch soundType {
-		case SoundRecordStart:
-			beep(800, 150)
-		case SoundRecordStop:
-			beep(600, 150)
-		case SoundSuccess:
-			beep(1000, 100)
-			time.Sleep(50 * time.Millisecond)
-			beep(1200, 100)
-		case SoundError:
-			beep(400, 300)
-		}
-	}()
+	var data []byte
+	switch soundType {
+	case SoundRecordStart:
+		data = sndStart
+	case SoundRecordStop:
+		data = sndStop
+	case SoundSuccess:
+		data = sndSuccess
+	case SoundError:
+		data = sndError
+	default:
+		return
+	}
+	if len(data) == 0 {
+		return
+	}
+	// Recover from panic if winmm.dll is unavailable (Windows N editions)
+	defer func() { recover() }()
+	procPlaySound.Call(
+		uintptr(unsafe.Pointer(&data[0])),
+		0,
+		uintptr(sndMemory|sndAsync|sndNoDefault),
+	)
 }
