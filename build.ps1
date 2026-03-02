@@ -2,7 +2,8 @@
 # Requires: Go 1.21+, GCC (MinGW-w64)
 param(
     [switch]$Release,
-    [switch]$Clean
+    [switch]$Clean,
+    [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,6 +39,11 @@ if ($Release) {
 } else {
     Write-Host "Mode: Debug" -ForegroundColor Yellow
     $ldflags = "-H windowsgui"
+}
+
+if ($Version -ne "") {
+    $ldflags += " -X main.AppVersion=$Version"
+    Write-Host "Version: $Version" -ForegroundColor Cyan
 }
 
 Write-Host "Running go build..."
