@@ -64,6 +64,7 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func()) {
 			cfg.OverlayPos = newCfg.OverlayPos
 			cfg.AutoPaste = newCfg.AutoPaste
 			cfg.PlaySounds = newCfg.PlaySounds
+			cfg.CheckUpdates = newCfg.CheckUpdates
 			cfg.UILanguage = newCfg.UILanguage
 			cfg.mu.Unlock()
 

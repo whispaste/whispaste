@@ -85,6 +85,7 @@ var translations = map[string]map[string]string{
 		"settings.overlay_cursor":  "Near Cursor",
 		"settings.auto_paste":      "Auto-paste transcription",
 		"settings.play_sounds":     "Play sound feedback",
+		"settings.check_updates":   "Check for updates automatically",
 		"settings.save":            "Save",
 		"settings.cancel":          "Cancel",
 		"settings.test":            "Test",
@@ -113,6 +114,14 @@ var translations = map[string]map[string]string{
 		"error.hotkey":         "Could not register hotkey %s. It may be used by another application.",
 		"error.microphone":     "Could not access microphone: %s",
 		"error.clipboard":      "Could not access clipboard: %s",
+
+		// Updates
+		"update.available":     "Update available: v%s",
+		"update.downloading":   "Downloading update…",
+		"update.ready":         "Restart to update",
+		"update.failed":        "Update failed: %s",
+		"update.check":         "Check for updates",
+		"update.up_to_date":    "Up to date ✓",
 	},
 	"de": {
 		// App
@@ -156,6 +165,7 @@ var translations = map[string]map[string]string{
 		"settings.overlay_cursor":  "In Cursornähe",
 		"settings.auto_paste":      "Transkription automatisch einfügen",
 		"settings.play_sounds":     "Akustische Rückmeldung",
+		"settings.check_updates":   "Automatisch nach Updates suchen",
 		"settings.save":            "Speichern",
 		"settings.cancel":          "Abbrechen",
 		"settings.test":            "Testen",
@@ -184,5 +194,13 @@ var translations = map[string]map[string]string{
 		"error.hotkey":         "Tastenkombination %s konnte nicht registriert werden. Sie wird möglicherweise von einer anderen Anwendung verwendet.",
 		"error.microphone":     "Zugriff auf Mikrofon nicht möglich: %s",
 		"error.clipboard":      "Zugriff auf Zwischenablage nicht möglich: %s",
+
+		// Updates
+		"update.available":     "Update verfügbar: v%s",
+		"update.downloading":   "Update wird heruntergeladen…",
+		"update.ready":         "Neustart für Update",
+		"update.failed":        "Update fehlgeschlagen: %s",
+		"update.check":         "Nach Updates suchen",
+		"update.up_to_date":    "Aktuell ✓",
 	},
 }

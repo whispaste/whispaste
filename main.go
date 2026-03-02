@@ -237,6 +237,9 @@ func main() {
 		}
 	}
 
+	// Initialize updater
+	updater := NewUpdater(AppVersion, cfg.GetCheckUpdates)
+
 	// System tray (this blocks on the main thread)
 	tray := NewAppTray(
 		func() { ShowSettings(cfg, recorder, onSettingsSaved) },
@@ -251,6 +254,7 @@ func main() {
 			}
 			recorder.Close()
 		},
+		updater,
 	)
 
 	// Open settings on first run (no API key)
