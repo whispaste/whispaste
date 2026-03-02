@@ -59,7 +59,7 @@ func (t *AppTray) onReady() {
 					t.onSettings()
 				}
 			case <-mSupport.ClickedCh:
-				exec.Command("rundll32", "url.dll,FileProtocolHandler", supportURL).Start()
+				_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", supportURL).Start()
 			case <-mQuit.ClickedCh:
 				if t.onQuit != nil {
 					t.onQuit()
