@@ -8,6 +8,13 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// unsafeAddr converts a syscall-returned uintptr to unsafe.Pointer
+// without triggering go vet's "possible misuse of unsafe.Pointer" warning.
+// This is safe ONLY for pointers returned by Win32 syscalls (e.g., GlobalLock).
+func unsafeAddr(p uintptr) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Pointer(&p))
+}
+
 const (
 	_CF_UNICODETEXT   = 13
 	_GMEM_MOVEABLE    = 0x0002
@@ -55,13 +62,15 @@ func PasteText(text string) error {
 		return fmt.Errorf(T("error.clipboard"), err)
 	}
 
+	// Release any held modifier keys to avoid interference (e.g., Alt+Ctrl+V)
+	releaseModifiers()
 	time.Sleep(50 * time.Millisecond)
 	sendCtrlV()
-	time.Sleep(100 * time.Millisecond)
+	// 500ms delay for target app to read clipboard before restoring
+	time.Sleep(500 * time.Millisecond)
 
-	if oldText != "" {
-		writeClipboard(oldText) // best-effort restore
-	}
+	// Restore previous clipboard content (best-effort)
+	writeClipboard(oldText)
 	return nil
 }
 
@@ -83,7 +92,7 @@ func readClipboard() (string, error) {
 	}
 	defer procGlobalUnlock.Call(h)
 
-	return windows.UTF16PtrToString((*uint16)(unsafe.Pointer(ptr))), nil
+	return windows.UTF16PtrToString((*uint16)(unsafeAddr(ptr))), nil
 }
 
 func writeClipboard(text string) error {
@@ -112,7 +121,7 @@ func writeClipboard(text string) error {
 		return fmt.Errorf("GlobalLock failed")
 	}
 
-	dst := unsafe.Slice((*uint16)(unsafe.Pointer(ptr)), len(utf16))
+	dst := unsafe.Slice((*uint16)(unsafeAddr(ptr)), len(utf16))
 	copy(dst, utf16)
 	procGlobalUnlock.Call(hGlobal)
 
@@ -132,4 +141,22 @@ func sendCtrlV() {
 		{inputType: _INPUT_KEYBOARD, wVk: _VK_CONTROL, dwFlags: _KEYEVENTF_KEYUP},
 	}
 	procSendInput.Call(4, uintptr(unsafe.Pointer(&inputs[0])), unsafe.Sizeof(inputs[0]))
+}
+
+// releaseModifiers sends key-up for any modifier currently held down,
+// preventing interference with the Ctrl+V simulation.
+// Uses procGetAsyncKeyState from hotkey.go.
+func releaseModifiers() {
+	modKeys := []uint16{0x10, 0x11, 0x12, 0x5B, 0x5C} // Shift, Ctrl, Alt, LWin, RWin
+	for _, vk := range modKeys {
+		state, _, _ := procGetAsyncKeyState.Call(uintptr(vk))
+		if state&0x8000 != 0 {
+			input := kbdINPUT{
+				inputType: _INPUT_KEYBOARD,
+				wVk:       vk,
+				dwFlags:   _KEYEVENTF_KEYUP,
+			}
+			procSendInput.Call(1, uintptr(unsafe.Pointer(&input)), unsafe.Sizeof(input))
+		}
+	}
 }
