@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "anvil/*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install MinGW
+        run: choco install mingw -y --no-progress
+
+      - name: Vet
+        env:
+          CGO_ENABLED: "1"
+        run: go vet ./...
+
+      - name: Build
+        env:
+          CGO_ENABLED: "1"
+        run: go build -ldflags="-s -w -H windowsgui" -o whispaste.exe .
+
+      - name: Check binary exists
+        run: |
+          if (!(Test-Path whispaste.exe)) { throw "Build failed: whispaste.exe not found" }
+          $size = (Get-Item whispaste.exe).Length / 1MB
+          Write-Host "Binary size: $([math]::Round($size, 2)) MB"
+
+      - name: Secret scan
+        shell: bash
+        run: |
+          echo "Scanning for potential secrets..."
+          if grep -rn --include='*.go' --include='*.html' --include='*.json' --include='*.md' \
+            -E '(sk-[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|password\s*=\s*"[^"]+")' \
+            --exclude-dir=.git . ; then
+            echo "::error::Potential secrets detected in source files!"
+            exit 1
+          fi
+          echo "No secrets found ✓"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: whispaste-exe
+          path: whispaste.exe
+          retention-days: 14

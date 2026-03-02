@@ -2,12 +2,15 @@ package main
 
 import (
 	_ "embed"
+	"os/exec"
 
 	"github.com/getlantern/systray"
 )
 
 //go:embed resources/tray.ico
 var embeddedTrayIcon []byte
+
+const supportURL = "https://github.com/sponsors/silvio-l"
 
 // AppTray manages the system tray icon and menu.
 type AppTray struct {
@@ -40,6 +43,7 @@ func (t *AppTray) onReady() {
 
 	mSettings := systray.AddMenuItem(T("tray.settings"), T("tray.settings"))
 	mAbout := systray.AddMenuItem(T("tray.about"), T("tray.about"))
+	mSupport := systray.AddMenuItem(T("tray.support"), T("tray.support"))
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem(T("tray.quit"), T("tray.quit"))
 
@@ -54,6 +58,8 @@ func (t *AppTray) onReady() {
 				if t.onSettings != nil {
 					t.onSettings()
 				}
+			case <-mSupport.ClickedCh:
+				exec.Command("rundll32", "url.dll,FileProtocolHandler", supportURL).Start()
 			case <-mQuit.ClickedCh:
 				if t.onQuit != nil {
 					t.onQuit()
