@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whispaste Settings</title>
+<style>
+/* ── Custom Properties ─────────────────────────────────── */
+:root {
+  --accent: #0078D4;
+  --accent-hover: #106EBE;
+  --accent-active: #005A9E;
+  --bg: #F3F3F3;
+  --bg-card: #FFFFFF;
+  --bg-hover: #F9F9F9;
+  --bg-input: #FFFFFF;
+  --border: #E0E0E0;
+  --border-focus: var(--accent);
+  --text: #1A1A1A;
+  --text-secondary: #5F6368;
+  --text-hint: #8A8A8A;
+  --success: #107C10;
+  --error: #D13438;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+  --shadow-md: 0 2px 8px rgba(0,0,0,.08);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,.1);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --font: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --transition: 200ms ease;
+}
+
+/* ── Reset & Base ──────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Focus Visible ─────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+:focus:not(:focus-visible) { outline: none; }
+
+/* ── Header ────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px 0;
+  flex-shrink: 0;
+}
+
+.header-title {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  color: var(--text);
+}
+
+.lang-switcher {
+  display: flex;
+  gap: 2px;
+  background: var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+.lang-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.lang-btn[aria-pressed="true"] {
+  background: var(--bg-card);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.lang-btn:hover:not([aria-pressed="true"]) { color: var(--text); }
+
+/* ── Tabs ──────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 24px 0;
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  border: none;
+  background: transparent;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+
+.tab-btn:hover { color: var(--text); background: rgba(0,0,0,.04); }
+
+.tab-btn[aria-selected="true"] {
+  color: var(--accent);
+  background: rgba(0,120,212,.08);
+  font-weight: 600;
+}
+
+/* ── Tab Content ───────────────────────────────────────── */
+.tab-content-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 24px;
+}
+
+.tab-content-wrapper::-webkit-scrollbar { width: 6px; }
+.tab-content-wrapper::-webkit-scrollbar-track { background: transparent; }
+.tab-content-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,.15);
+  border-radius: 3px;
+}
+
+.tab-panel {
+  display: none;
+  animation: fadeIn 200ms ease;
+}
+
+.tab-panel[aria-hidden="false"] { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Cards ─────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition);
+}
+
+.card-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-hint);
+  margin-bottom: 14px;
+}
+
+/* ── Form Groups ───────────────────────────────────────── */
+.form-group { margin-bottom: 18px; }
+.form-group:last-child { margin-bottom: 0; }
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--text-hint);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.form-hint a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.form-hint a:hover { text-decoration: underline; }
+
+/* ── Text Input ────────────────────────────────────────── */
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.form-input {
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.form-input:hover { border-color: #CCC; }
+.form-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(0,120,212,.15);
+  outline: none;
+}
+
+.form-input::placeholder { color: var(--text-hint); }
+
+.input-eye {
+  position: absolute;
+  right: 4px;
+  border: none;
+  background: transparent;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: var(--text-hint);
+  border-radius: 4px;
+  font-size: 15px;
+  line-height: 1;
+  transition: color var(--transition);
+}
+
+.input-eye:hover { color: var(--text-secondary); }
+
+/* ── Select ────────────────────────────────────────────── */
+.form-select {
+  width: 100%;
+  padding: 9px 32px 9px 12px;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg-input) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235F6368' d='M2.5 4.5L6 8l3.5-3.5z'/%3E%3C/svg%3E") no-repeat right 10px center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  appearance: none;
+  cursor: pointer;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.form-select:hover { border-color: #CCC; }
+.form-select:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(0,120,212,.15);
+  outline: none;
+}
+
+/* ── Radio Cards ───────────────────────────────────────── */
+.radio-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.radio-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  background: var(--bg-input);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: center;
+}
+
+.radio-card:hover { border-color: #CCC; background: var(--bg-hover); }
+
+.radio-card[aria-checked="true"] {
+  border-color: var(--accent);
+  background: rgba(0,120,212,.04);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.radio-card input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.radio-card-icon { font-size: 24px; line-height: 1; }
+
+.radio-card-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.radio-card-desc {
+  font-size: 11px;
+  color: var(--text-hint);
+  line-height: 1.3;
+}
+
+/* ── Toggle Switch ─────────────────────────────────────── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toggle-info { flex: 1; min-width: 0; }
+
+.toggle-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.toggle-desc {
+  font-size: 12px;
+  color: var(--text-hint);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: #C4C4C4;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: #FFF;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  transition: transform var(--transition);
+}
+
+.toggle-switch input:checked + .toggle-track { background: var(--accent); }
+.toggle-switch input:checked + .toggle-track::after { transform: translateX(20px); }
+.toggle-switch input:focus-visible + .toggle-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Hotkey Display ────────────────────────────────────── */
+.hotkey-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(180deg, #FAFAFA 0%, #F0F0F0 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font);
+  color: var(--text);
+  letter-spacing: .02em;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.8);
+}
+
+.hotkey-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  background: linear-gradient(180deg, #FFF 0%, #F5F5F5 100%);
+  border: 1px solid #D0D0D0;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08), inset 0 -1px 0 rgba(0,0,0,.05);
+}
+
+.hotkey-plus {
+  font-size: 11px;
+  color: var(--text-hint);
+  font-weight: 400;
+}
+
+/* ── About ─────────────────────────────────────────────── */
+.about-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 12px 0 8px;
+}
+
+.about-icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.about-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.about-version {
+  font-size: 12px;
+  color: var(--text-hint);
+  margin-bottom: 10px;
+}
+
+.about-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 340px;
+  margin-bottom: 12px;
+}
+
+.about-license {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-hint);
+  padding: 4px 12px;
+  background: rgba(0,120,212,.06);
+  border-radius: 20px;
+}
+
+.about-links {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.about-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font);
+  color: var(--accent);
+  background: rgba(0,120,212,.06);
+  border: 1px solid rgba(0,120,212,.15);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--transition);
+}
+
+.about-link:hover {
+  background: rgba(0,120,212,.1);
+  border-color: rgba(0,120,212,.25);
+}
+
+.about-credits {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.about-credits-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-hint);
+  margin-bottom: 8px;
+}
+
+.about-credits-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── Bottom Bar ────────────────────────────────────────── */
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.bottom-bar .spacer { flex: 1; }
+
+.status-msg {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 300ms ease;
+  white-space: nowrap;
+}
+
+.status-msg.visible { opacity: 1; }
+.status-msg.success { color: var(--success); }
+.status-msg.error { color: var(--error); }
+
+/* ── Buttons ───────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.btn:active { transform: scale(.97); }
+
+.btn-primary {
+  background: var(--accent);
+  color: #FFF;
+  border-color: var(--accent);
+}
+
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-primary:active { background: var(--accent-active); }
+.btn-primary:disabled {
+  background: #B0D4F1;
+  border-color: #B0D4F1;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover { background: var(--bg-hover); border-color: #CCC; }
+
+.btn-test {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border);
+  padding: 8px 14px;
+}
+
+.btn-test:hover { background: var(--bg-hover); color: var(--text); }
+
+.btn-test.recording {
+  color: var(--error);
+  border-color: var(--error);
+  animation: pulse 1.2s ease infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(209,52,56,.2); }
+  50% { box-shadow: 0 0 0 6px rgba(209,52,56,0); }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────── -->
+<div class="header">
+  <h1 class="header-title" data-i18n="settingsTitle">Settings</h1>
+  <div class="lang-switcher" role="radiogroup" aria-label="Language">
+    <button class="lang-btn" role="radio" aria-pressed="true" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" role="radio" aria-pressed="false" onclick="setLang('de')">DE</button>
+  </div>
+</div>
+
+<!-- ── Tabs ─────────────────────────────────────────────── -->
+<div class="tabs" role="tablist" aria-label="Settings sections">
+  <button class="tab-btn" role="tab" id="tab-general" aria-selected="true" aria-controls="panel-general" data-i18n="tabGeneral" onclick="switchTab('general')">General</button>
+  <button class="tab-btn" role="tab" id="tab-audio" aria-selected="false" aria-controls="panel-audio" data-i18n="tabAudio" onclick="switchTab('audio')">Audio</button>
+  <button class="tab-btn" role="tab" id="tab-about" aria-selected="false" aria-controls="panel-about" data-i18n="tabAbout" onclick="switchTab('about')">About</button>
+</div>
+
+<!-- ── Tab Panels ──────────────────────────────────────── -->
+<div class="tab-content-wrapper">
+
+  <!-- General -->
+  <div class="tab-panel" role="tabpanel" id="panel-general" aria-labelledby="tab-general" aria-hidden="false" tabindex="0">
+
+    <div class="card">
+      <div class="card-title" data-i18n="cardApiKey">API Key</div>
+      <div class="form-group">
+        <label class="form-label" for="input-apikey" data-i18n="labelApiKey">OpenAI API Key</label>
+        <div class="input-wrapper">
+          <input class="form-input" type="password" id="input-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false">
+          <button class="input-eye" type="button" aria-label="Show API key" onclick="toggleApiKeyVisibility()" id="btn-eye">👁</button>
+        </div>
+        <p class="form-hint">
+          <span data-i18n="hintApiKey">Need a key?</span>
+          <a href="#" onclick="openExternal('https://platform.openai.com/api-keys'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" data-i18n="cardMode">Recording Mode</div>
+      <div class="form-group">
+        <div class="radio-cards" role="radiogroup" aria-label="Recording mode">
+          <div class="radio-card" role="radio" aria-checked="true" tabindex="0" onclick="selectMode('push')" onkeydown="handleRadioKey(event, 'push')">
+            <input type="radio" name="mode" value="push" id="mode-push" checked>
+            <span class="radio-card-icon" aria-hidden="true">🎙️</span>
+            <span class="radio-card-label" data-i18n="modePush">Push to Talk</span>
+            <span class="radio-card-desc" data-i18n="modePushDesc">Hold the hotkey to record</span>
+          </div>
+          <div class="radio-card" role="radio" aria-checked="false" tabindex="0" onclick="selectMode('toggle')" onkeydown="handleRadioKey(event, 'toggle')">
+            <input type="radio" name="mode" value="toggle" id="mode-toggle">
+            <span class="radio-card-icon" aria-hidden="true">🔄</span>
+            <span class="radio-card-label" data-i18n="modeToggle">Toggle</span>
+            <span class="radio-card-desc" data-i18n="modeToggleDesc">Press to start, press again to stop</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" data-i18n="cardHotkey">Hotkey</div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="labelHotkey">Current Hotkey</label>
+        <div class="hotkey-display" id="hotkey-display" aria-label="Current hotkey: Ctrl + Shift + V">
+          <span class="hotkey-key">Ctrl</span>
+          <span class="hotkey-plus">+</span>
+          <span class="hotkey-key">Shift</span>
+          <span class="hotkey-plus">+</span>
+          <span class="hotkey-key">V</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Audio -->
+  <div class="tab-panel" role="tabpanel" id="panel-audio" aria-labelledby="tab-audio" aria-hidden="true" tabindex="0">
+
+    <div class="card">
+      <div class="card-title" data-i18n="cardLanguage">Transcription Language</div>
+      <div class="form-group">
+        <label class="form-label" for="select-language" data-i18n="labelLanguage">Language</label>
+        <select class="form-select" id="select-language">
+          <option value="auto" data-i18n-opt="langAuto">Auto-detect</option>
+          <option value="en" data-i18n-opt="langEn">English</option>
+          <option value="de" data-i18n-opt="langDe">German</option>
+          <option value="es" data-i18n-opt="langEs">Spanish</option>
+          <option value="fr" data-i18n-opt="langFr">French</option>
+          <option value="it" data-i18n-opt="langIt">Italian</option>
+          <option value="pt" data-i18n-opt="langPt">Portuguese</option>
+          <option value="ja" data-i18n-opt="langJa">Japanese</option>
+          <option value="zh" data-i18n-opt="langZh">Chinese</option>
+          <option value="ko" data-i18n-opt="langKo">Korean</option>
+          <option value="ru" data-i18n-opt="langRu">Russian</option>
+          <option value="ar" data-i18n-opt="langAr">Arabic</option>
+          <option value="hi" data-i18n-opt="langHi">Hindi</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" data-i18n="cardOverlay">Overlay Position</div>
+      <div class="form-group">
+        <div class="radio-cards" role="radiogroup" aria-label="Overlay position">
+          <div class="radio-card" role="radio" aria-checked="true" tabindex="0" onclick="selectOverlay('top')" onkeydown="handleOverlayKey(event, 'top')">
+            <input type="radio" name="overlay" value="top" id="overlay-top" checked>
+            <span class="radio-card-icon" aria-hidden="true">⬆️</span>
+            <span class="radio-card-label" data-i18n="overlayTop">Top Center</span>
+            <span class="radio-card-desc" data-i18n="overlayTopDesc">Fixed at top of screen</span>
+          </div>
+          <div class="radio-card" role="radio" aria-checked="false" tabindex="0" onclick="selectOverlay('cursor')" onkeydown="handleOverlayKey(event, 'cursor')">
+            <input type="radio" name="overlay" value="cursor" id="overlay-cursor">
+            <span class="radio-card-icon" aria-hidden="true">🖱️</span>
+            <span class="radio-card-label" data-i18n="overlayCursor">Near Cursor</span>
+            <span class="radio-card-desc" data-i18n="overlayCursorDesc">Follows mouse position</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" data-i18n="cardFeedback">Preferences</div>
+
+      <div class="form-group">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <label class="toggle-label" for="toggle-sound" data-i18n="labelSound">Sound Feedback</label>
+            <p class="toggle-desc" data-i18n="descSound">Play sounds when recording starts and stops</p>
+          </div>
+          <div class="toggle-switch">
+            <input type="checkbox" id="toggle-sound" checked>
+            <span class="toggle-track" aria-hidden="true"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <label class="toggle-label" for="toggle-autopaste" data-i18n="labelAutoPaste">Auto-paste</label>
+            <p class="toggle-desc" data-i18n="descAutoPaste">Automatically paste transcription into focused field</p>
+          </div>
+          <div class="toggle-switch">
+            <input type="checkbox" id="toggle-autopaste" checked>
+            <span class="toggle-track" aria-hidden="true"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- About -->
+  <div class="tab-panel" role="tabpanel" id="panel-about" aria-labelledby="tab-about" aria-hidden="true" tabindex="0">
+
+    <div class="card">
+      <div class="about-header">
+        <div class="about-icon" aria-hidden="true">🎤</div>
+        <div class="about-name">Whispaste</div>
+        <div class="about-version">v1.0.0</div>
+        <p class="about-desc" data-i18n="aboutDesc">A fast, lightweight voice-to-text tool for Windows. Record speech and instantly paste the transcription anywhere.</p>
+        <span class="about-license" data-i18n="aboutLicense">📄 Open Source – MIT License</span>
+
+        <div class="about-links">
+          <a href="#" class="about-link" onclick="openExternal('https://github.com/your/whispaste'); return false;" data-i18n="aboutGithub">⭐ GitHub</a>
+          <a href="#" class="about-link" onclick="openExternal('https://github.com/your/whispaste/issues'); return false;" data-i18n="aboutIssue">🐛 Report Issue</a>
+        </div>
+      </div>
+
+      <div class="about-credits">
+        <div class="about-credits-title" data-i18n="aboutCreditsTitle">Credits</div>
+        <p class="about-credits-text" data-i18n="aboutCreditsText">Powered by OpenAI Whisper API. Built with Go and WebView2.</p>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ── Bottom Bar ───────────────────────────────────────── -->
+<div class="bottom-bar">
+  <button class="btn btn-test" id="btn-test" aria-label="Test microphone" onclick="testRecording()">
+    <span id="btn-test-icon">🎤</span>
+    <span data-i18n="btnTest" id="btn-test-text">Test</span>
+  </button>
+  <span class="status-msg" id="status-msg" role="status" aria-live="polite"></span>
+  <div class="spacer"></div>
+  <button class="btn btn-secondary" onclick="cancelSettings()" data-i18n="btnCancel">Cancel</button>
+  <button class="btn btn-primary" onclick="saveSettings()" data-i18n="btnSave" id="btn-save">Save</button>
+</div>
+
+<script>
+/* ── Translations ─────────────────────────────────────── */
+const translations = {
+  en: {
+    settingsTitle: 'Settings',
+    tabGeneral: 'General',
+    tabAudio: 'Audio',
+    tabAbout: 'About',
+    cardApiKey: 'API Key',
+    labelApiKey: 'OpenAI API Key',
+    hintApiKey: 'Need a key?',
+    hintApiKeyLink: 'Get your API key →',
+    cardMode: 'Recording Mode',
+    modePush: 'Push to Talk',
+    modePushDesc: 'Hold the hotkey to record',
+    modeToggle: 'Toggle',
+    modeToggleDesc: 'Press to start, press again to stop',
+    cardHotkey: 'Hotkey',
+    labelHotkey: 'Current Hotkey',
+    cardLanguage: 'Transcription Language',
+    labelLanguage: 'Language',
+    langAuto: 'Auto-detect',
+    langEn: 'English',
+    langDe: 'German',
+    langEs: 'Spanish',
+    langFr: 'French',
+    langIt: 'Italian',
+    langPt: 'Portuguese',
+    langJa: 'Japanese',
+    langZh: 'Chinese',
+    langKo: 'Korean',
+    langRu: 'Russian',
+    langAr: 'Arabic',
+    langHi: 'Hindi',
+    cardOverlay: 'Overlay Position',
+    overlayTop: 'Top Center',
+    overlayTopDesc: 'Fixed at top of screen',
+    overlayCursor: 'Near Cursor',
+    overlayCursorDesc: 'Follows mouse position',
+    cardFeedback: 'Preferences',
+    labelSound: 'Sound Feedback',
+    descSound: 'Play sounds when recording starts and stops',
+    labelAutoPaste: 'Auto-paste',
+    descAutoPaste: 'Automatically paste transcription into focused field',
+    aboutDesc: 'A fast, lightweight voice-to-text tool for Windows. Record speech and instantly paste the transcription anywhere.',
+    aboutLicense: '📄 Open Source – MIT License',
+    aboutGithub: '⭐ GitHub',
+    aboutIssue: '🐛 Report Issue',
+    aboutCreditsTitle: 'Credits',
+    aboutCreditsText: 'Powered by OpenAI Whisper API. Built with Go and WebView2.',
+    btnTest: 'Test',
+    btnCancel: 'Cancel',
+    btnSave: 'Save',
+    statusSaved: 'Settings saved ✓',
+    statusError: 'Error saving settings',
+    statusTesting: 'Recording…',
+    statusTestDone: 'Test complete',
+    statusTestError: 'Test failed',
+    eyeShow: 'Show API key',
+    eyeHide: 'Hide API key'
+  },
+  de: {
+    settingsTitle: 'Einstellungen',
+    tabGeneral: 'Allgemein',
+    tabAudio: 'Audio',
+    tabAbout: 'Über',
+    cardApiKey: 'API-Schlüssel',
+    labelApiKey: 'OpenAI API-Schlüssel',
+    hintApiKey: 'Schlüssel benötigt?',
+    hintApiKeyLink: 'API-Schlüssel erhalten →',
+    cardMode: 'Aufnahmemodus',
+    modePush: 'Push to Talk',
+    modePushDesc: 'Hotkey gedrückt halten zum Aufnehmen',
+    modeToggle: 'Umschalten',
+    modeToggleDesc: 'Drücken zum Starten, erneut drücken zum Stoppen',
+    cardHotkey: 'Tastenkürzel',
+    labelHotkey: 'Aktuelles Tastenkürzel',
+    cardLanguage: 'Transkriptionssprache',
+    labelLanguage: 'Sprache',
+    langAuto: 'Automatisch erkennen',
+    langEn: 'Englisch',
+    langDe: 'Deutsch',
+    langEs: 'Spanisch',
+    langFr: 'Französisch',
+    langIt: 'Italienisch',
+    langPt: 'Portugiesisch',
+    langJa: 'Japanisch',
+    langZh: 'Chinesisch',
+    langKo: 'Koreanisch',
+    langRu: 'Russisch',
+    langAr: 'Arabisch',
+    langHi: 'Hindi',
+    cardOverlay: 'Overlay-Position',
+    overlayTop: 'Oben Mitte',
+    overlayTopDesc: 'Fest am oberen Bildschirmrand',
+    overlayCursor: 'Beim Cursor',
+    overlayCursorDesc: 'Folgt der Mausposition',
+    cardFeedback: 'Einstellungen',
+    labelSound: 'Tonsignale',
+    descSound: 'Töne abspielen beim Starten und Stoppen der Aufnahme',
+    labelAutoPaste: 'Auto-Einfügen',
+    descAutoPaste: 'Transkription automatisch ins aktive Feld einfügen',
+    aboutDesc: 'Ein schnelles, schlankes Sprache-zu-Text-Tool für Windows. Sprache aufnehmen und die Transkription sofort überall einfügen.',
+    aboutLicense: '📄 Open Source – MIT-Lizenz',
+    aboutGithub: '⭐ GitHub',
+    aboutIssue: '🐛 Fehler melden',
+    aboutCreditsTitle: 'Danksagungen',
+    aboutCreditsText: 'Basierend auf der OpenAI Whisper API. Erstellt mit Go und WebView2.',
+    btnTest: 'Testen',
+    btnCancel: 'Abbrechen',
+    btnSave: 'Speichern',
+    statusSaved: 'Einstellungen gespeichert ✓',
+    statusError: 'Fehler beim Speichern',
+    statusTesting: 'Aufnahme…',
+    statusTestDone: 'Test abgeschlossen',
+    statusTestError: 'Test fehlgeschlagen',
+    eyeShow: 'API-Schlüssel anzeigen',
+    eyeHide: 'API-Schlüssel verbergen'
+  }
+};
+
+let currentLang = 'en';
+
+/* ── Language ─────────────────────────────────────────── */
+function setLang(lang) {
+  currentLang = lang;
+  const t = translations[lang];
+  if (!t) return;
+
+  document.documentElement.lang = lang;
+
+  // Update all data-i18n elements
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key] != null) el.textContent = t[key];
+  });
+
+  // Update select options
+  document.querySelectorAll('[data-i18n-opt]').forEach(el => {
+    const key = el.getAttribute('data-i18n-opt');
+    if (t[key] != null) el.textContent = t[key];
+  });
+
+  // Update aria-labels
+  const btnEye = document.getElementById('btn-eye');
+  if (btnEye) {
+    const isVisible = document.getElementById('input-apikey').type === 'text';
+    btnEye.setAttribute('aria-label', isVisible ? t.eyeHide : t.eyeShow);
+  }
+
+  // Update lang switcher pressed states
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.setAttribute('aria-pressed', btn.textContent === lang.toUpperCase() ? 'true' : 'false');
+  });
+}
+
+/* ── Tabs ──────────────────────────────────────────────── */
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.setAttribute('aria-selected', btn.id === `tab-${tabId}` ? 'true' : 'false');
+  });
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    const show = panel.id === `panel-${tabId}`;
+    panel.setAttribute('aria-hidden', show ? 'false' : 'true');
+  });
+}
+
+// Keyboard navigation for tabs
+document.querySelector('.tabs').addEventListener('keydown', e => {
+  const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+  const idx = tabs.indexOf(document.activeElement);
+  if (idx < 0) return;
+
+  let next = -1;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (idx + 1) % tabs.length;
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (idx - 1 + tabs.length) % tabs.length;
+  else if (e.key === 'Home') next = 0;
+  else if (e.key === 'End') next = tabs.length - 1;
+
+  if (next >= 0) {
+    e.preventDefault();
+    tabs[next].focus();
+    tabs[next].click();
+  }
+});
+
+/* ── API Key Visibility ───────────────────────────────── */
+function toggleApiKeyVisibility() {
+  const input = document.getElementById('input-apikey');
+  const btn = document.getElementById('btn-eye');
+  const t = translations[currentLang];
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🔒';
+    btn.setAttribute('aria-label', t.eyeHide);
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+    btn.setAttribute('aria-label', t.eyeShow);
+  }
+}
+
+/* ── Radio Cards ──────────────────────────────────────── */
+function selectMode(mode) {
+  document.querySelectorAll('[name="mode"]').forEach(r => {
+    const card = r.closest('.radio-card');
+    const selected = r.value === mode;
+    r.checked = selected;
+    card.setAttribute('aria-checked', selected ? 'true' : 'false');
+  });
+}
+
+function handleRadioKey(e, mode) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    selectMode(mode);
+  }
+}
+
+function selectOverlay(value) {
+  document.querySelectorAll('[name="overlay"]').forEach(r => {
+    const card = r.closest('.radio-card');
+    const selected = r.value === value;
+    r.checked = selected;
+    card.setAttribute('aria-checked', selected ? 'true' : 'false');
+  });
+}
+
+function handleOverlayKey(e, value) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    selectOverlay(value);
+  }
+}
+
+/* ── Hotkey Display ───────────────────────────────────── */
+function setHotkeyDisplay(keys) {
+  const container = document.getElementById('hotkey-display');
+  container.innerHTML = '';
+  const label = [];
+  keys.forEach((key, i) => {
+    if (i > 0) {
+      const plus = document.createElement('span');
+      plus.className = 'hotkey-plus';
+      plus.textContent = '+';
+      container.appendChild(plus);
+    }
+    const span = document.createElement('span');
+    span.className = 'hotkey-key';
+    span.textContent = key;
+    container.appendChild(span);
+    label.push(key);
+  });
+  container.setAttribute('aria-label', 'Current hotkey: ' + label.join(' + '));
+}
+
+/* ── Status Messages ──────────────────────────────────── */
+let statusTimeout = null;
+function showStatus(msg, type) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = 'status-msg visible ' + type;
+  clearTimeout(statusTimeout);
+  statusTimeout = setTimeout(() => { el.classList.remove('visible'); }, 3000);
+}
+
+/* ── Open External URL ────────────────────────────────── */
+function openExternal(url) {
+  if (window.openURL) {
+    window.openURL(url);
+  }
+}
+
+/* ── Gather Config ────────────────────────────────────── */
+function gatherConfig() {
+  return {
+    apiKey: document.getElementById('input-apikey').value,
+    mode: document.querySelector('[name="mode"]:checked')?.value || 'push',
+    language: document.getElementById('select-language').value,
+    overlayPosition: document.querySelector('[name="overlay"]:checked')?.value || 'top',
+    soundFeedback: document.getElementById('toggle-sound').checked,
+    autoPaste: document.getElementById('toggle-autopaste').checked
+  };
+}
+
+/* ── Apply Config ─────────────────────────────────────── */
+function applyConfig(cfg) {
+  if (!cfg) return;
+  if (cfg.apiKey != null) document.getElementById('input-apikey').value = cfg.apiKey;
+  if (cfg.mode) selectMode(cfg.mode);
+  if (cfg.language) document.getElementById('select-language').value = cfg.language;
+  if (cfg.overlayPosition) selectOverlay(cfg.overlayPosition);
+  if (cfg.soundFeedback != null) document.getElementById('toggle-sound').checked = cfg.soundFeedback;
+  if (cfg.autoPaste != null) document.getElementById('toggle-autopaste').checked = cfg.autoPaste;
+  if (cfg.hotkey && Array.isArray(cfg.hotkey)) setHotkeyDisplay(cfg.hotkey);
+}
+
+/* ── Save ──────────────────────────────────────────────── */
+async function saveSettings() {
+  const t = translations[currentLang];
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  try {
+    const cfg = gatherConfig();
+    if (window.saveConfig) {
+      const result = await window.saveConfig(JSON.stringify(cfg));
+      const res = typeof result === 'string' ? JSON.parse(result) : result;
+      if (res && res.success) {
+        showStatus(t.statusSaved, 'success');
+      } else {
+        showStatus(res?.error || t.statusError, 'error');
+      }
+    } else {
+      showStatus(t.statusSaved, 'success');
+    }
+  } catch (err) {
+    showStatus(t.statusError, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ── Cancel ────────────────────────────────────────────── */
+function cancelSettings() {
+  if (window.closeSettings) {
+    window.closeSettings();
+  }
+}
+
+/* ── Test Recording ───────────────────────────────────── */
+let isTesting = false;
+async function testRecording() {
+  if (isTesting) return;
+  const t = translations[currentLang];
+  const btn = document.getElementById('btn-test');
+  const icon = document.getElementById('btn-test-icon');
+  const text = document.getElementById('btn-test-text');
+
+  isTesting = true;
+  btn.classList.add('recording');
+  icon.textContent = '🔴';
+  text.textContent = t.statusTesting;
+  showStatus(t.statusTesting, 'success');
+
+  try {
+    if (window.testRecording) {
+      const result = await window.testRecording();
+      const res = typeof result === 'string' ? JSON.parse(result) : result;
+      if (res && res.success) {
+        showStatus(`${t.statusTestDone}: "${res.text}"`, 'success');
+      } else {
+        showStatus(res?.error || t.statusTestError, 'error');
+      }
+    } else {
+      // Demo mode
+      await new Promise(r => setTimeout(r, 2000));
+      showStatus(t.statusTestDone, 'success');
+    }
+  } catch (err) {
+    showStatus(t.statusTestError, 'error');
+  } finally {
+    isTesting = false;
+    btn.classList.remove('recording');
+    icon.textContent = '🎤';
+    text.textContent = t.btnTest;
+  }
+}
+
+// Go can call this to update test status live
+window.updateTestStatus = function(status) {
+  showStatus(status, 'success');
+};
+
+/* ── Init ──────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', async () => {
+  // Set initial language from Go or default to English
+  const lang = window._lang || 'en';
+  setLang(lang);
+
+  // Load config from Go
+  try {
+    if (window.getConfig) {
+      const raw = await window.getConfig();
+      const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      applyConfig(cfg);
+    }
+  } catch (e) {
+    console.warn('Failed to load config:', e);
+  }
+});
+</script>
+</body>
+</html>
