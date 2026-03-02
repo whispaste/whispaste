@@ -19,7 +19,7 @@ func main() {
 	if err != nil {
 		log.Printf("Warning: config load error: %v (using defaults)", err)
 	}
-	SetLanguage(cfg.UILanguage)
+	SetLanguage(cfg.GetUILanguage())
 
 	// Initialize audio recorder
 	recorder, err := NewRecorder()
@@ -37,10 +37,18 @@ func main() {
 
 	// Application state
 	var (
-		state      = StateIdle
-		stateMu    sync.Mutex
-		levelDone  chan struct{}
+		state     = StateIdle
+		stateMu   sync.Mutex
+		levelDone chan struct{}
+		hkMu      sync.Mutex // protects hkMgr
 	)
+
+	// Snapshot config values under lock to avoid data races
+	snapshotConfig := func() (playSounds, autoPaste bool, lang, apiKey, model string) {
+		cfg.mu.RLock()
+		defer cfg.mu.RUnlock()
+		return cfg.PlaySounds, cfg.AutoPaste, cfg.Language, cfg.APIKey, cfg.Model
+	}
 
 	// State transition handler
 	transition := func(newState AppState) {
@@ -53,9 +61,11 @@ func main() {
 			return
 		}
 
+		playSounds, autoPaste, lang, apiKey, model := snapshotConfig()
+
 		switch newState {
 		case StateRecording:
-			if cfg.PlaySounds {
+			if playSounds {
 				PlayFeedback(SoundRecordStart)
 			}
 			if overlay != nil {
@@ -63,7 +73,7 @@ func main() {
 			}
 			if err := recorder.Start(); err != nil {
 				log.Printf("Recording error: %v", err)
-				if cfg.PlaySounds {
+				if playSounds {
 					PlayFeedback(SoundError)
 				}
 				if overlay != nil {
@@ -97,7 +107,7 @@ func main() {
 				close(levelDone)
 				levelDone = nil
 			}
-			if cfg.PlaySounds {
+			if playSounds {
 				PlayFeedback(SoundRecordStop)
 			}
 			if overlay != nil {
@@ -106,7 +116,7 @@ func main() {
 			pcm, err := recorder.Stop()
 			if err != nil || len(pcm) == 0 {
 				log.Printf("No audio data captured")
-				if cfg.PlaySounds {
+				if playSounds {
 					PlayFeedback(SoundError)
 				}
 				if overlay != nil {
@@ -118,13 +128,13 @@ func main() {
 				return
 			}
 
-			// Transcribe in background
+			// Transcribe in background (use snapshot values, not cfg directly)
 			go func() {
 				wav := EncodeWAV(pcm, 16000, 1, 16)
-				text, err := Transcribe(wav, cfg.Language, cfg.GetAPIKey(), cfg.Model)
+				text, err := Transcribe(wav, lang, apiKey, model)
 				if err != nil {
 					log.Printf("Transcription error: %v", err)
-					if cfg.PlaySounds {
+					if playSounds {
 						PlayFeedback(SoundError)
 					}
 					if overlay != nil {
@@ -136,14 +146,14 @@ func main() {
 					return
 				}
 
-				if cfg.AutoPaste {
+				if autoPaste {
 					if err := PasteText(text); err != nil {
 						log.Printf("Paste error: %v", err)
-						if cfg.PlaySounds {
+						if playSounds {
 							PlayFeedback(SoundError)
 						}
 					} else {
-						if cfg.PlaySounds {
+						if playSounds {
 							PlayFeedback(SoundSuccess)
 						}
 					}
@@ -177,7 +187,8 @@ func main() {
 
 		if s == StateIdle {
 			if !cfg.HasAPIKey() {
-				if cfg.PlaySounds {
+				ps, _, _, _, _ := snapshotConfig()
+				if ps {
 					PlayFeedback(SoundError)
 				}
 				return
@@ -196,17 +207,30 @@ func main() {
 		}
 	}
 
-	// Start hotkey listener
-	hkMgr := NewHotkeyManager(cfg, onHotkeyDown, onHotkeyUp)
+	// Start hotkey listener (protected by hkMu)
+	var hkMgr *HotkeyManager
+	hkMu.Lock()
+	hkMgr = NewHotkeyManager(cfg, onHotkeyDown, onHotkeyUp)
 	if err := hkMgr.Start(); err != nil {
 		log.Printf("Warning: hotkey registration failed: %v", err)
 	}
-	defer hkMgr.Stop()
+	hkMu.Unlock()
 
-	// Settings callback (called when config is saved)
+	defer func() {
+		hkMu.Lock()
+		if hkMgr != nil {
+			hkMgr.Stop()
+		}
+		hkMu.Unlock()
+	}()
+
+	// Settings callback (called when config is saved from WebView goroutine)
 	onSettingsSaved := func() {
-		// Re-register hotkey with new config
-		hkMgr.Stop()
+		hkMu.Lock()
+		defer hkMu.Unlock()
+		if hkMgr != nil {
+			hkMgr.Stop()
+		}
 		hkMgr = NewHotkeyManager(cfg, onHotkeyDown, onHotkeyUp)
 		if err := hkMgr.Start(); err != nil {
 			log.Printf("Hotkey re-registration failed: %v", err)
@@ -217,7 +241,11 @@ func main() {
 	tray := NewAppTray(
 		func() { ShowSettings(cfg, recorder, onSettingsSaved) },
 		func() {
-			hkMgr.Stop()
+			hkMu.Lock()
+			if hkMgr != nil {
+				hkMgr.Stop()
+			}
+			hkMu.Unlock()
 			if overlay != nil {
 				overlay.Close()
 			}
@@ -241,7 +269,6 @@ func detectAndSetLanguage() {
 	kernel32 := windows.NewLazySystemDLL("kernel32.dll")
 	proc := kernel32.NewProc("GetUserDefaultUILanguage")
 	langID, _, _ := proc.Call()
-	// Primary language ID for German is 0x07
 	primaryLang := langID & 0xFF
 	if primaryLang == 0x07 {
 		SetLanguage("de")
@@ -254,5 +281,5 @@ func showError(msg string) {
 	proc := user32.NewProc("MessageBoxW")
 	title, _ := windows.UTF16PtrFromString(AppName)
 	text, _ := windows.UTF16PtrFromString(msg)
-	proc.Call(0, uintptr(unsafe.Pointer(text)), uintptr(unsafe.Pointer(title)), 0x10) // MB_ICONERROR
+	proc.Call(0, uintptr(unsafe.Pointer(text)), uintptr(unsafe.Pointer(title)), 0x10)
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.design/x/hotkey"
@@ -16,11 +17,12 @@ var (
 
 // HotkeyManager registers a global hotkey and dispatches recording events.
 type HotkeyManager struct {
-	cfg    *Config
-	onDown func()
-	onUp   func()
-	hk     *hotkey.Hotkey
-	done   chan struct{}
+	cfg       *Config
+	onDown    func()
+	onUp      func()
+	hk        *hotkey.Hotkey
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 // NewHotkeyManager creates a manager that calls onDown/onUp on hotkey events.
@@ -49,11 +51,9 @@ func (m *HotkeyManager) Start() error {
 
 // Stop unregisters the hotkey and stops the listener.
 func (m *HotkeyManager) Stop() {
-	select {
-	case <-m.done:
-	default:
+	m.closeOnce.Do(func() {
 		close(m.done)
-	}
+	})
 	if m.hk != nil {
 		m.hk.Unregister()
 	}
