@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install MinGW
+        run: choco install mingw -y --no-progress
+
+      - name: Determine version
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $tag = $env:REF_NAME
+          $ver = $tag -replace '^v', ''
+          echo "TAG=$tag" >> $env:GITHUB_OUTPUT
+          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+
+      - name: Vet
+        env:
+          CGO_ENABLED: "1"
+        run: go vet ./...
+
+      - name: Build
+        env:
+          CGO_ENABLED: "1"
+          APP_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: >
+          go build
+          -ldflags="-s -w -H windowsgui -X main.AppVersion=$env:APP_VERSION"
+          -o whispaste.exe .
+
+      - name: Verify binary
+        run: |
+          if (!(Test-Path whispaste.exe)) { throw "Build failed: whispaste.exe not found" }
+          $size = (Get-Item whispaste.exe).Length / 1MB
+          Write-Host "Binary size: $([math]::Round($size, 2)) MB"
+
+      - name: Generate checksum
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 whispaste.exe).Hash.ToLower()
+          "$hash  whispaste.exe" | Out-File -Encoding ascii -NoNewline whispaste.exe.sha256
+          Write-Host "SHA256: $hash"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            whispaste.exe
+            whispaste.exe.sha256
