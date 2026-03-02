@@ -17,9 +17,10 @@ type Config struct {
 	Language    string   `json:"language"`
 	Model       string   `json:"model"`
 	OverlayPos  string   `json:"overlay_position"`
-	AutoPaste   bool     `json:"auto_paste"`
-	PlaySounds  bool     `json:"play_sounds"`
-	UILanguage  string   `json:"ui_language"`
+	AutoPaste    bool     `json:"auto_paste"`
+	PlaySounds   bool     `json:"play_sounds"`
+	CheckUpdates bool     `json:"check_updates"`
+	UILanguage   string   `json:"ui_language"`
 	mu          sync.RWMutex
 }
 
@@ -32,8 +33,9 @@ func DefaultConfig() *Config {
 		Language:    "auto",
 		Model:       "whisper-1",
 		OverlayPos:  "top_center",
-		AutoPaste:   true,
-		PlaySounds:  true,
+		AutoPaste:    true,
+		PlaySounds:   true,
+		CheckUpdates: true,
 		UILanguage:  detectSystemLanguage(),
 	}
 }
@@ -119,6 +121,13 @@ func (c *Config) SetAPIKey(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.APIKey = key
+}
+
+// GetCheckUpdates returns whether auto-update checks are enabled (thread-safe).
+func (c *Config) GetCheckUpdates() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.CheckUpdates
 }
 
 // IsPushToTalk returns true if the mode is push-to-talk.

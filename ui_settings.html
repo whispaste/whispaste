@@ -812,6 +812,19 @@ body {
           </div>
         </div>
       </div>
+
+      <div class="form-group">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <label class="toggle-label" for="toggle-updates" data-i18n="labelCheckUpdates">Check for updates</label>
+            <p class="toggle-desc" data-i18n="descCheckUpdates">Automatically check for new versions</p>
+          </div>
+          <div class="toggle-switch">
+            <input type="checkbox" id="toggle-updates" checked>
+            <span class="toggle-track" aria-hidden="true"></span>
+          </div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -908,6 +921,8 @@ const translations = {
     descSound: 'Play sounds when recording starts and stops',
     labelAutoPaste: 'Auto-paste',
     descAutoPaste: 'Automatically paste transcription into focused field',
+    labelCheckUpdates: 'Check for updates',
+    descCheckUpdates: 'Automatically check for new versions',
     aboutDesc: 'A fast, lightweight voice-to-text tool for Windows. Record speech and instantly paste the transcription anywhere.',
     aboutLicense: '📄 Open Source – MIT License',
     aboutGithub: '⭐ GitHub',
@@ -968,6 +983,8 @@ const translations = {
     descSound: 'Töne abspielen beim Starten und Stoppen der Aufnahme',
     labelAutoPaste: 'Auto-Einfügen',
     descAutoPaste: 'Transkription automatisch ins aktive Feld einfügen',
+    labelCheckUpdates: 'Nach Updates suchen',
+    descCheckUpdates: 'Automatisch nach neuen Versionen suchen',
     aboutDesc: 'Ein schnelles, schlankes Sprache-zu-Text-Tool für Windows. Sprache aufnehmen und die Transkription sofort überall einfügen.',
     aboutLicense: '📄 Open Source – MIT-Lizenz',
     aboutGithub: '⭐ GitHub',
@@ -1149,7 +1166,8 @@ function gatherConfig() {
     language: document.getElementById('select-language').value,
     overlay_position: document.querySelector('[name="overlay"]:checked')?.value || 'top_center',
     play_sounds: document.getElementById('toggle-sound').checked,
-    auto_paste: document.getElementById('toggle-autopaste').checked
+    auto_paste: document.getElementById('toggle-autopaste').checked,
+    check_updates: document.getElementById('toggle-updates').checked
   };
 }
 
@@ -1162,6 +1180,7 @@ function applyConfig(cfg) {
   if (cfg.overlay_position) selectOverlay(cfg.overlay_position);
   if (cfg.play_sounds != null) document.getElementById('toggle-sound').checked = cfg.play_sounds;
   if (cfg.auto_paste != null) document.getElementById('toggle-autopaste').checked = cfg.auto_paste;
+  if (cfg.check_updates != null) document.getElementById('toggle-updates').checked = cfg.check_updates;
   if (cfg.hotkey_modifiers && Array.isArray(cfg.hotkey_modifiers)) setHotkeyDisplay(cfg.hotkey_modifiers);
 }
 
