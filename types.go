@@ -19,14 +19,6 @@ const (
 	SoundError
 )
 
-// OverlayUpdate carries state and audio level data to the overlay window.
-type OverlayUpdate struct {
-	State      AppState
-	AudioLevel float32 // 0.0–1.0 for waveform
-	Elapsed    float64 // seconds since recording started
-	Text       string  // status text or error message
-}
-
 const (
 	AppName    = "Whispaste"
 	AppVersion = "1.0.0"

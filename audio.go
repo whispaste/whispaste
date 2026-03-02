@@ -18,6 +18,7 @@ type Recorder struct {
 	level     float32
 	levelMu   sync.RWMutex
 	recording bool
+	closeOnce sync.Once
 }
 
 // NewRecorder initializes the audio context.
@@ -103,25 +104,27 @@ func (r *Recorder) GetLevel() float32 {
 	return r.level
 }
 
-// Close releases all audio resources.
+// Close releases all audio resources. Safe to call multiple times.
 func (r *Recorder) Close() {
-	r.mu.Lock()
-	if r.recording && r.device != nil {
-		r.recording = false
-		device := r.device
-		r.device = nil
-		r.mu.Unlock()
-		device.Stop()
-		device.Uninit()
-	} else {
-		r.mu.Unlock()
-	}
+	r.closeOnce.Do(func() {
+		r.mu.Lock()
+		if r.recording && r.device != nil {
+			r.recording = false
+			device := r.device
+			r.device = nil
+			r.mu.Unlock()
+			device.Stop()
+			device.Uninit()
+		} else {
+			r.mu.Unlock()
+		}
 
-	if r.ctx != nil {
-		r.ctx.Uninit()
-		r.ctx.Free()
-		r.ctx = nil
-	}
+		if r.ctx != nil {
+			r.ctx.Uninit()
+			r.ctx.Free()
+			r.ctx = nil
+		}
+	})
 }
 
 func (r *Recorder) computeLevel(samples []byte) {

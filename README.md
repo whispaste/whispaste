@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-blue" alt="Windows 10/11">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
   <img src="https://img.shields.io/badge/size-~8MB-orange" alt="~8MB">
-  <img src="https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go" alt="Go 1.21+">
+  <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go" alt="Go 1.24+">
 </p>
 
 ---
@@ -58,7 +58,7 @@ Config is stored in `%APPDATA%\Whispaste\config.json`.
 
 ### Prerequisites
 
-- [Go 1.21+](https://go.dev/dl/)
+- [Go 1.24+](https://go.dev/dl/)
 - GCC for Windows ([MSYS2 MinGW-w64](https://www.msys2.org/) or [TDM-GCC](https://jmeubank.github.io/tdm-gcc/))
 
 ### Build
