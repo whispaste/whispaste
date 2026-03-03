@@ -98,6 +98,7 @@ func (t *AppTray) onReady() {
 				if t.onQuit != nil {
 					t.onQuit()
 				}
+				systray.Quit()
 				return
 			}
 		}

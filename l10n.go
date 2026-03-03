@@ -99,6 +99,10 @@ var translations = map[string]map[string]string{
 		"settings.appearance":      "Appearance",
 		"settings.show_key":        "Show",
 		"settings.hide_key":        "Hide",
+		"settings.theme":           "Theme",
+		"settings.theme_light":     "Light",
+		"settings.theme_dark":      "Dark",
+		"settings.theme_system":    "System",
 
 		// First run
 		"firstrun.title":    "Welcome to Whispaste",
@@ -179,6 +183,10 @@ var translations = map[string]map[string]string{
 		"settings.appearance":      "Erscheinungsbild",
 		"settings.show_key":        "Anzeigen",
 		"settings.hide_key":        "Verbergen",
+		"settings.theme":           "Design",
+		"settings.theme_light":     "Hell",
+		"settings.theme_dark":      "Dunkel",
+		"settings.theme_system":    "System",
 
 		// First run
 		"firstrun.title":    "Willkommen bei Whispaste",
