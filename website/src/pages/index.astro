@@ -86,12 +86,23 @@ import Layout from "../layouts/Layout.astro";
                       <path d="M1 1l12.5 9-5.5 1 3.5 7.5L9 20l-3.5-7.5L1 17V1z" fill="white" fill-opacity="0.65" stroke="rgba(0,0,0,0.4)" stroke-width="0.7" stroke-linejoin="round"/>
                     </svg>
                   </div>
-                  <span class="text-sm text-gray-400" data-i18n="carousel.hotkey">Your Hotkey</span>
+                  <span class="text-sm text-gray-400" data-i18n="carousel.press_hotkey">Press your hotkey</span>
                 </div>
               </div>
                 <!-- Scene 2: Recording Overlay -->
                 <div class="w-full shrink-0">
-                  <div class="p-8 sm:p-12 flex items-center justify-center min-h-[220px]">
+                  <div class="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[220px]">
+                    <!-- Speaking head icon -->
+                    <div class="speaking-head mb-4">
+                      <svg class="speaking-head-icon" viewBox="0 0 48 40" width="48" height="40" fill="none" aria-hidden="true">
+                        <circle cx="16" cy="20" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                        <circle cx="13" cy="18" r="1.5" fill="currentColor"/>
+                        <path d="M12 23 c2 2 6 2 8 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                        <path class="sound-arc arc-1" d="M28 14 Q33 20 28 26" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <path class="sound-arc arc-2" d="M33 10 Q40 20 33 30" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <path class="sound-arc arc-3" d="M38 6 Q47 20 38 34" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                      </svg>
+                    </div>
                     <div class="overlay-pill">
                       <img src="/whispaste/app-icon-dark.png" alt="" class="overlay-icon" />
                       <div class="overlay-content">
@@ -111,11 +122,12 @@ import Layout from "../layouts/Layout.astro";
                         </div>
                       </div>
                     </div>
+                    <span class="text-sm text-gray-400 mt-4" data-i18n="carousel.speak_now">Speak now</span>
                   </div>
                 </div>
                 <!-- Scene 3: Text Insertion -->
                 <div class="w-full shrink-0">
-                  <div class="p-6 min-h-[220px]">
+                  <div class="p-6 min-h-[220px] flex flex-col">
                     <div class="flex items-center gap-2 px-4 py-2.5 bg-brand-card/60 border-b border-white/5 rounded-t-lg">
                       <div class="flex gap-1.5">
                         <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
@@ -132,6 +144,7 @@ import Layout from "../layouts/Layout.astro";
                         </div>
                       </div>
                     </div>
+                    <span class="text-sm text-gray-400 mt-3 text-center" data-i18n="carousel.auto_pasted">Auto-pasted!</span>
                   </div>
                 </div>
               </div>
@@ -425,6 +438,7 @@ import Layout from "../layouts/Layout.astro";
     .overlay-text-group {
       display: flex;
       flex-direction: column;
+      align-items: flex-start;
       gap: 2px;
     }
     .overlay-rec-dot {
@@ -488,6 +502,23 @@ import Layout from "../layouts/Layout.astro";
     .overlay-btn-pause { background: #0E7490; }
     .overlay-btn-confirm { background: #22D3EE; }
 
+    /* Speaking head icon (Scene 2) */
+    .speaking-head {
+      color: rgba(255, 255, 255, 0.5);
+    }
+    .speaking-head-icon .sound-arc {
+      opacity: 0;
+      color: #22D3EE;
+      stroke: #22D3EE;
+    }
+    .sound-arc.arc-1 { animation: sound-pulse 1.8s ease-in-out infinite; }
+    .sound-arc.arc-2 { animation: sound-pulse 1.8s ease-in-out 0.3s infinite; }
+    .sound-arc.arc-3 { animation: sound-pulse 1.8s ease-in-out 0.6s infinite; }
+    @keyframes sound-pulse {
+      0%, 100% { opacity: 0; }
+      30%, 70% { opacity: 0.7; }
+    }
+
     /* Typing cursor (Scene 3) — :global because JS recreates it */
     :global(.typing-cursor) {
       display: inline-block;
@@ -512,6 +543,7 @@ import Layout from "../layouts/Layout.astro";
       .overlay-rec-dot,
       :global(.overlay-wave-bar),
       :global(.typing-cursor),
+      .sound-arc,
       .animate-fade-in,
       .animate-fade-in-delay,
       .animate-fade-in-up {
@@ -751,9 +783,11 @@ import Layout from "../layouts/Layout.astro";
         'footer.impressum': 'Legal Notice',
         'footer.privacy': 'Privacy Policy',
         'footer.license': 'MIT License',
-        'carousel.hotkey': 'Your Hotkey',
+        'carousel.press_hotkey': 'Press your hotkey',
         'carousel.recording': 'Recording',
-        'carousel.editor_title': 'Text Editor'
+        'carousel.speak_now': 'Speak now',
+        'carousel.editor_title': 'Text Editor',
+        'carousel.auto_pasted': 'Auto-pasted!'
       },
       de: {
         'hero.title1': 'Voice to Text,',
@@ -780,9 +814,11 @@ import Layout from "../layouts/Layout.astro";
         'footer.impressum': 'Impressum',
         'footer.privacy': 'Datenschutz',
         'footer.license': 'MIT-Lizenz',
-        'carousel.hotkey': 'Dein Hotkey',
+        'carousel.press_hotkey': 'Drücke deinen Hotkey',
         'carousel.recording': 'Aufnahme',
-        'carousel.editor_title': 'Texteditor'
+        'carousel.speak_now': 'Sprich jetzt',
+        'carousel.editor_title': 'Texteditor',
+        'carousel.auto_pasted': 'Automatisch eingefügt!'
       }
     };
 
