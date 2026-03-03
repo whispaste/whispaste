@@ -1433,6 +1433,23 @@ function cancelHotkeyRecording() {
   document.removeEventListener('keyup', onHotkeyKeyUp, true);
 }
 
+// Normalize JS KeyboardEvent.key to Go-compatible key names
+function normalizeKey(key) {
+  // Map JS key names to Go's mapKey expectations
+  const keyMap = {
+    ' ': 'Space', 'Enter': 'Return', 'Escape': 'Escape',
+    'Delete': 'Delete', 'Tab': 'Tab', 'Backspace': 'Backspace',
+    'ArrowUp': null, 'ArrowDown': null, 'ArrowLeft': null, 'ArrowRight': null,
+    'PageUp': null, 'PageDown': null, 'Home': null, 'End': null, 'Insert': null,
+    'Dead': null, 'Unidentified': null, 'Meta': null
+  };
+  if (key in keyMap) return keyMap[key];
+  // Single chars (A-Z, 0-9) and F1-F12 work directly
+  if (/^[a-zA-Z0-9]$/.test(key)) return key.toUpperCase();
+  if (/^F([1-9]|1[0-2])$/.test(key)) return key;
+  return null; // unsupported key
+}
+
 function onHotkeyKeyDown(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -1445,17 +1462,19 @@ function onHotkeyKeyDown(e) {
   // Get the actual key (ignore pure modifier presses)
   const key = e.key;
   const isModOnly = ['Control','Shift','Alt','Meta'].includes(key);
+  const normalized = isModOnly ? null : normalizeKey(key);
   // Show preview
   const preview = document.getElementById('hotkey-preview');
   const parts = [...mods];
-  if (!isModOnly) parts.push(key.length === 1 ? key.toUpperCase() : key);
+  if (normalized) parts.push(normalized);
+  else if (!isModOnly) parts.push(key); // show raw name even if unsupported
   preview.innerHTML = parts.map(k =>
     `<span class="hotkey-key">${k}</span>`
   ).join('<span class="hotkey-plus">+</span>');
-  // Accept if at least one modifier + a non-modifier key
-  if (!isModOnly && mods.length > 0) {
+  // Accept if at least one modifier + a supported non-modifier key
+  if (normalized && mods.length > 0) {
     _savedHotkeyMods = mods;
-    _savedHotkeyKey = key.length === 1 ? key.toUpperCase() : key;
+    _savedHotkeyKey = normalized;
     setHotkeyDisplay([..._savedHotkeyMods, _savedHotkeyKey]);
     setTimeout(() => cancelHotkeyRecording(), 300);
   }

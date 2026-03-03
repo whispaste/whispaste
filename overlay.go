@@ -253,8 +253,8 @@ func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		o.mu.Lock()
 		lvl := math.Float32frombits(uint32(wParam))
 		o.level = lvl
-		o.levels[o.levelIdx%len(o.levels)] = lvl
-		o.levelIdx++
+		o.levels[o.levelIdx] = lvl
+		o.levelIdx = (o.levelIdx + 1) % len(o.levels)
 		o.mu.Unlock()
 		return 0
 

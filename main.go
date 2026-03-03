@@ -148,26 +148,26 @@ func main() {
 					return
 				}
 
-				// Always copy transcription to clipboard
-				if clipErr := writeClipboard(text); clipErr != nil {
-					logWarn("Clipboard copy failed: %v", clipErr)
-				} else {
-					logInfo("Transcription copied to clipboard (%d chars)", len(text))
-				}
-
 				if autoPaste {
+					// PasteText handles clipboard save/restore internally
 					if err := PasteText(text); err != nil {
 						logError("Paste error: %v", err)
 						if playSounds {
 							PlayFeedback(SoundError)
 						}
 					} else {
+						logInfo("Transcription pasted (%d chars)", len(text))
 						if playSounds {
 							PlayFeedback(SoundSuccess)
 						}
 					}
 				} else {
-					// Even without auto-paste, play success sound
+					// No auto-paste: copy to clipboard only
+					if clipErr := writeClipboard(text); clipErr != nil {
+						logWarn("Clipboard copy failed: %v", clipErr)
+					} else {
+						logInfo("Transcription copied to clipboard (%d chars)", len(text))
+					}
 					if playSounds {
 						PlayFeedback(SoundSuccess)
 					}
