@@ -1060,6 +1060,10 @@ body.ready {
           <input type="range" id="range-max-duration" min="10" max="300" value="120" step="10" class="volume-slider" oninput="document.getElementById('max-duration-value').textContent = this.value + 's'">
           <span class="volume-value" id="max-duration-value">120s</span>
         </div>
+        <label class="unlimited-row" style="display:flex;align-items:center;gap:8px;margin-top:6px;cursor:pointer;">
+          <input type="checkbox" id="check-unlimited-duration" onchange="toggleUnlimited(this.checked)">
+          <span data-i18n="labelUnlimited">∞ Unlimited</span>
+        </label>
       </div>
     </div>
 
@@ -1289,7 +1293,8 @@ const translations = {
     cardAdvanced: 'Advanced',
     labelPrompt: 'Whisper Prompt',
     descPrompt: 'Improve accuracy for domain-specific terms (e.g. Kubernetes, kubectl)',
-    labelMaxDuration: 'Max Recording Duration'
+    labelMaxDuration: 'Max Recording Duration',
+    labelUnlimited: '∞ Unlimited'
   },
   de: {
     settingsTitle: 'Einstellungen',
@@ -1382,7 +1387,8 @@ const translations = {
     cardAdvanced: 'Erweitert',
     labelPrompt: 'Whisper-Prompt',
     descPrompt: 'Genauigkeit für Fachbegriffe verbessern (z.B. Kubernetes, kubectl)',
-    labelMaxDuration: 'Maximale Aufnahmedauer'
+    labelMaxDuration: 'Maximale Aufnahmedauer',
+    labelUnlimited: '∞ Unbegrenzt'
   }
 };
 
@@ -1450,6 +1456,21 @@ document.querySelector('.tabs').addEventListener('keydown', e => {
     tabs[next].click();
   }
 });
+
+/* ── Unlimited Duration Toggle ────────────────────────── */
+function toggleUnlimited(checked) {
+    const slider = document.getElementById('range-max-duration');
+    const label = document.getElementById('max-duration-value');
+    if (checked) {
+        slider.disabled = true;
+        slider.style.opacity = '0.4';
+        label.textContent = '∞';
+    } else {
+        slider.disabled = false;
+        slider.style.opacity = '1';
+        label.textContent = slider.value + 's';
+    }
+}
 
 /* ── API Key Visibility ───────────────────────────────── */
 function toggleApiKeyVisibility() {
@@ -1567,7 +1588,7 @@ function gatherConfig() {
     autostart: document.getElementById('toggle-autostart').checked,
     ui_language: _savedUILang,
     theme: document.getElementById('select-theme').value,
-    max_record_sec: parseInt(document.getElementById('range-max-duration')?.value || '120', 10),
+    max_record_sec: document.getElementById('check-unlimited-duration')?.checked ? 0 : parseInt(document.getElementById('range-max-duration')?.value || '120', 10),
     smart_mode: document.getElementById('toggle-smartmode')?.checked || false,
     smart_mode_preset: document.getElementById('select-smartpreset')?.value || 'cleanup',
     smart_mode_prompt: document.getElementById('input-smartprompt')?.value || '',
@@ -1609,7 +1630,15 @@ function applyConfig(cfg) {
   if (cfg.max_record_sec != null) {
     const el = document.getElementById('range-max-duration');
     const lbl = document.getElementById('max-duration-value');
-    if (el) { el.value = cfg.max_record_sec; if (lbl) lbl.textContent = cfg.max_record_sec + 's'; }
+    const chk = document.getElementById('check-unlimited-duration');
+    if (cfg.max_record_sec === 0) {
+        if (chk) chk.checked = true;
+        toggleUnlimited(true);
+    } else {
+        if (chk) chk.checked = false;
+        if (el) { el.value = cfg.max_record_sec; if (lbl) lbl.textContent = cfg.max_record_sec + 's'; }
+        toggleUnlimited(false);
+    }
   }
   if (cfg.smart_mode != null) {
     const el = document.getElementById('toggle-smartmode');

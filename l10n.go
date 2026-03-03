@@ -65,6 +65,7 @@ var translations = map[string]map[string]string{
 
 		// Overlay
 		"overlay.recording":    "Recording",
+		"overlay.paused":       "Paused",
 		"overlay.transcribing": "Transcribing…",
 		"overlay.done":         "Pasted!",
 		"overlay.copied":       "Copied to clipboard ✓",
@@ -150,17 +151,26 @@ var translations = map[string]map[string]string{
 		"settings.whisper_prompt_hint": "Domain-specific terms for better accuracy (e.g. 'Kubernetes, kubectl')",
 		"settings.max_duration":       "Max Recording Duration",
 		"settings.max_duration_fmt":   "%d seconds",
+		"settings.unlimited":          "∞ Unlimited",
 
 		// Overlay
 		"overlay.processing":   "Processing…",
 		"overlay.cancelled":    "Cancelled",
 
 		// Tray
+		"tray.start_record":  "Start Recording",
+		"tray.stop_record":   "Stop Recording",
+		"tray.smart_mode":     "Smart Mode",
 		"tray.history":        "Recent Transcriptions",
 		"tray.history_empty":  "No transcriptions yet",
 		"tray.status_ready":   "Whispaste – Ready",
 		"tray.status_recording": "Whispaste – Recording…",
+		"tray.status_paused":  "Whispaste – Paused",
 		"tray.status_working": "Whispaste – Processing…",
+
+		// Balloon notifications
+		"balloon.copied":   "Copied to clipboard",
+		"balloon.minimize": "Whispaste is still running in the background. Use your hotkey to start dictating.",
 
 		// Stats
 		"stats.title":           "Usage This Month",
@@ -192,6 +202,7 @@ var translations = map[string]map[string]string{
 
 		// Overlay
 		"overlay.recording":    "Aufnahme",
+		"overlay.paused":       "Pausiert",
 		"overlay.transcribing": "Transkribiere…",
 		"overlay.done":         "Eingefügt!",
 		"overlay.copied":       "In Zwischenablage kopiert ✓",
@@ -277,17 +288,26 @@ var translations = map[string]map[string]string{
 		"settings.whisper_prompt_hint": "Fachbegriffe für bessere Erkennung (z. B. 'Kubernetes, kubectl')",
 		"settings.max_duration":       "Max. Aufnahmedauer",
 		"settings.max_duration_fmt":   "%d Sekunden",
+		"settings.unlimited":          "∞ Unbegrenzt",
 
 		// Overlay
 		"overlay.processing":   "Verarbeitung…",
 		"overlay.cancelled":    "Abgebrochen",
 
 		// Tray
+		"tray.start_record":  "Aufnahme starten",
+		"tray.stop_record":   "Aufnahme stoppen",
+		"tray.smart_mode":     "Smart-Modus",
 		"tray.history":        "Letzte Transkriptionen",
 		"tray.history_empty":  "Noch keine Transkriptionen",
 		"tray.status_ready":   "Whispaste – Bereit",
 		"tray.status_recording": "Whispaste – Aufnahme…",
+		"tray.status_paused":  "Whispaste – Pausiert",
 		"tray.status_working": "Whispaste – Verarbeitung…",
+
+		// Balloon notifications
+		"balloon.copied":   "In Zwischenablage kopiert",
+		"balloon.minimize": "Whispaste läuft weiterhin im Hintergrund. Nutzen Sie die Tastenkombination zum Diktieren.",
 
 		// Stats
 		"stats.title":           "Nutzung diesen Monat",

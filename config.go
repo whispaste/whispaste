@@ -192,10 +192,10 @@ func (c *Config) GetPrompt() string {
 func (c *Config) GetMaxRecordSec() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if c.MaxRecordSec <= 0 {
+	if c.MaxRecordSec < 0 {
 		return 120
 	}
-	return c.MaxRecordSec
+	return c.MaxRecordSec // 0 = unlimited
 }
 
 // GetSmartMode returns whether Smart Mode is enabled (thread-safe).
@@ -224,4 +224,16 @@ func (c *Config) GetSmartModeTarget() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.SmartModeTarget
+}
+
+// SetSmartModePreset sets the smart mode preset and enables/disables smart mode (thread-safe).
+func (c *Config) SetSmartModePreset(preset string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if preset == "off" {
+		c.SmartMode = false
+	} else {
+		c.SmartMode = true
+		c.SmartModePreset = preset
+	}
 }

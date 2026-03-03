@@ -92,8 +92,8 @@ func main() {
 
 		playSounds, autoPaste, lang, apiKey, model, endpoint, prompt := snapshotConfig()
 
-		// Clean up level-monitoring goroutine when leaving recording state
-		if oldState == StateRecording && levelDone != nil {
+		// Clean up level-monitoring goroutine when leaving recording/paused state
+		if (oldState == StateRecording || oldState == StatePaused) && levelDone != nil {
 			close(levelDone)
 			levelDone = nil
 		}
@@ -135,25 +135,27 @@ func main() {
 					}
 				}
 			}()
-			// Max recording duration auto-stop
+			// Max recording duration auto-stop (0 = unlimited)
 			maxSec := cfg.GetMaxRecordSec()
-			go func(expectedGen uint64) {
-				timer := time.NewTimer(time.Duration(maxSec) * time.Second)
-				defer timer.Stop()
-				select {
-				case <-ld:
-					return
-				case <-timer.C:
-					stateMu.Lock()
-					s := state
-					gen := stateGen
-					stateMu.Unlock()
-					if s == StateRecording && gen == expectedGen {
-						logInfo("Max recording duration reached (%ds)", maxSec)
-						transition(StateTranscribing)
+			if maxSec > 0 {
+				go func(expectedGen uint64) {
+					timer := time.NewTimer(time.Duration(maxSec) * time.Second)
+					defer timer.Stop()
+					select {
+					case <-ld:
+						return
+					case <-timer.C:
+						stateMu.Lock()
+						s := state
+						gen := stateGen
+						stateMu.Unlock()
+						if s == StateRecording && gen == expectedGen {
+							logInfo("Max recording duration reached (%ds)", maxSec)
+							transition(StateTranscribing)
+						}
 					}
-				}
-			}(currentGen)
+				}(currentGen)
+			}
 
 		case StateTranscribing:
 			if playSounds {
@@ -274,6 +276,51 @@ func main() {
 		logInfo("No API key configured – opening settings on launch")
 	}
 
+	// Wire overlay button callbacks (after transition is defined)
+	if overlay != nil {
+		overlay.SetCallbacks(
+			func() { // onConfirm: end recording → transcribe
+				stateMu.Lock()
+				s := state
+				stateMu.Unlock()
+				if s == StateRecording || s == StatePaused {
+					if recorder.IsPaused() {
+						recorder.Resume()
+					}
+					transition(StateTranscribing)
+				}
+			},
+			func() { // onPause: toggle pause/resume
+				stateMu.Lock()
+				s := state
+				stateMu.Unlock()
+				if s == StateRecording {
+					recorder.Pause()
+					stateMu.Lock()
+					state = StatePaused
+					stateMu.Unlock()
+					if overlay != nil {
+						overlay.SetPaused(true)
+					}
+					if tray != nil {
+						tray.SetTooltipState(StatePaused)
+					}
+				} else if s == StatePaused {
+					recorder.Resume()
+					stateMu.Lock()
+					state = StateRecording
+					stateMu.Unlock()
+					if overlay != nil {
+						overlay.SetPaused(false)
+					}
+					if tray != nil {
+						tray.SetTooltipState(StateRecording)
+					}
+				}
+			},
+		)
+	}
+
 	// Hotkey callbacks
 	onHotkeyDown := func() {
 		logInfo("Hotkey DOWN event received")
@@ -312,7 +359,10 @@ func main() {
 		s := state
 		stateMu.Unlock()
 
-		if s == StateRecording {
+		if s == StateRecording || s == StatePaused {
+			if recorder.IsPaused() {
+				recorder.Resume()
+			}
 			transition(StateTranscribing)
 		}
 	}
@@ -357,8 +407,23 @@ func main() {
 	updater := NewUpdater(AppVersion, cfg.GetCheckUpdates)
 
 	// System tray (this blocks on the main thread)
+	onToggle := func() {
+		stateMu.Lock()
+		s := state
+		stateMu.Unlock()
+		if s == StateIdle {
+			if cfg.HasAPIKey() {
+				transition(StateRecording)
+			}
+		} else if s == StateRecording || s == StatePaused {
+			if recorder.IsPaused() {
+				recorder.Resume()
+			}
+			transition(StateTranscribing)
+		}
+	}
 	tray = NewAppTray(
-		func(tab string) { ShowSettings(cfg, recorder, onSettingsSaved, tab) },
+		func(tab string) { ShowSettings(cfg, recorder, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, tab) },
 		func() {
 			hkMu.Lock()
 			if hkMgr != nil {
@@ -372,13 +437,16 @@ func main() {
 		},
 		updater,
 		history,
+		cfg,
+		onSettingsSaved,
+		onToggle,
 	)
 
 	// Open settings on first run (no API key)
 	if !cfg.HasAPIKey() {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
-			ShowSettings(cfg, recorder, onSettingsSaved, "general")
+			ShowSettings(cfg, recorder, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, "general")
 		}()
 	}
 

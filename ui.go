@@ -29,7 +29,7 @@ var settingsHTML string
 var embeddedAppIcon []byte
 
 // ShowSettings opens the settings window with WebView2.
-func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab string) {
+func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), onClose func(), initialTab string) {
 	settingsMu.Lock()
 	if settingsOpen {
 		if settingsHwnd != 0 {
@@ -245,6 +245,10 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 
 		w.SetHtml(settingsHTML)
 		w.Run()
+		// Window closed — notify tray
+		if onClose != nil {
+			onClose()
+		}
 	}()
 }
 

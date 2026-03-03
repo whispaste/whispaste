@@ -38,6 +38,7 @@ _WM_USER       = 0x0400
 _WM_OVL_SHOW  = _WM_USER + 1
 _WM_OVL_HIDE  = _WM_USER + 2
 _WM_OVL_LEVEL = _WM_USER + 3
+_WM_OVL_PAUSE = _WM_USER + 4
 
 _SW_HIDE   = 0
 _SW_SHOWNA = 8
@@ -73,7 +74,7 @@ _TIMER_ID = 1
 _TIMER_MS = 16 // ~60 FPS for smoother animations
 
 // Pill-shaped overlay dimensions
-_OVL_WIDTH  = 420
+_OVL_WIDTH  = 490
 _OVL_HEIGHT = 64
 _OVL_MARGIN = 24
 _OVL_RADIUS = 32 // fully rounded pill ends
@@ -91,7 +92,6 @@ _CLR_RED_DOT    = 0x003C3CFF // RGB(255,60,60)
 _CLR_BAR        = 0x00EED322 // RGB(34,211,238) – cyan
 _CLR_BAR_DIM    = 0x00886618 // RGB(24,102,136) – dimmed cyan
 _CLR_GREEN      = 0x0059C734 // RGB(52,199,89)
-_CLR_COLORKEY   = 0x00FF00FF // magenta – transparent
 
 // Waveform layout
 _WAVE_BARS   = 20  // fewer, wider bars for cleaner look
@@ -99,12 +99,24 @@ _WAVE_BAR_W  = 4
 _WAVE_GAP    = 3
 _WAVE_RIGHT  = 12 // right margin
 _WAVE_AMP    = 30.0
+
+// Control button layout (right side of pill, after waveform)
+_BTN_SIZE      = 28
+_BTN_GAP       = 6
+_BTN_Y         = (_OVL_HEIGHT - _BTN_SIZE) / 2
+_BTN_CONFIRM_X = _OVL_WIDTH - _BTN_SIZE - 10
+_BTN_PAUSE_X   = _BTN_CONFIRM_X - _BTN_SIZE - _BTN_GAP
 )
 
 // GDI+ constants and types
 const (
-_SmoothingModeAntiAlias    = 4
-_TextRenderingHintClearType = 5
+_SmoothingModeAntiAlias                  = 4
+_TextRenderingHintClearType              = 5
+_TextRenderingHintAntiAliasGridFit       = 3
+_InterpolationModeHighQualityBicubic     = 7
+_UnitPixel                               = 2
+_FontStyleRegular                        = 0
+_FontStyleBold                           = 1
 )
 
 type gdiplusStartupInput struct {
@@ -152,6 +164,33 @@ FIncUpdate  int32
 RgbReserved [32]byte
 }
 
+type bitmapInfoHeader struct {
+BiSize          uint32
+BiWidth         int32
+BiHeight        int32
+BiPlanes        uint16
+BiBitCount      uint16
+BiCompression   uint32
+BiSizeImage     uint32
+BiXPelsPerMeter int32
+BiYPelsPerMeter int32
+BiClrUsed       uint32
+BiClrImportant  uint32
+}
+
+type blendFunction struct {
+BlendOp             byte
+BlendFlags          byte
+SourceConstantAlpha byte
+AlphaFormat         byte
+}
+
+type sizeT struct{ CX, CY int32 }
+
+type gdipRectF struct {
+X, Y, Width, Height float32
+}
+
 // ───────────────────── Win32 procs ─────────────────────
 
 var (
@@ -184,6 +223,7 @@ procCreateIconFromResourceEx   = ovlUser32.NewProc("CreateIconFromResourceEx")
 procDrawIconEx                 = ovlUser32.NewProc("DrawIconEx")
 procDestroyIcon                = ovlUser32.NewProc("DestroyIcon")
 procGetCursorPos               = ovlUser32.NewProc("GetCursorPos")
+procScreenToClient             = ovlUser32.NewProc("ScreenToClient")
 
 procCreateSolidBrush     = ovlGdi32.NewProc("CreateSolidBrush")
 procCreatePen            = ovlGdi32.NewProc("CreatePen")
@@ -214,6 +254,43 @@ procGdipCreateSolidFill  = ovlGdiplus.NewProc("GdipCreateSolidFill")
 procGdipDeleteBrush      = ovlGdiplus.NewProc("GdipDeleteBrush")
 procGdipFillEllipseI     = ovlGdiplus.NewProc("GdipFillEllipseI")
 procGdipFillRectangleI   = ovlGdiplus.NewProc("GdipFillRectangleI")
+
+// ULW and DIB
+procUpdateLayeredWindow = ovlUser32.NewProc("UpdateLayeredWindow")
+procCreateDIBSection    = ovlGdi32.NewProc("CreateDIBSection")
+procGetDC               = ovlUser32.NewProc("GetDC")
+procReleaseDC           = ovlUser32.NewProc("ReleaseDC")
+
+// GDI+ path
+procGdipCreatePath          = ovlGdiplus.NewProc("GdipCreatePath")
+procGdipDeletePath          = ovlGdiplus.NewProc("GdipDeletePath")
+procGdipAddPathArc          = ovlGdiplus.NewProc("GdipAddPathArc")
+procGdipClosePathFigure     = ovlGdiplus.NewProc("GdipClosePathFigure")
+procGdipFillPath            = ovlGdiplus.NewProc("GdipFillPath")
+
+// GDI+ text
+procGdipCreateFontFamilyFromName = ovlGdiplus.NewProc("GdipCreateFontFamilyFromName")
+procGdipDeleteFontFamily         = ovlGdiplus.NewProc("GdipDeleteFontFamily")
+procGdipCreateFont               = ovlGdiplus.NewProc("GdipCreateFont")
+procGdipDeleteFont               = ovlGdiplus.NewProc("GdipDeleteFont")
+procGdipCreateStringFormat       = ovlGdiplus.NewProc("GdipCreateStringFormat")
+procGdipDeleteStringFormat       = ovlGdiplus.NewProc("GdipDeleteStringFormat")
+procGdipDrawString               = ovlGdiplus.NewProc("GdipDrawString")
+procGdipSetTextRenderingHint     = ovlGdiplus.NewProc("GdipSetTextRenderingHint")
+
+// GDI+ icon
+procGdipCreateBitmapFromHICON = ovlGdiplus.NewProc("GdipCreateBitmapFromHICON")
+procGdipDrawImageRectI         = ovlGdiplus.NewProc("GdipDrawImageRectI")
+procGdipDisposeImage           = ovlGdiplus.NewProc("GdipDisposeImage")
+procGdipSetInterpolationMode   = ovlGdiplus.NewProc("GdipSetInterpolationMode")
+
+// GDI+ pen
+procGdipCreatePen1 = ovlGdiplus.NewProc("GdipCreatePen1")
+procGdipDeletePen  = ovlGdiplus.NewProc("GdipDeletePen")
+procGdipDrawPath   = ovlGdiplus.NewProc("GdipDrawPath")
+
+// GDI+ graphics
+procGdipGraphicsClear = ovlGdiplus.NewProc("GdipGraphicsClear")
 )
 
 // ───────────────────── GDI+ helpers ─────────────────────
@@ -306,9 +383,18 @@ var globalOverlay *Overlay
 // Overlay displays a premium recording/transcribing indicator.
 type Overlay struct {
 hwnd      uintptr
-fontMain  uintptr
-fontSmall uintptr
+fontMain  uintptr // GDI font (keep for measurement fallback)
+fontSmall uintptr // GDI font
 hIcon     uintptr
+// GDI+ fonts for anti-aliased text
+gdipFontFamily uintptr
+gdipFontMain   uintptr
+gdipFontSmall  uintptr
+gdipStrFmt     uintptr
+gdipIconBmp    uintptr // GDI+ bitmap from hIcon
+// DIB section for ULW
+dibDC  uintptr
+dibBmp uintptr
 state     AppState
 level     float32
 levels    [_WAVE_BARS]float32
@@ -319,6 +405,9 @@ visible   bool
 position  string // "top_center" or "cursor"
 ready     chan error
 done      chan struct{}
+onConfirm func() // called when confirm button clicked
+onPause   func() // called when pause/resume button clicked
+paused    bool   // whether recording is paused
 mu        sync.Mutex
 }
 
@@ -333,22 +422,70 @@ return ret
 
 switch uint32(msg) {
 case _WM_PAINT:
-o.paint(hwnd)
+// ULW windows don't use WM_PAINT - all rendering via UpdateLayeredWindow
+var ps paintStructT
+procBeginPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
+procEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
 return 0
 
 case _WM_ERASEBKGND:
 return 1
 
 case _WM_NCHITTEST:
-// Make entire overlay draggable by pretending it's the caption bar
-return _HTCAPTION
+	o.mu.Lock()
+	st := o.state
+	o.mu.Unlock()
+	if st == StateRecording || st == StatePaused {
+		xScreen := int32(lParam & 0xFFFF)
+		yScreen := int32((lParam >> 16) & 0xFFFF)
+		var pt pointT
+		pt.X = xScreen
+		pt.Y = yScreen
+		procScreenToClient.Call(hwnd, uintptr(unsafe.Pointer(&pt)))
+		if pt.X >= _BTN_CONFIRM_X && pt.X <= _BTN_CONFIRM_X+_BTN_SIZE &&
+			pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
+			return 1 // HTCLIENT
+		}
+		if pt.X >= _BTN_PAUSE_X && pt.X <= _BTN_PAUSE_X+_BTN_SIZE &&
+			pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
+			return 1 // HTCLIENT
+		}
+	}
+	return _HTCAPTION
 
 case _WM_TIMER:
 o.mu.Lock()
 o.frame++
 o.mu.Unlock()
-procInvalidateRect.Call(hwnd, 0, 1)
+o.render()
 return 0
+
+case 0x0201: // WM_LBUTTONDOWN
+	o.mu.Lock()
+	st := o.state
+	confirmCB := o.onConfirm
+	pauseCB := o.onPause
+	o.mu.Unlock()
+	if st == StateRecording || st == StatePaused {
+		x := int32(lParam & 0xFFFF)
+		y := int32((lParam >> 16) & 0xFFFF)
+		if x >= _BTN_CONFIRM_X && x <= _BTN_CONFIRM_X+_BTN_SIZE &&
+			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			if confirmCB != nil {
+				go confirmCB()
+			}
+			return 0
+		}
+		if x >= _BTN_PAUSE_X && x <= _BTN_PAUSE_X+_BTN_SIZE &&
+			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			if pauseCB != nil {
+				go pauseCB()
+			}
+			return 0
+		}
+	}
+	ret, _, _ := procDefWindowProcW.Call(hwnd, msg, wParam, lParam)
+	return ret
 
 case _WM_OVL_SHOW:
 o.mu.Lock()
@@ -375,7 +512,7 @@ procSetWindowPos.Call(hwnd, _HWND_TOPMOST,
 uintptr(x), uintptr(y), _OVL_WIDTH, _OVL_HEIGHT,
 _SWP_NOACTIVATE|_SWP_SHOWWINDOW)
 procSetTimer.Call(hwnd, _TIMER_ID, _TIMER_MS, 0)
-procInvalidateRect.Call(hwnd, 0, 1)
+o.render()
 return 0
 
 case _WM_OVL_HIDE:
@@ -385,6 +522,12 @@ o.mu.Unlock()
 procKillTimer.Call(hwnd, _TIMER_ID)
 procShowWindow.Call(hwnd, _SW_HIDE)
 return 0
+
+case _WM_OVL_PAUSE:
+	o.mu.Lock()
+	o.paused = wParam != 0
+	o.mu.Unlock()
+	return 0
 
 case _WM_OVL_LEVEL:
 o.mu.Lock()
@@ -397,18 +540,19 @@ return 0
 
 case _WM_DESTROY:
 procKillTimer.Call(hwnd, _TIMER_ID)
-if o.fontMain != 0 {
-procDeleteObject.Call(o.fontMain)
-o.fontMain = 0
-}
-if o.fontSmall != 0 {
-procDeleteObject.Call(o.fontSmall)
-o.fontSmall = 0
-}
-if o.hIcon != 0 {
-procDestroyIcon.Call(o.hIcon)
-o.hIcon = 0
-}
+// GDI+ resources
+if o.gdipFontMain != 0 { procGdipDeleteFont.Call(o.gdipFontMain) }
+if o.gdipFontSmall != 0 { procGdipDeleteFont.Call(o.gdipFontSmall) }
+if o.gdipFontFamily != 0 { procGdipDeleteFontFamily.Call(o.gdipFontFamily) }
+if o.gdipStrFmt != 0 { procGdipDeleteStringFormat.Call(o.gdipStrFmt) }
+if o.gdipIconBmp != 0 { procGdipDisposeImage.Call(o.gdipIconBmp) }
+// DIB section
+if o.dibDC != 0 { procDeleteDC.Call(o.dibDC) }
+if o.dibBmp != 0 { procDeleteObject.Call(o.dibBmp) }
+// GDI resources
+if o.fontMain != 0 { procDeleteObject.Call(o.fontMain); o.fontMain = 0 }
+if o.fontSmall != 0 { procDeleteObject.Call(o.fontSmall); o.fontSmall = 0 }
+if o.hIcon != 0 { procDestroyIcon.Call(o.hIcon); o.hIcon = 0 }
 shutdownGDIPlus()
 procPostQuitMessage.Call(0)
 return 0
@@ -532,9 +676,6 @@ return fmt.Errorf("CreateWindowExW failed")
 }
 o.hwnd = hwnd
 
-// 92% opaque + magenta color-key for rounded-corner transparency
-procSetLayeredWindowAttributes.Call(hwnd, _CLR_COLORKEY, 235, _LWA_COLORKEY|_LWA_ALPHA)
-
 // Main font: 13pt Segoe UI Semibold
 fontHeightMain := int32(-17)
 	fontHeightSmall := int32(-13)
@@ -554,6 +695,28 @@ uintptr(unsafe.Pointer(fontName)),
 
 // Load app icon at 48x48 for crisp display
 o.loadIcon(48)
+
+// Create GDI+ font resources for anti-aliased text
+fontName16, _ := windows.UTF16PtrFromString("Segoe UI")
+procGdipCreateFontFamilyFromName.Call(
+uintptr(unsafe.Pointer(fontName16)), 0, uintptr(unsafe.Pointer(&o.gdipFontFamily)))
+if o.gdipFontFamily != 0 {
+procGdipCreateFont.Call(o.gdipFontFamily,
+uintptr(math.Float32bits(15.0)), _FontStyleBold, _UnitPixel,
+uintptr(unsafe.Pointer(&o.gdipFontMain)))
+procGdipCreateFont.Call(o.gdipFontFamily,
+uintptr(math.Float32bits(11.0)), _FontStyleRegular, _UnitPixel,
+uintptr(unsafe.Pointer(&o.gdipFontSmall)))
+}
+procGdipCreateStringFormat.Call(0, 0, uintptr(unsafe.Pointer(&o.gdipStrFmt)))
+
+// Create GDI+ bitmap from icon for bicubic rendering
+if o.hIcon != 0 {
+procGdipCreateBitmapFromHICON.Call(o.hIcon, uintptr(unsafe.Pointer(&o.gdipIconBmp)))
+}
+
+// Create persistent DIB section for ULW rendering
+o.createDIB()
 
 return nil
 }
@@ -599,6 +762,23 @@ uintptr(dataSize),
 }
 }
 
+// SetCallbacks sets the confirm and pause button callbacks.
+func (o *Overlay) SetCallbacks(onConfirm, onPause func()) {
+o.mu.Lock()
+o.onConfirm = onConfirm
+o.onPause = onPause
+o.mu.Unlock()
+}
+
+// SetPaused updates the paused display state via window message.
+func (o *Overlay) SetPaused(paused bool) {
+if o.hwnd != 0 {
+v := uintptr(0)
+if paused { v = 1 }
+procPostMessageW.Call(o.hwnd, _WM_OVL_PAUSE, v, 0)
+}
+}
+
 // SetPosition updates the overlay position preference.
 func (o *Overlay) SetPosition(pos string) {
 o.mu.Lock()
@@ -638,56 +818,72 @@ procPostMessageW.Call(o.hwnd, uintptr(_WM_CLOSE), 0, 0)
 
 // ───────────────────── Drawing ─────────────────────
 
-const _SRCCOPY = 0x00CC0020
+func f32(v float32) uintptr {
+return uintptr(math.Float32bits(v))
+}
 
-func (o *Overlay) paint(hwnd uintptr) {
-var ps paintStructT
-hdc, _, _ := procBeginPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
-if hdc == 0 {
+func (o *Overlay) createDIB() {
+var bmi bitmapInfoHeader
+bmi.BiSize = uint32(unsafe.Sizeof(bmi))
+bmi.BiWidth = _OVL_WIDTH
+bmi.BiHeight = -_OVL_HEIGHT // top-down
+bmi.BiPlanes = 1
+bmi.BiBitCount = 32
+
+screenDC, _, _ := procGetDC.Call(0)
+var bits uintptr
+o.dibBmp, _, _ = procCreateDIBSection.Call(
+screenDC,
+uintptr(unsafe.Pointer(&bmi)),
+0, // DIB_RGB_COLORS
+uintptr(unsafe.Pointer(&bits)),
+0, 0)
+procReleaseDC.Call(0, screenDC)
+
+o.dibDC, _, _ = procCreateCompatibleDC.Call(0)
+if o.dibDC != 0 && o.dibBmp != 0 {
+procSelectObject.Call(o.dibDC, o.dibBmp)
+}
+}
+
+func (o *Overlay) render() {
+if o.dibDC == 0 {
 return
 }
-defer procEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
 
-// Double-buffer: draw to memory DC, then BitBlt to screen
-memDC, _, _ := procCreateCompatibleDC.Call(hdc)
-if memDC == 0 {
+// Create GDI+ Graphics from the persistent DIB DC
+var g uintptr
+procGdipCreateFromHDC.Call(o.dibDC, uintptr(unsafe.Pointer(&g)))
+if g == 0 {
 return
 }
-memBmp, _, _ := procCreateCompatibleBitmap.Call(hdc, _OVL_WIDTH, _OVL_HEIGHT)
-if memBmp == 0 {
-procDeleteDC.Call(memDC)
-return
+defer procGdipDeleteGraphics.Call(g)
+
+procGdipSetSmoothingMode.Call(g, _SmoothingModeAntiAlias)
+procGdipSetTextRenderingHint.Call(g, _TextRenderingHintAntiAliasGridFit)
+procGdipSetInterpolationMode.Call(g, _InterpolationModeHighQualityBicubic)
+
+// Clear to fully transparent
+procGdipGraphicsClear.Call(g, 0x00000000)
+
+// Drop shadow (subtle)
+o.drawPillPath(g, 3, 3, 0x40000000)
+
+// Main pill background
+o.drawPillPath(g, 0, 0, 0xE80A1A29)
+
+// Pill border
+o.drawPillBorder(g, 0, 0, 0xA00066B8)
+
+// App icon (bicubic interpolation)
+if o.gdipIconBmp != 0 {
+iconY := int32((_OVL_HEIGHT - _ICON_SIZE) / 2)
+procGdipDrawImageRectI.Call(g, o.gdipIconBmp,
+uintptr(_ICON_PADDING), uintptr(iconY), uintptr(_ICON_SIZE), uintptr(_ICON_SIZE))
 }
-oldBmp, _, _ := procSelectObject.Call(memDC, memBmp)
-defer func() {
-procBitBlt.Call(hdc, 0, 0, _OVL_WIDTH, _OVL_HEIGHT, memDC, 0, 0, _SRCCOPY)
-procSelectObject.Call(memDC, oldBmp)
-procDeleteObject.Call(memBmp)
-procDeleteDC.Call(memDC)
-}()
 
-// Fill with color-key (corners become transparent)
-ckBrush, _, _ := procCreateSolidBrush.Call(_CLR_COLORKEY)
-rc := rectT{0, 0, _OVL_WIDTH, _OVL_HEIGHT}
-procFillRect.Call(memDC, uintptr(unsafe.Pointer(&rc)), ckBrush)
-procDeleteObject.Call(ckBrush)
-
-// Draw pill-shaped background with rounded corners
-bgBrush, _, _ := procCreateSolidBrush.Call(_CLR_BACKGROUND)
-borderPen, _, _ := procCreatePen.Call(_PS_SOLID, 2, _CLR_BORDER)
-oldB, _, _ := procSelectObject.Call(memDC, bgBrush)
-oldP, _, _ := procSelectObject.Call(memDC, borderPen)
-procRoundRect.Call(memDC, 1, 1, _OVL_WIDTH-1, _OVL_HEIGHT-1, _OVL_RADIUS, _OVL_RADIUS)
-procSelectObject.Call(memDC, oldB)
-procSelectObject.Call(memDC, oldP)
-procDeleteObject.Call(bgBrush)
-procDeleteObject.Call(borderPen)
-
-procSetBkMode.Call(memDC, _TRANSPARENT)
-procSetTextColor.Call(memDC, _CLR_TEXT)
-if o.fontMain != 0 {
-procSelectObject.Call(memDC, o.fontMain)
-}
+// Content area starts after icon
+contentX := int32(_ICON_PADDING + _ICON_SIZE + 12)
 
 o.mu.Lock()
 state := o.state
@@ -696,80 +892,167 @@ startTime := o.startTime
 var levels [_WAVE_BARS]float32
 copy(levels[:], o.levels[:])
 levelIdx := o.levelIdx
-hIcon := o.hIcon
 o.mu.Unlock()
 
-// Draw app icon
-if hIcon != 0 {
-const _DI_NORMAL = 0x0003
-iconY := (_OVL_HEIGHT - _ICON_SIZE) / 2
-procDrawIconEx.Call(memDC, _ICON_PADDING, uintptr(iconY), hIcon,
-_ICON_SIZE, _ICON_SIZE, 0, 0, _DI_NORMAL)
-}
-
-// Content area starts after icon
-contentX := int32(_ICON_PADDING + _ICON_SIZE + 12)
-
-// Create a single GDI+ Graphics context for the entire frame
-var gdipG uintptr
-procGdipCreateFromHDC.Call(memDC, uintptr(unsafe.Pointer(&gdipG)))
-if gdipG != 0 {
-procGdipSetSmoothingMode.Call(gdipG, _SmoothingModeAntiAlias)
-}
-
 switch state {
-case StateRecording:
-o.paintRecording(memDC, gdipG, frame, startTime, levels, levelIdx, contentX)
+case StateRecording, StatePaused:
+o.paintRecordingULW(g, frame, startTime, levels, levelIdx, contentX)
 case StateTranscribing, StateProcessing:
-o.paintTranscribing(memDC, gdipG, frame, contentX)
+o.paintTranscribingULW(g, frame, contentX)
 case StateError:
-o.paintError(memDC, contentX)
+o.paintErrorULW(g, contentX)
 case StateCopied:
-o.paintCopied(memDC, gdipG, contentX)
+o.paintCopiedULW(g, contentX)
 }
 
-if gdipG != 0 {
-procGdipDeleteGraphics.Call(gdipG)
+// Call UpdateLayeredWindow
+blend := blendFunction{
+BlendOp:             0, // AC_SRC_OVER
+SourceConstantAlpha: 255,
+AlphaFormat:         1, // AC_SRC_ALPHA
 }
+ptSrc := pointT{0, 0}
+sz := sizeT{_OVL_WIDTH, _OVL_HEIGHT}
+
+procUpdateLayeredWindow.Call(
+o.hwnd,
+0, // hdcDst (NULL = screen)
+0, // pptDst (NULL = keep position)
+uintptr(unsafe.Pointer(&sz)),
+o.dibDC,
+uintptr(unsafe.Pointer(&ptSrc)),
+0, // crKey (unused)
+uintptr(unsafe.Pointer(&blend)),
+2, // ULW_ALPHA
+)
 }
 
-func (o *Overlay) paintRecording(hdc, gdipG uintptr, frame int, start time.Time, levels [_WAVE_BARS]float32, levelIdx int, contentX int32) {
+func (o *Overlay) drawPillPath(g uintptr, offsetX, offsetY int32, argb uint32) {
+var path uintptr
+procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&path)))
+if path == 0 {
+return
+}
+defer procGdipDeletePath.Call(path)
+
+x := float32(1 + offsetX)
+y := float32(1 + offsetY)
+w := float32(_OVL_WIDTH - 2)
+h := float32(_OVL_HEIGHT - 2)
+r := float32(_OVL_RADIUS)
+d := r * 2
+
+procGdipAddPathArc.Call(path, f32(x), f32(y), f32(d), f32(d), f32(180), f32(90))
+procGdipAddPathArc.Call(path, f32(x+w-d), f32(y), f32(d), f32(d), f32(270), f32(90))
+procGdipAddPathArc.Call(path, f32(x+w-d), f32(y+h-d), f32(d), f32(d), f32(0), f32(90))
+procGdipAddPathArc.Call(path, f32(x), f32(y+h-d), f32(d), f32(d), f32(90), f32(90))
+procGdipClosePathFigure.Call(path)
+
+var brush uintptr
+procGdipCreateSolidFill.Call(uintptr(argb), uintptr(unsafe.Pointer(&brush)))
+if brush == 0 {
+return
+}
+defer procGdipDeleteBrush.Call(brush)
+
+procGdipFillPath.Call(g, brush, path)
+}
+
+func (o *Overlay) drawPillBorder(g uintptr, offsetX, offsetY int32, argb uint32) {
+var path uintptr
+procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&path)))
+if path == 0 {
+return
+}
+defer procGdipDeletePath.Call(path)
+
+x := float32(1 + offsetX)
+y := float32(1 + offsetY)
+w := float32(_OVL_WIDTH - 2)
+h := float32(_OVL_HEIGHT - 2)
+r := float32(_OVL_RADIUS)
+d := r * 2
+
+procGdipAddPathArc.Call(path, f32(x), f32(y), f32(d), f32(d), f32(180), f32(90))
+procGdipAddPathArc.Call(path, f32(x+w-d), f32(y), f32(d), f32(d), f32(270), f32(90))
+procGdipAddPathArc.Call(path, f32(x+w-d), f32(y+h-d), f32(d), f32(d), f32(0), f32(90))
+procGdipAddPathArc.Call(path, f32(x), f32(y+h-d), f32(d), f32(d), f32(90), f32(90))
+procGdipClosePathFigure.Call(path)
+
+var pen uintptr
+procGdipCreatePen1.Call(uintptr(argb), f32(1.5), _UnitPixel, uintptr(unsafe.Pointer(&pen)))
+if pen == 0 {
+return
+}
+defer procGdipDeletePen.Call(pen)
+
+procGdipDrawPath.Call(g, pen, path)
+}
+
+func (o *Overlay) drawGdipText(g uintptr, text string, x, y, w float32, font uintptr, argb uint32) {
+if font == 0 || o.gdipStrFmt == 0 {
+return
+}
+utf16, _ := windows.UTF16FromString(text)
+var brush uintptr
+procGdipCreateSolidFill.Call(uintptr(argb), uintptr(unsafe.Pointer(&brush)))
+if brush == 0 {
+return
+}
+defer procGdipDeleteBrush.Call(brush)
+
+rect := gdipRectF{X: x, Y: y, Width: w, Height: 24}
+procGdipDrawString.Call(g,
+uintptr(unsafe.Pointer(&utf16[0])),
+uintptr(len(utf16)-1),
+font,
+uintptr(unsafe.Pointer(&rect)),
+o.gdipStrFmt,
+brush)
+}
+
+func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, levels [_WAVE_BARS]float32, levelIdx int, contentX int32) {
 cy := int32(_OVL_HEIGHT / 2)
 
-// ── Pulsing recording dot (GDI+ anti-aliased) ──
+o.mu.Lock()
+isPaused := o.paused
+o.mu.Unlock()
+
+// Pulsing recording dot
+if isPaused {
+gdipFillCircleG(g, 0x80FF3C3C, contentX+7, cy, 7)
+} else {
 pulse := float64(frame) * 0.12
 alpha := uint32(180 + int(math.Sin(pulse)*75))
 if alpha > 255 {
 alpha = 255
 }
-argb := (alpha << 24) | 0x00FF3C3C // ARGB red with pulsing alpha
-dotR := int32(7)
-if gdipG != 0 { gdipFillCircleG(gdipG, argb, contentX+dotR, cy, dotR) }
+argb := (alpha << 24) | 0x00FF3C3C
+gdipFillCircleG(g, argb, contentX+7, cy, 7)
+}
 
-// ── "Recording" / localized status text ──
-textX := contentX + dotR*2 + 8
-drawTextAt(hdc, T("overlay.recording"), textX, 14, 120)
+// Status text
+textX := float32(contentX + 7*2 + 8)
+if isPaused {
+o.drawGdipText(g, T("overlay.paused"), textX, 14, 120, o.gdipFontMain, 0xFFFFFFFF)
+} else {
+o.drawGdipText(g, T("overlay.recording"), textX, 14, 120, o.gdipFontMain, 0xFFFFFFFF)
+}
 
-// ── Elapsed timer (smaller font) ──
+// Elapsed timer
 elapsed := time.Since(start).Seconds()
 secs := int(elapsed)
 timer := fmt.Sprintf("%d:%02d", secs/60, secs%60)
-if o.fontSmall != 0 {
-procSelectObject.Call(hdc, o.fontSmall)
-}
-procSetTextColor.Call(hdc, _CLR_TEXT_DIM)
-drawTextAt(hdc, timer, textX, 36, 60)
-// Restore main font
-if o.fontMain != 0 {
-procSelectObject.Call(hdc, o.fontMain)
-}
-procSetTextColor.Call(hdc, _CLR_TEXT)
+o.drawGdipText(g, timer, textX, 36, 60, o.gdipFontSmall, 0xFFB0A090)
 
-// ── Scrolling waveform bars (right-aligned, bounded) ──
-waveX := int32(_OVL_WIDTH - _WAVE_RIGHT - _WAVE_BARS*(_WAVE_BAR_W+_WAVE_GAP))
+// Scrolling waveform bars
+waveX := int32(_OVL_WIDTH - _WAVE_RIGHT - _WAVE_BARS*(_WAVE_BAR_W+_WAVE_GAP) - _BTN_SIZE*2 - _BTN_GAP - 16)
 for i := 0; i < _WAVE_BARS; i++ {
 idx := (levelIdx + i) % _WAVE_BARS
 lvl := levels[idx]
+if isPaused {
+lvl = 0
+}
 amp := lvl * _WAVE_AMP
 if amp > 1.0 {
 amp = 1.0
@@ -781,41 +1064,52 @@ h = 2
 x := waveX + int32(i)*(_WAVE_BAR_W+_WAVE_GAP)
 y1 := cy - h/2
 y2 := cy + h/2
-
-// Use brighter color for taller bars
 if h > 6 {
-if gdipG != 0 { gdipFillRectG(gdipG, 0xE022D3EE, x, y1, _WAVE_BAR_W, y2-y1) }
+gdipFillRectG(g, 0xE022D3EE, x, y1, _WAVE_BAR_W, y2-y1)
 } else {
-if gdipG != 0 { gdipFillRectG(gdipG, 0x80226688, x, y1, _WAVE_BAR_W, y2-y1) }
-}
+gdipFillRectG(g, 0x80226688, x, y1, _WAVE_BAR_W, y2-y1)
 }
 }
 
-func (o *Overlay) paintTranscribing(hdc, gdipG uintptr, frame int, contentX int32) {
+// Control buttons
+gdipFillCircleG(g, 0xFF34C759, _BTN_CONFIRM_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+if isPaused {
+gdipFillCircleG(g, 0xFF22D3EE, _BTN_PAUSE_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+} else {
+gdipFillCircleG(g, 0xFF0066B8, _BTN_PAUSE_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+}
+
+// Button icons
+o.drawGdipText(g, "\u2713", float32(_BTN_CONFIRM_X+7), float32(cy-7), 20, o.gdipFontSmall, 0xFFFFFFFF)
+if isPaused {
+o.drawGdipText(g, "\u25B6", float32(_BTN_PAUSE_X+8), float32(cy-7), 20, o.gdipFontSmall, 0xFFFFFFFF)
+} else {
+o.drawGdipText(g, "\u23F8", float32(_BTN_PAUSE_X+6), float32(cy-8), 20, o.gdipFontSmall, 0xFFFFFFFF)
+}
+}
+
+func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32) {
 cy := int32(_OVL_HEIGHT / 2)
 
-// ── Spinner: 8 dots rotating in a circle ──
+// Spinner
 const numDots = 8
-const spinR = 10  // spinner radius
-const dotR = 3    // individual dot radius
+const spinR = 10
+const dotR = 3
 spinCx := contentX + spinR + 2
 spinCy := cy
-
 angleOffset := float64(frame) * 0.15
 for i := 0; i < numDots; i++ {
 angle := angleOffset + float64(i)*2.0*math.Pi/float64(numDots)
 dx := int32(float64(spinR) * math.Cos(angle))
 dy := int32(float64(spinR) * math.Sin(angle))
-// Fade: leading dot is brightest
 alpha := uint32(60 + (195 * uint32(i) / uint32(numDots-1)))
-argb := (alpha << 24) | 0x0022D3EE // cyan with fading alpha
-if gdipG != 0 { gdipFillCircleG(gdipG, argb, spinCx+dx, spinCy+dy, dotR) }
+argb := (alpha << 24) | 0x0022D3EE
+gdipFillCircleG(g, argb, spinCx+dx, spinCy+dy, dotR)
 }
 
-// ── Text ──
-textX := contentX + spinR*2 + 16
+// Text
+textX := float32(contentX + spinR*2 + 16)
 text := T("overlay.transcribing")
-// Animate trailing dots
 for len(text) > 0 && text[len(text)-1] == '.' {
 text = text[:len(text)-1]
 }
@@ -823,44 +1117,18 @@ n := (frame / 15) % 4
 for i := 0; i < n; i++ {
 text += "."
 }
-drawTextAt(hdc, text, textX, cy-10, 200)
+o.drawGdipText(g, text, textX, float32(cy-10), 200, o.gdipFontMain, 0xFFFFFFFF)
 }
 
-func (o *Overlay) paintError(hdc uintptr, contentX int32) {
-procSetTextColor.Call(hdc, _CLR_RED_DOT)
+func (o *Overlay) paintErrorULW(g uintptr, contentX int32) {
 text := T("error.no_api_key")
-rc := rectT{contentX, 0, _OVL_WIDTH - 16, _OVL_HEIGHT}
-utf16, _ := windows.UTF16FromString(text)
-procDrawTextW.Call(hdc,
-uintptr(unsafe.Pointer(&utf16[0])),
-uintptr(len(utf16)-1),
-uintptr(unsafe.Pointer(&rc)),
-_DT_LEFT|_DT_VCENTER|_DT_SINGLELINE,
-)
+o.drawGdipText(g, text, float32(contentX), float32(_OVL_HEIGHT/2-10), float32(_OVL_WIDTH-16-contentX), o.gdipFontMain, 0xFFFF3C3C)
 }
 
-func (o *Overlay) paintCopied(hdc, gdipG uintptr, contentX int32) {
-// Green check dot
+func (o *Overlay) paintCopiedULW(g uintptr, contentX int32) {
 cy := int32(_OVL_HEIGHT / 2)
-if gdipG != 0 { gdipFillCircleG(gdipG, 0xFF34C759, contentX+8, cy, 8) }
-
-// ── Checkmark via "✓" text ──
-procSetTextColor.Call(hdc, _CLR_TEXT)
-drawTextAt(hdc, "\u2713", contentX+1, cy-10, 16)
-
-// ── "Copied" text ──
-procSetTextColor.Call(hdc, _CLR_GREEN)
+gdipFillCircleG(g, 0xFF34C759, contentX+8, cy, 8)
+o.drawGdipText(g, "\u2713", float32(contentX+1), float32(cy-10), 16, o.gdipFontSmall, 0xFFFFFFFF)
 text := T("overlay.copied")
-drawTextAt(hdc, text, contentX+24, cy-10, 260)
-}
-
-func drawTextAt(hdc uintptr, text string, x, y, w int32) {
-utf16, _ := windows.UTF16FromString(text)
-rc := rectT{x, y, x + w, y + 24}
-procDrawTextW.Call(hdc,
-uintptr(unsafe.Pointer(&utf16[0])),
-uintptr(len(utf16)-1),
-uintptr(unsafe.Pointer(&rc)),
-_DT_LEFT,
-)
+o.drawGdipText(g, text, float32(contentX+24), float32(cy-10), 260, o.gdipFontMain, 0xFF34C759)
 }
