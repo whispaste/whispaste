@@ -38,7 +38,7 @@ var soundVolumeBits uint64 = math.Float64bits(1.0)
 
 // soundChan serializes all sound playback to avoid PlaySoundW cancellation issues.
 // PlaySoundW can only play one sound at a time; concurrent calls cancel the previous.
-var soundChan = make(chan []byte, 4)
+var soundChan = make(chan []byte, 8)
 
 func init() {
 	go func() {
@@ -50,6 +50,7 @@ func init() {
 				0,
 				uintptr(sndMemory|sndNoDefault),
 			)
+			runtime.KeepAlive(data)
 		}
 	}()
 }
