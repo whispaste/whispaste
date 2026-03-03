@@ -36,7 +36,7 @@ html.light .feature-card { background: rgba(255,255,255,0.7) !important; border-
 html.light .feature-card:hover { background: rgba(255,255,255,0.9) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important; }
 html.light footer { border-top-color: #E2E8F0 !important; }
 html.light .hero-gradient {
-  background: linear-gradient(135deg, #0891B2 0%, #0E7490 50%, #0891B2 100%) !important;
+  background-image: linear-gradient(135deg, #0891B2 0%, #0E7490 50%, #0891B2 100%) !important;
 }
 html.light .bg-brand-darker\/80 { background: rgba(241,245,249,0.9) !important; }
 html.light .bg-brand-dark\/80 { background: rgba(248,250,252,0.9) !important; }
