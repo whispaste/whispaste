@@ -38,6 +38,7 @@ var (
 	procSendInput        = pasteUser32.NewProc("SendInput")
 	procGetForegroundWnd = pasteUser32.NewProc("GetForegroundWindow")
 	procGetClassName     = pasteUser32.NewProc("GetClassNameW")
+	procGetGUIThreadInfo = pasteUser32.NewProc("GetGUIThreadInfo")
 
 	procGlobalAlloc  = pasteKernel32.NewProc("GlobalAlloc")
 	procGlobalFree   = pasteKernel32.NewProc("GlobalFree")
@@ -58,11 +59,49 @@ type kbdINPUT struct {
 	pad2        [8]byte
 }
 
+// guiThreadInfo matches the Windows GUITHREADINFO struct.
+type guiThreadInfo struct {
+	cbSize        uint32
+	flags         uint32
+	hwndActive    uintptr
+	hwndFocus     uintptr
+	hwndCapture   uintptr
+	hwndMenuOwner uintptr
+	hwndMoveSize  uintptr
+	hwndCaret     uintptr
+	rcCaret       struct{ left, top, right, bottom int32 }
+}
+
+const _GUI_CARETBLINKING = 0x00000001
+
+// hasFocusedInput checks whether a text input has focus (caret blinking).
+// Terminals are always considered as having focus (caret detection unreliable).
+func hasFocusedInput() bool {
+	cls := getForegroundClass()
+	switch cls {
+	case "CASCADIA_HOSTING_WINDOW_CLASS", "ConsoleWindowClass", "mintty":
+		return true
+	}
+	var gti guiThreadInfo
+	gti.cbSize = uint32(unsafe.Sizeof(gti))
+	r, _, _ := procGetGUIThreadInfo.Call(0, uintptr(unsafe.Pointer(&gti)))
+	if r == 0 {
+		return false
+	}
+	return gti.flags&_GUI_CARETBLINKING != 0 || gti.hwndCaret != 0
+}
+
 // PasteText places text on the clipboard and simulates the appropriate paste shortcut.
 // Detects terminal windows and uses Ctrl+Shift+V or Shift+Insert as needed.
+// Skips the paste keystroke if no text input field is focused (clipboard is still set).
 func PasteText(text string) error {
 	if err := writeClipboard(text); err != nil {
 		return fmt.Errorf(T("error.clipboard"), err)
+	}
+
+	if !hasFocusedInput() {
+		logInfo("PasteText: no focused input detected, clipboard set only")
+		return nil
 	}
 
 	// Release any held modifier keys to avoid interference
