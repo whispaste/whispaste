@@ -1,0 +1,186 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Impressum — WhisPaste">
+  <div class="min-h-screen flex flex-col">
+    <!-- Nav -->
+    <nav class="fixed top-0 w-full z-50 bg-brand-darker/80 backdrop-blur-xl border-b border-white/5">
+      <div class="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+        <a href="/whispaste/" class="flex items-center gap-2 text-white font-semibold tracking-tight">
+          <img id="navLogo" src="/whispaste/app-icon-dark.png" alt="WhisPaste" class="w-8 h-8" />
+          <span class="text-lg font-semibold tracking-tight">WhisPaste</span>
+        </a>
+        <div class="flex items-center gap-4 text-sm text-gray-400">
+          <a href="/whispaste/" class="hover:text-white transition-colors">&larr; Back</a>
+          <button id="langToggle" onclick="toggleLang()" class="text-gray-400 hover:text-white transition-colors font-medium">DE</button>
+          <button id="themeToggle" onclick="toggleTheme()" class="text-gray-400 hover:text-white transition-colors" title="Toggle theme">
+            <svg id="themeIcon" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Content -->
+    <main class="flex-1 pt-24 pb-16 px-6">
+      <div class="max-w-3xl mx-auto">
+        <h1 class="text-3xl font-bold text-white mb-8" id="pageTitle">Legal Notice (Impressum)</h1>
+
+        <div class="prose prose-invert max-w-none space-y-6 text-gray-300 leading-relaxed">
+          <!-- DE content (default visible) -->
+          <div id="content-de" class="hidden space-y-6">
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">Angaben gemäß § 5 DDG</h2>
+              <p>
+                <!-- TODO: Fill in your real contact details before going live -->
+                <strong class="text-white">Silvio Lindstedt</strong><br>
+                [Straße und Hausnummer]<br>
+                [PLZ Ort]<br>
+                Deutschland
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">Kontakt</h2>
+              <p>
+                E-Mail: [deine-email@example.com]
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h2>
+              <p>
+                Silvio Lindstedt<br>
+                Anschrift wie oben
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">Haftungsausschluss</h2>
+              <h3 class="text-lg font-medium text-white mb-2">Haftung für Inhalte</h3>
+              <p>
+                Die Inhalte dieser Seite wurden mit größter Sorgfalt erstellt. Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte kann jedoch keine Gewähr übernommen werden. Als Diensteanbieter bin ich gemäß § 7 Abs. 1 DDG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 DDG bin ich jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen.
+              </p>
+              <h3 class="text-lg font-medium text-white mb-2 mt-4">Haftung für Links</h3>
+              <p>
+                Diese Seite enthält Links zu externen Websites Dritter, auf deren Inhalte ich keinen Einfluss habe. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber verantwortlich. Bei Bekanntwerden von Rechtsverletzungen werde ich derartige Links umgehend entfernen.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">Urheberrecht</h2>
+              <p>
+                WhisPaste ist Open-Source-Software, lizenziert unter der <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">MIT-Lizenz</a>. Der Quellcode ist öffentlich auf <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">GitHub</a> verfügbar.
+              </p>
+            </section>
+          </div>
+
+          <!-- EN content -->
+          <div id="content-en" class="space-y-6">
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">Information according to § 5 DDG (German Digital Services Act)</h2>
+              <p>
+                <!-- TODO: Fill in your real contact details before going live -->
+                <strong class="text-white">Silvio Lindstedt</strong><br>
+                [Street and Number]<br>
+                [Postal Code City]<br>
+                Germany
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">Contact</h2>
+              <p>
+                Email: [your-email@example.com]
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">Responsible for content according to § 18 (2) MStV</h2>
+              <p>
+                Silvio Lindstedt<br>
+                Address as above
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">Disclaimer</h2>
+              <h3 class="text-lg font-medium text-white mb-2">Liability for content</h3>
+              <p>
+                The contents of this website have been created with the utmost care. However, no guarantee can be given for the accuracy, completeness, or timeliness of the content. As a service provider, I am responsible for my own content on these pages in accordance with general laws pursuant to § 7 (1) DDG. However, pursuant to §§ 8–10 DDG, I am not obligated to monitor transmitted or stored third-party information.
+              </p>
+              <h3 class="text-lg font-medium text-white mb-2 mt-4">Liability for links</h3>
+              <p>
+                This website contains links to external third-party websites over whose content I have no influence. The respective provider or operator is always responsible for the content of the linked pages. If I become aware of any legal violations, I will remove such links immediately.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">Copyright</h2>
+              <p>
+                WhisPaste is open-source software, licensed under the <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">MIT License</a>. The source code is publicly available on <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">GitHub</a>.
+              </p>
+            </section>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-6 border-t border-white/5">
+      <div class="max-w-4xl mx-auto px-6 text-center text-sm text-gray-500">
+        &copy; 2025 <a href="https://github.com/silvio-l" class="hover:text-white transition-colors">Silvio Lindstedt</a>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    let currentLang = localStorage.getItem('whispaste-lang') || 'en';
+
+    function toggleLang() {
+      currentLang = currentLang === 'en' ? 'de' : 'en';
+      localStorage.setItem('whispaste-lang', currentLang);
+      applyLang();
+    }
+
+    function applyLang() {
+      document.documentElement.lang = currentLang;
+      const btn = document.getElementById('langToggle');
+      if (btn) btn.textContent = currentLang === 'en' ? 'DE' : 'EN';
+      const title = document.getElementById('pageTitle');
+      if (title) title.textContent = currentLang === 'de' ? 'Impressum' : 'Legal Notice (Impressum)';
+      document.getElementById('content-de').classList.toggle('hidden', currentLang !== 'de');
+      document.getElementById('content-en').classList.toggle('hidden', currentLang !== 'en');
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      if (!html.classList.contains('light')) {
+        html.classList.add('light');
+        localStorage.setItem('whispaste-theme', 'light');
+      } else {
+        html.classList.remove('light');
+        localStorage.setItem('whispaste-theme', 'dark');
+      }
+      updateThemeIcon();
+    }
+
+    function updateThemeIcon() {
+      const isLight = document.documentElement.classList.contains('light');
+      const icon = document.getElementById('themeIcon');
+      if (icon) {
+        icon.innerHTML = isLight
+          ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>'
+          : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+      }
+      const src = isLight ? '/whispaste/app-icon-light.png' : '/whispaste/app-icon-dark.png';
+      const logo = document.getElementById('navLogo');
+      if (logo) logo.src = src;
+    }
+
+    window.toggleLang = toggleLang;
+    window.toggleTheme = toggleTheme;
+    applyLang();
+    updateThemeIcon();
+  </script>
+</Layout>

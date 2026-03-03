@@ -1,0 +1,295 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Datenschutz — WhisPaste" description="Privacy Policy / Datenschutzerklärung for WhisPaste">
+  <div class="min-h-screen flex flex-col">
+    <!-- Nav -->
+    <nav class="fixed top-0 w-full z-50 bg-brand-darker/80 backdrop-blur-xl border-b border-white/5">
+      <div class="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+        <a href="/whispaste/" class="flex items-center gap-2 text-white font-semibold tracking-tight">
+          <img id="navLogo" src="/whispaste/app-icon-dark.png" alt="WhisPaste" class="w-8 h-8" />
+          <span class="text-lg font-semibold tracking-tight">WhisPaste</span>
+        </a>
+        <div class="flex items-center gap-4 text-sm text-gray-400">
+          <a href="/whispaste/" class="hover:text-white transition-colors">&larr; Back</a>
+          <button id="langToggle" onclick="toggleLang()" class="text-gray-400 hover:text-white transition-colors font-medium">DE</button>
+          <button id="themeToggle" onclick="toggleTheme()" class="text-gray-400 hover:text-white transition-colors" title="Toggle theme">
+            <svg id="themeIcon" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Content -->
+    <main class="flex-1 pt-24 pb-16 px-6">
+      <div class="max-w-3xl mx-auto">
+        <h1 class="text-3xl font-bold text-white mb-8" id="pageTitle">Privacy Policy</h1>
+
+        <div class="prose prose-invert max-w-none space-y-6 text-gray-300 leading-relaxed">
+          <!-- DE content -->
+          <div id="content-de" class="hidden space-y-6">
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">1. Datenschutz auf einen Blick</h2>
+              <h3 class="text-lg font-medium text-white mb-2">Allgemeine Hinweise</h3>
+              <p>
+                Die folgenden Hinweise geben einen einfachen Überblick darüber, was mit deinen personenbezogenen Daten passiert, wenn du diese Website besuchst. Personenbezogene Daten sind alle Daten, mit denen du persönlich identifiziert werden kannst.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">2. Verantwortlicher</h2>
+              <p>
+                <!-- TODO: Fill in your real contact details -->
+                Silvio Lindstedt<br>
+                [Straße und Hausnummer]<br>
+                [PLZ Ort]<br>
+                E-Mail: [deine-email@example.com]
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">3. Hosting</h2>
+              <p>
+                Diese Website wird über <strong class="text-white">GitHub Pages</strong> gehostet, einen Dienst der GitHub Inc. (88 Colin P. Kelly Jr. St., San Francisco, CA 94107, USA), einem Tochterunternehmen der Microsoft Corporation.
+              </p>
+              <p>
+                Beim Besuch dieser Website werden durch GitHub automatisch folgende Daten erfasst:
+              </p>
+              <ul class="list-disc list-inside space-y-1 ml-4">
+                <li>IP-Adresse</li>
+                <li>Browsertyp und -version</li>
+                <li>Referrer-URL</li>
+                <li>Zeitpunkt des Zugriffs</li>
+              </ul>
+              <p class="mt-3">
+                Dies ist für den Betrieb der Website technisch erforderlich. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse). GitHub verarbeitet diese Daten gemäß der <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">GitHub-Datenschutzerklärung</a>. Zur Absicherung der Datenübertragung in die USA bestehen <a href="https://docs.github.com/en/site-policy/privacy-policies/github-data-protection-agreement" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">Standardvertragsklauseln (SCC)</a> gemäß Art. 46 Abs. 2 lit. c DSGVO.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">4. Keine Cookies, kein Tracking</h2>
+              <p>
+                Diese Website verwendet <strong class="text-white">keine Cookies</strong>, <strong class="text-white">kein Tracking</strong> und <strong class="text-white">keine Analysedienste</strong>. Es werden keine externen Schriftarten (z.&nbsp;B. Google Fonts) oder CDN-Dienste eingebunden. Alle Ressourcen werden lokal von GitHub Pages ausgeliefert.
+              </p>
+              <p>
+                Der einzige lokale Speichermechanismus ist <code class="text-brand-cyan">localStorage</code>, der ausschließlich deine Sprach- und Theme-Präferenz auf deinem Gerät speichert. Diese Daten werden nicht an Server übermittelt.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">5. Externe Links</h2>
+              <p>
+                Diese Website enthält Links zu externen Diensten:
+              </p>
+              <ul class="list-disc list-inside space-y-1 ml-4">
+                <li><strong class="text-white">GitHub</strong> — Quellcode-Repository und Releases</li>
+                <li><strong class="text-white">GitHub Sponsors / Ko-fi</strong> — Freiwillige Unterstützungsmöglichkeiten</li>
+              </ul>
+              <p class="mt-3">
+                Beim Anklicken dieser Links gelten die jeweiligen Datenschutzbestimmungen der Drittanbieter. WhisPaste hat keinen Einfluss auf die Datenverarbeitung durch diese Dienste.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">6. Die WhisPaste-Anwendung</h2>
+              <p>
+                Die Desktop-Anwendung WhisPaste sendet Audiodaten direkt an die <strong class="text-white">OpenAI Whisper API</strong> zur Transkription. Dabei werden die Daten ausschließlich zwischen deinem Gerät und OpenAI übertragen. WhisPaste selbst speichert, überträgt oder verarbeitet keine Audiodaten auf eigenen Servern.
+              </p>
+              <p>
+                Für die Datenverarbeitung durch OpenAI gilt die <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">OpenAI Privacy Policy</a>. Dein API-Schlüssel wird ausschließlich lokal in der Konfigurationsdatei auf deinem Gerät gespeichert.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">7. Deine Rechte</h2>
+              <p>
+                Du hast jederzeit das Recht auf:
+              </p>
+              <ul class="list-disc list-inside space-y-1 ml-4">
+                <li>Auskunft über deine gespeicherten Daten (Art. 15 DSGVO)</li>
+                <li>Berichtigung unrichtiger Daten (Art. 16 DSGVO)</li>
+                <li>Löschung deiner Daten (Art. 17 DSGVO)</li>
+                <li>Einschränkung der Verarbeitung (Art. 18 DSGVO)</li>
+                <li>Datenübertragbarkeit (Art. 20 DSGVO)</li>
+                <li>Widerspruch gegen die Verarbeitung (Art. 21 DSGVO)</li>
+              </ul>
+              <p class="mt-3">
+                Da diese Website keine personenbezogenen Daten über die technisch erforderlichen Serverlogs von GitHub hinaus erhebt, liegen bei WhisPaste selbst keine zu löschenden Daten vor. Für Anfragen bezüglich der GitHub-Serverlogs wende dich bitte an <a href="https://support.github.com/" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">GitHub Support</a>.
+              </p>
+              <p>
+                Darüber hinaus hast du das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu beschweren (Art. 77 DSGVO).
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">8. SSL/TLS-Verschlüsselung</h2>
+              <p>
+                Diese Website nutzt aus Sicherheitsgründen eine SSL- bzw. TLS-Verschlüsselung (HTTPS). Eine verschlüsselte Verbindung erkennst du daran, dass die Adresszeile des Browsers von „http://" auf „https://" wechselt.
+              </p>
+            </section>
+          </div>
+
+          <!-- EN content -->
+          <div id="content-en" class="space-y-6">
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">1. Privacy at a Glance</h2>
+              <p>
+                The following information provides a simple overview of what happens to your personal data when you visit this website. Personal data is any data that can be used to identify you personally.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">2. Data Controller</h2>
+              <p>
+                <!-- TODO: Fill in your real contact details -->
+                Silvio Lindstedt<br>
+                [Street and Number]<br>
+                [Postal Code City]<br>
+                Email: [your-email@example.com]
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">3. Hosting</h2>
+              <p>
+                This website is hosted on <strong class="text-white">GitHub Pages</strong>, a service provided by GitHub Inc. (88 Colin P. Kelly Jr. St., San Francisco, CA 94107, USA), a subsidiary of Microsoft Corporation.
+              </p>
+              <p>
+                When you visit this website, GitHub automatically collects the following data:
+              </p>
+              <ul class="list-disc list-inside space-y-1 ml-4">
+                <li>IP address</li>
+                <li>Browser type and version</li>
+                <li>Referrer URL</li>
+                <li>Time of access</li>
+              </ul>
+              <p class="mt-3">
+                This is technically necessary for operating the website. The legal basis is Art. 6(1)(f) GDPR (legitimate interest). GitHub processes this data in accordance with the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">GitHub Privacy Statement</a>. Data transfers to the USA are safeguarded by <a href="https://docs.github.com/en/site-policy/privacy-policies/github-data-protection-agreement" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">Standard Contractual Clauses (SCC)</a> pursuant to Art. 46(2)(c) GDPR.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">4. No Cookies, No Tracking</h2>
+              <p>
+                This website uses <strong class="text-white">no cookies</strong>, <strong class="text-white">no tracking</strong>, and <strong class="text-white">no analytics services</strong>. No external fonts (e.g., Google Fonts) or CDN services are loaded. All resources are served locally from GitHub Pages.
+              </p>
+              <p>
+                The only local storage mechanism is <code class="text-brand-cyan">localStorage</code>, which stores your language and theme preference on your device only. This data is never sent to any server.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">5. External Links</h2>
+              <p>
+                This website contains links to external services:
+              </p>
+              <ul class="list-disc list-inside space-y-1 ml-4">
+                <li><strong class="text-white">GitHub</strong> — Source code repository and releases</li>
+                <li><strong class="text-white">GitHub Sponsors / Ko-fi</strong> — Voluntary support options</li>
+              </ul>
+              <p class="mt-3">
+                When clicking these links, the respective privacy policies of the third-party providers apply. WhisPaste has no influence on data processing by these services.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">6. The WhisPaste Application</h2>
+              <p>
+                The WhisPaste desktop application sends audio data directly to the <strong class="text-white">OpenAI Whisper API</strong> for transcription. Data is transmitted exclusively between your device and OpenAI. WhisPaste itself does not store, transmit, or process any audio data on its own servers.
+              </p>
+              <p>
+                For data processing by OpenAI, the <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">OpenAI Privacy Policy</a> applies. Your API key is stored exclusively in the local configuration file on your device.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">7. Your Rights</h2>
+              <p>
+                You have the right at any time to:
+              </p>
+              <ul class="list-disc list-inside space-y-1 ml-4">
+                <li>Access your stored data (Art. 15 GDPR)</li>
+                <li>Rectification of inaccurate data (Art. 16 GDPR)</li>
+                <li>Erasure of your data (Art. 17 GDPR)</li>
+                <li>Restriction of processing (Art. 18 GDPR)</li>
+                <li>Data portability (Art. 20 GDPR)</li>
+                <li>Object to processing (Art. 21 GDPR)</li>
+              </ul>
+              <p class="mt-3">
+                Since this website does not collect any personal data beyond the technically required server logs by GitHub, there is no data held by WhisPaste itself to delete. For requests regarding GitHub server logs, please contact <a href="https://support.github.com/" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">GitHub Support</a>.
+              </p>
+              <p>
+                You also have the right to lodge a complaint with a data protection supervisory authority (Art. 77 GDPR).
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-xl font-semibold text-white mb-3">8. SSL/TLS Encryption</h2>
+              <p>
+                This website uses SSL/TLS encryption (HTTPS) for security reasons. An encrypted connection is indicated by the address bar changing from "http://" to "https://".
+              </p>
+            </section>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-6 border-t border-white/5">
+      <div class="max-w-4xl mx-auto px-6 text-center text-sm text-gray-500">
+        &copy; 2025 <a href="https://github.com/silvio-l" class="hover:text-white transition-colors">Silvio Lindstedt</a>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    let currentLang = localStorage.getItem('whispaste-lang') || 'en';
+
+    function toggleLang() {
+      currentLang = currentLang === 'en' ? 'de' : 'en';
+      localStorage.setItem('whispaste-lang', currentLang);
+      applyLang();
+    }
+
+    function applyLang() {
+      document.documentElement.lang = currentLang;
+      const btn = document.getElementById('langToggle');
+      if (btn) btn.textContent = currentLang === 'en' ? 'DE' : 'EN';
+      const title = document.getElementById('pageTitle');
+      if (title) title.textContent = currentLang === 'de' ? 'Datenschutzerklärung' : 'Privacy Policy';
+      document.getElementById('content-de').classList.toggle('hidden', currentLang !== 'de');
+      document.getElementById('content-en').classList.toggle('hidden', currentLang !== 'en');
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      if (!html.classList.contains('light')) {
+        html.classList.add('light');
+        localStorage.setItem('whispaste-theme', 'light');
+      } else {
+        html.classList.remove('light');
+        localStorage.setItem('whispaste-theme', 'dark');
+      }
+      updateThemeIcon();
+    }
+
+    function updateThemeIcon() {
+      const isLight = document.documentElement.classList.contains('light');
+      const icon = document.getElementById('themeIcon');
+      if (icon) {
+        icon.innerHTML = isLight
+          ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>'
+          : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+      }
+      const src = isLight ? '/whispaste/app-icon-light.png' : '/whispaste/app-icon-dark.png';
+      const logo = document.getElementById('navLogo');
+      if (logo) logo.src = src;
+    }
+
+    window.toggleLang = toggleLang;
+    window.toggleTheme = toggleTheme;
+    applyLang();
+    updateThemeIcon();
+  </script>
+</Layout>

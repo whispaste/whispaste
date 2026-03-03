@@ -71,6 +71,7 @@ body{display:flex;flex-direction:column}
 .topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;background:var(--bg-card);border-bottom:1px solid color-mix(in srgb, var(--accent) 15%, var(--border));-webkit-app-region:drag;flex-shrink:0}
 .topbar-logo{display:flex;align-items:center;flex-shrink:0;-webkit-app-region:no-drag}
 .topbar-logo .icon{color:var(--accent);width:24px;height:24px}
+.topbar-logo .app-name{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-0.3px;margin-left:2px}
 .search-box{flex:1;max-width:400px;position:relative;-webkit-app-region:no-drag;margin:0 auto}
 .search-box input{width:100%;padding:7px 12px 7px 34px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text);font-size:13px;outline:none;transition:border-color var(--transition)}
 .search-box input:focus{border-color:var(--accent)}
@@ -168,6 +169,7 @@ body{display:flex;flex-direction:column}
 <div class="topbar">
   <div class="topbar-logo">
     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+    <span class="app-name">WhisPaste</span>
   </div>
   <div class="search-box">
     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
