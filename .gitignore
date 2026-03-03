@@ -28,6 +28,13 @@ desktop.ini
 # Go
 vendor/
 
+# Node
+node_modules/
+
+# Astro
+website/dist/
+website/.astro/
+
 # Config (contains API keys)
 config.json
 

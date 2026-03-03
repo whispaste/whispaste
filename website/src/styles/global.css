@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-cyan: #22D3EE;
+  --color-brand-teal: #0E7490;
+  --color-brand-dark: #1E2026;
+  --color-brand-darker: #15171b;
+  --color-brand-card: #252830;
+  --color-brand-border: #2e3138;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+}
