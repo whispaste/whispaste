@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"os/exec"
 	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/getlantern/systray"
 	"golang.org/x/sys/windows"
 )
+
+const _HISTORY_SLOTS = 10
 
 //go:embed resources/tray.ico
 var embeddedTrayIcon []byte
@@ -67,6 +70,12 @@ type AppTray struct {
 	smartItems   []*systray.MenuItem
 	smartPresets []string
 	onSaved      func()
+	// History submenu
+	historyEmpty *systray.MenuItem
+	historyItems [_HISTORY_SLOTS]*systray.MenuItem
+	historyTexts [_HISTORY_SLOTS]string
+	historyCount int
+	historyMu    sync.Mutex
 }
 
 // NewAppTray creates a tray manager. Callbacks are invoked on menu clicks.
@@ -155,6 +164,21 @@ func (t *AppTray) onReady() {
 	systray.AddSeparator()
 	mSettings := systray.AddMenuItem(T("tray.settings"), T("tray.settings"))
 	mHistory := systray.AddMenuItem(T("tray.history"), T("tray.history"))
+	t.historyEmpty = mHistory.AddSubMenuItem(T("tray.history_empty"), "")
+	t.historyEmpty.Disable()
+	for i := 0; i < _HISTORY_SLOTS; i++ {
+		t.historyItems[i] = mHistory.AddSubMenuItem("", "")
+		t.historyItems[i].Hide()
+	}
+	t.updateHistoryMenu()
+
+	for i := 0; i < _HISTORY_SLOTS; i++ {
+		go func(idx int) {
+			for range t.historyItems[idx].ClickedCh {
+				t.copyHistoryEntry(idx)
+			}
+		}(i)
+	}
 
 	// Smart Mode submenu
 	mSmart := systray.AddMenuItem(T("tray.smart_mode"), T("tray.smart_mode"))
@@ -221,8 +245,6 @@ func (t *AppTray) onReady() {
 				if t.onSettings != nil {
 					t.onSettings("general")
 				}
-			case <-mHistory.ClickedCh:
-				t.showHistoryPopup()
 			case <-t.mUpdate.ClickedCh:
 				t.handleUpdateClick()
 			case <-mAbout.ClickedCh:
@@ -308,25 +330,91 @@ func (t *AppTray) SetTooltipState(state AppState) {
 	}
 }
 
-func (t *AppTray) showHistoryPopup() {
+func (t *AppTray) updateHistoryMenu() {
 	if t.history == nil {
 		return
 	}
-	entries := t.history.Recent(1)
+	entries := t.history.Recent(_HISTORY_SLOTS)
+
+	t.historyMu.Lock()
+	t.historyCount = len(entries)
+	for i := 0; i < _HISTORY_SLOTS; i++ {
+		if i < len(entries) {
+			t.historyTexts[i] = entries[i].Text
+		} else {
+			t.historyTexts[i] = ""
+		}
+	}
+	t.historyMu.Unlock()
+
 	if len(entries) == 0 {
-		t.ShowBalloon(AppName, T("tray.history_empty"))
+		t.historyEmpty.Show()
+	} else {
+		t.historyEmpty.Hide()
+	}
+
+	for i := 0; i < _HISTORY_SLOTS; i++ {
+		if i < len(entries) {
+			preview := truncateRunes(entries[i].Text, 40)
+			ago := relativeTime(entries[i].Timestamp)
+			if ago != "" {
+				t.historyItems[i].SetTitle(fmt.Sprintf("%s  (%s)", preview, ago))
+			} else {
+				t.historyItems[i].SetTitle(preview)
+			}
+			t.historyItems[i].Show()
+		} else {
+			t.historyItems[i].Hide()
+		}
+	}
+}
+
+func (t *AppTray) copyHistoryEntry(idx int) {
+	t.historyMu.Lock()
+	if idx >= t.historyCount {
+		t.historyMu.Unlock()
 		return
 	}
-	// Copy the most recent transcription to clipboard
-	if err := writeClipboard(entries[0].Text); err != nil {
+	text := t.historyTexts[idx]
+	t.historyMu.Unlock()
+
+	if err := writeClipboard(text); err != nil {
 		logWarn("History copy failed: %v", err)
-	} else {
-		logInfo("Copied recent transcription to clipboard")
-		preview := entries[0].Text
-		if runes := []rune(preview); len(runes) > 200 {
-			preview = string(runes[:200]) + "…"
-		}
-		t.ShowBalloon(T("balloon.copied"), preview)
+		return
+	}
+	logInfo("Copied history entry %d to clipboard", idx)
+	preview := truncateRunes(text, 200)
+	t.ShowBalloon(T("balloon.copied"), preview)
+}
+
+// RefreshHistory rebuilds the history submenu from disk. Call after adding entries.
+func (t *AppTray) RefreshHistory() {
+	t.updateHistoryMenu()
+}
+
+func truncateRunes(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max]) + "…"
+}
+
+func relativeTime(ts string) string {
+	t, err := time.Parse(time.RFC3339, ts)
+	if err != nil {
+		return ""
+	}
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "<1m"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
 	}
 }
 
