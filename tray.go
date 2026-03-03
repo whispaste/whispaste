@@ -216,6 +216,12 @@ func (t *AppTray) onReady() {
 				if t.onSaved != nil {
 					t.onSaved()
 				}
+				// If "custom" selected with empty prompt, open settings at smart section
+				if t.smartPresets[idx] == "custom" && t.cfg.GetSmartModePrompt() == "" {
+					if t.onSettings != nil {
+						t.onSettings("smart-mode")
+					}
+				}
 			}
 		}(i, item)
 	}
@@ -385,6 +391,21 @@ func (t *AppTray) copyHistoryEntry(idx int) {
 	logInfo("Copied history entry %d to clipboard", idx)
 	preview := truncateRunes(text, 200)
 	t.ShowBalloon(T("balloon.copied"), preview)
+}
+
+// MaybeSponsorBalloon shows a one-time sponsor balloon after 50 dictations.
+func (t *AppTray) MaybeSponsorBalloon(totalDictations int) {
+	if totalDictations < 50 {
+		return
+	}
+	if t.cfg.GetSponsorShown() {
+		return
+	}
+	t.cfg.SetSponsorShown(true)
+	if err := t.cfg.Save(); err != nil {
+		logWarn("Failed to save sponsor shown: %v", err)
+	}
+	t.ShowBalloon(T("balloon.sponsor_title"), T("balloon.sponsor"))
 }
 
 // RefreshHistory rebuilds the history submenu from disk. Call after adding entries.
