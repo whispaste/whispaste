@@ -442,6 +442,46 @@ body.ready {
   background: #E5E5EA;
 }
 
+/* ── Volume Slider ──────────────────────────────────────── */
+.volume-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 0 0;
+  margin-top: 4px;
+}
+.volume-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-width: 60px;
+}
+.volume-value {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-width: 38px;
+  text-align: right;
+}
+.volume-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+}
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg-primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
 /* ── Hotkey Display ────────────────────────────────────── */
 .hotkey-display {
   display: inline-flex;
@@ -955,8 +995,13 @@ body.ready {
           </button>
           <div class="toggle-switch">
             <input type="checkbox" id="toggle-sound" checked>
-            <span class="toggle-track" aria-hidden="true"></span>
+            <label class="toggle-track" for="toggle-sound"></label>
           </div>
+        </div>
+        <div class="volume-row" id="volume-row">
+          <label class="volume-label" data-i18n="labelVolume">Volume</label>
+          <input type="range" id="volume-slider" min="0" max="100" value="100" class="volume-slider">
+          <span class="volume-value" id="volume-value">100%</span>
         </div>
       </div>
 
@@ -968,7 +1013,7 @@ body.ready {
           </div>
           <div class="toggle-switch">
             <input type="checkbox" id="toggle-autopaste" checked>
-            <span class="toggle-track" aria-hidden="true"></span>
+            <label class="toggle-track" for="toggle-autopaste"></label>
           </div>
         </div>
       </div>
@@ -981,7 +1026,7 @@ body.ready {
           </div>
           <div class="toggle-switch">
             <input type="checkbox" id="toggle-updates" checked>
-            <span class="toggle-track" aria-hidden="true"></span>
+            <label class="toggle-track" for="toggle-updates"></label>
           </div>
         </div>
       </div>
@@ -994,7 +1039,7 @@ body.ready {
           </div>
           <div class="toggle-switch">
             <input type="checkbox" id="toggle-autostart">
-            <span class="toggle-track" aria-hidden="true"></span>
+            <label class="toggle-track" for="toggle-autostart"></label>
           </div>
         </div>
       </div>
@@ -1100,6 +1145,7 @@ const translations = {
     cardFeedback: 'Preferences',
     labelSound: 'Sound Feedback',
     descSound: 'Play sounds when recording starts and stops',
+    labelVolume: 'Volume',
     labelAutoPaste: 'Auto-paste',
     descAutoPaste: 'Automatically paste transcription into focused field',
     labelCheckUpdates: 'Check for updates',
@@ -1171,6 +1217,7 @@ const translations = {
     cardFeedback: 'Einstellungen',
     labelSound: 'Tonsignale',
     descSound: 'Töne abspielen beim Starten und Stoppen der Aufnahme',
+    labelVolume: 'Lautstärke',
     labelAutoPaste: 'Auto-Einfügen',
     descAutoPaste: 'Transkription automatisch ins aktive Feld einfügen',
     labelCheckUpdates: 'Nach Updates suchen',
@@ -1377,6 +1424,7 @@ function gatherConfig() {
     model: _savedModel,
     overlay_position: document.querySelector('[name="overlay"]:checked')?.value || 'top_center',
     play_sounds: document.getElementById('toggle-sound').checked,
+    sound_volume: parseInt(document.getElementById('volume-slider').value, 10) / 100.0,
     auto_paste: document.getElementById('toggle-autopaste').checked,
     check_updates: document.getElementById('toggle-updates').checked,
     autostart: document.getElementById('toggle-autostart').checked,
@@ -1393,6 +1441,11 @@ function applyConfig(cfg) {
   if (cfg.language) document.getElementById('select-language').value = cfg.language;
   if (cfg.overlay_position) selectOverlay(cfg.overlay_position);
   if (cfg.play_sounds != null) document.getElementById('toggle-sound').checked = cfg.play_sounds;
+  if (cfg.sound_volume != null) {
+    const pct = Math.round(cfg.sound_volume * 100);
+    document.getElementById('volume-slider').value = pct;
+    document.getElementById('volume-value').textContent = pct + '%';
+  }
   if (cfg.auto_paste != null) document.getElementById('toggle-autopaste').checked = cfg.auto_paste;
   if (cfg.check_updates != null) document.getElementById('toggle-updates').checked = cfg.check_updates;
   if (cfg.autostart != null) document.getElementById('toggle-autostart').checked = cfg.autostart;
@@ -1583,6 +1636,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const theme = window._theme || 'system';
   applyTheme(theme);
 
+  // Volume slider live update
+  const volSlider = document.getElementById('volume-slider');
+  const volValue = document.getElementById('volume-value');
+  volSlider.addEventListener('input', () => {
+    volValue.textContent = volSlider.value + '%';
+  });
+  // Toggle volume row visibility based on sound toggle
+  const soundToggle = document.getElementById('toggle-sound');
+  const volRow = document.getElementById('volume-row');
+  function updateVolRow() { volRow.style.display = soundToggle.checked ? 'flex' : 'none'; }
+  soundToggle.addEventListener('change', updateVolRow);
+
   // Load config from Go
   try {
     if (window.getConfig) {
@@ -1593,6 +1658,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (e) {
     console.warn('Failed to load config:', e);
   }
+  updateVolRow();
 
   // Switch to initial tab if specified by Go
   if (window._initialTab) {

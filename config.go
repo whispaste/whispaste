@@ -23,6 +23,7 @@ type Config struct {
 	UILanguage   string   `json:"ui_language"`
 	Theme        string   `json:"theme"`
 	Autostart    bool     `json:"autostart"`
+	SoundVolume  float64  `json:"sound_volume"`
 	mu          sync.RWMutex
 }
 
@@ -40,6 +41,7 @@ func DefaultConfig() *Config {
 		CheckUpdates: true,
 		UILanguage:  detectSystemLanguage(),
 		Theme:       "system",
+		SoundVolume: 1.0,
 	}
 }
 
