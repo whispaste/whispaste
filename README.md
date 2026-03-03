@@ -34,15 +34,20 @@
 |---|---|---|
 | 🎤 **Global Hotkey** | Press `Ctrl+Shift+V` from anywhere | Fully configurable |
 | 🔄 **Two Modes** | Push-to-Talk or Toggle | Hold or press to start/stop |
+| ⏸ **Pause & Resume** | Pause/resume recording mid-dictation | Overlay button or tray |
 | 📋 **Auto-Paste** | Text appears at your cursor | Clipboard + simulated Ctrl+V |
+| 🧠 **Smart Mode** | AI post-processing via GPT-4o-mini | Cleanup, email, bullets, formal, translate |
 | 🌍 **Multi-Language** | Any language Whisper supports | Or auto-detect |
-| 🖥️ **Visual Overlay** | Waveform + timer while recording | Non-intrusive, always on top |
-| 🔔 **Audio Feedback** | Subtle sounds for each state | Start, stop, success, error |
+| 🖥️ **Premium Overlay** | Anti-aliased waveform + timer + controls | Draggable, non-intrusive, always on top |
+| 📜 **History** | Browse last 10+ transcriptions | Re-copy from tray submenu |
+| 🔔 **Audio Feedback** | Subtle sounds for each state | Adjustable volume |
 | 🔑 **BYOK** | Bring Your Own API Key | No subscription needed |
 | ⚡ **Lightweight** | Single ~8 MB portable `.exe` | No installer, no dependencies |
+| 🚀 **Autostart** | Launch on Windows login | Starts silently in tray |
 | 🔄 **Auto-Update** | SHA256-verified self-updater | Notifies via system tray |
 | 🌐 **Localized** | English & German UI | Auto-detected from system |
 | ♿ **Accessible** | Full keyboard navigation | Screen reader support |
+| ♾️ **Unlimited Recording** | No time limit if desired | Configurable max duration |
 
 <br>
 
@@ -66,8 +71,13 @@ Right-click the tray icon → **Settings** to configure:
 | Mode | Push-to-Talk | Hold hotkey or toggle on/off |
 | Language | Auto-detect | Force a specific transcription language |
 | Model | `whisper-1` | OpenAI Whisper model |
+| Max Recording | 120 s | Maximum recording duration (0 = unlimited) |
 | Auto-Paste | On | Automatically paste after transcription |
 | Sound Effects | On | Play audio feedback |
+| Sound Volume | 100% | Volume for start/stop/success/error sounds |
+| Smart Mode | Off | AI post-processing (cleanup, email, bullets, formal, translate) |
+| Overlay Position | Top Center | Where the overlay appears (top center or near cursor) |
+| Autostart | Off | Launch Whispaste on Windows login |
 | Check Updates | On | Automatically check for new versions |
 
 Config is stored in `%APPDATA%\Whispaste\config.json`.
@@ -147,15 +157,19 @@ whispaste/
 ├── wav.go             # PCM → WAV encoder
 ├── paste.go           # Clipboard + SendInput (Ctrl+V)
 ├── hotkey.go          # Global hotkey (PTT + toggle)
-├── overlay.go         # Recording overlay (Win32 GDI)
-├── tray.go            # System tray icon + menu
+├── overlay.go         # Premium overlay (GDI+ with per-pixel alpha)
+├── tray.go            # System tray icon, menu, history submenu
 ├── ui.go              # Settings window (WebView2)
 ├── ui_settings.html   # Settings UI (HTML/CSS/JS)
 ├── config.go          # Configuration management
 ├── update.go          # Secure auto-updater (GitHub Releases)
 ├── logger.go          # File-based logging with rotation
 ├── l10n.go            # Localization (EN/DE)
-├── sound.go           # Audio feedback
+├── sound.go           # Audio feedback with volume control
+├── postprocess.go     # Smart Mode (GPT-4o-mini post-processing)
+├── history.go         # Transcription history (last 50 entries)
+├── autostart.go       # Windows login autostart
+├── stats.go           # Usage statistics
 ├── types.go           # Shared types and constants
 ├── build.ps1          # Build script
 ├── LICENSE            # MIT License
@@ -199,9 +213,9 @@ MIT License — see [LICENSE](LICENSE) for details.
 ## 💡 How It Works
 
 ```
- 🎤 Hotkey        →  🔴 Record        →  📦 Encode        →  ☁️ Transcribe    →  📋 Paste
- RegisterHotKey      miniaudio/WASAPI     PCM → WAV            Whisper API         Clipboard +
- (global)            16 kHz mono          container             multipart POST      SendInput
+ 🎤 Hotkey        →  🔴 Record        →  📦 Encode        →  ☁️ Transcribe    →  🧠 Smart Mode   →  📋 Paste
+ RegisterHotKey      miniaudio/WASAPI     PCM → WAV            Whisper API         GPT-4o-mini        Clipboard +
+ (global)            16 kHz mono          container             multipart POST      (optional)         SendInput
 ```
 
-The overlay uses Win32 GDI with `WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT` for a non-intrusive, always-visible recording indicator.
+The overlay uses GDI+ with `UpdateLayeredWindow` (per-pixel alpha) for anti-aliased rounded corners, smooth waveform animation, and interactive confirm/pause buttons.
