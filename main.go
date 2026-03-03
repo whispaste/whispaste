@@ -193,6 +193,20 @@ func main() {
 				if ps {
 					PlayFeedback(SoundError)
 				}
+				if overlay != nil {
+					go func() {
+						overlay.Show(StateError)
+						time.Sleep(2 * time.Second)
+						// Only hide if app is still idle (avoid hiding a recording overlay)
+						stateMu.Lock()
+						cur := state
+						stateMu.Unlock()
+						if cur == StateIdle {
+							overlay.Hide()
+						}
+					}()
+				}
+				logInfo("Hotkey pressed but no API key configured")
 				return
 			}
 			transition(StateRecording)
@@ -244,7 +258,7 @@ func main() {
 
 	// System tray (this blocks on the main thread)
 	tray := NewAppTray(
-		func() { ShowSettings(cfg, recorder, onSettingsSaved) },
+		func(tab string) { ShowSettings(cfg, recorder, onSettingsSaved, tab) },
 		func() {
 			hkMu.Lock()
 			if hkMgr != nil {
@@ -263,7 +277,7 @@ func main() {
 	if !cfg.HasAPIKey() {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
-			ShowSettings(cfg, recorder, onSettingsSaved)
+			ShowSettings(cfg, recorder, onSettingsSaved, "general")
 		}()
 	}
 

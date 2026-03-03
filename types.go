@@ -7,6 +7,7 @@ const (
 	StateIdle         AppState = iota
 	StateRecording
 	StateTranscribing
+	StateError
 )
 
 // SoundType identifies audio feedback sounds.

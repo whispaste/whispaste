@@ -7,12 +7,19 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 
 	webview "github.com/webview/webview_go"
+)
+
+var (
+	settingsMu   sync.Mutex
+	settingsOpen bool
+	settingsHwnd uintptr
 )
 
 //go:embed ui_settings.html
@@ -22,10 +29,32 @@ var settingsHTML string
 var embeddedAppIcon []byte
 
 // ShowSettings opens the settings window with WebView2.
-func ShowSettings(cfg *Config, recorder *Recorder, onSaved func()) {
+func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab string) {
+	settingsMu.Lock()
+	if settingsOpen {
+		if settingsHwnd != 0 {
+			user32 := windows.NewLazySystemDLL("user32.dll")
+			setForeground := user32.NewProc("SetForegroundWindow")
+			showWin := user32.NewProc("ShowWindow")
+			showWin.Call(settingsHwnd, 9) // SW_RESTORE
+			setForeground.Call(settingsHwnd)
+		}
+		settingsMu.Unlock()
+		return
+	}
+	settingsOpen = true
+	settingsMu.Unlock()
+
 	go func() {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
+
+		defer func() {
+			settingsMu.Lock()
+			settingsOpen = false
+			settingsHwnd = 0
+			settingsMu.Unlock()
+		}()
 
 		w := webview.New(true)
 		if w == nil {
@@ -39,6 +68,10 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func()) {
 		// Hide window initially to prevent white flash before content loads
 		hwndPtr := w.Window()
 		hwnd := uintptr(hwndPtr)
+
+		settingsMu.Lock()
+		settingsHwnd = hwnd
+		settingsMu.Unlock()
 		user32 := windows.NewLazySystemDLL("user32.dll")
 		showWindow := user32.NewProc("ShowWindow")
 		const swHide = 0
@@ -54,7 +87,7 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func()) {
 		})
 
 		// Inject the current language and theme before page loads
-		w.Init(fmt.Sprintf(`window._lang = "%s"; window._theme = "%s";`, cfg.UILanguage, cfg.Theme))
+		w.Init(fmt.Sprintf(`window._lang = "%s"; window._theme = "%s"; window._initialTab = "%s";`, cfg.UILanguage, cfg.Theme, initialTab))
 
 		// Bind: getConfig → returns JSON config
 		w.Bind("getConfig", func() (string, error) {
@@ -106,7 +139,7 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func()) {
 		})
 
 		// Bind: testRecording → record 3s, transcribe, return result
-		w.Bind("testRecording", func() map[string]interface{} {
+		w.Bind("_doTestRecording", func() map[string]interface{} {
 			if !cfg.HasAPIKey() {
 				return map[string]interface{}{
 					"success": false,
