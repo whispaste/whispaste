@@ -90,11 +90,11 @@ import Layout from "../layouts/Layout.astro";
                     <div class="overlay-pill">
                       <img src="/whispaste/app-icon-dark.png" alt="" class="overlay-icon" />
                       <div class="overlay-content">
-                        <div class="overlay-status">
-                          <div class="overlay-rec-dot"></div>
+                        <div class="overlay-rec-dot"></div>
+                        <div class="overlay-text-group">
                           <span class="overlay-text-main" data-i18n="carousel.recording">Recording</span>
+                          <span class="overlay-text-timer" id="overlay-timer">0:00</span>
                         </div>
-                        <span class="overlay-text-timer" id="overlay-timer">0:00</span>
                       </div>
                       <div class="overlay-waveform" id="overlay-waveform"></div>
                       <div class="overlay-buttons">
@@ -336,14 +336,8 @@ import Layout from "../layouts/Layout.astro";
       gap: 6px;
       transform: rotate(-6deg);
     }
-    .carousel-keys-group .carousel-key--modifier {
-      /* Modifier keys closer together */
-    }
     .carousel-keys-group .carousel-key--action {
       margin-left: 10px;
-    }
-    .text-brand-cyan {
-      color: #22D3EE;
     }
 
     /* Carousel key animation */
@@ -403,13 +397,13 @@ import Layout from "../layouts/Layout.astro";
     .overlay-content {
       margin-left: 12px;
       display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .overlay-status {
-      display: flex;
       align-items: center;
       gap: 8px;
+    }
+    .overlay-text-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
     .overlay-rec-dot {
       width: 14px;
@@ -433,7 +427,6 @@ import Layout from "../layouts/Layout.astro";
       font-weight: 400;
       color: #90A0B0;
       line-height: 1;
-      padding-left: 22px;
     }
     .overlay-waveform {
       display: flex;
@@ -445,7 +438,7 @@ import Layout from "../layouts/Layout.astro";
       flex-shrink: 0;
       min-width: 137px;
     }
-    .overlay-wave-bar {
+    :global(.overlay-wave-bar) {
       width: 4px;
       border-radius: 2px;
       min-height: 2px;
@@ -473,8 +466,8 @@ import Layout from "../layouts/Layout.astro";
     .overlay-btn-pause { background: #0E7490; }
     .overlay-btn-confirm { background: #22D3EE; }
 
-    /* Typing cursor (Scene 3) */
-    .typing-cursor {
+    /* Typing cursor (Scene 3) — :global because JS recreates it */
+    :global(.typing-cursor) {
       display: inline-block;
       width: 2px;
       height: 1.1em;
@@ -494,8 +487,8 @@ import Layout from "../layouts/Layout.astro";
       .hero-gradient,
       .carousel-key,
       .overlay-rec-dot,
-      .overlay-wave-bar,
-      .typing-cursor,
+      :global(.overlay-wave-bar),
+      :global(.typing-cursor),
       .animate-fade-in,
       .animate-fade-in-delay,
       .animate-fade-in-up {
