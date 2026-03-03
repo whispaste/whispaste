@@ -183,6 +183,7 @@ func main() {
 
 	// Hotkey callbacks
 	onHotkeyDown := func() {
+		logInfo("Hotkey DOWN event received")
 		stateMu.Lock()
 		s := state
 		stateMu.Unlock()
@@ -229,6 +230,8 @@ func main() {
 	hkMgr = NewHotkeyManager(cfg, onHotkeyDown, onHotkeyUp)
 	if err := hkMgr.Start(); err != nil {
 		logWarn("Hotkey registration failed: %v", err)
+	} else {
+		logInfo("Hotkey registered: %v + %s", cfg.HotkeyMods, cfg.HotkeyKey)
 	}
 	hkMu.Unlock()
 

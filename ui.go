@@ -64,6 +64,8 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 
 		w.SetTitle(T("settings.title") + " – " + AppName)
 		w.SetSize(520, 640, webview.HintNone)
+		w.SetSize(420, 500, webview.HintMin)
+		w.SetSize(700, 900, webview.HintMax)
 
 		// Hide window initially to prevent white flash before content loads
 		hwndPtr := w.Window()
@@ -140,7 +142,9 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 
 		// Bind: testRecording → record 3s, transcribe, return result
 		w.Bind("_doTestRecording", func() map[string]interface{} {
+			logInfo("Test recording started")
 			if !cfg.HasAPIKey() {
+				logWarn("Test recording: no API key")
 				return map[string]interface{}{
 					"success": false,
 					"text":    "",
@@ -148,6 +152,7 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 				}
 			}
 			if recorder == nil {
+				logError("Test recording: recorder not available")
 				return map[string]interface{}{
 					"success": false,
 					"text":    "",
@@ -156,6 +161,7 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 			}
 
 			if err := recorder.Start(); err != nil {
+				logError("Test recording start failed: %v", err)
 				return map[string]interface{}{
 					"success": false,
 					"text":    "",
@@ -171,6 +177,7 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 				if err != nil {
 					errMsg = err.Error()
 				}
+				logError("Test recording capture failed: %s", errMsg)
 				return map[string]interface{}{
 					"success": false,
 					"text":    "",
@@ -178,20 +185,32 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 				}
 			}
 
+			logInfo("Test recording captured %d bytes, transcribing...", len(pcm))
+			model := cfg.Model
+			if model == "" {
+				model = "whisper-1"
+			}
 			wav := EncodeWAV(pcm, 16000, 1, 16)
-			text, err := Transcribe(wav, cfg.Language, cfg.GetAPIKey(), cfg.Model)
+			text, err := Transcribe(wav, cfg.Language, cfg.GetAPIKey(), model)
 			if err != nil {
+				logError("Test transcription failed: %v", err)
 				return map[string]interface{}{
 					"success": false,
 					"text":    "",
 					"error":   err.Error(),
 				}
 			}
+			logInfo("Test transcription succeeded: %q", strings.TrimSpace(text))
 			return map[string]interface{}{
 				"success": true,
 				"text":    strings.TrimSpace(text),
 				"error":   "",
 			}
+		})
+
+		// Bind: testSound → plays a success chime for preview
+		w.Bind("_testSound", func() {
+			PlayFeedback(SoundSuccess)
 		})
 
 		// Bind: openURL → opens URL in default browser (https only)
