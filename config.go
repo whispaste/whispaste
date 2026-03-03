@@ -22,6 +22,7 @@ type Config struct {
 	CheckUpdates bool     `json:"check_updates"`
 	UILanguage   string   `json:"ui_language"`
 	Theme        string   `json:"theme"`
+	Autostart    bool     `json:"autostart"`
 	mu          sync.RWMutex
 }
 

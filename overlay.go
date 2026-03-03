@@ -149,6 +149,7 @@ var (
 	procInvalidateRect          = ovlUser32.NewProc("InvalidateRect")
 	procGetSystemMetrics        = ovlUser32.NewProc("GetSystemMetrics")
 	procPostMessageW            = ovlUser32.NewProc("PostMessageW")
+	procSetWindowPos            = ovlUser32.NewProc("SetWindowPos")
 	procSetLayeredWindowAttributes = ovlUser32.NewProc("SetLayeredWindowAttributes")
 	procLoadCursorW             = ovlUser32.NewProc("LoadCursorW")
 	procPostQuitMessage         = ovlUser32.NewProc("PostQuitMessage")
@@ -180,6 +181,8 @@ type Overlay struct {
 	font      uintptr
 	state     AppState
 	level     float32
+	levels    [30]float32 // ring buffer for scrolling waveform
+	levelIdx  int
 	startTime time.Time
 	frame     int
 	visible   bool
@@ -218,10 +221,22 @@ func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		o.frame = 0
 		if o.state == StateRecording {
 			o.startTime = time.Now()
+			// Reset waveform ring buffer
+			for i := range o.levels {
+				o.levels[i] = 0
+			}
+			o.levelIdx = 0
 		}
 		o.visible = true
 		o.mu.Unlock()
-		procShowWindow.Call(hwnd, _SW_SHOWNA)
+		// Force topmost Z-order so overlay appears above all windows including WebView2
+		const _HWND_TOPMOST = ^uintptr(0) // (HWND)-1
+		const _SWP_NOMOVE = 0x0002
+		const _SWP_NOSIZE = 0x0001
+		const _SWP_NOACTIVATE = 0x0010
+		const _SWP_SHOWWINDOW = 0x0040
+		procSetWindowPos.Call(hwnd, _HWND_TOPMOST, 0, 0, 0, 0,
+			_SWP_NOMOVE|_SWP_NOSIZE|_SWP_NOACTIVATE|_SWP_SHOWWINDOW)
 		procSetTimer.Call(hwnd, _TIMER_ID, _TIMER_MS, 0)
 		procInvalidateRect.Call(hwnd, 0, 1)
 		return 0
@@ -236,7 +251,10 @@ func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 	case _WM_OVL_LEVEL:
 		o.mu.Lock()
-		o.level = math.Float32frombits(uint32(wParam))
+		lvl := math.Float32frombits(uint32(wParam))
+		o.level = lvl
+		o.levels[o.levelIdx%len(o.levels)] = lvl
+		o.levelIdx++
 		o.mu.Unlock()
 		return 0
 
@@ -420,11 +438,14 @@ func (o *Overlay) paint(hwnd uintptr) {
 	frame := o.frame
 	level := o.level
 	startTime := o.startTime
+	var levels [30]float32
+	copy(levels[:], o.levels[:])
+	levelIdx := o.levelIdx
 	o.mu.Unlock()
 
 	switch state {
 	case StateRecording:
-		o.paintRecording(hdc, frame, level, startTime)
+		o.paintRecording(hdc, frame, level, startTime, levels, levelIdx)
 	case StateTranscribing:
 		o.paintTranscribing(hdc, frame)
 	case StateError:
@@ -432,7 +453,7 @@ func (o *Overlay) paint(hwnd uintptr) {
 	}
 }
 
-func (o *Overlay) paintRecording(hdc uintptr, frame int, level float32, start time.Time) {
+func (o *Overlay) paintRecording(hdc uintptr, frame int, level float32, start time.Time, levels [30]float32, levelIdx int) {
 	// ── Pulsing red dot ──
 	pulse := 7 + int32(math.Sin(float64(frame)*0.15)*2)
 	cx, cy := int32(22), int32(30)
@@ -456,21 +477,30 @@ func (o *Overlay) paintRecording(hdc uintptr, frame int, level float32, start ti
 	timer := fmt.Sprintf("%d:%02d", secs/60, secs%60)
 	drawText(hdc, timer, 150, 12)
 
-	// ── Waveform bars ──
+	// ── Scrolling waveform bars (newest on right) ──
 	barBrush, _, _ := procCreateSolidBrush.Call(_CLR_BAR)
 	procSelectObject.Call(hdc, barBrush)
 	procSelectObject.Call(hdc, nullPen)
-	for i := 0; i < 7; i++ {
-		phase := float64(i)*0.9 + float64(frame)*0.18
-		variation := float32(0.3 + 0.7*math.Abs(math.Sin(phase)))
-		h := int32(level * 28.0 * variation)
-		if h < 3 {
-			h = 3
+	numBars := len(levels)
+	barW := int32(3)
+	gap := int32(2)
+	waveX := int32(200)
+	for i := 0; i < numBars; i++ {
+		idx := (levelIdx + i) % numBars
+		lvl := levels[idx]
+		// Amplify: speech RMS is typically 0.01-0.15
+		amp := lvl * 6.0
+		if amp > 1.0 {
+			amp = 1.0
 		}
-		x := int32(210 + i*11)
+		h := int32(amp * 32.0)
+		if h < 2 {
+			h = 2
+		}
+		x := waveX + int32(i)*(barW+gap)
 		y1 := int32(30) - h/2
 		y2 := int32(30) + h/2
-		procRectangle.Call(hdc, uintptr(x), uintptr(y1), uintptr(x+7), uintptr(y2))
+		procRectangle.Call(hdc, uintptr(x), uintptr(y1), uintptr(x+barW), uintptr(y2))
 	}
 	procDeleteObject.Call(barBrush)
 }
