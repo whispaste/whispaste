@@ -19,6 +19,7 @@
 
 <p align="center">
   <a href="../../releases/latest"><b>📥 Download</b></a>&ensp;·&ensp;
+  <a href="https://whispaste.github.io/whispaste/"><b>🌐 Website</b></a>&ensp;·&ensp;
   <a href="#-quick-start"><b>🚀 Quick Start</b></a>&ensp;·&ensp;
   <a href="#-configuration"><b>⚙️ Config</b></a>&ensp;·&ensp;
   <a href="#-api-costs"><b>💰 Costs</b></a>&ensp;·&ensp;
@@ -39,7 +40,8 @@
 | 🧠 **Smart Mode** | AI post-processing via GPT-4o-mini | Cleanup, email, bullets, formal, translate |
 | 🌍 **Multi-Language** | Any language Whisper supports | Or auto-detect |
 | 🖥️ **Premium Overlay** | Anti-aliased waveform + timer + controls | Draggable, non-intrusive, always on top |
-| 📜 **History** | Browse last 10+ transcriptions | Re-copy from tray submenu |
+| 📜 **History** | Browse & re-copy past transcriptions | Last 10 in tray, up to 500 in dashboard |
+| 📊 **Dashboard** | Full-featured transcription manager | Search, tag, sort, pin, edit, copy |
 | 🔔 **Audio Feedback** | Subtle sounds for each state | Adjustable volume |
 | 🔑 **BYOK** | Bring Your Own API Key | No subscription needed |
 | ⚡ **Lightweight** | Single ~8 MB portable `.exe` | No installer, no dependencies |
@@ -67,16 +69,23 @@ Right-click the tray icon → **Settings** to configure:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | API Key | *(required)* | Your OpenAI API key |
+| API Endpoint | *(OpenAI default)* | Custom API endpoint — edit in `config.json` |
 | Hotkey | `Ctrl+Shift+V` | Global keyboard shortcut |
 | Mode | Push-to-Talk | Hold hotkey or toggle on/off |
 | Language | Auto-detect | Force a specific transcription language |
 | Model | `whisper-1` | OpenAI Whisper model |
+| Prompt | *(empty)* | System prompt sent with each Whisper request |
 | Max Recording | 120 s | Maximum recording duration (0 = unlimited) |
 | Auto-Paste | On | Automatically paste after transcription |
 | Sound Effects | On | Play audio feedback |
 | Sound Volume | 100% | Volume for start/stop/success/error sounds |
-| Smart Mode | Off | AI post-processing (cleanup, email, bullets, formal, translate) |
+| Smart Mode | Off | AI post-processing (cleanup, email, bullets, formal, translate, custom) |
+| Smart Mode Preset | *(none)* | Active preset: cleanup, email, bullets, formal, translate, custom |
+| Smart Mode Prompt | *(empty)* | Custom prompt for "custom" Smart Mode preset |
+| Smart Mode Target | *(empty)* | Target language for "translate" preset |
 | Overlay Position | Top Center | Where the overlay appears (top center or near cursor) |
+| UI Language | *(system)* | Interface language (English / German) |
+| Theme | System | Color scheme: light, dark, or match OS setting |
 | Autostart | Off | Launch WhisPaste on Windows login |
 | Check Updates | On | Automatically check for new versions |
 
@@ -109,8 +118,8 @@ WhisPaste uses the OpenAI Whisper API, billed per audio minute at **~$0.006/min*
 
 ## 🛡️ Privacy & Security
 
-- **Your API key stays local** – stored only in your user profile directory
-- **Audio is never saved** – recorded audio is sent directly to OpenAI's API and discarded
+- **Your API key stays local** – stored only in your user profile directory, never transmitted to WhisPaste
+- **Direct API connection** – audio is sent directly from your device to OpenAI's Whisper API; WhisPaste never stores, processes, or relays your recordings. See [OpenAI's privacy policy](https://openai.com/policies/privacy-policy/) for their data handling
 - **Secure updates** – auto-updater verifies SHA256 checksums before applying, HTTPS only, no silent updates
 - **No telemetry** – zero analytics, tracking, or phone-home
 - **Open source** – audit every line of code yourself
@@ -156,18 +165,20 @@ whispaste/
 ├── api.go             # OpenAI Whisper API client
 ├── wav.go             # PCM → WAV encoder
 ├── paste.go           # Clipboard + SendInput (Ctrl+V)
-├── hotkey.go          # Global hotkey (PTT + toggle)
+├── hotkey.go          # Global hotkey (PTT + toggle, 300 ms cooldown)
 ├── overlay.go         # Premium overlay (GDI+ with per-pixel alpha)
 ├── tray.go            # System tray icon, menu, history submenu
 ├── ui.go              # Settings window (WebView2)
 ├── ui_settings.html   # Settings UI (HTML/CSS/JS)
+├── ui_notebook.go     # Dashboard window (WebView2)
+├── ui_notebook.html   # Dashboard UI (HTML/CSS/JS)
 ├── config.go          # Configuration management
 ├── update.go          # Secure auto-updater (GitHub Releases)
 ├── logger.go          # File-based logging with rotation
 ├── l10n.go            # Localization (EN/DE)
 ├── sound.go           # Audio feedback with volume control
 ├── postprocess.go     # Smart Mode (GPT-4o-mini post-processing)
-├── history.go         # Transcription history (last 50 entries)
+├── history.go         # Transcription history (up to 500 entries)
 ├── autostart.go       # Windows login autostart
 ├── stats.go           # Usage statistics
 ├── types.go           # Shared types and constants
