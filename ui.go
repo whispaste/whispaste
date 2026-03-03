@@ -124,7 +124,13 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 			cfg.CheckUpdates = newCfg.CheckUpdates
 			cfg.UILanguage = newCfg.UILanguage
 			cfg.Theme = newCfg.Theme
+			cfg.Autostart = newCfg.Autostart
 			cfg.mu.Unlock()
+
+			// Apply autostart setting
+			if err := SetAutostart(newCfg.Autostart); err != nil {
+				logWarn("Failed to set autostart: %v", err)
+			}
 
 			SetLanguage(newCfg.UILanguage)
 
