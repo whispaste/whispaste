@@ -217,6 +217,9 @@ func main() {
 				// Record stats and history
 				stats.RecordDictation(text, durationSec)
 				history.Add(text, durationSec, lang)
+				if tray != nil {
+					tray.RefreshHistory()
+				}
 
 				if autoPaste {
 					// PasteText writes to clipboard and simulates Ctrl+V
