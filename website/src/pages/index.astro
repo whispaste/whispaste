@@ -8,7 +8,7 @@ import Layout from "../layouts/Layout.astro";
     <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
       <a href="#" class="flex items-center gap-2 text-white font-semibold tracking-tight">
         <img id="navLogo" src="/whispaste/app-icon-dark.png" alt="WhisPaste" class="w-8 h-8" />
-        <span class="font-medium tracking-tight">Whis</span><span class="font-bold text-brand-cyan tracking-tight">Paste</span>
+        <span class="text-lg font-semibold tracking-tight">WhisPaste</span>
       </a>
       <div class="hidden sm:flex items-center gap-6 text-sm text-gray-400">
         <a href="#features" class="hover:text-white transition-colors" data-i18n="nav.features">Features</a>
@@ -248,6 +248,8 @@ import Layout from "../layouts/Layout.astro";
         <span>&copy; 2025 <a href="https://github.com/silvio-l" class="hover:text-white transition-colors">Silvio Lindstedt</a></span>
       </div>
       <div class="flex items-center gap-4">
+        <a href="/whispaste/impressum/" class="hover:text-white transition-colors" data-i18n="footer.impressum">Legal Notice</a>
+        <a href="/whispaste/datenschutz/" class="hover:text-white transition-colors" data-i18n="footer.privacy">Privacy Policy</a>
         <span data-i18n="footer.license">MIT License</span>
         <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="hover:text-white transition-colors">GitHub</a>
       </div>
@@ -419,6 +421,8 @@ import Layout from "../layouts/Layout.astro";
         'support.desc': 'WhisPaste is free and open source. If you find it useful, consider supporting development.',
         'support.sponsor': 'Sponsor on GitHub',
         'support.coffee': 'Buy a Coffee',
+        'footer.impressum': 'Legal Notice',
+        'footer.privacy': 'Privacy Policy',
         'footer.license': 'MIT License'
       },
       de: {
@@ -443,6 +447,8 @@ import Layout from "../layouts/Layout.astro";
         'support.desc': 'WhisPaste ist kostenlos und Open Source. Wenn es dir nützlich ist, unterstütze gerne die Entwicklung.',
         'support.sponsor': 'Auf GitHub sponsern',
         'support.coffee': 'Einen Kaffee ausgeben',
+        'footer.impressum': 'Impressum',
+        'footer.privacy': 'Datenschutz',
         'footer.license': 'MIT-Lizenz'
       }
     };
