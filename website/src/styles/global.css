@@ -35,3 +35,11 @@ html.light nav { background: rgba(241,245,249,0.9) !important; border-bottom-col
 html.light .feature-card { background: rgba(255,255,255,0.7) !important; border-color: #E2E8F0 !important; }
 html.light .feature-card:hover { background: rgba(255,255,255,0.9) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important; }
 html.light footer { border-top-color: #E2E8F0 !important; }
+html.light .hero-gradient {
+  background: linear-gradient(135deg, #0891B2 0%, #0E7490 50%, #0891B2 100%) !important;
+}
+html.light .bg-brand-darker\/80 { background: rgba(241,245,249,0.9) !important; }
+html.light .bg-brand-dark\/80 { background: rgba(248,250,252,0.9) !important; }
+html.light .shadow-black\/50 { box-shadow: 0 25px 50px rgba(0,0,0,0.1) !important; }
+html.light .shadow-brand-cyan\/\[0\.05\] { box-shadow: 0 4px 12px rgba(8,145,178,0.1) !important; }
+html.light .bg-brand-card\/60 { background: rgba(255,255,255,0.8) !important; }

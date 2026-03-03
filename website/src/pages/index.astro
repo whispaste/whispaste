@@ -7,8 +7,8 @@ import Layout from "../layouts/Layout.astro";
   <nav class="fixed top-0 w-full z-50 bg-brand-darker/80 backdrop-blur-xl border-b border-white/5">
     <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
       <a href="#" class="flex items-center gap-2 text-white font-semibold tracking-tight">
-        <img src="/whispaste/app-icon-dark.png" alt="WhisPaste" class="w-7 h-7" />
-        WhisPaste
+        <img id="navLogo" src="/whispaste/app-icon-dark.png" alt="WhisPaste" class="w-8 h-8" />
+        <span class="font-medium tracking-tight">Whis</span><span class="font-bold text-brand-cyan tracking-tight">Paste</span>
       </a>
       <div class="hidden sm:flex items-center gap-6 text-sm text-gray-400">
         <a href="#features" class="hover:text-white transition-colors" data-i18n="nav.features">Features</a>
@@ -36,12 +36,8 @@ import Layout from "../layouts/Layout.astro";
 
     <div class="relative z-10 text-center px-6 max-w-4xl mx-auto">
       <div class="animate-fade-in">
-        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan text-sm mb-8 backdrop-blur-sm">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-          <span data-i18n="hero.badge">Open Source · Windows 10/11</span>
-        </div>
-        <div class="mb-6">
-          <img src="/whispaste/app-icon.png" alt="WhisPaste" class="w-20 h-20 mx-auto rounded-2xl shadow-lg shadow-brand-cyan/20" />
+        <div class="mb-8 mt-4">
+          <img id="heroLogo" src="/whispaste/app-icon-dark.png" alt="WhisPaste" class="w-24 h-24 mx-auto rounded-2xl" />
         </div>
         <h1 class="text-5xl sm:text-7xl lg:text-8xl font-bold tracking-tight text-white leading-[1.05]">
           <span data-i18n="hero.title1">Voice to text,</span><br>
@@ -63,7 +59,7 @@ import Layout from "../layouts/Layout.astro";
           <span data-i18n="hero.github">View on GitHub</span>
         </a>
       </div>
-      <p class="mt-6 text-sm text-gray-500 animate-fade-in-delay" data-i18n="hero.meta">Single portable .exe · No installer · ~8 MB · MIT License</p>
+      <p class="mt-6 text-sm text-gray-500 animate-fade-in-delay" data-i18n="hero.meta">Portable .exe · No installer · ~8 MB</p>
 
       <!-- App mockup -->
       <div class="mt-16 animate-fade-in-up">
@@ -132,31 +128,26 @@ import Layout from "../layouts/Layout.astro";
     </div>
   </section>
 
+  <!-- Gradient transition -->
+  <div class="h-24 bg-gradient-to-b from-transparent via-brand-cyan/[0.03] to-transparent -mt-12 -mb-12 relative z-0"></div>
+
   <!-- Features -->
-  <section id="features" class="py-24 sm:py-32 relative">
+  <section id="features" class="py-24 sm:py-32 relative scroll-mt-20">
     <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(14,116,144,0.05)_0%,_transparent_70%)]"></div>
     <div class="relative max-w-6xl mx-auto px-6">
       <div class="text-center mb-16 scroll-reveal">
         <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="features.label">Features</p>
         <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="features.title">Everything you need</h2>
         <p class="mt-4 text-gray-400 text-lg max-w-2xl mx-auto" data-i18n="features.desc">Powerful features in a lightweight package. No bloat, no subscriptions — just your API key and you're ready.</p>
-        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.03] border border-white/10 text-gray-400 text-sm mt-4">
-          <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-          BYOK — Bring your own OpenAI API key · ~$0.006/min
-        </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {[
-          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m9 8 3 3-3 3"/><path d="M14 16h4"/></svg>`, title: "Global Hotkey", desc: "Press Ctrl+Shift+V from anywhere. Fully configurable." },
-          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`, title: "Push-to-Talk & Toggle", desc: "Hold the hotkey or press to start/stop — your choice." },
-          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>`, title: "Auto-Paste", desc: "Transcribed text appears at your cursor automatically." },
-          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>`, title: "Smart Mode", desc: "AI post-processing: cleanup, email, bullets, translate." },
-          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>`, title: "Premium Overlay", desc: "Anti-aliased waveform, timer, and controls — always on top." },
-          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>`, title: "History", desc: "Browse and re-copy your last transcriptions from the tray." },
-          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>`, title: "Dashboard", desc: "Browse, search, tag, and organize all your transcriptions in one place." },
-          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`, title: "Audio Feedback", desc: "Subtle sounds for start, stop, success, and error states." },
-          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" x2="12" y1="2" y2="12"/></svg>`, title: "Autostart", desc: "Launch on Windows login, starts silently in the tray." },
-          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>`, title: "Auto-Update", desc: "SHA256-verified self-updater via GitHub Releases." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m9 8 3 3-3 3"/><path d="M14 16h4"/></svg>`, title: "Global Hotkey", desc: "Press your hotkey from anywhere — push-to-talk or toggle mode. Fully configurable." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>`, title: "Auto-Paste", desc: "Transcribed text lands at your cursor automatically. Clipboard always updated." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>`, title: "Smart Mode", desc: "AI post-processing with GPT: clean up, format, translate, or apply custom prompts." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>`, title: "Premium Overlay", desc: "Anti-aliased waveform, timer, and controls — always on top while recording." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>`, title: "Dashboard", desc: "Search, tag, pin, and organize all your transcriptions in one place." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>`, title: "Privacy First", desc: "Direct API connection, no telemetry, no tracking. BYOK — bring your own key." },
         ].map(({ icon, title, desc }) => (
           <div class="feature-card group p-6 rounded-2xl border border-white/[0.06] hover:border-brand-cyan/30 transition-all duration-300 scroll-reveal">
             <div class="w-10 h-10 rounded-xl bg-brand-cyan/10 text-brand-cyan flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-brand-cyan/15 transition-all duration-300" set:html={icon} />
@@ -169,7 +160,7 @@ import Layout from "../layouts/Layout.astro";
   </section>
 
   <!-- How It Works -->
-  <section id="how-it-works" class="py-24 sm:py-32 relative">
+  <section id="how-it-works" class="py-24 sm:py-32 relative scroll-mt-20">
     <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_rgba(14,116,144,0.08)_0%,_transparent_60%)]"></div>
     <div class="relative max-w-5xl mx-auto px-6">
       <div class="text-center mb-16 scroll-reveal">
@@ -253,7 +244,7 @@ import Layout from "../layouts/Layout.astro";
   <footer class="py-8 border-t border-white/5">
     <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
       <div class="flex items-center gap-2">
-        <img src="/whispaste/app-icon-dark.png" alt="" class="w-4 h-4 opacity-60" />
+        <img id="footerLogo" src="/whispaste/app-icon-dark.png" alt="" class="w-6 h-6 opacity-60" />
         <span>&copy; 2025 <a href="https://github.com/silvio-l" class="hover:text-white transition-colors">Silvio Lindstedt</a></span>
       </div>
       <div class="flex items-center gap-4">
@@ -391,13 +382,12 @@ import Layout from "../layouts/Layout.astro";
     // i18n translations
     const i18n = {
       en: {
-        'hero.badge': 'Open Source · Windows 10/11',
         'hero.title1': 'Voice to text,',
         'hero.title2': 'pasted anywhere.',
         'hero.desc': 'A lightweight desktop tool that transcribes your speech with OpenAI Whisper and pastes the result into any focused input field.',
         'hero.download': 'Download for Windows',
         'hero.github': 'View on GitHub',
-        'hero.meta': 'Single portable .exe · No installer · ~8 MB · MIT License',
+        'hero.meta': 'Portable .exe · No installer · ~8 MB',
         'nav.features': 'Features',
         'nav.howitworks': 'How It Works',
         'features.label': 'Features',
@@ -416,19 +406,18 @@ import Layout from "../layouts/Layout.astro";
         'footer.license': 'MIT License'
       },
       de: {
-        'hero.badge': 'Open Source · Windows 10/11',
-        'hero.title1': 'Sprache zu Text,',
-        'hero.title2': 'überall eingefügt.',
-        'hero.desc': 'Ein schlankes Desktop-Tool, das Sprache mit OpenAI Whisper transkribiert und das Ergebnis in jedes fokussierte Eingabefeld einfügt.',
-        'hero.download': 'Für Windows herunterladen',
+        'hero.title1': 'Voice to Text,',
+        'hero.title2': 'Paste anywhere.',
+        'hero.desc': 'Ein schlankes Desktop-Tool — transkribiert Sprache mit OpenAI Whisper und fügt das Ergebnis direkt in jedes Eingabefeld ein.',
+        'hero.download': 'Download für Windows',
         'hero.github': 'Auf GitHub ansehen',
-        'hero.meta': 'Einzelne portable .exe · Kein Installer · ~8 MB · MIT-Lizenz',
-        'nav.features': 'Funktionen',
+        'hero.meta': 'Portable .exe · Kein Installer · ~8 MB',
+        'nav.features': 'Features',
         'nav.howitworks': 'So funktioniert\'s',
-        'features.label': 'Funktionen',
-        'features.title': 'Alles was du brauchst',
+        'features.label': 'Features',
+        'features.title': 'Alles, was du brauchst',
         'features.desc': 'Leistungsstarke Funktionen in einem schlanken Paket. Kein Ballast, kein Abo — nur dein API-Schlüssel.',
-        'howitworks.label': 'Ablauf',
+        'howitworks.label': 'Workflow',
         'howitworks.title': 'So funktioniert\'s',
         'howitworks.desc': 'Vier Schritte. Null Aufwand.',
         'privacy.label': 'Sicherheit',
@@ -484,6 +473,13 @@ import Layout from "../layouts/Layout.astro";
           ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>'
           : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
       }
+      const lightSrc = '/whispaste/app-icon-light.png';
+      const darkSrc = '/whispaste/app-icon-dark.png';
+      const src = isLight ? lightSrc : darkSrc;
+      ['navLogo', 'heroLogo', 'footerLogo'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.src = src;
+      });
     }
 
     // Expose functions globally for onclick handlers
