@@ -61,66 +61,83 @@ import Layout from "../layouts/Layout.astro";
       </div>
       <p class="mt-6 text-sm text-gray-500 animate-fade-in-delay" data-i18n="hero.meta">Portable .exe · No installer · ~8 MB</p>
 
-      <!-- App mockup -->
+      <!-- Carousel -->
       <div class="mt-16 animate-fade-in-up">
         <div class="relative mx-auto max-w-2xl">
-          <!-- Glow behind mockup -->
           <div class="absolute -inset-4 bg-brand-cyan/[0.06] rounded-3xl blur-2xl"></div>
-          <!-- Mockup window -->
           <div class="relative rounded-2xl border border-white/10 bg-brand-dark/80 backdrop-blur-xl overflow-hidden shadow-2xl shadow-black/50">
-            <!-- Title bar -->
-            <div class="flex items-center gap-2 px-4 py-2.5 bg-brand-card/60 border-b border-white/5">
-              <div class="flex gap-1.5">
-                <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
-                <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
-                <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
-              </div>
-              <span class="ml-2 text-xs text-gray-500 font-mono">WhisPaste — Settings</span>
-            </div>
-            <!-- Simulated content -->
-            <div class="p-6 space-y-4">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-brand-cyan/15 flex items-center justify-center">
-                  <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                </div>
-                <div>
-                  <div class="text-sm text-white font-medium">Whisper API</div>
-                  <div class="text-xs text-gray-500">Connected · whisper-1</div>
-                </div>
-                <div class="ml-auto w-8 h-5 rounded-full bg-brand-cyan/80 relative"><div class="absolute right-0.5 top-0.5 w-4 h-4 rounded-full bg-white"></div></div>
-              </div>
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-brand-teal/15 flex items-center justify-center">
-                  <svg class="w-4 h-4 text-brand-teal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m9 8 3 3-3 3"/></svg>
-                </div>
-                <div>
-                  <div class="text-sm text-white font-medium">Global Hotkey</div>
-                  <div class="text-xs text-gray-500">Ctrl + Shift + V</div>
-                </div>
-                <div class="ml-auto px-2 py-0.5 rounded bg-white/5 border border-white/10 text-xs text-gray-400 font-mono">Ctrl+⇧+V</div>
-              </div>
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center">
-                  <svg class="w-4 h-4 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/></svg>
-                </div>
-                <div>
-                  <div class="text-sm text-white font-medium">Smart Mode</div>
-                  <div class="text-xs text-gray-500">Post-processing with GPT</div>
-                </div>
-                <div class="ml-auto w-8 h-5 rounded-full bg-white/10 relative"><div class="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-gray-400"></div></div>
-              </div>
-              <!-- Waveform animation -->
-              <div class="mt-2 p-4 rounded-xl bg-brand-darker/80 border border-brand-cyan/20">
-                <div class="flex items-center gap-3 mb-3">
-                  <div class="w-6 h-6 rounded-full bg-red-500 animate-pulse flex items-center justify-center">
-                    <div class="w-2 h-2 rounded-full bg-white"></div>
+            <!-- Carousel viewport -->
+            <div class="overflow-hidden">
+              <div id="carousel-track" class="flex transition-transform duration-700 ease-in-out" style="transform: translateX(0%);">
+                <!-- Scene 1: Hotkey Press -->
+                <div class="w-full shrink-0">
+                  <div class="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[220px]">
+                    <div class="flex items-end gap-3 sm:gap-4 mb-6">
+                      <div class="carousel-key" style="--press-delay: 0s;">
+                        <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>
+                      </div>
+                      <div class="carousel-key" style="--press-delay: 0.15s;">
+                        <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
+                      </div>
+                      <div class="carousel-key" style="--press-delay: 0.3s;">
+                        <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                      </div>
+                    </div>
+                    <span class="text-sm text-gray-400" data-i18n="carousel.hotkey">Your Hotkey</span>
                   </div>
-                  <span class="text-xs text-gray-400 font-mono">Recording — 0:03</span>
                 </div>
-                <div class="flex items-end gap-[2px] h-8 justify-center" id="hero-waveform">
-                  <!-- Waveform bars rendered by JS -->
+                <!-- Scene 2: Recording Overlay -->
+                <div class="w-full shrink-0">
+                  <div class="p-8 sm:p-12 flex items-center justify-center min-h-[220px]">
+                    <div class="overlay-pill">
+                      <img src="/whispaste/app-icon-dark.png" alt="" class="overlay-icon" />
+                      <div class="overlay-content">
+                        <div class="overlay-status">
+                          <div class="overlay-rec-dot"></div>
+                          <span class="overlay-text-main" data-i18n="carousel.recording">Recording</span>
+                        </div>
+                        <span class="overlay-text-timer">0:03</span>
+                      </div>
+                      <div class="overlay-waveform" id="overlay-waveform"></div>
+                      <div class="overlay-buttons">
+                        <div class="overlay-btn-pause">
+                          <svg viewBox="0 0 24 24" fill="white" width="14" height="14"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                        </div>
+                        <div class="overlay-btn-confirm">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="4 12 9 17 20 6"/></svg>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Scene 3: Text Insertion -->
+                <div class="w-full shrink-0">
+                  <div class="p-6 min-h-[220px]">
+                    <div class="flex items-center gap-2 px-4 py-2.5 bg-brand-card/60 border-b border-white/5 rounded-t-lg">
+                      <div class="flex gap-1.5">
+                        <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
+                      </div>
+                      <span class="ml-2 text-xs text-gray-500 font-mono" data-i18n="carousel.editor_title">Text Editor</span>
+                    </div>
+                    <div class="bg-brand-darker/80 border border-white/5 border-t-0 rounded-b-lg p-4 min-h-[140px]">
+                      <div class="flex items-start gap-3">
+                        <div class="text-xs text-gray-600 font-mono select-none leading-relaxed pt-0.5">1<br>2</div>
+                        <div id="typed-text" class="text-sm text-white/90 font-mono leading-relaxed whitespace-pre-wrap">
+                          <span class="typing-cursor"></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
+            <!-- Dot indicators -->
+            <div class="flex justify-center gap-2 py-3 bg-brand-card/40 border-t border-white/5">
+              <button class="carousel-dot active w-2 h-2 rounded-full bg-brand-cyan transition-all" data-slide="0" style="width:16px;"></button>
+              <button class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all" data-slide="1"></button>
+              <button class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all" data-slide="2"></button>
             </div>
           </div>
         </div>
@@ -166,17 +183,16 @@ import Layout from "../layouts/Layout.astro";
       <div class="text-center mb-16 scroll-reveal">
         <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="howitworks.label">Workflow</p>
         <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="howitworks.title">How it works</h2>
-        <p class="mt-4 text-gray-400 text-lg" data-i18n="howitworks.desc">Four steps. Zero friction.</p>
+        <p class="mt-4 text-gray-400 text-lg" data-i18n="howitworks.desc">Three steps. Zero friction.</p>
       </div>
       <div class="relative">
         <!-- Connecting line (desktop only) -->
-        <div class="hidden lg:block absolute top-8 left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-brand-cyan/0 via-brand-cyan/30 to-brand-cyan/0"></div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div class="hidden lg:block absolute top-8 left-[16.67%] right-[16.67%] h-px bg-gradient-to-r from-brand-cyan/0 via-brand-cyan/30 to-brand-cyan/0"></div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-8">
           {[
-            { step: "1", icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m9 8 3 3-3 3"/><path d="M14 16h4"/></svg>`, title: "Press Hotkey", desc: "Hit Ctrl+Shift+V from any app" },
-            { step: "2", icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`, title: "Speak", desc: "The overlay shows your recording" },
-            { step: "3", icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>`, title: "Transcribe", desc: "Whisper converts speech to text" },
-            { step: "4", icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>`, title: "Paste", desc: "Text appears at your cursor" },
+            { step: "1", icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m9 8 3 3-3 3"/><path d="M14 16h4"/></svg>`, title: "Press Hotkey", desc: "Hit your hotkey from any app" },
+            { step: "2", icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`, title: "Speak & Transcribe", desc: "Whisper converts your speech to text" },
+            { step: "3", icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>`, title: "Auto-Paste", desc: "Text appears at your cursor" },
           ].map(({ step, icon, title, desc }) => (
             <div class="text-center scroll-reveal">
               <div class="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-card/80 border border-brand-border/60 mb-4 text-brand-cyan shadow-lg shadow-brand-cyan/[0.05]" set:html={icon}>
@@ -316,28 +332,150 @@ import Layout from "../layouts/Layout.astro";
       box-shadow: 0 0 30px rgba(34, 211, 238, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
 
-    /* Waveform bar animation */
-    .wave-bar {
-      background: linear-gradient(to top, #0E7490, #22D3EE);
-      border-radius: 1px;
-      width: 3px;
-      min-height: 3px;
-      animation: wave-bounce var(--duration) ease-in-out var(--delay) infinite;
+    /* Carousel key animation */
+    .carousel-key {
+      width: 56px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+      animation: key-press 2s ease-in-out var(--press-delay) infinite;
+      transition: transform 0.1s, box-shadow 0.1s;
     }
-    @keyframes wave-bounce {
-      0%, 100% { height: var(--min-h); }
-      50% { height: var(--max-h); }
+    @keyframes key-press {
+      0%, 30%, 100% { transform: translateY(0); box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1); }
+      15% { transform: translateY(4px); box-shadow: 0 0px 0 rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1); }
+    }
+
+    /* Overlay pill (Scene 2) */
+    .overlay-pill {
+      position: relative;
+      width: 490px;
+      height: 64px;
+      border-radius: 32px;
+      background: #0A1A29;
+      border: 1.5px solid #0066B8;
+      box-shadow: 3px 3px 8px rgba(0,0,0,0.25);
+      display: flex;
+      align-items: center;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      transform: scale(0.85);
+      transform-origin: center;
+    }
+    @media (min-width: 640px) {
+      .overlay-pill { transform: scale(1); }
+    }
+    .overlay-icon {
+      width: 36px;
+      height: 36px;
+      margin-left: 14px;
+      border-radius: 4px;
+    }
+    .overlay-content {
+      margin-left: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .overlay-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .overlay-rec-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #FF3C3C;
+      animation: rec-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes rec-pulse {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
+    .overlay-text-main {
+      font-size: 15px;
+      font-weight: 600;
+      color: #FFFFFF;
+      line-height: 1;
+    }
+    .overlay-text-timer {
+      font-size: 11px;
+      font-weight: 400;
+      color: #90A0B0;
+      line-height: 1;
+      padding-left: 22px;
+    }
+    .overlay-waveform {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      margin-left: auto;
+      margin-right: 8px;
+      height: 100%;
+    }
+    .overlay-wave-bar {
+      width: 4px;
+      border-radius: 2px;
+      background: #22D3EE;
+      animation: wave-bar-anim var(--wave-dur) ease-in-out var(--wave-delay) infinite;
+      min-height: 2px;
+    }
+    @keyframes wave-bar-anim {
+      0%, 100% { height: var(--wave-min); background: #186688; }
+      50% { height: var(--wave-max); background: #22D3EE; }
+    }
+    .overlay-buttons {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-right: 12px;
+    }
+    .overlay-btn-pause, .overlay-btn-confirm {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay-btn-pause { background: #0E7490; }
+    .overlay-btn-confirm { background: #22D3EE; }
+
+    /* Typing cursor (Scene 3) */
+    .typing-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.1em;
+      background: #22D3EE;
+      margin-left: 1px;
+      animation: cursor-blink 0.8s step-end infinite;
+      vertical-align: text-bottom;
+    }
+    @keyframes cursor-blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
     }
 
     /* Accessibility: respect reduced-motion preference */
     @media (prefers-reduced-motion: reduce) {
       .hero-glow,
       .hero-gradient,
-      .wave-bar,
+      .carousel-key,
+      .overlay-rec-dot,
+      .overlay-wave-bar,
+      .typing-cursor,
       .animate-fade-in,
       .animate-fade-in-delay,
       .animate-fade-in-up {
         animation: none !important;
+      }
+      #carousel-track {
+        transition: none !important;
       }
       .scroll-reveal {
         opacity: 1 !important;
@@ -377,25 +515,102 @@ import Layout from "../layouts/Layout.astro";
       });
     }, { passive: true });
 
-    // Hero waveform animation
-    const waveContainer = document.getElementById("hero-waveform");
-    if (waveContainer) {
-      const barCount = 48;
-      for (let i = 0; i < barCount; i++) {
-        const bar = document.createElement("div");
-        bar.className = "wave-bar";
-        const center = Math.abs(i - barCount / 2) / (barCount / 2);
-        const minH = 3 + Math.random() * 2;
-        const maxH = 8 + (1 - center) * 22 + Math.random() * 6;
-        const duration = 0.6 + Math.random() * 0.8;
-        const delay = i * 0.03 + Math.random() * 0.1;
-        bar.style.setProperty("--min-h", minH + "px");
-        bar.style.setProperty("--max-h", maxH + "px");
-        bar.style.setProperty("--duration", duration + "s");
-        bar.style.setProperty("--delay", delay + "s");
-        waveContainer.appendChild(bar);
+    // Carousel
+    const track = document.getElementById('carousel-track');
+    const dots = document.querySelectorAll('.carousel-dot');
+    let currentSlide = 0;
+    const totalSlides = 3;
+    const SLIDE_INTERVAL = 5000;
+    let carouselTimer;
+    let reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function goToSlide(n) {
+      currentSlide = n;
+      if (track) track.style.transform = `translateX(-${n * 100}%)`;
+      dots.forEach((dot, i) => {
+        if (i === n) {
+          dot.classList.remove('bg-white/20');
+          dot.classList.add('bg-brand-cyan');
+          dot.style.width = '16px';
+        } else {
+          dot.classList.add('bg-white/20');
+          dot.classList.remove('bg-brand-cyan');
+          dot.style.width = '8px';
+        }
+      });
+      if (n === 2) startTyping();
+    }
+
+    function nextSlide() {
+      goToSlide((currentSlide + 1) % totalSlides);
+    }
+
+    function startCarousel() {
+      if (reducedMotion) return;
+      carouselTimer = setInterval(nextSlide, SLIDE_INTERVAL);
+    }
+
+    function stopCarousel() {
+      clearInterval(carouselTimer);
+    }
+
+    dots.forEach(dot => {
+      dot.addEventListener('click', () => {
+        stopCarousel();
+        goToSlide(parseInt(dot.dataset.slide));
+        startCarousel();
+      });
+    });
+
+    // Generate overlay waveform bars
+    const waveformEl = document.getElementById('overlay-waveform');
+    if (waveformEl) {
+      for (let i = 0; i < 20; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'overlay-wave-bar';
+        const minH = 2 + Math.random() * 3;
+        const maxH = 8 + Math.random() * 28;
+        bar.style.setProperty('--wave-min', minH + 'px');
+        bar.style.setProperty('--wave-max', maxH + 'px');
+        bar.style.setProperty('--wave-dur', (0.6 + Math.random() * 0.8) + 's');
+        bar.style.setProperty('--wave-delay', (i * 0.05 + Math.random() * 0.1) + 's');
+        bar.style.height = minH + 'px';
+        waveformEl.appendChild(bar);
       }
     }
+
+    // Typing animation for scene 3
+    const typedEl = document.getElementById('typed-text');
+    let typingTimeout;
+
+    function getTypingText() {
+      return currentLang === 'de'
+        ? 'Hallo, das ist ein Beispiel\nfür transkribierte Sprache.'
+        : 'Hello, this is an example\nof transcribed speech.';
+    }
+
+    function startTyping() {
+      if (!typedEl) return;
+      clearTimeout(typingTimeout);
+      const text = getTypingText();
+      typedEl.innerHTML = '<span class="typing-cursor"></span>';
+      let i = 0;
+      function typeChar() {
+        if (i < text.length && currentSlide === 2) {
+          const cursor = typedEl.querySelector('.typing-cursor');
+          if (cursor) {
+            const charNode = document.createTextNode(text[i]);
+            typedEl.insertBefore(charNode, cursor);
+          }
+          i++;
+          typingTimeout = setTimeout(typeChar, 40 + Math.random() * 40);
+        }
+      }
+      typingTimeout = setTimeout(typeChar, 400);
+    }
+
+    startCarousel();
+    goToSlide(0);
 
     // i18n translations
     const i18n = {
@@ -413,7 +628,7 @@ import Layout from "../layouts/Layout.astro";
         'features.desc': 'Powerful features in a lightweight package. No bloat, no subscriptions — just your API key and you\'re ready.',
         'howitworks.label': 'Workflow',
         'howitworks.title': 'How it works',
-        'howitworks.desc': 'Four steps. Zero friction.',
+        'howitworks.desc': 'Three steps. Zero friction.',
         'privacy.label': 'Security',
         'privacy.title': 'Privacy first',
         'privacy.desc': 'Your data stays yours. Always.',
@@ -423,7 +638,10 @@ import Layout from "../layouts/Layout.astro";
         'support.coffee': 'Buy a Coffee',
         'footer.impressum': 'Legal Notice',
         'footer.privacy': 'Privacy Policy',
-        'footer.license': 'MIT License'
+        'footer.license': 'MIT License',
+        'carousel.hotkey': 'Your Hotkey',
+        'carousel.recording': 'Recording',
+        'carousel.editor_title': 'Text Editor'
       },
       de: {
         'hero.title1': 'Voice to Text,',
@@ -439,7 +657,7 @@ import Layout from "../layouts/Layout.astro";
         'features.desc': 'Leistungsstarke Funktionen in einem schlanken Paket. Kein Ballast, kein Abo — nur dein API-Schlüssel.',
         'howitworks.label': 'Workflow',
         'howitworks.title': 'So funktioniert\'s',
-        'howitworks.desc': 'Vier Schritte. Null Aufwand.',
+        'howitworks.desc': 'Drei Schritte. Null Aufwand.',
         'privacy.label': 'Sicherheit',
         'privacy.title': 'Privatsphäre zuerst',
         'privacy.desc': 'Deine Daten bleiben bei dir. Immer.',
@@ -449,7 +667,10 @@ import Layout from "../layouts/Layout.astro";
         'support.coffee': 'Einen Kaffee ausgeben',
         'footer.impressum': 'Impressum',
         'footer.privacy': 'Datenschutz',
-        'footer.license': 'MIT-Lizenz'
+        'footer.license': 'MIT-Lizenz',
+        'carousel.hotkey': 'Dein Hotkey',
+        'carousel.recording': 'Aufnahme',
+        'carousel.editor_title': 'Texteditor'
       }
     };
 
