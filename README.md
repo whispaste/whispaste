@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/silvio-l/whispaste?style=flat-square&color=00ADD8&label=download" alt="Latest Release"></a>&nbsp;
+  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/whispaste/whispaste?style=flat-square&color=00ADD8&label=download" alt="Latest Release"></a>&nbsp;
   <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows 10/11">&nbsp;
   <img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT License">&nbsp;
   <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.24+">
@@ -128,7 +128,7 @@ WhisPaste uses the OpenAI Whisper API, billed per audio minute at **~$0.006/min*
 
 ```powershell
 # Clone
-git clone https://github.com/silvio-l/whispaste.git
+git clone https://github.com/whispaste/whispaste.git
 cd whispaste
 
 # Build (debug)
