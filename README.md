@@ -21,6 +21,7 @@
   <a href="../../releases/latest"><b>📥 Download</b></a>&ensp;·&ensp;
   <a href="#-quick-start"><b>🚀 Quick Start</b></a>&ensp;·&ensp;
   <a href="#-configuration"><b>⚙️ Config</b></a>&ensp;·&ensp;
+  <a href="#-api-costs"><b>💰 Costs</b></a>&ensp;·&ensp;
   <a href="#%EF%B8%8F-building-from-source"><b>🏗️ Build</b></a>&ensp;·&ensp;
   <a href="#-support"><b>❤️ Support</b></a>
 </p>
@@ -70,6 +71,29 @@ Right-click the tray icon → **Settings** to configure:
 | Check Updates | On | Automatically check for new versions |
 
 Config is stored in `%APPDATA%\Whispaste\config.json`.
+
+<br>
+
+## 💰 API Costs
+
+Whispaste uses the OpenAI Whisper API, billed per audio minute at **~$0.006/min**.
+
+| Usage | Example | Cost |
+|-------|---------|------|
+| Short sentence (10–15 s) | Quick note | ~$0.001 |
+| Half a minute | Longer thought | ~$0.003 |
+| One full minute | Detailed dictation | ~$0.006 |
+
+**Typical monthly cost estimates:**
+
+| Profile | Daily usage | Monthly cost |
+|---------|-------------|--------------|
+| Occasional | ~5 min/day | ~$1 |
+| Regular | ~20 min/day | ~$4 |
+| Heavy | ~30 min/day | ~$6 |
+| Power user | ~2 hrs/day | ~$22 |
+
+> **Bottom line:** For most users, it's a few dollars per month — single dictations cost fractions of a cent.
 
 <br>
 
