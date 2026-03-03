@@ -43,3 +43,26 @@ html.light .bg-brand-dark\/80 { background: rgba(248,250,252,0.9) !important; }
 html.light .shadow-black\/50 { box-shadow: 0 25px 50px rgba(0,0,0,0.1) !important; }
 html.light .shadow-brand-cyan\/\[0\.05\] { box-shadow: 0 4px 12px rgba(8,145,178,0.1) !important; }
 html.light .bg-brand-card\/60 { background: rgba(255,255,255,0.8) !important; }
+
+/* Light theme: carousel fixes */
+html.light .carousel-key {
+  background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.08) 100%) !important;
+  border-color: rgba(0,0,0,0.15) !important;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.12), 0 6px 12px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6) !important;
+}
+html.light .carousel-key svg { color: #334155 !important; }
+html.light .carousel-cursor path { fill: #334155 !important; fill-opacity: 0.8 !important; stroke: rgba(0,0,0,0.15) !important; }
+html.light .speaking-head { color: rgba(0,0,0,0.5) !important; }
+html.light .microphone-icon { color: rgba(0,0,0,0.4) !important; }
+html.light .carousel-dot { background: rgba(0,0,0,0.15) !important; }
+html.light .carousel-dot.bg-brand-cyan { background: #0891B2 !important; }
+html.light #typed-text { color: #1E293B !important; }
+html.light .microphone-icon { animation-name: mic-glow-light !important; }
+@keyframes mic-glow-light {
+  0%, 100% { color: rgba(0,0,0,0.4); }
+  50% { color: #0891B2; }
+}
+html.light .overlay-pill {
+  box-shadow: 3px 3px 16px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,102,184,0.3) !important;
+}
+html.light .typing-cursor { background: #0891B2 !important; }
