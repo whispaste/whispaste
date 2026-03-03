@@ -16,7 +16,7 @@ const (
 	radius = 50
 )
 
-// Whispaste brand colors
+// WhisPaste brand colors
 var (
 	accentCyan   = color.RGBA{34, 211, 238, 255}
 	darkTeal     = color.RGBA{14, 116, 144, 255}

@@ -170,7 +170,7 @@ func (u *Updater) CheckNow(ctx context.Context, force ...bool) (*UpdateInfo, err
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Set("User-Agent", "Whispaste/"+u.currentVersion+" auto-updater")
+	req.Header.Set("User-Agent", "WhisPaste/"+u.currentVersion+" auto-updater")
 	req.Header.Set("Accept", "application/vnd.github+json")
 
 	resp, err := client.Do(req)
@@ -334,7 +334,7 @@ func downloadFile(ctx context.Context, url, dest, version string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "Whispaste/"+version+" auto-updater")
+	req.Header.Set("User-Agent", "WhisPaste/"+version+" auto-updater")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -361,7 +361,7 @@ func downloadChecksum(ctx context.Context, url, version string) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", "Whispaste/"+version+" auto-updater")
+	req.Header.Set("User-Agent", "WhisPaste/"+version+" auto-updater")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

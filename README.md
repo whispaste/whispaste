@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="resources/app-icon%20mit%20bg.png" alt="Whispaste" width="140">
+  <img src="resources/app-icon%20mit%20bg.png" alt="WhisPaste" width="140">
 </p>
 
-<h1 align="center">Whispaste</h1>
+<h1 align="center">WhisPaste</h1>
 
 <p align="center">
   <b>Voice to text, pasted anywhere.</b><br>
@@ -77,7 +77,7 @@ Right-click the tray icon → **Settings** to configure:
 | Sound Volume | 100% | Volume for start/stop/success/error sounds |
 | Smart Mode | Off | AI post-processing (cleanup, email, bullets, formal, translate) |
 | Overlay Position | Top Center | Where the overlay appears (top center or near cursor) |
-| Autostart | Off | Launch Whispaste on Windows login |
+| Autostart | Off | Launch WhisPaste on Windows login |
 | Check Updates | On | Automatically check for new versions |
 
 Config is stored in `%APPDATA%\Whispaste\config.json`.
@@ -86,7 +86,7 @@ Config is stored in `%APPDATA%\Whispaste\config.json`.
 
 ## 💰 API Costs
 
-Whispaste uses the OpenAI Whisper API, billed per audio minute at **~$0.006/min**.
+WhisPaste uses the OpenAI Whisper API, billed per audio minute at **~$0.006/min**.
 
 | Usage | Example | Cost |
 |-------|---------|------|
@@ -180,7 +180,7 @@ whispaste/
 
 ## ❤️ Support
 
-Whispaste is free and open source. If you find it useful, consider supporting development:
+WhisPaste is free and open source. If you find it useful, consider supporting development:
 
 <p align="center">
   <a href="https://github.com/sponsors/silvio-l"><img src="https://img.shields.io/badge/Sponsor_on_GitHub-❤-ea4aaa?style=for-the-badge&logo=github" alt="Sponsor silvio-l"></a>&ensp;

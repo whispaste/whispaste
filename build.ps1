@@ -1,4 +1,4 @@
-# Whispaste Build Script
+# WhisPaste Build Script
 # Requires: Go 1.21+, GCC (MinGW-w64)
 param(
     [switch]$Release,
@@ -31,7 +31,7 @@ if ($Clean) {
     exit 0
 }
 
-Write-Host "`n=== Building Whispaste ===" -ForegroundColor Cyan
+Write-Host "`n=== Building WhisPaste ===" -ForegroundColor Cyan
 
 $ldflags = "-s -w -H windowsgui"
 if ($Release) {
