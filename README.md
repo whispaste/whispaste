@@ -129,6 +129,7 @@ whispaste/
 ├── ui_settings.html   # Settings UI (HTML/CSS/JS)
 ├── config.go          # Configuration management
 ├── update.go          # Secure auto-updater (GitHub Releases)
+├── logger.go          # File-based logging with rotation
 ├── l10n.go            # Localization (EN/DE)
 ├── sound.go           # Audio feedback
 ├── types.go           # Shared types and constants
