@@ -21,7 +21,9 @@ const (
 	_INPUT_KEYBOARD   = 1
 	_KEYEVENTF_KEYUP  = 0x0002
 	_VK_CONTROL       = 0x11
+	_VK_SHIFT         = 0x10
 	_VK_V             = 0x56
+	_VK_INSERT        = 0x2D
 )
 
 var (
@@ -34,6 +36,8 @@ var (
 	procGetClipboardData = pasteUser32.NewProc("GetClipboardData")
 	procSetClipboardData = pasteUser32.NewProc("SetClipboardData")
 	procSendInput        = pasteUser32.NewProc("SendInput")
+	procGetForegroundWnd = pasteUser32.NewProc("GetForegroundWindow")
+	procGetClassName     = pasteUser32.NewProc("GetClassNameW")
 
 	procGlobalAlloc  = pasteKernel32.NewProc("GlobalAlloc")
 	procGlobalFree   = pasteKernel32.NewProc("GlobalFree")
@@ -54,18 +58,41 @@ type kbdINPUT struct {
 	pad2        [8]byte
 }
 
-// PasteText places text on the clipboard and simulates Ctrl+V.
-// The transcription remains on the clipboard for subsequent manual pastes.
+// PasteText places text on the clipboard and simulates the appropriate paste shortcut.
+// Detects terminal windows and uses Ctrl+Shift+V or Shift+Insert as needed.
 func PasteText(text string) error {
 	if err := writeClipboard(text); err != nil {
 		return fmt.Errorf(T("error.clipboard"), err)
 	}
 
-	// Release any held modifier keys to avoid interference (e.g., Alt+Ctrl+V)
+	// Release any held modifier keys to avoid interference
 	releaseModifiers()
 	time.Sleep(50 * time.Millisecond)
-	sendCtrlV()
+
+	cls := getForegroundClass()
+	switch cls {
+	case "CASCADIA_HOSTING_WINDOW_CLASS", "ConsoleWindowClass":
+		sendCtrlShiftV()
+	case "mintty":
+		sendShiftInsert()
+	default:
+		sendCtrlV()
+	}
 	return nil
+}
+
+// getForegroundClass returns the window class name of the foreground window.
+func getForegroundClass() string {
+	hwnd, _, _ := procGetForegroundWnd.Call()
+	if hwnd == 0 {
+		return ""
+	}
+	buf := make([]uint16, 256)
+	n, _, _ := procGetClassName.Call(hwnd, uintptr(unsafe.Pointer(&buf[0])), 256)
+	if n == 0 {
+		return ""
+	}
+	return windows.UTF16ToString(buf[:n])
 }
 
 func readClipboard() (string, error) {
@@ -133,6 +160,28 @@ func sendCtrlV() {
 		{inputType: _INPUT_KEYBOARD, wVk: _VK_V},
 		{inputType: _INPUT_KEYBOARD, wVk: _VK_V, dwFlags: _KEYEVENTF_KEYUP},
 		{inputType: _INPUT_KEYBOARD, wVk: _VK_CONTROL, dwFlags: _KEYEVENTF_KEYUP},
+	}
+	procSendInput.Call(4, uintptr(unsafe.Pointer(&inputs[0])), unsafe.Sizeof(inputs[0]))
+}
+
+func sendCtrlShiftV() {
+	inputs := [6]kbdINPUT{
+		{inputType: _INPUT_KEYBOARD, wVk: _VK_CONTROL},
+		{inputType: _INPUT_KEYBOARD, wVk: _VK_SHIFT},
+		{inputType: _INPUT_KEYBOARD, wVk: _VK_V},
+		{inputType: _INPUT_KEYBOARD, wVk: _VK_V, dwFlags: _KEYEVENTF_KEYUP},
+		{inputType: _INPUT_KEYBOARD, wVk: _VK_SHIFT, dwFlags: _KEYEVENTF_KEYUP},
+		{inputType: _INPUT_KEYBOARD, wVk: _VK_CONTROL, dwFlags: _KEYEVENTF_KEYUP},
+	}
+	procSendInput.Call(6, uintptr(unsafe.Pointer(&inputs[0])), unsafe.Sizeof(inputs[0]))
+}
+
+func sendShiftInsert() {
+	inputs := [4]kbdINPUT{
+		{inputType: _INPUT_KEYBOARD, wVk: _VK_SHIFT},
+		{inputType: _INPUT_KEYBOARD, wVk: _VK_INSERT},
+		{inputType: _INPUT_KEYBOARD, wVk: _VK_INSERT, dwFlags: _KEYEVENTF_KEYUP},
+		{inputType: _INPUT_KEYBOARD, wVk: _VK_SHIFT, dwFlags: _KEYEVENTF_KEYUP},
 	}
 	procSendInput.Call(4, uintptr(unsafe.Pointer(&inputs[0])), unsafe.Sizeof(inputs[0]))
 }

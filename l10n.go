@@ -127,6 +127,48 @@ var translations = map[string]map[string]string{
 		"update.failed":        "Update failed: %s",
 		"update.check":         "Check for updates",
 		"update.up_to_date":    "Up to date ✓",
+
+		// Smart Mode
+		"settings.smart_mode":         "Smart Mode (AI Post-Processing)",
+		"settings.smart_preset":       "Preset",
+		"settings.smart_preset_off":   "Off",
+		"settings.smart_preset_cleanup": "Clean Up",
+		"settings.smart_preset_email": "Email Format",
+		"settings.smart_preset_bullets": "Bullet List",
+		"settings.smart_preset_formal": "Formal",
+		"settings.smart_preset_translate": "Translate",
+		"settings.smart_preset_custom": "Custom",
+		"settings.smart_prompt":       "Custom Instruction",
+		"settings.smart_prompt_hint":  "e.g. 'Always respond in formal German Markdown'",
+		"settings.smart_target":       "Target Language",
+		"settings.smart_cost_note":    "Uses GPT-4o-mini (~$0.002 per dictation)",
+
+		// Advanced
+		"settings.api_endpoint":       "API Endpoint",
+		"settings.api_endpoint_hint":  "Custom Whisper-compatible endpoint (leave empty for OpenAI)",
+		"settings.whisper_prompt":     "Whisper Prompt",
+		"settings.whisper_prompt_hint": "Domain-specific terms for better accuracy (e.g. 'Kubernetes, kubectl')",
+		"settings.max_duration":       "Max Recording Duration",
+		"settings.max_duration_fmt":   "%d seconds",
+
+		// Overlay
+		"overlay.processing":   "Processing…",
+		"overlay.cancelled":    "Cancelled",
+
+		// Tray
+		"tray.history":        "Recent Transcriptions",
+		"tray.history_empty":  "No transcriptions yet",
+		"tray.status_ready":   "Whispaste – Ready",
+		"tray.status_recording": "Whispaste – Recording…",
+		"tray.status_working": "Whispaste – Processing…",
+
+		// Stats
+		"stats.title":           "Usage This Month",
+		"stats.dictations":      "Dictations",
+		"stats.words":           "Words",
+		"stats.time_saved":      "Time Saved",
+		"stats.minutes":         "%d min",
+		"stats.cost":            "Est. Cost",
 	},
 	"de": {
 		// App
@@ -212,5 +254,47 @@ var translations = map[string]map[string]string{
 		"update.failed":        "Update fehlgeschlagen: %s",
 		"update.check":         "Nach Updates suchen",
 		"update.up_to_date":    "Aktuell ✓",
+
+		// Smart Mode
+		"settings.smart_mode":         "Smart-Modus (KI-Nachbearbeitung)",
+		"settings.smart_preset":       "Vorlage",
+		"settings.smart_preset_off":   "Aus",
+		"settings.smart_preset_cleanup": "Aufräumen",
+		"settings.smart_preset_email": "E-Mail-Format",
+		"settings.smart_preset_bullets": "Aufzählung",
+		"settings.smart_preset_formal": "Formell",
+		"settings.smart_preset_translate": "Übersetzen",
+		"settings.smart_preset_custom": "Benutzerdefiniert",
+		"settings.smart_prompt":       "Eigene Anweisung",
+		"settings.smart_prompt_hint":  "z. B. 'Immer in formellem Deutsch als Markdown antworten'",
+		"settings.smart_target":       "Zielsprache",
+		"settings.smart_cost_note":    "Nutzt GPT-4o-mini (~0,002 $ pro Diktat)",
+
+		// Advanced
+		"settings.api_endpoint":       "API-Endpunkt",
+		"settings.api_endpoint_hint":  "Eigener Whisper-kompatibler Endpunkt (leer = OpenAI)",
+		"settings.whisper_prompt":     "Whisper-Prompt",
+		"settings.whisper_prompt_hint": "Fachbegriffe für bessere Erkennung (z. B. 'Kubernetes, kubectl')",
+		"settings.max_duration":       "Max. Aufnahmedauer",
+		"settings.max_duration_fmt":   "%d Sekunden",
+
+		// Overlay
+		"overlay.processing":   "Verarbeitung…",
+		"overlay.cancelled":    "Abgebrochen",
+
+		// Tray
+		"tray.history":        "Letzte Transkriptionen",
+		"tray.history_empty":  "Noch keine Transkriptionen",
+		"tray.status_ready":   "Whispaste – Bereit",
+		"tray.status_recording": "Whispaste – Aufnahme…",
+		"tray.status_working": "Whispaste – Verarbeitung…",
+
+		// Stats
+		"stats.title":           "Nutzung diesen Monat",
+		"stats.dictations":      "Diktate",
+		"stats.words":           "Wörter",
+		"stats.time_saved":      "Eingesparte Zeit",
+		"stats.minutes":         "%d Min.",
+		"stats.cost":            "Gesch. Kosten",
 	},
 }

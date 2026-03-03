@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// Transcribe sends audio to the OpenAI Whisper API and returns the transcription.
-func Transcribe(audioWAV []byte, language string, apiKey string, model string) (string, error) {
+// Transcribe sends audio to the Whisper-compatible API and returns the transcription.
+func Transcribe(audioWAV []byte, language string, apiKey string, model string, endpoint string, prompt string) (string, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 
@@ -31,12 +31,21 @@ func Transcribe(audioWAV []byte, language string, apiKey string, model string) (
 			return "", fmt.Errorf("failed to write language field: %w", err)
 		}
 	}
+	if prompt != "" {
+		if err := writer.WriteField("prompt", prompt); err != nil {
+			return "", fmt.Errorf("failed to write prompt field: %w", err)
+		}
+	}
 	if err := writer.Close(); err != nil {
 		return "", fmt.Errorf("failed to finalize request body: %w", err)
 	}
 
+	if endpoint == "" {
+		endpoint = "https://api.openai.com/v1/audio/transcriptions"
+	}
+
 	client := &http.Client{Timeout: 30 * time.Second}
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/audio/transcriptions", &body)
+	req, err := http.NewRequest("POST", endpoint, &body)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}

@@ -23,14 +23,16 @@ type AppTray struct {
 	mUpdate    *systray.MenuItem
 	updateInfo *UpdateInfo
 	updateMu   sync.Mutex
+	history    *History
 }
 
 // NewAppTray creates a tray manager. Callbacks are invoked on menu clicks.
-func NewAppTray(onSettings func(string), onQuit func(), updater *Updater) *AppTray {
+func NewAppTray(onSettings func(string), onQuit func(), updater *Updater, history *History) *AppTray {
 	return &AppTray{
 		onSettings: onSettings,
 		onQuit:     onQuit,
 		updater:    updater,
+		history:    history,
 	}
 }
 
@@ -58,9 +60,10 @@ func (t *AppTray) ShowUpdateAvailable(info UpdateInfo) {
 func (t *AppTray) onReady() {
 	systray.SetIcon(embeddedTrayIcon)
 	systray.SetTitle(AppName)
-	systray.SetTooltip(T("tray.tooltip"))
+	systray.SetTooltip(T("tray.status_ready"))
 
 	mSettings := systray.AddMenuItem(T("tray.settings"), T("tray.settings"))
+	mHistory := systray.AddMenuItem(T("tray.history"), T("tray.history"))
 	t.mUpdate = systray.AddMenuItem(T("update.check"), T("update.check"))
 	mAbout := systray.AddMenuItem(T("tray.about"), T("tray.about"))
 	mSupport := systray.AddMenuItem(T("tray.support"), T("tray.support"))
@@ -82,6 +85,8 @@ func (t *AppTray) onReady() {
 				if t.onSettings != nil {
 					t.onSettings("general")
 				}
+			case <-mHistory.ClickedCh:
+				t.showHistoryPopup()
 			case <-t.mUpdate.ClickedCh:
 				t.handleUpdateClick()
 			case <-mAbout.ClickedCh:
@@ -135,6 +140,34 @@ func (t *AppTray) handleUpdateClick() {
 		t.updateMu.Unlock()
 		t.mUpdate.SetTitle(T("update.ready"))
 	}()
+}
+
+// SetTooltipState updates the tray tooltip to reflect current state.
+func (t *AppTray) SetTooltipState(state AppState) {
+	switch state {
+	case StateRecording:
+		systray.SetTooltip(T("tray.status_recording"))
+	case StateTranscribing, StateProcessing:
+		systray.SetTooltip(T("tray.status_working"))
+	default:
+		systray.SetTooltip(T("tray.status_ready"))
+	}
+}
+
+func (t *AppTray) showHistoryPopup() {
+	if t.history == nil {
+		return
+	}
+	entries := t.history.Recent(1)
+	if len(entries) == 0 {
+		return
+	}
+	// Copy the most recent transcription to clipboard
+	if err := writeClipboard(entries[0].Text); err != nil {
+		logWarn("History copy failed: %v", err)
+	} else {
+		logInfo("Copied recent transcription to clipboard")
+	}
 }
 
 func (t *AppTray) onExit() {

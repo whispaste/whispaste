@@ -113,11 +113,13 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 			}
 			cfg.mu.Lock()
 			cfg.APIKey = newCfg.APIKey
+			cfg.APIEndpoint = newCfg.APIEndpoint
 			cfg.HotkeyMods = newCfg.HotkeyMods
 			cfg.HotkeyKey = newCfg.HotkeyKey
 			cfg.Mode = newCfg.Mode
 			cfg.Language = newCfg.Language
 			cfg.Model = newCfg.Model
+			cfg.Prompt = newCfg.Prompt
 			cfg.OverlayPos = newCfg.OverlayPos
 			cfg.AutoPaste = newCfg.AutoPaste
 			cfg.PlaySounds = newCfg.PlaySounds
@@ -126,6 +128,11 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 			cfg.Theme = newCfg.Theme
 			cfg.Autostart = newCfg.Autostart
 			cfg.SoundVolume = newCfg.SoundVolume
+			cfg.MaxRecordSec = newCfg.MaxRecordSec
+			cfg.SmartMode = newCfg.SmartMode
+			cfg.SmartModePreset = newCfg.SmartModePreset
+			cfg.SmartModePrompt = newCfg.SmartModePrompt
+			cfg.SmartModeTarget = newCfg.SmartModeTarget
 			cfg.mu.Unlock()
 
 			// Apply autostart setting
@@ -200,7 +207,7 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 				model = "whisper-1"
 			}
 			wav := EncodeWAV(pcm, 16000, 1, 16)
-			text, err := Transcribe(wav, cfg.Language, cfg.GetAPIKey(), model)
+			text, err := Transcribe(wav, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), cfg.GetPrompt())
 			if err != nil {
 				logError("Test transcription failed: %v", err)
 				return map[string]interface{}{
