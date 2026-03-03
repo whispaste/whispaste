@@ -1,0 +1,25 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = "Voice to text, pasted anywhere. A lightweight Windows tool that transcribes speech with OpenAI Whisper and pastes the result into any input field." } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="bg-brand-darker text-gray-100">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#1E2026" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🎤</text></svg>" />
+    <title>{title}</title>
+  </head>
+  <body class="antialiased">
+    <slot />
+  </body>
+</html>
