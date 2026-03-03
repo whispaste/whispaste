@@ -21,6 +21,7 @@ type Config struct {
 	PlaySounds   bool     `json:"play_sounds"`
 	CheckUpdates bool     `json:"check_updates"`
 	UILanguage   string   `json:"ui_language"`
+	Theme        string   `json:"theme"`
 	mu          sync.RWMutex
 }
 
@@ -37,6 +38,7 @@ func DefaultConfig() *Config {
 		PlaySounds:   true,
 		CheckUpdates: true,
 		UILanguage:  detectSystemLanguage(),
+		Theme:       "system",
 	}
 }
 

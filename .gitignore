@@ -30,3 +30,8 @@ vendor/
 
 # Config (contains API keys)
 config.json
+
+# Skills (local Copilot config)
+skills-lock.json
+skills.yaml
+.skills/

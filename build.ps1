@@ -37,8 +37,8 @@ $ldflags = "-s -w -H windowsgui"
 if ($Release) {
     Write-Host "Mode: Release" -ForegroundColor Green
 } else {
-    Write-Host "Mode: Debug" -ForegroundColor Yellow
-    $ldflags = "-H windowsgui"
+    Write-Host "Mode: Debug (console output enabled)" -ForegroundColor Yellow
+    $ldflags = ""
 }
 
 if ($Version -ne "") {
