@@ -71,13 +71,13 @@ import Layout from "../layouts/Layout.astro";
               <div class="w-full shrink-0">
                 <div class="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[220px]">
                   <div class="carousel-keys-group mb-6">
-                    <div class="carousel-key" style="--press-delay: 0s;">
+                    <div class="carousel-key carousel-key--modifier">
                       <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>
                     </div>
-                    <div class="carousel-key" style="--press-delay: 0.15s;">
+                    <div class="carousel-key carousel-key--modifier">
                       <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
                     </div>
-                    <div class="carousel-key carousel-key--action" style="--press-delay: 0.3s;">
+                    <div class="carousel-key carousel-key--action">
                       <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
                     </div>
                   </div>
@@ -336,8 +336,14 @@ import Layout from "../layouts/Layout.astro";
       gap: 6px;
       transform: rotate(-6deg);
     }
+    .carousel-keys-group .carousel-key--modifier {
+      /* Modifier keys closer together */
+    }
     .carousel-keys-group .carousel-key--action {
       margin-left: 10px;
+    }
+    .text-brand-cyan {
+      color: #22D3EE;
     }
 
     /* Carousel key animation */
@@ -351,12 +357,23 @@ import Layout from "../layouts/Layout.astro";
       background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
       border: 1px solid rgba(255,255,255,0.12);
       box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
-      animation: key-press 2s ease-in-out var(--press-delay) infinite;
       transition: transform 0.1s, box-shadow 0.1s;
     }
-    @keyframes key-press {
-      0%, 30%, 100% { transform: translateY(0); box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1); }
-      15% { transform: translateY(4px); box-shadow: 0 0px 0 rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1); }
+    .carousel-key--modifier {
+      animation: key-press-mod 3s ease-in-out infinite;
+    }
+    .carousel-key--action {
+      animation: key-press-act 3s ease-in-out infinite;
+    }
+    @keyframes key-press-mod {
+      0%, 10% { transform: translateY(0); box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1); }
+      14%, 52% { transform: translateY(4px); box-shadow: 0 0px 0 rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1); }
+      58%, 100% { transform: translateY(0); box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1); }
+    }
+    @keyframes key-press-act {
+      0%, 22% { transform: translateY(0); box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1); }
+      26%, 52% { transform: translateY(4px); box-shadow: 0 0px 0 rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1); }
+      58%, 100% { transform: translateY(0); box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1); }
     }
 
     /* Overlay pill (Scene 2) */
@@ -416,6 +433,7 @@ import Layout from "../layouts/Layout.astro";
       font-weight: 400;
       color: #90A0B0;
       line-height: 1;
+      padding-left: 22px;
     }
     .overlay-waveform {
       display: flex;
@@ -424,19 +442,14 @@ import Layout from "../layouts/Layout.astro";
       margin-left: auto;
       margin-right: 8px;
       height: 48px;
+      flex-shrink: 0;
+      min-width: 137px;
     }
     .overlay-wave-bar {
       width: 4px;
       border-radius: 2px;
-      background: #22D3EE;
-      height: 36px;
-      transform-origin: center;
-      transform: scaleY(var(--wave-scale-min, 0.06));
-      animation: wave-bar-anim var(--wave-dur, 0.8s) ease-in-out var(--wave-delay, 0s) infinite;
-    }
-    @keyframes wave-bar-anim {
-      0%, 100% { transform: scaleY(var(--wave-scale-min, 0.06)); opacity: 0.5; }
-      50% { transform: scaleY(var(--wave-scale-max, 0.8)); opacity: 1; }
+      min-height: 2px;
+      flex-shrink: 0;
     }
     .overlay-buttons {
       display: flex;
@@ -601,46 +614,91 @@ import Layout from "../layouts/Layout.astro";
       });
     });
 
-    // Generate overlay waveform bars
+    // Waveform animation (JS-driven for reliable rendering)
     const waveformEl = document.getElementById('overlay-waveform');
+    const waveBars = [];
     if (waveformEl) {
       for (let i = 0; i < 20; i++) {
         const bar = document.createElement('div');
         bar.className = 'overlay-wave-bar';
-        const scaleMin = 0.05 + Math.random() * 0.08;
-        const scaleMax = 0.3 + Math.random() * 0.7;
-        bar.style.setProperty('--wave-scale-min', scaleMin.toFixed(2));
-        bar.style.setProperty('--wave-scale-max', scaleMax.toFixed(2));
-        bar.style.setProperty('--wave-dur', (0.6 + Math.random() * 0.8).toFixed(2) + 's');
-        bar.style.setProperty('--wave-delay', (i * 0.05 + Math.random() * 0.1).toFixed(2) + 's');
+        bar.style.height = '2px';
+        bar.style.background = '#186688';
         waveformEl.appendChild(bar);
+        waveBars.push({ el: bar, phase: Math.random() * Math.PI * 2, speed: 1.5 + Math.random() * 2.5, amp: 0.3 + Math.random() * 0.7 });
       }
+      let waveRaf;
+      function animateWave(t) {
+        for (let i = 0; i < waveBars.length; i++) {
+          const b = waveBars[i];
+          const val = (Math.sin(t * 0.003 * b.speed + b.phase) + 1) / 2 * b.amp;
+          const h = Math.max(2, Math.round(val * 36));
+          b.el.style.height = h + 'px';
+          b.el.style.background = h > 6 ? '#22D3EE' : '#186688';
+        }
+        waveRaf = requestAnimationFrame(animateWave);
+      }
+      waveRaf = requestAnimationFrame(animateWave);
     }
 
     // Typing animation for scene 3
     const typedEl = document.getElementById('typed-text');
     let typingTimeout;
 
-    function getTypingText() {
-      return currentLang === 'de'
-        ? 'Hallo, das ist ein Beispiel\nfür transkribierte Sprache. 😊\n— erstellt mit WhisPaste'
-        : 'Hello, this is an example\nof transcribed speech. 😊\n— created with WhisPaste';
+    function getTypingSegments() {
+      if (currentLang === 'de') {
+        return [
+          { text: 'Hallo, das ist ein Beispiel\nfür transkribierte Sprache. 😊\n— erstellt mit ' },
+          { text: 'WhisPaste', cls: 'text-brand-cyan font-semibold' },
+          { text: ' ❤️' }
+        ];
+      }
+      return [
+        { text: 'Hello, this is an example\nof transcribed speech. 😊\n— created with ' },
+        { text: 'WhisPaste', cls: 'text-brand-cyan font-semibold' },
+        { text: ' ❤️' }
+      ];
     }
 
     function startTyping() {
       if (!typedEl) return;
       clearTimeout(typingTimeout);
-      const text = getTypingText();
+      const segments = getTypingSegments();
       typedEl.innerHTML = '<span class="typing-cursor"></span>';
-      let i = 0;
+      let segIdx = 0, charIdx = 0;
+      let currentSpan = null;
+
       function typeChar() {
-        if (i < text.length && currentSlide === 2) {
-          const cursor = typedEl.querySelector('.typing-cursor');
-          if (cursor) {
-            const charNode = document.createTextNode(text[i]);
-            typedEl.insertBefore(charNode, cursor);
+        if (segIdx >= segments.length || currentSlide !== 2) return;
+        const seg = segments[segIdx];
+        const cursor = typedEl.querySelector('.typing-cursor');
+        if (!cursor) return;
+
+        if (!currentSpan || currentSpan._segIdx !== segIdx) {
+          if (seg.cls) {
+            currentSpan = document.createElement('span');
+            currentSpan.className = seg.cls;
+            currentSpan._segIdx = segIdx;
+            typedEl.insertBefore(currentSpan, cursor);
+          } else {
+            currentSpan = { _segIdx: segIdx, _isText: true };
           }
-          i++;
+        }
+
+        const ch = seg.text[charIdx];
+        if (currentSpan._isText) {
+          typedEl.insertBefore(document.createTextNode(ch), cursor);
+        } else {
+          currentSpan.appendChild(document.createTextNode(ch));
+        }
+
+        charIdx++;
+        if (charIdx >= seg.text.length) {
+          segIdx++;
+          charIdx = 0;
+          currentSpan = null;
+        }
+
+        if (segIdx < segments.length) {
           typingTimeout = setTimeout(typeChar, 40 + Math.random() * 40);
         }
       }
