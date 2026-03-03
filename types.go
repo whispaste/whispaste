@@ -7,6 +7,7 @@ const (
 	StateIdle         AppState = iota
 	StateRecording
 	StateTranscribing
+	StateProcessing // AI post-processing via Smart Mode
 	StateError
 	StateCopied
 )
