@@ -200,6 +200,12 @@ var translations = map[string]map[string]string{
 		"notebook.copied":       "Copied!",
 		"notebook.confirm_delete": "Delete this entry?",
 		"notebook.uncategorized": "Uncategorized",
+		"notebook.sort_newest":   "Newest first",
+		"notebook.sort_oldest":   "Oldest first",
+		"notebook.sort_alpha":    "A–Z",
+		"notebook.sort_duration": "Duration",
+		"notebook.add_tag":       "Add tag…",
+		"notebook.tag_updated":   "Tag updated",
 	},
 	"de": {
 		// App
@@ -358,5 +364,11 @@ var translations = map[string]map[string]string{
 		"notebook.copied":       "Kopiert!",
 		"notebook.confirm_delete": "Diesen Eintrag löschen?",
 		"notebook.uncategorized": "Unkategorisiert",
+		"notebook.sort_newest":   "Neueste zuerst",
+		"notebook.sort_oldest":   "Älteste zuerst",
+		"notebook.sort_alpha":    "A–Z",
+		"notebook.sort_duration": "Dauer",
+		"notebook.add_tag":       "Tag hinzufügen…",
+		"notebook.tag_updated":   "Tag aktualisiert",
 	},
 }
