@@ -10,6 +10,7 @@ const (
 	StateProcessing // AI post-processing via Smart Mode
 	StateError
 	StateCopied
+	StatePaused // recording is paused
 )
 
 // SoundType identifies audio feedback sounds.

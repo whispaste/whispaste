@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"os/exec"
 	"sync"
+	"unsafe"
 
 	"github.com/getlantern/systray"
+	"golang.org/x/sys/windows"
 )
 
 //go:embed resources/tray.ico
@@ -15,24 +17,68 @@ var embeddedTrayIcon []byte
 
 const supportURL = "https://github.com/sponsors/silvio-l"
 
+// Win32 balloon notification constants and API
+const (
+	_NIM_MODIFY = 0x00000001
+	_NIF_INFO   = 0x00000010
+	_NIIF_INFO  = 0x00000001
+	_systrayUID = 100 // UID used by getlantern/systray
+)
+
+var (
+	trayShell32         = windows.NewLazySystemDLL("shell32.dll")
+	trayUser32          = windows.NewLazySystemDLL("user32.dll")
+	procShellNotifyIcon = trayShell32.NewProc("Shell_NotifyIconW")
+	procFindWindow      = trayUser32.NewProc("FindWindowW")
+)
+
+// notifyIconDataW matches the Windows NOTIFYICONDATAW struct layout.
+type notifyIconDataW struct {
+	cbSize           uint32
+	hWnd             uintptr
+	uID              uint32
+	uFlags           uint32
+	uCallbackMessage uint32
+	hIcon            uintptr
+	szTip            [128]uint16
+	dwState          uint32
+	dwStateMask      uint32
+	szInfo           [256]uint16
+	uVersion         uint32
+	szInfoTitle      [64]uint16
+	dwInfoFlags      uint32
+	guidItem         [16]byte
+	hBalloonIcon     uintptr
+}
+
 // AppTray manages the system tray icon and menu.
 type AppTray struct {
-	onSettings func(string)
-	onQuit     func()
-	updater    *Updater
-	mUpdate    *systray.MenuItem
-	updateInfo *UpdateInfo
-	updateMu   sync.Mutex
-	history    *History
+	onSettings   func(string)
+	onQuit       func()
+	onToggle     func()
+	updater      *Updater
+	mToggle      *systray.MenuItem
+	mUpdate      *systray.MenuItem
+	updateInfo   *UpdateInfo
+	updateMu     sync.Mutex
+	history      *History
+	balloonShown bool // tracks whether minimize-to-tray balloon was shown this session
+	cfg          *Config
+	smartItems   []*systray.MenuItem
+	smartPresets []string
+	onSaved      func()
 }
 
 // NewAppTray creates a tray manager. Callbacks are invoked on menu clicks.
-func NewAppTray(onSettings func(string), onQuit func(), updater *Updater, history *History) *AppTray {
+func NewAppTray(onSettings func(string), onQuit func(), updater *Updater, history *History, cfg *Config, onSaved func(), onToggle func()) *AppTray {
 	return &AppTray{
 		onSettings: onSettings,
 		onQuit:     onQuit,
+		onToggle:   onToggle,
 		updater:    updater,
 		history:    history,
+		cfg:        cfg,
+		onSaved:    onSaved,
 	}
 }
 
@@ -57,13 +103,99 @@ func (t *AppTray) ShowUpdateAvailable(info UpdateInfo) {
 	}
 }
 
+// ShowMinimizeBalloon shows a one-time notification that the app is still running.
+func (t *AppTray) ShowMinimizeBalloon() {
+	if t.balloonShown {
+		return
+	}
+	t.balloonShown = true
+	t.ShowBalloon(AppName, T("balloon.minimize"))
+}
+
+// ShowBalloon shows a Windows balloon notification from the system tray icon.
+func (t *AppTray) ShowBalloon(title, text string) {
+	className, err := windows.UTF16PtrFromString("SystrayClass")
+	if err != nil {
+		logWarn("ShowBalloon: UTF16 class failed: %v", err)
+		return
+	}
+	hwnd, _, _ := procFindWindow.Call(uintptr(unsafe.Pointer(className)), 0)
+	if hwnd == 0 {
+		logWarn("ShowBalloon: systray window not found")
+		return
+	}
+
+	nid := notifyIconDataW{
+		hWnd:        hwnd,
+		uID:         _systrayUID,
+		uFlags:      _NIF_INFO,
+		dwInfoFlags: _NIIF_INFO,
+	}
+	nid.cbSize = uint32(unsafe.Sizeof(nid))
+
+	if titleUTF16, err := windows.UTF16FromString(title); err == nil {
+		copy(nid.szInfoTitle[:63], titleUTF16)
+	}
+	if textUTF16, err := windows.UTF16FromString(text); err == nil {
+		copy(nid.szInfo[:255], textUTF16)
+	}
+
+	ret, _, callErr := procShellNotifyIcon.Call(_NIM_MODIFY, uintptr(unsafe.Pointer(&nid)))
+	if ret == 0 {
+		logWarn("ShowBalloon: Shell_NotifyIconW failed: %v", callErr)
+	}
+}
+
 func (t *AppTray) onReady() {
 	systray.SetIcon(embeddedTrayIcon)
 	systray.SetTitle(AppName)
 	systray.SetTooltip(T("tray.status_ready"))
 
+	t.mToggle = systray.AddMenuItem(T("tray.start_record"), T("tray.start_record"))
+	systray.AddSeparator()
 	mSettings := systray.AddMenuItem(T("tray.settings"), T("tray.settings"))
 	mHistory := systray.AddMenuItem(T("tray.history"), T("tray.history"))
+
+	// Smart Mode submenu
+	mSmart := systray.AddMenuItem(T("tray.smart_mode"), T("tray.smart_mode"))
+	smartDefs := []struct {
+		preset string
+		key    string
+	}{
+		{"off", "settings.smart_preset_off"},
+		{"cleanup", "settings.smart_preset_cleanup"},
+		{"email", "settings.smart_preset_email"},
+		{"bullets", "settings.smart_preset_bullets"},
+		{"formal", "settings.smart_preset_formal"},
+		{"translate", "settings.smart_preset_translate"},
+		{"custom", "settings.smart_preset_custom"},
+	}
+	subItems := make([]*systray.MenuItem, len(smartDefs))
+	for i, d := range smartDefs {
+		subItems[i] = mSmart.AddSubMenuItem(T(d.key), T(d.key))
+	}
+	t.smartItems = subItems
+	t.smartPresets = make([]string, len(smartDefs))
+	for i, d := range smartDefs {
+		t.smartPresets[i] = d.preset
+	}
+	t.updateSmartCheckmarks()
+
+	for i, item := range subItems {
+		go func(idx int, menuItem *systray.MenuItem) {
+			for range menuItem.ClickedCh {
+				t.cfg.SetSmartModePreset(t.smartPresets[idx])
+				if err := t.cfg.Save(); err != nil {
+					logWarn("Failed to save smart mode: %v", err)
+				}
+				t.updateSmartCheckmarks()
+				if t.onSaved != nil {
+					t.onSaved()
+				}
+			}
+		}(i, item)
+	}
+
 	t.mUpdate = systray.AddMenuItem(T("update.check"), T("update.check"))
 	mAbout := systray.AddMenuItem(T("tray.about"), T("tray.about"))
 	mSupport := systray.AddMenuItem(T("tray.support"), T("tray.support"))
@@ -81,6 +213,10 @@ func (t *AppTray) onReady() {
 	go func() {
 		for {
 			select {
+			case <-t.mToggle.ClickedCh:
+				if t.onToggle != nil {
+					t.onToggle()
+				}
 			case <-mSettings.ClickedCh:
 				if t.onSettings != nil {
 					t.onSettings("general")
@@ -147,10 +283,28 @@ func (t *AppTray) SetTooltipState(state AppState) {
 	switch state {
 	case StateRecording:
 		systray.SetTooltip(T("tray.status_recording"))
+		if t.mToggle != nil {
+			t.mToggle.SetTitle(T("tray.stop_record"))
+			t.mToggle.SetTooltip(T("tray.stop_record"))
+		}
+	case StatePaused:
+		systray.SetTooltip(T("tray.status_paused"))
+		if t.mToggle != nil {
+			t.mToggle.SetTitle(T("tray.stop_record"))
+			t.mToggle.SetTooltip(T("tray.stop_record"))
+		}
 	case StateTranscribing, StateProcessing:
 		systray.SetTooltip(T("tray.status_working"))
+		if t.mToggle != nil {
+			t.mToggle.SetTitle(T("tray.start_record"))
+			t.mToggle.SetTooltip(T("tray.start_record"))
+		}
 	default:
 		systray.SetTooltip(T("tray.status_ready"))
+		if t.mToggle != nil {
+			t.mToggle.SetTitle(T("tray.start_record"))
+			t.mToggle.SetTooltip(T("tray.start_record"))
+		}
 	}
 }
 
@@ -160,6 +314,7 @@ func (t *AppTray) showHistoryPopup() {
 	}
 	entries := t.history.Recent(1)
 	if len(entries) == 0 {
+		t.ShowBalloon(AppName, T("tray.history_empty"))
 		return
 	}
 	// Copy the most recent transcription to clipboard
@@ -167,6 +322,32 @@ func (t *AppTray) showHistoryPopup() {
 		logWarn("History copy failed: %v", err)
 	} else {
 		logInfo("Copied recent transcription to clipboard")
+		preview := entries[0].Text
+		if runes := []rune(preview); len(runes) > 200 {
+			preview = string(runes[:200]) + "…"
+		}
+		t.ShowBalloon(T("balloon.copied"), preview)
+	}
+}
+
+// updateSmartCheckmarks checks the active preset and unchecks others.
+func (t *AppTray) updateSmartCheckmarks() {
+	if t.cfg == nil || len(t.smartItems) == 0 {
+		return
+	}
+	currentPreset := "off"
+	if t.cfg.GetSmartMode() {
+		currentPreset = t.cfg.GetSmartModePreset()
+		if currentPreset == "" {
+			currentPreset = "cleanup"
+		}
+	}
+	for i, item := range t.smartItems {
+		if t.smartPresets[i] == currentPreset {
+			item.Check()
+		} else {
+			item.Uncheck()
+		}
 	}
 }
 
