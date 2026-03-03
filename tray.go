@@ -91,12 +91,6 @@ func (t *AppTray) onReady() {
 			case <-mSupport.ClickedCh:
 				_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", supportURL).Start()
 			case <-mQuit.ClickedCh:
-				if t.updater != nil {
-					t.updater.Stop()
-				}
-				if t.onQuit != nil {
-					t.onQuit()
-				}
 				systray.Quit()
 				return
 			}
@@ -143,4 +137,12 @@ func (t *AppTray) handleUpdateClick() {
 	}()
 }
 
-func (t *AppTray) onExit() {}
+func (t *AppTray) onExit() {
+	logInfo("System tray exiting")
+	if t.updater != nil {
+		t.updater.Stop()
+	}
+	if t.onQuit != nil {
+		t.onQuit()
+	}
+}
