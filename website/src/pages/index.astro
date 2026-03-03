@@ -357,7 +357,23 @@ import Layout from "../layouts/Layout.astro";
       },
       { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
     );
-    document.querySelectorAll(".scroll-reveal").forEach((el) => observer.observe(el));
+    document.querySelectorAll(".scroll-reveal").forEach((el) => {
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight + 40) {
+        el.classList.add("visible");
+      }
+      observer.observe(el);
+    });
+    // Scroll fallback for anchor jumps and fast scrolling
+    window.addEventListener('scroll', () => {
+      requestAnimationFrame(() => {
+        document.querySelectorAll('.scroll-reveal:not(.visible)').forEach(el => {
+          if (el.getBoundingClientRect().top < window.innerHeight + 40) {
+            el.classList.add('visible');
+          }
+        });
+      });
+    }, { passive: true });
 
     // Hero waveform animation
     const waveContainer = document.getElementById("hero-waveform");
