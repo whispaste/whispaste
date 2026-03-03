@@ -37,6 +37,9 @@ func main() {
 	if err != nil {
 		logWarn("Overlay init failed: %v", err)
 	}
+	if overlay != nil {
+		overlay.SetPosition(cfg.GetOverlayPos())
+	}
 
 	// Application state
 	var (
@@ -274,6 +277,9 @@ func main() {
 	// Settings callback (called when config is saved from WebView goroutine)
 	onSettingsSaved := func() {
 		SetSoundVolume(cfg.SoundVolume)
+		if overlay != nil {
+			overlay.SetPosition(cfg.GetOverlayPos())
+		}
 		hkMu.Lock()
 		defer hkMu.Unlock()
 		if hkMgr != nil {
