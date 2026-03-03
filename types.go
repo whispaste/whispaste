@@ -23,7 +23,7 @@ const (
 	SoundError
 )
 
-const AppName = "Whispaste"
+const AppName = "WhisPaste"
 
 // AppVersion is set via -ldflags "-X main.AppVersion=x.y.z" at build time.
 var AppVersion = "1.0.0"

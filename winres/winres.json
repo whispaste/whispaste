@@ -13,10 +13,10 @@
     "#1": {
       "0409": {
         "identity": {
-          "name": "Whispaste",
+          "name": "WhisPaste",
           "version": "1.0.0.0"
         },
-        "description": "Whispaste – Voice to Text, Pasted Instantly",
+        "description": "WhisPaste – Voice to Text, Pasted Instantly",
         "minimum-os": "win10",
         "execution-level": "as invoker",
         "ui-access": false,
@@ -44,12 +44,12 @@
         "info": {
           "0409": {
             "CompanyName": "Silvio Lindstedt",
-            "FileDescription": "Whispaste – Voice to Text, Pasted Instantly",
+            "FileDescription": "WhisPaste – Voice to Text, Pasted Instantly",
             "FileVersion": "1.0.0",
-            "InternalName": "whispaste",
+            "InternalName": "WhisPaste",
             "LegalCopyright": "© 2025 Silvio Lindstedt. MIT License.",
-            "OriginalFilename": "whispaste.exe",
-            "ProductName": "Whispaste",
+            "OriginalFilename": "WhisPaste.exe",
+            "ProductName": "WhisPaste",
             "ProductVersion": "1.0.0"
           }
         }

@@ -11,7 +11,7 @@
             ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>Whispaste</DisplayName>
+    <DisplayName>WhisPaste</DisplayName>
     <PublisherDisplayName>Silvio Lindstedt</PublisherDisplayName>
     <Description>Fast, lightweight speech-to-text tool for Windows. Record speech and paste the transcription anywhere.</Description>
     <Logo>Assets\StoreLogo.png</Logo>
@@ -31,7 +31,7 @@
     <Application Id="Whispaste"
                  Executable="whispaste.exe"
                  EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="Whispaste"
+      <uap:VisualElements DisplayName="WhisPaste"
                           Description="Fast, lightweight speech-to-text tool for Windows. Record speech and paste the transcription anywhere."
                           Square150x150Logo="Assets\Square150x150Logo.png"
                           Square44x44Logo="Assets\Square44x44Logo.png"

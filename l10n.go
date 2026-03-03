@@ -45,15 +45,15 @@ func SupportedLanguages() []string {
 var translations = map[string]map[string]string{
 	"en": {
 		// App
-		"app.name":        "Whispaste",
+		"app.name":        "WhisPaste",
 		"app.description": "Voice to text, pasted anywhere",
 		"app.version":     AppVersion,
 
 		// Tray menu
-		"tray.tooltip":   "Whispaste – Voice to Text",
+		"tray.tooltip":   "WhisPaste – Voice to Text",
 		"tray.settings":  "Settings",
 		"tray.about":     "About",
-		"tray.support":   "Support Whispaste",
+		"tray.support":   "Support WhisPaste",
 		"tray.quit":      "Quit",
 
 		// States
@@ -107,7 +107,7 @@ var translations = map[string]map[string]string{
 		"settings.theme_system":    "System",
 
 		// First run
-		"firstrun.title":    "Welcome to Whispaste",
+		"firstrun.title":    "Welcome to WhisPaste",
 		"firstrun.message":  "To get started, you need an OpenAI API key.",
 		"firstrun.get_key":  "Get API Key",
 		"firstrun.enter":    "Enter your API key:",
@@ -163,16 +163,16 @@ var translations = map[string]map[string]string{
 		"tray.smart_mode":     "Smart Mode",
 		"tray.history":        "Recent Transcriptions",
 		"tray.history_empty":  "No transcriptions yet",
-		"tray.status_ready":   "Whispaste – Ready",
-		"tray.status_recording": "Whispaste – Recording…",
-		"tray.status_paused":  "Whispaste – Paused",
-		"tray.status_working": "Whispaste – Processing…",
+		"tray.status_ready":   "WhisPaste – Ready",
+		"tray.status_recording": "WhisPaste – Recording…",
+		"tray.status_paused":  "WhisPaste – Paused",
+		"tray.status_working": "WhisPaste – Processing…",
 
 		// Balloon notifications
 		"balloon.copied":   "Copied to clipboard",
-		"balloon.minimize":       "Whispaste is still running in the background. Use your hotkey to start dictating.",
-		"balloon.sponsor_title":  "Enjoying Whispaste?",
-		"balloon.sponsor":        "You've completed 50 dictations! If Whispaste saves you time, consider supporting its development.",
+		"balloon.minimize":       "WhisPaste is still running in the background. Use your hotkey to start dictating.",
+		"balloon.sponsor_title":  "Enjoying WhisPaste?",
+		"balloon.sponsor":        "You've completed 50 dictations! If WhisPaste saves you time, consider supporting its development.",
 
 		// Stats
 		"stats.title":           "Usage This Month",
@@ -184,15 +184,15 @@ var translations = map[string]map[string]string{
 	},
 	"de": {
 		// App
-		"app.name":        "Whispaste",
+		"app.name":        "WhisPaste",
 		"app.description": "Sprache zu Text, überall eingefügt",
 		"app.version":     AppVersion,
 
 		// Tray menu
-		"tray.tooltip":   "Whispaste – Sprache zu Text",
+		"tray.tooltip":   "WhisPaste – Sprache zu Text",
 		"tray.settings":  "Einstellungen",
 		"tray.about":     "Über",
-		"tray.support":   "Whispaste unterstützen",
+		"tray.support":   "WhisPaste unterstützen",
 		"tray.quit":      "Beenden",
 
 		// States
@@ -246,7 +246,7 @@ var translations = map[string]map[string]string{
 		"settings.theme_system":    "System",
 
 		// First run
-		"firstrun.title":    "Willkommen bei Whispaste",
+		"firstrun.title":    "Willkommen bei WhisPaste",
 		"firstrun.message":  "Um zu starten, benötigen Sie einen OpenAI API-Schlüssel.",
 		"firstrun.get_key":  "API-Schlüssel erhalten",
 		"firstrun.enter":    "API-Schlüssel eingeben:",
@@ -302,16 +302,16 @@ var translations = map[string]map[string]string{
 		"tray.smart_mode":     "Smart-Modus",
 		"tray.history":        "Letzte Transkriptionen",
 		"tray.history_empty":  "Noch keine Transkriptionen",
-		"tray.status_ready":   "Whispaste – Bereit",
-		"tray.status_recording": "Whispaste – Aufnahme…",
-		"tray.status_paused":  "Whispaste – Pausiert",
-		"tray.status_working": "Whispaste – Verarbeitung…",
+		"tray.status_ready":   "WhisPaste – Bereit",
+		"tray.status_recording": "WhisPaste – Aufnahme…",
+		"tray.status_paused":  "WhisPaste – Pausiert",
+		"tray.status_working": "WhisPaste – Verarbeitung…",
 
 		// Balloon notifications
 		"balloon.copied":   "In Zwischenablage kopiert",
-		"balloon.minimize":       "Whispaste läuft weiterhin im Hintergrund. Nutzen Sie die Tastenkombination zum Diktieren.",
-		"balloon.sponsor_title":  "Gefällt dir Whispaste?",
-		"balloon.sponsor":        "Du hast 50 Diktate abgeschlossen! Wenn Whispaste dir Zeit spart, unterstütze gerne die Weiterentwicklung.",
+		"balloon.minimize":       "WhisPaste läuft weiterhin im Hintergrund. Nutzen Sie die Tastenkombination zum Diktieren.",
+		"balloon.sponsor_title":  "Gefällt dir WhisPaste?",
+		"balloon.sponsor":        "Du hast 50 Diktate abgeschlossen! Wenn WhisPaste dir Zeit spart, unterstütze gerne die Weiterentwicklung.",
 
 		// Stats
 		"stats.title":           "Nutzung diesen Monat",
