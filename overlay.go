@@ -286,10 +286,12 @@ procGdipDisposeImage           = ovlGdiplus.NewProc("GdipDisposeImage")
 procGdipSetInterpolationMode   = ovlGdiplus.NewProc("GdipSetInterpolationMode")
 
 // GDI+ pen
-procGdipCreatePen1 = ovlGdiplus.NewProc("GdipCreatePen1")
-procGdipDeletePen  = ovlGdiplus.NewProc("GdipDeletePen")
-procGdipDrawPath   = ovlGdiplus.NewProc("GdipDrawPath")
-procGdipDrawLineI  = ovlGdiplus.NewProc("GdipDrawLineI")
+procGdipCreatePen1          = ovlGdiplus.NewProc("GdipCreatePen1")
+procGdipDeletePen           = ovlGdiplus.NewProc("GdipDeletePen")
+procGdipDrawPath            = ovlGdiplus.NewProc("GdipDrawPath")
+procGdipDrawLineI           = ovlGdiplus.NewProc("GdipDrawLineI")
+procGdipSetPenLineCap197819 = ovlGdiplus.NewProc("GdipSetPenLineCap197819")
+procGdipSetPenLineJoin      = ovlGdiplus.NewProc("GdipSetPenLineJoin")
 
 // GDI+ graphics
 procGdipGraphicsClear = ovlGdiplus.NewProc("GdipGraphicsClear")
@@ -1104,47 +1106,48 @@ o.drawPauseIcon(g, _BTN_PAUSE_X, int32(cy)-_BTN_SIZE/2)
 }
 }
 
-// drawCheckmarkIcon draws a ✓ icon using GDI+ lines.
+// drawCheckmarkIcon draws a ✓ icon (Lucide-style) using GDI+ lines with round caps.
 func (o *Overlay) drawCheckmarkIcon(g uintptr, bx, by int32) {
 	var pen uintptr
-	procGdipCreatePen1.Call(uintptr(0xFFFFFFFF), uintptr(math.Float32bits(2.5)), 2, uintptr(unsafe.Pointer(&pen)))
+	procGdipCreatePen1.Call(uintptr(0xFFFFFFFF), uintptr(math.Float32bits(3.0)), 2, uintptr(unsafe.Pointer(&pen)))
 	if pen == 0 {
 		return
 	}
 	defer procGdipDeletePen.Call(pen)
-	// Checkmark: short down-right then long up-right, centered in button
+	procGdipSetPenLineCap197819.Call(pen, 2, 2, 0) // Round start/end caps
+	procGdipSetPenLineJoin.Call(pen, 2)             // Round join
 	cx := bx + _BTN_SIZE/2
 	cy := by + _BTN_SIZE/2
-	procGdipDrawLineI.Call(g, pen, uintptr(cx-6), uintptr(cy), uintptr(cx-2), uintptr(cy+5))
-	procGdipDrawLineI.Call(g, pen, uintptr(cx-2), uintptr(cy+5), uintptr(cx+7), uintptr(cy-5))
+	// Lucide-proportioned checkmark: wider strokes, larger geometry
+	procGdipDrawLineI.Call(g, pen, uintptr(cx-7), uintptr(cy), uintptr(cx-2), uintptr(cy+6))
+	procGdipDrawLineI.Call(g, pen, uintptr(cx-2), uintptr(cy+6), uintptr(cx+8), uintptr(cy-6))
 }
 
-// drawPauseIcon draws ❚❚ icon using GDI+ filled rectangles.
+// drawPauseIcon draws ❚❚ icon (Lucide-style) using GDI+ filled rectangles.
 func (o *Overlay) drawPauseIcon(g uintptr, bx, by int32) {
 	cx := bx + _BTN_SIZE/2
 	cy := by + _BTN_SIZE/2
-	barW := int32(3)
-	barH := int32(12)
+	barW := int32(4)
+	barH := int32(14)
 	gap := int32(3)
 	gdipFillRectG(g, 0xFFFFFFFF, cx-gap-barW, cy-barH/2, barW, barH)
 	gdipFillRectG(g, 0xFFFFFFFF, cx+gap, cy-barH/2, barW, barH)
 }
 
-// drawPlayIcon draws ▶ icon using GDI+ filled path.
+// drawPlayIcon draws ▶ icon (Lucide-style) using GDI+ filled path.
 func (o *Overlay) drawPlayIcon(g uintptr, bx, by int32) {
 	cx := bx + _BTN_SIZE/2
 	cy := by + _BTN_SIZE/2
-	// Triangle pointing right
 	var path uintptr
 	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&path)))
 	if path == 0 {
 		return
 	}
 	defer procGdipDeletePath.Call(path)
-	// Use addPolygon via three addLine calls
-	x1, y1 := cx-4, cy-7  // top-left
-	x2, y2 := cx+7, cy    // right-center
-	x3, y3 := cx-4, cy+7  // bottom-left
+	// Larger triangle pointing right, slightly offset for optical centering
+	x1, y1 := cx-5, cy-9  // top-left
+	x2, y2 := cx+9, cy    // right-center
+	x3, y3 := cx-5, cy+9  // bottom-left
 	procGdipAddPathLine.Call(path, uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2))
 	procGdipAddPathLine.Call(path, uintptr(x2), uintptr(y2), uintptr(x3), uintptr(y3))
 	procGdipClosePathFigure.Call(path)
