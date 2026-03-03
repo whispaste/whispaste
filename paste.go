@@ -79,7 +79,8 @@ const _GUI_CARETBLINKING = 0x00000001
 func hasFocusedInput() bool {
 	cls := getForegroundClass()
 	switch cls {
-	case "CASCADIA_HOSTING_WINDOW_CLASS", "ConsoleWindowClass", "mintty":
+	case "CASCADIA_HOSTING_WINDOW_CLASS", "ConsoleWindowClass", "mintty",
+		"Chrome_WidgetWin_1": // Electron apps (VSCode, etc.) — caret detection unreliable
 		return true
 	}
 	var gti guiThreadInfo
