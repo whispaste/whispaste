@@ -80,12 +80,12 @@ const (
 	_OVL_HEIGHT = 60
 	_OVL_MARGIN = 20
 
-	// Colors (COLORREF = 0x00BBGGRR)
-	_CLR_BACKGROUND = 0x002E1A1A // RGB(26,26,46)
-	_CLR_BORDER     = 0x00504030 // subtle border
+	// Colors (COLORREF = 0x00BBGGRR) – derived from app logo palette
+	_CLR_BACKGROUND = 0x00291A0A // RGB(10,26,41) – dark navy from logo
+	_CLR_BORDER     = 0x00B86600 // RGB(0,102,184) – deep blue from logo
 	_CLR_TEXT       = 0x00FFFFFF // white
-	_CLR_RED_DOT    = 0x003C3CFF // RGB(255,60,60)
-	_CLR_BAR        = 0x00FFA050 // accent for waveform
+	_CLR_RED_DOT    = 0x003C3CFF // RGB(255,60,60) – recording indicator
+	_CLR_BAR        = 0x00EED322 // RGB(34,211,238) – bright cyan from logo
 	_CLR_COLORKEY   = 0x00FF00FF // magenta – transparent
 )
 
@@ -155,6 +155,9 @@ var (
 	procPostQuitMessage         = ovlUser32.NewProc("PostQuitMessage")
 	procFillRect                = ovlUser32.NewProc("FillRect")
 	procDrawTextW               = ovlUser32.NewProc("DrawTextW")
+	procCreateIconFromResourceEx = ovlUser32.NewProc("CreateIconFromResourceEx")
+	procDrawIconEx              = ovlUser32.NewProc("DrawIconEx")
+	procDestroyIcon             = ovlUser32.NewProc("DestroyIcon")
 
 	procCreateSolidBrush = ovlGdi32.NewProc("CreateSolidBrush")
 	procCreatePen        = ovlGdi32.NewProc("CreatePen")
@@ -179,6 +182,7 @@ var globalOverlay *Overlay
 type Overlay struct {
 	hwnd      uintptr
 	font      uintptr
+	hIcon     uintptr
 	state     AppState
 	level     float32
 	levels    [30]float32 // ring buffer for scrolling waveform
@@ -263,6 +267,10 @@ func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		if o.font != 0 {
 			procDeleteObject.Call(o.font)
 			o.font = 0
+		}
+		if o.hIcon != 0 {
+			procDestroyIcon.Call(o.hIcon)
+			o.hIcon = 0
 		}
 		procPostQuitMessage.Call(0)
 		return 0
@@ -367,6 +375,47 @@ func (o *Overlay) initWindow() error {
 		0,
 		uintptr(unsafe.Pointer(fontName)),
 	)
+
+	// Load app icon from embedded ICO data (parse ICO directory to extract bitmap)
+	if len(embeddedAppIcon) >= 22 {
+		count := int(embeddedAppIcon[4]) | int(embeddedAppIcon[5])<<8
+		bestIdx, bestDiff := -1, int32(256)
+		for i := 0; i < count; i++ {
+			off := 6 + i*16
+			if off+16 > len(embeddedAppIcon) {
+				break
+			}
+			w := int32(embeddedAppIcon[off])
+			if w == 0 {
+				w = 256
+			}
+			d := w - 24
+			if d < 0 {
+				d = -d
+			}
+			if bestIdx < 0 || d < bestDiff {
+				bestIdx, bestDiff = i, d
+			}
+		}
+		if bestIdx >= 0 {
+			off := 6 + bestIdx*16
+			dataSize := uint32(embeddedAppIcon[off+8]) | uint32(embeddedAppIcon[off+9])<<8 |
+				uint32(embeddedAppIcon[off+10])<<16 | uint32(embeddedAppIcon[off+11])<<24
+			dataOffset := uint32(embeddedAppIcon[off+12]) | uint32(embeddedAppIcon[off+13])<<8 |
+				uint32(embeddedAppIcon[off+14])<<16 | uint32(embeddedAppIcon[off+15])<<24
+			if dataOffset+dataSize <= uint32(len(embeddedAppIcon)) {
+				iconData := embeddedAppIcon[dataOffset : dataOffset+dataSize]
+				const _IMAGE_ICON = 1
+				const _LR_DEFAULTCOLOR = 0x00000000
+				o.hIcon, _, _ = procCreateIconFromResourceEx.Call(
+					uintptr(unsafe.Pointer(&iconData[0])),
+					uintptr(dataSize),
+					1, 0x00030000, 24, 24, _LR_DEFAULTCOLOR,
+				)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -441,7 +490,14 @@ func (o *Overlay) paint(hwnd uintptr) {
 	var levels [30]float32
 	copy(levels[:], o.levels[:])
 	levelIdx := o.levelIdx
+	hIcon := o.hIcon
 	o.mu.Unlock()
+
+	// Draw app icon in the left area
+	if hIcon != 0 {
+		const _DI_NORMAL = 0x0003
+		procDrawIconEx.Call(hdc, 8, 18, hIcon, 24, 24, 0, 0, _DI_NORMAL)
+	}
 
 	switch state {
 	case StateRecording:
@@ -450,13 +506,15 @@ func (o *Overlay) paint(hwnd uintptr) {
 		o.paintTranscribing(hdc, frame)
 	case StateError:
 		o.paintError(hdc)
+	case StateCopied:
+		o.paintCopied(hdc)
 	}
 }
 
 func (o *Overlay) paintRecording(hdc uintptr, frame int, level float32, start time.Time, levels [30]float32, levelIdx int) {
-	// ── Pulsing red dot ──
+	// ── Pulsing red dot (shifted right for icon space) ──
 	pulse := 7 + int32(math.Sin(float64(frame)*0.15)*2)
-	cx, cy := int32(22), int32(30)
+	cx, cy := int32(48), int32(30)
 
 	dotBrush, _, _ := procCreateSolidBrush.Call(_CLR_RED_DOT)
 	nullPen, _, _ := procGetStockObject.Call(_NULL_PEN)
@@ -469,33 +527,33 @@ func (o *Overlay) paintRecording(hdc uintptr, frame int, level float32, start ti
 	procDeleteObject.Call(dotBrush)
 
 	// ── "Recording" text ──
-	drawText(hdc, T("overlay.recording"), 38, 12)
+	drawText(hdc, T("overlay.recording"), 62, 12)
 
 	// ── Elapsed timer ──
 	elapsed := time.Since(start).Seconds()
 	secs := int(elapsed)
 	timer := fmt.Sprintf("%d:%02d", secs/60, secs%60)
-	drawText(hdc, timer, 150, 12)
+	drawText(hdc, timer, 170, 12)
 
 	// ── Scrolling waveform bars (newest on right) ──
 	barBrush, _, _ := procCreateSolidBrush.Call(_CLR_BAR)
 	procSelectObject.Call(hdc, barBrush)
 	procSelectObject.Call(hdc, nullPen)
 	numBars := len(levels)
-	barW := int32(3)
+	barW := int32(4)
 	gap := int32(2)
 	waveX := int32(200)
 	for i := 0; i < numBars; i++ {
 		idx := (levelIdx + i) % numBars
 		lvl := levels[idx]
-		// Amplify: speech RMS is typically 0.01-0.15
-		amp := lvl * 6.0
+		// Amplify: speech RMS is typically 0.005-0.05
+		amp := lvl * 30.0
 		if amp > 1.0 {
 			amp = 1.0
 		}
-		h := int32(amp * 32.0)
-		if h < 2 {
-			h = 2
+		h := int32(amp * 36.0)
+		if h < 3 {
+			h = 3
 		}
 		x := waveX + int32(i)*(barW+gap)
 		y1 := int32(30) - h/2
@@ -533,6 +591,21 @@ func (o *Overlay) paintError(hdc uintptr) {
 	text := T("error.no_api_key")
 	utf16, _ := windows.UTF16FromString(text)
 	procSetTextColor.Call(hdc, _CLR_RED_DOT)
+	procDrawTextW.Call(hdc,
+		uintptr(unsafe.Pointer(&utf16[0])),
+		uintptr(len(utf16)-1),
+		uintptr(unsafe.Pointer(&rc)),
+		_DT_CENTER|_DT_VCENTER|_DT_SINGLELINE,
+	)
+}
+
+func (o *Overlay) paintCopied(hdc uintptr) {
+	rc := rectT{0, 0, _OVL_WIDTH, _OVL_HEIGHT}
+	text := T("overlay.copied")
+	utf16, _ := windows.UTF16FromString(text)
+	// Green success color
+	const clrGreen = 0x0059C734 // RGB(52,199,89)
+	procSetTextColor.Call(hdc, clrGreen)
 	procDrawTextW.Call(hdc,
 		uintptr(unsafe.Pointer(&utf16[0])),
 		uintptr(len(utf16)-1),
