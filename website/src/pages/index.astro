@@ -82,7 +82,7 @@ import Layout from "../layouts/Layout.astro";
                         <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
                       </div>
                     </div>
-                    <svg class="carousel-cursor" viewBox="0 0 448 512" width="28" height="32" aria-hidden="true">
+                    <svg class="carousel-cursor" viewBox="0 0 448 512" width="56" height="64" aria-hidden="true">
                       <path d="M160 64c0-8.8 7.2-16 16-16s16 7.2 16 16v136c0 10.3 6.6 19.5 16.4 22.8s20.6-.1 26.8-8.3c3-3.9 7.6-6.4 12.8-6.4c8.8 0 16 7.2 16 16c0 10.3 6.6 19.5 16.4 22.8s20.6-.1 26.8-8.3c3-3.9 7.6-6.4 12.8-6.4c7.8 0 14.3 5.6 15.7 13c1.6 8.2 7.3 15.1 15.1 18s16.7 1.6 23.3-3.6c2.7-2.1 6.1-3.4 9.9-3.4c8.8 0 16 7.2 16 16v120c0 39.8-32.2 72-72 72H211.3c-37.4 0-72.4-18.7-93.2-49.9L50.7 312.9c-4.9-7.4-2.9-17.3 4.4-22.2s17.3-2.9 22.2 4.4l38.7 58.1c5.9 8.8 16.8 12.7 26.9 9.7s17-12.4 17-23V64z" fill="white" fill-opacity="0.7" stroke="rgba(0,0,0,0.3)" stroke-width="8" stroke-linejoin="round"/>
                     </svg>
                   </div>
@@ -363,18 +363,19 @@ import Layout from "../layouts/Layout.astro";
     /* Cursor pointer animation — arrives at action key, presses with it */
     .carousel-cursor {
       position: absolute;
-      right: -8px;
-      top: 8px;
+      right: -24px;
+      top: -8px;
       pointer-events: none;
       animation: cursor-press 3s ease-in-out infinite;
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35));
+      transform-origin: 60% 30%;
     }
     @keyframes cursor-press {
-      0%, 6% { opacity: 0; transform: translate(24px, 36px); }
-      20% { opacity: 0.75; transform: translate(0, 4px); }
-      26%, 50% { opacity: 0.75; transform: translate(0, 8px); }
-      58% { opacity: 0; transform: translate(0, 8px); }
-      100% { opacity: 0; transform: translate(24px, 36px); }
+      0%, 6% { opacity: 0; transform: rotate(-15deg) translate(28px, 40px); }
+      20% { opacity: 0.8; transform: rotate(-15deg) translate(0, 4px); }
+      26%, 50% { opacity: 0.8; transform: rotate(-15deg) translate(0, 10px); }
+      58% { opacity: 0; transform: rotate(-15deg) translate(0, 10px); }
+      100% { opacity: 0; transform: rotate(-15deg) translate(28px, 40px); }
     }
 
     /* Carousel key animation */
@@ -413,9 +414,11 @@ import Layout from "../layouts/Layout.astro";
       width: 490px;
       height: 64px;
       border-radius: 32px;
-      background: #0A1A29;
-      border: 1.5px solid #0066B8;
+      background: rgba(10, 26, 41, 0.75);
+      border: 1.5px solid rgba(0, 102, 184, 0.6);
       box-shadow: 3px 3px 8px rgba(0,0,0,0.25);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       display: flex;
       align-items: center;
       font-family: 'Segoe UI', system-ui, sans-serif;
@@ -536,6 +539,9 @@ import Layout from "../layouts/Layout.astro";
       margin-left: 1px;
       animation: cursor-blink 0.8s step-end infinite;
       vertical-align: text-bottom;
+    }
+    :global(.carousel-heart) {
+      color: #EF4444;
     }
     @keyframes cursor-blink {
       0%, 50% { opacity: 1; }
@@ -704,15 +710,19 @@ import Layout from "../layouts/Layout.astro";
     function getTypingSegments() {
       if (currentLang === 'de') {
         return [
-          { text: 'Hallo, das ist ein Beispiel\nfür transkribierte Sprache. 😊\n— erstellt mit ' },
+          { text: 'Hey, diesen Text habe ich\ngerade eben eingesprochen\nund ' },
           { text: 'WhisPaste', cls: 'text-brand-cyan font-semibold' },
-          { text: ' ❤️' }
+          { text: ' hat ihn direkt\nhier eingefügt. ' },
+          { text: '❤️', cls: 'carousel-heart' },
+          { text: ' 😊' }
         ];
       }
       return [
-        { text: 'Hello, this is an example\nof transcribed speech. 😊\n— created with ' },
+        { text: 'Hey, I just spoke this text\nand ' },
         { text: 'WhisPaste', cls: 'text-brand-cyan font-semibold' },
-        { text: ' ❤️' }
+        { text: ' pasted it right\nhere automatically. ' },
+        { text: '❤️', cls: 'carousel-heart' },
+        { text: ' 😊' }
       ];
     }
 
