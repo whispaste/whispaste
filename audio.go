@@ -18,6 +18,7 @@ type Recorder struct {
 	level     float32
 	levelMu   sync.RWMutex
 	recording bool
+	paused    bool
 	closeOnce sync.Once
 }
 
@@ -40,6 +41,7 @@ func (r *Recorder) Start() error {
 	}
 
 	r.buf.Reset()
+	r.paused = false
 
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Capture)
 	deviceConfig.Capture.Format = malgo.FormatS16
@@ -49,11 +51,14 @@ func (r *Recorder) Start() error {
 	callbacks := malgo.DeviceCallbacks{
 		Data: func(_, pInputSamples []byte, framecount uint32) {
 			r.mu.Lock()
-			if r.recording {
+			active := r.recording && !r.paused
+			if active {
 				r.buf.Write(pInputSamples)
 			}
 			r.mu.Unlock()
-			r.computeLevel(pInputSamples)
+			if active {
+				r.computeLevel(pInputSamples)
+			}
 		},
 	}
 
@@ -80,6 +85,7 @@ func (r *Recorder) Stop() ([]byte, error) {
 		return nil, nil
 	}
 	r.recording = false
+	r.paused = false
 	device := r.device
 	r.device = nil
 	r.mu.Unlock()
@@ -102,6 +108,31 @@ func (r *Recorder) GetLevel() float32 {
 	r.levelMu.RLock()
 	defer r.levelMu.RUnlock()
 	return r.level
+}
+
+// Pause temporarily stops accumulating audio data without stopping the device.
+func (r *Recorder) Pause() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.recording {
+		r.paused = true
+	}
+}
+
+// Resume continues accumulating audio data after a pause.
+func (r *Recorder) Resume() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.recording && r.paused {
+		r.paused = false
+	}
+}
+
+// IsPaused returns whether the recorder is currently paused.
+func (r *Recorder) IsPaused() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.paused
 }
 
 // Close releases all audio resources. Safe to call multiple times.
