@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	githubRepo          = "silvio-l/whispaste"
+	githubRepo          = "whispaste/whispaste"
 	releasesAPI         = "https://api.github.com/repos/" + githubRepo + "/releases/latest"
 	updateCheckInterval = 6 * time.Hour
 	minCheckInterval    = 1 * time.Hour
