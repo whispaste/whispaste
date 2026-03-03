@@ -14,6 +14,8 @@ func main() {
 	InitLogger(LogDebug)
 	defer CloseLogger()
 
+	enableDarkMode()
+
 	// Detect system language on Windows via GetUserDefaultUILanguage
 	detectAndSetLanguage()
 
@@ -456,6 +458,24 @@ func main() {
 	}
 
 	tray.Run() // blocks until quit
+}
+
+// enableDarkMode opts the process into Windows dark mode so native menus
+// (system tray context menu) follow the system theme. Uses uxtheme.dll
+// ordinals 135 (SetPreferredAppMode) and 136 (FlushMenuThemes).
+// Requires Windows 10 1903+; fails silently on older versions.
+func enableDarkMode() {
+	dll, err := windows.LoadDLL("uxtheme.dll")
+	if err != nil {
+		return
+	}
+	defer dll.Release()
+	if proc, err := dll.FindProcByOrdinal(135); err == nil {
+		proc.Call(1) // AllowDark
+	}
+	if proc, err := dll.FindProcByOrdinal(136); err == nil {
+		proc.Call()
+	}
 }
 
 // detectAndSetLanguage uses GetUserDefaultUILanguage to detect system locale.
