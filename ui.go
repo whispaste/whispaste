@@ -4,7 +4,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -151,7 +150,7 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func()) {
 		// Bind: openURL → opens URL in default browser (https only)
 		w.Bind("openURL", func(url string) {
 			if !strings.HasPrefix(url, "https://") {
-				log.Printf("openURL: blocked non-https URL: %s", url)
+				logWarn("openURL: blocked non-https URL: %s", url)
 				return
 			}
 			exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()

@@ -31,7 +31,13 @@ vendor/
 # Config (contains API keys)
 config.json
 
-# Skills (local Copilot config)
+# AI agent / skill config (local only)
 skills-lock.json
 skills.yaml
 .skills/
+.agent/
+.agents/
+.claude/
+
+# Design source files
+*.afdesign
