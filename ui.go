@@ -36,8 +36,22 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func()) {
 		w.SetTitle(T("settings.title") + " – " + AppName)
 		w.SetSize(520, 640, webview.HintNone)
 
+		// Hide window initially to prevent white flash before content loads
+		hwndPtr := w.Window()
+		hwnd := uintptr(hwndPtr)
+		user32 := windows.NewLazySystemDLL("user32.dll")
+		showWindow := user32.NewProc("ShowWindow")
+		const swHide = 0
+		const swShow = 5
+		showWindow.Call(hwnd, swHide)
+
 		// Set window icon from embedded .ico
-		setWindowIcon(w.Window())
+		setWindowIcon(hwndPtr)
+
+		// Bind: windowReady → shows the window after HTML is fully loaded
+		w.Bind("windowReady", func() {
+			showWindow.Call(hwnd, swShow)
+		})
 
 		// Inject the current language and theme before page loads
 		w.Init(fmt.Sprintf(`window._lang = "%s"; window._theme = "%s";`, cfg.UILanguage, cfg.Theme))
