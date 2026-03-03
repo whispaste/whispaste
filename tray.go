@@ -4,7 +4,6 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"log"
 	"os/exec"
 	"sync"
 
@@ -115,9 +114,9 @@ func (t *AppTray) handleUpdateClick() {
 		if t.updater != nil {
 			t.mUpdate.SetTitle(T("update.check"))
 			go func() {
-				result, err := t.updater.CheckNow(context.Background())
+				result, err := t.updater.CheckNow(context.Background(), true)
 				if err != nil {
-					log.Printf("Manual update check failed: %v", err)
+					logWarn("Manual update check failed: %v", err)
 					return
 				}
 				if result.Available {
@@ -133,7 +132,7 @@ func (t *AppTray) handleUpdateClick() {
 	t.mUpdate.SetTitle(T("update.downloading"))
 	go func() {
 		if err := t.updater.Apply(info); err != nil {
-			log.Printf("Update apply failed: %v", err)
+			logError("Update apply failed: %v", err)
 			t.mUpdate.SetTitle(fmt.Sprintf(T("update.failed"), err))
 			return
 		}

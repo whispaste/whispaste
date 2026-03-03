@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"sync"
 	"time"
@@ -12,12 +11,15 @@ import (
 )
 
 func main() {
+	InitLogger(LogDebug)
+	defer CloseLogger()
+
 	// Detect system language on Windows via GetUserDefaultUILanguage
 	detectAndSetLanguage()
 
 	cfg, err := LoadConfig()
 	if err != nil {
-		log.Printf("Warning: config load error: %v (using defaults)", err)
+		logWarn("Config load error: %v (using defaults)", err)
 	}
 	SetLanguage(cfg.GetUILanguage())
 
@@ -32,7 +34,7 @@ func main() {
 	// Initialize overlay
 	overlay, err := NewOverlay()
 	if err != nil {
-		log.Printf("Warning: overlay init failed: %v", err)
+		logWarn("Overlay init failed: %v", err)
 	}
 
 	// Application state
@@ -72,7 +74,7 @@ func main() {
 				overlay.Show(StateRecording)
 			}
 			if err := recorder.Start(); err != nil {
-				log.Printf("Recording error: %v", err)
+				logError("Recording error: %v", err)
 				if playSounds {
 					PlayFeedback(SoundError)
 				}
@@ -115,7 +117,7 @@ func main() {
 			}
 			pcm, err := recorder.Stop()
 			if err != nil || len(pcm) == 0 {
-				log.Printf("No audio data captured")
+				logWarn("No audio data captured")
 				if playSounds {
 					PlayFeedback(SoundError)
 				}
@@ -133,7 +135,7 @@ func main() {
 				wav := EncodeWAV(pcm, 16000, 1, 16)
 				text, err := Transcribe(wav, lang, apiKey, model)
 				if err != nil {
-					log.Printf("Transcription error: %v", err)
+					logError("Transcription error: %v", err)
 					if playSounds {
 						PlayFeedback(SoundError)
 					}
@@ -148,7 +150,7 @@ func main() {
 
 				if autoPaste {
 					if err := PasteText(text); err != nil {
-						log.Printf("Paste error: %v", err)
+						logError("Paste error: %v", err)
 						if playSounds {
 							PlayFeedback(SoundError)
 						}
@@ -176,7 +178,7 @@ func main() {
 
 	// Check API key
 	if !cfg.HasAPIKey() {
-		log.Println("No API key configured – opening settings on launch")
+		logInfo("No API key configured – opening settings on launch")
 	}
 
 	// Hotkey callbacks
@@ -212,7 +214,7 @@ func main() {
 	hkMu.Lock()
 	hkMgr = NewHotkeyManager(cfg, onHotkeyDown, onHotkeyUp)
 	if err := hkMgr.Start(); err != nil {
-		log.Printf("Warning: hotkey registration failed: %v", err)
+		logWarn("Hotkey registration failed: %v", err)
 	}
 	hkMu.Unlock()
 
@@ -233,7 +235,7 @@ func main() {
 		}
 		hkMgr = NewHotkeyManager(cfg, onHotkeyDown, onHotkeyUp)
 		if err := hkMgr.Start(); err != nil {
-			log.Printf("Hotkey re-registration failed: %v", err)
+			logWarn("Hotkey re-registration failed: %v", err)
 		}
 	}
 
