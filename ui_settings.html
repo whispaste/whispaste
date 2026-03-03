@@ -30,6 +30,25 @@
   --font: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --transition: 200ms ease;
 }
+[data-theme="dark"] {
+  --accent: #4CC2FF;
+  --accent-hover: #60CDFF;
+  --accent-active: #38B0EE;
+  --bg: #202020;
+  --bg-card: #2D2D2D;
+  --bg-hover: #333333;
+  --bg-input: #1E1E1E;
+  --border: #404040;
+  --border-focus: var(--accent);
+  --text: #E4E4E4;
+  --text-secondary: #AAAAAA;
+  --text-hint: #777777;
+  --success: #6CCB5F;
+  --error: #FF6B6B;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.2);
+  --shadow-md: 0 2px 8px rgba(0,0,0,.3);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,.4);
+}
 
 /* ── Reset & Base ──────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -825,6 +844,14 @@ body {
           </div>
         </div>
       </div>
+      <div class="form-group">
+        <label class="form-label" for="select-theme" data-i18n="labelTheme">Theme</label>
+        <select class="form-select" id="select-theme" onchange="applyTheme(this.value)">
+          <option value="system" data-i18n-opt="themeSystem">System</option>
+          <option value="light" data-i18n-opt="themeLight">Light</option>
+          <option value="dark" data-i18n-opt="themeDark">Dark</option>
+        </select>
+      </div>
     </div>
 
   </div>
@@ -923,6 +950,10 @@ const translations = {
     descAutoPaste: 'Automatically paste transcription into focused field',
     labelCheckUpdates: 'Check for updates',
     descCheckUpdates: 'Automatically check for new versions',
+    labelTheme: 'Theme',
+    themeSystem: 'System',
+    themeLight: 'Light',
+    themeDark: 'Dark',
     aboutDesc: 'A fast, lightweight voice-to-text tool for Windows. Record speech and instantly paste the transcription anywhere.',
     aboutLicense: '📄 Open Source – MIT License',
     aboutGithub: '⭐ GitHub',
@@ -985,6 +1016,10 @@ const translations = {
     descAutoPaste: 'Transkription automatisch ins aktive Feld einfügen',
     labelCheckUpdates: 'Nach Updates suchen',
     descCheckUpdates: 'Automatisch nach neuen Versionen suchen',
+    labelTheme: 'Erscheinungsbild',
+    themeSystem: 'System',
+    themeLight: 'Hell',
+    themeDark: 'Dunkel',
     aboutDesc: 'Ein schnelles, schlankes Sprache-zu-Text-Tool für Windows. Sprache aufnehmen und die Transkription sofort überall einfügen.',
     aboutLicense: '📄 Open Source – MIT-Lizenz',
     aboutGithub: '⭐ GitHub',
@@ -1167,7 +1202,8 @@ function gatherConfig() {
     overlay_position: document.querySelector('[name="overlay"]:checked')?.value || 'top_center',
     play_sounds: document.getElementById('toggle-sound').checked,
     auto_paste: document.getElementById('toggle-autopaste').checked,
-    check_updates: document.getElementById('toggle-updates').checked
+    check_updates: document.getElementById('toggle-updates').checked,
+    theme: document.getElementById('select-theme').value
   };
 }
 
@@ -1182,6 +1218,7 @@ function applyConfig(cfg) {
   if (cfg.auto_paste != null) document.getElementById('toggle-autopaste').checked = cfg.auto_paste;
   if (cfg.check_updates != null) document.getElementById('toggle-updates').checked = cfg.check_updates;
   if (cfg.hotkey_modifiers && Array.isArray(cfg.hotkey_modifiers)) setHotkeyDisplay(cfg.hotkey_modifiers);
+  if (cfg.theme) { document.getElementById('select-theme').value = cfg.theme; applyTheme(cfg.theme); }
 }
 
 /* ── Save ──────────────────────────────────────────────── */
@@ -1261,10 +1298,26 @@ window.updateTestStatus = function(status) {
 };
 
 /* ── Init ──────────────────────────────────────────────── */
+function applyTheme(theme) {
+  let effective = theme;
+  if (theme === 'system') {
+    effective = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  document.documentElement.setAttribute('data-theme', effective === 'dark' ? 'dark' : '');
+  if (effective !== 'dark') document.documentElement.removeAttribute('data-theme');
+}
+// Listen for system theme changes
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  const sel = document.getElementById('select-theme');
+  if (sel && sel.value === 'system') applyTheme('system');
+});
 document.addEventListener('DOMContentLoaded', async () => {
   // Set initial language from Go or default to English
   const lang = window._lang || 'en';
   setLang(lang);
+  // Apply initial theme
+  const theme = window._theme || 'system';
+  applyTheme(theme);
 
   // Load config from Go
   try {
