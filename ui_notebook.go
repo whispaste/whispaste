@@ -26,7 +26,7 @@ var (
 var notebookHTML string
 
 // ShowNotebook opens the notebook window with WebView2.
-func ShowNotebook(history *History, openSettings func()) {
+func ShowNotebook(history *History, cfg *Config, openSettings func(), onCapture func()) {
 	notebookMu.Lock()
 	if notebookOpen {
 		if notebookHwnd != 0 {
@@ -80,7 +80,10 @@ func ShowNotebook(history *History, openSettings func()) {
 			showWindow.Call(hwnd, swShow)
 		})
 
-		w.Init(fmt.Sprintf(`window._lang = "%s";`, currentLang))
+		// Safely inject initial language and theme via JSON encoding
+		langJSON, _ := json.Marshal(cfg.GetUILanguage())
+		themeJSON, _ := json.Marshal(cfg.GetTheme())
+		w.Init(fmt.Sprintf(`window._lang = %s; window._theme = %s;`, langJSON, themeJSON))
 
 		// Bind: getEntries → returns all history entries as JSON
 		w.Bind("getEntries", func() (string, error) {
@@ -145,15 +148,56 @@ func ShowNotebook(history *History, openSettings func()) {
 			exec.Command("cmd", "/c", "start", "", logPath).Start()
 		})
 
-		// Bind: startCapture → placeholder for dashboard recording
+		// Bind: startCapture → triggers recording from dashboard
 		w.Bind("startCapture", func() {
-			logInfo("Capture from dashboard not yet implemented")
+			if onCapture != nil {
+				go onCapture()
+			}
 		})
 
 		// Bind: openSettingsBinding → opens settings window
 		w.Bind("openSettingsBinding", func() {
 			if openSettings != nil {
 				go openSettings()
+			}
+		})
+
+		// Bind: getTheme → returns current theme from config
+		w.Bind("getTheme", func() string {
+			cfg.mu.RLock()
+			defer cfg.mu.RUnlock()
+			return cfg.Theme
+		})
+
+		// Bind: setTheme → saves theme to config
+		w.Bind("setTheme", func(theme string) {
+			if theme != "system" && theme != "light" && theme != "dark" {
+				return
+			}
+			cfg.mu.Lock()
+			cfg.Theme = theme
+			cfg.mu.Unlock()
+			if err := cfg.Save(); err != nil {
+				logWarn("Failed to save theme: %v", err)
+			}
+		})
+
+		// Bind: getUILanguage → returns current UI language
+		w.Bind("getUILanguage", func() string {
+			return cfg.GetUILanguage()
+		})
+
+		// Bind: setUILanguage → saves UI language and re-applies
+		w.Bind("setUILanguage", func(lang string) {
+			if lang != "en" && lang != "de" {
+				return
+			}
+			cfg.mu.Lock()
+			cfg.UILanguage = lang
+			cfg.mu.Unlock()
+			SetLanguage(lang)
+			if err := cfg.Save(); err != nil {
+				logWarn("Failed to save language: %v", err)
 			}
 		})
 
@@ -166,7 +210,7 @@ func ShowNotebook(history *History, openSettings func()) {
 				"notebook.copy", "notebook.delete", "notebook.pin",
 				"notebook.unpin", "notebook.copied", "notebook.confirm_delete",
 				"notebook.uncategorized",
-				"notebook.sort_newest", "notebook.sort_oldest",
+				"notebook.sort", "notebook.sort_newest", "notebook.sort_oldest",
 				"notebook.sort_alpha", "notebook.sort_duration",
 				"notebook.add_tag", "notebook.tag_updated",
 			}
