@@ -58,6 +58,36 @@ jobs:
           "$hash  whispaste.exe" | Out-File -Encoding ascii -NoNewline whispaste.exe.sha256
           Write-Host "SHA256: $hash"
 
+      - name: Package MSIX
+        shell: pwsh
+        run: |
+          # Find MakeAppx.exe from Windows SDK
+          $sdkPath = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\MakeAppx.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $sdkPath) { Write-Host "::warning::MakeAppx.exe not found, skipping MSIX packaging"; exit 0 }
+          $makeAppx = $sdkPath.FullName
+
+          # Prepare MSIX staging directory
+          $staging = "msix-staging"
+          New-Item -ItemType Directory -Force -Path $staging | Out-Null
+          Copy-Item whispaste.exe $staging\
+          Copy-Item msix\AppxManifest.xml $staging\
+
+          # Copy or create placeholder icons
+          New-Item -ItemType Directory -Force -Path "$staging\Assets" | Out-Null
+          if (Test-Path msix\Assets\*.png) {
+            Copy-Item msix\Assets\*.png "$staging\Assets\"
+          }
+
+          # Update version in manifest
+          $manifest = [xml](Get-Content "$staging\AppxManifest.xml")
+          $manifest.Package.Identity.Version = "${{ steps.version.outputs.VERSION }}.0"
+          $manifest.Save("$staging\AppxManifest.xml")
+
+          # Create MSIX package
+          & $makeAppx pack /d $staging /p whispaste.msix /o /nv
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::MSIX packaging failed"; exit 0 }
+          Write-Host "MSIX package created: $((Get-Item whispaste.msix).Length / 1MB) MB"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -65,3 +95,4 @@ jobs:
           files: |
             whispaste.exe
             whispaste.exe.sha256
+            whispaste.msix

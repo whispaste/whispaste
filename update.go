@@ -14,6 +14,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 const (
@@ -23,6 +26,34 @@ const (
 	minCheckInterval    = 1 * time.Hour
 	downloadTimeout     = 60 * time.Second
 )
+
+var (
+	storePackageOnce   sync.Once
+	storePackageResult bool
+)
+
+// isStorePackage reports whether the app is running as an MSIX-packaged Store app.
+// The result is cached after the first call.
+func isStorePackage() bool {
+	storePackageOnce.Do(func() {
+		kernel32 := windows.NewLazySystemDLL("kernel32.dll")
+		proc := kernel32.NewProc("GetCurrentPackageFullName")
+
+		var length uint32
+		ret, _, _ := proc.Call(uintptr(unsafe.Pointer(&length)), 0)
+
+		const appmodelErrorNoPackage = 15700
+		switch ret {
+		case appmodelErrorNoPackage:
+			storePackageResult = false
+		case uintptr(windows.ERROR_INSUFFICIENT_BUFFER), uintptr(windows.ERROR_SUCCESS):
+			storePackageResult = true
+		default:
+			storePackageResult = false
+		}
+	})
+	return storePackageResult
+}
 
 // UpdateInfo holds information about an available update.
 type UpdateInfo struct {
@@ -100,6 +131,10 @@ func (u *Updater) Stop() {
 }
 
 func (u *Updater) checkAndNotify(ctx context.Context) {
+	if isStorePackage() {
+		logInfo("Running as Store package, skipping self-update check")
+		return
+	}
 	if u.checkEnabled != nil && !u.checkEnabled() {
 		return
 	}
