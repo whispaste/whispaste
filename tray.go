@@ -17,7 +17,7 @@ const supportURL = "https://github.com/sponsors/silvio-l"
 
 // AppTray manages the system tray icon and menu.
 type AppTray struct {
-	onSettings func()
+	onSettings func(string)
 	onQuit     func()
 	updater    *Updater
 	mUpdate    *systray.MenuItem
@@ -26,7 +26,7 @@ type AppTray struct {
 }
 
 // NewAppTray creates a tray manager. Callbacks are invoked on menu clicks.
-func NewAppTray(onSettings func(), onQuit func(), updater *Updater) *AppTray {
+func NewAppTray(onSettings func(string), onQuit func(), updater *Updater) *AppTray {
 	return &AppTray{
 		onSettings: onSettings,
 		onQuit:     onQuit,
@@ -80,13 +80,13 @@ func (t *AppTray) onReady() {
 			select {
 			case <-mSettings.ClickedCh:
 				if t.onSettings != nil {
-					t.onSettings()
+					t.onSettings("general")
 				}
 			case <-t.mUpdate.ClickedCh:
 				t.handleUpdateClick()
 			case <-mAbout.ClickedCh:
 				if t.onSettings != nil {
-					t.onSettings()
+					t.onSettings("about")
 				}
 			case <-mSupport.ClickedCh:
 				_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", supportURL).Start()

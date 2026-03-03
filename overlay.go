@@ -427,6 +427,8 @@ func (o *Overlay) paint(hwnd uintptr) {
 		o.paintRecording(hdc, frame, level, startTime)
 	case StateTranscribing:
 		o.paintTranscribing(hdc, frame)
+	case StateError:
+		o.paintError(hdc)
 	}
 }
 
@@ -488,6 +490,19 @@ func (o *Overlay) paintTranscribing(hdc uintptr, frame int) {
 
 	rc := rectT{0, 0, _OVL_WIDTH, _OVL_HEIGHT}
 	utf16, _ := windows.UTF16FromString(text)
+	procDrawTextW.Call(hdc,
+		uintptr(unsafe.Pointer(&utf16[0])),
+		uintptr(len(utf16)-1),
+		uintptr(unsafe.Pointer(&rc)),
+		_DT_CENTER|_DT_VCENTER|_DT_SINGLELINE,
+	)
+}
+
+func (o *Overlay) paintError(hdc uintptr) {
+	rc := rectT{0, 0, _OVL_WIDTH, _OVL_HEIGHT}
+	text := T("error.no_api_key")
+	utf16, _ := windows.UTF16FromString(text)
+	procSetTextColor.Call(hdc, _CLR_RED_DOT)
 	procDrawTextW.Call(hdc,
 		uintptr(unsafe.Pointer(&utf16[0])),
 		uintptr(len(utf16)-1),
