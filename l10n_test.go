@@ -6,8 +6,8 @@ import (
 
 func TestTFunction(t *testing.T) {
 	SetLanguage("en")
-	if got := T("app.name"); got != "Whispaste" {
-		t.Errorf("T(app.name) = %q, want Whispaste", got)
+	if got := T("app.name"); got != "WhisPaste" {
+		t.Errorf("T(app.name) = %q, want WhisPaste", got)
 	}
 	if got := T("tray.quit"); got != "Quit" {
 		t.Errorf("T(tray.quit) = %q, want Quit", got)
