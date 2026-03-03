@@ -82,8 +82,8 @@ import Layout from "../layouts/Layout.astro";
                         <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
                       </div>
                     </div>
-                    <svg class="carousel-cursor" viewBox="0 0 16 20" width="28" height="35" aria-hidden="true">
-                      <path d="M1 1l12.5 9-5.5 1 3.5 7.5L9 20l-3.5-7.5L1 17V1z" fill="white" fill-opacity="0.65" stroke="rgba(0,0,0,0.4)" stroke-width="0.7" stroke-linejoin="round"/>
+                    <svg class="carousel-cursor" viewBox="0 0 448 512" width="28" height="32" aria-hidden="true">
+                      <path d="M160 64c0-8.8 7.2-16 16-16s16 7.2 16 16v136c0 10.3 6.6 19.5 16.4 22.8s20.6-.1 26.8-8.3c3-3.9 7.6-6.4 12.8-6.4c8.8 0 16 7.2 16 16c0 10.3 6.6 19.5 16.4 22.8s20.6-.1 26.8-8.3c3-3.9 7.6-6.4 12.8-6.4c7.8 0 14.3 5.6 15.7 13c1.6 8.2 7.3 15.1 15.1 18s16.7 1.6 23.3-3.6c2.7-2.1 6.1-3.4 9.9-3.4c8.8 0 16 7.2 16 16v120c0 39.8-32.2 72-72 72H211.3c-37.4 0-72.4-18.7-93.2-49.9L50.7 312.9c-4.9-7.4-2.9-17.3 4.4-22.2s17.3-2.9 22.2 4.4l38.7 58.1c5.9 8.8 16.8 12.7 26.9 9.7s17-12.4 17-23V64z" fill="white" fill-opacity="0.7" stroke="rgba(0,0,0,0.3)" stroke-width="8" stroke-linejoin="round"/>
                     </svg>
                   </div>
                   <span class="text-sm text-gray-400" data-i18n="carousel.press_hotkey">Press your hotkey</span>
@@ -92,15 +92,17 @@ import Layout from "../layouts/Layout.astro";
                 <!-- Scene 2: Recording Overlay -->
                 <div class="w-full shrink-0">
                   <div class="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[220px]">
-                    <!-- Speaking head icon -->
-                    <div class="speaking-head mb-4">
-                      <svg class="speaking-head-icon" viewBox="0 0 48 40" width="48" height="40" fill="none" aria-hidden="true">
-                        <circle cx="16" cy="20" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
-                        <circle cx="13" cy="18" r="1.5" fill="currentColor"/>
-                        <path d="M12 23 c2 2 6 2 8 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-                        <path class="sound-arc arc-1" d="M28 14 Q33 20 28 26" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        <path class="sound-arc arc-2" d="M33 10 Q40 20 33 30" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        <path class="sound-arc arc-3" d="M38 6 Q47 20 38 34" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <!-- Speaking head + microphone icon -->
+                    <div class="speaking-head mb-4 flex items-center gap-3">
+                      <!-- Lucide speech head -->
+                      <svg class="speaking-head-icon" viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M8.8 20v-4.1l1.9.2a2.3 2.3 0 0 0 2.164-2.1V8.3A5.37 5.37 0 0 0 2 8.25c0 2.8.656 3.054 1 4.55a5.8 5.8 0 0 1 .029 2.758L2 20"/>
+                        <path class="sound-arc arc-1" d="M17 15a3.5 3.5 0 0 0-.025-4.975"/>
+                        <path class="sound-arc arc-2" d="M19.8 17.8a7.5 7.5 0 0 0 .003-10.603"/>
+                      </svg>
+                      <!-- FA microphone-lines -->
+                      <svg class="microphone-icon" viewBox="0 0 384 512" width="22" height="30" fill="currentColor" aria-hidden="true">
+                        <path d="M96 96v160c0 53 43 96 96 96s96-43 96-96h-80c-8.8 0-16-7.2-16-16s7.2-16 16-16h80v-32h-80c-8.8 0-16-7.2-16-16s7.2-16 16-16h80v-32h-80c-8.8 0-16-7.2-16-16s7.2-16 16-16h80c0-53-43-96-96-96S96 43 96 96m224 144v16c0 70.7-57.3 128-128 128S64 326.7 64 256v-40c0-13.3-10.7-24-24-24s-24 10.7-24 24v40c0 89.1 66.2 162.7 152 174.4V464h-48c-13.3 0-24 10.7-24 24s10.7 24 24 24h144c13.3 0 24-10.7 24-24s-10.7-24-24-24h-48v-33.6c85.8-11.7 152-85.3 152-174.4v-40c0-13.3-10.7-24-24-24s-24 10.7-24 24z"/>
                       </svg>
                     </div>
                     <div class="overlay-pill">
@@ -502,18 +504,24 @@ import Layout from "../layouts/Layout.astro";
     .overlay-btn-pause { background: #0E7490; }
     .overlay-btn-confirm { background: #22D3EE; }
 
-    /* Speaking head icon (Scene 2) */
+    /* Speaking head + microphone icon (Scene 2) */
     .speaking-head {
       color: rgba(255, 255, 255, 0.5);
     }
+    .microphone-icon {
+      color: rgba(255, 255, 255, 0.4);
+      animation: mic-glow 1.8s ease-in-out infinite;
+    }
+    @keyframes mic-glow {
+      0%, 100% { color: rgba(255, 255, 255, 0.4); }
+      50% { color: #22D3EE; }
+    }
     .speaking-head-icon .sound-arc {
       opacity: 0;
-      color: #22D3EE;
       stroke: #22D3EE;
     }
     .sound-arc.arc-1 { animation: sound-pulse 1.8s ease-in-out infinite; }
     .sound-arc.arc-2 { animation: sound-pulse 1.8s ease-in-out 0.3s infinite; }
-    .sound-arc.arc-3 { animation: sound-pulse 1.8s ease-in-out 0.6s infinite; }
     @keyframes sound-pulse {
       0%, 100% { opacity: 0; }
       30%, 70% { opacity: 0.7; }
@@ -544,6 +552,7 @@ import Layout from "../layouts/Layout.astro";
       :global(.overlay-wave-bar),
       :global(.typing-cursor),
       .sound-arc,
+      .microphone-icon,
       .animate-fade-in,
       .animate-fade-in-delay,
       .animate-fade-in-up {
