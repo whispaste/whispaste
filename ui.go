@@ -125,6 +125,7 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 			cfg.UILanguage = newCfg.UILanguage
 			cfg.Theme = newCfg.Theme
 			cfg.Autostart = newCfg.Autostart
+			cfg.SoundVolume = newCfg.SoundVolume
 			cfg.mu.Unlock()
 
 			// Apply autostart setting
@@ -133,6 +134,8 @@ func ShowSettings(cfg *Config, recorder *Recorder, onSaved func(), initialTab st
 			}
 
 			SetLanguage(newCfg.UILanguage)
+		// Update window title to reflect new language
+		w.SetTitle(T("settings.title") + " – " + AppName)
 
 			if err := cfg.Save(); err != nil {
 				return map[string]interface{}{

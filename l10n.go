@@ -67,6 +67,7 @@ var translations = map[string]map[string]string{
 		"overlay.recording":    "Recording",
 		"overlay.transcribing": "Transcribing…",
 		"overlay.done":         "Pasted!",
+		"overlay.copied":       "Copied to clipboard ✓",
 		"overlay.error":        "Error: %s",
 
 		// Settings
@@ -151,6 +152,7 @@ var translations = map[string]map[string]string{
 		"overlay.recording":    "Aufnahme",
 		"overlay.transcribing": "Transkribiere…",
 		"overlay.done":         "Eingefügt!",
+		"overlay.copied":       "In Zwischenablage kopiert ✓",
 		"overlay.error":        "Fehler: %s",
 
 		// Settings

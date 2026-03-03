@@ -8,6 +8,7 @@ const (
 	StateRecording
 	StateTranscribing
 	StateError
+	StateCopied
 )
 
 // SoundType identifies audio feedback sounds.

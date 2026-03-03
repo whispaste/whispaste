@@ -22,6 +22,7 @@ func main() {
 		logWarn("Config load error: %v (using defaults)", err)
 	}
 	SetLanguage(cfg.GetUILanguage())
+	SetSoundVolume(cfg.SoundVolume)
 
 	// Initialize audio recorder
 	recorder, err := NewRecorder()
@@ -41,6 +42,7 @@ func main() {
 	var (
 		state     = StateIdle
 		stateMu   sync.Mutex
+		stateGen  uint64 // generation counter for auto-hide goroutines
 		levelDone chan struct{}
 		hkMu      sync.Mutex // protects hkMgr
 	)
@@ -57,6 +59,7 @@ func main() {
 		stateMu.Lock()
 		oldState := state
 		state = newState
+		stateGen++
 		stateMu.Unlock()
 
 		if oldState == newState {
@@ -149,7 +152,7 @@ func main() {
 				}
 
 				if autoPaste {
-					// PasteText handles clipboard save/restore internally
+					// PasteText writes to clipboard and simulates Ctrl+V
 					if err := PasteText(text); err != nil {
 						logError("Paste error: %v", err)
 						if playSounds {
@@ -173,12 +176,25 @@ func main() {
 					}
 				}
 
-				if overlay != nil {
-					overlay.Hide()
-				}
+				// Show "Copied" feedback briefly, then auto-hide
 				stateMu.Lock()
 				state = StateIdle
+				stateGen++
+				gen := stateGen
 				stateMu.Unlock()
+
+				if overlay != nil {
+					overlay.Show(StateCopied)
+					go func(expectedGen uint64) {
+						time.Sleep(2 * time.Second)
+						stateMu.Lock()
+						match := stateGen == expectedGen
+						stateMu.Unlock()
+						if match {
+							overlay.Hide()
+						}
+					}(gen)
+				}
 			}()
 
 		case StateIdle:
@@ -257,6 +273,7 @@ func main() {
 
 	// Settings callback (called when config is saved from WebView goroutine)
 	onSettingsSaved := func() {
+		SetSoundVolume(cfg.SoundVolume)
 		hkMu.Lock()
 		defer hkMu.Unlock()
 		if hkMgr != nil {

@@ -55,9 +55,8 @@ type kbdINPUT struct {
 }
 
 // PasteText places text on the clipboard and simulates Ctrl+V.
+// The transcription remains on the clipboard for subsequent manual pastes.
 func PasteText(text string) error {
-	oldText, _ := readClipboard()
-
 	if err := writeClipboard(text); err != nil {
 		return fmt.Errorf(T("error.clipboard"), err)
 	}
@@ -66,11 +65,6 @@ func PasteText(text string) error {
 	releaseModifiers()
 	time.Sleep(50 * time.Millisecond)
 	sendCtrlV()
-	// 500ms delay for target app to read clipboard before restoring
-	time.Sleep(500 * time.Millisecond)
-
-	// Restore previous clipboard content (best-effort)
-	writeClipboard(oldText)
 	return nil
 }
 
