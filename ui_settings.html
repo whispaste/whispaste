@@ -492,6 +492,48 @@ body.ready {
   font-weight: 400;
 }
 
+.btn-sm {
+  padding: 4px 12px;
+  font-size: 12px;
+  min-height: 28px;
+}
+
+.hotkey-recorder {
+  margin-top: 10px;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 2px solid var(--accent);
+  animation: hotkeyPulse 1.5s ease infinite;
+}
+@keyframes hotkeyPulse {
+  0%, 100% { border-color: var(--accent); }
+  50% { border-color: transparent; }
+}
+.hotkey-recorder-text {
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.hotkey-recorder-preview {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.hotkey-recorder-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+.hotkey-recorder-hint {
+  font-size: 11px;
+  color: var(--text-hint);
+  margin-top: 6px;
+}
+
 /* ── About ─────────────────────────────────────────────── */
 .about-header {
   display: flex;
@@ -831,12 +873,23 @@ body.ready {
       <div class="card-title" data-i18n="cardHotkey">Hotkey</div>
       <div class="form-group">
         <label class="form-label" data-i18n="labelHotkey">Current Hotkey</label>
-        <div class="hotkey-display" id="hotkey-display" aria-label="Current hotkey: Ctrl + Shift + V">
-          <span class="hotkey-key">Ctrl</span>
-          <span class="hotkey-plus">+</span>
-          <span class="hotkey-key">Shift</span>
-          <span class="hotkey-plus">+</span>
-          <span class="hotkey-key">V</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="hotkey-display" id="hotkey-display" aria-label="Current hotkey: Ctrl + Shift + V">
+            <span class="hotkey-key">Ctrl</span>
+            <span class="hotkey-plus">+</span>
+            <span class="hotkey-key">Shift</span>
+            <span class="hotkey-plus">+</span>
+            <span class="hotkey-key">V</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btn-change-hotkey" onclick="startHotkeyRecording()" data-i18n="btnChangeHotkey">Change</button>
+        </div>
+        <div class="hotkey-recorder" id="hotkey-recorder" style="display:none">
+          <div class="hotkey-recorder-text" data-i18n="hotkeyRecording">Press your desired key combination…</div>
+          <div class="hotkey-recorder-preview" id="hotkey-preview"></div>
+          <div class="hotkey-recorder-actions">
+            <button class="btn btn-secondary btn-sm" onclick="cancelHotkeyRecording()" data-i18n="btnCancel">Cancel</button>
+          </div>
+          <p class="hotkey-recorder-hint" data-i18n="hotkeyHint">Press Escape to cancel</p>
         </div>
       </div>
     </div>
@@ -928,6 +981,19 @@ body.ready {
           </div>
           <div class="toggle-switch">
             <input type="checkbox" id="toggle-updates" checked>
+            <span class="toggle-track" aria-hidden="true"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <label class="toggle-label" for="toggle-autostart" data-i18n="labelAutostart">Start with Windows</label>
+            <p class="toggle-desc" data-i18n="descAutostart">Launch Whispaste automatically when you sign in</p>
+          </div>
+          <div class="toggle-switch">
+            <input type="checkbox" id="toggle-autostart">
             <span class="toggle-track" aria-hidden="true"></span>
           </div>
         </div>
@@ -1059,7 +1125,12 @@ const translations = {
     statusTestDone: 'Test complete',
     statusTestError: 'Test failed',
     eyeShow: 'Show API key',
-    eyeHide: 'Hide API key'
+    eyeHide: 'Hide API key',
+    btnChangeHotkey: 'Change',
+    hotkeyRecording: 'Press your desired key combination…',
+    hotkeyHint: 'Press Escape to cancel',
+    labelAutostart: 'Start with Windows',
+    descAutostart: 'Launch Whispaste automatically when you sign in'
   },
   de: {
     settingsTitle: 'Einstellungen',
@@ -1125,7 +1196,12 @@ const translations = {
     statusTestDone: 'Test abgeschlossen',
     statusTestError: 'Test fehlgeschlagen',
     eyeShow: 'API-Schlüssel anzeigen',
-    eyeHide: 'API-Schlüssel verbergen'
+    eyeHide: 'API-Schlüssel verbergen',
+    btnChangeHotkey: 'Ändern',
+    hotkeyRecording: 'Gewünschte Tastenkombination drücken…',
+    hotkeyHint: 'Escape zum Abbrechen',
+    labelAutostart: 'Mit Windows starten',
+    descAutostart: 'Whispaste beim Anmelden automatisch starten'
   }
 };
 
@@ -1303,6 +1379,7 @@ function gatherConfig() {
     play_sounds: document.getElementById('toggle-sound').checked,
     auto_paste: document.getElementById('toggle-autopaste').checked,
     check_updates: document.getElementById('toggle-updates').checked,
+    autostart: document.getElementById('toggle-autostart').checked,
     ui_language: _savedUILang,
     theme: document.getElementById('select-theme').value
   };
@@ -1318,6 +1395,7 @@ function applyConfig(cfg) {
   if (cfg.play_sounds != null) document.getElementById('toggle-sound').checked = cfg.play_sounds;
   if (cfg.auto_paste != null) document.getElementById('toggle-autopaste').checked = cfg.auto_paste;
   if (cfg.check_updates != null) document.getElementById('toggle-updates').checked = cfg.check_updates;
+  if (cfg.autostart != null) document.getElementById('toggle-autostart').checked = cfg.autostart;
   if (cfg.theme) { document.getElementById('select-theme').value = cfg.theme; applyTheme(cfg.theme); }
   // Preserve non-editable fields for round-tripping through save
   if (cfg.hotkey_modifiers && Array.isArray(cfg.hotkey_modifiers) && cfg.hotkey_modifiers.length > 0) {
@@ -1334,6 +1412,58 @@ function testSound() {
   if (window._testSound) {
     window._testSound();
   }
+}
+
+/* ── Hotkey Recorder ──────────────────────────────────── */
+let _hotkeyRecording = false;
+function startHotkeyRecording() {
+  _hotkeyRecording = true;
+  document.getElementById('hotkey-recorder').style.display = 'block';
+  document.getElementById('btn-change-hotkey').style.display = 'none';
+  document.getElementById('hotkey-preview').innerHTML = '';
+  document.addEventListener('keydown', onHotkeyKeyDown, true);
+  document.addEventListener('keyup', onHotkeyKeyUp, true);
+}
+
+function cancelHotkeyRecording() {
+  _hotkeyRecording = false;
+  document.getElementById('hotkey-recorder').style.display = 'none';
+  document.getElementById('btn-change-hotkey').style.display = '';
+  document.removeEventListener('keydown', onHotkeyKeyDown, true);
+  document.removeEventListener('keyup', onHotkeyKeyUp, true);
+}
+
+function onHotkeyKeyDown(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.key === 'Escape') { cancelHotkeyRecording(); return; }
+  // Build modifier list
+  const mods = [];
+  if (e.ctrlKey) mods.push('Ctrl');
+  if (e.shiftKey) mods.push('Shift');
+  if (e.altKey) mods.push('Alt');
+  // Get the actual key (ignore pure modifier presses)
+  const key = e.key;
+  const isModOnly = ['Control','Shift','Alt','Meta'].includes(key);
+  // Show preview
+  const preview = document.getElementById('hotkey-preview');
+  const parts = [...mods];
+  if (!isModOnly) parts.push(key.length === 1 ? key.toUpperCase() : key);
+  preview.innerHTML = parts.map(k =>
+    `<span class="hotkey-key">${k}</span>`
+  ).join('<span class="hotkey-plus">+</span>');
+  // Accept if at least one modifier + a non-modifier key
+  if (!isModOnly && mods.length > 0) {
+    _savedHotkeyMods = mods;
+    _savedHotkeyKey = key.length === 1 ? key.toUpperCase() : key;
+    setHotkeyDisplay([..._savedHotkeyMods, _savedHotkeyKey]);
+    setTimeout(() => cancelHotkeyRecording(), 300);
+  }
+}
+
+function onHotkeyKeyUp(e) {
+  e.preventDefault();
+  e.stopPropagation();
 }
 
 /* ── Save ──────────────────────────────────────────────── */
