@@ -7,9 +7,9 @@
 <style>
 /* ── Custom Properties ─────────────────────────────────── */
 :root {
-  --accent: #007AFF;
-  --accent-hover: #0066D6;
-  --accent-active: #0055B3;
+  --accent: #0891B2;
+  --accent-hover: #0E7490;
+  --accent-active: #155E75;
   --bg: #F2F2F7;
   --bg-card: #FFFFFF;
   --bg-hover: #F8F8FC;
@@ -31,9 +31,9 @@
   --transition: 220ms cubic-bezier(.4, 0, .2, 1);
 }
 [data-theme="dark"] {
-  --accent: #0A84FF;
-  --accent-hover: #409CFF;
-  --accent-active: #0070E0;
+  --accent: #22D3EE;
+  --accent-hover: #67E8F9;
+  --accent-active: #06B6D4;
   --bg: #1C1C1E;
   --bg-card: #2C2C2E;
   --bg-hover: #3A3A3C;
@@ -52,6 +52,19 @@
 
 /* ── Reset & Base ──────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+.icon {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.icon svg {
+  width: 100%;
+  height: 100%;
+}
+.radio-card-icon .icon { width: 24px; height: 24px; }
 
 html, body {
   height: 100%;
@@ -260,7 +273,7 @@ body.ready {
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 
-.form-input:hover { border-color: #B0B0B5; }
+.form-input:hover { border-color: var(--text-hint); }
 .form-input:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px rgba(0,122,255,.12);
@@ -300,7 +313,7 @@ body.ready {
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 
-.form-select:hover { border-color: #B0B0B5; }
+.form-select:hover { border-color: var(--text-hint); }
 .form-select:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px rgba(0,122,255,.12);
@@ -329,7 +342,7 @@ body.ready {
   text-align: center;
 }
 
-.radio-card:hover { border-color: #B0B0B5; background: var(--bg-hover); }
+.radio-card:hover { border-color: var(--text-hint); background: var(--bg-hover); }
 
 .radio-card[aria-checked="true"] {
   border-color: var(--accent);
@@ -425,6 +438,10 @@ body.ready {
   outline-offset: 2px;
 }
 
+[data-theme="dark"] .toggle-track::after {
+  background: #E5E5EA;
+}
+
 /* ── Hotkey Display ────────────────────────────────────── */
 .hotkey-display {
   display: inline-flex;
@@ -442,6 +459,11 @@ body.ready {
   box-shadow: 0 1px 2px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.8);
 }
 
+[data-theme="dark"] .hotkey-display {
+  background: linear-gradient(180deg, #3A3A3C 0%, #2C2C2E 100%);
+  box-shadow: 0 1px 2px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.05);
+}
+
 .hotkey-key {
   display: inline-flex;
   align-items: center;
@@ -456,6 +478,12 @@ body.ready {
   font-weight: 600;
   color: var(--text);
   box-shadow: 0 1px 2px rgba(0,0,0,.08), inset 0 -1px 0 rgba(0,0,0,.05);
+}
+
+[data-theme="dark"] .hotkey-key {
+  background: linear-gradient(180deg, #48484A 0%, #3A3A3C 100%);
+  border-color: #555557;
+  box-shadow: 0 1px 2px rgba(0,0,0,.3), inset 0 -1px 0 rgba(0,0,0,.2);
 }
 
 .hotkey-plus {
@@ -673,10 +701,14 @@ body.ready {
 .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .btn-primary:active { background: var(--accent-active); }
 .btn-primary:disabled {
-  background: rgba(0,122,255,.4);
+  background: rgba(8,145,178,.4);
   border-color: transparent;
   cursor: not-allowed;
   transform: none;
+}
+
+[data-theme="dark"] .btn-primary:disabled {
+  background: rgba(34,211,238,.4);
 }
 
 .btn-secondary {
@@ -685,7 +717,7 @@ body.ready {
   border-color: var(--border);
 }
 
-.btn-secondary:hover { background: var(--bg-hover); border-color: #B0B0B5; }
+.btn-secondary:hover { background: var(--bg-hover); border-color: var(--text-hint); }
 
 .btn-test {
   background: transparent;
@@ -738,7 +770,7 @@ body.ready {
         <label class="form-label" for="input-apikey" data-i18n="labelApiKey">OpenAI API Key</label>
         <div class="input-wrapper">
           <input class="form-input" type="password" id="input-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false">
-          <button class="input-eye" type="button" aria-label="Show API key" onclick="toggleApiKeyVisibility()" id="btn-eye">👁</button>
+          <button class="input-eye" type="button" aria-label="Show API key" onclick="toggleApiKeyVisibility()" id="btn-eye"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
         <p class="form-hint">
           <span data-i18n="hintApiKey">Need a key?</span>
@@ -753,13 +785,13 @@ body.ready {
         <div class="radio-cards" role="radiogroup" aria-label="Recording mode">
           <div class="radio-card" role="radio" aria-checked="true" tabindex="0" onclick="selectMode('push')" onkeydown="handleRadioKey(event, 'push')">
             <input type="radio" name="mode" value="push_to_talk" id="mode-push" checked>
-            <span class="radio-card-icon" aria-hidden="true">🎙️</span>
+            <span class="radio-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
             <span class="radio-card-label" data-i18n="modePush">Push to Talk</span>
             <span class="radio-card-desc" data-i18n="modePushDesc">Hold the hotkey to record</span>
           </div>
           <div class="radio-card" role="radio" aria-checked="false" tabindex="0" onclick="selectMode('toggle')" onkeydown="handleRadioKey(event, 'toggle')">
             <input type="radio" name="mode" value="toggle" id="mode-toggle">
-            <span class="radio-card-icon" aria-hidden="true">🔄</span>
+            <span class="radio-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>
             <span class="radio-card-label" data-i18n="modeToggle">Toggle</span>
             <span class="radio-card-desc" data-i18n="modeToggleDesc">Press to start, press again to stop</span>
           </div>
@@ -814,13 +846,13 @@ body.ready {
         <div class="radio-cards" role="radiogroup" aria-label="Overlay position">
           <div class="radio-card" role="radio" aria-checked="true" tabindex="0" onclick="selectOverlay('top')" onkeydown="handleOverlayKey(event, 'top')">
             <input type="radio" name="overlay" value="top" id="overlay-top" checked>
-            <span class="radio-card-icon" aria-hidden="true">⬆️</span>
+            <span class="radio-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/></svg></span>
             <span class="radio-card-label" data-i18n="overlayTop">Top Center</span>
             <span class="radio-card-desc" data-i18n="overlayTopDesc">Fixed at top of screen</span>
           </div>
           <div class="radio-card" role="radio" aria-checked="false" tabindex="0" onclick="selectOverlay('cursor')" onkeydown="handleOverlayKey(event, 'cursor')">
             <input type="radio" name="overlay" value="cursor" id="overlay-cursor">
-            <span class="radio-card-icon" aria-hidden="true">🖱️</span>
+            <span class="radio-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg></span>
             <span class="radio-card-label" data-i18n="overlayCursor">Near Cursor</span>
             <span class="radio-card-desc" data-i18n="overlayCursorDesc">Follows mouse position</span>
           </div>
@@ -890,19 +922,19 @@ body.ready {
         <div class="about-name">Whispaste</div>
         <div class="about-version">v1.0.0</div>
         <p class="about-desc" data-i18n="aboutDesc">A fast, lightweight voice-to-text tool for Windows. Record speech and instantly paste the transcription anywhere.</p>
-        <span class="about-license" data-i18n="aboutLicense">📄 Open Source – MIT License</span>
+        <span class="about-license"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> <span data-i18n="aboutLicense">Open Source – MIT License</span></span>
 
         <div class="about-links">
-          <a href="#" class="about-link" onclick="openExternal('https://github.com/silvio-l/whispaste'); return false;" data-i18n="aboutGithub">⭐ GitHub</a>
-          <a href="#" class="about-link" onclick="openExternal('https://github.com/silvio-l/whispaste/issues'); return false;" data-i18n="aboutIssue">🐛 Report Issue</a>
+          <a href="#" class="about-link" onclick="openExternal('https://github.com/silvio-l/whispaste'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a.53.53 0 0 0 .4.29l5.16.754a.53.53 0 0 1 .294.904l-3.733 3.638a.53.53 0 0 0-.152.469l.882 5.14a.53.53 0 0 1-.77.56l-4.615-2.426a.53.53 0 0 0-.494 0L6.18 18.73a.53.53 0 0 1-.77-.56l.882-5.14a.53.53 0 0 0-.152-.47L2.407 8.923a.53.53 0 0 1 .294-.906l5.16-.753a.53.53 0 0 0 .4-.29l2.31-4.679Z"/></svg> <span data-i18n="aboutGithub">GitHub</span></a>
+          <a href="#" class="about-link" onclick="openExternal('https://github.com/silvio-l/whispaste/issues'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg> <span data-i18n="aboutIssue">Report Issue</span></a>
         </div>
 
         <div class="about-support">
-          <div class="about-support-title" data-i18n="aboutSupportTitle">❤️ Support this project</div>
+          <div class="about-support-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> <span data-i18n="aboutSupportTitle">Support this project</span></div>
           <p class="about-support-text" data-i18n="aboutSupportText">Whispaste is free and open source. If you find it useful, please consider supporting its development!</p>
           <div class="about-support-links">
-            <a href="#" class="about-link support-link" onclick="openExternal('https://github.com/sponsors/silvio-l'); return false;">💜 GitHub Sponsors</a>
-            <a href="#" class="about-link support-link" onclick="openExternal('https://ko-fi.com/silviol'); return false;">☕ Ko-fi</a>
+            <a href="#" class="about-link support-link" onclick="openExternal('https://github.com/sponsors/silvio-l'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> GitHub Sponsors</a>
+            <a href="#" class="about-link support-link" onclick="openExternal('https://ko-fi.com/silviol'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/></svg> Ko-fi</a>
           </div>
         </div>
       </div>
@@ -920,7 +952,7 @@ body.ready {
 <!-- ── Bottom Bar ───────────────────────────────────────── -->
 <div class="bottom-bar">
   <button class="btn btn-test" id="btn-test" aria-label="Test microphone" onclick="testRecording()">
-    <span id="btn-test-icon">🎤</span>
+    <span id="btn-test-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
     <span data-i18n="btnTest" id="btn-test-text">Test</span>
   </button>
   <span class="status-msg" id="status-msg" role="status" aria-live="polite"></span>
@@ -980,12 +1012,12 @@ const translations = {
     themeLight: 'Light',
     themeDark: 'Dark',
     aboutDesc: 'A fast, lightweight voice-to-text tool for Windows. Record speech and instantly paste the transcription anywhere.',
-    aboutLicense: '📄 Open Source – MIT License',
-    aboutGithub: '⭐ GitHub',
-    aboutIssue: '🐛 Report Issue',
+    aboutLicense: 'Open Source – MIT License',
+    aboutGithub: 'GitHub',
+    aboutIssue: 'Report Issue',
     aboutCreditsTitle: 'Credits',
     aboutCreditsText: 'Made by Silvio Lindstedt. Powered by OpenAI Whisper API. Built with Go and WebView2.',
-    aboutSupportTitle: '❤️ Support this project',
+    aboutSupportTitle: 'Support this project',
     aboutSupportText: 'Whispaste is free and open source. If you find it useful, please consider supporting its development!',
     btnTest: 'Test',
     btnCancel: 'Cancel',
@@ -1046,12 +1078,12 @@ const translations = {
     themeLight: 'Hell',
     themeDark: 'Dunkel',
     aboutDesc: 'Ein schnelles, schlankes Sprache-zu-Text-Tool für Windows. Sprache aufnehmen und die Transkription sofort überall einfügen.',
-    aboutLicense: '📄 Open Source – MIT-Lizenz',
-    aboutGithub: '⭐ GitHub',
-    aboutIssue: '🐛 Fehler melden',
+    aboutLicense: 'Open Source – MIT-Lizenz',
+    aboutGithub: 'GitHub',
+    aboutIssue: 'Fehler melden',
     aboutCreditsTitle: 'Danksagungen',
     aboutCreditsText: 'Erstellt von Silvio Lindstedt. Basierend auf der OpenAI Whisper API. Entwickelt mit Go und WebView2.',
-    aboutSupportTitle: '❤️ Projekt unterstützen',
+    aboutSupportTitle: 'Projekt unterstützen',
     aboutSupportText: 'Whispaste ist kostenlos und Open Source. Wenn du es nützlich findest, unterstütze gerne die Weiterentwicklung!',
     btnTest: 'Testen',
     btnCancel: 'Abbrechen',
@@ -1138,11 +1170,11 @@ function toggleApiKeyVisibility() {
   const t = translations[currentLang];
   if (input.type === 'password') {
     input.type = 'text';
-    btn.textContent = '🔒';
+    btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>';
     btn.setAttribute('aria-label', t.eyeHide);
   } else {
     input.type = 'password';
-    btn.textContent = '👁';
+    btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>';
     btn.setAttribute('aria-label', t.eyeShow);
   }
 }
@@ -1289,13 +1321,13 @@ async function testRecording() {
 
   isTesting = true;
   btn.classList.add('recording');
-  icon.textContent = '🔴';
+  icon.innerHTML = '<span style="display:inline-block;width:10px;height:10px;background:#FF3B30;border-radius:50%;animation:pulse 1.2s ease infinite"></span>';
   text.textContent = t.statusTesting;
   showStatus(t.statusTesting, 'success');
 
   try {
-    if (window.testRecording) {
-      const result = await window.testRecording();
+    if (window._doTestRecording) {
+      const result = await window._doTestRecording();
       const res = typeof result === 'string' ? JSON.parse(result) : result;
       if (res && res.success) {
         showStatus(`${t.statusTestDone}: "${res.text}"`, 'success');
@@ -1312,7 +1344,7 @@ async function testRecording() {
   } finally {
     isTesting = false;
     btn.classList.remove('recording');
-    icon.textContent = '🎤';
+    icon.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>';
     text.textContent = t.btnTest;
   }
 }
@@ -1353,6 +1385,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch (e) {
     console.warn('Failed to load config:', e);
+  }
+
+  // Switch to initial tab if specified by Go
+  if (window._initialTab) {
+    switchTab(window._initialTab);
   }
 
   // Reveal UI and signal Go to show the window
