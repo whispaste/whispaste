@@ -44,8 +44,8 @@ func LoadStats() *UsageStats {
 	return s
 }
 
-// RecordDictation records a completed dictation.
-func (s *UsageStats) RecordDictation(text string, durationSec float64) {
+// RecordDictation records a completed dictation and returns the new total count.
+func (s *UsageStats) RecordDictation(text string, durationSec float64) int {
 	words := len(strings.Fields(text))
 	s.mu.Lock()
 	// Check month rollover
@@ -62,8 +62,10 @@ func (s *UsageStats) RecordDictation(text string, durationSec float64) {
 	s.MonthWords += words
 	s.MonthDictations++
 	s.MonthSeconds += durationSec
+	total := s.TotalDictations
 	s.mu.Unlock()
 	s.save()
+	return total
 }
 
 // TimeSavedMinutes returns estimated minutes saved vs typing at 40 WPM.

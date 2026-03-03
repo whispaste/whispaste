@@ -170,7 +170,9 @@ var translations = map[string]map[string]string{
 
 		// Balloon notifications
 		"balloon.copied":   "Copied to clipboard",
-		"balloon.minimize": "Whispaste is still running in the background. Use your hotkey to start dictating.",
+		"balloon.minimize":       "Whispaste is still running in the background. Use your hotkey to start dictating.",
+		"balloon.sponsor_title":  "Enjoying Whispaste?",
+		"balloon.sponsor":        "You've completed 50 dictations! If Whispaste saves you time, consider supporting its development.",
 
 		// Stats
 		"stats.title":           "Usage This Month",
@@ -307,7 +309,9 @@ var translations = map[string]map[string]string{
 
 		// Balloon notifications
 		"balloon.copied":   "In Zwischenablage kopiert",
-		"balloon.minimize": "Whispaste läuft weiterhin im Hintergrund. Nutzen Sie die Tastenkombination zum Diktieren.",
+		"balloon.minimize":       "Whispaste läuft weiterhin im Hintergrund. Nutzen Sie die Tastenkombination zum Diktieren.",
+		"balloon.sponsor_title":  "Gefällt dir Whispaste?",
+		"balloon.sponsor":        "Du hast 50 Diktate abgeschlossen! Wenn Whispaste dir Zeit spart, unterstütze gerne die Weiterentwicklung.",
 
 		// Stats
 		"stats.title":           "Nutzung diesen Monat",
