@@ -64,28 +64,26 @@ import Layout from "../layouts/Layout.astro";
       <!-- Carousel -->
       <div class="mt-16 animate-fade-in-up">
         <div class="relative mx-auto max-w-2xl">
-          <div class="absolute -inset-4 bg-brand-cyan/[0.06] rounded-3xl blur-2xl"></div>
-          <div class="relative rounded-2xl border border-white/10 bg-brand-dark/80 backdrop-blur-xl overflow-hidden shadow-2xl shadow-black/50">
-            <!-- Carousel viewport -->
-            <div class="overflow-hidden">
-              <div id="carousel-track" class="flex transition-transform duration-700 ease-in-out" style="transform: translateX(0%);">
-                <!-- Scene 1: Hotkey Press -->
-                <div class="w-full shrink-0">
-                  <div class="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[220px]">
-                    <div class="flex items-end gap-3 sm:gap-4 mb-6">
-                      <div class="carousel-key" style="--press-delay: 0s;">
-                        <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>
-                      </div>
-                      <div class="carousel-key" style="--press-delay: 0.15s;">
-                        <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
-                      </div>
-                      <div class="carousel-key" style="--press-delay: 0.3s;">
-                        <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
-                      </div>
+          <!-- Carousel viewport -->
+          <div class="overflow-hidden">
+            <div id="carousel-track" class="flex transition-transform duration-700 ease-in-out" style="transform: translateX(0%);">
+              <!-- Scene 1: Hotkey Press -->
+              <div class="w-full shrink-0">
+                <div class="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[220px]">
+                  <div class="carousel-keys-group mb-6">
+                    <div class="carousel-key" style="--press-delay: 0s;">
+                      <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>
                     </div>
-                    <span class="text-sm text-gray-400" data-i18n="carousel.hotkey">Your Hotkey</span>
+                    <div class="carousel-key" style="--press-delay: 0.15s;">
+                      <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
+                    </div>
+                    <div class="carousel-key carousel-key--action" style="--press-delay: 0.3s;">
+                      <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                    </div>
                   </div>
+                  <span class="text-sm text-gray-400" data-i18n="carousel.hotkey">Your Hotkey</span>
                 </div>
+              </div>
                 <!-- Scene 2: Recording Overlay -->
                 <div class="w-full shrink-0">
                   <div class="p-8 sm:p-12 flex items-center justify-center min-h-[220px]">
@@ -96,15 +94,15 @@ import Layout from "../layouts/Layout.astro";
                           <div class="overlay-rec-dot"></div>
                           <span class="overlay-text-main" data-i18n="carousel.recording">Recording</span>
                         </div>
-                        <span class="overlay-text-timer">0:03</span>
+                        <span class="overlay-text-timer" id="overlay-timer">0:00</span>
                       </div>
                       <div class="overlay-waveform" id="overlay-waveform"></div>
                       <div class="overlay-buttons">
                         <div class="overlay-btn-pause">
-                          <svg viewBox="0 0 24 24" fill="white" width="14" height="14"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                          <svg viewBox="0 0 34 34" width="34" height="34" fill="white"><rect x="11" y="10" width="4" height="14" rx="1"/><rect x="19" y="10" width="4" height="14" rx="1"/></svg>
                         </div>
                         <div class="overlay-btn-confirm">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="4 12 9 17 20 6"/></svg>
+                          <svg viewBox="0 0 34 34" width="34" height="34" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 17 15 23 25 11"/></svg>
                         </div>
                       </div>
                     </div>
@@ -133,12 +131,11 @@ import Layout from "../layouts/Layout.astro";
                 </div>
               </div>
             </div>
-            <!-- Dot indicators -->
-            <div class="flex justify-center gap-2 py-3 bg-brand-card/40 border-t border-white/5">
-              <button class="carousel-dot active w-2 h-2 rounded-full bg-brand-cyan transition-all" data-slide="0" style="width:16px;"></button>
-              <button class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all" data-slide="1"></button>
-              <button class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all" data-slide="2"></button>
-            </div>
+          <!-- Dot indicators -->
+          <div class="flex justify-center gap-2 pt-4">
+            <button class="carousel-dot active w-2 h-2 rounded-full bg-brand-cyan transition-all" data-slide="0" style="width:16px;"></button>
+            <button class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all" data-slide="1"></button>
+            <button class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all" data-slide="2"></button>
           </div>
         </div>
       </div>
@@ -332,6 +329,17 @@ import Layout from "../layouts/Layout.astro";
       box-shadow: 0 0 30px rgba(34, 211, 238, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
 
+    /* Carousel keys group — slightly tilted, modifier keys closer */
+    .carousel-keys-group {
+      display: flex;
+      align-items: end;
+      gap: 6px;
+      transform: rotate(-6deg);
+    }
+    .carousel-keys-group .carousel-key--action {
+      margin-left: 10px;
+    }
+
     /* Carousel key animation */
     .carousel-key {
       width: 56px;
@@ -416,18 +424,19 @@ import Layout from "../layouts/Layout.astro";
       gap: 3px;
       margin-left: auto;
       margin-right: 8px;
-      height: 100%;
+      height: 48px;
     }
     .overlay-wave-bar {
       width: 4px;
       border-radius: 2px;
-      background: #22D3EE;
-      animation: wave-bar-anim var(--wave-dur) ease-in-out var(--wave-delay) infinite;
+      background: #186688;
       min-height: 2px;
+      height: var(--wave-min, 4px);
+      animation: wave-bar-anim var(--wave-dur, 0.8s) ease-in-out var(--wave-delay, 0s) infinite;
     }
     @keyframes wave-bar-anim {
-      0%, 100% { height: var(--wave-min); background: #186688; }
-      50% { height: var(--wave-max); background: #22D3EE; }
+      0%, 100% { height: var(--wave-min, 4px); background: #186688; }
+      50% { height: var(--wave-max, 20px); background: #22D3EE; }
     }
     .overlay-buttons {
       display: flex;
@@ -442,6 +451,11 @@ import Layout from "../layouts/Layout.astro";
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
+    }
+    .overlay-btn-pause svg, .overlay-btn-confirm svg {
+      width: 34px;
+      height: 34px;
     }
     .overlay-btn-pause { background: #0E7490; }
     .overlay-btn-confirm { background: #22D3EE; }
@@ -524,6 +538,24 @@ import Layout from "../layouts/Layout.astro";
     let carouselTimer;
     let reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+    let overlayTimerInterval;
+
+    function startOverlayTimer() {
+      clearInterval(overlayTimerInterval);
+      const timerEl = document.getElementById('overlay-timer');
+      if (!timerEl) return;
+      let seconds = 0;
+      timerEl.textContent = '0:00';
+      overlayTimerInterval = setInterval(() => {
+        seconds++;
+        timerEl.textContent = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+      }, 1000);
+    }
+
+    function stopOverlayTimer() {
+      clearInterval(overlayTimerInterval);
+    }
+
     function goToSlide(n) {
       currentSlide = n;
       if (track) track.style.transform = `translateX(-${n * 100}%)`;
@@ -538,6 +570,7 @@ import Layout from "../layouts/Layout.astro";
           dot.style.width = '8px';
         }
       });
+      if (n === 1) startOverlayTimer(); else stopOverlayTimer();
       if (n === 2) startTyping();
     }
 
