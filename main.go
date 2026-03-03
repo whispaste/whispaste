@@ -428,6 +428,7 @@ func main() {
 	}
 	tray = NewAppTray(
 		func(tab string) { ShowSettings(cfg, recorder, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, tab) },
+		func() { ShowNotebook(history) },
 		func() {
 			hkMu.Lock()
 			if hkMgr != nil {

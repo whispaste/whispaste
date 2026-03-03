@@ -57,6 +57,7 @@ type notifyIconDataW struct {
 // AppTray manages the system tray icon and menu.
 type AppTray struct {
 	onSettings   func(string)
+	onNotebook   func()
 	onQuit       func()
 	onToggle     func()
 	updater      *Updater
@@ -79,9 +80,10 @@ type AppTray struct {
 }
 
 // NewAppTray creates a tray manager. Callbacks are invoked on menu clicks.
-func NewAppTray(onSettings func(string), onQuit func(), updater *Updater, history *History, cfg *Config, onSaved func(), onToggle func()) *AppTray {
+func NewAppTray(onSettings func(string), onNotebook func(), onQuit func(), updater *Updater, history *History, cfg *Config, onSaved func(), onToggle func()) *AppTray {
 	return &AppTray{
 		onSettings: onSettings,
+		onNotebook: onNotebook,
 		onQuit:     onQuit,
 		onToggle:   onToggle,
 		updater:    updater,
@@ -163,6 +165,7 @@ func (t *AppTray) onReady() {
 	t.mToggle = systray.AddMenuItem(T("tray.start_record"), T("tray.start_record"))
 	systray.AddSeparator()
 	mSettings := systray.AddMenuItem(T("tray.settings"), T("tray.settings"))
+	mNotebook := systray.AddMenuItem(T("tray.notebook"), T("tray.notebook"))
 	mHistory := systray.AddMenuItem(T("tray.history"), T("tray.history"))
 	t.historyEmpty = mHistory.AddSubMenuItem(T("tray.history_empty"), "")
 	t.historyEmpty.Disable()
@@ -250,6 +253,10 @@ func (t *AppTray) onReady() {
 			case <-mSettings.ClickedCh:
 				if t.onSettings != nil {
 					t.onSettings("general")
+				}
+			case <-mNotebook.ClickedCh:
+				if t.onNotebook != nil {
+					t.onNotebook()
 				}
 			case <-t.mUpdate.ClickedCh:
 				t.handleUpdateClick()
