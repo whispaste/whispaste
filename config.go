@@ -130,6 +130,13 @@ func (c *Config) GetUILanguage() string {
 	return c.UILanguage
 }
 
+// GetTheme returns the current theme setting (thread-safe).
+func (c *Config) GetTheme() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Theme
+}
+
 // SetAPIKey sets the API key (thread-safe).
 func (c *Config) SetAPIKey(key string) {
 	c.mu.Lock()
