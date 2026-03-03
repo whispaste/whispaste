@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -37,6 +36,7 @@ type UpdateInfo struct {
 // Updater checks for new releases on GitHub and applies updates.
 type Updater struct {
 	currentVersion string
+	releasesURL    string // overridable for testing; defaults to releasesAPI
 	checkEnabled   func() bool
 	onAvailable    func(UpdateInfo)
 	lastCheck      time.Time
@@ -51,6 +51,7 @@ type Updater struct {
 func NewUpdater(currentVersion string, checkEnabled func() bool) *Updater {
 	return &Updater{
 		currentVersion: currentVersion,
+		releasesURL:    releasesAPI,
 		checkEnabled:   checkEnabled,
 		done:           make(chan struct{}),
 	}
@@ -104,7 +105,7 @@ func (u *Updater) checkAndNotify(ctx context.Context) {
 	}
 	info, err := u.CheckNow(ctx)
 	if err != nil {
-		log.Printf("Update check failed: %v", err)
+		logWarn("Update check failed: %v", err)
 		return
 	}
 	if info.Available {
@@ -119,16 +120,18 @@ func (u *Updater) checkAndNotify(ctx context.Context) {
 
 // CheckNow queries the GitHub releases API for a newer version.
 // It rate-limits to at most one request per minCheckInterval.
-func (u *Updater) CheckNow(ctx context.Context) (*UpdateInfo, error) {
+// Pass force=true to bypass the rate limit (e.g. for manual user-initiated checks).
+func (u *Updater) CheckNow(ctx context.Context, force ...bool) (*UpdateInfo, error) {
+	bypass := len(force) > 0 && force[0]
 	u.mu.Lock()
-	if time.Since(u.lastCheck) < minCheckInterval {
+	if !bypass && time.Since(u.lastCheck) < minCheckInterval {
 		u.mu.Unlock()
 		return &UpdateInfo{Available: false}, nil
 	}
 	u.mu.Unlock()
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequestWithContext(ctx, "GET", releasesAPI, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", u.releasesURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -265,7 +268,7 @@ func (u *Updater) Apply(info *UpdateInfo) error {
 	// Best-effort cleanup of old binary
 	os.Remove(oldPath)
 
-	log.Printf("Update applied: %s → %s (restart to activate)", u.currentVersion, info.Version)
+	logInfo("Update applied: %s → %s (restart to activate)", u.currentVersion, info.Version)
 	return nil
 }
 
