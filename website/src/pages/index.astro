@@ -416,7 +416,6 @@ import Layout from "../layouts/Layout.astro";
       font-weight: 400;
       color: #90A0B0;
       line-height: 1;
-      padding-left: 22px;
     }
     .overlay-waveform {
       display: flex;
@@ -429,14 +428,15 @@ import Layout from "../layouts/Layout.astro";
     .overlay-wave-bar {
       width: 4px;
       border-radius: 2px;
-      background: #186688;
-      min-height: 2px;
-      height: var(--wave-min, 4px);
+      background: #22D3EE;
+      height: 36px;
+      transform-origin: center;
+      transform: scaleY(var(--wave-scale-min, 0.06));
       animation: wave-bar-anim var(--wave-dur, 0.8s) ease-in-out var(--wave-delay, 0s) infinite;
     }
     @keyframes wave-bar-anim {
-      0%, 100% { height: var(--wave-min, 4px); background: #186688; }
-      50% { height: var(--wave-max, 20px); background: #22D3EE; }
+      0%, 100% { transform: scaleY(var(--wave-scale-min, 0.06)); opacity: 0.5; }
+      50% { transform: scaleY(var(--wave-scale-max, 0.8)); opacity: 1; }
     }
     .overlay-buttons {
       display: flex;
@@ -534,7 +534,7 @@ import Layout from "../layouts/Layout.astro";
     const dots = document.querySelectorAll('.carousel-dot');
     let currentSlide = 0;
     const totalSlides = 3;
-    const SLIDE_INTERVAL = 5000;
+    const SLIDE_DURATIONS = [5000, 5000, 8000]; // keys, overlay, typing (longer for full text)
     let carouselTimer;
     let reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -574,24 +574,30 @@ import Layout from "../layouts/Layout.astro";
       if (n === 2) startTyping();
     }
 
+    function scheduleNext() {
+      clearTimeout(carouselTimer);
+      if (reducedMotion) return;
+      carouselTimer = setTimeout(nextSlide, SLIDE_DURATIONS[currentSlide]);
+    }
+
     function nextSlide() {
       goToSlide((currentSlide + 1) % totalSlides);
+      scheduleNext();
     }
 
     function startCarousel() {
-      if (reducedMotion) return;
-      carouselTimer = setInterval(nextSlide, SLIDE_INTERVAL);
+      scheduleNext();
     }
 
     function stopCarousel() {
-      clearInterval(carouselTimer);
+      clearTimeout(carouselTimer);
     }
 
     dots.forEach(dot => {
       dot.addEventListener('click', () => {
         stopCarousel();
         goToSlide(parseInt(dot.dataset.slide));
-        startCarousel();
+        scheduleNext();
       });
     });
 
@@ -601,13 +607,12 @@ import Layout from "../layouts/Layout.astro";
       for (let i = 0; i < 20; i++) {
         const bar = document.createElement('div');
         bar.className = 'overlay-wave-bar';
-        const minH = 2 + Math.random() * 3;
-        const maxH = 8 + Math.random() * 28;
-        bar.style.setProperty('--wave-min', minH + 'px');
-        bar.style.setProperty('--wave-max', maxH + 'px');
-        bar.style.setProperty('--wave-dur', (0.6 + Math.random() * 0.8) + 's');
-        bar.style.setProperty('--wave-delay', (i * 0.05 + Math.random() * 0.1) + 's');
-        bar.style.height = minH + 'px';
+        const scaleMin = 0.05 + Math.random() * 0.08;
+        const scaleMax = 0.3 + Math.random() * 0.7;
+        bar.style.setProperty('--wave-scale-min', scaleMin.toFixed(2));
+        bar.style.setProperty('--wave-scale-max', scaleMax.toFixed(2));
+        bar.style.setProperty('--wave-dur', (0.6 + Math.random() * 0.8).toFixed(2) + 's');
+        bar.style.setProperty('--wave-delay', (i * 0.05 + Math.random() * 0.1).toFixed(2) + 's');
         waveformEl.appendChild(bar);
       }
     }
