@@ -1,4 +1,6 @@
 name: Deploy Landing Page
+# Prerequisite: Enable GitHub Pages in repo settings
+# Settings → Pages → Source: "GitHub Actions"
 
 on:
   push:
