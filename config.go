@@ -11,11 +11,13 @@ import (
 // Config holds all application settings.
 type Config struct {
 	APIKey      string   `json:"api_key"`
+	APIEndpoint string   `json:"api_endpoint"`
 	HotkeyMods  []string `json:"hotkey_modifiers"`
 	HotkeyKey   string   `json:"hotkey_key"`
 	Mode        string   `json:"mode"`
 	Language    string   `json:"language"`
 	Model       string   `json:"model"`
+	Prompt      string   `json:"prompt"`
 	OverlayPos  string   `json:"overlay_position"`
 	AutoPaste    bool     `json:"auto_paste"`
 	PlaySounds   bool     `json:"play_sounds"`
@@ -24,24 +26,30 @@ type Config struct {
 	Theme        string   `json:"theme"`
 	Autostart    bool     `json:"autostart"`
 	SoundVolume  float64  `json:"sound_volume"`
+	MaxRecordSec int      `json:"max_record_sec"`
+	SmartMode       bool   `json:"smart_mode"`
+	SmartModePreset string `json:"smart_mode_preset"`
+	SmartModePrompt string `json:"smart_mode_prompt"`
+	SmartModeTarget string `json:"smart_mode_target"`
 	mu          sync.RWMutex
 }
 
 // DefaultConfig returns a config with sensible defaults.
 func DefaultConfig() *Config {
 	return &Config{
-		HotkeyMods:  []string{"Ctrl", "Shift"},
-		HotkeyKey:   "V",
-		Mode:        "push_to_talk",
-		Language:    "auto",
-		Model:       "whisper-1",
-		OverlayPos:  "top_center",
+		HotkeyMods:   []string{"Ctrl", "Shift"},
+		HotkeyKey:    "V",
+		Mode:         "push_to_talk",
+		Language:     "auto",
+		Model:        "whisper-1",
+		OverlayPos:   "top_center",
 		AutoPaste:    true,
 		PlaySounds:   true,
 		CheckUpdates: true,
-		UILanguage:  detectSystemLanguage(),
-		Theme:       "system",
-		SoundVolume: 1.0,
+		UILanguage:   detectSystemLanguage(),
+		Theme:        "system",
+		SoundVolume:  1.0,
+		MaxRecordSec: 120,
 	}
 }
 
@@ -161,4 +169,59 @@ func detectSystemLanguage() string {
 	}
 	// On Windows, we'll detect via GetUserDefaultUILanguage in the main init
 	return "en"
+}
+
+// GetAPIEndpoint returns the API endpoint URL (thread-safe).
+func (c *Config) GetAPIEndpoint() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.APIEndpoint != "" {
+		return c.APIEndpoint
+	}
+	return "https://api.openai.com/v1/audio/transcriptions"
+}
+
+// GetPrompt returns the Whisper prompt (thread-safe).
+func (c *Config) GetPrompt() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Prompt
+}
+
+// GetMaxRecordSec returns the max recording duration (thread-safe).
+func (c *Config) GetMaxRecordSec() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.MaxRecordSec <= 0 {
+		return 120
+	}
+	return c.MaxRecordSec
+}
+
+// GetSmartMode returns whether Smart Mode is enabled (thread-safe).
+func (c *Config) GetSmartMode() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.SmartMode
+}
+
+// GetSmartModePreset returns the Smart Mode preset (thread-safe).
+func (c *Config) GetSmartModePreset() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.SmartModePreset
+}
+
+// GetSmartModePrompt returns the custom Smart Mode prompt (thread-safe).
+func (c *Config) GetSmartModePrompt() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.SmartModePrompt
+}
+
+// GetSmartModeTarget returns the Smart Mode target language (thread-safe).
+func (c *Config) GetSmartModeTarget() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.SmartModeTarget
 }

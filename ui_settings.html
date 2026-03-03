@@ -997,6 +997,72 @@ body.ready {
       </div>
     </div>
 
+    <!-- Smart Mode -->
+    <div class="card">
+      <div class="card-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg> <span data-i18n="cardSmartMode">Smart Mode</span></div>
+      <div class="form-group">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <label class="toggle-label" for="toggle-smartmode" data-i18n="labelSmartMode">AI Post-Processing</label>
+            <p class="toggle-desc" data-i18n="descSmartMode">Process transcription with GPT-4o-mini for grammar, formatting, or translation</p>
+          </div>
+          <div class="toggle-switch">
+            <input type="checkbox" id="toggle-smartmode" onchange="updateSmartModeVisibility()">
+            <label class="toggle-track" for="toggle-smartmode"></label>
+          </div>
+        </div>
+      </div>
+      <div id="smart-mode-options" style="display:none">
+        <div class="form-group">
+          <label class="form-label" for="select-smartpreset" data-i18n="labelSmartPreset">Preset</label>
+          <select class="form-select" id="select-smartpreset" onchange="updateSmartPresetVisibility()">
+            <option value="cleanup" data-i18n-opt="smartCleanup">Cleanup (grammar &amp; punctuation)</option>
+            <option value="email" data-i18n-opt="smartEmail">Email (formal)</option>
+            <option value="bullets" data-i18n-opt="smartBullets">Bullet Points</option>
+            <option value="formal" data-i18n-opt="smartFormal">Formal Letter</option>
+            <option value="translate" data-i18n-opt="smartTranslate">Translate</option>
+            <option value="custom" data-i18n-opt="smartCustom">Custom Prompt</option>
+          </select>
+        </div>
+        <div class="form-group" id="smart-target-row" style="display:none">
+          <label class="form-label" for="select-smarttarget" data-i18n="labelSmartTarget">Target Language</label>
+          <select class="form-select" id="select-smarttarget">
+            <option value="en">English</option>
+            <option value="de">Deutsch</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="it">Italiano</option>
+            <option value="pt">Português</option>
+            <option value="ja">日本語</option>
+            <option value="zh">中文</option>
+            <option value="ko">한국어</option>
+            <option value="ru">Русский</option>
+          </select>
+        </div>
+        <div class="form-group" id="smart-prompt-row" style="display:none">
+          <label class="form-label" for="input-smartprompt" data-i18n="labelSmartPrompt">Custom Prompt</label>
+          <textarea class="form-input" id="input-smartprompt" rows="3" placeholder="e.g. Format as Markdown, remove filler words"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced -->
+    <div class="card">
+      <div class="card-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> <span data-i18n="cardAdvanced">Advanced</span></div>
+      <div class="form-group">
+        <label class="form-label" for="input-prompt" data-i18n="labelPrompt">Whisper Prompt</label>
+        <p class="form-hint" data-i18n="descPrompt">Improve accuracy for domain-specific terms (e.g. Kubernetes, kubectl)</p>
+        <input class="form-input" type="text" id="input-prompt" placeholder="e.g. Kubernetes, kubectl, Terraform">
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="labelMaxDuration">Max Recording Duration</label>
+        <div class="range-row">
+          <input type="range" id="range-max-duration" min="10" max="300" value="120" step="10" class="volume-slider" oninput="document.getElementById('max-duration-value').textContent = this.value + 's'">
+          <span class="volume-value" id="max-duration-value">120s</span>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-title" data-i18n="cardFeedback">Preferences</div>
 
@@ -1207,7 +1273,23 @@ const translations = {
     hotkeyRecording: 'Press your desired key combination…',
     hotkeyHint: 'Press Escape to cancel',
     labelAutostart: 'Start with Windows',
-    descAutostart: 'Launch Whispaste automatically when you sign in'
+    descAutostart: 'Launch Whispaste automatically when you sign in',
+    cardSmartMode: 'Smart Mode',
+    labelSmartMode: 'AI Post-Processing',
+    descSmartMode: 'Process transcription with GPT-4o-mini for grammar, formatting, or translation',
+    labelSmartPreset: 'Preset',
+    smartCleanup: 'Cleanup (grammar & punctuation)',
+    smartEmail: 'Email (formal)',
+    smartBullets: 'Bullet Points',
+    smartFormal: 'Formal Letter',
+    smartTranslate: 'Translate',
+    smartCustom: 'Custom Prompt',
+    labelSmartTarget: 'Target Language',
+    labelSmartPrompt: 'Custom Prompt',
+    cardAdvanced: 'Advanced',
+    labelPrompt: 'Whisper Prompt',
+    descPrompt: 'Improve accuracy for domain-specific terms (e.g. Kubernetes, kubectl)',
+    labelMaxDuration: 'Max Recording Duration'
   },
   de: {
     settingsTitle: 'Einstellungen',
@@ -1284,7 +1366,23 @@ const translations = {
     hotkeyRecording: 'Gewünschte Tastenkombination drücken…',
     hotkeyHint: 'Escape zum Abbrechen',
     labelAutostart: 'Mit Windows starten',
-    descAutostart: 'Whispaste beim Anmelden automatisch starten'
+    descAutostart: 'Whispaste beim Anmelden automatisch starten',
+    cardSmartMode: 'Smart Modus',
+    labelSmartMode: 'KI-Nachbearbeitung',
+    descSmartMode: 'Transkription mit GPT-4o-mini für Grammatik, Formatierung oder Übersetzung verarbeiten',
+    labelSmartPreset: 'Vorlage',
+    smartCleanup: 'Bereinigung (Grammatik & Zeichensetzung)',
+    smartEmail: 'E-Mail (formell)',
+    smartBullets: 'Aufzählung',
+    smartFormal: 'Formeller Brief',
+    smartTranslate: 'Übersetzen',
+    smartCustom: 'Eigene Anweisung',
+    labelSmartTarget: 'Zielsprache',
+    labelSmartPrompt: 'Eigene Anweisung',
+    cardAdvanced: 'Erweitert',
+    labelPrompt: 'Whisper-Prompt',
+    descPrompt: 'Genauigkeit für Fachbegriffe verbessern (z.B. Kubernetes, kubectl)',
+    labelMaxDuration: 'Maximale Aufnahmedauer'
   }
 };
 
@@ -1449,15 +1547,18 @@ let _savedHotkeyMods = ['Ctrl', 'Shift'];
 let _savedHotkeyKey = 'V';
 let _savedModel = 'whisper-1';
 let _savedUILang = '';
+let _savedAPIEndpoint = '';
 
 function gatherConfig() {
   return {
     api_key: document.getElementById('input-apikey').value,
+    api_endpoint: _savedAPIEndpoint,
     hotkey_modifiers: _savedHotkeyMods,
     hotkey_key: _savedHotkeyKey,
     mode: document.querySelector('[name="mode"]:checked')?.value || 'push_to_talk',
     language: document.getElementById('select-language').value,
     model: _savedModel,
+    prompt: document.getElementById('input-prompt')?.value || '',
     overlay_position: document.querySelector('[name="overlay"]:checked')?.value || 'top_center',
     play_sounds: document.getElementById('toggle-sound').checked,
     sound_volume: parseInt(document.getElementById('volume-slider').value, 10) / 100.0,
@@ -1465,7 +1566,12 @@ function gatherConfig() {
     check_updates: document.getElementById('toggle-updates').checked,
     autostart: document.getElementById('toggle-autostart').checked,
     ui_language: _savedUILang,
-    theme: document.getElementById('select-theme').value
+    theme: document.getElementById('select-theme').value,
+    max_record_sec: parseInt(document.getElementById('range-max-duration')?.value || '120', 10),
+    smart_mode: document.getElementById('toggle-smartmode')?.checked || false,
+    smart_mode_preset: document.getElementById('select-smartpreset')?.value || 'cleanup',
+    smart_mode_prompt: document.getElementById('input-smartprompt')?.value || '',
+    smart_mode_target: document.getElementById('select-smarttarget')?.value || 'en'
   };
 }
 
@@ -1494,6 +1600,35 @@ function applyConfig(cfg) {
   setHotkeyDisplay([..._savedHotkeyMods, _savedHotkeyKey]);
   if (cfg.model) _savedModel = cfg.model;
   if (cfg.ui_language) _savedUILang = cfg.ui_language;
+  if (cfg.api_endpoint != null) _savedAPIEndpoint = cfg.api_endpoint;
+  // New fields
+  if (cfg.prompt != null) {
+    const el = document.getElementById('input-prompt');
+    if (el) el.value = cfg.prompt;
+  }
+  if (cfg.max_record_sec != null) {
+    const el = document.getElementById('range-max-duration');
+    const lbl = document.getElementById('max-duration-value');
+    if (el) { el.value = cfg.max_record_sec; if (lbl) lbl.textContent = cfg.max_record_sec + 's'; }
+  }
+  if (cfg.smart_mode != null) {
+    const el = document.getElementById('toggle-smartmode');
+    if (el) el.checked = cfg.smart_mode;
+    updateSmartModeVisibility();
+  }
+  if (cfg.smart_mode_preset) {
+    const el = document.getElementById('select-smartpreset');
+    if (el) el.value = cfg.smart_mode_preset;
+    updateSmartPresetVisibility();
+  }
+  if (cfg.smart_mode_prompt != null) {
+    const el = document.getElementById('input-smartprompt');
+    if (el) el.value = cfg.smart_mode_prompt;
+  }
+  if (cfg.smart_mode_target) {
+    const el = document.getElementById('select-smarttarget');
+    if (el) el.value = cfg.smart_mode_target;
+  }
 }
 
 /* ── Test Sound ───────────────────────────────────────── */
@@ -1572,6 +1707,21 @@ function onHotkeyKeyDown(e) {
 function onHotkeyKeyUp(e) {
   e.preventDefault();
   e.stopPropagation();
+}
+
+/* ── Smart Mode Visibility ─────────────────────────────── */
+function updateSmartModeVisibility() {
+  const on = document.getElementById('toggle-smartmode')?.checked;
+  const opts = document.getElementById('smart-mode-options');
+  if (opts) opts.style.display = on ? 'block' : 'none';
+  if (on) updateSmartPresetVisibility();
+}
+function updateSmartPresetVisibility() {
+  const preset = document.getElementById('select-smartpreset')?.value;
+  const targetRow = document.getElementById('smart-target-row');
+  const promptRow = document.getElementById('smart-prompt-row');
+  if (targetRow) targetRow.style.display = preset === 'translate' ? 'block' : 'none';
+  if (promptRow) promptRow.style.display = preset === 'custom' ? 'block' : 'none';
 }
 
 /* ── Save ──────────────────────────────────────────────── */

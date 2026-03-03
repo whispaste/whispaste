@@ -720,7 +720,7 @@ procGdipSetSmoothingMode.Call(gdipG, _SmoothingModeAntiAlias)
 switch state {
 case StateRecording:
 o.paintRecording(memDC, gdipG, frame, startTime, levels, levelIdx, contentX)
-case StateTranscribing:
+case StateTranscribing, StateProcessing:
 o.paintTranscribing(memDC, gdipG, frame, contentX)
 case StateError:
 o.paintError(memDC, contentX)

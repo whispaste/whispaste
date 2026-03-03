@@ -32,6 +32,10 @@ func main() {
 	}
 	defer recorder.Close()
 
+	// Initialize stats and history
+	stats := LoadStats()
+	history := LoadHistory()
+
 	// Initialize overlay
 	overlay, err := NewOverlay()
 	if err != nil {
@@ -48,28 +52,51 @@ func main() {
 		stateGen  uint64 // generation counter for auto-hide goroutines
 		levelDone chan struct{}
 		hkMu      sync.Mutex // protects hkMgr
+		tray      *AppTray   // set after creation, used by transition
 	)
 
 	// Snapshot config values under lock to avoid data races
-	snapshotConfig := func() (playSounds, autoPaste bool, lang, apiKey, model string) {
+	snapshotConfig := func() (playSounds, autoPaste bool, lang, apiKey, model, endpoint, prompt string) {
 		cfg.mu.RLock()
 		defer cfg.mu.RUnlock()
-		return cfg.PlaySounds, cfg.AutoPaste, cfg.Language, cfg.APIKey, cfg.Model
+		endpoint = cfg.APIEndpoint
+		if endpoint == "" {
+			endpoint = "https://api.openai.com/v1/audio/transcriptions"
+		}
+		return cfg.PlaySounds, cfg.AutoPaste, cfg.Language, cfg.APIKey, cfg.Model, endpoint, cfg.Prompt
+	}
+	snapshotSmart := func() (enabled bool, preset, customPrompt, targetLang string) {
+		cfg.mu.RLock()
+		defer cfg.mu.RUnlock()
+		return cfg.SmartMode, cfg.SmartModePreset, cfg.SmartModePrompt, cfg.SmartModeTarget
 	}
 
 	// State transition handler
-	transition := func(newState AppState) {
+	var transition func(AppState)
+	transition = func(newState AppState) {
 		stateMu.Lock()
 		oldState := state
 		state = newState
 		stateGen++
+		currentGen := stateGen
 		stateMu.Unlock()
 
 		if oldState == newState {
 			return
 		}
 
-		playSounds, autoPaste, lang, apiKey, model := snapshotConfig()
+		// Update tray tooltip
+		if tray != nil {
+			tray.SetTooltipState(newState)
+		}
+
+		playSounds, autoPaste, lang, apiKey, model, endpoint, prompt := snapshotConfig()
+
+		// Clean up level-monitoring goroutine when leaving recording state
+		if oldState == StateRecording && levelDone != nil {
+			close(levelDone)
+			levelDone = nil
+		}
 
 		switch newState {
 		case StateRecording:
@@ -108,13 +135,27 @@ func main() {
 					}
 				}
 			}()
+			// Max recording duration auto-stop
+			maxSec := cfg.GetMaxRecordSec()
+			go func(expectedGen uint64) {
+				timer := time.NewTimer(time.Duration(maxSec) * time.Second)
+				defer timer.Stop()
+				select {
+				case <-ld:
+					return
+				case <-timer.C:
+					stateMu.Lock()
+					s := state
+					gen := stateGen
+					stateMu.Unlock()
+					if s == StateRecording && gen == expectedGen {
+						logInfo("Max recording duration reached (%ds)", maxSec)
+						transition(StateTranscribing)
+					}
+				}
+			}(currentGen)
 
 		case StateTranscribing:
-			// Stop level monitoring
-			if levelDone != nil {
-				close(levelDone)
-				levelDone = nil
-			}
 			if playSounds {
 				PlayFeedback(SoundRecordStop)
 			}
@@ -138,8 +179,9 @@ func main() {
 
 			// Transcribe in background (use snapshot values, not cfg directly)
 			go func() {
+				startTime := time.Now()
 				wav := EncodeWAV(pcm, 16000, 1, 16)
-				text, err := Transcribe(wav, lang, apiKey, model)
+				text, err := Transcribe(wav, lang, apiKey, model, endpoint, prompt)
 				if err != nil {
 					logError("Transcription error: %v", err)
 					if playSounds {
@@ -153,6 +195,26 @@ func main() {
 					stateMu.Unlock()
 					return
 				}
+
+				durationSec := time.Since(startTime).Seconds()
+
+				// Smart Mode: post-process with GPT-4o-mini
+				smartEnabled, smartPreset, smartCustom, smartTarget := snapshotSmart()
+				if smartEnabled && smartPreset != "" && smartPreset != "off" {
+					if overlay != nil {
+						overlay.Show(StateProcessing)
+					}
+					processed, err := PostProcess(text, smartPreset, smartCustom, smartTarget, apiKey, endpoint)
+					if err != nil {
+						logWarn("Smart mode error (using raw text): %v", err)
+					} else {
+						text = processed
+					}
+				}
+
+				// Record stats and history
+				stats.RecordDictation(text, durationSec)
+				history.Add(text, durationSec, lang)
 
 				if autoPaste {
 					// PasteText writes to clipboard and simulates Ctrl+V
@@ -221,7 +283,7 @@ func main() {
 
 		if s == StateIdle {
 			if !cfg.HasAPIKey() {
-				ps, _, _, _, _ := snapshotConfig()
+				ps, _, _, _, _, _, _ := snapshotConfig()
 				if ps {
 					PlayFeedback(SoundError)
 				}
@@ -295,7 +357,7 @@ func main() {
 	updater := NewUpdater(AppVersion, cfg.GetCheckUpdates)
 
 	// System tray (this blocks on the main thread)
-	tray := NewAppTray(
+	tray = NewAppTray(
 		func(tab string) { ShowSettings(cfg, recorder, onSettingsSaved, tab) },
 		func() {
 			hkMu.Lock()
@@ -309,6 +371,7 @@ func main() {
 			recorder.Close()
 		},
 		updater,
+		history,
 	)
 
 	// Open settings on first run (no API key)
