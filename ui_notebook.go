@@ -4,6 +4,8 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sync"
 
@@ -24,7 +26,7 @@ var (
 var notebookHTML string
 
 // ShowNotebook opens the notebook window with WebView2.
-func ShowNotebook(history *History) {
+func ShowNotebook(history *History, openSettings func()) {
 	notebookMu.Lock()
 	if notebookOpen {
 		if notebookHwnd != 0 {
@@ -56,7 +58,7 @@ func ShowNotebook(history *History) {
 		}
 		defer w.Destroy()
 
-		w.SetTitle(T("notebook.title") + " – " + AppName)
+		w.SetTitle("WhisPaste")
 		w.SetSize(1000, 650, webview.HintNone)
 		w.SetSize(700, 450, webview.HintMin)
 
@@ -132,6 +134,29 @@ func ShowNotebook(history *History) {
 			w.Terminate()
 		})
 
+		// Bind: openLogFile → opens the log file in default editor
+		w.Bind("openLogFile", func() {
+			logDir, err := configDir()
+			if err != nil {
+				logWarn("Could not determine config dir: %v", err)
+				return
+			}
+			logPath := filepath.Join(logDir, "whispaste.log")
+			exec.Command("cmd", "/c", "start", "", logPath).Start()
+		})
+
+		// Bind: startCapture → placeholder for dashboard recording
+		w.Bind("startCapture", func() {
+			logInfo("Capture from dashboard not yet implemented")
+		})
+
+		// Bind: openSettingsBinding → opens settings window
+		w.Bind("openSettingsBinding", func() {
+			if openSettings != nil {
+				go openSettings()
+			}
+		})
+
 		// Bind: getTranslations → returns notebook l10n strings
 		w.Bind("getTranslations", func() (string, error) {
 			keys := []string{
@@ -141,6 +166,9 @@ func ShowNotebook(history *History) {
 				"notebook.copy", "notebook.delete", "notebook.pin",
 				"notebook.unpin", "notebook.copied", "notebook.confirm_delete",
 				"notebook.uncategorized",
+				"notebook.sort_newest", "notebook.sort_oldest",
+				"notebook.sort_alpha", "notebook.sort_duration",
+				"notebook.add_tag", "notebook.tag_updated",
 			}
 			tr := map[string]string{}
 			for _, k := range keys {

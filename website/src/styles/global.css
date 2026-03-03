@@ -14,3 +14,24 @@
     scroll-behavior: smooth;
   }
 }
+
+/* Light theme overrides */
+html.light {
+  --color-brand-cyan: #0891B2;
+  --color-brand-teal: #0E7490;
+  --color-brand-dark: #F8FAFC;
+  --color-brand-darker: #F1F5F9;
+  --color-brand-card: #FFFFFF;
+  --color-brand-border: #E2E8F0;
+  color: #1E293B;
+}
+
+html.light .text-white { color: #1E293B !important; }
+html.light .text-gray-400 { color: #64748B !important; }
+html.light .text-gray-500 { color: #94A3B8 !important; }
+html.light .border-white\/5, html.light .border-white\/10, html.light .border-white\/\[0\.05\], html.light .border-white\/\[0\.06\] { border-color: #E2E8F0 !important; }
+html.light .bg-white\/\[0\.02\], html.light .bg-white\/\[0\.03\], html.light .bg-white\/\[0\.04\] { background: rgba(0,0,0,0.02) !important; }
+html.light nav { background: rgba(241,245,249,0.9) !important; border-bottom-color: #E2E8F0 !important; }
+html.light .feature-card { background: rgba(255,255,255,0.7) !important; border-color: #E2E8F0 !important; }
+html.light .feature-card:hover { background: rgba(255,255,255,0.9) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important; }
+html.light footer { border-top-color: #E2E8F0 !important; }

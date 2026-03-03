@@ -15,6 +15,8 @@ var (
 	procGetAsyncKeyState = hkUser32.NewProc("GetAsyncKeyState")
 )
 
+const hotkeyCooldown = 300 * time.Millisecond
+
 // HotkeyManager registers a global hotkey and dispatches recording events.
 type HotkeyManager struct {
 	cfg       *Config
@@ -23,6 +25,7 @@ type HotkeyManager struct {
 	hk        *hotkey.Hotkey
 	done      chan struct{}
 	closeOnce sync.Once
+	lastDown  time.Time
 }
 
 // NewHotkeyManager creates a manager that calls onDown/onUp on hotkey events.
@@ -72,6 +75,12 @@ func (m *HotkeyManager) listen() {
 		case <-m.done:
 			return
 		case <-m.hk.Keydown():
+			if time.Since(m.lastDown) < hotkeyCooldown {
+				logDebug("Hotkey DOWN ignored (cooldown)")
+				continue
+			}
+			m.lastDown = time.Now()
+			logDebug("Hotkey DOWN event dispatched")
 			if isPTT {
 				m.onDown()
 				go m.waitForRelease(vk)
@@ -98,6 +107,7 @@ func (m *HotkeyManager) waitForRelease(vk int) {
 		}
 		r, _, _ := procGetAsyncKeyState.Call(uintptr(vk))
 		if r&0x8000 == 0 {
+			logDebug("Hotkey UP event dispatched")
 			m.onUp()
 			return
 		}
