@@ -70,16 +70,21 @@ import Layout from "../layouts/Layout.astro";
               <!-- Scene 1: Hotkey Press -->
               <div class="w-full shrink-0">
                 <div class="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[220px]">
-                  <div class="carousel-keys-group mb-6">
-                    <div class="carousel-key carousel-key--modifier">
-                      <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>
+                  <div class="carousel-keys-scene relative mb-6">
+                    <div class="carousel-keys-group">
+                      <div class="carousel-key carousel-key--modifier">
+                        <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>
+                      </div>
+                      <div class="carousel-key carousel-key--modifier">
+                        <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
+                      </div>
+                      <div class="carousel-key carousel-key--action">
+                        <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                      </div>
                     </div>
-                    <div class="carousel-key carousel-key--modifier">
-                      <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
-                    </div>
-                    <div class="carousel-key carousel-key--action">
-                      <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
-                    </div>
+                    <svg class="carousel-cursor" viewBox="0 0 16 20" width="28" height="35" aria-hidden="true">
+                      <path d="M1 1l12.5 9-5.5 1 3.5 7.5L9 20l-3.5-7.5L1 17V1z" fill="white" fill-opacity="0.65" stroke="rgba(0,0,0,0.4)" stroke-width="0.7" stroke-linejoin="round"/>
+                    </svg>
                   </div>
                   <span class="text-sm text-gray-400" data-i18n="carousel.hotkey">Your Hotkey</span>
                 </div>
@@ -340,6 +345,23 @@ import Layout from "../layouts/Layout.astro";
       margin-left: 10px;
     }
 
+    /* Cursor pointer animation — arrives at action key, presses with it */
+    .carousel-cursor {
+      position: absolute;
+      right: -8px;
+      top: 8px;
+      pointer-events: none;
+      animation: cursor-press 3s ease-in-out infinite;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+    @keyframes cursor-press {
+      0%, 6% { opacity: 0; transform: translate(24px, 36px); }
+      20% { opacity: 0.75; transform: translate(0, 4px); }
+      26%, 50% { opacity: 0.75; transform: translate(0, 8px); }
+      58% { opacity: 0; transform: translate(0, 8px); }
+      100% { opacity: 0; transform: translate(24px, 36px); }
+    }
+
     /* Carousel key animation */
     .carousel-key {
       width: 56px;
@@ -486,6 +508,7 @@ import Layout from "../layouts/Layout.astro";
       .hero-glow,
       .hero-gradient,
       .carousel-key,
+      .carousel-cursor,
       .overlay-rec-dot,
       :global(.overlay-wave-bar),
       :global(.typing-cursor),
