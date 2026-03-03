@@ -1,0 +1,249 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Whispaste — Voice to text, pasted anywhere">
+  <!-- Nav -->
+  <nav class="fixed top-0 w-full z-50 bg-brand-darker/80 backdrop-blur-xl border-b border-white/5">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-2 text-white font-semibold tracking-tight">
+        <svg class="w-5 h-5 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        Whispaste
+      </a>
+      <div class="hidden sm:flex items-center gap-6 text-sm text-gray-400">
+        <a href="#features" class="hover:text-white transition-colors">Features</a>
+        <a href="#how-it-works" class="hover:text-white transition-colors">How It Works</a>
+        <a href="#pricing" class="hover:text-white transition-colors">Pricing</a>
+        <a href="https://github.com/silvio-l/whispaste" target="_blank" rel="noopener" class="hover:text-white transition-colors">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="relative min-h-screen flex items-center justify-center overflow-hidden pt-14">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(14,116,144,0.15)_0%,_transparent_70%)]"></div>
+    <div class="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-cyan/5 rounded-full blur-3xl"></div>
+    <div class="relative z-10 text-center px-6 max-w-3xl mx-auto animate-fade-in">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan text-sm mb-8">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        Open Source · Windows 10/11
+      </div>
+      <h1 class="text-5xl sm:text-7xl font-bold tracking-tight text-white leading-tight">
+        Voice to text,<br>
+        <span class="bg-gradient-to-r from-brand-cyan to-brand-teal bg-clip-text text-transparent">pasted anywhere.</span>
+      </h1>
+      <p class="mt-6 text-lg sm:text-xl text-gray-400 max-w-xl mx-auto leading-relaxed">
+        A lightweight desktop tool that transcribes your speech with OpenAI Whisper and pastes the result into any focused input field.
+      </p>
+      <div class="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="https://github.com/silvio-l/whispaste/releases/latest" class="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-brand-cyan text-brand-darker font-semibold rounded-xl hover:bg-brand-cyan/90 transition-all hover:scale-[1.02] active:scale-[0.98]">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Download for Windows
+        </a>
+        <a href="https://github.com/silvio-l/whispaste" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white/5 text-white font-semibold rounded-xl border border-white/10 hover:bg-white/10 transition-all hover:scale-[1.02] active:scale-[0.98]">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      <p class="mt-6 text-sm text-gray-500">Single portable .exe · No installer · ~8 MB · MIT License</p>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="py-24 sm:py-32">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center mb-16 scroll-reveal">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white">Everything you need</h2>
+        <p class="mt-4 text-gray-400 text-lg max-w-2xl mx-auto">Powerful features in a lightweight package. No bloat, no subscriptions — just your API key and you're ready.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {[
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m9 8 3 3-3 3"/><path d="M14 16h4"/></svg>`, title: "Global Hotkey", desc: "Press Ctrl+Shift+V from anywhere. Fully configurable." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`, title: "Push-to-Talk & Toggle", desc: "Hold the hotkey or press to start/stop — your choice." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>`, title: "Auto-Paste", desc: "Transcribed text appears at your cursor automatically." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>`, title: "Smart Mode", desc: "AI post-processing: cleanup, email, bullets, translate." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>`, title: "Premium Overlay", desc: "Anti-aliased waveform, timer, and controls — always on top." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>`, title: "History", desc: "Browse and re-copy your last transcriptions from the tray." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`, title: "Audio Feedback", desc: "Subtle sounds for start, stop, success, and error states." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" x2="12" y1="2" y2="12"/></svg>`, title: "Autostart", desc: "Launch on Windows login, starts silently in the tray." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>`, title: "Auto-Update", desc: "SHA256-verified self-updater via GitHub Releases." },
+        ].map(({ icon, title, desc }) => (
+          <div class="group p-6 rounded-2xl bg-brand-card/50 border border-brand-border/50 hover:border-brand-cyan/30 hover:bg-brand-card transition-all duration-300 scroll-reveal">
+            <div class="w-10 h-10 rounded-xl bg-brand-cyan/10 text-brand-cyan flex items-center justify-center mb-4 group-hover:scale-110 transition-transform" set:html={icon} />
+            <h3 class="text-white font-semibold mb-1">{title}</h3>
+            <p class="text-gray-400 text-sm leading-relaxed">{desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section id="how-it-works" class="py-24 sm:py-32 relative">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_rgba(14,116,144,0.08)_0%,_transparent_60%)]"></div>
+    <div class="relative max-w-5xl mx-auto px-6">
+      <div class="text-center mb-16 scroll-reveal">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white">How it works</h2>
+        <p class="mt-4 text-gray-400 text-lg">Four steps. Zero friction.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        {[
+          { step: "1", icon: `<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m9 8 3 3-3 3"/><path d="M14 16h4"/></svg>`, title: "Press Hotkey", desc: "Hit Ctrl+Shift+V from any app" },
+          { step: "2", icon: `<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`, title: "Speak", desc: "The overlay shows your recording" },
+          { step: "3", icon: `<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>`, title: "Transcribe", desc: "Whisper converts speech to text" },
+          { step: "4", icon: `<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>`, title: "Paste", desc: "Text appears at your cursor" },
+        ].map(({ step, icon, title, desc }) => (
+          <div class="text-center scroll-reveal">
+            <div class="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-card border border-brand-border mb-4 text-brand-cyan" set:html={icon}>
+            </div>
+            <div class="text-xs font-mono text-brand-cyan/60 mb-1">Step {step}</div>
+            <h3 class="text-white font-semibold mb-1">{title}</h3>
+            <p class="text-gray-400 text-sm">{desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="pricing" class="py-24 sm:py-32">
+    <div class="max-w-4xl mx-auto px-6">
+      <div class="text-center mb-16 scroll-reveal">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white">Incredibly affordable</h2>
+        <p class="mt-4 text-gray-400 text-lg max-w-xl mx-auto">Whispaste uses the OpenAI Whisper API at ~$0.006/min. Most users spend just a few dollars per month.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 scroll-reveal">
+        <div class="p-6 rounded-2xl bg-brand-card/50 border border-brand-border/50">
+          <h3 class="text-white font-semibold mb-4">Per-use cost</h3>
+          <div class="space-y-3">
+            {[
+              { usage: "Short sentence (10–15s)", cost: "~$0.001" },
+              { usage: "Half a minute", cost: "~$0.003" },
+              { usage: "One full minute", cost: "~$0.006" },
+            ].map(({ usage, cost }) => (
+              <div class="flex justify-between items-center py-2 border-b border-white/5 last:border-0">
+                <span class="text-gray-400 text-sm">{usage}</span>
+                <span class="text-white font-mono text-sm">{cost}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div class="p-6 rounded-2xl bg-brand-card/50 border border-brand-border/50">
+          <h3 class="text-white font-semibold mb-4">Monthly estimates</h3>
+          <div class="space-y-3">
+            {[
+              { profile: "Occasional", usage: "~5 min/day", cost: "~$1" },
+              { profile: "Regular", usage: "~20 min/day", cost: "~$4" },
+              { profile: "Heavy", usage: "~30 min/day", cost: "~$6" },
+              { profile: "Power user", usage: "~2 hrs/day", cost: "~$22" },
+            ].map(({ profile, usage, cost }) => (
+              <div class="flex justify-between items-center py-2 border-b border-white/5 last:border-0">
+                <div>
+                  <span class="text-white text-sm">{profile}</span>
+                  <span class="text-gray-500 text-xs ml-2">{usage}</span>
+                </div>
+                <span class="text-brand-cyan font-mono text-sm font-semibold">{cost}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <p class="text-center text-gray-500 text-sm mt-6 scroll-reveal">Bring your own API key — no subscription, no middleman.</p>
+    </div>
+  </section>
+
+  <!-- Privacy -->
+  <section class="py-24 sm:py-32 relative">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(14,116,144,0.08)_0%,_transparent_60%)]"></div>
+    <div class="relative max-w-4xl mx-auto px-6">
+      <div class="text-center mb-16 scroll-reveal">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white">Privacy first</h2>
+        <p class="mt-4 text-gray-400 text-lg">Your data stays yours. Always.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 scroll-reveal">
+        {[
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`, title: "API key stays local", desc: "Stored only in your user profile directory, never transmitted." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>`, title: "Audio never saved", desc: "Recorded audio is sent directly to OpenAI and discarded." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>`, title: "Secure updates", desc: "SHA256 checksums verified before applying. HTTPS only." },
+          { icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`, title: "No telemetry", desc: "Zero analytics, tracking, or phone-home. Fully open source." },
+        ].map(({ icon, title, desc }) => (
+          <div class="flex gap-4 p-5 rounded-2xl bg-brand-card/30 border border-brand-border/30">
+            <div class="shrink-0 w-10 h-10 rounded-xl bg-brand-cyan/10 text-brand-cyan flex items-center justify-center" set:html={icon} />
+            <div>
+              <h3 class="text-white font-semibold mb-0.5">{title}</h3>
+              <p class="text-gray-400 text-sm leading-relaxed">{desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Support -->
+  <section class="py-24 sm:py-32">
+    <div class="max-w-2xl mx-auto px-6 text-center scroll-reveal">
+      <h2 class="text-3xl sm:text-4xl font-bold text-white">Support the project</h2>
+      <p class="mt-4 text-gray-400 text-lg">Whispaste is free and open source. If you find it useful, consider supporting development.</p>
+      <div class="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white/5 text-white font-semibold rounded-xl border border-white/10 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400 transition-all">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          Sponsor on GitHub
+        </a>
+        <a href="https://ko-fi.com/silviol" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white/5 text-white font-semibold rounded-xl border border-white/10 hover:bg-orange-500/10 hover:border-orange-500/30 hover:text-orange-400 transition-all">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/></svg>
+          Buy a Coffee
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-8 border-t border-white/5">
+    <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        <span>© 2025 <a href="https://github.com/silvio-l" class="hover:text-white transition-colors">Silvio Lindstedt</a></span>
+      </div>
+      <div class="flex items-center gap-4">
+        <span>MIT License</span>
+        <a href="https://github.com/silvio-l/whispaste" target="_blank" rel="noopener" class="hover:text-white transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scroll reveal animation -->
+  <style>
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fade-in 0.8s ease-out both;
+    }
+    .scroll-reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    }
+    .scroll-reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+
+  <script>
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: "0px 0px -50px 0px" }
+    );
+    document.querySelectorAll(".scroll-reveal").forEach((el) => observer.observe(el));
+  </script>
+</Layout>
