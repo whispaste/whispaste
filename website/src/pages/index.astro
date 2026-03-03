@@ -121,7 +121,7 @@ import Layout from "../layouts/Layout.astro";
                     </div>
                     <div class="bg-brand-darker/80 border border-white/5 border-t-0 rounded-b-lg p-4 min-h-[140px]">
                       <div class="flex items-start gap-3">
-                        <div class="text-xs text-gray-600 font-mono select-none leading-relaxed pt-0.5">1<br>2</div>
+                        <div class="text-xs text-gray-600 font-mono select-none leading-relaxed pt-0.5">1<br>2<br>3</div>
                         <div id="typed-text" class="text-sm text-white/90 font-mono leading-relaxed whitespace-pre-wrap">
                           <span class="typing-cursor"></span>
                         </div>
@@ -618,8 +618,8 @@ import Layout from "../layouts/Layout.astro";
 
     function getTypingText() {
       return currentLang === 'de'
-        ? 'Hallo, das ist ein Beispiel\nfür transkribierte Sprache.'
-        : 'Hello, this is an example\nof transcribed speech.';
+        ? 'Hallo, das ist ein Beispiel\nfür transkribierte Sprache. 😊\n— erstellt mit WhisPaste'
+        : 'Hello, this is an example\nof transcribed speech. 😊\n— created with WhisPaste';
     }
 
     function startTyping() {
