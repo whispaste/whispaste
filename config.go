@@ -31,6 +31,7 @@ type Config struct {
 	SmartModePreset string `json:"smart_mode_preset"`
 	SmartModePrompt string `json:"smart_mode_prompt"`
 	SmartModeTarget string `json:"smart_mode_target"`
+	SponsorShown    bool   `json:"sponsor_shown"`
 	mu          sync.RWMutex
 }
 
@@ -224,6 +225,20 @@ func (c *Config) GetSmartModeTarget() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.SmartModeTarget
+}
+
+// GetSponsorShown returns whether the sponsor balloon has been shown (thread-safe).
+func (c *Config) GetSponsorShown() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.SponsorShown
+}
+
+// SetSponsorShown sets whether the sponsor balloon has been shown (thread-safe).
+func (c *Config) SetSponsorShown(v bool) {
+	c.mu.Lock()
+	c.SponsorShown = v
+	c.mu.Unlock()
 }
 
 // SetSmartModePreset sets the smart mode preset and enables/disables smart mode (thread-safe).

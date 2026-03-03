@@ -103,6 +103,9 @@ body.ready {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px 0;
+  padding-bottom: 16px;
+  margin-bottom: -8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 15%, var(--border));
   flex-shrink: 0;
 }
 
@@ -172,6 +175,18 @@ body.ready {
   font-weight: 700;
 }
 
+.tab-btn[aria-selected="true"]::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+
 /* ── Tab Content ───────────────────────────────────────── */
 .tab-content-wrapper {
   flex: 1;
@@ -211,6 +226,11 @@ body.ready {
   margin-bottom: 16px;
   box-shadow: var(--shadow-sm);
   transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 [data-theme="dark"] .card {
@@ -275,8 +295,8 @@ body.ready {
 
 .form-input:hover { border-color: var(--text-hint); }
 .form-input:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(0,122,255,.12);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
   outline: none;
 }
 
@@ -315,8 +335,8 @@ body.ready {
 
 .form-select:hover { border-color: var(--text-hint); }
 .form-select:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(0,122,255,.12);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
   outline: none;
 }
 
@@ -431,7 +451,10 @@ body.ready {
   transition: transform 300ms cubic-bezier(.4, 0, .2, 1);
 }
 
-.toggle-switch input:checked + .toggle-track { background: var(--accent); }
+.toggle-switch input:checked + .toggle-track {
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent);
+}
 .toggle-switch input:checked + .toggle-track::after { transform: translateX(22px); }
 .toggle-switch input:focus-visible + .toggle-track {
   outline: 2px solid var(--accent);
@@ -819,13 +842,22 @@ body.ready {
 .btn:active { transform: scale(.96); }
 
 .btn-primary {
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   color: #FFF;
   border-color: var(--accent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.btn-primary:active { background: var(--accent-active); }
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent-active));
+  border-color: var(--accent-hover);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 40%, transparent);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  background: var(--accent-active);
+  transform: translateY(0);
+}
 .btn-primary:disabled {
   background: rgba(8,145,178,.4);
   border-color: transparent;
@@ -998,7 +1030,7 @@ body.ready {
     </div>
 
     <!-- Smart Mode -->
-    <div class="card">
+    <div class="card" data-section="smart-mode">
       <div class="card-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg> <span data-i18n="cardSmartMode">Smart Mode</span></div>
       <div class="form-group">
         <div class="toggle-row">
@@ -1876,7 +1908,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateVolRow();
 
   // Switch to initial tab if specified by Go
-  if (window._initialTab) {
+  if (window._initialTab === 'smart-mode') {
+    switchTab('audio');
+    setTimeout(() => {
+      const smartSection = document.querySelector('[data-section="smart-mode"]');
+      if (smartSection) smartSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  } else if (window._initialTab) {
     switchTab(window._initialTab);
   }
 

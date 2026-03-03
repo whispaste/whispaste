@@ -215,10 +215,11 @@ func main() {
 				}
 
 				// Record stats and history
-				stats.RecordDictation(text, durationSec)
+				totalDictations := stats.RecordDictation(text, durationSec)
 				history.Add(text, durationSec, lang)
 				if tray != nil {
 					tray.RefreshHistory()
+					tray.MaybeSponsorBalloon(totalDictations)
 				}
 
 				if autoPaste {
