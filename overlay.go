@@ -101,10 +101,10 @@ _WAVE_RIGHT  = 12 // right margin
 _WAVE_AMP    = 30.0
 
 // Control button layout (right side of pill, after waveform)
-_BTN_SIZE      = 28
-_BTN_GAP       = 6
+_BTN_SIZE      = 34
+_BTN_GAP       = 8
 _BTN_Y         = (_OVL_HEIGHT - _BTN_SIZE) / 2
-_BTN_CONFIRM_X = _OVL_WIDTH - _BTN_SIZE - 10
+_BTN_CONFIRM_X = _OVL_WIDTH - _BTN_SIZE - 12
 _BTN_PAUSE_X   = _BTN_CONFIRM_X - _BTN_SIZE - _BTN_GAP
 )
 
@@ -265,6 +265,7 @@ procReleaseDC           = ovlUser32.NewProc("ReleaseDC")
 procGdipCreatePath          = ovlGdiplus.NewProc("GdipCreatePath")
 procGdipDeletePath          = ovlGdiplus.NewProc("GdipDeletePath")
 procGdipAddPathArc          = ovlGdiplus.NewProc("GdipAddPathArc")
+procGdipAddPathLine         = ovlGdiplus.NewProc("GdipAddPathLineI")
 procGdipClosePathFigure     = ovlGdiplus.NewProc("GdipClosePathFigure")
 procGdipFillPath            = ovlGdiplus.NewProc("GdipFillPath")
 
@@ -288,6 +289,7 @@ procGdipSetInterpolationMode   = ovlGdiplus.NewProc("GdipSetInterpolationMode")
 procGdipCreatePen1 = ovlGdiplus.NewProc("GdipCreatePen1")
 procGdipDeletePen  = ovlGdiplus.NewProc("GdipDeletePen")
 procGdipDrawPath   = ovlGdiplus.NewProc("GdipDrawPath")
+procGdipDrawLineI  = ovlGdiplus.NewProc("GdipDrawLineI")
 
 // GDI+ graphics
 procGdipGraphicsClear = ovlGdiplus.NewProc("GdipGraphicsClear")
@@ -408,6 +410,8 @@ done      chan struct{}
 onConfirm func() // called when confirm button clicked
 onPause   func() // called when pause/resume button clicked
 paused    bool   // whether recording is paused
+pauseStart time.Time    // when current pause began
+pauseAccum time.Duration // accumulated pause time
 mu        sync.Mutex
 }
 
@@ -493,6 +497,8 @@ o.state = AppState(wParam)
 o.frame = 0
 if o.state == StateRecording {
 o.startTime = time.Now()
+o.pauseAccum = 0
+o.paused = false
 for i := range o.levels {
 o.levels[i] = 0
 }
@@ -525,7 +531,13 @@ return 0
 
 case _WM_OVL_PAUSE:
 	o.mu.Lock()
+	wasPaused := o.paused
 	o.paused = wParam != 0
+	if o.paused && !wasPaused {
+		o.pauseStart = time.Now()
+	} else if !o.paused && wasPaused {
+		o.pauseAccum += time.Since(o.pauseStart)
+	}
 	o.mu.Unlock()
 	return 0
 
@@ -889,6 +901,11 @@ o.mu.Lock()
 state := o.state
 frame := o.frame
 startTime := o.startTime
+pauseAccum := o.pauseAccum
+isPaused := o.paused
+if isPaused {
+	pauseAccum += time.Since(o.pauseStart)
+}
 var levels [_WAVE_BARS]float32
 copy(levels[:], o.levels[:])
 levelIdx := o.levelIdx
@@ -896,7 +913,7 @@ o.mu.Unlock()
 
 switch state {
 case StateRecording, StatePaused:
-o.paintRecordingULW(g, frame, startTime, levels, levelIdx, contentX)
+o.paintRecordingULW(g, frame, startTime, pauseAccum, isPaused, levels, levelIdx, contentX)
 case StateTranscribing, StateProcessing:
 o.paintTranscribingULW(g, frame, contentX)
 case StateError:
@@ -1011,14 +1028,10 @@ o.gdipStrFmt,
 brush)
 }
 
-func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, levels [_WAVE_BARS]float32, levelIdx int, contentX int32) {
+func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pauseAccum time.Duration, isPaused bool, levels [_WAVE_BARS]float32, levelIdx int, contentX int32) {
 cy := int32(_OVL_HEIGHT / 2)
 
-o.mu.Lock()
-isPaused := o.paused
-o.mu.Unlock()
-
-// Pulsing recording dot
+// Pulsing recording dot (stops pulsing when paused)
 if isPaused {
 gdipFillCircleG(g, 0x80FF3C3C, contentX+7, cy, 7)
 } else {
@@ -1039,9 +1052,12 @@ o.drawGdipText(g, T("overlay.paused"), textX, 14, 120, o.gdipFontMain, 0xFFFFFFF
 o.drawGdipText(g, T("overlay.recording"), textX, 14, 120, o.gdipFontMain, 0xFFFFFFFF)
 }
 
-// Elapsed timer
-elapsed := time.Since(start).Seconds()
-secs := int(elapsed)
+// Elapsed timer (excludes paused time)
+elapsed := time.Since(start) - pauseAccum
+if elapsed < 0 {
+elapsed = 0
+}
+secs := int(elapsed.Seconds())
 timer := fmt.Sprintf("%d:%02d", secs/60, secs%60)
 o.drawGdipText(g, timer, textX, 36, 60, o.gdipFontSmall, 0xFFB0A090)
 
@@ -1071,21 +1087,73 @@ gdipFillRectG(g, 0x80226688, x, y1, _WAVE_BAR_W, y2-y1)
 }
 }
 
-// Control buttons
-gdipFillCircleG(g, 0xFF34C759, _BTN_CONFIRM_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+// Control buttons — brand colors
+gdipFillCircleG(g, 0xFF22D3EE, _BTN_CONFIRM_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 if isPaused {
-gdipFillCircleG(g, 0xFF22D3EE, _BTN_PAUSE_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+gdipFillCircleG(g, 0xFF0E7490, _BTN_PAUSE_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 } else {
-gdipFillCircleG(g, 0xFF0066B8, _BTN_PAUSE_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+gdipFillCircleG(g, 0xFF0E7490, _BTN_PAUSE_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 }
 
-// Button icons
-o.drawGdipText(g, "\u2713", float32(_BTN_CONFIRM_X+7), float32(cy-7), 20, o.gdipFontSmall, 0xFFFFFFFF)
+// Button icons drawn with GDI+ lines
+o.drawCheckmarkIcon(g, _BTN_CONFIRM_X, int32(cy)-_BTN_SIZE/2)
 if isPaused {
-o.drawGdipText(g, "\u25B6", float32(_BTN_PAUSE_X+8), float32(cy-7), 20, o.gdipFontSmall, 0xFFFFFFFF)
+o.drawPlayIcon(g, _BTN_PAUSE_X, int32(cy)-_BTN_SIZE/2)
 } else {
-o.drawGdipText(g, "\u23F8", float32(_BTN_PAUSE_X+6), float32(cy-8), 20, o.gdipFontSmall, 0xFFFFFFFF)
+o.drawPauseIcon(g, _BTN_PAUSE_X, int32(cy)-_BTN_SIZE/2)
 }
+}
+
+// drawCheckmarkIcon draws a ✓ icon using GDI+ lines.
+func (o *Overlay) drawCheckmarkIcon(g uintptr, bx, by int32) {
+	var pen uintptr
+	procGdipCreatePen1.Call(uintptr(0xFFFFFFFF), uintptr(math.Float32bits(2.5)), 2, uintptr(unsafe.Pointer(&pen)))
+	if pen == 0 {
+		return
+	}
+	defer procGdipDeletePen.Call(pen)
+	// Checkmark: short down-right then long up-right, centered in button
+	cx := bx + _BTN_SIZE/2
+	cy := by + _BTN_SIZE/2
+	procGdipDrawLineI.Call(g, pen, uintptr(cx-6), uintptr(cy), uintptr(cx-2), uintptr(cy+5))
+	procGdipDrawLineI.Call(g, pen, uintptr(cx-2), uintptr(cy+5), uintptr(cx+7), uintptr(cy-5))
+}
+
+// drawPauseIcon draws ❚❚ icon using GDI+ filled rectangles.
+func (o *Overlay) drawPauseIcon(g uintptr, bx, by int32) {
+	cx := bx + _BTN_SIZE/2
+	cy := by + _BTN_SIZE/2
+	barW := int32(3)
+	barH := int32(12)
+	gap := int32(3)
+	gdipFillRectG(g, 0xFFFFFFFF, cx-gap-barW, cy-barH/2, barW, barH)
+	gdipFillRectG(g, 0xFFFFFFFF, cx+gap, cy-barH/2, barW, barH)
+}
+
+// drawPlayIcon draws ▶ icon using GDI+ filled path.
+func (o *Overlay) drawPlayIcon(g uintptr, bx, by int32) {
+	cx := bx + _BTN_SIZE/2
+	cy := by + _BTN_SIZE/2
+	// Triangle pointing right
+	var path uintptr
+	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&path)))
+	if path == 0 {
+		return
+	}
+	defer procGdipDeletePath.Call(path)
+	// Use addPolygon via three addLine calls
+	x1, y1 := cx-4, cy-7  // top-left
+	x2, y2 := cx+7, cy    // right-center
+	x3, y3 := cx-4, cy+7  // bottom-left
+	procGdipAddPathLine.Call(path, uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2))
+	procGdipAddPathLine.Call(path, uintptr(x2), uintptr(y2), uintptr(x3), uintptr(y3))
+	procGdipClosePathFigure.Call(path)
+	var brush uintptr
+	procGdipCreateSolidFill.Call(uintptr(0xFFFFFFFF), uintptr(unsafe.Pointer(&brush)))
+	if brush != 0 {
+		defer procGdipDeleteBrush.Call(brush)
+		procGdipFillPath.Call(g, brush, path)
+	}
 }
 
 func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32) {
