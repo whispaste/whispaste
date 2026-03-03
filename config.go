@@ -135,6 +135,13 @@ func (c *Config) GetCheckUpdates() bool {
 	return c.CheckUpdates
 }
 
+// GetOverlayPos returns the overlay position preference (thread-safe).
+func (c *Config) GetOverlayPos() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.OverlayPos
+}
+
 // IsPushToTalk returns true if the mode is push-to-talk.
 func (c *Config) IsPushToTalk() bool {
 	c.mu.RLock()

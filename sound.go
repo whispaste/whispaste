@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/binary"
 	"math"
+	"runtime"
 	"sync/atomic"
 	"unsafe"
 
@@ -23,18 +24,35 @@ var sndSuccess []byte
 var sndError []byte
 
 var (
-	winmm        = windows.NewLazySystemDLL("winmm.dll")
+	winmm         = windows.NewLazySystemDLL("winmm.dll")
 	procPlaySound = winmm.NewProc("PlaySoundW")
 )
 
 const (
 	sndMemory    = 0x00000004
-	sndAsync     = 0x00000001
 	sndNoDefault = 0x00000002
 )
 
 // soundVolumeBits stores the playback volume as atomic uint64 (float64 bits).
 var soundVolumeBits uint64 = math.Float64bits(1.0)
+
+// soundChan serializes all sound playback to avoid PlaySoundW cancellation issues.
+// PlaySoundW can only play one sound at a time; concurrent calls cancel the previous.
+var soundChan = make(chan []byte, 4)
+
+func init() {
+	go func() {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+		for data := range soundChan {
+			procPlaySound.Call(
+				uintptr(unsafe.Pointer(&data[0])),
+				0,
+				uintptr(sndMemory|sndNoDefault),
+			)
+		}
+	}()
+}
 
 // SetSoundVolume updates the playback volume level (0.0–1.0).
 func SetSoundVolume(v float64) {
@@ -80,15 +98,11 @@ func PlayFeedback(soundType SoundType) {
 		playData = scaleWAVVolume(data, vol)
 	}
 
-	// Play in a goroutine with SND_SYNC to avoid cancellation of previous sounds.
-	go func(d []byte) {
-		defer func() { recover() }()
-		procPlaySound.Call(
-			uintptr(unsafe.Pointer(&d[0])),
-			0,
-			uintptr(sndMemory|sndNoDefault), // SND_SYNC
-		)
-	}(playData)
+	// Send to serialized playback goroutine; drop if channel full
+	select {
+	case soundChan <- playData:
+	default:
+	}
 }
 
 // scaleWAVVolume scales 16-bit PCM samples in a WAV byte slice by a volume factor.
