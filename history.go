@@ -413,6 +413,19 @@ func (h *History) Merge(ids []string) string {
 	}
 
 	mergedText := strings.Join(texts, "\n\n")
+
+	// Collect all tags from source entries (deduplicated), always include "merged"
+	tagSet := map[string]struct{}{"merged": {}}
+	for _, m := range matches {
+		for _, t := range m.Tags {
+			tagSet[t] = struct{}{}
+		}
+	}
+	var mergedTags []string
+	for t := range tagSet {
+		mergedTags = append(mergedTags, t)
+	}
+
 	merged := HistoryEntry{
 		ID:        generateID(),
 		Text:      mergedText,
@@ -422,6 +435,7 @@ func (h *History) Merge(ids []string) string {
 		Language:  matches[0].Language,
 		Source:    "merged",
 		Category:  "merged",
+		Tags:      mergedTags,
 	}
 
 	// Remove originals
@@ -453,6 +467,7 @@ func (h *History) DuplicateEntry(id string) bool {
 				dup.Tags = make([]string, len(e.Tags))
 				copy(dup.Tags, e.Tags)
 			}
+			dup.Tags = append(dup.Tags, "duplicated")
 			h.Entries = append(h.Entries, dup)
 			h.cache = nil
 			h.saveLocked()

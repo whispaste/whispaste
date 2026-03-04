@@ -310,7 +310,7 @@ func main() {
 				}
 
 				// Record stats and history with model info
-				totalDictations := stats.RecordDictation(text, durationSec)
+				totalDictations := stats.RecordDictation(text, durationSec, useLocal)
 				if useLocal {
 					history.AddWithModel(text, durationSec, processingDurationSec, lang, cfg.GetLocalModelID(), true)
 				} else {

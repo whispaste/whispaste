@@ -138,7 +138,7 @@ function updateCounts() {
     if (Object.keys(cats).length > 0) {
       catSection.style.display = '';
       catList.innerHTML = Object.entries(cats).map(([name, count]) => {
-        const label = name === 'merged' ? t('catMerged') : name;
+        const label = name === 'merged' ? t('catMerged') : name === 'duplicated' ? t('catDuplicated') : name;
         const c = getTagColor(name);
         return `
         <div class="filter-item${_activeFilter === 'cat:' + esc(name) ? ' active' : ''}" data-filter="cat:${esc(name)}">
@@ -255,13 +255,13 @@ function renderHistory() {
             <span>${formatTime(e.timestamp)}</span>
             ${e.duration_sec ? '<span>' + formatDuration(e.duration_sec) + '</span>' : ''}
             ${e.language ? '<span>' + e.language.toUpperCase() + '</span>' : ''}
-            ${(e.tags || []).map(tag => { const c = getTagColor(tag); return '<span class="tag" style="background:'+c.bg+';color:'+c.text+';border-color:'+c.border+'">' + esc(tag === 'merged' ? t('catMerged') : tag) + '</span>'; }).join('')}
+            ${(e.tags || []).map(tag => { const c = getTagColor(tag); return '<span class="tag" style="background:'+c.bg+';color:'+c.text+';border-color:'+c.border+'">' + esc(tag === 'merged' ? t('catMerged') : tag === 'duplicated' ? t('catDuplicated') : tag) + '</span>'; }).join('')}
           </div>
         </div>
         <span class="entry-chevron">${icons.chevronDown}</span>
         <div class="entry-actions">
           <button class="btn-icon copy" title="${t('notebook.copy')}" data-action="copy" data-id="${e.id}">${icons.copy}</button>
-          <button class="btn-icon" title="${t('notebook.duplicate')}" data-action="duplicate" data-id="${e.id}">${icons.files}</button>
+          <button class="btn-icon" title="${t('notebook.duplicate')}" data-action="duplicate" data-id="${e.id}">${icons.filePlus}</button>
           <button class="btn-icon pin${e.pinned ? ' active' : ''}" title="${e.pinned ? t('notebook.unpin') : t('notebook.pin')}" data-action="pin" data-id="${e.id}">${icons.pin}</button>
           <button class="btn-icon delete" title="${t('notebook.delete')}" data-action="delete" data-id="${e.id}">${icons.trash}</button>
         </div>
@@ -396,14 +396,14 @@ async function mergeSelected() {
       const result = await window._mergeEntries(JSON.stringify([..._selectedIds]));
       const res = typeof result === 'string' ? JSON.parse(result) : result;
       if (res.success) {
-        showToast(t('mergeSuccess'), true);
+        showToast(t('mergeSuccess'), false);
         clearSelection();
         loadEntries();
       } else {
-        showToast(res.error || t('statusError'), false);
+        showToast(res.error || t('statusError'), true);
       }
     } catch (e) {
-      showToast(t('statusError'), false);
+      showToast(t('statusError'), true);
     }
   }
 }
@@ -441,7 +441,7 @@ async function saveEditText(id) {
     if (window.updateEntryText) await window.updateEntryText(id, newText);
     showToast(t('notebook.saved'));
     await loadEntries();
-  } catch (e) { showToast(t('statusError'), false); }
+  } catch (e) { showToast(t('statusError'), true); }
 }
 
 function cancelEditText(id) {
