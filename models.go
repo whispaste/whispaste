@@ -117,12 +117,35 @@ func DownloadModel(modelID string, progressFn func(downloaded, total int64)) err
 		return fmt.Errorf("failed to create model directory: %w", err)
 	}
 
+	// Track cumulative progress across all files
+	var cumulativeDownloaded int64
+	var cumulativeTotal int64
+
+	// First pass: get total sizes via HEAD requests (best-effort)
+	for _, fname := range model.Files {
+		url := model.BaseURL + "/" + fname
+		if resp, err := http.Head(url); err == nil {
+			if resp.ContentLength > 0 {
+				cumulativeTotal += resp.ContentLength
+			}
+			resp.Body.Close()
+		}
+	}
+
 	for _, fname := range model.Files {
 		url := model.BaseURL + "/" + fname
 		dest := filepath.Join(dir, fname)
 
-		if err := downloadModelFile(url, dest, progressFn); err != nil {
+		if err := downloadModelFile(url, dest, func(downloaded, total int64) {
+			if progressFn != nil && cumulativeTotal > 0 {
+				progressFn(cumulativeDownloaded+downloaded, cumulativeTotal)
+			}
+		}); err != nil {
 			return fmt.Errorf("failed to download %s: %w", fname, err)
+		}
+		// Add completed file size to cumulative
+		if info, err := os.Stat(dest); err == nil {
+			cumulativeDownloaded += info.Size()
 		}
 		logInfo("downloaded model file: %s", fname)
 	}

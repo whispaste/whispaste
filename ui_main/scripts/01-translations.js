@@ -102,6 +102,8 @@ const translations = {
     modelDownloadDone: 'Model downloaded successfully',
     modelDownloadError: 'Model download failed',
     modelDeleted: 'Model deleted',
+    modelNotDownloaded: 'not downloaded',
+    modelNeedDownload: 'Download the model first to select it',
 
     // About
     aboutDesc: 'A fast, lightweight voice-to-text tool for Windows. Record speech and instantly paste the transcription anywhere.',
@@ -251,6 +253,8 @@ const translations = {
     modelDownloadDone: 'Modell erfolgreich heruntergeladen',
     modelDownloadError: 'Modell-Download fehlgeschlagen',
     modelDeleted: 'Modell gelöscht',
+    modelNotDownloaded: 'nicht heruntergeladen',
+    modelNeedDownload: 'Modell zuerst herunterladen, um es auszuwählen',
 
     // About
     aboutDesc: 'Ein schnelles, schlankes Sprache-zu-Text-Tool für Windows. Sprache aufnehmen und die Transkription sofort überall einfügen.',

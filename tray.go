@@ -162,24 +162,7 @@ func (t *AppTray) onReady() {
 
 	t.mToggle = systray.AddMenuItem(T("tray.start_record"), T("tray.start_record"))
 	systray.AddSeparator()
-	mSettings := systray.AddMenuItem(T("tray.settings"), T("tray.settings"))
-	mNotebook := systray.AddMenuItem(T("tray.notebook"), T("tray.notebook"))
-	mHistory := systray.AddMenuItem(T("tray.history"), T("tray.history"))
-	t.historyEmpty = mHistory.AddSubMenuItem(T("tray.history_empty"), "")
-	t.historyEmpty.Disable()
-	for i := 0; i < _HISTORY_SLOTS; i++ {
-		t.historyItems[i] = mHistory.AddSubMenuItem("", "")
-		t.historyItems[i].Hide()
-	}
-	t.updateHistoryMenu()
-
-	for i := 0; i < _HISTORY_SLOTS; i++ {
-		go func(idx int) {
-			for range t.historyItems[idx].ClickedCh {
-				t.copyHistoryEntry(idx)
-			}
-		}(i)
-	}
+	mDashboard := systray.AddMenuItem(T("tray.notebook"), T("tray.notebook"))
 
 	// Smart Mode submenu
 	mSmart := systray.AddMenuItem(T("tray.smart_mode"), T("tray.smart_mode"))
@@ -227,6 +210,24 @@ func (t *AppTray) onReady() {
 		}(i, item)
 	}
 
+	mHistory := systray.AddMenuItem(T("tray.history"), T("tray.history"))
+	t.historyEmpty = mHistory.AddSubMenuItem(T("tray.history_empty"), "")
+	t.historyEmpty.Disable()
+	for i := 0; i < _HISTORY_SLOTS; i++ {
+		t.historyItems[i] = mHistory.AddSubMenuItem("", "")
+		t.historyItems[i].Hide()
+	}
+	t.updateHistoryMenu()
+
+	for i := 0; i < _HISTORY_SLOTS; i++ {
+		go func(idx int) {
+			for range t.historyItems[idx].ClickedCh {
+				t.copyHistoryEntry(idx)
+			}
+		}(i)
+	}
+
+	systray.AddSeparator()
 	t.mUpdate = systray.AddMenuItem(T("update.check"), T("update.check"))
 	mAbout := systray.AddMenuItem(T("tray.about"), T("tray.about"))
 	mSupport := systray.AddMenuItem(T("tray.support"), T("tray.support"))
@@ -248,11 +249,7 @@ func (t *AppTray) onReady() {
 				if t.onToggle != nil {
 					t.onToggle()
 				}
-			case <-mSettings.ClickedCh:
-				if t.onOpenWindow != nil {
-					t.onOpenWindow("settings")
-				}
-			case <-mNotebook.ClickedCh:
+			case <-mDashboard.ClickedCh:
 				if t.onOpenWindow != nil {
 					t.onOpenWindow("history")
 				}
