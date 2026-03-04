@@ -406,20 +406,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
+  width: 0;
   height: 20px;
   border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border-secondary);
+  border: 1.5px solid transparent;
   background: transparent;
   cursor: pointer;
   flex-shrink: 0;
   transition: all var(--transition);
   opacity: 0;
-  margin-right: 4px;
+  margin-right: 0;
+  overflow: hidden;
+  padding: 0;
 }
 .entry:hover .entry-checkbox,
 .entry.selected .entry-checkbox,
-.selecting .entry-checkbox { opacity: 1; }
+.selecting .entry-checkbox {
+  opacity: 1;
+  width: 20px;
+  margin-right: 4px;
+  border-color: var(--border-secondary);
+}
 .entry-checkbox.checked {
   background: var(--gradient-accent);
   border-color: var(--accent);

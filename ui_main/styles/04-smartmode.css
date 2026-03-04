@@ -14,14 +14,58 @@
   color: var(--text-primary);
   margin: 20px 0 12px;
 }
+
+/* ── How-to Card ─────────────────────────────────────── */
+.smart-howto {
+  margin-top: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+}
+.smart-howto-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+.smart-howto-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.smart-howto-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+.smart-howto-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--gradient-accent);
+  color: var(--text-inverse);
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── Preset Grid ─────────────────────────────────────── */
 .preset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
 }
 .preset-card {
   display: flex; flex-direction: column; align-items: center;
-  gap: 8px; padding: 20px 12px;
+  gap: 6px; padding: 20px 14px 16px;
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
@@ -51,4 +95,5 @@
 .preset-desc {
   font-size: 0.75rem;
   color: var(--text-tertiary);
+  line-height: 1.4;
 }

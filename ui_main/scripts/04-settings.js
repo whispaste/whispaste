@@ -280,7 +280,9 @@ function toggleUnlimited(checked) {
 function updateSmartModeVisibility() {
   const on = document.getElementById('toggle-smartmode')?.checked;
   const section = document.getElementById('smart-mode-options');
+  const howto = document.getElementById('smart-howto');
   if (section) section.style.display = on ? '' : 'none';
+  if (howto) howto.style.display = on ? '' : 'none';
   if (on) updateSmartPresetVisibility();
 }
 
