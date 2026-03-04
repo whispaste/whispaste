@@ -81,6 +81,7 @@ func main() {
 	// Initialize stats and history
 	stats := LoadStats()
 	history := LoadHistory()
+	defer history.Close()
 
 	// Initialize overlay
 	overlay, err := NewOverlay()

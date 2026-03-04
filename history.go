@@ -2,10 +2,8 @@ package main
 
 import (
 	"crypto/rand"
-	"encoding/json"
+	"database/sql"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -15,20 +13,20 @@ const defaultMaxHistory = 500
 
 // HistoryEntry represents a single transcription or note.
 type HistoryEntry struct {
-	ID        string  `json:"id"`
-	Text      string  `json:"text"`
-	Title     string  `json:"title,omitempty"`
-	Timestamp string  `json:"timestamp"`
-	Duration            float64 `json:"duration_sec"`
-	ProcessingDuration  float64 `json:"processing_duration_sec,omitempty"`
-	Language  string  `json:"language"`
-	Category  string  `json:"category,omitempty"` // deprecated: kept for backward compat with old JSON
-	Tags      []string `json:"tags,omitempty"`
-	Pinned    bool    `json:"pinned,omitempty"`
-	Source    string  `json:"source,omitempty"`
-	Model     string  `json:"model,omitempty"`
-	IsLocal   bool    `json:"is_local,omitempty"`
-	CostUSD   float64 `json:"cost_usd,omitempty"`
+	ID                 string   `json:"id"`
+	Text               string   `json:"text"`
+	Title              string   `json:"title,omitempty"`
+	Timestamp          string   `json:"timestamp"`
+	Duration           float64  `json:"duration_sec"`
+	ProcessingDuration float64  `json:"processing_duration_sec,omitempty"`
+	Language           string   `json:"language"`
+	Category           string   `json:"category,omitempty"` // deprecated: kept for backward compat with old JSON
+	Tags               []string `json:"tags,omitempty"`
+	Pinned             bool     `json:"pinned,omitempty"`
+	Source             string   `json:"source,omitempty"`
+	Model              string   `json:"model,omitempty"`
+	IsLocal            bool     `json:"is_local,omitempty"`
+	CostUSD            float64  `json:"cost_usd,omitempty"`
 }
 
 // analyticsCache stores a computed analytics result with an expiry.
@@ -37,17 +35,16 @@ type analyticsCache struct {
 	validUntil time.Time
 }
 
-// History manages transcription history.
+// History manages transcription history backed by SQLite.
 type History struct {
-	Entries []HistoryEntry `json:"entries"`
-	mu      sync.Mutex
-	cache   map[int]*analyticsCache // keyed by periodDays
+	db    *sql.DB
+	mu    sync.Mutex
+	cache map[int]*analyticsCache // keyed by periodDays
 }
 
 func generateID() string {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
-		// Fallback to timestamp-based ID
 		return fmt.Sprintf("%x", time.Now().UnixNano())
 	}
 	return fmt.Sprintf("%x", b)
@@ -62,60 +59,21 @@ func autoTitle(text string) string {
 	return t
 }
 
-// LoadHistory reads history from disk or returns empty.
-// Backward-compatible: entries without ID get one generated.
+// LoadHistory initialises the SQLite-backed history store.
+// On first run, migrates data from history.json if present.
 func LoadHistory() *History {
 	h := &History{}
-	dir, err := configDir()
+	db, err := initHistoryDB()
 	if err != nil {
+		logError("Failed to open history DB: %v", err)
 		return h
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "history.json"))
-	if err != nil {
-		return h
-	}
-	json.Unmarshal(data, h)
-	// Migration: ensure all entries have IDs and titles
-	migrated := false
-	for i := range h.Entries {
-		if h.Entries[i].ID == "" {
-			h.Entries[i].ID = generateID()
-			migrated = true
-		}
-		if h.Entries[i].Title == "" && h.Entries[i].Text != "" {
-			h.Entries[i].Title = autoTitle(h.Entries[i].Text)
-			migrated = true
-		}
-		if h.Entries[i].Source == "" {
-			h.Entries[i].Source = "dictation"
-			migrated = true
-		}
-		// Migrate Category → Tags for backward compatibility
-		if len(h.Entries[i].Tags) == 0 && h.Entries[i].Category != "" {
-			h.Entries[i].Tags = []string{h.Entries[i].Category}
-			migrated = true
-		}
-		if h.Entries[i].Category != "" {
-			h.Entries[i].Category = "" // clear deprecated field
-			migrated = true
-		}
-	}
-	if migrated {
-		h.save()
-	}
+	h.db = db
 	return h
 }
 
 // WhisperCostPerMinute is the current cost of OpenAI Whisper API per audio minute (USD).
 const WhisperCostPerMinute = 0.006
-
-// invalidateCache clears the analytics cache. Call when entries change.
-// Must NOT be called under h.mu lock.
-func (h *History) invalidateCache() {
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
-}
 
 // Add appends a new entry and prunes to the limit.
 func (h *History) Add(text string, durationSec float64, language string) {
@@ -128,9 +86,7 @@ func (h *History) AddWithModel(text string, durationSec float64, processingDurat
 	if !isLocal && durationSec > 0 {
 		cost = (durationSec / 60.0) * WhisperCostPerMinute
 	}
-	h.mu.Lock()
-	h.cache = nil
-	h.Entries = append(h.Entries, HistoryEntry{
+	entry := HistoryEntry{
 		ID:                 generateID(),
 		Text:               text,
 		Title:              autoTitle(text),
@@ -142,123 +98,212 @@ func (h *History) AddWithModel(text string, durationSec float64, processingDurat
 		Model:              model,
 		IsLocal:            isLocal,
 		CostUSD:            cost,
-	})
-	if len(h.Entries) > defaultMaxHistory {
-		h.Entries = h.Entries[len(h.Entries)-defaultMaxHistory:]
 	}
+
+	h.mu.Lock()
+	h.cache = nil
 	h.mu.Unlock()
-	h.save()
+
+	if h.db == nil {
+		return
+	}
+	h.insertEntry(entry)
+	h.pruneToLimit(defaultMaxHistory)
+}
+
+// insertEntry inserts a single entry into the database.
+func (h *History) insertEntry(e HistoryEntry) {
+	pinned := 0
+	if e.Pinned {
+		pinned = 1
+	}
+	isLocal := 0
+	if e.IsLocal {
+		isLocal = 1
+	}
+	_, err := h.db.Exec(`INSERT INTO history_entries
+		(id, text, title, timestamp, duration_sec, processing_duration_sec,
+		 language, tags, pinned, source, model, is_local, cost_usd)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		e.ID, e.Text, e.Title, e.Timestamp, e.Duration, e.ProcessingDuration,
+		e.Language, marshalTags(e.Tags), pinned, e.Source, e.Model, isLocal, e.CostUSD)
+	if err != nil {
+		logError("Insert history entry: %v", err)
+	}
+}
+
+// pruneToLimit removes oldest non-pinned entries if total count exceeds limit.
+func (h *History) pruneToLimit(limit int) {
+	if h.db == nil {
+		return
+	}
+	// Delete oldest non-pinned entries beyond the limit
+	_, err := h.db.Exec(`DELETE FROM history_entries WHERE id IN (
+		SELECT id FROM history_entries WHERE pinned = 0
+		ORDER BY timestamp ASC
+		LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries) - ?)
+	)`, limit)
+	if err != nil {
+		logError("Prune history: %v", err)
+	}
 }
 
 // Recent returns the last n entries (newest first).
 func (h *History) Recent(n int) []HistoryEntry {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if n > len(h.Entries) {
-		n = len(h.Entries)
+	if h.db == nil {
+		return nil
 	}
-	result := make([]HistoryEntry, n)
-	for i := 0; i < n; i++ {
-		result[i] = h.Entries[len(h.Entries)-1-i]
+	rows, err := h.db.Query(`SELECT `+allColumns+` FROM history_entries
+		ORDER BY timestamp DESC LIMIT ?`, n)
+	if err != nil {
+		logError("Recent query: %v", err)
+		return nil
 	}
-	return result
+	defer rows.Close()
+	return scanEntries(rows)
 }
 
 // All returns all entries (newest first).
 func (h *History) All() []HistoryEntry {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	result := make([]HistoryEntry, len(h.Entries))
-	for i := 0; i < len(h.Entries); i++ {
-		result[i] = h.Entries[len(h.Entries)-1-i]
+	if h.db == nil {
+		return nil
 	}
-	return result
+	rows, err := h.db.Query(`SELECT ` + allColumns + ` FROM history_entries ORDER BY timestamp DESC`)
+	if err != nil {
+		logError("All query: %v", err)
+		return nil
+	}
+	defer rows.Close()
+	return scanEntries(rows)
+}
+
+// scanEntries reads all rows into a slice.
+func scanEntries(rows *sql.Rows) []HistoryEntry {
+	var entries []HistoryEntry
+	for rows.Next() {
+		e, err := scanEntry(rows)
+		if err != nil {
+			logError("Scan entry: %v", err)
+			continue
+		}
+		entries = append(entries, e)
+	}
+	return entries
 }
 
 // Delete removes an entry by ID.
 func (h *History) Delete(id string) bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	for i, e := range h.Entries {
-		if e.ID == id {
-			h.Entries = append(h.Entries[:i], h.Entries[i+1:]...)
-			h.cache = nil
-			h.saveLocked()
-			return true
-		}
+	if h.db == nil {
+		return false
 	}
-	return false
+	h.mu.Lock()
+	h.cache = nil
+	h.mu.Unlock()
+
+	res, err := h.db.Exec("DELETE FROM history_entries WHERE id = ?", id)
+	if err != nil {
+		logError("Delete entry: %v", err)
+		return false
+	}
+	n, _ := res.RowsAffected()
+	return n > 0
 }
 
 // TogglePin toggles the pinned state of an entry by ID.
 func (h *History) TogglePin(id string) bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	for i, e := range h.Entries {
-		if e.ID == id {
-			h.Entries[i].Pinned = !e.Pinned
-			h.cache = nil
-			h.saveLocked()
-			return true
-		}
+	if h.db == nil {
+		return false
 	}
-	return false
+	h.mu.Lock()
+	h.cache = nil
+	h.mu.Unlock()
+
+	res, err := h.db.Exec(`UPDATE history_entries SET pinned = CASE WHEN pinned = 0 THEN 1 ELSE 0 END WHERE id = ?`, id)
+	if err != nil {
+		logError("Toggle pin: %v", err)
+		return false
+	}
+	n, _ := res.RowsAffected()
+	return n > 0
 }
 
 // UpdateEntry updates title and/or tags for an entry by ID.
 func (h *History) UpdateEntry(id, title string, tags []string) bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	for i, e := range h.Entries {
-		if e.ID == id {
-			if title != "" {
-				h.Entries[i].Title = title
-			}
-			h.Entries[i].Tags = tags
-			h.Entries[i].Category = "" // ensure deprecated field is cleared
-			h.cache = nil
-			h.saveLocked()
-			return true
-		}
+	if h.db == nil {
+		return false
 	}
-	return false
+	h.mu.Lock()
+	h.cache = nil
+	h.mu.Unlock()
+
+	var res sql.Result
+	var err error
+	tagsJSON := marshalTags(tags)
+	if title != "" {
+		res, err = h.db.Exec("UPDATE history_entries SET title = ?, tags = ? WHERE id = ?", title, tagsJSON, id)
+	} else {
+		res, err = h.db.Exec("UPDATE history_entries SET tags = ? WHERE id = ?", tagsJSON, id)
+	}
+	if err != nil {
+		logError("Update entry: %v", err)
+		return false
+	}
+	n, _ := res.RowsAffected()
+	return n > 0
 }
 
 // UpdateText updates the text content (and auto-title) for an entry by ID.
 func (h *History) UpdateText(id, newText string) bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	for i, e := range h.Entries {
-		if e.ID == id {
-			h.Entries[i].Text = newText
-			h.Entries[i].Title = autoTitle(newText)
-			h.cache = nil
-			h.saveLocked()
-			return true
-		}
+	if h.db == nil {
+		return false
 	}
-	return false
+	h.mu.Lock()
+	h.cache = nil
+	h.mu.Unlock()
+
+	newTitle := autoTitle(newText)
+	res, err := h.db.Exec("UPDATE history_entries SET text = ?, title = ? WHERE id = ?", newText, newTitle, id)
+	if err != nil {
+		logError("Update text: %v", err)
+		return false
+	}
+	n, _ := res.RowsAffected()
+	return n > 0
 }
 
 // GetAnalytics computes usage statistics for a given time period.
-// Results are cached for 5 seconds to avoid recomputation on rapid refreshes.
+// Results are cached for 2 seconds to avoid recomputation on rapid refreshes.
 func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
+	if h.db == nil {
+		return map[string]interface{}{}
+	}
+
 	h.mu.Lock()
-	// Check cache
 	if h.cache != nil {
 		if c, ok := h.cache[periodDays]; ok && time.Now().Before(c.validUntil) {
 			h.mu.Unlock()
 			return c.data
 		}
 	}
-	defer h.mu.Unlock()
+	h.mu.Unlock()
 
-	now := time.Now()
-	var cutoff time.Time
+	// Fetch entries matching the period
+	var rows *sql.Rows
+	var err error
 	if periodDays > 0 {
-		cutoff = now.AddDate(0, 0, -periodDays)
+		cutoff := time.Now().AddDate(0, 0, -periodDays).Format(time.RFC3339)
+		rows, err = h.db.Query(`SELECT `+allColumns+` FROM history_entries WHERE timestamp >= ? ORDER BY timestamp`, cutoff)
+	} else {
+		rows, err = h.db.Query(`SELECT ` + allColumns + ` FROM history_entries ORDER BY timestamp`)
 	}
+	if err != nil {
+		logError("Analytics query: %v", err)
+		return map[string]interface{}{}
+	}
+	defer rows.Close()
+	entries := scanEntries(rows)
 
+	// Compute analytics (same logic as before)
 	var totalEntries, localEntries, apiEntries int
 	var totalDuration, totalCost, localDuration float64
 	var totalProcessingDuration float64
@@ -269,12 +314,9 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 	modelCounts := map[string]int{}
 	durationBuckets := map[string]int{"<15s": 0, "15-30s": 0, "30-60s": 0, "1-3m": 0, ">3m": 0}
 
-	for _, e := range h.Entries {
+	for _, e := range entries {
 		ts, err := time.Parse(time.RFC3339, e.Timestamp)
 		if err != nil {
-			continue
-		}
-		if periodDays > 0 && ts.Before(cutoff) {
 			continue
 		}
 
@@ -325,7 +367,6 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		}
 	}
 
-	// Calculate savings: what local transcriptions would have cost via API
 	savings := (localDuration / 60.0) * WhisperCostPerMinute
 
 	result := map[string]interface{}{
@@ -345,11 +386,12 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		"totalProcessingTime":   totalProcessingDuration,
 	}
 
-	// Cache the result for 5 seconds
+	h.mu.Lock()
 	if h.cache == nil {
 		h.cache = make(map[int]*analyticsCache)
 	}
 	h.cache[periodDays] = &analyticsCache{data: result, validUntil: time.Now().Add(2 * time.Second)}
+	h.mu.Unlock()
 
 	return result
 }
@@ -363,64 +405,140 @@ func safeDiv(a, b float64) float64 {
 
 // Tags returns all unique tag names used across entries.
 func (h *History) Tags() []string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	if h.db == nil {
+		return nil
+	}
+	rows, err := h.db.Query("SELECT tags FROM history_entries WHERE tags != '[]' AND tags != ''")
+	if err != nil {
+		logError("Tags query: %v", err)
+		return nil
+	}
+	defer rows.Close()
+
 	seen := map[string]bool{}
-	var tags []string
-	for _, e := range h.Entries {
-		for _, tag := range e.Tags {
+	var result []string
+	for rows.Next() {
+		var tagsJSON string
+		if err := rows.Scan(&tagsJSON); err != nil {
+			continue
+		}
+		for _, tag := range unmarshalTags(tagsJSON) {
 			if tag != "" && !seen[tag] {
 				seen[tag] = true
-				tags = append(tags, tag)
+				result = append(result, tag)
 			}
 		}
 	}
-	return tags
+	return result
 }
 
 // RenameTag renames a tag across all entries that have it.
 func (h *History) RenameTag(oldName, newName string) int {
+	if h.db == nil {
+		return 0
+	}
 	h.mu.Lock()
-	defer h.mu.Unlock()
-	count := 0
-	for i, e := range h.Entries {
-		for j, tag := range e.Tags {
+	h.cache = nil
+	h.mu.Unlock()
+
+	// Escape LIKE wildcards in tag name
+	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(oldName)
+	pattern := `%"` + escaped + `"%`
+
+	tx, err := h.db.Begin()
+	if err != nil {
+		logError("RenameTag begin tx: %v", err)
+		return 0
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.Query("SELECT id, tags FROM history_entries WHERE tags LIKE ? ESCAPE '\\'", pattern)
+	if err != nil {
+		logError("RenameTag query: %v", err)
+		return 0
+	}
+
+	type idTags struct {
+		id   string
+		tags []string
+	}
+	var updates []idTags
+	for rows.Next() {
+		var id, tagsJSON string
+		if err := rows.Scan(&id, &tagsJSON); err != nil {
+			continue
+		}
+		tags := unmarshalTags(tagsJSON)
+		changed := false
+		for j, tag := range tags {
 			if tag == oldName {
-				h.Entries[i].Tags[j] = newName
-				count++
+				tags[j] = newName
+				changed = true
 				break
 			}
 		}
+		if changed {
+			updates = append(updates, idTags{id, tags})
+		}
 	}
-	if count > 0 {
-		h.saveLocked()
+	rows.Close()
+
+	count := 0
+	for _, u := range updates {
+		if _, err := tx.Exec("UPDATE history_entries SET tags = ? WHERE id = ?", marshalTags(u.tags), u.id); err != nil {
+			logError("RenameTag update %s: %v", u.id, err)
+			return 0
+		}
+		count++
+	}
+
+	if err := tx.Commit(); err != nil {
+		logError("RenameTag commit: %v", err)
+		return 0
 	}
 	return count
 }
 
 // Merge combines multiple entries into one. The newest entry's metadata is used as the base.
-// Texts are concatenated with double newline separators. Duration is summed.
 // Returns the ID of the merged entry, or empty string on error.
 func (h *History) Merge(ids []string) string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	if h.db == nil || len(ids) < 2 {
+		return ""
+	}
 
-	// Find matching entries (preserve order by timestamp)
-	var matches []HistoryEntry
-	idSet := make(map[string]bool)
-	for _, id := range ids {
-		idSet[id] = true
+	h.mu.Lock()
+	h.cache = nil
+	h.mu.Unlock()
+
+	// Build placeholder query
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
 	}
-	for _, e := range h.Entries {
-		if idSet[e.ID] {
-			matches = append(matches, e)
-		}
+
+	tx, err := h.db.Begin()
+	if err != nil {
+		logError("Merge transaction: %v", err)
+		return ""
 	}
+	defer tx.Rollback()
+
+	query := `SELECT ` + allColumns + ` FROM history_entries WHERE id IN (` + strings.Join(placeholders, ",") + `) ORDER BY timestamp`
+	rows, err := tx.Query(query, args...)
+	if err != nil {
+		logError("Merge query: %v", err)
+		return ""
+	}
+	defer rows.Close()
+	matches := scanEntries(rows)
+	rows.Close() // close before using tx for writes
+
 	if len(matches) < 2 {
 		return ""
 	}
 
-	// Build merged entry: concatenate texts, sum durations, use newest timestamp
 	var texts []string
 	var totalDuration float64
 	newestTime := ""
@@ -434,7 +552,6 @@ func (h *History) Merge(ids []string) string {
 
 	mergedText := strings.Join(texts, "\n\n")
 
-	// Collect all tags from source entries (deduplicated), always include "merged"
 	tagSet := map[string]struct{}{"merged": {}}
 	for _, m := range matches {
 		for _, t := range m.Tags {
@@ -454,42 +571,60 @@ func (h *History) Merge(ids []string) string {
 		Duration:  totalDuration,
 		Language:  matches[0].Language,
 		Source:    "merged",
-		Category:  "merged",
 		Tags:      mergedTags,
 	}
 
-	// Remove originals
-	var remaining []HistoryEntry
-	for _, e := range h.Entries {
-		if !idSet[e.ID] {
-			remaining = append(remaining, e)
-		}
+	// Delete originals, insert merged
+	delQuery := "DELETE FROM history_entries WHERE id IN (" + strings.Join(placeholders, ",") + ")"
+	if _, err := tx.Exec(delQuery, args...); err != nil {
+		logError("Merge delete: %v", err)
+		return ""
 	}
-	remaining = append(remaining, merged)
-	h.Entries = remaining
-	h.cache = nil
-	h.saveLocked()
+
+	pinned := 0
+	isLocal := 0
+	if _, err := tx.Exec(`INSERT INTO history_entries
+		(id, text, title, timestamp, duration_sec, processing_duration_sec,
+		 language, tags, pinned, source, model, is_local, cost_usd)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		merged.ID, merged.Text, merged.Title, merged.Timestamp,
+		merged.Duration, merged.ProcessingDuration, merged.Language,
+		marshalTags(merged.Tags), pinned, merged.Source, merged.Model,
+		isLocal, merged.CostUSD); err != nil {
+		logError("Merge insert: %v", err)
+		return ""
+	}
+
+	if err := tx.Commit(); err != nil {
+		logError("Merge commit: %v", err)
+		return ""
+	}
 	return merged.ID
 }
 
 // GetByID returns a copy of the entry with the given ID, or nil if not found.
 func (h *History) GetByID(id string) *HistoryEntry {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	for _, e := range h.Entries {
-		if e.ID == id {
-			copy := e
-			return &copy
-		}
+	if h.db == nil {
+		return nil
 	}
-	return nil
+	row := h.db.QueryRow(`SELECT `+allColumns+` FROM history_entries WHERE id = ?`, id)
+	e, err := scanEntry(row)
+	if err != nil {
+		return nil
+	}
+	return &e
 }
 
 // AddSmart creates a new entry with the given text, language, and tags.
 func (h *History) AddSmart(text, language string, tags []string) {
 	h.mu.Lock()
 	h.cache = nil
-	h.Entries = append(h.Entries, HistoryEntry{
+	h.mu.Unlock()
+
+	if h.db == nil {
+		return
+	}
+	entry := HistoryEntry{
 		ID:        generateID(),
 		Text:      text,
 		Title:     autoTitle(text),
@@ -497,102 +632,82 @@ func (h *History) AddSmart(text, language string, tags []string) {
 		Language:  language,
 		Source:    "smart",
 		Tags:      tags,
-	})
-	if len(h.Entries) > defaultMaxHistory {
-		h.Entries = h.Entries[len(h.Entries)-defaultMaxHistory:]
 	}
-	h.mu.Unlock()
-	h.save()
+	h.insertEntry(entry)
+	h.pruneToLimit(defaultMaxHistory)
 }
 
 // Cleanup removes old entries based on config settings.
 // Returns the number of entries removed.
 func (h *History) Cleanup(maxEntries, maxAgeDays int) int {
+	if h.db == nil {
+		return 0
+	}
+
 	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.cache = nil
+	h.mu.Unlock()
 
-	before := len(h.Entries)
-	changed := false
+	var totalRemoved int64
 
-	// Remove by age
+	// Remove by age (keep pinned)
 	if maxAgeDays > 0 {
-		cutoff := time.Now().AddDate(0, 0, -maxAgeDays)
-		var kept []HistoryEntry
-		for _, e := range h.Entries {
-			ts, err := time.Parse(time.RFC3339, e.Timestamp)
-			if err != nil || ts.After(cutoff) || e.Pinned {
-				kept = append(kept, e)
-			} else {
-				changed = true
-			}
+		cutoff := time.Now().AddDate(0, 0, -maxAgeDays).Format(time.RFC3339)
+		res, err := h.db.Exec("DELETE FROM history_entries WHERE timestamp < ? AND pinned = 0", cutoff)
+		if err != nil {
+			logError("Cleanup by age: %v", err)
+		} else {
+			n, _ := res.RowsAffected()
+			totalRemoved += n
 		}
-		h.Entries = kept
 	}
 
-	// Remove by count (keep newest, but always keep pinned)
-	if maxEntries > 0 && len(h.Entries) > maxEntries {
-		var pinned, regular []HistoryEntry
-		for _, e := range h.Entries {
-			if e.Pinned {
-				pinned = append(pinned, e)
-			} else {
-				regular = append(regular, e)
-			}
+	// Remove by count (keep newest, always keep pinned)
+	if maxEntries > 0 {
+		res, err := h.db.Exec(`DELETE FROM history_entries WHERE id IN (
+			SELECT id FROM history_entries WHERE pinned = 0
+			ORDER BY timestamp ASC
+			LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries) - ?)
+		)`, maxEntries)
+		if err != nil {
+			logError("Cleanup by count: %v", err)
+		} else {
+			n, _ := res.RowsAffected()
+			totalRemoved += n
 		}
-		if len(regular) > maxEntries {
-			regular = regular[len(regular)-maxEntries:]
-			changed = true
-		}
-		h.Entries = append(pinned, regular...)
 	}
 
-	if changed {
-		h.cache = nil
-		h.saveLocked()
-	}
-	return before - len(h.Entries)
+	return int(totalRemoved)
 }
 
 // DuplicateEntry creates a copy of an entry by ID.
 func (h *History) DuplicateEntry(id string) bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	for _, e := range h.Entries {
-		if e.ID == id {
-			dup := e
-			dup.ID = generateID()
-			dup.Timestamp = time.Now().Format(time.RFC3339)
-			dup.Title = e.Title + " (Copy)"
-			dup.Pinned = false
-			if len(e.Tags) > 0 {
-				dup.Tags = make([]string, len(e.Tags))
-				copy(dup.Tags, e.Tags)
-			}
-			dup.Tags = append(dup.Tags, "duplicated")
-			h.Entries = append(h.Entries, dup)
-			h.cache = nil
-			h.saveLocked()
-			return true
-		}
+	e := h.GetByID(id)
+	if e == nil {
+		return false
 	}
-	return false
+
+	h.mu.Lock()
+	h.cache = nil
+	h.mu.Unlock()
+
+	dup := *e
+	dup.ID = generateID()
+	dup.Timestamp = time.Now().Format(time.RFC3339)
+	dup.Title = e.Title + " (Copy)"
+	dup.Pinned = false
+	if len(e.Tags) > 0 {
+		dup.Tags = make([]string, len(e.Tags))
+		copy(dup.Tags, e.Tags)
+	}
+	dup.Tags = append(dup.Tags, "duplicated")
+	h.insertEntry(dup)
+	return true
 }
 
-func (h *History) save() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.saveLocked()
-}
-
-// saveLocked writes history to disk. Caller must hold h.mu.
-func (h *History) saveLocked() {
-	dir, err := configDir()
-	if err != nil {
-		return
+// Close closes the underlying database connection.
+func (h *History) Close() {
+	if h.db != nil {
+		h.db.Close()
 	}
-	data, err := json.MarshalIndent(h, "", "  ")
-	if err != nil {
-		return
-	}
-	os.WriteFile(filepath.Join(dir, "history.json"), data, 0600)
 }
