@@ -36,8 +36,9 @@ type Config struct {
 	NotifyBackground bool  `json:"notify_background"`
 	NotifyComplete   bool  `json:"notify_complete"`
 	NotifyDonate     bool  `json:"notify_donate"`
-	UseLocalSTT     bool    `json:"use_local_stt"`
-	LocalModelID    string  `json:"local_model_id"`
+	UseLocalSTT            bool   `json:"use_local_stt"`
+	LocalModelID           string `json:"local_model_id"`
+	TranscriptionLanguage  string `json:"transcription_language"`
 	InputDevice     string  `json:"input_device,omitempty"`
 	InputGain       float64 `json:"input_gain"`
 	TagColors       map[string]int `json:"tag_colors,omitempty"`
@@ -289,6 +290,17 @@ func (c *Config) GetLocalModelID() string {
 		return "whisper-tiny"
 	}
 	return c.LocalModelID
+}
+
+// GetTranscriptionLanguage returns the local STT language hint (thread-safe).
+// Returns the explicit value if set, or falls back to the global Language setting.
+func (c *Config) GetTranscriptionLanguage() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.TranscriptionLanguage != "" {
+		return c.TranscriptionLanguage
+	}
+	return c.Language
 }
 
 // GetInputDevice returns the selected input device ID (thread-safe).

@@ -378,6 +378,26 @@ func (h *History) Tags() []string {
 	return tags
 }
 
+// RenameTag renames a tag across all entries that have it.
+func (h *History) RenameTag(oldName, newName string) int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	count := 0
+	for i, e := range h.Entries {
+		for j, tag := range e.Tags {
+			if tag == oldName {
+				h.Entries[i].Tags[j] = newName
+				count++
+				break
+			}
+		}
+	}
+	if count > 0 {
+		h.saveLocked()
+	}
+	return count
+}
+
 // Merge combines multiple entries into one. The newest entry's metadata is used as the base.
 // Texts are concatenated with double newline separators. Duration is summed.
 // Returns the ID of the merged entry, or empty string on error.
@@ -486,10 +506,12 @@ func (h *History) AddSmart(text, language string, tags []string) {
 }
 
 // Cleanup removes old entries based on config settings.
-func (h *History) Cleanup(maxEntries, maxAgeDays int) {
+// Returns the number of entries removed.
+func (h *History) Cleanup(maxEntries, maxAgeDays int) int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	before := len(h.Entries)
 	changed := false
 
 	// Remove by age
@@ -528,6 +550,7 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int) {
 		h.cache = nil
 		h.saveLocked()
 	}
+	return before - len(h.Entries)
 }
 
 // DuplicateEntry creates a copy of an entry by ID.

@@ -62,3 +62,27 @@
   color: var(--text-primary);
   background: var(--bg-hover);
 }
+
+/* Tag Context Menu Items */
+.tcm-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: var(--font);
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast);
+}
+.tcm-item:hover {
+  background: var(--bg-hover);
+}
+.tag-context-menu .tcp-header {
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 6px;
+}

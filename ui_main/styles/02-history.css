@@ -239,12 +239,30 @@
 .entry-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 8px;
+  gap: 4px 10px;
   margin-top: 3px;
   font-size: 11px;
   color: var(--text-hint);
   align-items: center;
 }
+.entry-meta .meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.entry-meta .meta-item svg {
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.entry-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+  align-items: center;
+}
+.entry-tags-row .tag,
 .entry-meta .tag {
   padding: 2px 8px;
   background: var(--accent-subtle);
@@ -253,6 +271,7 @@
   font-weight: var(--weight-medium);
   border: 1px solid var(--border-accent);
 }
+[data-theme="dark"] .entry-tags-row .tag,
 [data-theme="dark"] .entry-meta .tag {
   background: var(--accent-subtle);
   border-color: var(--border-accent);
