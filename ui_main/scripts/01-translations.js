@@ -4,6 +4,7 @@ const translations = {
     // Navigation
     navHistory: 'History',
     navSettings: 'Settings',
+    navSmartMode: 'Smart Mode',
     navAbout: 'About',
 
     // Settings — General
@@ -75,15 +76,23 @@ const translations = {
     cardSmartMode: 'Smart Mode',
     labelSmartMode: 'AI Post-Processing',
     descSmartMode: 'Process transcription with GPT-4o-mini for grammar, formatting, or translation',
+    smartModeDesc: 'AI-powered post-processing for your transcriptions',
     labelSmartPreset: 'Preset',
     smartCleanup: 'Cleanup (grammar & punctuation)',
+    smartCleanupDesc: 'Grammar & punctuation',
     smartEmail: 'Email (formal)',
+    smartEmailDesc: 'Formal style',
     smartBullets: 'Bullet Points',
+    smartBulletsDesc: 'Structured lists',
     smartFormal: 'Formal Letter',
+    smartFormalDesc: 'Business writing',
     smartTranslate: 'Translate',
+    smartTranslateDesc: 'Change language',
     smartCustom: 'Custom Prompt',
+    smartCustomDesc: 'Your own prompt',
     labelSmartTarget: 'Target Language',
     labelSmartPrompt: 'Custom Prompt',
+    descSmartPrompt: 'Instructions for how the AI should process your transcription',
 
     // Settings — Advanced
     cardAdvanced: 'Advanced',
@@ -123,6 +132,15 @@ const translations = {
     modelDeleted: 'Model deleted',
     modelNotDownloaded: 'not downloaded',
     modelNeedDownload: 'Download the model first to select it',
+
+    // Settings — Audio Input
+    cardAudioInput: 'Audio Input',
+    labelAudioDevice: 'Recording Device',
+    descAudioDevice: 'Select which microphone to use for recording',
+    audioDeviceDefault: 'System Default',
+    labelInputGain: 'Input Gain',
+    descInputGain: 'Adjust microphone sensitivity (1.0 = normal)',
+    btnTestAudio: 'Test Microphone',
 
     // Mode badge
     modeLocal: 'Local',
@@ -188,6 +206,7 @@ const translations = {
     // Navigation
     navHistory: 'Verlauf',
     navSettings: 'Einstellungen',
+    navSmartMode: 'Smart-Modus',
     navAbout: 'Über',
 
     // Settings — General
@@ -259,15 +278,23 @@ const translations = {
     cardSmartMode: 'Smart Modus',
     labelSmartMode: 'KI-Nachbearbeitung',
     descSmartMode: 'Transkription mit GPT-4o-mini für Grammatik, Formatierung oder Übersetzung verarbeiten',
+    smartModeDesc: 'KI-gestützte Nachbearbeitung deiner Transkriptionen',
     labelSmartPreset: 'Vorlage',
     smartCleanup: 'Bereinigung (Grammatik & Zeichensetzung)',
+    smartCleanupDesc: 'Grammatik & Zeichensetzung',
     smartEmail: 'E-Mail (formell)',
+    smartEmailDesc: 'Formeller Stil',
     smartBullets: 'Aufzählung',
+    smartBulletsDesc: 'Strukturierte Listen',
     smartFormal: 'Formeller Brief',
+    smartFormalDesc: 'Geschäftliche Korrespondenz',
     smartTranslate: 'Übersetzen',
+    smartTranslateDesc: 'Sprache ändern',
     smartCustom: 'Eigene Anweisung',
+    smartCustomDesc: 'Eigener Prompt',
     labelSmartTarget: 'Zielsprache',
     labelSmartPrompt: 'Eigene Anweisung',
+    descSmartPrompt: 'Anweisungen, wie die KI deine Transkription verarbeiten soll',
 
     // Settings — Advanced
     cardAdvanced: 'Erweitert',
@@ -307,6 +334,15 @@ const translations = {
     modelDeleted: 'Modell gelöscht',
     modelNotDownloaded: 'nicht heruntergeladen',
     modelNeedDownload: 'Modell zuerst herunterladen, um es auszuwählen',
+
+    // Settings — Audio Input
+    cardAudioInput: 'Audioeingang',
+    labelAudioDevice: 'Aufnahmegerät',
+    descAudioDevice: 'Wähle das Mikrofon für die Aufnahme',
+    audioDeviceDefault: 'Systemstandard',
+    labelInputGain: 'Eingangsverstärkung',
+    descInputGain: 'Mikrofon-Empfindlichkeit anpassen (1.0 = normal)',
+    btnTestAudio: 'Mikrofon testen',
 
     // Mode badge
     modeLocal: 'Lokal',
