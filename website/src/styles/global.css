@@ -70,18 +70,15 @@ html.light .typing-cursor { background: #0891B2 !important; }
 /* Light theme: mockup dialog overrides */
 html.light .mockup-glow {
   background: linear-gradient(135deg, rgba(8,145,178,0.2), rgba(14,116,144,0.1), rgba(8,145,178,0.15));
-  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.1), 0 0 60px rgba(8,145,178,0.06);
 }
 html.light .mockup-window { background: #F2F2F7; }
 html.light .mockup-titlebar { background: #FFFFFF; border-bottom-color: #D1D1D6; }
 html.light .mockup-titlebar-text { color: #1C1C1E; }
-html.light .mockup-titlebar-btn { color: #8E8E93; }
-html.light .mockup-nb-body { background: linear-gradient(160deg, #F2F2F7 0%, color-mix(in srgb, #0891B2 4%, #F2F2F7) 50%, #F2F2F7 100%); }
+html.light .mockup-nb-body {background: linear-gradient(160deg, #F2F2F7 0%, color-mix(in srgb, #0891B2 4%, #F2F2F7) 50%, #F2F2F7 100%); }
 html.light .mockup-nb-topbar { background: #FFFFFF; border-bottom-color: color-mix(in srgb, #0891B2 15%, #D1D1D6); }
-html.light .mockup-nb-brand { color: #1C1C1E; }
 html.light .mockup-nb-search { background: #FFFFFF; border-color: #D1D1D6; color: #1C1C1E; }
 html.light .mockup-nb-search-icon { color: #8E8E93; }
-html.light .mockup-nb-count { background: #F8F8FC; color: #8E8E93; }
 html.light .mockup-nb-action-btn { color: #636366; }
 html.light .mockup-nb-sidebar { background: #FFFFFF; border-right-color: #D1D1D6; }
 html.light .mockup-nb-sort-dropdown { background: #FFFFFF; border-color: #D1D1D6; color: #636366; }
@@ -122,3 +119,5 @@ html.light .mockup-st-bottombar { background: rgba(255,255,255,.85); border-top-
 html.light .mockup-st-btn-test { color: #636366; border-color: #D1D1D6; }
 html.light .mockup-st-btn-cancel { background: #FFFFFF; border-color: #D1D1D6; color: #1C1C1E; }
 html.light .mockup-st-btn-save { background: linear-gradient(135deg, #0891B2, #0E7490); }
+html.light .mockup-taskbar-inner { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.08); }
+html.light .mockup-tray-time { color: #636366; }

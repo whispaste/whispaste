@@ -206,38 +206,37 @@ import Layout from "../layouts/Layout.astro";
         <p class="mt-4 text-gray-400 text-lg max-w-2xl mx-auto" data-i18n="preview.desc">A clean, modern interface that keeps everything organized — search, filter, and manage all your transcriptions in one place.</p>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+      <div class="mockup-collage">
 
-        <!-- Notebook Mockup (3 cols) -->
-        <div class="lg:col-span-3 scroll-reveal">
+        <!-- Notebook Mockup (larger, left) -->
+        <div class="mockup-collage-notebook scroll-reveal" aria-hidden="true">
           <div class="mockup-glow rounded-2xl p-px">
             <div class="mockup-window rounded-2xl overflow-hidden">
-              <!-- Title bar -->
+              <!-- Title bar (macOS style) -->
               <div class="mockup-titlebar">
-                <div class="flex items-center gap-2">
-                  <svg class="w-4 h-4 text-[#22D3EE]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                  <span class="mockup-titlebar-text">WhisPaste</span>
+                <div class="flex gap-1.5">
+                  <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
+                  <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
+                  <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
                 </div>
-                <div class="flex items-center gap-0.5">
-                  <span class="mockup-titlebar-btn">─</span>
-                  <span class="mockup-titlebar-btn">□</span>
-                  <span class="mockup-titlebar-btn mockup-titlebar-close">✕</span>
+                <div class="flex items-center gap-1.5 absolute left-1/2 -translate-x-1/2">
+                  <img class="mockup-app-icon w-4 h-4" src="/whispaste/app-icon-dark.png" alt="" />
+                  <span class="mockup-titlebar-text">WhisPaste</span>
                 </div>
               </div>
               <!-- Notebook content -->
               <div class="mockup-nb-body">
                 <!-- Top bar -->
                 <div class="mockup-nb-topbar">
-                  <svg class="w-5 h-5 text-[#22D3EE] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                  <span class="mockup-nb-brand">WhisPaste</span>
+                  <img class="mockup-app-icon w-4 h-4 shrink-0" src="/whispaste/app-icon-dark.png" alt="" />
                   <div class="mockup-nb-search-wrap">
                     <svg class="mockup-nb-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                     <input type="text" class="mockup-nb-search" placeholder="Search transcriptions..." disabled />
                   </div>
-                  <span class="mockup-nb-count">12</span>
                   <div class="flex items-center gap-1">
-                    <span class="mockup-nb-action-btn"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></span>
-                    <span class="mockup-nb-action-btn"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></span>
+                    <span class="mockup-nb-action-btn"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
+                    <span class="mockup-nb-action-btn mockup-nb-lang-label">EN</span>
+                    <span class="mockup-nb-action-btn"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>
                   </div>
                 </div>
                 <!-- Main area: sidebar + entries -->
@@ -347,20 +346,20 @@ import Layout from "../layouts/Layout.astro";
           </div>
         </div>
 
-        <!-- Settings Mockup (2 cols) -->
-        <div class="lg:col-span-2 scroll-reveal">
+        <!-- Settings Mockup (smaller, right) -->
+        <div class="mockup-collage-settings scroll-reveal" aria-hidden="true">
           <div class="mockup-glow rounded-2xl p-px">
             <div class="mockup-window rounded-2xl overflow-hidden">
-              <!-- Title bar -->
+              <!-- Title bar (macOS style) -->
               <div class="mockup-titlebar">
-                <div class="flex items-center gap-2">
-                  <svg class="w-4 h-4 text-[#22D3EE]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                  <span class="mockup-titlebar-text">WhisPaste Settings</span>
+                <div class="flex gap-1.5">
+                  <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
+                  <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
+                  <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
                 </div>
-                <div class="flex items-center gap-0.5">
-                  <span class="mockup-titlebar-btn">─</span>
-                  <span class="mockup-titlebar-btn">□</span>
-                  <span class="mockup-titlebar-btn mockup-titlebar-close">✕</span>
+                <div class="flex items-center gap-1.5 absolute left-1/2 -translate-x-1/2">
+                  <img class="mockup-app-icon w-4 h-4" src="/whispaste/app-icon-dark.png" alt="" />
+                  <span class="mockup-titlebar-text">WhisPaste Settings</span>
                 </div>
               </div>
               <!-- Settings content -->
@@ -446,6 +445,21 @@ import Layout from "../layouts/Layout.astro";
           </div>
         </div>
 
+      </div>
+
+      <!-- System Tray -->
+      <div class="mockup-taskbar" aria-hidden="true">
+        <div class="mockup-taskbar-inner">
+          <div class="mockup-tray-area">
+            <span class="mockup-tray-time">12:34</span>
+            <div class="mockup-tray-icons">
+              <svg class="w-3.5 h-3.5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" x2="12.01" y1="20" y2="20"/></svg>
+              <svg class="w-3.5 h-3.5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+              <img class="mockup-app-icon w-4 h-4" src="/whispaste/app-icon-dark.png" alt="" />
+            </div>
+            <svg class="w-3 h-3 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -807,14 +821,17 @@ import Layout from "../layouts/Layout.astro";
 
     /* ---- Mockup window chrome ---- */
     .mockup-glow {
-      background: linear-gradient(135deg, rgba(34,211,238,0.15), rgba(14,116,144,0.08), rgba(34,211,238,0.1));
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      background: linear-gradient(135deg, rgba(34,211,238,0.2), rgba(14,116,144,0.1), rgba(34,211,238,0.15));
+      box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 60px rgba(34,211,238,0.06);
+      border-radius: 16px;
+      padding: 1px;
     }
     .mockup-window {
       background: #1C1C1E;
       font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
     }
     .mockup-titlebar {
+      position: relative;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -828,19 +845,6 @@ import Layout from "../layouts/Layout.astro";
       font-size: 12px;
       font-weight: 500;
       color: #F2F2F7;
-    }
-    .mockup-titlebar-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 28px;
-      height: 20px;
-      font-size: 11px;
-      color: #AEAEB2;
-      border-radius: 4px;
-    }
-    .mockup-titlebar-close:hover {
-      color: #FF453A;
     }
 
     /* ---- Notebook mockup ---- */
@@ -883,7 +887,7 @@ import Layout from "../layouts/Layout.astro";
       width: 100%;
       padding: 6px 10px 6px 30px;
       border: 1px solid #38383A;
-      border-radius: 8px;
+      border-radius: 999px;
       background: #1C1C1E;
       color: #636366;
       font-size: 12px;
@@ -1293,6 +1297,112 @@ import Layout from "../layouts/Layout.astro";
       box-shadow: 0 2px 8px color-mix(in srgb, #22D3EE 30%, transparent);
     }
 
+    .mockup-nb-lang-label {
+      font-size: 10px;
+      font-weight: 600;
+      width: auto;
+      padding: 0 5px;
+    }
+
+    /* Collage layout */
+    .mockup-collage {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 0;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 0;
+    }
+    .mockup-collage-notebook {
+      position: relative;
+      z-index: 2;
+      width: 62%;
+      transform: perspective(1200px) rotateY(3deg) rotateX(1deg);
+      transition: opacity 0.7s ease-out, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mockup-collage-notebook.visible {
+      transform: perspective(1200px) rotateY(3deg) rotateX(1deg);
+    }
+    .mockup-collage-notebook:hover,
+    .mockup-collage-notebook.visible:hover {
+      transform: perspective(1200px) rotateY(0deg) rotateX(0deg) scale(1.02);
+      z-index: 10;
+    }
+    .mockup-collage-settings {
+      position: relative;
+      z-index: 3;
+      width: 42%;
+      margin-left: -5%;
+      margin-top: 30px;
+      transform: perspective(1200px) rotateY(-4deg) rotateX(1deg);
+      transition: opacity 0.7s ease-out, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mockup-collage-settings.visible {
+      transform: perspective(1200px) rotateY(-4deg) rotateX(1deg);
+    }
+    .mockup-collage-settings:hover,
+    .mockup-collage-settings.visible:hover {
+      transform: perspective(1200px) rotateY(0deg) rotateX(0deg) scale(1.02);
+      z-index: 10;
+    }
+    @media (max-width: 1023px) {
+      .mockup-collage {
+        flex-direction: column;
+        align-items: center;
+        gap: 24px;
+        padding: 20px 0;
+      }
+      .mockup-collage-notebook,
+      .mockup-collage-settings {
+        width: 100%;
+        max-width: 500px;
+        margin-left: 0;
+        margin-top: 0;
+        transform: none;
+      }
+      .mockup-collage-notebook.visible,
+      .mockup-collage-settings.visible {
+        transform: none;
+      }
+      .mockup-collage-notebook:hover,
+      .mockup-collage-notebook.visible:hover,
+      .mockup-collage-settings:hover,
+      .mockup-collage-settings.visible:hover {
+        transform: none;
+      }
+    }
+
+    /* System tray */
+    .mockup-taskbar {
+      max-width: 320px;
+      margin: 24px auto 0;
+    }
+    .mockup-taskbar-inner {
+      background: rgba(44,44,46,0.9);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 6px 12px;
+    }
+    .mockup-tray-area {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .mockup-tray-time {
+      font-size: 11px;
+      color: #AEAEB2;
+      font-family: 'Segoe UI Variable', 'Segoe UI', system-ui;
+    }
+    .mockup-tray-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     /* Hide sidebar on very small mockup widths */
     @media (max-width: 639px) {
       .mockup-nb-sidebar { display: none; }
@@ -1646,6 +1756,7 @@ import Layout from "../layouts/Layout.astro";
         const el = document.getElementById(id);
         if (el) el.src = src;
       });
+      document.querySelectorAll('.mockup-app-icon').forEach(el => { el.src = src; });
     }
 
     // Expose functions globally for onclick handlers
