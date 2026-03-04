@@ -127,10 +127,13 @@ func (t *AppTray) ShowUpdateAvailable(info UpdateInfo) {
 
 // ShowMinimizeBalloon shows a one-time notification that the app is still running.
 func (t *AppTray) ShowMinimizeBalloon() {
+	logDebug("ShowMinimizeBalloon: called (balloonShown=%v, notifyBg=%v)", t.balloonShown, t.cfg.GetNotifyBackground())
 	if t.balloonShown {
+		logDebug("ShowMinimizeBalloon: skipped — already shown this session")
 		return
 	}
 	if !t.cfg.GetNotifyBackground() {
+		logDebug("ShowMinimizeBalloon: skipped — notifications disabled in settings")
 		return
 	}
 	t.balloonShown = true
