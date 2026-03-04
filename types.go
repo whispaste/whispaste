@@ -26,7 +26,7 @@ const (
 const AppName = "WhisPaste"
 
 // AppVersion is set via -ldflags "-X main.AppVersion=x.y.z" at build time.
-var AppVersion = "1.0.0"
+var AppVersion = "0.1.0-alpha"
 
 // debugMode enables WebView2 DevTools and verbose logging.
 // Set via WHISPASTE_DEBUG=1 environment variable.

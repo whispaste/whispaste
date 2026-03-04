@@ -135,13 +135,15 @@ function updateCounts() {
   if (catSection && catList) {
     if (Object.keys(cats).length > 0) {
       catSection.style.display = '';
-      catList.innerHTML = Object.entries(cats).map(([name, count]) => `
+      catList.innerHTML = Object.entries(cats).map(([name, count]) => {
+        const label = name === 'merged' ? t('catMerged') : name;
+        return `
         <div class="filter-item${_activeFilter === 'cat:' + esc(name) ? ' active' : ''}" data-filter="cat:${esc(name)}">
           ${icons.tag}
-          <span>${esc(name)}</span>
+          <span>${esc(label)}</span>
           <span class="filter-count">${count}</span>
         </div>
-      `).join('');
+      `;}).join('');
       catList.querySelectorAll('.filter-item').forEach(el => {
         el.addEventListener('click', () => setFilter(el.dataset.filter));
       });
