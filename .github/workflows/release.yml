@@ -43,6 +43,9 @@ jobs:
           $libDir = "$modCache\github.com\k2-fsa\sherpa-onnx-go-windows@$ver\lib\x86_64-pc-windows-gnu"
           if (!(Test-Path $libDir)) { throw "Library directory not found: $libDir" }
           Get-ChildItem $libDir -File | ForEach-Object { $_.Attributes = 'Normal' }
+          # Generate import libraries from shipped .def files using dlltool
+          Copy-Item "build\sherpa-onnx\onnxruntime.def" $libDir
+          Copy-Item "build\sherpa-onnx\sherpa-onnx-c-api.def" $libDir
           Push-Location $libDir
           dlltool -d onnxruntime.def -l libonnxruntime.a -k
           dlltool -d sherpa-onnx-c-api.def -l libsherpa-onnx-c-api.a -k
