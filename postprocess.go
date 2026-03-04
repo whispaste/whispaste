@@ -12,6 +12,7 @@ import (
 // smartModePresets maps preset names to system prompts.
 var smartModePresets = map[string]string{
 	"cleanup":  "Clean up the following dictated text. Fix grammar, punctuation, and capitalization. Remove filler words. Keep the original language and meaning. Return only the cleaned text.",
+	"concise":  "Rewrite the following text more concisely. Keep the core message and all important information, but remove filler words, redundancy, and unnecessary verbosity. Maintain the original language and tone. Return only the rewritten text.",
 	"email":    "Rewrite the following dictated text as a professional email. Use proper greeting and closing. Fix grammar and punctuation. Keep the original language. Return only the email text.",
 	"bullets":  "Rewrite the following dictated text as a structured bullet-point list. Fix grammar and punctuation. Keep the original language. Return only the bullet list.",
 	"formal":   "Rewrite the following dictated text in formal, professional language. Fix grammar and punctuation. Keep the original language. Return only the rewritten text.",
@@ -91,6 +92,12 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLa
 		return text, fmt.Errorf("empty response from smart mode")
 	}
 	return result.Choices[0].Message.Content, nil
+}
+
+// ApplySmartAction applies a smart mode preset or custom prompt to existing text.
+// It reuses the same OpenAI Chat API as PostProcess.
+func ApplySmartAction(text, preset, customPrompt, apiKey, endpoint, appLang string) (string, error) {
+	return PostProcess(text, preset, customPrompt, "", apiKey, endpoint, appLang)
 }
 
 func buildSmartPrompt(preset, customPrompt, targetLang, appLang string) string {

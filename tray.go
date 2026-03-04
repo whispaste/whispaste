@@ -34,6 +34,8 @@ const (
 	// Without this, Shell_NotifyIconW NIF_INFO balloons may be silently dropped.
 	_NOTIFYICON_VERSION_4 = 4
 
+	// Tray icon left-click notification (lParam event in VERSION_4 callback)
+	_NIN_SELECT           = 0x0400 // WM_USER + 0
 	// Balloon click notification (lParam value in systray callback)
 	_NIN_BALLOONUSERCLICK = 0x0405 // WM_USER + 5
 	// systray callback message (WM_USER + 1, set by getlantern/systray v1.2.2)
@@ -68,6 +70,13 @@ func traySubclassWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		// NOTIFYICON_VERSION 0 (lParam = event) and VERSION_4
 		// (lParam = MAKELONG(event, iconID)).
 		event := uint16(lParam)
+		if event == uint16(_NIN_SELECT) {
+			// Left-click on tray icon → open dashboard
+			if t := globalTrayRef; t != nil && t.onOpenWindow != nil {
+				go t.onOpenWindow("")
+			}
+			return 0
+		}
 		if event == uint16(_NIN_BALLOONUSERCLICK) {
 			if t := globalTrayRef; t != nil {
 				t.handleBalloonClick()

@@ -453,6 +453,7 @@ onDash    func() // called when dashboard button clicked
 paused    bool   // whether recording is paused
 pauseStart time.Time    // when current pause began
 pauseAccum time.Duration // accumulated pause time
+maxRecordSec int  // max recording duration in seconds (0 = unlimited)
 hoverBtn  int    // 0=none, 1=dash, 2=cancel, 3=pause, 4=stop
 pressBtn  int    // 0=none, same mapping
 tracking  bool   // whether TrackMouseEvent is active
@@ -943,6 +944,13 @@ o.position = pos
 o.mu.Unlock()
 }
 
+// SetMaxRecordSec sets the maximum recording duration for timer color warnings.
+func (o *Overlay) SetMaxRecordSec(sec int) {
+	o.mu.Lock()
+	o.maxRecordSec = sec
+	o.mu.Unlock()
+}
+
 // Show displays the overlay for the given state.
 func (o *Overlay) Show(state AppState) {
 if o.hwnd != 0 {
@@ -1068,6 +1076,7 @@ pauseAccum := o.pauseAccum
 isPaused := o.paused
 hoverBtn := o.hoverBtn
 pressBtn := o.pressBtn
+maxRecordSec := o.maxRecordSec
 if isPaused {
 	pauseAccum += time.Since(o.pauseStart)
 }
@@ -1078,7 +1087,7 @@ o.mu.Unlock()
 
 switch state {
 case StateRecording, StatePaused:
-o.paintRecordingULW(g, frame, startTime, pauseAccum, isPaused, levels, levelIdx, contentX, hoverBtn, pressBtn)
+o.paintRecordingULW(g, frame, startTime, pauseAccum, isPaused, levels, levelIdx, contentX, hoverBtn, pressBtn, maxRecordSec)
 case StateTranscribing, StateProcessing:
 o.paintTranscribingULW(g, frame, contentX)
 case StateError:
@@ -1221,7 +1230,7 @@ func (o *Overlay) measureGdipTextWidth(g uintptr, text string, font uintptr) flo
 	return bbox.Width
 }
 
-func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pauseAccum time.Duration, isPaused bool, levels [_WAVE_BARS]float32, levelIdx int, contentX int32, hoverBtn, pressBtn int) {
+func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pauseAccum time.Duration, isPaused bool, levels [_WAVE_BARS]float32, levelIdx int, contentX int32, hoverBtn, pressBtn int, maxRecordSec int) {
 cy := int32(_OVL_HEIGHT / 2)
 
 // Dashboard button (dark circle with grid icon) — far left
@@ -1253,7 +1262,19 @@ if elapsed < 0 {
 secs := int(elapsed.Seconds())
 timer := fmt.Sprintf("%d:%02d", secs/60, secs%60)
 timerX := float32(contentX + 10)
-o.drawGdipText(g, timer, timerX, float32(cy)-10, 60, o.gdipFontMain, 0xFFFFFFFF)
+timerColor := uint32(0xFFFFFFFF) // white (normal)
+if maxRecordSec > 0 {
+	remaining := time.Duration(maxRecordSec)*time.Second - elapsed
+	switch {
+	case remaining <= 10*time.Second:
+		timerColor = 0xFFEF4444 // red
+	case remaining <= 30*time.Second:
+		timerColor = 0xFFF97316 // orange
+	case remaining <= 60*time.Second:
+		timerColor = 0xFFEAB308 // yellow
+	}
+}
+o.drawGdipText(g, timer, timerX, float32(cy)-10, 60, o.gdipFontMain, timerColor)
 
 // Scrolling waveform bars — centered between timer and pause button
 waveStart := int32(timerX + 56)

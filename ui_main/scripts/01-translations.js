@@ -274,7 +274,52 @@ const translations = {
     searchHelpAnd: 'Both terms required',
     searchHelpOr: 'Either term matches',
     searchHelpNot: 'Exclude term',
-    searchHelpWild: 'Wildcard match'
+    searchHelpWild: 'Wildcard match',
+
+    // Model descriptions
+    'model.desc.whisper-base': 'Basic model — fast, low resource usage. Good for most use cases with clear audio.',
+    'model.desc.whisper-small': 'Enhanced model — better accuracy for complex audio, accents, and background noise. Uses more RAM.',
+
+    // Model switcher
+    'modelSwitcher.title': 'Switch Model',
+    'modelSwitcher.settings': 'Model Settings →',
+    'modelSwitcher.switched': 'Model switched successfully',
+    'modelSwitcher.error': 'Failed to switch model',
+
+    // Smart Actions
+    'smart.action': 'Smart Action',
+    'smart.title': 'Apply Smart Action',
+    'smart.custom': 'Custom Prompt…',
+    'smart.customTitle': 'Custom Smart Action',
+    'smart.customPlaceholder': 'Enter your instructions for transforming this text...',
+    'smart.apply': 'Apply',
+    'smart.processing': 'Applying smart action...',
+    'smart.resultTitle': 'Smart Action Result',
+    'smart.resultMessage': 'Replace the original text or create a new entry?',
+    'smart.replace': 'Replace Original',
+    'smart.createNew': 'Create New Entry',
+    'smart.replaced': 'Text updated successfully',
+    'smart.created': 'New entry created',
+    'smart.error': 'Smart action failed',
+    'smart.preset.cleanup': 'Clean Up',
+    'smart.preset.concise': 'Make Concise',
+    'smart.preset.email': 'Format as Email',
+    'smart.preset.formal': 'Make Formal',
+    'smart.preset.bullets': 'Bullet Points',
+    'smart.preset.summary': 'Summarize',
+    'smart.preset.notes': 'Meeting Notes',
+    'smart.preset.translate': 'Translate',
+
+    // Cleanup settings
+    settingsNavCleanup: 'Cleanup',
+    cardCleanup: 'History Cleanup',
+    labelCleanupEnabled: 'Auto-cleanup',
+    descCleanupEnabled: 'Automatically remove old entries',
+    labelCleanupMaxEntries: 'Maximum entries',
+    descCleanupMaxEntries: 'Keep at most this many entries (0 = unlimited)',
+    labelCleanupMaxAge: 'Maximum age (days)',
+    descCleanupMaxAge: 'Remove entries older than this (0 = unlimited)',
+    cancel: 'Cancel'
   },
   de: {
     // Navigation
@@ -550,7 +595,52 @@ const translations = {
     searchHelpAnd: 'Beide Begriffe erforderlich',
     searchHelpOr: 'Ein Begriff genügt',
     searchHelpNot: 'Begriff ausschließen',
-    searchHelpWild: 'Platzhaltersuche'
+    searchHelpWild: 'Platzhaltersuche',
+
+    // Model descriptions
+    'model.desc.whisper-base': 'Basismodell — schnell, geringer Ressourcenverbrauch. Gut für die meisten Anwendungsfälle mit klarem Audio.',
+    'model.desc.whisper-small': 'Erweitertes Modell — bessere Genauigkeit bei komplexem Audio, Akzenten und Hintergrundgeräuschen. Benötigt mehr RAM.',
+
+    // Model switcher
+    'modelSwitcher.title': 'Modell wechseln',
+    'modelSwitcher.settings': 'Modell-Einstellungen →',
+    'modelSwitcher.switched': 'Modell erfolgreich gewechselt',
+    'modelSwitcher.error': 'Modellwechsel fehlgeschlagen',
+
+    // Smart Actions
+    'smart.action': 'Smart-Aktion',
+    'smart.title': 'Smart-Aktion anwenden',
+    'smart.custom': 'Eigene Anweisung…',
+    'smart.customTitle': 'Eigene Smart-Aktion',
+    'smart.customPlaceholder': 'Geben Sie Ihre Anweisungen zur Texttransformation ein...',
+    'smart.apply': 'Anwenden',
+    'smart.processing': 'Smart-Aktion wird angewendet...',
+    'smart.resultTitle': 'Ergebnis der Smart-Aktion',
+    'smart.resultMessage': 'Originaltext ersetzen oder neuen Eintrag erstellen?',
+    'smart.replace': 'Original ersetzen',
+    'smart.createNew': 'Neuen Eintrag erstellen',
+    'smart.replaced': 'Text erfolgreich aktualisiert',
+    'smart.created': 'Neuer Eintrag erstellt',
+    'smart.error': 'Smart-Aktion fehlgeschlagen',
+    'smart.preset.cleanup': 'Bereinigen',
+    'smart.preset.concise': 'Kompakter formulieren',
+    'smart.preset.email': 'Als E-Mail formatieren',
+    'smart.preset.formal': 'Formell umschreiben',
+    'smart.preset.bullets': 'Aufzählungsliste',
+    'smart.preset.summary': 'Zusammenfassen',
+    'smart.preset.notes': 'Besprechungsnotizen',
+    'smart.preset.translate': 'Übersetzen',
+
+    // Cleanup settings
+    settingsNavCleanup: 'Bereinigung',
+    cardCleanup: 'Verlaufsbereinigung',
+    labelCleanupEnabled: 'Automatische Bereinigung',
+    descCleanupEnabled: 'Alte Einträge automatisch entfernen',
+    labelCleanupMaxEntries: 'Maximale Einträge',
+    descCleanupMaxEntries: 'Höchstens so viele Einträge behalten (0 = unbegrenzt)',
+    labelCleanupMaxAge: 'Maximales Alter (Tage)',
+    descCleanupMaxAge: 'Einträge älter als diese Anzahl Tage entfernen (0 = unbegrenzt)',
+    cancel: 'Abbrechen'
   }
 };
 

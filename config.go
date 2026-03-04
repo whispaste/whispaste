@@ -41,6 +41,9 @@ type Config struct {
 	InputDevice     string  `json:"input_device,omitempty"`
 	InputGain       float64 `json:"input_gain"`
 	TagColors       map[string]int `json:"tag_colors,omitempty"`
+	CleanupEnabled    bool `json:"cleanup_enabled,omitempty"`
+	CleanupMaxEntries int  `json:"cleanup_max_entries,omitempty"`
+	CleanupMaxAgeDays int  `json:"cleanup_max_age_days,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -347,4 +350,25 @@ func (c *Config) SetSmartModePreset(preset string) {
 		c.SmartMode = true
 		c.SmartModePreset = preset
 	}
+}
+
+// GetCleanupEnabled returns whether auto-cleanup is enabled (thread-safe).
+func (c *Config) GetCleanupEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.CleanupEnabled
+}
+
+// GetCleanupMaxEntries returns the max number of history entries to keep (thread-safe).
+func (c *Config) GetCleanupMaxEntries() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.CleanupMaxEntries
+}
+
+// GetCleanupMaxAgeDays returns the max age in days for history entries (thread-safe).
+func (c *Config) GetCleanupMaxAgeDays() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.CleanupMaxAgeDays
 }
