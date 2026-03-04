@@ -117,6 +117,33 @@ func main() {
 
 		switch newState {
 		case StateRecording:
+			// Validate transcription backend is available before starting
+			if useLocal && !IsModelDownloaded(cfg.GetLocalModelID()) {
+				logWarn("Recording aborted: local STT enabled but no model downloaded (model=%s)", cfg.GetLocalModelID())
+				if tray != nil {
+					tray.ShowBalloon(AppName, T("error.no_local_model"))
+				}
+				if playSounds {
+					PlayFeedback(SoundError)
+				}
+				stateMu.Lock()
+				state = StateIdle
+				stateMu.Unlock()
+				return
+			}
+			if !useLocal && apiKey == "" {
+				logWarn("Recording aborted: API mode but no API key configured")
+				if tray != nil {
+					tray.ShowBalloon(AppName, T("error.no_api_key"))
+				}
+				if playSounds {
+					PlayFeedback(SoundError)
+				}
+				stateMu.Lock()
+				state = StateIdle
+				stateMu.Unlock()
+				return
+			}
 			if playSounds {
 				PlayFeedback(SoundRecordStart)
 			}
