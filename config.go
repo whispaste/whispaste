@@ -32,6 +32,9 @@ type Config struct {
 	SmartModePrompt string `json:"smart_mode_prompt"`
 	SmartModeTarget string `json:"smart_mode_target"`
 	SponsorShown    bool   `json:"sponsor_shown"`
+	NotifyBackground bool  `json:"notify_background"`
+	NotifyComplete   bool  `json:"notify_complete"`
+	NotifyDonate     bool  `json:"notify_donate"`
 	UseLocalSTT     bool   `json:"use_local_stt"`
 	LocalModelID    string `json:"local_model_id"`
 	mu          sync.RWMutex
@@ -53,8 +56,11 @@ func DefaultConfig() *Config {
 		Theme:        "system",
 		SoundVolume:  1.0,
 		MaxRecordSec: 120,
-		UseLocalSTT:  false,
-		LocalModelID: "whisper-tiny",
+		NotifyBackground: true,
+		NotifyComplete:   true,
+		NotifyDonate:     true,
+		UseLocalSTT:      false,
+		LocalModelID:     "whisper-tiny",
 	}
 }
 
@@ -267,6 +273,27 @@ func (c *Config) GetLocalModelID() string {
 		return "whisper-tiny"
 	}
 	return c.LocalModelID
+}
+
+// GetNotifyBackground returns whether the background notification is enabled (thread-safe).
+func (c *Config) GetNotifyBackground() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.NotifyBackground
+}
+
+// GetNotifyComplete returns whether the transcription complete notification is enabled (thread-safe).
+func (c *Config) GetNotifyComplete() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.NotifyComplete
+}
+
+// GetNotifyDonate returns whether the donation reminder notification is enabled (thread-safe).
+func (c *Config) GetNotifyDonate() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.NotifyDonate
 }
 
 // SetSmartModePreset sets the smart mode preset and enables/disables smart mode (thread-safe).
