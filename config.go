@@ -31,7 +31,7 @@ type Config struct {
 	SmartModePreset string `json:"smart_mode_preset"`
 	SmartModePrompt string `json:"smart_mode_prompt"`
 	SmartModeTarget string `json:"smart_mode_target"`
-	SponsorShown    bool   `json:"sponsor_shown"`
+	SponsorLastRemindedAt int `json:"sponsor_last_reminded_at"`
 	NotifyBackground bool  `json:"notify_background"`
 	NotifyComplete   bool  `json:"notify_complete"`
 	NotifyDonate     bool  `json:"notify_donate"`
@@ -247,17 +247,17 @@ func (c *Config) GetSmartModeTarget() string {
 	return c.SmartModeTarget
 }
 
-// GetSponsorShown returns whether the sponsor balloon has been shown (thread-safe).
-func (c *Config) GetSponsorShown() bool {
+// GetSponsorLastRemindedAt returns the dictation count at which the sponsor balloon was last shown (thread-safe).
+func (c *Config) GetSponsorLastRemindedAt() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.SponsorShown
+	return c.SponsorLastRemindedAt
 }
 
-// SetSponsorShown sets whether the sponsor balloon has been shown (thread-safe).
-func (c *Config) SetSponsorShown(v bool) {
+// SetSponsorLastRemindedAt sets the dictation count at which the sponsor balloon was last shown (thread-safe).
+func (c *Config) SetSponsorLastRemindedAt(v int) {
 	c.mu.Lock()
-	c.SponsorShown = v
+	c.SponsorLastRemindedAt = v
 	c.mu.Unlock()
 }
 
