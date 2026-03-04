@@ -237,6 +237,7 @@ func main() {
 				// Record stats and history
 				totalDictations := stats.RecordDictation(text, durationSec)
 				history.Add(text, durationSec, lang)
+				NotifyHistoryChanged()
 				if tray != nil {
 					tray.RefreshHistory()
 					tray.MaybeSponsorBalloon(totalDictations)
