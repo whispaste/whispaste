@@ -4,8 +4,6 @@
   overflow-y: auto;
   padding: 4px 24px 20px;
 }
-.about-scroll::-webkit-scrollbar { width: 4px; }
-.about-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,.12); border-radius: 2px; }
 
 .about-header {
   display: flex;
