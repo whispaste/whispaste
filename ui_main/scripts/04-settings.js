@@ -35,7 +35,10 @@ function gatherConfig() {
     smart_mode_prompt: document.getElementById('input-smartprompt')?.value || '',
     smart_mode_target: document.getElementById('select-smarttarget')?.value || 'en',
     use_local_stt: document.getElementById('toggle-localstt')?.checked || false,
-    local_model_id: document.querySelector('[name="local-model"]:checked')?.value || 'whisper-base'
+    local_model_id: document.querySelector('[name="local-model"]:checked')?.value || 'whisper-base',
+    notify_background: document.getElementById('toggle-notify-bg')?.checked ?? true,
+    notify_complete: document.getElementById('toggle-notify-complete')?.checked ?? true,
+    notify_donate: document.getElementById('toggle-notify-donate')?.checked ?? true
   };
 }
 
@@ -109,6 +112,9 @@ function applyConfig(cfg) {
       radio.closest('.model-item')?.classList.add('active');
     }
   }
+  { const el = document.getElementById('toggle-notify-bg'); if (el) el.checked = cfg.notify_background !== false; }
+  { const el = document.getElementById('toggle-notify-complete'); if (el) el.checked = cfg.notify_complete !== false; }
+  { const el = document.getElementById('toggle-notify-donate'); if (el) el.checked = cfg.notify_donate !== false; }
 }
 
 /* ── Radio Card Selection ─────────────────────────────── */
