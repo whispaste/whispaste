@@ -104,6 +104,8 @@ const translations = {
 
     // Settings — Actions
     btnTest: 'Test',
+    btnTestTranscription: 'Test Transcription',
+    descTestTranscription: 'Records 3 seconds and transcribes to verify your setup',
     btnCancel: 'Cancel',
     btnSave: 'Save',
     statusSaved: 'Settings saved ✓',
@@ -200,7 +202,8 @@ const translations = {
     'notebook.date_to': 'To',
     'notebook.merge': 'Merge',
     'mergeTooFew': 'Select at least 2 items to merge',
-    'mergeSuccess': 'Entries merged successfully'
+    'mergeSuccess': 'Entries merged successfully',
+    'catMerged': 'Merged'
   },
   de: {
     // Navigation
@@ -306,6 +309,8 @@ const translations = {
 
     // Settings — Actions
     btnTest: 'Testen',
+    btnTestTranscription: 'Transkription testen',
+    descTestTranscription: 'Nimmt 3 Sekunden auf und transkribiert zur Überprüfung der Einrichtung',
     btnCancel: 'Abbrechen',
     btnSave: 'Speichern',
     statusSaved: 'Einstellungen gespeichert ✓',
@@ -402,7 +407,8 @@ const translations = {
     'notebook.date_to': 'Bis',
     'notebook.merge': 'Zusammenführen',
     'mergeTooFew': 'Mindestens 2 Einträge zum Zusammenführen auswählen',
-    'mergeSuccess': 'Einträge erfolgreich zusammengeführt'
+    'mergeSuccess': 'Einträge erfolgreich zusammengeführt',
+    'catMerged': 'Zusammengefügt'
   }
 };
 

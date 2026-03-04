@@ -232,6 +232,7 @@ func (h *History) Merge(ids []string) string {
 		Duration:  totalDuration,
 		Language:  matches[0].Language,
 		Source:    "merged",
+		Category:  "merged",
 	}
 
 	// Remove originals

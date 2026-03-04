@@ -32,6 +32,13 @@ function applyTheme(theme) {
       ? brandIcon.dataset.darkSrc
       : brandIcon.dataset.lightSrc;
   }
+  // Update about page logo for theme
+  const aboutLogo = document.getElementById('aboutLogo');
+  if (aboutLogo) {
+    aboutLogo.src = eff === 'dark'
+      ? aboutLogo.dataset.darkSrc
+      : aboutLogo.dataset.lightSrc;
+  }
 }
 
 /** Cycle theme: system → dark → light → system */
