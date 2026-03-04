@@ -25,6 +25,7 @@ type Config struct {
 	UILanguage   string   `json:"ui_language"`
 	Theme        string   `json:"theme"`
 	Autostart    bool     `json:"autostart"`
+	CloseToTray  bool     `json:"close_to_tray"`
 	SoundVolume  float64  `json:"sound_volume"`
 	MaxRecordSec int      `json:"max_record_sec"`
 	SmartMode       bool   `json:"smart_mode"`
@@ -56,6 +57,7 @@ func DefaultConfig() *Config {
 		CheckUpdates: true,
 		UILanguage:   detectSystemLanguage(),
 		Theme:        "system",
+		CloseToTray: true,
 		SoundVolume:  1.0,
 		MaxRecordSec: 120,
 		NotifyBackground: true,
@@ -162,6 +164,13 @@ func (c *Config) GetCheckUpdates() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.CheckUpdates
+}
+
+// GetCloseToTray returns whether the app minimizes to tray on close (thread-safe).
+func (c *Config) GetCloseToTray() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.CloseToTray
 }
 
 // GetOverlayPos returns the overlay position preference (thread-safe).
