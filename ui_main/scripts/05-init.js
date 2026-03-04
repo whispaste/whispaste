@@ -10,6 +10,8 @@ function switchPage(pageId) {
   });
   // Load history entries when switching to history page
   if (pageId === 'history') loadEntries();
+  // Load analytics when switching to analytics page
+  if (pageId === 'analytics') loadAnalytics();
   // Auto-select first settings nav item when switching to settings
   if (pageId === 'settings') {
     const firstNav = document.querySelector('.filter-item[data-settings-section]');

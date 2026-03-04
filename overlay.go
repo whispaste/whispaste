@@ -94,7 +94,7 @@ _CLR_BAR_DIM    = 0x00886618 // RGB(24,102,136) – dimmed cyan
 _WAVE_BARS  = 20
 _WAVE_BAR_W = 4
 _WAVE_GAP   = 3
-_WAVE_AMP   = 30.0
+_WAVE_AMP   = 1.5 // post-sqrt scale factor for waveform bars
 
 // Control button layout: [Cancel] [Icon] [Timer] [Waveform] [Pause] [Stop]
 _BTN_SIZE      = 40
@@ -1088,7 +1088,7 @@ for i := 0; i < _WAVE_BARS; i++ {
 	if isPaused {
 		lvl = 0
 	}
-	amp := lvl * _WAVE_AMP
+	amp := math.Sqrt(float64(lvl)) * _WAVE_AMP
 	if amp > 1.0 {
 		amp = 1.0
 	}

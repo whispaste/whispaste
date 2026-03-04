@@ -5,6 +5,7 @@ const translations = {
     navHistory: 'History',
     navSettings: 'Settings',
     navSmartMode: 'Smart Mode',
+    navAnalytics: 'Analytics',
     navAbout: 'About',
 
     // Settings — General
@@ -199,6 +200,10 @@ const translations = {
     'notebook.unpin': 'Unpin',
     'notebook.delete': 'Delete',
     'notebook.copied': 'Copied!',
+    'notebook.edit_text': 'Edit text',
+    'notebook.save': 'Save',
+    'notebook.cancel': 'Cancel',
+    'notebook.saved': 'Saved!',
     'notebook.tag_updated': 'Tag updated',
     'notebook.add_tag': 'Add tag…',
     'notebook.confirm_title': 'Delete Entry',
@@ -217,13 +222,33 @@ const translations = {
     'notebook.merge': 'Merge',
     'mergeTooFew': 'Select at least 2 items to merge',
     'mergeSuccess': 'Entries merged successfully',
-    'catMerged': 'Merged'
+    'catMerged': 'Merged',
+
+    // Analytics
+    'tabAnalytics': 'Analytics',
+    'analytics.period_7d': '7 Days',
+    'analytics.period_30d': '30 Days',
+    'analytics.period_90d': '90 Days',
+    'analytics.period_all': 'All Time',
+    'analytics.total': 'Transcriptions',
+    'analytics.avg_duration': 'Avg Duration',
+    'analytics.local': 'Local',
+    'analytics.cost': 'API Cost',
+    'analytics.daily_chart': 'Daily Activity',
+    'analytics.model_chart': 'Model Usage',
+    'analytics.duration_chart': 'Duration Distribution',
+    'analytics.savings_prefix': 'You saved',
+    'analytics.savings_suffix': 'by using local models',
+    'analytics.empty': 'No transcription data yet.',
+    'analytics.no_data': 'No data available.',
+    'analytics.error': 'Failed to load analytics.'
   },
   de: {
     // Navigation
     navHistory: 'Verlauf',
     navSettings: 'Einstellungen',
     navSmartMode: 'Smart-Modus',
+    navAnalytics: 'Statistiken',
     navAbout: 'Über',
 
     // Settings — General
@@ -418,6 +443,10 @@ const translations = {
     'notebook.unpin': 'Lösen',
     'notebook.delete': 'Löschen',
     'notebook.copied': 'Kopiert!',
+    'notebook.edit_text': 'Text bearbeiten',
+    'notebook.save': 'Speichern',
+    'notebook.cancel': 'Abbrechen',
+    'notebook.saved': 'Gespeichert!',
     'notebook.tag_updated': 'Tag aktualisiert',
     'notebook.add_tag': 'Tag hinzufügen…',
     'notebook.confirm_title': 'Eintrag löschen',
@@ -436,7 +465,26 @@ const translations = {
     'notebook.merge': 'Zusammenführen',
     'mergeTooFew': 'Mindestens 2 Einträge zum Zusammenführen auswählen',
     'mergeSuccess': 'Einträge erfolgreich zusammengeführt',
-    'catMerged': 'Zusammengefügt'
+    'catMerged': 'Zusammengefügt',
+
+    // Analytics
+    'tabAnalytics': 'Statistiken',
+    'analytics.period_7d': '7 Tage',
+    'analytics.period_30d': '30 Tage',
+    'analytics.period_90d': '90 Tage',
+    'analytics.period_all': 'Gesamt',
+    'analytics.total': 'Transkriptionen',
+    'analytics.avg_duration': 'Ø Dauer',
+    'analytics.local': 'Lokal',
+    'analytics.cost': 'API-Kosten',
+    'analytics.daily_chart': 'Tägliche Aktivität',
+    'analytics.model_chart': 'Modellnutzung',
+    'analytics.duration_chart': 'Dauerverteilung',
+    'analytics.savings_prefix': 'Du hast',
+    'analytics.savings_suffix': 'durch lokale Modelle gespart',
+    'analytics.empty': 'Noch keine Transkriptionsdaten.',
+    'analytics.no_data': 'Keine Daten verfügbar.',
+    'analytics.error': 'Statistiken konnten nicht geladen werden.'
   }
 };
 

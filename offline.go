@@ -127,6 +127,7 @@ func GetLocalRecognizer() *LocalRecognizer {
 
 // Transcribe performs speech-to-text, reusing the cached recognizer when possible.
 // The recognizer is re-created if modelDir or language has changed.
+// For audio longer than 30 seconds, it processes in overlapping chunks.
 func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, modelDir string) (string, error) {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
@@ -182,13 +183,52 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 		logInfo("local recognizer initialized: model=%s lang=%s", modelDir, language)
 	}
 
+	samples := pcmToFloat32(pcmS16)
+
+	// Whisper has a ~30s context window. Process in chunks for longer audio.
+	const chunkSec = 28
+	const overlapSec = 2
+	chunkSamples := chunkSec * sampleRate
+	overlapSamples := overlapSec * sampleRate
+
+	if len(samples) <= chunkSamples+overlapSamples {
+		// Short audio: process in one shot
+		return lr.transcribeChunk(samples, sampleRate)
+	}
+
+	// Long audio: process in overlapping chunks and concatenate
+	var parts []string
+	offset := 0
+	for offset < len(samples) {
+		end := offset + chunkSamples
+		if end > len(samples) {
+			end = len(samples)
+		}
+		chunk := samples[offset:end]
+
+		text, err := lr.transcribeChunk(chunk, sampleRate)
+		if err != nil {
+			logWarn("chunk transcription error at offset %d: %v", offset, err)
+		} else if text != "" {
+			parts = append(parts, text)
+		}
+
+		if end >= len(samples) {
+			break
+		}
+		offset = end - overlapSamples
+	}
+	return strings.Join(parts, " "), nil
+}
+
+// transcribeChunk transcribes a single chunk of float32 samples.
+func (lr *LocalRecognizer) transcribeChunk(samples []float32, sampleRate int) (string, error) {
 	stream := sherpa.NewOfflineStream(lr.recognizer)
 	if stream == nil {
 		return "", fmt.Errorf("failed to create offline stream")
 	}
 	defer sherpa.DeleteOfflineStream(stream)
 
-	samples := pcmToFloat32(pcmS16)
 	stream.AcceptWaveform(sampleRate, samples)
 	lr.recognizer.Decode(stream)
 
