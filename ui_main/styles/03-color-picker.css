@@ -1,0 +1,64 @@
+/* ── Tag Color Picker Popover ──────────────────────── */
+.tag-color-picker {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  padding: 10px;
+  min-width: 180px;
+  animation: fadeIn 150ms ease;
+}
+
+.tcp-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tcp-colors {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.tcp-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.tcp-swatch:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 8px rgba(0,0,0,0.15);
+}
+.tcp-swatch.active {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--text-secondary);
+}
+
+.tcp-reset {
+  display: block;
+  width: 100%;
+  padding: 5px 0;
+  font-size: 11px;
+  font-family: var(--font);
+  color: var(--text-tertiary);
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.tcp-reset:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}

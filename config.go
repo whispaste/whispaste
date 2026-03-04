@@ -40,6 +40,7 @@ type Config struct {
 	LocalModelID    string  `json:"local_model_id"`
 	InputDevice     string  `json:"input_device,omitempty"`
 	InputGain       float64 `json:"input_gain"`
+	TagColors       map[string]int `json:"tag_colors,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -320,6 +321,20 @@ func (c *Config) GetNotifyDonate() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.NotifyDonate
+}
+
+// GetTagColors returns a copy of the tag-to-color-index mapping (thread-safe).
+func (c *Config) GetTagColors() map[string]int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.TagColors == nil {
+		return map[string]int{}
+	}
+	m := make(map[string]int, len(c.TagColors))
+	for k, v := range c.TagColors {
+		m[k] = v
+	}
+	return m
 }
 
 // SetSmartModePreset sets the smart mode preset and enables/disables smart mode (thread-safe).

@@ -123,8 +123,24 @@ const TAG_COLORS = [
   { bg: 'rgba(234,179,8,0.12)',  border: 'rgba(234,179,8,0.3)',  text: '#eab308' },   // yellow
 ];
 
-/** Get a deterministic color for a tag name */
+let _customTagColors = {};
+
+function loadCustomTagColors() {
+  if (window.getTagColors) {
+    window.getTagColors().then(json => {
+      _customTagColors = JSON.parse(json);
+    }).catch(() => {});
+  }
+}
+
+/** Get a deterministic color for a tag name (custom override first) */
 function getTagColor(tagName) {
+  if (_customTagColors[tagName] !== undefined) {
+    const idx = _customTagColors[tagName];
+    if (idx >= 0 && idx < TAG_COLORS.length) {
+      return TAG_COLORS[idx];
+    }
+  }
   let hash = 0;
   for (let i = 0; i < tagName.length; i++) {
     hash = ((hash << 5) - hash + tagName.charCodeAt(i)) | 0;
