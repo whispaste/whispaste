@@ -361,19 +361,21 @@ func safeDiv(a, b float64) float64 {
 	return a / b
 }
 
-// Categories returns all unique category names used across entries.
-func (h *History) Categories() []string {
+// Tags returns all unique tag names used across entries.
+func (h *History) Tags() []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	seen := map[string]bool{}
-	var cats []string
+	var tags []string
 	for _, e := range h.Entries {
-		if e.Category != "" && !seen[e.Category] {
-			seen[e.Category] = true
-			cats = append(cats, e.Category)
+		for _, tag := range e.Tags {
+			if tag != "" && !seen[tag] {
+				seen[tag] = true
+				tags = append(tags, tag)
+			}
 		}
 	}
-	return cats
+	return tags
 }
 
 // Merge combines multiple entries into one. The newest entry's metadata is used as the base.
