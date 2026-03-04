@@ -12,6 +12,7 @@
 # Output
 /dist/
 /build/
+!/build/sherpa-onnx/
 
 # IDE
 .idea/
