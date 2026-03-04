@@ -15,6 +15,7 @@
   gap: 8px;
   flex: 1;
   max-width: 480px;
+  margin: 0 auto;
   padding: 9px 16px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
