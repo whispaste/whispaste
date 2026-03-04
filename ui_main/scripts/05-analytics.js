@@ -4,7 +4,7 @@ let _analyticsInterval = null;
 
 function startAnalyticsAutoRefresh() {
   stopAnalyticsAutoRefresh();
-  _analyticsInterval = setInterval(() => loadAnalytics(), 3000);
+  _analyticsInterval = setInterval(() => loadAnalytics(), 2000);
 }
 function stopAnalyticsAutoRefresh() {
   if (_analyticsInterval) { clearInterval(_analyticsInterval); _analyticsInterval = null; }
@@ -149,7 +149,7 @@ function renderDailyChart(dailyCounts) {
     const bw = Math.min(bwRaw, maxBarPx);
     const x = padding.left + i * barW + (barW - bw) / 2;
     if (d.count > 0) {
-      bars += `<rect class="bar" x="${x}" y="${padding.top + chartH - barH}" width="${bw}" height="${barH}" rx="2"/>`;
+      bars += `<rect class="bar" x="${x}" y="${padding.top + chartH - barH}" width="${bw}" height="${barH}" rx="2"><title>${d.date}: ${d.count}</title></rect>`;
     }
     if (i % labelEvery === 0) {
       bars += `<text x="${padding.left + i * barW + barW / 2}" y="${h - 4}" text-anchor="middle">${d.label}</text>`;
@@ -200,7 +200,7 @@ function renderModelDonut(modelCounts) {
     });
   }
 
-  return `<svg class="donut-chart" viewBox="0 0 180 180">${paths}</svg>
+  return `<svg class="donut-chart" viewBox="0 0 180 180" preserveAspectRatio="xMidYMid meet">${paths}</svg>
     <div class="donut-legend">${legend.join('')}</div>`;
 }
 
