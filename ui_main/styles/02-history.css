@@ -5,6 +5,15 @@
   gap: 10px;
   padding: 14px 20px 10px;
   flex-shrink: 0;
+  position: relative;
+}
+.topbar::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 16px; right: 16px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-accent), transparent);
+  opacity: 0.5;
 }
 
 .search-box {
@@ -114,9 +123,10 @@
 }
 .filter-item:hover { background: var(--bg-hover); color: var(--text); }
 .filter-item.active {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
   font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .filter-item .icon { width: 14px; height: 14px; }
 
@@ -155,9 +165,9 @@
   transition: all var(--transition-normal);
 }
 .entry:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--border-accent);
   border-color: var(--border-accent);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 .entry.pinned {
   border-left: 3px solid var(--accent);
@@ -315,7 +325,7 @@
   z-index: 100;
 }
 .fab:hover {
-  transform: scale(1.1) rotate(15deg);
+  transform: scale(1.08) rotate(10deg);
   box-shadow: var(--shadow-xl), var(--shadow-glow-lg);
   background: var(--gradient-accent-hover);
 }
