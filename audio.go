@@ -170,8 +170,10 @@ func ListAudioDevices() ([]AudioDeviceInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer ctx.Uninit()
-	defer ctx.Free()
+	defer func() {
+		ctx.Uninit()
+		ctx.Free()
+	}()
 
 	devices, err := ctx.Context.Devices(malgo.Capture)
 	if err != nil {
