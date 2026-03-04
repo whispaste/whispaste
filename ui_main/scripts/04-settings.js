@@ -407,7 +407,6 @@ async function renderModelList() {
       <div class="model-item-action">${actionBtn}</div>
     </div>`;
   }).join('');
-  }).join('');
 }
 
 function selectLocalModel(id) {
