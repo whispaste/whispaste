@@ -200,6 +200,11 @@ func main() {
 				return
 			}
 			recordStart = time.Now()
+			// Max recording duration (read early for overlay warning colors)
+			maxSec := cfg.GetMaxRecordSec()
+			if overlay != nil {
+				overlay.SetMaxRecordSec(maxSec)
+			}
 			// Start audio level monitoring for overlay
 			ld := make(chan struct{})
 			levelDone = ld
@@ -217,7 +222,6 @@ func main() {
 				}
 			}()
 			// Max recording duration auto-stop (0 = unlimited)
-			maxSec := cfg.GetMaxRecordSec()
 			if maxSec > 0 {
 				go func(expectedGen uint64) {
 					timer := time.NewTimer(time.Duration(maxSec) * time.Second)
@@ -233,6 +237,26 @@ func main() {
 						if s == StateRecording && gen == expectedGen {
 							logInfo("Max recording duration reached (%ds)", maxSec)
 							transition(StateTranscribing)
+						}
+					}
+				}(currentGen)
+			}
+			// Warning beep before auto-stop
+			if maxSec >= 20 {
+				go func(expectedGen uint64) {
+					select {
+					case <-ld:
+						return
+					case <-time.After(time.Duration(maxSec-10) * time.Second):
+						stateMu.Lock()
+						s := state
+						gen := stateGen
+						stateMu.Unlock()
+						if s == StateRecording && gen == expectedGen {
+							ps, _, _, _, _, _, _, _ := snapshotConfig()
+							if ps {
+								PlayFeedback(SoundWarning)
+							}
 						}
 					}
 				}(currentGen)
@@ -315,6 +339,10 @@ func main() {
 					history.AddWithModel(text, durationSec, processingDurationSec, lang, cfg.GetLocalModelID(), true)
 				} else {
 					history.AddWithModel(text, durationSec, processingDurationSec, lang, model, false)
+				}
+				// Auto-cleanup if enabled
+				if cfg.GetCleanupEnabled() {
+					history.Cleanup(cfg.GetCleanupMaxEntries(), cfg.GetCleanupMaxAgeDays())
 				}
 				NotifyHistoryChanged()
 				if tray != nil {

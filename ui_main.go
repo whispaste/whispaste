@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"io/fs"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-	"unsafe"
 
 	"golang.org/x/sys/windows"
 
@@ -290,6 +288,9 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.LocalModelID = newCfg.LocalModelID
 			cfg.InputDevice = newCfg.InputDevice
 			cfg.InputGain = newCfg.InputGain
+			cfg.CleanupEnabled = newCfg.CleanupEnabled
+			cfg.CleanupMaxEntries = newCfg.CleanupMaxEntries
+			cfg.CleanupMaxAgeDays = newCfg.CleanupMaxAgeDays
 			cfg.mu.Unlock()
 
 			// Apply autostart setting
@@ -555,6 +556,41 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return history.UpdateText(id, newText)
 		})
 
+		// Bind: applySmartAction → apply a smart mode preset to an existing entry
+		w.Bind("applySmartAction", func(entryID, preset, customPrompt string) string {
+			entry := history.GetByID(entryID)
+			if entry == nil {
+				resp, _ := json.Marshal(map[string]string{"error": "Entry not found"})
+				return string(resp)
+			}
+
+			apiKey := cfg.GetAPIKey()
+			endpoint := cfg.GetAPIEndpoint()
+			appLang := cfg.GetUILanguage()
+			if appLang == "" {
+				appLang = "en"
+			}
+
+			result, err := ApplySmartAction(entry.Text, preset, customPrompt, apiKey, endpoint, appLang)
+			if err != nil {
+				resp, _ := json.Marshal(map[string]string{"error": err.Error()})
+				return string(resp)
+			}
+
+			resp, _ := json.Marshal(map[string]string{"text": result})
+			return string(resp)
+		})
+
+		// Bind: addSmartEntry → creates a new entry from smart action result
+		w.Bind("addSmartEntry", func(sourceID, text, preset string) {
+			entry := history.GetByID(sourceID)
+			if entry == nil {
+				return
+			}
+			history.AddSmart(text, entry.Language, []string{"smart:" + preset})
+			logInfo("New smart entry created from %s using preset %s", sourceID, preset)
+		})
+
 		// Bind: getTagColors → returns custom tag color mappings as JSON
 		w.Bind("getTagColors", func() string {
 			colors := cfg.GetTagColors()
@@ -613,22 +649,9 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return ""
 		})
 
-		// Bind: openLogFile → opens the log file in default editor
+		// Bind: openLogFile → opens the log viewer window
 		w.Bind("openLogFile", func() {
-			logDir, err := configDir()
-			if err != nil {
-				logWarn("Could not determine config dir: %v", err)
-				return
-			}
-			logPath := filepath.Join(logDir, "whispaste.log")
-			pathPtr, _ := windows.UTF16PtrFromString(logPath)
-			openPtr, _ := windows.UTF16PtrFromString("open")
-			shell32 := windows.NewLazySystemDLL("shell32.dll")
-			shellExec := shell32.NewProc("ShellExecuteW")
-			ret, _, _ := shellExec.Call(0, uintptr(unsafe.Pointer(openPtr)), uintptr(unsafe.Pointer(pathPtr)), 0, 0, 1) // SW_SHOWNORMAL=1
-			if ret <= 32 {
-				logWarn("ShellExecuteW failed for log file (ret=%d)", ret)
-			}
+			ShowLogViewer()
 		})
 
 		// Bind: startCapture → triggers recording from dashboard
@@ -740,6 +763,61 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				recorder.StopMonitor()
 			}
 			w.Terminate()
+		})
+
+		// Bind: getAvailableModels → returns JSON array of available models for quick switching
+		w.Bind("getAvailableModels", func() string {
+			type modelInfo struct {
+				ID      string `json:"id"`
+				Name    string `json:"name"`
+				Meta    string `json:"meta"`
+				IsLocal bool   `json:"isLocal"`
+			}
+			var models []modelInfo
+
+			// API model (always available if API key is set)
+			if cfg.GetAPIKey() != "" {
+				cfg.mu.RLock()
+				apiModel := cfg.Model
+				cfg.mu.RUnlock()
+				if apiModel == "" {
+					apiModel = "whisper-1"
+				}
+				models = append(models, modelInfo{
+					ID:      apiModel,
+					Name:    "Whisper API (" + apiModel + ")",
+					Meta:    "Cloud",
+					IsLocal: false,
+				})
+			}
+
+			// Local models (only if downloaded)
+			for _, m := range ListDownloadedModels() {
+				models = append(models, modelInfo{
+					ID:      m.ID,
+					Name:    m.Name,
+					Meta:    "Local · " + m.Size,
+					IsLocal: true,
+				})
+			}
+
+			data, _ := json.Marshal(models)
+			return string(data)
+		})
+
+		// Bind: switchModel → switches the active model
+		w.Bind("switchModel", func(modelID string, isLocal bool) {
+			cfg.mu.Lock()
+			if isLocal {
+				cfg.UseLocalSTT = true
+				cfg.LocalModelID = modelID
+			} else {
+				cfg.UseLocalSTT = false
+				cfg.Model = modelID
+			}
+			cfg.mu.Unlock()
+			cfg.Save()
+			logInfo("Model switched to %s (local=%v)", modelID, isLocal)
 		})
 
 		w.SetHtml(mainWindowHTML)

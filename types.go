@@ -21,6 +21,7 @@ const (
 	SoundRecordStop
 	SoundSuccess
 	SoundError
+	SoundWarning
 )
 
 const AppName = "WhisPaste"

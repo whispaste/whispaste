@@ -82,6 +82,8 @@ func PlayFeedback(soundType SoundType) {
 		data = sndSuccess
 	case SoundError:
 		data = sndError
+	case SoundWarning:
+		data = sndWarning
 	default:
 		return
 	}
@@ -104,6 +106,39 @@ func PlayFeedback(soundType SoundType) {
 	case soundChan <- playData:
 	default:
 	}
+}
+
+var sndWarning []byte
+
+func init() {
+	sndWarning = generateBeepWAV(880, 200, 0.5)
+}
+
+// generateBeepWAV creates a sine wave PCM WAV in memory.
+func generateBeepWAV(freqHz, durationMs int, amplitude float64) []byte {
+	sampleRate := 16000
+	numSamples := sampleRate * durationMs / 1000
+	dataSize := numSamples * 2 // 16-bit mono
+	wav := make([]byte, 44+dataSize)
+	copy(wav[0:4], "RIFF")
+	binary.LittleEndian.PutUint32(wav[4:8], uint32(36+dataSize))
+	copy(wav[8:12], "WAVE")
+	copy(wav[12:16], "fmt ")
+	binary.LittleEndian.PutUint32(wav[16:20], 16)
+	binary.LittleEndian.PutUint16(wav[20:22], 1) // PCM
+	binary.LittleEndian.PutUint16(wav[22:24], 1) // mono
+	binary.LittleEndian.PutUint32(wav[24:28], uint32(sampleRate))
+	binary.LittleEndian.PutUint32(wav[28:32], uint32(sampleRate*2))
+	binary.LittleEndian.PutUint16(wav[32:34], 2)  // block align
+	binary.LittleEndian.PutUint16(wav[34:36], 16) // bits per sample
+	copy(wav[36:40], "data")
+	binary.LittleEndian.PutUint32(wav[40:44], uint32(dataSize))
+	for i := 0; i < numSamples; i++ {
+		t := float64(i) / float64(sampleRate)
+		sample := int16(amplitude * 32767 * math.Sin(2*math.Pi*float64(freqHz)*t))
+		binary.LittleEndian.PutUint16(wav[44+i*2:44+i*2+2], uint16(sample))
+	}
+	return wav
 }
 
 // scaleWAVVolume scales 16-bit PCM samples in a WAV byte slice by a volume factor.
