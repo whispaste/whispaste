@@ -506,7 +506,7 @@
     <div class="page" id="page-smartmode" style="display:none">
       <div class="page-header">
         <h2 class="page-title" data-i18n="navSmartMode">Smart Mode</h2>
-        <p class="page-subtitle" data-i18n="smartModeDesc">AI-powered post-processing for your transcriptions</p>
+        <p class="page-subtitle" data-i18n="smartModeDesc">Automatically refine every transcription with AI before it's pasted</p>
       </div>
       <div class="smartmode-content">
         <!-- Enable/Disable -->
@@ -515,7 +515,7 @@
             <div class="toggle-row">
               <div class="toggle-info">
                 <label class="toggle-label" for="toggle-smartmode" data-i18n="labelSmartMode">AI Post-Processing</label>
-                <p class="toggle-desc" data-i18n="descSmartMode">Process transcription with GPT-4o-mini for grammar, formatting, or translation</p>
+                <p class="toggle-desc" data-i18n="descSmartMode">When enabled, your transcription is sent to GPT-4o-mini for refinement before pasting</p>
               </div>
               <div class="toggle-switch">
                 <input type="checkbox" id="toggle-smartmode" onchange="updateSmartModeVisibility()">
@@ -525,9 +525,28 @@
           </div>
         </div>
 
+        <!-- How it works info -->
+        <div class="card smart-howto" id="smart-howto" style="display:none">
+          <div class="smart-howto-title" data-i18n="smartHowTitle">How it works</div>
+          <div class="smart-howto-steps">
+            <div class="smart-howto-step">
+              <span class="smart-howto-num">1</span>
+              <span data-i18n="smartHow1">You record and transcribe as usual</span>
+            </div>
+            <div class="smart-howto-step">
+              <span class="smart-howto-num">2</span>
+              <span data-i18n="smartHow2">The transcription is refined by AI using your chosen preset</span>
+            </div>
+            <div class="smart-howto-step">
+              <span class="smart-howto-num">3</span>
+              <span data-i18n="smartHow3">The improved text is pasted — no extra steps needed</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Preset Cards -->
         <div id="smart-mode-options" style="display:none">
-          <h3 class="section-title" data-i18n="labelSmartPreset">Preset</h3>
+          <h3 class="section-title" data-i18n="smartChoosePreset">Choose a preset</h3>
           <select id="select-smartpreset" style="display:none">
             <option value="cleanup">Cleanup</option>
             <option value="email">Email</option>
@@ -540,32 +559,32 @@
             <div class="preset-card active" data-preset="cleanup" onclick="selectSmartPreset('cleanup')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>
               <span class="preset-label" data-i18n="smartCleanup">Cleanup</span>
-              <span class="preset-desc" data-i18n="smartCleanupDesc">Grammar & punctuation</span>
+              <span class="preset-desc" data-i18n="smartCleanupDesc">Fixes grammar, punctuation, and filler words — keeps your original meaning intact</span>
             </div>
             <div class="preset-card" data-preset="email" onclick="selectSmartPreset('email')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
               <span class="preset-label" data-i18n="smartEmail">Email</span>
-              <span class="preset-desc" data-i18n="smartEmailDesc">Formal style</span>
+              <span class="preset-desc" data-i18n="smartEmailDesc">Reformats your speech into a professional email with greeting and sign-off</span>
             </div>
             <div class="preset-card" data-preset="bullets" onclick="selectSmartPreset('bullets')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
               <span class="preset-label" data-i18n="smartBullets">Bullet Points</span>
-              <span class="preset-desc" data-i18n="smartBulletsDesc">Structured lists</span>
+              <span class="preset-desc" data-i18n="smartBulletsDesc">Extracts key points from your speech and organizes them as a clear list</span>
             </div>
             <div class="preset-card" data-preset="formal" onclick="selectSmartPreset('formal')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
               <span class="preset-label" data-i18n="smartFormal">Formal Letter</span>
-              <span class="preset-desc" data-i18n="smartFormalDesc">Business writing</span>
+              <span class="preset-desc" data-i18n="smartFormalDesc">Rewrites your text in a professional, business-appropriate tone</span>
             </div>
             <div class="preset-card" data-preset="translate" onclick="selectSmartPreset('translate')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
               <span class="preset-label" data-i18n="smartTranslate">Translate</span>
-              <span class="preset-desc" data-i18n="smartTranslateDesc">Change language</span>
+              <span class="preset-desc" data-i18n="smartTranslateDesc">Translates your transcription into the target language you choose below</span>
             </div>
             <div class="preset-card" data-preset="custom" onclick="selectSmartPreset('custom')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              <span class="preset-label" data-i18n="smartCustom">Custom</span>
-              <span class="preset-desc" data-i18n="smartCustomDesc">Your own prompt</span>
+              <span class="preset-label" data-i18n="smartCustom">Custom Prompt</span>
+              <span class="preset-desc" data-i18n="smartCustomDesc">Write your own instructions — full control over how the AI processes your text</span>
             </div>
           </div>
 
