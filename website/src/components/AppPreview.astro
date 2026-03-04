@@ -30,7 +30,7 @@
             <div class="mockup-nb-body">
               <!-- Top bar -->
               <div class="mockup-nb-topbar">
-                <img class="mockup-app-icon w-4 h-4 shrink-0" src="/whispaste/app-icon-dark.png" alt="" />
+                <img class="mockup-app-icon w-6 h-6 shrink-0" src="/whispaste/app-icon-dark.png" alt="" />
                 <div class="mockup-nb-search-wrap">
                   <svg class="mockup-nb-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                   <input type="text" class="mockup-nb-search" placeholder="Search transcriptions..." disabled />
@@ -304,9 +304,10 @@
     min-height: 340px;
   }
   .mockup-nb-topbar {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     padding: 10px 16px;
     background: #2C2C2E;
     border-bottom: 1px solid color-mix(in srgb, #22D3EE 15%, #38383A);
@@ -319,8 +320,9 @@
   }
   .mockup-nb-search-wrap {
     position: relative;
-    flex: 1;
-    max-width: 320px;
+    max-width: 280px;
+    justify-self: center;
+    width: 100%;
   }
   .mockup-nb-search-icon {
     position: absolute;
@@ -384,15 +386,16 @@
     padding: 0 6px;
   }
   .mockup-nb-sort-dropdown {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 5px 8px;
+    gap: 4px;
+    padding: 3px 6px;
     font-size: 11px;
-    color: #AEAEB2;
-    background: #1C1C1E;
-    border: 1px solid #38383A;
-    border-radius: 6px;
+    color: #22D3EE;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: default;
   }
   .mockup-nb-filter-item {
     display: flex;
@@ -881,7 +884,7 @@
   html.light .mockup-nb-search-icon { color: #8E8E93; }
   html.light .mockup-nb-action-btn { color: #636366; }
   html.light .mockup-nb-sidebar { background: #FFFFFF; border-right-color: #D1D1D6; }
-  html.light .mockup-nb-sort-dropdown { background: #FFFFFF; border-color: #D1D1D6; color: #636366; }
+  html.light .mockup-nb-sort-dropdown { background: transparent; border: none; color: #0891B2; }
   html.light .mockup-nb-filter-item { color: #636366; }
   html.light .mockup-nb-filter-active { background: color-mix(in srgb, #0891B2 12%, transparent); color: #0891B2; }
   html.light .mockup-nb-filter-count { color: #8E8E93; }
