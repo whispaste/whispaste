@@ -149,9 +149,6 @@
           <div class="entries" id="entriesList"></div>
         </div>
       </div>
-      <button class="fab" id="captureBtn" onclick="window.startCapture()" data-i18n-title="notebook.record" title="Record">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-      </button>
     </div>
 
     <!-- Page: Settings -->
@@ -450,16 +447,16 @@
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label" data-i18n="labelMaxDuration">Max Recording Duration</label>
-              <p class="form-hint" style="margin-bottom:8px" data-i18n="descMaxDuration">Automatically stop recording after this time to prevent accidental long recordings</p>
-              <div class="range-row">
-                <input type="range" id="range-max-duration" min="10" max="300" value="120" step="10" class="volume-slider" oninput="document.getElementById('max-duration-value').textContent = this.value + 's'">
-                <span class="volume-value" id="max-duration-value">120s</span>
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" data-i18n="labelMaxDuration">Max Recording Duration</label>
+                  <div class="toggle-desc" data-i18n="descMaxDuration">Automatically stop recording after this time to prevent accidental long recordings</div>
+                </div>
+                <div class="duration-slider-group">
+                  <span class="duration-value" id="max-duration-value">2 min</span>
+                  <input type="range" id="range-max-duration" min="0" max="300" value="120" step="60" class="duration-slider" oninput="updateDurationLabel(this.value)">
+                </div>
               </div>
-              <label class="unlimited-row" style="display:flex;align-items:center;gap:8px;margin-top:6px;cursor:pointer;">
-                <input type="checkbox" id="check-unlimited-duration" onchange="toggleUnlimited(this.checked)">
-                <span data-i18n="labelUnlimited">∞ Unlimited</span>
-              </label>
             </div>
             <div class="form-group">
               <label class="form-label" for="select-theme" data-i18n="labelTheme">Theme</label>
@@ -735,6 +732,11 @@
         </div>
       </div>
     </div>
+
+    <!-- ── FAB (always visible) ─────────────────────── -->
+    <button class="fab" id="captureBtn" onclick="window.startCapture()" data-i18n-title="notebook.record" title="Record">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+    </button>
 
     <!-- ── Global Status Bar ──────────────────────────── -->
     <div class="global-status-bar" id="globalStatusBar">

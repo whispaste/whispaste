@@ -531,6 +531,54 @@
   animation: hotkeyPulse 1.5s ease infinite;
 }
 
+/* ── Duration Slider ───────────────────────────────────── */
+.duration-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.duration-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 48px;
+  text-align: right;
+}
+
+.duration-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+
+.duration-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg);
+  box-shadow: 0 2px 6px rgba(0,0,0,.15), 0 1px 2px rgba(0,0,0,.1);
+  transition: transform 150ms ease;
+}
+
+.duration-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+.duration-slider::-webkit-slider-thumb:active {
+  transform: scale(0.95);
+}
+
 /* ── Range Row ───────────────────────────────────────── */
 .range-row {
   display: flex;

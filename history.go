@@ -438,6 +438,30 @@ func (h *History) Merge(ids []string) string {
 	return merged.ID
 }
 
+// DuplicateEntry creates a copy of an entry by ID.
+func (h *History) DuplicateEntry(id string) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, e := range h.Entries {
+		if e.ID == id {
+			dup := e
+			dup.ID = generateID()
+			dup.Timestamp = time.Now().Format(time.RFC3339)
+			dup.Title = e.Title + " (Copy)"
+			dup.Pinned = false
+			if len(e.Tags) > 0 {
+				dup.Tags = make([]string, len(e.Tags))
+				copy(dup.Tags, e.Tags)
+			}
+			h.Entries = append(h.Entries, dup)
+			h.cache = nil
+			h.saveLocked()
+			return true
+		}
+	}
+	return false
+}
+
 func (h *History) save() {
 	h.mu.Lock()
 	defer h.mu.Unlock()

@@ -346,6 +346,42 @@
   border-top: 1px solid var(--border-subtle);
 }
 
+/* ── Tag Chips ──────────────────────────────────────────── */
+.tag-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+.tag-chip-remove {
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 14px;
+  line-height: 1;
+  margin-left: 2px;
+}
+
+.tag-chip-remove:hover {
+  opacity: 1;
+  color: var(--danger);
+}
+
 .tag-input-row {
   display: flex;
   align-items: center;
@@ -419,33 +455,6 @@
   color: var(--accent);
 }
 .empty-state p { font-size: var(--text-md); color: var(--text-secondary); }
-
-/* ── FAB (Floating Action Button) ─────────────────────── */
-.fab {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  width: 52px;
-  height: 52px;
-  border-radius: var(--radius-full);
-  border: none;
-  background: var(--gradient-accent);
-  color: var(--text-inverse);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: var(--shadow-lg), var(--shadow-glow);
-  transition: all var(--transition-spring);
-  z-index: 100;
-}
-.fab:hover {
-  transform: scale(1.08) rotate(10deg);
-  box-shadow: var(--shadow-xl), var(--shadow-glow-lg);
-  background: var(--gradient-accent-hover);
-}
-.fab:active { transform: scale(.95) rotate(0deg); }
-.fab .icon { width: 22px; height: 22px; }
 
 /* ── Selection Bar ───────────────────────────────────── */
 .selection-bar {

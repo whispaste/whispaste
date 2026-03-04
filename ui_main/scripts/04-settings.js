@@ -30,7 +30,7 @@ function gatherConfig() {
     close_to_tray: document.getElementById('toggle-close-to-tray')?.checked ?? true,
     ui_language: _savedUILang,
     theme: document.getElementById('select-theme')?.value || 'system',
-    max_record_sec: document.getElementById('check-unlimited-duration')?.checked ? 0 : parseInt(document.getElementById('range-max-duration')?.value || '120', 10),
+    max_record_sec: parseInt(document.getElementById('range-max-duration')?.value || '120', 10),
     smart_mode: document.getElementById('toggle-smartmode')?.checked || false,
     smart_mode_preset: document.getElementById('select-smartpreset')?.value || 'cleanup',
     smart_mode_prompt: document.getElementById('input-smartprompt')?.value || '',
@@ -82,16 +82,8 @@ function applyConfig(cfg) {
   if (cfg.prompt != null) { const el = document.getElementById('input-prompt'); if (el) el.value = cfg.prompt; }
   if (cfg.max_record_sec != null) {
     const slider = document.getElementById('range-max-duration');
-    const lbl = document.getElementById('max-duration-value');
-    const chk = document.getElementById('check-unlimited-duration');
-    if (cfg.max_record_sec === 0) {
-      if (chk) chk.checked = true;
-      toggleUnlimited(true);
-    } else {
-      if (chk) chk.checked = false;
-      if (slider) { slider.value = cfg.max_record_sec; if (lbl) lbl.textContent = cfg.max_record_sec + 's'; }
-      toggleUnlimited(false);
-    }
+    if (slider) slider.value = cfg.max_record_sec;
+    updateDurationLabel(cfg.max_record_sec);
   }
   if (cfg.smart_mode != null) {
     const el = document.getElementById('toggle-smartmode');
@@ -300,16 +292,15 @@ function copyApiKey() {
   }
 }
 
-/* ── Unlimited Duration ───────────────────────────────── */
-function toggleUnlimited(checked) {
-  const slider = document.getElementById('range-max-duration');
-  const label = document.getElementById('max-duration-value');
-  if (checked) {
-    if (slider) { slider.disabled = true; slider.style.opacity = '0.4'; }
-    if (label) label.textContent = '∞';
+/* ── Duration Label ────────────────────────────────────── */
+function updateDurationLabel(val) {
+  const lbl = document.getElementById('max-duration-value');
+  if (!lbl) return;
+  const v = parseInt(val, 10);
+  if (v === 0) {
+    lbl.textContent = '∞';
   } else {
-    if (slider) { slider.disabled = false; slider.style.opacity = '1'; }
-    if (label && slider) label.textContent = slider.value + 's';
+    lbl.textContent = Math.round(v / 60) + ' min';
   }
 }
 
