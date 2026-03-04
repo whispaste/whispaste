@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 )
 
@@ -46,7 +47,22 @@ type Config struct {
 	CleanupMaxEntries int  `json:"cleanup_max_entries,omitempty"`
 	CleanupMaxAgeDays int  `json:"cleanup_max_age_days,omitempty"`
 	OnboardingDone    bool `json:"onboarding_done,omitempty"`
+	ActiveProfile     string                    `json:"active_profile,omitempty"`
+	Profiles          map[string]ConfigProfile   `json:"profiles,omitempty"`
 	mu          sync.RWMutex
+}
+
+// ConfigProfile stores a named set of transcription & smart mode settings.
+type ConfigProfile struct {
+	UseLocalSTT     bool   `json:"use_local_stt"`
+	LocalModelID    string `json:"local_model_id,omitempty"`
+	Model           string `json:"model,omitempty"`
+	SmartMode       bool   `json:"smart_mode"`
+	SmartModePreset string `json:"smart_mode_preset,omitempty"`
+	SmartModePrompt string `json:"smart_mode_prompt,omitempty"`
+	SmartModeTarget string `json:"smart_mode_target,omitempty"`
+	Language        string `json:"language,omitempty"`
+	TranscriptionLanguage string `json:"transcription_language,omitempty"`
 }
 
 // DefaultConfig returns a config with sensible defaults.
@@ -396,4 +412,68 @@ func (c *Config) SetOnboardingDone(done bool) {
 	c.mu.Lock()
 	c.OnboardingDone = done
 	c.mu.Unlock()
+}
+
+// SaveProfile saves current transcription settings as a named profile.
+func (c *Config) SaveProfile(name string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.Profiles == nil {
+		c.Profiles = make(map[string]ConfigProfile)
+	}
+	c.Profiles[name] = ConfigProfile{
+		UseLocalSTT:           c.UseLocalSTT,
+		LocalModelID:          c.LocalModelID,
+		Model:                 c.Model,
+		SmartMode:             c.SmartMode,
+		SmartModePreset:       c.SmartModePreset,
+		SmartModePrompt:       c.SmartModePrompt,
+		SmartModeTarget:       c.SmartModeTarget,
+		Language:              c.Language,
+		TranscriptionLanguage: c.TranscriptionLanguage,
+	}
+	c.ActiveProfile = name
+}
+
+// LoadProfile applies a named profile's settings to the config.
+func (c *Config) LoadProfile(name string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	p, ok := c.Profiles[name]
+	if !ok {
+		return false
+	}
+	c.UseLocalSTT = p.UseLocalSTT
+	c.LocalModelID = p.LocalModelID
+	c.Model = p.Model
+	c.SmartMode = p.SmartMode
+	c.SmartModePreset = p.SmartModePreset
+	c.SmartModePrompt = p.SmartModePrompt
+	c.SmartModeTarget = p.SmartModeTarget
+	c.Language = p.Language
+	c.TranscriptionLanguage = p.TranscriptionLanguage
+	c.ActiveProfile = name
+	return true
+}
+
+// DeleteProfile removes a named profile.
+func (c *Config) DeleteProfile(name string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.Profiles, name)
+	if c.ActiveProfile == name {
+		c.ActiveProfile = ""
+	}
+}
+
+// ListProfiles returns profile names.
+func (c *Config) ListProfiles() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	var names []string
+	for name := range c.Profiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }

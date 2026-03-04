@@ -1,0 +1,42 @@
+/* ── Profile Bar (Settings page header) ────────────────── */
+.profile-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.profile-select {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  min-width: 120px;
+}
+.profile-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-icon:hover {
+  background: var(--hover-bg);
+  color: var(--accent);
+}
+.btn-icon .icon {
+  width: 16px;
+  height: 16px;
+}
