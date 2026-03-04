@@ -79,8 +79,8 @@ _OVL_HEIGHT = 80
 _OVL_MARGIN = 24
 _OVL_RADIUS = 40 // fully rounded pill ends
 
-// Icon display size
-_ICON_SIZE = 38
+// Icon display size (unused — icon removed from overlay)
+// _ICON_SIZE = 38
 
 // Colors (COLORREF = 0x00BBGGRR) – derived from app logo palette
 _CLR_BACKGROUND = 0x00291A0A // RGB(10,26,41) – dark navy
@@ -760,8 +760,8 @@ uintptr(fontHeightSmall), 0, 0, 0, _FW_NORMAL,
 uintptr(unsafe.Pointer(fontName)),
 )
 
-// Load app icon at 48x48 for crisp display
-o.loadIcon(48)
+// Icon no longer rendered in overlay (removed per user request)
+// o.loadIcon(48)
 
 // Create GDI+ font resources for anti-aliased text
 fontName16, _ := windows.UTF16PtrFromString("Segoe UI")
@@ -777,10 +777,10 @@ uintptr(unsafe.Pointer(&o.gdipFontSmall)))
 }
 procGdipCreateStringFormat.Call(0, 0, uintptr(unsafe.Pointer(&o.gdipStrFmt)))
 
-// Create GDI+ bitmap from icon for bicubic rendering
-if o.hIcon != 0 {
-procGdipCreateBitmapFromHICON.Call(o.hIcon, uintptr(unsafe.Pointer(&o.gdipIconBmp)))
-}
+// Icon bitmap no longer used (overlay icon removed)
+// if o.hIcon != 0 {
+// procGdipCreateBitmapFromHICON.Call(o.hIcon, uintptr(unsafe.Pointer(&o.gdipIconBmp)))
+// }
 
 // Create persistent DIB section for ULW rendering
 o.createDIB()
@@ -940,16 +940,8 @@ o.drawPillPath(g, 3, 3, 0x30000000)
 // Main pill background (80% opaque for more translucency)
 o.drawPillPath(g, 0, 0, 0xCC0A1A29)
 
-// App icon (bicubic interpolation) — positioned after cancel button
-if o.gdipIconBmp != 0 {
-iconX := int32(_BTN_CANCEL_X + _BTN_SIZE + 10)
-iconY := int32((_OVL_HEIGHT - _ICON_SIZE) / 2)
-procGdipDrawImageRectI.Call(g, o.gdipIconBmp,
-uintptr(iconX), uintptr(iconY), uintptr(_ICON_SIZE), uintptr(_ICON_SIZE))
-}
-
-// Content area starts after icon
-contentX := int32(_BTN_CANCEL_X + _BTN_SIZE + 10 + _ICON_SIZE + 8)
+// Content area starts after cancel button (no icon)
+contentX := int32(_BTN_CANCEL_X + _BTN_SIZE + 16)
 
 o.mu.Lock()
 state := o.state

@@ -85,10 +85,32 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 	if mainWindowOpen {
 		if mainWindowHwnd != 0 {
 			user32 := windows.NewLazySystemDLL("user32.dll")
+			kernel32 := windows.NewLazySystemDLL("kernel32.dll")
 			setForeground := user32.NewProc("SetForegroundWindow")
 			showWin := user32.NewProc("ShowWindow")
+			bringToTop := user32.NewProc("BringWindowToTop")
+			getForeground := user32.NewProc("GetForegroundWindow")
+			getWindowThreadProcessId := user32.NewProc("GetWindowThreadProcessId")
+			attachThreadInput := user32.NewProc("AttachThreadInput")
+			getCurrentThreadId := kernel32.NewProc("GetCurrentThreadId")
 			showWin.Call(mainWindowHwnd, 9) // SW_RESTORE
-			setForeground.Call(mainWindowHwnd)
+			// AttachThreadInput trick for reliable foreground
+			fgHwnd, _, _ := getForeground.Call()
+			if fgHwnd != 0 {
+				fgThread, _, _ := getWindowThreadProcessId.Call(fgHwnd, 0)
+				curThread, _, _ := getCurrentThreadId.Call()
+				if fgThread != curThread {
+					attachThreadInput.Call(curThread, fgThread, 1) // attach
+					setForeground.Call(mainWindowHwnd)
+					bringToTop.Call(mainWindowHwnd)
+					attachThreadInput.Call(curThread, fgThread, 0) // detach
+				} else {
+					setForeground.Call(mainWindowHwnd)
+					bringToTop.Call(mainWindowHwnd)
+				}
+			} else {
+				setForeground.Call(mainWindowHwnd)
+			}
 		}
 		mainWindowMu.Unlock()
 		return
@@ -133,9 +155,11 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		// Set window icon from embedded .ico
 		setWindowIcon(hwndPtr)
 
-		// Bind: windowReady → shows the window after HTML is fully loaded
+		// Bind: windowReady → shows the window and focuses it after HTML is fully loaded
 		w.Bind("windowReady", func() {
 			showWindow.Call(hwnd, swShow)
+			setFgProc := user32.NewProc("SetForegroundWindow")
+			setFgProc.Call(hwnd)
 		})
 
 		// Inject the current language, theme, and initial page before page loads
