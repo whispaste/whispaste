@@ -1,5 +1,14 @@
 /* ── Analytics Page ──────────────────────────────────── */
 let _analyticsPeriod = 30;
+let _analyticsInterval = null;
+
+function startAnalyticsAutoRefresh() {
+  stopAnalyticsAutoRefresh();
+  _analyticsInterval = setInterval(() => loadAnalytics(), 3000);
+}
+function stopAnalyticsAutoRefresh() {
+  if (_analyticsInterval) { clearInterval(_analyticsInterval); _analyticsInterval = null; }
+}
 
 async function loadAnalytics(periodDays) {
   if (periodDays !== undefined) _analyticsPeriod = periodDays;
@@ -82,10 +91,10 @@ function renderDailyChart(dailyCounts) {
 
   const days = Object.keys(dailyCounts).sort();
   const maxCount = Math.max(...Object.values(dailyCounts), 1);
-  const w = 100; // percentage width
   const h = 140;
-  const padding = { top: 10, bottom: 25, left: 5, right: 5 };
+  const padding = { top: 10, bottom: 25, left: 30, right: 5 };
   const chartH = h - padding.top - padding.bottom;
+  const chartW = 400 - padding.left - padding.right;
 
   // Show last N days with gaps filled
   const last14 = [];
@@ -98,21 +107,34 @@ function renderDailyChart(dailyCounts) {
     last14.push({ date: key, count: dailyCounts[key] || 0, label: d.getDate().toString() });
   }
 
-  const barW = (100 - 10) / last14.length;
+  // Grid lines (3-4 horizontal lines with value labels)
+  const gridSteps = 4;
+  let gridLines = '';
+  for (let i = 0; i <= gridSteps; i++) {
+    const y = padding.top + chartH - (i / gridSteps) * chartH;
+    const val = Math.round((i / gridSteps) * maxCount);
+    gridLines += `<line class="grid-line" x1="${padding.left}" y1="${y}" x2="${400 - padding.right}" y2="${y}"/>`;
+    gridLines += `<text class="grid-label" x="${padding.left - 4}" y="${y + 3}" text-anchor="end">${val}</text>`;
+  }
+
+  const barW = chartW / last14.length;
+  const maxBarPx = 48; // max bar width in SVG units
   let bars = '';
   last14.forEach((d, i) => {
     const barH = (d.count / maxCount) * chartH;
-    const x = 5 + i * barW + barW * 0.15;
-    const bw = barW * 0.7;
-    bars += `<rect class="bar" x="${x}%" y="${padding.top + chartH - barH}" width="${bw}%" height="${barH}"/>`;
+    const bwRaw = barW * 0.7;
+    const bw = Math.min(bwRaw, maxBarPx);
+    const x = padding.left + i * barW + (barW - bw) / 2;
+    bars += `<rect class="bar" x="${x}" y="${padding.top + chartH - barH}" width="${bw}" height="${barH}" rx="2"/>`;
     if (last14.length <= 14) {
-      bars += `<text x="${x + bw / 2}%" y="${h - 4}" text-anchor="middle">${d.label}</text>`;
+      bars += `<text x="${padding.left + i * barW + barW / 2}" y="${h - 4}" text-anchor="middle">${d.label}</text>`;
     }
   });
 
-  return `<svg class="bar-chart" viewBox="0 0 400 ${h}" preserveAspectRatio="none">
-    <line class="axis" x1="0" y1="${padding.top + chartH}" x2="400" y2="${padding.top + chartH}"/>
-    ${bars.replace(/%/g, '%')}
+  return `<svg class="bar-chart" viewBox="0 0 400 ${h}" preserveAspectRatio="xMidYMid meet">
+    ${gridLines}
+    <line class="axis" x1="${padding.left}" y1="${padding.top + chartH}" x2="${400 - padding.right}" y2="${padding.top + chartH}"/>
+    ${bars}
   </svg>`;
 }
 
@@ -165,12 +187,12 @@ function renderDurationBars(buckets) {
   return `<div class="duration-bars">${keys.map(k => {
     const v = buckets[k] || 0;
     const pct = (v / maxVal) * 100;
-    return `<div style="flex:1;text-align:center">
-      <div style="display:flex;align-items:flex-end;height:100px;justify-content:center">
-        <div class="dur-bar" style="height:${Math.max(pct, 2)}%;width:80%"></div>
+    return `<div class="dur-col">
+      <div class="dur-bar-wrap">
+        <div class="dur-bar" style="height:${Math.max(pct, 2)}%"></div>
       </div>
       <div class="dur-bar-label">${k}</div>
-      <div style="font-size:10px;color:var(--text-hint);text-align:center">${v}</div>
+      <div class="dur-bar-value">${v}</div>
     </div>`;
   }).join('')}</div>`;
 }
