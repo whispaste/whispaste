@@ -58,6 +58,23 @@ $elapsed = (Get-Date) - $startTime
 $file = Get-Item whispaste.exe
 $sizeMB = [math]::Round($file.Length / 1MB, 2)
 
+# Copy sherpa-onnx DLLs from Go module cache if not already present
+$sherpaVer = "v1.12.28"
+$sherpaDir = "$env:GOPATH\pkg\mod\github.com\k2-fsa\sherpa-onnx-go-windows@$sherpaVer\lib\x86_64-pc-windows-gnu"
+if (-not $env:GOPATH) { $sherpaDir = "$env:USERPROFILE\go\pkg\mod\github.com\k2-fsa\sherpa-onnx-go-windows@$sherpaVer\lib\x86_64-pc-windows-gnu" }
+$requiredDlls = @("onnxruntime.dll", "sherpa-onnx-c-api.dll", "sherpa-onnx-cxx-api.dll")
+foreach ($dll in $requiredDlls) {
+    if (-not (Test-Path $dll)) {
+        $src = Join-Path $sherpaDir $dll
+        if (Test-Path $src) {
+            Copy-Item $src -Destination . -Force
+            Write-Host "  Copied:  $dll" -ForegroundColor DarkGray
+        } else {
+            Write-Host "  WARNING: $dll not found at $src" -ForegroundColor Yellow
+        }
+    }
+}
+
 Write-Host "`n=== Build Successful ===" -ForegroundColor Green
 Write-Host "  Output:  whispaste.exe"
 Write-Host "  Size:    $sizeMB MB"

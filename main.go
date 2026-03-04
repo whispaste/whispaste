@@ -58,14 +58,14 @@ func main() {
 	)
 
 	// Snapshot config values under lock to avoid data races
-	snapshotConfig := func() (playSounds, autoPaste bool, lang, apiKey, model, endpoint, prompt string) {
+	snapshotConfig := func() (playSounds, autoPaste bool, lang, apiKey, model, endpoint, prompt string, useLocal bool) {
 		cfg.mu.RLock()
 		defer cfg.mu.RUnlock()
 		endpoint = cfg.APIEndpoint
 		if endpoint == "" {
 			endpoint = "https://api.openai.com/v1/audio/transcriptions"
 		}
-		return cfg.PlaySounds, cfg.AutoPaste, cfg.Language, cfg.APIKey, cfg.Model, endpoint, cfg.Prompt
+		return cfg.PlaySounds, cfg.AutoPaste, cfg.Language, cfg.APIKey, cfg.Model, endpoint, cfg.Prompt, cfg.UseLocalSTT
 	}
 	snapshotSmart := func() (enabled bool, preset, customPrompt, targetLang string) {
 		cfg.mu.RLock()
@@ -92,7 +92,7 @@ func main() {
 			tray.SetTooltipState(newState)
 		}
 
-		playSounds, autoPaste, lang, apiKey, model, endpoint, prompt := snapshotConfig()
+		playSounds, autoPaste, lang, apiKey, model, endpoint, prompt, useLocal := snapshotConfig()
 
 		// Clean up level-monitoring goroutine when leaving recording/paused state
 		if (oldState == StateRecording || oldState == StatePaused) && levelDone != nil {
@@ -184,8 +184,20 @@ func main() {
 			// Transcribe in background (use snapshot values, not cfg directly)
 			go func() {
 				startTime := time.Now()
-				wav := EncodeWAV(pcm, 16000, 1, 16)
-				text, err := Transcribe(wav, lang, apiKey, model, endpoint, prompt)
+				var text string
+				var err error
+				if useLocal {
+					modelDir, mdErr := GetModelDir(cfg.GetLocalModelID())
+					if mdErr != nil {
+						logError("Model directory error: %v", mdErr)
+						text, err = "", mdErr
+					} else {
+						text, err = GetLocalRecognizer().Transcribe(pcm, 16000, lang, modelDir)
+					}
+				} else {
+					wav := EncodeWAV(pcm, 16000, 1, 16)
+					text, err = Transcribe(wav, lang, apiKey, model, endpoint, prompt)
+				}
 				if err != nil {
 					logError("Transcription error: %v", err)
 					if playSounds {
@@ -278,7 +290,7 @@ func main() {
 	}
 
 	// Check API key
-	if !cfg.HasAPIKey() {
+	if !cfg.GetUseLocalSTT() && !cfg.HasAPIKey() {
 		logInfo("No API key configured – opening settings on launch")
 	}
 
@@ -335,8 +347,8 @@ func main() {
 		stateMu.Unlock()
 
 		if s == StateIdle {
-			if !cfg.HasAPIKey() {
-				ps, _, _, _, _, _, _ := snapshotConfig()
+			if !cfg.GetUseLocalSTT() && !cfg.HasAPIKey() {
+				ps, _, _, _, _, _, _, _ := snapshotConfig()
 				if ps {
 					PlayFeedback(SoundError)
 				}
@@ -418,7 +430,7 @@ func main() {
 		s := state
 		stateMu.Unlock()
 		if s == StateIdle {
-			if cfg.HasAPIKey() {
+			if cfg.GetUseLocalSTT() || cfg.HasAPIKey() {
 				transition(StateRecording)
 			}
 		} else if s == StateRecording || s == StatePaused {
@@ -450,8 +462,8 @@ func main() {
 		onToggle,
 	)
 
-	// Open settings on first run (no API key)
-	if !cfg.HasAPIKey() {
+	// Open settings on first run (no API key and not using local STT)
+	if !cfg.GetUseLocalSTT() && !cfg.HasAPIKey() {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
 			ShowMainWindow(cfg, recorder, history, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, onToggle, "settings")
