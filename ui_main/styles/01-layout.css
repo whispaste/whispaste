@@ -25,15 +25,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px 0 12px;
+  padding: 16px 0 14px;
   width: 100%;
   border-bottom: 1px solid var(--border-subtle);
+  overflow: hidden;
 }
 .nav-brand-icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
   object-fit: contain;
+  border-radius: var(--radius-md);
 }
 .nav-brand-text { display: none; }
 

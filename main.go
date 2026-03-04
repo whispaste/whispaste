@@ -14,6 +14,15 @@ func main() {
 	InitLogger(LogDebug)
 	defer CloseLogger()
 
+	// Detect --autostart flag (set by Windows autostart registry entry)
+	isAutostart := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--autostart" {
+			isAutostart = true
+			break
+		}
+	}
+
 	// Enable debug mode via environment variable
 	if os.Getenv("WHISPASTE_DEBUG") == "1" {
 		debugMode = true
@@ -505,6 +514,12 @@ func main() {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
 			ShowMainWindow(cfg, recorder, history, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, onToggle, "settings")
+		}()
+	} else if !isAutostart {
+		// Manual launch: show dashboard immediately
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			ShowMainWindow(cfg, recorder, history, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, onToggle, "history")
 		}()
 	}
 
