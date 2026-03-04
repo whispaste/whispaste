@@ -82,13 +82,14 @@ func main() {
 
 	// Application state
 	var (
-		state       = StateIdle
-		stateMu     sync.Mutex
-		stateGen    uint64 // generation counter for auto-hide goroutines
-		levelDone   chan struct{}
-		recordStart time.Time // wall-clock time when recording started
-		hkMu        sync.Mutex // protects hkMgr
-		tray        *AppTray   // set after creation, used by transition
+		state        = StateIdle
+		stateMu      sync.Mutex
+		stateGen     uint64 // generation counter for auto-hide goroutines
+		levelDone    chan struct{}
+		recordStart  time.Time // wall-clock time when recording started
+		hkMu         sync.Mutex // protects hkMgr
+		tray         *AppTray   // set after creation, used by transition
+		showDashboard func()    // opens main window, set after onSettingsSaved is defined
 	)
 
 	// Snapshot config values under lock to avoid data races
@@ -436,6 +437,14 @@ func main() {
 					}
 				}
 			},
+			func() { // onDash: open dashboard/main window
+				stateMu.Lock()
+				fn := showDashboard
+				stateMu.Unlock()
+				if fn != nil {
+					go fn()
+				}
+			},
 		)
 	}
 
@@ -540,6 +549,15 @@ func main() {
 			transition(StateTranscribing)
 		}
 	}
+	stateMu.Lock()
+	showDashboard = func() {
+		ShowMainWindow(cfg, recorder, history, onSettingsSaved, func() {
+			if tray != nil {
+				tray.ShowMinimizeBalloon()
+			}
+		}, onToggle, "")
+	}
+	stateMu.Unlock()
 	tray = NewAppTray(
 		func(page string) {
 			ShowMainWindow(cfg, recorder, history, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, onToggle, page)

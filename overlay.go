@@ -96,11 +96,12 @@ _WAVE_BAR_W = 4
 _WAVE_GAP   = 3
 _WAVE_AMP   = 1.5 // post-sqrt scale factor for waveform bars
 
-// Control button layout: [Cancel] [Icon] [Timer] [Waveform] [Pause] [Stop]
+// Control button layout: [Dashboard] [Cancel] [Timer] [Waveform] [Pause] [Stop]
 _BTN_SIZE      = 40
 _BTN_GAP       = 8
 _BTN_Y         = (_OVL_HEIGHT - _BTN_SIZE) / 2
-_BTN_CANCEL_X  = 14                                       // left edge
+_BTN_DASH_X    = 14                                       // left edge (dashboard)
+_BTN_CANCEL_X  = _BTN_DASH_X + _BTN_SIZE + _BTN_GAP       // right of dashboard
 _BTN_CONFIRM_X = _OVL_WIDTH - _BTN_SIZE - 14              // right edge (stop/confirm)
 _BTN_PAUSE_X   = _BTN_CONFIRM_X - _BTN_SIZE - _BTN_GAP    // left of confirm
 
@@ -444,6 +445,7 @@ done      chan struct{}
 onConfirm func() // called when confirm/stop button clicked
 onCancel  func() // called when cancel button clicked
 onPause   func() // called when pause/resume button clicked
+onDash    func() // called when dashboard button clicked
 paused    bool   // whether recording is paused
 pauseStart time.Time    // when current pause began
 pauseAccum time.Duration // accumulated pause time
@@ -481,6 +483,10 @@ case _WM_NCHITTEST:
 		pt.X = xScreen
 		pt.Y = yScreen
 		procScreenToClient.Call(hwnd, uintptr(unsafe.Pointer(&pt)))
+		if pt.X >= _BTN_DASH_X && pt.X <= _BTN_DASH_X+_BTN_SIZE &&
+			pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
+			return 1 // HTCLIENT
+		}
 		if pt.X >= _BTN_CANCEL_X && pt.X <= _BTN_CANCEL_X+_BTN_SIZE &&
 			pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
 			return 1 // HTCLIENT
@@ -518,10 +524,18 @@ case 0x0201: // WM_LBUTTONDOWN
 	confirmCB := o.onConfirm
 	cancelCB := o.onCancel
 	pauseCB := o.onPause
+	dashCB := o.onDash
 	o.mu.Unlock()
 	if st == StateRecording || st == StatePaused {
 		x := int32(lParam & 0xFFFF)
 		y := int32((lParam >> 16) & 0xFFFF)
+		if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE &&
+			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			if dashCB != nil {
+				go dashCB()
+			}
+			return 0
+		}
 		if x >= _BTN_CANCEL_X && x <= _BTN_CANCEL_X+_BTN_SIZE &&
 			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
 			if cancelCB != nil {
@@ -831,11 +845,12 @@ uintptr(dataSize),
 }
 
 // SetCallbacks sets the confirm, cancel, and pause button callbacks.
-func (o *Overlay) SetCallbacks(onConfirm, onCancel, onPause func()) {
+func (o *Overlay) SetCallbacks(onConfirm, onCancel, onPause, onDash func()) {
 o.mu.Lock()
 o.onConfirm = onConfirm
 o.onCancel = onCancel
 o.onPause = onPause
+o.onDash = onDash
 o.mu.Unlock()
 }
 
@@ -1066,7 +1081,11 @@ func (o *Overlay) measureGdipTextWidth(g uintptr, text string, font uintptr) flo
 func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pauseAccum time.Duration, isPaused bool, levels [_WAVE_BARS]float32, levelIdx int, contentX int32) {
 cy := int32(_OVL_HEIGHT / 2)
 
-// Cancel button (dark circle with ✕) — left side
+// Dashboard button (dark circle with grid icon) — far left
+gdipFillCircleG(g, 0xFF1E2A36, _BTN_DASH_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+o.drawGridIcon(g, _BTN_DASH_X, int32(cy)-_BTN_SIZE/2)
+
+// Cancel button (dark circle with ✕)
 gdipFillCircleG(g, 0xFF1E2A36, _BTN_CANCEL_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 o.drawXIcon(g, _BTN_CANCEL_X, int32(cy)-_BTN_SIZE/2)
 
@@ -1154,6 +1173,18 @@ func (o *Overlay) drawXIcon(g uintptr, bx, by int32) {
 	s := int32(7)
 	procGdipDrawLineI.Call(g, pen, uintptr(cx-s), uintptr(cy-s), uintptr(cx+s), uintptr(cy+s))
 	procGdipDrawLineI.Call(g, pen, uintptr(cx+s), uintptr(cy-s), uintptr(cx-s), uintptr(cy+s))
+}
+
+// drawGridIcon draws a 2×2 grid icon (dashboard) using GDI+ filled rectangles.
+func (o *Overlay) drawGridIcon(g uintptr, bx, by int32) {
+	cx := bx + _BTN_SIZE/2
+	cy := by + _BTN_SIZE/2
+	cell := int32(5) // cell size
+	gap := int32(3)  // gap between cells
+	gdipFillRectG(g, 0xCCAABBCC, cx-gap-cell, cy-gap-cell, cell, cell) // top-left
+	gdipFillRectG(g, 0xCCAABBCC, cx+gap, cy-gap-cell, cell, cell)      // top-right
+	gdipFillRectG(g, 0xCCAABBCC, cx-gap-cell, cy+gap, cell, cell)      // bottom-left
+	gdipFillRectG(g, 0xCCAABBCC, cx+gap, cy+gap, cell, cell)           // bottom-right
 }
 
 // drawStopIcon draws a ■ stop square icon using GDI+ filled rounded rect.
