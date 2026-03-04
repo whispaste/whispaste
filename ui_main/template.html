@@ -56,6 +56,21 @@
         </div>
         <span class="count-badge" id="countBadge">0</span>
       </div>
+      <!-- Selection Bar (shown when items selected) -->
+      <div class="selection-bar hidden" id="selectionBar">
+        <div class="selection-info">
+          <button class="btn-icon" id="selectionClose" title="Cancel">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+          <span id="selectionCount">0</span> <span data-i18n="notebook.selected">selected</span>
+        </div>
+        <div class="selection-actions">
+          <button class="btn btn-danger btn-sm" id="deleteSelectedBtn">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            <span data-i18n="notebook.delete_selected">Delete</span>
+          </button>
+        </div>
+      </div>
       <div class="history-layout">
         <div class="filter-sidebar">
           <div class="filter-section">
@@ -443,10 +458,14 @@
 <!-- Delete Confirmation -->
 <div class="confirm-overlay" id="confirmOverlay">
   <div class="confirm-dialog">
-    <p data-i18n="notebook.confirm_delete">Delete this entry?</p>
-    <div class="confirm-actions">
-      <button class="btn btn-secondary" id="confirmCancel" data-i18n="btnCancel">Cancel</button>
-      <button class="btn btn-primary" id="confirmDelete" style="background:var(--error);border-color:var(--error);" data-i18n="notebook.delete">Delete</button>
+    <div class="confirm-icon">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+    </div>
+    <div class="confirm-title" id="confirmTitle" data-i18n="notebook.confirm_title">Delete Entry</div>
+    <div class="confirm-msg" id="confirmMsg" data-i18n="notebook.confirm_msg">This entry will be permanently deleted.</div>
+    <div class="confirm-btns">
+      <button class="btn btn-secondary flex-1" id="confirmCancel" data-i18n="notebook.confirm_cancel">Cancel</button>
+      <button class="btn btn-danger flex-1" id="confirmDelete" data-i18n="notebook.confirm_delete">Delete</button>
     </div>
   </div>
 </div>

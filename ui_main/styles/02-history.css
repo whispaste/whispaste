@@ -337,3 +337,62 @@
 }
 .fab:active { transform: scale(.95) rotate(0deg); }
 .fab .icon { width: 22px; height: 22px; }
+
+/* ── Selection Bar ───────────────────────────────────── */
+.selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 24px;
+  background: var(--accent-subtle);
+  border-bottom: 1px solid var(--border-accent);
+  flex-shrink: 0;
+  animation: fadeIn 200ms ease;
+}
+.selection-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  color: var(--accent);
+}
+.selection-actions { display: flex; gap: 8px; }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+
+/* ── Entry Checkbox ──────────────────────────────────── */
+.entry-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-secondary);
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition);
+  opacity: 0;
+  margin-right: 4px;
+}
+.entry:hover .entry-checkbox,
+.entry.selected .entry-checkbox,
+.selecting .entry-checkbox { opacity: 1; }
+.entry-checkbox.checked {
+  background: var(--gradient-accent);
+  border-color: var(--accent);
+}
+.entry-checkbox.checked::after {
+  content: '';
+  display: block;
+  width: 5px;
+  height: 9px;
+  border: solid var(--text-inverse);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+.entry.selected {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
