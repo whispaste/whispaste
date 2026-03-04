@@ -314,6 +314,37 @@ func main() {
 					transition(StateTranscribing)
 				}
 			},
+			func() { // onCancel: abort recording, discard audio
+				stateMu.Lock()
+				s := state
+				if s != StateRecording && s != StatePaused {
+					stateMu.Unlock()
+					return
+				}
+				state = StateIdle
+				ld := levelDone
+				levelDone = nil
+				stateMu.Unlock()
+
+				logInfo("Recording cancelled via overlay button")
+				if recorder.IsPaused() {
+					recorder.Resume()
+				}
+				recorder.Stop() // discard audio
+				ps, _, _, _, _, _, _, _ := snapshotConfig()
+				if ps {
+					PlayFeedback(SoundError)
+				}
+				if overlay != nil {
+					overlay.Hide()
+				}
+				if ld != nil {
+					close(ld)
+				}
+				if tray != nil {
+					tray.SetTooltipState(StateIdle)
+				}
+			},
 			func() { // onPause: toggle pause/resume
 				stateMu.Lock()
 				s := state
