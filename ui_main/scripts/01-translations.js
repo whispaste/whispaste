@@ -308,6 +308,13 @@ const translations = {
     'modelSwitcher.switched': 'Model switched successfully',
     'modelSwitcher.error': 'Failed to switch model',
 
+    // Smart mode switcher
+    'smartSwitcher.title': 'Smart Mode',
+    'smartSwitcher.settings': 'Smart Mode Settings →',
+    'smartSwitcher.switched': 'Switched to',
+    'smartSwitcher.enabled': 'Smart Mode enabled',
+    'smartSwitcher.disabled': 'Smart Mode disabled',
+
     // Smart Actions
     'smart.action': 'Smart Action',
     'smart.title': 'Apply Smart Action',
@@ -670,6 +677,13 @@ const translations = {
     'modelSwitcher.settings': 'Modell-Einstellungen →',
     'modelSwitcher.switched': 'Modell erfolgreich gewechselt',
     'modelSwitcher.error': 'Modellwechsel fehlgeschlagen',
+
+    // Smart mode switcher
+    'smartSwitcher.title': 'Smart-Modus',
+    'smartSwitcher.settings': 'Smart-Modus-Einstellungen →',
+    'smartSwitcher.switched': 'Gewechselt zu',
+    'smartSwitcher.enabled': 'Smart-Modus aktiviert',
+    'smartSwitcher.disabled': 'Smart-Modus deaktiviert',
 
     // Smart Actions
     'smart.action': 'Smart-Aktion',
