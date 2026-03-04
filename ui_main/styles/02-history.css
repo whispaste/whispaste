@@ -224,7 +224,6 @@
 .entry-header {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
 }
 
 .entry-title {
@@ -262,6 +261,7 @@
   flex-shrink: 0;
   opacity: 0;
   transition: opacity var(--transition);
+  margin-left: 10px;
 }
 .entry:hover .entry-actions { opacity: 1; }
 
@@ -286,6 +286,17 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+.entry-chevron {
+  display: flex;
+  align-items: center;
+  color: var(--text-hint);
+  flex-shrink: 0;
+  margin-left: 4px;
+  transition: transform 0.2s ease;
+}
+.entry-chevron .icon-chevron { width: 16px; height: 16px; }
+.entry.expanded .entry-chevron { transform: rotate(180deg); }
 
 .entry.expanded .entry-preview { display: none; }
 
