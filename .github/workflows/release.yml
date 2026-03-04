@@ -138,6 +138,24 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          body: |
+            ## 📦 Installation
+
+            ### Portable (recommended)
+            1. Download **all files below** (`whispaste.exe` + all `.dll` files)
+            2. Place them in the **same folder**
+            3. Double-click `whispaste.exe` — it will appear in your system tray
+            4. Right-click the tray icon → Settings → enter your OpenAI API key or enable local models
+
+            > The DLL files (`onnxruntime.dll`, `sherpa-onnx-c-api.dll`, `sherpa-onnx-cxx-api.dll`) are required for local speech recognition. If you only use the cloud API, the app will work without them.
+
+            ### MSIX Package
+            Download `whispaste.msix` for managed Windows installation.
+
+            ### Checksum
+            Verify the binary with: `certutil -hashfile whispaste.exe SHA256` and compare with `whispaste.exe.sha256`.
+
+            ---
           files: |
             whispaste.exe
             whispaste.exe.sha256
