@@ -338,6 +338,7 @@ function renderHistory() {
           <button class="btn-icon" title="${t('notebook.duplicate')}" data-action="duplicate" data-id="${e.id}">${icons.filePlus}</button>
           <button class="btn-icon pin${e.pinned ? ' active' : ''}" title="${e.pinned ? t('notebook.unpin') : t('notebook.pin')}" data-action="pin" data-id="${e.id}">${icons.pin}</button>
           <button class="btn-icon delete" title="${t('notebook.delete')}" data-action="delete" data-id="${e.id}">${icons.trash}</button>
+          <button class="btn-icon" title="${t('smart.action')}" data-action="smart" data-id="${e.id}">${icons.sparkle}</button>
         </div>
       </div>
       <div class="entry-preview">${highlightSearch(e.text, _searchQuery)}</div>
@@ -408,6 +409,7 @@ function renderHistory() {
       else if (action === 'pin') doPin(id);
       else if (action === 'delete') confirmDelete(id);
       else if (action === 'edit-text') startEditText(id);
+      else if (action === 'smart') showSmartActionMenu(id, btn);
       else if (action === 'save-text') saveEditText(id);
       else if (action === 'cancel-text') cancelEditText(id);
     });

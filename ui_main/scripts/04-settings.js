@@ -41,7 +41,10 @@ function gatherConfig() {
     notify_complete: document.getElementById('toggle-notify-complete')?.checked ?? true,
     notify_donate: document.getElementById('toggle-notify-donate')?.checked ?? true,
     input_device: document.getElementById('select-audiodevice')?.value || '',
-    input_gain: parseInt(document.getElementById('range-input-gain')?.value || '100', 10) / 100.0
+    input_gain: parseInt(document.getElementById('range-input-gain')?.value || '100', 10) / 100.0,
+    cleanup_enabled: document.getElementById('toggle-cleanup')?.checked || false,
+    cleanup_max_entries: parseInt(document.getElementById('input-cleanup-max-entries')?.value || '0', 10),
+    cleanup_max_age_days: parseInt(document.getElementById('input-cleanup-max-age')?.value || '0', 10)
   };
 }
 
@@ -122,6 +125,9 @@ function applyConfig(cfg) {
     if (el) { el.value = Math.round(cfg.input_gain * 100); }
     if (label) { label.textContent = cfg.input_gain.toFixed(1) + 'x'; }
   }
+  { const el = document.getElementById('toggle-cleanup'); if (el) el.checked = !!cfg.cleanup_enabled; }
+  if (cfg.cleanup_max_entries != null) { const el = document.getElementById('input-cleanup-max-entries'); if (el) el.value = cfg.cleanup_max_entries; }
+  if (cfg.cleanup_max_age_days != null) { const el = document.getElementById('input-cleanup-max-age'); if (el) el.value = cfg.cleanup_max_age_days; }
 }
 
 /* ── Close-to-Tray / NotifyBackground dependency ───── */
@@ -544,6 +550,7 @@ async function renderModelList() {
       <input type="radio" name="local-model" value="${m.id}" class="model-item-radio" ${isSelected ? 'checked' : ''} ${!m.downloaded ? 'disabled' : ''}>
       <div class="model-item-info">
         <div class="model-item-name">${m.name}</div>
+        ${t('model.desc.' + m.id) ? '<div class="model-desc">' + esc(t('model.desc.' + m.id)) + '</div>' : ''}
         <div class="model-item-meta">${m.size}${!m.downloaded ? ' · ' + t('modelNotDownloaded') : ''}</div>
       </div>
       <div class="model-item-action">${actionBtn}</div>

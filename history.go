@@ -452,6 +452,84 @@ func (h *History) Merge(ids []string) string {
 	return merged.ID
 }
 
+// GetByID returns a copy of the entry with the given ID, or nil if not found.
+func (h *History) GetByID(id string) *HistoryEntry {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, e := range h.Entries {
+		if e.ID == id {
+			copy := e
+			return &copy
+		}
+	}
+	return nil
+}
+
+// AddSmart creates a new entry with the given text, language, and tags.
+func (h *History) AddSmart(text, language string, tags []string) {
+	h.mu.Lock()
+	h.cache = nil
+	h.Entries = append(h.Entries, HistoryEntry{
+		ID:        generateID(),
+		Text:      text,
+		Title:     autoTitle(text),
+		Timestamp: time.Now().Format(time.RFC3339),
+		Language:  language,
+		Source:    "smart",
+		Tags:      tags,
+	})
+	if len(h.Entries) > defaultMaxHistory {
+		h.Entries = h.Entries[len(h.Entries)-defaultMaxHistory:]
+	}
+	h.mu.Unlock()
+	h.save()
+}
+
+// Cleanup removes old entries based on config settings.
+func (h *History) Cleanup(maxEntries, maxAgeDays int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	changed := false
+
+	// Remove by age
+	if maxAgeDays > 0 {
+		cutoff := time.Now().AddDate(0, 0, -maxAgeDays)
+		var kept []HistoryEntry
+		for _, e := range h.Entries {
+			ts, err := time.Parse(time.RFC3339, e.Timestamp)
+			if err != nil || ts.After(cutoff) || e.Pinned {
+				kept = append(kept, e)
+			} else {
+				changed = true
+			}
+		}
+		h.Entries = kept
+	}
+
+	// Remove by count (keep newest, but always keep pinned)
+	if maxEntries > 0 && len(h.Entries) > maxEntries {
+		var pinned, regular []HistoryEntry
+		for _, e := range h.Entries {
+			if e.Pinned {
+				pinned = append(pinned, e)
+			} else {
+				regular = append(regular, e)
+			}
+		}
+		if len(regular) > maxEntries {
+			regular = regular[len(regular)-maxEntries:]
+			changed = true
+		}
+		h.Entries = append(pinned, regular...)
+	}
+
+	if changed {
+		h.cache = nil
+		h.saveLocked()
+	}
+}
+
 // DuplicateEntry creates a copy of an entry by ID.
 func (h *History) DuplicateEntry(id string) bool {
 	h.mu.Lock()
