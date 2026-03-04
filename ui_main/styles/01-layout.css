@@ -191,6 +191,19 @@
 }
 .fab:active { transform: scale(.95) rotate(0deg); }
 .fab .icon { width: 22px; height: 22px; }
+.fab.recording {
+  background: var(--danger);
+  animation: fabPulse 1.5s ease infinite;
+}
+.fab.recording:hover {
+  background: color-mix(in srgb, var(--danger) 85%, black);
+  transform: scale(1.08);
+  box-shadow: var(--shadow-xl), 0 0 16px color-mix(in srgb, var(--danger) 40%, transparent);
+}
+@keyframes fabPulse {
+  0%, 100% { box-shadow: var(--shadow-lg), 0 0 8px color-mix(in srgb, var(--danger) 30%, transparent); }
+  50% { box-shadow: var(--shadow-lg), 0 0 20px color-mix(in srgb, var(--danger) 50%, transparent); }
+}
 
 /* ── Global Status Bar ────────────────────────────────── */
 .global-status-bar {

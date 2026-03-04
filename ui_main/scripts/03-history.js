@@ -139,9 +139,10 @@ function updateCounts() {
       catSection.style.display = '';
       catList.innerHTML = Object.entries(cats).map(([name, count]) => {
         const label = name === 'merged' ? t('catMerged') : name;
+        const c = getTagColor(name);
         return `
         <div class="filter-item${_activeFilter === 'cat:' + esc(name) ? ' active' : ''}" data-filter="cat:${esc(name)}">
-          ${icons.tag}
+          <span class="tag-color-dot" style="background:${c.text}"></span>
           <span>${esc(label)}</span>
           <span class="filter-count">${count}</span>
         </div>
@@ -254,7 +255,7 @@ function renderHistory() {
             <span>${formatTime(e.timestamp)}</span>
             ${e.duration_sec ? '<span>' + formatDuration(e.duration_sec) + '</span>' : ''}
             ${e.language ? '<span>' + e.language.toUpperCase() + '</span>' : ''}
-            ${(e.tags || []).map(tag => '<span class="tag">' + esc(tag === 'merged' ? t('catMerged') : tag) + '</span>').join('')}
+            ${(e.tags || []).map(tag => { const c = getTagColor(tag); return '<span class="tag" style="background:'+c.bg+';color:'+c.text+';border-color:'+c.border+'">' + esc(tag === 'merged' ? t('catMerged') : tag) + '</span>'; }).join('')}
           </div>
         </div>
         <span class="entry-chevron">${icons.chevronDown}</span>
@@ -273,12 +274,12 @@ function renderHistory() {
         </div>
         <div class="entry-tags-section">
           <div class="tag-chips-container">
-            ${(e.tags || []).map(tag => `
-              <span class="tag-chip">
+            ${(e.tags || []).map(tag => { const c = getTagColor(tag); return `
+              <span class="tag-chip" style="background:${c.bg};color:${c.text};border-color:${c.border}">
                 ${esc(tag)}
                 <span class="tag-chip-remove" data-remove-tag="${esc(tag)}" data-id="${e.id}">&times;</span>
               </span>
-            `).join('')}
+            `; }).join('')}
             <div class="tag-input-row">
               ${icons.tag}
               <input type="text" class="tag-input" placeholder="${t('notebook.add_tag')}" data-id="${e.id}" />
