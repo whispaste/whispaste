@@ -67,6 +67,10 @@
         <div class="selection-actions">
           <button class="btn btn-secondary btn-sm" onclick="selectAllVisible()" data-i18n="notebook.select_all">Select All</button>
           <button class="btn btn-secondary btn-sm" onclick="clearSelection()" data-i18n="notebook.select_none">None</button>
+          <button class="btn btn-secondary btn-sm" id="mergeSelectedBtn" onclick="mergeSelected()">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>
+            <span data-i18n="notebook.merge">Merge</span>
+          </button>
           <button class="btn btn-danger btn-sm" id="deleteSelectedBtn">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
             <span data-i18n="notebook.delete_selected">Delete</span>
@@ -76,12 +80,18 @@
       <div class="history-layout">
         <div class="filter-sidebar">
           <div class="filter-section">
-            <select class="sort-select" id="sortSelect">
-              <option value="newest" data-i18n-opt="notebook.sort_newest">Newest first</option>
-              <option value="oldest" data-i18n-opt="notebook.sort_oldest">Oldest first</option>
-              <option value="alpha" data-i18n-opt="notebook.sort_alpha">Alphabetical</option>
-              <option value="duration" data-i18n-opt="notebook.sort_duration">By duration</option>
-            </select>
+            <div class="sort-dropdown" id="sortDropdown">
+              <button class="sort-trigger" id="sortTrigger" type="button">
+                <span id="sortLabel" data-i18n="notebook.sort_newest">Newest first</span>
+                <svg class="icon icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="sort-menu" id="sortMenu">
+                <div class="sort-option active" data-sort="newest" data-i18n="notebook.sort_newest">Newest first</div>
+                <div class="sort-option" data-sort="oldest" data-i18n="notebook.sort_oldest">Oldest first</div>
+                <div class="sort-option" data-sort="alpha" data-i18n="notebook.sort_alpha">Alphabetical</div>
+                <div class="sort-option" data-sort="duration" data-i18n="notebook.sort_duration">By duration</div>
+              </div>
+            </div>
           </div>
           <div class="filter-items">
             <div class="filter-item active" data-filter="all">
@@ -108,6 +118,20 @@
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
               <span data-i18n="notebook.older">Older</span>
               <span class="filter-count" id="countOlder">0</span>
+            </div>
+            <div class="filter-item" data-filter="custom">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
+              <span data-i18n="notebook.custom_range">Custom Range</span>
+            </div>
+            <div class="date-range-picker" id="dateRangePicker" style="display:none">
+              <div class="form-group" style="margin-bottom:8px">
+                <label class="form-label form-label-sm" data-i18n="notebook.date_from">From</label>
+                <input type="date" class="form-input form-input-sm" id="dateFrom">
+              </div>
+              <div class="form-group" style="margin-bottom:8px">
+                <label class="form-label form-label-sm" data-i18n="notebook.date_to">To</label>
+                <input type="date" class="form-input form-input-sm" id="dateTo">
+              </div>
             </div>
           </div>
           <div id="categoriesSection" style="display:none">

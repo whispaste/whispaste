@@ -117,6 +117,7 @@ const translations = {
     modelDownloading: 'Downloading…',
     modelDownloaded: 'Downloaded',
     modelDelete: 'Delete model',
+    modelDeleteConfirm: 'Delete this model? This frees disk space but the model must be re-downloaded to use again.',
     modelDownloadDone: 'Model downloaded successfully',
     modelDownloadError: 'Model download failed',
     modelDeleted: 'Model deleted',
@@ -175,7 +176,13 @@ const translations = {
     'notebook.select_none': 'None',
     'notebook.delete_selected': 'Delete',
     'notebook.confirm_delete_multi_title': 'Delete {n} Entries',
-    'notebook.confirm_delete_multi_msg': '{n} entries will be permanently deleted.'
+    'notebook.confirm_delete_multi_msg': '{n} entries will be permanently deleted.',
+    'notebook.custom_range': 'Custom Range',
+    'notebook.date_from': 'From',
+    'notebook.date_to': 'To',
+    'notebook.merge': 'Merge',
+    'mergeTooFew': 'Select at least 2 items to merge',
+    'mergeSuccess': 'Entries merged successfully'
   },
   de: {
     // Navigation
@@ -294,6 +301,7 @@ const translations = {
     modelDownloading: 'Wird heruntergeladen…',
     modelDownloaded: 'Heruntergeladen',
     modelDelete: 'Modell löschen',
+    modelDeleteConfirm: 'Dieses Modell löschen? Dies gibt Speicherplatz frei, aber das Modell muss erneut heruntergeladen werden.',
     modelDownloadDone: 'Modell erfolgreich heruntergeladen',
     modelDownloadError: 'Modell-Download fehlgeschlagen',
     modelDeleted: 'Modell gelöscht',
@@ -352,7 +360,13 @@ const translations = {
     'notebook.select_none': 'Keine',
     'notebook.delete_selected': 'Löschen',
     'notebook.confirm_delete_multi_title': '{n} Einträge löschen',
-    'notebook.confirm_delete_multi_msg': '{n} Einträge werden dauerhaft gelöscht.'
+    'notebook.confirm_delete_multi_msg': '{n} Einträge werden dauerhaft gelöscht.',
+    'notebook.custom_range': 'Benutzerdefiniert',
+    'notebook.date_from': 'Von',
+    'notebook.date_to': 'Bis',
+    'notebook.merge': 'Zusammenführen',
+    'mergeTooFew': 'Mindestens 2 Einträge zum Zusammenführen auswählen',
+    'mergeSuccess': 'Einträge erfolgreich zusammengeführt'
   }
 };
 

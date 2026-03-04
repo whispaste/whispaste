@@ -465,7 +465,38 @@
 }
 
 .model-item-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
+}
+
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.model-badge-success {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success, #10B981);
+}
+
+.btn-ghost {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+.btn-ghost:hover {
+  color: var(--danger, #EF4444);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .model-item-action .btn {
