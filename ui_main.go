@@ -553,7 +553,9 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				return
 			}
 			logPath := filepath.Join(logDir, "whispaste.log")
-			exec.Command("cmd", "/c", "start", "", logPath).Start()
+			if err := exec.Command("rundll32", "url.dll,FileProtocolHandler", logPath).Start(); err != nil {
+				logWarn("Failed to open log file: %v", err)
+			}
 		})
 
 		// Bind: startCapture → triggers recording from dashboard

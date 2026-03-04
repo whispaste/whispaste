@@ -38,6 +38,8 @@ async function loadAnalytics(periodDays) {
   }
 
   const avgDur = data.avgDuration || 0;
+  const minDur = data.minDuration || 0;
+  const maxDur = data.maxDuration || 0;
   const fmtCost = v => '$' + (v || 0).toFixed(4);
   const fmtDur = s => s < 60 ? Math.round(s) + 's' : (s / 60).toFixed(1) + 'm';
 
@@ -51,10 +53,11 @@ async function loadAnalytics(periodDays) {
     </div>`;
   }
 
-  // Summary cards
+  // Summary cards — avg with min/max range
+  const durationDetail = data.totalEntries > 0 ? `<div class="stat-range">${fmtDur(minDur)} – ${fmtDur(maxDur)}</div>` : '';
   html += `<div class="analytics-summary">
     <div class="stat-card"><div class="stat-value">${data.totalEntries}</div><div class="stat-label">${t('analytics.total')}</div></div>
-    <div class="stat-card"><div class="stat-value accent">${fmtDur(avgDur)}</div><div class="stat-label">${t('analytics.avg_duration')}</div></div>
+    <div class="stat-card"><div class="stat-value accent">${fmtDur(avgDur)}</div><div class="stat-label">${t('analytics.avg_duration')}</div>${durationDetail}</div>
     <div class="stat-card"><div class="stat-value">${data.localEntries || 0}</div><div class="stat-label">${t('analytics.local')}</div></div>
     <div class="stat-card"><div class="stat-value">${fmtCost(data.totalCost)}</div><div class="stat-label">${t('analytics.cost')}</div></div>
   </div>`;
@@ -89,23 +92,38 @@ function renderDailyChart(dailyCounts) {
     return `<p style="color:var(--text-hint);font-size:12px">${t('analytics.no_data')}</p>`;
   }
 
-  const days = Object.keys(dailyCounts).sort();
-  const maxCount = Math.max(...Object.values(dailyCounts), 1);
+  // Fill ALL days in the selected period
+  const allDays = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dataDays = Object.keys(dailyCounts).sort();
+
+  if (_analyticsPeriod > 0) {
+    // Fixed range: show exactly N days
+    for (let i = _analyticsPeriod - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      allDays.push({ date: key, count: dailyCounts[key] || 0, label: d.getDate().toString() });
+    }
+  } else {
+    // All Time: span from earliest data to today
+    const earliest = new Date(dataDays[0]);
+    earliest.setHours(0, 0, 0, 0);
+    const span = Math.round((today - earliest) / 86400000) + 1;
+    for (let i = span - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      allDays.push({ date: key, count: dailyCounts[key] || 0, label: d.getDate().toString() });
+    }
+  }
+
+  const maxCount = Math.max(...allDays.map(d => d.count), 1);
   const h = 140;
   const padding = { top: 10, bottom: 25, left: 30, right: 5 };
   const chartH = h - padding.top - padding.bottom;
   const chartW = 400 - padding.left - padding.right;
-
-  // Show last N days with gaps filled
-  const last14 = [];
-  const end = new Date(days[days.length - 1]);
-  const numDays = Math.min(days.length, 14);
-  for (let i = numDays - 1; i >= 0; i--) {
-    const d = new Date(end);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    last14.push({ date: key, count: dailyCounts[key] || 0, label: d.getDate().toString() });
-  }
 
   // Grid lines (3-4 horizontal lines with value labels)
   const gridSteps = 4;
@@ -117,16 +135,20 @@ function renderDailyChart(dailyCounts) {
     gridLines += `<text class="grid-label" x="${padding.left - 4}" y="${y + 3}" text-anchor="end">${val}</text>`;
   }
 
-  const barW = chartW / last14.length;
-  const maxBarPx = 48; // max bar width in SVG units
+  const barW = chartW / allDays.length;
+  const maxBarPx = 48;
   let bars = '';
-  last14.forEach((d, i) => {
+  // Show labels selectively to avoid overlap
+  const labelEvery = allDays.length > 14 ? Math.ceil(allDays.length / 14) : 1;
+  allDays.forEach((d, i) => {
     const barH = (d.count / maxCount) * chartH;
     const bwRaw = barW * 0.7;
     const bw = Math.min(bwRaw, maxBarPx);
     const x = padding.left + i * barW + (barW - bw) / 2;
-    bars += `<rect class="bar" x="${x}" y="${padding.top + chartH - barH}" width="${bw}" height="${barH}" rx="2"/>`;
-    if (last14.length <= 14) {
+    if (d.count > 0) {
+      bars += `<rect class="bar" x="${x}" y="${padding.top + chartH - barH}" width="${bw}" height="${barH}" rx="2"/>`;
+    }
+    if (i % labelEvery === 0) {
       bars += `<text x="${padding.left + i * barW + barW / 2}" y="${h - 4}" text-anchor="middle">${d.label}</text>`;
     }
   });
@@ -143,7 +165,7 @@ function renderModelDonut(modelCounts) {
     return `<p style="color:var(--text-hint);font-size:12px">${t('analytics.no_data')}</p>`;
   }
 
-  const colors = ['#22D3EE', '#67E8F9', '#06B6D4', '#0891B2', '#0E7490', '#155E75'];
+  const colors = ['#22D3EE', '#F59E0B', '#8B5CF6', '#EF4444', '#22C55E', '#EC4899'];
   const entries = Object.entries(modelCounts).sort((a, b) => b[1] - a[1]);
   const total = entries.reduce((s, e) => s + e[1], 0);
 
