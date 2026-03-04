@@ -447,6 +447,8 @@ paused    bool   // whether recording is paused
 pauseStart time.Time    // when current pause began
 pauseAccum time.Duration // accumulated pause time
 mu        sync.Mutex
+modelLabel  string // D1: model name shown in overlay
+smartLabel  string // D2: smart mode indicator shown in overlay
 }
 
 var overlayWndProcCB = syscall.NewCallback(overlayWndProc)
@@ -854,6 +856,18 @@ o.position = pos
 o.mu.Unlock()
 }
 
+// SetInfo updates the model name and smart mode label shown in the recording overlay.
+func (o *Overlay) SetInfo(model, smartPreset string) {
+o.mu.Lock()
+o.modelLabel = model
+if smartPreset != "" && smartPreset != "off" {
+	o.smartLabel = "Smart"
+} else {
+	o.smartLabel = ""
+}
+o.mu.Unlock()
+}
+
 // Show displays the overlay for the given state.
 func (o *Overlay) Show(state AppState) {
 if o.hwnd != 0 {
@@ -1117,6 +1131,23 @@ if isPaused {
 // Stop/confirm button — red circle (matching reference design)
 gdipFillCircleG(g, 0xFFE53935, _BTN_CONFIRM_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 o.drawStopIcon(g, _BTN_CONFIRM_X, int32(cy)-_BTN_SIZE/2)
+
+// Subtle info label at bottom: model name + smart mode indicator
+o.mu.Lock()
+ml := o.modelLabel
+sl := o.smartLabel
+o.mu.Unlock()
+if ml != "" || sl != "" {
+	label := ml
+	if sl != "" {
+		if label != "" {
+			label += "  ·  " + sl
+		} else {
+			label = sl
+		}
+	}
+	o.drawGdipText(g, label, float32(contentX+10), float32(cy+20), float32(_BTN_PAUSE_X-int32(contentX)-20), o.gdipFontSmall, 0x70B0A090)
+}
 }
 
 // drawXIcon draws an ✕ icon using GDI+ lines with round caps.

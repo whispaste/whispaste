@@ -500,20 +500,21 @@ func (t *AppTray) copyHistoryEntry(idx int) {
 	t.ShowBalloon(T("balloon.copied"), preview)
 }
 
-// MaybeSponsorBalloon shows a one-time sponsor balloon after 50 dictations.
+// MaybeSponsorBalloon shows a sponsor balloon every 50 dictations.
 func (t *AppTray) MaybeSponsorBalloon(totalDictations int) {
 	if totalDictations < 50 {
-		return
-	}
-	if t.cfg.GetSponsorShown() {
 		return
 	}
 	if !t.cfg.GetNotifyDonate() {
 		return
 	}
-	t.cfg.SetSponsorShown(true)
+	last := t.cfg.GetSponsorLastRemindedAt()
+	if totalDictations < last+50 {
+		return
+	}
+	t.cfg.SetSponsorLastRemindedAt(totalDictations)
 	if err := t.cfg.Save(); err != nil {
-		logWarn("Failed to save sponsor shown: %v", err)
+		logWarn("Failed to save sponsor reminder: %v", err)
 	}
 	t.ShowBalloon(T("balloon.sponsor_title"), T("balloon.sponsor"))
 }
