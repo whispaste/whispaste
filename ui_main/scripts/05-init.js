@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
       applyConfig(cfg);
       updateModeBadge(cfg);
+      updateStatusBar(cfg);
       loadAudioDevices();
     }
   } catch (e) {

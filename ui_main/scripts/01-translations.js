@@ -248,7 +248,14 @@ const translations = {
     'analytics.savings_suffix': 'by using local models',
     'analytics.empty': 'No transcription data yet.',
     'analytics.no_data': 'No data available.',
-    'analytics.error': 'Failed to load analytics.'
+    'analytics.error': 'Failed to load analytics.',
+
+    // Status bar
+    'statusbar.model_tip': 'Active model — click to change',
+    'statusbar.hotkey_tip': 'Recording hotkey — click to change',
+    'statusbar.smart_tip': 'Smart Mode — click to configure',
+    'statusbar.on': 'On',
+    'statusbar.off': 'Off'
   },
   de: {
     // Navigation
@@ -498,7 +505,14 @@ const translations = {
     'analytics.savings_suffix': 'durch lokale Modelle gespart',
     'analytics.empty': 'Noch keine Transkriptionsdaten.',
     'analytics.no_data': 'Keine Daten verfügbar.',
-    'analytics.error': 'Statistiken konnten nicht geladen werden.'
+    'analytics.error': 'Statistiken konnten nicht geladen werden.',
+
+    // Status bar
+    'statusbar.model_tip': 'Aktives Modell — klicken zum Ändern',
+    'statusbar.hotkey_tip': 'Aufnahme-Tastenkürzel — klicken zum Ändern',
+    'statusbar.smart_tip': 'Smart-Modus — klicken zum Konfigurieren',
+    'statusbar.on': 'An',
+    'statusbar.off': 'Aus'
   }
 };
 
