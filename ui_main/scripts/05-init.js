@@ -10,6 +10,17 @@ function switchPage(pageId) {
   });
   // Load history entries when switching to history page
   if (pageId === 'history') loadEntries();
+  // Auto-select first settings nav item when switching to settings
+  if (pageId === 'settings') {
+    const firstNav = document.querySelector('.filter-item[data-settings-section]');
+    if (firstNav) {
+      document.querySelectorAll('.filter-item[data-settings-section]').forEach(i => i.classList.remove('active'));
+      firstNav.classList.add('active');
+      const sectionId = firstNav.dataset.settingsSection;
+      const target = document.getElementById(sectionId);
+      if (target) target.scrollIntoView({ block: 'start' });
+    }
+  }
 }
 
 /* ── Init ──────────────────────────────────────────────── */

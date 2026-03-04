@@ -144,7 +144,8 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			mainWindowMu.Unlock()
 		}()
 
-		w := webview.New(debugMode)
+		// Always create with DevTools enabled (accessible only via Ctrl+F12, right-click is blocked)
+		w := webview.New(true)
 		if w == nil {
 			return
 		}
@@ -288,6 +289,9 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				}
 			}
 
+			// Stop monitor if running (exclusive capture devices conflict)
+			recorder.StopMonitor()
+			recorder.SetGain(cfg.GetInputGain())
 			if err := recorder.Start(); err != nil {
 				logError("Test recording start failed: %v", err)
 				return map[string]interface{}{
@@ -414,6 +418,26 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			}
 			level := recorder.GetLevel()
 			return fmt.Sprintf("%.4f", level)
+		})
+
+		// Bind: _startAudioMonitor → starts mic monitoring for VU meter
+		w.Bind("_startAudioMonitor", func() string {
+			if recorder == nil {
+				return `{"success":false,"error":"no recorder"}`
+			}
+			recorder.SetGain(cfg.GetInputGain())
+			if err := recorder.StartMonitor(); err != nil {
+				logWarn("StartMonitor failed: %v", err)
+				return fmt.Sprintf(`{"success":false,"error":"%s"}`, err.Error())
+			}
+			return `{"success":true}`
+		})
+
+		// Bind: _stopAudioMonitor → stops mic monitoring
+		w.Bind("_stopAudioMonitor", func() {
+			if recorder != nil {
+				recorder.StopMonitor()
+			}
 		})
 
 		// Bind: openURL → opens URL in default browser (https only)
@@ -602,12 +626,20 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 
 		// Bind: closeWindow → closes the webview window
 		w.Bind("closeWindow", func() {
+			// Stop any running audio monitor before closing
+			if recorder != nil {
+				recorder.StopMonitor()
+			}
 			w.Terminate()
 		})
 
 		w.SetHtml(mainWindowHTML)
 		w.Run()
-		// Window closed — notify caller
+		// Window closed — stop any running audio monitor
+		if recorder != nil {
+			recorder.StopMonitor()
+		}
+		// Notify caller
 		if onClose != nil {
 			onClose()
 		}

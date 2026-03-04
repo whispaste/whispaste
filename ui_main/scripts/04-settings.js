@@ -403,30 +403,60 @@ async function loadAudioDevices() {
 
 /* ── Test Audio Input ─────────────────────────────────── */
 let _testAudioInterval = null;
-function testAudioInput() {
+async function testAudioInput() {
   const meter = document.getElementById('audioLevelMeter');
   const bar = document.getElementById('audioLevelBar');
+  const btn = document.getElementById('btn-test-audio');
+
+  // Toggle off
   if (_testAudioInterval) {
     clearInterval(_testAudioInterval);
     _testAudioInterval = null;
     if (meter) meter.style.display = 'none';
+    if (btn) btn.classList.remove('recording');
+    try { if (window._stopAudioMonitor) await window._stopAudioMonitor(); } catch (e) {}
     return;
   }
+
+  // Start monitoring
+  try {
+    if (window._startAudioMonitor) {
+      const res = await window._startAudioMonitor();
+      const r = typeof res === 'string' ? JSON.parse(res) : res;
+      if (!r.success) {
+        showStatus(r.error || t('statusTestError'), 'error');
+        return;
+      }
+    }
+  } catch (e) {
+    showStatus(t('statusTestError'), 'error');
+    return;
+  }
+
   if (meter) meter.style.display = 'block';
+  if (btn) btn.classList.add('recording');
   let count = 0;
   _testAudioInterval = setInterval(async () => {
     count++;
-    if (count > 50) {
+    if (count > 100) { // 10 seconds
       clearInterval(_testAudioInterval);
       _testAudioInterval = null;
       if (meter) meter.style.display = 'none';
+      if (btn) btn.classList.remove('recording');
+      try { if (window._stopAudioMonitor) await window._stopAudioMonitor(); } catch (e) {}
       return;
     }
     if (window._getAudioLevel) {
       try {
         const level = await window._getAudioLevel();
         const pct = Math.min(100, Math.round(parseFloat(level) * 100));
-        if (bar) bar.style.width = pct + '%';
+        if (bar) {
+          bar.style.width = pct + '%';
+          // Color: green < 60%, yellow 60-85%, red > 85%
+          if (pct > 85) bar.style.background = 'var(--clr-error, #FF3B30)';
+          else if (pct > 60) bar.style.background = 'var(--clr-warning, #FF9500)';
+          else bar.style.background = 'var(--clr-success, #34C759)';
+        }
       } catch (e) {}
     }
   }, 100);
