@@ -248,6 +248,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.UILanguage = newCfg.UILanguage
 			cfg.Theme = newCfg.Theme
 			cfg.Autostart = newCfg.Autostart
+			cfg.CloseToTray = newCfg.CloseToTray
 			cfg.SoundVolume = newCfg.SoundVolume
 			cfg.MaxRecordSec = newCfg.MaxRecordSec
 			cfg.SmartMode = newCfg.SmartMode

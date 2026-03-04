@@ -114,6 +114,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     soundToggle.addEventListener('change', updateVolRow);
     updateVolRow();
   }
+  // Close-to-tray → toggle notify-background dependency
+  const closeToTrayToggle = document.getElementById('toggle-close-to-tray');
+  if (closeToTrayToggle) {
+    closeToTrayToggle.addEventListener('change', updateCloseToTrayDependents);
+  }
   // Max duration slider live update
   const durSlider = document.getElementById('range-max-duration');
   const durValue = document.getElementById('max-duration-value');
