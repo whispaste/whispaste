@@ -1,3 +1,16 @@
+/* ── FAB Recording State Sync ──────────────────────────── */
+const _fabMicIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>';
+const _fabStopIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+
+function onRecordingStateChanged(state) {
+  const fab = document.getElementById('captureBtn');
+  if (!fab) return;
+  const isActive = (state === 'recording' || state === 'paused');
+  fab.classList.toggle('recording', isActive);
+  fab.innerHTML = isActive ? _fabStopIcon : _fabMicIcon;
+  fab.title = isActive ? t('fab.stop') : t('fab.record');
+}
+
 /* ── Page Switching ────────────────────────────────────── */
 function switchPage(pageId) {
   // Update nav
