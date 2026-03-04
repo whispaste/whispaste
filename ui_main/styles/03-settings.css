@@ -1,4 +1,30 @@
 /* ── Settings Page ─────────────────────────────────────── */
+.settings-layout {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.settings-nav {
+  width: 200px;
+  flex-shrink: 0;
+  padding: 12px 0 12px 16px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border-subtle);
+}
+.settings-nav .filter-items { gap: 2px; }
+.settings-nav .filter-item {
+  font-size: 13px;
+  padding: 8px 12px;
+  gap: 8px;
+}
+.settings-nav .filter-item .icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
 .settings-scroll {
   flex: 1;
   overflow-y: auto;
@@ -8,6 +34,26 @@
 .settings-scroll::-webkit-scrollbar { width: 4px; }
 .settings-scroll::-webkit-scrollbar-track { background: transparent; }
 .settings-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,.12); border-radius: 2px; }
+
+.settings-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-hint);
+  margin: 24px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.settings-section-header:first-child { margin-top: 8px; }
+.settings-section-header .icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.6;
+}
 
 /* ── Cards ─────────────────────────────────────────────── */
 .card {
@@ -340,8 +386,6 @@
   background: var(--glass-bg-strong);
   border-top: 1px solid var(--border-primary);
 }
-.settings-bottom-bar .spacer { flex: 1; }
-
 .status-msg {
   font-size: 12px;
   font-weight: 500;
@@ -445,4 +489,35 @@
   border-radius: 2px;
   transition: width 0.3s;
   width: 0%;
+}
+
+/* ── Test Recording Button ───────────────────────────── */
+.btn-test {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-test:hover { border-color: var(--text-tertiary); background: var(--bg-hover); }
+.btn-test .icon { width: 16px; height: 16px; }
+.btn-test.recording {
+  border-color: var(--error);
+  color: var(--error);
+  animation: hotkeyPulse 1.5s ease infinite;
+}
+
+/* ── Range Row ───────────────────────────────────────── */
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }

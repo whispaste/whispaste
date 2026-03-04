@@ -45,8 +45,46 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (e) {
     console.warn('Failed to load config:', e);
   }
+  _configLoaded = true;
 
   // --- Settings page wiring ---
+  // Settings nav — scroll to section on click
+  document.querySelectorAll('.filter-item[data-settings-section]').forEach(item => {
+    item.addEventListener('click', () => {
+      const sectionId = item.dataset.settingsSection;
+      const target = document.getElementById(sectionId);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelectorAll('.filter-item[data-settings-section]').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+  // Auto-save on change/input events in settings scroll area
+  const settingsScroll = document.querySelector('.settings-scroll');
+  if (settingsScroll) {
+    settingsScroll.addEventListener('change', (e) => {
+      if (e.target.closest('.hotkey-recorder')) return; // skip hotkey recorder
+      autoSave();
+    });
+    settingsScroll.addEventListener('input', (e) => {
+      if (e.target.matches('input[type="text"], input[type="password"], textarea')) autoSave();
+    });
+  }
+  // Scroll-based nav highlighting
+  const settingsScrollEl = document.querySelector('.settings-scroll');
+  if (settingsScrollEl) {
+    const sectionHeaders = settingsScrollEl.querySelectorAll('.settings-section-header');
+    settingsScrollEl.addEventListener('scroll', () => {
+      let activeId = null;
+      sectionHeaders.forEach(header => {
+        if (header.getBoundingClientRect().top <= 120) activeId = header.id;
+      });
+      if (activeId) {
+        document.querySelectorAll('.filter-item[data-settings-section]').forEach(i => {
+          i.classList.toggle('active', i.dataset.settingsSection === activeId);
+        });
+      }
+    });
+  }
   // Volume slider live update
   const volSlider = document.getElementById('volume-slider');
   const volValue = document.getElementById('volume-value');
