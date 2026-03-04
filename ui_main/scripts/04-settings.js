@@ -289,11 +289,13 @@ async function saveSettings() {
       const res = typeof result === 'string' ? JSON.parse(result) : result;
       if (res && res.success) {
         showStatus(t('statusSaved'), 'success');
+        updateModeBadge(cfg);
       } else {
         showStatus(res?.error || t('statusError'), 'error');
       }
     } else {
       showStatus(t('statusSaved'), 'success');
+      updateModeBadge(cfg);
     }
   } catch (err) {
     showStatus(t('statusError'), 'error');

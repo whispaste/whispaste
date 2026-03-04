@@ -75,4 +75,9 @@ async function toggleLang() {
   applyTranslations();
   // Re-render history if on that page
   if (typeof renderHistory === 'function') renderHistory();
+  // Update mode badge text for new language
+  if (typeof updateModeBadge === 'function') {
+    const isLocal = document.getElementById('toggle-localstt')?.checked;
+    updateModeBadge({ use_local_stt: !!isLocal });
+  }
 }

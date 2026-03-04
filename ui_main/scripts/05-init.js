@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const raw = await window.getConfig();
       const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
       applyConfig(cfg);
+      updateModeBadge(cfg);
     }
   } catch (e) {
     console.warn('Failed to load config:', e);
@@ -139,4 +140,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Reveal UI and signal Go
   document.body.classList.add('ready');
   if (window.windowReady) window.windowReady();
+
+  // Auto-refresh history when window regains focus (e.g. after recording)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && document.getElementById('page-history')?.style.display !== 'none') {
+      loadEntries();
+    }
+  });
 });
