@@ -3,42 +3,48 @@ package main
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // ModelInfo describes an available local Whisper model.
 type ModelInfo struct {
-	ID      string   // e.g. "whisper-tiny"
-	Name    string   // e.g. "Whisper Tiny"
-	Size    string   // human-readable size, e.g. "39MB"
-	BaseURL string   // HuggingFace base URL for direct file downloads
-	Files   []string // file names to download (encoder, decoder, tokens)
+	ID        string   // e.g. "whisper-tiny"
+	Name      string   // e.g. "Whisper Tiny"
+	Size      string   // human-readable size, e.g. "39MB"
+	SizeBytes int64    // approximate total size in bytes (for progress)
+	BaseURL   string   // HuggingFace base URL for direct file downloads
+	Files     []string // file names to download (encoder, decoder, tokens)
 }
 
 // AvailableModels lists all supported local Whisper models.
 var AvailableModels = []ModelInfo{
 	{
-		ID:      "whisper-tiny",
-		Name:    "Whisper Tiny",
-		Size:    "39MB",
-		BaseURL: "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main",
-		Files:   []string{"tiny-encoder.onnx", "tiny-decoder.onnx", "tiny-tokens.txt"},
+		ID:        "whisper-tiny",
+		Name:      "Whisper Tiny",
+		Size:      "39MB",
+		SizeBytes: 40_894_464,
+		BaseURL:   "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main",
+		Files:     []string{"tiny-encoder.onnx", "tiny-decoder.onnx", "tiny-tokens.txt"},
 	},
 	{
-		ID:      "whisper-base",
-		Name:    "Whisper Base",
-		Size:    "74MB",
-		BaseURL: "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main",
-		Files:   []string{"base-encoder.onnx", "base-decoder.onnx", "base-tokens.txt"},
+		ID:        "whisper-base",
+		Name:      "Whisper Base",
+		Size:      "74MB",
+		SizeBytes: 77_594_624,
+		BaseURL:   "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main",
+		Files:     []string{"base-encoder.onnx", "base-decoder.onnx", "base-tokens.txt"},
 	},
 	{
-		ID:      "whisper-small",
-		Name:    "Whisper Small",
-		Size:    "244MB",
-		BaseURL: "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small/resolve/main",
-		Files:   []string{"small-encoder.onnx", "small-decoder.onnx", "small-tokens.txt"},
+		ID:        "whisper-small",
+		Name:      "Whisper Small",
+		Size:      "244MB",
+		SizeBytes: 255_852_544,
+		BaseURL:   "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small/resolve/main",
+		Files:     []string{"small-encoder.onnx", "small-decoder.onnx", "small-tokens.txt"},
 	},
 }
 
@@ -101,9 +107,18 @@ func ListDownloadedModels() []ModelInfo {
 	return result
 }
 
+// modelHTTPClient is a shared HTTP client with connection timeouts for model downloads.
+var modelHTTPClient = &http.Client{
+	Transport: &http.Transport{
+		DialContext:            (&net.Dialer{Timeout: 30 * time.Second}).DialContext,
+		TLSHandshakeTimeout:   15 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+	},
+}
+
 // DownloadModel downloads all files for the specified model.
-// progressFn is called with bytes downloaded and total bytes (0 if unknown) for each file.
-func DownloadModel(modelID string, progressFn func(downloaded, total int64)) error {
+// progressFn is called with (bytesDownloaded, totalBytes, fileIndex, fileCount).
+func DownloadModel(modelID string, progressFn func(downloaded, total int64, fileIdx, fileCount int)) error {
 	model := findModel(modelID)
 	if model == nil {
 		return fmt.Errorf("unknown model: %s", modelID)
@@ -117,28 +132,33 @@ func DownloadModel(modelID string, progressFn func(downloaded, total int64)) err
 		return fmt.Errorf("failed to create model directory: %w", err)
 	}
 
-	// Track cumulative progress across all files
+	totalBytes := model.SizeBytes
+	fileCount := len(model.Files)
 	var cumulativeDownloaded int64
-	var cumulativeTotal int64
+	var lastPct int = -1
 
-	// First pass: get total sizes via HEAD requests (best-effort)
-	for _, fname := range model.Files {
-		url := model.BaseURL + "/" + fname
-		if resp, err := http.Head(url); err == nil {
-			if resp.ContentLength > 0 {
-				cumulativeTotal += resp.ContentLength
-			}
-			resp.Body.Close()
-		}
-	}
-
-	for _, fname := range model.Files {
+	for i, fname := range model.Files {
 		url := model.BaseURL + "/" + fname
 		dest := filepath.Join(dir, fname)
 
 		if err := downloadModelFile(url, dest, func(downloaded, total int64) {
-			if progressFn != nil && cumulativeTotal > 0 {
-				progressFn(cumulativeDownloaded+downloaded, cumulativeTotal)
+			if progressFn != nil {
+				var pct int
+				if totalBytes > 0 {
+					// Use model SizeBytes for cumulative progress
+					pct = int(float64(cumulativeDownloaded+downloaded) / float64(totalBytes) * 100)
+					if pct > 100 {
+						pct = 100
+					}
+				} else if total > 0 {
+					// Fallback: per-file progress only
+					pct = int(float64(downloaded) / float64(total) * 100)
+				}
+				// Throttle: only call when percentage changes
+				if pct != lastPct {
+					lastPct = pct
+					progressFn(cumulativeDownloaded+downloaded, totalBytes, i, fileCount)
+				}
 			}
 		}); err != nil {
 			return fmt.Errorf("failed to download %s: %w", fname, err)
@@ -147,7 +167,7 @@ func DownloadModel(modelID string, progressFn func(downloaded, total int64)) err
 		if info, err := os.Stat(dest); err == nil {
 			cumulativeDownloaded += info.Size()
 		}
-		logInfo("downloaded model file: %s", fname)
+		logInfo("downloaded model file: %s (%d/%d)", fname, i+1, fileCount)
 	}
 
 	return nil
@@ -155,7 +175,7 @@ func DownloadModel(modelID string, progressFn func(downloaded, total int64)) err
 
 // downloadModelFile downloads a single file from url to dest, reporting progress.
 func downloadModelFile(url, dest string, progressFn func(downloaded, total int64)) error {
-	resp, err := http.Get(url)
+	resp, err := modelHTTPClient.Get(url)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}

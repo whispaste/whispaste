@@ -472,13 +472,16 @@ async function deleteModel(id) {
 }
 
 // Go calls this to update download progress
-window.updateModelProgress = function(modelId, pct) {
+window.updateModelProgress = function(modelId, pct, fileNum, fileCount) {
   const bar = document.getElementById('progress-' + modelId);
   if (bar) bar.style.width = pct + '%';
-  // Update button text with percentage
+  // Update button text with percentage and file info
   const item = document.querySelector(`[data-model-id="${modelId}"]`);
   if (item) {
     const btn = item.querySelector('.model-item-action .btn');
-    if (btn) btn.textContent = Math.round(pct) + '%';
+    if (btn) {
+      const fileInfo = fileCount > 1 ? ` (${fileNum}/${fileCount})` : '';
+      btn.textContent = pct + '%' + fileInfo;
+    }
   }
 };
