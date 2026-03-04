@@ -90,6 +90,19 @@ const translations = {
     hotkeyRecording: 'Press your desired key combination…',
     hotkeyHint: 'Press Escape to cancel',
 
+    // Settings — Local STT
+    cardLocalSTT: 'Local Transcription',
+    labelLocalSTT: 'Use Local Model',
+    descLocalSTT: 'Transcribe offline using a local Whisper model — no API key required',
+    labelLocalModel: 'Model',
+    modelDownload: 'Download',
+    modelDownloading: 'Downloading…',
+    modelDownloaded: 'Downloaded',
+    modelDelete: 'Delete model',
+    modelDownloadDone: 'Model downloaded successfully',
+    modelDownloadError: 'Model download failed',
+    modelDeleted: 'Model deleted',
+
     // About
     aboutDesc: 'A fast, lightweight voice-to-text tool for Windows. Record speech and instantly paste the transcription anywhere.',
     aboutLicense: 'Open Source – MIT License',
@@ -221,6 +234,19 @@ const translations = {
     btnChangeHotkey: 'Ändern',
     hotkeyRecording: 'Gewünschte Tastenkombination drücken…',
     hotkeyHint: 'Escape zum Abbrechen',
+
+    // Settings — Local STT  
+    cardLocalSTT: 'Lokale Transkription',
+    labelLocalSTT: 'Lokales Modell verwenden',
+    descLocalSTT: 'Offline transkribieren mit einem lokalen Whisper-Modell — kein API-Schlüssel erforderlich',
+    labelLocalModel: 'Modell',
+    modelDownload: 'Herunterladen',
+    modelDownloading: 'Wird heruntergeladen…',
+    modelDownloaded: 'Heruntergeladen',
+    modelDelete: 'Modell löschen',
+    modelDownloadDone: 'Modell erfolgreich heruntergeladen',
+    modelDownloadError: 'Modell-Download fehlgeschlagen',
+    modelDeleted: 'Modell gelöscht',
 
     // About
     aboutDesc: 'Ein schnelles, schlankes Sprache-zu-Text-Tool für Windows. Sprache aufnehmen und die Transkription sofort überall einfügen.',

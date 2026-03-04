@@ -195,6 +195,8 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.SmartModePreset = newCfg.SmartModePreset
 			cfg.SmartModePrompt = newCfg.SmartModePrompt
 			cfg.SmartModeTarget = newCfg.SmartModeTarget
+			cfg.UseLocalSTT = newCfg.UseLocalSTT
+			cfg.LocalModelID = newCfg.LocalModelID
 			cfg.mu.Unlock()
 
 			// Apply autostart setting
@@ -219,8 +221,8 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		// Bind: testRecording → record 3s, transcribe, return result
 		w.Bind("_doTestRecording", func() map[string]interface{} {
 			logInfo("Test recording started")
-			if !cfg.HasAPIKey() {
-				logWarn("Test recording: no API key")
+			if !cfg.GetUseLocalSTT() && !cfg.HasAPIKey() {
+				logWarn("Test recording: no API key and local STT disabled")
 				return map[string]interface{}{
 					"success": false,
 					"text":    "",
@@ -266,14 +268,24 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			if model == "" {
 				model = "whisper-1"
 			}
-			wav := EncodeWAV(pcm, 16000, 1, 16)
-			text, err := Transcribe(wav, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), cfg.GetPrompt())
-			if err != nil {
-				logError("Test transcription failed: %v", err)
+			var text string
+			var err2 error
+			if cfg.GetUseLocalSTT() {
+				modelDir, mdErr := GetModelDir(cfg.GetLocalModelID())
+				if mdErr != nil {
+					return map[string]interface{}{"success": false, "text": "", "error": mdErr.Error()}
+				}
+				text, err2 = GetLocalRecognizer().Transcribe(pcm, 16000, cfg.Language, modelDir)
+			} else {
+				wav := EncodeWAV(pcm, 16000, 1, 16)
+				text, err2 = Transcribe(wav, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), cfg.GetPrompt())
+			}
+			if err2 != nil {
+				logError("Test transcription failed: %v", err2)
 				return map[string]interface{}{
 					"success": false,
 					"text":    "",
-					"error":   err.Error(),
+					"error":   err2.Error(),
 				}
 			}
 			logInfo("Test transcription succeeded: %q", strings.TrimSpace(text))
@@ -287,6 +299,48 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		// Bind: testSound → plays a success chime for preview
 		w.Bind("_testSound", func() {
 			PlayFeedback(SoundSuccess)
+		})
+
+		// Bind: _getModels → returns available models with download status
+		w.Bind("_getModels", func() []map[string]interface{} {
+			var result []map[string]interface{}
+			for _, m := range AvailableModels {
+				result = append(result, map[string]interface{}{
+					"id":         m.ID,
+					"name":       m.Name,
+					"size":       m.Size,
+					"downloaded": IsModelDownloaded(m.ID),
+				})
+			}
+			return result
+		})
+
+		// Bind: _downloadModel → download a model by ID
+		w.Bind("_downloadModel", func(modelID string) map[string]interface{} {
+			logInfo("Downloading model: %s", modelID)
+			err := DownloadModel(modelID, func(downloaded, total int64) {
+				if total > 0 {
+					pct := int(float64(downloaded) / float64(total) * 100)
+					w.Dispatch(func() {
+						w.Eval(fmt.Sprintf("window.updateModelProgress('%s', %d)", modelID, pct))
+					})
+				}
+			})
+			if err != nil {
+				logError("Model download failed: %v", err)
+				return map[string]interface{}{"success": false, "error": err.Error()}
+			}
+			logInfo("Model downloaded: %s", modelID)
+			return map[string]interface{}{"success": true, "error": ""}
+		})
+
+		// Bind: _deleteModel → delete a downloaded model
+		w.Bind("_deleteModel", func(modelID string) map[string]interface{} {
+			if err := DeleteModel(modelID); err != nil {
+				logError("Model delete failed: %v", err)
+				return map[string]interface{}{"success": false, "error": err.Error()}
+			}
+			return map[string]interface{}{"success": true, "error": ""}
 		})
 
 		// Bind: openURL → opens URL in default browser (https only)
