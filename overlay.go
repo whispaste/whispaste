@@ -75,37 +75,37 @@ _TIMER_MS = 16 // ~60 FPS for smoother animations
 
 // Pill-shaped overlay dimensions
 _OVL_WIDTH  = 490
-_OVL_HEIGHT = 64
+_OVL_HEIGHT = 80
 _OVL_MARGIN = 24
-_OVL_RADIUS = 32 // fully rounded pill ends
+_OVL_RADIUS = 40 // fully rounded pill ends
 
-// Icon display size (48x48 from ICO for crisp rendering)
-_ICON_SIZE    = 36
-_ICON_PADDING = 14
+// Icon display size
+_ICON_SIZE = 38
 
 // Colors (COLORREF = 0x00BBGGRR) – derived from app logo palette
 _CLR_BACKGROUND = 0x00291A0A // RGB(10,26,41) – dark navy
-_CLR_BORDER     = 0x00B86600 // RGB(0,102,184) – deep blue
 _CLR_TEXT       = 0x00FFFFFF // white
 _CLR_TEXT_DIM   = 0x00B0A090 // RGB(144,160,176) – dimmed text
 _CLR_RED_DOT    = 0x003C3CFF // RGB(255,60,60)
 _CLR_BAR        = 0x00EED322 // RGB(34,211,238) – cyan
 _CLR_BAR_DIM    = 0x00886618 // RGB(24,102,136) – dimmed cyan
-_CLR_GREEN      = 0x0059C734 // RGB(52,199,89)
 
 // Waveform layout
-_WAVE_BARS   = 20  // fewer, wider bars for cleaner look
-_WAVE_BAR_W  = 4
-_WAVE_GAP    = 3
-_WAVE_RIGHT  = 12 // right margin
-_WAVE_AMP    = 30.0
+_WAVE_BARS  = 20
+_WAVE_BAR_W = 4
+_WAVE_GAP   = 3
+_WAVE_AMP   = 30.0
 
-// Control button layout (right side of pill, after waveform)
-_BTN_SIZE      = 34
+// Control button layout: [Cancel] [Icon] [Timer] [Waveform] [Pause] [Stop]
+_BTN_SIZE      = 40
 _BTN_GAP       = 8
 _BTN_Y         = (_OVL_HEIGHT - _BTN_SIZE) / 2
-_BTN_CONFIRM_X = _OVL_WIDTH - _BTN_SIZE - 12
-_BTN_PAUSE_X   = _BTN_CONFIRM_X - _BTN_SIZE - _BTN_GAP
+_BTN_CANCEL_X  = 14                                       // left edge
+_BTN_CONFIRM_X = _OVL_WIDTH - _BTN_SIZE - 14              // right edge (stop/confirm)
+_BTN_PAUSE_X   = _BTN_CONFIRM_X - _BTN_SIZE - _BTN_GAP    // left of confirm
+
+// Topmost re-assert interval (every N frames at ~60fps ≈ 1 second)
+_TOPMOST_INTERVAL = 60
 )
 
 // GDI+ constants and types
@@ -380,6 +380,37 @@ defer procGdipDeleteBrush.Call(brush)
 procGdipFillRectangleI.Call(g, brush, uintptr(x), uintptr(y), uintptr(w), uintptr(h))
 }
 
+// gdipFillRoundedBar draws a waveform bar with rounded ends using a GDI+ path.
+func gdipFillRoundedBar(g uintptr, argb uint32, x, y, w, h int32) {
+if h <= w {
+gdipFillCircleG(g, argb, x+w/2, y+h/2, w/2)
+return
+}
+var path uintptr
+procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&path)))
+if path == 0 {
+return
+}
+defer procGdipDeletePath.Call(path)
+r := float32(w) / 2.0
+fx, fy, fh := float32(x), float32(y), float32(h)
+d := r * 2
+// Top semicircle
+procGdipAddPathArc.Call(path, f32(fx), f32(fy), f32(d), f32(d), f32(180), f32(180))
+// Right edge line down (integer version)
+procGdipAddPathLine.Call(path, uintptr(x+w), uintptr(y+w/2), uintptr(x+w), uintptr(y+h-w/2))
+// Bottom semicircle
+procGdipAddPathArc.Call(path, f32(fx), f32(fy+fh-d), f32(d), f32(d), f32(0), f32(180))
+procGdipClosePathFigure.Call(path)
+var brush uintptr
+procGdipCreateSolidFill.Call(uintptr(argb), uintptr(unsafe.Pointer(&brush)))
+if brush == 0 {
+return
+}
+defer procGdipDeleteBrush.Call(brush)
+procGdipFillPath.Call(g, brush, path)
+}
+
 // ───────────────────── Overlay ─────────────────────
 
 var globalOverlay *Overlay
@@ -409,7 +440,8 @@ visible   bool
 position  string // "top_center" or "cursor"
 ready     chan error
 done      chan struct{}
-onConfirm func() // called when confirm button clicked
+onConfirm func() // called when confirm/stop button clicked
+onCancel  func() // called when cancel button clicked
 onPause   func() // called when pause/resume button clicked
 paused    bool   // whether recording is paused
 pauseStart time.Time    // when current pause began
@@ -448,6 +480,10 @@ case _WM_NCHITTEST:
 		pt.X = xScreen
 		pt.Y = yScreen
 		procScreenToClient.Call(hwnd, uintptr(unsafe.Pointer(&pt)))
+		if pt.X >= _BTN_CANCEL_X && pt.X <= _BTN_CANCEL_X+_BTN_SIZE &&
+			pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
+			return 1 // HTCLIENT
+		}
 		if pt.X >= _BTN_CONFIRM_X && pt.X <= _BTN_CONFIRM_X+_BTN_SIZE &&
 			pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
 			return 1 // HTCLIENT
@@ -462,7 +498,16 @@ case _WM_NCHITTEST:
 case _WM_TIMER:
 o.mu.Lock()
 o.frame++
+frame := o.frame
+vis := o.visible
 o.mu.Unlock()
+if vis && frame%_TOPMOST_INTERVAL == 0 {
+	const _HWND_TOPMOST2 = ^uintptr(0)
+	const _SWP_NOMOVE2 = 0x0002
+	const _SWP_NOSIZE2 = 0x0001
+	const _SWP_NOACTIVATE2 = 0x0010
+	procSetWindowPos.Call(hwnd, _HWND_TOPMOST2, 0, 0, 0, 0, _SWP_NOMOVE2|_SWP_NOSIZE2|_SWP_NOACTIVATE2)
+}
 o.render()
 return 0
 
@@ -470,11 +515,19 @@ case 0x0201: // WM_LBUTTONDOWN
 	o.mu.Lock()
 	st := o.state
 	confirmCB := o.onConfirm
+	cancelCB := o.onCancel
 	pauseCB := o.onPause
 	o.mu.Unlock()
 	if st == StateRecording || st == StatePaused {
 		x := int32(lParam & 0xFFFF)
 		y := int32((lParam >> 16) & 0xFFFF)
+		if x >= _BTN_CANCEL_X && x <= _BTN_CANCEL_X+_BTN_SIZE &&
+			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			if cancelCB != nil {
+				go cancelCB()
+			}
+			return 0
+		}
 		if x >= _BTN_CONFIRM_X && x <= _BTN_CONFIRM_X+_BTN_SIZE &&
 			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
 			if confirmCB != nil {
@@ -776,10 +829,11 @@ uintptr(dataSize),
 }
 }
 
-// SetCallbacks sets the confirm and pause button callbacks.
-func (o *Overlay) SetCallbacks(onConfirm, onPause func()) {
+// SetCallbacks sets the confirm, cancel, and pause button callbacks.
+func (o *Overlay) SetCallbacks(onConfirm, onCancel, onPause func()) {
 o.mu.Lock()
 o.onConfirm = onConfirm
+o.onCancel = onCancel
 o.onPause = onPause
 o.mu.Unlock()
 }
@@ -881,23 +935,21 @@ procGdipSetInterpolationMode.Call(g, _InterpolationModeHighQualityBicubic)
 procGdipGraphicsClear.Call(g, 0x00000000)
 
 // Drop shadow (subtle)
-o.drawPillPath(g, 3, 3, 0x40000000)
+o.drawPillPath(g, 3, 3, 0x30000000)
 
-// Main pill background
-o.drawPillPath(g, 0, 0, 0xE80A1A29)
+// Main pill background (80% opaque for more translucency)
+o.drawPillPath(g, 0, 0, 0xCC0A1A29)
 
-// Pill border
-o.drawPillBorder(g, 0, 0, 0xA00066B8)
-
-// App icon (bicubic interpolation)
+// App icon (bicubic interpolation) — positioned after cancel button
 if o.gdipIconBmp != 0 {
+iconX := int32(_BTN_CANCEL_X + _BTN_SIZE + 10)
 iconY := int32((_OVL_HEIGHT - _ICON_SIZE) / 2)
 procGdipDrawImageRectI.Call(g, o.gdipIconBmp,
-uintptr(_ICON_PADDING), uintptr(iconY), uintptr(_ICON_SIZE), uintptr(_ICON_SIZE))
+uintptr(iconX), uintptr(iconY), uintptr(_ICON_SIZE), uintptr(_ICON_SIZE))
 }
 
 // Content area starts after icon
-contentX := int32(_ICON_PADDING + _ICON_SIZE + 12)
+contentX := int32(_BTN_CANCEL_X + _BTN_SIZE + 10 + _ICON_SIZE + 8)
 
 o.mu.Lock()
 state := o.state
@@ -977,37 +1029,6 @@ defer procGdipDeleteBrush.Call(brush)
 procGdipFillPath.Call(g, brush, path)
 }
 
-func (o *Overlay) drawPillBorder(g uintptr, offsetX, offsetY int32, argb uint32) {
-var path uintptr
-procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&path)))
-if path == 0 {
-return
-}
-defer procGdipDeletePath.Call(path)
-
-x := float32(1 + offsetX)
-y := float32(1 + offsetY)
-w := float32(_OVL_WIDTH - 2)
-h := float32(_OVL_HEIGHT - 2)
-r := float32(_OVL_RADIUS)
-d := r * 2
-
-procGdipAddPathArc.Call(path, f32(x), f32(y), f32(d), f32(d), f32(180), f32(90))
-procGdipAddPathArc.Call(path, f32(x+w-d), f32(y), f32(d), f32(d), f32(270), f32(90))
-procGdipAddPathArc.Call(path, f32(x+w-d), f32(y+h-d), f32(d), f32(d), f32(0), f32(90))
-procGdipAddPathArc.Call(path, f32(x), f32(y+h-d), f32(d), f32(d), f32(90), f32(90))
-procGdipClosePathFigure.Call(path)
-
-var pen uintptr
-procGdipCreatePen1.Call(uintptr(argb), f32(1.5), _UnitPixel, uintptr(unsafe.Pointer(&pen)))
-if pen == 0 {
-return
-}
-defer procGdipDeletePen.Call(pen)
-
-procGdipDrawPath.Call(g, pen, path)
-}
-
 func (o *Overlay) drawGdipText(g uintptr, text string, x, y, w float32, font uintptr, argb uint32) {
 if font == 0 || o.gdipStrFmt == 0 {
 return
@@ -1033,94 +1054,101 @@ brush)
 func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pauseAccum time.Duration, isPaused bool, levels [_WAVE_BARS]float32, levelIdx int, contentX int32) {
 cy := int32(_OVL_HEIGHT / 2)
 
-// Pulsing recording dot (stops pulsing when paused)
+// Cancel button (dark circle with ✕) — left side
+gdipFillCircleG(g, 0xFF1E2A36, _BTN_CANCEL_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+o.drawXIcon(g, _BTN_CANCEL_X, int32(cy)-_BTN_SIZE/2)
+
+// Pulsing recording dot (next to timer)
 if isPaused {
-gdipFillCircleG(g, 0x80FF3C3C, contentX+7, cy, 7)
+	gdipFillCircleG(g, 0x80FF3C3C, contentX, cy, 5)
 } else {
-pulse := float64(frame) * 0.12
-alpha := uint32(180 + int(math.Sin(pulse)*75))
-if alpha > 255 {
-alpha = 255
-}
-argb := (alpha << 24) | 0x00FF3C3C
-gdipFillCircleG(g, argb, contentX+7, cy, 7)
+	pulse := float64(frame) * 0.12
+	alpha := uint32(180 + int(math.Sin(pulse)*75))
+	if alpha > 255 {
+		alpha = 255
+	}
+	argb := (alpha << 24) | 0x00FF3C3C
+	gdipFillCircleG(g, argb, contentX, cy, 5)
 }
 
-// Status text
-textX := float32(contentX + 7*2 + 8)
-if isPaused {
-o.drawGdipText(g, T("overlay.paused"), textX, 14, 120, o.gdipFontMain, 0xFFFFFFFF)
-} else {
-o.drawGdipText(g, T("overlay.recording"), textX, 14, 120, o.gdipFontMain, 0xFFFFFFFF)
-}
-
-// Elapsed timer (excludes paused time)
+// Elapsed timer (excludes paused time) — prominent, no text label
 elapsed := time.Since(start) - pauseAccum
 if elapsed < 0 {
-elapsed = 0
+	elapsed = 0
 }
 secs := int(elapsed.Seconds())
 timer := fmt.Sprintf("%d:%02d", secs/60, secs%60)
-o.drawGdipText(g, timer, textX, 36, 60, o.gdipFontSmall, 0xFFB0A090)
+timerX := float32(contentX + 10)
+o.drawGdipText(g, timer, timerX, float32(cy)-10, 60, o.gdipFontMain, 0xFFFFFFFF)
 
-// Scrolling waveform bars
-waveX := int32(_OVL_WIDTH - _WAVE_RIGHT - _WAVE_BARS*(_WAVE_BAR_W+_WAVE_GAP) - _BTN_SIZE*2 - _BTN_GAP - 16)
+// Scrolling waveform bars — centered between timer and pause button
+waveStart := int32(timerX + 56)
+waveEnd := int32(_BTN_PAUSE_X - 12)
+waveTotal := int32(_WAVE_BARS) * (_WAVE_BAR_W + _WAVE_GAP)
+waveX := waveStart + (waveEnd-waveStart-waveTotal)/2
+if waveX < waveStart {
+	waveX = waveStart
+}
+
 for i := 0; i < _WAVE_BARS; i++ {
-idx := (levelIdx + i) % _WAVE_BARS
-lvl := levels[idx]
-if isPaused {
-lvl = 0
-}
-amp := lvl * _WAVE_AMP
-if amp > 1.0 {
-amp = 1.0
-}
-h := int32(amp * 36.0)
-if h < 2 {
-h = 2
-}
-x := waveX + int32(i)*(_WAVE_BAR_W+_WAVE_GAP)
-y1 := cy - h/2
-y2 := cy + h/2
-if h > 6 {
-gdipFillRectG(g, 0xE022D3EE, x, y1, _WAVE_BAR_W, y2-y1)
-} else {
-gdipFillRectG(g, 0x80226688, x, y1, _WAVE_BAR_W, y2-y1)
-}
-}
-
-// Control buttons — brand colors
-gdipFillCircleG(g, 0xFF22D3EE, _BTN_CONFIRM_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
-if isPaused {
-gdipFillCircleG(g, 0xFF0E7490, _BTN_PAUSE_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
-} else {
-gdipFillCircleG(g, 0xFF0E7490, _BTN_PAUSE_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+	idx := (levelIdx + i) % _WAVE_BARS
+	lvl := levels[idx]
+	if isPaused {
+		lvl = 0
+	}
+	amp := lvl * _WAVE_AMP
+	if amp > 1.0 {
+		amp = 1.0
+	}
+	h := int32(amp * 44.0)
+	if h < 3 {
+		h = 3
+	}
+	x := waveX + int32(i)*(_WAVE_BAR_W+_WAVE_GAP)
+	y1 := cy - h/2
+	y2 := cy + h/2
+	if h > 6 {
+		gdipFillRoundedBar(g, 0xE022D3EE, x, y1, _WAVE_BAR_W, y2-y1)
+	} else {
+		gdipFillRoundedBar(g, 0x80226688, x, y1, _WAVE_BAR_W, y2-y1)
+	}
 }
 
-// Button icons drawn with GDI+ lines
-o.drawCheckmarkIcon(g, _BTN_CONFIRM_X, int32(cy)-_BTN_SIZE/2)
+// Pause button — dark teal circle
+gdipFillCircleG(g, 0xFF0E3D4F, _BTN_PAUSE_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 if isPaused {
-o.drawPlayIcon(g, _BTN_PAUSE_X, int32(cy)-_BTN_SIZE/2)
+	o.drawPlayIcon(g, _BTN_PAUSE_X, int32(cy)-_BTN_SIZE/2)
 } else {
-o.drawPauseIcon(g, _BTN_PAUSE_X, int32(cy)-_BTN_SIZE/2)
-}
+	o.drawPauseIcon(g, _BTN_PAUSE_X, int32(cy)-_BTN_SIZE/2)
 }
 
-// drawCheckmarkIcon draws a ✓ icon (Lucide-style) using GDI+ lines with round caps.
-func (o *Overlay) drawCheckmarkIcon(g uintptr, bx, by int32) {
+// Stop/confirm button — red circle (matching reference design)
+gdipFillCircleG(g, 0xFFE53935, _BTN_CONFIRM_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+o.drawStopIcon(g, _BTN_CONFIRM_X, int32(cy)-_BTN_SIZE/2)
+}
+
+// drawXIcon draws an ✕ icon using GDI+ lines with round caps.
+func (o *Overlay) drawXIcon(g uintptr, bx, by int32) {
 	var pen uintptr
-	procGdipCreatePen1.Call(uintptr(0xFFFFFFFF), uintptr(math.Float32bits(3.0)), 2, uintptr(unsafe.Pointer(&pen)))
+	procGdipCreatePen1.Call(uintptr(0xCCAAAABB), uintptr(math.Float32bits(2.5)), 2, uintptr(unsafe.Pointer(&pen)))
 	if pen == 0 {
 		return
 	}
 	defer procGdipDeletePen.Call(pen)
-	procGdipSetPenLineCap197819.Call(pen, 2, 2, 0) // Round start/end caps
-	procGdipSetPenLineJoin.Call(pen, 2)             // Round join
+	procGdipSetPenLineCap197819.Call(pen, 2, 2, 0)
 	cx := bx + _BTN_SIZE/2
 	cy := by + _BTN_SIZE/2
-	// Lucide-proportioned checkmark: wider strokes, larger geometry
-	procGdipDrawLineI.Call(g, pen, uintptr(cx-7), uintptr(cy), uintptr(cx-2), uintptr(cy+6))
-	procGdipDrawLineI.Call(g, pen, uintptr(cx-2), uintptr(cy+6), uintptr(cx+8), uintptr(cy-6))
+	s := int32(7)
+	procGdipDrawLineI.Call(g, pen, uintptr(cx-s), uintptr(cy-s), uintptr(cx+s), uintptr(cy+s))
+	procGdipDrawLineI.Call(g, pen, uintptr(cx+s), uintptr(cy-s), uintptr(cx-s), uintptr(cy+s))
+}
+
+// drawStopIcon draws a ■ stop square icon using GDI+ filled rounded rect.
+func (o *Overlay) drawStopIcon(g uintptr, bx, by int32) {
+	cx := bx + _BTN_SIZE/2
+	cy := by + _BTN_SIZE/2
+	s := int32(7)
+	gdipFillRectG(g, 0xFFFFFFFF, cx-s, cy-s, s*2, s*2)
 }
 
 // drawPauseIcon draws ❚❚ icon (Lucide-style) using GDI+ filled rectangles.
