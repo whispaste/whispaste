@@ -28,6 +28,31 @@ jobs:
           CGO_ENABLED: "1"
         run: go mod download
 
+      - name: Prepare sherpa-onnx libraries
+        run: |
+          $modCache = go env GOMODCACHE
+          $ver = (Select-String 'sherpa-onnx-go-windows (v[^ ]+)' go.sum).Matches[0].Groups[1].Value
+          $libDir = "$modCache\github.com\k2-fsa\sherpa-onnx-go-windows@$ver\lib\x86_64-pc-windows-gnu"
+          Write-Host "Checking sherpa-onnx libs at: $libDir"
+          if (Test-Path $libDir) {
+            Get-ChildItem $libDir | Format-Table Name, Length
+            # Remove read-only attribute that Go module cache sets
+            Get-ChildItem $libDir -File | ForEach-Object { $_.Attributes = 'Normal' }
+            Write-Host "Library files ready"
+          } else {
+            Write-Host "ERROR: Library directory not found"
+            Write-Host "Extracting from module cache zip..."
+            $zipDir = "$modCache\cache\download\github.com\k2-fsa\sherpa-onnx-go-windows\@v\$ver.zip"
+            if (Test-Path $zipDir) {
+              Write-Host "Found module zip, extracting..."
+              Expand-Archive -Path $zipDir -DestinationPath "$modCache\github.com\k2-fsa\sherpa-onnx-go-windows@$ver" -Force
+            } else {
+              Write-Host "Module zip not found at: $zipDir"
+              Get-ChildItem "$modCache\cache\download\github.com\k2-fsa" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+              exit 1
+            }
+          }
+
       - name: Generate Windows resources
         run: |
           go install github.com/tc-hib/go-winres@latest
