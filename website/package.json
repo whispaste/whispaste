@@ -6,12 +6,18 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "test": "playwright test",
+    "test:ci": "playwright test --reporter=github",
+    "test:ui": "playwright test --ui"
   },
   "type": "module",
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
     "astro": "^5.18.0",
     "tailwindcss": "^4.2.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
   }
 }
