@@ -154,12 +154,12 @@
 }
 
 /* ── Scrollbar Global ─────────────────────────────────── */
-::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-secondary); border-radius: var(--radius-full); }
-::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--border-primary); }
-[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,.18); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,.32); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.28); }
 
 /* ── Smart Mode Specific ──────────────────────────────── */
 .smart-mode-section {
