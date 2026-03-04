@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
       applyConfig(cfg);
       updateModeBadge(cfg);
+      loadAudioDevices();
     }
   } catch (e) {
     console.warn('Failed to load config:', e);
@@ -167,11 +168,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Handle smart-mode deep link
   if (window._initialSection === 'smart-mode') {
-    switchPage('settings');
-    setTimeout(() => {
-      const smartSection = document.querySelector('[data-section="smart-mode"]');
-      if (smartSection) smartSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 200);
+    switchPage('smartmode');
+  }
+
+  // Auto-save for Smart Mode page
+  const smartContent = document.querySelector('.smartmode-content');
+  if (smartContent) {
+    smartContent.addEventListener('change', () => autoSave());
+    smartContent.addEventListener('input', (e) => {
+      if (e.target.matches('textarea')) autoSave();
+    });
   }
 
   // Reveal UI and signal Go

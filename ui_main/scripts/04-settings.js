@@ -38,7 +38,9 @@ function gatherConfig() {
     local_model_id: document.querySelector('[name="local-model"]:checked')?.value || 'whisper-base',
     notify_background: document.getElementById('toggle-notify-bg')?.checked ?? true,
     notify_complete: document.getElementById('toggle-notify-complete')?.checked ?? true,
-    notify_donate: document.getElementById('toggle-notify-donate')?.checked ?? true
+    notify_donate: document.getElementById('toggle-notify-donate')?.checked ?? true,
+    input_device: document.getElementById('select-audiodevice')?.value || '',
+    input_gain: parseInt(document.getElementById('range-input-gain')?.value || '100', 10) / 100.0
   };
 }
 
@@ -96,6 +98,9 @@ function applyConfig(cfg) {
   if (cfg.smart_mode_preset) {
     const el = document.getElementById('select-smartpreset');
     if (el) el.value = cfg.smart_mode_preset;
+    document.querySelectorAll('.preset-card').forEach(c => {
+      c.classList.toggle('active', c.dataset.preset === cfg.smart_mode_preset);
+    });
     updateSmartPresetVisibility();
   }
   if (cfg.smart_mode_prompt != null) { const el = document.getElementById('input-smartprompt'); if (el) el.value = cfg.smart_mode_prompt; }
@@ -115,6 +120,13 @@ function applyConfig(cfg) {
   { const el = document.getElementById('toggle-notify-bg'); if (el) el.checked = cfg.notify_background !== false; }
   { const el = document.getElementById('toggle-notify-complete'); if (el) el.checked = cfg.notify_complete !== false; }
   { const el = document.getElementById('toggle-notify-donate'); if (el) el.checked = cfg.notify_donate !== false; }
+  if (cfg.input_device != null) { const el = document.getElementById('select-audiodevice'); if (el) el.value = cfg.input_device; }
+  if (cfg.input_gain != null) {
+    const el = document.getElementById('range-input-gain');
+    const label = document.getElementById('input-gain-value');
+    if (el) { el.value = Math.round(cfg.input_gain * 100); }
+    if (label) { label.textContent = cfg.input_gain.toFixed(1) + 'x'; }
+  }
 }
 
 /* ── Radio Card Selection ─────────────────────────────── */
@@ -268,10 +280,7 @@ function toggleUnlimited(checked) {
 function updateSmartModeVisibility() {
   const on = document.getElementById('toggle-smartmode')?.checked;
   const section = document.getElementById('smart-mode-options');
-  if (section) {
-    if (on) section.classList.add('visible');
-    else section.classList.remove('visible');
-  }
+  if (section) section.style.display = on ? '' : 'none';
   if (on) updateSmartPresetVisibility();
 }
 
@@ -279,8 +288,21 @@ function updateSmartPresetVisibility() {
   const preset = document.getElementById('select-smartpreset')?.value;
   const targetRow = document.getElementById('smart-target-row');
   const promptRow = document.getElementById('smart-prompt-row');
-  if (targetRow) targetRow.style.display = preset === 'translate' ? 'block' : 'none';
-  if (promptRow) promptRow.style.display = preset === 'custom' ? 'block' : 'none';
+  if (targetRow) targetRow.style.display = preset === 'translate' ? '' : 'none';
+  if (promptRow) promptRow.style.display = preset === 'custom' ? '' : 'none';
+}
+
+function selectSmartPreset(preset) {
+  document.querySelectorAll('.preset-card').forEach(c => {
+    c.classList.toggle('active', c.dataset.preset === preset);
+  });
+  const sel = document.getElementById('select-smartpreset');
+  if (sel) sel.value = preset;
+  const targetRow = document.getElementById('smart-target-row');
+  const promptRow = document.getElementById('smart-prompt-row');
+  if (targetRow) targetRow.style.display = preset === 'translate' ? '' : 'none';
+  if (promptRow) promptRow.style.display = preset === 'custom' ? '' : 'none';
+  autoSave();
 }
 
 /* ── Test Sound ───────────────────────────────────────── */
@@ -358,6 +380,57 @@ async function testRecording() {
 window.updateTestStatus = function (status) {
   showStatus(status, 'success');
 };
+
+/* ── Audio Device List ────────────────────────────────── */
+async function loadAudioDevices() {
+  if (!window._getAudioDevices) return;
+  try {
+    const result = await window._getAudioDevices();
+    const devices = typeof result === 'string' ? JSON.parse(result) : result;
+    const sel = document.getElementById('select-audiodevice');
+    if (!sel) return;
+    while (sel.options.length > 1) sel.remove(1);
+    devices.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.id;
+      opt.textContent = d.name;
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    console.error('Failed to load audio devices:', e);
+  }
+}
+
+/* ── Test Audio Input ─────────────────────────────────── */
+let _testAudioInterval = null;
+function testAudioInput() {
+  const meter = document.getElementById('audioLevelMeter');
+  const bar = document.getElementById('audioLevelBar');
+  if (_testAudioInterval) {
+    clearInterval(_testAudioInterval);
+    _testAudioInterval = null;
+    if (meter) meter.style.display = 'none';
+    return;
+  }
+  if (meter) meter.style.display = 'block';
+  let count = 0;
+  _testAudioInterval = setInterval(async () => {
+    count++;
+    if (count > 50) {
+      clearInterval(_testAudioInterval);
+      _testAudioInterval = null;
+      if (meter) meter.style.display = 'none';
+      return;
+    }
+    if (window._getAudioLevel) {
+      try {
+        const level = await window._getAudioLevel();
+        const pct = Math.min(100, Math.round(parseFloat(level) * 100));
+        if (bar) bar.style.width = pct + '%';
+      } catch (e) {}
+    }
+  }, 100);
+}
 
 /* ── Local STT Visibility ─────────────────────────────── */
 function updateLocalSTTVisibility() {

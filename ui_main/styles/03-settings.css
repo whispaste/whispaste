@@ -552,3 +552,14 @@
   align-items: center;
   gap: 10px;
 }
+
+/* ── Audio Level Meter ──────────────────────────────── */
+.audio-level-meter {
+  height: 8px; border-radius: 4px; overflow: hidden;
+  background: var(--bg-input); margin-top: 8px;
+}
+.audio-level-bar {
+  height: 100%; width: 0%; border-radius: 4px;
+  background: var(--success, #10B981);
+  transition: width 0.1s;
+}
