@@ -642,8 +642,12 @@ window.updateModelProgress = function(modelId, pct, fileNum, fileCount) {
   if (item) {
     const btn = item.querySelector('.model-item-action .btn');
     if (btn) {
-      const fileInfo = fileCount > 1 ? ` (${fileNum}/${fileCount})` : '';
-      btn.textContent = pct + '%' + fileInfo;
+      if (pct >= 100 && fileNum >= fileCount) {
+        btn.textContent = '✓ ' + t('modelDownloaded');
+      } else {
+        const fileInfo = fileCount > 1 ? ` (${t('modelDownloadFile')} ${fileNum}/${fileCount})` : '';
+        btn.textContent = pct + '%' + fileInfo;
+      }
     }
   }
 };
