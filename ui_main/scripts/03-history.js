@@ -8,6 +8,8 @@ let _pendingDeleteId = null;
 let _selectedIds = new Set();
 let _lastCheckedIndex = -1;
 let _pendingDeleteIds = [];
+let _acHighlight = -1;
+let _acSeq = 0;
 
 function isToday(ts) {
   const d = new Date(ts), now = new Date();
@@ -153,6 +155,80 @@ function updateCounts() {
   }
 }
 
+/* ── Tag Autocomplete ─────────────────────────────────── */
+async function _fetchCategories() {
+  try {
+    if (window.getCategories) return JSON.parse(await window.getCategories());
+  } catch (_) {}
+  return [];
+}
+
+function _showTagAutocomplete(input) {
+  _closeTagAutocomplete();
+  const row = input.closest('.tag-input-row');
+  if (!row) return;
+  const seq = ++_acSeq;
+  _fetchCategories().then(cats => {
+    if (seq !== _acSeq) return;               // stale request
+    if (document.activeElement !== input) return; // input lost focus
+    const query = input.value.trim().toLowerCase();
+    const entry = _entries.find(e => e.id === input.dataset.id);
+    const currentTag = (entry?.category || '').toLowerCase();
+    const filtered = cats.filter(c =>
+      c.toLowerCase() !== currentTag &&
+      (query === '' || c.toLowerCase().includes(query))
+    );
+    if (filtered.length === 0) return;
+    _closeTagAutocomplete(); // clear any dropdown from a concurrent resolve
+    const dd = document.createElement('div');
+    dd.className = 'tag-autocomplete';
+    dd.dataset.forId = input.dataset.id;
+    _acHighlight = -1;
+    filtered.forEach((tag, i) => {
+      const item = document.createElement('div');
+      item.className = 'tag-autocomplete-item';
+      item.textContent = tag;
+      item.addEventListener('mousedown', (ev) => {
+        ev.preventDefault(); // keep focus on input
+        input.value = tag;
+        _closeTagAutocomplete();
+        updateTag(input);
+      });
+      dd.appendChild(item);
+    });
+    row.appendChild(dd);
+  });
+}
+
+function _closeTagAutocomplete() {
+  document.querySelectorAll('.tag-autocomplete').forEach(el => el.remove());
+  _acHighlight = -1;
+}
+
+function _navigateAutocomplete(input, direction) {
+  const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
+  if (!dd) return;
+  const items = dd.querySelectorAll('.tag-autocomplete-item');
+  if (items.length === 0) return;
+  items.forEach(i => i.classList.remove('active'));
+  _acHighlight += direction;
+  if (_acHighlight < 0) _acHighlight = items.length - 1;
+  if (_acHighlight >= items.length) _acHighlight = 0;
+  items[_acHighlight].classList.add('active');
+  items[_acHighlight].scrollIntoView({ block: 'nearest' });
+}
+
+function _selectAutocompleteHighlight(input) {
+  const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
+  if (!dd) return false;
+  const active = dd.querySelector('.tag-autocomplete-item.active');
+  if (!active) return false;
+  input.value = active.textContent;
+  _closeTagAutocomplete();
+  updateTag(input);
+  return true;
+}
+
 function renderHistory() {
   const list = document.getElementById('entriesList');
   if (!list) return;
@@ -254,7 +330,18 @@ function renderHistory() {
 
   // Bind tag inputs
   list.querySelectorAll('.tag-input').forEach(input => {
-    input.addEventListener('change', () => updateTag(input));
+    input.addEventListener('change', () => { _closeTagAutocomplete(); updateTag(input); });
+    input.addEventListener('focus', () => _showTagAutocomplete(input));
+    input.addEventListener('input', () => _showTagAutocomplete(input));
+    input.addEventListener('blur', () => _closeTagAutocomplete());
+    input.addEventListener('keydown', (ev) => {
+      const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
+      if (ev.key === 'Escape') { _closeTagAutocomplete(); ev.stopPropagation(); return; }
+      if (!dd) return;
+      if (ev.key === 'ArrowDown') { ev.preventDefault(); _navigateAutocomplete(input, 1); }
+      else if (ev.key === 'ArrowUp') { ev.preventDefault(); _navigateAutocomplete(input, -1); }
+      else if (ev.key === 'Enter') { if (_selectAutocompleteHighlight(input)) ev.preventDefault(); }
+    });
   });
 }
 
