@@ -8,63 +8,93 @@
 /* ── Sidebar Navigation ───────────────────────────────── */
 .sidebar-nav {
   width: 200px;
-  background: rgba(255,255,255,0.7);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-right: 1px solid var(--border);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-right: 1px solid var(--border-primary);
   padding: 0;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  position: relative;
+}
+.sidebar-nav::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 120px;
+  background: var(--gradient-glow);
+  pointer-events: none;
+  z-index: 0;
 }
 [data-theme="dark"] .sidebar-nav {
-  background: rgba(44,44,46,0.7);
+  background: var(--glass-bg-strong);
 }
 
 .nav-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 16px 16px 12px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+  z-index: 1;
 }
 .nav-brand-icon {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   color: var(--accent);
   flex-shrink: 0;
+  filter: drop-shadow(0 0 6px var(--accent-glow));
 }
 .nav-brand-text {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: -.02em;
-  color: var(--text);
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .nav-items {
-  padding: 8px 8px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  position: relative;
+  z-index: 1;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
+  padding: 9px 14px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-  transition: all var(--transition);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  transition: all var(--transition-normal);
+  position: relative;
 }
-.nav-item:hover { background: var(--bg-hover); color: var(--text); }
+.nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
 .nav-item.active {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: var(--accent-subtle);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-xs);
+}
+[data-theme="dark"] .nav-item.active { background: var(--accent-subtle); }
+.nav-item.active .icon { filter: drop-shadow(0 0 4px var(--accent-glow)); }
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 25%; bottom: 25%;
+  width: 3px;
+  background: var(--gradient-accent);
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
 }
 .nav-item .icon { width: 18px; height: 18px; }
 
@@ -76,7 +106,9 @@
   justify-content: center;
   gap: 6px;
   padding: 12px 8px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  border-top: 1px solid var(--border-subtle);
+  position: relative;
+  z-index: 1;
 }
 
 .nav-bottom-btn {
@@ -85,19 +117,20 @@
   justify-content: center;
   width: 34px;
   height: 34px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: none;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
   font-family: var(--font);
-  transition: all var(--transition);
+  transition: all var(--transition-normal);
 }
 .nav-bottom-btn:hover {
   background: var(--bg-hover);
-  color: var(--text);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-glow);
 }
 .nav-bottom-btn .icon { width: 18px; height: 18px; }
 
@@ -115,7 +148,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: fadeIn 280ms cubic-bezier(.4, 0, .2, 1);
+  animation: slide-in-right var(--duration-slow) var(--ease-out);
 }
 
 .page-header {
@@ -123,8 +156,8 @@
   flex-shrink: 0;
 }
 .page-title {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
   letter-spacing: -.03em;
-  color: var(--text);
+  color: var(--text-primary);
 }
