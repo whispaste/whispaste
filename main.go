@@ -271,9 +271,13 @@ func main() {
 					}
 				}
 
-				// Record stats and history
+				// Record stats and history with model info
 				totalDictations := stats.RecordDictation(text, durationSec)
-				history.Add(text, durationSec, lang)
+				if useLocal {
+					history.AddWithModel(text, durationSec, lang, cfg.GetLocalModelID(), true)
+				} else {
+					history.AddWithModel(text, durationSec, lang, model, false)
+				}
 				NotifyHistoryChanged()
 				if tray != nil {
 					tray.RefreshHistory()

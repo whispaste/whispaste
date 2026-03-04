@@ -35,6 +35,12 @@ func init() {
 	mainWindowHTML = assembleMainHTML()
 }
 
+// escapeJS escapes a string for safe embedding in a JavaScript string literal.
+func escapeJS(s string) string {
+	r := strings.NewReplacer("\\", "\\\\", "'", "\\'", "\"", "\\\"", "\n", "\\n", "\r", "\\r")
+	return r.Replace(s)
+}
+
 // assembleMainHTML reads template.html and injects concatenated CSS/JS from ui_main/ subdirectories.
 func assembleMainHTML() string {
 	tmpl, err := fs.ReadFile(uiMainFS, "ui_main/template.html")
@@ -372,26 +378,34 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return result
 		})
 
-		// Bind: _downloadModel → download a model by ID
+		// Bind: _downloadModel → download a model by ID (async, non-blocking)
 		w.Bind("_downloadModel", func(modelID string) map[string]interface{} {
-			logInfo("Downloading model: %s", modelID)
-			err := DownloadModel(modelID, func(downloaded, total int64, fileIdx, fileCount int) {
-				if total > 0 {
-					pct := int(float64(downloaded) / float64(total) * 100)
-					if pct > 100 {
-						pct = 100
+			logInfo("Starting model download: %s", modelID)
+			go func() {
+				err := DownloadModel(modelID, func(downloaded, total int64, fileIdx, fileCount int) {
+					if total > 0 {
+						pct := int(float64(downloaded) / float64(total) * 100)
+						if pct > 100 {
+							pct = 100
+						}
+						w.Dispatch(func() {
+							w.Eval(fmt.Sprintf("window.updateModelProgress('%s', %d, %d, %d)", modelID, pct, fileIdx+1, fileCount))
+						})
 					}
+				})
+				if err != nil {
+					logError("Model download failed: %v", err)
 					w.Dispatch(func() {
-						w.Eval(fmt.Sprintf("window.updateModelProgress('%s', %d, %d, %d)", modelID, pct, fileIdx+1, fileCount))
+						w.Eval(fmt.Sprintf("window.downloadComplete('%s', false, '%s')", modelID, escapeJS(err.Error())))
 					})
+					return
 				}
-			})
-			if err != nil {
-				logError("Model download failed: %v", err)
-				return map[string]interface{}{"success": false, "error": err.Error()}
-			}
-			logInfo("Model downloaded: %s", modelID)
-			return map[string]interface{}{"success": true, "error": ""}
+				logInfo("Model downloaded: %s", modelID)
+				w.Dispatch(func() {
+					w.Eval(fmt.Sprintf("window.downloadComplete('%s', true, '')", modelID))
+				})
+			}()
+			return map[string]interface{}{"started": true}
 		})
 
 		// Bind: _deleteModel → delete a downloaded model
@@ -487,6 +501,21 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		// Bind: updateEntry → update title/category
 		w.Bind("updateEntry", func(id, title, category string) bool {
 			return history.UpdateEntry(id, title, category)
+		})
+
+		// Bind: updateEntryText → update transcription text content
+		w.Bind("updateEntryText", func(id, newText string) bool {
+			return history.UpdateText(id, newText)
+		})
+
+		// Bind: getAnalytics → returns usage analytics for a time period
+		w.Bind("getAnalytics", func(periodDays int) string {
+			data := history.GetAnalytics(periodDays)
+			b, err := json.Marshal(data)
+			if err != nil {
+				return "{}"
+			}
+			return string(b)
 		})
 
 		// Bind: _mergeEntries → merges multiple entries into one
