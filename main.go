@@ -14,6 +14,12 @@ func main() {
 	InitLogger(LogDebug)
 	defer CloseLogger()
 
+	// Enable debug mode via environment variable
+	if os.Getenv("WHISPASTE_DEBUG") == "1" {
+		debugMode = true
+		logInfo("Debug mode enabled")
+	}
+
 	enableDarkMode()
 
 	// Detect system language on Windows via GetUserDefaultUILanguage
