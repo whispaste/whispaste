@@ -176,7 +176,7 @@ function renderHistory() {
             <span>${formatTime(e.timestamp)}</span>
             ${e.duration_sec ? '<span>' + formatDuration(e.duration_sec) + '</span>' : ''}
             ${e.language ? '<span>' + e.language.toUpperCase() + '</span>' : ''}
-            ${e.category ? '<span class="tag">' + esc(e.category) + '</span>' : ''}
+            ${e.category ? '<span class="tag">' + esc(e.category === 'merged' ? t('catMerged') : e.category) + '</span>' : ''}
           </div>
         </div>
         <div class="entry-actions">

@@ -555,11 +555,11 @@
 
 /* ── Audio Level Meter ──────────────────────────────── */
 .audio-level-meter {
-  height: 8px; border-radius: 4px; overflow: hidden;
+  height: 10px; border-radius: 5px; overflow: hidden;
   background: var(--bg-input); margin-top: 8px;
 }
 .audio-level-bar {
-  height: 100%; width: 0%; border-radius: 4px;
-  background: var(--success, #10B981);
-  transition: width 0.1s;
+  height: 100%; width: 0%; border-radius: 5px;
+  background: var(--clr-success, #34C759);
+  transition: width 0.08s ease-out;
 }

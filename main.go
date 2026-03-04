@@ -123,6 +123,7 @@ func main() {
 			if overlay != nil {
 				overlay.Show(StateRecording)
 			}
+			recorder.SetGain(cfg.GetInputGain())
 			if err := recorder.Start(); err != nil {
 				logError("Recording error: %v", err)
 				if playSounds {
