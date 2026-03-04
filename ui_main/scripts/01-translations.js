@@ -105,6 +105,12 @@ const translations = {
     modelNotDownloaded: 'not downloaded',
     modelNeedDownload: 'Download the model first to select it',
 
+    // Mode badge
+    modeLocal: 'Local',
+    modeApi: 'API',
+    modeLocalTip: 'Transcription via local Whisper model (offline)',
+    modeApiTip: 'Transcription via OpenAI Whisper API',
+
     // About
     aboutDesc: 'A fast, lightweight voice-to-text tool for Windows. Record speech and instantly paste the transcription anywhere.',
     aboutLicense: 'Open Source – MIT License',
@@ -255,6 +261,12 @@ const translations = {
     modelDeleted: 'Modell gelöscht',
     modelNotDownloaded: 'nicht heruntergeladen',
     modelNeedDownload: 'Modell zuerst herunterladen, um es auszuwählen',
+
+    // Mode badge
+    modeLocal: 'Lokal',
+    modeApi: 'API',
+    modeLocalTip: 'Transkription über lokales Whisper-Modell (offline)',
+    modeApiTip: 'Transkription über OpenAI Whisper API',
 
     // About
     aboutDesc: 'Ein schnelles, schlankes Sprache-zu-Text-Tool für Windows. Sprache aufnehmen und die Transkription sofort überall einfügen.',
