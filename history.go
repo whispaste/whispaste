@@ -22,7 +22,8 @@ type HistoryEntry struct {
 	Duration            float64 `json:"duration_sec"`
 	ProcessingDuration  float64 `json:"processing_duration_sec,omitempty"`
 	Language  string  `json:"language"`
-	Category  string  `json:"category,omitempty"`
+	Category  string  `json:"category,omitempty"` // deprecated: kept for backward compat with old JSON
+	Tags      []string `json:"tags,omitempty"`
 	Pinned    bool    `json:"pinned,omitempty"`
 	Source    string  `json:"source,omitempty"`
 	Model     string  `json:"model,omitempty"`
@@ -87,6 +88,15 @@ func LoadHistory() *History {
 		}
 		if h.Entries[i].Source == "" {
 			h.Entries[i].Source = "dictation"
+			migrated = true
+		}
+		// Migrate Category → Tags for backward compatibility
+		if len(h.Entries[i].Tags) == 0 && h.Entries[i].Category != "" {
+			h.Entries[i].Tags = []string{h.Entries[i].Category}
+			migrated = true
+		}
+		if h.Entries[i].Category != "" {
+			h.Entries[i].Category = "" // clear deprecated field
 			migrated = true
 		}
 	}
@@ -195,8 +205,8 @@ func (h *History) TogglePin(id string) bool {
 	return false
 }
 
-// UpdateEntry updates title and/or category for an entry by ID.
-func (h *History) UpdateEntry(id, title, category string) bool {
+// UpdateEntry updates title and/or tags for an entry by ID.
+func (h *History) UpdateEntry(id, title string, tags []string) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for i, e := range h.Entries {
@@ -204,7 +214,8 @@ func (h *History) UpdateEntry(id, title, category string) bool {
 			if title != "" {
 				h.Entries[i].Title = title
 			}
-			h.Entries[i].Category = category
+			h.Entries[i].Tags = tags
+			h.Entries[i].Category = "" // ensure deprecated field is cleared
 			h.cache = nil
 			h.saveLocked()
 			return true
