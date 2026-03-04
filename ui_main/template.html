@@ -206,7 +206,7 @@
           </div>
 
           <!-- Hotkey -->
-          <div class="card">
+          <div class="card" id="section-hotkey">
             <div class="card-title" data-i18n="cardHotkey">Hotkey</div>
             <p class="form-hint" style="margin-bottom:12px;margin-top:-8px" data-i18n="descHotkey">Global shortcut to start/stop recording from any application</p>
             <div class="form-group">
@@ -677,7 +677,7 @@
                 alt="WhisPaste" style="width:100%;height:100%" />
             </div>
             <div class="about-name">WhisPaste</div>
-            <div class="about-version" id="about-version" data-i18n="app.version">v0.1.0-alpha</div>
+            <div class="about-version" id="about-version" data-i18n="app.version">v0.1.1-alpha</div>
             <p class="about-desc" data-i18n="aboutDesc">A fast, lightweight voice-to-text tool for Windows. Record speech and instantly paste the transcription anywhere.</p>
             <a href="#" class="about-license about-license-link" onclick="openExternal('https://github.com/whispaste/whispaste/blob/main/LICENSE'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> <span data-i18n="aboutLicense">Open Source – MIT License</span></a>
             <div class="about-links">
@@ -727,15 +727,11 @@
     <!-- ── Global Status Bar ──────────────────────────── -->
     <div class="global-status-bar" id="globalStatusBar">
       <div class="status-indicators">
-        <button class="status-chip" id="statusMode" title="" onclick="switchPage('settings')">
+        <button class="status-chip" id="statusMode" title="" onclick="scrollToSettingsSection('section-transcription')">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-          <span class="status-chip-label" id="statusModeLabel">API</span>
+          <span class="status-chip-label" id="statusModeLabel">API · whisper-1</span>
         </button>
-        <button class="status-chip" id="statusModel" title="" onclick="switchPage('settings')">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
-          <span class="status-chip-label" id="statusModelLabel">whisper-1</span>
-        </button>
-        <button class="status-chip" id="statusHotkey" title="" onclick="switchPage('settings')">
+        <button class="status-chip" id="statusHotkey" title="" onclick="scrollToSettingsSection('section-hotkey')">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg>
           <span class="status-chip-label" id="statusHotkeyLabel">Ctrl+Shift+V</span>
         </button>
@@ -743,7 +739,13 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
           <span class="status-chip-label" id="statusSmartLabel">Off</span>
         </button>
+        <button class="status-chip status-chip-subtle" id="statusVersion" title="">
+          <span class="status-chip-label" id="statusVersionLabel">v0.1.1-alpha</span>
+        </button>
       </div>
+      <button class="status-heart" id="statusSponsor" title="Support WhisPaste" onclick="window.openURL && window.openURL('https://github.com/sponsors/silvio-l')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+      </button>
       <span class="status-msg" id="status-msg" role="status" aria-live="polite"></span>
     </div>
 

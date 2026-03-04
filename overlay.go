@@ -277,6 +277,7 @@ procGdipDeleteFont               = ovlGdiplus.NewProc("GdipDeleteFont")
 procGdipCreateStringFormat       = ovlGdiplus.NewProc("GdipCreateStringFormat")
 procGdipDeleteStringFormat       = ovlGdiplus.NewProc("GdipDeleteStringFormat")
 procGdipDrawString               = ovlGdiplus.NewProc("GdipDrawString")
+procGdipMeasureString            = ovlGdiplus.NewProc("GdipMeasureString")
 procGdipSetTextRenderingHint     = ovlGdiplus.NewProc("GdipSetTextRenderingHint")
 
 // GDI+ icon
@@ -447,8 +448,6 @@ paused    bool   // whether recording is paused
 pauseStart time.Time    // when current pause began
 pauseAccum time.Duration // accumulated pause time
 mu        sync.Mutex
-modelLabel  string // D1: model name shown in overlay
-smartLabel  string // D2: smart mode indicator shown in overlay
 }
 
 var overlayWndProcCB = syscall.NewCallback(overlayWndProc)
@@ -856,18 +855,6 @@ o.position = pos
 o.mu.Unlock()
 }
 
-// SetInfo updates the model name and smart mode label shown in the recording overlay.
-func (o *Overlay) SetInfo(model, smartPreset string) {
-o.mu.Lock()
-o.modelLabel = model
-if smartPreset != "" && smartPreset != "off" {
-	o.smartLabel = "Smart"
-} else {
-	o.smartLabel = ""
-}
-o.mu.Unlock()
-}
-
 // Show displays the overlay for the given state.
 func (o *Overlay) Show(state AppState) {
 if o.hwnd != 0 {
@@ -1057,6 +1044,25 @@ o.gdipStrFmt,
 brush)
 }
 
+// measureGdipTextWidth measures the rendered width of text using GDI+.
+func (o *Overlay) measureGdipTextWidth(g uintptr, text string, font uintptr) float32 {
+	if font == 0 || o.gdipStrFmt == 0 {
+		return 0
+	}
+	utf16, _ := windows.UTF16FromString(text)
+	layout := gdipRectF{X: 0, Y: 0, Width: 1000, Height: 100}
+	var bbox gdipRectF
+	procGdipMeasureString.Call(g,
+		uintptr(unsafe.Pointer(&utf16[0])),
+		uintptr(len(utf16)-1),
+		font,
+		uintptr(unsafe.Pointer(&layout)),
+		o.gdipStrFmt,
+		uintptr(unsafe.Pointer(&bbox)),
+		0, 0)
+	return bbox.Width
+}
+
 func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pauseAccum time.Duration, isPaused bool, levels [_WAVE_BARS]float32, levelIdx int, contentX int32) {
 cy := int32(_OVL_HEIGHT / 2)
 
@@ -1132,22 +1138,6 @@ if isPaused {
 gdipFillCircleG(g, 0xFFE53935, _BTN_CONFIRM_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 o.drawStopIcon(g, _BTN_CONFIRM_X, int32(cy)-_BTN_SIZE/2)
 
-// Subtle info label at bottom: model name + smart mode indicator
-o.mu.Lock()
-ml := o.modelLabel
-sl := o.smartLabel
-o.mu.Unlock()
-if ml != "" || sl != "" {
-	label := ml
-	if sl != "" {
-		if label != "" {
-			label += "  ·  " + sl
-		} else {
-			label = sl
-		}
-	}
-	o.drawGdipText(g, label, float32(contentX+10), float32(cy+20), float32(_BTN_PAUSE_X-int32(contentX)-20), o.gdipFontSmall, 0x70B0A090)
-}
 }
 
 // drawXIcon draws an ✕ icon using GDI+ lines with round caps.
@@ -1213,11 +1203,32 @@ func (o *Overlay) drawPlayIcon(g uintptr, bx, by int32) {
 func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32) {
 cy := int32(_OVL_HEIGHT / 2)
 
-// Spinner
+// Build text with animated dots
+text := T("overlay.transcribing")
+for len(text) > 0 && text[len(text)-1] == '.' {
+text = text[:len(text)-1]
+}
+n := (frame / 15) % 4
+for i := 0; i < n; i++ {
+text += "."
+}
+
+// Spinner geometry
 const numDots = 8
 const spinR = 10
 const dotR = 3
-spinCx := contentX + spinR + 2
+const gap = 16
+spinnerW := float32(spinR*2 + 2)
+
+// Center spinner+gap+text group in full overlay width
+textW := o.measureGdipTextWidth(g, text, o.gdipFontMain)
+if textW < 80 {
+	textW = 80
+}
+groupW := spinnerW + float32(gap) + textW
+groupX := (float32(_OVL_WIDTH) - groupW) / 2
+
+spinCx := int32(groupX) + spinR + 1
 spinCy := cy
 angleOffset := float64(frame) * 0.15
 for i := 0; i < numDots; i++ {
@@ -1229,17 +1240,8 @@ argb := (alpha << 24) | 0x0022D3EE
 gdipFillCircleG(g, argb, spinCx+dx, spinCy+dy, dotR)
 }
 
-// Text
-textX := float32(contentX + spinR*2 + 16)
-text := T("overlay.transcribing")
-for len(text) > 0 && text[len(text)-1] == '.' {
-text = text[:len(text)-1]
-}
-n := (frame / 15) % 4
-for i := 0; i < n; i++ {
-text += "."
-}
-o.drawGdipText(g, text, textX, float32(cy-10), 200, o.gdipFontMain, 0xFFFFFFFF)
+textX := groupX + spinnerW + float32(gap)
+o.drawGdipText(g, text, textX, float32(cy-10), textW+20, o.gdipFontMain, 0xFFFFFFFF)
 }
 
 func (o *Overlay) paintErrorULW(g uintptr, contentX int32) {
@@ -1249,8 +1251,19 @@ o.drawGdipText(g, text, float32(contentX), float32(_OVL_HEIGHT/2-10), float32(_O
 
 func (o *Overlay) paintCopiedULW(g uintptr, contentX int32) {
 cy := int32(_OVL_HEIGHT / 2)
-gdipFillCircleG(g, 0xFF34C759, contentX+8, cy, 8)
-o.drawGdipText(g, "\u2713", float32(contentX+1), float32(cy-10), 16, o.gdipFontSmall, 0xFFFFFFFF)
 text := T("overlay.copied")
-o.drawGdipText(g, text, float32(contentX+24), float32(cy-10), 260, o.gdipFontMain, 0xFF34C759)
+
+// Center checkmark+gap+text group in full overlay width
+const circleD = 16 // checkmark circle diameter
+const gap = 8
+textW := o.measureGdipTextWidth(g, text, o.gdipFontMain)
+if textW < 80 {
+	textW = 80
+}
+groupW := float32(circleD+gap) + textW
+groupX := (float32(_OVL_WIDTH) - groupW) / 2
+
+gdipFillCircleG(g, 0xFF34C759, int32(groupX)+circleD/2, cy, circleD/2)
+o.drawGdipText(g, "\u2713", groupX+1, float32(cy-10), float32(circleD), o.gdipFontSmall, 0xFFFFFFFF)
+o.drawGdipText(g, text, groupX+float32(circleD+gap), float32(cy-10), textW+20, o.gdipFontMain, 0xFF34C759)
 }
