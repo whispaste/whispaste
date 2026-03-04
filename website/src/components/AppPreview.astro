@@ -767,15 +767,15 @@
     position: relative;
     z-index: 2;
     width: 62%;
-    transform: perspective(1200px) rotateY(3deg) rotateX(1deg);
+    transform: rotate(-1.5deg);
     transition: opacity 0.7s ease-out, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .mockup-collage-notebook.visible {
-    transform: perspective(1200px) rotateY(3deg) rotateX(1deg);
+    transform: rotate(-1.5deg);
   }
   .mockup-collage-notebook:hover,
   .mockup-collage-notebook.visible:hover {
-    transform: perspective(1200px) rotateY(0deg) rotateX(0deg) scale(1.02);
+    transform: rotate(0deg) scale(1.02);
     z-index: 10;
   }
   .mockup-collage-settings {
@@ -784,15 +784,15 @@
     width: 42%;
     margin-left: -5%;
     margin-top: 30px;
-    transform: perspective(1200px) rotateY(-4deg) rotateX(1deg);
+    transform: rotate(2deg);
     transition: opacity 0.7s ease-out, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .mockup-collage-settings.visible {
-    transform: perspective(1200px) rotateY(-4deg) rotateX(1deg);
+    transform: rotate(2deg);
   }
   .mockup-collage-settings:hover,
   .mockup-collage-settings.visible:hover {
-    transform: perspective(1200px) rotateY(0deg) rotateX(0deg) scale(1.02);
+    transform: rotate(0deg) scale(1.02);
     z-index: 10;
   }
   @media (max-width: 1023px) {
