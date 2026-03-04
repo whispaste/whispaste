@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 
@@ -553,8 +554,13 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				return
 			}
 			logPath := filepath.Join(logDir, "whispaste.log")
-			if err := exec.Command("rundll32", "url.dll,FileProtocolHandler", logPath).Start(); err != nil {
-				logWarn("Failed to open log file: %v", err)
+			pathPtr, _ := windows.UTF16PtrFromString(logPath)
+			openPtr, _ := windows.UTF16PtrFromString("open")
+			shell32 := windows.NewLazySystemDLL("shell32.dll")
+			shellExec := shell32.NewProc("ShellExecuteW")
+			ret, _, _ := shellExec.Call(0, uintptr(unsafe.Pointer(openPtr)), uintptr(unsafe.Pointer(pathPtr)), 0, 0, 1) // SW_SHOWNORMAL=1
+			if ret <= 32 {
+				logWarn("ShellExecuteW failed for log file (ret=%d)", ret)
 			}
 		})
 
