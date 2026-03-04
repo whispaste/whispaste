@@ -440,6 +440,19 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return history.UpdateEntry(id, title, category)
 		})
 
+		// Bind: _mergeEntries → merges multiple entries into one
+		w.Bind("_mergeEntries", func(idsJSON string) string {
+			var ids []string
+			if err := json.Unmarshal([]byte(idsJSON), &ids); err != nil {
+				return `{"success":false,"error":"invalid input"}`
+			}
+			newID := history.Merge(ids)
+			if newID == "" {
+				return `{"success":false,"error":"need at least 2 entries"}`
+			}
+			return fmt.Sprintf(`{"success":true,"id":"%s"}`, newID)
+		})
+
 		// Bind: copyEntry → copies text to clipboard
 		w.Bind("copyEntry", func(id string) string {
 			entries := history.All()

@@ -189,6 +189,64 @@ func (h *History) Categories() []string {
 	return cats
 }
 
+// Merge combines multiple entries into one. The newest entry's metadata is used as the base.
+// Texts are concatenated with double newline separators. Duration is summed.
+// Returns the ID of the merged entry, or empty string on error.
+func (h *History) Merge(ids []string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// Find matching entries (preserve order by timestamp)
+	var matches []HistoryEntry
+	idSet := make(map[string]bool)
+	for _, id := range ids {
+		idSet[id] = true
+	}
+	for _, e := range h.Entries {
+		if idSet[e.ID] {
+			matches = append(matches, e)
+		}
+	}
+	if len(matches) < 2 {
+		return ""
+	}
+
+	// Build merged entry: concatenate texts, sum durations, use newest timestamp
+	var texts []string
+	var totalDuration float64
+	newestTime := ""
+	for _, m := range matches {
+		texts = append(texts, strings.TrimSpace(m.Text))
+		totalDuration += m.Duration
+		if m.Timestamp > newestTime {
+			newestTime = m.Timestamp
+		}
+	}
+
+	mergedText := strings.Join(texts, "\n\n")
+	merged := HistoryEntry{
+		ID:        generateID(),
+		Text:      mergedText,
+		Title:     autoTitle(mergedText),
+		Timestamp: newestTime,
+		Duration:  totalDuration,
+		Language:  matches[0].Language,
+		Source:    "merged",
+	}
+
+	// Remove originals
+	var remaining []HistoryEntry
+	for _, e := range h.Entries {
+		if !idSet[e.ID] {
+			remaining = append(remaining, e)
+		}
+	}
+	remaining = append(remaining, merged)
+	h.Entries = remaining
+	h.saveLocked()
+	return merged.ID
+}
+
 func (h *History) save() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
