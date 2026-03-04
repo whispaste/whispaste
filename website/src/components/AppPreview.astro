@@ -272,10 +272,14 @@
 <style>
   /* ---- Mockup window chrome ---- */
   .mockup-glow {
-    background: linear-gradient(135deg, rgba(34,211,238,0.2), rgba(14,116,144,0.1), rgba(34,211,238,0.15));
-    box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 60px rgba(34,211,238,0.06);
+    background: linear-gradient(135deg, rgba(34,211,238,0.25), rgba(14,116,144,0.12), rgba(34,211,238,0.2));
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 80px rgba(34,211,238,0.08);
     border-radius: 16px;
     padding: 1px;
+    transition: box-shadow 0.4s ease;
+  }
+  .mockup-glow:hover {
+    box-shadow: 0 12px 50px rgba(0,0,0,0.5), 0 0 100px rgba(34,211,238,0.12);
   }
   .mockup-window {
     background: #1C1C1E;
@@ -423,17 +427,19 @@
   }
   .mockup-sidebar-item svg { width: 15px; height: 15px; flex-shrink: 0; }
   .mockup-sidebar-item-active {
-    background: rgba(34, 211, 238, 0.08);
+    background: rgba(34, 211, 238, 0.12);
     color: #22D3EE;
     font-weight: 600;
+    box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.15);
   }
   .mockup-sidebar-item-active::before {
     content: '';
     position: absolute;
-    left: 0; top: 25%; bottom: 25%;
+    left: 0; top: 20%; bottom: 20%;
     width: 3px;
     background: linear-gradient(135deg, #22D3EE, #0891B2);
     border-radius: 0 3px 3px 0;
+    box-shadow: 0 0 8px rgba(34, 211, 238, 0.3);
   }
   .mockup-sidebar-spacer { flex: 1; }
   .mockup-sidebar-bottom {
@@ -480,14 +486,16 @@
   }
   .mockup-nb-card {
     position: relative;
-    background: #2C2C2E;
+    background: linear-gradient(180deg, #2C2C2E, color-mix(in srgb, #22D3EE 2%, #2A2A2C));
     border: 1px solid #38383A;
     border-radius: 10px;
     padding: 10px 14px;
     box-shadow: 0 1px 3px rgba(0,0,0,.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
   .mockup-nb-card-pinned {
     padding-left: 18px;
+    border-left-color: rgba(34,211,238,0.2);
   }
   .mockup-nb-pin-bar {
     position: absolute;
@@ -555,12 +563,12 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: #22D3EE;
+    background: linear-gradient(135deg, #22D3EE, #0891B2);
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 16px rgba(0,0,0,.3);
+    box-shadow: 0 4px 16px rgba(34,211,238,.25), 0 2px 8px rgba(0,0,0,.3);
   }
 
   /* ---- Settings mockup ---- */
@@ -594,6 +602,16 @@
     border: 1px solid #38383A;
     border-radius: 14px;
     padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .mockup-st-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(135deg, #22D3EE, #0891B2);
+    opacity: 0.4;
   }
   .mockup-st-card-title {
     font-size: 10px;
@@ -876,54 +894,59 @@
 <!-- Light theme mockup overrides -->
 <style is:global>
   html.light .mockup-glow {
-    background: linear-gradient(135deg, rgba(8,145,178,0.2), rgba(14,116,144,0.1), rgba(8,145,178,0.15));
-    box-shadow: 0 8px 40px rgba(0,0,0,0.1), 0 0 60px rgba(8,145,178,0.06);
+    background: linear-gradient(135deg, rgba(8,145,178,0.25), rgba(14,116,144,0.12), rgba(8,145,178,0.2));
+    box-shadow: 0 8px 40px rgba(0,0,0,0.12), 0 0 80px rgba(8,145,178,0.08);
   }
-  html.light .mockup-window { background: #F2F2F7; }
-  html.light .mockup-titlebar { background: #FFFFFF; border-bottom-color: #D1D1D6; }
+  html.light .mockup-glow:hover {
+    box-shadow: 0 12px 50px rgba(0,0,0,0.15), 0 0 100px rgba(8,145,178,0.12);
+  }
+  html.light .mockup-window { background: #F8F9FC; }
+  html.light .mockup-titlebar { background: #FFFFFF; border-bottom-color: #E2E5EB; }
   html.light .mockup-titlebar-text { color: #1C1C1E; }
-  html.light .mockup-nb-body {background: linear-gradient(160deg, #F2F2F7 0%, color-mix(in srgb, #0891B2 4%, #F2F2F7) 50%, #F2F2F7 100%); }
-  html.light .mockup-nb-topbar { background: #FFFFFF; border-bottom-color: color-mix(in srgb, #0891B2 15%, #D1D1D6); }
-  html.light .mockup-nb-search { background: #FFFFFF; border-color: #D1D1D6; color: #1C1C1E; }
+  html.light .mockup-nb-body {background: linear-gradient(160deg, #F8F9FC 0%, color-mix(in srgb, #0891B2 5%, #F8F9FC) 50%, #F8F9FC 100%); }
+  html.light .mockup-nb-topbar { background: #FFFFFF; border-bottom-color: color-mix(in srgb, #0891B2 15%, #E2E5EB); }
+  html.light .mockup-nb-search { background: #F4F5F7; border-color: #E2E5EB; color: #1C1C1E; }
   html.light .mockup-nb-search-icon { color: #8E8E93; }
   html.light .mockup-nb-action-btn { color: #636366; }
-  html.light .mockup-nb-card { background: #FFFFFF; border-color: #D1D1D6; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  html.light .mockup-nb-card { background: #FFFFFF; border-color: #E8EAF0; box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.02); }
   html.light .mockup-nb-card-title { color: #1C1C1E; }
   html.light .mockup-nb-card-meta { color: #8E8E93; }
   html.light .mockup-nb-card-preview { color: #636366; }
-  html.light .mockup-nb-pin-bar { background: #0891B2; }
+  html.light .mockup-nb-pin-bar { background: linear-gradient(180deg, #22D3EE, #0891B2); }
   html.light .mockup-nb-action-btn-sm { color: #636366; }
-  html.light .mockup-nb-fab { background: #0891B2; }
-  html.light .mockup-st-body { background: linear-gradient(160deg, #F2F2F7 0%, color-mix(in srgb, #0891B2 4%, #F2F2F7) 50%, #F2F2F7 100%); }
-  html.light .mockup-st-card { background: linear-gradient(180deg, #FFFFFF, color-mix(in srgb, #0891B2 2%, #FFFFFF)); border-color: #D1D1D6; }
+  html.light .mockup-nb-fab { background: linear-gradient(135deg, #22D3EE, #0891B2); box-shadow: 0 4px 16px rgba(8,145,178,.2); }
+  html.light .mockup-sidebar { background: rgba(248,249,252,0.92); border-right-color: rgba(0,0,0,.06); }
+  html.light .mockup-sidebar::before { background: radial-gradient(ellipse at 50% 0%, rgba(8,145,178,0.1) 0%, transparent 70%); }
+  html.light .mockup-sidebar-brand { border-bottom-color: rgba(0,0,0,.04); }
+  html.light .mockup-sidebar-brand-text { background: linear-gradient(135deg, #0891B2, #0E7490); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  html.light .mockup-sidebar-item { color: #636366; }
+  html.light .mockup-sidebar-item-active { background: rgba(8,145,178,0.08); color: #0891B2; box-shadow: inset 0 0 0 1px rgba(8,145,178,0.12); }
+  html.light .mockup-sidebar-item-active::before { background: linear-gradient(180deg, #0891B2, #0E7490); box-shadow: 0 0 8px rgba(8,145,178,0.2); }
+  html.light .mockup-sidebar-bottom { border-top-color: rgba(0,0,0,.04); }
+  html.light .mockup-sidebar-bottom-btn { color: #636366; }
+  html.light .mockup-st-body { background: linear-gradient(160deg, #F8F9FC 0%, color-mix(in srgb, #0891B2 5%, #F8F9FC) 50%, #F8F9FC 100%); }
+  html.light .mockup-st-card { background: linear-gradient(180deg, #FFFFFF, color-mix(in srgb, #0891B2 2%, #FFFFFF)); border-color: #E8EAF0; }
+  html.light .mockup-st-card::before { background: linear-gradient(135deg, #0891B2, #0E7490); }
   html.light .mockup-st-card-title { color: #8E8E93; }
   html.light .mockup-st-label { color: #1C1C1E; }
-  html.light .mockup-st-input { background: #FFFFFF; border-color: #D1D1D6; color: #1C1C1E; }
+  html.light .mockup-st-input { background: #F4F5F7; border-color: #E2E5EB; color: #1C1C1E; }
   html.light .mockup-st-eye-btn { color: #8E8E93; }
   html.light .mockup-st-hint { color: #8E8E93; }
   html.light .mockup-st-link { color: #0891B2; }
-  html.light .mockup-st-radio-card { border-color: #D1D1D6; background: #FFFFFF; }
-  html.light .mockup-st-radio-active { border-color: #0891B2; box-shadow: 0 0 0 1px #0891B2; }
+  html.light .mockup-st-radio-card { border-color: #E2E5EB; background: #F8F9FC; }
+  html.light .mockup-st-radio-active { border-color: #0891B2; box-shadow: 0 0 0 1px #0891B2, 0 0 8px rgba(8,145,178,0.1); }
   html.light .mockup-st-radio-label { color: #1C1C1E; }
   html.light .mockup-st-radio-desc { color: #8E8E93; }
-  html.light .mockup-st-hotkey-display { background: linear-gradient(180deg, #F8F8FC, #FFFFFF); border-color: #D1D1D6; }
-  html.light .mockup-st-key { background: linear-gradient(180deg, #FFFFFF, #F2F2F7); border-color: #D1D1D6; color: #1C1C1E; }
+  html.light .mockup-st-hotkey-display { background: linear-gradient(180deg, #FFFFFF, #F4F5F7); border-color: #E2E5EB; }
+  html.light .mockup-st-key { background: linear-gradient(180deg, #FFFFFF, #F2F3F5); border-color: #D8DAE0; color: #1C1C1E; box-shadow: 0 2px 0 #D8DAE0, 0 3px 6px rgba(0,0,0,.06); }
   html.light .mockup-st-key-plus { color: #8E8E93; }
-  html.light .mockup-st-change-btn { background: #FFFFFF; border-color: #D1D1D6; color: #1C1C1E; }
-  html.light .mockup-st-bottombar { background: rgba(255,255,255,.85); border-top-color: rgba(0,0,0,.08); }
-  html.light .mockup-st-btn-test { color: #636366; border-color: #D1D1D6; }
-  html.light .mockup-st-btn-cancel { background: #FFFFFF; border-color: #D1D1D6; color: #1C1C1E; }
-  html.light .mockup-st-btn-save { background: linear-gradient(135deg, #0891B2, #0E7490); }
-  html.light .mockup-sidebar { background: rgba(255, 255, 255, 0.8); border-right-color: rgba(0,0,0,0.06); }
-  html.light .mockup-sidebar::before { background: radial-gradient(ellipse at 50% 0%, rgba(8,145,178,0.1) 0%, transparent 70%); }
-  html.light .mockup-sidebar-brand { border-bottom-color: rgba(0,0,0,0.06); }
-  html.light .mockup-sidebar-brand-text { background: linear-gradient(135deg, #0891B2, #0E7490); -webkit-background-clip: text; background-clip: text; }
-  html.light .mockup-sidebar-item { color: #64748B; }
-  html.light .mockup-sidebar-item-active { background: rgba(8,145,178,0.08); color: #0891B2; }
-  html.light .mockup-sidebar-item-active::before { background: linear-gradient(135deg, #0891B2, #0E7490); }
-  html.light .mockup-sidebar-bottom { border-top-color: rgba(0,0,0,0.06); }
-  html.light .mockup-sidebar-bottom-btn { color: #64748B; }
+  html.light .mockup-st-change-btn { background: #FFFFFF; border-color: #E2E5EB; color: #1C1C1E; }
+  html.light .mockup-st-bottombar { background: rgba(255,255,255,.9); border-top-color: rgba(0,0,0,.06); }
+  html.light .mockup-st-btn-test { color: #636366; border-color: #E2E5EB; }
+  html.light .mockup-st-btn-cancel { background: #FFFFFF; border-color: #E2E5EB; color: #1C1C1E; }
+  html.light .mockup-st-btn-save { background: linear-gradient(135deg, #0891B2, #0E7490); box-shadow: 0 2px 8px rgba(8,145,178,0.25); }
   html.light .mockup-page-title { color: #1C1C1E; }
-  html.light .mockup-taskbar-inner { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.08); }
+  html.light .mockup-taskbar-inner { background: rgba(255,255,255,.92); border-color: rgba(0,0,0,.06); }
   html.light .mockup-tray-time { color: #636366; }
+  html.light .mockup-tray-icons svg { color: #636366; }
 </style>
