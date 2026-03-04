@@ -1,7 +1,12 @@
 /* ── Smart Mode Page ──────────────────────────────────── */
+.smartmode-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 24px 20px;
+}
 .smartmode-content {
   max-width: 700px;
-  padding: 0 24px 24px;
 }
 .page-subtitle {
   font-size: 0.9rem;

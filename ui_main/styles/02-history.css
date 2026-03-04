@@ -91,8 +91,7 @@
   border-right: 1px solid var(--border-subtle);
   background: var(--bg-primary);
 }
-.filter-sidebar::-webkit-scrollbar { width: 3px; }
-.filter-sidebar::-webkit-scrollbar-thumb { background: rgba(0,0,0,.1); border-radius: 2px; }
+.filter-sidebar::-webkit-scrollbar { width: 4px; }
 
 .filter-section { margin-bottom: 12px; }
 
@@ -191,9 +190,7 @@
   padding: 12px 20px 80px;
   background: var(--bg-app);
 }
-.entries-area::-webkit-scrollbar { width: 4px; }
-.entries-area::-webkit-scrollbar-track { background: transparent; }
-.entries-area::-webkit-scrollbar-thumb { background: rgba(0,0,0,.1); border-radius: 2px; }
+.entries-area::-webkit-scrollbar { width: 6px; }
 
 .entries {
   display: flex;
