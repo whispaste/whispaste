@@ -51,6 +51,11 @@
 }
 .stat-value.accent { color: var(--accent); }
 .stat-value.green { color: #22c55e; }
+.stat-range {
+  font-size: 11px;
+  color: var(--text-hint);
+  margin-top: 2px;
+}
 
 /* Charts */
 .analytics-charts {
@@ -104,9 +109,9 @@
 }
 
 /* Duration histogram */
-.duration-bars { display: flex; gap: 8px; align-items: flex-end; }
-.dur-col { flex: 1; text-align: center; max-width: 60px; }
-.dur-bar-wrap { display: flex; align-items: flex-end; justify-content: center; height: 100px; }
+.duration-bars { display: flex; gap: 8px; align-items: flex-end; height: 130px; padding-top: 10px; }
+.dur-col { flex: 1; display: flex; flex-direction: column; align-items: center; max-width: 60px; height: 100%; }
+.dur-bar-wrap { display: flex; align-items: flex-end; justify-content: center; flex: 1; width: 100%; }
 .dur-bar {
   width: 100%;
   max-width: 40px;
