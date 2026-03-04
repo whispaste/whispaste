@@ -231,6 +231,9 @@ func (t *AppTray) onReady() {
 		{"email", "settings.smart_preset_email"},
 		{"bullets", "settings.smart_preset_bullets"},
 		{"formal", "settings.smart_preset_formal"},
+		{"aiprompt", "settings.smart_preset_aiprompt"},
+		{"summary", "settings.smart_preset_summary"},
+		{"notes", "settings.smart_preset_notes"},
 		{"translate", "settings.smart_preset_translate"},
 		{"custom", "settings.smart_preset_custom"},
 	}
