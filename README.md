@@ -6,8 +6,8 @@
 
 <p align="center">
   <b>Voice to text, pasted anywhere.</b><br>
-  A lightweight, open-source Windows desktop tool that transcribes your speech<br>
-  with OpenAI Whisper and pastes the result into any focused input field.
+  An open-source Windows desktop tool that transcribes your speech<br>
+  and pastes the result into any focused input field — using OpenAI Whisper or local models.
 </p>
 
 <p align="center">
@@ -31,34 +31,46 @@
 
 ## ✨ Features
 
-| | | |
-|---|---|---|
-| 🎤 **Global Hotkey** | Press `Ctrl+Shift+V` from anywhere | Fully configurable |
-| 🔄 **Two Modes** | Push-to-Talk or Toggle | Hold or press to start/stop |
-| ⏸ **Pause & Resume** | Pause/resume recording mid-dictation | Overlay button or tray |
-| 📋 **Auto-Paste** | Text appears at your cursor | Clipboard + simulated Ctrl+V |
-| 🧠 **Smart Mode** | AI post-processing via GPT-4o-mini | Cleanup, email, bullets, formal, translate |
-| 🌍 **Multi-Language** | Any language Whisper supports | Or auto-detect |
-| 🖥️ **Premium Overlay** | Anti-aliased waveform + timer + controls | Draggable, non-intrusive, always on top |
-| 📜 **History** | Browse & re-copy past transcriptions | Last 10 in tray, up to 500 in dashboard |
-| 📊 **Dashboard** | Full-featured transcription manager | Search, tag, sort, pin, edit, copy |
-| 🔔 **Audio Feedback** | Subtle sounds for each state | Adjustable volume |
-| 🔑 **BYOK** | Bring Your Own API Key | No subscription needed |
-| ⚡ **Lightweight** | Single ~8 MB portable `.exe` | No installer, no dependencies |
-| 🚀 **Autostart** | Launch on Windows login | Starts silently in tray |
-| 🔄 **Auto-Update** | SHA256-verified self-updater | Notifies via system tray |
-| 🌐 **Localized** | English & German UI | Auto-detected from system |
-| ♿ **Accessible** | Full keyboard navigation | Screen reader support |
-| ♾️ **Unlimited Recording** | No time limit if desired | Configurable max duration |
+| | |
+|---|---|
+| 🎤 **Global Hotkey** | Press `Ctrl+Shift+V` from anywhere to start dictating. Fully configurable. |
+| 🔄 **Push-to-Talk & Toggle** | Hold the hotkey while speaking, or press once to start and again to stop. |
+| ☁️ **Cloud & Local Models** | Use OpenAI Whisper API or run offline with local Whisper models (base, small) — no API key needed for local. |
+| 📋 **Auto-Paste** | Transcribed text is automatically pasted at your cursor via clipboard + simulated Ctrl+V. |
+| 🧠 **Smart Mode** | Optional AI post-processing via GPT-4o-mini: clean up text, convert to email, bullet points, formal tone, translate, or use a custom prompt. |
+| 🌍 **Multi-Language** | Transcribe in any language Whisper supports, or let it auto-detect. |
+| 🖥️ **Recording Overlay** | A small overlay with live waveform, timer, and confirm/pause controls appears during recording. Draggable, always on top. |
+| 📜 **History & Dashboard** | Browse, search, tag, pin, edit, and re-copy past transcriptions. Up to 500 entries, accessible from the tray or dashboard. |
+| 📊 **Analytics** | Track transcription counts, duration distribution, model usage, API costs, and savings from using local models. |
+| ✏️ **Text Editing** | Edit transcription text directly in the dashboard after dictation. |
+| 🔔 **Audio Feedback** | Subtle sounds for start, stop, success, and error states. Adjustable volume. |
+| 🔄 **Auto-Update** | SHA256-verified self-updater checks for new versions automatically. |
+| 🌐 **Localized** | English & German UI, auto-detected from your system language. |
+| ⚡ **Portable** | No installer required — just extract and run. Runs from the system tray. |
 
 <br>
 
 ## 📦 Quick Start
 
-1. **Download** the latest `whispaste.exe` from [**Releases**](../../releases/latest)
-2. **Run** — double-click the `.exe` (no installation needed)
-3. **Configure** — enter your [OpenAI API key](https://platform.openai.com/api-keys) in the settings window
-4. **Use** — press `Ctrl+Shift+V`, speak, release → text appears at your cursor!
+### Portable (recommended)
+
+1. **Download** all files from the latest [**Release**](../../releases/latest):
+   - `whispaste.exe` — the application
+   - `onnxruntime.dll` — required for local speech recognition
+   - `sherpa-onnx-c-api.dll` — required for local speech recognition
+   - `sherpa-onnx-cxx-api.dll` — required for local speech recognition
+2. **Place all files in the same folder** — the DLLs must be next to `whispaste.exe`
+3. **Run** — double-click `whispaste.exe`. It will appear in your system tray.
+4. **Set up transcription** — either:
+   - Enter your [OpenAI API key](https://platform.openai.com/api-keys) in Settings → API Key, or
+   - Enable local models in Settings → Local STT and download a model (no API key needed)
+5. **Use** — press `Ctrl+Shift+V`, speak, release → text appears at your cursor!
+
+> **Note:** If you don't need local models, the DLL files are optional — the app works with just the `.exe` and an OpenAI API key.
+
+### MSIX Package
+
+An `.msix` package is also available in each release for users who prefer managed installation via Windows.
 
 <br>
 
@@ -68,34 +80,34 @@ Right-click the tray icon → **Settings** to configure:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| API Key | *(required)* | Your OpenAI API key |
-| API Endpoint | *(OpenAI default)* | Custom API endpoint — edit in `config.json` |
-| Hotkey | `Ctrl+Shift+V` | Global keyboard shortcut |
-| Mode | Push-to-Talk | Hold hotkey or toggle on/off |
-| Language | Auto-detect | Force a specific transcription language |
-| Model | `whisper-1` | OpenAI Whisper model |
-| Prompt | *(empty)* | System prompt sent with each Whisper request |
-| Max Recording | 120 s | Maximum recording duration (0 = unlimited) |
-| Auto-Paste | On | Automatically paste after transcription |
-| Sound Effects | On | Play audio feedback |
-| Sound Volume | 100% | Volume for start/stop/success/error sounds |
-| Smart Mode | Off | AI post-processing (cleanup, email, bullets, formal, translate, custom) |
-| Smart Mode Preset | *(none)* | Active preset: cleanup, email, bullets, formal, translate, custom |
-| Smart Mode Prompt | *(empty)* | Custom prompt for "custom" Smart Mode preset |
-| Smart Mode Target | *(empty)* | Target language for "translate" preset |
-| Overlay Position | Top Center | Where the overlay appears (top center or near cursor) |
-| UI Language | *(system)* | Interface language (English / German) |
-| Theme | System | Color scheme: light, dark, or match OS setting |
-| Autostart | Off | Launch WhisPaste on Windows login |
-| Check Updates | On | Automatically check for new versions |
+| **API Key** | *(required for cloud)* | Your OpenAI API key |
+| **Hotkey** | `Ctrl+Shift+V` | Global keyboard shortcut |
+| **Mode** | Push-to-Talk | Hold hotkey or toggle on/off |
+| **Language** | Auto-detect | Force a specific transcription language |
+| **Model** | `whisper-1` | OpenAI Whisper model for cloud transcription |
+| **Local STT** | Off | Use local Whisper models instead of the API |
+| **Local Model** | *(none)* | Download and select a local model (base or small) |
+| **Input Device** | *(system default)* | Select a specific microphone |
+| **Input Gain** | 1.0 | Adjust microphone input level |
+| **Prompt** | *(empty)* | System prompt sent with each Whisper request |
+| **Max Recording** | 120 s | Maximum recording duration (0 = unlimited) |
+| **Auto-Paste** | On | Automatically paste after transcription |
+| **Sound Effects** | On | Play audio feedback |
+| **Sound Volume** | 100% | Volume for start/stop/success/error sounds |
+| **Smart Mode** | Off | AI post-processing (cleanup, email, bullets, formal, translate, custom) |
+| **Overlay Position** | Top Center | Where the overlay appears during recording |
+| **UI Language** | *(system)* | Interface language (English / German) |
+| **Theme** | System | Color scheme: light, dark, or match OS |
+| **Autostart** | Off | Launch WhisPaste on Windows login |
+| **Check Updates** | On | Automatically check for new versions |
 
-Config is stored in `%APPDATA%\Whispaste\config.json`.
+Config is stored in `%APPDATA%\Whispaste\config.json`. The API endpoint can be customized by editing this file directly.
 
 <br>
 
 ## 💰 API Costs
 
-WhisPaste uses the OpenAI Whisper API, billed per audio minute at **~$0.006/min**.
+When using the OpenAI Whisper API, transcription is billed per audio minute at **~$0.006/min**.
 
 | Usage | Example | Cost |
 |-------|---------|------|
@@ -110,17 +122,17 @@ WhisPaste uses the OpenAI Whisper API, billed per audio minute at **~$0.006/min*
 | Occasional | ~5 min/day | ~$1 |
 | Regular | ~20 min/day | ~$4 |
 | Heavy | ~30 min/day | ~$6 |
-| Power user | ~2 hrs/day | ~$22 |
 
-> **Bottom line:** For most users, it's a few dollars per month — single dictations cost fractions of a cent.
+> **Tip:** Using local models is completely free — no API key or internet connection needed. The Analytics page in the dashboard shows your API costs and savings from local transcription.
 
 <br>
 
 ## 🛡️ Privacy & Security
 
 - **Your API key stays local** – stored only in your user profile directory, never transmitted to WhisPaste
-- **Direct API connection** – audio is sent directly from your device to OpenAI's Whisper API; WhisPaste never stores, processes, or relays your recordings. See [OpenAI's privacy policy](https://openai.com/policies/privacy-policy/) for their data handling
-- **Secure updates** – auto-updater verifies SHA256 checksums before applying, HTTPS only, no silent updates
+- **Direct API connection** – audio is sent directly from your device to OpenAI; WhisPaste never stores, processes, or relays your recordings. See [OpenAI's privacy policy](https://openai.com/policies/privacy-policy/)
+- **Local models** – when using local STT, audio never leaves your device
+- **Secure updates** – auto-updater verifies SHA256 checksums before applying, HTTPS only
 - **No telemetry** – zero analytics, tracking, or phone-home
 - **Open source** – audit every line of code yourself
 
@@ -132,6 +144,7 @@ WhisPaste uses the OpenAI Whisper API, billed per audio minute at **~$0.006/min*
 
 - [Go 1.24+](https://go.dev/dl/)
 - GCC for Windows ([MSYS2 MinGW-w64](https://www.msys2.org/) or [TDM-GCC](https://jmeubank.github.io/tdm-gcc/))
+- The runtime DLLs (`onnxruntime.dll`, `sherpa-onnx-c-api.dll`, `sherpa-onnx-cxx-api.dll`) must be in the working directory for local model support
 
 ### Build
 
@@ -143,7 +156,7 @@ cd whispaste
 # Build (debug)
 .\build.ps1
 
-# Build (release – smaller binary)
+# Build (release – smaller binary, hidden console)
 .\build.ps1 -Release
 ```
 
@@ -163,26 +176,31 @@ whispaste/
 ├── main.go            # Entry point, state machine
 ├── audio.go           # Microphone recording (miniaudio/WASAPI)
 ├── api.go             # OpenAI Whisper API client
+├── offline.go         # Local Whisper transcription (sherpa-onnx)
+├── models.go          # Local model management (download, paths)
 ├── wav.go             # PCM → WAV encoder
 ├── paste.go           # Clipboard + SendInput (Ctrl+V)
-├── hotkey.go          # Global hotkey (PTT + toggle, 300 ms cooldown)
-├── overlay.go         # Premium overlay (GDI+ with per-pixel alpha)
+├── hotkey.go          # Global hotkey (PTT + toggle)
+├── overlay.go         # Recording overlay (GDI+ with per-pixel alpha)
 ├── tray.go            # System tray icon, menu, history submenu
-├── ui.go              # Settings window (WebView2)
-├── ui_settings.html   # Settings UI (HTML/CSS/JS)
-├── ui_notebook.go     # Dashboard window (WebView2)
-├── ui_notebook.html   # Dashboard UI (HTML/CSS/JS)
+├── ui.go              # Window management helpers
+├── ui_main.go         # Main dashboard window (WebView2 bindings)
+├── ui_main/           # Dashboard UI (HTML/CSS/JS, modular)
+│   ├── template.html  #   Page structure and layout
+│   ├── styles/        #   CSS modules (variables, layout, pages)
+│   └── scripts/       #   JS modules (translations, utils, pages)
 ├── config.go          # Configuration management
 ├── update.go          # Secure auto-updater (GitHub Releases)
 ├── logger.go          # File-based logging with rotation
 ├── l10n.go            # Localization (EN/DE)
 ├── sound.go           # Audio feedback with volume control
 ├── postprocess.go     # Smart Mode (GPT-4o-mini post-processing)
-├── history.go         # Transcription history (up to 500 entries)
-├── autostart.go       # Windows login autostart
+├── history.go         # Transcription history with model/cost tracking
 ├── stats.go           # Usage statistics
+├── autostart.go       # Windows login autostart
 ├── types.go           # Shared types and constants
 ├── build.ps1          # Build script
+├── website/           # Landing page (Astro)
 ├── LICENSE            # MIT License
 └── README.md          # This file
 ```
@@ -225,8 +243,8 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ```
  🎤 Hotkey        →  🔴 Record        →  📦 Encode        →  ☁️ Transcribe    →  🧠 Smart Mode   →  📋 Paste
- RegisterHotKey      miniaudio/WASAPI     PCM → WAV            Whisper API         GPT-4o-mini        Clipboard +
- (global)            16 kHz mono          container             multipart POST      (optional)         SendInput
+ RegisterHotKey      miniaudio/WASAPI     PCM → WAV            Whisper API or      GPT-4o-mini        Clipboard +
+ (global)            16 kHz mono          container             local Whisper       (optional)         SendInput
 ```
 
-The overlay uses GDI+ with `UpdateLayeredWindow` (per-pixel alpha) for anti-aliased rounded corners, smooth waveform animation, and interactive confirm/pause buttons.
+The recording overlay uses GDI+ with `UpdateLayeredWindow` for per-pixel alpha compositing, smooth waveform animation, and interactive controls.
