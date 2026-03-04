@@ -43,7 +43,7 @@ func SetAutostart(enable bool) error {
 			return err
 		}
 		defer k.Close()
-		return k.SetStringValue(autostartValueName, `"`+exe+`"`)
+		return k.SetStringValue(autostartValueName, `"`+exe+`" --autostart`)
 	}
 	// Disable: delete the registry value
 	k, err := registry.OpenKey(registry.CURRENT_USER, autostartRegKey, registry.SET_VALUE)
