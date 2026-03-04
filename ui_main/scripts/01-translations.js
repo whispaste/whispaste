@@ -345,7 +345,23 @@ const translations = {
     cleanupNowBtn: 'Clean up now',
     cleanupResult: '{count} entries removed',
     cleanupResultNone: 'No entries to remove',
-    cancel: 'Cancel'
+    cancel: 'Cancel',
+
+    // Onboarding wizard
+    'onboarding.welcome_title': 'Welcome to WhisPaste',
+    'onboarding.welcome_desc': 'Your personal speech-to-text assistant. Record your voice, get text — right where you need it.',
+    'onboarding.get_started': 'Get Started',
+    'onboarding.choose_title': 'How do you want to transcribe?',
+    'onboarding.choose_desc': 'You can always change this later in settings.',
+    'onboarding.api_title': 'OpenAI API',
+    'onboarding.api_desc': 'Best quality, requires API key',
+    'onboarding.local_title': 'Local (Offline)',
+    'onboarding.local_desc': 'Free & private, runs on your device',
+    'onboarding.next': 'Next',
+    'onboarding.back': 'Back',
+    'onboarding.ready_title': "You're All Set!",
+    'onboarding.ready_desc': 'Press the hotkey anywhere to start recording:',
+    'onboarding.finish': "Let's Go!"
   },
   de: {
     // Navigation
@@ -692,7 +708,23 @@ const translations = {
     cleanupNowBtn: 'Jetzt bereinigen',
     cleanupResult: '{count} Einträge entfernt',
     cleanupResultNone: 'Keine Einträge zu entfernen',
-    cancel: 'Abbrechen'
+    cancel: 'Abbrechen',
+
+    // Onboarding wizard
+    'onboarding.welcome_title': 'Willkommen bei WhisPaste',
+    'onboarding.welcome_desc': 'Dein persönlicher Sprache-zu-Text-Assistent. Sprich und erhalte Text — genau dort, wo du ihn brauchst.',
+    'onboarding.get_started': 'Los geht\'s',
+    'onboarding.choose_title': 'Wie möchtest du transkribieren?',
+    'onboarding.choose_desc': 'Du kannst dies jederzeit in den Einstellungen ändern.',
+    'onboarding.api_title': 'OpenAI API',
+    'onboarding.api_desc': 'Beste Qualität, API-Schlüssel erforderlich',
+    'onboarding.local_title': 'Lokal (Offline)',
+    'onboarding.local_desc': 'Kostenlos & privat, läuft auf deinem Gerät',
+    'onboarding.next': 'Weiter',
+    'onboarding.back': 'Zurück',
+    'onboarding.ready_title': 'Alles bereit!',
+    'onboarding.ready_desc': 'Drücke die Tastenkombination, um die Aufnahme zu starten:',
+    'onboarding.finish': 'Los geht\'s!'
   }
 };
 

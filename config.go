@@ -45,6 +45,7 @@ type Config struct {
 	CleanupEnabled    bool `json:"cleanup_enabled,omitempty"`
 	CleanupMaxEntries int  `json:"cleanup_max_entries,omitempty"`
 	CleanupMaxAgeDays int  `json:"cleanup_max_age_days,omitempty"`
+	OnboardingDone    bool `json:"onboarding_done,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -383,4 +384,16 @@ func (c *Config) GetCleanupMaxAgeDays() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.CleanupMaxAgeDays
+}
+
+func (c *Config) GetOnboardingDone() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.OnboardingDone
+}
+
+func (c *Config) SetOnboardingDone(done bool) {
+	c.mu.Lock()
+	c.OnboardingDone = done
+	c.mu.Unlock()
 }

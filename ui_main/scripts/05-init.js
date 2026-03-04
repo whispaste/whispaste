@@ -272,6 +272,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const initialPage = window._initialPage || 'history';
   switchPage(initialPage);
 
+  // Show onboarding wizard on first run
+  if (window._showOnboarding) {
+    showOnboarding();
+  }
+
   // Handle smart-mode deep link
   if (window._initialSection === 'smart-mode') {
     switchPage('smartmode');
