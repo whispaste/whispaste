@@ -1,9 +1,9 @@
 /* ── Toast Notification ────────────────────────────────── */
 .toast {
   position: fixed;
-  top: 12px;
+  top: -80px;
   left: 50%;
-  transform: translateX(-50%) translateY(-120%);
+  transform: translateX(-50%);
   padding: 10px 18px;
   border-radius: var(--radius-lg);
   font-size: var(--text-base);
@@ -13,13 +13,13 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: var(--shadow-lg), var(--shadow-glow);
   z-index: 1000;
-  transition: transform var(--duration-slow) var(--ease-spring);
+  transition: top var(--duration-slow) var(--ease-spring);
   pointer-events: none;
   white-space: nowrap;
   backdrop-filter: var(--glass-blur);
 }
 .toast.show {
-  transform: translateX(-50%) translateY(0);
+  top: 12px;
   pointer-events: auto;
 }
 .toast.error {

@@ -25,6 +25,13 @@ function applyTheme(theme) {
       iconEl.innerHTML = '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>';
     }
   }
+  // Update brand icon for theme
+  const brandIcon = document.getElementById('brandIcon');
+  if (brandIcon) {
+    brandIcon.src = eff === 'dark'
+      ? brandIcon.dataset.darkSrc
+      : brandIcon.dataset.lightSrc;
+  }
 }
 
 /** Cycle theme: system → dark → light → system */
