@@ -76,23 +76,26 @@
   color: var(--text);
   margin-bottom: 12px;
 }
-.chart-container { position: relative; overflow: hidden; }
+.chart-container { position: relative; overflow: visible; min-height: 120px; }
 
 /* SVG bar chart */
 .bar-chart { width: 100%; height: 160px; }
-.bar-chart rect.bar { fill: var(--accent); }
+.bar-chart rect.bar { fill: var(--accent); opacity: 0.85; }
+.bar-chart rect.bar:hover { opacity: 1; }
 .bar-chart text { font-size: 10px; fill: var(--text-hint); }
 .bar-chart line.axis { stroke: var(--border); stroke-width: 1; }
-.bar-chart line.grid-line { stroke: var(--border); stroke-width: 0.5; stroke-dasharray: 4 2; opacity: 0.5; }
+.bar-chart line.grid-line { stroke: var(--text-hint); stroke-width: 0.5; stroke-dasharray: 4 2; opacity: 0.3; }
 .bar-chart text.grid-label { font-size: 9px; fill: var(--text-hint); }
 
 /* Donut chart */
-.donut-chart { width: 100%; max-height: 160px; display: block; margin: 0 auto; }
+.donut-chart { width: 100%; max-height: 140px; display: block; margin: 0 auto; }
 .donut-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
 }
 .donut-legend-item {
   display: flex;

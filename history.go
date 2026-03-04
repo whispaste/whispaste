@@ -349,7 +349,7 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 	if h.cache == nil {
 		h.cache = make(map[int]*analyticsCache)
 	}
-	h.cache[periodDays] = &analyticsCache{data: result, validUntil: time.Now().Add(5 * time.Second)}
+	h.cache[periodDays] = &analyticsCache{data: result, validUntil: time.Now().Add(2 * time.Second)}
 
 	return result
 }
