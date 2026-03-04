@@ -39,7 +39,7 @@ function matchesFilter(e) {
     }
     return true;
   }
-  if (_activeFilter.startsWith('cat:')) return e.category === _activeFilter.slice(4);
+  if (_activeFilter.startsWith('cat:')) return (e.tags || []).includes(_activeFilter.slice(4));
   return true;
 }
 
@@ -131,7 +131,7 @@ function updateCounts() {
 
   // Dynamic categories
   const cats = {};
-  _entries.forEach(e => { if (e.category) cats[e.category] = (cats[e.category] || 0) + 1; });
+  _entries.forEach(e => { (e.tags || []).forEach(tag => { cats[tag] = (cats[tag] || 0) + 1; }); });
   const catSection = document.getElementById('categoriesSection');
   const catList = document.getElementById('categoryList');
   if (catSection && catList) {
@@ -173,9 +173,9 @@ function _showTagAutocomplete(input) {
     if (document.activeElement !== input) return; // input lost focus
     const query = input.value.trim().toLowerCase();
     const entry = _entries.find(e => e.id === input.dataset.id);
-    const currentTag = (entry?.category || '').toLowerCase();
+    const entryTags = (entry?.tags || []).map(tg => tg.toLowerCase());
     const filtered = cats.filter(c =>
-      c.toLowerCase() !== currentTag &&
+      !entryTags.includes(c.toLowerCase()) &&
       (query === '' || c.toLowerCase().includes(query))
     );
     if (filtered.length === 0) return;
@@ -192,7 +192,7 @@ function _showTagAutocomplete(input) {
         ev.preventDefault(); // keep focus on input
         input.value = tag;
         _closeTagAutocomplete();
-        updateTag(input);
+        addTag(input);
       });
       dd.appendChild(item);
     });
@@ -225,7 +225,7 @@ function _selectAutocompleteHighlight(input) {
   if (!active) return false;
   input.value = active.textContent;
   _closeTagAutocomplete();
-  updateTag(input);
+  addTag(input);
   return true;
 }
 
@@ -254,12 +254,13 @@ function renderHistory() {
             <span>${formatTime(e.timestamp)}</span>
             ${e.duration_sec ? '<span>' + formatDuration(e.duration_sec) + '</span>' : ''}
             ${e.language ? '<span>' + e.language.toUpperCase() + '</span>' : ''}
-            ${e.category ? '<span class="tag">' + esc(e.category === 'merged' ? t('catMerged') : e.category) + '</span>' : ''}
+            ${(e.tags || []).map(tag => '<span class="tag">' + esc(tag === 'merged' ? t('catMerged') : tag) + '</span>').join('')}
           </div>
         </div>
         <span class="entry-chevron">${icons.chevronDown}</span>
         <div class="entry-actions">
           <button class="btn-icon copy" title="${t('notebook.copy')}" data-action="copy" data-id="${e.id}">${icons.copy}</button>
+          <button class="btn-icon" title="${t('notebook.duplicate')}" data-action="duplicate" data-id="${e.id}">${icons.files}</button>
           <button class="btn-icon pin${e.pinned ? ' active' : ''}" title="${e.pinned ? t('notebook.unpin') : t('notebook.pin')}" data-action="pin" data-id="${e.id}">${icons.pin}</button>
           <button class="btn-icon delete" title="${t('notebook.delete')}" data-action="delete" data-id="${e.id}">${icons.trash}</button>
         </div>
@@ -271,9 +272,17 @@ function renderHistory() {
           <button class="btn-icon" title="${t('notebook.edit_text')}" data-action="edit-text" data-id="${e.id}">${icons.pencil}</button>
         </div>
         <div class="entry-tags-section">
-          <div class="tag-input-row">
-            ${icons.tag}
-            <input type="text" class="tag-input" placeholder="${t('notebook.add_tag')}" value="${esc(e.category || '')}" data-id="${e.id}" />
+          <div class="tag-chips-container">
+            ${(e.tags || []).map(tag => `
+              <span class="tag-chip">
+                ${esc(tag)}
+                <span class="tag-chip-remove" data-remove-tag="${esc(tag)}" data-id="${e.id}">&times;</span>
+              </span>
+            `).join('')}
+            <div class="tag-input-row">
+              ${icons.tag}
+              <input type="text" class="tag-input" placeholder="${t('notebook.add_tag')}" data-id="${e.id}" />
+            </div>
           </div>
         </div>
       </div>
@@ -283,7 +292,7 @@ function renderHistory() {
   // Bind entry click to expand/collapse
   list.querySelectorAll('.entry').forEach(el => {
     el.addEventListener('click', (ev) => {
-      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea')) return;
+      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea')) return;
       const id = el.dataset.id;
       _expandedId = _expandedId === id ? null : id;
       renderHistory();
@@ -320,6 +329,7 @@ function renderHistory() {
       const action = btn.dataset.action;
       const id = btn.dataset.id;
       if (action === 'copy') doCopy(id);
+      else if (action === 'duplicate') doDuplicate(id);
       else if (action === 'pin') doPin(id);
       else if (action === 'delete') confirmDelete(id);
       else if (action === 'edit-text') startEditText(id);
@@ -330,17 +340,25 @@ function renderHistory() {
 
   // Bind tag inputs
   list.querySelectorAll('.tag-input').forEach(input => {
-    input.addEventListener('change', () => { _closeTagAutocomplete(); updateTag(input); });
+    input.addEventListener('change', () => { _closeTagAutocomplete(); addTag(input); });
     input.addEventListener('focus', () => _showTagAutocomplete(input));
     input.addEventListener('input', () => _showTagAutocomplete(input));
     input.addEventListener('blur', () => _closeTagAutocomplete());
     input.addEventListener('keydown', (ev) => {
       const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
       if (ev.key === 'Escape') { _closeTagAutocomplete(); ev.stopPropagation(); return; }
+      if (ev.key === 'Enter') { ev.preventDefault(); if (!_selectAutocompleteHighlight(input)) addTag(input); return; }
       if (!dd) return;
       if (ev.key === 'ArrowDown') { ev.preventDefault(); _navigateAutocomplete(input, 1); }
       else if (ev.key === 'ArrowUp') { ev.preventDefault(); _navigateAutocomplete(input, -1); }
-      else if (ev.key === 'Enter') { if (_selectAutocompleteHighlight(input)) ev.preventDefault(); }
+    });
+  });
+
+  // Bind tag chip remove buttons
+  list.querySelectorAll('.tag-chip-remove').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      removeTag(btn.dataset.id, btn.dataset.removeTag);
     });
   });
 }
@@ -350,6 +368,14 @@ async function doCopy(id) {
     if (window.copyEntry) await window.copyEntry(id);
     showToast(t('notebook.copied'));
   } catch (e) { showToast('Error', true); }
+}
+
+async function doDuplicate(id) {
+  if (window.duplicateEntry) {
+    await window.duplicateEntry(id);
+    await loadEntries();
+    showToast(t('notebook.duplicated'));
+  }
 }
 
 async function doPin(id) {
@@ -497,12 +523,29 @@ function selectAllVisible() {
   renderHistory();
 }
 
-async function updateTag(input) {
+async function addTag(input) {
   const id = input.dataset.id;
-  const tag = input.value.trim();
+  const newTag = input.value.trim();
+  if (!newTag) return;
   const entry = _entries.find(e => e.id === id);
-  if (entry && window.updateEntry) {
-    await window.updateEntry(id, entry.title || '', tag);
+  if (!entry) return;
+  const tags = [...(entry.tags || [])];
+  if (tags.includes(newTag)) { input.value = ''; return; }
+  tags.push(newTag);
+  if (window.updateEntry) {
+    await window.updateEntry(id, entry.title || '', JSON.stringify(tags));
+    input.value = '';
+    await loadEntries();
+    showToast(t('notebook.tag_updated'));
+  }
+}
+
+async function removeTag(id, tagToRemove) {
+  const entry = _entries.find(e => e.id === id);
+  if (!entry) return;
+  const tags = (entry.tags || []).filter(tag => tag !== tagToRemove);
+  if (window.updateEntry) {
+    await window.updateEntry(id, entry.title || '', JSON.stringify(tags));
     await loadEntries();
     showToast(t('notebook.tag_updated'));
   }

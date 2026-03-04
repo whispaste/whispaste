@@ -165,6 +165,33 @@
   color: var(--text-primary);
 }
 
+/* ── FAB (Floating Action Button) ─────────────────────── */
+.fab {
+  position: fixed;
+  bottom: 64px;
+  right: 24px;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--gradient-accent);
+  color: var(--text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  transition: all var(--transition-spring);
+  z-index: 100;
+}
+.fab:hover {
+  transform: scale(1.08) rotate(10deg);
+  box-shadow: var(--shadow-xl), var(--shadow-glow-lg);
+  background: var(--gradient-accent-hover);
+}
+.fab:active { transform: scale(.95) rotate(0deg); }
+.fab .icon { width: 22px; height: 22px; }
+
 /* ── Global Status Bar ────────────────────────────────── */
 .global-status-bar {
   display: flex;
