@@ -18,27 +18,33 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      - name: Install MinGW
-        run: choco install mingw -y --no-progress
+      - name: Setup MinGW
+        run: |
+          if (Test-Path "C:\mingw64\bin\gcc.exe") {
+            echo "C:\mingw64\bin" | Out-File -Append $env:GITHUB_PATH
+            Write-Host "Using pre-installed MinGW"
+          } else {
+            choco install mingw -y --no-progress
+            echo "C:\ProgramData\mingw64\mingw64\bin" | Out-File -Append $env:GITHUB_PATH
+          }
 
       - name: Download dependencies
         env:
           CGO_ENABLED: "1"
         run: go mod download
 
-      - name: Prepare sherpa-onnx libraries
+      - name: Generate sherpa-onnx import libraries
         run: |
           $modCache = go env GOMODCACHE
           $ver = (Select-String 'sherpa-onnx-go-windows (v[^ ]+)' go.sum).Matches[0].Groups[1].Value
           $libDir = "$modCache\github.com\k2-fsa\sherpa-onnx-go-windows@$ver\lib\x86_64-pc-windows-gnu"
-          if (Test-Path $libDir) {
-            Get-ChildItem $libDir -File | ForEach-Object { $_.Attributes = 'Normal' }
-            Write-Host "Library files ready"
-          } else {
-            Write-Host "Extracting from module cache zip..."
-            $zipPath = "$modCache\cache\download\github.com\k2-fsa\sherpa-onnx-go-windows\@v\$ver.zip"
-            Expand-Archive -Path $zipPath -DestinationPath "$modCache\github.com\k2-fsa\sherpa-onnx-go-windows@$ver" -Force
-          }
+          if (!(Test-Path $libDir)) { throw "Library directory not found: $libDir" }
+          Get-ChildItem $libDir -File | ForEach-Object { $_.Attributes = 'Normal' }
+          Push-Location $libDir
+          dlltool -d onnxruntime.def -l libonnxruntime.a -k
+          dlltool -d sherpa-onnx-c-api.def -l libsherpa-onnx-c-api.a -k
+          Pop-Location
+          Write-Host "Import libraries generated from .def files"
 
       - name: Generate Windows resources
         run: |
