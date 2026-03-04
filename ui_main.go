@@ -323,11 +323,14 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		// Bind: _downloadModel → download a model by ID
 		w.Bind("_downloadModel", func(modelID string) map[string]interface{} {
 			logInfo("Downloading model: %s", modelID)
-			err := DownloadModel(modelID, func(downloaded, total int64) {
+			err := DownloadModel(modelID, func(downloaded, total int64, fileIdx, fileCount int) {
 				if total > 0 {
 					pct := int(float64(downloaded) / float64(total) * 100)
+					if pct > 100 {
+						pct = 100
+					}
 					w.Dispatch(func() {
-						w.Eval(fmt.Sprintf("window.updateModelProgress('%s', %d)", modelID, pct))
+						w.Eval(fmt.Sprintf("window.updateModelProgress('%s', %d, %d, %d)", modelID, pct, fileIdx+1, fileCount))
 					})
 				}
 			})
