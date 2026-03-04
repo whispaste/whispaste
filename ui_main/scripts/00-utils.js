@@ -68,18 +68,13 @@ function updateStatusBar(cfg) {
   if (!cfg) return;
   const isLocal = cfg.use_local_stt;
 
-  // Mode chip
+  // Mode + Model combined chip
   const modeLabel = document.getElementById('statusModeLabel');
   const modeChip = document.getElementById('statusMode');
-  if (modeLabel) modeLabel.textContent = isLocal ? t('modeLocal') : t('modeApi');
-  if (modeChip) modeChip.title = isLocal ? t('modeLocalTip') : t('modeApiTip');
-
-  // Model chip
-  const modelLabel = document.getElementById('statusModelLabel');
-  const modelChip = document.getElementById('statusModel');
   const modelName = isLocal ? (cfg.local_model_id || 'whisper-tiny') : (cfg.model || 'whisper-1');
-  if (modelLabel) modelLabel.textContent = modelName;
-  if (modelChip) modelChip.title = t('statusbar.model_tip');
+  const modeText = (isLocal ? t('modeLocal') : t('modeApi')) + ' · ' + modelName;
+  if (modeLabel) modeLabel.textContent = modeText;
+  if (modeChip) modeChip.title = isLocal ? t('modeLocalTip') : t('modeApiTip');
 
   // Hotkey chip
   const hotkeyLabel = document.getElementById('statusHotkeyLabel');
@@ -97,6 +92,21 @@ function updateStatusBar(cfg) {
     smartChip.title = t('statusbar.smart_tip');
     smartChip.classList.toggle('accent', !!cfg.smart_mode);
   }
+
+  // Version chip
+  const versionLabel = document.getElementById('statusVersionLabel');
+  if (versionLabel) {
+    const ver = (translations[_currentUILang] && translations[_currentUILang]['app.version']) || 'v' + (window._appVersion || '0.1.1-alpha');
+    versionLabel.textContent = ver;
+  }
+}
+
+/** Navigate to settings page and scroll to a specific section */
+function scrollToSettingsSection(sectionId) {
+  switchPage('settings');
+  setTimeout(() => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
 }
 
 /** Lucide SVG icon fragments (reusable) */

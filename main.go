@@ -167,11 +167,6 @@ func main() {
 				PlayFeedback(SoundRecordStart)
 			}
 			if overlay != nil {
-				smartPreset := ""
-				if cfg.GetSmartMode() {
-					smartPreset = cfg.GetSmartModePreset()
-				}
-				overlay.SetInfo(model, smartPreset)
 				overlay.Show(StateRecording)
 			}
 			recorder.SetGain(cfg.GetInputGain())
