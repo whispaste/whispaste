@@ -2,18 +2,11 @@
 .topbar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 20px 10px;
+  gap: 12px;
+  padding: 16px 24px 14px;
   flex-shrink: 0;
-  position: relative;
-}
-.topbar::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 16px; right: 16px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--border-accent), transparent);
-  opacity: 0.5;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-primary);
 }
 
 .search-box {
@@ -21,15 +14,16 @@
   align-items: center;
   gap: 8px;
   flex: 1;
-  max-width: 400px;
-  padding: 8px 14px;
-  background: var(--bg-input);
+  max-width: 480px;
+  padding: 9px 16px;
+  background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-full);
-  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal), background var(--transition-normal);
 }
 .search-box:focus-within {
   border-color: var(--border-focus);
+  background: var(--bg-input);
   box-shadow: 0 0 0 3px var(--accent-glow), var(--shadow-glow);
 }
 .search-box .icon { width: 16px; height: 16px; color: var(--text-tertiary); flex-shrink: 0; }
@@ -48,14 +42,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  height: 22px;
-  padding: 0 7px;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  min-width: 26px;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--accent-subtle);
   color: var(--accent);
   font-size: 11px;
   font-weight: 700;
-  border-radius: 11px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-accent);
 }
 
 /* ── History Layout (filter sidebar + entries) ────────── */
@@ -68,30 +63,38 @@
 /* ── Filter Sidebar ───────────────────────────────────── */
 .filter-sidebar {
   width: 180px;
-  padding: 8px 12px;
+  padding: 12px;
   overflow-y: auto;
   flex-shrink: 0;
   border-right: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
 }
 .filter-sidebar::-webkit-scrollbar { width: 3px; }
 .filter-sidebar::-webkit-scrollbar-thumb { background: rgba(0,0,0,.1); border-radius: 2px; }
 
-.filter-section { margin-bottom: 8px; }
+.filter-section { margin-bottom: 12px; }
 
 .sort-select {
   width: 100%;
-  padding: 6px 10px;
+  padding: 7px 28px 7px 10px;
   font-size: 12px;
   font-family: var(--font);
+  font-weight: var(--weight-medium);
   color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
   appearance: none;
   cursor: pointer;
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%238E8E93' d='M2 3.5L5 7l3-3.5z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
+}
+.sort-select:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+  outline: none;
 }
 
 .filter-section-title {
@@ -100,21 +103,21 @@
   text-transform: uppercase;
   letter-spacing: .06em;
   color: var(--text-hint);
-  padding: 10px 10px 4px;
+  padding: 12px 10px 6px;
 }
 
 .filter-items {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
 .filter-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--text-secondary);
   font-size: 12px;
@@ -123,10 +126,10 @@
 }
 .filter-item:hover { background: var(--bg-hover); color: var(--text); }
 .filter-item.active {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: var(--accent-subtle);
   color: var(--accent);
   font-weight: 600;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid var(--border-accent);
 }
 .filter-item .icon { width: 14px; height: 14px; }
 
@@ -143,7 +146,8 @@
 .entries-area {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 16px 80px;
+  padding: 12px 20px 80px;
+  background: var(--bg-app);
 }
 .entries-area::-webkit-scrollbar { width: 4px; }
 .entries-area::-webkit-scrollbar-track { background: transparent; }
@@ -160,21 +164,22 @@
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
-  padding: 14px 16px;
+  padding: 14px 18px;
   cursor: pointer;
   transition: all var(--transition-normal);
+  box-shadow: var(--shadow-xs);
 }
 .entry:hover {
   box-shadow: var(--shadow-md), 0 0 0 1px var(--border-accent);
   border-color: var(--border-accent);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 .entry.pinned {
   border-left: 3px solid var(--accent);
-  background: linear-gradient(90deg, var(--accent-subtle) 0%, var(--bg-primary) 40%);
+  background: linear-gradient(90deg, var(--accent-subtle) 0%, var(--bg-primary) 50%);
 }
 [data-theme="dark"] .entry.pinned {
-  background: linear-gradient(90deg, var(--accent-subtle) 0%, var(--bg-primary) 40%);
+  background: linear-gradient(90deg, var(--accent-subtle) 0%, var(--bg-primary) 50%);
 }
 
 .entry-header {
