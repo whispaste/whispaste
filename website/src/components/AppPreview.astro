@@ -144,7 +144,7 @@
     box-shadow: 0 12px 50px rgba(0,0,0,0.5), 0 0 100px rgba(34,211,238,0.12);
   }
   .mockup-window {
-    background: #1C1C1E;
+    background: #0F1117;
     font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   }
   .mockup-titlebar {
@@ -153,15 +153,15 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 12px;
-    background: #2C2C2E;
-    border-bottom: 1px solid #38383A;
+    background: #1A1D27;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     font-size: 12px;
     user-select: none;
   }
   .mockup-titlebar-text {
     font-size: 12px;
     font-weight: 500;
-    color: #F2F2F7;
+    color: #F1F5F9;
   }
 
   /* ---- Notebook mockup ---- */
@@ -169,7 +169,7 @@
     position: relative;
     display: flex;
     flex-direction: row;
-    background: linear-gradient(160deg, #1C1C1E 0%, color-mix(in srgb, #22D3EE 4%, #1C1C1E) 50%, #1C1C1E 100%);
+    background: linear-gradient(160deg, #0F1117 0%, color-mix(in srgb, #22D3EE 4%, #0F1117) 50%, #0F1117 100%);
     min-height: 340px;
   }
   .mockup-nb-topbar {
@@ -177,8 +177,8 @@
     align-items: center;
     gap: 12px;
     padding: 10px 16px;
-    background: #2C2C2E;
-    border-bottom: 1px solid color-mix(in srgb, #22D3EE 15%, #38383A);
+    background: #1A1D27;
+    border-bottom: 1px solid color-mix(in srgb, #22D3EE 15%, rgba(255,255,255,0.08));
   }
   .mockup-nb-search-wrap {
     position: relative;
@@ -194,23 +194,24 @@
     transform: translateY(-50%);
     width: 14px;
     height: 14px;
-    color: #636366;
+    color: #64748B;
   }
   .mockup-nb-search {
     width: 100%;
     padding: 6px 10px 6px 30px;
-    border: 1px solid #38383A;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 999px;
-    background: #1C1C1E;
-    color: #636366;
+    background: #181B24;
+    color: #64748B;
     font-size: 12px;
     outline: none;
   }
   .mockup-nb-count {
     font-size: 10px;
-    color: #636366;
+    color: #22D3EE;
     padding: 3px 8px;
-    background: #3A3A3C;
+    background: rgba(34, 211, 238, 0.08);
+    border: 1px solid rgba(34, 211, 238, 0.3);
     border-radius: 12px;
     white-space: nowrap;
   }
@@ -316,8 +317,8 @@
   }
   .mockup-nb-card {
     position: relative;
-    background: linear-gradient(180deg, #2C2C2E, color-mix(in srgb, #22D3EE 2%, #2A2A2C));
-    border: 1px solid #38383A;
+    background: linear-gradient(180deg, #1A1D27, color-mix(in srgb, #22D3EE 2%, #1A1D27));
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
     padding: 10px 14px;
     box-shadow: 0 1px 3px rgba(0,0,0,.3);
@@ -325,7 +326,7 @@
   }
   .mockup-nb-card-pinned {
     padding-left: 18px;
-    border-left-color: rgba(34,211,238,0.2);
+    border-left-color: rgba(34,211,238,0.3);
   }
   .mockup-nb-pin-bar {
     position: absolute;
@@ -345,7 +346,7 @@
   .mockup-nb-card-title {
     font-size: 12px;
     font-weight: 500;
-    color: #F2F2F7;
+    color: #F1F5F9;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -363,22 +364,22 @@
     width: 24px;
     height: 24px;
     border-radius: 5px;
-    color: #AEAEB2;
+    color: #94A3B8;
   }
   .mockup-nb-card-meta {
     display: flex;
     align-items: center;
     gap: 4px;
     font-size: 10px;
-    color: #636366;
+    color: #64748B;
     margin-top: 3px;
   }
   .mockup-nb-meta-dot {
-    color: #48484A;
+    color: #475569;
   }
   .mockup-nb-card-preview {
     font-size: 11px;
-    color: #AEAEB2;
+    color: #94A3B8;
     line-height: 1.5;
     margin-top: 4px;
     display: -webkit-box;
@@ -463,26 +464,26 @@
   html.light .mockup-glow:hover {
     box-shadow: 0 12px 50px rgba(0,0,0,0.15), 0 0 100px rgba(8,145,178,0.12);
   }
-  html.light .mockup-window { background: #F8F9FC; }
-  html.light .mockup-titlebar { background: #FFFFFF; border-bottom-color: #E2E5EB; }
-  html.light .mockup-titlebar-text { color: #1C1C1E; }
-  html.light .mockup-nb-body { background: linear-gradient(160deg, #F8F9FC 0%, color-mix(in srgb, #0891B2 5%, #F8F9FC) 50%, #F8F9FC 100%); }
-  html.light .mockup-nb-topbar { background: #FFFFFF; border-bottom-color: color-mix(in srgb, #0891B2 15%, #E2E5EB); }
-  html.light .mockup-nb-search { background: #F4F5F7; border-color: #E2E5EB; color: #1C1C1E; }
-  html.light .mockup-nb-search-icon { color: #8E8E93; }
-  html.light .mockup-nb-card { background: #FFFFFF; border-color: #E8EAF0; box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.02); }
-  html.light .mockup-nb-card-title { color: #1C1C1E; }
-  html.light .mockup-nb-card-meta { color: #8E8E93; }
-  html.light .mockup-nb-card-preview { color: #636366; }
+  html.light .mockup-window { background: #F8FAFC; }
+  html.light .mockup-titlebar { background: #FFFFFF; border-bottom-color: #E2E8F0; }
+  html.light .mockup-titlebar-text { color: #0F172A; }
+  html.light .mockup-nb-body { background: linear-gradient(160deg, #F8FAFC 0%, color-mix(in srgb, #0891B2 5%, #F8FAFC) 50%, #F8FAFC 100%); }
+  html.light .mockup-nb-topbar { background: #FFFFFF; border-bottom-color: color-mix(in srgb, #0891B2 15%, #E2E8F0); }
+  html.light .mockup-nb-search { background: #F1F5F9; border-color: #E2E8F0; color: #0F172A; }
+  html.light .mockup-nb-search-icon { color: #94A3B8; }
+  html.light .mockup-nb-card { background: #FFFFFF; border-color: #E2E8F0; box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.02); }
+  html.light .mockup-nb-card-title { color: #0F172A; }
+  html.light .mockup-nb-card-meta { color: #94A3B8; }
+  html.light .mockup-nb-card-preview { color: #64748B; }
   html.light .mockup-nb-pin-bar { background: linear-gradient(180deg, #22D3EE, #0891B2); }
-  html.light .mockup-nb-action-btn-sm { color: #636366; }
+  html.light .mockup-nb-action-btn-sm { color: #64748B; }
   html.light .mockup-nb-fab { background: linear-gradient(135deg, #22D3EE, #0891B2); box-shadow: 0 4px 16px rgba(8,145,178,.2); }
   html.light .mockup-sidebar { background: #FFFFFF; border-right-color: rgba(0,0,0,.06); }
   html.light .mockup-sidebar::before { background: radial-gradient(ellipse at 50% 0%, rgba(8,145,178,0.1) 0%, transparent 70%); }
   html.light .mockup-sidebar-brand { border-bottom-color: rgba(0,0,0,.04); }
-  html.light .mockup-sidebar-item { color: #636366; }
+  html.light .mockup-sidebar-item { color: #64748B; }
   html.light .mockup-sidebar-item-active { background: linear-gradient(135deg, #0891B2, #0E7490); color: #FFFFFF; box-shadow: 0 2px 8px rgba(8,145,178,0.2), 0 0 16px rgba(8,145,178,0.1); }
   html.light .mockup-sidebar-bottom { border-top-color: rgba(0,0,0,.04); }
-  html.light .mockup-sidebar-bottom-btn { color: #636366; }
-  html.light .mockup-nb-count { background: #E8EAF0; color: #636366; }
+  html.light .mockup-sidebar-bottom-btn { color: #64748B; }
+  html.light .mockup-nb-count { background: rgba(8,145,178,0.06); color: #0891B2; border: 1px solid rgba(8,145,178,0.2); }
 </style>
