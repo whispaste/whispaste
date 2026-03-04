@@ -63,6 +63,42 @@ function updateModeBadge(cfg) {
   badge.classList.toggle('mode-local', !!isLocal);
 }
 
+/** Update global status bar indicators from config */
+function updateStatusBar(cfg) {
+  if (!cfg) return;
+  const isLocal = cfg.use_local_stt;
+
+  // Mode chip
+  const modeLabel = document.getElementById('statusModeLabel');
+  const modeChip = document.getElementById('statusMode');
+  if (modeLabel) modeLabel.textContent = isLocal ? t('modeLocal') : t('modeApi');
+  if (modeChip) modeChip.title = isLocal ? t('modeLocalTip') : t('modeApiTip');
+
+  // Model chip
+  const modelLabel = document.getElementById('statusModelLabel');
+  const modelChip = document.getElementById('statusModel');
+  const modelName = isLocal ? (cfg.local_model_id || 'whisper-tiny') : (cfg.model || 'whisper-1');
+  if (modelLabel) modelLabel.textContent = modelName;
+  if (modelChip) modelChip.title = t('statusbar.model_tip');
+
+  // Hotkey chip
+  const hotkeyLabel = document.getElementById('statusHotkeyLabel');
+  const hotkeyChip = document.getElementById('statusHotkey');
+  const mods = cfg.hotkey_modifiers || ['Ctrl', 'Shift'];
+  const key = cfg.hotkey_key || 'V';
+  if (hotkeyLabel) hotkeyLabel.textContent = mods.join('+') + '+' + key;
+  if (hotkeyChip) hotkeyChip.title = t('statusbar.hotkey_tip');
+
+  // Smart Mode chip
+  const smartLabel = document.getElementById('statusSmartLabel');
+  const smartChip = document.getElementById('statusSmart');
+  if (smartLabel) smartLabel.textContent = cfg.smart_mode ? t('statusbar.on') : t('statusbar.off');
+  if (smartChip) {
+    smartChip.title = t('statusbar.smart_tip');
+    smartChip.classList.toggle('accent', !!cfg.smart_mode);
+  }
+}
+
 /** Lucide SVG icon fragments (reusable) */
 const icons = {
   copy: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>',

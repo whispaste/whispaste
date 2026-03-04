@@ -354,12 +354,14 @@ async function saveSettings() {
       if (res && res.success) {
         showStatus(t('statusAutoSaved'), 'success');
         updateModeBadge(cfg);
+        updateStatusBar(cfg);
       } else {
         showStatus(res?.error || t('statusError'), 'error');
       }
     } else {
       showStatus(t('statusAutoSaved'), 'success');
       updateModeBadge(cfg);
+      updateStatusBar(cfg);
     }
   } catch (err) {
     showStatus(t('statusError'), 'error');

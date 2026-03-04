@@ -386,39 +386,6 @@
 .hotkey-recorder-actions { margin-top: 8px; display: flex; justify-content: flex-end; }
 .hotkey-recorder-hint { font-size: 11px; color: var(--text-hint); margin-top: 6px; }
 
-/* ── Settings Bottom Bar ──────────────────────────────── */
-.settings-bottom-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 16px 24px;
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border-top: 1px solid var(--border-subtle);
-  flex-shrink: 0;
-  box-shadow: 0 -1px 0 var(--border-subtle);
-}
-[data-theme="dark"] .settings-bottom-bar {
-  background: var(--glass-bg-strong);
-  border-top: 1px solid var(--border-primary);
-}
-.status-msg {
-  font-size: 12px;
-  font-weight: 500;
-  opacity: 0;
-  transition: opacity 300ms ease;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 200px;
-  flex-shrink: 1;
-  min-width: 0;
-}
-.status-msg.visible { opacity: 1; }
-.status-msg.success { color: var(--success); }
-.status-msg.error { color: var(--error); }
-
 /* ── Local STT Model List ─────────────────── */
 .model-list {
   display: flex;
