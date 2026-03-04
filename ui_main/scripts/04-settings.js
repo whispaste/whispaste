@@ -37,6 +37,7 @@ function gatherConfig() {
     smart_mode_target: document.getElementById('select-smarttarget')?.value || 'en',
     use_local_stt: document.getElementById('toggle-localstt')?.checked || false,
     local_model_id: document.querySelector('[name="local-model"]:checked')?.value || 'whisper-base',
+    transcription_language: document.getElementById('select-transcription-language')?.value || '',
     notify_background: document.getElementById('toggle-notify-bg')?.checked ?? true,
     notify_complete: document.getElementById('toggle-notify-complete')?.checked ?? true,
     notify_donate: document.getElementById('toggle-notify-donate')?.checked ?? true,
@@ -115,6 +116,7 @@ function applyConfig(cfg) {
       radio.closest('.model-item')?.classList.add('active');
     }
   }
+  if (cfg.transcription_language != null) { const el = document.getElementById('select-transcription-language'); if (el) el.value = cfg.transcription_language; }
   { const el = document.getElementById('toggle-notify-bg'); if (el) el.checked = cfg.notify_background !== false; }
   { const el = document.getElementById('toggle-notify-complete'); if (el) el.checked = cfg.notify_complete !== false; }
   { const el = document.getElementById('toggle-notify-donate'); if (el) el.checked = cfg.notify_donate !== false; }
@@ -128,6 +130,33 @@ function applyConfig(cfg) {
   { const el = document.getElementById('toggle-cleanup'); if (el) el.checked = !!cfg.cleanup_enabled; }
   if (cfg.cleanup_max_entries != null) { const el = document.getElementById('input-cleanup-max-entries'); if (el) el.value = cfg.cleanup_max_entries; }
   if (cfg.cleanup_max_age_days != null) { const el = document.getElementById('input-cleanup-max-age'); if (el) el.value = cfg.cleanup_max_age_days; }
+  updateCleanupDependents();
+}
+
+/* ── Cleanup toggle dependency ─────────────────────── */
+function updateCleanupDependents() {
+  const toggle = document.getElementById('toggle-cleanup');
+  const btn = document.getElementById('btn-cleanup-now');
+  const hint = document.getElementById('cleanup-hint');
+  if (!toggle) return;
+  const enabled = toggle.checked;
+  if (btn) btn.disabled = !enabled;
+  if (hint) hint.style.display = enabled ? '' : 'none';
+}
+
+async function doManualCleanup() {
+  const btn = document.getElementById('btn-cleanup-now');
+  if (!btn || btn.disabled) return;
+  try {
+    const removed = await window.manualCleanup();
+    if (removed > 0) {
+      showToast(t('cleanupResult').replace('{count}', removed));
+    } else {
+      showToast(t('cleanupResultNone'));
+    }
+  } catch (e) {
+    showToast(t('cleanupResultNone'), true);
+  }
 }
 
 /* ── Close-to-Tray / NotifyBackground dependency ───── */
@@ -636,20 +665,24 @@ async function deleteModel(id) {
   }
 }
 
-// Go calls this to update download progress
-window.updateModelProgress = function(modelId, pct, fileNum, fileCount) {
+// Go calls this to update download progress (per-file)
+window.updateModelProgress = function(modelId, pct, fileNum, fileCount, fileName) {
   const bar = document.getElementById('progress-' + modelId);
-  if (bar) bar.style.width = pct + '%';
-  // Update button text with percentage and file info
+  if (bar) {
+    // Approximate overall progress from file position + per-file pct
+    const overallPct = Math.round(((fileNum - 1) + pct / 100) / fileCount * 100);
+    bar.style.width = overallPct + '%';
+  }
   const item = document.querySelector(`[data-model-id="${modelId}"]`);
   if (item) {
     const btn = item.querySelector('.model-item-action .btn');
     if (btn) {
       if (pct >= 100 && fileNum >= fileCount) {
         btn.textContent = '✓ ' + t('modelDownloaded');
+      } else if (fileCount > 1) {
+        btn.textContent = `${t('modelDownloadFile')} ${fileNum}/${fileCount}: ${fileName} (${pct}%)`;
       } else {
-        const fileInfo = fileCount > 1 ? ` (${t('modelDownloadFile')} ${fileNum}/${fileCount})` : '';
-        btn.textContent = pct + '%' + fileInfo;
+        btn.textContent = `${pct}%`;
       }
     }
   }

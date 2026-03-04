@@ -109,8 +109,8 @@ var modelHTTPClient = &http.Client{
 }
 
 // DownloadModel downloads all files for the specified model.
-// progressFn is called with (bytesDownloaded, totalBytes, fileIndex, fileCount).
-func DownloadModel(modelID string, progressFn func(downloaded, total int64, fileIdx, fileCount int)) error {
+// progressFn is called with per-file progress: (fileDownloaded, fileTotal, fileIndex, fileCount, fileName).
+func DownloadModel(modelID string, progressFn func(fileDownloaded, fileTotal int64, fileIdx, fileCount int, fileName string)) error {
 	model := findModel(modelID)
 	if model == nil {
 		return fmt.Errorf("unknown model: %s", modelID)
@@ -124,10 +124,9 @@ func DownloadModel(modelID string, progressFn func(downloaded, total int64, file
 		return fmt.Errorf("failed to create model directory: %w", err)
 	}
 
-	totalBytes := model.SizeBytes
 	fileCount := len(model.Files)
-	var cumulativeDownloaded int64
 	var lastPct int = -1
+	var lastFileIdx int = -1
 
 	for i, fname := range model.Files {
 		url := model.BaseURL + "/" + fname
@@ -136,28 +135,21 @@ func DownloadModel(modelID string, progressFn func(downloaded, total int64, file
 		if err := downloadModelFile(url, dest, func(downloaded, total int64) {
 			if progressFn != nil {
 				var pct int
-				if totalBytes > 0 {
-					// Use model SizeBytes for cumulative progress
-					pct = int(float64(cumulativeDownloaded+downloaded) / float64(totalBytes) * 100)
+				if total > 0 {
+					pct = int(float64(downloaded) / float64(total) * 100)
 					if pct > 100 {
 						pct = 100
 					}
-				} else if total > 0 {
-					// Fallback: per-file progress only
-					pct = int(float64(downloaded) / float64(total) * 100)
 				}
-				// Throttle: only call when percentage changes
-				if pct != lastPct {
+				// Update on percentage change or file change
+				if pct != lastPct || i != lastFileIdx {
 					lastPct = pct
-					progressFn(cumulativeDownloaded+downloaded, totalBytes, i, fileCount)
+					lastFileIdx = i
+					progressFn(downloaded, total, i, fileCount, fname)
 				}
 			}
 		}); err != nil {
 			return fmt.Errorf("failed to download %s: %w", fname, err)
-		}
-		// Add completed file size to cumulative
-		if info, err := os.Stat(dest); err == nil {
-			cumulativeDownloaded += info.Size()
 		}
 		logInfo("downloaded model file: %s (%d/%d)", fname, i+1, fileCount)
 	}

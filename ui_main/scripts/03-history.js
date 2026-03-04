@@ -99,9 +99,10 @@ function evaluateSearch(tokens, content) {
   for (const tok of tokens) {
     let matches;
     if (tok.isWildcard) {
-      const pattern = tok.term.replace(/\*/g, '.*').replace(/\?/g, '.');
+      const pattern = tok.term.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '\\S*');
       try {
-        matches = new RegExp(pattern).test(content);
+        matches = new RegExp('(?:^|\\s|[^\\w])' + pattern + '(?:$|\\s|[^\\w])', 'i').test(content) ||
+                  new RegExp('^' + pattern, 'i').test(content);
       } catch {
         matches = content.includes(tok.term.replace(/[*?]/g, ''));
       }
@@ -214,7 +215,7 @@ function updateCounts() {
         const label = name === 'merged' ? t('catMerged') : name === 'duplicated' ? t('catDuplicated') : name;
         const c = getTagColor(name);
         return `
-        <div class="filter-item${_activeFilter === 'cat:' + esc(name) ? ' active' : ''}" data-filter="cat:${esc(name)}">
+        <div class="filter-item tag-sidebar-item${_activeFilter === 'cat:' + esc(name) ? ' active' : ''}" data-filter="cat:${esc(name)}" data-tag="${esc(name)}">
           <svg class="icon tag-icon-clr" viewBox="0 0 24 24" fill="none" stroke="${c.text}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="${c.text}"/></svg>
           <span class="filter-label" title="${esc(label)}">${esc(label)}</span>
           <span class="filter-count">${count}</span>
@@ -325,10 +326,12 @@ function renderHistory() {
         <div style="flex:1;min-width:0">
           <div class="entry-title">${highlightSearch(e.title || e.text.substring(0, 60), _searchQuery)}</div>
           <div class="entry-meta">
-            <span>${formatTime(e.timestamp)}</span>
-            ${e.duration_sec ? '<span>' + formatDuration(e.duration_sec) + '</span>' : ''}
-            ${e.language ? '<span>' + e.language.toUpperCase() + '</span>' : ''}
-            ${(e.text || '').length > 0 ? '<span>' + (e.text || '').split(/\s+/).filter(Boolean).length + 'w · ' + (e.text || '').length + 'c</span>' : ''}
+            <span class="meta-item" title="${formatTime(e.timestamp)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${formatTime(e.timestamp)}</span>
+            ${e.duration_sec ? '<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l4 0"/><path d="M7 3l0 3"/><circle cx="7" cy="14" r="7"/><path d="M7 11v3h3"/></svg> ' + formatDuration(e.duration_sec) + '</span>' : ''}
+            ${e.language ? '<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/></svg> ' + e.language.toUpperCase() + '</span>' : ''}
+            ${(e.text || '').length > 0 ? '<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg> ' + (e.text || '').split(/\\s+/).filter(Boolean).length + ' ' + t('meta_words') + '</span>' : ''}
+          </div>
+          <div class="entry-tags-row">
             ${(e.tags || []).map(tag => { const c = getTagColor(tag); return '<span class="tag" style="background:'+c.bg+';color:'+c.text+';border-color:'+c.border+'">' + esc(tag === 'merged' ? t('catMerged') : tag === 'duplicated' ? t('catDuplicated') : tag) + '</span>'; }).join('')}
           </div>
         </div>
@@ -505,8 +508,13 @@ function startEditText(id) {
       <button class="btn-icon" title="${t('notebook.cancel')}" data-action="cancel-text" data-id="${id}">${icons.x}</button>
     `;
     actionsEl.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('mousedown', (ev) => {
+        ev.preventDefault(); // prevent blur before action
+      });
       btn.addEventListener('click', (ev) => {
         ev.stopPropagation();
+        const ta = document.getElementById('edit-area-' + id);
+        if (ta) ta._actionHandled = true;
         const action = btn.dataset.action;
         if (action === 'save-text') saveEditText(id);
         else if (action === 'cancel-text') cancelEditText(id);
@@ -514,7 +522,14 @@ function startEditText(id) {
     });
   }
   const ta = document.getElementById('edit-area-' + id);
-  if (ta) { ta.focus(); ta.style.height = ta.scrollHeight + 'px'; }
+  if (ta) {
+    ta.focus();
+    ta.style.height = ta.scrollHeight + 'px';
+    let saved = false;
+    ta.addEventListener('blur', () => {
+      if (!saved) { saved = true; saveEditText(id); }
+    });
+  }
 }
 
 async function saveEditText(id) {
@@ -620,9 +635,23 @@ async function addTag(input) {
 function highlightSearch(text, query) {
   if (!query) return esc(text);
   const escaped = esc(text);
-  const escapedQuery = esc(query);
-  const regex = new RegExp('(' + escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-  return escaped.replace(regex, '<mark class="search-hl">$1</mark>');
+  const tokens = parseSearchTokens(query);
+  if (tokens.length === 0) return escaped;
+  const patterns = tokens
+    .filter(tok => !tok.negate)
+    .map(tok => {
+      if (tok.isWildcard) {
+        const p = tok.term.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '\\S*');
+        return p;
+      }
+      return tok.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    })
+    .filter(p => p.length > 0);
+  if (patterns.length === 0) return escaped;
+  try {
+    const regex = new RegExp('(' + patterns.join('|') + ')', 'gi');
+    return escaped.replace(regex, '<mark class="search-hl">$1</mark>');
+  } catch { return escaped; }
 }
 
 function toggleSearchHelp(anchor) {

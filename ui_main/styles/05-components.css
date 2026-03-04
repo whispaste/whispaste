@@ -75,6 +75,25 @@
 
 .confirm-btns { display: flex; gap: 10px; }
 
+.prompt-input {
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  outline: none;
+  box-sizing: border-box;
+}
+.prompt-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+.confirm-icon.info { background: var(--accent-subtle); color: var(--accent); }
+
 /* ── Buttons ──────────────────────────────────────────── */
 .btn {
   display: inline-flex;
@@ -151,6 +170,11 @@
   background: var(--accent-subtle);
   border-color: var(--accent);
   box-shadow: var(--shadow-glow);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* ── Scrollbar Global ─────────────────────────────────── */

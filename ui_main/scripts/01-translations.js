@@ -149,6 +149,9 @@ const translations = {
     modelDeleted: 'Model deleted',
     modelNotDownloaded: 'not downloaded',
     modelNeedDownload: 'Download the model first to select it',
+    labelTranscriptionLanguage: 'Model Language',
+    descTranscriptionLanguage: 'Set your spoken language for better accuracy with local models. Helps with mixed-language content (e.g. German with English terms).',
+    transLangGlobal: 'Use global setting',
 
     // Settings — Audio Input
     cardAudioInput: 'Audio Input',
@@ -189,6 +192,17 @@ const translations = {
     costOccasional: 'Occasional (~5 min/day)',
     costRegular: 'Regular (~20 min/day)',
     costHeavy: 'Heavy (~60 min/day)',
+    aboutSystemTitle: 'System Info',
+    aboutCopyInfo: 'Copy Debug Info',
+    aboutCopied: 'Copied to clipboard!',
+    sysAppVersion: 'Version',
+    sysBuildCommit: 'Build',
+    sysBuildDate: 'Build Date',
+    sysGoVersion: 'Go Version',
+    sysOS: 'OS',
+    sysArch: 'Architecture',
+    sysConfigPath: 'Config Path',
+    sysLogPath: 'Log Path',
 
     // Notebook
     'notebook.title': 'History',
@@ -238,6 +252,10 @@ const translations = {
     'mergeSuccess': 'Entries merged successfully',
     'catMerged': 'Merged',
     'catDuplicated': 'Duplicated',
+    'meta_words': 'words',
+    'tag_rename': 'Rename Tag',
+    'tag_color': 'Change Color',
+    'tag_rename_prompt': 'Enter new name:',
 
     // Analytics
     'tabAnalytics': 'Analytics',
@@ -277,8 +295,8 @@ const translations = {
     searchHelpWild: 'Wildcard match',
 
     // Model descriptions
-    'model.desc.whisper-base': 'Basic model — fast, low resource usage. Good for most use cases with clear audio.',
-    'model.desc.whisper-small': 'Enhanced model — better accuracy for complex audio, accents, and background noise. Uses more RAM.',
+    'model.desc.whisper-base': 'Fast, suitable for clear speech in one language. May struggle with mixed-language content.',
+    'model.desc.whisper-small': 'More accurate, better with mixed languages and accents. Recommended when using technical terms from another language.',
 
     // Model switcher
     'modelSwitcher.title': 'Switch Model',
@@ -319,6 +337,10 @@ const translations = {
     descCleanupMaxEntries: 'Keep at most this many entries (0 = unlimited)',
     labelCleanupMaxAge: 'Maximum age (days)',
     descCleanupMaxAge: 'Remove entries older than this (0 = unlimited)',
+    cleanupHint: 'Cleanup runs automatically after each new transcription.',
+    cleanupNowBtn: 'Clean up now',
+    cleanupResult: '{count} entries removed',
+    cleanupResultNone: 'No entries to remove',
     cancel: 'Cancel'
   },
   de: {
@@ -470,6 +492,9 @@ const translations = {
     modelDeleted: 'Modell gelöscht',
     modelNotDownloaded: 'nicht heruntergeladen',
     modelNeedDownload: 'Modell zuerst herunterladen, um es auszuwählen',
+    labelTranscriptionLanguage: 'Modell-Sprache',
+    descTranscriptionLanguage: 'Gesprochene Sprache festlegen für bessere Genauigkeit mit lokalen Modellen. Hilft bei gemischtsprachigen Inhalten (z. B. Deutsch mit englischen Fachbegriffen).',
+    transLangGlobal: 'Globale Einstellung verwenden',
 
     // Settings — Audio Input
     cardAudioInput: 'Audioeingang',
@@ -510,6 +535,17 @@ const translations = {
     costOccasional: 'Gelegentlich (~5 Min./Tag)',
     costRegular: 'Regelmäßig (~20 Min./Tag)',
     costHeavy: 'Viel (~60 Min./Tag)',
+    aboutSystemTitle: 'Systeminformationen',
+    aboutCopyInfo: 'Debug-Info kopieren',
+    aboutCopied: 'In die Zwischenablage kopiert!',
+    sysAppVersion: 'Version',
+    sysBuildCommit: 'Build',
+    sysBuildDate: 'Build-Datum',
+    sysGoVersion: 'Go-Version',
+    sysOS: 'Betriebssystem',
+    sysArch: 'Architektur',
+    sysConfigPath: 'Konfigurationspfad',
+    sysLogPath: 'Log-Pfad',
 
     // Notebook
     'notebook.title': 'Verlauf',
@@ -559,6 +595,10 @@ const translations = {
     'mergeSuccess': 'Einträge erfolgreich zusammengeführt',
     'catMerged': 'Zusammengefügt',
     'catDuplicated': 'Dupliziert',
+    'meta_words': 'Wörter',
+    'tag_rename': 'Tag umbenennen',
+    'tag_color': 'Farbe ändern',
+    'tag_rename_prompt': 'Neuen Namen eingeben:',
 
     // Analytics
     'tabAnalytics': 'Statistiken',
@@ -598,8 +638,8 @@ const translations = {
     searchHelpWild: 'Platzhaltersuche',
 
     // Model descriptions
-    'model.desc.whisper-base': 'Basismodell — schnell, geringer Ressourcenverbrauch. Gut für die meisten Anwendungsfälle mit klarem Audio.',
-    'model.desc.whisper-small': 'Erweitertes Modell — bessere Genauigkeit bei komplexem Audio, Akzenten und Hintergrundgeräuschen. Benötigt mehr RAM.',
+    'model.desc.whisper-base': 'Schnell, geeignet für klare Sprache in einer Sprache. Kann bei gemischtsprachigen Inhalten Probleme bereiten.',
+    'model.desc.whisper-small': 'Genauer, besser bei gemischten Sprachen und Akzenten. Empfohlen bei Verwendung von Fachbegriffen aus einer anderen Sprache.',
 
     // Model switcher
     'modelSwitcher.title': 'Modell wechseln',
@@ -640,6 +680,10 @@ const translations = {
     descCleanupMaxEntries: 'Höchstens so viele Einträge behalten (0 = unbegrenzt)',
     labelCleanupMaxAge: 'Maximales Alter (Tage)',
     descCleanupMaxAge: 'Einträge älter als diese Anzahl Tage entfernen (0 = unbegrenzt)',
+    cleanupHint: 'Bereinigung wird automatisch nach jeder neuen Transkription ausgeführt.',
+    cleanupNowBtn: 'Jetzt bereinigen',
+    cleanupResult: '{count} Einträge entfernt',
+    cleanupResultNone: 'Keine Einträge zu entfernen',
     cancel: 'Abbrechen'
   }
 };
