@@ -220,6 +220,8 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 
 	var totalEntries, localEntries, apiEntries int
 	var totalDuration, totalCost, localDuration float64
+	var minDuration, maxDuration float64
+	first := true
 	dailyCounts := map[string]int{}
 	modelCounts := map[string]int{}
 	durationBuckets := map[string]int{"<15s": 0, "15-30s": 0, "30-60s": 0, "1-3m": 0, ">3m": 0}
@@ -236,6 +238,14 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		totalEntries++
 		totalDuration += e.Duration
 		totalCost += e.CostUSD
+
+		if first || e.Duration < minDuration {
+			minDuration = e.Duration
+		}
+		if first || e.Duration > maxDuration {
+			maxDuration = e.Duration
+		}
+		first = false
 
 		if e.IsLocal {
 			localEntries++
@@ -281,6 +291,8 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		"modelCounts":     modelCounts,
 		"durationBuckets": durationBuckets,
 		"avgDuration":     safeDiv(totalDuration, float64(totalEntries)),
+		"minDuration":     minDuration,
+		"maxDuration":     maxDuration,
 	}
 }
 

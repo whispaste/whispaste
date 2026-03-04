@@ -1,140 +1,343 @@
 <!-- Hero Section -->
-<section class="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-14">
+<section
+  class="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-14"
+>
   <!-- Animated gradient background -->
-  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_center,_rgba(34,211,238,0.12)_0%,_transparent_50%)]"></div>
-  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_rgba(14,116,144,0.08)_0%,_transparent_50%)]"></div>
-  <div class="hero-glow absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-brand-cyan/[0.07] rounded-full blur-[120px]"></div>
+  <div
+    class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_center,_rgba(34,211,238,0.12)_0%,_transparent_50%)]"
+  >
+  </div>
+  <div
+    class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_rgba(14,116,144,0.08)_0%,_transparent_50%)]"
+  >
+  </div>
+  <div
+    class="hero-glow absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-brand-cyan/[0.07] rounded-full blur-[120px]"
+  >
+  </div>
 
   <!-- Floating grid lines for depth -->
-  <div class="absolute inset-0 opacity-[0.03]" style="background-image: linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px); background-size: 60px 60px;"></div>
+  <div
+    class="absolute inset-0 opacity-[0.03]"
+    style="background-image: linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px); background-size: 60px 60px;"
+  >
+  </div>
 
   <div class="relative z-10 text-center px-6 max-w-4xl mx-auto">
     <div class="animate-fade-in">
       <div class="mb-8 mt-4">
-        <img id="heroLogo" src="/whispaste/app-icon-dark.png" alt="WhisPaste" class="w-24 h-24 mx-auto rounded-2xl" />
+        <img
+          id="heroLogo"
+          src="/whispaste/app-icon-dark.png"
+          alt="WhisPaste"
+          class="w-24 h-24 mx-auto rounded-2xl"
+        />
       </div>
-      <h1 class="text-5xl sm:text-7xl lg:text-8xl font-bold tracking-tight text-white leading-[1.05]">
-        <span data-i18n="hero.title1">Voice to text,</span><br>
-        <span class="hero-gradient" data-i18n="hero.title2">pasted anywhere.</span>
+      <h1
+        class="text-5xl sm:text-7xl lg:text-8xl font-bold tracking-tight text-white leading-[1.05]"
+      >
+        <span data-i18n="hero.title1">Voice to text,</span><br />
+        <span class="hero-gradient" data-i18n="hero.title2"
+          >pasted anywhere.</span
+        >
       </h1>
-      <p class="mt-6 text-lg sm:text-xl text-gray-400 max-w-xl mx-auto leading-relaxed" data-i18n="hero.desc">
-        A lightweight desktop tool that transcribes your speech — locally or via OpenAI Whisper — and pastes the result into any focused input field.
+      <p
+        class="mt-6 text-lg sm:text-xl text-gray-400 max-w-xl mx-auto leading-relaxed"
+        data-i18n="hero.desc"
+      >
+        A lightweight desktop tool that transcribes your speech — locally or via
+        OpenAI Whisper — and pastes the result into any focused input field.
       </p>
     </div>
 
     <!-- CTA buttons -->
-    <div class="mt-10 flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-delay">
-      <a href="#store" class="group relative inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-brand-cyan text-brand-darker font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(34,211,238,0.3)] hover:shadow-[0_0_40px_rgba(34,211,238,0.5)]">
-        <svg class="w-5 h-5" viewBox="0 0 448 512" fill="currentColor"><!-- Font Awesome Microsoft --><path d="M0 32h214.6v214.6H0V32zm233.4 0H448v214.6H233.4V32zM0 265.4h214.6V480H0V265.4zm233.4 0H448V480H233.4V265.4z"/></svg>
+    <div
+      class="mt-10 flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-delay"
+    >
+      <a
+        href="#store"
+        data-testid="hero-cta-store"
+        class="group relative inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-brand-cyan text-brand-darker font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(34,211,238,0.3)] hover:shadow-[0_0_40px_rgba(34,211,238,0.5)]"
+      >
+        <svg class="w-5 h-5" viewBox="0 0 448 512" fill="currentColor"
+          ><!-- Font Awesome Microsoft -->
+          <path
+            d="M0 32h214.6v214.6H0V32zm233.4 0H448v214.6H233.4V32zM0 265.4h214.6V480H0V265.4zm233.4 0H448V480H233.4V265.4z"
+          ></path></svg
+        >
         <span data-i18n="hero.download">Get it on Microsoft Store</span>
       </a>
-      <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white/[0.04] text-white font-semibold rounded-xl border border-white/10 hover:bg-white/[0.08] hover:border-white/20 transition-all hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm">
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      <a
+        href="https://github.com/whispaste/whispaste"
+        target="_blank"
+        rel="noopener"
+        data-testid="hero-cta-github"
+        class="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white/[0.04] text-white font-semibold rounded-xl border border-white/10 hover:bg-white/[0.08] hover:border-white/20 transition-all hover:scale-[1.02] active:scale-[0.98] backdrop-blur-sm"
+      >
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"
+          ><path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"
+          ></path></svg
+        >
         <span data-i18n="hero.github">View on GitHub</span>
       </a>
     </div>
     <div class="mt-3 animate-fade-in-delay">
-      <a href="https://github.com/whispaste/whispaste/releases/latest" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-400 transition-colors">
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+      <a
+        href="https://github.com/whispaste/whispaste/releases/latest"
+        data-testid="hero-cta-portable"
+        class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-400 transition-colors"
+      >
+        <svg
+          class="w-3.5 h-3.5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          ><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline
+            points="7 10 12 15 17 10"></polyline><line
+            x1="12"
+            x2="12"
+            y1="15"
+            y2="3"></line></svg
+        >
         <span data-i18n="hero.portable">Or download portable .exe</span>
       </a>
     </div>
-    <p class="mt-4 text-sm text-gray-500 animate-fade-in-delay" data-i18n="hero.meta">Portable .exe · No installer · ~8 MB</p>
+    <p
+      class="mt-4 text-sm text-gray-500 animate-fade-in-delay"
+      data-i18n="hero.meta"
+    >
+      Portable .exe · No installer · ~8 MB
+    </p>
 
     <!-- Carousel -->
     <div class="mt-16 animate-fade-in-up">
       <div class="relative mx-auto max-w-2xl">
         <!-- Carousel viewport -->
         <div class="overflow-hidden">
-          <div id="carousel-track" class="flex transition-transform duration-700 ease-in-out" style="transform: translateX(0%);">
+          <div
+            id="carousel-track"
+            class="flex transition-transform duration-700 ease-in-out"
+            style="transform: translateX(0%);"
+          >
             <!-- Scene 1: Hotkey Press -->
             <div class="w-full shrink-0">
-              <div class="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[220px]">
+              <div
+                class="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[220px]"
+              >
                 <div class="carousel-keys-scene relative mb-6">
                   <div class="carousel-keys-group">
                     <div class="carousel-key carousel-key--modifier">
-                      <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>
+                      <svg
+                        class="w-5 h-5 text-white/80"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        ><path
+                          d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"
+                        ></path></svg
+                      >
                     </div>
                     <div class="carousel-key carousel-key--modifier">
-                      <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
+                      <svg
+                        class="w-5 h-5 text-white/80"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        ><polygon
+                          points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"
+                        ></polygon></svg
+                      >
                     </div>
                     <div class="carousel-key carousel-key--action">
-                      <svg class="w-5 h-5 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                      <svg
+                        class="w-5 h-5 text-white/80"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        ><circle cx="12" cy="12" r="10"></circle></svg
+                      >
                     </div>
                   </div>
-                  <svg class="carousel-cursor" viewBox="0 0 448 512" width="56" height="64" aria-hidden="true">
-                    <path d="M160 64c0-8.8 7.2-16 16-16s16 7.2 16 16v136c0 10.3 6.6 19.5 16.4 22.8s20.6-.1 26.8-8.3c3-3.9 7.6-6.4 12.8-6.4c8.8 0 16 7.2 16 16c0 10.3 6.6 19.5 16.4 22.8s20.6-.1 26.8-8.3c3-3.9 7.6-6.4 12.8-6.4c7.8 0 14.3 5.6 15.7 13c1.6 8.2 7.3 15.1 15.1 18s16.7 1.6 23.3-3.6c2.7-2.1 6.1-3.4 9.9-3.4c8.8 0 16 7.2 16 16v120c0 39.8-32.2 72-72 72H211.3c-37.4 0-72.4-18.7-93.2-49.9L50.7 312.9c-4.9-7.4-2.9-17.3 4.4-22.2s17.3-2.9 22.2 4.4l38.7 58.1c5.9 8.8 16.8 12.7 26.9 9.7s17-12.4 17-23V64z" fill="white" fill-opacity="0.7" stroke="rgba(0,0,0,0.3)" stroke-width="8" stroke-linejoin="round"/>
+                  <svg
+                    class="carousel-cursor"
+                    viewBox="0 0 448 512"
+                    width="56"
+                    height="64"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M160 64c0-8.8 7.2-16 16-16s16 7.2 16 16v136c0 10.3 6.6 19.5 16.4 22.8s20.6-.1 26.8-8.3c3-3.9 7.6-6.4 12.8-6.4c8.8 0 16 7.2 16 16c0 10.3 6.6 19.5 16.4 22.8s20.6-.1 26.8-8.3c3-3.9 7.6-6.4 12.8-6.4c7.8 0 14.3 5.6 15.7 13c1.6 8.2 7.3 15.1 15.1 18s16.7 1.6 23.3-3.6c2.7-2.1 6.1-3.4 9.9-3.4c8.8 0 16 7.2 16 16v120c0 39.8-32.2 72-72 72H211.3c-37.4 0-72.4-18.7-93.2-49.9L50.7 312.9c-4.9-7.4-2.9-17.3 4.4-22.2s17.3-2.9 22.2 4.4l38.7 58.1c5.9 8.8 16.8 12.7 26.9 9.7s17-12.4 17-23V64z"
+                      fill="white"
+                      fill-opacity="0.7"
+                      stroke="rgba(0,0,0,0.3)"
+                      stroke-width="8"
+                      stroke-linejoin="round"></path>
                   </svg>
                 </div>
-                <span class="text-sm text-gray-400" data-i18n="carousel.press_hotkey">Press your hotkey</span>
+                <span
+                  class="text-sm text-gray-400"
+                  data-i18n="carousel.press_hotkey">Press your hotkey</span
+                >
               </div>
             </div>
-              <!-- Scene 2: Recording Overlay -->
-              <div class="w-full shrink-0">
-                <div class="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[220px]">
-                  <!-- Speaking head + microphone icon -->
-                  <div class="speaking-head mb-4 flex items-center gap-3">
-                    <!-- Lucide speech head -->
-                    <svg class="speaking-head-icon" viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M8.8 20v-4.1l1.9.2a2.3 2.3 0 0 0 2.164-2.1V8.3A5.37 5.37 0 0 0 2 8.25c0 2.8.656 3.054 1 4.55a5.8 5.8 0 0 1 .029 2.758L2 20"/>
-                      <path class="sound-arc arc-1" d="M17 15a3.5 3.5 0 0 0-.025-4.975"/>
-                      <path class="sound-arc arc-2" d="M19.8 17.8a7.5 7.5 0 0 0 .003-10.603"/>
-                    </svg>
-                    <!-- FA microphone-lines -->
-                    <svg class="microphone-icon" viewBox="0 0 384 512" width="22" height="30" fill="currentColor" aria-hidden="true">
-                      <path d="M96 96v160c0 53 43 96 96 96s96-43 96-96h-80c-8.8 0-16-7.2-16-16s7.2-16 16-16h80v-32h-80c-8.8 0-16-7.2-16-16s7.2-16 16-16h80v-32h-80c-8.8 0-16-7.2-16-16s7.2-16 16-16h80c0-53-43-96-96-96S96 43 96 96m224 144v16c0 70.7-57.3 128-128 128S64 326.7 64 256v-40c0-13.3-10.7-24-24-24s-24 10.7-24 24v40c0 89.1 66.2 162.7 152 174.4V464h-48c-13.3 0-24 10.7-24 24s10.7 24 24 24h144c13.3 0 24-10.7 24-24s-10.7-24-24-24h-48v-33.6c85.8-11.7 152-85.3 152-174.4v-40c0-13.3-10.7-24-24-24s-24 10.7-24 24z"/>
-                    </svg>
-                  </div>
-                  <div class="overlay-pill">
-                    <div class="overlay-btn-cancel">
-                      <svg viewBox="0 0 40 40" width="40" height="40" fill="none" stroke="rgba(170,170,187,0.8)" stroke-width="2.5" stroke-linecap="round"><line x1="13" y1="13" x2="27" y2="27"/><line x1="27" y1="13" x2="13" y2="27"/></svg>
-                    </div>
-                    <div class="overlay-content">
-                      <div class="overlay-rec-dot"></div>
-                      <span class="overlay-text-timer" id="overlay-timer">0:00</span>
-                    </div>
-                    <div class="overlay-waveform" id="overlay-waveform"></div>
-                    <div class="overlay-buttons">
-                      <div class="overlay-btn-pause">
-                        <svg viewBox="0 0 40 40" width="40" height="40" fill="white"><rect x="12" y="11" width="5" height="18" rx="1"/><rect x="23" y="11" width="5" height="18" rx="1"/></svg>
-                      </div>
-                      <div class="overlay-btn-confirm">
-                        <svg viewBox="0 0 40 40" width="40" height="40" fill="white"><rect x="12" y="12" width="16" height="16" rx="2"/></svg>
-                      </div>
-                    </div>
-                  </div>
-                  <span class="text-sm text-gray-400 mt-4" data-i18n="carousel.speak_now">Speak now</span>
+            <!-- Scene 2: Recording Overlay -->
+            <div class="w-full shrink-0">
+              <div
+                class="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[220px]"
+              >
+                <!-- Speaking head + microphone icon -->
+                <div class="speaking-head mb-4 flex items-center gap-3">
+                  <!-- Lucide speech head -->
+                  <svg
+                    class="speaking-head-icon"
+                    viewBox="0 0 24 24"
+                    width="36"
+                    height="36"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M8.8 20v-4.1l1.9.2a2.3 2.3 0 0 0 2.164-2.1V8.3A5.37 5.37 0 0 0 2 8.25c0 2.8.656 3.054 1 4.55a5.8 5.8 0 0 1 .029 2.758L2 20"
+                    ></path>
+                    <path
+                      class="sound-arc arc-1"
+                      d="M17 15a3.5 3.5 0 0 0-.025-4.975"></path>
+                    <path
+                      class="sound-arc arc-2"
+                      d="M19.8 17.8a7.5 7.5 0 0 0 .003-10.603"></path>
+                  </svg>
+                  <!-- FA microphone-lines -->
+                  <svg
+                    class="microphone-icon"
+                    viewBox="0 0 384 512"
+                    width="22"
+                    height="30"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M96 96v160c0 53 43 96 96 96s96-43 96-96h-80c-8.8 0-16-7.2-16-16s7.2-16 16-16h80v-32h-80c-8.8 0-16-7.2-16-16s7.2-16 16-16h80v-32h-80c-8.8 0-16-7.2-16-16s7.2-16 16-16h80c0-53-43-96-96-96S96 43 96 96m224 144v16c0 70.7-57.3 128-128 128S64 326.7 64 256v-40c0-13.3-10.7-24-24-24s-24 10.7-24 24v40c0 89.1 66.2 162.7 152 174.4V464h-48c-13.3 0-24 10.7-24 24s10.7 24 24 24h144c13.3 0 24-10.7 24-24s-10.7-24-24-24h-48v-33.6c85.8-11.7 152-85.3 152-174.4v-40c0-13.3-10.7-24-24-24s-24 10.7-24 24z"
+                    ></path>
+                  </svg>
                 </div>
+                <div class="overlay-pill">
+                  <div class="overlay-btn-cancel">
+                    <svg
+                      viewBox="0 0 40 40"
+                      width="40"
+                      height="40"
+                      fill="none"
+                      stroke="rgba(170,170,187,0.8)"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      ><line x1="13" y1="13" x2="27" y2="27"></line><line
+                        x1="27"
+                        y1="13"
+                        x2="13"
+                        y2="27"></line></svg
+                    >
+                  </div>
+                  <div class="overlay-content">
+                    <div class="overlay-rec-dot"></div>
+                    <span class="overlay-text-timer" id="overlay-timer"
+                      >0:00</span
+                    >
+                  </div>
+                  <div class="overlay-waveform" id="overlay-waveform"></div>
+                  <div class="overlay-buttons">
+                    <div class="overlay-btn-pause">
+                      <svg
+                        viewBox="0 0 40 40"
+                        width="40"
+                        height="40"
+                        fill="white"
+                        ><rect x="12" y="11" width="5" height="18" rx="1"
+                        ></rect><rect x="23" y="11" width="5" height="18" rx="1"
+                        ></rect></svg
+                      >
+                    </div>
+                    <div class="overlay-btn-confirm">
+                      <svg
+                        viewBox="0 0 40 40"
+                        width="40"
+                        height="40"
+                        fill="white"
+                        ><rect x="12" y="12" width="16" height="16" rx="2"
+                        ></rect></svg
+                      >
+                    </div>
+                  </div>
+                </div>
+                <span
+                  class="text-sm text-gray-400 mt-4"
+                  data-i18n="carousel.speak_now">Speak now</span
+                >
               </div>
-              <!-- Scene 3: Text Insertion -->
-              <div class="w-full shrink-0">
-                <div class="p-6 min-h-[220px] flex flex-col">
-                  <div class="flex items-center gap-2 px-4 py-2.5 bg-brand-card/60 border-b border-white/5 rounded-t-lg">
-                    <div class="flex gap-1.5">
-                      <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
-                      <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
-                      <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
-                    </div>
-                    <span class="ml-2 text-xs text-gray-500 font-mono" data-i18n="carousel.editor_title">Text Editor</span>
+            </div>
+            <!-- Scene 3: Text Insertion -->
+            <div class="w-full shrink-0">
+              <div class="p-6 min-h-[220px] flex flex-col">
+                <div
+                  class="flex items-center gap-2 px-4 py-2.5 bg-brand-card/60 border-b border-white/5 rounded-t-lg"
+                >
+                  <div class="flex gap-1.5">
+                    <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
+                    <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
+                    <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
                   </div>
-                  <div class="bg-brand-darker/80 border border-white/5 border-t-0 rounded-b-lg p-4 min-h-[140px]">
-                    <div class="flex items-start gap-3">
-                      <div class="text-xs text-gray-600 font-mono select-none leading-relaxed pt-0.5">1<br>2<br>3</div>
-                      <div id="typed-text" class="text-sm text-white/90 font-mono leading-relaxed whitespace-pre-wrap">
-                        <span class="typing-cursor"></span>
-                      </div>
-                    </div>
-                  </div>
-                  <span class="text-sm text-gray-400 mt-3 text-center" data-i18n="carousel.auto_pasted">Auto-pasted!</span>
+                  <span
+                    class="ml-2 text-xs text-gray-500 font-mono"
+                    data-i18n="carousel.editor_title">Text Editor</span
+                  >
                 </div>
+                <div
+                  class="bg-brand-darker/80 border border-white/5 border-t-0 rounded-b-lg p-4 min-h-[140px]"
+                >
+                  <div class="flex items-start gap-3">
+                    <div
+                      class="text-xs text-gray-600 font-mono select-none leading-relaxed pt-0.5"
+                    >
+                      1<br />2<br />3
+                    </div>
+                    <div
+                      id="typed-text"
+                      class="text-sm text-white/90 font-mono leading-relaxed whitespace-pre-wrap"
+                    >
+                      <span class="typing-cursor"></span>
+                    </div>
+                  </div>
+                </div>
+                <span
+                  class="text-sm text-gray-400 mt-3 text-center"
+                  data-i18n="carousel.auto_pasted">Auto-pasted!</span
+                >
               </div>
             </div>
           </div>
+        </div>
         <!-- Dot indicators -->
         <div class="flex justify-center gap-2 pt-4">
-          <button class="carousel-dot active w-2 h-2 rounded-full bg-brand-cyan transition-all" data-slide="0" style="width:16px;"></button>
-          <button class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all" data-slide="1"></button>
-          <button class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all" data-slide="2"></button>
+          <button
+            class="carousel-dot active w-2 h-2 rounded-full bg-brand-cyan transition-all"
+            data-slide="0"
+            style="width:16px;"></button>
+          <button
+            class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all"
+            data-slide="1"></button>
+          <button
+            class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all"
+            data-slide="2"></button>
         </div>
       </div>
     </div>
@@ -144,16 +347,33 @@
 <style>
   /* Animations */
   @keyframes fade-in {
-    from { opacity: 0; transform: translateY(24px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   @keyframes fade-in-up {
-    from { opacity: 0; transform: translateY(40px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+    from {
+      opacity: 0;
+      transform: translateY(40px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
   @keyframes glow-pulse {
-    0%, 100% { opacity: 0.6; }
-    50% { opacity: 1; }
+    0%,
+    100% {
+      opacity: 0.6;
+    }
+    50% {
+      opacity: 1;
+    }
   }
   .animate-fade-in {
     animation: fade-in 0.8s ease-out both;
@@ -168,7 +388,7 @@
     animation: glow-pulse 6s ease-in-out infinite;
   }
   .hero-gradient {
-    background: linear-gradient(135deg, #22D3EE 0%, #0E7490 50%, #22D3EE 100%);
+    background: linear-gradient(135deg, #22d3ee 0%, #0e7490 50%, #22d3ee 100%);
     background-size: 200% 200%;
     -webkit-background-clip: text;
     background-clip: text;
@@ -177,8 +397,13 @@
     animation: gradient-shift 5s ease-in-out infinite;
   }
   @keyframes gradient-shift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
   }
 
   /* Carousel keys group */
@@ -199,15 +424,32 @@
     top: -8px;
     pointer-events: none;
     animation: cursor-press 3s ease-in-out infinite;
-    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35));
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35));
     transform-origin: 60% 30%;
   }
   @keyframes cursor-press {
-    0%, 6% { opacity: 0; transform: rotate(-15deg) translate(28px, 40px); }
-    20% { opacity: 0.8; transform: rotate(-15deg) translate(0, 4px); }
-    26%, 50% { opacity: 0.8; transform: rotate(-15deg) translate(0, 10px); }
-    58% { opacity: 0; transform: rotate(-15deg) translate(0, 10px); }
-    100% { opacity: 0; transform: rotate(-15deg) translate(28px, 40px); }
+    0%,
+    6% {
+      opacity: 0;
+      transform: rotate(-15deg) translate(28px, 40px);
+    }
+    20% {
+      opacity: 0.8;
+      transform: rotate(-15deg) translate(0, 4px);
+    }
+    26%,
+    50% {
+      opacity: 0.8;
+      transform: rotate(-15deg) translate(0, 10px);
+    }
+    58% {
+      opacity: 0;
+      transform: rotate(-15deg) translate(0, 10px);
+    }
+    100% {
+      opacity: 0;
+      transform: rotate(-15deg) translate(28px, 40px);
+    }
   }
 
   /* Carousel key animation */
@@ -218,10 +460,19 @@
     align-items: center;
     justify-content: center;
     border-radius: 12px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
-    border: 1px solid rgba(255,255,255,0.12);
-    box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
-    transition: transform 0.1s, box-shadow 0.1s;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 255, 255, 0.03) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 4px 0 rgba(0, 0, 0, 0.4),
+      0 6px 12px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition:
+      transform 0.1s,
+      box-shadow 0.1s;
   }
   .carousel-key--modifier {
     animation: key-press-mod 3s ease-in-out infinite;
@@ -230,14 +481,56 @@
     animation: key-press-act 3s ease-in-out infinite;
   }
   @keyframes key-press-mod {
-    0%, 10% { transform: translateY(0); box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1); }
-    14%, 52% { transform: translateY(4px); box-shadow: 0 0px 0 rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1); }
-    58%, 100% { transform: translateY(0); box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1); }
+    0%,
+    10% {
+      transform: translateY(0);
+      box-shadow:
+        0 4px 0 rgba(0, 0, 0, 0.4),
+        0 6px 12px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    14%,
+    52% {
+      transform: translateY(4px);
+      box-shadow:
+        0 0px 0 rgba(0, 0, 0, 0.4),
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    58%,
+    100% {
+      transform: translateY(0);
+      box-shadow:
+        0 4px 0 rgba(0, 0, 0, 0.4),
+        0 6px 12px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
   }
   @keyframes key-press-act {
-    0%, 22% { transform: translateY(0); box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1); }
-    26%, 52% { transform: translateY(4px); box-shadow: 0 0px 0 rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1); }
-    58%, 100% { transform: translateY(0); box-shadow: 0 4px 0 rgba(0,0,0,0.4), 0 6px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1); }
+    0%,
+    22% {
+      transform: translateY(0);
+      box-shadow:
+        0 4px 0 rgba(0, 0, 0, 0.4),
+        0 6px 12px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    26%,
+    52% {
+      transform: translateY(4px);
+      box-shadow:
+        0 0px 0 rgba(0, 0, 0, 0.4),
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    58%,
+    100% {
+      transform: translateY(0);
+      box-shadow:
+        0 4px 0 rgba(0, 0, 0, 0.4),
+        0 6px 12px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
   }
 
   /* Overlay pill (Scene 2) — matches redesigned app overlay */
@@ -246,24 +539,26 @@
     width: 490px;
     height: 80px;
     border-radius: 40px;
-    background: rgba(10, 26, 41, 0.80);
-    box-shadow: 3px 3px 10px rgba(0,0,0,0.20);
+    background: rgba(10, 26, 41, 0.8);
+    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     display: flex;
     align-items: center;
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-family: "Segoe UI", system-ui, sans-serif;
     transform: scale(0.85);
     transform-origin: center;
   }
   @media (min-width: 640px) {
-    .overlay-pill { transform: scale(1); }
+    .overlay-pill {
+      transform: scale(1);
+    }
   }
   .overlay-btn-cancel {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: #1E2A36;
+    background: #1e2a36;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -280,17 +575,22 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: #FF3C3C;
+    background: #ff3c3c;
     animation: rec-pulse 1.2s ease-in-out infinite;
   }
   @keyframes rec-pulse {
-    0%, 100% { opacity: 0.7; }
-    50% { opacity: 1; }
+    0%,
+    100% {
+      opacity: 0.7;
+    }
+    50% {
+      opacity: 1;
+    }
   }
   .overlay-text-timer {
     font-size: 15px;
     font-weight: 600;
-    color: #FFFFFF;
+    color: #ffffff;
     line-height: 1;
   }
   .overlay-waveform {
@@ -309,7 +609,8 @@
     gap: 8px;
     margin-right: 14px;
   }
-  .overlay-btn-pause, .overlay-btn-confirm {
+  .overlay-btn-pause,
+  .overlay-btn-confirm {
     width: 40px;
     height: 40px;
     border-radius: 50%;
@@ -318,12 +619,17 @@
     justify-content: center;
     overflow: hidden;
   }
-  .overlay-btn-pause svg, .overlay-btn-confirm svg {
+  .overlay-btn-pause svg,
+  .overlay-btn-confirm svg {
     width: 40px;
     height: 40px;
   }
-  .overlay-btn-pause { background: #0E3D4F; }
-  .overlay-btn-confirm { background: #E53935; }
+  .overlay-btn-pause {
+    background: #0e3d4f;
+  }
+  .overlay-btn-confirm {
+    background: #e53935;
+  }
 
   /* Speaking head + microphone icon (Scene 2) */
   .speaking-head {
@@ -334,18 +640,33 @@
     animation: mic-glow 1.8s ease-in-out infinite;
   }
   @keyframes mic-glow {
-    0%, 100% { color: rgba(255, 255, 255, 0.4); }
-    50% { color: #22D3EE; }
+    0%,
+    100% {
+      color: rgba(255, 255, 255, 0.4);
+    }
+    50% {
+      color: #22d3ee;
+    }
   }
   .speaking-head-icon .sound-arc {
     opacity: 0;
-    stroke: #22D3EE;
+    stroke: #22d3ee;
   }
-  .sound-arc.arc-1 { animation: sound-pulse 1.8s ease-in-out infinite; }
-  .sound-arc.arc-2 { animation: sound-pulse 1.8s ease-in-out 0.3s infinite; }
+  .sound-arc.arc-1 {
+    animation: sound-pulse 1.8s ease-in-out infinite;
+  }
+  .sound-arc.arc-2 {
+    animation: sound-pulse 1.8s ease-in-out 0.3s infinite;
+  }
   @keyframes sound-pulse {
-    0%, 100% { opacity: 0; }
-    30%, 70% { opacity: 0.7; }
+    0%,
+    100% {
+      opacity: 0;
+    }
+    30%,
+    70% {
+      opacity: 0.7;
+    }
   }
 
   /* Reduced motion for hero animations */
@@ -382,42 +703,80 @@
     display: inline-block;
     width: 2px;
     height: 1.1em;
-    background: #22D3EE;
+    background: #22d3ee;
     margin-left: 1px;
     animation: cursor-blink 0.8s step-end infinite;
     vertical-align: text-bottom;
   }
   .carousel-heart {
-    color: #EF4444;
+    color: #ef4444;
   }
   @keyframes cursor-blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
+    0%,
+    50% {
+      opacity: 1;
+    }
+    51%,
+    100% {
+      opacity: 0;
+    }
   }
 
   /* Light theme: carousel fixes */
   html.light .carousel-key {
-    background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.08) 100%) !important;
-    border-color: rgba(0,0,0,0.15) !important;
-    box-shadow: 0 4px 0 rgba(0,0,0,0.12), 0 6px 12px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6) !important;
+    background: linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.05) 0%,
+      rgba(0, 0, 0, 0.08) 100%
+    ) !important;
+    border-color: rgba(0, 0, 0, 0.15) !important;
+    box-shadow:
+      0 4px 0 rgba(0, 0, 0, 0.12),
+      0 6px 12px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
   }
-  html.light .carousel-key svg { color: #334155 !important; }
-  html.light .carousel-cursor path { fill: #334155 !important; fill-opacity: 0.8 !important; stroke: rgba(0,0,0,0.15) !important; }
-  html.light .speaking-head { color: rgba(0,0,0,0.5) !important; }
-  html.light .microphone-icon { color: rgba(0,0,0,0.4) !important; }
-  html.light .carousel-dot { background: rgba(0,0,0,0.15) !important; }
-  html.light .carousel-dot.bg-brand-cyan { background: #0891B2 !important; }
-  html.light #typed-text { color: #1E293B !important; }
-  html.light .microphone-icon { animation-name: mic-glow-light !important; }
+  html.light .carousel-key svg {
+    color: #334155 !important;
+  }
+  html.light .carousel-cursor path {
+    fill: #334155 !important;
+    fill-opacity: 0.8 !important;
+    stroke: rgba(0, 0, 0, 0.15) !important;
+  }
+  html.light .speaking-head {
+    color: rgba(0, 0, 0, 0.5) !important;
+  }
+  html.light .microphone-icon {
+    color: rgba(0, 0, 0, 0.4) !important;
+  }
+  html.light .carousel-dot {
+    background: rgba(0, 0, 0, 0.15) !important;
+  }
+  html.light .carousel-dot.bg-brand-cyan {
+    background: #0891b2 !important;
+  }
+  html.light #typed-text {
+    color: #1e293b !important;
+  }
+  html.light .microphone-icon {
+    animation-name: mic-glow-light !important;
+  }
   @keyframes mic-glow-light {
-    0%, 100% { color: rgba(0,0,0,0.4); }
-    50% { color: #0891B2; }
+    0%,
+    100% {
+      color: rgba(0, 0, 0, 0.4);
+    }
+    50% {
+      color: #0891b2;
+    }
   }
   html.light .overlay-pill {
     background: rgba(10, 26, 41, 0.85);
-    box-shadow: 3px 3px 16px rgba(0,0,0,0.15) !important;
+    box-shadow: 3px 3px 16px rgba(0, 0, 0, 0.15) !important;
   }
-  html.light .typing-cursor { background: #0891B2 !important; }
+  html.light .typing-cursor {
+    background: #0891b2 !important;
+  }
 
   /* Reduced motion for dynamic elements */
   @media (prefers-reduced-motion: reduce) {
@@ -430,25 +789,28 @@
 
 <script>
   // Carousel
-  const track = document.getElementById('carousel-track');
-  const dots = document.querySelectorAll('.carousel-dot');
+  const track = document.getElementById("carousel-track");
+  const dots = document.querySelectorAll(".carousel-dot");
   let currentSlide = 0;
   const totalSlides = 3;
   const SLIDE_DURATIONS = [5000, 5000, 8000];
   let carouselTimer: ReturnType<typeof setTimeout>;
-  let reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let reducedMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
 
   let overlayTimerInterval: ReturnType<typeof setInterval>;
 
   function startOverlayTimer() {
     clearInterval(overlayTimerInterval);
-    const timerEl = document.getElementById('overlay-timer');
+    const timerEl = document.getElementById("overlay-timer");
     if (!timerEl) return;
     let seconds = 0;
-    timerEl.textContent = '0:00';
+    timerEl.textContent = "0:00";
     overlayTimerInterval = setInterval(() => {
       seconds++;
-      timerEl.textContent = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+      timerEl.textContent =
+        Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
     }, 1000);
   }
 
@@ -461,16 +823,17 @@
     if (track) track.style.transform = `translateX(-${n * 100}%)`;
     dots.forEach((dot, i) => {
       if (i === n) {
-        dot.classList.remove('bg-white/20');
-        dot.classList.add('bg-brand-cyan');
-        (dot as HTMLElement).style.width = '16px';
+        dot.classList.remove("bg-white/20");
+        dot.classList.add("bg-brand-cyan");
+        (dot as HTMLElement).style.width = "16px";
       } else {
-        dot.classList.add('bg-white/20');
-        dot.classList.remove('bg-brand-cyan');
-        (dot as HTMLElement).style.width = '8px';
+        dot.classList.add("bg-white/20");
+        dot.classList.remove("bg-brand-cyan");
+        (dot as HTMLElement).style.width = "8px";
       }
     });
-    if (n === 1) startOverlayTimer(); else stopOverlayTimer();
+    if (n === 1) startOverlayTimer();
+    else stopOverlayTimer();
     if (n === 2) startTyping();
   }
 
@@ -493,8 +856,8 @@
     clearTimeout(carouselTimer);
   }
 
-  dots.forEach(dot => {
-    dot.addEventListener('click', () => {
+  dots.forEach((dot) => {
+    dot.addEventListener("click", () => {
       stopCarousel();
       goToSlide(parseInt((dot as HTMLElement).dataset.slide!));
       scheduleNext();
@@ -502,25 +865,35 @@
   });
 
   // Waveform animation
-  const waveformEl = document.getElementById('overlay-waveform');
-  const waveBars: { el: HTMLElement; phase: number; speed: number; amp: number }[] = [];
+  const waveformEl = document.getElementById("overlay-waveform");
+  const waveBars: {
+    el: HTMLElement;
+    phase: number;
+    speed: number;
+    amp: number;
+  }[] = [];
   if (waveformEl) {
     for (let i = 0; i < 20; i++) {
-      const bar = document.createElement('div');
-      bar.className = 'overlay-wave-bar';
-      bar.style.height = '2px';
-      bar.style.background = '#186688';
+      const bar = document.createElement("div");
+      bar.className = "overlay-wave-bar";
+      bar.style.height = "2px";
+      bar.style.background = "#186688";
       waveformEl.appendChild(bar);
-      waveBars.push({ el: bar, phase: Math.random() * Math.PI * 2, speed: 1.5 + Math.random() * 2.5, amp: 0.3 + Math.random() * 0.7 });
+      waveBars.push({
+        el: bar,
+        phase: Math.random() * Math.PI * 2,
+        speed: 1.5 + Math.random() * 2.5,
+        amp: 0.3 + Math.random() * 0.7,
+      });
     }
     let waveRaf: number;
     function animateWave(t: number) {
       for (let i = 0; i < waveBars.length; i++) {
         const b = waveBars[i];
-        const val = (Math.sin(t * 0.003 * b.speed + b.phase) + 1) / 2 * b.amp;
+        const val = ((Math.sin(t * 0.003 * b.speed + b.phase) + 1) / 2) * b.amp;
         const h = Math.max(2, Math.round(val * 36));
-        b.el.style.height = h + 'px';
-        b.el.style.background = h > 6 ? '#22D3EE' : '#186688';
+        b.el.style.height = h + "px";
+        b.el.style.background = h > 6 ? "#22D3EE" : "#186688";
       }
       waveRaf = requestAnimationFrame(animateWave);
     }
@@ -528,26 +901,26 @@
   }
 
   // Typing animation for scene 3
-  const typedEl = document.getElementById('typed-text');
+  const typedEl = document.getElementById("typed-text");
   let typingTimeout: ReturnType<typeof setTimeout>;
 
   function getTypingSegments() {
-    const lang = (window as any).currentLang || 'en';
-    if (lang === 'de') {
+    const lang = (window as any).currentLang || "en";
+    if (lang === "de") {
       return [
-        { text: 'Hey, diesen Text habe ich\ngerade eben eingesprochen\nund ' },
-        { text: 'WhisPaste', cls: 'text-brand-cyan font-semibold' },
-        { text: ' hat ihn direkt\nhier eingefügt. ' },
-        { text: '❤️', cls: 'carousel-heart' },
-        { text: ' 😊' }
+        { text: "Hey, diesen Text habe ich\ngerade eben eingesprochen\nund " },
+        { text: "WhisPaste", cls: "text-brand-cyan font-semibold" },
+        { text: " hat ihn direkt\nhier eingefügt. " },
+        { text: "❤️", cls: "carousel-heart" },
+        { text: " 😊" },
       ];
     }
     return [
-      { text: 'Hey, I just spoke this text\nand ' },
-      { text: 'WhisPaste', cls: 'text-brand-cyan font-semibold' },
-      { text: ' pasted it right\nhere automatically. ' },
-      { text: '❤️', cls: 'carousel-heart' },
-      { text: ' 😊' }
+      { text: "Hey, I just spoke this text\nand " },
+      { text: "WhisPaste", cls: "text-brand-cyan font-semibold" },
+      { text: " pasted it right\nhere automatically. " },
+      { text: "❤️", cls: "carousel-heart" },
+      { text: " 😊" },
     ];
   }
 
@@ -556,18 +929,19 @@
     clearTimeout(typingTimeout);
     const segments = getTypingSegments();
     typedEl.innerHTML = '<span class="typing-cursor"></span>';
-    let segIdx = 0, charIdx = 0;
+    let segIdx = 0,
+      charIdx = 0;
     let currentSpan: any = null;
 
     function typeChar() {
       if (segIdx >= segments.length || currentSlide !== 2) return;
       const seg = segments[segIdx];
-      const cursor = typedEl!.querySelector('.typing-cursor');
+      const cursor = typedEl!.querySelector(".typing-cursor");
       if (!cursor) return;
 
       if (!currentSpan || currentSpan._segIdx !== segIdx) {
         if (seg.cls) {
-          currentSpan = document.createElement('span');
+          currentSpan = document.createElement("span");
           currentSpan.className = seg.cls;
           currentSpan._segIdx = segIdx;
           typedEl!.insertBefore(currentSpan, cursor);
