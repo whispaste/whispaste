@@ -639,7 +639,7 @@
             <div class="about-name">WhisPaste</div>
             <div class="about-version" id="about-version">v1.0.0</div>
             <p class="about-desc" data-i18n="aboutDesc">A fast, lightweight voice-to-text tool for Windows. Record speech and instantly paste the transcription anywhere.</p>
-            <span class="about-license"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> <span data-i18n="aboutLicense">Open Source – MIT License</span></span>
+            <a href="#" class="about-license about-license-link" onclick="openExternal('https://github.com/whispaste/whispaste/blob/main/LICENSE'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> <span data-i18n="aboutLicense">Open Source – MIT License</span></a>
             <div class="about-links">
               <a href="#" class="about-link" onclick="openExternal('https://github.com/whispaste/whispaste'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a.53.53 0 0 0 .4.29l5.16.754a.53.53 0 0 1 .294.904l-3.733 3.638a.53.53 0 0 0-.152.469l.882 5.14a.53.53 0 0 1-.77.56l-4.615-2.426a.53.53 0 0 0-.494 0L6.18 18.73a.53.53 0 0 1-.77-.56l.882-5.14a.53.53 0 0 0-.152-.47L2.407 8.923a.53.53 0 0 1 .294-.906l5.16-.753a.53.53 0 0 0 .4-.29l2.31-4.679Z"/></svg> <span data-i18n="aboutGithub">GitHub</span></a>
               <a href="#" class="about-link" onclick="openExternal('https://github.com/whispaste/whispaste/issues'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg> <span data-i18n="aboutIssue">Report Issue</span></a>
@@ -655,7 +655,20 @@
           </div>
           <div class="about-credits">
             <div class="about-credits-title" data-i18n="aboutCreditsTitle">Credits</div>
-            <p class="about-credits-text" data-i18n="aboutCreditsText">Made by Silvio Lindstedt. Powered by OpenAI Whisper API. Built with Go and WebView2.</p>
+            <p class="about-credits-text" data-i18n="aboutCreditsText">Made by Silvio Lindstedt. Powered by OpenAI Whisper API and sherpa-onnx for local transcription. Built with Go and WebView2.</p>
+          </div>
+          <div class="about-credits" style="margin-top: 12px;">
+            <div class="about-credits-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 12h3v8h6v-6h2v6h6v-8h3Z"/></svg> <span data-i18n="aboutLibsTitle">Open Source Libraries</span></div>
+            <table class="libs-table">
+              <tr><td>sherpa-onnx</td><td class="lib-license">Apache 2.0</td><td class="lib-desc" data-i18n="libSherpa">Local speech recognition</td></tr>
+              <tr><td>OpenAI Whisper</td><td class="lib-license">MIT</td><td class="lib-desc" data-i18n="libWhisper">Speech recognition models</td></tr>
+              <tr><td>Silero VAD</td><td class="lib-license">MIT</td><td class="lib-desc" data-i18n="libSilero">Voice activity detection</td></tr>
+              <tr><td>malgo</td><td class="lib-license">MIT</td><td class="lib-desc" data-i18n="libMalgo">Audio capture</td></tr>
+              <tr><td>WebView2</td><td class="lib-license">MIT</td><td class="lib-desc" data-i18n="libWebview">Application UI</td></tr>
+              <tr><td>systray</td><td class="lib-license">Apache 2.0</td><td class="lib-desc" data-i18n="libSystray">System tray integration</td></tr>
+              <tr><td>golang.design/x/hotkey</td><td class="lib-license">MIT</td><td class="lib-desc" data-i18n="libHotkey">Global hotkeys</td></tr>
+              <tr><td>Lucide</td><td class="lib-license">ISC</td><td class="lib-desc" data-i18n="libLucide">Icon library</td></tr>
+            </table>
           </div>
           <div class="about-credits" style="margin-top: 12px;">
             <div class="about-credits-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg> <span data-i18n="aboutCostTitle">API Costs</span></div>
