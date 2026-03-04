@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"sync"
+	"syscall"
 	"time"
 	"unsafe"
 
@@ -30,13 +31,22 @@ const (
 )
 
 var (
-	trayShell32         = windows.NewLazySystemDLL("shell32.dll")
-	trayUser32          = windows.NewLazySystemDLL("user32.dll")
-	procShellNotifyIcon = trayShell32.NewProc("Shell_NotifyIconW")
-	procFindWindow      = trayUser32.NewProc("FindWindowW")
+	trayShell32                = windows.NewLazySystemDLL("shell32.dll")
+	trayUser32                 = windows.NewLazySystemDLL("user32.dll")
+	trayKernel32               = windows.NewLazySystemDLL("kernel32.dll")
+	procShellNotifyIcon        = trayShell32.NewProc("Shell_NotifyIconW")
+	procFindWindow             = trayUser32.NewProc("FindWindowW")
+	procGetWindowThreadProcess = trayUser32.NewProc("GetWindowThreadProcessId")
+	procGetCurrentProcessId    = trayKernel32.NewProc("GetCurrentProcessId")
 )
 
 // notifyIconDataW matches the Windows NOTIFYICONDATAW struct layout.
+// The trailing _pad field is required because getlantern/systray v1.2.2
+// has a struct bug: it declares Timeout AND Version as separate uint32
+// fields (8 bytes) where Windows has a 4-byte union. This makes the
+// library's NIM_ADD use cbSize=984 instead of the correct 976. Windows
+// may reject NIM_MODIFY calls with a different cbSize than NIM_ADD.
+// Our padding keeps all field offsets correct while matching cbSize=984.
 type notifyIconDataW struct {
 	cbSize           uint32
 	hWnd             uintptr
@@ -53,6 +63,7 @@ type notifyIconDataW struct {
 	dwInfoFlags      uint32
 	guidItem         [16]byte
 	hBalloonIcon     uintptr
+	_pad             [8]byte // match systray library cbSize (984 vs 976)
 }
 
 // AppTray manages the system tray icon and menu.
@@ -197,12 +208,20 @@ func (t *AppTray) ShowBalloon(title, text string) {
 		return
 	}
 
+	// Verify the found window belongs to our process
+	var windowPID uint32
+	procGetWindowThreadProcess.Call(hwnd, uintptr(unsafe.Pointer(&windowPID)))
+	ourPID, _, _ := procGetCurrentProcessId.Call()
+	if windowPID != uint32(ourPID) {
+		logWarn("ShowBalloon: window PID %d != our PID %d, wrong SystrayClass window", windowPID, ourPID)
+		return
+	}
+
 	// Use custom icon if available, otherwise fall back to system info icon
 	infoFlags := uint32(_NIIF_USER)
 	iconHandle := t.balloonIcon
 	if iconHandle == 0 {
 		infoFlags = _NIIF_INFO
-		logDebug("ShowBalloon: no custom icon, using NIIF_INFO fallback")
 	}
 
 	nid := notifyIconDataW{
@@ -221,10 +240,14 @@ func (t *AppTray) ShowBalloon(title, text string) {
 		copy(nid.szInfo[:255], textUTF16)
 	}
 
-	logDebug("ShowBalloon: hwnd=%d uid=%d flags=0x%X title=%q", hwnd, _systrayUID, infoFlags, title)
+	logDebug("ShowBalloon: hwnd=%d pid=%d cbSize=%d flags=0x%X title=%q", hwnd, windowPID, nid.cbSize, infoFlags, title)
 	ret, _, callErr := procShellNotifyIcon.Call(_NIM_MODIFY, uintptr(unsafe.Pointer(&nid)))
 	if ret == 0 {
-		logWarn("ShowBalloon: Shell_NotifyIconW failed: %v", callErr)
+		if errno, ok := callErr.(syscall.Errno); ok {
+			logWarn("ShowBalloon: Shell_NotifyIconW failed: errno=%d (%v)", uintptr(errno), callErr)
+		} else {
+			logWarn("ShowBalloon: Shell_NotifyIconW failed: %v", callErr)
+		}
 	} else {
 		logDebug("ShowBalloon: notification shown successfully")
 	}
