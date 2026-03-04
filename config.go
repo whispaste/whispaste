@@ -35,8 +35,10 @@ type Config struct {
 	NotifyBackground bool  `json:"notify_background"`
 	NotifyComplete   bool  `json:"notify_complete"`
 	NotifyDonate     bool  `json:"notify_donate"`
-	UseLocalSTT     bool   `json:"use_local_stt"`
-	LocalModelID    string `json:"local_model_id"`
+	UseLocalSTT     bool    `json:"use_local_stt"`
+	LocalModelID    string  `json:"local_model_id"`
+	InputDevice     string  `json:"input_device,omitempty"`
+	InputGain       float64 `json:"input_gain"`
 	mu          sync.RWMutex
 }
 
@@ -61,6 +63,7 @@ func DefaultConfig() *Config {
 		NotifyDonate:     true,
 		UseLocalSTT:      false,
 		LocalModelID:     "whisper-tiny",
+		InputGain:        1.0,
 	}
 }
 
@@ -273,6 +276,20 @@ func (c *Config) GetLocalModelID() string {
 		return "whisper-tiny"
 	}
 	return c.LocalModelID
+}
+
+// GetInputDevice returns the selected input device ID (thread-safe).
+func (c *Config) GetInputDevice() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.InputDevice
+}
+
+// GetInputGain returns the input gain multiplier (thread-safe).
+func (c *Config) GetInputGain() float64 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.InputGain
 }
 
 // GetNotifyBackground returns whether the background notification is enabled (thread-safe).

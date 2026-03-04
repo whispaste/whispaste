@@ -245,6 +245,8 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.SmartModeTarget = newCfg.SmartModeTarget
 			cfg.UseLocalSTT = newCfg.UseLocalSTT
 			cfg.LocalModelID = newCfg.LocalModelID
+			cfg.InputDevice = newCfg.InputDevice
+			cfg.InputGain = newCfg.InputGain
 			cfg.mu.Unlock()
 
 			// Apply autostart setting
@@ -392,6 +394,26 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				return map[string]interface{}{"success": false, "error": err.Error()}
 			}
 			return map[string]interface{}{"success": true, "error": ""}
+		})
+
+		// Bind: _getAudioDevices → returns available audio capture devices
+		w.Bind("_getAudioDevices", func() string {
+			devices, err := ListAudioDevices()
+			if err != nil {
+				logWarn("Failed to list audio devices: %v", err)
+				return "[]"
+			}
+			data, _ := json.Marshal(devices)
+			return string(data)
+		})
+
+		// Bind: _getAudioLevel → returns current mic input level (0.0–1.0)
+		w.Bind("_getAudioLevel", func() string {
+			if recorder == nil {
+				return "0"
+			}
+			level := recorder.GetLevel()
+			return fmt.Sprintf("%.4f", level)
 		})
 
 		// Bind: openURL → opens URL in default browser (https only)

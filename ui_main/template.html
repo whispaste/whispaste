@@ -29,6 +29,9 @@
       <div class="nav-item" data-page="settings" data-tooltip="Settings" data-i18n-tooltip="navSettings">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
       </div>
+      <div class="nav-item" data-page="smartmode" data-tooltip="Smart Mode" data-i18n-tooltip="navSmartMode">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+      </div>
       <div class="nav-item" data-page="about" data-tooltip="About" data-i18n-tooltip="navAbout">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
       </div>
@@ -164,10 +167,6 @@
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
               <span data-i18n="settingsNavTranscription">Transcription</span>
             </div>
-            <div class="filter-item" data-settings-section="section-smart">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>
-              <span data-i18n="settingsNavSmart">Smart Mode</span>
-            </div>
             <div class="filter-item" data-settings-section="section-general">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>
               <span data-i18n="settingsNavGeneral">General</span>
@@ -282,6 +281,35 @@
             </div>
           </div>
 
+          <!-- Audio Input -->
+          <div class="card">
+            <div class="card-title" data-i18n="cardAudioInput">Audio Input</div>
+            <div class="form-group">
+              <label class="form-label" for="select-audiodevice" data-i18n="labelAudioDevice">Recording Device</label>
+              <p class="form-hint" style="margin-bottom:8px" data-i18n="descAudioDevice">Select which microphone to use for recording</p>
+              <select class="form-select" id="select-audiodevice">
+                <option value="" data-i18n-opt="audioDeviceDefault">System Default</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="labelInputGain">Input Gain</label>
+              <p class="form-hint" style="margin-bottom:8px" data-i18n="descInputGain">Adjust microphone sensitivity (1.0 = normal)</p>
+              <div class="range-row">
+                <input type="range" id="range-input-gain" min="50" max="200" value="100" step="10" class="volume-slider" oninput="document.getElementById('input-gain-value').textContent = (this.value/100).toFixed(1) + 'x'">
+                <span class="volume-value" id="input-gain-value">1.0x</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <button class="btn btn-secondary btn-sm" id="btn-test-audio" onclick="testAudioInput()">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                <span data-i18n="btnTestAudio">Test Microphone</span>
+              </button>
+              <div class="audio-level-meter" id="audioLevelMeter" style="display:none">
+                <div class="audio-level-bar" id="audioLevelBar"></div>
+              </div>
+            </div>
+          </div>
+
           <!-- Section: Transcription -->
           <div class="settings-section-header" id="section-transcription">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
@@ -357,61 +385,6 @@
             <div class="form-group">
               <p class="form-hint" data-i18n="descPrompt">Improve accuracy for domain-specific terms (e.g. Kubernetes, kubectl)</p>
               <input class="form-input" type="text" id="input-prompt" placeholder="e.g. Kubernetes, kubectl, Terraform">
-            </div>
-          </div>
-
-          <!-- Section: Smart Mode -->
-          <div class="settings-section-header" id="section-smart">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>
-            <span data-i18n="settingsNavSmart">Smart Mode</span>
-          </div>
-
-          <!-- Smart Mode -->
-          <div class="card" data-section="smart-mode">
-            <div class="card-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg> <span data-i18n="cardSmartMode">Smart Mode</span></div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-smartmode" data-i18n="labelSmartMode">AI Post-Processing</label>
-                  <p class="toggle-desc" data-i18n="descSmartMode">Process transcription with GPT-4o-mini for grammar, formatting, or translation</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-smartmode" onchange="updateSmartModeVisibility()">
-                  <label class="toggle-track" for="toggle-smartmode"></label>
-                </div>
-              </div>
-            </div>
-            <div id="smart-mode-options" style="display:none">
-              <div class="form-group">
-                <label class="form-label" for="select-smartpreset" data-i18n="labelSmartPreset">Preset</label>
-                <select class="form-select" id="select-smartpreset" onchange="updateSmartPresetVisibility()">
-                  <option value="cleanup" data-i18n-opt="smartCleanup">Cleanup (grammar &amp; punctuation)</option>
-                  <option value="email" data-i18n-opt="smartEmail">Email (formal)</option>
-                  <option value="bullets" data-i18n-opt="smartBullets">Bullet Points</option>
-                  <option value="formal" data-i18n-opt="smartFormal">Formal Letter</option>
-                  <option value="translate" data-i18n-opt="smartTranslate">Translate</option>
-                  <option value="custom" data-i18n-opt="smartCustom">Custom Prompt</option>
-                </select>
-              </div>
-              <div class="form-group" id="smart-target-row" style="display:none">
-                <label class="form-label" for="select-smarttarget" data-i18n="labelSmartTarget">Target Language</label>
-                <select class="form-select" id="select-smarttarget">
-                  <option value="en">English</option>
-                  <option value="de">Deutsch</option>
-                  <option value="es">Español</option>
-                  <option value="fr">Français</option>
-                  <option value="it">Italiano</option>
-                  <option value="pt">Português</option>
-                  <option value="ja">日本語</option>
-                  <option value="zh">中文</option>
-                  <option value="ko">한국어</option>
-                  <option value="ru">Русский</option>
-                </select>
-              </div>
-              <div class="form-group" id="smart-prompt-row" style="display:none">
-                <label class="form-label" for="input-smartprompt" data-i18n="labelSmartPrompt">Custom Prompt</label>
-                <textarea class="form-input" id="input-smartprompt" rows="3" placeholder="e.g. Format as Markdown, remove filler words"></textarea>
-              </div>
             </div>
           </div>
 
@@ -525,6 +498,104 @@
       </div>
       <div class="settings-bottom-bar">
         <span class="status-msg" id="status-msg" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <!-- Page: Smart Mode -->
+    <div class="page" id="page-smartmode" style="display:none">
+      <div class="page-header">
+        <h2 class="page-title" data-i18n="navSmartMode">Smart Mode</h2>
+        <p class="page-subtitle" data-i18n="smartModeDesc">AI-powered post-processing for your transcriptions</p>
+      </div>
+      <div class="smartmode-content">
+        <!-- Enable/Disable -->
+        <div class="card">
+          <div class="form-group">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <label class="toggle-label" for="toggle-smartmode" data-i18n="labelSmartMode">AI Post-Processing</label>
+                <p class="toggle-desc" data-i18n="descSmartMode">Process transcription with GPT-4o-mini for grammar, formatting, or translation</p>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-smartmode" onchange="updateSmartModeVisibility()">
+                <label class="toggle-track" for="toggle-smartmode"></label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preset Cards -->
+        <div id="smart-mode-options" style="display:none">
+          <h3 class="section-title" data-i18n="labelSmartPreset">Preset</h3>
+          <select id="select-smartpreset" style="display:none">
+            <option value="cleanup">Cleanup</option>
+            <option value="email">Email</option>
+            <option value="bullets">Bullets</option>
+            <option value="formal">Formal</option>
+            <option value="translate">Translate</option>
+            <option value="custom">Custom</option>
+          </select>
+          <div class="preset-grid">
+            <div class="preset-card active" data-preset="cleanup" onclick="selectSmartPreset('cleanup')">
+              <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>
+              <span class="preset-label" data-i18n="smartCleanup">Cleanup</span>
+              <span class="preset-desc" data-i18n="smartCleanupDesc">Grammar & punctuation</span>
+            </div>
+            <div class="preset-card" data-preset="email" onclick="selectSmartPreset('email')">
+              <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              <span class="preset-label" data-i18n="smartEmail">Email</span>
+              <span class="preset-desc" data-i18n="smartEmailDesc">Formal style</span>
+            </div>
+            <div class="preset-card" data-preset="bullets" onclick="selectSmartPreset('bullets')">
+              <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
+              <span class="preset-label" data-i18n="smartBullets">Bullet Points</span>
+              <span class="preset-desc" data-i18n="smartBulletsDesc">Structured lists</span>
+            </div>
+            <div class="preset-card" data-preset="formal" onclick="selectSmartPreset('formal')">
+              <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              <span class="preset-label" data-i18n="smartFormal">Formal Letter</span>
+              <span class="preset-desc" data-i18n="smartFormalDesc">Business writing</span>
+            </div>
+            <div class="preset-card" data-preset="translate" onclick="selectSmartPreset('translate')">
+              <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+              <span class="preset-label" data-i18n="smartTranslate">Translate</span>
+              <span class="preset-desc" data-i18n="smartTranslateDesc">Change language</span>
+            </div>
+            <div class="preset-card" data-preset="custom" onclick="selectSmartPreset('custom')">
+              <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              <span class="preset-label" data-i18n="smartCustom">Custom</span>
+              <span class="preset-desc" data-i18n="smartCustomDesc">Your own prompt</span>
+            </div>
+          </div>
+
+          <!-- Target Language (visible when translate preset selected) -->
+          <div class="card" id="smart-target-row" style="display:none;margin-top:16px">
+            <div class="card-title" data-i18n="labelSmartTarget">Target Language</div>
+            <div class="form-group">
+              <select class="form-select" id="select-smarttarget">
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+                <option value="es">Español</option>
+                <option value="fr">Français</option>
+                <option value="it">Italiano</option>
+                <option value="pt">Português</option>
+                <option value="ja">日本語</option>
+                <option value="zh">中文</option>
+                <option value="ko">한국어</option>
+                <option value="ru">Русский</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Custom Prompt (visible when custom preset selected) -->
+          <div class="card" id="smart-prompt-row" style="display:none;margin-top:16px">
+            <div class="card-title" data-i18n="labelSmartPrompt">Custom Prompt</div>
+            <div class="form-group">
+              <p class="form-hint" style="margin-bottom:8px" data-i18n="descSmartPrompt">Instructions for how the AI should process your transcription</p>
+              <textarea class="form-input" id="input-smartprompt" rows="4" placeholder="e.g. Format as Markdown, remove filler words"></textarea>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
