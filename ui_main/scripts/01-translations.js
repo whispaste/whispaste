@@ -61,7 +61,7 @@ const translations = {
     labelNotifyComplete: 'Transcription complete',
     descNotifyComplete: 'Show notification when transcription is finished',
     labelNotifyDonate: 'Donation reminder',
-    descNotifyDonate: 'One-time reminder after 50 dictations to support development ❤️',
+    descNotifyDonate: 'Remind every 50 dictations to support development ❤️',
     labelTheme: 'Theme',
     themeSystem: 'System',
     themeLight: 'Light',
@@ -237,6 +237,7 @@ const translations = {
     'mergeTooFew': 'Select at least 2 items to merge',
     'mergeSuccess': 'Entries merged successfully',
     'catMerged': 'Merged',
+    'catDuplicated': 'Duplicated',
 
     // Analytics
     'tabAnalytics': 'Analytics',
@@ -327,7 +328,7 @@ const translations = {
     labelNotifyComplete: 'Transkription abgeschlossen',
     descNotifyComplete: 'Benachrichtigung anzeigen, wenn die Transkription abgeschlossen ist',
     labelNotifyDonate: 'Spendenhinweis',
-    descNotifyDonate: 'Einmalige Erinnerung nach 50 Diktaten zur Unterstützung der Entwicklung ❤️',
+    descNotifyDonate: 'Alle 50 Diktate Erinnerung zur Unterstützung der Entwicklung ❤️',
     labelTheme: 'Erscheinungsbild',
     themeSystem: 'System',
     themeLight: 'Hell',
@@ -503,6 +504,7 @@ const translations = {
     'mergeTooFew': 'Mindestens 2 Einträge zum Zusammenführen auswählen',
     'mergeSuccess': 'Einträge erfolgreich zusammengeführt',
     'catMerged': 'Zusammengefügt',
+    'catDuplicated': 'Dupliziert',
 
     // Analytics
     'tabAnalytics': 'Statistiken',
