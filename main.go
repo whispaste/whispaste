@@ -429,8 +429,9 @@ func main() {
 		}
 	}
 	tray = NewAppTray(
-		func(tab string) { ShowSettings(cfg, recorder, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, tab) },
-		func() { ShowNotebook(history, cfg, func() { ShowSettings(cfg, recorder, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, "general") }, onToggle) },
+		func(page string) {
+			ShowMainWindow(cfg, recorder, history, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, onToggle, page)
+		},
 		func() {
 			hkMu.Lock()
 			if hkMgr != nil {
@@ -453,7 +454,7 @@ func main() {
 	if !cfg.HasAPIKey() {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
-			ShowSettings(cfg, recorder, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, "general")
+			ShowMainWindow(cfg, recorder, history, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, onToggle, "settings")
 		}()
 	}
 
