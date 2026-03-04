@@ -30,10 +30,17 @@ type HistoryEntry struct {
 	CostUSD   float64 `json:"cost_usd,omitempty"`
 }
 
+// analyticsCache stores a computed analytics result with an expiry.
+type analyticsCache struct {
+	data       map[string]interface{}
+	validUntil time.Time
+}
+
 // History manages transcription history.
 type History struct {
 	Entries []HistoryEntry `json:"entries"`
 	mu      sync.Mutex
+	cache   map[int]*analyticsCache // keyed by periodDays
 }
 
 func generateID() string {
@@ -92,6 +99,14 @@ func LoadHistory() *History {
 // WhisperCostPerMinute is the current cost of OpenAI Whisper API per audio minute (USD).
 const WhisperCostPerMinute = 0.006
 
+// invalidateCache clears the analytics cache. Call when entries change.
+// Must NOT be called under h.mu lock.
+func (h *History) invalidateCache() {
+	h.mu.Lock()
+	h.cache = nil
+	h.mu.Unlock()
+}
+
 // Add appends a new entry and prunes to the limit.
 func (h *History) Add(text string, durationSec float64, language string) {
 	h.AddWithModel(text, durationSec, 0, language, "", false)
@@ -104,6 +119,7 @@ func (h *History) AddWithModel(text string, durationSec float64, processingDurat
 		cost = (durationSec / 60.0) * WhisperCostPerMinute
 	}
 	h.mu.Lock()
+	h.cache = nil
 	h.Entries = append(h.Entries, HistoryEntry{
 		ID:                 generateID(),
 		Text:               text,
@@ -156,6 +172,7 @@ func (h *History) Delete(id string) bool {
 	for i, e := range h.Entries {
 		if e.ID == id {
 			h.Entries = append(h.Entries[:i], h.Entries[i+1:]...)
+			h.cache = nil
 			h.saveLocked()
 			return true
 		}
@@ -170,6 +187,7 @@ func (h *History) TogglePin(id string) bool {
 	for i, e := range h.Entries {
 		if e.ID == id {
 			h.Entries[i].Pinned = !e.Pinned
+			h.cache = nil
 			h.saveLocked()
 			return true
 		}
@@ -187,6 +205,7 @@ func (h *History) UpdateEntry(id, title, category string) bool {
 				h.Entries[i].Title = title
 			}
 			h.Entries[i].Category = category
+			h.cache = nil
 			h.saveLocked()
 			return true
 		}
@@ -202,6 +221,7 @@ func (h *History) UpdateText(id, newText string) bool {
 		if e.ID == id {
 			h.Entries[i].Text = newText
 			h.Entries[i].Title = autoTitle(newText)
+			h.cache = nil
 			h.saveLocked()
 			return true
 		}
@@ -210,8 +230,16 @@ func (h *History) UpdateText(id, newText string) bool {
 }
 
 // GetAnalytics computes usage statistics for a given time period.
+// Results are cached for 5 seconds to avoid recomputation on rapid refreshes.
 func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 	h.mu.Lock()
+	// Check cache
+	if h.cache != nil {
+		if c, ok := h.cache[periodDays]; ok && time.Now().Before(c.validUntil) {
+			h.mu.Unlock()
+			return c.data
+		}
+	}
 	defer h.mu.Unlock()
 
 	now := time.Now()
@@ -289,7 +317,7 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 	// Calculate savings: what local transcriptions would have cost via API
 	savings := (localDuration / 60.0) * WhisperCostPerMinute
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"totalEntries":          totalEntries,
 		"localEntries":          localEntries,
 		"apiEntries":            apiEntries,
@@ -305,6 +333,14 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		"avgProcessingDuration": safeDiv(totalProcessingDuration, float64(processingEntries)),
 		"totalProcessingTime":   totalProcessingDuration,
 	}
+
+	// Cache the result for 5 seconds
+	if h.cache == nil {
+		h.cache = make(map[int]*analyticsCache)
+	}
+	h.cache[periodDays] = &analyticsCache{data: result, validUntil: time.Now().Add(5 * time.Second)}
+
+	return result
 }
 
 func safeDiv(a, b float64) float64 {
@@ -384,6 +420,7 @@ func (h *History) Merge(ids []string) string {
 	}
 	remaining = append(remaining, merged)
 	h.Entries = remaining
+	h.cache = nil
 	h.saveLocked()
 	return merged.ID
 }
