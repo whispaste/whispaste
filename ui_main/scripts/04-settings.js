@@ -7,6 +7,8 @@ let _savedModel = 'whisper-1';
 let _savedUILang = '';
 let _savedAPIEndpoint = '';
 let _downloadingModel = null;
+let _configLoaded = false;
+let _autoSaveTimer = null;
 
 /* ── Gather Config from Form ──────────────────────────── */
 function gatherConfig() {
@@ -33,7 +35,7 @@ function gatherConfig() {
     smart_mode_prompt: document.getElementById('input-smartprompt')?.value || '',
     smart_mode_target: document.getElementById('select-smarttarget')?.value || 'en',
     use_local_stt: document.getElementById('toggle-localstt')?.checked || false,
-    local_model_id: document.querySelector('[name="local-model"]:checked')?.value || 'whisper-tiny'
+    local_model_id: document.querySelector('[name="local-model"]:checked')?.value || 'whisper-base'
   };
 }
 
@@ -117,6 +119,7 @@ function selectMode(mode) {
     r.checked = selected;
     if (card) card.setAttribute('aria-checked', selected ? 'true' : 'false');
   });
+  autoSave();
 }
 
 function handleRadioKey(e, mode) {
@@ -130,6 +133,7 @@ function selectOverlay(value) {
     r.checked = selected;
     if (card) card.setAttribute('aria-checked', selected ? 'true' : 'false');
   });
+  autoSave();
 }
 
 function handleOverlayKey(e, value) {
@@ -216,7 +220,7 @@ function onHotkeyKeyDown(e) {
     _savedHotkeyMods = mods;
     _savedHotkeyKey = normalized;
     setHotkeyDisplay([..._savedHotkeyMods, _savedHotkeyKey]);
-    setTimeout(() => cancelHotkeyRecording(), 300);
+    setTimeout(() => { cancelHotkeyRecording(); autoSave(); }, 300);
   }
 }
 
@@ -278,35 +282,33 @@ function testSound() {
   if (window._testSound) window._testSound();
 }
 
+/* ── Auto Save (debounced) ─────────────────────────────── */
+function autoSave() {
+  if (!_configLoaded) return;
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => saveSettings(), 500);
+}
+
 /* ── Save Settings ────────────────────────────────────── */
 async function saveSettings() {
-  const btn = document.getElementById('btn-save');
-  if (btn) btn.disabled = true;
   try {
     const cfg = gatherConfig();
     if (window.saveConfig) {
       const result = await window.saveConfig(JSON.stringify(cfg));
       const res = typeof result === 'string' ? JSON.parse(result) : result;
       if (res && res.success) {
-        showStatus(t('statusSaved'), 'success');
+        showStatus(t('statusAutoSaved'), 'success');
         updateModeBadge(cfg);
       } else {
         showStatus(res?.error || t('statusError'), 'error');
       }
     } else {
-      showStatus(t('statusSaved'), 'success');
+      showStatus(t('statusAutoSaved'), 'success');
       updateModeBadge(cfg);
     }
   } catch (err) {
     showStatus(t('statusError'), 'error');
-  } finally {
-    if (btn) btn.disabled = false;
   }
-}
-
-/* ── Cancel / Close ───────────────────────────────────── */
-function cancelSettings() {
-  if (window.closeWindow) window.closeWindow();
 }
 
 /* ── Test Recording ───────────────────────────────────── */
@@ -378,13 +380,12 @@ async function renderModelList() {
   
   if (!models || models.length === 0) {
     models = [
-      { id: 'whisper-tiny', name: 'Whisper Tiny', size: '39MB', downloaded: false },
       { id: 'whisper-base', name: 'Whisper Base', size: '74MB', downloaded: false },
       { id: 'whisper-small', name: 'Whisper Small', size: '244MB', downloaded: false }
     ];
   }
   
-  const selectedModel = document.querySelector('[name="local-model"]:checked')?.value || 'whisper-tiny';
+  const selectedModel = document.querySelector('[name="local-model"]:checked')?.value || 'whisper-base';
   
   container.innerHTML = models.map(m => {
     const isSelected = m.id === selectedModel;
@@ -416,6 +417,7 @@ function selectLocalModel(id) {
     radio.checked = true;
     radio.closest('.model-item')?.classList.add('active');
   }
+  autoSave();
 }
 
 function onModelCardClick(id, downloaded) {

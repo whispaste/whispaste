@@ -19,8 +19,10 @@ const translations = {
     modeToggleDesc: 'Press to start, press again to stop',
     cardHotkey: 'Hotkey',
     labelHotkey: 'Current Hotkey',
+    descHotkey: 'Global shortcut to start/stop recording from any application',
     cardLanguage: 'Transcription Language',
     labelLanguage: 'Language',
+    descLanguage: 'Select the language you will speak, or let the model detect it automatically',
     langAuto: 'Auto-detect',
     langEn: 'English',
     langDe: 'German',
@@ -54,6 +56,14 @@ const translations = {
     themeLight: 'Light',
     themeDark: 'Dark',
 
+    // Settings — Nav & Section Headers
+    settingsNavAudio: 'Audio & Recording',
+    settingsNavTranscription: 'Transcription',
+    settingsNavSmart: 'Smart Mode',
+    settingsNavGeneral: 'General',
+    cardSoundVolume: 'Sound & Volume',
+    statusAutoSaved: 'Saved ✓',
+
     // Settings — Smart Mode
     cardSmartMode: 'Smart Mode',
     labelSmartMode: 'AI Post-Processing',
@@ -73,6 +83,7 @@ const translations = {
     labelPrompt: 'Whisper Prompt',
     descPrompt: 'Improve accuracy for domain-specific terms (e.g. Kubernetes, kubectl)',
     labelMaxDuration: 'Max Recording Duration',
+    descMaxDuration: 'Automatically stop recording after this time to prevent accidental long recordings',
     labelUnlimited: '∞ Unlimited',
 
     // Settings — Actions
@@ -176,8 +187,10 @@ const translations = {
     modeToggleDesc: 'Drücken zum Starten, erneut drücken zum Stoppen',
     cardHotkey: 'Tastenkürzel',
     labelHotkey: 'Aktuelles Tastenkürzel',
+    descHotkey: 'Globale Tastenkombination zum Starten/Stoppen der Aufnahme aus jeder Anwendung',
     cardLanguage: 'Transkriptionssprache',
     labelLanguage: 'Sprache',
+    descLanguage: 'Wähle die Sprache, die du sprichst, oder lass das Modell sie automatisch erkennen',
     langAuto: 'Automatisch erkennen',
     langEn: 'Englisch',
     langDe: 'Deutsch',
@@ -211,6 +224,14 @@ const translations = {
     themeLight: 'Hell',
     themeDark: 'Dunkel',
 
+    // Settings — Nav & Section Headers
+    settingsNavAudio: 'Audio & Aufnahme',
+    settingsNavTranscription: 'Transkription',
+    settingsNavSmart: 'Smart Modus',
+    settingsNavGeneral: 'Allgemein',
+    cardSoundVolume: 'Ton & Lautstärke',
+    statusAutoSaved: 'Gespeichert ✓',
+
     // Settings — Smart Mode
     cardSmartMode: 'Smart Modus',
     labelSmartMode: 'KI-Nachbearbeitung',
@@ -230,6 +251,7 @@ const translations = {
     labelPrompt: 'Whisper-Prompt',
     descPrompt: 'Genauigkeit für Fachbegriffe verbessern (z.B. Kubernetes, kubectl)',
     labelMaxDuration: 'Maximale Aufnahmedauer',
+    descMaxDuration: 'Aufnahme nach dieser Zeit automatisch stoppen, um versehentlich lange Aufnahmen zu vermeiden',
     labelUnlimited: '∞ Unbegrenzt',
 
     // Settings — Actions
