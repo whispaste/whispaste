@@ -144,6 +144,12 @@
   --gradient-surface: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
   --gradient-glow: radial-gradient(ellipse at 50% 0%, var(--accent-glow) 0%, transparent 70%);
 
+  /* ── Sidebar ─── */
+  --sidebar-bg: linear-gradient(180deg, var(--bg-primary) 0%, var(--gray-100) 100%);
+  --sidebar-border: linear-gradient(180deg, rgba(8, 145, 178, 0.12) 0%, transparent 60%);
+  --sidebar-inset: inset 0 0 24px rgba(0, 0, 0, 0.02);
+  --nav-active-glow: 0 0 16px var(--accent-glow), 0 2px 8px rgba(8, 145, 178, 0.18);
+
   /* ── Backward Compatibility Aliases ─── */
   --bg: var(--bg-app);
   --bg-card: var(--bg-primary);
@@ -211,6 +217,12 @@
   --border: var(--border-primary);
   --text: var(--text-primary);
   --text-hint: var(--text-tertiary);
+
+  /* Sidebar (dark) */
+  --sidebar-bg: linear-gradient(180deg, var(--bg-primary) 0%, #151825 100%);
+  --sidebar-border: linear-gradient(180deg, rgba(34, 211, 238, 0.12) 0%, transparent 60%);
+  --sidebar-inset: inset 0 0 24px rgba(0, 0, 0, 0.12);
+  --nav-active-glow: 0 0 20px var(--accent-glow), 0 2px 10px rgba(34, 211, 238, 0.22);
 }
 
 /* ── Reset & Base ──────────────────────────────────────── */

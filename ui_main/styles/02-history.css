@@ -165,6 +165,7 @@
   color: var(--text-hint);
   min-width: 18px;
   text-align: right;
+  flex-shrink: 0;
 }
 
 /* ── Date Range Picker ────────────────────────────────── */
@@ -237,10 +238,12 @@
 
 .entry-meta {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   margin-top: 3px;
   font-size: 11px;
   color: var(--text-hint);
+  align-items: center;
 }
 .entry-meta .tag {
   padding: 2px 8px;
@@ -313,6 +316,12 @@
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+.entry-full-text:not(:has(textarea)):hover {
+  background: var(--bg-hover);
 }
 
 .entry-text-actions {
@@ -387,6 +396,18 @@
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+.tag-icon-clr {
+  transition: color var(--transition);
+}
+
+.filter-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .tag-input-row {

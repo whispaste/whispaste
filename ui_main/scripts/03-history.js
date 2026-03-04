@@ -142,8 +142,8 @@ function updateCounts() {
         const c = getTagColor(name);
         return `
         <div class="filter-item${_activeFilter === 'cat:' + esc(name) ? ' active' : ''}" data-filter="cat:${esc(name)}">
-          <span class="tag-color-dot" style="background:${c.text}"></span>
-          <span>${esc(label)}</span>
+          <svg class="icon tag-icon-clr" viewBox="0 0 24 24" fill="none" stroke="${c.text}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="${c.text}"/></svg>
+          <span class="filter-label" title="${esc(label)}">${esc(label)}</span>
           <span class="filter-count">${count}</span>
         </div>
       `;}).join('');
@@ -255,6 +255,7 @@ function renderHistory() {
             <span>${formatTime(e.timestamp)}</span>
             ${e.duration_sec ? '<span>' + formatDuration(e.duration_sec) + '</span>' : ''}
             ${e.language ? '<span>' + e.language.toUpperCase() + '</span>' : ''}
+            ${(e.text || '').length > 0 ? '<span>' + (e.text || '').split(/\s+/).filter(Boolean).length + 'w · ' + (e.text || '').length + 'c</span>' : ''}
             ${(e.tags || []).map(tag => { const c = getTagColor(tag); return '<span class="tag" style="background:'+c.bg+';color:'+c.text+';border-color:'+c.border+'">' + esc(tag === 'merged' ? t('catMerged') : tag === 'duplicated' ? t('catDuplicated') : tag) + '</span>'; }).join('')}
           </div>
         </div>
@@ -293,7 +294,7 @@ function renderHistory() {
   // Bind entry click to expand/collapse
   list.querySelectorAll('.entry').forEach(el => {
     el.addEventListener('click', (ev) => {
-      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea')) return;
+      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea') || ev.target.closest('.entry-full-text')) return;
       const id = el.dataset.id;
       _expandedId = _expandedId === id ? null : id;
       renderHistory();
@@ -352,6 +353,15 @@ function renderHistory() {
       if (!dd) return;
       if (ev.key === 'ArrowDown') { ev.preventDefault(); _navigateAutocomplete(input, 1); }
       else if (ev.key === 'ArrowUp') { ev.preventDefault(); _navigateAutocomplete(input, -1); }
+    });
+  });
+
+  // Bind click-to-edit on full text
+  list.querySelectorAll('.entry-full-text').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      if (el.querySelector('textarea')) return;
+      const entry = el.closest('.entry');
+      if (entry) startEditText(entry.dataset.id);
     });
   });
 

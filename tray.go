@@ -23,11 +23,16 @@ const supportURL = "https://github.com/sponsors/silvio-l"
 
 // Win32 balloon notification constants and API
 const (
-	_NIM_MODIFY = 0x00000001
-	_NIF_INFO   = 0x00000010
-	_NIIF_INFO  = 0x00000001
-	_NIIF_USER  = 0x00000004
-	_systrayUID = 100 // UID used by getlantern/systray
+	_NIM_MODIFY     = 0x00000001
+	_NIM_SETVERSION = 0x00000004
+	_NIF_INFO       = 0x00000010
+	_NIIF_INFO      = 0x00000001
+	_NIIF_USER      = 0x00000004
+	_systrayUID     = 100 // UID used by getlantern/systray
+
+	// NOTIFYICON_VERSION_4 enables modern notification behavior on Windows 10/11.
+	// Without this, Shell_NotifyIconW NIF_INFO balloons may be silently dropped.
+	_NOTIFYICON_VERSION_4 = 4
 
 	// Balloon click notification (lParam value in systray callback)
 	_NIN_BALLOONUSERCLICK = 0x0405 // WM_USER + 5
@@ -46,22 +51,41 @@ var (
 	procGetCurrentProcessId    = trayKernel32.NewProc("GetCurrentProcessId")
 	procSetWindowLongPtrW      = trayUser32.NewProc("SetWindowLongPtrW")
 	procCallWindowProcW        = trayUser32.NewProc("CallWindowProcW")
+	procRegisterWindowMessage  = trayUser32.NewProc("RegisterWindowMessageW")
 )
 
 // Balloon click subclass: intercepts NIN_BALLOONUSERCLICK on the systray window.
 var (
-	globalTrayRef     *AppTray
-	globalOrigWndProc uintptr
-	traySubclassProc  = syscall.NewCallback(traySubclassWndProc)
+	globalTrayRef          *AppTray
+	globalOrigWndProc      uintptr
+	globalTaskbarCreatedID uint32 // registered "TaskbarCreated" message for explorer restart
+	traySubclassProc       = syscall.NewCallback(traySubclassWndProc)
 )
 
 func traySubclassWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
-	if uint32(msg) == _WM_SYSTRAY_CALLBACK && uint32(lParam) == _NIN_BALLOONUSERCLICK {
+	if uint32(msg) == _WM_SYSTRAY_CALLBACK {
+		// Extract event from LOWORD(lParam). This works for both
+		// NOTIFYICON_VERSION 0 (lParam = event) and VERSION_4
+		// (lParam = MAKELONG(event, iconID)).
+		event := uint16(lParam)
+		if event == uint16(_NIN_BALLOONUSERCLICK) {
+			if t := globalTrayRef; t != nil {
+				t.handleBalloonClick()
+			}
+		}
+		// Strip HIWORD (icon ID in v4) so the systray library sees
+		// the plain event value it expects from version 0.
+		lParam = uintptr(event)
+	}
+	// Let the original wndProc handle the message first.
+	ret, _, _ := procCallWindowProcW.Call(globalOrigWndProc, hwnd, msg, wParam, lParam)
+	// After explorer.exe restarts, the systray library re-adds the icon
+	// (NIM_ADD) which resets the version to 0. Re-apply VERSION_4.
+	if globalTaskbarCreatedID != 0 && uint32(msg) == globalTaskbarCreatedID {
 		if t := globalTrayRef; t != nil {
-			t.handleBalloonClick()
+			t.setNotifyIconVersion()
 		}
 	}
-	ret, _, _ := procCallWindowProcW.Call(globalOrigWndProc, hwnd, msg, wParam, lParam)
 	return ret
 }
 
@@ -308,6 +332,48 @@ func (t *AppTray) subclassSystrayWindow() {
 	}
 	globalOrigWndProc = orig
 	logDebug("subclassSystrayWindow: subclassed successfully")
+
+	// Register "TaskbarCreated" to detect explorer.exe restarts
+	if tbcName, err := windows.UTF16PtrFromString("TaskbarCreated"); err == nil {
+		id, _, _ := procRegisterWindowMessage.Call(uintptr(unsafe.Pointer(tbcName)))
+		if id != 0 {
+			globalTaskbarCreatedID = uint32(id)
+		}
+	}
+}
+
+// setNotifyIconVersion sets NOTIFYICON_VERSION_4 on the systray icon so that
+// balloon notifications are properly displayed as toast notifications on
+// Windows 10/11. Must be called after subclassSystrayWindow (which translates
+// version 4 callback messages for the systray library).
+func (t *AppTray) setNotifyIconVersion() {
+	className, err := windows.UTF16PtrFromString("SystrayClass")
+	if err != nil {
+		return
+	}
+	hwnd, _, _ := procFindWindow.Call(uintptr(unsafe.Pointer(className)), 0)
+	if hwnd == 0 {
+		logWarn("setNotifyIconVersion: window not found")
+		return
+	}
+	var windowPID uint32
+	procGetWindowThreadProcess.Call(hwnd, uintptr(unsafe.Pointer(&windowPID)))
+	ourPID, _, _ := procGetCurrentProcessId.Call()
+	if windowPID != uint32(ourPID) {
+		return
+	}
+	nid := notifyIconDataW{
+		hWnd:     hwnd,
+		uID:      _systrayUID,
+		uVersion: _NOTIFYICON_VERSION_4,
+	}
+	nid.cbSize = uint32(unsafe.Sizeof(nid))
+	ret, _, callErr := procShellNotifyIcon.Call(_NIM_SETVERSION, uintptr(unsafe.Pointer(&nid)))
+	if ret == 0 {
+		logWarn("setNotifyIconVersion: NIM_SETVERSION failed: %v", callErr)
+	} else {
+		logDebug("setNotifyIconVersion: set NOTIFYICON_VERSION_4")
+	}
 }
 
 // handleBalloonClick opens the sponsor URL when a sponsor balloon is clicked.
@@ -327,6 +393,7 @@ func (t *AppTray) onReady() {
 	systray.SetTooltip(T("tray.status_ready"))
 	t.loadBalloonIcon()
 	t.subclassSystrayWindow()
+	t.setNotifyIconVersion()
 
 	t.mToggle = systray.AddMenuItem(T("tray.start_record"), T("tray.start_record"))
 	systray.AddSeparator()

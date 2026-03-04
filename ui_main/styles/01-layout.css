@@ -8,7 +8,7 @@
 /* ── Sidebar Navigation (icon-only, 70px) ─────────────── */
 .sidebar-nav {
   width: 70px;
-  background: var(--bg-primary);
+  background: var(--sidebar-bg);
   border-right: 1px solid var(--border-primary);
   padding: 0;
   display: flex;
@@ -16,9 +16,21 @@
   align-items: center;
   flex-shrink: 0;
   position: relative;
+  box-shadow: var(--sidebar-inset);
+}
+/* Accent edge — subtle gradient border on the right */
+.sidebar-nav::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -1px;
+  width: 1px;
+  height: 100%;
+  background: var(--sidebar-border);
+  pointer-events: none;
 }
 [data-theme="dark"] .sidebar-nav {
-  background: var(--bg-primary);
+  background: var(--sidebar-bg);
 }
 
 .nav-brand {
@@ -68,10 +80,10 @@
 .nav-item.active {
   background: var(--gradient-accent);
   color: var(--text-inverse);
-  box-shadow: var(--shadow-md), 0 0 16px var(--accent-glow);
+  box-shadow: var(--shadow-md), var(--nav-active-glow);
 }
 [data-theme="dark"] .nav-item.active {
-  box-shadow: var(--shadow-md), 0 0 20px var(--accent-glow);
+  box-shadow: var(--shadow-md), var(--nav-active-glow);
 }
 .nav-item.active .icon { color: var(--text-inverse); filter: none; }
 .nav-item .icon { width: 20px; height: 20px; }
