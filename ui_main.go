@@ -230,6 +230,9 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		// Guard against document.documentElement being null on about:blank
 		initJS := fmt.Sprintf(`(function(){var d=document.documentElement;if(!d)return;var t=%s;if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';if(t==='dark')d.setAttribute('data-theme','dark');})();`, themeJSON)
 		initJS += fmt.Sprintf(`window._lang = %s; window._theme = %s; window._initialPage = "%s";`, langJSON, themeJSON, effectivePage)
+		if !cfg.GetOnboardingDone() {
+			initJS += ` window._showOnboarding = true;`
+		}
 		if initialPage == "smart-mode" {
 			initJS += ` window._initialSection = "smart-mode";`
 		}
@@ -731,6 +734,17 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				}
 			}
 			return exportEntries(entries, format)
+		})
+
+		// --- Onboarding bindings ---
+
+		// Bind: completeOnboarding → marks onboarding as done
+		w.Bind("completeOnboarding", func() {
+			cfg.SetOnboardingDone(true)
+			if err := cfg.Save(); err != nil {
+				logError("Save config after onboarding: %v", err)
+			}
+			logInfo("Onboarding completed")
 		})
 
 		// --- Theme & language bindings ---
