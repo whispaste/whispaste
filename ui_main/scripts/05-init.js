@@ -119,15 +119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (closeToTrayToggle) {
     closeToTrayToggle.addEventListener('change', updateCloseToTrayDependents);
   }
-  // Max duration slider live update
-  const durSlider = document.getElementById('range-max-duration');
-  const durValue = document.getElementById('max-duration-value');
-  const durCheck = document.getElementById('check-unlimited-duration');
-  if (durSlider && durValue) {
-    durSlider.addEventListener('input', () => {
-      if (!durCheck?.checked) durValue.textContent = durSlider.value + 's';
-    });
-  }
+  // Max duration slider live update (handled by oninput="updateDurationLabel()" in HTML)
 
   // --- History page wiring ---
   const searchInput = document.getElementById('searchInput');

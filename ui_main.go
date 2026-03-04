@@ -502,11 +502,19 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return history.TogglePin(id)
 		})
 
+		// Bind: duplicateEntry → creates a copy of an entry
+		w.Bind("duplicateEntry", func(id string) bool {
+			return history.DuplicateEntry(id)
+		})
+
 		// Bind: updateEntry → update title/tags (tags as JSON array string)
 		w.Bind("updateEntry", func(id, title, tagsJSON string) bool {
 			var tags []string
 			if tagsJSON != "" {
-				json.Unmarshal([]byte(tagsJSON), &tags)
+				if err := json.Unmarshal([]byte(tagsJSON), &tags); err != nil {
+					logWarn("updateEntry: invalid tags JSON: %v", err)
+					return false
+				}
 			}
 			return history.UpdateEntry(id, title, tags)
 		})
