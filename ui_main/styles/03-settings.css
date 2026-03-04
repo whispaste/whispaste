@@ -287,6 +287,7 @@
   outline-offset: 2px;
 }
 [data-theme="dark"] .toggle-track::after { background: #E5E5EA; }
+.toggle-switch input:disabled + .toggle-track { opacity: 0.4; cursor: not-allowed; }
 
 /* ── Volume Slider ──────────────────────────────────────── */
 .volume-row {

@@ -27,6 +27,7 @@ function gatherConfig() {
     auto_paste: document.getElementById('toggle-autopaste')?.checked || false,
     check_updates: document.getElementById('toggle-updates')?.checked || false,
     autostart: document.getElementById('toggle-autostart')?.checked || false,
+    close_to_tray: document.getElementById('toggle-close-to-tray')?.checked ?? true,
     ui_language: _savedUILang,
     theme: document.getElementById('select-theme')?.value || 'system',
     max_record_sec: document.getElementById('check-unlimited-duration')?.checked ? 0 : parseInt(document.getElementById('range-max-duration')?.value || '120', 10),
@@ -62,6 +63,8 @@ function applyConfig(cfg) {
   if (cfg.auto_paste != null) { const el = document.getElementById('toggle-autopaste'); if (el) el.checked = cfg.auto_paste; }
   if (cfg.check_updates != null) { const el = document.getElementById('toggle-updates'); if (el) el.checked = cfg.check_updates; }
   if (cfg.autostart != null) { const el = document.getElementById('toggle-autostart'); if (el) el.checked = cfg.autostart; }
+  { const el = document.getElementById('toggle-close-to-tray'); if (el) el.checked = cfg.close_to_tray !== false; }
+  updateCloseToTrayDependents();
   if (cfg.theme) {
     const el = document.getElementById('select-theme');
     if (el) el.value = cfg.theme;
@@ -127,6 +130,15 @@ function applyConfig(cfg) {
     if (el) { el.value = Math.round(cfg.input_gain * 100); }
     if (label) { label.textContent = cfg.input_gain.toFixed(1) + 'x'; }
   }
+}
+
+/* ── Close-to-Tray / NotifyBackground dependency ───── */
+function updateCloseToTrayDependents() {
+  const closeToTray = document.getElementById('toggle-close-to-tray');
+  const notifyBg = document.getElementById('toggle-notify-bg');
+  if (!closeToTray || !notifyBg) return;
+  notifyBg.disabled = !closeToTray.checked;
+  if (!closeToTray.checked) notifyBg.checked = false;
 }
 
 /* ── Radio Card Selection ─────────────────────────────── */

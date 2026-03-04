@@ -225,6 +225,7 @@ procDrawIconEx                 = ovlUser32.NewProc("DrawIconEx")
 procDestroyIcon                = ovlUser32.NewProc("DestroyIcon")
 procGetCursorPos               = ovlUser32.NewProc("GetCursorPos")
 procScreenToClient             = ovlUser32.NewProc("ScreenToClient")
+procTrackMouseEvent            = ovlUser32.NewProc("TrackMouseEvent")
 
 procCreateSolidBrush     = ovlGdi32.NewProc("CreateSolidBrush")
 procCreatePen            = ovlGdi32.NewProc("CreatePen")
@@ -297,6 +298,9 @@ procGdipSetPenLineJoin      = ovlGdiplus.NewProc("GdipSetPenLineJoin")
 
 // GDI+ graphics
 procGdipGraphicsClear = ovlGdiplus.NewProc("GdipGraphicsClear")
+
+// GDI+ gradient
+procGdipCreateLineBrushFromRectI = ovlGdiplus.NewProc("GdipCreateLineBrushFromRectI")
 )
 
 // ───────────────────── GDI+ helpers ─────────────────────
@@ -449,6 +453,9 @@ onDash    func() // called when dashboard button clicked
 paused    bool   // whether recording is paused
 pauseStart time.Time    // when current pause began
 pauseAccum time.Duration // accumulated pause time
+hoverBtn  int    // 0=none, 1=dash, 2=cancel, 3=pause, 4=stop
+pressBtn  int    // 0=none, same mapping
+tracking  bool   // whether TrackMouseEvent is active
 mu        sync.Mutex
 }
 
@@ -502,6 +509,51 @@ case _WM_NCHITTEST:
 	}
 	return _HTCAPTION
 
+case 0x0200: // WM_MOUSEMOVE
+	o.mu.Lock()
+	st := o.state
+	o.mu.Unlock()
+	if st == StateRecording || st == StatePaused {
+		x := int32(lParam & 0xFFFF)
+		y := int32((lParam >> 16) & 0xFFFF)
+		btn := 0
+		if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			btn = 1
+		} else if x >= _BTN_CANCEL_X && x <= _BTN_CANCEL_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			btn = 2
+		} else if x >= _BTN_PAUSE_X && x <= _BTN_PAUSE_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			btn = 3
+		} else if x >= _BTN_CONFIRM_X && x <= _BTN_CONFIRM_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			btn = 4
+		}
+		o.mu.Lock()
+		if !o.tracking {
+			type trackMouseEventT struct {
+				cbSize      uint32
+				dwFlags     uint32
+				hwndTrack   uintptr
+				dwHoverTime uint32
+			}
+			tme := trackMouseEventT{
+				cbSize:  uint32(unsafe.Sizeof(trackMouseEventT{})),
+				dwFlags: 0x00000002, // TME_LEAVE
+				hwndTrack: hwnd,
+			}
+			procTrackMouseEvent.Call(uintptr(unsafe.Pointer(&tme)))
+			o.tracking = true
+		}
+		o.hoverBtn = btn
+		o.mu.Unlock()
+	}
+	return 0
+
+case 0x02A3: // WM_MOUSELEAVE
+	o.mu.Lock()
+	o.hoverBtn = 0
+	o.tracking = false
+	o.mu.Unlock()
+	return 0
+
 case _WM_TIMER:
 o.mu.Lock()
 o.frame++
@@ -531,6 +583,9 @@ case 0x0201: // WM_LBUTTONDOWN
 		y := int32((lParam >> 16) & 0xFFFF)
 		if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE &&
 			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			o.mu.Lock()
+			o.pressBtn = 1
+			o.mu.Unlock()
 			if dashCB != nil {
 				go dashCB()
 			}
@@ -538,6 +593,9 @@ case 0x0201: // WM_LBUTTONDOWN
 		}
 		if x >= _BTN_CANCEL_X && x <= _BTN_CANCEL_X+_BTN_SIZE &&
 			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			o.mu.Lock()
+			o.pressBtn = 2
+			o.mu.Unlock()
 			if cancelCB != nil {
 				go cancelCB()
 			}
@@ -545,6 +603,9 @@ case 0x0201: // WM_LBUTTONDOWN
 		}
 		if x >= _BTN_CONFIRM_X && x <= _BTN_CONFIRM_X+_BTN_SIZE &&
 			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			o.mu.Lock()
+			o.pressBtn = 4
+			o.mu.Unlock()
 			if confirmCB != nil {
 				go confirmCB()
 			}
@@ -552,6 +613,9 @@ case 0x0201: // WM_LBUTTONDOWN
 		}
 		if x >= _BTN_PAUSE_X && x <= _BTN_PAUSE_X+_BTN_SIZE &&
 			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			o.mu.Lock()
+			o.pressBtn = 3
+			o.mu.Unlock()
 			if pauseCB != nil {
 				go pauseCB()
 			}
@@ -560,6 +624,12 @@ case 0x0201: // WM_LBUTTONDOWN
 	}
 	ret, _, _ := procDefWindowProcW.Call(hwnd, msg, wParam, lParam)
 	return ret
+
+case 0x0202: // WM_LBUTTONUP
+	o.mu.Lock()
+	o.pressBtn = 0
+	o.mu.Unlock()
+	return 0
 
 case _WM_OVL_SHOW:
 o.mu.Lock()
@@ -594,6 +664,9 @@ return 0
 case _WM_OVL_HIDE:
 o.mu.Lock()
 o.visible = false
+o.hoverBtn = 0
+o.pressBtn = 0
+o.tracking = false
 o.mu.Unlock()
 procKillTimer.Call(hwnd, _TIMER_ID)
 procShowWindow.Call(hwnd, _SW_HIDE)
@@ -906,6 +979,34 @@ func f32(v float32) uintptr {
 return uintptr(math.Float32bits(v))
 }
 
+func min32(a, b uint32) uint32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func brightenARGB(argb uint32, amount uint32) uint32 {
+	a := argb >> 24
+	r := (argb >> 16) & 0xFF
+	g := (argb >> 8) & 0xFF
+	b := argb & 0xFF
+	r = min32(r+amount, 255)
+	g = min32(g+amount, 255)
+	b = min32(b+amount, 255)
+	return (a << 24) | (r << 16) | (g << 8) | b
+}
+
+func btnColor(baseColor uint32, btnID, hoverBtn, pressBtn int) uint32 {
+	if pressBtn == btnID {
+		return brightenARGB(baseColor, 40)
+	}
+	if hoverBtn == btnID {
+		return brightenARGB(baseColor, 20)
+	}
+	return baseColor
+}
+
 func (o *Overlay) createDIB() {
 var bmi bitmapInfoHeader
 bmi.BiSize = uint32(unsafe.Sizeof(bmi))
@@ -953,8 +1054,8 @@ procGdipGraphicsClear.Call(g, 0x00000000)
 // Drop shadow (subtle)
 o.drawPillPath(g, 3, 3, 0x30000000)
 
-// Main pill background (80% opaque for more translucency)
-o.drawPillPath(g, 0, 0, 0xCC0A1A29)
+// Main pill background — gradient (80% opaque)
+o.drawPillGradient(g, 0, 0, 0xCC122435, 0xCC070F19)
 
 // Content area starts after cancel button (no icon)
 contentX := int32(_BTN_CANCEL_X + _BTN_SIZE + 16)
@@ -965,6 +1066,8 @@ frame := o.frame
 startTime := o.startTime
 pauseAccum := o.pauseAccum
 isPaused := o.paused
+hoverBtn := o.hoverBtn
+pressBtn := o.pressBtn
 if isPaused {
 	pauseAccum += time.Since(o.pauseStart)
 }
@@ -975,7 +1078,7 @@ o.mu.Unlock()
 
 switch state {
 case StateRecording, StatePaused:
-o.paintRecordingULW(g, frame, startTime, pauseAccum, isPaused, levels, levelIdx, contentX)
+o.paintRecordingULW(g, frame, startTime, pauseAccum, isPaused, levels, levelIdx, contentX, hoverBtn, pressBtn)
 case StateTranscribing, StateProcessing:
 o.paintTranscribingULW(g, frame, contentX)
 case StateError:
@@ -1037,6 +1140,46 @@ defer procGdipDeleteBrush.Call(brush)
 procGdipFillPath.Call(g, brush, path)
 }
 
+func (o *Overlay) drawPillGradient(g uintptr, offsetX, offsetY int32, topColor, bottomColor uint32) {
+var path uintptr
+procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&path)))
+if path == 0 {
+return
+}
+defer procGdipDeletePath.Call(path)
+
+x := float32(1 + offsetX)
+y := float32(1 + offsetY)
+w := float32(_OVL_WIDTH - 2)
+h := float32(_OVL_HEIGHT - 2)
+r := float32(_OVL_RADIUS)
+d := r * 2
+
+procGdipAddPathArc.Call(path, f32(x), f32(y), f32(d), f32(d), f32(180), f32(90))
+procGdipAddPathArc.Call(path, f32(x+w-d), f32(y), f32(d), f32(d), f32(270), f32(90))
+procGdipAddPathArc.Call(path, f32(x+w-d), f32(y+h-d), f32(d), f32(d), f32(0), f32(90))
+procGdipAddPathArc.Call(path, f32(x), f32(y+h-d), f32(d), f32(d), f32(90), f32(90))
+procGdipClosePathFigure.Call(path)
+
+type gpRect struct {
+	X, Y, Width, Height int32
+}
+rect := gpRect{X: int32(x), Y: int32(y), Width: int32(w), Height: int32(h)}
+var brush uintptr
+procGdipCreateLineBrushFromRectI.Call(
+	uintptr(unsafe.Pointer(&rect)),
+	uintptr(topColor),
+	uintptr(bottomColor),
+	1, // LinearGradientModeVertical
+	0, // WrapModeTile
+	uintptr(unsafe.Pointer(&brush)),
+)
+if brush != 0 {
+	defer procGdipDeleteBrush.Call(brush)
+	procGdipFillPath.Call(g, brush, path)
+}
+}
+
 func (o *Overlay) drawGdipText(g uintptr, text string, x, y, w float32, font uintptr, argb uint32) {
 if font == 0 || o.gdipStrFmt == 0 {
 return
@@ -1078,15 +1221,15 @@ func (o *Overlay) measureGdipTextWidth(g uintptr, text string, font uintptr) flo
 	return bbox.Width
 }
 
-func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pauseAccum time.Duration, isPaused bool, levels [_WAVE_BARS]float32, levelIdx int, contentX int32) {
+func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pauseAccum time.Duration, isPaused bool, levels [_WAVE_BARS]float32, levelIdx int, contentX int32, hoverBtn, pressBtn int) {
 cy := int32(_OVL_HEIGHT / 2)
 
 // Dashboard button (dark circle with grid icon) — far left
-gdipFillCircleG(g, 0xFF1E2A36, _BTN_DASH_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+gdipFillCircleG(g, btnColor(0xFF1E2A36, 1, hoverBtn, pressBtn), _BTN_DASH_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 o.drawGridIcon(g, _BTN_DASH_X, int32(cy)-_BTN_SIZE/2)
 
 // Cancel button (dark circle with ✕)
-gdipFillCircleG(g, 0xFF1E2A36, _BTN_CANCEL_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+gdipFillCircleG(g, btnColor(0xFF1E2A36, 2, hoverBtn, pressBtn), _BTN_CANCEL_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 o.drawXIcon(g, _BTN_CANCEL_X, int32(cy)-_BTN_SIZE/2)
 
 // Pulsing recording dot (next to timer)
@@ -1146,7 +1289,7 @@ for i := 0; i < _WAVE_BARS; i++ {
 }
 
 // Pause button — dark teal circle
-gdipFillCircleG(g, 0xFF0E3D4F, _BTN_PAUSE_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+gdipFillCircleG(g, btnColor(0xFF0E3D4F, 3, hoverBtn, pressBtn), _BTN_PAUSE_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 if isPaused {
 	o.drawPlayIcon(g, _BTN_PAUSE_X, int32(cy)-_BTN_SIZE/2)
 } else {
@@ -1154,7 +1297,7 @@ if isPaused {
 }
 
 // Stop/confirm button — red circle (matching reference design)
-gdipFillCircleG(g, 0xFFE53935, _BTN_CONFIRM_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+gdipFillCircleG(g, btnColor(0xFFE53935, 4, hoverBtn, pressBtn), _BTN_CONFIRM_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 o.drawStopIcon(g, _BTN_CONFIRM_X, int32(cy)-_BTN_SIZE/2)
 
 }

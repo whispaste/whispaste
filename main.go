@@ -21,6 +21,17 @@ func main() {
 	}
 	if err == windows.ERROR_ALREADY_EXISTS {
 		windows.CloseHandle(windows.Handle(handle))
+		// Try to bring existing instance's window to foreground
+		user32 := windows.NewLazySystemDLL("user32.dll")
+		findWindow := user32.NewProc("FindWindowW")
+		title, _ := windows.UTF16PtrFromString("WhisPaste")
+		hwnd, _, _ := findWindow.Call(0, uintptr(unsafe.Pointer(title)))
+		if hwnd != 0 {
+			showWindow := user32.NewProc("ShowWindow")
+			setFg := user32.NewProc("SetForegroundWindow")
+			showWindow.Call(hwnd, 9) // SW_RESTORE
+			setFg.Call(hwnd)
+		}
 		os.Exit(0)
 	}
 	defer windows.CloseHandle(windows.Handle(handle))
@@ -549,18 +560,26 @@ func main() {
 			transition(StateTranscribing)
 		}
 	}
-	stateMu.Lock()
-	showDashboard = func() {
-		ShowMainWindow(cfg, recorder, history, onSettingsSaved, func() {
+	// onWindowClose handles window close: minimize to tray or quit
+	onWindowClose := func() {
+		if cfg.GetCloseToTray() {
 			if tray != nil {
 				tray.ShowMinimizeBalloon()
 			}
-		}, onToggle, "")
+		} else {
+			if tray != nil {
+				tray.Quit()
+			}
+		}
+	}
+	stateMu.Lock()
+	showDashboard = func() {
+		ShowMainWindow(cfg, recorder, history, onSettingsSaved, onWindowClose, onToggle, "")
 	}
 	stateMu.Unlock()
 	tray = NewAppTray(
 		func(page string) {
-			ShowMainWindow(cfg, recorder, history, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, onToggle, page)
+			ShowMainWindow(cfg, recorder, history, onSettingsSaved, onWindowClose, onToggle, page)
 		},
 		func() {
 			hkMu.Lock()
@@ -584,13 +603,13 @@ func main() {
 	if !cfg.GetUseLocalSTT() && !cfg.HasAPIKey() {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
-			ShowMainWindow(cfg, recorder, history, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, onToggle, "settings")
+			ShowMainWindow(cfg, recorder, history, onSettingsSaved, onWindowClose, onToggle, "settings")
 		}()
 	} else if !isAutostart {
 		// Manual launch: show dashboard immediately
 		go func() {
 			time.Sleep(500 * time.Millisecond)
-			ShowMainWindow(cfg, recorder, history, onSettingsSaved, func() { tray.ShowMinimizeBalloon() }, onToggle, "history")
+			ShowMainWindow(cfg, recorder, history, onSettingsSaved, onWindowClose, onToggle, "history")
 		}()
 	}
 
