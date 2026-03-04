@@ -374,6 +374,12 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   transition: border-color 0.2s;
+  cursor: pointer;
+}
+
+.model-item.unavailable {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .model-item.active {

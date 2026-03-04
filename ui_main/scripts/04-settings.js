@@ -392,18 +392,19 @@ async function renderModelList() {
       actionBtn = `<button class="btn btn-secondary btn-sm" disabled>${t('modelDownloading')}</button>
         <div class="model-progress"><div class="model-progress-bar" id="progress-${m.id}"></div></div>`;
     } else if (m.downloaded) {
-      actionBtn = `<button class="btn btn-secondary btn-sm" onclick="deleteModel('${m.id}')" title="${t('modelDelete')}">${t('modelDownloaded')}</button>`;
+      actionBtn = `<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();deleteModel('${m.id}')" title="${t('modelDelete')}">${t('modelDownloaded')}</button>`;
     } else {
-      actionBtn = `<button class="btn btn-primary btn-sm" onclick="downloadModel('${m.id}')">${t('modelDownload')}</button>`;
+      actionBtn = `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();downloadModel('${m.id}')">${t('modelDownload')}</button>`;
     }
-    return `<div class="model-item ${isSelected ? 'active' : ''}">
-      <input type="radio" name="local-model" value="${m.id}" class="model-item-radio" ${isSelected ? 'checked' : ''} ${!m.downloaded ? 'disabled' : ''} onchange="selectLocalModel('${m.id}')">
+    return `<div class="model-item ${isSelected ? 'active' : ''} ${!m.downloaded && !isDownloading ? 'unavailable' : ''}" data-model-id="${m.id}" onclick="onModelCardClick('${m.id}', ${m.downloaded})">
+      <input type="radio" name="local-model" value="${m.id}" class="model-item-radio" ${isSelected ? 'checked' : ''} ${!m.downloaded ? 'disabled' : ''}>
       <div class="model-item-info">
         <div class="model-item-name">${m.name}</div>
-        <div class="model-item-meta">${m.size}</div>
+        <div class="model-item-meta">${m.size}${!m.downloaded ? ' · ' + t('modelNotDownloaded') : ''}</div>
       </div>
       <div class="model-item-action">${actionBtn}</div>
     </div>`;
+  }).join('');
   }).join('');
 }
 
@@ -413,6 +414,14 @@ function selectLocalModel(id) {
   if (radio) {
     radio.checked = true;
     radio.closest('.model-item')?.classList.add('active');
+  }
+}
+
+function onModelCardClick(id, downloaded) {
+  if (downloaded) {
+    selectLocalModel(id);
+  } else {
+    showToast(t('modelNeedDownload'), false);
   }
 }
 
@@ -465,4 +474,10 @@ async function deleteModel(id) {
 window.updateModelProgress = function(modelId, pct) {
   const bar = document.getElementById('progress-' + modelId);
   if (bar) bar.style.width = pct + '%';
+  // Update button text with percentage
+  const item = document.querySelector(`[data-model-id="${modelId}"]`);
+  if (item) {
+    const btn = item.querySelector('.model-item-action .btn');
+    if (btn) btn.textContent = Math.round(pct) + '%';
+  }
 };

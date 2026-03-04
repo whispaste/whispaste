@@ -145,7 +145,9 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		if initialPage == "smart-mode" {
 			effectivePage = "settings"
 		}
-		initJS := fmt.Sprintf(`window._lang = %s; window._theme = %s; window._initialPage = "%s";`, langJSON, themeJSON, effectivePage)
+		// Set data-theme attribute immediately so CSS variables apply before first paint (prevents white flash)
+		initJS := fmt.Sprintf(`(function(){var t=%s;if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');})();`, themeJSON)
+		initJS += fmt.Sprintf(`window._lang = %s; window._theme = %s; window._initialPage = "%s";`, langJSON, themeJSON, effectivePage)
 		if initialPage == "smart-mode" {
 			initJS += ` window._initialSection = "smart-mode";`
 		}
