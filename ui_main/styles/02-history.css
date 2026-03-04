@@ -70,8 +70,8 @@
 }
 
 .mode-badge.mode-local {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10B981;
+  background: var(--success-bg);
+  color: var(--success);
   border-color: rgba(16, 185, 129, 0.25);
 }
 
