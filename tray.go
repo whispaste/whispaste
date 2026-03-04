@@ -56,8 +56,7 @@ type notifyIconDataW struct {
 
 // AppTray manages the system tray icon and menu.
 type AppTray struct {
-	onSettings   func(string)
-	onNotebook   func()
+	onOpenWindow func(string) // opens unified window with page name: "history", "settings", "about", "smart-mode"
 	onQuit       func()
 	onToggle     func()
 	updater      *Updater
@@ -80,16 +79,15 @@ type AppTray struct {
 }
 
 // NewAppTray creates a tray manager. Callbacks are invoked on menu clicks.
-func NewAppTray(onSettings func(string), onNotebook func(), onQuit func(), updater *Updater, history *History, cfg *Config, onSaved func(), onToggle func()) *AppTray {
+func NewAppTray(onOpenWindow func(string), onQuit func(), updater *Updater, history *History, cfg *Config, onSaved func(), onToggle func()) *AppTray {
 	return &AppTray{
-		onSettings: onSettings,
-		onNotebook: onNotebook,
-		onQuit:     onQuit,
-		onToggle:   onToggle,
-		updater:    updater,
-		history:    history,
-		cfg:        cfg,
-		onSaved:    onSaved,
+		onOpenWindow: onOpenWindow,
+		onQuit:       onQuit,
+		onToggle:     onToggle,
+		updater:      updater,
+		history:      history,
+		cfg:          cfg,
+		onSaved:      onSaved,
 	}
 }
 
@@ -221,8 +219,8 @@ func (t *AppTray) onReady() {
 				}
 				// If "custom" selected with empty prompt, open settings at smart section
 				if t.smartPresets[idx] == "custom" && t.cfg.GetSmartModePrompt() == "" {
-					if t.onSettings != nil {
-						t.onSettings("smart-mode")
+					if t.onOpenWindow != nil {
+						t.onOpenWindow("smart-mode")
 					}
 				}
 			}
@@ -251,18 +249,18 @@ func (t *AppTray) onReady() {
 					t.onToggle()
 				}
 			case <-mSettings.ClickedCh:
-				if t.onSettings != nil {
-					t.onSettings("general")
+				if t.onOpenWindow != nil {
+					t.onOpenWindow("settings")
 				}
 			case <-mNotebook.ClickedCh:
-				if t.onNotebook != nil {
-					t.onNotebook()
+				if t.onOpenWindow != nil {
+					t.onOpenWindow("history")
 				}
 			case <-t.mUpdate.ClickedCh:
 				t.handleUpdateClick()
 			case <-mAbout.ClickedCh:
-				if t.onSettings != nil {
-					t.onSettings("about")
+				if t.onOpenWindow != nil {
+					t.onOpenWindow("about")
 				}
 			case <-mSupport.ClickedCh:
 				_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", supportURL).Start()

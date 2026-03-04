@@ -1,0 +1,86 @@
+/* ── Custom Properties ─────────────────────────────────── */
+:root {
+  --accent: #0891B2;
+  --accent-hover: #0E7490;
+  --accent-active: #155E75;
+  --bg: #F2F2F7;
+  --bg-card: #FFFFFF;
+  --bg-hover: #F8F8FC;
+  --bg-input: #FFFFFF;
+  --border: #D1D1D6;
+  --border-focus: var(--accent);
+  --text: #1C1C1E;
+  --text-secondary: #636366;
+  --text-hint: #8E8E93;
+  --success: #34C759;
+  --error: #FF3B30;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.04), 0 1px 2px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.06), 0 1px 4px rgba(0,0,0,.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.04);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --font: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --transition: 220ms cubic-bezier(.4, 0, .2, 1);
+}
+[data-theme="dark"] {
+  --accent: #22D3EE;
+  --accent-hover: #67E8F9;
+  --accent-active: #06B6D4;
+  --bg: #1C1C1E;
+  --bg-card: #2C2C2E;
+  --bg-hover: #3A3A3C;
+  --bg-input: #1C1C1E;
+  --border: #38383A;
+  --border-focus: var(--accent);
+  --text: #F2F2F7;
+  --text-secondary: #AEAEB2;
+  --text-hint: #636366;
+  --success: #30D158;
+  --error: #FF453A;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.4);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,.5);
+}
+
+/* ── Reset & Base ──────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+.icon {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.icon svg { width: 100%; height: 100%; }
+
+html, body {
+  height: 100%;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+body {
+  margin: 0;
+  opacity: 0;
+  transition: opacity 250ms ease;
+}
+body.ready { opacity: 1; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+:focus:not(:focus-visible) { outline: none; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}

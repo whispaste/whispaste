@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhisPaste</title>
+<style>
+/* {{STYLES}} */
+</style>
+</head>
+<body>
+
+<!-- ── App Layout ─────────────────────────────────────── -->
+<div class="app-layout">
+
+  <!-- ── Sidebar Navigation ───────────────────────────── -->
+  <nav class="sidebar-nav">
+    <div class="nav-brand">
+      <svg class="nav-brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+      <span class="nav-brand-text">WhisPaste</span>
+    </div>
+    <div class="nav-items">
+      <div class="nav-item active" data-page="history" onclick="switchPage('history')">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span data-i18n="navHistory">History</span>
+      </div>
+      <div class="nav-item" data-page="settings" onclick="switchPage('settings')">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span data-i18n="navSettings">Settings</span>
+      </div>
+      <div class="nav-item" data-page="about" onclick="switchPage('about')">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <span data-i18n="navAbout">About</span>
+      </div>
+    </div>
+    <div class="nav-spacer"></div>
+    <div class="nav-bottom">
+      <button class="nav-bottom-btn" id="themeToggle" onclick="toggleTheme()" title="Toggle Theme">
+        <svg class="icon" id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      </button>
+      <button class="nav-bottom-btn" id="langToggle" onclick="toggleLang()" title="Language">
+        <span id="langLabel">EN</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ── Main Content ─────────────────────────────────── -->
+  <div class="main-content">
+
+    <!-- Page: History -->
+    <div class="page" id="page-history">
+      <div class="topbar">
+        <div class="search-box">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" id="searchInput" data-i18n-placeholder="notebook.search" placeholder="Search…">
+        </div>
+        <span class="count-badge" id="countBadge">0</span>
+      </div>
+      <div class="history-layout">
+        <div class="filter-sidebar">
+          <div class="filter-section">
+            <select class="sort-select" id="sortSelect" onchange="changeSort(this.value)">
+              <option value="newest" data-i18n-opt="sortNewest">Newest first</option>
+              <option value="oldest" data-i18n-opt="sortOldest">Oldest first</option>
+              <option value="alpha" data-i18n-opt="sortAlpha">Alphabetical</option>
+              <option value="duration" data-i18n-opt="sortDuration">By duration</option>
+            </select>
+          </div>
+          <div class="filter-items">
+            <div class="filter-item active" data-filter="all">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <span data-i18n="notebook.all">All</span>
+              <span class="filter-count" id="countAll">0</span>
+            </div>
+            <div class="filter-item" data-filter="pinned">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+              <span data-i18n="notebook.pinned">Pinned</span>
+              <span class="filter-count" id="countPinned">0</span>
+            </div>
+            <div class="filter-item" data-filter="today">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+              <span data-i18n="notebook.today">Today</span>
+              <span class="filter-count" id="countToday">0</span>
+            </div>
+            <div class="filter-item" data-filter="week">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span data-i18n="notebook.this_week">This Week</span>
+              <span class="filter-count" id="countWeek">0</span>
+            </div>
+            <div class="filter-item" data-filter="older">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+              <span data-i18n="notebook.older">Older</span>
+              <span class="filter-count" id="countOlder">0</span>
+            </div>
+          </div>
+          <div id="categoriesSection" style="display:none">
+            <div class="filter-section-title" data-i18n="notebook.categories">Categories</div>
+            <div id="categoryList" class="filter-items"></div>
+          </div>
+        </div>
+        <div class="entries-area">
+          <div class="entries" id="entriesList"></div>
+        </div>
+      </div>
+      <button class="fab" id="captureBtn" onclick="window.startCapture()" data-i18n-title="notebook.record" title="Record">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+      </button>
+    </div>
+
+    <!-- Page: Settings -->
+    <div class="page" id="page-settings" style="display:none">
+      <div class="page-header">
+        <h2 class="page-title" data-i18n="settingsTitle">Settings</h2>
+      </div>
+      <div class="settings-scroll">
+
+        <!-- API Key -->
+        <div class="card">
+          <div class="card-title" data-i18n="cardApiKey">API Key</div>
+          <div class="form-group">
+            <label class="form-label" for="input-apikey" data-i18n="labelApiKey">OpenAI API Key</label>
+            <div class="input-wrapper">
+              <input class="form-input" type="password" id="input-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false">
+              <button class="input-eye" type="button" aria-label="Show API key" onclick="toggleApiKeyVisibility()" id="btn-eye"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+            <p class="form-hint">
+              <span data-i18n="hintApiKey">Need a key?</span>
+              <a href="#" onclick="openExternal('https://platform.openai.com/api-keys'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
+            </p>
+          </div>
+        </div>
+
+        <!-- Recording Mode -->
+        <div class="card">
+          <div class="card-title" data-i18n="cardMode">Recording Mode</div>
+          <div class="form-group">
+            <div class="radio-cards" role="radiogroup" aria-label="Recording mode">
+              <div class="radio-card" role="radio" aria-checked="true" tabindex="0" onclick="selectMode('push')" onkeydown="handleRadioKey(event, 'push')">
+                <input type="radio" name="mode" value="push_to_talk" id="mode-push" checked>
+                <span class="radio-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
+                <span class="radio-card-label" data-i18n="modePush">Push to Talk</span>
+                <span class="radio-card-desc" data-i18n="modePushDesc">Hold the hotkey to record</span>
+              </div>
+              <div class="radio-card" role="radio" aria-checked="false" tabindex="0" onclick="selectMode('toggle')" onkeydown="handleRadioKey(event, 'toggle')">
+                <input type="radio" name="mode" value="toggle" id="mode-toggle">
+                <span class="radio-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>
+                <span class="radio-card-label" data-i18n="modeToggle">Toggle</span>
+                <span class="radio-card-desc" data-i18n="modeToggleDesc">Press to start, press again to stop</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hotkey -->
+        <div class="card">
+          <div class="card-title" data-i18n="cardHotkey">Hotkey</div>
+          <div class="form-group">
+            <label class="form-label" data-i18n="labelHotkey">Current Hotkey</label>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="hotkey-display" id="hotkey-display" aria-label="Current hotkey: Ctrl + Shift + V">
+                <span class="hotkey-key">Ctrl</span>
+                <span class="hotkey-plus">+</span>
+                <span class="hotkey-key">Shift</span>
+                <span class="hotkey-plus">+</span>
+                <span class="hotkey-key">V</span>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="btn-change-hotkey" onclick="startHotkeyRecording()" data-i18n="btnChangeHotkey">Change</button>
+            </div>
+            <div class="hotkey-recorder" id="hotkey-recorder" style="display:none">
+              <div class="hotkey-recorder-text" data-i18n="hotkeyRecording">Press your desired key combination…</div>
+              <div class="hotkey-recorder-preview" id="hotkey-preview"></div>
+              <div class="hotkey-recorder-actions">
+                <button class="btn btn-secondary btn-sm" onclick="cancelHotkeyRecording()" data-i18n="btnCancel">Cancel</button>
+              </div>
+              <p class="hotkey-recorder-hint" data-i18n="hotkeyHint">Press Escape to cancel</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transcription Language -->
+        <div class="card">
+          <div class="card-title" data-i18n="cardLanguage">Transcription Language</div>
+          <div class="form-group">
+            <label class="form-label" for="select-language" data-i18n="labelLanguage">Language</label>
+            <select class="form-select" id="select-language">
+              <option value="auto" data-i18n-opt="langAuto">Auto-detect</option>
+              <option value="en" data-i18n-opt="langEn">English</option>
+              <option value="de" data-i18n-opt="langDe">German</option>
+              <option value="es" data-i18n-opt="langEs">Spanish</option>
+              <option value="fr" data-i18n-opt="langFr">French</option>
+              <option value="it" data-i18n-opt="langIt">Italian</option>
+              <option value="pt" data-i18n-opt="langPt">Portuguese</option>
+              <option value="ja" data-i18n-opt="langJa">Japanese</option>
+              <option value="zh" data-i18n-opt="langZh">Chinese</option>
+              <option value="ko" data-i18n-opt="langKo">Korean</option>
+              <option value="ru" data-i18n-opt="langRu">Russian</option>
+              <option value="ar" data-i18n-opt="langAr">Arabic</option>
+              <option value="hi" data-i18n-opt="langHi">Hindi</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Overlay Position -->
+        <div class="card">
+          <div class="card-title" data-i18n="cardOverlay">Overlay Position</div>
+          <div class="form-group">
+            <div class="radio-cards" role="radiogroup" aria-label="Overlay position">
+              <div class="radio-card" role="radio" aria-checked="true" tabindex="0" onclick="selectOverlay('top')" onkeydown="handleOverlayKey(event, 'top')">
+                <input type="radio" name="overlay" value="top" id="overlay-top" checked>
+                <span class="radio-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/></svg></span>
+                <span class="radio-card-label" data-i18n="overlayTop">Top Center</span>
+                <span class="radio-card-desc" data-i18n="overlayTopDesc">Fixed at top of screen</span>
+              </div>
+              <div class="radio-card" role="radio" aria-checked="false" tabindex="0" onclick="selectOverlay('cursor')" onkeydown="handleOverlayKey(event, 'cursor')">
+                <input type="radio" name="overlay" value="cursor" id="overlay-cursor">
+                <span class="radio-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg></span>
+                <span class="radio-card-label" data-i18n="overlayCursor">Near Cursor</span>
+                <span class="radio-card-desc" data-i18n="overlayCursorDesc">Follows mouse position</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Smart Mode -->
+        <div class="card" data-section="smart-mode">
+          <div class="card-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg> <span data-i18n="cardSmartMode">Smart Mode</span></div>
+          <div class="form-group">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <label class="toggle-label" for="toggle-smartmode" data-i18n="labelSmartMode">AI Post-Processing</label>
+                <p class="toggle-desc" data-i18n="descSmartMode">Process transcription with GPT-4o-mini for grammar, formatting, or translation</p>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-smartmode" onchange="updateSmartModeVisibility()">
+                <label class="toggle-track" for="toggle-smartmode"></label>
+              </div>
+            </div>
+          </div>
+          <div id="smart-mode-options" style="display:none">
+            <div class="form-group">
+              <label class="form-label" for="select-smartpreset" data-i18n="labelSmartPreset">Preset</label>
+              <select class="form-select" id="select-smartpreset" onchange="updateSmartPresetVisibility()">
+                <option value="cleanup" data-i18n-opt="smartCleanup">Cleanup (grammar &amp; punctuation)</option>
+                <option value="email" data-i18n-opt="smartEmail">Email (formal)</option>
+                <option value="bullets" data-i18n-opt="smartBullets">Bullet Points</option>
+                <option value="formal" data-i18n-opt="smartFormal">Formal Letter</option>
+                <option value="translate" data-i18n-opt="smartTranslate">Translate</option>
+                <option value="custom" data-i18n-opt="smartCustom">Custom Prompt</option>
+              </select>
+            </div>
+            <div class="form-group" id="smart-target-row" style="display:none">
+              <label class="form-label" for="select-smarttarget" data-i18n="labelSmartTarget">Target Language</label>
+              <select class="form-select" id="select-smarttarget">
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+                <option value="es">Español</option>
+                <option value="fr">Français</option>
+                <option value="it">Italiano</option>
+                <option value="pt">Português</option>
+                <option value="ja">日本語</option>
+                <option value="zh">中文</option>
+                <option value="ko">한국어</option>
+                <option value="ru">Русский</option>
+              </select>
+            </div>
+            <div class="form-group" id="smart-prompt-row" style="display:none">
+              <label class="form-label" for="input-smartprompt" data-i18n="labelSmartPrompt">Custom Prompt</label>
+              <textarea class="form-input" id="input-smartprompt" rows="3" placeholder="e.g. Format as Markdown, remove filler words"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced -->
+        <div class="card">
+          <div class="card-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> <span data-i18n="cardAdvanced">Advanced</span></div>
+          <div class="form-group">
+            <label class="form-label" for="input-prompt" data-i18n="labelPrompt">Whisper Prompt</label>
+            <p class="form-hint" data-i18n="descPrompt">Improve accuracy for domain-specific terms (e.g. Kubernetes, kubectl)</p>
+            <input class="form-input" type="text" id="input-prompt" placeholder="e.g. Kubernetes, kubectl, Terraform">
+          </div>
+          <div class="form-group">
+            <label class="form-label" data-i18n="labelMaxDuration">Max Recording Duration</label>
+            <div class="range-row">
+              <input type="range" id="range-max-duration" min="10" max="300" value="120" step="10" class="volume-slider" oninput="document.getElementById('max-duration-value').textContent = this.value + 's'">
+              <span class="volume-value" id="max-duration-value">120s</span>
+            </div>
+            <label class="unlimited-row" style="display:flex;align-items:center;gap:8px;margin-top:6px;cursor:pointer;">
+              <input type="checkbox" id="check-unlimited-duration" onchange="toggleUnlimited(this.checked)">
+              <span data-i18n="labelUnlimited">∞ Unlimited</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Preferences -->
+        <div class="card">
+          <div class="card-title" data-i18n="cardFeedback">Preferences</div>
+          <div class="form-group">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <label class="toggle-label" for="toggle-sound" data-i18n="labelSound">Sound Feedback</label>
+                <p class="toggle-desc" data-i18n="descSound">Play sounds when recording starts and stops</p>
+              </div>
+              <button class="btn-icon" onclick="testSound()" aria-label="Test sound" title="Test sound">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+              </button>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-sound" checked>
+                <label class="toggle-track" for="toggle-sound"></label>
+              </div>
+            </div>
+            <div class="volume-row" id="volume-row">
+              <label class="volume-label" data-i18n="labelVolume">Volume</label>
+              <input type="range" id="volume-slider" min="0" max="100" value="100" class="volume-slider">
+              <span class="volume-value" id="volume-value">100%</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <label class="toggle-label" for="toggle-autopaste" data-i18n="labelAutoPaste">Auto-paste</label>
+                <p class="toggle-desc" data-i18n="descAutoPaste">Automatically paste transcription into focused field</p>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-autopaste" checked>
+                <label class="toggle-track" for="toggle-autopaste"></label>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <label class="toggle-label" for="toggle-updates" data-i18n="labelCheckUpdates">Check for updates</label>
+                <p class="toggle-desc" data-i18n="descCheckUpdates">Automatically check for new versions</p>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-updates" checked>
+                <label class="toggle-track" for="toggle-updates"></label>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <label class="toggle-label" for="toggle-autostart" data-i18n="labelAutostart">Start with Windows</label>
+                <p class="toggle-desc" data-i18n="descAutostart">Launch WhisPaste automatically when you sign in</p>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-autostart">
+                <label class="toggle-track" for="toggle-autostart"></label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Bottom Bar -->
+        <div class="settings-bottom-bar">
+          <button class="btn btn-test" id="btn-test" aria-label="Test microphone" onclick="testRecording()">
+            <span id="btn-test-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
+            <span data-i18n="btnTest" id="btn-test-text">Test</span>
+          </button>
+          <span class="status-msg" id="status-msg" role="status" aria-live="polite"></span>
+          <div class="spacer"></div>
+          <button class="btn btn-secondary" onclick="cancelSettings()" data-i18n="btnCancel">Cancel</button>
+          <button class="btn btn-primary" onclick="saveSettings()" data-i18n="btnSave" id="btn-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page: About -->
+    <div class="page" id="page-about" style="display:none">
+      <div class="page-header">
+        <h2 class="page-title" data-i18n="tabAbout">About</h2>
+      </div>
+      <div class="about-scroll">
+        <div class="card">
+          <div class="about-header">
+            <div class="about-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:100%;height:100%"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            </div>
+            <div class="about-name">WhisPaste</div>
+            <div class="about-version" id="about-version">v1.0.0</div>
+            <p class="about-desc" data-i18n="aboutDesc">A fast, lightweight voice-to-text tool for Windows. Record speech and instantly paste the transcription anywhere.</p>
+            <span class="about-license"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> <span data-i18n="aboutLicense">Open Source – MIT License</span></span>
+            <div class="about-links">
+              <a href="#" class="about-link" onclick="openExternal('https://github.com/whispaste/whispaste'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a.53.53 0 0 0 .4.29l5.16.754a.53.53 0 0 1 .294.904l-3.733 3.638a.53.53 0 0 0-.152.469l.882 5.14a.53.53 0 0 1-.77.56l-4.615-2.426a.53.53 0 0 0-.494 0L6.18 18.73a.53.53 0 0 1-.77-.56l.882-5.14a.53.53 0 0 0-.152-.47L2.407 8.923a.53.53 0 0 1 .294-.906l5.16-.753a.53.53 0 0 0 .4-.29l2.31-4.679Z"/></svg> <span data-i18n="aboutGithub">GitHub</span></a>
+              <a href="#" class="about-link" onclick="openExternal('https://github.com/whispaste/whispaste/issues'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg> <span data-i18n="aboutIssue">Report Issue</span></a>
+            </div>
+          </div>
+          <div class="about-support">
+            <div class="about-support-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> <span data-i18n="aboutSupportTitle">Support this project</span></div>
+            <p class="about-support-text" data-i18n="aboutSupportText">WhisPaste is free and open source. If you find it useful, please consider supporting its development!</p>
+            <div class="about-support-links">
+              <a href="#" class="about-link support-link" onclick="openExternal('https://github.com/sponsors/silvio-l'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> GitHub Sponsors</a>
+              <a href="#" class="about-link support-link" onclick="openExternal('https://ko-fi.com/silviol'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/></svg> Ko-fi</a>
+            </div>
+          </div>
+          <div class="about-credits">
+            <div class="about-credits-title" data-i18n="aboutCreditsTitle">Credits</div>
+            <p class="about-credits-text" data-i18n="aboutCreditsText">Made by Silvio Lindstedt. Powered by OpenAI Whisper API. Built with Go and WebView2.</p>
+          </div>
+          <div class="about-credits" style="margin-top: 12px;">
+            <div class="about-credits-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg> <span data-i18n="aboutCostTitle">API Costs</span></div>
+            <p class="about-credits-text" data-i18n="aboutCostText">Whisper is billed per audio minute (~$0.006/min). A short sentence costs fractions of a cent; typical monthly usage is $1–5.</p>
+            <table class="cost-table">
+              <tr><td data-i18n="costOccasional">Occasional (~5 min/day)</td><td>~$1/mo</td></tr>
+              <tr><td data-i18n="costRegular">Regular (~20 min/day)</td><td>~$4/mo</td></tr>
+              <tr><td data-i18n="costHeavy">Heavy (~60 min/day)</td><td>~$11/mo</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Delete Confirmation -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-dialog">
+    <p data-i18n="notebook.confirm_delete">Delete this entry?</p>
+    <div class="confirm-actions">
+      <button class="btn btn-secondary" id="confirmCancel" data-i18n="btnCancel">Cancel</button>
+      <button class="btn btn-primary" id="confirmDelete" style="background:var(--error);border-color:var(--error);" data-i18n="notebook.delete">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* {{SCRIPTS}} */
+</script>
+</body>
+</html>
