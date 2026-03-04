@@ -1,0 +1,29 @@
+---
+interface Props {
+  variant?: 'landing' | 'subpage';
+}
+const { variant = 'landing' } = Astro.props;
+---
+
+{variant === 'landing' ? (
+  <footer class="py-8 border-t border-white/5">
+    <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
+      <div class="flex items-center gap-2">
+        <img id="footerLogo" src="/whispaste/app-icon-dark.png" alt="" class="w-6 h-6 opacity-60" />
+        <span>&copy; 2025 <a href="https://github.com/silvio-l" class="hover:text-white transition-colors">Silvio Lindstedt</a></span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/whispaste/impressum/" class="hover:text-white transition-colors" data-i18n="footer.impressum">Legal Notice</a>
+        <a href="/whispaste/datenschutz/" class="hover:text-white transition-colors" data-i18n="footer.privacy">Privacy Policy</a>
+        <span data-i18n="footer.license">MIT License</span>
+        <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="hover:text-white transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+) : (
+  <footer class="py-6 border-t border-white/5">
+    <div class="max-w-4xl mx-auto px-6 text-center text-sm text-gray-500">
+      &copy; 2025 <a href="https://github.com/silvio-l" class="hover:text-white transition-colors">Silvio Lindstedt</a>
+    </div>
+  </footer>
+)}
