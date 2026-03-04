@@ -517,6 +517,19 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return string(data), nil
 		})
 
+		// Bind: searchEntries → FTS5 full-text search across transcriptions
+		w.Bind("searchEntries", func(query string) (string, error) {
+			entries := history.Search(query)
+			if entries == nil {
+				return "[]", nil
+			}
+			data, err := json.Marshal(entries)
+			if err != nil {
+				return "[]", err
+			}
+			return string(data), nil
+		})
+
 		// Bind: getCategories → returns list of used categories
 		w.Bind("getCategories", func() (string, error) {
 			tags := history.Tags()

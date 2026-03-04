@@ -317,3 +317,65 @@ func TestMigrateFromJSON(t *testing.T) {
 		t.Errorf("expected source 'dictation', got %q", source)
 	}
 }
+
+func TestHistorySearch(t *testing.T) {
+	h := newTestHistory(t)
+	h.AddWithModel("The quick brown fox jumps over the lazy dog", 10.0, 1.0, "en", "whisper-1", false)
+	h.AddWithModel("Die Katze sitzt auf der Matte", 5.0, 0.5, "de", "whisper-base", true)
+	h.AddWithModel("Testing microphone input levels", 3.0, 0.3, "en", "whisper-1", false)
+
+	// Basic search
+	results := h.Search("fox")
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result for 'fox', got %d", len(results))
+	}
+	if results[0].Language != "en" {
+		t.Errorf("expected English entry, got %s", results[0].Language)
+	}
+
+	// Search matches title too (autoTitle derives from text)
+	results = h.Search("Katze")
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result for 'Katze', got %d", len(results))
+	}
+
+	// Search with no matches
+	results = h.Search("nonexistent")
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for 'nonexistent', got %d", len(results))
+	}
+
+	// Empty search returns nil
+	results = h.Search("")
+	if results != nil {
+		t.Error("expected nil for empty search")
+	}
+
+	// Nil DB safety
+	nilH := &History{}
+	results = nilH.Search("test")
+	if results != nil {
+		t.Error("expected nil from Search with nil db")
+	}
+
+	// FTS5 OR query
+	results = h.Search("fox OR Katze")
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results for 'fox OR Katze', got %d", len(results))
+	}
+
+	// Search after text update — FTS stays in sync
+	entry := h.All()[0] // newest
+	h.UpdateText(entry.ID, "Updated content about elephants")
+	results = h.Search("elephants")
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result after update, got %d", len(results))
+	}
+
+	// Search after delete — FTS stays in sync
+	h.Delete(entry.ID)
+	results = h.Search("elephants")
+	if len(results) != 0 {
+		t.Errorf("expected 0 results after delete, got %d", len(results))
+	}
+}
