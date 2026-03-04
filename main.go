@@ -14,6 +14,10 @@ func main() {
 	InitLogger(LogDebug)
 	defer CloseLogger()
 
+	// Register AppUserModelID so Windows 10/11 toast notifications work.
+	// Without this, Shell_NotifyIconW NIF_INFO balloons are silently dropped.
+	setAppUserModelID()
+
 	// Detect --autostart flag (set by Windows autostart registry entry)
 	isAutostart := false
 	for _, arg := range os.Args[1:] {
@@ -563,6 +567,21 @@ func main() {
 
 // enableDarkMode opts the process into Windows dark mode so native menus
 // (system tray context menu) follow the system theme. Uses uxtheme.dll
+// setAppUserModelID registers the application's AUMID so that
+// Shell_NotifyIconW toast notifications are not silently dropped
+// by Windows 10/11. Must be called before any notification code.
+func setAppUserModelID() {
+	shell32 := windows.NewLazySystemDLL("shell32.dll")
+	proc := shell32.NewProc("SetCurrentProcessExplicitAppUserModelID")
+	appID, _ := windows.UTF16PtrFromString("WhisPaste.WhisPaste")
+	hr, _, _ := proc.Call(uintptr(unsafe.Pointer(appID)))
+	if hr != 0 {
+		logWarn("SetCurrentProcessExplicitAppUserModelID failed: HRESULT 0x%X", hr)
+	} else {
+		logDebug("AUMID set: WhisPaste.WhisPaste")
+	}
+}
+
 // ordinals 135 (SetPreferredAppMode) and 136 (FlushMenuThemes).
 // Requires Windows 10 1903+; fails silently on older versions.
 func enableDarkMode() {

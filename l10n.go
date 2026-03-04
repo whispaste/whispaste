@@ -47,7 +47,7 @@ var translations = map[string]map[string]string{
 		// App
 		"app.name":        "WhisPaste",
 		"app.description": "Voice to text, pasted anywhere",
-		"app.version":     AppVersion,
+		"app.version":     "v" + AppVersion,
 
 		// Tray menu
 		"tray.tooltip":   "WhisPaste – Voice to Text",
@@ -217,7 +217,7 @@ var translations = map[string]map[string]string{
 		// App
 		"app.name":        "WhisPaste",
 		"app.description": "Sprache zu Text, überall eingefügt",
-		"app.version":     AppVersion,
+		"app.version":     "v" + AppVersion,
 
 		// Tray menu
 		"tray.tooltip":   "WhisPaste – Sprache zu Text",
