@@ -117,15 +117,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderHistory();
     });
   }
-  // Sort select
-  const sortSelect = document.getElementById('sortSelect');
-  if (sortSelect) {
-    sortSelect.addEventListener('change', () => changeSort(sortSelect.value));
-  }
+  // Sort dropdown
+  initSortDropdown();
   // Filter items
   document.querySelectorAll('.filter-item[data-filter]').forEach(el => {
     el.addEventListener('click', () => setFilter(el.dataset.filter));
   });
+  document.getElementById('dateFrom')?.addEventListener('change', renderHistory);
+  document.getElementById('dateTo')?.addEventListener('change', renderHistory);
   // Confirm dialog buttons
   const confirmCancelBtn = document.getElementById('confirmCancel');
   const confirmDeleteBtn = document.getElementById('confirmDelete');

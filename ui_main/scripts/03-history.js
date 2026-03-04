@@ -26,6 +26,17 @@ function matchesFilter(e) {
   if (_activeFilter === 'today') return isToday(e.timestamp);
   if (_activeFilter === 'week') return isThisWeek(e.timestamp);
   if (_activeFilter === 'older') return !isThisWeek(e.timestamp);
+  if (_activeFilter === 'custom') {
+    const fromVal = document.getElementById('dateFrom')?.value;
+    const toVal = document.getElementById('dateTo')?.value;
+    if (fromVal || toVal) {
+      const fromDate = fromVal ? new Date(fromVal) : new Date(0);
+      const toDate = toVal ? new Date(toVal + 'T23:59:59') : new Date();
+      const d = new Date(e.timestamp);
+      return d >= fromDate && d <= toDate;
+    }
+    return true;
+  }
   if (_activeFilter.startsWith('cat:')) return e.category === _activeFilter.slice(4);
   return true;
 }
@@ -72,11 +83,36 @@ function changeSort(val) {
   renderHistory();
 }
 
+function initSortDropdown() {
+  const dropdown = document.getElementById('sortDropdown');
+  const trigger = document.getElementById('sortTrigger');
+  const label = document.getElementById('sortLabel');
+  if (!dropdown || !trigger) return;
+
+  trigger.addEventListener('click', () => dropdown.classList.toggle('open'));
+
+  dropdown.querySelectorAll('.sort-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      dropdown.querySelectorAll('.sort-option').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      if (label) label.textContent = opt.textContent;
+      dropdown.classList.remove('open');
+      changeSort(opt.dataset.sort);
+    });
+  });
+
+  document.addEventListener('click', (ev) => {
+    if (!dropdown.contains(ev.target)) dropdown.classList.remove('open');
+  });
+}
+
 function setFilter(f) {
   _activeFilter = f;
   document.querySelectorAll('.filter-item').forEach(el => {
     el.classList.toggle('active', el.dataset.filter === f);
   });
+  const picker = document.getElementById('dateRangePicker');
+  if (picker) picker.style.display = f === 'custom' ? '' : 'none';
   renderHistory();
 }
 
@@ -225,6 +261,28 @@ async function doPin(id) {
     if (window.pinEntry) await window.pinEntry(id);
     await loadEntries();
   } catch (e) {}
+}
+
+async function mergeSelected() {
+  if (_selectedIds.size < 2) {
+    showToast(t('mergeTooFew'), false);
+    return;
+  }
+  if (window._mergeEntries) {
+    try {
+      const result = await window._mergeEntries(JSON.stringify([..._selectedIds]));
+      const res = typeof result === 'string' ? JSON.parse(result) : result;
+      if (res.success) {
+        showToast(t('mergeSuccess'), true);
+        clearSelection();
+        loadEntries();
+      } else {
+        showToast(res.error || t('statusError'), false);
+      }
+    } catch (e) {
+      showToast(t('statusError'), false);
+    }
+  }
 }
 
 function confirmDelete(id) {

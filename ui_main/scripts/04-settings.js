@@ -401,7 +401,7 @@ async function renderModelList() {
       actionBtn = `<button class="btn btn-secondary btn-sm" disabled>${t('modelDownloading')}</button>
         <div class="model-progress"><div class="model-progress-bar" id="progress-${m.id}"></div></div>`;
     } else if (m.downloaded) {
-      actionBtn = `<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();deleteModel('${m.id}')" title="${t('modelDelete')}">${t('modelDownloaded')}</button>`;
+      actionBtn = `<span class="model-badge model-badge-success">✓ ${t('modelDownloaded')}</span><button class="btn btn-icon btn-sm btn-ghost" onclick="event.stopPropagation();confirmDeleteModel('${m.id}')" title="${t('modelDelete')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>`;
     } else {
       actionBtn = `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();downloadModel('${m.id}')">${t('modelDownload')}</button>`;
     }
@@ -459,6 +459,12 @@ async function downloadModel(id) {
       _downloadingModel = null;
       renderModelList();
     }
+  }
+}
+
+function confirmDeleteModel(id) {
+  if (confirm(t('modelDeleteConfirm'))) {
+    deleteModel(id);
   }
 }
 
