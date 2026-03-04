@@ -143,7 +143,11 @@ const translations = {
     'notebook.confirm_title': 'Delete Entry',
     'notebook.confirm_msg': 'This entry will be permanently deleted.',
     'notebook.confirm_cancel': 'Cancel',
-    'notebook.confirm_delete': 'Delete'
+    'notebook.confirm_delete': 'Delete',
+    'notebook.selected': 'selected',
+    'notebook.delete_selected': 'Delete',
+    'notebook.confirm_delete_multi_title': 'Delete {n} Entries',
+    'notebook.confirm_delete_multi_msg': '{n} entries will be permanently deleted.'
   },
   de: {
     // Navigation
@@ -288,7 +292,11 @@ const translations = {
     'notebook.confirm_title': 'Eintrag löschen',
     'notebook.confirm_msg': 'Dieser Eintrag wird dauerhaft gelöscht.',
     'notebook.confirm_cancel': 'Abbrechen',
-    'notebook.confirm_delete': 'Löschen'
+    'notebook.confirm_delete': 'Löschen',
+    'notebook.selected': 'ausgewählt',
+    'notebook.delete_selected': 'Löschen',
+    'notebook.confirm_delete_multi_title': '{n} Einträge löschen',
+    'notebook.confirm_delete_multi_msg': '{n} Einträge werden dauerhaft gelöscht.'
   }
 };
 

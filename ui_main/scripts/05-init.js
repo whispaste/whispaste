@@ -88,10 +88,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     el.addEventListener('click', () => setFilter(el.dataset.filter));
   });
   // Confirm dialog buttons
-  const confirmCancel = document.getElementById('confirmCancel');
-  const confirmDelete = document.getElementById('confirmDelete');
-  if (confirmCancel) confirmCancel.addEventListener('click', cancelDelete);
-  if (confirmDelete) confirmDelete.addEventListener('click', doDelete);
+  const confirmCancelBtn = document.getElementById('confirmCancel');
+  const confirmDeleteBtn = document.getElementById('confirmDelete');
+  if (confirmCancelBtn) confirmCancelBtn.addEventListener('click', cancelDelete);
+  if (confirmDeleteBtn) confirmDeleteBtn.addEventListener('click', doDelete);
+  // Selection bar buttons
+  const selClose = document.getElementById('selectionClose');
+  const delSelected = document.getElementById('deleteSelectedBtn');
+  if (selClose) selClose.addEventListener('click', clearSelection);
+  if (delSelected) delSelected.addEventListener('click', confirmDeleteSelected);
 
   // --- Navigation ---
   document.querySelectorAll('.nav-item[data-page]').forEach(item => {
@@ -104,6 +109,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const overlay = document.getElementById('confirmOverlay');
       if (overlay && overlay.classList.contains('show')) {
         cancelDelete();
+      } else if (_selectedIds.size > 0) {
+        clearSelection();
       } else if (_expandedId) {
         _expandedId = null;
         renderHistory();

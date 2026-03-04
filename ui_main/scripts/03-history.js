@@ -5,6 +5,8 @@ let _searchQuery = '';
 let _currentSort = 'newest';
 let _expandedId = null;
 let _pendingDeleteId = null;
+let _selectedIds = new Set();
+let _pendingDeleteIds = [];
 
 function isToday(ts) {
   const d = new Date(ts), now = new Date();
@@ -55,6 +57,12 @@ async function loadEntries() {
       _entries = JSON.parse(json);
     }
   } catch (e) { _entries = []; }
+  // Prune stale selections
+  const entryIds = new Set(_entries.map(e => e.id));
+  for (const id of _selectedIds) {
+    if (!entryIds.has(id)) _selectedIds.delete(id);
+  }
+  updateSelectionBar();
   renderHistory();
 }
 
@@ -122,8 +130,9 @@ function renderHistory() {
   }
 
   list.innerHTML = filtered.map(e => `
-    <div class="entry${e.pinned ? ' pinned' : ''}${_expandedId === e.id ? ' expanded' : ''}" data-id="${e.id}">
+    <div class="entry${e.pinned ? ' pinned' : ''}${_expandedId === e.id ? ' expanded' : ''}${_selectedIds.has(e.id) ? ' selected' : ''}" data-id="${e.id}">
       <div class="entry-header">
+        <div class="entry-checkbox${_selectedIds.has(e.id) ? ' checked' : ''}" data-select-id="${e.id}"></div>
         <div style="flex:1;min-width:0">
           <div class="entry-title">${esc(e.title || e.text.substring(0, 60))}</div>
           <div class="entry-meta">
@@ -155,9 +164,21 @@ function renderHistory() {
   // Bind entry click to expand/collapse
   list.querySelectorAll('.entry').forEach(el => {
     el.addEventListener('click', (ev) => {
-      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input')) return;
+      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.entry-checkbox')) return;
       const id = el.dataset.id;
       _expandedId = _expandedId === id ? null : id;
+      renderHistory();
+    });
+  });
+
+  // Bind checkbox clicks for multi-select
+  list.querySelectorAll('.entry-checkbox').forEach(cb => {
+    cb.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const id = cb.dataset.selectId;
+      if (_selectedIds.has(id)) _selectedIds.delete(id);
+      else _selectedIds.add(id);
+      updateSelectionBar();
       renderHistory();
     });
   });
@@ -195,27 +216,71 @@ async function doPin(id) {
 }
 
 function confirmDelete(id) {
+  _pendingDeleteIds = id ? [id] : [];
   _pendingDeleteId = id;
+  const titleEl = document.getElementById('confirmTitle');
+  const msgEl = document.getElementById('confirmMsg');
+  if (titleEl) titleEl.textContent = t('notebook.confirm_title');
+  if (msgEl) msgEl.textContent = t('notebook.confirm_msg');
+  const overlay = document.getElementById('confirmOverlay');
+  if (overlay) overlay.classList.add('show');
+}
+
+function confirmDeleteSelected() {
+  _pendingDeleteIds = [..._selectedIds];
+  _pendingDeleteId = null;
+  const titleEl = document.getElementById('confirmTitle');
+  const msgEl = document.getElementById('confirmMsg');
+  const count = _pendingDeleteIds.length;
+  if (titleEl) titleEl.textContent = t('notebook.confirm_delete_multi_title').replace('{n}', count);
+  if (msgEl) msgEl.textContent = t('notebook.confirm_delete_multi_msg').replace('{n}', count);
   const overlay = document.getElementById('confirmOverlay');
   if (overlay) overlay.classList.add('show');
 }
 
 async function doDelete() {
-  if (!_pendingDeleteId) return;
-  try {
-    if (window.deleteEntry) await window.deleteEntry(_pendingDeleteId);
-    if (_expandedId === _pendingDeleteId) _expandedId = null;
-  } catch (e) {}
+  const ids = _pendingDeleteIds.length > 0 ? _pendingDeleteIds : (_pendingDeleteId ? [_pendingDeleteId] : []);
+  for (const id of ids) {
+    try {
+      if (window.deleteEntry) await window.deleteEntry(id);
+      if (_expandedId === id) _expandedId = null;
+      _selectedIds.delete(id);
+    } catch (e) {}
+  }
   _pendingDeleteId = null;
+  _pendingDeleteIds = [];
   const overlay = document.getElementById('confirmOverlay');
   if (overlay) overlay.classList.remove('show');
+  updateSelectionBar();
   await loadEntries();
 }
 
 function cancelDelete() {
   _pendingDeleteId = null;
+  _pendingDeleteIds = [];
   const overlay = document.getElementById('confirmOverlay');
   if (overlay) overlay.classList.remove('show');
+}
+
+function updateSelectionBar() {
+  const bar = document.getElementById('selectionBar');
+  const countEl = document.getElementById('selectionCount');
+  const page = document.getElementById('page-history');
+  if (!bar) return;
+  if (_selectedIds.size > 0) {
+    bar.classList.remove('hidden');
+    if (page) page.classList.add('selecting');
+    if (countEl) countEl.textContent = _selectedIds.size;
+  } else {
+    bar.classList.add('hidden');
+    if (page) page.classList.remove('selecting');
+  }
+}
+
+function clearSelection() {
+  _selectedIds.clear();
+  updateSelectionBar();
+  renderHistory();
 }
 
 async function updateTag(input) {
