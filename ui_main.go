@@ -107,7 +107,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			mainWindowMu.Unlock()
 		}()
 
-		w := webview.New(true)
+		w := webview.New(debugMode)
 		if w == nil {
 			return
 		}
@@ -146,11 +146,14 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			effectivePage = "settings"
 		}
 		// Set data-theme attribute immediately so CSS variables apply before first paint (prevents white flash)
-		initJS := fmt.Sprintf(`(function(){var t=%s;if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');})();`, themeJSON)
+		// Guard against document.documentElement being null on about:blank
+		initJS := fmt.Sprintf(`(function(){var d=document.documentElement;if(!d)return;var t=%s;if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';if(t==='dark')d.setAttribute('data-theme','dark');})();`, themeJSON)
 		initJS += fmt.Sprintf(`window._lang = %s; window._theme = %s; window._initialPage = "%s";`, langJSON, themeJSON, effectivePage)
 		if initialPage == "smart-mode" {
 			initJS += ` window._initialSection = "smart-mode";`
 		}
+		// Disable browser context menu (right-click) — app provides its own UX
+		initJS += ` document.addEventListener('contextmenu', function(e){ e.preventDefault(); });`
 		w.Init(initJS)
 
 		// --- Settings bindings ---
