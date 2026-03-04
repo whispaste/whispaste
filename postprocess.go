@@ -11,10 +11,13 @@ import (
 
 // smartModePresets maps preset names to system prompts.
 var smartModePresets = map[string]string{
-	"cleanup": "Clean up the following dictated text. Fix grammar, punctuation, and capitalization. Remove filler words. Keep the original language and meaning. Return only the cleaned text.",
-	"email":   "Rewrite the following dictated text as a professional email. Use proper greeting and closing. Fix grammar and punctuation. Keep the original language. Return only the email text.",
-	"bullets": "Rewrite the following dictated text as a structured bullet-point list. Fix grammar and punctuation. Keep the original language. Return only the bullet list.",
-	"formal":  "Rewrite the following dictated text in formal, professional language. Fix grammar and punctuation. Keep the original language. Return only the rewritten text.",
+	"cleanup":  "Clean up the following dictated text. Fix grammar, punctuation, and capitalization. Remove filler words. Keep the original language and meaning. Return only the cleaned text.",
+	"email":    "Rewrite the following dictated text as a professional email. Use proper greeting and closing. Fix grammar and punctuation. Keep the original language. Return only the email text.",
+	"bullets":  "Rewrite the following dictated text as a structured bullet-point list. Fix grammar and punctuation. Keep the original language. Return only the bullet list.",
+	"formal":   "Rewrite the following dictated text in formal, professional language. Fix grammar and punctuation. Keep the original language. Return only the rewritten text.",
+	"aiprompt": "Rewrite the following dictated text as a clear, concise AI prompt. Preserve the core intent and key requirements. Fix grammar and punctuation. Remove filler words and redundancy. Structure it so an AI model can follow the instructions precisely. Be token-efficient. Return only the prompt text.",
+	"summary":  "Summarize the following dictated text concisely. Capture the key points and main ideas in a few sentences. Fix grammar and punctuation. Keep the original language. Return only the summary.",
+	"notes":    "Rewrite the following dictated text as structured meeting notes or personal notes. Use headings for topics, bullet points for details, and action items where applicable. Fix grammar and punctuation. Keep the original language. Return only the notes.",
 }
 
 // PostProcess sends transcribed text through GPT-4o-mini for formatting/cleanup.
