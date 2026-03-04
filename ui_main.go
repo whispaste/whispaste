@@ -669,12 +669,14 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 
 		w.SetHtml(mainWindowHTML)
 		w.Run()
+		logDebug("Main window closed — invoking cleanup")
 		// Window closed — stop any running audio monitor
 		if recorder != nil {
 			recorder.StopMonitor()
 		}
 		// Notify caller
 		if onClose != nil {
+			logDebug("Main window: calling onClose callback")
 			onClose()
 		}
 	}()
