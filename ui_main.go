@@ -484,8 +484,8 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 
 		// Bind: getCategories → returns list of used categories
 		w.Bind("getCategories", func() (string, error) {
-			cats := history.Categories()
-			data, err := json.Marshal(cats)
+			tags := history.Tags()
+			data, err := json.Marshal(tags)
 			if err != nil {
 				return "[]", err
 			}
@@ -502,9 +502,13 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return history.TogglePin(id)
 		})
 
-		// Bind: updateEntry → update title/category
-		w.Bind("updateEntry", func(id, title, category string) bool {
-			return history.UpdateEntry(id, title, category)
+		// Bind: updateEntry → update title/tags (tags as JSON array string)
+		w.Bind("updateEntry", func(id, title, tagsJSON string) bool {
+			var tags []string
+			if tagsJSON != "" {
+				json.Unmarshal([]byte(tagsJSON), &tags)
+			}
+			return history.UpdateEntry(id, title, tags)
 		})
 
 		// Bind: updateEntryText → update transcription text content
