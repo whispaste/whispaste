@@ -265,7 +265,16 @@ const translations = {
     'statusbar.hotkey_tip': 'Recording hotkey — click to change',
     'statusbar.smart_tip': 'Smart Mode — click to configure',
     'statusbar.on': 'On',
-    'statusbar.off': 'Off'
+    'statusbar.off': 'Off',
+
+    // Search help
+    searchHelpTitle: 'Search Syntax',
+    searchHelpBasic: 'Basic search',
+    searchHelpExact: 'Exact phrase match',
+    searchHelpAnd: 'Both terms required',
+    searchHelpOr: 'Either term matches',
+    searchHelpNot: 'Exclude term',
+    searchHelpWild: 'Wildcard match'
   },
   de: {
     // Navigation
@@ -532,7 +541,16 @@ const translations = {
     'statusbar.hotkey_tip': 'Aufnahme-Tastenkürzel — klicken zum Ändern',
     'statusbar.smart_tip': 'Smart-Modus — klicken zum Konfigurieren',
     'statusbar.on': 'An',
-    'statusbar.off': 'Aus'
+    'statusbar.off': 'Aus',
+
+    // Search help
+    searchHelpTitle: 'Suchsyntax',
+    searchHelpBasic: 'Einfache Suche',
+    searchHelpExact: 'Exakte Übereinstimmung',
+    searchHelpAnd: 'Beide Begriffe erforderlich',
+    searchHelpOr: 'Ein Begriff genügt',
+    searchHelpNot: 'Begriff ausschließen',
+    searchHelpWild: 'Platzhaltersuche'
   }
 };
 

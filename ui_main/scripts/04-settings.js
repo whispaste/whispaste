@@ -601,8 +601,13 @@ window.downloadComplete = function(modelId, success, errorMsg) {
   }
 };
 
-function confirmDeleteModel(id) {
-  if (confirm(t('modelDeleteConfirm'))) {
+async function confirmDeleteModel(id) {
+  const confirmed = await showConfirmDialog(
+    t('modelDeleteConfirm'),
+    t('modelDeleteConfirm'),
+    { variant: 'danger', confirmText: t('notebook.confirm_delete') }
+  );
+  if (confirmed) {
     deleteModel(id);
   }
 }
