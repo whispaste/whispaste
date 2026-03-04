@@ -283,6 +283,13 @@ function clearSelection() {
   renderHistory();
 }
 
+function selectAllVisible() {
+  const filtered = getFiltered();
+  filtered.forEach(e => _selectedIds.add(e.id));
+  updateSelectionBar();
+  renderHistory();
+}
+
 async function updateTag(input) {
   const id = input.dataset.id;
   const tag = input.value.trim();

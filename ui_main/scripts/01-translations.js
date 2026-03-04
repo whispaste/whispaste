@@ -164,6 +164,8 @@ const translations = {
     'notebook.confirm_cancel': 'Cancel',
     'notebook.confirm_delete': 'Delete',
     'notebook.selected': 'selected',
+    'notebook.select_all': 'Select All',
+    'notebook.select_none': 'None',
     'notebook.delete_selected': 'Delete',
     'notebook.confirm_delete_multi_title': 'Delete {n} Entries',
     'notebook.confirm_delete_multi_msg': '{n} entries will be permanently deleted.'
@@ -332,6 +334,8 @@ const translations = {
     'notebook.confirm_cancel': 'Abbrechen',
     'notebook.confirm_delete': 'Löschen',
     'notebook.selected': 'ausgewählt',
+    'notebook.select_all': 'Alle',
+    'notebook.select_none': 'Keine',
     'notebook.delete_selected': 'Löschen',
     'notebook.confirm_delete_multi_title': '{n} Einträge löschen',
     'notebook.confirm_delete_multi_msg': '{n} Einträge werden dauerhaft gelöscht.'

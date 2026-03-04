@@ -22,6 +22,7 @@ var (
 	mainWindowMu   sync.Mutex
 	mainWindowOpen bool
 	mainWindowHwnd uintptr
+	mainWebview    webview.WebView
 )
 
 //go:embed ui_main
@@ -79,6 +80,19 @@ func collectEmbeddedFiles(fsys embed.FS, dir, ext string) string {
 	return buf.String()
 }
 
+// NotifyHistoryChanged tells the open dashboard to reload entries.
+func NotifyHistoryChanged() {
+	mainWindowMu.Lock()
+	w := mainWebview
+	open := mainWindowOpen
+	mainWindowMu.Unlock()
+	if open && w != nil {
+		w.Dispatch(func() {
+			w.Eval("if(typeof loadEntries==='function')loadEntries()")
+		})
+	}
+}
+
 // ShowMainWindow opens the unified main window with WebView2.
 func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved func(), onClose func(), onCapture func(), initialPage string) {
 	mainWindowMu.Lock()
@@ -126,6 +140,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			mainWindowMu.Lock()
 			mainWindowOpen = false
 			mainWindowHwnd = 0
+			mainWebview = nil
 			mainWindowMu.Unlock()
 		}()
 
@@ -134,6 +149,10 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return
 		}
 		defer w.Destroy()
+
+		mainWindowMu.Lock()
+		mainWebview = w
+		mainWindowMu.Unlock()
 
 		w.SetTitle("WhisPaste")
 		w.SetSize(1000, 700, webview.HintNone)
