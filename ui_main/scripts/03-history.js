@@ -6,6 +6,7 @@ let _currentSort = 'newest';
 let _expandedId = null;
 let _pendingDeleteId = null;
 let _selectedIds = new Set();
+let _lastCheckedIndex = -1;
 let _pendingDeleteIds = [];
 
 function isToday(ts) {
@@ -171,13 +172,24 @@ function renderHistory() {
     });
   });
 
-  // Bind checkbox clicks for multi-select
+  // Bind checkbox clicks for multi-select (with Shift+click range selection)
+  const visibleIds = filtered.map(e => e.id);
   list.querySelectorAll('.entry-checkbox').forEach(cb => {
     cb.addEventListener('click', (ev) => {
       ev.stopPropagation();
       const id = cb.dataset.selectId;
-      if (_selectedIds.has(id)) _selectedIds.delete(id);
-      else _selectedIds.add(id);
+      const currentIndex = visibleIds.indexOf(id);
+
+      if (ev.shiftKey && _lastCheckedIndex >= 0 && currentIndex >= 0) {
+        const from = Math.min(_lastCheckedIndex, currentIndex);
+        const to = Math.max(_lastCheckedIndex, currentIndex);
+        for (let i = from; i <= to; i++) _selectedIds.add(visibleIds[i]);
+      } else {
+        if (_selectedIds.has(id)) _selectedIds.delete(id);
+        else _selectedIds.add(id);
+      }
+
+      if (currentIndex >= 0) _lastCheckedIndex = currentIndex;
       updateSelectionBar();
       renderHistory();
     });
@@ -279,6 +291,7 @@ function updateSelectionBar() {
 
 function clearSelection() {
   _selectedIds.clear();
+  _lastCheckedIndex = -1;
   updateSelectionBar();
   renderHistory();
 }
