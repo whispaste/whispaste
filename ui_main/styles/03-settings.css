@@ -126,6 +126,8 @@
   font-weight: 500;
 }
 .form-hint a:hover { text-decoration: underline; }
+.sponsor-links { margin-top: 4px; font-size: 11px; opacity: 0.85; }
+.sponsor-links a { font-weight: 400; }
 
 /* ── Text Input ────────────────────────────────────────── */
 .input-wrapper {
