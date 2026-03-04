@@ -11,6 +11,20 @@ import (
 )
 
 func main() {
+	// Single-instance guard: only one WhisPaste process at a time
+	mutexName, _ := windows.UTF16PtrFromString("Global\\WhisPaste_SingleInstance")
+	kernel32 := windows.NewLazySystemDLL("kernel32.dll")
+	createMutex := kernel32.NewProc("CreateMutexW")
+	handle, _, err := createMutex.Call(0, 0, uintptr(unsafe.Pointer(mutexName)))
+	if handle == 0 {
+		os.Exit(1)
+	}
+	if err == windows.ERROR_ALREADY_EXISTS {
+		windows.CloseHandle(windows.Handle(handle))
+		os.Exit(0)
+	}
+	defer windows.CloseHandle(windows.Handle(handle))
+
 	InitLogger(LogDebug)
 	defer CloseLogger()
 
