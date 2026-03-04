@@ -1,0 +1,477 @@
+package main
+
+import (
+	"embed"
+	"encoding/json"
+	"fmt"
+	"io/fs"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"golang.org/x/sys/windows"
+
+	webview "github.com/webview/webview_go"
+)
+
+var (
+	mainWindowMu   sync.Mutex
+	mainWindowOpen bool
+	mainWindowHwnd uintptr
+)
+
+//go:embed ui_main
+var uiMainFS embed.FS
+
+// mainWindowHTML is assembled once at init from modular files.
+var mainWindowHTML string
+
+func init() {
+	mainWindowHTML = assembleMainHTML()
+}
+
+// assembleMainHTML reads template.html and injects concatenated CSS/JS from ui_main/ subdirectories.
+func assembleMainHTML() string {
+	tmpl, err := fs.ReadFile(uiMainFS, "ui_main/template.html")
+	if err != nil {
+		logError("Failed to read UI template: %v", err)
+		return "<html><body><p>UI load error</p></body></html>"
+	}
+
+	css := collectEmbeddedFiles(uiMainFS, "ui_main/styles", ".css")
+	js := collectEmbeddedFiles(uiMainFS, "ui_main/scripts", ".js")
+
+	html := string(tmpl)
+	html = strings.Replace(html, "/* {{STYLES}} */", css, 1)
+	html = strings.Replace(html, "/* {{SCRIPTS}} */", js, 1)
+	return html
+}
+
+// collectEmbeddedFiles reads all files with the given extension from a directory, sorted by name.
+func collectEmbeddedFiles(fsys embed.FS, dir, ext string) string {
+	entries, err := fs.ReadDir(fsys, dir)
+	if err != nil {
+		logWarn("Failed to read UI dir %s: %v", dir, err)
+		return ""
+	}
+	var names []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ext) {
+			names = append(names, e.Name())
+		}
+	}
+	sort.Strings(names)
+	var buf strings.Builder
+	for _, name := range names {
+		data, err := fs.ReadFile(fsys, dir+"/"+name)
+		if err != nil {
+			logWarn("Failed to read UI file %s/%s: %v", dir, name, err)
+			continue
+		}
+		buf.WriteString("/* --- " + name + " --- */\n")
+		buf.Write(data)
+		buf.WriteByte('\n')
+	}
+	return buf.String()
+}
+
+// ShowMainWindow opens the unified main window with WebView2.
+func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved func(), onClose func(), onCapture func(), initialPage string) {
+	mainWindowMu.Lock()
+	if mainWindowOpen {
+		if mainWindowHwnd != 0 {
+			user32 := windows.NewLazySystemDLL("user32.dll")
+			setForeground := user32.NewProc("SetForegroundWindow")
+			showWin := user32.NewProc("ShowWindow")
+			showWin.Call(mainWindowHwnd, 9) // SW_RESTORE
+			setForeground.Call(mainWindowHwnd)
+		}
+		mainWindowMu.Unlock()
+		return
+	}
+	mainWindowOpen = true
+	mainWindowMu.Unlock()
+
+	go func() {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+
+		defer func() {
+			mainWindowMu.Lock()
+			mainWindowOpen = false
+			mainWindowHwnd = 0
+			mainWindowMu.Unlock()
+		}()
+
+		w := webview.New(true)
+		if w == nil {
+			return
+		}
+		defer w.Destroy()
+
+		w.SetTitle("WhisPaste")
+		w.SetSize(1000, 700, webview.HintNone)
+		w.SetSize(800, 550, webview.HintMin)
+
+		// Hide window initially to prevent white flash before content loads
+		hwndPtr := w.Window()
+		hwnd := uintptr(hwndPtr)
+
+		mainWindowMu.Lock()
+		mainWindowHwnd = hwnd
+		mainWindowMu.Unlock()
+		user32 := windows.NewLazySystemDLL("user32.dll")
+		showWindow := user32.NewProc("ShowWindow")
+		const swHide = 0
+		const swShow = 5
+		showWindow.Call(hwnd, swHide)
+
+		// Set window icon from embedded .ico
+		setWindowIcon(hwndPtr)
+
+		// Bind: windowReady → shows the window after HTML is fully loaded
+		w.Bind("windowReady", func() {
+			showWindow.Call(hwnd, swShow)
+		})
+
+		// Inject the current language, theme, and initial page before page loads
+		langJSON, _ := json.Marshal(cfg.GetUILanguage())
+		themeJSON, _ := json.Marshal(cfg.GetTheme())
+		effectivePage := initialPage
+		if initialPage == "smart-mode" {
+			effectivePage = "settings"
+		}
+		initJS := fmt.Sprintf(`window._lang = %s; window._theme = %s; window._initialPage = "%s";`, langJSON, themeJSON, effectivePage)
+		if initialPage == "smart-mode" {
+			initJS += ` window._initialSection = "smart-mode";`
+		}
+		w.Init(initJS)
+
+		// --- Settings bindings ---
+
+		// Bind: getConfig → returns JSON config
+		w.Bind("getConfig", func() (string, error) {
+			cfg.mu.RLock()
+			defer cfg.mu.RUnlock()
+			data, err := json.Marshal(cfg)
+			if err != nil {
+				return "", err
+			}
+			return string(data), nil
+		})
+
+		// Bind: saveConfig → saves config from JSON
+		w.Bind("saveConfig", func(configJSON string) map[string]interface{} {
+			var newCfg Config
+			if err := json.Unmarshal([]byte(configJSON), &newCfg); err != nil {
+				return map[string]interface{}{
+					"success": false,
+					"error":   fmt.Sprintf("Invalid config: %v", err),
+				}
+			}
+			cfg.mu.Lock()
+			cfg.APIKey = newCfg.APIKey
+			cfg.APIEndpoint = newCfg.APIEndpoint
+			cfg.HotkeyMods = newCfg.HotkeyMods
+			cfg.HotkeyKey = newCfg.HotkeyKey
+			cfg.Mode = newCfg.Mode
+			cfg.Language = newCfg.Language
+			cfg.Model = newCfg.Model
+			cfg.Prompt = newCfg.Prompt
+			cfg.OverlayPos = newCfg.OverlayPos
+			cfg.AutoPaste = newCfg.AutoPaste
+			cfg.PlaySounds = newCfg.PlaySounds
+			cfg.CheckUpdates = newCfg.CheckUpdates
+			cfg.UILanguage = newCfg.UILanguage
+			cfg.Theme = newCfg.Theme
+			cfg.Autostart = newCfg.Autostart
+			cfg.SoundVolume = newCfg.SoundVolume
+			cfg.MaxRecordSec = newCfg.MaxRecordSec
+			cfg.SmartMode = newCfg.SmartMode
+			cfg.SmartModePreset = newCfg.SmartModePreset
+			cfg.SmartModePrompt = newCfg.SmartModePrompt
+			cfg.SmartModeTarget = newCfg.SmartModeTarget
+			cfg.mu.Unlock()
+
+			// Apply autostart setting
+			if err := SetAutostart(newCfg.Autostart); err != nil {
+				logWarn("Failed to set autostart: %v", err)
+			}
+
+			SetLanguage(newCfg.UILanguage)
+
+			if err := cfg.Save(); err != nil {
+				return map[string]interface{}{
+					"success": false,
+					"error":   fmt.Sprintf("Save failed: %v", err),
+				}
+			}
+			if onSaved != nil {
+				onSaved()
+			}
+			return map[string]interface{}{"success": true, "error": ""}
+		})
+
+		// Bind: testRecording → record 3s, transcribe, return result
+		w.Bind("_doTestRecording", func() map[string]interface{} {
+			logInfo("Test recording started")
+			if !cfg.HasAPIKey() {
+				logWarn("Test recording: no API key")
+				return map[string]interface{}{
+					"success": false,
+					"text":    "",
+					"error":   T("error.no_api_key"),
+				}
+			}
+			if recorder == nil {
+				logError("Test recording: recorder not available")
+				return map[string]interface{}{
+					"success": false,
+					"text":    "",
+					"error":   "Recorder not available",
+				}
+			}
+
+			if err := recorder.Start(); err != nil {
+				logError("Test recording start failed: %v", err)
+				return map[string]interface{}{
+					"success": false,
+					"text":    "",
+					"error":   fmt.Sprintf(T("error.recording"), err),
+				}
+			}
+
+			// Record for 3 seconds
+			time.Sleep(3 * time.Second)
+			pcm, err := recorder.Stop()
+			if err != nil || len(pcm) == 0 {
+				errMsg := "no audio captured"
+				if err != nil {
+					errMsg = err.Error()
+				}
+				logError("Test recording capture failed: %s", errMsg)
+				return map[string]interface{}{
+					"success": false,
+					"text":    "",
+					"error":   errMsg,
+				}
+			}
+
+			logInfo("Test recording captured %d bytes, transcribing...", len(pcm))
+			model := cfg.Model
+			if model == "" {
+				model = "whisper-1"
+			}
+			wav := EncodeWAV(pcm, 16000, 1, 16)
+			text, err := Transcribe(wav, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), cfg.GetPrompt())
+			if err != nil {
+				logError("Test transcription failed: %v", err)
+				return map[string]interface{}{
+					"success": false,
+					"text":    "",
+					"error":   err.Error(),
+				}
+			}
+			logInfo("Test transcription succeeded: %q", strings.TrimSpace(text))
+			return map[string]interface{}{
+				"success": true,
+				"text":    strings.TrimSpace(text),
+				"error":   "",
+			}
+		})
+
+		// Bind: testSound → plays a success chime for preview
+		w.Bind("_testSound", func() {
+			PlayFeedback(SoundSuccess)
+		})
+
+		// Bind: openURL → opens URL in default browser (https only)
+		w.Bind("openURL", func(url string) {
+			if !strings.HasPrefix(url, "https://") {
+				logWarn("openURL: blocked non-https URL: %s", url)
+				return
+			}
+			exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+		})
+
+		// --- History/notebook bindings ---
+
+		// Bind: getEntries → returns all history entries as JSON
+		w.Bind("getEntries", func() (string, error) {
+			entries := history.All()
+			data, err := json.Marshal(entries)
+			if err != nil {
+				return "[]", err
+			}
+			return string(data), nil
+		})
+
+		// Bind: getCategories → returns list of used categories
+		w.Bind("getCategories", func() (string, error) {
+			cats := history.Categories()
+			data, err := json.Marshal(cats)
+			if err != nil {
+				return "[]", err
+			}
+			return string(data), nil
+		})
+
+		// Bind: deleteEntry → removes entry by ID
+		w.Bind("deleteEntry", func(id string) bool {
+			return history.Delete(id)
+		})
+
+		// Bind: pinEntry → toggles pin state
+		w.Bind("pinEntry", func(id string) bool {
+			return history.TogglePin(id)
+		})
+
+		// Bind: updateEntry → update title/category
+		w.Bind("updateEntry", func(id, title, category string) bool {
+			return history.UpdateEntry(id, title, category)
+		})
+
+		// Bind: copyEntry → copies text to clipboard
+		w.Bind("copyEntry", func(id string) string {
+			entries := history.All()
+			for _, e := range entries {
+				if e.ID == id {
+					writeClipboard(e.Text)
+					return e.Text
+				}
+			}
+			return ""
+		})
+
+		// Bind: openLogFile → opens the log file in default editor
+		w.Bind("openLogFile", func() {
+			logDir, err := configDir()
+			if err != nil {
+				logWarn("Could not determine config dir: %v", err)
+				return
+			}
+			logPath := filepath.Join(logDir, "whispaste.log")
+			exec.Command("cmd", "/c", "start", "", logPath).Start()
+		})
+
+		// Bind: startCapture → triggers recording from dashboard
+		w.Bind("startCapture", func() {
+			if onCapture != nil {
+				go onCapture()
+			}
+		})
+
+		// --- Theme & language bindings ---
+
+		// Bind: getTheme → returns current theme from config
+		w.Bind("getTheme", func() string {
+			cfg.mu.RLock()
+			defer cfg.mu.RUnlock()
+			return cfg.Theme
+		})
+
+		// Bind: setTheme → saves theme to config
+		w.Bind("setTheme", func(theme string) {
+			if theme != "system" && theme != "light" && theme != "dark" {
+				return
+			}
+			cfg.mu.Lock()
+			cfg.Theme = theme
+			cfg.mu.Unlock()
+			if err := cfg.Save(); err != nil {
+				logWarn("Failed to save theme: %v", err)
+			}
+		})
+
+		// Bind: getUILanguage → returns current UI language
+		w.Bind("getUILanguage", func() string {
+			return cfg.GetUILanguage()
+		})
+
+		// Bind: setUILanguage → saves UI language and re-applies
+		w.Bind("setUILanguage", func(lang string) {
+			if lang != "en" && lang != "de" {
+				return
+			}
+			cfg.mu.Lock()
+			cfg.UILanguage = lang
+			cfg.mu.Unlock()
+			SetLanguage(lang)
+			if err := cfg.Save(); err != nil {
+				logWarn("Failed to save language: %v", err)
+			}
+		})
+
+		// Bind: getTranslations → returns all l10n strings (notebook + settings)
+		w.Bind("getTranslations", func() (string, error) {
+			keys := []string{
+				// Notebook keys
+				"notebook.title", "notebook.search", "notebook.all",
+				"notebook.pinned", "notebook.today", "notebook.this_week",
+				"notebook.older", "notebook.empty", "notebook.no_results",
+				"notebook.copy", "notebook.delete", "notebook.pin",
+				"notebook.unpin", "notebook.copied", "notebook.confirm_delete",
+				"notebook.uncategorized",
+				"notebook.sort", "notebook.sort_newest", "notebook.sort_oldest",
+				"notebook.sort_alpha", "notebook.sort_duration",
+				"notebook.add_tag", "notebook.tag_updated",
+				// Settings keys
+				"settings.title", "settings.api_key", "settings.api_key_hint",
+				"settings.hotkey", "settings.mode", "settings.mode_ptt", "settings.mode_toggle",
+				"settings.language", "settings.language_auto", "settings.ui_language",
+				"settings.overlay", "settings.overlay_top", "settings.overlay_cursor",
+				"settings.auto_paste", "settings.play_sounds", "settings.check_updates",
+				"settings.save", "settings.cancel", "settings.test",
+				"settings.test_recording", "settings.test_success", "settings.test_error",
+				"settings.saved", "settings.about", "settings.general",
+				"settings.audio", "settings.appearance",
+				"settings.show_key", "settings.hide_key",
+				"settings.theme", "settings.theme_light", "settings.theme_dark", "settings.theme_system",
+				"settings.smart_mode", "settings.smart_preset",
+				"settings.smart_preset_off", "settings.smart_preset_cleanup",
+				"settings.smart_preset_email", "settings.smart_preset_bullets",
+				"settings.smart_preset_formal", "settings.smart_preset_translate",
+				"settings.smart_preset_custom",
+				"settings.smart_prompt", "settings.smart_prompt_hint",
+				"settings.smart_target", "settings.smart_cost_note",
+				"settings.api_endpoint", "settings.api_endpoint_hint",
+				"settings.whisper_prompt", "settings.whisper_prompt_hint",
+				"settings.max_duration", "settings.max_duration_fmt", "settings.unlimited",
+				// Stats keys
+				"stats.title", "stats.dictations", "stats.words",
+				"stats.time_saved", "stats.minutes", "stats.cost",
+				// App keys
+				"app.name", "app.description", "app.version",
+				// Update keys
+				"update.check", "update.up_to_date", "update.available",
+			}
+			tr := map[string]string{}
+			for _, k := range keys {
+				tr[k] = T(k)
+			}
+			data, err := json.Marshal(tr)
+			if err != nil {
+				return "{}", err
+			}
+			return string(data), nil
+		})
+
+		// Bind: closeWindow → closes the webview window
+		w.Bind("closeWindow", func() {
+			w.Terminate()
+		})
+
+		w.SetHtml(mainWindowHTML)
+		w.Run()
+		// Window closed — notify caller
+		if onClose != nil {
+			onClose()
+		}
+	}()
+}
+
+
