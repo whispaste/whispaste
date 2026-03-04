@@ -1,0 +1,54 @@
+/* ── Smart Mode Page ──────────────────────────────────── */
+.smartmode-content {
+  max-width: 700px;
+  padding: 0 24px 24px;
+}
+.page-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+.section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 20px 0 12px;
+}
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.preset-card {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; padding: 20px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  text-align: center;
+}
+.preset-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-secondary);
+  transform: translateY(-1px);
+}
+.preset-card.active {
+  border-color: var(--accent);
+  background: rgba(34, 211, 238, 0.06);
+}
+.preset-icon {
+  width: 28px; height: 28px;
+  color: var(--text-secondary);
+  transition: color 0.15s;
+}
+.preset-card.active .preset-icon { color: var(--accent); }
+.preset-label {
+  font-size: 0.85rem; font-weight: 600;
+  color: var(--text-primary);
+}
+.preset-desc {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}

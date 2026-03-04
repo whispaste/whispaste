@@ -158,6 +158,36 @@ func (r *Recorder) Close() {
 	})
 }
 
+// AudioDeviceInfo represents an audio input device.
+type AudioDeviceInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// ListAudioDevices returns available audio capture devices.
+func ListAudioDevices() ([]AudioDeviceInfo, error) {
+	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer ctx.Uninit()
+	defer ctx.Free()
+
+	devices, err := ctx.Context.Devices(malgo.Capture)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []AudioDeviceInfo
+	for _, d := range devices {
+		result = append(result, AudioDeviceInfo{
+			ID:   d.ID.String(),
+			Name: d.Name(),
+		})
+	}
+	return result, nil
+}
+
 func (r *Recorder) computeLevel(samples []byte) {
 	n := len(samples) / 2
 	if n == 0 {
