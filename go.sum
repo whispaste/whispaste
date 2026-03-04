@@ -18,6 +18,14 @@ github.com/getlantern/systray v1.2.2 h1:dCEHtfmvkJG7HZ8lS/sLklTH4RKUcIsKrAD9sTho
 github.com/getlantern/systray v1.2.2/go.mod h1:pXFOI1wwqwYXEhLPm9ZGjS2u/vVELeIgNMY5HvhHhcE=
 github.com/go-stack/stack v1.8.0 h1:5SgMzNM5HxrEjV0ww2lTmX6E2Izsfxas4+YHWRs3Lsk=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
+github.com/k2-fsa/sherpa-onnx-go v1.12.27 h1:sccL+k+m6RqRTtGhXdNtwT3kQRt+f8u51g4BRwJCa7A=
+github.com/k2-fsa/sherpa-onnx-go v1.12.27/go.mod h1:B/ynRbVa5gpYoZYeYgY3zPi4MTfKk95UZueZDSIhbjk=
+github.com/k2-fsa/sherpa-onnx-go-linux v1.12.28 h1:2fqhx0ClqjQ6bzps8fvdPjWfo+hDp0xmNE5jgmT6p9c=
+github.com/k2-fsa/sherpa-onnx-go-linux v1.12.28/go.mod h1:NXEH2rsBgTdqY59YpPq6CtSBlBAXy/8a9FmpLERU97I=
+github.com/k2-fsa/sherpa-onnx-go-macos v1.12.28 h1:EHwSkSFztG1BTi1Tyde+5+4A+W8eUbAaV4AdDNXGyxQ=
+github.com/k2-fsa/sherpa-onnx-go-macos v1.12.28/go.mod h1:ZOhUAXC62Unj0ZNfu6zxSFKcW96aXf7P3BsqiUyOBbE=
+github.com/k2-fsa/sherpa-onnx-go-windows v1.12.28 h1:zwHJhx3QqC/BwjKap6MUqtu7EfnAsalzVrVpgfOAANU=
+github.com/k2-fsa/sherpa-onnx-go-windows v1.12.28/go.mod h1:5AX7TU8+P/gInjglY1ijtWUM2b8iyR0QX4yEngzMe64=
 github.com/lxn/walk v0.0.0-20210112085537-c389da54e794/go.mod h1:E23UucZGqpuUANJooIbHWCufXvOcT6E7Stq81gU+CSQ=
 github.com/lxn/win v0.0.0-20210218163916-a377121e959e/go.mod h1:KxxjdtRkfNoYDCUP5ryK7XJJNTnpC8atvtmTheChOtk=
 github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c h1:rp5dCmg/yLR3mgFuSOe4oEnDDmGLROTvMragMUXpTQw=

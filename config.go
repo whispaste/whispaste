@@ -32,6 +32,8 @@ type Config struct {
 	SmartModePrompt string `json:"smart_mode_prompt"`
 	SmartModeTarget string `json:"smart_mode_target"`
 	SponsorShown    bool   `json:"sponsor_shown"`
+	UseLocalSTT     bool   `json:"use_local_stt"`
+	LocalModelID    string `json:"local_model_id"`
 	mu          sync.RWMutex
 }
 
@@ -51,6 +53,8 @@ func DefaultConfig() *Config {
 		Theme:        "system",
 		SoundVolume:  1.0,
 		MaxRecordSec: 120,
+		UseLocalSTT:  false,
+		LocalModelID: "whisper-tiny",
 	}
 }
 
@@ -246,6 +250,23 @@ func (c *Config) SetSponsorShown(v bool) {
 	c.mu.Lock()
 	c.SponsorShown = v
 	c.mu.Unlock()
+}
+
+// GetUseLocalSTT returns whether local STT is enabled (thread-safe).
+func (c *Config) GetUseLocalSTT() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.UseLocalSTT
+}
+
+// GetLocalModelID returns the local model ID (thread-safe).
+func (c *Config) GetLocalModelID() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.LocalModelID == "" {
+		return "whisper-tiny"
+	}
+	return c.LocalModelID
 }
 
 // SetSmartModePreset sets the smart mode preset and enables/disables smart mode (thread-safe).
