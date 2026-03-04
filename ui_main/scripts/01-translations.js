@@ -368,7 +368,21 @@ const translations = {
     'onboarding.back': 'Back',
     'onboarding.ready_title': "You're All Set!",
     'onboarding.ready_desc': 'Press the hotkey anywhere to start recording:',
-    'onboarding.finish': "Let's Go!"
+    'onboarding.finish': "Let's Go!",
+
+    // Configuration Profiles
+    'profile.none': 'No Profile',
+    'profile.save_tip': 'Save current settings as profile',
+    'profile.delete_tip': 'Delete this profile',
+    'profile.save_title': 'Save Profile',
+    'profile.save_msg': 'Enter a name for this profile:',
+    'profile.save': 'Save',
+    'profile.saved': 'Profile saved',
+    'profile.loaded': 'Profile loaded',
+    'profile.delete_title': 'Delete Profile',
+    'profile.delete_msg': 'Delete profile "{name}"?',
+    'profile.delete': 'Delete',
+    'profile.deleted': 'Profile deleted'
   },
   de: {
     // Navigation
@@ -738,7 +752,21 @@ const translations = {
     'onboarding.back': 'Zurück',
     'onboarding.ready_title': 'Alles bereit!',
     'onboarding.ready_desc': 'Drücke die Tastenkombination, um die Aufnahme zu starten:',
-    'onboarding.finish': 'Los geht\'s!'
+    'onboarding.finish': 'Los geht\'s!',
+
+    // Configuration Profiles
+    'profile.none': 'Kein Profil',
+    'profile.save_tip': 'Aktuelle Einstellungen als Profil speichern',
+    'profile.delete_tip': 'Dieses Profil löschen',
+    'profile.save_title': 'Profil speichern',
+    'profile.save_msg': 'Name für dieses Profil eingeben:',
+    'profile.save': 'Speichern',
+    'profile.saved': 'Profil gespeichert',
+    'profile.loaded': 'Profil geladen',
+    'profile.delete_title': 'Profil löschen',
+    'profile.delete_msg': 'Profil „{name}" löschen?',
+    'profile.delete': 'Löschen',
+    'profile.deleted': 'Profil gelöscht'
   }
 };
 

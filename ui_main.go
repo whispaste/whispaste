@@ -758,6 +758,45 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			logInfo("Smart mode preset switched to: %s (enabled=%v)", preset, cfg.GetSmartMode())
 		})
 
+		// --- Profile bindings ---
+
+		// Bind: saveProfile → save current settings as a named profile
+		w.Bind("saveProfile", func(name string) {
+			cfg.SaveProfile(name)
+			if err := cfg.Save(); err != nil {
+				logError("Save profile %q: %v", name, err)
+			}
+			logInfo("Profile saved: %s", name)
+		})
+
+		// Bind: loadProfile → apply a named profile
+		w.Bind("loadProfile", func(name string) bool {
+			ok := cfg.LoadProfile(name)
+			if ok {
+				if err := cfg.Save(); err != nil {
+					logError("Save config after loading profile %q: %v", name, err)
+				}
+				logInfo("Profile loaded: %s", name)
+			}
+			return ok
+		})
+
+		// Bind: deleteProfile → remove a named profile
+		w.Bind("deleteProfile", func(name string) {
+			cfg.DeleteProfile(name)
+			if err := cfg.Save(); err != nil {
+				logError("Delete profile %q: %v", name, err)
+			}
+			logInfo("Profile deleted: %s", name)
+		})
+
+		// Bind: listProfiles → returns JSON array of profile names
+		w.Bind("listProfiles", func() string {
+			names := cfg.ListProfiles()
+			data, _ := json.Marshal(names)
+			return string(data)
+		})
+
 		// --- Theme & language bindings ---
 
 		// Bind: getTheme → returns current theme from config
