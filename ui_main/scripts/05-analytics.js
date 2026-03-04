@@ -126,23 +126,32 @@ function renderModelDonut(modelCounts) {
   const total = entries.reduce((s, e) => s + e[1], 0);
 
   const cx = 90, cy = 90, r = 70, innerR = 45;
-  let startAngle = -Math.PI / 2;
   let paths = '';
   const legend = [];
 
-  entries.forEach(([model, count], i) => {
-    const angle = (count / total) * Math.PI * 2;
-    const endAngle = startAngle + angle;
-    const largeArc = angle > Math.PI ? 1 : 0;
-    const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
-    const x2 = cx + r * Math.cos(endAngle), y2 = cy + r * Math.sin(endAngle);
-    const ix1 = cx + innerR * Math.cos(endAngle), iy1 = cy + innerR * Math.sin(endAngle);
-    const ix2 = cx + innerR * Math.cos(startAngle), iy2 = cy + innerR * Math.sin(startAngle);
-    const color = colors[i % colors.length];
-    paths += `<path d="M${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} L${ix1},${iy1} A${innerR},${innerR} 0 ${largeArc} 0 ${ix2},${iy2} Z" fill="${color}"/>`;
+  // Single model: render full circle instead of degenerate arc
+  if (entries.length === 1) {
+    const [model, count] = entries[0];
+    const color = colors[0];
+    paths = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>
+             <circle cx="${cx}" cy="${cy}" r="${innerR}" fill="var(--bg-card)"/>`;
     legend.push(`<span class="donut-legend-item"><span class="donut-legend-dot" style="background:${color}"></span>${model} (${count})</span>`);
-    startAngle = endAngle;
-  });
+  } else {
+    let startAngle = -Math.PI / 2;
+    entries.forEach(([model, count], i) => {
+      const angle = (count / total) * Math.PI * 2;
+      const endAngle = startAngle + angle;
+      const largeArc = angle > Math.PI ? 1 : 0;
+      const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
+      const x2 = cx + r * Math.cos(endAngle), y2 = cy + r * Math.sin(endAngle);
+      const ix1 = cx + innerR * Math.cos(endAngle), iy1 = cy + innerR * Math.sin(endAngle);
+      const ix2 = cx + innerR * Math.cos(startAngle), iy2 = cy + innerR * Math.sin(startAngle);
+      const color = colors[i % colors.length];
+      paths += `<path d="M${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} L${ix1},${iy1} A${innerR},${innerR} 0 ${largeArc} 0 ${ix2},${iy2} Z" fill="${color}"/>`;
+      legend.push(`<span class="donut-legend-item"><span class="donut-legend-dot" style="background:${color}"></span>${model} (${count})</span>`);
+      startAngle = endAngle;
+    });
+  }
 
   return `<svg class="donut-chart" viewBox="0 0 180 180">${paths}</svg>
     <div class="donut-legend">${legend.join('')}</div>`;
