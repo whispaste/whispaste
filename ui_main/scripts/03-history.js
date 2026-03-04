@@ -338,6 +338,7 @@ function renderHistory() {
         <span class="entry-chevron">${icons.chevronDown}</span>
         <div class="entry-actions">
           <button class="btn-icon copy" title="${t('notebook.copy')}" data-action="copy" data-id="${e.id}">${icons.copy}</button>
+          <button class="btn-icon" title="${t('notebook.export')}" data-action="export" data-id="${e.id}">${icons.download}</button>
           <button class="btn-icon" title="${t('notebook.duplicate')}" data-action="duplicate" data-id="${e.id}">${icons.filePlus}</button>
           <button class="btn-icon pin${e.pinned ? ' active' : ''}" title="${e.pinned ? t('notebook.unpin') : t('notebook.pin')}" data-action="pin" data-id="${e.id}">${icons.pin}</button>
           <button class="btn-icon delete" title="${t('notebook.delete')}" data-action="delete" data-id="${e.id}">${icons.trash}</button>
@@ -408,6 +409,7 @@ function renderHistory() {
       const action = btn.dataset.action;
       const id = btn.dataset.id;
       if (action === 'copy') doCopy(id);
+      else if (action === 'export') showExportMenu(id, btn);
       else if (action === 'duplicate') doDuplicate(id);
       else if (action === 'pin') doPin(id);
       else if (action === 'delete') confirmDelete(id);
@@ -699,4 +701,98 @@ async function removeTag(id, tagToRemove) {
     await loadEntries();
     showToast(t('notebook.tag_updated'));
   }
+}
+
+function showExportMenu(id, anchorEl) {
+  // Remove any existing export menu
+  document.querySelectorAll('.export-popover').forEach(el => el.remove());
+
+  const menu = document.createElement('div');
+  menu.className = 'export-popover';
+  menu.innerHTML = `
+    <button class="export-option" data-format="txt">${icons.files} ${t('notebook.export_txt')}</button>
+    <button class="export-option" data-format="md">${icons.files} ${t('notebook.export_md')}</button>
+  `;
+
+  // Position near the button
+  const rect = anchorEl.getBoundingClientRect();
+  menu.style.position = 'fixed';
+  menu.style.top = (rect.bottom + 4) + 'px';
+  menu.style.right = (window.innerWidth - rect.right) + 'px';
+  menu.style.zIndex = '1000';
+  document.body.appendChild(menu);
+
+  menu.querySelectorAll('.export-option').forEach(opt => {
+    opt.addEventListener('click', async () => {
+      menu.remove();
+      await doExport(id, opt.dataset.format);
+    });
+  });
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function closeMenu(ev) {
+      if (!menu.contains(ev.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
+      }
+    });
+  }, 0);
+}
+
+async function doExport(id, format) {
+  try {
+    if (window.exportEntry) {
+      const result = await window.exportEntry(id, format);
+      if (result) showToast(t('notebook.exported'));
+    }
+  } catch (e) { showToast('Export error', true); }
+}
+
+async function exportSelected() {
+  if (_selectedIds.size === 0) return;
+  // Show format selection via custom dialog
+  const format = await showExportFormatDialog();
+  if (!format) return;
+  try {
+    if (window.exportSelected) {
+      const ids = JSON.stringify([..._selectedIds]);
+      const result = await window.exportSelected(ids, format);
+      if (result) showToast(t('notebook.exported'));
+    }
+  } catch (e) { showToast('Export error', true); }
+}
+
+function showExportFormatDialog() {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'dialog-overlay';
+    overlay.innerHTML = `
+      <div class="dialog-box">
+        <div class="dialog-title">${t('notebook.export')}</div>
+        <div class="dialog-body" style="display:flex;gap:8px;justify-content:center">
+          <button class="btn btn-secondary" data-fmt="txt">TXT</button>
+          <button class="btn btn-primary" data-fmt="md">Markdown</button>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary dialog-cancel">${t('dialog.cancel') || 'Cancel'}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelectorAll('[data-fmt]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        overlay.remove();
+        resolve(btn.dataset.fmt);
+      });
+    });
+    overlay.querySelector('.dialog-cancel')?.addEventListener('click', () => {
+      overlay.remove();
+      resolve(null);
+    });
+    overlay.addEventListener('click', (ev) => {
+      if (ev.target === overlay) { overlay.remove(); resolve(null); }
+    });
+  });
 }

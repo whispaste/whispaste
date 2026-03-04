@@ -708,6 +708,31 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return removed
 		})
 
+		// Bind: exportEntry → export a single entry to file (txt or md)
+		w.Bind("exportEntry", func(id, format string) string {
+			e := history.GetByID(id)
+			if e == nil {
+				return ""
+			}
+			return exportEntries([]*HistoryEntry{e}, format)
+		})
+
+		// Bind: exportSelected → export multiple entries by IDs
+		w.Bind("exportSelected", func(idsJSON, format string) string {
+			var ids []string
+			if err := json.Unmarshal([]byte(idsJSON), &ids); err != nil {
+				logError("Export parse IDs: %v", err)
+				return ""
+			}
+			var entries []*HistoryEntry
+			for _, id := range ids {
+				if e := history.GetByID(id); e != nil {
+					entries = append(entries, e)
+				}
+			}
+			return exportEntries(entries, format)
+		})
+
 		// --- Theme & language bindings ---
 
 		// Bind: getTheme → returns current theme from config
@@ -762,6 +787,8 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				"notebook.sort", "notebook.sort_newest", "notebook.sort_oldest",
 				"notebook.sort_alpha", "notebook.sort_duration",
 				"notebook.add_tag", "notebook.tag_updated",
+				"notebook.export", "notebook.export_txt", "notebook.export_md",
+				"notebook.exported", "notebook.export_selected",
 				// Settings keys
 				"settings.title", "settings.api_key", "settings.api_key_hint",
 				"settings.hotkey", "settings.mode", "settings.mode_ptt", "settings.mode_toggle",

@@ -663,3 +663,39 @@
   border-radius: 3px;
   color: var(--accent);
 }
+
+/* ── Export Popover ────────────────────────────────────── */
+.export-popover {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  padding: 4px;
+  min-width: 160px;
+  animation: fadeIn 0.12s ease;
+}
+
+.export-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.export-option:hover {
+  background: var(--bg-hover);
+}
+
+.export-option .icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
