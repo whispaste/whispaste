@@ -263,6 +263,20 @@ function toggleApiKeyVisibility() {
   }
 }
 
+function copyApiKey() {
+  const input = document.getElementById('input-apikey');
+  if (!input || !input.value) return;
+  navigator.clipboard.writeText(input.value).then(() => {
+    const btn = document.getElementById('btn-copy-key');
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      btn.style.color = 'var(--accent)';
+      setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1500);
+    }
+  });
+}
+
 /* ── Unlimited Duration ───────────────────────────────── */
 function toggleUnlimited(checked) {
   const slider = document.getElementById('range-max-duration');
@@ -545,20 +559,8 @@ async function downloadModel(id) {
   
   if (window._downloadModel) {
     try {
-      const result = await window._downloadModel(id);
-      const res = typeof result === 'string' ? JSON.parse(result) : result;
-      if (res && res.success) {
-        showStatus(t('modelDownloadDone'), 'success');
-        _downloadingModel = null;
-        await renderModelList();
-        selectLocalModel(id);
-        const radio = document.querySelector(`[name="local-model"][value="${id}"]`);
-        if (radio) radio.disabled = false;
-      } else {
-        showStatus(res?.error || t('modelDownloadError'), 'error');
-        _downloadingModel = null;
-        renderModelList();
-      }
+      // Non-blocking: returns {started:true} immediately, completion via downloadComplete callback
+      await window._downloadModel(id);
     } catch (e) {
       showStatus(t('modelDownloadError'), 'error');
       _downloadingModel = null;
@@ -566,6 +568,22 @@ async function downloadModel(id) {
     }
   }
 }
+
+// Go calls this when an async download completes
+window.downloadComplete = function(modelId, success, errorMsg) {
+  if (success) {
+    showStatus(t('modelDownloadDone'), 'success');
+    _downloadingModel = null;
+    renderModelList();
+    selectLocalModel(modelId);
+    const radio = document.querySelector(`[name="local-model"][value="${modelId}"]`);
+    if (radio) radio.disabled = false;
+  } else {
+    showStatus(errorMsg || t('modelDownloadError'), 'error');
+    _downloadingModel = null;
+    renderModelList();
+  }
+};
 
 function confirmDeleteModel(id) {
   if (confirm(t('modelDeleteConfirm'))) {

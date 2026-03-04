@@ -24,6 +24,9 @@ type HistoryEntry struct {
 	Category  string  `json:"category,omitempty"`
 	Pinned    bool    `json:"pinned,omitempty"`
 	Source    string  `json:"source,omitempty"`
+	Model     string  `json:"model,omitempty"`
+	IsLocal   bool    `json:"is_local,omitempty"`
+	CostUSD   float64 `json:"cost_usd,omitempty"`
 }
 
 // History manages transcription history.
@@ -85,8 +88,20 @@ func LoadHistory() *History {
 	return h
 }
 
+// WhisperCostPerMinute is the current cost of OpenAI Whisper API per audio minute (USD).
+const WhisperCostPerMinute = 0.006
+
 // Add appends a new entry and prunes to the limit.
 func (h *History) Add(text string, durationSec float64, language string) {
+	h.AddWithModel(text, durationSec, language, "", false)
+}
+
+// AddWithModel appends a new entry with model tracking and prunes to the limit.
+func (h *History) AddWithModel(text string, durationSec float64, language, model string, isLocal bool) {
+	var cost float64
+	if !isLocal && durationSec > 0 {
+		cost = (durationSec / 60.0) * WhisperCostPerMinute
+	}
 	h.mu.Lock()
 	h.Entries = append(h.Entries, HistoryEntry{
 		ID:        generateID(),
@@ -96,6 +111,9 @@ func (h *History) Add(text string, durationSec float64, language string) {
 		Duration:  durationSec,
 		Language:  language,
 		Source:    "dictation",
+		Model:     model,
+		IsLocal:   isLocal,
+		CostUSD:   cost,
 	})
 	if len(h.Entries) > defaultMaxHistory {
 		h.Entries = h.Entries[len(h.Entries)-defaultMaxHistory:]
@@ -172,6 +190,105 @@ func (h *History) UpdateEntry(id, title, category string) bool {
 		}
 	}
 	return false
+}
+
+// UpdateText updates the text content (and auto-title) for an entry by ID.
+func (h *History) UpdateText(id, newText string) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for i, e := range h.Entries {
+		if e.ID == id {
+			h.Entries[i].Text = newText
+			h.Entries[i].Title = autoTitle(newText)
+			h.saveLocked()
+			return true
+		}
+	}
+	return false
+}
+
+// GetAnalytics computes usage statistics for a given time period.
+func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	now := time.Now()
+	var cutoff time.Time
+	if periodDays > 0 {
+		cutoff = now.AddDate(0, 0, -periodDays)
+	}
+
+	var totalEntries, localEntries, apiEntries int
+	var totalDuration, totalCost, localDuration float64
+	dailyCounts := map[string]int{}
+	modelCounts := map[string]int{}
+	durationBuckets := map[string]int{"<15s": 0, "15-30s": 0, "30-60s": 0, "1-3m": 0, ">3m": 0}
+
+	for _, e := range h.Entries {
+		ts, err := time.Parse(time.RFC3339, e.Timestamp)
+		if err != nil {
+			continue
+		}
+		if periodDays > 0 && ts.Before(cutoff) {
+			continue
+		}
+
+		totalEntries++
+		totalDuration += e.Duration
+		totalCost += e.CostUSD
+
+		if e.IsLocal {
+			localEntries++
+			localDuration += e.Duration
+		} else {
+			apiEntries++
+		}
+
+		day := ts.Format("2006-01-02")
+		dailyCounts[day]++
+
+		m := e.Model
+		if m == "" {
+			m = "unknown"
+		}
+		modelCounts[m]++
+
+		switch {
+		case e.Duration < 15:
+			durationBuckets["<15s"]++
+		case e.Duration < 30:
+			durationBuckets["15-30s"]++
+		case e.Duration < 60:
+			durationBuckets["30-60s"]++
+		case e.Duration < 180:
+			durationBuckets["1-3m"]++
+		default:
+			durationBuckets[">3m"]++
+		}
+	}
+
+	// Calculate savings: what local transcriptions would have cost via API
+	savings := (localDuration / 60.0) * WhisperCostPerMinute
+
+	return map[string]interface{}{
+		"totalEntries":    totalEntries,
+		"localEntries":    localEntries,
+		"apiEntries":      apiEntries,
+		"totalDuration":   totalDuration,
+		"totalCost":       totalCost,
+		"savings":         savings,
+		"dailyCounts":     dailyCounts,
+		"modelCounts":     modelCounts,
+		"durationBuckets": durationBuckets,
+		"avgDuration":     safeDiv(totalDuration, float64(totalEntries)),
+	}
+}
+
+func safeDiv(a, b float64) float64 {
+	if b == 0 {
+		return 0
+	}
+	return a / b
 }
 
 // Categories returns all unique category names used across entries.

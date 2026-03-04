@@ -187,7 +187,10 @@ function renderHistory() {
       </div>
       <div class="entry-preview">${esc(e.text)}</div>
       <div class="entry-full">
-        <div class="entry-full-text">${esc(e.text)}</div>
+        <div class="entry-full-text" id="text-${e.id}">${esc(e.text)}</div>
+        <div class="entry-text-actions">
+          <button class="btn-icon" title="${t('notebook.edit_text')}" data-action="edit-text" data-id="${e.id}">${icons.pencil}</button>
+        </div>
         <div class="entry-tags-section">
           <div class="tag-input-row">
             ${icons.tag}
@@ -201,7 +204,7 @@ function renderHistory() {
   // Bind entry click to expand/collapse
   list.querySelectorAll('.entry').forEach(el => {
     el.addEventListener('click', (ev) => {
-      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.entry-checkbox')) return;
+      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea')) return;
       const id = el.dataset.id;
       _expandedId = _expandedId === id ? null : id;
       renderHistory();
@@ -240,6 +243,9 @@ function renderHistory() {
       if (action === 'copy') doCopy(id);
       else if (action === 'pin') doPin(id);
       else if (action === 'delete') confirmDelete(id);
+      else if (action === 'edit-text') startEditText(id);
+      else if (action === 'save-text') saveEditText(id);
+      else if (action === 'cancel-text') cancelEditText(id);
     });
   });
 
@@ -283,6 +289,46 @@ async function mergeSelected() {
       showToast(t('statusError'), false);
     }
   }
+}
+
+function startEditText(id) {
+  const textEl = document.getElementById('text-' + id);
+  const actionsEl = textEl?.nextElementSibling;
+  if (!textEl) return;
+  const currentText = textEl.textContent;
+  textEl.innerHTML = `<textarea class="edit-textarea" id="edit-area-${id}">${esc(currentText)}</textarea>`;
+  if (actionsEl) {
+    actionsEl.innerHTML = `
+      <button class="btn-icon" title="${t('notebook.save')}" data-action="save-text" data-id="${id}">${icons.check}</button>
+      <button class="btn-icon" title="${t('notebook.cancel')}" data-action="cancel-text" data-id="${id}">${icons.x}</button>
+    `;
+    actionsEl.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const action = btn.dataset.action;
+        if (action === 'save-text') saveEditText(id);
+        else if (action === 'cancel-text') cancelEditText(id);
+      });
+    });
+  }
+  const ta = document.getElementById('edit-area-' + id);
+  if (ta) { ta.focus(); ta.style.height = ta.scrollHeight + 'px'; }
+}
+
+async function saveEditText(id) {
+  const ta = document.getElementById('edit-area-' + id);
+  if (!ta) return;
+  const newText = ta.value.trim();
+  if (!newText) return;
+  try {
+    if (window.updateEntryText) await window.updateEntryText(id, newText);
+    showToast(t('notebook.saved'));
+    await loadEntries();
+  } catch (e) { showToast(t('statusError'), false); }
+}
+
+function cancelEditText(id) {
+  loadEntries();
 }
 
 function confirmDelete(id) {

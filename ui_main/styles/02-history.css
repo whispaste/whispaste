@@ -304,6 +304,31 @@
   word-break: break-word;
 }
 
+.entry-text-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+.edit-textarea {
+  width: 100%;
+  min-height: 80px;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.edit-textarea:focus {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
 .entry-tags-section {
   margin-top: 12px;
   padding-top: 10px;

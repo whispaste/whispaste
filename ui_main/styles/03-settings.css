@@ -153,6 +153,24 @@
 }
 .form-input::placeholder { color: var(--text-hint); }
 
+.input-with-actions { padding-right: 68px; }
+
+.input-action-btn {
+  position: absolute;
+  border: none;
+  background: transparent;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: var(--text-hint);
+  border-radius: 4px;
+  font-size: 15px;
+  line-height: 1;
+  transition: color var(--transition);
+}
+.input-action-btn:hover { color: var(--text-secondary); }
+.input-action-btn:last-child { right: 4px; }
+.input-action-btn:nth-last-child(2) { right: 32px; }
+
 .input-eye {
   position: absolute;
   right: 4px;
