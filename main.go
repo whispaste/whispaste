@@ -267,7 +267,7 @@ func main() {
 					if overlay != nil {
 						overlay.Show(StateProcessing)
 					}
-					processed, err := PostProcess(text, smartPreset, smartCustom, smartTarget, apiKey, endpoint)
+					processed, err := PostProcess(text, smartPreset, smartCustom, smartTarget, apiKey, endpoint, cfg.GetUILanguage())
 					if err != nil {
 						logWarn("Smart mode error (using raw text): %v", err)
 					} else {

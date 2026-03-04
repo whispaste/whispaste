@@ -71,16 +71,18 @@
   color: var(--text);
   margin-bottom: 12px;
 }
-.chart-container { position: relative; }
+.chart-container { position: relative; overflow: hidden; }
 
 /* SVG bar chart */
 .bar-chart { width: 100%; height: 160px; }
-.bar-chart rect.bar { fill: var(--accent); rx: 2; }
+.bar-chart rect.bar { fill: var(--accent); }
 .bar-chart text { font-size: 10px; fill: var(--text-hint); }
 .bar-chart line.axis { stroke: var(--border); stroke-width: 1; }
+.bar-chart line.grid-line { stroke: var(--border); stroke-width: 0.5; stroke-dasharray: 4 2; opacity: 0.5; }
+.bar-chart text.grid-label { font-size: 9px; fill: var(--text-hint); }
 
 /* Donut chart */
-.donut-chart { width: 100%; height: 180px; }
+.donut-chart { width: 100%; max-height: 160px; display: block; margin: 0 auto; }
 .donut-legend {
   display: flex;
   flex-wrap: wrap;
@@ -102,19 +104,24 @@
 }
 
 /* Duration histogram */
-.duration-bars { display: flex; gap: 4px; align-items: flex-end; height: 100px; }
+.duration-bars { display: flex; gap: 8px; align-items: flex-end; }
+.dur-col { flex: 1; text-align: center; max-width: 60px; }
+.dur-bar-wrap { display: flex; align-items: flex-end; justify-content: center; height: 100px; }
 .dur-bar {
-  flex: 1;
+  width: 100%;
+  max-width: 40px;
   background: var(--accent);
   border-radius: 2px 2px 0 0;
   min-height: 2px;
-  position: relative;
 }
 .dur-bar-label {
   font-size: 10px;
   color: var(--text-hint);
-  text-align: center;
   margin-top: 4px;
+}
+.dur-bar-value {
+  font-size: 10px;
+  color: var(--text-hint);
 }
 
 /* Savings banner */

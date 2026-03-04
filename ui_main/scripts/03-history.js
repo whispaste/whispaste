@@ -181,6 +181,7 @@ function renderHistory() {
             ${e.category ? '<span class="tag">' + esc(e.category === 'merged' ? t('catMerged') : e.category) + '</span>' : ''}
           </div>
         </div>
+        <span class="entry-chevron">${icons.chevronDown}</span>
         <div class="entry-actions">
           <button class="btn-icon copy" title="${t('notebook.copy')}" data-action="copy" data-id="${e.id}">${icons.copy}</button>
           <button class="btn-icon pin${e.pinned ? ' active' : ''}" title="${e.pinned ? t('notebook.unpin') : t('notebook.pin')}" data-action="pin" data-id="${e.id}">${icons.pin}</button>
