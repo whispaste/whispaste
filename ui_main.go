@@ -20,10 +20,11 @@ import (
 )
 
 var (
-	mainWindowMu   sync.Mutex
-	mainWindowOpen bool
-	mainWindowHwnd uintptr
-	mainWebview    webview.WebView
+	mainWindowMu       sync.Mutex
+	mainWindowOpen     bool
+	mainWindowHwnd     uintptr
+	mainWebview        webview.WebView
+	lastRecordingState AppState // last state pushed via NotifyRecordingState
 )
 
 //go:embed ui_main
@@ -85,6 +86,31 @@ func collectEmbeddedFiles(fsys embed.FS, dir, ext string) string {
 		buf.WriteByte('\n')
 	}
 	return buf.String()
+}
+
+// NotifyRecordingState pushes the current recording state to the dashboard FAB.
+func NotifyRecordingState(s AppState) {
+	mainWindowMu.Lock()
+	lastRecordingState = s
+	w := mainWebview
+	open := mainWindowOpen
+	mainWindowMu.Unlock()
+	if open && w != nil {
+		stateStr := "idle"
+		switch s {
+		case StateRecording:
+			stateStr = "recording"
+		case StatePaused:
+			stateStr = "paused"
+		case StateTranscribing:
+			stateStr = "transcribing"
+		case StateProcessing:
+			stateStr = "processing"
+		}
+		w.Dispatch(func() {
+			w.Eval(fmt.Sprintf("if(typeof onRecordingStateChanged==='function')onRecordingStateChanged('%s')", stateStr))
+		})
+	}
 }
 
 // NotifyHistoryChanged tells the open dashboard to reload entries.
@@ -187,6 +213,11 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			showWindow.Call(hwnd, swShow)
 			setFgProc := user32.NewProc("SetForegroundWindow")
 			setFgProc.Call(hwnd)
+			// Sync recording state in case a recording is already in progress
+			mainWindowMu.Lock()
+			s := lastRecordingState
+			mainWindowMu.Unlock()
+			NotifyRecordingState(s)
 		})
 
 		// Inject the current language, theme, and initial page before page loads

@@ -137,6 +137,7 @@ func main() {
 		if tray != nil {
 			tray.SetTooltipState(newState)
 		}
+		NotifyRecordingState(newState)
 
 		playSounds, autoPaste, lang, apiKey, model, endpoint, prompt, useLocal := snapshotConfig()
 
@@ -160,6 +161,7 @@ func main() {
 				stateMu.Lock()
 				state = StateIdle
 				stateMu.Unlock()
+				NotifyRecordingState(StateIdle)
 				return
 			}
 			if !useLocal && apiKey == "" {
@@ -173,6 +175,7 @@ func main() {
 				stateMu.Lock()
 				state = StateIdle
 				stateMu.Unlock()
+				NotifyRecordingState(StateIdle)
 				return
 			}
 			if playSounds {
@@ -193,6 +196,7 @@ func main() {
 				stateMu.Lock()
 				state = StateIdle
 				stateMu.Unlock()
+				NotifyRecordingState(StateIdle)
 				return
 			}
 			recordStart = time.Now()
@@ -253,6 +257,7 @@ func main() {
 				stateMu.Lock()
 				state = StateIdle
 				stateMu.Unlock()
+				NotifyRecordingState(StateIdle)
 				return
 			}
 
@@ -286,6 +291,7 @@ func main() {
 					stateMu.Lock()
 					state = StateIdle
 					stateMu.Unlock()
+					NotifyRecordingState(StateIdle)
 					return
 				}
 
@@ -350,6 +356,7 @@ func main() {
 				stateGen++
 				gen := stateGen
 				stateMu.Unlock()
+				NotifyRecordingState(StateIdle)
 
 				if overlay != nil {
 					overlay.Show(StateCopied)
@@ -421,6 +428,7 @@ func main() {
 				if tray != nil {
 					tray.SetTooltipState(StateIdle)
 				}
+				NotifyRecordingState(StateIdle)
 			},
 			func() { // onPause: toggle pause/resume
 				stateMu.Lock()
@@ -437,6 +445,7 @@ func main() {
 					if tray != nil {
 						tray.SetTooltipState(StatePaused)
 					}
+					NotifyRecordingState(StatePaused)
 				} else if s == StatePaused {
 					recorder.Resume()
 					stateMu.Lock()
@@ -448,6 +457,7 @@ func main() {
 					if tray != nil {
 						tray.SetTooltipState(StateRecording)
 					}
+					NotifyRecordingState(StateRecording)
 				}
 			},
 			func() { // onDash: open dashboard/main window

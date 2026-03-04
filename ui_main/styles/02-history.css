@@ -382,6 +382,13 @@
   color: var(--danger);
 }
 
+.tag-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .tag-input-row {
   display: flex;
   align-items: center;
