@@ -40,6 +40,7 @@ async function loadAnalytics(periodDays) {
   const avgDur = data.avgDuration || 0;
   const minDur = data.minDuration || 0;
   const maxDur = data.maxDuration || 0;
+  const avgProc = data.avgProcessingDuration || 0;
   const fmtCost = v => '$' + (v || 0).toFixed(4);
   const fmtDur = s => s < 60 ? Math.round(s) + 's' : (s / 60).toFixed(1) + 'm';
 
@@ -55,9 +56,11 @@ async function loadAnalytics(periodDays) {
 
   // Summary cards — avg with min/max range
   const durationDetail = data.totalEntries > 0 ? `<div class="stat-range">${fmtDur(minDur)} – ${fmtDur(maxDur)}</div>` : '';
+  const processingDetail = avgProc > 0 ? `<div class="stat-range">${fmtDur(data.totalProcessingTime || 0)} ${t('analytics.processing_total')}</div>` : '';
   html += `<div class="analytics-summary">
     <div class="stat-card"><div class="stat-value">${data.totalEntries}</div><div class="stat-label">${t('analytics.total')}</div></div>
     <div class="stat-card"><div class="stat-value accent">${fmtDur(avgDur)}</div><div class="stat-label">${t('analytics.avg_duration')}</div>${durationDetail}</div>
+    <div class="stat-card"><div class="stat-value">${avgProc > 0 ? fmtDur(avgProc) : '—'}</div><div class="stat-label">${t('analytics.avg_processing')}</div>${processingDetail}</div>
     <div class="stat-card"><div class="stat-value">${data.localEntries || 0}</div><div class="stat-label">${t('analytics.local')}</div></div>
     <div class="stat-card"><div class="stat-value">${fmtCost(data.totalCost)}</div><div class="stat-label">${t('analytics.cost')}</div></div>
   </div>`;

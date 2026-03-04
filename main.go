@@ -259,6 +259,7 @@ func main() {
 			// Transcribe in background (use snapshot values, not cfg directly)
 			go func() {
 				durationSec := time.Since(recordStart).Seconds()
+				transcribeStart := time.Now()
 				var text string
 				var err error
 				if useLocal {
@@ -273,6 +274,7 @@ func main() {
 					wav := EncodeWAV(pcm, 16000, 1, 16)
 					text, err = Transcribe(wav, lang, apiKey, model, endpoint, prompt)
 				}
+				processingDurationSec := time.Since(transcribeStart).Seconds()
 				if err != nil {
 					logError("Transcription error: %v", err)
 					if playSounds {
@@ -304,9 +306,9 @@ func main() {
 				// Record stats and history with model info
 				totalDictations := stats.RecordDictation(text, durationSec)
 				if useLocal {
-					history.AddWithModel(text, durationSec, lang, cfg.GetLocalModelID(), true)
+					history.AddWithModel(text, durationSec, processingDurationSec, lang, cfg.GetLocalModelID(), true)
 				} else {
-					history.AddWithModel(text, durationSec, lang, model, false)
+					history.AddWithModel(text, durationSec, processingDurationSec, lang, model, false)
 				}
 				NotifyHistoryChanged()
 				if tray != nil {

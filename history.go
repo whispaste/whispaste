@@ -19,7 +19,8 @@ type HistoryEntry struct {
 	Text      string  `json:"text"`
 	Title     string  `json:"title,omitempty"`
 	Timestamp string  `json:"timestamp"`
-	Duration  float64 `json:"duration_sec"`
+	Duration            float64 `json:"duration_sec"`
+	ProcessingDuration  float64 `json:"processing_duration_sec,omitempty"`
 	Language  string  `json:"language"`
 	Category  string  `json:"category,omitempty"`
 	Pinned    bool    `json:"pinned,omitempty"`
@@ -93,27 +94,28 @@ const WhisperCostPerMinute = 0.006
 
 // Add appends a new entry and prunes to the limit.
 func (h *History) Add(text string, durationSec float64, language string) {
-	h.AddWithModel(text, durationSec, language, "", false)
+	h.AddWithModel(text, durationSec, 0, language, "", false)
 }
 
 // AddWithModel appends a new entry with model tracking and prunes to the limit.
-func (h *History) AddWithModel(text string, durationSec float64, language, model string, isLocal bool) {
+func (h *History) AddWithModel(text string, durationSec float64, processingDurationSec float64, language, model string, isLocal bool) {
 	var cost float64
 	if !isLocal && durationSec > 0 {
 		cost = (durationSec / 60.0) * WhisperCostPerMinute
 	}
 	h.mu.Lock()
 	h.Entries = append(h.Entries, HistoryEntry{
-		ID:        generateID(),
-		Text:      text,
-		Title:     autoTitle(text),
-		Timestamp: time.Now().Format(time.RFC3339),
-		Duration:  durationSec,
-		Language:  language,
-		Source:    "dictation",
-		Model:     model,
-		IsLocal:   isLocal,
-		CostUSD:   cost,
+		ID:                 generateID(),
+		Text:               text,
+		Title:              autoTitle(text),
+		Timestamp:          time.Now().Format(time.RFC3339),
+		Duration:           durationSec,
+		ProcessingDuration: processingDurationSec,
+		Language:           language,
+		Source:             "dictation",
+		Model:              model,
+		IsLocal:            isLocal,
+		CostUSD:            cost,
 	})
 	if len(h.Entries) > defaultMaxHistory {
 		h.Entries = h.Entries[len(h.Entries)-defaultMaxHistory:]
@@ -220,6 +222,8 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 
 	var totalEntries, localEntries, apiEntries int
 	var totalDuration, totalCost, localDuration float64
+	var totalProcessingDuration float64
+	var processingEntries int
 	var minDuration, maxDuration float64
 	first := true
 	dailyCounts := map[string]int{}
@@ -254,6 +258,11 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 			apiEntries++
 		}
 
+		if e.ProcessingDuration > 0 {
+			totalProcessingDuration += e.ProcessingDuration
+			processingEntries++
+		}
+
 		day := ts.Format("2006-01-02")
 		dailyCounts[day]++
 
@@ -281,18 +290,20 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 	savings := (localDuration / 60.0) * WhisperCostPerMinute
 
 	return map[string]interface{}{
-		"totalEntries":    totalEntries,
-		"localEntries":    localEntries,
-		"apiEntries":      apiEntries,
-		"totalDuration":   totalDuration,
-		"totalCost":       totalCost,
-		"savings":         savings,
-		"dailyCounts":     dailyCounts,
-		"modelCounts":     modelCounts,
-		"durationBuckets": durationBuckets,
-		"avgDuration":     safeDiv(totalDuration, float64(totalEntries)),
-		"minDuration":     minDuration,
-		"maxDuration":     maxDuration,
+		"totalEntries":          totalEntries,
+		"localEntries":          localEntries,
+		"apiEntries":            apiEntries,
+		"totalDuration":         totalDuration,
+		"totalCost":             totalCost,
+		"savings":               savings,
+		"dailyCounts":           dailyCounts,
+		"modelCounts":           modelCounts,
+		"durationBuckets":       durationBuckets,
+		"avgDuration":           safeDiv(totalDuration, float64(totalEntries)),
+		"minDuration":           minDuration,
+		"maxDuration":           maxDuration,
+		"avgProcessingDuration": safeDiv(totalProcessingDuration, float64(processingEntries)),
+		"totalProcessingTime":   totalProcessingDuration,
 	}
 }
 
