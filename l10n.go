@@ -115,6 +115,7 @@ var translations = map[string]map[string]string{
 
 		// Errors
 		"error.no_api_key":     "No API key configured. Right-click the tray icon → Settings.",
+		"error.no_local_model": "No local model downloaded. Open Settings → Local Models and download a model first.",
 		"error.recording":      "Recording failed: %s",
 		"error.transcription":  "Transcription failed: %s",
 		"error.hotkey":         "Could not register hotkey %s. It may be used by another application.",
@@ -280,6 +281,7 @@ var translations = map[string]map[string]string{
 
 		// Errors
 		"error.no_api_key":     "Kein API-Schlüssel konfiguriert. Rechtsklick auf das Tray-Symbol → Einstellungen.",
+		"error.no_local_model": "Kein lokales Modell heruntergeladen. Öffne Einstellungen → Lokale Modelle und lade zuerst ein Modell herunter.",
 		"error.recording":      "Aufnahme fehlgeschlagen: %s",
 		"error.transcription":  "Transkription fehlgeschlagen: %s",
 		"error.hotkey":         "Tastenkombination %s konnte nicht registriert werden. Sie wird möglicherweise von einer anderen Anwendung verwendet.",
