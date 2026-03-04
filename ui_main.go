@@ -555,6 +555,29 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return history.UpdateText(id, newText)
 		})
 
+		// Bind: getTagColors → returns custom tag color mappings as JSON
+		w.Bind("getTagColors", func() string {
+			colors := cfg.GetTagColors()
+			b, _ := json.Marshal(colors)
+			return string(b)
+		})
+
+		// Bind: saveTagColor → saves or removes a custom tag color
+		w.Bind("saveTagColor", func(tagName string, colorIndex int) bool {
+			cfg.mu.Lock()
+			if cfg.TagColors == nil {
+				cfg.TagColors = make(map[string]int)
+			}
+			if colorIndex < 0 {
+				delete(cfg.TagColors, tagName)
+			} else {
+				cfg.TagColors[tagName] = colorIndex
+			}
+			cfg.mu.Unlock()
+			go cfg.Save()
+			return true
+		})
+
 		// Bind: getAnalytics → returns usage analytics for a time period
 		w.Bind("getAnalytics", func(periodDays int) string {
 			data := history.GetAnalytics(periodDays)
