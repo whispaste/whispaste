@@ -55,7 +55,6 @@
           <input type="text" id="searchInput" data-i18n-placeholder="notebook.search" placeholder="Search…">
         </div>
         <span class="count-badge" id="countBadge">0</span>
-        <span class="mode-badge" id="modeBadge" title="">API</span>
       </div>
       <!-- Selection Bar (shown when items selected) -->
       <div class="selection-bar hidden" id="selectionBar">
@@ -76,10 +75,10 @@
         <div class="filter-sidebar">
           <div class="filter-section">
             <select class="sort-select" id="sortSelect">
-              <option value="newest" data-i18n-opt="sortNewest">Newest first</option>
-              <option value="oldest" data-i18n-opt="sortOldest">Oldest first</option>
-              <option value="alpha" data-i18n-opt="sortAlpha">Alphabetical</option>
-              <option value="duration" data-i18n-opt="sortDuration">By duration</option>
+              <option value="newest" data-i18n-opt="notebook.sort_newest">Newest first</option>
+              <option value="oldest" data-i18n-opt="notebook.sort_oldest">Oldest first</option>
+              <option value="alpha" data-i18n-opt="notebook.sort_alpha">Alphabetical</option>
+              <option value="duration" data-i18n-opt="notebook.sort_duration">By duration</option>
             </select>
           </div>
           <div class="filter-items">
@@ -110,7 +109,7 @@
             </div>
           </div>
           <div id="categoriesSection" style="display:none">
-            <div class="filter-section-title" data-i18n="notebook.categories">Categories</div>
+            <div class="filter-section-title" data-i18n="notebook.tags">Tags</div>
             <div id="categoryList" class="filter-items"></div>
           </div>
         </div>
