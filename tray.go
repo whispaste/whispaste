@@ -25,6 +25,7 @@ const (
 	_NIM_MODIFY = 0x00000001
 	_NIF_INFO   = 0x00000010
 	_NIIF_INFO  = 0x00000001
+	_NIIF_USER  = 0x00000004
 	_systrayUID = 100 // UID used by getlantern/systray
 )
 
@@ -70,6 +71,7 @@ type AppTray struct {
 	smartItems   []*systray.MenuItem
 	smartPresets []string
 	onSaved      func()
+	balloonIcon  uintptr // HICON for balloon notifications
 	// History submenu
 	historyEmpty *systray.MenuItem
 	historyItems [_HISTORY_SLOTS]*systray.MenuItem
@@ -117,8 +119,45 @@ func (t *AppTray) ShowMinimizeBalloon() {
 	if t.balloonShown {
 		return
 	}
+	if !t.cfg.GetNotifyBackground() {
+		return
+	}
 	t.balloonShown = true
 	t.ShowBalloon(AppName, T("balloon.minimize"))
+}
+
+// loadBalloonIcon creates an HICON from embeddedTrayIcon for balloon notifications.
+func (t *AppTray) loadBalloonIcon() {
+	if len(embeddedTrayIcon) < 22 {
+		return
+	}
+	count := int(embeddedTrayIcon[4]) | int(embeddedTrayIcon[5])<<8
+	if count < 1 {
+		return
+	}
+	// Pick the first icon entry
+	off := 6
+	if off+16 > len(embeddedTrayIcon) {
+		return
+	}
+	dataSize := uint32(embeddedTrayIcon[off+8]) | uint32(embeddedTrayIcon[off+9])<<8 |
+		uint32(embeddedTrayIcon[off+10])<<16 | uint32(embeddedTrayIcon[off+11])<<24
+	dataOffset := uint32(embeddedTrayIcon[off+12]) | uint32(embeddedTrayIcon[off+13])<<8 |
+		uint32(embeddedTrayIcon[off+14])<<16 | uint32(embeddedTrayIcon[off+15])<<24
+	if dataOffset+dataSize > uint32(len(embeddedTrayIcon)) {
+		return
+	}
+	iconData := embeddedTrayIcon[dataOffset : dataOffset+dataSize]
+	proc := trayUser32.NewProc("CreateIconFromResourceEx")
+	h, _, _ := proc.Call(
+		uintptr(unsafe.Pointer(&iconData[0])),
+		uintptr(dataSize),
+		1,          // fIcon = TRUE
+		0x00030000, // version
+		0, 0,       // use default size
+		0, // LR_DEFAULTCOLOR
+	)
+	t.balloonIcon = h
 }
 
 // ShowBalloon shows a Windows balloon notification from the system tray icon.
@@ -138,7 +177,8 @@ func (t *AppTray) ShowBalloon(title, text string) {
 		hWnd:        hwnd,
 		uID:         _systrayUID,
 		uFlags:      _NIF_INFO,
-		dwInfoFlags: _NIIF_INFO,
+		dwInfoFlags: _NIIF_USER,
+		hBalloonIcon: t.balloonIcon,
 	}
 	nid.cbSize = uint32(unsafe.Sizeof(nid))
 
@@ -159,6 +199,7 @@ func (t *AppTray) onReady() {
 	systray.SetIcon(embeddedTrayIcon)
 	systray.SetTitle(AppName)
 	systray.SetTooltip(T("tray.status_ready"))
+	t.loadBalloonIcon()
 
 	t.mToggle = systray.AddMenuItem(T("tray.start_record"), T("tray.start_record"))
 	systray.AddSeparator()
@@ -401,6 +442,9 @@ func (t *AppTray) MaybeSponsorBalloon(totalDictations int) {
 		return
 	}
 	if t.cfg.GetSponsorShown() {
+		return
+	}
+	if !t.cfg.GetNotifyDonate() {
 		return
 	}
 	t.cfg.SetSponsorShown(true)
