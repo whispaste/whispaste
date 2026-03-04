@@ -198,6 +198,9 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		}
 		// Disable browser context menu (right-click) — app provides its own UX
 		initJS += ` document.addEventListener('contextmenu', function(e){ e.preventDefault(); });`
+		// Disable Ctrl+/- zoom and Ctrl+mousewheel zoom
+		initJS += ` document.addEventListener('keydown', function(e){ if(e.ctrlKey && (e.key==='+' || e.key==='-' || e.key==='=' || e.key==='0')) e.preventDefault(); });`
+		initJS += ` document.addEventListener('wheel', function(e){ if(e.ctrlKey) e.preventDefault(); }, {passive:false});`
 		w.Init(initJS)
 
 		// --- Settings bindings ---

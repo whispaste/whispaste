@@ -126,28 +126,43 @@ func (t *AppTray) ShowMinimizeBalloon() {
 	t.ShowBalloon(AppName, T("balloon.minimize"))
 }
 
-// loadBalloonIcon creates an HICON from embeddedTrayIcon for balloon notifications.
+// loadBalloonIcon creates an HICON from embeddedAppIcon for balloon notifications.
+// Uses the largest available icon entry for crisp notification display.
 func (t *AppTray) loadBalloonIcon() {
-	if len(embeddedTrayIcon) < 22 {
+	ico := embeddedAppIcon
+	if len(ico) < 22 {
 		return
 	}
-	count := int(embeddedTrayIcon[4]) | int(embeddedTrayIcon[5])<<8
+	count := int(ico[4]) | int(ico[5])<<8
 	if count < 1 {
 		return
 	}
-	// Pick the first icon entry
-	off := 6
-	if off+16 > len(embeddedTrayIcon) {
+	// Pick the largest icon entry (by data size)
+	bestOff := 6
+	bestSize := uint32(0)
+	for i := 0; i < count; i++ {
+		off := 6 + i*16
+		if off+16 > len(ico) {
+			break
+		}
+		ds := uint32(ico[off+8]) | uint32(ico[off+9])<<8 |
+			uint32(ico[off+10])<<16 | uint32(ico[off+11])<<24
+		if ds > bestSize {
+			bestSize = ds
+			bestOff = off
+		}
+	}
+	if bestOff+16 > len(ico) {
 		return
 	}
-	dataSize := uint32(embeddedTrayIcon[off+8]) | uint32(embeddedTrayIcon[off+9])<<8 |
-		uint32(embeddedTrayIcon[off+10])<<16 | uint32(embeddedTrayIcon[off+11])<<24
-	dataOffset := uint32(embeddedTrayIcon[off+12]) | uint32(embeddedTrayIcon[off+13])<<8 |
-		uint32(embeddedTrayIcon[off+14])<<16 | uint32(embeddedTrayIcon[off+15])<<24
-	if dataOffset+dataSize > uint32(len(embeddedTrayIcon)) {
+	dataSize := uint32(ico[bestOff+8]) | uint32(ico[bestOff+9])<<8 |
+		uint32(ico[bestOff+10])<<16 | uint32(ico[bestOff+11])<<24
+	dataOffset := uint32(ico[bestOff+12]) | uint32(ico[bestOff+13])<<8 |
+		uint32(ico[bestOff+14])<<16 | uint32(ico[bestOff+15])<<24
+	if dataOffset+dataSize > uint32(len(ico)) {
 		return
 	}
-	iconData := embeddedTrayIcon[dataOffset : dataOffset+dataSize]
+	iconData := ico[dataOffset : dataOffset+dataSize]
 	proc := trayUser32.NewProc("CreateIconFromResourceEx")
 	h, _, _ := proc.Call(
 		uintptr(unsafe.Pointer(&iconData[0])),
