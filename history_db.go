@@ -61,7 +61,58 @@ func createHistoryTables(db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history_entries(timestamp);
 		CREATE INDEX IF NOT EXISTS idx_history_pinned ON history_entries(pinned);
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	return createFTSTables(db)
+}
+
+// createFTSTables creates the FTS5 virtual table and sync triggers.
+// Uses external-content FTS5 so data lives only in history_entries.
+func createFTSTables(db *sql.DB) error {
+	_, err := db.Exec(`
+		CREATE VIRTUAL TABLE IF NOT EXISTS history_fts USING fts5(
+			title, text, tags,
+			content='history_entries',
+			content_rowid='rowid'
+		);
+
+		-- Triggers keep FTS in sync with the content table
+		CREATE TRIGGER IF NOT EXISTS history_fts_ai AFTER INSERT ON history_entries BEGIN
+			INSERT INTO history_fts(rowid, title, text, tags)
+			VALUES (new.rowid, new.title, new.text, new.tags);
+		END;
+
+		CREATE TRIGGER IF NOT EXISTS history_fts_ad AFTER DELETE ON history_entries BEGIN
+			INSERT INTO history_fts(history_fts, rowid, title, text, tags)
+			VALUES ('delete', old.rowid, old.title, old.text, old.tags);
+		END;
+
+		CREATE TRIGGER IF NOT EXISTS history_fts_au AFTER UPDATE ON history_entries BEGIN
+			INSERT INTO history_fts(history_fts, rowid, title, text, tags)
+			VALUES ('delete', old.rowid, old.title, old.text, old.tags);
+			INSERT INTO history_fts(rowid, title, text, tags)
+			VALUES (new.rowid, new.title, new.text, new.tags);
+		END;
+	`)
+	if err != nil {
+		return fmt.Errorf("create FTS tables: %w", err)
+	}
+
+	// Populate FTS from existing data if FTS is empty but entries exist
+	var ftsCount, entryCount int
+	db.QueryRow("SELECT COUNT(*) FROM history_fts").Scan(&ftsCount)
+	db.QueryRow("SELECT COUNT(*) FROM history_entries").Scan(&entryCount)
+	if ftsCount == 0 && entryCount > 0 {
+		if _, err := db.Exec(`INSERT INTO history_fts(rowid, title, text, tags)
+			SELECT rowid, title, text, tags FROM history_entries`); err != nil {
+			logWarn("FTS initial population failed: %v", err)
+		} else {
+			logInfo("Populated FTS index with %d entries", entryCount)
+		}
+	}
+
+	return nil
 }
 
 // migrateFromJSON imports entries from history.json into SQLite if the DB is empty.

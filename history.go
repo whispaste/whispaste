@@ -177,6 +177,30 @@ func (h *History) All() []HistoryEntry {
 	return scanEntries(rows)
 }
 
+// Search returns entries matching the FTS5 query, ordered by newest first.
+// The query uses FTS5 syntax (e.g. "hello world", hello OR world, hello NOT world).
+// Returns nil on empty query or error.
+func (h *History) Search(query string) []HistoryEntry {
+	if h.db == nil {
+		return nil
+	}
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil
+	}
+	rows, err := h.db.Query(`SELECT `+allColumns+` FROM history_entries
+		WHERE rowid IN (
+			SELECT rowid FROM history_fts WHERE history_fts MATCH ?
+			ORDER BY rank
+		) ORDER BY timestamp DESC`, query)
+	if err != nil {
+		logError("FTS search query: %v", err)
+		return nil
+	}
+	defer rows.Close()
+	return scanEntries(rows)
+}
+
 // scanEntries reads all rows into a slice.
 func scanEntries(rows *sql.Rows) []HistoryEntry {
 	var entries []HistoryEntry
