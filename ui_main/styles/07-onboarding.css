@@ -1,0 +1,168 @@
+/* ── Onboarding Wizard ─────────────────────────────── */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.onboarding-card {
+  max-width: 480px;
+  width: 100%;
+  padding: 48px 40px 36px;
+  text-align: center;
+}
+
+.onboarding-step {
+  animation: fadeIn 0.25s ease;
+}
+
+.onboarding-icon {
+  margin: 0 auto 24px;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent), transparent 60%));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bg-primary);
+}
+
+.onboarding-icon .icon {
+  width: 40px;
+  height: 40px;
+}
+
+.onboarding-icon-success {
+  background: linear-gradient(135deg, #10b981, color-mix(in srgb, #10b981, transparent 60%));
+}
+
+.onboarding-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+
+.onboarding-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 28px;
+}
+
+.onboarding-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.onboarding-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 2px solid var(--border-primary);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.onboarding-option:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent), transparent 92%);
+}
+
+.onboarding-option.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent), transparent 88%);
+}
+
+.onboarding-option-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+
+.onboarding-option.selected .onboarding-option-icon {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.onboarding-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.onboarding-option-text strong {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.onboarding-option-text small {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.onboarding-actions .btn-lg {
+  padding: 12px 32px;
+  font-size: 15px;
+}
+
+.onboarding-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.onboarding-dots .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-primary);
+  transition: background 0.2s;
+}
+
+.onboarding-dots .dot.active {
+  background: var(--accent);
+  width: 20px;
+  border-radius: 4px;
+}
+
+.onboarding-hotkey-display {
+  margin-bottom: 28px;
+}
+
+.onboarding-hotkey-display kbd {
+  display: inline-block;
+  padding: 10px 24px;
+  font-size: 18px;
+  font-weight: 600;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  color: var(--accent);
+  letter-spacing: 1px;
+}
