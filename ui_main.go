@@ -382,28 +382,30 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		w.Bind("_downloadModel", func(modelID string) map[string]interface{} {
 			logInfo("Starting model download: %s", modelID)
 			go func() {
+				safeDispatch := func(js string) {
+					mainWindowMu.Lock()
+					open := mainWindowOpen
+					mainWindowMu.Unlock()
+					if open {
+						w.Dispatch(func() { w.Eval(js) })
+					}
+				}
 				err := DownloadModel(modelID, func(downloaded, total int64, fileIdx, fileCount int) {
 					if total > 0 {
 						pct := int(float64(downloaded) / float64(total) * 100)
 						if pct > 100 {
 							pct = 100
 						}
-						w.Dispatch(func() {
-							w.Eval(fmt.Sprintf("window.updateModelProgress('%s', %d, %d, %d)", modelID, pct, fileIdx+1, fileCount))
-						})
+						safeDispatch(fmt.Sprintf("window.updateModelProgress('%s', %d, %d, %d)", escapeJS(modelID), pct, fileIdx+1, fileCount))
 					}
 				})
 				if err != nil {
 					logError("Model download failed: %v", err)
-					w.Dispatch(func() {
-						w.Eval(fmt.Sprintf("window.downloadComplete('%s', false, '%s')", modelID, escapeJS(err.Error())))
-					})
+					safeDispatch(fmt.Sprintf("window.downloadComplete('%s', false, '%s')", escapeJS(modelID), escapeJS(err.Error())))
 					return
 				}
 				logInfo("Model downloaded: %s", modelID)
-				w.Dispatch(func() {
-					w.Eval(fmt.Sprintf("window.downloadComplete('%s', true, '')", modelID))
-				})
+				safeDispatch(fmt.Sprintf("window.downloadComplete('%s', true, '')", escapeJS(modelID)))
 			}()
 			return map[string]interface{}{"started": true}
 		})

@@ -187,16 +187,14 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 
 	// Whisper has a ~30s context window. Process in chunks for longer audio.
 	const chunkSec = 28
-	const overlapSec = 2
 	chunkSamples := chunkSec * sampleRate
-	overlapSamples := overlapSec * sampleRate
 
-	if len(samples) <= chunkSamples+overlapSamples {
-		// Short audio: process in one shot
+	if len(samples) <= 30*sampleRate {
+		// Short audio (≤30s): process in one shot
 		return lr.transcribeChunk(samples, sampleRate)
 	}
 
-	// Long audio: process in overlapping chunks and concatenate
+	// Long audio: process in sequential chunks and concatenate
 	var parts []string
 	offset := 0
 	for offset < len(samples) {
@@ -216,7 +214,7 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 		if end >= len(samples) {
 			break
 		}
-		offset = end - overlapSamples
+		offset = end
 	}
 	return strings.Join(parts, " "), nil
 }
