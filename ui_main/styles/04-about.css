@@ -59,6 +59,16 @@
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-full);
 }
+.about-license-link {
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--transition-normal);
+}
+.about-license-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
 
 .about-links {
   display: flex;
@@ -155,3 +165,15 @@
 }
 .cost-table td { padding: 4px 0; }
 .cost-table td:last-child { text-align: right; font-weight: 600; color: var(--text); }
+
+.libs-table {
+  width: 100%;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-collapse: collapse;
+}
+.libs-table td { padding: 4px 0; }
+.libs-table td:first-child { font-weight: 600; color: var(--text); }
+.libs-table .lib-license { text-align: center; font-size: 11px; opacity: .6; }
+.libs-table .lib-desc { text-align: right; }
