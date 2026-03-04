@@ -747,6 +747,17 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			logInfo("Onboarding completed")
 		})
 
+		// --- Quick Mode Switching bindings ---
+
+		// Bind: setSmartPreset → quickly switch smart mode preset from status bar
+		w.Bind("setSmartPreset", func(preset string) {
+			cfg.SetSmartModePreset(preset)
+			if err := cfg.Save(); err != nil {
+				logError("Save config after smart preset switch: %v", err)
+			}
+			logInfo("Smart mode preset switched to: %s (enabled=%v)", preset, cfg.GetSmartMode())
+		})
+
 		// --- Theme & language bindings ---
 
 		// Bind: getTheme → returns current theme from config
