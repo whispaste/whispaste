@@ -4,10 +4,8 @@ let _activeFilter = 'all';
 let _searchQuery = '';
 let _currentSort = 'newest';
 let _expandedId = null;
-let _pendingDeleteId = null;
 let _selectedIds = new Set();
 let _lastCheckedIndex = -1;
-let _pendingDeleteIds = [];
 let _acHighlight = -1;
 let _acSeq = 0;
 
@@ -45,8 +43,83 @@ function matchesFilter(e) {
 
 function matchesSearch(e) {
   if (!_searchQuery) return true;
-  const q = _searchQuery.toLowerCase();
-  return (e.title || '').toLowerCase().includes(q) || (e.text || '').toLowerCase().includes(q);
+  const q = _searchQuery.trim();
+  if (!q) return true;
+
+  const title = (e.title || '').toLowerCase();
+  const text = (e.text || '').toLowerCase();
+  const content = title + ' ' + text;
+
+  const tokens = parseSearchTokens(q);
+  return evaluateSearch(tokens, content);
+}
+
+function parseSearchTokens(query) {
+  const tokens = [];
+  const regex = /"([^"]+)"|(\S+)/g;
+  let match;
+  let expectOp = null;
+
+  while ((match = regex.exec(query)) !== null) {
+    const term = (match[1] || match[2]).toLowerCase();
+
+    if (term === 'and' || term === '&') { expectOp = 'AND'; continue; }
+    if (term === 'or' || term === '|') { expectOp = 'OR'; continue; }
+
+    let negate = false;
+    let actualTerm = term;
+    if (term.startsWith('-') || term.startsWith('!')) {
+      negate = true;
+      actualTerm = term.slice(1);
+    } else if (term === 'not') {
+      expectOp = 'NOT';
+      continue;
+    }
+
+    if (expectOp === 'NOT') {
+      negate = true;
+      expectOp = null;
+    }
+
+    tokens.push({
+      term: actualTerm,
+      negate,
+      op: expectOp || 'AND',
+      isWildcard: actualTerm.includes('*'),
+    });
+    expectOp = null;
+  }
+  return tokens;
+}
+
+function evaluateSearch(tokens, content) {
+  if (tokens.length === 0) return true;
+
+  let result = null;
+  for (const tok of tokens) {
+    let matches;
+    if (tok.isWildcard) {
+      const pattern = tok.term.replace(/\*/g, '.*').replace(/\?/g, '.');
+      try {
+        matches = new RegExp(pattern).test(content);
+      } catch {
+        matches = content.includes(tok.term.replace(/[*?]/g, ''));
+      }
+    } else {
+      matches = content.includes(tok.term);
+    }
+
+    if (tok.negate) matches = !matches;
+
+    if (result === null) {
+      result = matches;
+    } else if (tok.op === 'OR') {
+      result = result || matches;
+    } else {
+      result = result && matches;
+    }
+  }
+  return result ?? true;
 }
 
 function getFiltered() {
@@ -250,7 +323,7 @@ function renderHistory() {
       <div class="entry-header">
         <div class="entry-checkbox${_selectedIds.has(e.id) ? ' checked' : ''}" data-select-id="${e.id}"></div>
         <div style="flex:1;min-width:0">
-          <div class="entry-title">${esc(e.title || e.text.substring(0, 60))}</div>
+          <div class="entry-title">${highlightSearch(e.title || e.text.substring(0, 60), _searchQuery)}</div>
           <div class="entry-meta">
             <span>${formatTime(e.timestamp)}</span>
             ${e.duration_sec ? '<span>' + formatDuration(e.duration_sec) + '</span>' : ''}
@@ -267,9 +340,9 @@ function renderHistory() {
           <button class="btn-icon delete" title="${t('notebook.delete')}" data-action="delete" data-id="${e.id}">${icons.trash}</button>
         </div>
       </div>
-      <div class="entry-preview">${esc(e.text)}</div>
+      <div class="entry-preview">${highlightSearch(e.text, _searchQuery)}</div>
       <div class="entry-full">
-        <div class="entry-full-text" id="text-${e.id}">${esc(e.text)}</div>
+        <div class="entry-full-text" id="text-${e.id}">${highlightSearch(e.text, _searchQuery)}</div>
         <div class="entry-text-actions">
           <button class="btn-icon" title="${t('notebook.edit_text')}" data-action="edit-text" data-id="${e.id}">${icons.pencil}</button>
         </div>
@@ -458,51 +531,42 @@ function cancelEditText(id) {
   loadEntries();
 }
 
-function confirmDelete(id) {
-  _pendingDeleteIds = id ? [id] : [];
-  _pendingDeleteId = id;
-  const titleEl = document.getElementById('confirmTitle');
-  const msgEl = document.getElementById('confirmMsg');
-  if (titleEl) titleEl.textContent = t('notebook.confirm_title');
-  if (msgEl) msgEl.textContent = t('notebook.confirm_msg');
-  const overlay = document.getElementById('confirmOverlay');
-  if (overlay) overlay.classList.add('show');
-}
-
-function confirmDeleteSelected() {
-  _pendingDeleteIds = [..._selectedIds];
-  _pendingDeleteId = null;
-  const titleEl = document.getElementById('confirmTitle');
-  const msgEl = document.getElementById('confirmMsg');
-  const count = _pendingDeleteIds.length;
-  if (titleEl) titleEl.textContent = t('notebook.confirm_delete_multi_title').replace('{n}', count);
-  if (msgEl) msgEl.textContent = t('notebook.confirm_delete_multi_msg').replace('{n}', count);
-  const overlay = document.getElementById('confirmOverlay');
-  if (overlay) overlay.classList.add('show');
-}
-
-async function doDelete() {
-  const ids = _pendingDeleteIds.length > 0 ? _pendingDeleteIds : (_pendingDeleteId ? [_pendingDeleteId] : []);
-  for (const id of ids) {
+async function confirmDelete(id) {
+  const confirmed = await showConfirmDialog(
+    t('notebook.confirm_title'),
+    t('notebook.confirm_msg'),
+    { variant: 'danger', confirmText: t('notebook.confirm_delete') }
+  );
+  if (confirmed) {
     try {
       if (window.deleteEntry) await window.deleteEntry(id);
       if (_expandedId === id) _expandedId = null;
       _selectedIds.delete(id);
     } catch (e) {}
+    updateSelectionBar();
+    await loadEntries();
   }
-  _pendingDeleteId = null;
-  _pendingDeleteIds = [];
-  const overlay = document.getElementById('confirmOverlay');
-  if (overlay) overlay.classList.remove('show');
-  updateSelectionBar();
-  await loadEntries();
 }
 
-function cancelDelete() {
-  _pendingDeleteId = null;
-  _pendingDeleteIds = [];
-  const overlay = document.getElementById('confirmOverlay');
-  if (overlay) overlay.classList.remove('show');
+async function confirmDeleteSelected() {
+  const count = _selectedIds.size;
+  if (count === 0) return;
+  const confirmed = await showConfirmDialog(
+    t('notebook.confirm_delete_multi_title').replace('{n}', count),
+    t('notebook.confirm_delete_multi_msg').replace('{n}', count),
+    { variant: 'danger', confirmText: t('notebook.confirm_delete') }
+  );
+  if (confirmed) {
+    for (const id of _selectedIds) {
+      try {
+        if (window.deleteEntry) await window.deleteEntry(id);
+        if (_expandedId === id) _expandedId = null;
+      } catch (e) {}
+    }
+    _selectedIds.clear();
+    updateSelectionBar();
+    await loadEntries();
+  }
 }
 
 function updateSelectionBar() {
@@ -549,6 +613,50 @@ async function addTag(input) {
     await loadEntries();
     showToast(t('notebook.tag_updated'));
   }
+}
+
+function highlightSearch(text, query) {
+  if (!query) return esc(text);
+  const escaped = esc(text);
+  const escapedQuery = esc(query);
+  const regex = new RegExp('(' + escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+  return escaped.replace(regex, '<mark class="search-hl">$1</mark>');
+}
+
+function toggleSearchHelp(anchor) {
+  const existing = document.querySelector('.search-help-popover');
+  if (existing) { existing.remove(); return; }
+
+  const pop = document.createElement('div');
+  pop.className = 'search-help-popover';
+  pop.innerHTML = `
+    <div class="shp-title">${t('searchHelpTitle') || 'Search Syntax'}</div>
+    <table class="shp-table">
+      <tr><td><code>word</code></td><td>${t('searchHelpBasic') || 'Basic search'}</td></tr>
+      <tr><td><code>"exact phrase"</code></td><td>${t('searchHelpExact') || 'Exact match'}</td></tr>
+      <tr><td><code>a AND b</code></td><td>${t('searchHelpAnd') || 'Both terms'}</td></tr>
+      <tr><td><code>a OR b</code></td><td>${t('searchHelpOr') || 'Either term'}</td></tr>
+      <tr><td><code>-word</code></td><td>${t('searchHelpNot') || 'Exclude term'}</td></tr>
+      <tr><td><code>hel*</code></td><td>${t('searchHelpWild') || 'Wildcard'}</td></tr>
+    </table>
+  `;
+
+  const rect = anchor.getBoundingClientRect();
+  pop.style.position = 'fixed';
+  pop.style.top = (rect.bottom + 6) + 'px';
+  pop.style.right = (window.innerWidth - rect.right) + 'px';
+  pop.style.zIndex = '9999';
+
+  document.body.appendChild(pop);
+
+  setTimeout(() => {
+    document.addEventListener('click', function closeHelp(ev) {
+      if (!ev.target.closest('.search-help-popover') && !ev.target.closest('.search-help-btn')) {
+        pop.remove();
+        document.removeEventListener('click', closeHelp);
+      }
+    });
+  }, 10);
 }
 
 async function removeTag(id, tagToRemove) {

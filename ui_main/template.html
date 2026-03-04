@@ -59,6 +59,12 @@
         <div class="search-box">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <input type="text" id="searchInput" data-i18n-placeholder="notebook.search" placeholder="Search…">
+          <button class="search-clear-btn" id="searchClear" title="Clear" style="display:none">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+          <button class="search-help-btn" id="searchHelp" title="Search syntax help">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          </button>
         </div>
         <span class="count-badge" id="countBadge">0</span>
       </div>
@@ -769,19 +775,9 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- Delete Confirmation -->
+<!-- Unified Dialog -->
 <div class="confirm-overlay" id="confirmOverlay">
-  <div class="confirm-dialog">
-    <div class="confirm-icon">
-      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-    </div>
-    <div class="confirm-title" id="confirmTitle" data-i18n="notebook.confirm_title">Delete Entry</div>
-    <div class="confirm-msg" id="confirmMsg" data-i18n="notebook.confirm_msg">This entry will be permanently deleted.</div>
-    <div class="confirm-btns">
-      <button class="btn btn-secondary flex-1" id="confirmCancel" data-i18n="notebook.confirm_cancel">Cancel</button>
-      <button class="btn btn-danger flex-1" id="confirmDelete" data-i18n="notebook.confirm_delete">Delete</button>
-    </div>
-  </div>
+  <div class="confirm-dialog"></div>
 </div>
 
 <script>

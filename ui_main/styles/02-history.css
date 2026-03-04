@@ -549,3 +549,98 @@
   border-color: var(--accent);
   background: var(--accent-subtle);
 }
+
+/* ── Search Clear Button ──────────────────────────────── */
+.search-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: var(--bg-hover);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.search-clear-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-active);
+}
+.search-clear-btn .icon {
+  width: 12px;
+  height: 12px;
+}
+
+/* ── Search Highlighting ──────────────────────────────── */
+.search-hl {
+  background: rgba(234, 179, 8, 0.25);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+[data-theme="dark"] .search-hl {
+  background: rgba(234, 179, 8, 0.3);
+}
+
+/* ── Search Help Button ───────────────────────────────── */
+.search-help-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text-hint);
+  flex-shrink: 0;
+  transition: color var(--transition-fast);
+}
+.search-help-btn:hover { color: var(--text-secondary); }
+.search-help-btn .icon { width: 14px; height: 14px; }
+
+/* ── Search Help Popover ──────────────────────────────── */
+.search-help-popover {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  padding: 12px 14px;
+  min-width: 240px;
+  animation: fadeIn 150ms ease;
+}
+.shp-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.shp-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.shp-table td {
+  padding: 3px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  vertical-align: top;
+}
+.shp-table td:first-child {
+  padding-right: 12px;
+  white-space: nowrap;
+}
+.shp-table code {
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11px;
+  background: var(--bg-secondary);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent);
+}

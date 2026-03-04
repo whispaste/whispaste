@@ -136,10 +136,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // --- History page wiring ---
   const searchInput = document.getElementById('searchInput');
+  const searchClear = document.getElementById('searchClear');
   if (searchInput) {
     searchInput.addEventListener('input', (ev) => {
       _searchQuery = ev.target.value;
+      if (searchClear) searchClear.style.display = searchInput.value ? '' : 'none';
       renderHistory();
+    });
+  }
+  if (searchInput && searchClear) {
+    searchClear.addEventListener('click', () => {
+      searchInput.value = '';
+      _searchQuery = '';
+      searchClear.style.display = 'none';
+      renderHistory();
+    });
+  }
+  const helpBtn = document.getElementById('searchHelp');
+  if (helpBtn) {
+    helpBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      toggleSearchHelp(helpBtn);
     });
   }
   // Sort dropdown
