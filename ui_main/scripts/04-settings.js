@@ -6,6 +6,7 @@ let _savedHotkeyKey = 'V';
 let _savedModel = 'whisper-1';
 let _savedUILang = '';
 let _savedAPIEndpoint = '';
+let _downloadingModel = null;
 
 /* ── Gather Config from Form ──────────────────────────── */
 function gatherConfig() {
@@ -30,7 +31,9 @@ function gatherConfig() {
     smart_mode: document.getElementById('toggle-smartmode')?.checked || false,
     smart_mode_preset: document.getElementById('select-smartpreset')?.value || 'cleanup',
     smart_mode_prompt: document.getElementById('input-smartprompt')?.value || '',
-    smart_mode_target: document.getElementById('select-smarttarget')?.value || 'en'
+    smart_mode_target: document.getElementById('select-smarttarget')?.value || 'en',
+    use_local_stt: document.getElementById('toggle-localstt')?.checked || false,
+    local_model_id: document.querySelector('[name="local-model"]:checked')?.value || 'whisper-tiny'
   };
 }
 
@@ -92,6 +95,18 @@ function applyConfig(cfg) {
   }
   if (cfg.smart_mode_prompt != null) { const el = document.getElementById('input-smartprompt'); if (el) el.value = cfg.smart_mode_prompt; }
   if (cfg.smart_mode_target) { const el = document.getElementById('select-smarttarget'); if (el) el.value = cfg.smart_mode_target; }
+  if (cfg.use_local_stt != null) {
+    const el = document.getElementById('toggle-localstt');
+    if (el) el.checked = cfg.use_local_stt;
+    updateLocalSTTVisibility();
+  }
+  if (cfg.local_model_id) {
+    const radio = document.querySelector(`[name="local-model"][value="${cfg.local_model_id}"]`);
+    if (radio) {
+      radio.checked = true;
+      radio.closest('.model-item')?.classList.add('active');
+    }
+  }
 }
 
 /* ── Radio Card Selection ─────────────────────────────── */
@@ -332,4 +347,122 @@ async function testRecording() {
 // Go can call this to update test status live
 window.updateTestStatus = function (status) {
   showStatus(status, 'success');
+};
+
+/* ── Local STT Visibility ─────────────────────────────── */
+function updateLocalSTTVisibility() {
+  const on = document.getElementById('toggle-localstt')?.checked;
+  const section = document.getElementById('local-stt-options');
+  if (section) {
+    section.style.display = on ? 'block' : 'none';
+  }
+  if (on) renderModelList();
+}
+
+/* ── Model List Rendering ─────────────────────────────── */
+async function renderModelList() {
+  const container = document.getElementById('model-list');
+  if (!container) return;
+  
+  let models = [];
+  if (window._getModels) {
+    try {
+      const result = await window._getModels();
+      models = typeof result === 'string' ? JSON.parse(result) : result;
+    } catch (e) {
+      console.error('Failed to get models:', e);
+    }
+  }
+  
+  if (!models || models.length === 0) {
+    models = [
+      { id: 'whisper-tiny', name: 'Whisper Tiny', size: '39MB', downloaded: false },
+      { id: 'whisper-base', name: 'Whisper Base', size: '74MB', downloaded: false },
+      { id: 'whisper-small', name: 'Whisper Small', size: '244MB', downloaded: false }
+    ];
+  }
+  
+  const selectedModel = document.querySelector('[name="local-model"]:checked')?.value || 'whisper-tiny';
+  
+  container.innerHTML = models.map(m => {
+    const isSelected = m.id === selectedModel;
+    const isDownloading = _downloadingModel === m.id;
+    let actionBtn;
+    if (isDownloading) {
+      actionBtn = `<button class="btn btn-secondary btn-sm" disabled>${t('modelDownloading')}</button>
+        <div class="model-progress"><div class="model-progress-bar" id="progress-${m.id}"></div></div>`;
+    } else if (m.downloaded) {
+      actionBtn = `<button class="btn btn-secondary btn-sm" onclick="deleteModel('${m.id}')" title="${t('modelDelete')}">${t('modelDownloaded')}</button>`;
+    } else {
+      actionBtn = `<button class="btn btn-primary btn-sm" onclick="downloadModel('${m.id}')">${t('modelDownload')}</button>`;
+    }
+    return `<div class="model-item ${isSelected ? 'active' : ''}">
+      <input type="radio" name="local-model" value="${m.id}" class="model-item-radio" ${isSelected ? 'checked' : ''} ${!m.downloaded ? 'disabled' : ''} onchange="selectLocalModel('${m.id}')">
+      <div class="model-item-info">
+        <div class="model-item-name">${m.name}</div>
+        <div class="model-item-meta">${m.size}</div>
+      </div>
+      <div class="model-item-action">${actionBtn}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectLocalModel(id) {
+  document.querySelectorAll('.model-item').forEach(el => el.classList.remove('active'));
+  const radio = document.querySelector(`[name="local-model"][value="${id}"]`);
+  if (radio) {
+    radio.checked = true;
+    radio.closest('.model-item')?.classList.add('active');
+  }
+}
+
+async function downloadModel(id) {
+  _downloadingModel = id;
+  renderModelList();
+  
+  if (window._downloadModel) {
+    try {
+      const result = await window._downloadModel(id);
+      const res = typeof result === 'string' ? JSON.parse(result) : result;
+      if (res && res.success) {
+        showStatus(t('modelDownloadDone'), 'success');
+        _downloadingModel = null;
+        await renderModelList();
+        selectLocalModel(id);
+        const radio = document.querySelector(`[name="local-model"][value="${id}"]`);
+        if (radio) radio.disabled = false;
+      } else {
+        showStatus(res?.error || t('modelDownloadError'), 'error');
+        _downloadingModel = null;
+        renderModelList();
+      }
+    } catch (e) {
+      showStatus(t('modelDownloadError'), 'error');
+      _downloadingModel = null;
+      renderModelList();
+    }
+  }
+}
+
+async function deleteModel(id) {
+  if (window._deleteModel) {
+    try {
+      const result = await window._deleteModel(id);
+      const res = typeof result === 'string' ? JSON.parse(result) : result;
+      if (res && res.success) {
+        showStatus(t('modelDeleted'), 'success');
+        renderModelList();
+      } else {
+        showStatus(res?.error || t('statusError'), 'error');
+      }
+    } catch (e) {
+      showStatus(t('statusError'), 'error');
+    }
+  }
+}
+
+// Go calls this to update download progress
+window.updateModelProgress = function(modelId, pct) {
+  const bar = document.getElementById('progress-' + modelId);
+  if (bar) bar.style.width = pct + '%';
 };
