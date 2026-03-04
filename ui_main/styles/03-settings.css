@@ -25,12 +25,16 @@
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 1px;
+  height: 2px;
   background: var(--gradient-accent);
-  opacity: 0.4;
+  opacity: 0.5;
+  transition: opacity var(--transition-normal);
+}
+.card:hover::before {
+  opacity: 0.8;
 }
 .card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--border-accent);
   transform: translateY(-1px);
   border-color: var(--border-accent);
 }
