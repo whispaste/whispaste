@@ -11,6 +11,60 @@ function onRecordingStateChanged(state) {
   fab.title = isActive ? t('fab.stop') : t('fab.record');
 }
 
+/* ── System Info (About page) ──────────────────────────── */
+let _sysInfoCache = null;
+
+async function loadSystemInfo() {
+  const grid = document.getElementById('sysinfo-grid');
+  if (!grid || !window.getSystemInfo) return;
+
+  if (!_sysInfoCache) {
+    try {
+      const raw = await window.getSystemInfo();
+      _sysInfoCache = JSON.parse(raw);
+    } catch (e) { return; }
+  }
+  const info = _sysInfoCache;
+
+  const rows = [
+    { key: 'sysAppVersion', value: info.appVersion },
+  ];
+  if (info.buildCommit) rows.push({ key: 'sysBuildCommit', value: info.buildCommit.substring(0, 8) });
+  if (info.buildDate) rows.push({ key: 'sysBuildDate', value: info.buildDate });
+  rows.push(
+    { key: 'sysGoVersion', value: info.goVersion },
+    { key: 'sysOS', value: info.os },
+    { key: 'sysArch', value: info.arch },
+    { key: 'sysConfigPath', value: info.configPath, isPath: true },
+    { key: 'sysLogPath', value: info.logPath, isPath: true },
+  );
+
+  grid.innerHTML = rows.map(r => {
+    const cls = r.isPath ? ' sysinfo-path' : '';
+    const onclick = r.isPath ? ` onclick="copySysInfoValue(this)"` : '';
+    return `<span class="sysinfo-label">${t(r.key)}</span><span class="sysinfo-value${cls}"${onclick}>${esc(r.value || '—')}</span>`;
+  }).join('');
+
+  // Copy button
+  const btn = document.getElementById('sysinfoCopyBtn');
+  if (btn) {
+    btn.onclick = () => {
+      const lines = rows.map(r => `${t(r.key)}: ${r.value || '—'}`);
+      lines.unshift('WhisPaste Debug Info');
+      lines.push(`User-Agent: ${navigator.userAgent}`);
+      navigator.clipboard.writeText(lines.join('\n')).then(() => {
+        showToast(t('aboutCopied'));
+      });
+    };
+  }
+}
+
+function copySysInfoValue(el) {
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    showToast(t('aboutCopied'));
+  });
+}
+
 /* ── Page Switching ────────────────────────────────────── */
 function switchPage(pageId) {
   // Update nav
@@ -36,6 +90,8 @@ function switchPage(pageId) {
       if (target) target.scrollIntoView({ block: 'start' });
     }
   }
+  // Load system info when switching to about page
+  if (pageId === 'about') loadSystemInfo();
 }
 
 /* ── Init ──────────────────────────────────────────────── */
@@ -131,6 +187,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const closeToTrayToggle = document.getElementById('toggle-close-to-tray');
   if (closeToTrayToggle) {
     closeToTrayToggle.addEventListener('change', updateCloseToTrayDependents);
+  }
+  // Cleanup toggle → enable/disable cleanup button
+  const cleanupToggle = document.getElementById('toggle-cleanup');
+  if (cleanupToggle) {
+    cleanupToggle.addEventListener('change', updateCleanupDependents);
+  }
+  const cleanupBtn = document.getElementById('btn-cleanup-now');
+  if (cleanupBtn) {
+    cleanupBtn.addEventListener('click', doManualCleanup);
   }
   // Max duration slider live update (handled by oninput="updateDurationLabel()" in HTML)
 

@@ -177,3 +177,33 @@
 .libs-table td:first-child { font-weight: 600; color: var(--text); }
 .libs-table .lib-license { text-align: center; font-size: 11px; opacity: .6; }
 .libs-table .lib-desc { text-align: right; }
+
+/* ── System Info Grid ─────────────────────────────────── */
+.sysinfo-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  font-size: 12px;
+  margin-top: 8px;
+}
+.sysinfo-label {
+  color: var(--text-hint);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+.sysinfo-value {
+  color: var(--text);
+  word-break: break-all;
+  user-select: text;
+}
+.sysinfo-value.sysinfo-path {
+  cursor: pointer;
+  transition: color var(--transition-normal);
+}
+.sysinfo-value.sysinfo-path:hover {
+  color: var(--accent);
+}
+.sysinfo-copy-btn {
+  font-size: var(--text-sm) !important;
+  padding: 7px 14px !important;
+}

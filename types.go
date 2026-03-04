@@ -29,6 +29,12 @@ const AppName = "WhisPaste"
 // AppVersion is set via -ldflags "-X main.AppVersion=x.y.z" at build time.
 var AppVersion = "0.1.1-alpha"
 
+// BuildCommit is the git commit hash, injected via -ldflags at build time.
+var BuildCommit = ""
+
+// BuildDate is the build timestamp, injected via -ldflags at build time.
+var BuildDate = ""
+
 // debugMode enables WebView2 DevTools and verbose logging.
 // Set via WHISPASTE_DEBUG=1 environment variable.
 var debugMode bool

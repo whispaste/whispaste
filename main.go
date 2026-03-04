@@ -104,14 +104,18 @@ func main() {
 	)
 
 	// Snapshot config values under lock to avoid data races
-	snapshotConfig := func() (playSounds, autoPaste bool, lang, apiKey, model, endpoint, prompt string, useLocal bool) {
+	snapshotConfig := func() (playSounds, autoPaste bool, lang, localLang, apiKey, model, endpoint, prompt string, useLocal bool) {
 		cfg.mu.RLock()
 		defer cfg.mu.RUnlock()
 		endpoint = cfg.APIEndpoint
 		if endpoint == "" {
 			endpoint = "https://api.openai.com/v1/audio/transcriptions"
 		}
-		return cfg.PlaySounds, cfg.AutoPaste, cfg.Language, cfg.APIKey, cfg.Model, endpoint, cfg.Prompt, cfg.UseLocalSTT
+		localLang = cfg.TranscriptionLanguage
+		if localLang == "" {
+			localLang = cfg.Language
+		}
+		return cfg.PlaySounds, cfg.AutoPaste, cfg.Language, localLang, cfg.APIKey, cfg.Model, endpoint, cfg.Prompt, cfg.UseLocalSTT
 	}
 	snapshotSmart := func() (enabled bool, preset, customPrompt, targetLang string) {
 		cfg.mu.RLock()
@@ -139,7 +143,7 @@ func main() {
 		}
 		NotifyRecordingState(newState)
 
-		playSounds, autoPaste, lang, apiKey, model, endpoint, prompt, useLocal := snapshotConfig()
+		playSounds, autoPaste, lang, localLang, apiKey, model, endpoint, prompt, useLocal := snapshotConfig()
 
 		// Clean up level-monitoring goroutine when leaving recording/paused state
 		if (oldState == StateRecording || oldState == StatePaused) && levelDone != nil {
@@ -253,7 +257,7 @@ func main() {
 						gen := stateGen
 						stateMu.Unlock()
 						if s == StateRecording && gen == expectedGen {
-							ps, _, _, _, _, _, _, _ := snapshotConfig()
+							ps, _, _, _, _, _, _, _, _ := snapshotConfig()
 							if ps {
 								PlayFeedback(SoundWarning)
 							}
@@ -297,7 +301,7 @@ func main() {
 						logError("Model directory error: %v", mdErr)
 						text, err = "", mdErr
 					} else {
-						text, err = GetLocalRecognizer().Transcribe(pcm, 16000, lang, modelDir)
+						text, err = GetLocalRecognizer().Transcribe(pcm, 16000, localLang, modelDir)
 					}
 				} else {
 					wav := EncodeWAV(pcm, 16000, 1, 16)
@@ -443,7 +447,7 @@ func main() {
 					recorder.Resume()
 				}
 				recorder.Stop() // discard audio
-				ps, _, _, _, _, _, _, _ := snapshotConfig()
+				ps, _, _, _, _, _, _, _, _ := snapshotConfig()
 				if ps {
 					PlayFeedback(SoundError)
 				}
@@ -508,7 +512,7 @@ func main() {
 
 		if s == StateIdle {
 			if !cfg.GetUseLocalSTT() && !cfg.HasAPIKey() {
-				ps, _, _, _, _, _, _, _ := snapshotConfig()
+				ps, _, _, _, _, _, _, _, _ := snapshotConfig()
 				if ps {
 					PlayFeedback(SoundError)
 				}

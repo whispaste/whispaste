@@ -77,6 +77,11 @@ func traySubclassWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			}
 			return 0
 		}
+		// In VERSION_4, left-click also sends WM_LBUTTONUP (0x0202).
+		// Suppress it so the systray library doesn't show the context menu.
+		if event == 0x0202 {
+			return 0
+		}
 		if event == uint16(_NIN_BALLOONUSERCLICK) {
 			if t := globalTrayRef; t != nil {
 				t.handleBalloonClick()

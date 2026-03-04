@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -286,6 +287,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.SmartModeTarget = newCfg.SmartModeTarget
 			cfg.UseLocalSTT = newCfg.UseLocalSTT
 			cfg.LocalModelID = newCfg.LocalModelID
+			cfg.TranscriptionLanguage = newCfg.TranscriptionLanguage
 			cfg.InputDevice = newCfg.InputDevice
 			cfg.InputGain = newCfg.InputGain
 			cfg.CleanupEnabled = newCfg.CleanupEnabled
@@ -372,7 +374,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				if mdErr != nil {
 					return map[string]interface{}{"success": false, "text": "", "error": mdErr.Error()}
 				}
-				text, err2 = GetLocalRecognizer().Transcribe(pcm, 16000, cfg.Language, modelDir)
+				text, err2 = GetLocalRecognizer().Transcribe(pcm, 16000, cfg.GetTranscriptionLanguage(), modelDir)
 			} else {
 				wav := EncodeWAV(pcm, 16000, 1, 16)
 				text, err2 = Transcribe(wav, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), cfg.GetPrompt())
@@ -424,14 +426,15 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 						w.Dispatch(func() { w.Eval(js) })
 					}
 				}
-				err := DownloadModel(modelID, func(downloaded, total int64, fileIdx, fileCount int) {
-					if total > 0 {
-						pct := int(float64(downloaded) / float64(total) * 100)
+				err := DownloadModel(modelID, func(fileDownloaded, fileTotal int64, fileIdx, fileCount int, fileName string) {
+					var pct int
+					if fileTotal > 0 {
+						pct = int(float64(fileDownloaded) / float64(fileTotal) * 100)
 						if pct > 100 {
 							pct = 100
 						}
-						safeDispatch(fmt.Sprintf("window.updateModelProgress('%s', %d, %d, %d)", escapeJS(modelID), pct, fileIdx+1, fileCount))
 					}
+					safeDispatch(fmt.Sprintf("window.updateModelProgress('%s', %d, %d, %d, '%s')", escapeJS(modelID), pct, fileIdx+1, fileCount, escapeJS(fileName)))
 				})
 				if err != nil {
 					logError("Model download failed: %v", err)
@@ -614,6 +617,24 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return true
 		})
 
+		// Bind: renameTag → renames a tag across all entries
+		w.Bind("renameTag", func(oldName, newName string) bool {
+			count := history.RenameTag(oldName, newName)
+			if count > 0 {
+				// Also rename in TagColors config
+				cfg.mu.Lock()
+				if cfg.TagColors != nil {
+					if idx, ok := cfg.TagColors[oldName]; ok {
+						delete(cfg.TagColors, oldName)
+						cfg.TagColors[newName] = idx
+					}
+				}
+				cfg.mu.Unlock()
+				go cfg.Save()
+			}
+			return count > 0
+		})
+
 		// Bind: getAnalytics → returns usage analytics for a time period
 		w.Bind("getAnalytics", func(periodDays int) string {
 			data := history.GetAnalytics(periodDays)
@@ -659,6 +680,19 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			if onCapture != nil {
 				go onCapture()
 			}
+		})
+
+		// Bind: manualCleanup → runs cleanup and returns deleted count
+		w.Bind("manualCleanup", func() int {
+			maxEntries := cfg.GetCleanupMaxEntries()
+			maxAgeDays := cfg.GetCleanupMaxAgeDays()
+			logInfo("Manual cleanup triggered (maxEntries=%d, maxAgeDays=%d)", maxEntries, maxAgeDays)
+			removed := history.Cleanup(maxEntries, maxAgeDays)
+			logInfo("Manual cleanup removed %d entries", removed)
+			if removed > 0 {
+				NotifyHistoryChanged()
+			}
+			return removed
 		})
 
 		// --- Theme & language bindings ---
@@ -818,6 +852,26 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.mu.Unlock()
 			cfg.Save()
 			logInfo("Model switched to %s (local=%v)", modelID, isLocal)
+		})
+
+		// Bind: getSystemInfo → returns system/build info for the About page
+		w.Bind("getSystemInfo", func() string {
+			cfgPath, _ := configPath()
+			dir, _ := configDir()
+			logPath := filepath.Join(dir, logFile)
+
+			info := map[string]string{
+				"appVersion":  AppVersion,
+				"goVersion":   runtime.Version(),
+				"os":          runtime.GOOS,
+				"arch":        runtime.GOARCH,
+				"configPath":  cfgPath,
+				"logPath":     logPath,
+				"buildCommit": BuildCommit,
+				"buildDate":   BuildDate,
+			}
+			data, _ := json.Marshal(info)
+			return string(data)
 		})
 
 		w.SetHtml(mainWindowHTML)
