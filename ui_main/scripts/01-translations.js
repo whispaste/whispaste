@@ -312,6 +312,10 @@ function applyTranslations() {
     const key = el.getAttribute('data-i18n-placeholder');
     if (t[key] != null) el.placeholder = t[key];
   });
+  document.querySelectorAll('[data-i18n-tooltip]').forEach(el => {
+    const key = el.getAttribute('data-i18n-tooltip');
+    if (t[key] != null) el.setAttribute('data-tooltip', t[key]);
+  });
 }
 
 /** Set UI language */
