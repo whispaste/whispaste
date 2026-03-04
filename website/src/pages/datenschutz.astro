@@ -1,25 +1,12 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
 ---
 
 <Layout title="Datenschutz — WhisPaste" description="Privacy Policy / Datenschutzerklärung for WhisPaste">
   <div class="min-h-screen flex flex-col">
-    <!-- Nav -->
-    <nav class="fixed top-0 w-full z-50 bg-brand-darker/80 backdrop-blur-xl border-b border-white/5">
-      <div class="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
-        <a href="/whispaste/" class="flex items-center gap-2 text-white font-semibold tracking-tight">
-          <img id="navLogo" src="/whispaste/app-icon-dark.png" alt="WhisPaste" class="w-8 h-8" />
-          <span class="text-lg font-semibold tracking-tight">WhisPaste</span>
-        </a>
-        <div class="flex items-center gap-4 text-sm text-gray-400">
-          <a href="/whispaste/" class="hover:text-white transition-colors">&larr; Back</a>
-          <button id="langToggle" onclick="toggleLang()" class="text-gray-400 hover:text-white transition-colors font-medium">DE</button>
-          <button id="themeToggle" onclick="toggleTheme()" class="text-gray-400 hover:text-white transition-colors" title="Toggle theme">
-            <svg id="themeIcon" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          </button>
-        </div>
-      </div>
-    </nav>
+    <Nav variant="subpage" />
 
     <!-- Content -->
     <main class="flex-1 pt-24 pb-16 px-6">
@@ -235,61 +222,30 @@ import Layout from "../layouts/Layout.astro";
       </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="py-6 border-t border-white/5">
-      <div class="max-w-4xl mx-auto px-6 text-center text-sm text-gray-500">
-        &copy; 2025 <a href="https://github.com/silvio-l" class="hover:text-white transition-colors">Silvio Lindstedt</a>
-      </div>
-    </footer>
+    <Footer variant="subpage" />
   </div>
 
   <script>
-    let currentLang = localStorage.getItem('whispaste-lang') || 'en';
+    import { applyLang, currentLang } from '../scripts/i18n';
+    import { updateThemeIcon } from '../scripts/theme';
 
-    function toggleLang() {
-      currentLang = currentLang === 'en' ? 'de' : 'en';
-      localStorage.setItem('whispaste-lang', currentLang);
-      applyLang();
-    }
-
-    function applyLang() {
-      document.documentElement.lang = currentLang;
-      const btn = document.getElementById('langToggle');
-      if (btn) btn.textContent = currentLang === 'en' ? 'DE' : 'EN';
+    function applyPageLang() {
+      const lang = (window as any).currentLang || localStorage.getItem('whispaste-lang') || 'en';
       const title = document.getElementById('pageTitle');
-      if (title) title.textContent = currentLang === 'de' ? 'Datenschutzerklärung' : 'Privacy Policy';
-      document.getElementById('content-de').classList.toggle('hidden', currentLang !== 'de');
-      document.getElementById('content-en').classList.toggle('hidden', currentLang !== 'en');
+      if (title) title.textContent = lang === 'de' ? 'Datenschutzerklärung' : 'Privacy Policy';
+      document.getElementById('content-de')?.classList.toggle('hidden', lang !== 'de');
+      document.getElementById('content-en')?.classList.toggle('hidden', lang !== 'en');
     }
 
-    function toggleTheme() {
-      const html = document.documentElement;
-      if (!html.classList.contains('light')) {
-        html.classList.add('light');
-        localStorage.setItem('whispaste-theme', 'light');
-      } else {
-        html.classList.remove('light');
-        localStorage.setItem('whispaste-theme', 'dark');
-      }
-      updateThemeIcon();
-    }
+    // Wrap toggleLang to also update page-specific content
+    const origToggle = (window as any).toggleLang;
+    (window as any).toggleLang = function() {
+      origToggle();
+      applyPageLang();
+    };
 
-    function updateThemeIcon() {
-      const isLight = document.documentElement.classList.contains('light');
-      const icon = document.getElementById('themeIcon');
-      if (icon) {
-        icon.innerHTML = isLight
-          ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>'
-          : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
-      }
-      const src = isLight ? '/whispaste/app-icon-light.png' : '/whispaste/app-icon-dark.png';
-      const logo = document.getElementById('navLogo');
-      if (logo) logo.src = src;
-    }
-
-    window.toggleLang = toggleLang;
-    window.toggleTheme = toggleTheme;
     applyLang();
+    applyPageLang();
     updateThemeIcon();
   </script>
 </Layout>
