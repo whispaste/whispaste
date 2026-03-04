@@ -65,13 +65,13 @@
 }
 .nav-item.active {
   background: var(--gradient-accent);
-  color: #FFFFFF;
+  color: var(--text-inverse);
   box-shadow: var(--shadow-md), 0 0 16px var(--accent-glow);
 }
 [data-theme="dark"] .nav-item.active {
   box-shadow: var(--shadow-md), 0 0 20px var(--accent-glow);
 }
-.nav-item.active .icon { color: #FFFFFF; filter: none; }
+.nav-item.active .icon { color: var(--text-inverse); filter: none; }
 .nav-item .icon { width: 20px; height: 20px; }
 
 /* Tooltip on hover */
