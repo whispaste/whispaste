@@ -64,12 +64,13 @@ func main() {
 
 	// Application state
 	var (
-		state     = StateIdle
-		stateMu   sync.Mutex
-		stateGen  uint64 // generation counter for auto-hide goroutines
-		levelDone chan struct{}
-		hkMu      sync.Mutex // protects hkMgr
-		tray      *AppTray   // set after creation, used by transition
+		state       = StateIdle
+		stateMu     sync.Mutex
+		stateGen    uint64 // generation counter for auto-hide goroutines
+		levelDone   chan struct{}
+		recordStart time.Time // wall-clock time when recording started
+		hkMu        sync.Mutex // protects hkMgr
+		tray        *AppTray   // set after creation, used by transition
 	)
 
 	// Snapshot config values under lock to avoid data races
@@ -164,6 +165,7 @@ func main() {
 				stateMu.Unlock()
 				return
 			}
+			recordStart = time.Now()
 			// Start audio level monitoring for overlay
 			ld := make(chan struct{})
 			levelDone = ld
@@ -226,7 +228,7 @@ func main() {
 
 			// Transcribe in background (use snapshot values, not cfg directly)
 			go func() {
-				startTime := time.Now()
+				durationSec := time.Since(recordStart).Seconds()
 				var text string
 				var err error
 				if useLocal {
@@ -255,8 +257,6 @@ func main() {
 					return
 				}
 
-				durationSec := time.Since(startTime).Seconds()
-
 				// Smart Mode: post-process with GPT-4o-mini
 				smartEnabled, smartPreset, smartCustom, smartTarget := snapshotSmart()
 				if smartEnabled && smartPreset != "" && smartPreset != "off" {
@@ -282,6 +282,9 @@ func main() {
 				if tray != nil {
 					tray.RefreshHistory()
 					tray.MaybeSponsorBalloon(totalDictations)
+					if cfg.GetNotifyComplete() {
+						tray.ShowBalloon(AppName, T("balloon.transcription_complete"))
+					}
 				}
 
 				if autoPaste {

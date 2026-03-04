@@ -266,7 +266,7 @@ function toggleApiKeyVisibility() {
 function copyApiKey() {
   const input = document.getElementById('input-apikey');
   if (!input || !input.value) return;
-  navigator.clipboard.writeText(input.value).then(() => {
+  function showCopied() {
     const btn = document.getElementById('btn-copy-key');
     if (btn) {
       const orig = btn.innerHTML;
@@ -274,7 +274,18 @@ function copyApiKey() {
       btn.style.color = 'var(--accent)';
       setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1500);
     }
-  });
+  }
+  // WebView2 data: URLs don't have navigator.clipboard — use execCommand fallback
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(input.value).then(showCopied).catch(() => {});
+  } else {
+    const prev = input.type;
+    input.type = 'text';
+    input.select();
+    if (document.execCommand('copy')) showCopied();
+    input.type = prev;
+    window.getSelection().removeAllRanges();
+  }
 }
 
 /* ── Unlimited Duration ───────────────────────────────── */
