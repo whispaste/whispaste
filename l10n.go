@@ -174,7 +174,7 @@ var translations = map[string]map[string]string{
 		"balloon.copied":   "Copied to clipboard",
 		"balloon.minimize":       "WhisPaste is still running in the background. Use your hotkey to start dictating.",
 		"balloon.sponsor_title":  "Enjoying WhisPaste?",
-		"balloon.sponsor":        "You've completed 50 dictations! If WhisPaste saves you time, consider supporting its development.",
+		"balloon.sponsor":        "You've completed 50 dictations! If WhisPaste saves you time, consider supporting its development. ❤️",
 
 		// Stats
 		"stats.title":           "Usage This Month",
@@ -340,7 +340,7 @@ var translations = map[string]map[string]string{
 		"balloon.copied":   "In Zwischenablage kopiert",
 		"balloon.minimize":       "WhisPaste läuft weiterhin im Hintergrund. Nutzen Sie die Tastenkombination zum Diktieren.",
 		"balloon.sponsor_title":  "Gefällt dir WhisPaste?",
-		"balloon.sponsor":        "Du hast 50 Diktate abgeschlossen! Wenn WhisPaste dir Zeit spart, unterstütze gerne die Weiterentwicklung.",
+		"balloon.sponsor":        "Du hast 50 Diktate abgeschlossen! Wenn WhisPaste dir Zeit spart, unterstütze gerne die Weiterentwicklung. ❤️",
 
 		// Stats
 		"stats.title":           "Nutzung diesen Monat",

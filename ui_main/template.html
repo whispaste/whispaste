@@ -465,7 +465,7 @@
               <div class="toggle-row">
                 <div class="toggle-info">
                   <label class="toggle-label" for="toggle-notify-bg" data-i18n="labelNotifyBg">Background notification</label>
-                  <p class="toggle-desc form-hint" data-i18n="descNotifyBg">Show notification when app starts in background</p>
+                  <p class="toggle-desc form-hint" data-i18n="descNotifyBg">Show notification when the window is closed and the app continues in the system tray</p>
                 </div>
                 <div class="toggle-switch">
                   <input type="checkbox" id="toggle-notify-bg" checked>
@@ -489,7 +489,12 @@
               <div class="toggle-row">
                 <div class="toggle-info">
                   <label class="toggle-label" for="toggle-notify-donate" data-i18n="labelNotifyDonate">Donation reminder</label>
-                  <p class="toggle-desc form-hint" data-i18n="descNotifyDonate">Occasional reminder to support WhisPaste development</p>
+                  <p class="toggle-desc form-hint" data-i18n="descNotifyDonate">One-time reminder after 50 dictations to support development ❤️</p>
+                  <p class="toggle-desc form-hint sponsor-links">
+                    <a href="#" onclick="openExternal('https://github.com/sponsors/silvio-l'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> GitHub Sponsors</a>
+                    <span style="opacity:0.3;margin:0 6px">·</span>
+                    <a href="#" onclick="openExternal('https://ko-fi.com/silviol'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px"><path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/></svg> Ko-fi</a>
+                  </p>
                 </div>
                 <div class="toggle-switch">
                   <input type="checkbox" id="toggle-notify-donate" checked>
