@@ -223,7 +223,7 @@
   flex-shrink: 0;
 }
 .status-chip-label {
-  max-width: 120px;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -233,6 +233,41 @@
 }
 .status-chip.accent:hover {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.status-chip-subtle {
+  border-color: transparent;
+  opacity: 0.6;
+  font-size: 10px;
+}
+.status-chip-subtle:hover {
+  opacity: 1;
+  border-color: var(--border-subtle);
+}
+
+.status-heart {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted, var(--text-secondary));
+  cursor: pointer;
+  opacity: 0.45;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+  padding: 0;
+}
+.status-heart svg {
+  width: 14px;
+  height: 14px;
+}
+.status-heart:hover {
+  opacity: 0.85;
+  color: #c27a7a;
+  background: color-mix(in srgb, #c27a7a 8%, transparent);
 }
 
 /* Status message (shared with settings save feedback) */

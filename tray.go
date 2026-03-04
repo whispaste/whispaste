@@ -28,6 +28,12 @@ const (
 	_NIIF_INFO  = 0x00000001
 	_NIIF_USER  = 0x00000004
 	_systrayUID = 100 // UID used by getlantern/systray
+
+	// Balloon click notification (lParam value in systray callback)
+	_NIN_BALLOONUSERCLICK = 0x0405 // WM_USER + 5
+	// systray callback message (WM_USER + 1, set by getlantern/systray v1.2.2)
+	_WM_SYSTRAY_CALLBACK = 0x0401
+	_GWLP_WNDPROC        = ^uintptr(3) // -4
 )
 
 var (
@@ -38,7 +44,26 @@ var (
 	procFindWindow             = trayUser32.NewProc("FindWindowW")
 	procGetWindowThreadProcess = trayUser32.NewProc("GetWindowThreadProcessId")
 	procGetCurrentProcessId    = trayKernel32.NewProc("GetCurrentProcessId")
+	procSetWindowLongPtrW      = trayUser32.NewProc("SetWindowLongPtrW")
+	procCallWindowProcW        = trayUser32.NewProc("CallWindowProcW")
 )
+
+// Balloon click subclass: intercepts NIN_BALLOONUSERCLICK on the systray window.
+var (
+	globalTrayRef     *AppTray
+	globalOrigWndProc uintptr
+	traySubclassProc  = syscall.NewCallback(traySubclassWndProc)
+)
+
+func traySubclassWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
+	if uint32(msg) == _WM_SYSTRAY_CALLBACK && uint32(lParam) == _NIN_BALLOONUSERCLICK {
+		if t := globalTrayRef; t != nil {
+			t.handleBalloonClick()
+		}
+	}
+	ret, _, _ := procCallWindowProcW.Call(globalOrigWndProc, hwnd, msg, wParam, lParam)
+	return ret
+}
 
 // notifyIconDataW matches the Windows NOTIFYICONDATAW struct layout.
 // The trailing _pad field is required because getlantern/systray v1.2.2
@@ -83,6 +108,7 @@ type AppTray struct {
 	smartPresets []string
 	onSaved      func()
 	balloonIcon  uintptr // HICON for balloon notifications
+	lastBalloonSponsor bool // true if last balloon was a sponsor notification
 	// History submenu
 	historyEmpty *systray.MenuItem
 	historyItems [_HISTORY_SLOTS]*systray.MenuItem
@@ -256,11 +282,51 @@ func (t *AppTray) ShowBalloon(title, text string) {
 	}
 }
 
+// subclassSystrayWindow replaces the systray window procedure to intercept
+// NIN_BALLOONUSERCLICK events (balloon notification clicks).
+func (t *AppTray) subclassSystrayWindow() {
+	className, err := windows.UTF16PtrFromString("SystrayClass")
+	if err != nil {
+		return
+	}
+	hwnd, _, _ := procFindWindow.Call(uintptr(unsafe.Pointer(className)), 0)
+	if hwnd == 0 {
+		logWarn("subclassSystrayWindow: window not found")
+		return
+	}
+	var windowPID uint32
+	procGetWindowThreadProcess.Call(hwnd, uintptr(unsafe.Pointer(&windowPID)))
+	ourPID, _, _ := procGetCurrentProcessId.Call()
+	if windowPID != uint32(ourPID) {
+		return
+	}
+	globalTrayRef = t
+	orig, _, callErr := procSetWindowLongPtrW.Call(hwnd, _GWLP_WNDPROC, traySubclassProc)
+	if orig == 0 {
+		logWarn("subclassSystrayWindow: SetWindowLongPtrW failed: %v", callErr)
+		return
+	}
+	globalOrigWndProc = orig
+	logDebug("subclassSystrayWindow: subclassed successfully")
+}
+
+// handleBalloonClick opens the sponsor URL when a sponsor balloon is clicked.
+func (t *AppTray) handleBalloonClick() {
+	t.updateMu.Lock()
+	isSponsor := t.lastBalloonSponsor
+	t.lastBalloonSponsor = false
+	t.updateMu.Unlock()
+	if isSponsor {
+		_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", supportURL).Start()
+	}
+}
+
 func (t *AppTray) onReady() {
 	systray.SetIcon(embeddedTrayIcon)
 	systray.SetTitle(AppName)
 	systray.SetTooltip(T("tray.status_ready"))
 	t.loadBalloonIcon()
+	t.subclassSystrayWindow()
 
 	t.mToggle = systray.AddMenuItem(T("tray.start_record"), T("tray.start_record"))
 	systray.AddSeparator()
@@ -516,6 +582,9 @@ func (t *AppTray) MaybeSponsorBalloon(totalDictations int) {
 	if err := t.cfg.Save(); err != nil {
 		logWarn("Failed to save sponsor reminder: %v", err)
 	}
+	t.updateMu.Lock()
+	t.lastBalloonSponsor = true
+	t.updateMu.Unlock()
 	t.ShowBalloon(T("balloon.sponsor_title"), T("balloon.sponsor"))
 }
 
