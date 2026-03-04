@@ -16,9 +16,20 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: false
 
       - name: Install MinGW
         run: choco install mingw -y --no-progress
+
+      - name: Download dependencies
+        env:
+          CGO_ENABLED: "1"
+        run: go mod download
+
+      - name: Generate Windows resources
+        run: |
+          go install github.com/tc-hib/go-winres@latest
+          go-winres make
 
       - name: Vet
         env:
