@@ -23,14 +23,6 @@ type ModelInfo struct {
 // AvailableModels lists all supported local Whisper models.
 var AvailableModels = []ModelInfo{
 	{
-		ID:        "whisper-tiny",
-		Name:      "Whisper Tiny",
-		Size:      "39MB",
-		SizeBytes: 40_894_464,
-		BaseURL:   "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main",
-		Files:     []string{"tiny-encoder.onnx", "tiny-decoder.onnx", "tiny-tokens.txt"},
-	},
-	{
 		ID:        "whisper-base",
 		Name:      "Whisper Base",
 		Size:      "74MB",
