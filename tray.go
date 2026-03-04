@@ -131,10 +131,12 @@ func (t *AppTray) ShowMinimizeBalloon() {
 func (t *AppTray) loadBalloonIcon() {
 	ico := embeddedAppIcon
 	if len(ico) < 22 {
+		logWarn("loadBalloonIcon: embedded icon too small (%d bytes)", len(ico))
 		return
 	}
 	count := int(ico[4]) | int(ico[5])<<8
 	if count < 1 {
+		logWarn("loadBalloonIcon: no icon entries found")
 		return
 	}
 	// Pick the largest icon entry (by data size)
@@ -153,6 +155,7 @@ func (t *AppTray) loadBalloonIcon() {
 		}
 	}
 	if bestOff+16 > len(ico) {
+		logWarn("loadBalloonIcon: best entry offset out of bounds")
 		return
 	}
 	dataSize := uint32(ico[bestOff+8]) | uint32(ico[bestOff+9])<<8 |
@@ -160,11 +163,12 @@ func (t *AppTray) loadBalloonIcon() {
 	dataOffset := uint32(ico[bestOff+12]) | uint32(ico[bestOff+13])<<8 |
 		uint32(ico[bestOff+14])<<16 | uint32(ico[bestOff+15])<<24
 	if dataOffset+dataSize > uint32(len(ico)) {
+		logWarn("loadBalloonIcon: data range out of bounds")
 		return
 	}
 	iconData := ico[dataOffset : dataOffset+dataSize]
 	proc := trayUser32.NewProc("CreateIconFromResourceEx")
-	h, _, _ := proc.Call(
+	h, _, err := proc.Call(
 		uintptr(unsafe.Pointer(&iconData[0])),
 		uintptr(dataSize),
 		1,          // fIcon = TRUE
@@ -172,6 +176,11 @@ func (t *AppTray) loadBalloonIcon() {
 		0, 0,       // use default size
 		0, // LR_DEFAULTCOLOR
 	)
+	if h == 0 {
+		logWarn("loadBalloonIcon: CreateIconFromResourceEx failed: %v", err)
+	} else {
+		logDebug("loadBalloonIcon: icon loaded (handle=%d)", h)
+	}
 	t.balloonIcon = h
 }
 
@@ -188,12 +197,20 @@ func (t *AppTray) ShowBalloon(title, text string) {
 		return
 	}
 
+	// Use custom icon if available, otherwise fall back to system info icon
+	infoFlags := uint32(_NIIF_USER)
+	iconHandle := t.balloonIcon
+	if iconHandle == 0 {
+		infoFlags = _NIIF_INFO
+		logDebug("ShowBalloon: no custom icon, using NIIF_INFO fallback")
+	}
+
 	nid := notifyIconDataW{
-		hWnd:        hwnd,
-		uID:         _systrayUID,
-		uFlags:      _NIF_INFO,
-		dwInfoFlags: _NIIF_USER,
-		hBalloonIcon: t.balloonIcon,
+		hWnd:         hwnd,
+		uID:          _systrayUID,
+		uFlags:       _NIF_INFO,
+		dwInfoFlags:  infoFlags,
+		hBalloonIcon: iconHandle,
 	}
 	nid.cbSize = uint32(unsafe.Sizeof(nid))
 
@@ -204,9 +221,12 @@ func (t *AppTray) ShowBalloon(title, text string) {
 		copy(nid.szInfo[:255], textUTF16)
 	}
 
+	logDebug("ShowBalloon: hwnd=%d uid=%d flags=0x%X title=%q", hwnd, _systrayUID, infoFlags, title)
 	ret, _, callErr := procShellNotifyIcon.Call(_NIM_MODIFY, uintptr(unsafe.Pointer(&nid)))
 	if ret == 0 {
 		logWarn("ShowBalloon: Shell_NotifyIconW failed: %v", callErr)
+	} else {
+		logDebug("ShowBalloon: notification shown successfully")
 	}
 }
 
