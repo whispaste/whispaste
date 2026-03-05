@@ -596,3 +596,48 @@
   background: var(--clr-success, #34C759);
   transition: width 0.08s ease-out;
 }
+
+/* ── Floating Button Color Picker ─────────────────────── */
+.fab-color-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 0 0;
+}
+.fab-color-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.fab-color-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fab-color-option {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: none;
+  padding: 2px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fab-color-option:hover {
+  transform: scale(1.15);
+  border-color: var(--border-primary);
+}
+.fab-color-option.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow, rgba(8, 145, 178, 0.25));
+}
+.fab-color-swatch {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
