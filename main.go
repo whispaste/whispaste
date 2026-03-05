@@ -136,7 +136,7 @@ func main() {
 		if localLang == "" {
 			localLang = cfg.Language
 		}
-		return cfg.PlaySounds, cfg.AutoPaste, cfg.Language, localLang, cfg.APIKey, cfg.Model, endpoint, cfg.Prompt, cfg.UseLocalSTT
+		return cfg.PlaySounds, cfg.AutoPaste, cfg.Language, localLang, cfg.APIKey, cfg.Model, endpoint, cfg.Prompt, cfg.ActiveModelLocal
 	}
 	snapshotSmart := func() (enabled bool, preset, customPrompt, targetLang string) {
 		cfg.mu.RLock()

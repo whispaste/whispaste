@@ -302,6 +302,9 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.SmartModePrompt = newCfg.SmartModePrompt
 			cfg.SmartModeTarget = newCfg.SmartModeTarget
 			cfg.UseLocalSTT = newCfg.UseLocalSTT
+			if !newCfg.UseLocalSTT {
+				cfg.ActiveModelLocal = false
+			}
 			cfg.LocalModelID = newCfg.LocalModelID
 			cfg.TranscriptionLanguage = newCfg.TranscriptionLanguage
 			cfg.InputDevice = newCfg.InputDevice
@@ -390,7 +393,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			}
 			var text string
 			var err2 error
-			if cfg.GetUseLocalSTT() {
+			if cfg.GetActiveModelLocal() {
 				modelDir, mdErr := GetModelDir(cfg.GetLocalModelID())
 				if mdErr != nil {
 					return map[string]interface{}{"success": false, "text": "", "error": mdErr.Error()}
@@ -1173,10 +1176,10 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		w.Bind("switchModel", func(modelID string, isLocal bool) {
 			cfg.mu.Lock()
 			if isLocal {
-				cfg.UseLocalSTT = true
+				cfg.ActiveModelLocal = true
 				cfg.LocalModelID = modelID
 			} else {
-				cfg.UseLocalSTT = false
+				cfg.ActiveModelLocal = false
 				cfg.Model = modelID
 			}
 			cfg.mu.Unlock()
