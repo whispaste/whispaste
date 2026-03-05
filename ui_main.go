@@ -24,6 +24,7 @@ var (
 	mainWindowHwnd     uintptr
 	mainWebview        webview.WebView
 	lastRecordingState AppState // last state pushed via NotifyRecordingState
+	forceOnboardingFlag bool    // set via --onboarding CLI flag
 )
 
 //go:embed ui_main
@@ -230,8 +231,9 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		// Guard against document.documentElement being null on about:blank
 		initJS := fmt.Sprintf(`(function(){var d=document.documentElement;if(!d)return;var t=%s;if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';if(t==='dark')d.setAttribute('data-theme','dark');})();`, themeJSON)
 		initJS += fmt.Sprintf(`window._lang = %s; window._theme = %s; window._initialPage = "%s";`, langJSON, themeJSON, effectivePage)
-		if !cfg.GetOnboardingDone() {
+		if !cfg.GetOnboardingDone() || forceOnboardingFlag {
 			initJS += ` window._showOnboarding = true;`
+			forceOnboardingFlag = false // reset so re-opens don't re-trigger
 		}
 		if initialPage == "smart-mode" {
 			initJS += ` window._initialSection = "smart-mode";`

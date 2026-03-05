@@ -218,6 +218,7 @@ const translations = {
     aboutGithub: 'GitHub',
     aboutIssue: 'Report Issue',
     aboutLogFile: 'Log File',
+    aboutRestartOnboarding: 'Restart Setup Wizard',
     aboutCreditsTitle: 'Credits',
     aboutCreditsText: 'Made by Silvio Lindstedt. Powered by OpenAI Whisper API and sherpa-onnx for local transcription. Built with Go and WebView2.',
     aboutSupportTitle: 'Support this project',
@@ -490,7 +491,7 @@ const translations = {
     navSmartMode: 'Smart-Modus',
     navReplacements: 'Textersetzungen',
     navAnalytics: 'Statistiken',
-    navAbout: 'Über',
+    navAbout: 'Info',
 
     // Settings — General
     settingsTitle: 'Einstellungen',
@@ -701,6 +702,7 @@ const translations = {
     aboutGithub: 'GitHub',
     aboutIssue: 'Fehler melden',
     aboutLogFile: 'Logdatei',
+    aboutRestartOnboarding: 'Einrichtungsassistent erneut starten',
     aboutCreditsTitle: 'Danksagungen',
     aboutCreditsText: 'Erstellt von Silvio Lindstedt. Basierend auf der OpenAI Whisper API und sherpa-onnx für lokale Transkription. Entwickelt mit Go und WebView2.',
     aboutSupportTitle: 'Projekt unterstützen',

@@ -20,11 +20,13 @@ var (
 func ShowLogViewer() {
 	logViewerMu.Lock()
 	if logViewerOpen {
+		logDebug("ShowLogViewer: already open, skipping")
 		logViewerMu.Unlock()
 		return
 	}
 	logViewerOpen = true
 	logViewerMu.Unlock()
+	logDebug("ShowLogViewer: opening log viewer")
 
 	go func() {
 		w := webview.New(true)
@@ -46,6 +48,7 @@ func ShowLogViewer() {
 			logViewerWindow = nil
 			logViewerOpen = false
 			logViewerMu.Unlock()
+			logDebug("ShowLogViewer: closed, state reset")
 		}()
 
 		w.SetTitle("WhisPaste — Log Viewer")
