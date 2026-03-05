@@ -45,10 +45,13 @@ func main() {
 
 	// Detect --autostart flag (set by Windows autostart registry entry)
 	isAutostart := false
+	forceOnboarding := false
 	for _, arg := range os.Args[1:] {
-		if arg == "--autostart" {
+		switch arg {
+		case "--autostart":
 			isAutostart = true
-			break
+		case "--onboarding":
+			forceOnboarding = true
 		}
 	}
 
@@ -56,6 +59,11 @@ func main() {
 	if os.Getenv("WHISPASTE_DEBUG") == "1" {
 		debugMode = true
 		logInfo("Debug mode enabled")
+	}
+
+	if forceOnboarding {
+		forceOnboardingFlag = true
+		logInfo("Onboarding forced via --onboarding flag")
 	}
 
 	enableDarkMode()
