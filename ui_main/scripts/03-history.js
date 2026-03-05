@@ -200,9 +200,6 @@ function updateCounts() {
   setCount('countWeek', _entries.filter(e => isThisWeek(e.timestamp)).length);
   setCount('countOlder', _entries.filter(e => !isThisWeek(e.timestamp)).length);
 
-  const filtered = getFiltered();
-  setCount('countBadge', filtered.length);
-
   // Dynamic categories
   const cats = {};
   _entries.forEach(e => { (e.tags || []).forEach(tag => { cats[tag] = (cats[tag] || 0) + 1; }); });
