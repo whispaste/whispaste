@@ -63,7 +63,7 @@ function openExternal(url) {
 function updateModeBadge(cfg) {
   const badge = document.getElementById('modeBadge');
   if (!badge) return;
-  const isLocal = cfg && cfg.use_local_stt;
+  const isLocal = cfg && cfg.active_model_local;
   badge.textContent = isLocal ? t('modeLocal') : t('modeApi');
   badge.title = isLocal ? t('modeLocalTip') : t('modeApiTip');
   badge.classList.toggle('mode-local', !!isLocal);
@@ -72,7 +72,7 @@ function updateModeBadge(cfg) {
 /** Update global status bar indicators from config */
 function updateStatusBar(cfg) {
   if (!cfg) return;
-  const isLocal = cfg.use_local_stt;
+  const isLocal = cfg.active_model_local;
 
   // Mode + Model combined chip
   const modeLabel = document.getElementById('statusModeLabel');

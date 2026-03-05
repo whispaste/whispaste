@@ -129,6 +129,8 @@ function applyConfig(cfg) {
     if (el) el.checked = cfg.use_local_stt;
     updateLocalSTTVisibility();
   }
+  // Cache active model type for sync access (e.g. language switch badge update)
+  window._activeModelLocal = !!cfg.active_model_local;
   if (cfg.local_model_id) {
     const radio = document.querySelector(`[name="local-model"][value="${cfg.local_model_id}"]`);
     if (radio) {
