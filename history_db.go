@@ -43,18 +43,16 @@ func initHistoryDB() (*sql.DB, error) {
 	return db, nil
 }
 
-// repairDBIfNeeded runs a quick integrity check and rebuilds FTS tables if corruption is detected.
+// repairDBIfNeeded checks FTS5 index integrity and rebuilds if corrupted.
 func repairDBIfNeeded(db *sql.DB) {
-	var result string
-	if err := db.QueryRow("PRAGMA integrity_check(1)").Scan(&result); err != nil {
-		logWarn("DB integrity check failed to run: %v", err)
+	// FTS5-specific integrity check (PRAGMA integrity_check does NOT cover FTS5 virtual tables)
+	_, err := db.Exec("INSERT INTO history_fts(history_fts) VALUES('integrity-check')")
+	if err != nil {
+		logWarn("FTS5 integrity check failed: %v — rebuilding FTS index", err)
 		rebuildFTS(db)
 		return
 	}
-	if result != "ok" {
-		logWarn("DB integrity issue detected: %s — rebuilding FTS index", result)
-		rebuildFTS(db)
-	}
+	logDebug("FTS5 integrity check passed")
 }
 
 // rebuildFTS drops and recreates the FTS5 virtual table and triggers.

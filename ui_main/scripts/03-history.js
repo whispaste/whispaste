@@ -559,10 +559,17 @@ async function confirmDelete(id) {
   );
   if (confirmed) {
     try {
-      if (window.deleteEntry) await window.deleteEntry(id);
-      if (_expandedId === id) _expandedId = null;
-      _selectedIds.delete(id);
-    } catch (e) {}
+      let ok = true;
+      if (window.deleteEntry) ok = await window.deleteEntry(id);
+      if (ok) {
+        if (_expandedId === id) _expandedId = null;
+        _selectedIds.delete(id);
+      } else {
+        showToast(t('statusError'), true);
+      }
+    } catch (e) {
+      showToast(t('statusError'), true);
+    }
     updateSelectionBar();
     await loadEntries();
   }
@@ -577,13 +584,21 @@ async function confirmDeleteSelected() {
     { variant: 'danger', confirmText: t('notebook.confirm_delete') }
   );
   if (confirmed) {
+    const deleted = [];
     for (const id of _selectedIds) {
       try {
-        if (window.deleteEntry) await window.deleteEntry(id);
-        if (_expandedId === id) _expandedId = null;
+        let ok = true;
+        if (window.deleteEntry) ok = await window.deleteEntry(id);
+        if (ok) {
+          if (_expandedId === id) _expandedId = null;
+          deleted.push(id);
+        }
       } catch (e) {}
     }
-    _selectedIds.clear();
+    for (const id of deleted) _selectedIds.delete(id);
+    if (deleted.length < count) {
+      showToast(t('statusError'), true);
+    }
     updateSelectionBar();
     await loadEntries();
   }
@@ -592,12 +607,14 @@ async function confirmDeleteSelected() {
 function updateSelectionBar() {
   const bar = document.getElementById('selectionBar');
   const countEl = document.getElementById('selectionCount');
+  const mergeBtn = document.getElementById('mergeSelectedBtn');
   const page = document.getElementById('page-history');
   if (!bar) return;
   if (_selectedIds.size > 0) {
     bar.classList.remove('hidden');
     if (page) page.classList.add('selecting');
     if (countEl) countEl.textContent = _selectedIds.size;
+    if (mergeBtn) mergeBtn.style.display = _selectedIds.size >= 2 ? '' : 'none';
   } else {
     bar.classList.add('hidden');
     if (page) page.classList.remove('selecting');
