@@ -13,6 +13,11 @@ import (
 
 const historyDBFile = "history.db"
 
+// currentSchemaVersion tracks the DB schema. Version history:
+// 1 = external-content FTS5 (value-matching delete triggers — broken with modernc.org/sqlite)
+// 2 = regular FTS5 (rowid-based triggers)
+const currentSchemaVersion = 2
+
 // initHistoryDB opens (or creates) the SQLite database and ensures tables exist.
 func initHistoryDB() (*sql.DB, error) {
 	dir, err := configDir()
@@ -29,6 +34,11 @@ func initHistoryDB() (*sql.DB, error) {
 	if err := createHistoryTables(db); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("create tables: %w", err)
+	}
+
+	// Migrate schema if needed (e.g. external-content FTS5 → regular FTS5)
+	if err := ensureSchemaVersion(db); err != nil {
+		logWarn("Schema migration: %v", err)
 	}
 
 	// Check DB integrity and repair FTS if needed
@@ -55,10 +65,20 @@ func repairDBIfNeeded(db *sql.DB) {
 	logDebug("FTS5 integrity check passed")
 }
 
-// rebuildFTS drops and recreates the FTS5 virtual table and triggers.
+// rebuildFTS rebuilds the FTS5 index. For regular FTS5, tries the fast 'rebuild'
+// command first, falling back to full drop+recreate if that fails.
 func rebuildFTS(db *sql.DB) {
 	logInfo("Rebuilding FTS index...")
-	// Drop triggers first, then the FTS table
+
+	// Fast path: regular FTS5 supports 'rebuild' natively
+	_, err := db.Exec("INSERT INTO history_fts(history_fts) VALUES('rebuild')")
+	if err == nil {
+		logInfo("FTS index rebuilt successfully (fast rebuild)")
+		return
+	}
+	logWarn("FTS fast rebuild failed: %v — doing full drop+recreate", err)
+
+	// Slow path: drop triggers + table, then recreate
 	for _, stmt := range []string{
 		"DROP TRIGGER IF EXISTS history_fts_ai",
 		"DROP TRIGGER IF EXISTS history_fts_ad",
@@ -75,6 +95,58 @@ func rebuildFTS(db *sql.DB) {
 	} else {
 		logInfo("FTS index rebuilt successfully")
 	}
+}
+
+// ensureSchemaVersion checks the DB schema version and runs migrations if needed.
+func ensureSchemaVersion(db *sql.DB) error {
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER)")
+	if err != nil {
+		return fmt.Errorf("create schema_version table: %w", err)
+	}
+
+	var version int
+	err = db.QueryRow("SELECT version FROM schema_version LIMIT 1").Scan(&version)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// No row yet — treat as version 0 (pre-versioning / external-content FTS5)
+			version = 0
+		} else {
+			return fmt.Errorf("check schema version: %w", err)
+		}
+	}
+
+	if version >= currentSchemaVersion {
+		return nil
+	}
+
+	logInfo("Migrating schema from version %d to %d", version, currentSchemaVersion)
+
+	// Migration to v2: switch from external-content FTS5 to regular FTS5
+	for _, stmt := range []string{
+		"DROP TRIGGER IF EXISTS history_fts_ai",
+		"DROP TRIGGER IF EXISTS history_fts_ad",
+		"DROP TRIGGER IF EXISTS history_fts_au",
+		"DROP TABLE IF EXISTS history_fts",
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			logWarn("Schema migration cleanup (%s): %v", stmt, err)
+		}
+	}
+	if err := createFTSTables(db); err != nil {
+		return fmt.Errorf("recreate FTS tables: %w", err)
+	}
+
+	// Upsert schema version
+	if version == 0 {
+		_, err = db.Exec("INSERT INTO schema_version (version) VALUES (?)", currentSchemaVersion)
+	} else {
+		_, err = db.Exec("UPDATE schema_version SET version = ?", currentSchemaVersion)
+	}
+	if err != nil {
+		return fmt.Errorf("update schema version: %w", err)
+	}
+	logInfo("Schema migration to version %d complete", currentSchemaVersion)
+	return nil
 }
 
 func createHistoryTables(db *sql.DB) error {
@@ -105,13 +177,11 @@ func createHistoryTables(db *sql.DB) error {
 }
 
 // createFTSTables creates the FTS5 virtual table and sync triggers.
-// Uses external-content FTS5 so data lives only in history_entries.
+// Uses regular (not external-content) FTS5 for reliable rowid-based operations.
 func createFTSTables(db *sql.DB) error {
 	_, err := db.Exec(`
 		CREATE VIRTUAL TABLE IF NOT EXISTS history_fts USING fts5(
-			title, text, tags,
-			content='history_entries',
-			content_rowid='rowid'
+			title, text, tags
 		);
 
 		-- Triggers keep FTS in sync with the content table
@@ -121,13 +191,11 @@ func createFTSTables(db *sql.DB) error {
 		END;
 
 		CREATE TRIGGER IF NOT EXISTS history_fts_ad AFTER DELETE ON history_entries BEGIN
-			INSERT INTO history_fts(history_fts, rowid, title, text, tags)
-			VALUES ('delete', old.rowid, old.title, old.text, old.tags);
+			DELETE FROM history_fts WHERE rowid = old.rowid;
 		END;
 
 		CREATE TRIGGER IF NOT EXISTS history_fts_au AFTER UPDATE ON history_entries BEGIN
-			INSERT INTO history_fts(history_fts, rowid, title, text, tags)
-			VALUES ('delete', old.rowid, old.title, old.text, old.tags);
+			DELETE FROM history_fts WHERE rowid = old.rowid;
 			INSERT INTO history_fts(rowid, title, text, tags)
 			VALUES (new.rowid, new.title, new.text, new.tags);
 		END;

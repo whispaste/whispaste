@@ -215,19 +215,6 @@ func scanEntries(rows *sql.Rows) []HistoryEntry {
 	return entries
 }
 
-// execWithFTSRepair executes a SQL statement and, if it fails with a FTS5
-// corruption error ("malformed"), automatically rebuilds the FTS index and
-// retries the operation once.
-func (h *History) execWithFTSRepair(query string, args ...interface{}) (sql.Result, error) {
-	res, err := h.db.Exec(query, args...)
-	if err != nil && strings.Contains(err.Error(), "malformed") {
-		logWarn("FTS5 corruption detected on write, rebuilding index: %v", err)
-		rebuildFTS(h.db)
-		return h.db.Exec(query, args...)
-	}
-	return res, err
-}
-
 // Delete removes an entry by ID.
 func (h *History) Delete(id string) bool {
 	if h.db == nil {
@@ -237,7 +224,7 @@ func (h *History) Delete(id string) bool {
 	h.cache = nil
 	h.mu.Unlock()
 
-	res, err := h.execWithFTSRepair("DELETE FROM history_entries WHERE id = ?", id)
+	res, err := h.db.Exec("DELETE FROM history_entries WHERE id = ?", id)
 	if err != nil {
 		logError("Delete entry: %v", err)
 		return false
@@ -255,7 +242,7 @@ func (h *History) TogglePin(id string) bool {
 	h.cache = nil
 	h.mu.Unlock()
 
-	res, err := h.execWithFTSRepair(`UPDATE history_entries SET pinned = CASE WHEN pinned = 0 THEN 1 ELSE 0 END WHERE id = ?`, id)
+	res, err := h.db.Exec(`UPDATE history_entries SET pinned = CASE WHEN pinned = 0 THEN 1 ELSE 0 END WHERE id = ?`, id)
 	if err != nil {
 		logError("Toggle pin: %v", err)
 		return false
@@ -278,9 +265,9 @@ func (h *History) UpdateEntry(id, title string, tags []string) bool {
 	tagsJSON := marshalTags(tags)
 	logDebug("UpdateEntry id=%s title=%q tagCount=%d tags=%s", id, title, len(tags), tagsJSON)
 	if title != "" {
-		res, err = h.execWithFTSRepair("UPDATE history_entries SET title = ?, tags = ? WHERE id = ?", title, tagsJSON, id)
+		res, err = h.db.Exec("UPDATE history_entries SET title = ?, tags = ? WHERE id = ?", title, tagsJSON, id)
 	} else {
-		res, err = h.execWithFTSRepair("UPDATE history_entries SET tags = ? WHERE id = ?", tagsJSON, id)
+		res, err = h.db.Exec("UPDATE history_entries SET tags = ? WHERE id = ?", tagsJSON, id)
 	}
 	if err != nil {
 		logError("Update entry id=%s: %v", id, err)
@@ -300,7 +287,7 @@ func (h *History) UpdateText(id, newText string) bool {
 	h.mu.Unlock()
 
 	newTitle := autoTitle(newText)
-	res, err := h.execWithFTSRepair("UPDATE history_entries SET text = ?, title = ? WHERE id = ?", newText, newTitle, id)
+	res, err := h.db.Exec("UPDATE history_entries SET text = ?, title = ? WHERE id = ?", newText, newTitle, id)
 	if err != nil {
 		logError("Update text: %v", err)
 		return false

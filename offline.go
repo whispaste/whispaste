@@ -10,6 +10,26 @@ import (
 	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
 )
 
+// numThreads returns a safe thread count for sherpa-onnx.
+// Official docs recommend 2; we cap at 4 as a balance between speed and stability.
+func numThreads() int {
+	n := runtime.NumCPU()
+	if n > 4 {
+		return 4
+	}
+	return n
+}
+
+// normalizeLanguage maps the config value to what sherpa-onnx expects.
+// sherpa-onnx uses ISO codes ("en","de") or "" for auto-detection.
+// Our config uses "auto" for auto-detection, which must be mapped to "".
+func normalizeLanguage(lang string) string {
+	if lang == "auto" || lang == "" {
+		return ""
+	}
+	return lang
+}
+
 // pcmToFloat32 converts PCM int16 little-endian bytes to float32 samples in [-1, 1].
 func pcmToFloat32(pcm []byte) []float32 {
 	numSamples := len(pcm) / 2
@@ -47,11 +67,11 @@ func TranscribeLocal(pcmS16 []byte, sampleRate int, language string, modelDir st
 			Whisper: sherpa.OfflineWhisperModelConfig{
 				Encoder:  encoder,
 				Decoder:  decoder,
-				Language: language,
+				Language: normalizeLanguage(language),
 				Task:     "transcribe",
 			},
 			Tokens:     tokens,
-			NumThreads: runtime.NumCPU(),
+			NumThreads: numThreads(),
 			Provider:   "cpu",
 			Debug:      0,
 		},
@@ -162,11 +182,11 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 				Whisper: sherpa.OfflineWhisperModelConfig{
 					Encoder:  encoder,
 					Decoder:  decoder,
-					Language: language,
+					Language: normalizeLanguage(language),
 					Task:     "transcribe",
 				},
 				Tokens:     tokens,
-				NumThreads: runtime.NumCPU(),
+				NumThreads: numThreads(),
 				Provider:   "cpu",
 				Debug:      0,
 			},
@@ -181,6 +201,7 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 		lr.modelDir = modelDir
 		lr.language = language
 		logInfo("local recognizer initialized: model=%s lang=%s", modelDir, language)
+		logDebug("recognizer config: threads=%d lang=%q model=%s", numThreads(), normalizeLanguage(language), modelDir)
 	}
 
 	samples := pcmToFloat32(pcmS16)
@@ -188,6 +209,12 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 	// Whisper has a ~30s context window. Process in chunks for longer audio.
 	const chunkSec = 28
 	chunkSamples := chunkSec * sampleRate
+
+	chunkMode := "single"
+	if len(samples) > 30*sampleRate {
+		chunkMode = "chunked"
+	}
+	logDebug("transcribing: totalSamples=%d duration=%.1fs chunks=%s", len(samples), float64(len(samples))/float64(sampleRate), chunkMode)
 
 	if len(samples) <= 30*sampleRate {
 		// Short audio (≤30s): process in one shot
@@ -221,17 +248,23 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 
 // transcribeChunk transcribes a single chunk of float32 samples.
 func (lr *LocalRecognizer) transcribeChunk(samples []float32, sampleRate int) (string, error) {
+	logDebug("transcribeChunk: creating stream, samples=%d duration=%.1fs", len(samples), float64(len(samples))/float64(sampleRate))
 	stream := sherpa.NewOfflineStream(lr.recognizer)
 	if stream == nil {
 		return "", fmt.Errorf("failed to create offline stream")
 	}
 	defer sherpa.DeleteOfflineStream(stream)
 
+	logDebug("transcribeChunk: accepting waveform")
 	stream.AcceptWaveform(sampleRate, samples)
+	logDebug("transcribeChunk: starting decode")
 	lr.recognizer.Decode(stream)
+	logDebug("transcribeChunk: decode complete, getting result")
 
 	result := stream.GetResult()
-	return strings.TrimSpace(result.Text), nil
+	text := strings.TrimSpace(result.Text)
+	logDebug("transcribeChunk: result len=%d", len(text))
+	return text, nil
 }
 
 // Close releases the cached recognizer resources.
