@@ -47,7 +47,8 @@ function gatherConfig() {
     cleanup_max_entries: parseInt(document.getElementById('input-cleanup-max-entries')?.value || '0', 10),
     cleanup_max_age_days: parseInt(document.getElementById('input-cleanup-max-age')?.value || '0', 10),
     cleanup_include_pinned: document.getElementById('toggle-cleanup-pinned')?.checked || false,
-    trim_silence: document.getElementById('toggle-trim-silence')?.checked || false
+    trim_silence: document.getElementById('toggle-trim-silence')?.checked || false,
+    floating_button_enabled: document.getElementById('toggle-floating-btn')?.checked || false
   };
 }
 
@@ -135,6 +136,7 @@ function applyConfig(cfg) {
   { const el = document.getElementById('toggle-cleanup-pinned'); if (el) el.checked = !!cfg.cleanup_include_pinned; }
   updateCleanupDependents();
   { const el = document.getElementById('toggle-trim-silence'); if (el) el.checked = !!cfg.trim_silence; }
+  { const el = document.getElementById('toggle-floating-btn'); if (el) el.checked = !!cfg.floating_button_enabled; }
   {
     const el = document.getElementById('toggle-app-detection');
     if (el) el.checked = !!cfg.app_detection;

@@ -61,6 +61,9 @@ type Config struct {
 	TemplateMetas       map[string]TemplateMeta    `json:"template_metas,omitempty"`
 	FallbackPreset      string                     `json:"fallback_preset,omitempty"`
 	CustomTags          []string                   `json:"customTags,omitempty"`
+	FloatingButtonEnabled bool                     `json:"floating_button_enabled,omitempty"`
+	FloatingButtonX       int                      `json:"floating_button_x,omitempty"`
+	FloatingButtonY       int                      `json:"floating_button_y,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -226,6 +229,20 @@ func (c *Config) IsPushToTalk() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.Mode == "push_to_talk"
+}
+
+// GetFloatingButtonEnabled returns whether the floating record button is shown (thread-safe).
+func (c *Config) GetFloatingButtonEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.FloatingButtonEnabled
+}
+
+// GetFloatingButtonPos returns the saved floating button position (thread-safe).
+func (c *Config) GetFloatingButtonPos() (int, int) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.FloatingButtonX, c.FloatingButtonY
 }
 
 // detectSystemLanguage returns "de" for German systems, "en" otherwise.
