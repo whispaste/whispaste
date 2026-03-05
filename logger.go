@@ -75,6 +75,24 @@ func CloseLogger() {
 	}
 }
 
+// ClearLogFile truncates the log file while keeping it open for further writes.
+func ClearLogFile() {
+	if logger == nil {
+		return
+	}
+	logger.mu.Lock()
+	defer logger.mu.Unlock()
+	if logger.file == nil {
+		return
+	}
+	if _, err := logger.file.Seek(0, 0); err != nil {
+		return
+	}
+	if err := logger.file.Truncate(0); err != nil {
+		fmt.Fprintf(os.Stderr, "ClearLogFile: truncate error: %v\n", err)
+	}
+}
+
 // Write implements io.Writer so the standard log package shares our mutex.
 func (l *appLogger) Write(p []byte) (n int, err error) {
 	l.mu.Lock()

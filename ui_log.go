@@ -26,15 +26,20 @@ var (
 	logViewerIsWindow         = logViewerUser32.NewProc("IsWindow")
 	logViewerShowWindow       = logViewerUser32.NewProc("ShowWindow")
 	logViewerSetForeground    = logViewerUser32.NewProc("SetForegroundWindow")
+	logViewerSetWindowPos     = logViewerUser32.NewProc("SetWindowPos")
 
 	logViewerOrigWndProc uintptr
 	logViewerWndProcCb   = syscall.NewCallback(logViewerWndProc)
 )
 
 const (
-	logViewerWmClose   = 0x0010
-	logViewerSwRestore = 9
+	logViewerWmClose     = 0x0010
+	logViewerSwRestore   = 9
 	logViewerGwlpWndProc = ^uintptr(3) // -4
+	logViewerSwpNoSize   = 0x0001
+	logViewerSwpNoMove   = 0x0002
+	logViewerHwndTopmost = ^uintptr(0) // -1
+	logViewerHwndNoTopmost = ^uintptr(1) // -2
 )
 
 // logViewerWndProc intercepts WM_CLOSE to cleanly terminate the webview message loop.
@@ -147,6 +152,28 @@ func ShowLogViewer() {
 
 		w.Bind("readLogLines", func(maxLines int) string {
 			return readLastLogLines(maxLines)
+		})
+
+		w.Bind("setAlwaysOnTop", func(topmost bool) {
+			logViewerMu.Lock()
+			h := logViewerHwnd
+			logViewerMu.Unlock()
+			if h == 0 {
+				return
+			}
+			insertAfter := logViewerHwndNoTopmost
+			if topmost {
+				insertAfter = logViewerHwndTopmost
+			}
+			ret, _, errno := logViewerSetWindowPos.Call(h, insertAfter, 0, 0, 0, 0, logViewerSwpNoSize|logViewerSwpNoMove)
+			if ret == 0 {
+				logWarn("LogViewer: SetWindowPos failed: %v", errno)
+			}
+			logDebug("LogViewer: always-on-top=%v", topmost)
+		})
+
+		w.Bind("clearLogFile", func() {
+			ClearLogFile()
 		})
 
 		w.SetHtml(logViewerHTML())
@@ -393,6 +420,7 @@ func logViewerHTML() string {
     <input type="text" id="searchBox" placeholder="Search logs...">
     <div class="controls">
       <label><input type="checkbox" id="autoScroll" checked> Auto-scroll</label>
+      <label><input type="checkbox" id="alwaysOnTop"> On top</label>
       <button id="clearBtn">Clear</button>
       <span id="lineCount" style="color:var(--text-secondary)">0 lines</span>
     </div>
@@ -517,6 +545,11 @@ func logViewerHTML() string {
   document.getElementById('clearBtn').addEventListener('click', function() {
     allLines = [];
     renderLogs(true);
+    window.clearLogFile();
+  });
+
+  document.getElementById('alwaysOnTop').addEventListener('change', function() {
+    window.setAlwaysOnTop(this.checked);
   });
 
   loadLogs();
