@@ -186,6 +186,7 @@ func TestConfigFloatingButtonRoundtrip(t *testing.T) {
 	cfg.FloatingButtonEnabled = true
 	cfg.FloatingButtonX = 123
 	cfg.FloatingButtonY = 456
+	cfg.FloatingButtonColor = "purple"
 
 	data, err := json.Marshal(cfg)
 	if err != nil {
@@ -206,11 +207,17 @@ func TestConfigFloatingButtonRoundtrip(t *testing.T) {
 	if decoded.FloatingButtonY != 456 {
 		t.Errorf("FloatingButtonY = %d, want 456", decoded.FloatingButtonY)
 	}
+	if decoded.FloatingButtonColor != "purple" {
+		t.Errorf("FloatingButtonColor = %q, want purple", decoded.FloatingButtonColor)
+	}
 
 	// Default should be false
 	def := DefaultConfig()
 	if def.FloatingButtonEnabled {
 		t.Error("FloatingButtonEnabled should be false by default")
+	}
+	if def.GetFloatingButtonColor() != "cyan" {
+		t.Errorf("GetFloatingButtonColor() default = %q, want cyan", def.GetFloatingButtonColor())
 	}
 
 	// Thread-safe getters
@@ -218,11 +225,15 @@ func TestConfigFloatingButtonRoundtrip(t *testing.T) {
 	cfg2.FloatingButtonEnabled = true
 	cfg2.FloatingButtonX = 100
 	cfg2.FloatingButtonY = 200
+	cfg2.FloatingButtonColor = "rose"
 	if !cfg2.GetFloatingButtonEnabled() {
 		t.Error("GetFloatingButtonEnabled() should return true")
 	}
 	x, y := cfg2.GetFloatingButtonPos()
 	if x != 100 || y != 200 {
 		t.Errorf("GetFloatingButtonPos() = (%d, %d), want (100, 200)", x, y)
+	}
+	if cfg2.GetFloatingButtonColor() != "rose" {
+		t.Errorf("GetFloatingButtonColor() = %q, want rose", cfg2.GetFloatingButtonColor())
 	}
 }

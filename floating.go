@@ -17,8 +17,9 @@ const (
 	_FLOAT_SIZE = 56 // diameter in pixels
 
 	// Custom window messages (offset from overlay to avoid collision)
-	_WM_FLOAT_SHOW = _WM_USER + 20
-	_WM_FLOAT_HIDE = _WM_USER + 21
+	_WM_FLOAT_SHOW   = _WM_USER + 20
+	_WM_FLOAT_HIDE   = _WM_USER + 21
+	_WM_FLOAT_RERENDER = _WM_USER + 22
 
 	// Timer for hover/opacity animation
 	_FLOAT_TIMER_ID = 2
@@ -32,11 +33,8 @@ const (
 	// Edge snapping threshold
 	_FLOAT_SNAP_PX = 10
 
-	// Colors (ARGB for GDI+)
-	_FLOAT_CLR_BG      = 0xFF22D3EE // Cyan-400 (brand color)
-	_FLOAT_CLR_BG_HOVER = 0xFF06B6D4 // Cyan-500 (darker on hover)
-	_FLOAT_CLR_SHADOW  = 0x40000000 // semi-transparent black shadow
-	_FLOAT_CLR_ICON    = 0xFFFFFFFF // white mic icon
+	// Icon color
+	_FLOAT_CLR_ICON = 0xFFFFFFFF // white mic icon
 
 	// Context menu IDs
 	_FLOAT_MENU_SETTINGS = 1
@@ -95,6 +93,59 @@ var (
 	procGdipSetStringFormatAlign     = ovlGdiplus.NewProc("GdipSetStringFormatAlign")
 	procGdipSetStringFormatLineAlign = ovlGdiplus.NewProc("GdipSetStringFormatLineAlign")
 )
+
+// floatColorPreset defines a gradient color theme for the floating button.
+type floatColorPreset struct {
+	Top      uint32 // ARGB – gradient start (top-left)
+	Bottom   uint32 // ARGB – gradient end (bottom-right)
+	HoverTop uint32 // ARGB – gradient start on hover
+	HoverBot uint32 // ARGB – gradient end on hover
+}
+
+// floatColorPresets maps preset names to their gradient colors.
+// Each gradient runs 135° (top-left → bottom-right) matching the app's FAB.
+var floatColorPresets = map[string]floatColorPreset{
+	"cyan": {
+		Top: 0xFF22D3EE, Bottom: 0xFF0891B2, // Cyan-400 → Cyan-600
+		HoverTop: 0xFF67E8F9, HoverBot: 0xFF06B6D4, // Cyan-300 → Cyan-500
+	},
+	"purple": {
+		Top: 0xFFC084FC, Bottom: 0xFF9333EA, // Purple-400 → Purple-600
+		HoverTop: 0xFFD8B4FE, HoverBot: 0xFFA855F7, // Purple-300 → Purple-500
+	},
+	"rose": {
+		Top: 0xFFFB7185, Bottom: 0xFFE11D48, // Rose-400 → Rose-600
+		HoverTop: 0xFFFDA4AF, HoverBot: 0xFFF43F5E, // Rose-300 → Rose-500
+	},
+	"emerald": {
+		Top: 0xFF34D399, Bottom: 0xFF059669, // Emerald-400 → Emerald-600
+		HoverTop: 0xFF6EE7B7, HoverBot: 0xFF10B981, // Emerald-300 → Emerald-500
+	},
+	"amber": {
+		Top: 0xFFFBBF24, Bottom: 0xFFD97706, // Amber-400 → Amber-600
+		HoverTop: 0xFFFCD34D, HoverBot: 0xFFF59E0B, // Amber-300 → Amber-500
+	},
+	"slate": {
+		Top: 0xFF94A3B8, Bottom: 0xFF475569, // Slate-400 → Slate-600
+		HoverTop: 0xFFCBD5E1, HoverBot: 0xFF64748B, // Slate-300 → Slate-500
+	},
+	"blue": {
+		Top: 0xFF60A5FA, Bottom: 0xFF2563EB, // Blue-400 → Blue-600
+		HoverTop: 0xFF93C5FD, HoverBot: 0xFF3B82F6, // Blue-300 → Blue-500
+	},
+	"orange": {
+		Top: 0xFFFB923C, Bottom: 0xFFEA580C, // Orange-400 → Orange-600
+		HoverTop: 0xFFFDBA74, HoverBot: 0xFFF97316, // Orange-300 → Orange-500
+	},
+}
+
+// getFloatPreset returns the color preset for the given name, defaulting to cyan.
+func getFloatPreset(name string) floatColorPreset {
+	if p, ok := floatColorPresets[name]; ok {
+		return p
+	}
+	return floatColorPresets["cyan"]
+}
 
 // ───────────────────── FloatingButton ─────────────────────
 
@@ -290,6 +341,10 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
 		return 0
 
+	case _WM_FLOAT_RERENDER:
+		fb.render()
+		return 0
+
 	case _WM_DESTROY:
 		procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
 		if fb.dibDC != 0 {
@@ -376,6 +431,13 @@ func (fb *FloatingButton) Close() {
 	if fb.hwnd != 0 {
 		procPostMessageW.Call(fb.hwnd, uintptr(_WM_CLOSE), 0, 0)
 		<-fb.done
+	}
+}
+
+// UpdateColor triggers a re-render to pick up the current config color.
+func (fb *FloatingButton) UpdateColor() {
+	if fb.hwnd != 0 {
+		procPostMessageW.Call(fb.hwnd, _WM_FLOAT_RERENDER, 0, 0)
 	}
 }
 
@@ -481,33 +543,56 @@ func (fb *FloatingButton) render() {
 	alpha := fb.opacity
 	fb.mu.Unlock()
 
-	// Scale alpha into color
 	a := uint32(alpha)
+	preset := getFloatPreset(fb.cfg.GetFloatingButtonColor())
 
-	// Shadow (offset 2px down-right)
-	shadowColor := (a * 64 / 255) << 24 // proportional shadow alpha
+	// Outer glow (semi-transparent accent ring behind the circle)
+	glowAlpha := a * 40 / 255 // subtle glow
+	glowColor := (glowAlpha << 24) | (preset.Top & 0x00FFFFFF)
+	var glowBrush uintptr
+	procGdipCreateSolidFill.Call(uintptr(glowColor), uintptr(unsafe.Pointer(&glowBrush)))
+	if glowBrush != 0 {
+		procGdipFillEllipseI.Call(g, glowBrush, 0, 0, _FLOAT_SIZE, _FLOAT_SIZE)
+		procGdipDeleteBrush.Call(glowBrush)
+	}
+
+	// Shadow (offset 2px down-right, drawn within glow area)
+	shadowAlpha := a * 48 / 255
+	shadowColor := shadowAlpha << 24
 	var shadowBrush uintptr
 	procGdipCreateSolidFill.Call(uintptr(shadowColor), uintptr(unsafe.Pointer(&shadowBrush)))
 	if shadowBrush != 0 {
-		procGdipFillEllipseI.Call(g, shadowBrush, 2, 2, _FLOAT_SIZE-2, _FLOAT_SIZE-2)
+		procGdipFillEllipseI.Call(g, shadowBrush, 4, 4, _FLOAT_SIZE-4, _FLOAT_SIZE-4)
 		procGdipDeleteBrush.Call(shadowBrush)
 	}
 
-	// Main circle
-	bgColor := _FLOAT_CLR_BG
+	// Main circle with 135° gradient (top-left → bottom-right)
+	topClr, botClr := preset.Top, preset.Bottom
 	if hovered {
-		bgColor = _FLOAT_CLR_BG_HOVER
+		topClr, botClr = preset.HoverTop, preset.HoverBot
 	}
-	// Apply opacity to the circle
-	circleColor := (a << 24) | (uint32(bgColor) & 0x00FFFFFF)
-	var bgBrush uintptr
-	procGdipCreateSolidFill.Call(uintptr(circleColor), uintptr(unsafe.Pointer(&bgBrush)))
-	if bgBrush != 0 {
-		procGdipFillEllipseI.Call(g, bgBrush, 0, 0, _FLOAT_SIZE-2, _FLOAT_SIZE-2)
-		procGdipDeleteBrush.Call(bgBrush)
+	topClr = (a << 24) | (topClr & 0x00FFFFFF)
+	botClr = (a << 24) | (botClr & 0x00FFFFFF)
+
+	// GdipCreateLineBrushFromRectI uses a rect + LinearGradientMode
+	// For 135° we use ForwardDiagonal (mode=2)
+	type gpRectI struct{ X, Y, W, H int32 }
+	circleRect := gpRectI{2, 2, int32(_FLOAT_SIZE - 4), int32(_FLOAT_SIZE - 4)}
+	var gradBrush uintptr
+	procGdipCreateLineBrushFromRectI.Call(
+		uintptr(unsafe.Pointer(&circleRect)),
+		uintptr(topClr),
+		uintptr(botClr),
+		2, // LinearGradientModeForwardDiagonal (135°)
+		0, // WrapModeTile
+		uintptr(unsafe.Pointer(&gradBrush)),
+	)
+	if gradBrush != 0 {
+		procGdipFillEllipseI.Call(g, gradBrush, 2, 2, _FLOAT_SIZE-4, _FLOAT_SIZE-4)
+		procGdipDeleteBrush.Call(gradBrush)
 	}
 
-	// Mic icon using Segoe MDL2 Assets (U+E720 = Microphone)
+	// Mic icon
 	fb.drawMicIcon(g, a)
 
 	// UpdateLayeredWindow
@@ -578,9 +663,9 @@ func (fb *FloatingButton) drawMicIcon(g uintptr, alpha uint32) {
 	// Microphone glyph: U+E720
 	micStr, _ := windows.UTF16PtrFromString("\uE720")
 	rect := gdipRectF{
-		X: 0, Y: 0,
-		Width:  float32(_FLOAT_SIZE - 2),
-		Height: float32(_FLOAT_SIZE - 2),
+		X: 2, Y: 2,
+		Width:  float32(_FLOAT_SIZE - 4),
+		Height: float32(_FLOAT_SIZE - 4),
 	}
 	procGdipDrawString.Call(g, uintptr(unsafe.Pointer(micStr)), 1,
 		font, uintptr(unsafe.Pointer(&rect)), strFmt, brush)
