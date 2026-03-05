@@ -1018,9 +1018,11 @@ async function _reorderCustomTag(fromTag, toTag) {
   const fromIdx = tags.indexOf(fromTag);
   const toIdx = tags.indexOf(toTag);
   if (fromIdx === -1 || toIdx === -1) return;
+  // Insert at the original toIdx position (before the target)
+  const insertIdx = fromIdx < toIdx ? toIdx : toIdx;
   tags.splice(fromIdx, 1);
-  const newToIdx = tags.indexOf(toTag);
-  tags.splice(newToIdx + (fromIdx < toIdx ? 1 : 0), 0, fromTag);
+  const adjustedIdx = fromIdx < toIdx ? insertIdx - 1 : insertIdx;
+  tags.splice(adjustedIdx, 0, fromTag);
   window._cachedCustomTags = tags;
   if (window.saveCustomTags) {
     await window.saveCustomTags(JSON.stringify(tags));
