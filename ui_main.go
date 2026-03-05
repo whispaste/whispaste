@@ -1153,14 +1153,16 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				})
 			}
 
-			// Local models (only if downloaded)
-			for _, m := range ListDownloadedModels() {
-				models = append(models, modelInfo{
-					ID:      m.ID,
-					Name:    m.Name,
-					Meta:    "Local · " + m.Size,
-					IsLocal: true,
-				})
+			// Local models (only if local STT is enabled and models are downloaded)
+			if cfg.GetUseLocalSTT() {
+				for _, m := range ListDownloadedModels() {
+					models = append(models, modelInfo{
+						ID:      m.ID,
+						Name:    m.Name,
+						Meta:    "Local · " + m.Size,
+						IsLocal: true,
+					})
+				}
 			}
 
 			data, _ := json.Marshal(models)
