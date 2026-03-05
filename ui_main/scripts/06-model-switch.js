@@ -25,8 +25,8 @@ async function showModelSwitcher(anchor) {
   const isLocal = cfg.use_local_stt;
   const currentModel = isLocal ? (cfg.local_model_id || 'whisper-tiny') : (cfg.model || 'whisper-1');
 
-  // Filter out local models when UseLocalSTT is disabled
-  const filteredModels = models.filter(m => !m.isLocal || cfg.use_local_stt);
+  // Show all models — selecting a local one will enable UseLocalSTT via switchModel binding
+  const filteredModels = models;
 
   if (filteredModels.length === 0) {
     scrollToSettingsSection('section-model');
