@@ -324,6 +324,9 @@ func main() {
 					return
 				}
 
+				// Apply text replacements before smart mode
+				text = cfg.ApplyTextReplacements(text)
+
 				// Smart Mode: post-process with GPT-4o-mini
 				smartEnabled, smartPreset, smartCustom, smartTarget := snapshotSmart()
 				if smartEnabled && smartPreset != "" && smartPreset != "off" {

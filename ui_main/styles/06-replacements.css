@@ -1,0 +1,152 @@
+/* Text Replacements page styles */
+.replacements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.replacements-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.replacement-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  transition: opacity 0.2s, background 0.2s;
+}
+
+.replacement-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.replacement-row.disabled {
+  opacity: 0.5;
+}
+
+.replacement-trigger {
+  min-width: 80px;
+  max-width: 160px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono, 'Cascadia Code', 'Consolas', monospace);
+  font-size: 13px;
+  background: var(--bg-primary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-secondary);
+}
+
+.replacement-arrow {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.replacement-value {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono, 'Cascadia Code', 'Consolas', monospace);
+  font-size: 13px;
+  background: var(--bg-primary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-secondary);
+}
+
+.replacement-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.replacements-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.replacements-add-btn .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.page-description {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: -8px 0 16px 0;
+  line-height: 1.5;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Toggle small variant */
+.toggle-sm .toggle-slider {
+  width: 32px;
+  height: 18px;
+}
+
+.toggle-sm .toggle-slider::before {
+  width: 14px;
+  height: 14px;
+}
+
+.toggle-sm input:checked + .toggle-slider::before {
+  transform: translateX(14px);
+}
+
+/* Dialog form for add/edit */
+.repl-dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.repl-dialog-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.repl-dialog-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--font-mono, 'Cascadia Code', 'Consolas', monospace);
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.repl-dialog-input:focus {
+  border-color: var(--brand-primary);
+}

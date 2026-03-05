@@ -5,6 +5,7 @@ const translations = {
     navHistory: 'History',
     navSettings: 'Settings',
     navSmartMode: 'Smart Mode',
+    navReplacements: 'Text Replacements',
     navAnalytics: 'Analytics',
     navAbout: 'About',
 
@@ -363,6 +364,7 @@ const translations = {
     cleanupResult: '{count} entries removed',
     cleanupResultNone: 'No entries to remove',
     cancel: 'Cancel',
+    save: 'Save',
 
     // Onboarding wizard
     'onboarding.welcome_title': 'Welcome to WhisPaste',
@@ -392,13 +394,31 @@ const translations = {
     'profile.delete_title': 'Delete Profile',
     'profile.delete_msg': 'Delete profile "{name}"?',
     'profile.delete': 'Delete',
-    'profile.deleted': 'Profile deleted'
+    'profile.deleted': 'Profile deleted',
+
+    // Text Replacements
+    tabReplacements: 'Text Replacements',
+    replacementsDesc: 'Define trigger words that automatically get replaced in your transcriptions.',
+    replacementsEmpty: 'No replacements defined yet. Add one to get started!',
+    replacementsAdd: 'Add Replacement',
+    replacementsAddTitle: 'Add Replacement',
+    replacementsEditTitle: 'Edit Replacement',
+    replacementsTrigger: 'Trigger',
+    replacementsReplacement: 'Replacement',
+    replacementsTriggerPlaceholder: 'e.g. my website',
+    replacementsReplacementPlaceholder: 'e.g. https://example.com',
+    replacementsEdit: 'Edit',
+    replacementsDelete: 'Delete',
+    replacementsDeleteTitle: 'Delete Replacement',
+    replacementsDeleteConfirm: 'Delete the replacement for "{trigger}"?',
+    replacementsToggleItem: 'Enable/Disable'
   },
   de: {
     // Navigation
     navHistory: 'Verlauf',
     navSettings: 'Einstellungen',
     navSmartMode: 'Smart-Modus',
+    navReplacements: 'Textersetzungen',
     navAnalytics: 'Statistiken',
     navAbout: 'Über',
 
@@ -757,6 +777,7 @@ const translations = {
     cleanupResult: '{count} Einträge entfernt',
     cleanupResultNone: 'Keine Einträge zu entfernen',
     cancel: 'Abbrechen',
+    save: 'Speichern',
 
     // Onboarding wizard
     'onboarding.welcome_title': 'Willkommen bei WhisPaste',
@@ -786,7 +807,24 @@ const translations = {
     'profile.delete_title': 'Profil löschen',
     'profile.delete_msg': 'Profil „{name}" löschen?',
     'profile.delete': 'Löschen',
-    'profile.deleted': 'Profil gelöscht'
+    'profile.deleted': 'Profil gelöscht',
+
+    // Text Replacements
+    tabReplacements: 'Textersetzungen',
+    replacementsDesc: 'Definiere Auslösewörter, die automatisch in deinen Transkriptionen ersetzt werden.',
+    replacementsEmpty: 'Noch keine Ersetzungen definiert. Füge eine hinzu!',
+    replacementsAdd: 'Ersetzung hinzufügen',
+    replacementsAddTitle: 'Ersetzung hinzufügen',
+    replacementsEditTitle: 'Ersetzung bearbeiten',
+    replacementsTrigger: 'Auslöser',
+    replacementsReplacement: 'Ersetzung',
+    replacementsTriggerPlaceholder: 'z.B. meine Webseite',
+    replacementsReplacementPlaceholder: 'z.B. https://example.com',
+    replacementsEdit: 'Bearbeiten',
+    replacementsDelete: 'Löschen',
+    replacementsDeleteTitle: 'Ersetzung löschen',
+    replacementsDeleteConfirm: 'Die Ersetzung für „{trigger}" löschen?',
+    replacementsToggleItem: 'Aktivieren/Deaktivieren'
   }
 };
 
