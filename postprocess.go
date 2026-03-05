@@ -25,11 +25,21 @@ var smartModePresets = map[string]string{
 	"casual":    "Rewrite the following dictated text in a casual, conversational tone. Make it sound natural and friendly, like a chat message. Remove unnecessary formality. Keep the original language and meaning. Return only the rewritten text.",
 }
 
+// GetBuiltinPresets returns the built-in preset names and their prompts.
+func GetBuiltinPresets() map[string]string {
+	result := make(map[string]string, len(smartModePresets))
+	for k, v := range smartModePresets {
+		result[k] = v
+	}
+	return result
+}
+
 // PostProcess sends transcribed text through GPT-4o-mini for formatting/cleanup.
 // endpoint should be the base API URL (e.g. "https://api.openai.com/v1").
 // appLang is the UI language ("en" or "de") for language-aware prompts.
-func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLang string) (string, error) {
-	systemPrompt := buildSmartPrompt(preset, customPrompt, targetLang, appLang)
+// userTemplates contains user-defined custom templates from config.
+func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLang string, userTemplates map[string]string) (string, error) {
+	systemPrompt := buildSmartPrompt(preset, customPrompt, targetLang, appLang, userTemplates)
 	if systemPrompt == "" {
 		return text, nil
 	}
@@ -100,11 +110,11 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLa
 
 // ApplySmartAction applies a smart mode preset or custom prompt to existing text.
 // It reuses the same OpenAI Chat API as PostProcess.
-func ApplySmartAction(text, preset, customPrompt, apiKey, endpoint, appLang string) (string, error) {
-	return PostProcess(text, preset, customPrompt, "", apiKey, endpoint, appLang)
+func ApplySmartAction(text, preset, customPrompt, apiKey, endpoint, appLang string, userTemplates map[string]string) (string, error) {
+	return PostProcess(text, preset, customPrompt, "", apiKey, endpoint, appLang, userTemplates)
 }
 
-func buildSmartPrompt(preset, customPrompt, targetLang, appLang string) string {
+func buildSmartPrompt(preset, customPrompt, targetLang, appLang string, userTemplates map[string]string) string {
 	if preset == "translate" {
 		if targetLang == "" {
 			targetLang = "English"
@@ -115,6 +125,15 @@ func buildSmartPrompt(preset, customPrompt, targetLang, appLang string) string {
 		return customPrompt
 	}
 	p, ok := smartModePresets[preset]
+	if !ok {
+		// Check user-defined custom templates
+		if userTemplates != nil {
+			if ut, found := userTemplates[preset]; found {
+				p = ut
+				ok = true
+			}
+		}
+	}
 	if !ok {
 		return ""
 	}

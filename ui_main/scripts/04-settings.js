@@ -346,9 +346,41 @@ function updateSmartModeVisibility() {
   const on = document.getElementById('toggle-smartmode')?.checked;
   const section = document.getElementById('smart-mode-options');
   const howto = document.getElementById('smart-howto');
+  const appDetRow = document.getElementById('smart-app-detection-row');
+  const appNotice = document.getElementById('smart-app-active-notice');
+  const customTplSection = document.getElementById('smart-custom-templates-section');
   if (section) section.style.display = on ? '' : 'none';
   if (howto) howto.style.display = on ? '' : 'none';
-  if (on) updateSmartPresetVisibility();
+  if (appDetRow) appDetRow.style.display = on ? '' : 'none';
+  if (customTplSection) customTplSection.style.display = on ? '' : 'none';
+  if (!on && appNotice) appNotice.style.display = 'none';
+  if (on) {
+    updateSmartPresetVisibility();
+    updateAppDetectionState();
+  }
+}
+
+function updateAppDetectionState() {
+  const appDetOn = document.getElementById('toggle-app-detection')?.checked;
+  const presetGrid = document.getElementById('preset-grid');
+  const presetTitle = document.querySelector('#smart-mode-options .section-title');
+  const appNotice = document.getElementById('smart-app-active-notice');
+  const appRules = document.getElementById('smart-app-rules-section');
+  if (presetGrid) {
+    presetGrid.classList.toggle('disabled-overlay', !!appDetOn);
+    presetGrid.style.pointerEvents = appDetOn ? 'none' : '';
+    presetGrid.style.opacity = appDetOn ? '0.45' : '';
+  }
+  if (presetTitle) presetTitle.style.opacity = appDetOn ? '0.45' : '';
+  if (appNotice) appNotice.style.display = appDetOn ? '' : 'none';
+  if (appRules) appRules.style.display = appDetOn ? '' : 'none';
+}
+
+function onAppDetectionToggle() {
+  const on = document.getElementById('toggle-app-detection')?.checked;
+  if (window.setAppDetectionEnabled) window.setAppDetectionEnabled(on);
+  updateAppDetectionState();
+  if (on && window.loadAppPresets) window.loadAppPresets();
 }
 
 function updateSmartPresetVisibility() {
@@ -370,6 +402,34 @@ function selectSmartPreset(preset) {
   if (targetRow) targetRow.style.display = preset === 'translate' ? '' : 'none';
   if (promptRow) promptRow.style.display = preset === 'custom' ? '' : 'none';
   autoSave();
+}
+
+/* ── View Preset Prompt ──────────────────────────────── */
+let _builtinPresetsCache = null;
+async function viewPresetPrompt(key) {
+  if (!_builtinPresetsCache) {
+    try {
+      const raw = await window.getBuiltinPresets();
+      _builtinPresetsCache = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (e) {
+      _builtinPresetsCache = {};
+    }
+  }
+  let prompt = _builtinPresetsCache[key] || '';
+  if (!prompt) {
+    try {
+      const raw = await window.getCustomTemplates();
+      const custom = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      prompt = custom[key] || '';
+    } catch (e) {}
+  }
+  if (!prompt) prompt = t('smartNoPrompt') || 'No prompt defined for this preset.';
+  showDialog({
+    title: t('smartViewPromptTitle') || 'Preset Prompt',
+    message: prompt,
+    variant: 'info',
+    confirmText: t('ok') || 'OK'
+  });
 }
 
 /* ── Test Sound ───────────────────────────────────────── */

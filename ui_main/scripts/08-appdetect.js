@@ -2,11 +2,15 @@
 (function() {
   let appPresets = {};
 
-  const presetOptions = [
-    'cleanup', 'concise', 'email', 'bullets', 'formal',
-    'aiprompt', 'summary', 'notes', 'meeting', 'social',
-    'technical', 'casual', 'translate'
-  ];
+  function getPresetOptions() {
+    // Built-in presets
+    const builtins = [
+      'cleanup', 'concise', 'email', 'bullets', 'formal',
+      'aiprompt', 'summary', 'notes', 'meeting', 'social',
+      'technical', 'casual', 'translate'
+    ];
+    return builtins;
+  }
 
   async function loadAppPresets() {
     try {
@@ -20,20 +24,27 @@
       const enabled = await window.getAppDetectionEnabled();
       const toggle = document.getElementById('toggle-app-detection');
       if (toggle) toggle.checked = !!enabled;
-      updateAppDetectionVisibility();
+      if (typeof updateAppDetectionState === 'function') updateAppDetectionState();
     } catch (e) {}
     renderAppPresets();
   }
 
-  function updateAppDetectionVisibility() {
-    const toggle = document.getElementById('toggle-app-detection');
-    const section = document.getElementById('app-presets-section');
-    if (toggle && section) {
-      section.style.display = toggle.checked ? '' : 'none';
-    }
+  async function getFullPresetOptions() {
+    const opts = getPresetOptions();
+    // Append custom template names
+    try {
+      const raw = await window.getCustomTemplates();
+      const custom = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (custom) {
+        for (const name of Object.keys(custom)) {
+          if (!opts.includes(name)) opts.push(name);
+        }
+      }
+    } catch (e) {}
+    return opts;
   }
 
-  function renderAppPresets() {
+  async function renderAppPresets() {
     const list = document.getElementById('app-presets-list');
     if (!list) return;
     const entries = Object.entries(appPresets);
@@ -41,11 +52,12 @@
       list.innerHTML = `<p class="form-hint" style="margin:8px 0">${t('appDetectionEmpty')}</p>`;
       return;
     }
+    const presetOpts = await getFullPresetOptions();
     list.innerHTML = entries.map(([app, preset]) => `
       <div class="app-preset-row">
         <span class="app-preset-name" title="${esc(app)}">${esc(app)}</span>
         <select class="form-select form-select-sm app-preset-select" data-app="${esc(app)}">
-          ${presetOptions.map(p => `<option value="${p}" ${p === preset ? 'selected' : ''}>${t('preset_' + p) || p}</option>`).join('')}
+          ${presetOpts.map(p => `<option value="${p}" ${p === preset ? 'selected' : ''}>${t('preset_' + p) || p}</option>`).join('')}
         </select>
         <button class="btn-icon app-preset-delete" data-app="${esc(app)}" title="${t('replacementsDelete')}">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -63,7 +75,6 @@
   }
 
   async function addAppPreset() {
-    // Detect current foreground app as suggestion
     let suggestion = '';
     try { suggestion = await window.getActiveAppName(); } catch (e) {}
 
@@ -95,11 +106,6 @@
   });
 
   document.addEventListener('change', (e) => {
-    if (e.target.id === 'toggle-app-detection') {
-      window.setAppDetectionEnabled(e.target.checked);
-      updateAppDetectionVisibility();
-      return;
-    }
     if (e.target.classList.contains('app-preset-select')) {
       appPresets[e.target.dataset.app] = e.target.value;
       saveAppPresets();

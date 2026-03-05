@@ -103,11 +103,14 @@ function showPromptDialog(title, message, opts = {}) {
     if (!overlay) { resolve(null); return; }
     const dialog = overlay.querySelector('.confirm-dialog');
     const iconHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
+    const inputHTML = opts.multiline
+      ? `<textarea id="dialogPromptInput" class="prompt-input" rows="5" style="resize:vertical">${esc(opts.defaultValue || '')}</textarea>`
+      : `<input type="text" id="dialogPromptInput" class="prompt-input" value="${esc(opts.defaultValue || '')}" />`;
     dialog.innerHTML = `
       <div class="confirm-icon info">${iconHTML}</div>
       <div class="confirm-title">${title}</div>
       <div class="confirm-msg">${message}</div>
-      <input type="text" id="dialogPromptInput" class="prompt-input" value="${esc(opts.defaultValue || '')}" />
+      ${inputHTML}
       <div class="confirm-btns">
         <button class="btn btn-secondary flex-1" id="dialogCancel">${t('notebook.confirm_cancel')}</button>
         <button class="btn btn-primary flex-1" id="dialogConfirm">${opts.confirmText || 'OK'}</button>
@@ -115,7 +118,7 @@ function showPromptDialog(title, message, opts = {}) {
     `;
     overlay.classList.add('show');
     const input = document.getElementById('dialogPromptInput');
-    if (input) { input.focus(); input.select(); }
+    if (input) { input.focus(); if (input.select) input.select(); }
 
     function cleanup(val) {
       overlay.classList.remove('show');
@@ -124,7 +127,7 @@ function showPromptDialog(title, message, opts = {}) {
     document.getElementById('dialogConfirm')?.addEventListener('click', () => cleanup(input?.value || null), { once: true });
     document.getElementById('dialogCancel')?.addEventListener('click', () => cleanup(null), { once: true });
     overlay.addEventListener('click', (ev) => { if (ev.target === overlay) cleanup(null); }, { once: true });
-    if (input) input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') cleanup(input.value); });
+    if (input && !opts.multiline) input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') cleanup(input.value); });
     function onEsc(ev) {
       if (ev.key === 'Escape') { cleanup(null); document.removeEventListener('keydown', onEsc); }
     }

@@ -64,9 +64,7 @@ async function promptSaveProfile() {
   const name = await showPromptDialog(
     t('profile.save_title'),
     t('profile.save_msg'),
-    currentName || '',
-    t('profile.save'),
-    t('cancel')
+    { defaultValue: currentName || '', confirmText: t('profile.save') }
   );
 
   if (!name || !name.trim()) return;
@@ -101,39 +99,4 @@ async function deleteCurrentProfile() {
     await loadProfileList();
     showToast(t('profile.deleted') + ': ' + name, false);
   }
-}
-
-// showPromptDialog — reuses the unified dialog for text input
-function showPromptDialog(title, message, defaultVal, confirmText, cancelText) {
-  return new Promise(resolve => {
-    const overlay = document.createElement('div');
-    overlay.className = 'dialog-overlay';
-    overlay.innerHTML = `
-      <div class="dialog-card">
-        <h3 class="dialog-title">${esc(title)}</h3>
-        <p class="dialog-message">${esc(message)}</p>
-        <input type="text" class="dialog-input" value="${esc(defaultVal)}" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border-primary);background:var(--bg-secondary);color:var(--text-primary);font-size:14px;margin-bottom:16px;box-sizing:border-box;">
-        <div class="dialog-actions">
-          <button class="btn btn-secondary dialog-cancel">${esc(cancelText)}</button>
-          <button class="btn btn-primary dialog-confirm">${esc(confirmText)}</button>
-        </div>
-      </div>`;
-
-    const input = overlay.querySelector('.dialog-input');
-    overlay.querySelector('.dialog-confirm').onclick = () => {
-      const val = input.value;
-      overlay.remove();
-      resolve(val);
-    };
-    overlay.querySelector('.dialog-cancel').onclick = () => {
-      overlay.remove();
-      resolve(null);
-    };
-    overlay.addEventListener('click', e => {
-      if (e.target === overlay) { overlay.remove(); resolve(null); }
-    });
-
-    document.body.appendChild(overlay);
-    setTimeout(() => input.focus(), 50);
-  });
 }
