@@ -45,7 +45,8 @@ function gatherConfig() {
     input_gain: parseInt(document.getElementById('range-input-gain')?.value || '100', 10) / 100.0,
     cleanup_enabled: document.getElementById('toggle-cleanup')?.checked || false,
     cleanup_max_entries: parseInt(document.getElementById('input-cleanup-max-entries')?.value || '0', 10),
-    cleanup_max_age_days: parseInt(document.getElementById('input-cleanup-max-age')?.value || '0', 10)
+    cleanup_max_age_days: parseInt(document.getElementById('input-cleanup-max-age')?.value || '0', 10),
+    trim_silence: document.getElementById('toggle-trim-silence')?.checked || false
   };
 }
 
@@ -131,6 +132,7 @@ function applyConfig(cfg) {
   if (cfg.cleanup_max_entries != null) { const el = document.getElementById('input-cleanup-max-entries'); if (el) el.value = cfg.cleanup_max_entries; }
   if (cfg.cleanup_max_age_days != null) { const el = document.getElementById('input-cleanup-max-age'); if (el) el.value = cfg.cleanup_max_age_days; }
   updateCleanupDependents();
+  { const el = document.getElementById('toggle-trim-silence'); if (el) el.checked = !!cfg.trim_silence; }
 }
 
 /* ── Cleanup toggle dependency ─────────────────────── */

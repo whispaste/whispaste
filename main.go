@@ -290,6 +290,15 @@ func main() {
 				return
 			}
 
+			// Trim silence if enabled
+			if cfg.GetTrimSilence() {
+				before := len(pcm)
+				pcm = TrimSilence(pcm, 0.01, 30)
+				if len(pcm) < before {
+					logDebug("Trimmed silence: %d → %d bytes", before, len(pcm))
+				}
+			}
+
 			// Transcribe in background (use snapshot values, not cfg directly)
 			go func() {
 				durationSec := time.Since(recordStart).Seconds()
