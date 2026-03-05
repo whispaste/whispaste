@@ -64,6 +64,7 @@ type Config struct {
 	FloatingButtonEnabled bool                     `json:"floating_button_enabled,omitempty"`
 	FloatingButtonX       int                      `json:"floating_button_x,omitempty"`
 	FloatingButtonY       int                      `json:"floating_button_y,omitempty"`
+	FloatingButtonColor   string                   `json:"floating_button_color,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -243,6 +244,17 @@ func (c *Config) GetFloatingButtonPos() (int, int) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.FloatingButtonX, c.FloatingButtonY
+}
+
+// GetFloatingButtonColor returns the floating button color preset name (thread-safe).
+// Returns "cyan" as default if not set.
+func (c *Config) GetFloatingButtonColor() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.FloatingButtonColor == "" {
+		return "cyan"
+	}
+	return c.FloatingButtonColor
 }
 
 // detectSystemLanguage returns "de" for German systems, "en" otherwise.

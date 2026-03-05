@@ -10,6 +10,22 @@ let _downloadingModel = null;
 let _configLoaded = false;
 let _autoSaveTimer = null;
 
+// Floating button color picker — delegated click handler
+document.addEventListener('click', function(e) {
+  const opt = e.target.closest('.fab-color-option');
+  if (!opt) return;
+  document.querySelectorAll('.fab-color-option').forEach(el => el.classList.remove('selected'));
+  opt.classList.add('selected');
+  if (typeof autoSave === 'function') autoSave();
+});
+// Show/hide color picker when floating toggle changes
+document.addEventListener('change', function(e) {
+  if (e.target.id === 'toggle-floating-btn') {
+    const row = document.getElementById('fab-color-row');
+    if (row) row.style.display = e.target.checked ? '' : 'none';
+  }
+});
+
 /* ── Gather Config from Form ──────────────────────────── */
 function gatherConfig() {
   return {
@@ -48,7 +64,8 @@ function gatherConfig() {
     cleanup_max_age_days: parseInt(document.getElementById('input-cleanup-max-age')?.value || '0', 10),
     cleanup_include_pinned: document.getElementById('toggle-cleanup-pinned')?.checked || false,
     trim_silence: document.getElementById('toggle-trim-silence')?.checked || false,
-    floating_button_enabled: document.getElementById('toggle-floating-btn')?.checked || false
+    floating_button_enabled: document.getElementById('toggle-floating-btn')?.checked || false,
+    floating_button_color: document.querySelector('.fab-color-option.selected')?.dataset?.color || 'cyan'
   };
 }
 
@@ -137,6 +154,14 @@ function applyConfig(cfg) {
   updateCleanupDependents();
   { const el = document.getElementById('toggle-trim-silence'); if (el) el.checked = !!cfg.trim_silence; }
   { const el = document.getElementById('toggle-floating-btn'); if (el) el.checked = !!cfg.floating_button_enabled; }
+  {
+    const color = cfg.floating_button_color || 'cyan';
+    document.querySelectorAll('.fab-color-option').forEach(el => {
+      el.classList.toggle('selected', el.dataset.color === color);
+    });
+    const row = document.getElementById('fab-color-row');
+    if (row) row.style.display = cfg.floating_button_enabled ? '' : 'none';
+  }
   {
     const el = document.getElementById('toggle-app-detection');
     if (el) el.checked = !!cfg.app_detection;
