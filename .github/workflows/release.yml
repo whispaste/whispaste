@@ -106,6 +106,19 @@ jobs:
           "$hash  whispaste.exe" | Out-File -Encoding ascii -NoNewline whispaste.exe.sha256
           Write-Host "SHA256: $hash"
 
+      - name: Build NSIS installer
+        run: |
+          choco install nsis -y --no-progress
+          $ver = "${{ steps.version.outputs.VERSION }}"
+          Push-Location installer
+          & "C:\Program Files (x86)\NSIS\makensis.exe" /DPRODUCT_VERSION=$ver whispaste.nsi
+          Pop-Location
+          $installer = "installer\WhisPaste-$ver-Setup.exe"
+          if (!(Test-Path $installer)) { throw "Installer build failed" }
+          Move-Item $installer .
+          $size = (Get-Item "WhisPaste-$ver-Setup.exe").Length / 1MB
+          Write-Host "Installer size: $([math]::Round($size, 2)) MB"
+
       - name: Package MSIX
         shell: pwsh
         run: |
@@ -143,7 +156,10 @@ jobs:
           body: |
             ## 📦 Installation
 
-            ### Portable (recommended)
+            ### Installer (recommended)
+            Download **`WhisPaste-${{ steps.version.outputs.VERSION }}-Setup.exe`** and run it. The installer adds WhisPaste to your Start Menu, optionally creates a desktop shortcut, and supports auto-start with Windows.
+
+            ### Portable
             1. Download **all files below** (`whispaste.exe` + all `.dll` files)
             2. Place them in the **same folder**
             3. Double-click `whispaste.exe` — it will appear in your system tray
@@ -159,6 +175,7 @@ jobs:
 
             ---
           files: |
+            WhisPaste-${{ steps.version.outputs.VERSION }}-Setup.exe
             whispaste.exe
             whispaste.exe.sha256
             onnxruntime.dll
