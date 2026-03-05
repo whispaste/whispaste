@@ -54,6 +54,8 @@ type Config struct {
 	TextReplacementsEnabled bool               `json:"text_replacements_enabled,omitempty"`
 	TextReplacements  []TextReplacement         `json:"text_replacements,omitempty"`
 	TrimSilence       bool                      `json:"trim_silence,omitempty"`
+	AppDetection      bool                      `json:"app_detection,omitempty"`
+	AppPresets        map[string]string         `json:"app_presets,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -530,6 +532,31 @@ func (c *Config) GetTrimSilence() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.TrimSilence
+}
+
+// GetAppDetectionEnabled returns whether app-based preset detection is on.
+func (c *Config) GetAppDetectionEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AppDetection
+}
+
+// GetAppPresets returns a copy of app→preset mappings (thread-safe).
+func (c *Config) GetAppPresets() map[string]string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	result := make(map[string]string, len(c.AppPresets))
+	for k, v := range c.AppPresets {
+		result[k] = v
+	}
+	return result
+}
+
+// SetAppPresets replaces the app→preset mappings (thread-safe).
+func (c *Config) SetAppPresets(m map[string]string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.AppPresets = m
 }
 
 // SetTextReplacementsEnabled sets the text replacements toggle (thread-safe).

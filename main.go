@@ -338,6 +338,11 @@ func main() {
 
 				// Smart Mode: post-process with GPT-4o-mini
 				smartEnabled, smartPreset, smartCustom, smartTarget := snapshotSmart()
+				// Override preset based on active window if app detection is on
+				if appPreset, ok := ResolveAppPreset(cfg); ok {
+					smartEnabled = true
+					smartPreset = appPreset
+				}
 				if smartEnabled && smartPreset != "" && smartPreset != "off" {
 					if overlay != nil {
 						overlay.Show(StateProcessing)
