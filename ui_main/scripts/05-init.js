@@ -30,6 +30,7 @@ async function loadSystemInfo() {
     { key: 'sysAppVersion', value: info.appVersion },
   ];
   if (info.buildCommit) rows.push({ key: 'sysBuildCommit', value: info.buildCommit.substring(0, 8) });
+  if (info.buildBranch) rows.push({ key: 'sysBuildBranch', value: info.buildBranch });
   if (info.buildDate) rows.push({ key: 'sysBuildDate', value: info.buildDate });
   rows.push(
     { key: 'sysGoVersion', value: info.goVersion },

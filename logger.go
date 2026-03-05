@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -127,4 +128,20 @@ func logError(format string, args ...interface{}) {
 	if logger != nil {
 		logger.log(LogError, "ERR", format, args...)
 	}
+}
+
+// logStartupMetadata logs build and runtime info at app start.
+func logStartupMetadata() {
+	logInfo("=== %s starting ===", AppName)
+	logInfo("Version: %s", AppVersion)
+	if BuildCommit != "" {
+		logInfo("Commit: %s", BuildCommit)
+	}
+	if BuildBranch != "" {
+		logInfo("Branch: %s", BuildBranch)
+	}
+	if BuildDate != "" {
+		logInfo("Build date: %s", BuildDate)
+	}
+	logInfo("Go: %s, OS: %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 }
