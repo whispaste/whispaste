@@ -173,6 +173,15 @@ const translations = {
     descInputGain: 'Adjust microphone sensitivity (1.0 = normal)',
     labelTrimSilence: 'Trim Silence',
     descTrimSilence: 'Automatically remove silence from the start and end of recordings',
+
+    // App Detection
+    cardAppDetection: 'App-Based Presets',
+    labelAppDetection: 'Auto-detect active application',
+    descAppDetection: 'Automatically apply a specific preset based on which app is focused when recording starts',
+    appDetectionAdd: 'Add App Rule',
+    appDetectionEmpty: 'No app rules defined. Add one to assign presets per application.',
+    appDetectionAddTitle: 'Add App Rule',
+    appDetectionAddMsg: 'Enter the executable name (e.g. code.exe, outlook.exe):',
     btnTestAudio: 'Test Microphone',
 
     // Mode badge
@@ -588,6 +597,15 @@ const translations = {
     descInputGain: 'Mikrofon-Empfindlichkeit anpassen (1.0 = normal)',
     labelTrimSilence: 'Stille trimmen',
     descTrimSilence: 'Automatisch Stille am Anfang und Ende der Aufnahme entfernen',
+
+    // App Detection
+    cardAppDetection: 'App-basierte Vorlagen',
+    labelAppDetection: 'Aktive Anwendung erkennen',
+    descAppDetection: 'Automatisch eine bestimmte Vorlage anwenden, je nachdem welche App beim Aufnahmestart aktiv ist',
+    appDetectionAdd: 'App-Regel hinzufügen',
+    appDetectionEmpty: 'Keine App-Regeln definiert. Füge eine hinzu, um Vorlagen pro Anwendung zuzuweisen.',
+    appDetectionAddTitle: 'App-Regel hinzufügen',
+    appDetectionAddMsg: 'Name der Programmdatei eingeben (z.B. code.exe, outlook.exe):',
     btnTestAudio: 'Mikrofon testen',
 
     // Mode badge

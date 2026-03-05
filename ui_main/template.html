@@ -776,6 +776,30 @@
               <textarea class="form-input" id="input-smartprompt" rows="4" placeholder="e.g. Format as Markdown, remove filler words"></textarea>
             </div>
           </div>
+
+          <!-- App Detection -->
+          <div class="card" style="margin-top:16px">
+            <div class="card-title" data-i18n="cardAppDetection">App-Based Presets</div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" data-i18n="labelAppDetection">Auto-detect active application</label>
+                  <p class="form-hint" data-i18n="descAppDetection">Automatically apply a specific preset based on which app is focused when recording starts</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="toggle-app-detection">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+            <div id="app-presets-section" style="display:none">
+              <div class="app-presets-list" id="app-presets-list"></div>
+              <button class="btn btn-secondary btn-sm" id="btn-add-app-preset" style="margin-top:8px">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                <span data-i18n="appDetectionAdd">Add App Rule</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       </div>
