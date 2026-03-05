@@ -215,3 +215,88 @@
   color: var(--text-secondary);
   line-height: 1.4;
 }
+
+/* ── Onboarding: Model Download Section ─────────────── */
+.onboarding-model-section {
+  margin-bottom: 20px;
+  animation: fadeIn 0.25s ease;
+}
+.onb-model-cards {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.onb-model-card {
+  flex: 1;
+  padding: 12px 14px;
+  border: 2px solid var(--border-primary);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+.onb-model-card:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent), transparent 94%);
+}
+.onb-model-card.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent), transparent 88%);
+}
+.onb-model-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.onb-model-card-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.onb-model-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.onb-model-status {
+  font-size: 12px;
+  font-weight: 500;
+}
+.onb-model-status.ready {
+  color: #10b981;
+}
+.onb-model-status.needed {
+  color: var(--text-tertiary);
+}
+.onb-model-status.downloading {
+  color: var(--accent);
+}
+.onb-download-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+.onb-progress-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-secondary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.onb-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.onb-progress-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  min-width: 32px;
+  text-align: right;
+}

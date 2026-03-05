@@ -168,17 +168,6 @@
     <div class="page" id="page-settings" style="display:none">
       <div class="page-header">
         <h2 class="page-title" data-i18n="settingsTitle">Settings</h2>
-        <div class="profile-bar" id="profileBar">
-          <select class="profile-select" id="profileSelect" onchange="onProfileSelect(this.value)">
-            <option value="" data-i18n="profile.none">No Profile</option>
-          </select>
-          <button class="btn-icon" title="Save Profile" data-i18n-title="profile.save_tip" onclick="promptSaveProfile()">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
-          </button>
-          <button class="btn-icon" title="Delete Profile" data-i18n-title="profile.delete_tip" id="profileDeleteBtn" onclick="deleteCurrentProfile()" style="display:none">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-          </button>
-        </div>
       </div>
       <div class="settings-layout">
         <nav class="settings-nav">
@@ -1123,6 +1112,29 @@
         <div class="onboarding-apikey-field">
           <input type="password" id="onb-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false">
           <small data-i18n="onboarding.apikey_hint">Get your key at platform.openai.com · You can add it later in Settings</small>
+        </div>
+      </div>
+      <div class="onboarding-model-section" id="onbModelSection" style="display:none">
+        <div class="onb-model-cards">
+          <div class="onb-model-card selected" data-model-id="whisper-base" onclick="onbSelectModel('whisper-base')">
+            <div class="onb-model-card-name">Whisper Base</div>
+            <div class="onb-model-card-meta">74 MB · <span data-i18n="onboarding.model_recommended">Recommended</span></div>
+          </div>
+          <div class="onb-model-card" data-model-id="whisper-small" onclick="onbSelectModel('whisper-small')">
+            <div class="onb-model-card-name">Whisper Small</div>
+            <div class="onb-model-card-meta">244 MB · <span data-i18n="onboarding.model_better_accuracy">Better accuracy</span></div>
+          </div>
+        </div>
+        <div class="onb-model-status-row">
+          <span class="onb-model-status needed" id="onbModelStatus" data-i18n="onboarding.model_needed">Download required</span>
+          <button class="btn btn-primary btn-sm" id="onbDownloadBtn" onclick="onbStartDownload()">
+            <svg class="icon" style="width:14px;height:14px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <span data-i18n="onboarding.download_model">Download</span>
+          </button>
+          <div class="onb-download-progress" id="onbDownloadProgress" style="display:none">
+            <div class="onb-progress-track"><div class="onb-progress-bar" id="onbProgressBar"></div></div>
+            <span class="onb-progress-label" id="onbProgressLabel">0%</span>
+          </div>
         </div>
       </div>
       <div class="onboarding-actions">

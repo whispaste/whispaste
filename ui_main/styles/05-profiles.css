@@ -1,24 +1,4 @@
-/* ── Profile Bar (Settings page header) ────────────────── */
-.profile-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-}
-.profile-select {
-  padding: 5px 10px;
-  font-size: 0.8rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-primary);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  cursor: pointer;
-  min-width: 120px;
-}
-.profile-select:focus {
-  outline: none;
-  border-color: var(--accent);
-}
+/* ── Icon buttons (shared utility) ────────────────────── */
 .btn-icon {
   display: flex;
   align-items: center;
