@@ -945,6 +945,14 @@ async function deleteTagFromAll(tagName) {
   if (window.deleteTag) {
     await window.deleteTag(tagName);
   }
+  // Also remove from persisted custom tags
+  const tags = window._cachedCustomTags || [];
+  const idx = tags.indexOf(tagName);
+  if (idx !== -1) {
+    tags.splice(idx, 1);
+    window._cachedCustomTags = tags;
+    if (window.saveCustomTags) await window.saveCustomTags(JSON.stringify(tags));
+  }
   await loadEntries();
   showToast(t('notebook.tag_updated'));
 }
@@ -1018,10 +1026,9 @@ async function _reorderCustomTag(fromTag, toTag) {
   const fromIdx = tags.indexOf(fromTag);
   const toIdx = tags.indexOf(toTag);
   if (fromIdx === -1 || toIdx === -1) return;
-  // Insert at the original toIdx position (before the target)
-  const insertIdx = fromIdx < toIdx ? toIdx : toIdx;
+  // Insert before the drop target: adjust for index shift after removal
   tags.splice(fromIdx, 1);
-  const adjustedIdx = fromIdx < toIdx ? insertIdx - 1 : insertIdx;
+  const adjustedIdx = fromIdx < toIdx ? toIdx - 1 : toIdx;
   tags.splice(adjustedIdx, 0, fromTag);
   window._cachedCustomTags = tags;
   if (window.saveCustomTags) {
