@@ -331,3 +331,79 @@ func (r *Recorder) computeLevel(samples []byte) {
 	r.level = level
 	r.levelMu.Unlock()
 }
+
+// TrimSilence removes leading and trailing silence from 16-bit mono PCM data.
+// windowMs sets the analysis window size; threshold is the RMS level (0.0–1.0)
+// below which audio is considered silence. A small margin of audio before/after
+// the first/last voiced segment is preserved to avoid clipping.
+func TrimSilence(data []byte, threshold float32, windowMs int) []byte {
+	if len(data) < 2 || threshold <= 0 {
+		return data
+	}
+	const sampleRate = 16000
+	samplesPerWindow := sampleRate * windowMs / 1000
+	if samplesPerWindow < 1 {
+		samplesPerWindow = 1
+	}
+	bytesPerWindow := samplesPerWindow * 2
+	totalSamples := len(data) / 2
+
+	// RMS of a window
+	rmsWindow := func(offset, count int) float32 {
+		var sum float64
+		for i := 0; i < count && offset+i*2+1 < len(data); i++ {
+			s := float64(int16(binary.LittleEndian.Uint16(data[offset+i*2 : offset+i*2+2])))
+			sum += s * s
+		}
+		rms := math.Sqrt(sum / float64(count))
+		return float32(rms / 32768.0)
+	}
+
+	// Find first voiced window from start
+	startByte := 0
+	for off := 0; off < len(data)-1; off += bytesPerWindow {
+		n := samplesPerWindow
+		if off/2+n > totalSamples {
+			n = totalSamples - off/2
+		}
+		if rmsWindow(off, n) >= threshold {
+			// Keep 50ms margin before voice
+			margin := sampleRate * 50 / 1000 * 2
+			startByte = off - margin
+			if startByte < 0 {
+				startByte = 0
+			}
+			// Align to 2-byte boundary
+			startByte = startByte &^ 1
+			break
+		}
+	}
+
+	// Find last voiced window from end
+	endByte := len(data)
+	for off := (len(data) / bytesPerWindow) * bytesPerWindow; off >= 0; off -= bytesPerWindow {
+		if off >= len(data) {
+			continue
+		}
+		n := samplesPerWindow
+		if off/2+n > totalSamples {
+			n = totalSamples - off/2
+		}
+		if n > 0 && rmsWindow(off, n) >= threshold {
+			// Keep 50ms margin after voice
+			margin := sampleRate * 50 / 1000 * 2
+			endByte = off + bytesPerWindow + margin
+			if endByte > len(data) {
+				endByte = len(data)
+			}
+			// Align to 2-byte boundary
+			endByte = endByte &^ 1
+			break
+		}
+	}
+
+	if startByte >= endByte {
+		return data
+	}
+	return data[startByte:endByte]
+}
