@@ -591,7 +591,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				appLang = "en"
 			}
 
-			result, err := ApplySmartAction(entry.Text, preset, customPrompt, apiKey, endpoint, appLang)
+			result, err := ApplySmartAction(entry.Text, preset, customPrompt, apiKey, endpoint, appLang, cfg.GetCustomTemplates())
 			if err != nil {
 				resp, _ := json.Marshal(map[string]string{"error": err.Error()})
 				return string(resp)
@@ -820,6 +820,13 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		w.Bind("getCustomTemplates", func() string {
 			templates := cfg.GetCustomTemplates()
 			data, _ := json.Marshal(templates)
+			return string(data)
+		})
+
+		// Bind: getBuiltinPresets → returns JSON map of built-in preset names→prompts
+		w.Bind("getBuiltinPresets", func() string {
+			presets := GetBuiltinPresets()
+			data, _ := json.Marshal(presets)
 			return string(data)
 		})
 
