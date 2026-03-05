@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -34,6 +36,73 @@ func GetBuiltinPresets() map[string]string {
 	return result
 }
 
+// defaultTemplateMetas provides default metadata and keywords for builtin presets.
+var defaultTemplateMetas = map[string]TemplateMeta{
+	"cleanup":   {Description: "General text cleanup and grammar correction", Keywords: nil},
+	"concise":   {Description: "Rewrite text more concisely", Keywords: nil},
+	"email":     {Description: "Professional email formatting", Keywords: []string{"*outlook*", "*thunderbird*", "*mail*", "*gmail*", "*yahoo*", "*proton*"}},
+	"bullets":   {Description: "Structured bullet-point list", Keywords: nil},
+	"formal":    {Description: "Formal professional language", Keywords: nil},
+	"aiprompt":  {Description: "Optimized AI prompt", Keywords: []string{"*copilot*", "*chatgpt*", "*claude*", "*gemini*", "*cursor*"}},
+	"summary":   {Description: "Concise summary of key points", Keywords: nil},
+	"notes":     {Description: "Structured notes and bullet points", Keywords: []string{"*notepad*", "*onenote*", "*obsidian*", "*notion*", "*evernote*", "*joplin*", "*typora*"}},
+	"meeting":   {Description: "Meeting minutes with action items", Keywords: []string{"*teams*", "*zoom*", "*webex*", "*meet*", "*skype*"}},
+	"social":    {Description: "Engaging social media post", Keywords: []string{"*twitter*", "*facebook*", "*instagram*", "*linkedin*", "*reddit*", "*tiktok*"}},
+	"technical": {Description: "Technical documentation", Keywords: []string{"*code*", "*visual studio*", "*intellij*", "*vim*", "*neovim*", "*sublime*", "*terminal*", "*powershell*", "*cmd*"}},
+	"casual":    {Description: "Casual chat message", Keywords: []string{"*slack*", "*discord*", "*whatsapp*", "*telegram*", "*signal*", "*element*"}},
+}
+
+// GetDefaultTemplateMetas returns a copy of the default template metadata.
+func GetDefaultTemplateMetas() map[string]TemplateMeta {
+	result := make(map[string]TemplateMeta, len(defaultTemplateMetas))
+	for k, v := range defaultTemplateMetas {
+		result[k] = v
+	}
+	return result
+}
+
+// MatchTemplate finds the best template for the active application using keyword matching.
+// Returns the preset name and true if a match was found.
+func MatchTemplate(appName, windowTitle string, metas map[string]TemplateMeta) (string, bool) {
+	if appName == "" && windowTitle == "" {
+		return "", false
+	}
+	context := strings.ToLower(appName + " " + windowTitle)
+
+	bestPreset := ""
+	bestScore := 0
+
+	for presetName, meta := range metas {
+		if len(meta.Keywords) == 0 {
+			continue
+		}
+		score := 0
+		for _, kw := range meta.Keywords {
+			pattern := strings.ToLower(kw)
+			if matched, _ := filepath.Match(pattern, strings.ToLower(appName)); matched {
+				score += 2
+			}
+			// Check substring for patterns like *outlook*
+			if len(pattern) > 2 && pattern[0] == '*' && pattern[len(pattern)-1] == '*' {
+				inner := pattern[1 : len(pattern)-1]
+				if strings.Contains(context, inner) {
+					score++
+				}
+			}
+		}
+		if score > bestScore {
+			bestScore = score
+			bestPreset = presetName
+		}
+	}
+
+	if bestPreset != "" {
+		logDebug("Template match: %s/%s → %s (score %d)", appName, windowTitle, bestPreset, bestScore)
+		return bestPreset, true
+	}
+	return "", false
+}
+
 // PostProcess sends transcribed text through GPT-4o-mini for formatting/cleanup.
 // endpoint should be the base API URL (e.g. "https://api.openai.com/v1").
 // appLang is the UI language ("en" or "de") for language-aware prompts.
@@ -46,16 +115,25 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLa
 
 	chatURL := "https://api.openai.com/v1/chat/completions"
 	if endpoint != "" {
-		// Strip /audio/transcriptions suffix if present to get base URL
 		base := endpoint
 		if idx := len(base) - len("/audio/transcriptions"); idx > 0 && base[idx:] == "/audio/transcriptions" {
 			base = base[:idx]
 		}
-		chatURL = base + "/chat/completions"
+		// If the endpoint already ends with /chat/completions, use it as-is
+		if strings.HasSuffix(base, "/chat/completions") {
+			chatURL = base
+		} else {
+			chatURL = base + "/chat/completions"
+		}
+	}
+
+	modelName := "gpt-4o-mini"
+	if strings.Contains(chatURL, "127.0.0.1") {
+		modelName = "local"
 	}
 
 	reqBody := map[string]interface{}{
-		"model": "gpt-4o-mini",
+		"model": modelName,
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": text},

@@ -35,6 +35,12 @@ var BuildCommit = ""
 // BuildDate is the build timestamp, injected via -ldflags at build time.
 var BuildDate = ""
 
+// TemplateMeta holds metadata for a smart mode template (builtin or custom).
+type TemplateMeta struct {
+	Description string   `json:"description"`
+	Keywords    []string `json:"keywords"`
+}
+
 // debugMode enables WebView2 DevTools and verbose logging.
 // Set via WHISPASTE_DEBUG=1 environment variable.
 var debugMode bool

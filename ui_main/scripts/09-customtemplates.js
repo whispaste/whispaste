@@ -1,6 +1,7 @@
 // Custom Templates — user-defined smart mode presets
 (function() {
   let customTemplates = {};
+  let templateMetas = {};
 
   async function loadCustomTemplates() {
     try {
@@ -9,6 +10,15 @@
       if (!customTemplates || typeof customTemplates !== 'object') customTemplates = {};
     } catch (e) {
       customTemplates = {};
+    }
+    try {
+      if (window.getTemplateMetas) {
+        const raw = await window.getTemplateMetas();
+        templateMetas = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!templateMetas || typeof templateMetas !== 'object') templateMetas = {};
+      }
+    } catch (e) {
+      templateMetas = {};
     }
     renderCustomTemplates();
     renderCustomPresetCards();
@@ -25,11 +35,14 @@
       </div>`;
       return;
     }
-    list.innerHTML = entries.map(([name, prompt]) => `
+    list.innerHTML = entries.map(([name, prompt]) => {
+      const meta = templateMetas[name] || {};
+      const descPreview = meta.description ? esc(meta.description.length > 60 ? meta.description.slice(0, 60) + '…' : meta.description) : '';
+      return `
       <div class="custom-template-row">
         <div class="custom-template-info">
           <span class="custom-template-name">${esc(name)}</span>
-          <span class="custom-template-prompt" title="${esc(prompt)}">${esc(prompt.length > 100 ? prompt.slice(0, 100) + '…' : prompt)}</span>
+          ${descPreview ? `<span class="custom-template-prompt" title="${esc(meta.description)}">${descPreview}</span>` : `<span class="custom-template-prompt" title="${esc(prompt)}">${esc(prompt.length > 100 ? prompt.slice(0, 100) + '…' : prompt)}</span>`}
         </div>
         <div class="custom-template-actions">
           <button class="btn-icon custom-template-edit" data-name="${esc(name)}" title="${t('edit') || 'Edit'}">
@@ -39,8 +52,8 @@
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
           </button>
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   }
 
   function renderCustomPresetCards() {
@@ -93,6 +106,110 @@
     }
   }
 
+  // Show a template dialog with prompt, description, and keywords fields
+  function showTemplateDialog(title, opts = {}) {
+    return new Promise(resolve => {
+      const overlay = document.getElementById('confirmOverlay');
+      if (!overlay) { resolve(null); return; }
+      const dialog = overlay.querySelector('.confirm-dialog');
+      const keywords = opts.keywords || [];
+
+      dialog.innerHTML = `
+        <div class="confirm-icon info">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div class="confirm-title">${title}</div>
+        <div style="text-align:left;width:100%">
+          <label class="form-label" style="font-size:0.82rem;font-weight:600;margin-bottom:4px;display:block">${t('customTemplateAddPromptMsg')}</label>
+          <textarea id="tplDialogPrompt" class="prompt-input" rows="4" style="resize:vertical;width:100%">${esc(opts.prompt || '')}</textarea>
+
+          <label class="form-label" style="font-size:0.82rem;font-weight:600;margin:12px 0 4px;display:block">${t('templateDescription')}</label>
+          <textarea id="tplDialogDesc" class="prompt-input" rows="2" style="resize:vertical;width:100%" placeholder="${esc(t('templateDescPlaceholder'))}">${esc(opts.description || '')}</textarea>
+          <p class="form-hint" style="margin:2px 0 0">${t('templateDescHelp')}</p>
+
+          <label class="form-label" style="font-size:0.82rem;font-weight:600;margin:12px 0 4px;display:block">${t('templateKeywords')}</label>
+          <div class="keyword-chips" id="tplDialogChips">${keywords.map(kw => `<span class="keyword-chip" data-kw="${esc(kw)}">${esc(kw)} <span class="keyword-chip-remove" data-kw="${esc(kw)}">&#10005;</span></span>`).join('')}</div>
+          <input type="text" id="tplDialogKeywords" class="prompt-input" style="width:100%;margin-top:6px" placeholder="${esc(t('templateKeywordsPlaceholder'))}" />
+          <p class="form-hint" style="margin:2px 0 0">${t('templateKeywordsHelp')}</p>
+        </div>
+        <div class="confirm-btns" style="margin-top:14px">
+          <button class="btn btn-secondary flex-1" id="dialogCancel">${t('cancel')}</button>
+          <button class="btn btn-primary flex-1" id="dialogConfirm">${t('save')}</button>
+        </div>
+      `;
+
+      overlay.classList.add('show');
+
+      const chipContainer = document.getElementById('tplDialogChips');
+      const kwInput = document.getElementById('tplDialogKeywords');
+      let currentKeywords = [...keywords];
+
+      function renderChips() {
+        chipContainer.innerHTML = currentKeywords.map(kw =>
+          `<span class="keyword-chip" data-kw="${esc(kw)}">${esc(kw)} <span class="keyword-chip-remove" data-kw="${esc(kw)}">&#10005;</span></span>`
+        ).join('');
+      }
+
+      function addKeyword(val) {
+        const kw = val.trim();
+        if (kw && !currentKeywords.includes(kw)) {
+          currentKeywords.push(kw);
+          renderChips();
+        }
+      }
+
+      chipContainer.addEventListener('click', (e) => {
+        const rm = e.target.closest('.keyword-chip-remove');
+        if (rm) {
+          currentKeywords = currentKeywords.filter(k => k !== rm.dataset.kw);
+          renderChips();
+        }
+      });
+
+      kwInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+          e.preventDefault();
+          const parts = kwInput.value.split(',');
+          parts.forEach(p => addKeyword(p));
+          kwInput.value = '';
+        }
+      });
+
+      kwInput.addEventListener('blur', () => {
+        if (kwInput.value.trim()) {
+          kwInput.value.split(',').forEach(p => addKeyword(p));
+          kwInput.value = '';
+        }
+      });
+
+      const promptInput = document.getElementById('tplDialogPrompt');
+      if (promptInput) promptInput.focus();
+
+      function cleanup(val) {
+        overlay.classList.remove('show');
+        resolve(val);
+      }
+
+      document.getElementById('dialogConfirm')?.addEventListener('click', () => {
+        const prompt = document.getElementById('tplDialogPrompt')?.value || '';
+        const description = document.getElementById('tplDialogDesc')?.value || '';
+        // Capture any remaining text in keyword input
+        if (kwInput.value.trim()) {
+          kwInput.value.split(',').forEach(p => addKeyword(p));
+        }
+        cleanup({ prompt: prompt.trim(), description: description.trim(), keywords: currentKeywords });
+      }, { once: true });
+
+      document.getElementById('dialogCancel')?.addEventListener('click', () => cleanup(null), { once: true });
+      overlay.addEventListener('click', (ev) => { if (ev.target === overlay) cleanup(null); }, { once: true });
+
+      function onEsc(ev) {
+        if (ev.key === 'Escape') { cleanup(null); document.removeEventListener('keydown', onEsc); }
+      }
+      document.addEventListener('keydown', onEsc);
+    });
+  }
+
   async function addCustomTemplate() {
     const name = await showPromptDialog(
       t('customTemplateAddTitle'),
@@ -105,30 +222,42 @@
       showDialog({ title: t('error') || 'Error', message: t('customTemplateExists'), variant: 'error' });
       return;
     }
-    const prompt = await showPromptDialog(
-      t('customTemplateAddPromptTitle'),
-      t('customTemplateAddPromptMsg'),
-      { confirmText: t('save'), multiline: true }
-    );
-    if (!prompt || !prompt.trim()) return;
-    customTemplates[key] = prompt.trim();
-    await window.saveCustomTemplate(key, prompt.trim());
+
+    const result = await showTemplateDialog(t('customTemplateAddPromptTitle'), {});
+    if (!result || !result.prompt) return;
+
+    customTemplates[key] = result.prompt;
+    await window.saveCustomTemplate(key, result.prompt);
+
+    if (window.setTemplateMeta && (result.description || result.keywords.length > 0)) {
+      templateMetas[key] = { description: result.description, keywords: result.keywords };
+      await window.setTemplateMeta(key, JSON.stringify(templateMetas[key]));
+    }
+
     loadCustomTemplates();
-    // Clear cached presets so viewPresetPrompt picks up new ones
     if (typeof _builtinPresetsCache !== 'undefined') _builtinPresetsCache = null;
   }
 
   async function editCustomTemplate(name) {
     const currentPrompt = customTemplates[name] || '';
-    const newPrompt = await showPromptDialog(
-      t('customTemplateEditTitle'),
-      t('customTemplateEditMsg'),
-      { defaultValue: currentPrompt, confirmText: t('save'), multiline: true }
-    );
-    if (newPrompt === null || newPrompt === undefined) return;
-    if (!newPrompt.trim()) return;
-    customTemplates[name] = newPrompt.trim();
-    await window.saveCustomTemplate(name, newPrompt.trim());
+    const meta = templateMetas[name] || {};
+
+    const result = await showTemplateDialog(t('customTemplateEditTitle'), {
+      prompt: currentPrompt,
+      description: meta.description || '',
+      keywords: meta.keywords || []
+    });
+    if (!result) return;
+    if (!result.prompt) return;
+
+    customTemplates[name] = result.prompt;
+    await window.saveCustomTemplate(name, result.prompt);
+
+    if (window.setTemplateMeta) {
+      templateMetas[name] = { description: result.description, keywords: result.keywords };
+      await window.setTemplateMeta(name, JSON.stringify(templateMetas[name]));
+    }
+
     loadCustomTemplates();
     if (typeof _builtinPresetsCache !== 'undefined') _builtinPresetsCache = null;
   }
@@ -140,6 +269,7 @@
     );
     if (!ok) return;
     delete customTemplates[name];
+    delete templateMetas[name];
     await window.deleteCustomTemplate(name);
     loadCustomTemplates();
   }

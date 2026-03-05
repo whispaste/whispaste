@@ -12,6 +12,7 @@ var (
 	wdUser32              = windows.NewLazySystemDLL("user32.dll")
 	procGetWindowThreadPID = wdUser32.NewProc("GetWindowThreadProcessId")
 	procGetForegroundWindow = wdUser32.NewProc("GetForegroundWindow")
+	procGetWindowTextW      = wdUser32.NewProc("GetWindowTextW")
 )
 
 // GetActiveAppName returns the executable name (e.g. "Code.exe") of the
@@ -41,6 +42,20 @@ func GetActiveAppName() string {
 	}
 	fullPath := windows.UTF16ToString(buf[:n])
 	return strings.ToLower(filepath.Base(fullPath))
+}
+
+// GetActiveWindowTitle returns the title of the foreground window.
+func GetActiveWindowTitle() string {
+	hwnd, _, _ := procGetForegroundWindow.Call()
+	if hwnd == 0 {
+		return ""
+	}
+	var buf [256]uint16
+	n, _, _ := procGetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(&buf[0])), 256)
+	if n == 0 {
+		return ""
+	}
+	return windows.UTF16ToString(buf[:n])
 }
 
 // ResolveAppPreset checks if there's an app-specific smart mode preset

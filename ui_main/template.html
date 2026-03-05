@@ -684,6 +684,58 @@
 
         <!-- Preset Cards -->
         <div id="smart-mode-options" style="display:none">
+          <!-- AI Processing Engine -->
+          <h3 class="section-title" data-i18n="smartProvider">AI Processing Engine</h3>
+          <div class="provider-control" id="provider-control">
+            <button class="provider-option" data-provider="openai" onclick="selectSmartProvider('openai')">
+              <div class="provider-option-label" data-i18n="smartProviderOpenai">OpenAI API</div>
+              <div class="provider-option-desc" data-i18n="smartProviderOpenaiDesc">Highest quality, requires API key and internet</div>
+            </button>
+            <button class="provider-option" data-provider="local" onclick="selectSmartProvider('local')">
+              <div class="provider-option-label" data-i18n="smartProviderLocal">Local Model</div>
+              <div class="provider-option-desc" data-i18n="smartProviderLocalDesc">Offline processing, no API key needed</div>
+            </button>
+            <button class="provider-option active" data-provider="auto" onclick="selectSmartProvider('auto')">
+              <div class="provider-option-label" data-i18n="smartProviderAuto">Auto</div>
+              <div class="provider-option-desc" data-i18n="smartProviderAutoDesc">Uses local model if available, otherwise OpenAI API</div>
+            </button>
+          </div>
+
+          <!-- Local LLM Card -->
+          <div class="llm-card" id="llm-card" style="display:none">
+            <div class="llm-card-header">
+              <div class="llm-card-info">
+                <svg class="icon" style="width:22px;height:22px;color:var(--accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+                <div>
+                  <div class="llm-card-title" data-i18n="smartLlmCard">Local Language Model</div>
+                  <div class="llm-card-subtitle" data-i18n="smartLlmName">SmolLM2 · 270 MB · 6 Languages</div>
+                </div>
+              </div>
+              <div id="llm-status-area">
+                <span class="llm-badge not-installed" id="llm-badge" data-i18n="smartLlmNotInstalled">Not installed</span>
+              </div>
+            </div>
+            <div id="llm-action-area" style="margin-top:12px">
+              <button class="btn btn-primary btn-sm" id="btn-llm-download" onclick="startLLMDownload()">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                <span data-i18n="smartLlmDownload">Download</span>
+              </button>
+            </div>
+            <div class="llm-progress" id="llm-progress" style="display:none">
+              <div class="llm-progress-bar"><div class="llm-progress-fill" id="llm-progress-fill" style="width:0%"></div></div>
+              <div class="llm-progress-text" id="llm-progress-text"></div>
+            </div>
+          </div>
+
+          <!-- Fallback Template -->
+          <div class="card" id="smart-fallback-row" style="margin-top:16px">
+            <div class="card-title" data-i18n="smartFallback">Fallback Template</div>
+            <p class="form-hint" style="margin-bottom:8px" data-i18n="smartFallbackDesc">Used when no app is automatically detected</p>
+            <div class="form-group">
+              <select class="form-select" id="select-fallback-preset"></select>
+            </div>
+          </div>
+
           <h3 class="section-title" data-i18n="smartChoosePreset">Choose a preset</h3>
           <select id="select-smartpreset" style="display:none">
             <option value="cleanup">Cleanup</option>
