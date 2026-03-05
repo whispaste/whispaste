@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -50,7 +51,16 @@ type Config struct {
 	ActiveProfile     string                    `json:"active_profile,omitempty"`
 	Profiles          map[string]ConfigProfile   `json:"profiles,omitempty"`
 	CustomTemplates   map[string]string          `json:"custom_templates,omitempty"`
+	TextReplacementsEnabled bool               `json:"text_replacements_enabled,omitempty"`
+	TextReplacements  []TextReplacement         `json:"text_replacements,omitempty"`
 	mu          sync.RWMutex
+}
+
+// TextReplacement defines a trigger→replacement mapping applied to transcriptions.
+type TextReplacement struct {
+	Trigger     string `json:"trigger"`
+	Replacement string `json:"replacement"`
+	Enabled     bool   `json:"enabled"`
 }
 
 // ConfigProfile stores a named set of transcription & smart mode settings.
@@ -505,4 +515,50 @@ func (c *Config) GetCustomTemplates() map[string]string {
 		result[k] = v
 	}
 	return result
+}
+
+// GetTextReplacementsEnabled returns whether text replacements are active (thread-safe).
+func (c *Config) GetTextReplacementsEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.TextReplacementsEnabled
+}
+
+// SetTextReplacementsEnabled sets the text replacements toggle (thread-safe).
+func (c *Config) SetTextReplacementsEnabled(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.TextReplacementsEnabled = v
+}
+
+// GetTextReplacements returns a copy of all text replacements (thread-safe).
+func (c *Config) GetTextReplacements() []TextReplacement {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	result := make([]TextReplacement, len(c.TextReplacements))
+	copy(result, c.TextReplacements)
+	return result
+}
+
+// SetTextReplacements replaces the full list (thread-safe).
+func (c *Config) SetTextReplacements(items []TextReplacement) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.TextReplacements = items
+}
+
+// ApplyTextReplacements runs all enabled replacements on the given text.
+func (c *Config) ApplyTextReplacements(text string) string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if !c.TextReplacementsEnabled {
+		return text
+	}
+	for _, r := range c.TextReplacements {
+		if !r.Enabled || r.Trigger == "" {
+			continue
+		}
+		text = strings.ReplaceAll(text, r.Trigger, r.Replacement)
+	}
+	return text
 }

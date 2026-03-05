@@ -29,6 +29,9 @@
       <div class="nav-item" data-page="smartmode" data-tooltip="Smart Mode" data-i18n-tooltip="navSmartMode">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
       </div>
+      <div class="nav-item" data-page="replacements" data-tooltip="Text Replacements" data-i18n-tooltip="navReplacements">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4c0-1.1.9-2 2-2"/><path d="M20 2c1.1 0 2 .9 2 2"/><path d="M22 8c0 1.1-.9 2-2 2"/><path d="M16 10c-1.1 0-2-.9-2-2"/><rect x="2" y="14" width="8" height="8" rx="2"/><path d="m6 6 8 8"/></svg>
+      </div>
       <div class="nav-item" data-page="analytics" data-tooltip="Analytics" data-i18n-tooltip="navAnalytics">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
       </div>
@@ -766,6 +769,25 @@
         </div>
       </div>
       </div>
+    </div>
+
+    <!-- Page: Text Replacements -->
+    <div class="page" id="page-replacements" style="display:none">
+      <div class="page-header">
+        <h2 class="page-title" data-i18n="tabReplacements">Text Replacements</h2>
+        <div class="page-header-actions">
+          <label class="toggle-switch" title="">
+            <input type="checkbox" id="replacements-toggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+      <p class="page-description" data-i18n="replacementsDesc">Define trigger words that automatically get replaced in your transcriptions.</p>
+      <div class="replacements-list" id="replacements-list"></div>
+      <button class="btn btn-primary replacements-add-btn" id="replacements-add-btn">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        <span data-i18n="replacementsAdd">Add Replacement</span>
+      </button>
     </div>
 
     <!-- Page: Analytics -->

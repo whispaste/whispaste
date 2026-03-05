@@ -822,6 +822,39 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return string(data)
 		})
 
+		// Bind: getTextReplacements → returns JSON array of replacements
+		w.Bind("getTextReplacements", func() string {
+			items := cfg.GetTextReplacements()
+			data, _ := json.Marshal(items)
+			return string(data)
+		})
+
+		// Bind: setTextReplacements → saves full replacement list
+		w.Bind("setTextReplacements", func(jsonStr string) {
+			var items []TextReplacement
+			if err := json.Unmarshal([]byte(jsonStr), &items); err != nil {
+				logError("Parse text replacements: %v", err)
+				return
+			}
+			cfg.SetTextReplacements(items)
+			if err := cfg.Save(); err != nil {
+				logError("Save text replacements: %v", err)
+			}
+		})
+
+		// Bind: setTextReplacementsEnabled → toggle the feature
+		w.Bind("setTextReplacementsEnabled", func(enabled bool) {
+			cfg.SetTextReplacementsEnabled(enabled)
+			if err := cfg.Save(); err != nil {
+				logError("Save text replacements enabled: %v", err)
+			}
+		})
+
+		// Bind: getTextReplacementsEnabled → returns enabled state
+		w.Bind("getTextReplacementsEnabled", func() bool {
+			return cfg.GetTextReplacementsEnabled()
+		})
+
 		// --- Theme & language bindings ---
 
 		// Bind: getTheme → returns current theme from config
