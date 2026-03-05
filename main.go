@@ -39,6 +39,9 @@ func main() {
 	InitLogger(LogDebug)
 	defer CloseLogger()
 
+	// Log build metadata for debugging
+	logStartupMetadata()
+
 	// Register AppUserModelID so Windows 10/11 toast notifications work.
 	// Without this, Shell_NotifyIconW NIF_INFO balloons are silently dropped.
 	setAppUserModelID()

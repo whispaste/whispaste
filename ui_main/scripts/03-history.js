@@ -645,10 +645,14 @@ async function addTag(input) {
   if (tags.includes(newTag)) { input.value = ''; return; }
   tags.push(newTag);
   if (window.updateEntry) {
-    await window.updateEntry(id, entry.title || '', JSON.stringify(tags));
-    input.value = '';
-    await loadEntries();
-    showToast(t('notebook.tag_updated'));
+    const ok = await window.updateEntry(id, entry.title || '', JSON.stringify(tags));
+    if (ok) {
+      input.value = '';
+      await loadEntries();
+      showToast(t('notebook.tag_updated'));
+    } else {
+      showToast(t('notebook.error_update') || 'Update failed', true);
+    }
   }
 }
 
@@ -715,9 +719,13 @@ async function removeTag(id, tagToRemove) {
   if (!entry) return;
   const tags = (entry.tags || []).filter(tag => tag !== tagToRemove);
   if (window.updateEntry) {
-    await window.updateEntry(id, entry.title || '', JSON.stringify(tags));
-    await loadEntries();
-    showToast(t('notebook.tag_updated'));
+    const ok = await window.updateEntry(id, entry.title || '', JSON.stringify(tags));
+    if (ok) {
+      await loadEntries();
+      showToast(t('notebook.tag_updated'));
+    } else {
+      showToast(t('notebook.error_update') || 'Update failed', true);
+    }
   }
 }
 

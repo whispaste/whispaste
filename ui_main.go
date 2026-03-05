@@ -1139,6 +1139,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				"configPath":  cfgPath,
 				"logPath":     logPath,
 				"buildCommit": BuildCommit,
+				"buildBranch": BuildBranch,
 				"buildDate":   BuildDate,
 			}
 			data, _ := json.Marshal(info)
