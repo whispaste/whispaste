@@ -618,57 +618,48 @@ func (fb *FloatingButton) render() {
 }
 
 func (fb *FloatingButton) drawMicIcon(g uintptr, alpha uint32) {
-	// Use Segoe MDL2 Assets for the microphone glyph
-	fontName, _ := windows.UTF16PtrFromString("Segoe MDL2 Assets")
-	var fontFamily uintptr
-	procGdipCreateFontFamilyFromName.Call(
-		uintptr(unsafe.Pointer(fontName)),
-		0,
-		uintptr(unsafe.Pointer(&fontFamily)),
-	)
-	if fontFamily == 0 {
+	// Draw Lucide microphone SVG paths using GDI+ to match the app's FAB icon.
+	// SVG viewBox 24×24 → 24px icon centered in 56px button (offset 16).
+	penColor := (alpha << 24) | (_FLOAT_CLR_ICON & 0x00FFFFFF)
+	var pen uintptr
+	procGdipCreatePen1.Call(uintptr(penColor), f32(2.0), 2, uintptr(unsafe.Pointer(&pen)))
+	if pen == 0 {
 		return
 	}
-	defer procGdipDeleteFontFamily.Call(fontFamily)
+	defer procGdipDeletePen.Call(pen)
+	procGdipSetPenLineCap197819.Call(pen, 2, 2, 0) // LineCapRound
+	procGdipSetPenLineJoin.Call(pen, 2)             // LineJoinRound
 
-	var font uintptr
-	procGdipCreateFont.Call(fontFamily, f32(22), _FontStyleRegular, _UnitPixel,
-		uintptr(unsafe.Pointer(&font)))
-	if font == 0 {
+	const o = 16 // offset to center 24px icon in 56px button
+
+	// ── Mic body capsule ──
+	// Top semicircle + right side + bottom semicircle + close (left side)
+	var capsule uintptr
+	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&capsule)))
+	if capsule == 0 {
 		return
 	}
-	defer procGdipDeleteFont.Call(font)
+	defer procGdipDeletePath.Call(capsule)
+	procGdipAddPathArc.Call(capsule, f32(9+o), f32(2+o), f32(6), f32(6), f32(180), f32(180))
+	procGdipAddPathLine.Call(capsule, uintptr(15+o), uintptr(5+o), uintptr(15+o), uintptr(12+o))
+	procGdipAddPathArc.Call(capsule, f32(9+o), f32(9+o), f32(6), f32(6), f32(0), f32(180))
+	procGdipClosePathFigure.Call(capsule)
+	procGdipDrawPath.Call(g, pen, capsule)
 
-	var strFmt uintptr
-	procGdipCreateStringFormat.Call(0, 0, uintptr(unsafe.Pointer(&strFmt)))
-	if strFmt == 0 {
+	// ── U-shaped arc ──
+	var uarc uintptr
+	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&uarc)))
+	if uarc == 0 {
 		return
 	}
-	defer procGdipDeleteStringFormat.Call(strFmt)
+	defer procGdipDeletePath.Call(uarc)
+	procGdipAddPathLine.Call(uarc, uintptr(19+o), uintptr(10+o), uintptr(19+o), uintptr(12+o))
+	procGdipAddPathArc.Call(uarc, f32(5+o), f32(5+o), f32(14), f32(14), f32(0), f32(180))
+	procGdipAddPathLine.Call(uarc, uintptr(5+o), uintptr(12+o), uintptr(5+o), uintptr(10+o))
+	procGdipDrawPath.Call(g, pen, uarc)
 
-	// Center alignment
-	const _StringAlignmentCenter = 1
-	procGdipSetStringFormatAlign.Call(strFmt, _StringAlignmentCenter)
-	procGdipSetStringFormatLineAlign.Call(strFmt, _StringAlignmentCenter)
-
-	// Icon color with alpha
-	iconColor := (alpha << 24) | (_FLOAT_CLR_ICON & 0x00FFFFFF)
-	var brush uintptr
-	procGdipCreateSolidFill.Call(uintptr(iconColor), uintptr(unsafe.Pointer(&brush)))
-	if brush == 0 {
-		return
-	}
-	defer procGdipDeleteBrush.Call(brush)
-
-	// Microphone glyph: U+E720
-	micStr, _ := windows.UTF16PtrFromString("\uE720")
-	rect := gdipRectF{
-		X: 2, Y: 2,
-		Width:  float32(_FLOAT_SIZE - 4),
-		Height: float32(_FLOAT_SIZE - 4),
-	}
-	procGdipDrawString.Call(g, uintptr(unsafe.Pointer(micStr)), 1,
-		font, uintptr(unsafe.Pointer(&rect)), strFmt, brush)
+	// ── Stem ──
+	procGdipDrawLineI.Call(g, pen, uintptr(12+o), uintptr(19+o), uintptr(12+o), uintptr(22+o))
 }
 
 // ───────────────────── Position Management ─────────────────────
