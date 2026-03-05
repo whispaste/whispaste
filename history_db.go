@@ -11,6 +11,29 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// isFTSCorruptionError returns true if the error indicates FTS5 or DB-level corruption
+// that may be resolved by rebuilding the FTS index.
+func isFTSCorruptionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "malformed") || strings.Contains(msg, "corrupt")
+}
+
+// execWithFTSRepair runs a write query. If it fails with FTS corruption,
+// rebuilds the FTS index and retries once.
+func execWithFTSRepair(db *sql.DB, query string, args ...interface{}) (sql.Result, error) {
+	res, err := db.Exec(query, args...)
+	if err != nil && isFTSCorruptionError(err) {
+		logWarn("FTS5 corruption detected on write, rebuilding index: %v", err)
+		rebuildFTS(db)
+		// Retry once after rebuild
+		res, err = db.Exec(query, args...)
+	}
+	return res, err
+}
+
 const historyDBFile = "history.db"
 
 // currentSchemaVersion tracks the DB schema. Version history:
@@ -44,6 +67,30 @@ func initHistoryDB() (*sql.DB, error) {
 	// Check DB integrity and repair FTS if needed
 	repairDBIfNeeded(db)
 
+	// Post-repair verification: if DB is still corrupted, rename and start fresh
+	var result string
+	if err := db.QueryRow("PRAGMA integrity_check(1)").Scan(&result); err != nil || result != "ok" {
+		logError("Database still corrupted after repair — renaming and starting fresh")
+		db.Close()
+		backupPath := dbPath + ".corrupt"
+		if err := os.Rename(dbPath, backupPath); err != nil {
+			logWarn("Cannot rename corrupted DB: %v", err)
+		} else {
+			logInfo("Corrupted DB saved as %s", backupPath)
+		}
+		// Reopen fresh DB
+		db, err = sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+		if err != nil {
+			return nil, fmt.Errorf("reopen fresh db: %w", err)
+		}
+		if err := createHistoryTables(db); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("create tables on fresh db: %w", err)
+		}
+		db.Exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER)")
+		db.Exec("INSERT INTO schema_version (version) VALUES (?)", currentSchemaVersion)
+	}
+
 	// Migrate from JSON if the DB is empty and JSON file exists
 	if err := migrateFromJSON(db, dir); err != nil {
 		logWarn("JSON migration failed: %v", err)
@@ -53,9 +100,23 @@ func initHistoryDB() (*sql.DB, error) {
 	return db, nil
 }
 
-// repairDBIfNeeded checks FTS5 index integrity and rebuilds if corrupted.
+// repairDBIfNeeded checks main database and FTS5 index integrity,
+// attempting recovery if corruption is detected.
 func repairDBIfNeeded(db *sql.DB) {
-	// FTS5-specific integrity check (PRAGMA integrity_check does NOT cover FTS5 virtual tables)
+	// 1. Main database integrity check
+	var result string
+	if err := db.QueryRow("PRAGMA integrity_check(1)").Scan(&result); err != nil {
+		logError("PRAGMA integrity_check failed: %v", err)
+		repairMainDB(db)
+		return
+	}
+	if result != "ok" {
+		logError("Database integrity check: %s", result)
+		repairMainDB(db)
+		return
+	}
+
+	// 2. FTS5-specific integrity check (PRAGMA integrity_check does NOT cover FTS5 virtual tables)
 	_, err := db.Exec("INSERT INTO history_fts(history_fts) VALUES('integrity-check')")
 	if err != nil {
 		logWarn("FTS5 integrity check failed: %v — rebuilding FTS index", err)
@@ -63,6 +124,111 @@ func repairDBIfNeeded(db *sql.DB) {
 		return
 	}
 	logDebug("FTS5 integrity check passed")
+}
+
+// repairMainDB attempts to salvage data from a corrupted database by exporting
+// readable rows and rebuilding the schema.
+func repairMainDB(db *sql.DB) {
+	logInfo("Attempting database repair...")
+
+	// Try to read whatever entries we can from the corrupted DB
+	rows, err := db.Query("SELECT " + allColumns + " FROM history_entries")
+	if err != nil {
+		logError("Cannot read entries from corrupted DB: %v — database will be recreated empty", err)
+		recreateDB(db)
+		return
+	}
+	defer rows.Close()
+
+	var salvaged []HistoryEntry
+	for rows.Next() {
+		e, err := scanEntry(rows)
+		if err != nil {
+			logWarn("Skipping corrupted row: %v", err)
+			continue
+		}
+		salvaged = append(salvaged, e)
+	}
+	if err := rows.Err(); err != nil {
+		logWarn("Row iteration error during salvage: %v", err)
+	}
+	logInfo("Salvaged %d entries from corrupted database", len(salvaged))
+
+	recreateDB(db)
+
+	// Re-insert salvaged entries
+	if len(salvaged) > 0 {
+		reimportEntries(db, salvaged)
+	}
+}
+
+// recreateDB drops and recreates all tables (main + FTS5).
+func recreateDB(db *sql.DB) {
+	for _, stmt := range []string{
+		"DROP TRIGGER IF EXISTS history_fts_ai",
+		"DROP TRIGGER IF EXISTS history_fts_ad",
+		"DROP TRIGGER IF EXISTS history_fts_au",
+		"DROP TABLE IF EXISTS history_fts",
+		"DROP TABLE IF EXISTS history_entries",
+		"DROP TABLE IF EXISTS schema_version",
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			logWarn("DB cleanup (%s): %v", stmt, err)
+		}
+	}
+	if err := createHistoryTables(db); err != nil {
+		logError("Failed to recreate tables: %v", err)
+		return
+	}
+	// Set schema version
+	db.Exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER)")
+	db.Exec("DELETE FROM schema_version")
+	db.Exec("INSERT INTO schema_version (version) VALUES (?)", currentSchemaVersion)
+	logInfo("Database tables recreated successfully")
+}
+
+// reimportEntries inserts salvaged entries into a fresh database.
+func reimportEntries(db *sql.DB, entries []HistoryEntry) {
+	tx, err := db.Begin()
+	if err != nil {
+		logError("reimport begin tx: %v", err)
+		return
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`INSERT OR IGNORE INTO history_entries
+		(id, text, title, timestamp, duration_sec, processing_duration_sec,
+		 language, tags, pinned, source, model, is_local, cost_usd)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		logError("reimport prepare: %v", err)
+		return
+	}
+	defer stmt.Close()
+
+	imported := 0
+	for i := range entries {
+		e := &entries[i]
+		pinned, isLocal := 0, 0
+		if e.Pinned {
+			pinned = 1
+		}
+		if e.IsLocal {
+			isLocal = 1
+		}
+		if _, err := stmt.Exec(e.ID, e.Text, e.Title, e.Timestamp,
+			e.Duration, e.ProcessingDuration, e.Language, marshalTags(e.Tags),
+			pinned, e.Source, e.Model, isLocal, e.CostUSD); err != nil {
+			logWarn("reimport entry %s: %v", e.ID, err)
+			continue
+		}
+		imported++
+	}
+	if err := tx.Commit(); err != nil {
+		logError("reimport commit: %v", err)
+		return
+	}
+	logInfo("Re-imported %d/%d entries after repair", imported, len(entries))
 }
 
 // rebuildFTS rebuilds the FTS5 index. For regular FTS5, tries the fast 'rebuild'

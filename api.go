@@ -47,7 +47,9 @@ func Transcribe(audioWAV []byte, language string, apiKey string, model string, e
 	logInfo("API transcription: model=%s audioSize=%d", model, len(audioWAV))
 
 	start := time.Now()
-	client := &http.Client{Timeout: 30 * time.Second}
+	// Dynamic timeout: 60s base + 30s per MB of audio data
+	timeout := 60*time.Second + time.Duration(len(audioWAV)/(1024*1024))*30*time.Second
+	client := &http.Client{Timeout: timeout}
 	req, err := http.NewRequest("POST", endpoint, &body)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)

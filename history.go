@@ -121,7 +121,7 @@ func (h *History) insertEntry(e HistoryEntry) {
 	if e.IsLocal {
 		isLocal = 1
 	}
-	_, err := h.db.Exec(`INSERT INTO history_entries
+	_, err := execWithFTSRepair(h.db, `INSERT INTO history_entries
 		(id, text, title, timestamp, duration_sec, processing_duration_sec,
 		 language, tags, pinned, source, model, is_local, cost_usd)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -138,7 +138,7 @@ func (h *History) pruneToLimit(limit int) {
 		return
 	}
 	// Delete oldest non-pinned entries beyond the limit
-	_, err := h.db.Exec(`DELETE FROM history_entries WHERE id IN (
+	_, err := execWithFTSRepair(h.db, `DELETE FROM history_entries WHERE id IN (
 		SELECT id FROM history_entries WHERE pinned = 0
 		ORDER BY timestamp ASC
 		LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries) - ?)
@@ -224,7 +224,7 @@ func (h *History) Delete(id string) bool {
 	h.cache = nil
 	h.mu.Unlock()
 
-	res, err := h.db.Exec("DELETE FROM history_entries WHERE id = ?", id)
+	res, err := execWithFTSRepair(h.db, "DELETE FROM history_entries WHERE id = ?", id)
 	if err != nil {
 		logError("Delete entry: %v", err)
 		return false
@@ -242,7 +242,7 @@ func (h *History) TogglePin(id string) bool {
 	h.cache = nil
 	h.mu.Unlock()
 
-	res, err := h.db.Exec(`UPDATE history_entries SET pinned = CASE WHEN pinned = 0 THEN 1 ELSE 0 END WHERE id = ?`, id)
+	res, err := execWithFTSRepair(h.db, `UPDATE history_entries SET pinned = CASE WHEN pinned = 0 THEN 1 ELSE 0 END WHERE id = ?`, id)
 	if err != nil {
 		logError("Toggle pin: %v", err)
 		return false
@@ -265,9 +265,9 @@ func (h *History) UpdateEntry(id, title string, tags []string) bool {
 	tagsJSON := marshalTags(tags)
 	logDebug("UpdateEntry id=%s title=%q tagCount=%d tags=%s", id, title, len(tags), tagsJSON)
 	if title != "" {
-		res, err = h.db.Exec("UPDATE history_entries SET title = ?, tags = ? WHERE id = ?", title, tagsJSON, id)
+		res, err = execWithFTSRepair(h.db, "UPDATE history_entries SET title = ?, tags = ? WHERE id = ?", title, tagsJSON, id)
 	} else {
-		res, err = h.db.Exec("UPDATE history_entries SET tags = ? WHERE id = ?", tagsJSON, id)
+		res, err = execWithFTSRepair(h.db, "UPDATE history_entries SET tags = ? WHERE id = ?", tagsJSON, id)
 	}
 	if err != nil {
 		logError("Update entry id=%s: %v", id, err)
@@ -287,7 +287,7 @@ func (h *History) UpdateText(id, newText string) bool {
 	h.mu.Unlock()
 
 	newTitle := autoTitle(newText)
-	res, err := h.db.Exec("UPDATE history_entries SET text = ?, title = ? WHERE id = ?", newText, newTitle, id)
+	res, err := execWithFTSRepair(h.db, "UPDATE history_entries SET text = ?, title = ? WHERE id = ?", newText, newTitle, id)
 	if err != nil {
 		logError("Update text: %v", err)
 		return false
@@ -748,7 +748,7 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 	// Remove by age
 	if maxAgeDays > 0 {
 		cutoff := time.Now().AddDate(0, 0, -maxAgeDays).Format(time.RFC3339)
-		res, err := h.db.Exec("DELETE FROM history_entries WHERE timestamp < ?"+pinnedFilter, cutoff)
+		res, err := execWithFTSRepair(h.db, "DELETE FROM history_entries WHERE timestamp < ?"+pinnedFilter, cutoff)
 		if err != nil {
 			logError("Cleanup by age: %v", err)
 		} else {
@@ -763,7 +763,7 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 		if includePinned {
 			whereClause = "1=1"
 		}
-		res, err := h.db.Exec(`DELETE FROM history_entries WHERE id IN (
+		res, err := execWithFTSRepair(h.db, `DELETE FROM history_entries WHERE id IN (
 			SELECT id FROM history_entries WHERE `+whereClause+`
 			ORDER BY timestamp ASC
 			LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries) - ?)
