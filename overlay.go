@@ -297,7 +297,7 @@ procGdipSetPenLineCap197819 = ovlGdiplus.NewProc("GdipSetPenLineCap197819")
 procGdipSetPenLineJoin      = ovlGdiplus.NewProc("GdipSetPenLineJoin")
 
 // GDI+ graphics
-procGdipGraphicsClear = ovlGdiplus.NewProc("GdipGraphicsClear")
+procGdipGraphicsClear          = ovlGdiplus.NewProc("GdipGraphicsClear")
 
 // GDI+ gradient
 procGdipCreateLineBrushFromRectI = ovlGdiplus.NewProc("GdipCreateLineBrushFromRectI")
@@ -457,7 +457,25 @@ maxRecordSec int  // max recording duration in seconds (0 = unlimited)
 hoverBtn  int    // 0=none, 1=dash, 2=cancel, 3=pause, 4=stop
 pressBtn  int    // 0=none, same mapping
 tracking  bool   // whether TrackMouseEvent is active
+scale     float64 // DPI scale factor (1.0 = 96 DPI)
 mu        sync.Mutex
+}
+
+// dpiScale returns the DPI scale factor for the overlay window.
+func (o *Overlay) dpiScale() float64 {
+	if o.hwnd == 0 {
+		return 1.0
+	}
+	dpi, _, _ := procGetDpiForWindow.Call(o.hwnd)
+	if dpi == 0 {
+		return 1.0
+	}
+	return float64(dpi) / 96.0
+}
+
+// sc scales a logical pixel value by the DPI scale factor.
+func (o *Overlay) sc(v int) int32 {
+	return int32(math.Round(float64(v) * o.scale))
 }
 
 var overlayWndProcCB = syscall.NewCallback(overlayWndProc)
@@ -491,6 +509,9 @@ case _WM_NCHITTEST:
 		pt.X = xScreen
 		pt.Y = yScreen
 		procScreenToClient.Call(hwnd, uintptr(unsafe.Pointer(&pt)))
+		// Convert physical client coords to logical for hit testing
+		pt.X = int32(float64(pt.X) / o.scale)
+		pt.Y = int32(float64(pt.Y) / o.scale)
 		if pt.X >= _BTN_DASH_X && pt.X <= _BTN_DASH_X+_BTN_SIZE &&
 			pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
 			return 1 // HTCLIENT
@@ -515,8 +536,8 @@ case 0x0200: // WM_MOUSEMOVE
 	st := o.state
 	o.mu.Unlock()
 	if st == StateRecording || st == StatePaused {
-		x := int32(lParam & 0xFFFF)
-		y := int32((lParam >> 16) & 0xFFFF)
+		x := int32(float64(lParam&0xFFFF) / o.scale)
+		y := int32(float64((lParam>>16)&0xFFFF) / o.scale)
 		btn := 0
 		if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
 			btn = 1
@@ -580,8 +601,8 @@ case 0x0201: // WM_LBUTTONDOWN
 	dashCB := o.onDash
 	o.mu.Unlock()
 	if st == StateRecording || st == StatePaused {
-		x := int32(lParam & 0xFFFF)
-		y := int32((lParam >> 16) & 0xFFFF)
+		x := int32(float64(lParam&0xFFFF) / o.scale)
+		y := int32(float64((lParam>>16)&0xFFFF) / o.scale)
 		if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE &&
 			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
 			o.mu.Lock()
@@ -649,14 +670,43 @@ pos := o.position
 o.visible = true
 o.mu.Unlock()
 
-// Position window based on config
-x, y := overlayPosition(pos)
+// Position window based on config (initially using current DPI scale)
+x, y := o.overlayPosition(pos)
+
+// Move window to target position to detect the correct monitor DPI
+const _SWP_NOSIZE_     = 0x0001
+const _SWP_NOACTIVATE_ = 0x0010
+const _SWP_NOZORDER_   = 0x0004
+procSetWindowPos.Call(hwnd, 0,
+	uintptr(x), uintptr(y), 0, 0,
+	_SWP_NOSIZE_|_SWP_NOACTIVATE_|_SWP_NOZORDER_)
+
+// Recompute DPI scale from the target monitor
+newScale := o.dpiScale()
+if newScale < 1.0 {
+	newScale = 1.0
+}
+if newScale != o.scale {
+	o.scale = newScale
+	// Recreate DIB at new scale
+	if o.dibDC != 0 {
+		procDeleteDC.Call(o.dibDC)
+		o.dibDC = 0
+	}
+	if o.dibBmp != 0 {
+		procDeleteObject.Call(o.dibBmp)
+		o.dibBmp = 0
+	}
+	o.createDIB()
+	// Recompute position with new scale
+	x, y = o.overlayPosition(pos)
+}
 
 const _HWND_TOPMOST = ^uintptr(0)
 const _SWP_NOACTIVATE = 0x0010
 const _SWP_SHOWWINDOW = 0x0040
 procSetWindowPos.Call(hwnd, _HWND_TOPMOST,
-uintptr(x), uintptr(y), _OVL_WIDTH, _OVL_HEIGHT,
+uintptr(x), uintptr(y), uintptr(o.sc(_OVL_WIDTH)), uintptr(o.sc(_OVL_HEIGHT)),
 _SWP_NOACTIVATE|_SWP_SHOWWINDOW)
 procSetTimer.Call(hwnd, _TIMER_ID, _TIMER_MS, 0)
 o.render()
@@ -720,7 +770,10 @@ return ret
 
 // overlayPosition calculates screen position based on config.
 // Uses virtual screen coordinates for correct multi-monitor support.
-func overlayPosition(pos string) (int, int) {
+func (o *Overlay) overlayPosition(pos string) (int, int) {
+w := int(o.sc(_OVL_WIDTH))
+h := int(o.sc(_OVL_HEIGHT))
+m := int(o.sc(_OVL_MARGIN))
 if pos == "cursor" {
 var pt pointT
 procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
@@ -733,25 +786,25 @@ minX := int(vsX)
 minY := int(vsY)
 maxX := minX + int(vsW)
 maxY := minY + int(vsH)
-x := int(pt.X) - _OVL_WIDTH/2
-y := int(pt.Y) - _OVL_HEIGHT - 16
+x := int(pt.X) - w/2
+y := int(pt.Y) - h - int(o.sc(16))
 if x < minX+8 {
 x = minX + 8
 }
-if x+_OVL_WIDTH > maxX-8 {
-x = maxX - _OVL_WIDTH - 8
+if x+w > maxX-8 {
+x = maxX - w - 8
 }
 if y < minY+8 {
-y = int(pt.Y) + 24 // below cursor if no room above
+y = int(pt.Y) + int(o.sc(24)) // below cursor if no room above
 }
-if y+_OVL_HEIGHT > maxY-8 {
-y = maxY - _OVL_HEIGHT - 8
+if y+h > maxY-8 {
+y = maxY - h - 8
 }
 return x, y
 }
 // Default: top center of primary monitor
 screenW, _, _ := procGetSystemMetrics.Call(_SM_CXSCREEN)
-return (int(screenW) - _OVL_WIDTH) / 2, _OVL_MARGIN
+return (int(screenW) - w) / 2, m
 }
 
 // NewOverlay creates the overlay window on a dedicated OS thread.
@@ -760,6 +813,7 @@ o := &Overlay{
 ready:    make(chan error, 1),
 done:     make(chan struct{}),
 position: "top_center",
+scale:    1.0,
 }
 globalOverlay = o
 
@@ -831,6 +885,12 @@ if hwnd == 0 {
 return fmt.Errorf("CreateWindowExW failed")
 }
 o.hwnd = hwnd
+
+// Compute DPI scale factor for this window's monitor
+o.scale = o.dpiScale()
+if o.scale < 1.0 {
+	o.scale = 1.0
+}
 
 // Main font: 13pt Segoe UI Semibold
 fontHeightMain := int32(-17)
@@ -1018,8 +1078,8 @@ func btnColor(baseColor uint32, btnID, hoverBtn, pressBtn int) uint32 {
 func (o *Overlay) createDIB() {
 var bmi bitmapInfoHeader
 bmi.BiSize = uint32(unsafe.Sizeof(bmi))
-bmi.BiWidth = _OVL_WIDTH
-bmi.BiHeight = -_OVL_HEIGHT // top-down
+bmi.BiWidth = o.sc(_OVL_WIDTH)
+bmi.BiHeight = -o.sc(_OVL_HEIGHT) // top-down
 bmi.BiPlanes = 1
 bmi.BiBitCount = 32
 
@@ -1055,6 +1115,12 @@ defer procGdipDeleteGraphics.Call(g)
 procGdipSetSmoothingMode.Call(g, _SmoothingModeAntiAlias)
 procGdipSetTextRenderingHint.Call(g, _TextRenderingHintAntiAliasGridFit)
 procGdipSetInterpolationMode.Call(g, _InterpolationModeHighQualityBicubic)
+
+// Apply DPI scale transform so all drawing uses logical coordinates
+if o.scale > 1.0 {
+	s := float32(o.scale)
+	procGdipScaleWorldTransform.Call(g, uintptr(math.Float32bits(s)), uintptr(math.Float32bits(s)), 0)
+}
 
 // Clear to fully transparent
 procGdipGraphicsClear.Call(g, 0x00000000)
@@ -1103,7 +1169,7 @@ SourceConstantAlpha: 255,
 AlphaFormat:         1, // AC_SRC_ALPHA
 }
 ptSrc := pointT{0, 0}
-sz := sizeT{_OVL_WIDTH, _OVL_HEIGHT}
+sz := sizeT{o.sc(_OVL_WIDTH), o.sc(_OVL_HEIGHT)}
 
 procUpdateLayeredWindow.Call(
 o.hwnd,
