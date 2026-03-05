@@ -3,7 +3,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 4px 24px 20px;
+  padding: 4px 24px 24px;
 }
 .smartmode-content {
   max-width: 100%;
@@ -14,91 +14,150 @@
   margin-top: 4px;
 }
 .section-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 20px 0 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 24px 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--gradient-accent);
+  flex-shrink: 0;
 }
 
 /* ── How-to Card ─────────────────────────────────────── */
 .smart-howto {
-  margin-top: 12px;
-  background: var(--bg-secondary);
+  margin-top: 14px;
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
-  padding: 16px 20px;
+  padding: 18px 22px;
+  position: relative;
+  overflow: hidden;
+}
+.smart-howto::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gradient-accent);
+  opacity: 0.6;
 }
 .smart-howto-title {
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 700;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 12px;
+  letter-spacing: 0.6px;
+  margin-bottom: 14px;
 }
 .smart-howto-steps {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 .smart-howto-step {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   font-size: 0.85rem;
   color: var(--text-primary);
+  line-height: 1.4;
 }
 .smart-howto-num {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: var(--gradient-accent);
   color: var(--text-inverse);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px var(--accent-glow);
 }
 
 /* ── Preset Grid ─────────────────────────────────────── */
 .preset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
 }
 .preset-card {
   display: flex; flex-direction: column; align-items: center;
-  gap: 6px; padding: 20px 14px 16px;
+  gap: 6px; padding: 18px 12px 14px;
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  transition: border-color var(--transition-fast), background var(--transition-fast),
+              transform var(--transition-fast), box-shadow var(--transition-fast);
   text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.preset-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gradient-accent);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  pointer-events: none;
 }
 .preset-card:hover {
   background: var(--bg-hover);
   border-color: var(--border-secondary);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.preset-card:hover::before {
+  opacity: 0.03;
 }
 .preset-card.active {
   border-color: var(--accent);
-  background: rgba(34, 211, 238, 0.06);
+  background: var(--accent-subtle);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-glow);
+}
+.preset-card.active::before {
+  opacity: 0.06;
 }
 .preset-icon {
-  width: 28px; height: 28px;
-  color: var(--text-secondary);
-  transition: color 0.15s;
+  width: 26px; height: 26px;
+  color: var(--text-tertiary);
+  transition: color var(--transition-fast), transform var(--transition-fast);
 }
-.preset-card.active .preset-icon { color: var(--accent); }
+.preset-card:hover .preset-icon {
+  color: var(--text-secondary);
+  transform: scale(1.08);
+}
+.preset-card.active .preset-icon {
+  color: var(--accent);
+  transform: scale(1.1);
+}
 .preset-label {
-  font-size: 0.85rem; font-weight: 600;
+  font-size: 0.82rem; font-weight: 600;
   color: var(--text-primary);
+  line-height: 1.3;
 }
 .preset-desc {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-tertiary);
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
+.preset-card.active .preset-label { color: var(--text-accent); }
