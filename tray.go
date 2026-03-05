@@ -421,12 +421,17 @@ func (t *AppTray) onReady() {
 	}{
 		{"off", "settings.smart_preset_off"},
 		{"cleanup", "settings.smart_preset_cleanup"},
+		{"concise", "settings.smart_preset_concise"},
 		{"email", "settings.smart_preset_email"},
 		{"bullets", "settings.smart_preset_bullets"},
 		{"formal", "settings.smart_preset_formal"},
 		{"aiprompt", "settings.smart_preset_aiprompt"},
 		{"summary", "settings.smart_preset_summary"},
 		{"notes", "settings.smart_preset_notes"},
+		{"meeting", "settings.smart_preset_meeting"},
+		{"social", "settings.smart_preset_social"},
+		{"technical", "settings.smart_preset_technical"},
+		{"casual", "settings.smart_preset_casual"},
 		{"translate", "settings.smart_preset_translate"},
 		{"custom", "settings.smart_preset_custom"},
 	}

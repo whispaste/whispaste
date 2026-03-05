@@ -797,6 +797,31 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return string(data)
 		})
 
+		// Bind: saveCustomTemplate → save a user-defined smart mode template
+		w.Bind("saveCustomTemplate", func(name, prompt string) {
+			cfg.SaveCustomTemplate(name, prompt)
+			if err := cfg.Save(); err != nil {
+				logError("Save custom template %q: %v", name, err)
+			}
+			logInfo("Custom template saved: %s", name)
+		})
+
+		// Bind: deleteCustomTemplate → delete a user-defined template
+		w.Bind("deleteCustomTemplate", func(name string) {
+			cfg.DeleteCustomTemplate(name)
+			if err := cfg.Save(); err != nil {
+				logError("Delete custom template %q: %v", name, err)
+			}
+			logInfo("Custom template deleted: %s", name)
+		})
+
+		// Bind: getCustomTemplates → returns JSON map of user templates
+		w.Bind("getCustomTemplates", func() string {
+			templates := cfg.GetCustomTemplates()
+			data, _ := json.Marshal(templates)
+			return string(data)
+		})
+
 		// --- Theme & language bindings ---
 
 		// Bind: getTheme → returns current theme from config
