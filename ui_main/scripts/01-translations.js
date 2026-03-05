@@ -151,9 +151,7 @@ const translations = {
     hotkeyHint: 'Press Escape to cancel',
 
     // Settings — Local STT
-    cardLocalSTT: 'Local Transcription',
-    labelLocalSTT: 'Use Local Model',
-    descLocalSTT: 'Transcribe offline using a local Whisper model — no API key required',
+    cardLocalSTT: 'Local Models',
     labelLocalModel: 'Model',
     modelDownload: 'Download',
     modelDownloading: 'Downloading…',
@@ -651,9 +649,7 @@ const translations = {
     hotkeyHint: 'Escape zum Abbrechen',
 
     // Settings — Local STT  
-    cardLocalSTT: 'Lokale Transkription',
-    labelLocalSTT: 'Lokales Modell verwenden',
-    descLocalSTT: 'Offline transkribieren mit einem lokalen Whisper-Modell — kein API-Schlüssel erforderlich',
+    cardLocalSTT: 'Lokale Modelle',
     labelLocalModel: 'Modell',
     modelDownload: 'Herunterladen',
     modelDownloading: 'Wird heruntergeladen…',
