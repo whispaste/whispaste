@@ -56,6 +56,10 @@ var translations = map[string]map[string]string{
 		"tray.support":   "Support WhisPaste",
 		"tray.quit":      "Quit",
 
+		// Floating button
+		"floating.hide":    "Hide Button",
+		"floating.tooltip": "Click to record",
+
 		// States
 		"state.idle":          "Ready",
 		"state.recording":     "Recording…",
@@ -235,6 +239,10 @@ var translations = map[string]map[string]string{
 		"tray.about":     "Über",
 		"tray.support":   "WhisPaste unterstützen",
 		"tray.quit":      "Beenden",
+
+		// Floating button
+		"floating.hide":    "Button ausblenden",
+		"floating.tooltip": "Klicken zum Aufnehmen",
 
 		// States
 		"state.idle":          "Bereit",

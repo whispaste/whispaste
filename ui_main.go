@@ -312,6 +312,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.CleanupIncludePinned = newCfg.CleanupIncludePinned
 			cfg.TrimSilence = newCfg.TrimSilence
 			cfg.SmartModeProvider = newCfg.SmartModeProvider
+			cfg.FloatingButtonEnabled = newCfg.FloatingButtonEnabled
 			cfg.mu.Unlock()
 
 			// Apply autostart setting
