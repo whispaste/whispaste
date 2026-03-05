@@ -336,10 +336,29 @@ func main() {
 				// Apply text replacements before smart mode
 				text = cfg.ApplyTextReplacements(text)
 
-				// Smart Mode: post-process with GPT-4o-mini
+				// Smart Mode: post-process with AI
 				smartEnabled, smartPreset, smartCustom, smartTarget := snapshotSmart()
-				// Override preset based on active window if app detection is on
-				if appPreset, ok := ResolveAppPreset(cfg); ok {
+				// Template matching: keyword-based auto-detection
+				if cfg.GetAppDetectionEnabled() {
+					appName := GetActiveAppName()
+					winTitle := GetActiveWindowTitle()
+					metas := cfg.GetTemplateMetas()
+					defaults := GetDefaultTemplateMetas()
+					for k, v := range defaults {
+						if _, exists := metas[k]; !exists {
+							metas[k] = v
+						}
+					}
+					if matched, ok := MatchTemplate(appName, winTitle, metas); ok {
+						smartEnabled = true
+						smartPreset = matched
+						logInfo("Auto-detected template: %s (app: %s, title: %s)", matched, appName, winTitle)
+					} else if cfg.GetFallbackPreset() != "" {
+						smartEnabled = true
+						smartPreset = cfg.GetFallbackPreset()
+						logDebug("Using fallback template: %s", smartPreset)
+					}
+				} else if appPreset, ok := ResolveAppPreset(cfg); ok {
 					smartEnabled = true
 					smartPreset = appPreset
 				}
@@ -347,11 +366,33 @@ func main() {
 					if overlay != nil {
 						overlay.Show(StateProcessing)
 					}
-					processed, err := PostProcess(text, smartPreset, smartCustom, smartTarget, apiKey, endpoint, cfg.GetUILanguage(), cfg.GetCustomTemplates())
-					if err != nil {
-						logWarn("Smart mode error (using raw text): %v", err)
-					} else {
-						text = processed
+
+					// Determine endpoint based on provider
+					provider := cfg.GetSmartModeProvider()
+					ppEndpoint := endpoint
+					ppAPIKey := apiKey
+					skipPostProcess := false
+
+					if provider == "local" || (provider == "auto" && IsLLMInstalled()) {
+						if localEndpoint, llmErr := localLLM.Start(); llmErr == nil {
+							ppEndpoint = localEndpoint + "/chat/completions"
+							ppAPIKey = "local"
+						} else {
+							logWarn("Local LLM start failed: %v", llmErr)
+							if provider == "local" {
+								logError("Local LLM required but not available, skipping post-processing")
+								skipPostProcess = true
+							}
+						}
+					}
+
+					if !skipPostProcess {
+						processed, err := PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, cfg.GetUILanguage(), cfg.GetCustomTemplates())
+						if err != nil {
+							logWarn("Smart mode error (using raw text): %v", err)
+						} else {
+							text = processed
+						}
 					}
 				}
 
@@ -649,6 +690,7 @@ func main() {
 				hkMgr.Stop()
 			}
 			hkMu.Unlock()
+			localLLM.Stop()
 			if overlay != nil {
 				overlay.Close()
 			}

@@ -161,3 +161,158 @@
   overflow: hidden;
 }
 .preset-card.active .preset-label { color: var(--text-accent); }
+
+/* ── Provider Segmented Control ──────────────────────── */
+.provider-control {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 3px;
+  border: 1px solid var(--border-primary);
+}
+.provider-option {
+  flex: 1;
+  padding: 10px 12px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  transition: all var(--transition-fast);
+  text-align: center;
+  font-family: var(--font-sans);
+}
+.provider-option-label {
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+  margin-bottom: 2px;
+}
+.provider-option-desc {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: var(--leading-tight);
+}
+.provider-option.active {
+  background: var(--accent);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-sm);
+}
+.provider-option.active .provider-option-desc {
+  color: rgba(255, 255, 255, 0.75);
+}
+.provider-option:hover:not(.active) {
+  background: var(--bg-tertiary);
+}
+
+/* ── LLM Download Card ──────────────────────────────── */
+.llm-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-top: 12px;
+  animation: fadeIn 0.25s var(--ease-default);
+}
+.llm-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.llm-card-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.llm-card-title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+.llm-card-subtitle {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+.llm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+.llm-badge.ready {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.llm-badge.not-installed {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+}
+.llm-progress {
+  margin-top: 12px;
+}
+.llm-progress-bar {
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.llm-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.llm-progress-text {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+.llm-delete-link {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: var(--font-sans);
+  text-decoration: underline;
+  transition: color var(--transition-fast);
+}
+.llm-delete-link:hover {
+  color: var(--error);
+}
+
+/* ── Keyword Chips ──────────────────────────────────── */
+.keyword-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.keyword-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+.keyword-chip-remove {
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: var(--text-xs);
+  display: inline-flex;
+  align-items: center;
+}
+.keyword-chip-remove:hover {
+  opacity: 1;
+  color: var(--error);
+}
