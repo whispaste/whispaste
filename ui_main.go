@@ -301,10 +301,6 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.SmartModePreset = newCfg.SmartModePreset
 			cfg.SmartModePrompt = newCfg.SmartModePrompt
 			cfg.SmartModeTarget = newCfg.SmartModeTarget
-			cfg.UseLocalSTT = newCfg.UseLocalSTT
-			if !newCfg.UseLocalSTT {
-				cfg.ActiveModelLocal = false
-			}
 			cfg.LocalModelID = newCfg.LocalModelID
 			cfg.TranscriptionLanguage = newCfg.TranscriptionLanguage
 			cfg.InputDevice = newCfg.InputDevice
@@ -342,8 +338,8 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		// Bind: testRecording → record 3s, transcribe, return result
 		w.Bind("_doTestRecording", func() map[string]interface{} {
 			logInfo("Test recording started")
-			if !cfg.GetUseLocalSTT() && !cfg.HasAPIKey() {
-				logWarn("Test recording: no API key and local STT disabled")
+			if !cfg.HasAnyModel() {
+				logWarn("Test recording: no model available")
 				return map[string]interface{}{
 					"success": false,
 					"text":    "",
@@ -1157,16 +1153,14 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				})
 			}
 
-			// Local models (only if local STT is enabled and models are downloaded)
-			if cfg.GetUseLocalSTT() {
-				for _, m := range ListDownloadedModels() {
-					models = append(models, modelInfo{
-						ID:      m.ID,
-						Name:    m.Name,
-						Meta:    "Local · " + m.Size,
-						IsLocal: true,
-					})
-				}
+			// Local models (always list downloaded models — capability-based)
+			for _, m := range ListDownloadedModels() {
+				models = append(models, modelInfo{
+					ID:      m.ID,
+					Name:    m.Name,
+					Meta:    "Local · " + m.Size,
+					IsLocal: true,
+				})
 			}
 
 			data, _ := json.Marshal(models)

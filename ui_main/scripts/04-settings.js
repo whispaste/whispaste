@@ -53,7 +53,6 @@ function gatherConfig() {
     smart_mode_preset: document.getElementById('select-smartpreset')?.value || 'cleanup',
     smart_mode_prompt: document.getElementById('input-smartprompt')?.value || '',
     smart_mode_target: document.getElementById('select-smarttarget')?.value || 'en',
-    use_local_stt: document.getElementById('toggle-localstt')?.checked || false,
     local_model_id: document.querySelector('[name="local-model"]:checked')?.value || 'whisper-base',
     transcription_language: document.getElementById('select-transcription-language')?.value || '',
     notify_background: document.getElementById('toggle-notify-bg')?.checked ?? true,
@@ -127,11 +126,7 @@ function applyConfig(cfg) {
   }
   if (cfg.smart_mode_prompt != null) { const el = document.getElementById('input-smartprompt'); if (el) el.value = cfg.smart_mode_prompt; }
   if (cfg.smart_mode_target) { const el = document.getElementById('select-smarttarget'); if (el) el.value = cfg.smart_mode_target; }
-  if (cfg.use_local_stt != null) {
-    const el = document.getElementById('toggle-localstt');
-    if (el) el.checked = cfg.use_local_stt;
-    updateLocalSTTVisibility();
-  }
+  renderModelList();
   // Cache active model type for sync access (e.g. language switch badge update)
   window._activeModelLocal = !!cfg.active_model_local;
   if (cfg.local_model_id) {
@@ -873,17 +868,7 @@ async function testAudioInput() {
   }, 100);
 }
 
-/* ── Local STT Visibility ─────────────────────────────── */
-function updateLocalSTTVisibility() {
-  const on = document.getElementById('toggle-localstt')?.checked;
-  const section = document.getElementById('local-stt-options');
-  if (section) {
-    section.style.display = on ? 'block' : 'none';
-  }
-  if (on) renderModelList();
-}
-
-/* ── Model List Rendering ─────────────────────────────── */
+/* ── Model List Rendering ───────────────────────────────*/
 async function renderModelList() {
   const container = document.getElementById('model-list');
   if (!container) return;

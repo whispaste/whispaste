@@ -369,46 +369,32 @@
             </div>
           </div>
 
-          <!-- Local Transcription -->
+          <!-- Local Models -->
           <div class="card" data-section="local-stt">
-            <div class="card-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16V4a2 2 0 0 1 2-2h11"/><path d="M5 14H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2h-5.5"/><path d="M12 13V2"/><path d="m7 8 5 5 5-5"/></svg> <span data-i18n="cardLocalSTT">Local Transcription</span></div>
+            <div class="card-title"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16V4a2 2 0 0 1 2-2h11"/><path d="M5 14H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2h-5.5"/><path d="M12 13V2"/><path d="m7 8 5 5 5-5"/></svg> <span data-i18n="cardLocalSTT">Local Models</span></div>
             <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-localstt" data-i18n="labelLocalSTT">Use Local Model</label>
-                  <p class="toggle-desc" data-i18n="descLocalSTT">Transcribe offline using a local Whisper model — no API key required</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-localstt" onchange="updateLocalSTTVisibility()">
-                  <label class="toggle-track" for="toggle-localstt"></label>
-                </div>
-              </div>
+              <label class="form-label" data-i18n="labelLocalModel">Model</label>
+              <div id="model-list" class="model-list"></div>
             </div>
-            <div id="local-stt-options" style="display:none">
-              <div class="form-group">
-                <label class="form-label" data-i18n="labelLocalModel">Model</label>
-                <div id="model-list" class="model-list"></div>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="select-transcription-language" data-i18n="labelTranscriptionLanguage">Model Language</label>
-                <p class="form-hint" style="margin-bottom:8px" data-i18n="descTranscriptionLanguage">Set your spoken language for better accuracy with local models. Helps with mixed-language content (e.g. German with English terms).</p>
-                <select class="form-select" id="select-transcription-language">
-                  <option value="" data-i18n-opt="transLangGlobal">Use global setting</option>
-                  <option value="auto" data-i18n-opt="langAuto">Auto-detect</option>
-                  <option value="en" data-i18n-opt="langEn">English</option>
-                  <option value="de" data-i18n-opt="langDe">German</option>
-                  <option value="es" data-i18n-opt="langEs">Spanish</option>
-                  <option value="fr" data-i18n-opt="langFr">French</option>
-                  <option value="it" data-i18n-opt="langIt">Italian</option>
-                  <option value="pt" data-i18n-opt="langPt">Portuguese</option>
-                  <option value="ja" data-i18n-opt="langJa">Japanese</option>
-                  <option value="zh" data-i18n-opt="langZh">Chinese</option>
-                  <option value="ko" data-i18n-opt="langKo">Korean</option>
-                  <option value="ru" data-i18n-opt="langRu">Russian</option>
-                  <option value="ar" data-i18n-opt="langAr">Arabic</option>
-                  <option value="hi" data-i18n-opt="langHi">Hindi</option>
-                </select>
-              </div>
+            <div class="form-group">
+              <label class="form-label" for="select-transcription-language" data-i18n="labelTranscriptionLanguage">Model Language</label>
+              <p class="form-hint" style="margin-bottom:8px" data-i18n="descTranscriptionLanguage">Set your spoken language for better accuracy with local models. Helps with mixed-language content (e.g. German with English terms).</p>
+              <select class="form-select" id="select-transcription-language">
+                <option value="" data-i18n-opt="transLangGlobal">Use global setting</option>
+                <option value="auto" data-i18n-opt="langAuto">Auto-detect</option>
+                <option value="en" data-i18n-opt="langEn">English</option>
+                <option value="de" data-i18n-opt="langDe">German</option>
+                <option value="es" data-i18n-opt="langEs">Spanish</option>
+                <option value="fr" data-i18n-opt="langFr">French</option>
+                <option value="it" data-i18n-opt="langIt">Italian</option>
+                <option value="pt" data-i18n-opt="langPt">Portuguese</option>
+                <option value="ja" data-i18n-opt="langJa">Japanese</option>
+                <option value="zh" data-i18n-opt="langZh">Chinese</option>
+                <option value="ko" data-i18n-opt="langKo">Korean</option>
+                <option value="ru" data-i18n-opt="langRu">Russian</option>
+                <option value="ar" data-i18n-opt="langAr">Arabic</option>
+                <option value="hi" data-i18n-opt="langHi">Hindi</option>
+              </select>
             </div>
           </div>
 
