@@ -703,6 +703,7 @@ func main() {
 			}
 			hkMu.Unlock()
 			localLLM.Stop()
+			CloseMainWindow()
 			CloseLogViewer()
 			if overlay != nil {
 				overlay.Close()

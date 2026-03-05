@@ -88,6 +88,17 @@ func collectEmbeddedFiles(fsys embed.FS, dir, ext string) string {
 	return buf.String()
 }
 
+// CloseMainWindow terminates the main window if it's open.
+func CloseMainWindow() {
+	mainWindowMu.Lock()
+	wv := mainWebview
+	mainWindowMu.Unlock()
+	if wv != nil {
+		logDebug("CloseMainWindow: terminating main window")
+		wv.Terminate()
+	}
+}
+
 // NotifyRecordingState pushes the current recording state to the dashboard FAB.
 func NotifyRecordingState(s AppState) {
 	mainWindowMu.Lock()
