@@ -700,6 +700,10 @@
               <div class="provider-option-desc" data-i18n="smartProviderAutoDesc">Uses local model if available, otherwise OpenAI API</div>
             </button>
           </div>
+          <div class="provider-warning" id="provider-warning" style="display:none">
+            <svg class="icon" style="width:14px;height:14px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span id="provider-warning-text"></span>
+          </div>
 
           <!-- Local LLM Card -->
           <div class="llm-card" id="llm-card" style="display:none">
@@ -1086,7 +1090,7 @@
         <button class="btn btn-primary btn-lg" onclick="nextOnboardingStep()"><span data-i18n="onboarding.get_started">Get Started</span></button>
       </div>
       <div class="onboarding-dots">
-        <span class="dot active"></span><span class="dot"></span><span class="dot"></span>
+        <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
       </div>
     </div>
 
@@ -1114,17 +1118,66 @@
           </div>
         </div>
       </div>
+      <div class="onboarding-apikey-section" id="onbApikeySection" style="display:none">
+        <div class="onboarding-apikey-field">
+          <input type="password" id="onb-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false">
+          <small data-i18n="onboarding.apikey_hint">Get your key at platform.openai.com · You can add it later in Settings</small>
+        </div>
+      </div>
       <div class="onboarding-actions">
         <button class="btn btn-secondary" onclick="prevOnboardingStep()"><span data-i18n="onboarding.back">Back</span></button>
         <button class="btn btn-primary" id="onbNextStep2" onclick="nextOnboardingStep()" disabled><span data-i18n="onboarding.next">Next</span></button>
       </div>
       <div class="onboarding-dots">
-        <span class="dot"></span><span class="dot active"></span><span class="dot"></span>
+        <span class="dot"></span><span class="dot active"></span><span class="dot"></span><span class="dot"></span>
       </div>
     </div>
 
-    <!-- Step 3: Done -->
+    <!-- Step 3: Smart Mode -->
     <div class="onboarding-step" data-step="3" style="display:none">
+      <div class="onboarding-icon">
+        <svg class="icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+          <path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
+        </svg>
+      </div>
+      <h2 class="onboarding-title" data-i18n="onboarding.smart_title">AI Text Enhancement</h2>
+      <p class="onboarding-desc" data-i18n="onboarding.smart_desc">Smart Mode polishes your transcriptions — fix grammar, format emails, create summaries, and more.</p>
+      <div class="onboarding-options">
+        <div class="onboarding-option" id="onb-smart-on" onclick="selectOnboardingSmart(true)">
+          <div class="onboarding-option-icon">
+            <svg class="icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+          </div>
+          <div class="onboarding-option-text">
+            <strong data-i18n="onboarding.smart_enable">Enable Smart Mode</strong>
+            <small data-i18n="onboarding.smart_enable_desc">AI refines text before pasting</small>
+          </div>
+        </div>
+        <div class="onboarding-option" id="onb-smart-off" onclick="selectOnboardingSmart(false)">
+          <div class="onboarding-option-icon">
+            <svg class="icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div class="onboarding-option-text">
+            <strong data-i18n="onboarding.smart_disable">Plain Text Only</strong>
+            <small data-i18n="onboarding.smart_disable_desc">Paste transcription as-is</small>
+          </div>
+        </div>
+      </div>
+      <div class="onboarding-smart-note" id="onbSmartNote" style="display:none">
+        <svg class="icon" style="width:14px;height:14px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <small data-i18n="onboarding.smart_note">Provider set to Auto — uses local model if available, otherwise OpenAI API.</small>
+      </div>
+      <div class="onboarding-actions">
+        <button class="btn btn-secondary" onclick="prevOnboardingStep()"><span data-i18n="onboarding.back">Back</span></button>
+        <button class="btn btn-primary" id="onbNextStep3" onclick="nextOnboardingStep()" disabled><span data-i18n="onboarding.next">Next</span></button>
+      </div>
+      <div class="onboarding-dots">
+        <span class="dot"></span><span class="dot"></span><span class="dot active"></span><span class="dot"></span>
+      </div>
+    </div>
+
+    <!-- Step 4: Done -->
+    <div class="onboarding-step" data-step="4" style="display:none">
       <div class="onboarding-icon onboarding-icon-success">
         <svg class="icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20 6 9 17l-5-5"/>
@@ -1139,7 +1192,7 @@
         <button class="btn btn-primary btn-lg" onclick="finishOnboarding()"><span data-i18n="onboarding.finish">Start Using WhisPaste</span></button>
       </div>
       <div class="onboarding-dots">
-        <span class="dot"></span><span class="dot"></span><span class="dot active"></span>
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot active"></span>
       </div>
     </div>
   </div>

@@ -207,6 +207,20 @@
   background: var(--bg-tertiary);
 }
 
+/* ── Provider Warning ────────────────────────────────── */
+.provider-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--warning, #f59e0b);
+  background: color-mix(in srgb, var(--warning, #f59e0b), transparent 90%);
+  border-radius: var(--radius);
+  line-height: 1.4;
+}
+
 /* ── LLM Download Card ──────────────────────────────── */
 .llm-card {
   background: var(--bg-secondary);
