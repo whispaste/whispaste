@@ -46,13 +46,20 @@
 | 🔔 **Audio Feedback** | Subtle sounds for start, stop, success, and error states. Adjustable volume. |
 | 🔄 **Auto-Update** | SHA256-verified self-updater checks for new versions automatically. |
 | 🌐 **Localized** | English & German UI, auto-detected from your system language. |
-| ⚡ **Portable** | No installer required — just extract and run. Runs from the system tray. |
+| ⚡ **Portable & Installer** | Run portable (just extract and run) or install via the Windows Setup installer with Start Menu integration. |
 
 <br>
 
 ## 📦 Quick Start
 
-### Portable (recommended)
+### Installer (recommended)
+
+1. **Download** `WhisPaste-x.x.x-Setup.exe` from the latest [**Release**](../../releases/latest)
+2. **Run the installer** — follow the setup wizard
+3. **Launch** from Start Menu → WhisPaste, or enable "Start with Windows" during installation
+4. **Set up transcription** — enter your [OpenAI API key](https://platform.openai.com/api-keys) in Settings, or enable local models
+
+### Portable
 
 1. **Download** all files from the latest [**Release**](../../releases/latest):
    - `whispaste.exe` — the application
@@ -196,10 +203,18 @@ whispaste/
 ├── sound.go           # Audio feedback with volume control
 ├── postprocess.go     # Smart Mode (GPT-4o-mini post-processing)
 ├── history.go         # Transcription history with model/cost tracking
+├── history_db.go      # SQLite database layer (FTS5 full-text search)
 ├── stats.go           # Usage statistics
 ├── autostart.go       # Windows login autostart
+├── windowdetect.go    # Active window detection (Win32)
+├── llm.go             # Local LLM integration (llama-server)
+├── llm_download.go    # LLM model download manager
+├── export.go          # Export flows (TXT, MD, DOCX)
 ├── types.go           # Shared types and constants
 ├── build.ps1          # Build script
+├── installer/         # NSIS installer configuration
+│   └── whispaste.nsi  #   Windows Setup installer script
+├── msix/              # MSIX packaging (Microsoft Store)
 ├── website/           # Landing page (Astro)
 ├── LICENSE            # MIT License
 └── README.md          # This file
