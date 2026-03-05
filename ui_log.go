@@ -56,6 +56,17 @@ func logViewerWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	return ret
 }
 
+// CloseLogViewer terminates the log viewer window if it's open.
+func CloseLogViewer() {
+	logViewerMu.Lock()
+	wv := logViewerWindow
+	logViewerMu.Unlock()
+	if wv != nil {
+		logDebug("CloseLogViewer: terminating log viewer")
+		wv.Terminate()
+	}
+}
+
 // ShowLogViewer opens (or focuses) the log viewer window.
 func ShowLogViewer() {
 	logViewerMu.Lock()
