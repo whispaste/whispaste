@@ -67,6 +67,7 @@ type Config struct {
 	FloatingButtonX       int                      `json:"floating_button_x,omitempty"`
 	FloatingButtonY       int                      `json:"floating_button_y,omitempty"`
 	FloatingButtonColor   string                   `json:"floating_button_color,omitempty"`
+	FloatingButtonSize    int                      `json:"floating_button_size,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -263,6 +264,24 @@ func (c *Config) GetFloatingButtonColor() string {
 		return "cyan"
 	}
 	return c.FloatingButtonColor
+}
+
+// GetFloatingButtonSize returns the floating button diameter in pixels (thread-safe).
+// Returns 56 as default. Clamped to [36, 80].
+func (c *Config) GetFloatingButtonSize() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	s := c.FloatingButtonSize
+	if s <= 0 {
+		return 56
+	}
+	if s < 36 {
+		return 36
+	}
+	if s > 80 {
+		return 80
+	}
+	return s
 }
 
 // detectSystemLanguage returns "de" for German systems, "en" otherwise.
