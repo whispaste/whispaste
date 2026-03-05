@@ -32,6 +32,9 @@ var AppVersion = "0.1.1-alpha"
 // BuildCommit is the git commit hash, injected via -ldflags at build time.
 var BuildCommit = ""
 
+// BuildBranch is the git branch name, injected via -ldflags at build time.
+var BuildBranch = ""
+
 // BuildDate is the build timestamp, injected via -ldflags at build time.
 var BuildDate = ""
 

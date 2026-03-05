@@ -46,6 +46,16 @@ if ($Version -ne "") {
     Write-Host "Version: $Version" -ForegroundColor Cyan
 }
 
+# Inject build metadata (commit, branch, date) for all builds
+try {
+    $commit = (git rev-parse --short HEAD 2>$null)
+    if ($commit) { $ldflags += " -X main.BuildCommit=$commit" }
+    $branch = (git rev-parse --abbrev-ref HEAD 2>$null)
+    if ($branch) { $ldflags += " -X main.BuildBranch=$branch" }
+} catch {}
+$buildDate = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+$ldflags += " -X 'main.BuildDate=$buildDate'"
+
 Write-Host "Running go build..."
 $startTime = Get-Date
 go build -ldflags="$ldflags" -o whispaste.exe .
