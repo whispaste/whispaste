@@ -53,7 +53,7 @@ function gatherConfig() {
     smart_mode_preset: document.getElementById('select-smartpreset')?.value || 'cleanup',
     smart_mode_prompt: document.getElementById('input-smartprompt')?.value || '',
     smart_mode_target: document.getElementById('select-smarttarget')?.value || 'en',
-    local_model_id: document.querySelector('[name="local-model"]:checked')?.value || 'whisper-base',
+
     transcription_language: document.getElementById('select-transcription-language')?.value || '',
     notify_background: document.getElementById('toggle-notify-bg')?.checked ?? true,
     notify_complete: document.getElementById('toggle-notify-complete')?.checked ?? true,
@@ -129,13 +129,7 @@ function applyConfig(cfg) {
   renderModelList();
   // Cache active model type for sync access (e.g. language switch badge update)
   window._activeModelLocal = !!cfg.active_model_local;
-  if (cfg.local_model_id) {
-    const radio = document.querySelector(`[name="local-model"][value="${cfg.local_model_id}"]`);
-    if (radio) {
-      radio.checked = true;
-      radio.closest('.model-item')?.classList.add('active');
-    }
-  }
+
   if (cfg.transcription_language != null) { const el = document.getElementById('select-transcription-language'); if (el) el.value = cfg.transcription_language; }
   { const el = document.getElementById('toggle-notify-bg'); if (el) el.checked = cfg.notify_background !== false; }
   { const el = document.getElementById('toggle-notify-complete'); if (el) el.checked = cfg.notify_complete !== false; }
@@ -154,6 +148,7 @@ function applyConfig(cfg) {
   updateCleanupDependents();
   { const el = document.getElementById('toggle-trim-silence'); if (el) el.checked = !!cfg.trim_silence; }
   { const el = document.getElementById('toggle-floating-btn'); if (el) el.checked = !!cfg.floating_button_enabled; }
+  { const fab = document.getElementById('captureBtn'); if (fab) fab.style.display = cfg.floating_button_enabled ? 'none' : ''; }
   {
     const color = cfg.floating_button_color || 'cyan';
     document.querySelectorAll('.fab-color-option').forEach(el => {
@@ -890,10 +885,7 @@ async function renderModelList() {
     ];
   }
   
-  const selectedModel = document.querySelector('[name="local-model"]:checked')?.value || 'whisper-base';
-  
   container.innerHTML = models.map(m => {
-    const isSelected = m.id === selectedModel;
     const isDownloading = _downloadingModel === m.id;
     let actionBtn;
     if (isDownloading) {
@@ -904,8 +896,7 @@ async function renderModelList() {
     } else {
       actionBtn = `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();downloadModel('${m.id}')">${t('modelDownload')}</button>`;
     }
-    return `<div class="model-item ${isSelected ? 'active' : ''} ${!m.downloaded && !isDownloading ? 'unavailable' : ''}" data-model-id="${m.id}" onclick="onModelCardClick('${m.id}', ${m.downloaded})">
-      <input type="radio" name="local-model" value="${m.id}" class="model-item-radio" ${isSelected ? 'checked' : ''} ${!m.downloaded ? 'disabled' : ''}>
+    return `<div class="model-item ${!m.downloaded && !isDownloading ? 'unavailable' : ''}" data-model-id="${m.id}">
       <div class="model-item-info">
         <div class="model-item-name">${m.name}</div>
         ${t('model.desc.' + m.id) ? '<div class="model-desc">' + esc(t('model.desc.' + m.id)) + '</div>' : ''}
@@ -916,23 +907,6 @@ async function renderModelList() {
   }).join('');
 }
 
-function selectLocalModel(id) {
-  document.querySelectorAll('.model-item').forEach(el => el.classList.remove('active'));
-  const radio = document.querySelector(`[name="local-model"][value="${id}"]`);
-  if (radio) {
-    radio.checked = true;
-    radio.closest('.model-item')?.classList.add('active');
-  }
-  autoSave();
-}
-
-function onModelCardClick(id, downloaded) {
-  if (downloaded) {
-    selectLocalModel(id);
-  } else {
-    showToast(t('modelNeedDownload'), false);
-  }
-}
 
 async function downloadModel(id) {
   _downloadingModel = id;
@@ -956,9 +930,6 @@ window.downloadComplete = function(modelId, success, errorMsg) {
     showStatus(t('modelDownloadDone'), 'success');
     _downloadingModel = null;
     renderModelList();
-    selectLocalModel(modelId);
-    const radio = document.querySelector(`[name="local-model"][value="${modelId}"]`);
-    if (radio) radio.disabled = false;
   } else {
     showStatus(errorMsg || t('modelDownloadError'), 'error');
     _downloadingModel = null;
@@ -985,6 +956,13 @@ async function deleteModel(id) {
       if (res && res.success) {
         showStatus(t('modelDeleted'), 'success');
         renderModelList();
+        // If the deleted model was the active one, refresh status bar with new config
+        if (res.wasActive && window.getConfig) {
+          const raw = await window.getConfig();
+          const newCfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          updateModeBadge(newCfg);
+          updateStatusBar(newCfg);
+        }
       } else {
         showStatus(res?.error || t('statusError'), 'error');
       }

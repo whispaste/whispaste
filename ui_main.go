@@ -301,7 +301,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.SmartModePreset = newCfg.SmartModePreset
 			cfg.SmartModePrompt = newCfg.SmartModePrompt
 			cfg.SmartModeTarget = newCfg.SmartModeTarget
-			cfg.LocalModelID = newCfg.LocalModelID
+			// LocalModelID only changed via switchModel binding — skip here
 			cfg.TranscriptionLanguage = newCfg.TranscriptionLanguage
 			cfg.InputDevice = newCfg.InputDevice
 			cfg.InputGain = newCfg.InputGain
@@ -468,13 +468,38 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return map[string]interface{}{"started": true}
 		})
 
-		// Bind: _deleteModel → delete a downloaded model
+		// Bind: _deleteModel → delete a downloaded model, auto-fallback if active
 		w.Bind("_deleteModel", func(modelID string) map[string]interface{} {
+			// Capture active state before deletion to avoid TOCTOU race
+			wasActive := cfg.GetActiveModelLocal() && cfg.GetLocalModelID() == modelID
 			if err := DeleteModel(modelID); err != nil {
 				logError("Model delete failed: %v", err)
 				return map[string]interface{}{"success": false, "error": err.Error()}
 			}
-			return map[string]interface{}{"success": true, "error": ""}
+			// If the deleted model was the active one, fall back
+			if wasActive {
+				downloaded := ListDownloadedModels()
+				if len(downloaded) > 0 {
+					cfg.mu.Lock()
+					cfg.LocalModelID = downloaded[0].ID
+					cfg.mu.Unlock()
+					cfg.Save()
+					logInfo("Active model deleted, fell back to %s", downloaded[0].ID)
+				} else if cfg.HasAPIKey() {
+					cfg.mu.Lock()
+					cfg.ActiveModelLocal = false
+					cfg.mu.Unlock()
+					cfg.Save()
+					logInfo("Active model deleted, fell back to cloud API")
+				} else {
+					cfg.mu.Lock()
+					cfg.ActiveModelLocal = false
+					cfg.mu.Unlock()
+					cfg.Save()
+					logWarn("Active model deleted, no model available")
+				}
+			}
+			return map[string]interface{}{"success": true, "error": "", "wasActive": wasActive}
 		})
 
 		// Bind: _isModelDownloaded → check if a model is fully downloaded
