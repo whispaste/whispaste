@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"os"
 	"os/exec"
 	"sync"
 	"syscall"
@@ -734,4 +735,6 @@ func (t *AppTray) onExit() {
 	if t.onQuit != nil {
 		t.onQuit()
 	}
+	logInfo("Cleanup complete, exiting process")
+	os.Exit(0)
 }
