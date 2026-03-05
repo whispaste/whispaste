@@ -90,6 +90,10 @@ async function loadAnalytics(periodDays) {
   container.innerHTML = html;
 }
 
+function _localDateKey(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 function renderDailyChart(dailyCounts) {
   if (!dailyCounts || Object.keys(dailyCounts).length === 0) {
     return `<p style="color:var(--text-hint);font-size:12px">${t('analytics.no_data')}</p>`;
@@ -106,7 +110,7 @@ function renderDailyChart(dailyCounts) {
     for (let i = _analyticsPeriod - 1; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = _localDateKey(d);
       allDays.push({ date: key, count: dailyCounts[key] || 0, label: d.getDate().toString() });
     }
   } else {
@@ -117,7 +121,7 @@ function renderDailyChart(dailyCounts) {
     for (let i = span - 1; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = _localDateKey(d);
       allDays.push({ date: key, count: dailyCounts[key] || 0, label: d.getDate().toString() });
     }
   }

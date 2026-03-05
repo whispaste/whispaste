@@ -44,6 +44,9 @@ func Transcribe(audioWAV []byte, language string, apiKey string, model string, e
 		endpoint = "https://api.openai.com/v1/audio/transcriptions"
 	}
 
+	logInfo("API transcription: model=%s audioSize=%d", model, len(audioWAV))
+
+	start := time.Now()
 	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequest("POST", endpoint, &body)
 	if err != nil {
@@ -54,17 +57,21 @@ func Transcribe(audioWAV []byte, language string, apiKey string, model string, e
 
 	resp, err := client.Do(req)
 	if err != nil {
+		logError("API transcription failed: model=%s err=%v", model, err)
 		return "", fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logError("API transcription read failed: model=%s err=%v", model, err)
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", apiError(resp.StatusCode, respBody)
+		apiErr := apiError(resp.StatusCode, respBody)
+		logError("API transcription error: model=%s status=%d err=%v", model, resp.StatusCode, apiErr)
+		return "", apiErr
 	}
 
 	var result struct {
@@ -73,6 +80,7 @@ func Transcribe(audioWAV []byte, language string, apiKey string, model string, e
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
+	logInfo("API transcription complete: model=%s duration=%v textLen=%d", model, time.Since(start), len(result.Text))
 	return result.Text, nil
 }
 

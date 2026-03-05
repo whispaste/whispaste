@@ -309,6 +309,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.CleanupEnabled = newCfg.CleanupEnabled
 			cfg.CleanupMaxEntries = newCfg.CleanupMaxEntries
 			cfg.CleanupMaxAgeDays = newCfg.CleanupMaxAgeDays
+			cfg.CleanupIncludePinned = newCfg.CleanupIncludePinned
 			cfg.TrimSilence = newCfg.TrimSilence
 			cfg.SmartModeProvider = newCfg.SmartModeProvider
 			cfg.mu.Unlock()
@@ -653,6 +654,26 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return true
 		})
 
+		// Bind: getCustomTags → returns persisted custom tags
+		w.Bind("getCustomTags", func() string {
+			tags := cfg.GetCustomTags()
+			data, _ := json.Marshal(tags)
+			return string(data)
+		})
+
+		// Bind: saveCustomTags → saves custom tags to config
+		w.Bind("saveCustomTags", func(jsonStr string) {
+			var tags []string
+			if err := json.Unmarshal([]byte(jsonStr), &tags); err != nil {
+				logError("Parse custom tags: %v", err)
+				return
+			}
+			cfg.SetCustomTags(tags)
+			if err := cfg.Save(); err != nil {
+				logError("Save custom tags: %v", err)
+			}
+		})
+
 		// Bind: renameTag → renames a tag across all entries
 		w.Bind("renameTag", func(oldName, newName string) bool {
 			count := history.RenameTag(oldName, newName)
@@ -669,6 +690,28 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				go cfg.Save()
 			}
 			return count > 0
+		})
+
+		// Bind: deleteTag → removes a tag from all entries
+		w.Bind("deleteTag", func(tagName string) bool {
+			history.DeleteTag(tagName)
+			// Remove from TagColors config
+			cfg.mu.Lock()
+			if cfg.TagColors != nil {
+				delete(cfg.TagColors, tagName)
+			}
+			cfg.mu.Unlock()
+			// Remove from custom tags list
+			tags := cfg.GetCustomTags()
+			filtered := make([]string, 0, len(tags))
+			for _, t := range tags {
+				if t != tagName {
+					filtered = append(filtered, t)
+				}
+			}
+			cfg.SetCustomTags(filtered)
+			go cfg.Save()
+			return true
 		})
 
 		// Bind: getAnalytics → returns usage analytics for a time period
@@ -723,7 +766,8 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			maxEntries := cfg.GetCleanupMaxEntries()
 			maxAgeDays := cfg.GetCleanupMaxAgeDays()
 			logInfo("Manual cleanup triggered (maxEntries=%d, maxAgeDays=%d)", maxEntries, maxAgeDays)
-			removed := history.Cleanup(maxEntries, maxAgeDays)
+			includePinned := cfg.GetCleanupIncludePinned()
+			removed := history.Cleanup(maxEntries, maxAgeDays, includePinned)
 			logInfo("Manual cleanup removed %d entries", removed)
 			if removed > 0 {
 				NotifyHistoryChanged()

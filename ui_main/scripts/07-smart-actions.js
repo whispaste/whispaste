@@ -13,66 +13,26 @@ const SMART_PRESETS = [
 ];
 
 function showSmartActionMenu(entryId, anchor) {
-    document.querySelector('.smart-action-popover')?.remove();
-
-    const popover = document.createElement('div');
-    popover.className = 'smart-action-popover';
-
-    let html = '<div class="smart-action-header">' + t('smart.title') + '</div>';
-    html += '<div class="smart-action-list">';
+    const items = [];
+    items.push({ header: t('smart.title') });
 
     for (const p of SMART_PRESETS) {
         if (p.id === 'custom') {
-            html += '<div class="smart-action-divider"></div>';
-            html += `<div class="smart-action-item" data-preset="custom">
-                <span class="smart-action-label">${t('smart.custom')}</span>
-            </div>`;
+            items.push({ divider: true });
+            items.push({
+                label: t('smart.custom'),
+                action: () => showCustomPromptDialog(entryId),
+            });
         } else {
-            html += `<div class="smart-action-item" data-preset="${p.id}">
-                <span class="smart-action-label">${t('smart.preset.' + p.id)}</span>
-            </div>`;
+            const presetId = p.id;
+            items.push({
+                label: t('smart.preset.' + presetId),
+                action: () => executeSmartAction(entryId, presetId, ''),
+            });
         }
     }
-    html += '</div>';
-    popover.innerHTML = html;
-    document.body.appendChild(popover);
 
-    // Position near anchor
-    const rect = anchor.getBoundingClientRect();
-    const popRect = popover.getBoundingClientRect();
-    let top = rect.bottom + 4;
-    if (top + popRect.height > window.innerHeight) {
-        top = rect.top - popRect.height - 4;
-    }
-    popover.style.top = top + 'px';
-    popover.style.left = Math.min(rect.left, window.innerWidth - popRect.width - 8) + 'px';
-
-    // Click handler
-    popover.addEventListener('click', async (e) => {
-        const item = e.target.closest('.smart-action-item');
-        if (!item) return;
-
-        const preset = item.dataset.preset;
-        popover.remove();
-
-        if (preset === 'custom') {
-            showCustomPromptDialog(entryId);
-            return;
-        }
-
-        await executeSmartAction(entryId, preset, '');
-    });
-
-    // Close on outside click
-    setTimeout(() => {
-        const close = (e) => {
-            if (!popover.contains(e.target)) {
-                popover.remove();
-                document.removeEventListener('click', close);
-            }
-        };
-        document.addEventListener('click', close);
-    }, 10);
+    showPopover(anchor, { items });
 }
 
 async function showCustomPromptDialog(entryId) {
