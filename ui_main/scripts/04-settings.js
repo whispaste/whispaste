@@ -418,6 +418,7 @@ function selectSmartProvider(provider) {
   });
   if (window.setSmartModeProvider) window.setSmartModeProvider(provider);
   updateLLMCardVisibility(provider);
+  updateProviderWarning(provider);
 }
 
 function updateLLMCardVisibility(provider) {
@@ -437,6 +438,31 @@ async function initSmartProvider() {
   updateLLMCardVisibility(provider);
   await updateLLMStatus();
   await initFallbackPreset();
+  updateProviderWarning(provider);
+}
+
+async function updateProviderWarning(provider) {
+  const warn = document.getElementById('provider-warning');
+  const warnText = document.getElementById('provider-warning-text');
+  if (!warn || !warnText) return;
+  const apiKey = document.getElementById('input-apikey')?.value;
+  let llmInstalled = false;
+  try {
+    if (window.getLLMStatus) {
+      const raw = await window.getLLMStatus();
+      const s = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      llmInstalled = !!s.installed;
+    }
+  } catch (e) {}
+  if (provider === 'openai' && !apiKey) {
+    warnText.textContent = t('smartProviderNoKey');
+    warn.style.display = '';
+  } else if (provider === 'auto' && !apiKey && !llmInstalled) {
+    warnText.textContent = t('smartProviderNoProvider');
+    warn.style.display = '';
+  } else {
+    warn.style.display = 'none';
+  }
 }
 
 async function updateLLMStatus() {
