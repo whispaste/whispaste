@@ -31,6 +31,9 @@ func initHistoryDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("create tables: %w", err)
 	}
 
+	// Check DB integrity and repair FTS if needed
+	repairDBIfNeeded(db)
+
 	// Migrate from JSON if the DB is empty and JSON file exists
 	if err := migrateFromJSON(db, dir); err != nil {
 		logWarn("JSON migration failed: %v", err)
@@ -38,6 +41,42 @@ func initHistoryDB() (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+// repairDBIfNeeded runs a quick integrity check and rebuilds FTS tables if corruption is detected.
+func repairDBIfNeeded(db *sql.DB) {
+	var result string
+	if err := db.QueryRow("PRAGMA integrity_check(1)").Scan(&result); err != nil {
+		logWarn("DB integrity check failed to run: %v", err)
+		rebuildFTS(db)
+		return
+	}
+	if result != "ok" {
+		logWarn("DB integrity issue detected: %s — rebuilding FTS index", result)
+		rebuildFTS(db)
+	}
+}
+
+// rebuildFTS drops and recreates the FTS5 virtual table and triggers.
+func rebuildFTS(db *sql.DB) {
+	logInfo("Rebuilding FTS index...")
+	// Drop triggers first, then the FTS table
+	for _, stmt := range []string{
+		"DROP TRIGGER IF EXISTS history_fts_ai",
+		"DROP TRIGGER IF EXISTS history_fts_ad",
+		"DROP TRIGGER IF EXISTS history_fts_au",
+		"DROP TABLE IF EXISTS history_fts",
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			logWarn("FTS cleanup (%s): %v", stmt, err)
+		}
+	}
+	// Recreate FTS tables (this also repopulates from history_entries)
+	if err := createFTSTables(db); err != nil {
+		logError("FTS rebuild failed: %v", err)
+	} else {
+		logInfo("FTS index rebuilt successfully")
+	}
 }
 
 func createHistoryTables(db *sql.DB) error {
