@@ -171,6 +171,8 @@ const translations = {
     audioDeviceDefault: 'System Default',
     labelInputGain: 'Input Gain',
     descInputGain: 'Adjust microphone sensitivity (1.0 = normal)',
+    labelTrimSilence: 'Trim Silence',
+    descTrimSilence: 'Automatically remove silence from the start and end of recordings',
     btnTestAudio: 'Test Microphone',
 
     // Mode badge
@@ -584,6 +586,8 @@ const translations = {
     audioDeviceDefault: 'Systemstandard',
     labelInputGain: 'Eingangsverstärkung',
     descInputGain: 'Mikrofon-Empfindlichkeit anpassen (1.0 = normal)',
+    labelTrimSilence: 'Stille trimmen',
+    descTrimSilence: 'Automatisch Stille am Anfang und Ende der Aufnahme entfernen',
     btnTestAudio: 'Mikrofon testen',
 
     // Mode badge

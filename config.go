@@ -53,6 +53,7 @@ type Config struct {
 	CustomTemplates   map[string]string          `json:"custom_templates,omitempty"`
 	TextReplacementsEnabled bool               `json:"text_replacements_enabled,omitempty"`
 	TextReplacements  []TextReplacement         `json:"text_replacements,omitempty"`
+	TrimSilence       bool                      `json:"trim_silence,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -522,6 +523,13 @@ func (c *Config) GetTextReplacementsEnabled() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.TextReplacementsEnabled
+}
+
+// GetTrimSilence returns whether silence trimming is enabled (thread-safe).
+func (c *Config) GetTrimSilence() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.TrimSilence
 }
 
 // SetTextReplacementsEnabled sets the text replacements toggle (thread-safe).

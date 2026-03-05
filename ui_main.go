@@ -296,6 +296,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.CleanupEnabled = newCfg.CleanupEnabled
 			cfg.CleanupMaxEntries = newCfg.CleanupMaxEntries
 			cfg.CleanupMaxAgeDays = newCfg.CleanupMaxAgeDays
+			cfg.TrimSilence = newCfg.TrimSilence
 			cfg.mu.Unlock()
 
 			// Apply autostart setting
