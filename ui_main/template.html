@@ -636,6 +636,23 @@
               </div>
             </div>
           </div>
+
+          <!-- App Detection — right below the main toggle -->
+          <div id="smart-app-detection-row" style="display:none">
+            <div class="form-divider"></div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" data-i18n="labelAppDetection">Auto-detect active application</label>
+                  <p class="form-hint" data-i18n="descAppDetection">Automatically apply a specific preset based on which app is focused when recording starts</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-app-detection" onchange="onAppDetectionToggle()">
+                  <label class="toggle-track" for="toggle-app-detection"></label>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- How it works info -->
@@ -654,6 +671,14 @@
               <span class="smart-howto-num">3</span>
               <span data-i18n="smartHow3">The improved text is pasted — no extra steps needed</span>
             </div>
+          </div>
+        </div>
+
+        <!-- App Detection notice when active -->
+        <div class="card smart-app-active-notice" id="smart-app-active-notice" style="display:none">
+          <div class="notice-row">
+            <svg class="icon notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            <span data-i18n="smartAppActiveNotice">App detection is active — the preset is automatically selected based on the focused application. Manual selection is disabled.</span>
           </div>
         </div>
 
@@ -676,71 +701,110 @@
             <option value="translate">Translate</option>
             <option value="custom">Custom</option>
           </select>
-          <div class="preset-grid">
+          <div class="preset-grid" id="preset-grid">
             <div class="preset-card active" data-preset="cleanup" onclick="selectSmartPreset('cleanup')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>
               <span class="preset-label" data-i18n="smartCleanup">Cleanup</span>
               <span class="preset-desc" data-i18n="smartCleanupDesc">Fixes grammar, punctuation, and filler words — keeps your original meaning intact</span>
+              <button class="btn-preset-prompt" data-preset-key="cleanup" onclick="event.stopPropagation();viewPresetPrompt('cleanup')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="concise" onclick="selectSmartPreset('concise')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 12H3"/><path d="M21 6H3"/><path d="M15 18H3"/></svg>
               <span class="preset-label" data-i18n="smartConcise">Concise</span>
               <span class="preset-desc" data-i18n="smartConciseDesc">Removes verbosity and redundancy while keeping the core message and tone</span>
+              <button class="btn-preset-prompt" data-preset-key="concise" onclick="event.stopPropagation();viewPresetPrompt('concise')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="email" onclick="selectSmartPreset('email')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
               <span class="preset-label" data-i18n="smartEmail">Email</span>
               <span class="preset-desc" data-i18n="smartEmailDesc">Reformats your speech into a professional email with greeting and sign-off</span>
+              <button class="btn-preset-prompt" data-preset-key="email" onclick="event.stopPropagation();viewPresetPrompt('email')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="bullets" onclick="selectSmartPreset('bullets')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
               <span class="preset-label" data-i18n="smartBullets">Bullet Points</span>
               <span class="preset-desc" data-i18n="smartBulletsDesc">Extracts key points from your speech and organizes them as a clear list</span>
+              <button class="btn-preset-prompt" data-preset-key="bullets" onclick="event.stopPropagation();viewPresetPrompt('bullets')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="formal" onclick="selectSmartPreset('formal')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
               <span class="preset-label" data-i18n="smartFormal">Formal Letter</span>
               <span class="preset-desc" data-i18n="smartFormalDesc">Rewrites your text in a professional, business-appropriate tone</span>
+              <button class="btn-preset-prompt" data-preset-key="formal" onclick="event.stopPropagation();viewPresetPrompt('formal')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="aiprompt" onclick="selectSmartPreset('aiprompt')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
               <span class="preset-label" data-i18n="smartAiPrompt">AI Prompt</span>
               <span class="preset-desc" data-i18n="smartAiPromptDesc">Converts your speech into a clear, token-efficient AI instruction</span>
+              <button class="btn-preset-prompt" data-preset-key="aiprompt" onclick="event.stopPropagation();viewPresetPrompt('aiprompt')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="summary" onclick="selectSmartPreset('summary')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
               <span class="preset-label" data-i18n="smartSummary">Summary</span>
               <span class="preset-desc" data-i18n="smartSummaryDesc">Condenses your speech into a concise summary with the key points</span>
+              <button class="btn-preset-prompt" data-preset-key="summary" onclick="event.stopPropagation();viewPresetPrompt('summary')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="notes" onclick="selectSmartPreset('notes')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M10 13l-2 2 2 2"/><path d="M14 17l2-2-2-2"/></svg>
               <span class="preset-label" data-i18n="smartNotes">Notes</span>
               <span class="preset-desc" data-i18n="smartNotesDesc">Structures your dictation as organized notes with headings and action items</span>
+              <button class="btn-preset-prompt" data-preset-key="notes" onclick="event.stopPropagation();viewPresetPrompt('notes')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="meeting" onclick="selectSmartPreset('meeting')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               <span class="preset-label" data-i18n="smartMeeting">Meeting Minutes</span>
               <span class="preset-desc" data-i18n="smartMeetingDesc">Formats as meeting minutes with topics, decisions, and action items</span>
+              <button class="btn-preset-prompt" data-preset-key="meeting" onclick="event.stopPropagation();viewPresetPrompt('meeting')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="social" onclick="selectSmartPreset('social')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
               <span class="preset-label" data-i18n="smartSocial">Social Media</span>
               <span class="preset-desc" data-i18n="smartSocialDesc">Creates engaging social media posts with emoji and concise phrasing</span>
+              <button class="btn-preset-prompt" data-preset-key="social" onclick="event.stopPropagation();viewPresetPrompt('social')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="technical" onclick="selectSmartPreset('technical')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
               <span class="preset-label" data-i18n="smartTechnical">Technical Docs</span>
               <span class="preset-desc" data-i18n="smartTechnicalDesc">Rewrites as precise technical documentation with structure and clarity</span>
+              <button class="btn-preset-prompt" data-preset-key="technical" onclick="event.stopPropagation();viewPresetPrompt('technical')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="casual" onclick="selectSmartPreset('casual')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               <span class="preset-label" data-i18n="smartCasual">Casual</span>
               <span class="preset-desc" data-i18n="smartCasualDesc">Converts to a friendly, conversational tone — like a chat message</span>
+              <button class="btn-preset-prompt" data-preset-key="casual" onclick="event.stopPropagation();viewPresetPrompt('casual')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="translate" onclick="selectSmartPreset('translate')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
               <span class="preset-label" data-i18n="smartTranslate">Translate</span>
               <span class="preset-desc" data-i18n="smartTranslateDesc">Translates your transcription into the target language you choose below</span>
+              <button class="btn-preset-prompt" data-preset-key="translate" onclick="event.stopPropagation();viewPresetPrompt('translate')" title="View prompt">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
             <div class="preset-card" data-preset="custom" onclick="selectSmartPreset('custom')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -777,28 +841,26 @@
             </div>
           </div>
 
-          <!-- App Detection -->
-          <div class="card" style="margin-top:16px">
-            <div class="card-title" data-i18n="cardAppDetection">App-Based Presets</div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" data-i18n="labelAppDetection">Auto-detect active application</label>
-                  <p class="form-hint" data-i18n="descAppDetection">Automatically apply a specific preset based on which app is focused when recording starts</p>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="toggle-app-detection">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-            </div>
-            <div id="app-presets-section" style="display:none">
-              <div class="app-presets-list" id="app-presets-list"></div>
-              <button class="btn btn-secondary btn-sm" id="btn-add-app-preset" style="margin-top:8px">
-                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                <span data-i18n="appDetectionAdd">Add App Rule</span>
-              </button>
-            </div>
+          <!-- Custom Templates -->
+          <div class="card" id="smart-custom-templates-section" style="display:none;margin-top:16px">
+            <div class="card-title" data-i18n="cardCustomTemplates">Your Templates</div>
+            <p class="form-hint" data-i18n="descCustomTemplates">Create your own reusable presets with custom prompts</p>
+            <div class="custom-templates-list" id="custom-templates-list"></div>
+            <button class="btn btn-secondary btn-sm" id="btn-add-custom-template" style="margin-top:8px">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              <span data-i18n="customTemplateAdd">Add Template</span>
+            </button>
+          </div>
+
+          <!-- App Rules (visible when app detection is on) -->
+          <div class="card" id="smart-app-rules-section" style="display:none;margin-top:16px">
+            <div class="card-title" data-i18n="cardAppRules">App Rules</div>
+            <p class="form-hint" data-i18n="descAppRules">Define which preset to use automatically for specific applications</p>
+            <div class="app-presets-list" id="app-presets-list"></div>
+            <button class="btn btn-secondary btn-sm" id="btn-add-app-preset" style="margin-top:8px">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              <span data-i18n="appDetectionAdd">Add App Rule</span>
+            </button>
           </div>
         </div>
       </div>

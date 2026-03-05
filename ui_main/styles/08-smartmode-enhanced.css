@@ -1,0 +1,97 @@
+/* ── Smart Mode Enhancements ──────────────────────────── */
+
+/* View prompt button on preset cards */
+.btn-preset-prompt {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  border-radius: 4px;
+  padding: 3px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  color: var(--text-secondary);
+  z-index: 2;
+}
+.btn-preset-prompt .icon {
+  width: 14px;
+  height: 14px;
+}
+.preset-card {
+  position: relative;
+}
+.preset-card:hover .btn-preset-prompt {
+  opacity: 1;
+}
+.btn-preset-prompt:hover {
+  background: rgba(255,255,255,0.16);
+  color: var(--brand);
+}
+
+/* Disabled overlay for preset grid when app detection is active */
+.preset-grid.disabled-overlay {
+  filter: grayscale(0.3);
+}
+
+/* App detection notice */
+.smart-app-active-notice {
+  border-left: 3px solid var(--brand);
+}
+.notice-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.notice-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--brand);
+  margin-top: 1px;
+}
+
+/* Form divider */
+.form-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+}
+
+/* Custom template rows */
+.custom-template-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+}
+.custom-template-row:last-child {
+  border-bottom: none;
+}
+.custom-template-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.custom-template-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.custom-template-prompt {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.custom-template-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
