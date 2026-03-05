@@ -55,7 +55,10 @@ type Config struct {
 	TextReplacements  []TextReplacement         `json:"text_replacements,omitempty"`
 	TrimSilence       bool                      `json:"trim_silence,omitempty"`
 	AppDetection      bool                      `json:"app_detection,omitempty"`
-	AppPresets        map[string]string         `json:"app_presets,omitempty"`
+	AppPresets          map[string]string          `json:"app_presets,omitempty"`
+	SmartModeProvider   string                     `json:"smart_mode_provider,omitempty"`
+	TemplateMetas       map[string]TemplateMeta    `json:"template_metas,omitempty"`
+	FallbackPreset      string                     `json:"fallback_preset,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -548,6 +551,39 @@ func (c *Config) GetAppPresets() map[string]string {
 	result := make(map[string]string, len(c.AppPresets))
 	for k, v := range c.AppPresets {
 		result[k] = v
+	}
+	return result
+}
+
+// GetSmartModeProvider returns the smart mode provider preference (thread-safe).
+func (c *Config) GetSmartModeProvider() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.SmartModeProvider == "" {
+		return "auto"
+	}
+	return c.SmartModeProvider
+}
+
+// GetFallbackPreset returns the fallback preset for app detection (thread-safe).
+func (c *Config) GetFallbackPreset() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.FallbackPreset == "" {
+		return "cleanup"
+	}
+	return c.FallbackPreset
+}
+
+// GetTemplateMetas returns a deep copy of template metadata (thread-safe).
+func (c *Config) GetTemplateMetas() map[string]TemplateMeta {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	result := make(map[string]TemplateMeta, len(c.TemplateMetas))
+	for k, v := range c.TemplateMetas {
+		kw := make([]string, len(v.Keywords))
+		copy(kw, v.Keywords)
+		result[k] = TemplateMeta{Description: v.Description, Keywords: kw}
 	}
 	return result
 }

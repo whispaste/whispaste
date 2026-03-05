@@ -444,7 +444,34 @@ const translations = {
     replacementsDelete: 'Delete',
     replacementsDeleteTitle: 'Delete Replacement',
     replacementsDeleteConfirm: 'Delete the replacement for "{trigger}"?',
-    replacementsToggleItem: 'Enable/Disable'
+    replacementsToggleItem: 'Enable/Disable',
+
+    // Smart Mode Provider
+    smartProvider: 'AI Processing Engine',
+    smartProviderOpenai: 'OpenAI API',
+    smartProviderLocal: 'Local Model',
+    smartProviderAuto: 'Auto',
+    smartProviderAutoDesc: 'Uses local model if available, otherwise OpenAI API',
+    smartProviderOpenaiDesc: 'Highest quality, requires API key and internet',
+    smartProviderLocalDesc: 'Offline processing, no API key needed',
+    smartLlmCard: 'Local Language Model',
+    smartLlmName: 'SmolLM2 · 270 MB · 6 Languages',
+    smartLlmDownload: 'Download',
+    smartLlmDownloading: 'Downloading...',
+    smartLlmReady: 'Ready',
+    smartLlmDelete: 'Delete model',
+    smartLlmDeleteConfirm: 'Delete local model? This cannot be undone.',
+    smartLlmDownloadServer: 'Downloading engine...',
+    smartLlmDownloadModel: 'Downloading model...',
+    smartLlmNotInstalled: 'Not installed',
+    smartFallback: 'Fallback Template',
+    smartFallbackDesc: 'Used when no app is automatically detected',
+    templateDescription: 'Description',
+    templateDescPlaceholder: 'Describe what this template is for...',
+    templateDescHelp: 'Helps the app automatically select this template',
+    templateKeywords: 'App Detection Keywords',
+    templateKeywordsPlaceholder: 'e.g. *outlook*, *thunderbird*',
+    templateKeywordsHelp: 'Wildcard patterns for automatic app detection. * = any characters.'
   },
   de: {
     // Navigation
@@ -890,7 +917,34 @@ const translations = {
     replacementsDelete: 'Löschen',
     replacementsDeleteTitle: 'Ersetzung löschen',
     replacementsDeleteConfirm: 'Die Ersetzung für „{trigger}" löschen?',
-    replacementsToggleItem: 'Aktivieren/Deaktivieren'
+    replacementsToggleItem: 'Aktivieren/Deaktivieren',
+
+    // Smart Mode Provider
+    smartProvider: 'KI-Verarbeitungsengine',
+    smartProviderOpenai: 'OpenAI API',
+    smartProviderLocal: 'Lokales Modell',
+    smartProviderAuto: 'Automatisch',
+    smartProviderAutoDesc: 'Nutzt lokales Modell wenn verfügbar, sonst OpenAI API',
+    smartProviderOpenaiDesc: 'Höchste Qualität, erfordert API-Key und Internet',
+    smartProviderLocalDesc: 'Offline-Verarbeitung, kein API-Key nötig',
+    smartLlmCard: 'Lokales Sprachmodell',
+    smartLlmName: 'SmolLM2 · 270 MB · 6 Sprachen',
+    smartLlmDownload: 'Herunterladen',
+    smartLlmDownloading: 'Wird heruntergeladen...',
+    smartLlmReady: 'Bereit',
+    smartLlmDelete: 'Modell löschen',
+    smartLlmDeleteConfirm: 'Lokales Modell löschen? Dies kann nicht rückgängig gemacht werden.',
+    smartLlmDownloadServer: 'Engine wird heruntergeladen...',
+    smartLlmDownloadModel: 'Modell wird heruntergeladen...',
+    smartLlmNotInstalled: 'Nicht installiert',
+    smartFallback: 'Fallback-Vorlage',
+    smartFallbackDesc: 'Wird verwendet, wenn keine App automatisch erkannt wird',
+    templateDescription: 'Beschreibung',
+    templateDescPlaceholder: 'Beschreibe, wofür diese Vorlage gedacht ist...',
+    templateDescHelp: 'Hilft der App, diese Vorlage automatisch auszuwählen',
+    templateKeywords: 'App-Erkennungs-Keywords',
+    templateKeywordsPlaceholder: 'z.B. *outlook*, *thunderbird*',
+    templateKeywordsHelp: 'Wildcard-Muster für automatische App-Erkennung. * = beliebige Zeichen.'
   }
 };
 

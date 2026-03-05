@@ -903,6 +903,98 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return GetActiveAppName()
 		})
 
+		// --- Smart Mode Provider bindings ---
+
+		w.Bind("getSmartModeProvider", func() string {
+			return cfg.GetSmartModeProvider()
+		})
+
+		w.Bind("setSmartModeProvider", func(provider string) {
+			cfg.mu.Lock()
+			cfg.SmartModeProvider = provider
+			cfg.mu.Unlock()
+			cfg.Save()
+		})
+
+		w.Bind("getFallbackPreset", func() string {
+			return cfg.GetFallbackPreset()
+		})
+
+		w.Bind("setFallbackPreset", func(preset string) {
+			cfg.mu.Lock()
+			cfg.FallbackPreset = preset
+			cfg.mu.Unlock()
+			cfg.Save()
+		})
+
+		w.Bind("getTemplateMetas", func() string {
+			metas := cfg.GetTemplateMetas()
+			defaults := GetDefaultTemplateMetas()
+			for k, v := range defaults {
+				if _, exists := metas[k]; !exists {
+					metas[k] = v
+				}
+			}
+			data, _ := json.Marshal(metas)
+			return string(data)
+		})
+
+		w.Bind("setTemplateMeta", func(name, metaJSON string) {
+			var meta TemplateMeta
+			if err := json.Unmarshal([]byte(metaJSON), &meta); err != nil {
+				logWarn("Invalid template meta JSON: %v", err)
+				return
+			}
+			cfg.mu.Lock()
+			if cfg.TemplateMetas == nil {
+				cfg.TemplateMetas = make(map[string]TemplateMeta)
+			}
+			cfg.TemplateMetas[name] = meta
+			cfg.mu.Unlock()
+			cfg.Save()
+		})
+
+		w.Bind("isLLMInstalled", func() bool {
+			return IsLLMInstalled()
+		})
+
+		w.Bind("downloadLLM", func() map[string]interface{} {
+			go func() {
+				err := DownloadLLM(func(phase string, pct int) {
+					if mainWebview != nil {
+						js := fmt.Sprintf("if(typeof onLLMDownloadProgress==='function')onLLMDownloadProgress('%s',%d)", phase, pct)
+						mainWebview.Dispatch(func() { mainWebview.Eval(js) })
+					}
+				})
+				if err != nil {
+					logError("LLM download failed: %v", err)
+					if mainWebview != nil {
+						js := fmt.Sprintf("if(typeof onLLMDownloadError==='function')onLLMDownloadError('%s')", escapeJS(err.Error()))
+						mainWebview.Dispatch(func() { mainWebview.Eval(js) })
+					}
+					return
+				}
+				if mainWebview != nil {
+					mainWebview.Dispatch(func() { mainWebview.Eval("if(typeof onLLMDownloadComplete==='function')onLLMDownloadComplete()") })
+				}
+			}()
+			return map[string]interface{}{"status": "started"}
+		})
+
+		w.Bind("deleteLLM", func() bool {
+			localLLM.Stop()
+			return DeleteLLM() == nil
+		})
+
+		w.Bind("getLLMStatus", func() string {
+			status := map[string]interface{}{
+				"installed": IsLLMInstalled(),
+				"running":   localLLM.IsRunning(),
+			}
+			data, _ := json.Marshal(status)
+			return string(data)
+		})
+
 		// --- Theme & language bindings ---
 
 		// Bind: getTheme → returns current theme from config

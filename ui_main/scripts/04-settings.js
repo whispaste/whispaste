@@ -362,6 +362,7 @@ function updateSmartModeVisibility() {
   if (on) {
     updateSmartPresetVisibility();
     updateAppDetectionState();
+    initSmartProvider();
   }
 }
 
@@ -379,6 +380,7 @@ function updateAppDetectionState() {
   if (presetTitle) presetTitle.style.opacity = appDetOn ? '0.45' : '';
   if (appNotice) appNotice.style.display = appDetOn ? '' : 'none';
   if (appRules) appRules.style.display = appDetOn ? '' : 'none';
+  updateFallbackPresetState();
 }
 
 function onAppDetectionToggle() {
@@ -407,6 +409,201 @@ function selectSmartPreset(preset) {
   if (targetRow) targetRow.style.display = preset === 'translate' ? '' : 'none';
   if (promptRow) promptRow.style.display = preset === 'custom' ? '' : 'none';
   autoSave();
+}
+
+/* ── Smart Mode Provider ──────────────────────────────── */
+function selectSmartProvider(provider) {
+  document.querySelectorAll('.provider-option').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.provider === provider);
+  });
+  if (window.setSmartModeProvider) window.setSmartModeProvider(provider);
+  updateLLMCardVisibility(provider);
+}
+
+function updateLLMCardVisibility(provider) {
+  const card = document.getElementById('llm-card');
+  if (!card) return;
+  card.style.display = (provider === 'local' || provider === 'auto') ? '' : 'none';
+}
+
+async function initSmartProvider() {
+  let provider = 'auto';
+  try {
+    if (window.getSmartModeProvider) provider = await window.getSmartModeProvider() || 'auto';
+  } catch (e) {}
+  document.querySelectorAll('.provider-option').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.provider === provider);
+  });
+  updateLLMCardVisibility(provider);
+  await updateLLMStatus();
+  await initFallbackPreset();
+}
+
+async function updateLLMStatus() {
+  const badge = document.getElementById('llm-badge');
+  const actionArea = document.getElementById('llm-action-area');
+  const progress = document.getElementById('llm-progress');
+  if (!badge) return;
+
+  let status = { installed: false, running: false };
+  try {
+    if (window.getLLMStatus) {
+      const raw = await window.getLLMStatus();
+      status = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    }
+  } catch (e) {}
+
+  if (status.installed) {
+    badge.className = 'llm-badge ready';
+    badge.innerHTML = '<svg class="icon" style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> ' + t('smartLlmReady');
+    if (actionArea) actionArea.innerHTML = '<button class="llm-delete-link" onclick="deleteLLM()">' + t('smartLlmDelete') + '</button>';
+    if (progress) progress.style.display = 'none';
+  } else {
+    badge.className = 'llm-badge not-installed';
+    badge.textContent = t('smartLlmNotInstalled');
+    if (actionArea) actionArea.innerHTML = `<button class="btn btn-primary btn-sm" id="btn-llm-download" onclick="startLLMDownload()">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+      <span>${t('smartLlmDownload')}</span>
+    </button>`;
+  }
+}
+
+async function startLLMDownload() {
+  const actionArea = document.getElementById('llm-action-area');
+  const progress = document.getElementById('llm-progress');
+  const badge = document.getElementById('llm-badge');
+  if (actionArea) actionArea.innerHTML = '';
+  if (progress) progress.style.display = '';
+  if (badge) {
+    badge.className = 'llm-badge not-installed';
+    badge.textContent = t('smartLlmDownloading');
+  }
+  try {
+    if (window.downloadLLM) await window.downloadLLM();
+  } catch (e) {
+    if (window.onLLMDownloadError) window.onLLMDownloadError(e.message || String(e));
+  }
+}
+
+async function deleteLLM() {
+  const ok = await showConfirmDialog(
+    t('smartLlmDelete'),
+    t('smartLlmDeleteConfirm')
+  );
+  if (!ok) return;
+  try {
+    if (window.deleteLLM) await window.deleteLLM();
+    await updateLLMStatus();
+  } catch (e) {}
+}
+
+window.onLLMDownloadProgress = function(phase, pct) {
+  const fill = document.getElementById('llm-progress-fill');
+  const text = document.getElementById('llm-progress-text');
+  const progress = document.getElementById('llm-progress');
+  if (progress) progress.style.display = '';
+  if (fill) fill.style.width = pct + '%';
+  const label = phase === 'server' ? t('smartLlmDownloadServer') : t('smartLlmDownloadModel');
+  if (text) {
+    text.textContent = label + ' ' + pct + '%';
+    text.style.color = '';
+  }
+};
+
+window.onLLMDownloadError = function(errorMsg) {
+  const progress = document.getElementById('llm-progress');
+  const text = document.getElementById('llm-progress-text');
+  if (progress) progress.style.display = '';
+  if (text) {
+    text.textContent = errorMsg;
+    text.style.color = 'var(--error)';
+  }
+  updateLLMStatus();
+};
+
+window.onLLMDownloadComplete = function() {
+  const progress = document.getElementById('llm-progress');
+  if (progress) progress.style.display = 'none';
+  updateLLMStatus();
+};
+
+/* ── Fallback Preset ──────────────────────────────────── */
+async function initFallbackPreset() {
+  const sel = document.getElementById('select-fallback-preset');
+  if (!sel) return;
+
+  // Populate with builtin + custom presets
+  const builtins = [
+    { id: 'cleanup', key: 'smartCleanup' },
+    { id: 'concise', key: 'smartConcise' },
+    { id: 'email', key: 'smartEmail' },
+    { id: 'bullets', key: 'smartBullets' },
+    { id: 'formal', key: 'smartFormal' },
+    { id: 'aiprompt', key: 'smartAiPrompt' },
+    { id: 'summary', key: 'smartSummary' },
+    { id: 'notes', key: 'smartNotes' },
+    { id: 'meeting', key: 'smartMeeting' },
+    { id: 'social', key: 'smartSocial' },
+    { id: 'technical', key: 'smartTechnical' },
+    { id: 'casual', key: 'smartCasual' },
+    { id: 'translate', key: 'smartTranslate' }
+  ];
+  sel.innerHTML = '';
+  for (const { id, key } of builtins) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = t(key) || id;
+    sel.appendChild(opt);
+  }
+  // Add custom templates
+  try {
+    if (window.getCustomTemplates) {
+      const raw = await window.getCustomTemplates();
+      const custom = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (custom) {
+        for (const name of Object.keys(custom)) {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          sel.appendChild(opt);
+        }
+      }
+    }
+  } catch (e) {}
+
+  // Set current value
+  let current = 'cleanup';
+  try {
+    if (window.getFallbackPreset) current = await window.getFallbackPreset() || 'cleanup';
+  } catch (e) {}
+  sel.value = current;
+
+  sel.removeEventListener('change', _onFallbackChange);
+  sel.addEventListener('change', _onFallbackChange);
+
+  updateFallbackPresetState();
+}
+
+function _onFallbackChange() {
+  const sel = document.getElementById('select-fallback-preset');
+  if (sel && window.setFallbackPreset) window.setFallbackPreset(sel.value);
+}
+
+function updateFallbackPresetState() {
+  const appDetOn = document.getElementById('toggle-app-detection')?.checked;
+  const sel = document.getElementById('select-fallback-preset');
+  const fallbackRow = document.getElementById('smart-fallback-row');
+  if (!fallbackRow) return;
+  const hint = fallbackRow.querySelector('.form-hint');
+  if (appDetOn) {
+    if (sel) sel.disabled = true;
+    if (hint) hint.textContent = t('smartAppActiveNotice');
+    fallbackRow.style.opacity = '0.5';
+  } else {
+    if (sel) sel.disabled = false;
+    if (hint) hint.textContent = t('smartFallbackDesc');
+    fallbackRow.style.opacity = '';
+  }
 }
 
 /* ── View Preset Prompt ──────────────────────────────── */
