@@ -11,14 +11,18 @@ import (
 
 // smartModePresets maps preset names to system prompts.
 var smartModePresets = map[string]string{
-	"cleanup":  "Clean up the following dictated text. Fix grammar, punctuation, and capitalization. Remove filler words. Keep the original language and meaning. Return only the cleaned text.",
-	"concise":  "Rewrite the following text more concisely. Keep the core message and all important information, but remove filler words, redundancy, and unnecessary verbosity. Maintain the original language and tone. Return only the rewritten text.",
-	"email":    "Rewrite the following dictated text as a professional email. Use proper greeting and closing. Fix grammar and punctuation. Keep the original language. Return only the email text.",
-	"bullets":  "Rewrite the following dictated text as a structured bullet-point list. Fix grammar and punctuation. Keep the original language. Return only the bullet list.",
-	"formal":   "Rewrite the following dictated text in formal, professional language. Fix grammar and punctuation. Keep the original language. Return only the rewritten text.",
-	"aiprompt": "Transform the following dictated text into an optimized AI prompt. Identify the user's core intent and desired outcome. Remove filler words, hesitations, and redundancy. Restructure as clear, actionable instructions that an LLM can follow precisely. Use imperative tone. Prioritize token efficiency — every word must serve a purpose. Preserve all specific requirements, constraints, and context. Return only the prompt text.",
-	"summary":  "Summarize the following dictated text concisely. Capture the key points and main ideas in a few sentences. Fix grammar and punctuation. Keep the original language. Return only the summary.",
-	"notes":    "Rewrite the following dictated text as structured meeting notes or personal notes. Use headings for topics, bullet points for details, and action items where applicable. Fix grammar and punctuation. Keep the original language. Return only the notes.",
+	"cleanup":   "Clean up the following dictated text. Fix grammar, punctuation, and capitalization. Remove filler words. Keep the original language and meaning. Return only the cleaned text.",
+	"concise":   "Rewrite the following text more concisely. Keep the core message and all important information, but remove filler words, redundancy, and unnecessary verbosity. Maintain the original language and tone. Return only the rewritten text.",
+	"email":     "Rewrite the following dictated text as a professional email. Use proper greeting and closing. Fix grammar and punctuation. Keep the original language. Return only the email text.",
+	"bullets":   "Rewrite the following dictated text as a structured bullet-point list. Fix grammar and punctuation. Keep the original language. Return only the bullet list.",
+	"formal":    "Rewrite the following dictated text in formal, professional language. Fix grammar and punctuation. Keep the original language. Return only the rewritten text.",
+	"aiprompt":  "Transform the following dictated text into an optimized AI prompt. Identify the user's core intent and desired outcome. Remove filler words, hesitations, and redundancy. Restructure as clear, actionable instructions that an LLM can follow precisely. Use imperative tone. Prioritize token efficiency — every word must serve a purpose. Preserve all specific requirements, constraints, and context. Return only the prompt text.",
+	"summary":   "Summarize the following dictated text concisely. Capture the key points and main ideas in a few sentences. Fix grammar and punctuation. Keep the original language. Return only the summary.",
+	"notes":     "Rewrite the following dictated text as structured meeting notes or personal notes. Use headings for topics, bullet points for details, and action items where applicable. Fix grammar and punctuation. Keep the original language. Return only the notes.",
+	"meeting":   "Rewrite the following dictated text as structured meeting minutes. Include: Date/Subject header, list of discussed topics, decisions made, and action items with owners if mentioned. Fix grammar and punctuation. Keep the original language. Return only the meeting minutes.",
+	"social":    "Rewrite the following dictated text as a social media post. Make it engaging, concise, and attention-grabbing. Add relevant emoji where appropriate. Keep the original language. Return only the post text.",
+	"technical": "Rewrite the following dictated text as technical documentation. Use clear, precise language. Structure with headings, code references where applicable, and step-by-step instructions if appropriate. Fix grammar and punctuation. Keep the original language. Return only the documentation.",
+	"casual":    "Rewrite the following dictated text in a casual, conversational tone. Make it sound natural and friendly, like a chat message. Remove unnecessary formality. Keep the original language and meaning. Return only the rewritten text.",
 }
 
 // PostProcess sends transcribed text through GPT-4o-mini for formatting/cleanup.

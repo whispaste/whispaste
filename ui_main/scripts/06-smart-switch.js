@@ -20,6 +20,10 @@ async function showSmartSwitcher(anchor) {
     { id: 'bullets',   icon: icons.list },
     { id: 'summary',   icon: icons.fileText },
     { id: 'notes',     icon: icons.clipboard },
+    { id: 'meeting',   icon: icons.users },
+    { id: 'social',    icon: icons.share },
+    { id: 'technical', icon: icons.code },
+    { id: 'casual',    icon: icons.messageCircle },
     { id: 'translate', icon: icons.globe },
   ];
 

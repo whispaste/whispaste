@@ -49,6 +49,7 @@ type Config struct {
 	OnboardingDone    bool `json:"onboarding_done,omitempty"`
 	ActiveProfile     string                    `json:"active_profile,omitempty"`
 	Profiles          map[string]ConfigProfile   `json:"profiles,omitempty"`
+	CustomTemplates   map[string]string          `json:"custom_templates,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -476,4 +477,32 @@ func (c *Config) ListProfiles() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// SaveCustomTemplate stores a user-defined smart mode template.
+func (c *Config) SaveCustomTemplate(name, prompt string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.CustomTemplates == nil {
+		c.CustomTemplates = make(map[string]string)
+	}
+	c.CustomTemplates[name] = prompt
+}
+
+// DeleteCustomTemplate removes a user-defined template.
+func (c *Config) DeleteCustomTemplate(name string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.CustomTemplates, name)
+}
+
+// GetCustomTemplates returns all user-defined templates as a copy.
+func (c *Config) GetCustomTemplates() map[string]string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	result := make(map[string]string, len(c.CustomTemplates))
+	for k, v := range c.CustomTemplates {
+		result[k] = v
+	}
+	return result
 }
