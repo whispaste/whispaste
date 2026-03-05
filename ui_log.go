@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	webview "github.com/webview/webview_go"
@@ -29,6 +30,9 @@ func ShowLogViewer() {
 	logDebug("ShowLogViewer: opening log viewer")
 
 	go func() {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+
 		defer func() {
 			logViewerMu.Lock()
 			logViewerWindow = nil
