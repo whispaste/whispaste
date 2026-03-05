@@ -231,6 +231,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('.filter-item[data-filter]').forEach(el => {
     el.addEventListener('click', () => setFilter(el.dataset.filter));
   });
+  // Clear filters button
+  const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+  if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', clearAllFilters);
   document.getElementById('dateFrom')?.addEventListener('change', renderHistory);
   document.getElementById('dateTo')?.addEventListener('change', renderHistory);
   // Confirm dialog buttons

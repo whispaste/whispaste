@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
 )
@@ -148,7 +149,15 @@ func GetLocalRecognizer() *LocalRecognizer {
 // Transcribe performs speech-to-text, reusing the cached recognizer when possible.
 // The recognizer is re-created if modelDir or language has changed.
 // For audio longer than 30 seconds, it processes in overlapping chunks.
-func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, modelDir string) (string, error) {
+func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, modelDir string) (result string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logError("Local transcription PANIC: %v", r)
+			result = ""
+			err = fmt.Errorf("local transcription panic: %v", r)
+		}
+	}()
+
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
 
@@ -205,6 +214,10 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 	}
 
 	samples := pcmToFloat32(pcmS16)
+	modelName := filepath.Base(modelDir)
+	nThreads := numThreads()
+	logInfo("Local transcription: model=%s audioSamples=%d threads=%d", modelName, len(samples), nThreads)
+	transcribeStart := time.Now()
 
 	// Whisper has a ~30s context window. Process in chunks for longer audio.
 	const chunkSec = 28
@@ -218,7 +231,12 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 
 	if len(samples) <= 30*sampleRate {
 		// Short audio (≤30s): process in one shot
-		return lr.transcribeChunk(samples, sampleRate)
+		text, chunkErr := lr.transcribeChunk(samples, sampleRate)
+		if chunkErr != nil {
+			return text, chunkErr
+		}
+		logInfo("Local transcription complete: model=%s duration=%v textLen=%d", modelName, time.Since(transcribeStart), len(text))
+		return text, nil
 	}
 
 	// Long audio: process in sequential chunks and concatenate
@@ -243,7 +261,9 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 		}
 		offset = end
 	}
-	return strings.Join(parts, " "), nil
+	joined := strings.Join(parts, " ")
+	logInfo("Local transcription complete: model=%s duration=%v textLen=%d", modelName, time.Since(transcribeStart), len(joined))
+	return joined, nil
 }
 
 // transcribeChunk transcribes a single chunk of float32 samples.

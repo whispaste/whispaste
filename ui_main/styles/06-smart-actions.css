@@ -1,46 +1,4 @@
-/* ── Smart Action Popover ──────────────────────────────── */
-.smart-action-popover {
-    position: fixed;
-    z-index: 9999;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    min-width: 200px;
-    overflow: hidden;
-}
-.smart-action-header {
-    padding: 12px 16px 8px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-secondary);
-    border-bottom: 1px solid var(--border);
-}
-.smart-action-list {
-    padding: 4px;
-    max-height: 300px;
-    overflow-y: auto;
-}
-.smart-action-item {
-    padding: 10px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-.smart-action-item:hover {
-    background: var(--hover-bg);
-}
-.smart-action-label {
-    font-size: 0.875rem;
-    color: var(--text-primary);
-}
-.smart-action-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 4px 8px;
-}
+/* ── Smart Action Styles ───────────────────────────────── */
 .smart-custom-textarea {
     width: 100%;
     padding: 10px 12px;

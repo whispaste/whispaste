@@ -156,6 +156,9 @@
             <div class="filter-section-title" data-i18n="notebook.tags">Tags</div>
             <div id="categoryList" class="filter-items nav-tags"></div>
           </div>
+          <div id="clearFiltersBar" class="clear-filters-bar" style="display:none">
+            <button class="clear-filters-btn" id="clearFiltersBtn" type="button"></button>
+          </div>
         </div>
         <div class="entries-area">
           <div class="entries" id="entriesList"></div>
@@ -589,6 +592,18 @@
               <label class="form-label" data-i18n="labelCleanupMaxAge">Maximum age (days)</label>
               <p class="form-hint" data-i18n="descCleanupMaxAge">Remove entries older than this (0 = unlimited)</p>
               <input type="number" class="form-input" id="input-cleanup-max-age" min="0" max="365" value="0">
+            </div>
+            <div class="form-group" id="cleanupIncludePinnedRow">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-cleanup-pinned" data-i18n="labelCleanupIncludePinned">Include pinned</label>
+                  <p class="toggle-desc" data-i18n="descCleanupIncludePinned">Include pinned transcriptions in cleanup</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-cleanup-pinned">
+                  <label class="toggle-track" for="toggle-cleanup-pinned"></label>
+                </div>
+              </div>
             </div>
             <div class="form-group" id="cleanupNowRow">
               <button class="btn btn-secondary" id="btn-cleanup-now" disabled>

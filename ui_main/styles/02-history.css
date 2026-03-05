@@ -244,16 +244,18 @@
 .entry-tags-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 3px;
+  gap: 3px;
+  margin-top: 6px;
   align-items: center;
 }
 .entry-tags-row .tag,
 .entry-meta .tag {
-  padding: 2px 8px;
+  padding: 1px 6px;
+  font-size: 0.65rem;
+  line-height: 1.4;
   background: var(--accent-subtle);
   color: var(--accent);
-  border-radius: var(--radius-full);
+  border-radius: 3px;
   font-weight: var(--weight-medium);
   border: 1px solid var(--border-accent);
 }
@@ -261,6 +263,65 @@
 [data-theme="dark"] .entry-meta .tag {
   background: var(--accent-subtle);
   border-color: var(--border-accent);
+}
+
+/* ── Inline Tag-Add "+" Button ────────────────────────── */
+.tag-add-inline {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-hint);
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-primary);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+.entry:not(.expanded):hover .tag-add-inline { display: inline-flex; }
+.tag-add-inline:hover {
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-color: var(--border-accent);
+}
+
+/* ── Sidebar "Add Tag" Button ─────────────────────────── */
+.sidebar-add-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--text-hint);
+  font-size: 12px;
+  font-weight: 500;
+  transition: all var(--transition);
+  border: 1px dashed transparent;
+  margin-top: 4px;
+}
+.sidebar-add-tag:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-color: var(--border-primary);
+}
+.sidebar-add-tag .icon { width: 12px; height: 12px; }
+.sidebar-tag-input {
+  width: 100%;
+  font-size: 12px;
+}
+
+/* ── Sidebar Tag Drag & Drop ──────────────────────────── */
+.tag-sidebar-item[draggable="true"] { cursor: grab; }
+.tag-sidebar-item[draggable="true"]:active { cursor: grabbing; }
+.tag-sidebar-item.dragging { opacity: 0.4; }
+.tag-sidebar-item.drag-over {
+  border-bottom: 2px solid var(--accent);
+  border-radius: 0;
 }
 
 .entry-actions {
@@ -609,15 +670,10 @@
 .search-help-btn:hover { color: var(--text-secondary); }
 .search-help-btn .icon { width: 14px; height: 14px; }
 
-/* ── Search Help Popover ──────────────────────────────── */
+/* ── Search Help Popover (content styles) ─────────────── */
 .search-help-popover {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
   padding: 12px 14px;
   min-width: 240px;
-  animation: fadeIn 150ms ease;
 }
 .shp-title {
   font-size: 11px;
@@ -650,38 +706,60 @@
   color: var(--accent);
 }
 
-/* ── Export Popover ────────────────────────────────────── */
-.export-popover {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-primary);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-  padding: 4px;
-  min-width: 160px;
-  animation: fadeIn 0.12s ease;
+/* ── Clear Filters Bar ────────────────────────────────── */
+.clear-filters-bar {
+  padding: 8px 10px 4px;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 4px;
 }
-
-.export-option {
+.clear-filters-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 13px;
-  border-radius: 6px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  text-align: left;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.clear-filters-btn:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
-.export-option:hover {
+/* ── Pinned Section Header ────────────────────────────── */
+.pinned-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  user-select: none;
+}
+.pinned-section-header:hover {
+  color: var(--text-primary);
   background: var(--bg-hover);
 }
-
-.export-option .icon {
+.pinned-section-header .icon {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
 }
+
+/* ── Tag Group Divider ────────────────────────────────── */
+.tag-group-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 6px 10px;
+}
+
