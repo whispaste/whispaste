@@ -123,6 +123,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const raw = await window.getConfig();
       const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
       applyConfig(cfg);
+      // Hide in-app FAB when floating desktop button is active (avoids duplicate)
+      const fab = document.getElementById('captureBtn');
+      if (fab) fab.style.display = cfg.floating_button_enabled ? 'none' : '';
       updateModeBadge(cfg);
       updateStatusBar(cfg);
       loadAudioDevices();
