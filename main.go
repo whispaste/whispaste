@@ -322,6 +322,7 @@ func main() {
 						logError("Model directory error: %v", mdErr)
 						text, err = "", mdErr
 					} else {
+						logDebug("starting local transcription: model=%s lang=%s audioBytes=%d", modelDir, localLang, len(pcm))
 						text, err = GetLocalRecognizer().Transcribe(pcm, 16000, localLang, modelDir)
 					}
 				} else {
