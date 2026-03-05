@@ -5,76 +5,96 @@
   position: absolute;
   top: 6px;
   right: 6px;
-  background: rgba(255,255,255,0.08);
-  border: none;
-  border-radius: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
   padding: 3px;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s, background 0.15s;
-  color: var(--text-secondary);
+  transition: opacity var(--transition-fast), background var(--transition-fast),
+              border-color var(--transition-fast), color var(--transition-fast);
+  color: var(--text-tertiary);
   z-index: 2;
 }
 .btn-preset-prompt .icon {
-  width: 14px;
-  height: 14px;
-}
-.preset-card {
-  position: relative;
+  width: 13px;
+  height: 13px;
 }
 .preset-card:hover .btn-preset-prompt {
-  opacity: 1;
+  opacity: 0.7;
 }
 .btn-preset-prompt:hover {
-  background: rgba(255,255,255,0.16);
-  color: var(--brand);
+  opacity: 1 !important;
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Disabled overlay for preset grid when app detection is active */
 .preset-grid.disabled-overlay {
   filter: grayscale(0.3);
+  transition: filter var(--transition-normal), opacity var(--transition-normal);
 }
 
 /* App detection notice */
 .smart-app-active-notice {
-  border-left: 3px solid var(--brand);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-subtle);
+  animation: fadeIn 0.25s var(--ease-default);
 }
 .notice-row {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
 }
 .notice-icon {
   flex-shrink: 0;
   width: 18px;
   height: 18px;
-  color: var(--brand);
+  color: var(--accent);
   margin-top: 1px;
+}
+.notice-row span {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 /* Form divider */
 .form-divider {
   height: 1px;
-  background: var(--border);
-  margin: 12px 0;
+  background: var(--border-primary);
+  margin: 14px 0;
+  opacity: 0.6;
 }
 
-/* Custom template rows */
+/* ── Custom Template Section ─────────────────────────── */
+.custom-templates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
 .custom-template-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  gap: 12px;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
 }
-.custom-template-row:last-child {
-  border-bottom: none;
+.custom-template-row:hover {
+  border-color: var(--border-secondary);
+  background: var(--bg-hover);
 }
 .custom-template-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
   flex: 1;
 }
@@ -85,13 +105,49 @@
 }
 .custom-template-prompt {
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-style: italic;
 }
 .custom-template-actions {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
+}
+.custom-template-actions .btn-icon {
+  opacity: 0.5;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+.custom-template-row:hover .custom-template-actions .btn-icon {
+  opacity: 0.8;
+}
+.custom-template-actions .btn-icon:hover {
+  opacity: 1;
+  color: var(--accent);
+}
+
+/* ── App Preset Section ──────────────────────────────── */
+.smart-app-rules-section {
+  animation: fadeIn 0.25s var(--ease-default);
+}
+.smart-custom-templates-section {
+  animation: fadeIn 0.25s var(--ease-default);
+}
+
+/* ── Smart Mode Info Cards ──────────────────────────── */
+.smart-howto .smart-howto-step:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Prompt View Dialog Enhancement ──────────────────── */
+.prompt-lang-note {
+  display: block;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-primary);
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  font-style: italic;
 }

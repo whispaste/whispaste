@@ -19,21 +19,24 @@
     if (!list) return;
     const entries = Object.entries(customTemplates);
     if (entries.length === 0) {
-      list.innerHTML = `<p class="form-hint" style="margin:8px 0">${t('customTemplateEmpty')}</p>`;
+      list.innerHTML = `<div style="text-align:center;padding:16px 0">
+        <svg class="icon" style="width:32px;height:32px;color:var(--text-tertiary);margin-bottom:8px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <p class="form-hint" style="margin:0">${t('customTemplateEmpty')}</p>
+      </div>`;
       return;
     }
     list.innerHTML = entries.map(([name, prompt]) => `
       <div class="custom-template-row">
         <div class="custom-template-info">
           <span class="custom-template-name">${esc(name)}</span>
-          <span class="custom-template-prompt" title="${esc(prompt)}">${esc(prompt.length > 80 ? prompt.slice(0, 80) + '…' : prompt)}</span>
+          <span class="custom-template-prompt" title="${esc(prompt)}">${esc(prompt.length > 100 ? prompt.slice(0, 100) + '…' : prompt)}</span>
         </div>
         <div class="custom-template-actions">
           <button class="btn-icon custom-template-edit" data-name="${esc(name)}" title="${t('edit') || 'Edit'}">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           </button>
           <button class="btn-icon custom-template-delete" data-name="${esc(name)}" title="${t('replacementsDelete')}">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
           </button>
         </div>
       </div>
