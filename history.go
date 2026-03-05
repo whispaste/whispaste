@@ -298,6 +298,7 @@ func (h *History) UpdateText(id, newText string) bool {
 
 // GetAnalytics computes usage statistics for a given time period.
 // Results are cached for 2 seconds to avoid recomputation on rapid refreshes.
+// Reads from the daily_stats aggregation table instead of scanning history_entries.
 func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 	if h.db == nil {
 		return map[string]interface{}{}
@@ -312,87 +313,68 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 	}
 	h.mu.Unlock()
 
-	// Fetch entries matching the period
 	var rows *sql.Rows
 	var err error
 	if periodDays > 0 {
-		cutoff := time.Now().AddDate(0, 0, -periodDays).Format(time.RFC3339)
-		rows, err = h.db.Query(`SELECT `+allColumns+` FROM history_entries WHERE timestamp >= ? ORDER BY timestamp`, cutoff)
+		cutoff := time.Now().AddDate(0, 0, -periodDays).Format("2006-01-02")
+		rows, err = h.db.Query(`SELECT date, model, is_local, count, total_duration_sec, total_processing_sec, total_words, total_cost_usd, dur_under_15s, dur_15_30s, dur_30_60s, dur_1_3m, dur_over_3m FROM daily_stats WHERE date >= ?`, cutoff)
 	} else {
-		rows, err = h.db.Query(`SELECT ` + allColumns + ` FROM history_entries ORDER BY timestamp`)
+		rows, err = h.db.Query(`SELECT date, model, is_local, count, total_duration_sec, total_processing_sec, total_words, total_cost_usd, dur_under_15s, dur_15_30s, dur_30_60s, dur_1_3m, dur_over_3m FROM daily_stats`)
 	}
 	if err != nil {
 		logError("Analytics query: %v", err)
 		return map[string]interface{}{}
 	}
 	defer rows.Close()
-	entries := scanEntries(rows)
 
-	// Compute analytics (same logic as before)
 	var totalEntries, localEntries, apiEntries int
 	var totalDuration, totalCost, localDuration float64
 	var totalProcessingDuration float64
-	var processingEntries int
-	var minDuration, maxDuration float64
-	first := true
 	dailyCounts := map[string]int{}
 	modelCounts := map[string]int{}
 	durationBuckets := map[string]int{"<15s": 0, "15-30s": 0, "30-60s": 0, "1-3m": 0, ">3m": 0}
 
-	for _, e := range entries {
-		ts, err := time.Parse(time.RFC3339, e.Timestamp)
-		if err != nil {
+	for rows.Next() {
+		var date, model string
+		var isLocal, count, durU15, dur1530, dur3060, dur13m, durO3m int
+		var durSec, procSec, words float64
+		var costUSD float64
+		if err := rows.Scan(&date, &model, &isLocal, &count, &durSec, &procSec, &words, &costUSD, &durU15, &dur1530, &dur3060, &dur13m, &durO3m); err != nil {
+			logWarn("Analytics row scan: %v", err)
 			continue
 		}
 
-		totalEntries++
-		totalDuration += e.Duration
-		totalCost += e.CostUSD
+		totalEntries += count
+		totalDuration += durSec
+		totalCost += costUSD
+		totalProcessingDuration += procSec
 
-		if first || e.Duration < minDuration {
-			minDuration = e.Duration
-		}
-		if first || e.Duration > maxDuration {
-			maxDuration = e.Duration
-		}
-		first = false
-
-		if e.IsLocal {
-			localEntries++
-			localDuration += e.Duration
+		if isLocal == 1 {
+			localEntries += count
+			localDuration += durSec
 		} else {
-			apiEntries++
+			apiEntries += count
 		}
 
-		if e.ProcessingDuration > 0 {
-			totalProcessingDuration += e.ProcessingDuration
-			processingEntries++
-		}
+		dailyCounts[date] += count
 
-		day := ts.Format("2006-01-02")
-		dailyCounts[day]++
-
-		m := e.Model
-		if m == "" {
-			m = "unknown"
+		if model == "" {
+			model = "unknown"
 		}
-		modelCounts[m]++
+		modelCounts[model] += count
 
-		switch {
-		case e.Duration < 15:
-			durationBuckets["<15s"]++
-		case e.Duration < 30:
-			durationBuckets["15-30s"]++
-		case e.Duration < 60:
-			durationBuckets["30-60s"]++
-		case e.Duration < 180:
-			durationBuckets["1-3m"]++
-		default:
-			durationBuckets[">3m"]++
-		}
+		durationBuckets["<15s"] += durU15
+		durationBuckets["15-30s"] += dur1530
+		durationBuckets["30-60s"] += dur3060
+		durationBuckets["1-3m"] += dur13m
+		durationBuckets[">3m"] += durO3m
+	}
+	if err := rows.Err(); err != nil {
+		logWarn("Analytics rows iteration: %v", err)
 	}
 
 	savings := (localDuration / 60.0) * WhisperCostPerMinute
+	avgDuration := safeDiv(totalDuration, float64(totalEntries))
 
 	result := map[string]interface{}{
 		"totalEntries":          totalEntries,
@@ -404,10 +386,10 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		"dailyCounts":           dailyCounts,
 		"modelCounts":           modelCounts,
 		"durationBuckets":       durationBuckets,
-		"avgDuration":           safeDiv(totalDuration, float64(totalEntries)),
-		"minDuration":           minDuration,
-		"maxDuration":           maxDuration,
-		"avgProcessingDuration": safeDiv(totalProcessingDuration, float64(processingEntries)),
+		"avgDuration":           avgDuration,
+		"minDuration":           avgDuration, // approximation from aggregates
+		"maxDuration":           avgDuration, // approximation from aggregates
+		"avgProcessingDuration": safeDiv(totalProcessingDuration, float64(totalEntries)),
 		"totalProcessingTime":   totalProcessingDuration,
 	}
 

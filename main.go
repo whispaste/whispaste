@@ -321,15 +321,38 @@ func main() {
 
 			// Trim silence if enabled
 			if cfg.GetTrimSilence() {
+				origPCM := make([]byte, len(pcm))
+				copy(origPCM, pcm)
 				before := len(pcm)
 				pcm = TrimSilence(pcm, 0.01, 30)
-				if len(pcm) < before {
+				if len(pcm) < 9600 {
+					logWarn("TrimSilence result too short (%d bytes), using original audio", len(pcm))
+					pcm = origPCM
+				} else if len(pcm) < before {
 					logDebug("Trimmed silence: %d → %d bytes", before, len(pcm))
 				}
 			}
 
 			// Transcribe in background (use snapshot values, not cfg directly)
 			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logError("Transcription goroutine panic: %v", r)
+						if playSounds {
+							PlayFeedback(SoundError)
+						}
+						if overlay != nil {
+							overlay.Hide()
+						}
+						if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
+							floatingBtn.Show()
+						}
+						stateMu.Lock()
+						state = StateIdle
+						stateMu.Unlock()
+						NotifyRecordingState(StateIdle)
+					}
+				}()
 				durationSec := time.Since(recordStart).Seconds()
 				transcribeStart := time.Now()
 				var text string
@@ -437,8 +460,10 @@ func main() {
 				// Record stats and history with model info
 				totalDictations := stats.RecordDictation(text, durationSec, useLocal)
 				if useLocal {
+					history.RecordDailyStats(durationSec, processingDurationSec, text, cfg.GetLocalModelID(), true)
 					history.AddWithModel(text, durationSec, processingDurationSec, lang, cfg.GetLocalModelID(), true)
 				} else {
+					history.RecordDailyStats(durationSec, processingDurationSec, text, model, false)
 					history.AddWithModel(text, durationSec, processingDurationSec, lang, model, false)
 				}
 				// Auto-cleanup if enabled

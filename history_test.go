@@ -248,7 +248,9 @@ func TestHistoryCleanup(t *testing.T) {
 func TestHistoryGetAnalytics(t *testing.T) {
 	h := newTestHistory(t)
 	h.AddWithModel("test1", 30.0, 2.0, "en", "whisper-1", false)
+	h.RecordDailyStats(30.0, 2.0, "test1", "whisper-1", false)
 	h.AddWithModel("test2", 60.0, 1.5, "de", "whisper-base", true)
+	h.RecordDailyStats(60.0, 1.5, "test2", "whisper-base", true)
 
 	analytics := h.GetAnalytics(0)
 	if analytics["totalEntries"].(int) != 2 {

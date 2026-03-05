@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -39,7 +40,8 @@ const historyDBFile = "history.db"
 // currentSchemaVersion tracks the DB schema. Version history:
 // 1 = external-content FTS5 (value-matching delete triggers — broken with modernc.org/sqlite)
 // 2 = regular FTS5 (rowid-based triggers)
-const currentSchemaVersion = 2
+// 3 = daily_stats aggregation table
+const currentSchemaVersion = 3
 
 // initHistoryDB opens (or creates) the SQLite database and ensures tables exist.
 func initHistoryDB() (*sql.DB, error) {
@@ -170,6 +172,7 @@ func recreateDB(db *sql.DB) {
 		"DROP TRIGGER IF EXISTS history_fts_au",
 		"DROP TABLE IF EXISTS history_fts",
 		"DROP TABLE IF EXISTS history_entries",
+		"DROP TABLE IF EXISTS daily_stats",
 		"DROP TABLE IF EXISTS schema_version",
 	} {
 		if _, err := db.Exec(stmt); err != nil {
@@ -180,6 +183,15 @@ func recreateDB(db *sql.DB) {
 		logError("Failed to recreate tables: %v", err)
 		return
 	}
+	// Recreate daily_stats
+	db.Exec(`CREATE TABLE IF NOT EXISTS daily_stats (
+		date TEXT NOT NULL, model TEXT NOT NULL, is_local INTEGER NOT NULL,
+		count INTEGER NOT NULL DEFAULT 0, total_duration_sec REAL NOT NULL DEFAULT 0,
+		total_processing_sec REAL NOT NULL DEFAULT 0, total_words INTEGER NOT NULL DEFAULT 0,
+		total_cost_usd REAL NOT NULL DEFAULT 0, dur_under_15s INTEGER NOT NULL DEFAULT 0,
+		dur_15_30s INTEGER NOT NULL DEFAULT 0, dur_30_60s INTEGER NOT NULL DEFAULT 0,
+		dur_1_3m INTEGER NOT NULL DEFAULT 0, dur_over_3m INTEGER NOT NULL DEFAULT 0,
+		PRIMARY KEY (date, model, is_local))`)
 	// Set schema version
 	db.Exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER)")
 	db.Exec("DELETE FROM schema_version")
@@ -287,28 +299,80 @@ func ensureSchemaVersion(db *sql.DB) error {
 
 	logInfo("Migrating schema from version %d to %d", version, currentSchemaVersion)
 
-	// Migration to v2: switch from external-content FTS5 to regular FTS5
-	for _, stmt := range []string{
-		"DROP TRIGGER IF EXISTS history_fts_ai",
-		"DROP TRIGGER IF EXISTS history_fts_ad",
-		"DROP TRIGGER IF EXISTS history_fts_au",
-		"DROP TABLE IF EXISTS history_fts",
-	} {
-		if _, err := db.Exec(stmt); err != nil {
-			logWarn("Schema migration cleanup (%s): %v", stmt, err)
+	for version < currentSchemaVersion {
+		switch version {
+		case 0, 1:
+			// Migration to v2: switch from external-content FTS5 to regular FTS5
+			for _, stmt := range []string{
+				"DROP TRIGGER IF EXISTS history_fts_ai",
+				"DROP TRIGGER IF EXISTS history_fts_ad",
+				"DROP TRIGGER IF EXISTS history_fts_au",
+				"DROP TABLE IF EXISTS history_fts",
+			} {
+				if _, err := db.Exec(stmt); err != nil {
+					logWarn("Schema migration cleanup (%s): %v", stmt, err)
+				}
+			}
+			if err := createFTSTables(db); err != nil {
+				return fmt.Errorf("recreate FTS tables: %w", err)
+			}
+			version = 2
+
+		case 2:
+			// Migration to v3: add daily_stats aggregation table
+			if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS daily_stats (
+				date                  TEXT NOT NULL,
+				model                 TEXT NOT NULL,
+				is_local              INTEGER NOT NULL,
+				count                 INTEGER NOT NULL DEFAULT 0,
+				total_duration_sec    REAL NOT NULL DEFAULT 0,
+				total_processing_sec  REAL NOT NULL DEFAULT 0,
+				total_words           INTEGER NOT NULL DEFAULT 0,
+				total_cost_usd        REAL NOT NULL DEFAULT 0,
+				dur_under_15s         INTEGER NOT NULL DEFAULT 0,
+				dur_15_30s            INTEGER NOT NULL DEFAULT 0,
+				dur_30_60s            INTEGER NOT NULL DEFAULT 0,
+				dur_1_3m              INTEGER NOT NULL DEFAULT 0,
+				dur_over_3m           INTEGER NOT NULL DEFAULT 0,
+				PRIMARY KEY (date, model, is_local)
+			)`); err != nil {
+				return fmt.Errorf("create daily_stats table: %w", err)
+			}
+
+			// Backfill from existing history_entries
+			if _, err := db.Exec(`INSERT OR IGNORE INTO daily_stats
+				(date, model, is_local, count, total_duration_sec, total_processing_sec,
+				 total_words, total_cost_usd, dur_under_15s, dur_15_30s, dur_30_60s, dur_1_3m, dur_over_3m)
+				SELECT
+					substr(timestamp, 1, 10) as date,
+					COALESCE(NULLIF(model, ''), 'whisper-1') as model,
+					COALESCE(is_local, 0) as is_local,
+					COUNT(*) as count,
+					COALESCE(SUM(duration_sec), 0) as total_duration_sec,
+					COALESCE(SUM(processing_duration_sec), 0) as total_processing_sec,
+					COALESCE(SUM(LENGTH(text) - LENGTH(REPLACE(text, ' ', '')) + 1), 0) as total_words,
+					COALESCE(SUM(cost_usd), 0) as total_cost_usd,
+					SUM(CASE WHEN duration_sec < 15 THEN 1 ELSE 0 END),
+					SUM(CASE WHEN duration_sec >= 15 AND duration_sec < 30 THEN 1 ELSE 0 END),
+					SUM(CASE WHEN duration_sec >= 30 AND duration_sec < 60 THEN 1 ELSE 0 END),
+					SUM(CASE WHEN duration_sec >= 60 AND duration_sec < 180 THEN 1 ELSE 0 END),
+					SUM(CASE WHEN duration_sec >= 180 THEN 1 ELSE 0 END)
+				FROM history_entries
+				GROUP BY substr(timestamp, 1, 10), COALESCE(NULLIF(model, ''), 'whisper-1'), COALESCE(is_local, 0)`); err != nil {
+				logWarn("daily_stats backfill: %v", err)
+			}
+			version = 3
+
+		default:
+			return fmt.Errorf("unexpected schema version %d, cannot migrate", version)
 		}
-	}
-	if err := createFTSTables(db); err != nil {
-		return fmt.Errorf("recreate FTS tables: %w", err)
 	}
 
 	// Upsert schema version
-	if version == 0 {
-		_, err = db.Exec("INSERT INTO schema_version (version) VALUES (?)", currentSchemaVersion)
-	} else {
-		_, err = db.Exec("UPDATE schema_version SET version = ?", currentSchemaVersion)
+	if _, err := db.Exec("DELETE FROM schema_version"); err != nil {
+		return fmt.Errorf("update schema version: %w", err)
 	}
-	if err != nil {
+	if _, err := db.Exec("INSERT INTO schema_version (version) VALUES (?)", currentSchemaVersion); err != nil {
 		return fmt.Errorf("update schema version: %w", err)
 	}
 	logInfo("Schema migration to version %d complete", currentSchemaVersion)
@@ -335,6 +399,15 @@ func createHistoryTables(db *sql.DB) error {
 
 		CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history_entries(timestamp);
 		CREATE INDEX IF NOT EXISTS idx_history_pinned ON history_entries(pinned);
+
+		CREATE TABLE IF NOT EXISTS daily_stats (
+			date TEXT NOT NULL, model TEXT NOT NULL, is_local INTEGER NOT NULL,
+			count INTEGER NOT NULL DEFAULT 0, total_duration_sec REAL NOT NULL DEFAULT 0,
+			total_processing_sec REAL NOT NULL DEFAULT 0, total_words INTEGER NOT NULL DEFAULT 0,
+			total_cost_usd REAL NOT NULL DEFAULT 0, dur_under_15s INTEGER NOT NULL DEFAULT 0,
+			dur_15_30s INTEGER NOT NULL DEFAULT 0, dur_30_60s INTEGER NOT NULL DEFAULT 0,
+			dur_1_3m INTEGER NOT NULL DEFAULT 0, dur_over_3m INTEGER NOT NULL DEFAULT 0,
+			PRIMARY KEY (date, model, is_local));
 	`)
 	if err != nil {
 		return err
@@ -523,3 +596,58 @@ func scanEntry(row interface{ Scan(...interface{}) error }) (HistoryEntry, error
 // allColumns is the column list for SELECT queries on history_entries.
 const allColumns = `id, text, title, timestamp, duration_sec, processing_duration_sec,
 	language, tags, pinned, source, model, is_local, cost_usd`
+
+// RecordDailyStats upserts a row in daily_stats for the current transcription.
+func (h *History) RecordDailyStats(durationSec, processingSec float64, text string, model string, isLocal bool) {
+	if h.db == nil {
+		return
+	}
+	date := time.Now().Format("2006-01-02")
+	words := len(strings.Fields(text))
+
+	cost := 0.0
+	if !isLocal {
+		cost = durationSec / 60.0 * 0.006
+	}
+
+	isLocalInt := 0
+	if isLocal {
+		isLocalInt = 1
+	}
+
+	if model == "" {
+		model = "whisper-1"
+	}
+
+	_, err := h.db.Exec(`
+		INSERT INTO daily_stats (date, model, is_local, count, total_duration_sec, total_processing_sec, total_words, total_cost_usd, dur_under_15s, dur_15_30s, dur_30_60s, dur_1_3m, dur_over_3m)
+		VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(date, model, is_local) DO UPDATE SET
+			count = count + 1,
+			total_duration_sec = total_duration_sec + excluded.total_duration_sec,
+			total_processing_sec = total_processing_sec + excluded.total_processing_sec,
+			total_words = total_words + excluded.total_words,
+			total_cost_usd = total_cost_usd + excluded.total_cost_usd,
+			dur_under_15s = dur_under_15s + excluded.dur_under_15s,
+			dur_15_30s = dur_15_30s + excluded.dur_15_30s,
+			dur_30_60s = dur_30_60s + excluded.dur_30_60s,
+			dur_1_3m = dur_1_3m + excluded.dur_1_3m,
+			dur_over_3m = dur_over_3m + excluded.dur_over_3m`,
+		date, model, isLocalInt, durationSec, processingSec, words, cost,
+		boolToInt(durationSec < 15),
+		boolToInt(durationSec >= 15 && durationSec < 30),
+		boolToInt(durationSec >= 30 && durationSec < 60),
+		boolToInt(durationSec >= 60 && durationSec < 180),
+		boolToInt(durationSec >= 180),
+	)
+	if err != nil {
+		logWarn("RecordDailyStats error: %v", err)
+	}
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
