@@ -225,7 +225,7 @@ func TestHistoryCleanup(t *testing.T) {
 	// Pin one
 	h.TogglePin(h.All()[0].ID)
 
-	removed := h.Cleanup(5, 0)
+	removed := h.Cleanup(5, 0, false)
 	if removed != 5 {
 		t.Errorf("expected 5 removed, got %d", removed)
 	}

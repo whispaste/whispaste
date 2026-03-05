@@ -524,6 +524,70 @@ func (h *History) RenameTag(oldName, newName string) int {
 	return count
 }
 
+// DeleteTag removes a tag from all entries that have it.
+func (h *History) DeleteTag(tagName string) int {
+	if h.db == nil {
+		return 0
+	}
+	h.mu.Lock()
+	h.cache = nil
+	h.mu.Unlock()
+
+	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(tagName)
+	pattern := `%"` + escaped + `"%`
+
+	tx, err := h.db.Begin()
+	if err != nil {
+		logError("DeleteTag begin tx: %v", err)
+		return 0
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.Query("SELECT id, tags FROM history_entries WHERE tags LIKE ? ESCAPE '\\'", pattern)
+	if err != nil {
+		logError("DeleteTag query: %v", err)
+		return 0
+	}
+
+	type idTags struct {
+		id   string
+		tags []string
+	}
+	var updates []idTags
+	for rows.Next() {
+		var id, tagsJSON string
+		if err := rows.Scan(&id, &tagsJSON); err != nil {
+			continue
+		}
+		tags := unmarshalTags(tagsJSON)
+		filtered := make([]string, 0, len(tags))
+		for _, tag := range tags {
+			if tag != tagName {
+				filtered = append(filtered, tag)
+			}
+		}
+		if len(filtered) < len(tags) {
+			updates = append(updates, idTags{id, filtered})
+		}
+	}
+	rows.Close()
+
+	count := 0
+	for _, u := range updates {
+		if _, err := tx.Exec("UPDATE history_entries SET tags = ? WHERE id = ?", marshalTags(u.tags), u.id); err != nil {
+			logError("DeleteTag update %s: %v", u.id, err)
+			return 0
+		}
+		count++
+	}
+
+	if err := tx.Commit(); err != nil {
+		logError("DeleteTag commit: %v", err)
+		return 0
+	}
+	return count
+}
+
 // Merge combines multiple entries into one. The newest entry's metadata is used as the base.
 // Returns the ID of the merged entry, or empty string on error.
 func (h *History) Merge(ids []string) string {
@@ -663,8 +727,9 @@ func (h *History) AddSmart(text, language string, tags []string) {
 }
 
 // Cleanup removes old entries based on config settings.
+// When includePinned is false, pinned entries are preserved.
 // Returns the number of entries removed.
-func (h *History) Cleanup(maxEntries, maxAgeDays int) int {
+func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 	if h.db == nil {
 		return 0
 	}
@@ -673,12 +738,17 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int) int {
 	h.cache = nil
 	h.mu.Unlock()
 
+	pinnedFilter := " AND pinned = 0"
+	if includePinned {
+		pinnedFilter = ""
+	}
+
 	var totalRemoved int64
 
-	// Remove by age (keep pinned)
+	// Remove by age
 	if maxAgeDays > 0 {
 		cutoff := time.Now().AddDate(0, 0, -maxAgeDays).Format(time.RFC3339)
-		res, err := h.db.Exec("DELETE FROM history_entries WHERE timestamp < ? AND pinned = 0", cutoff)
+		res, err := h.db.Exec("DELETE FROM history_entries WHERE timestamp < ?"+pinnedFilter, cutoff)
 		if err != nil {
 			logError("Cleanup by age: %v", err)
 		} else {
@@ -687,10 +757,14 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int) int {
 		}
 	}
 
-	// Remove by count (keep newest, always keep pinned)
+	// Remove by count (keep newest)
 	if maxEntries > 0 {
+		whereClause := "pinned = 0"
+		if includePinned {
+			whereClause = "1=1"
+		}
 		res, err := h.db.Exec(`DELETE FROM history_entries WHERE id IN (
-			SELECT id FROM history_entries WHERE pinned = 0
+			SELECT id FROM history_entries WHERE `+whereClause+`
 			ORDER BY timestamp ASC
 			LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries) - ?)
 		)`, maxEntries)

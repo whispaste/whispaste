@@ -316,6 +316,11 @@ func main() {
 				transcribeStart := time.Now()
 				var text string
 				var err error
+				modelName := model
+				if useLocal {
+					modelName = cfg.GetLocalModelID()
+				}
+				logInfo("Transcribing with: useLocal=%v model=%s", useLocal, modelName)
 				if useLocal {
 					modelDir, mdErr := GetModelDir(cfg.GetLocalModelID())
 					if mdErr != nil {
@@ -417,7 +422,7 @@ func main() {
 				}
 				// Auto-cleanup if enabled
 				if cfg.GetCleanupEnabled() {
-					history.Cleanup(cfg.GetCleanupMaxEntries(), cfg.GetCleanupMaxAgeDays())
+					history.Cleanup(cfg.GetCleanupMaxEntries(), cfg.GetCleanupMaxAgeDays(), cfg.GetCleanupIncludePinned())
 				}
 				NotifyHistoryChanged()
 				if tray != nil {

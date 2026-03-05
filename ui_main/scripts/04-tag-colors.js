@@ -1,9 +1,16 @@
 /* ── Tag Color Picker ──────────────────────────────── */
 function showTagColorPicker(targetEl, tagName, onColorSelected) {
-  closeTagColorPicker();
-  const picker = document.createElement('div');
-  picker.className = 'tag-color-picker';
-  picker.innerHTML = `
+  showTagColorPickerAt(
+    targetEl.getBoundingClientRect().left,
+    targetEl.getBoundingClientRect().bottom + 4,
+    tagName,
+    onColorSelected,
+  );
+}
+
+function _buildColorPickerContent(tagName, onColorSelected) {
+  const el = document.createElement('div');
+  el.innerHTML = `
     <div class="tcp-header">${esc(tagName)}</div>
     <div class="tcp-colors">
       ${TAG_COLORS.map((c, i) => `
@@ -17,100 +24,7 @@ function showTagColorPicker(targetEl, tagName, onColorSelected) {
     <button class="tcp-reset" data-index="-1">Reset</button>
   `;
 
-  // Position near the target element
-  const rect = targetEl.getBoundingClientRect();
-  picker.style.position = 'fixed';
-  picker.style.top = (rect.bottom + 4) + 'px';
-  picker.style.left = rect.left + 'px';
-  picker.style.zIndex = '9999';
-
-  document.body.appendChild(picker);
-
-  // Handle clicks
-  picker.querySelectorAll('[data-index]').forEach(btn => {
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const index = parseInt(btn.dataset.index);
-      if (window.saveTagColor) {
-        window.saveTagColor(tagName, index).then(() => {
-          if (index < 0) {
-            delete _customTagColors[tagName];
-          } else {
-            _customTagColors[tagName] = index;
-          }
-          closeTagColorPicker();
-          if (onColorSelected) onColorSelected();
-          if (typeof renderHistory === 'function') renderHistory();
-          if (typeof updateCounts === 'function') updateCounts();
-        });
-      }
-    });
-  });
-
-  // Close on outside click (delayed to not catch current click)
-  setTimeout(() => {
-    document.addEventListener('click', _closePickerOnOutsideClick);
-  }, 10);
-}
-
-function _closePickerOnOutsideClick(ev) {
-  if (!ev.target.closest('.tag-color-picker')) {
-    closeTagColorPicker();
-  }
-}
-
-function closeTagColorPicker() {
-  document.querySelectorAll('.tag-color-picker').forEach(el => el.remove());
-  document.removeEventListener('click', _closePickerOnOutsideClick);
-}
-
-// Event delegation: RIGHT-click on tag in entry header for color picker
-document.addEventListener('contextmenu', (ev) => {
-  const tag = ev.target.closest('.entry-tags-row .tag, .entry-meta .tag');
-  if (tag) {
-    ev.preventDefault();
-    ev.stopPropagation();
-    const tagName = tag.textContent.trim();
-    if (!tagName) return;
-    showTagColorPickerAt(ev.clientX, ev.clientY, tagName, null);
-    return;
-  }
-
-  // RIGHT-click on sidebar tag for context menu
-  const sidebarTag = ev.target.closest('.nav-tags .tag-sidebar-item');
-  if (sidebarTag) {
-    ev.preventDefault();
-    ev.stopPropagation();
-    const tagName = sidebarTag.dataset.tag;
-    if (!tagName) return;
-    showTagContextMenu(ev.clientX, ev.clientY, tagName);
-  }
-});
-
-function showTagColorPickerAt(x, y, tagName, onColorSelected) {
-  closeTagColorPicker();
-  const picker = document.createElement('div');
-  picker.className = 'tag-color-picker';
-  picker.innerHTML = `
-    <div class="tcp-header">${esc(tagName)}</div>
-    <div class="tcp-colors">
-      ${TAG_COLORS.map((c, i) => `
-        <button class="tcp-swatch${_customTagColors[tagName] === i ? ' active' : ''}"
-                data-index="${i}"
-                style="background:${c.text}"
-                title="Color ${i + 1}">
-        </button>
-      `).join('')}
-    </div>
-    <button class="tcp-reset" data-index="-1">Reset</button>
-  `;
-  picker.style.position = 'fixed';
-  picker.style.top = y + 'px';
-  picker.style.left = x + 'px';
-  picker.style.zIndex = '9999';
-  document.body.appendChild(picker);
-
-  picker.querySelectorAll('[data-index]').forEach(btn => {
+  el.querySelectorAll('[data-index]').forEach(btn => {
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       const index = parseInt(btn.dataset.index);
@@ -118,7 +32,7 @@ function showTagColorPickerAt(x, y, tagName, onColorSelected) {
         window.saveTagColor(tagName, index).then(() => {
           if (index < 0) delete _customTagColors[tagName];
           else _customTagColors[tagName] = index;
-          closeTagColorPicker();
+          hidePopovers();
           if (onColorSelected) onColorSelected();
           if (typeof renderHistory === 'function') renderHistory();
           if (typeof updateCounts === 'function') updateCounts();
@@ -126,35 +40,66 @@ function showTagColorPickerAt(x, y, tagName, onColorSelected) {
       }
     });
   });
-  setTimeout(() => document.addEventListener('click', _closePickerOnOutsideClick), 10);
+
+  return el;
+}
+
+function closeTagColorPicker() {
+  hidePopovers();
+}
+
+// Event delegation: RIGHT-click on tag in entry header → unified context menu
+document.addEventListener('contextmenu', (ev) => {
+  const tag = ev.target.closest('.entry-tags-row .tag, .entry-meta .tag');
+  if (tag) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const tagName = tag.dataset.tag || tag.textContent.trim();
+    if (!tagName) return;
+    if (isSystemTag(tagName)) {
+      showPopoverAt(ev.clientX, ev.clientY, {
+        items: [{ header: tagName }, { label: t('tag_system') || 'System tag — cannot modify', disabled: true }],
+      });
+      return;
+    }
+    showTagContextMenu(ev.clientX, ev.clientY, tagName);
+    return;
+  }
+
+  // RIGHT-click on sidebar tag → same unified context menu
+  const sidebarTag = ev.target.closest('.nav-tags .tag-sidebar-item');
+  if (sidebarTag) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const tagName = sidebarTag.dataset.tag;
+    if (!tagName) return;
+    if (isSystemTag(tagName)) {
+      showPopoverAt(ev.clientX, ev.clientY, {
+        items: [{ header: tagName }, { label: t('tag_system') || 'System tag — cannot modify', disabled: true }],
+      });
+      return;
+    }
+    showTagContextMenu(ev.clientX, ev.clientY, tagName);
+  }
+});
+
+function showTagColorPickerAt(x, y, tagName, onColorSelected) {
+  const pop = showPopoverAt(x, y, { className: 'tag-color-picker' });
+  const content = _buildColorPickerContent(tagName, onColorSelected);
+  pop.innerHTML = '';
+  pop.appendChild(content);
 }
 
 function showTagContextMenu(x, y, tagName) {
-  closeTagColorPicker();
-  const menu = document.createElement('div');
-  menu.className = 'tag-color-picker tag-context-menu';
-  menu.innerHTML = `
-    <div class="tcp-header">${esc(tagName)}</div>
-    <button class="tcm-item" data-action="rename">${t('tag_rename') || 'Rename'}</button>
-    <button class="tcm-item" data-action="color">${t('tag_color') || 'Change Color'}</button>
-  `;
-  menu.style.position = 'fixed';
-  menu.style.top = y + 'px';
-  menu.style.left = x + 'px';
-  menu.style.zIndex = '9999';
-  document.body.appendChild(menu);
-
-  menu.querySelector('[data-action="rename"]').addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    closeTagColorPicker();
-    promptRenameTag(tagName);
+  showPopoverAt(x, y, {
+    items: [
+      { header: tagName },
+      { icon: icons.pencil, label: t('tag_rename') || 'Rename', action: () => promptRenameTag(tagName) },
+      { icon: icons.tag, label: t('tag_color') || 'Change Color', action: () => showTagColorPickerAt(x, y, tagName, null) },
+      { divider: true },
+      { icon: icons.trash, label: t('tag_delete') || 'Delete Tag', danger: true, action: () => deleteTagFromAll(tagName) },
+    ],
   });
-  menu.querySelector('[data-action="color"]').addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    closeTagColorPicker();
-    showTagColorPickerAt(x, y, tagName, null);
-  });
-  setTimeout(() => document.addEventListener('click', _closePickerOnOutsideClick), 10);
 }
 
 async function promptRenameTag(oldName) {
@@ -166,6 +111,14 @@ async function promptRenameTag(oldName) {
   if (newName && newName.trim() && newName.trim() !== oldName) {
     if (window.renameTag) {
       await window.renameTag(oldName, newName.trim());
+      // Also rename in persisted custom tags list
+      const tags = window._cachedCustomTags || [];
+      const idx = tags.indexOf(oldName);
+      if (idx !== -1) {
+        tags[idx] = newName.trim();
+        window._cachedCustomTags = tags;
+        if (window.saveCustomTags) await window.saveCustomTags(JSON.stringify(tags));
+      }
       await loadEntries();
       if (typeof updateCounts === 'function') updateCounts();
     }

@@ -1,5 +1,11 @@
 /* ── Utility Functions ─────────────────────────────────── */
 
+const SYSTEM_TAGS = ['merged', 'duplicated'];
+
+function isSystemTag(name) {
+  return SYSTEM_TAGS.includes(name);
+}
+
 /** HTML-escape a string to prevent XSS */
 function esc(s) {
   const d = document.createElement('div');
@@ -81,6 +87,7 @@ function updateStatusBar(cfg) {
     modeChip.style.cursor = 'pointer';
     modeChip.addEventListener('click', (e) => {
       e.stopPropagation();
+      e.preventDefault();
       showModelSwitcher(modeChip);
     });
     modeChip._switcherBound = true;

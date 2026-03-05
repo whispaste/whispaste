@@ -46,7 +46,8 @@ type Config struct {
 	TagColors       map[string]int `json:"tag_colors,omitempty"`
 	CleanupEnabled    bool `json:"cleanup_enabled,omitempty"`
 	CleanupMaxEntries int  `json:"cleanup_max_entries,omitempty"`
-	CleanupMaxAgeDays int  `json:"cleanup_max_age_days,omitempty"`
+	CleanupMaxAgeDays     int  `json:"cleanup_max_age_days,omitempty"`
+	CleanupIncludePinned  bool `json:"cleanup_include_pinned,omitempty"`
 	OnboardingDone    bool `json:"onboarding_done,omitempty"`
 	ActiveProfile     string                    `json:"active_profile,omitempty"`
 	Profiles          map[string]ConfigProfile   `json:"profiles,omitempty"`
@@ -59,6 +60,7 @@ type Config struct {
 	SmartModeProvider   string                     `json:"smart_mode_provider,omitempty"`
 	TemplateMetas       map[string]TemplateMeta    `json:"template_metas,omitempty"`
 	FallbackPreset      string                     `json:"fallback_preset,omitempty"`
+	CustomTags          []string                   `json:"customTags,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -419,6 +421,13 @@ func (c *Config) GetCleanupMaxAgeDays() int {
 	return c.CleanupMaxAgeDays
 }
 
+// GetCleanupIncludePinned returns whether pinned entries are included in cleanup (thread-safe).
+func (c *Config) GetCleanupIncludePinned() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.CleanupIncludePinned
+}
+
 func (c *Config) GetOnboardingDone() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -586,6 +595,22 @@ func (c *Config) GetTemplateMetas() map[string]TemplateMeta {
 		result[k] = TemplateMeta{Description: v.Description, Keywords: kw}
 	}
 	return result
+}
+
+// GetCustomTags returns a copy of custom tags (thread-safe).
+func (c *Config) GetCustomTags() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	result := make([]string, len(c.CustomTags))
+	copy(result, c.CustomTags)
+	return result
+}
+
+// SetCustomTags replaces the custom tags list (thread-safe).
+func (c *Config) SetCustomTags(tags []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.CustomTags = tags
 }
 
 // SetAppPresets replaces the app→preset mappings (thread-safe).
