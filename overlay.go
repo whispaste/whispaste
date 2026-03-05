@@ -213,6 +213,7 @@ procBeginPaint                 = ovlUser32.NewProc("BeginPaint")
 procEndPaint                   = ovlUser32.NewProc("EndPaint")
 procInvalidateRect             = ovlUser32.NewProc("InvalidateRect")
 procGetSystemMetrics           = ovlUser32.NewProc("GetSystemMetrics")
+procSystemParametersInfoW      = ovlUser32.NewProc("SystemParametersInfoW")
 procPostMessageW               = ovlUser32.NewProc("PostMessageW")
 procSetWindowPos               = ovlUser32.NewProc("SetWindowPos")
 procSetLayeredWindowAttributes = ovlUser32.NewProc("SetLayeredWindowAttributes")
@@ -801,6 +802,16 @@ if y+h > maxY-8 {
 y = maxY - h - 8
 }
 return x, y
+}
+if pos == "bottom" {
+	// Bottom center, above the taskbar
+	var rc rectT
+	procSystemParametersInfoW.Call(0x0030, 0, uintptr(unsafe.Pointer(&rc)), 0) // SPI_GETWORKAREA
+	workW := int(rc.Right - rc.Left)
+	workH := int(rc.Bottom - rc.Top)
+	x := int(rc.Left) + (workW-w)/2
+	y := int(rc.Top) + workH - h - m
+	return x, y
 }
 // Default: top center of primary monitor
 screenW, _, _ := procGetSystemMetrics.Call(_SM_CXSCREEN)
