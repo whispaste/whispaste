@@ -414,6 +414,16 @@ const translations = {
     'onboarding.ready_title': "You're All Set!",
     'onboarding.ready_desc': 'Press the hotkey anywhere to start recording:',
     'onboarding.finish': "Let's Go!",
+    'onboarding.apikey_hint': 'Get your key at platform.openai.com · You can add it later in Settings',
+    'onboarding.smart_title': 'AI Text Enhancement',
+    'onboarding.smart_desc': 'Smart Mode polishes your transcriptions — fix grammar, format emails, create summaries, and more.',
+    'onboarding.smart_enable': 'Enable Smart Mode',
+    'onboarding.smart_enable_desc': 'AI refines text before pasting',
+    'onboarding.smart_disable': 'Plain Text Only',
+    'onboarding.smart_disable_desc': 'Paste transcription as-is',
+    'onboarding.smart_note': 'Provider set to Auto — uses local model if available, otherwise OpenAI API.',
+    smartProviderNoKey: 'No API key configured. Add your key in Settings → General to use OpenAI.',
+    smartProviderNoProvider: 'No API key or local model available. Configure one to use Smart Mode.',
 
     // Configuration Profiles
     'profile.none': 'No Profile',
@@ -887,6 +897,16 @@ const translations = {
     'onboarding.ready_title': 'Alles bereit!',
     'onboarding.ready_desc': 'Drücke die Tastenkombination, um die Aufnahme zu starten:',
     'onboarding.finish': 'Los geht\'s!',
+    'onboarding.apikey_hint': 'Schlüssel auf platform.openai.com erhältlich · Auch später in den Einstellungen möglich',
+    'onboarding.smart_title': 'KI-Textoptimierung',
+    'onboarding.smart_desc': 'Smart Mode optimiert deine Transkriptionen — Grammatik korrigieren, E-Mails formatieren, Zusammenfassungen erstellen.',
+    'onboarding.smart_enable': 'Smart Mode aktivieren',
+    'onboarding.smart_enable_desc': 'KI optimiert Text vor dem Einfügen',
+    'onboarding.smart_disable': 'Nur Rohtext',
+    'onboarding.smart_disable_desc': 'Transkription unverändert einfügen',
+    'onboarding.smart_note': 'Provider auf Auto — nutzt lokales Modell wenn verfügbar, sonst OpenAI API.',
+    smartProviderNoKey: 'Kein API-Schlüssel konfiguriert. Füge ihn unter Einstellungen → Allgemein hinzu.',
+    smartProviderNoProvider: 'Kein API-Schlüssel oder lokales Modell verfügbar. Konfiguriere eines, um Smart Mode zu nutzen.',
 
     // Configuration Profiles
     'profile.none': 'Kein Profil',
