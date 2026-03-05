@@ -196,12 +196,8 @@ async function finishOnboarding() {
     const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (cfg) {
       if (_onboardingChoice === 'local') {
-        cfg.use_local_stt = true;
-        cfg.active_model_local = true;
         cfg.local_model_id = _onbModelId;
       } else if (_onboardingChoice === 'api') {
-        cfg.use_local_stt = false;
-        cfg.active_model_local = false;
         const keyInput = document.getElementById('onb-apikey');
         if (keyInput && keyInput.value.trim()) {
           cfg.api_key = keyInput.value.trim();
@@ -214,6 +210,12 @@ async function finishOnboarding() {
         cfg.smart_mode = false;
       }
       await window.saveConfig(JSON.stringify(cfg));
+      // Persist model selection via the dedicated switchModel binding
+      if (_onboardingChoice === 'local' && window.switchModel) {
+        await window.switchModel(_onbModelId, true);
+      } else if (_onboardingChoice === 'api' && window.switchModel) {
+        await window.switchModel(cfg.model || 'whisper-1', false);
+      }
     }
   } catch (e) { console.error('Onboarding save error:', e); }
 

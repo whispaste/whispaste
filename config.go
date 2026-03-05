@@ -154,8 +154,8 @@ func LoadConfig() (*Config, error) {
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return DefaultConfig(), fmt.Errorf("invalid config: %w", err)
 	}
-	// Backward compat: old configs lack active_model_local field entirely.
-	// If absent and local STT was enabled, the user was actively using local models.
+	// Backward compat: old configs lack active_model_local. If legacy
+	// use_local_stt was true, the user was actively using local models.
 	if !bytes.Contains(data, []byte(`"active_model_local"`)) && cfg.UseLocalSTT {
 		cfg.ActiveModelLocal = true
 	}
@@ -372,6 +372,15 @@ func (c *Config) GetUseLocalSTT() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.UseLocalSTT
+}
+
+// HasAnyModel returns whether at least one transcription model is available:
+// either an API key is configured (cloud model) or a local model is downloaded.
+func (c *Config) HasAnyModel() bool {
+	if c.HasAPIKey() {
+		return true
+	}
+	return len(ListDownloadedModels()) > 0
 }
 
 // GetActiveModelLocal returns whether the currently selected model is local (thread-safe).

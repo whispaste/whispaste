@@ -568,7 +568,7 @@ func main() {
 	}
 
 	// Check API key
-	if !cfg.GetUseLocalSTT() && !cfg.HasAPIKey() {
+	if !cfg.HasAnyModel() {
 		logInfo("No API key configured – opening settings on launch")
 	}
 
@@ -700,7 +700,7 @@ func main() {
 		}
 		stateMu.Unlock()
 
-		if !cfg.GetUseLocalSTT() && !cfg.HasAPIKey() {
+		if !cfg.HasAnyModel() {
 			ps, _, _, _, _, _, _, _, _ := snapshotConfig()
 			if ps {
 				PlayFeedback(SoundError)
@@ -801,7 +801,7 @@ func main() {
 		stateMu.Lock()
 		s := state
 		if s == StateIdle {
-			if cfg.GetUseLocalSTT() || cfg.HasAPIKey() {
+			if cfg.HasAnyModel() {
 				recordSource = SourceAppUI
 				stateMu.Unlock()
 				transition(StateRecording)
@@ -864,7 +864,7 @@ func main() {
 	)
 
 	// Open settings on first run (no API key and not using local STT)
-	if !cfg.GetUseLocalSTT() && !cfg.HasAPIKey() {
+	if !cfg.HasAnyModel() {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
 			ShowMainWindow(cfg, recorder, history, onSettingsSaved, onWindowClose, onToggle, "settings")
