@@ -259,6 +259,12 @@
                   <span class="radio-card-label" data-i18n="overlayTop">Top Center</span>
                   <span class="radio-card-desc" data-i18n="overlayTopDesc">Fixed at top of screen</span>
                 </div>
+                <div class="radio-card" role="radio" aria-checked="false" tabindex="0" onclick="selectOverlay('bottom')" onkeydown="handleOverlayKey(event, 'bottom')">
+                  <input type="radio" name="overlay" value="bottom" id="overlay-bottom">
+                  <span class="radio-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21h14"/><path d="m18 11-6 6-6-6"/><path d="M12 3v14"/></svg></span>
+                  <span class="radio-card-label" data-i18n="overlayBottom">Bottom Center</span>
+                  <span class="radio-card-desc" data-i18n="overlayBottomDesc">Above the taskbar</span>
+                </div>
                 <div class="radio-card" role="radio" aria-checked="false" tabindex="0" onclick="selectOverlay('cursor')" onkeydown="handleOverlayKey(event, 'cursor')">
                   <input type="radio" name="overlay" value="cursor" id="overlay-cursor">
                   <span class="radio-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg></span>
