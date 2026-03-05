@@ -125,7 +125,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateModeBadge(cfg);
       updateStatusBar(cfg);
       loadAudioDevices();
-      loadProfileList();
     }
   } catch (e) {
     console.warn('Failed to load config:', e);

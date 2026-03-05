@@ -299,6 +299,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.CleanupMaxEntries = newCfg.CleanupMaxEntries
 			cfg.CleanupMaxAgeDays = newCfg.CleanupMaxAgeDays
 			cfg.TrimSilence = newCfg.TrimSilence
+			cfg.SmartModeProvider = newCfg.SmartModeProvider
 			cfg.mu.Unlock()
 
 			// Apply autostart setting
@@ -460,6 +461,11 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				return map[string]interface{}{"success": false, "error": err.Error()}
 			}
 			return map[string]interface{}{"success": true, "error": ""}
+		})
+
+		// Bind: _isModelDownloaded → check if a model is fully downloaded
+		w.Bind("_isModelDownloaded", func(modelID string) bool {
+			return IsModelDownloaded(modelID)
 		})
 
 		// Bind: _getAudioDevices → returns available audio capture devices
@@ -759,45 +765,6 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				logError("Save config after smart preset switch: %v", err)
 			}
 			logInfo("Smart mode preset switched to: %s (enabled=%v)", preset, cfg.GetSmartMode())
-		})
-
-		// --- Profile bindings ---
-
-		// Bind: saveProfile → save current settings as a named profile
-		w.Bind("saveProfile", func(name string) {
-			cfg.SaveProfile(name)
-			if err := cfg.Save(); err != nil {
-				logError("Save profile %q: %v", name, err)
-			}
-			logInfo("Profile saved: %s", name)
-		})
-
-		// Bind: loadProfile → apply a named profile
-		w.Bind("loadProfile", func(name string) bool {
-			ok := cfg.LoadProfile(name)
-			if ok {
-				if err := cfg.Save(); err != nil {
-					logError("Save config after loading profile %q: %v", name, err)
-				}
-				logInfo("Profile loaded: %s", name)
-			}
-			return ok
-		})
-
-		// Bind: deleteProfile → remove a named profile
-		w.Bind("deleteProfile", func(name string) {
-			cfg.DeleteProfile(name)
-			if err := cfg.Save(); err != nil {
-				logError("Delete profile %q: %v", name, err)
-			}
-			logInfo("Profile deleted: %s", name)
-		})
-
-		// Bind: listProfiles → returns JSON array of profile names
-		w.Bind("listProfiles", func() string {
-			names := cfg.ListProfiles()
-			data, _ := json.Marshal(names)
-			return string(data)
 		})
 
 		// Bind: saveCustomTemplate → save a user-defined smart mode template
