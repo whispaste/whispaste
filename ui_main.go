@@ -856,6 +856,46 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return cfg.GetTextReplacementsEnabled()
 		})
 
+		// Bind: getAppPresets → returns JSON map of app→preset mappings
+		w.Bind("getAppPresets", func() string {
+			m := cfg.GetAppPresets()
+			data, _ := json.Marshal(m)
+			return string(data)
+		})
+
+		// Bind: setAppPresets → saves app→preset mappings
+		w.Bind("setAppPresets", func(jsonStr string) {
+			var m map[string]string
+			if err := json.Unmarshal([]byte(jsonStr), &m); err != nil {
+				logError("Parse app presets: %v", err)
+				return
+			}
+			cfg.SetAppPresets(m)
+			if err := cfg.Save(); err != nil {
+				logError("Save app presets: %v", err)
+			}
+		})
+
+		// Bind: setAppDetectionEnabled → toggle app detection
+		w.Bind("setAppDetectionEnabled", func(enabled bool) {
+			cfg.mu.Lock()
+			cfg.AppDetection = enabled
+			cfg.mu.Unlock()
+			if err := cfg.Save(); err != nil {
+				logError("Save app detection: %v", err)
+			}
+		})
+
+		// Bind: getAppDetectionEnabled → returns enabled state
+		w.Bind("getAppDetectionEnabled", func() bool {
+			return cfg.GetAppDetectionEnabled()
+		})
+
+		// Bind: getActiveAppName → returns current foreground app exe name
+		w.Bind("getActiveAppName", func() string {
+			return GetActiveAppName()
+		})
+
 		// --- Theme & language bindings ---
 
 		// Bind: getTheme → returns current theme from config
