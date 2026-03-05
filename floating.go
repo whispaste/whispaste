@@ -60,6 +60,9 @@ const (
 
 	// Monitor info
 	_MONITOR_DEFAULTTONEAREST = 0x00000002
+
+	// DPI change
+	_WM_DPICHANGED = 0x02E0
 )
 
 // Win32 structs for floating button
@@ -89,6 +92,7 @@ var (
 	procDestroyWindow    = ovlUser32.NewProc("DestroyWindow")
 	procGetWindowRect    = ovlUser32.NewProc("GetWindowRect")
 	procMoveWindow       = ovlUser32.NewProc("MoveWindow")
+	procGetDpiForWindow  = ovlUser32.NewProc("GetDpiForWindow")
 
 	// GDI+ string alignment (used in drawMicIcon)
 	procGdipSetStringFormatAlign     = ovlGdiplus.NewProc("GdipSetStringFormatAlign")
@@ -185,15 +189,28 @@ type FloatingButton struct {
 
 var floatingWndProcCB = syscall.NewCallback(floatingWndProc)
 
-// getSize returns the cached button diameter (thread-safe).
+// dpiScale returns the DPI scale factor for the floating button's monitor.
+// Returns 1.0 at 96 DPI (100%), 1.5 at 144 DPI (150%), 2.0 at 192 DPI (200%).
+func (fb *FloatingButton) dpiScale() float64 {
+	if fb.hwnd == 0 {
+		return 1.0
+	}
+	dpi, _, _ := procGetDpiForWindow.Call(fb.hwnd)
+	if dpi == 0 {
+		return 1.0
+	}
+	return float64(dpi) / 96.0
+}
+
+// getSize returns the cached button diameter (thread-safe), scaled for DPI.
 func (fb *FloatingButton) getSize() int {
 	fb.mu.Lock()
 	s := fb.size
 	fb.mu.Unlock()
 	if s <= 0 {
-		return _FLOAT_SIZE
+		s = _FLOAT_SIZE
 	}
-	return s
+	return int(float64(s) * fb.dpiScale())
 }
 
 func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
@@ -366,6 +383,10 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		return 0
 
 	case _WM_FLOAT_RESIZE:
+		fb.handleResize()
+		return 0
+
+	case _WM_DPICHANGED:
 		fb.handleResize()
 		return 0
 
@@ -811,17 +832,18 @@ func (fb *FloatingButton) clampToMonitor(x, y int) (int, int) {
 		y = int(work.Bottom) - sz
 	}
 
-	// Edge snapping
-	if x-int(work.Left) < _FLOAT_SNAP_PX {
+	// Edge snapping (scaled for DPI)
+	snap := int(float64(_FLOAT_SNAP_PX) * fb.dpiScale())
+	if x-int(work.Left) < snap {
 		x = int(work.Left)
 	}
-	if int(work.Right)-x-sz < _FLOAT_SNAP_PX {
+	if int(work.Right)-x-sz < snap {
 		x = int(work.Right) - sz
 	}
-	if y-int(work.Top) < _FLOAT_SNAP_PX {
+	if y-int(work.Top) < snap {
 		y = int(work.Top)
 	}
-	if int(work.Bottom)-y-sz < _FLOAT_SNAP_PX {
+	if int(work.Bottom)-y-sz < snap {
 		y = int(work.Bottom) - sz
 	}
 
