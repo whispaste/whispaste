@@ -241,6 +241,8 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 
 	// Long audio: process in sequential chunks and concatenate
 	var parts []string
+	totalChunks := 0
+	failedChunks := 0
 	offset := 0
 	for offset < len(samples) {
 		end := offset + chunkSamples
@@ -248,9 +250,11 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 			end = len(samples)
 		}
 		chunk := samples[offset:end]
+		totalChunks++
 
 		text, err := lr.transcribeChunk(chunk, sampleRate)
 		if err != nil {
+			failedChunks++
 			logWarn("chunk transcription error at offset %d: %v", offset, err)
 		} else if text != "" {
 			parts = append(parts, text)
@@ -260,6 +264,9 @@ func (lr *LocalRecognizer) Transcribe(pcmS16 []byte, sampleRate int, language, m
 			break
 		}
 		offset = end
+	}
+	if totalChunks > 0 && failedChunks*2 > totalChunks {
+		return "", fmt.Errorf("transcription failed: %d of %d chunks failed", failedChunks, totalChunks)
 	}
 	joined := strings.Join(parts, " ")
 	logInfo("Local transcription complete: model=%s duration=%v textLen=%d", modelName, time.Since(transcribeStart), len(joined))
