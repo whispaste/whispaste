@@ -185,6 +185,7 @@ const translations = {
     smartAppActiveNotice: 'App-based detection is active. The preset will be selected automatically based on the focused application.',
     smartViewPromptTitle: 'Preset Prompt',
     smartNoPrompt: 'No prompt defined for this preset.',
+    smartPromptLangNote: 'Note: Your UI language setting is automatically appended to this prompt at runtime.',
 
     // Custom Templates
     cardCustomTemplates: 'Your Templates',
@@ -630,6 +631,7 @@ const translations = {
     smartAppActiveNotice: 'App-basierte Erkennung ist aktiv. Die Vorlage wird automatisch basierend auf der aktiven Anwendung ausgewählt.',
     smartViewPromptTitle: 'Vorlagen-Prompt',
     smartNoPrompt: 'Kein Prompt für diese Vorlage definiert.',
+    smartPromptLangNote: 'Hinweis: Deine UI-Spracheinstellung wird beim Ausführen automatisch an diesen Prompt angehängt.',
 
     // Custom Templates
     cardCustomTemplates: 'Eigene Vorlagen',

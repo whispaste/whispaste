@@ -133,6 +133,11 @@ function applyConfig(cfg) {
   if (cfg.cleanup_max_age_days != null) { const el = document.getElementById('input-cleanup-max-age'); if (el) el.value = cfg.cleanup_max_age_days; }
   updateCleanupDependents();
   { const el = document.getElementById('toggle-trim-silence'); if (el) el.checked = !!cfg.trim_silence; }
+  {
+    const el = document.getElementById('toggle-app-detection');
+    if (el) el.checked = !!cfg.app_detection;
+    updateAppDetectionState();
+  }
 }
 
 /* ── Cleanup toggle dependency ─────────────────────── */
@@ -416,17 +421,22 @@ async function viewPresetPrompt(key) {
     }
   }
   let prompt = _builtinPresetsCache[key] || '';
+  let isCustom = false;
   if (!prompt) {
     try {
       const raw = await window.getCustomTemplates();
       const custom = typeof raw === 'string' ? JSON.parse(raw) : raw;
       prompt = custom[key] || '';
+      if (prompt) isCustom = true;
     } catch (e) {}
   }
   if (!prompt) prompt = t('smartNoPrompt') || 'No prompt defined for this preset.';
+  // Add language note to show what actually gets sent
+  const langNote = t('smartPromptLangNote') || 'Note: Your UI language setting is automatically appended to this prompt at runtime.';
+  const fullMessage = esc(prompt) + '<div class="prompt-lang-note">' + esc(langNote) + '</div>';
   showDialog({
-    title: t('smartViewPromptTitle') || 'Preset Prompt',
-    message: prompt,
+    title: (t('smartViewPromptTitle') || 'Preset Prompt') + (isCustom ? ' — ' + esc(key) : ''),
+    message: fullMessage,
     variant: 'info',
     confirmText: t('ok') || 'OK'
   });
