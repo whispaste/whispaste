@@ -116,3 +116,7 @@ async function finishOnboarding() {
     switchPage('history');
   }
 }
+
+function restartOnboarding() {
+  showOnboarding();
+}
