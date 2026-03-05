@@ -207,23 +207,25 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		fb.dragStartX = rc.Left
 		fb.dragStartY = rc.Top
 		fb.mu.Unlock()
-		// Let DefWindowProc handle the move
+		// DefWindowProc enters a modal move loop and blocks until the
+		// mouse button is released. After it returns we check whether
+		// the window actually moved — if not, treat it as a click.
 		ret, _, _ := procDefWindowProcW.Call(hwnd, msg, wParam, lParam)
-		return ret
-
-	case _WM_NCLBUTTONUP:
-		// After the modal move loop ends, check if the window actually moved.
-		// If it didn't move, treat it as a click → start recording.
-		var rc rectT
-		procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
+		var rc2 rectT
+		procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&rc2)))
 		fb.mu.Lock()
-		wasDrag := rc.Left != fb.dragStartX || rc.Top != fb.dragStartY
+		wasDrag := rc2.Left != fb.dragStartX || rc2.Top != fb.dragStartY
 		cb := fb.onStartRecording
 		fb.mu.Unlock()
 		if !wasDrag && cb != nil {
 			procPostMessageW.Call(hwnd, _WM_FLOAT_HIDE, 0, 0)
 			go cb()
 		}
+		return ret
+
+	case _WM_NCLBUTTONUP:
+		// May still arrive after the modal loop — handle for completeness.
+		// The primary click detection is in NCLBUTTONDOWN above.
 		return 0
 
 	case _WM_NCRBUTTONUP:

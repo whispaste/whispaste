@@ -119,6 +119,7 @@ func main() {
 		stateGen     uint64 // generation counter for auto-hide goroutines
 		levelDone    chan struct{}
 		recordStart  time.Time // wall-clock time when recording started
+		recordSource RecordSource // what triggered the current recording
 		hkMu         sync.Mutex // protects hkMgr
 		tray         *AppTray   // set after creation, used by transition
 		showDashboard func()    // opens main window, set after onSettingsSaved is defined
@@ -187,6 +188,9 @@ func main() {
 				state = StateIdle
 				stateMu.Unlock()
 				NotifyRecordingState(StateIdle)
+				if tray != nil {
+					tray.SetTooltipState(StateIdle)
+				}
 				return
 			}
 			if !useLocal && apiKey == "" {
@@ -201,6 +205,9 @@ func main() {
 				state = StateIdle
 				stateMu.Unlock()
 				NotifyRecordingState(StateIdle)
+				if tray != nil {
+					tray.SetTooltipState(StateIdle)
+				}
 				return
 			}
 			if playSounds {
@@ -228,6 +235,9 @@ func main() {
 				state = StateIdle
 				stateMu.Unlock()
 				NotifyRecordingState(StateIdle)
+				if tray != nil {
+					tray.SetTooltipState(StateIdle)
+				}
 				return
 			}
 			recordStart = time.Now()
@@ -316,6 +326,9 @@ func main() {
 				state = StateIdle
 				stateMu.Unlock()
 				NotifyRecordingState(StateIdle)
+				if tray != nil {
+					tray.SetTooltipState(StateIdle)
+				}
 				return
 			}
 
@@ -334,6 +347,10 @@ func main() {
 			}
 
 			// Transcribe in background (use snapshot values, not cfg directly)
+			// Capture recording source before entering the goroutine.
+			stateMu.Lock()
+			recSrc := recordSource
+			stateMu.Unlock()
 			go func() {
 				defer func() {
 					if r := recover(); r != nil {
@@ -351,6 +368,9 @@ func main() {
 						state = StateIdle
 						stateMu.Unlock()
 						NotifyRecordingState(StateIdle)
+						if tray != nil {
+							tray.SetTooltipState(StateIdle)
+						}
 					}
 				}()
 				durationSec := time.Since(recordStart).Seconds()
@@ -391,6 +411,9 @@ func main() {
 					state = StateIdle
 					stateMu.Unlock()
 					NotifyRecordingState(StateIdle)
+					if tray != nil {
+						tray.SetTooltipState(StateIdle)
+					}
 					return
 				}
 
@@ -479,7 +502,7 @@ func main() {
 					}
 				}
 
-				if autoPaste {
+				if autoPaste && recSrc != SourceAppUI {
 					// PasteText writes to clipboard and simulates Ctrl+V
 					if err := PasteText(text); err != nil {
 						logError("Paste error: %v", err)
@@ -511,6 +534,13 @@ func main() {
 				gen := stateGen
 				stateMu.Unlock()
 				NotifyRecordingState(StateIdle)
+				// Re-show floating button now that we're idle
+				if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
+					floatingBtn.Show()
+				}
+				if tray != nil {
+					tray.SetTooltipState(StateIdle)
+				}
 
 				if overlay != nil {
 					overlay.Show(StateCopied)
@@ -637,11 +667,13 @@ func main() {
 		floatingBtn.SetCallbacks(
 			func() { // onStartRecording: click → start recording
 				stateMu.Lock()
-				s := state
-				stateMu.Unlock()
-				if s == StateIdle {
-					transition(StateRecording)
+				if state != StateIdle {
+					stateMu.Unlock()
+					return
 				}
+				recordSource = SourceFloating
+				stateMu.Unlock()
+				transition(StateRecording)
 			},
 			func() { // onShowSettings: open main window on settings tab
 				stateMu.Lock()
@@ -662,33 +694,41 @@ func main() {
 	onHotkeyDown := func() {
 		logInfo("Hotkey DOWN event received")
 		stateMu.Lock()
-		s := state
+		if state != StateIdle {
+			stateMu.Unlock()
+			return
+		}
 		stateMu.Unlock()
 
-		if s == StateIdle {
-			if !cfg.GetUseLocalSTT() && !cfg.HasAPIKey() {
-				ps, _, _, _, _, _, _, _, _ := snapshotConfig()
-				if ps {
-					PlayFeedback(SoundError)
-				}
-				if overlay != nil {
-					go func() {
-						overlay.Show(StateError)
-						time.Sleep(2 * time.Second)
-						// Only hide if app is still idle (avoid hiding a recording overlay)
-						stateMu.Lock()
-						cur := state
-						stateMu.Unlock()
-						if cur == StateIdle {
-							overlay.Hide()
-						}
-					}()
-				}
-				logInfo("Hotkey pressed but no API key configured")
-				return
+		if !cfg.GetUseLocalSTT() && !cfg.HasAPIKey() {
+			ps, _, _, _, _, _, _, _, _ := snapshotConfig()
+			if ps {
+				PlayFeedback(SoundError)
 			}
-			transition(StateRecording)
+			if overlay != nil {
+				go func() {
+					overlay.Show(StateError)
+					time.Sleep(2 * time.Second)
+					// Only hide if app is still idle (avoid hiding a recording overlay)
+					stateMu.Lock()
+					cur := state
+					stateMu.Unlock()
+					if cur == StateIdle {
+						overlay.Hide()
+					}
+				}()
+			}
+			logInfo("Hotkey pressed but no API key configured")
+			return
 		}
+		stateMu.Lock()
+		if state != StateIdle {
+			stateMu.Unlock()
+			return
+		}
+		recordSource = SourceHotkey
+		stateMu.Unlock()
+		transition(StateRecording)
 	}
 
 	onHotkeyUp := func() {
@@ -759,16 +799,22 @@ func main() {
 	onToggle := func() {
 		stateMu.Lock()
 		s := state
-		stateMu.Unlock()
 		if s == StateIdle {
 			if cfg.GetUseLocalSTT() || cfg.HasAPIKey() {
+				recordSource = SourceAppUI
+				stateMu.Unlock()
 				transition(StateRecording)
+			} else {
+				stateMu.Unlock()
 			}
 		} else if s == StateRecording || s == StatePaused {
+			stateMu.Unlock()
 			if recorder.IsPaused() {
 				recorder.Resume()
 			}
 			transition(StateTranscribing)
+		} else {
+			stateMu.Unlock()
 		}
 	}
 	// onWindowClose handles window close: minimize to tray or quit

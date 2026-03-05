@@ -24,6 +24,15 @@ const (
 	SoundWarning
 )
 
+// RecordSource identifies what triggered the current recording.
+type RecordSource int
+
+const (
+	SourceHotkey   RecordSource = iota // keyboard hotkey
+	SourceFloating                     // floating desktop button
+	SourceAppUI                        // in-app record button
+)
+
 const AppName = "WhisPaste"
 
 // AppVersion is set via -ldflags "-X main.AppVersion=x.y.z" at build time.
