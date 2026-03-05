@@ -17,9 +17,10 @@ const (
 	_FLOAT_SIZE = 56 // diameter in pixels
 
 	// Custom window messages (offset from overlay to avoid collision)
-	_WM_FLOAT_SHOW   = _WM_USER + 20
-	_WM_FLOAT_HIDE   = _WM_USER + 21
+	_WM_FLOAT_SHOW     = _WM_USER + 20
+	_WM_FLOAT_HIDE     = _WM_USER + 21
 	_WM_FLOAT_RERENDER = _WM_USER + 22
+	_WM_FLOAT_RESIZE   = _WM_USER + 23
 
 	// Timer for hover/opacity animation
 	_FLOAT_TIMER_ID = 2
@@ -92,6 +93,11 @@ var (
 	// GDI+ string alignment (used in drawMicIcon)
 	procGdipSetStringFormatAlign     = ovlGdiplus.NewProc("GdipSetStringFormatAlign")
 	procGdipSetStringFormatLineAlign = ovlGdiplus.NewProc("GdipSetStringFormatLineAlign")
+
+	// GDI+ world transform (used for scaling the mic icon)
+	procGdipScaleWorldTransform     = ovlGdiplus.NewProc("GdipScaleWorldTransform")
+	procGdipTranslateWorldTransform = ovlGdiplus.NewProc("GdipTranslateWorldTransform")
+	procGdipResetWorldTransform     = ovlGdiplus.NewProc("GdipResetWorldTransform")
 )
 
 // floatColorPreset defines a gradient color theme for the floating button.
@@ -169,6 +175,7 @@ type FloatingButton struct {
 	targetOpacity byte
 	dragStartX    int32 // window X at start of potential drag
 	dragStartY    int32 // window Y at start of potential drag
+	size          int   // current diameter in pixels (cached from config)
 
 	// Position save debouncing
 	lastMoveSave time.Time
@@ -177,6 +184,17 @@ type FloatingButton struct {
 }
 
 var floatingWndProcCB = syscall.NewCallback(floatingWndProc)
+
+// getSize returns the cached button diameter (thread-safe).
+func (fb *FloatingButton) getSize() int {
+	fb.mu.Lock()
+	s := fb.size
+	fb.mu.Unlock()
+	if s <= 0 {
+		return _FLOAT_SIZE
+	}
+	return s
+}
 
 func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	fb := globalFloating
@@ -347,6 +365,10 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		fb.render()
 		return 0
 
+	case _WM_FLOAT_RESIZE:
+		fb.handleResize()
+		return 0
+
 	case _WM_DESTROY:
 		procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
 		if fb.dibDC != 0 {
@@ -373,6 +395,7 @@ func NewFloatingButton(c *Config) (*FloatingButton, error) {
 		cfg:           c,
 		opacity:       _FLOAT_OPACITY_IDLE,
 		targetOpacity: _FLOAT_OPACITY_IDLE,
+		size:          c.GetFloatingButtonSize(),
 	}
 	globalFloating = fb
 
@@ -443,6 +466,51 @@ func (fb *FloatingButton) UpdateColor() {
 	}
 }
 
+// UpdateSize resizes the floating button to match the current config size.
+// Must be called from any thread — the actual resize happens on the window thread.
+func (fb *FloatingButton) UpdateSize() {
+	if fb.hwnd == 0 {
+		return
+	}
+	newSize := fb.cfg.GetFloatingButtonSize()
+	fb.mu.Lock()
+	changed := fb.size != newSize
+	fb.size = newSize
+	fb.mu.Unlock()
+	if changed {
+		// Post a custom message to rebuild DIB and resize on the window thread
+		procPostMessageW.Call(fb.hwnd, _WM_FLOAT_RESIZE, 0, 0)
+	}
+}
+
+// handleResize recreates the DIB and resizes the window to match the current size.
+// Must run on the window thread (called from wndProc).
+func (fb *FloatingButton) handleResize() {
+	sz := fb.getSize()
+
+	// Destroy old DIB
+	if fb.dibDC != 0 {
+		procDeleteDC.Call(fb.dibDC)
+		fb.dibDC = 0
+	}
+	if fb.dibBmp != 0 {
+		procDeleteObject.Call(fb.dibBmp)
+		fb.dibBmp = 0
+	}
+
+	// Create new DIB at current size
+	fb.createDIB()
+
+	// Resize window in-place
+	var r rectT
+	procGetWindowRect.Call(fb.hwnd, uintptr(unsafe.Pointer(&r)))
+	x, y := int(r.Left), int(r.Top)
+	x, y = fb.clampToMonitor(x, y)
+	procMoveWindow.Call(fb.hwnd, uintptr(x), uintptr(y), uintptr(sz), uintptr(sz), 1)
+
+	fb.render()
+}
+
 // ───────────────────── Window Init ─────────────────────
 
 func (fb *FloatingButton) initWindow() error {
@@ -467,8 +535,9 @@ func (fb *FloatingButton) initWindow() error {
 	// Default position: bottom-right of primary screen
 	screenW, _, _ := procGetSystemMetrics.Call(_SM_CXSCREEN)
 	screenH, _, _ := procGetSystemMetrics.Call(_SM_CYSCREEN)
-	x := int(screenW) - _FLOAT_SIZE - 40
-	y := int(screenH) - _FLOAT_SIZE - 120
+	sz := fb.getSize()
+	x := int(screenW) - sz - 40
+	y := int(screenH) - sz - 120
 
 	// Restore saved position if available
 	savedX, savedY := fb.cfg.GetFloatingButtonPos()
@@ -482,7 +551,7 @@ func (fb *FloatingButton) initWindow() error {
 		uintptr(unsafe.Pointer(className)),
 		0,
 		uintptr(_WS_POPUP),
-		uintptr(x), uintptr(y), _FLOAT_SIZE, _FLOAT_SIZE,
+		uintptr(x), uintptr(y), uintptr(sz), uintptr(sz),
 		0, 0, hInst, 0,
 	)
 	if hwnd == 0 {
@@ -500,10 +569,11 @@ func (fb *FloatingButton) initWindow() error {
 // ───────────────────── DIB + Rendering ─────────────────────
 
 func (fb *FloatingButton) createDIB() {
+	sz := int32(fb.getSize())
 	var bmi bitmapInfoHeader
 	bmi.BiSize = uint32(unsafe.Sizeof(bmi))
-	bmi.BiWidth = _FLOAT_SIZE
-	bmi.BiHeight = -_FLOAT_SIZE // top-down
+	bmi.BiWidth = sz
+	bmi.BiHeight = -sz // top-down
 	bmi.BiPlanes = 1
 	bmi.BiBitCount = 32
 
@@ -526,6 +596,7 @@ func (fb *FloatingButton) render() {
 	if fb.dibDC == 0 {
 		return
 	}
+	sz := fb.getSize()
 
 	var g uintptr
 	procGdipCreateFromHDC.Call(fb.dibDC, uintptr(unsafe.Pointer(&g)))
@@ -554,7 +625,7 @@ func (fb *FloatingButton) render() {
 	var glowBrush uintptr
 	procGdipCreateSolidFill.Call(uintptr(glowColor), uintptr(unsafe.Pointer(&glowBrush)))
 	if glowBrush != 0 {
-		procGdipFillEllipseI.Call(g, glowBrush, 0, 0, _FLOAT_SIZE, _FLOAT_SIZE)
+		procGdipFillEllipseI.Call(g, glowBrush, 0, 0, uintptr(sz), uintptr(sz))
 		procGdipDeleteBrush.Call(glowBrush)
 	}
 
@@ -564,7 +635,7 @@ func (fb *FloatingButton) render() {
 	var shadowBrush uintptr
 	procGdipCreateSolidFill.Call(uintptr(shadowColor), uintptr(unsafe.Pointer(&shadowBrush)))
 	if shadowBrush != 0 {
-		procGdipFillEllipseI.Call(g, shadowBrush, 4, 4, _FLOAT_SIZE-4, _FLOAT_SIZE-4)
+		procGdipFillEllipseI.Call(g, shadowBrush, 4, 4, uintptr(sz-4), uintptr(sz-4))
 		procGdipDeleteBrush.Call(shadowBrush)
 	}
 
@@ -579,7 +650,7 @@ func (fb *FloatingButton) render() {
 	// GdipCreateLineBrushFromRectI uses a rect + LinearGradientMode
 	// For 135° we use ForwardDiagonal (mode=2)
 	type gpRectI struct{ X, Y, W, H int32 }
-	circleRect := gpRectI{2, 2, int32(_FLOAT_SIZE - 4), int32(_FLOAT_SIZE - 4)}
+	circleRect := gpRectI{2, 2, int32(sz - 4), int32(sz - 4)}
 	var gradBrush uintptr
 	procGdipCreateLineBrushFromRectI.Call(
 		uintptr(unsafe.Pointer(&circleRect)),
@@ -590,7 +661,7 @@ func (fb *FloatingButton) render() {
 		uintptr(unsafe.Pointer(&gradBrush)),
 	)
 	if gradBrush != 0 {
-		procGdipFillEllipseI.Call(g, gradBrush, 2, 2, _FLOAT_SIZE-4, _FLOAT_SIZE-4)
+		procGdipFillEllipseI.Call(g, gradBrush, 2, 2, uintptr(sz-4), uintptr(sz-4))
 		procGdipDeleteBrush.Call(gradBrush)
 	}
 
@@ -604,13 +675,13 @@ func (fb *FloatingButton) render() {
 		AlphaFormat:         1, // AC_SRC_ALPHA
 	}
 	ptSrc := pointT{0, 0}
-	sz := sizeT{_FLOAT_SIZE, _FLOAT_SIZE}
+	ulsz := sizeT{int32(sz), int32(sz)}
 
 	procUpdateLayeredWindow.Call(
 		fb.hwnd,
 		0,
 		0, // keep position
-		uintptr(unsafe.Pointer(&sz)),
+		uintptr(unsafe.Pointer(&ulsz)),
 		fb.dibDC,
 		uintptr(unsafe.Pointer(&ptSrc)),
 		0,
@@ -621,7 +692,14 @@ func (fb *FloatingButton) render() {
 
 func (fb *FloatingButton) drawMicIcon(g uintptr, alpha uint32) {
 	// Draw Lucide microphone SVG paths using GDI+ to match the app's FAB icon.
-	// SVG viewBox 24×24 → 24px icon centered in 56px button (offset 16).
+	// Paths are designed for 56px (offset 16, 24px icon). Scale for other sizes.
+	sz := fb.getSize()
+	scale := float32(sz) / 56.0
+
+	// Apply world transform to scale all coordinates uniformly
+	procGdipScaleWorldTransform.Call(g, f32(scale), f32(scale), 0) // MatrixOrderPrepend
+	defer procGdipResetWorldTransform.Call(g)
+
 	penColor := (alpha << 24) | (_FLOAT_CLR_ICON & 0x00FFFFFF)
 	var pen uintptr
 	procGdipCreatePen1.Call(uintptr(penColor), f32(2.0), 2, uintptr(unsafe.Pointer(&pen)))
@@ -696,15 +774,17 @@ func (fb *FloatingButton) restorePosition() {
 		return // use window's current position
 	}
 
+	sz := fb.getSize()
 	// Clamp to nearest monitor work area
 	x, y = fb.clampToMonitor(x, y)
 
-	procMoveWindow.Call(fb.hwnd, uintptr(x), uintptr(y), _FLOAT_SIZE, _FLOAT_SIZE, 1)
+	procMoveWindow.Call(fb.hwnd, uintptr(x), uintptr(y), uintptr(sz), uintptr(sz), 1)
 }
 
 func (fb *FloatingButton) clampToMonitor(x, y int) (int, int) {
+	sz := fb.getSize()
 	// Temporarily move to get the right monitor
-	procMoveWindow.Call(fb.hwnd, uintptr(x), uintptr(y), _FLOAT_SIZE, _FLOAT_SIZE, 0)
+	procMoveWindow.Call(fb.hwnd, uintptr(x), uintptr(y), uintptr(sz), uintptr(sz), 0)
 	hMon, _, _ := procMonitorFromWindow.Call(fb.hwnd, _MONITOR_DEFAULTTONEAREST)
 	if hMon == 0 {
 		return x, y
@@ -724,25 +804,25 @@ func (fb *FloatingButton) clampToMonitor(x, y int) (int, int) {
 	if y < int(work.Top) {
 		y = int(work.Top)
 	}
-	if x+_FLOAT_SIZE > int(work.Right) {
-		x = int(work.Right) - _FLOAT_SIZE
+	if x+sz > int(work.Right) {
+		x = int(work.Right) - sz
 	}
-	if y+_FLOAT_SIZE > int(work.Bottom) {
-		y = int(work.Bottom) - _FLOAT_SIZE
+	if y+sz > int(work.Bottom) {
+		y = int(work.Bottom) - sz
 	}
 
 	// Edge snapping
 	if x-int(work.Left) < _FLOAT_SNAP_PX {
 		x = int(work.Left)
 	}
-	if int(work.Right)-x-_FLOAT_SIZE < _FLOAT_SNAP_PX {
-		x = int(work.Right) - _FLOAT_SIZE
+	if int(work.Right)-x-sz < _FLOAT_SNAP_PX {
+		x = int(work.Right) - sz
 	}
 	if y-int(work.Top) < _FLOAT_SNAP_PX {
 		y = int(work.Top)
 	}
-	if int(work.Bottom)-y-_FLOAT_SIZE < _FLOAT_SNAP_PX {
-		y = int(work.Bottom) - _FLOAT_SIZE
+	if int(work.Bottom)-y-sz < _FLOAT_SNAP_PX {
+		y = int(work.Bottom) - sz
 	}
 
 	return x, y

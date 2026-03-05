@@ -23,6 +23,8 @@ document.addEventListener('change', function(e) {
   if (e.target.id === 'toggle-floating-btn') {
     const row = document.getElementById('fab-color-row');
     if (row) row.style.display = e.target.checked ? '' : 'none';
+    const sizeRow = document.getElementById('fab-size-row');
+    if (sizeRow) sizeRow.style.display = e.target.checked ? '' : 'none';
   }
 });
 
@@ -65,7 +67,8 @@ function gatherConfig() {
     cleanup_include_pinned: document.getElementById('toggle-cleanup-pinned')?.checked || false,
     trim_silence: document.getElementById('toggle-trim-silence')?.checked || false,
     floating_button_enabled: document.getElementById('toggle-floating-btn')?.checked || false,
-    floating_button_color: document.querySelector('.fab-color-option.selected')?.dataset?.color || 'cyan'
+    floating_button_color: document.querySelector('.fab-color-option.selected')?.dataset?.color || 'cyan',
+    floating_button_size: parseInt(document.getElementById('range-fab-size')?.value || '56', 10)
   };
 }
 
@@ -163,6 +166,15 @@ function applyConfig(cfg) {
     });
     const row = document.getElementById('fab-color-row');
     if (row) row.style.display = cfg.floating_button_enabled ? '' : 'none';
+    const sizeRow = document.getElementById('fab-size-row');
+    if (sizeRow) sizeRow.style.display = cfg.floating_button_enabled ? '' : 'none';
+  }
+  {
+    const sz = cfg.floating_button_size || 56;
+    const slider = document.getElementById('range-fab-size');
+    const label = document.getElementById('fab-size-value');
+    if (slider) slider.value = sz;
+    if (label) label.textContent = sz + ' px';
   }
   {
     const el = document.getElementById('toggle-app-detection');
@@ -375,6 +387,12 @@ function updateDurationLabel(val) {
   } else {
     lbl.textContent = Math.round(v / 60) + ' min';
   }
+}
+
+function updateFabSizeLabel(val) {
+  const lbl = document.getElementById('fab-size-value');
+  if (lbl) lbl.textContent = val + ' px';
+  if (typeof autoSave === 'function') autoSave();
 }
 
 /* ── Smart Mode Visibility ────────────────────────────── */

@@ -641,3 +641,27 @@
   height: 100%;
   border-radius: 50%;
 }
+
+.fab-size-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 0 0;
+}
+.fab-size-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.fab-size-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.fab-size-value {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-width: 42px;
+  text-align: right;
+}
