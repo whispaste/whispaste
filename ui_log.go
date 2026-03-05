@@ -29,27 +29,23 @@ func ShowLogViewer() {
 	logDebug("ShowLogViewer: opening log viewer")
 
 	go func() {
-		w := webview.New(true)
-		if w == nil {
-			logWarn("Failed to create log viewer webview")
-			logViewerMu.Lock()
-			logViewerOpen = false
-			logViewerMu.Unlock()
-			return
-		}
-		defer w.Destroy()
-
-		logViewerMu.Lock()
-		logViewerWindow = w
-		logViewerMu.Unlock()
-
 		defer func() {
 			logViewerMu.Lock()
 			logViewerWindow = nil
 			logViewerOpen = false
 			logViewerMu.Unlock()
-			logDebug("ShowLogViewer: closed, state reset")
+			logDebug("ShowLogViewer: goroutine exiting, state reset")
 		}()
+
+		w := webview.New(true)
+		if w == nil {
+			logWarn("Failed to create log viewer webview")
+			return
+		}
+
+		logViewerMu.Lock()
+		logViewerWindow = w
+		logViewerMu.Unlock()
 
 		w.SetTitle("WhisPaste — Log Viewer")
 		w.SetSize(900, 600, webview.HintNone)
@@ -60,7 +56,10 @@ func ShowLogViewer() {
 		})
 
 		w.SetHtml(logViewerHTML())
+		logDebug("ShowLogViewer: entering Run()")
 		w.Run()
+		logDebug("ShowLogViewer: Run() returned, destroying")
+		w.Destroy()
 	}()
 }
 
@@ -238,6 +237,8 @@ func logViewerHTML() string {
     padding: 4px 0;
     scrollbar-width: thin;
     scrollbar-color: var(--border-color) transparent;
+    user-select: text;
+    cursor: text;
   }
 
   .log-line {
@@ -344,7 +345,22 @@ func logViewerHTML() string {
     return html.replace(re, '<mark>$1</mark>');
   }
 
-  function renderLogs() {
+  function hasUserSelection() {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return false;
+    // Check if the selection is inside the log area
+    let node = sel.anchorNode;
+    while (node) {
+      if (node === area) return true;
+      node = node.parentNode;
+    }
+    return false;
+  }
+
+  function renderLogs(force) {
+    // Don't replace DOM while user is selecting text — it destroys the selection
+    if (!force && hasUserSelection()) return;
+
     const search = searchBox.value.toLowerCase();
     const showDbg = filterDbg.checked;
     const showInf = filterInf.checked;
@@ -381,7 +397,7 @@ func logViewerHTML() string {
     try {
       const raw = await window.readLogLines(5000);
       allLines = JSON.parse(raw);
-      renderLogs();
+      renderLogs(true);
       statusText.textContent = allLines.length + ' lines loaded';
     } catch(e) {
       statusText.textContent = 'Error loading logs';
@@ -400,13 +416,13 @@ func logViewerHTML() string {
     }, 2000);
   }
 
-  searchBox.addEventListener('input', renderLogs);
+  searchBox.addEventListener('input', function() { renderLogs(true); });
   [filterDbg, filterInf, filterWrn, filterErr].forEach(cb => {
-    cb.addEventListener('change', renderLogs);
+    cb.addEventListener('change', function() { renderLogs(true); });
   });
   document.getElementById('clearBtn').addEventListener('click', function() {
     allLines = [];
-    renderLogs();
+    renderLogs(true);
   });
 
   loadLogs();
