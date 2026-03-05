@@ -649,12 +649,17 @@
           <h3 class="section-title" data-i18n="smartChoosePreset">Choose a preset</h3>
           <select id="select-smartpreset" style="display:none">
             <option value="cleanup">Cleanup</option>
+            <option value="concise">Concise</option>
             <option value="email">Email</option>
             <option value="bullets">Bullets</option>
             <option value="formal">Formal</option>
             <option value="aiprompt">AI Prompt</option>
             <option value="summary">Summary</option>
             <option value="notes">Notes</option>
+            <option value="meeting">Meeting</option>
+            <option value="social">Social</option>
+            <option value="technical">Technical</option>
+            <option value="casual">Casual</option>
             <option value="translate">Translate</option>
             <option value="custom">Custom</option>
           </select>
@@ -663,6 +668,11 @@
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>
               <span class="preset-label" data-i18n="smartCleanup">Cleanup</span>
               <span class="preset-desc" data-i18n="smartCleanupDesc">Fixes grammar, punctuation, and filler words — keeps your original meaning intact</span>
+            </div>
+            <div class="preset-card" data-preset="concise" onclick="selectSmartPreset('concise')">
+              <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 12H3"/><path d="M21 6H3"/><path d="M15 18H3"/></svg>
+              <span class="preset-label" data-i18n="smartConcise">Concise</span>
+              <span class="preset-desc" data-i18n="smartConciseDesc">Removes verbosity and redundancy while keeping the core message and tone</span>
             </div>
             <div class="preset-card" data-preset="email" onclick="selectSmartPreset('email')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
@@ -693,6 +703,26 @@
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M10 13l-2 2 2 2"/><path d="M14 17l2-2-2-2"/></svg>
               <span class="preset-label" data-i18n="smartNotes">Notes</span>
               <span class="preset-desc" data-i18n="smartNotesDesc">Structures your dictation as organized notes with headings and action items</span>
+            </div>
+            <div class="preset-card" data-preset="meeting" onclick="selectSmartPreset('meeting')">
+              <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span class="preset-label" data-i18n="smartMeeting">Meeting Minutes</span>
+              <span class="preset-desc" data-i18n="smartMeetingDesc">Formats as meeting minutes with topics, decisions, and action items</span>
+            </div>
+            <div class="preset-card" data-preset="social" onclick="selectSmartPreset('social')">
+              <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
+              <span class="preset-label" data-i18n="smartSocial">Social Media</span>
+              <span class="preset-desc" data-i18n="smartSocialDesc">Creates engaging social media posts with emoji and concise phrasing</span>
+            </div>
+            <div class="preset-card" data-preset="technical" onclick="selectSmartPreset('technical')">
+              <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              <span class="preset-label" data-i18n="smartTechnical">Technical Docs</span>
+              <span class="preset-desc" data-i18n="smartTechnicalDesc">Rewrites as precise technical documentation with structure and clarity</span>
+            </div>
+            <div class="preset-card" data-preset="casual" onclick="selectSmartPreset('casual')">
+              <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span class="preset-label" data-i18n="smartCasual">Casual</span>
+              <span class="preset-desc" data-i18n="smartCasualDesc">Converts to a friendly, conversational tone — like a chat message</span>
             </div>
             <div class="preset-card" data-preset="translate" onclick="selectSmartPreset('translate')">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
