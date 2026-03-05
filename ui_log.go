@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+	"syscall"
+
+	"golang.org/x/sys/windows"
 
 	webview "github.com/webview/webview_go"
 )
@@ -14,17 +17,76 @@ import (
 var (
 	logViewerWindow webview.WebView
 	logViewerOpen   bool
+	logViewerHwnd   uintptr
 	logViewerMu     sync.Mutex
+
+	logViewerUser32           = windows.NewLazySystemDLL("user32.dll")
+	logViewerSetWindowLongPtr = logViewerUser32.NewProc("SetWindowLongPtrW")
+	logViewerCallWindowProc   = logViewerUser32.NewProc("CallWindowProcW")
+	logViewerIsWindow         = logViewerUser32.NewProc("IsWindow")
+	logViewerShowWindow       = logViewerUser32.NewProc("ShowWindow")
+	logViewerSetForeground    = logViewerUser32.NewProc("SetForegroundWindow")
+
+	logViewerOrigWndProc uintptr
+	logViewerWndProcCb   = syscall.NewCallback(logViewerWndProc)
 )
+
+const (
+	logViewerWmClose   = 0x0010
+	logViewerSwRestore = 9
+	logViewerGwlpWndProc = ^uintptr(3) // -4
+)
+
+// logViewerWndProc intercepts WM_CLOSE to cleanly terminate the webview message loop.
+// Without this, the auto-refresh setInterval keeps the message loop alive after close.
+func logViewerWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
+	if msg == logViewerWmClose {
+		logDebug("LogViewer: WM_CLOSE intercepted, terminating")
+		logViewerMu.Lock()
+		wv := logViewerWindow
+		logViewerMu.Unlock()
+		if wv != nil {
+			// Stop the JS auto-refresh interval to prevent new binding calls
+			wv.Eval("if(window._stopAutoRefresh)window._stopAutoRefresh()")
+			wv.Terminate()
+		}
+		return 0
+	}
+	ret, _, _ := logViewerCallWindowProc.Call(logViewerOrigWndProc, hwnd, msg, wParam, lParam)
+	return ret
+}
 
 // ShowLogViewer opens (or focuses) the log viewer window.
 func ShowLogViewer() {
 	logViewerMu.Lock()
 	if logViewerOpen {
-		logDebug("ShowLogViewer: already open, skipping")
+		hwnd := logViewerHwnd
 		logViewerMu.Unlock()
-		return
+
+		if hwnd != 0 {
+			r, _, _ := logViewerIsWindow.Call(hwnd)
+			if r != 0 {
+				logDebug("ShowLogViewer: already open, bringing to foreground")
+				logViewerShowWindow.Call(hwnd, logViewerSwRestore)
+				logViewerSetForeground.Call(hwnd)
+				return
+			}
+		}
+		// Window handle is gone but state was never reset (Run() stuck)
+		logDebug("ShowLogViewer: stale state detected, force-resetting")
+		logViewerMu.Lock()
+		if logViewerWindow != nil {
+			logViewerWindow.Terminate()
+		}
+		logViewerWindow = nil
+		logViewerHwnd = 0
+		logViewerOpen = false
+		logViewerMu.Unlock()
+	} else {
+		logViewerMu.Unlock()
 	}
+
+	logViewerMu.Lock()
 	logViewerOpen = true
 	logViewerMu.Unlock()
 	logDebug("ShowLogViewer: opening log viewer")
@@ -36,6 +98,7 @@ func ShowLogViewer() {
 		defer func() {
 			logViewerMu.Lock()
 			logViewerWindow = nil
+			logViewerHwnd = 0
 			logViewerOpen = false
 			logViewerMu.Unlock()
 			logDebug("ShowLogViewer: goroutine exiting, state reset")
@@ -54,6 +117,22 @@ func ShowLogViewer() {
 		w.SetTitle("WhisPaste — Log Viewer")
 		w.SetSize(900, 600, webview.HintNone)
 		w.SetSize(600, 400, webview.HintMin)
+
+		hwnd := uintptr(w.Window())
+		logViewerMu.Lock()
+		logViewerHwnd = hwnd
+		logViewerMu.Unlock()
+
+		setWindowIcon(w.Window())
+
+		// Subclass window to intercept WM_CLOSE for clean shutdown
+		if hwnd != 0 {
+			orig, _, _ := logViewerSetWindowLongPtr.Call(hwnd, logViewerGwlpWndProc, logViewerWndProcCb)
+			if orig != 0 {
+				logViewerOrigWndProc = orig
+				logDebug("ShowLogViewer: window subclassed (hwnd=%x)", hwnd)
+			}
+		}
 
 		w.Bind("readLogLines", func(maxLines int) string {
 			return readLastLogLines(maxLines)
@@ -430,6 +509,21 @@ func logViewerHTML() string {
   });
 
   loadLogs();
+
+  // Expose stop function for Go WM_CLOSE handler
+  window._stopAutoRefresh = function() {
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = null;
+    }
+  };
+
+  window.addEventListener('beforeunload', function() {
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = null;
+    }
+  });
 })();
 </script>
 </body>
