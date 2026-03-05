@@ -103,6 +103,15 @@ func main() {
 		overlay.SetPosition(cfg.GetOverlayPos())
 	}
 
+	// Initialize floating record button (always created, shown only if enabled)
+	var floatingBtn *FloatingButton
+	floatingBtn, err = NewFloatingButton(cfg)
+	if err != nil {
+		logWarn("Floating button init failed: %v", err)
+	} else {
+		logInfo("Floating record button initialized (enabled=%v)", cfg.GetFloatingButtonEnabled())
+	}
+
 	// Application state
 	var (
 		state        = StateIdle
@@ -200,7 +209,10 @@ func main() {
 			if overlay != nil {
 				overlay.Show(StateRecording)
 			}
-			recorder.SetGain(cfg.GetInputGain())
+			// Hide floating button during recording
+			if floatingBtn != nil {
+				floatingBtn.Hide()
+			}
 			if err := recorder.Start(); err != nil {
 				logError("Recording error: %v", err)
 				if playSounds {
@@ -208,6 +220,9 @@ func main() {
 				}
 				if overlay != nil {
 					overlay.Hide()
+				}
+				if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
+					floatingBtn.Show()
 				}
 				stateMu.Lock()
 				state = StateIdle
@@ -294,6 +309,9 @@ func main() {
 				if overlay != nil {
 					overlay.Hide()
 				}
+				if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
+					floatingBtn.Show()
+				}
 				stateMu.Lock()
 				state = StateIdle
 				stateMu.Unlock()
@@ -342,6 +360,9 @@ func main() {
 					}
 					if overlay != nil {
 						overlay.Hide()
+					}
+					if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
+						floatingBtn.Show()
 					}
 					stateMu.Lock()
 					state = StateIdle
@@ -484,6 +505,10 @@ func main() {
 			if overlay != nil {
 				overlay.Hide()
 			}
+			// Show floating button again when returning to idle
+			if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
+				floatingBtn.Show()
+			}
 		}
 	}
 
@@ -529,6 +554,9 @@ func main() {
 				}
 				if overlay != nil {
 					overlay.Hide()
+				}
+				if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
+					floatingBtn.Show()
 				}
 				if ld != nil {
 					close(ld)
@@ -577,6 +605,32 @@ func main() {
 				}
 			},
 		)
+	}
+
+	// Wire floating button callbacks
+	if floatingBtn != nil {
+		floatingBtn.SetCallbacks(
+			func() { // onStartRecording: click → start recording
+				stateMu.Lock()
+				s := state
+				stateMu.Unlock()
+				if s == StateIdle {
+					transition(StateRecording)
+				}
+			},
+			func() { // onShowSettings: open main window on settings tab
+				stateMu.Lock()
+				fn := showDashboard
+				stateMu.Unlock()
+				if fn != nil {
+					go fn()
+				}
+			},
+		)
+		// Show the button initially if enabled
+		if cfg.GetFloatingButtonEnabled() {
+			floatingBtn.Show()
+		}
 	}
 
 	// Hotkey callbacks
@@ -650,6 +704,17 @@ func main() {
 		if overlay != nil {
 			overlay.SetPosition(cfg.GetOverlayPos())
 		}
+		// Live-toggle floating button based on setting
+		if floatingBtn != nil {
+			stateMu.Lock()
+			s := state
+			stateMu.Unlock()
+			if cfg.GetFloatingButtonEnabled() && s == StateIdle {
+				floatingBtn.Show()
+			} else if !cfg.GetFloatingButtonEnabled() {
+				floatingBtn.Hide()
+			}
+		}
 		hkMu.Lock()
 		defer hkMu.Unlock()
 		if hkMgr != nil {
@@ -712,6 +777,9 @@ func main() {
 			CloseLogViewer()
 			if overlay != nil {
 				overlay.Close()
+			}
+			if floatingBtn != nil {
+				floatingBtn.Close()
 			}
 			recorder.Close()
 		},

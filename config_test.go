@@ -180,3 +180,49 @@ func TestConfigPartialJSON(t *testing.T) {
 		t.Errorf("Theme = %q, want system (default)", cfg.Theme)
 	}
 }
+
+func TestConfigFloatingButtonRoundtrip(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.FloatingButtonEnabled = true
+	cfg.FloatingButtonX = 123
+	cfg.FloatingButtonY = 456
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+
+	var decoded Config
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if !decoded.FloatingButtonEnabled {
+		t.Error("FloatingButtonEnabled should be true")
+	}
+	if decoded.FloatingButtonX != 123 {
+		t.Errorf("FloatingButtonX = %d, want 123", decoded.FloatingButtonX)
+	}
+	if decoded.FloatingButtonY != 456 {
+		t.Errorf("FloatingButtonY = %d, want 456", decoded.FloatingButtonY)
+	}
+
+	// Default should be false
+	def := DefaultConfig()
+	if def.FloatingButtonEnabled {
+		t.Error("FloatingButtonEnabled should be false by default")
+	}
+
+	// Thread-safe getters
+	cfg2 := DefaultConfig()
+	cfg2.FloatingButtonEnabled = true
+	cfg2.FloatingButtonX = 100
+	cfg2.FloatingButtonY = 200
+	if !cfg2.GetFloatingButtonEnabled() {
+		t.Error("GetFloatingButtonEnabled() should return true")
+	}
+	x, y := cfg2.GetFloatingButtonPos()
+	if x != 100 || y != 200 {
+		t.Errorf("GetFloatingButtonPos() = (%d, %d), want (100, 200)", x, y)
+	}
+}
