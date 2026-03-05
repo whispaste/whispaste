@@ -42,6 +42,8 @@ jobs:
           $ver = (Select-String 'sherpa-onnx-go-windows (v[^ ]+)' go.sum).Matches[0].Groups[1].Value
           $libDir = "$modCache\github.com\k2-fsa\sherpa-onnx-go-windows@$ver\lib\x86_64-pc-windows-gnu"
           if (!(Test-Path $libDir)) { throw "Library directory not found: $libDir" }
+          # Ensure runtime DLLs are discoverable for go test/go run binaries.
+          $libDir | Out-File -Append $env:GITHUB_PATH
           Get-ChildItem $libDir -File | ForEach-Object { $_.Attributes = 'Normal' }
           # Generate import libraries from shipped .def files using dlltool
           Copy-Item "build\sherpa-onnx\onnxruntime.def" $libDir
