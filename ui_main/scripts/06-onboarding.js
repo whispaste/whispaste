@@ -197,9 +197,11 @@ async function finishOnboarding() {
     if (cfg) {
       if (_onboardingChoice === 'local') {
         cfg.use_local_stt = true;
+        cfg.active_model_local = true;
         cfg.local_model_id = _onbModelId;
       } else if (_onboardingChoice === 'api') {
         cfg.use_local_stt = false;
+        cfg.active_model_local = false;
         const keyInput = document.getElementById('onb-apikey');
         if (keyInput && keyInput.value.trim()) {
           cfg.api_key = keyInput.value.trim();

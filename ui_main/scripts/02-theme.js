@@ -84,7 +84,7 @@ async function toggleLang() {
   if (typeof renderHistory === 'function') renderHistory();
   // Update mode badge text for new language
   if (typeof updateModeBadge === 'function') {
-    const isLocal = document.getElementById('toggle-localstt')?.checked;
-    updateModeBadge({ use_local_stt: !!isLocal });
+    const isLocal = window._activeModelLocal;
+    updateModeBadge({ active_model_local: !!isLocal });
   }
 }

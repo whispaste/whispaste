@@ -22,7 +22,7 @@ async function showModelSwitcher(anchor) {
     cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
   } catch(e) {}
 
-  const isLocal = cfg.use_local_stt;
+  const isLocal = cfg.active_model_local;
   const currentModel = isLocal ? (cfg.local_model_id || 'whisper-tiny') : (cfg.model || 'whisper-1');
 
   // Show all models — selecting a local one will enable UseLocalSTT via switchModel binding
@@ -49,6 +49,7 @@ async function showModelSwitcher(anchor) {
             await window.switchModel(modelId, wantLocal);
             const raw = await window.getConfig();
             const newCfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            window._activeModelLocal = !!newCfg.active_model_local;
             updateModeBadge(newCfg);
             updateStatusBar(newCfg);
             showToast(t('modelSwitcher.switched'), false);

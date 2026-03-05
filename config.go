@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -39,6 +40,7 @@ type Config struct {
 	NotifyComplete   bool  `json:"notify_complete"`
 	NotifyDonate     bool  `json:"notify_donate"`
 	UseLocalSTT            bool   `json:"use_local_stt"`
+	ActiveModelLocal       bool   `json:"active_model_local"`
 	LocalModelID           string `json:"local_model_id"`
 	TranscriptionLanguage  string `json:"transcription_language"`
 	InputDevice     string  `json:"input_device,omitempty"`
@@ -77,9 +79,10 @@ type TextReplacement struct {
 
 // ConfigProfile stores a named set of transcription & smart mode settings.
 type ConfigProfile struct {
-	UseLocalSTT     bool   `json:"use_local_stt"`
-	LocalModelID    string `json:"local_model_id,omitempty"`
-	Model           string `json:"model,omitempty"`
+	UseLocalSTT      bool   `json:"use_local_stt"`
+	ActiveModelLocal bool   `json:"active_model_local"`
+	LocalModelID     string `json:"local_model_id,omitempty"`
+	Model            string `json:"model,omitempty"`
 	SmartMode       bool   `json:"smart_mode"`
 	SmartModePreset string `json:"smart_mode_preset,omitempty"`
 	SmartModePrompt string `json:"smart_mode_prompt,omitempty"`
@@ -149,6 +152,11 @@ func LoadConfig() (*Config, error) {
 	cfg := DefaultConfig()
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return DefaultConfig(), fmt.Errorf("invalid config: %w", err)
+	}
+	// Backward compat: old configs lack active_model_local field entirely.
+	// If absent and local STT was enabled, the user was actively using local models.
+	if !bytes.Contains(data, []byte(`"active_model_local"`)) && cfg.UseLocalSTT {
+		cfg.ActiveModelLocal = true
 	}
 	return cfg, nil
 }
@@ -347,6 +355,13 @@ func (c *Config) GetUseLocalSTT() bool {
 	return c.UseLocalSTT
 }
 
+// GetActiveModelLocal returns whether the currently selected model is local (thread-safe).
+func (c *Config) GetActiveModelLocal() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.ActiveModelLocal
+}
+
 // GetLocalModelID returns the local model ID (thread-safe).
 func (c *Config) GetLocalModelID() string {
 	c.mu.RLock()
@@ -478,6 +493,7 @@ func (c *Config) SaveProfile(name string) {
 	}
 	c.Profiles[name] = ConfigProfile{
 		UseLocalSTT:           c.UseLocalSTT,
+		ActiveModelLocal:      c.ActiveModelLocal,
 		LocalModelID:          c.LocalModelID,
 		Model:                 c.Model,
 		SmartMode:             c.SmartMode,
@@ -499,6 +515,7 @@ func (c *Config) LoadProfile(name string) bool {
 		return false
 	}
 	c.UseLocalSTT = p.UseLocalSTT
+	c.ActiveModelLocal = p.ActiveModelLocal
 	c.LocalModelID = p.LocalModelID
 	c.Model = p.Model
 	c.SmartMode = p.SmartMode
