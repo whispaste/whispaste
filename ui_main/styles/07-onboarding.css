@@ -174,11 +174,12 @@
 }
 .onboarding-apikey-field {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
+  align-items: center;
 }
 .onboarding-apikey-field input {
-  width: 100%;
+  flex: 1;
   padding: 10px 14px;
   font-size: 13px;
   font-family: 'Cascadia Code', 'Consolas', monospace;
@@ -193,7 +194,28 @@
 .onboarding-apikey-field input:focus {
   border-color: var(--accent);
 }
-.onboarding-apikey-field small {
+.onb-test-key-btn {
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.onb-test-key-btn:hover { background: var(--bg-hover); border-color: var(--accent); }
+.onb-test-key-btn:disabled { opacity: 0.5; cursor: wait; }
+.onb-api-feedback {
+  font-size: 12px;
+  min-height: 18px;
+  text-align: center;
+}
+.onb-api-feedback.success { color: var(--success, #34D399); }
+.onb-api-feedback.error { color: var(--error, #FF3C3C); }
+.onboarding-apikey-section small {
   font-size: 11px;
   color: var(--text-tertiary);
   text-align: center;

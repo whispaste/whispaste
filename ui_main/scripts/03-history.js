@@ -168,25 +168,32 @@ function changeSort(val) {
 }
 
 function initSortDropdown() {
-  const dropdown = document.getElementById('sortDropdown');
   const trigger = document.getElementById('sortTrigger');
   const label = document.getElementById('sortLabel');
-  if (!dropdown || !trigger) return;
+  if (!trigger) return;
 
-  trigger.addEventListener('click', () => dropdown.classList.toggle('open'));
+  trigger.addEventListener('click', () => {
+    const sortOptions = [
+      { value: 'newest', i18n: 'notebook.sort_newest' },
+      { value: 'oldest', i18n: 'notebook.sort_oldest' },
+      { value: 'alpha',  i18n: 'notebook.sort_alpha' },
+      { value: 'duration', i18n: 'notebook.sort_duration' },
+    ];
 
-  dropdown.querySelectorAll('.sort-option').forEach(opt => {
-    opt.addEventListener('click', () => {
-      dropdown.querySelectorAll('.sort-option').forEach(o => o.classList.remove('active'));
-      opt.classList.add('active');
-      if (label) label.textContent = opt.textContent;
-      dropdown.classList.remove('open');
-      changeSort(opt.dataset.sort);
-    });
-  });
+    const items = [];
+    for (const opt of sortOptions) {
+      items.push({
+        label: t(opt.i18n),
+        checked: _currentSort === opt.value,
+        action: () => {
+          _currentSort = opt.value;
+          if (label) label.textContent = t(opt.i18n);
+          renderHistory();
+        },
+      });
+    }
 
-  document.addEventListener('click', (ev) => {
-    if (!dropdown.contains(ev.target)) dropdown.classList.remove('open');
+    showPopover(trigger, { items });
   });
 }
 
