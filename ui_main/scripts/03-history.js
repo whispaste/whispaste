@@ -477,6 +477,8 @@ function _renderEntryCard(e) {
           <button class="btn-icon copy" title="${t('notebook.copy')}" data-action="copy" data-id="${e.id}">${icons.copy}</button>
           <button class="btn-icon" title="${t('notebook.export')}" data-action="export" data-id="${e.id}">${icons.download}</button>
           <button class="btn-icon" title="${t('notebook.duplicate')}" data-action="duplicate" data-id="${e.id}">${icons.filePlus}</button>
+          <button class="btn-icon audio-play" title="${t('notebook.play_audio')}" data-action="play-audio" data-id="${e.id}" style="display:none">${icons.play}</button>
+          <button class="btn-icon audio-retranscribe" title="${t('notebook.retranscribe')}" data-action="retranscribe" data-id="${e.id}" style="display:none">${icons.refreshCw}</button>
           <button class="btn-icon pin${e.pinned ? ' active' : ''}" title="${e.pinned ? t('notebook.unpin') : t('notebook.pin')}" data-action="pin" data-id="${e.id}">${icons.pin}</button>
           <button class="btn-icon delete" title="${t('notebook.delete')}" data-action="delete" data-id="${e.id}">${icons.trash}</button>
           <button class="btn-icon" title="${t('smart.action')}" data-action="smart" data-id="${e.id}">${icons.sparkle}</button>
@@ -603,6 +605,8 @@ function renderHistory() {
       else if (action === 'smart') showSmartActionMenu(id, btn);
       else if (action === 'save-text') saveEditText(id);
       else if (action === 'cancel-text') cancelEditText(id);
+      else if (action === 'play-audio') doPlayAudio(id);
+      else if (action === 'retranscribe') doReTranscribe(id, btn);
     });
   });
 
@@ -646,6 +650,29 @@ function renderHistory() {
       _showInlineTagPopover(ev.clientX, ev.clientY, btn.dataset.id);
     });
   });
+
+  // Async: check which entries have cached audio and show play/retranscribe buttons
+  _updateAudioButtons(list);
+}
+
+async function _updateAudioButtons(container) {
+  if (!window.hasAudio) return;
+  const playBtns = container.querySelectorAll('[data-action="play-audio"]');
+  const retransBtns = container.querySelectorAll('[data-action="retranscribe"]');
+  for (const btn of playBtns) {
+    const id = btn.dataset.id;
+    try {
+      const has = await window.hasAudio(id);
+      if (has) btn.style.display = '';
+    } catch (e) {}
+  }
+  for (const btn of retransBtns) {
+    const id = btn.dataset.id;
+    try {
+      const has = await window.hasAudio(id);
+      if (has) btn.style.display = '';
+    } catch (e) {}
+  }
 }
 
 async function doCopy(id) {
@@ -668,6 +695,50 @@ async function doPin(id) {
     if (window.pinEntry) await window.pinEntry(id);
     await loadEntries();
   } catch (e) {}
+}
+
+// Audio playback state
+let _currentAudio = null;
+
+async function doPlayAudio(id) {
+  // Stop any currently playing audio
+  if (_currentAudio) {
+    _currentAudio.pause();
+    _currentAudio = null;
+  }
+  try {
+    const dataUrl = await window.getAudioBase64(id);
+    if (!dataUrl) {
+      showToast(t('notebook.no_audio'), true);
+      return;
+    }
+    _currentAudio = new Audio(dataUrl);
+    _currentAudio.play();
+    _currentAudio.onended = () => { _currentAudio = null; };
+  } catch (e) {
+    showToast(t('notebook.no_audio'), true);
+  }
+}
+
+async function doReTranscribe(id, btn) {
+  if (!window.reTranscribe) return;
+  const origHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="icon spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+  try {
+    const result = await window.reTranscribe(id);
+    if (result && result.ok) {
+      showToast(t('notebook.retranscribed'), false);
+      await loadEntries();
+    } else {
+      showToast(result?.error || t('notebook.no_audio'), true);
+    }
+  } catch (e) {
+    showToast(t('notebook.no_audio'), true);
+  } finally {
+    btn.innerHTML = origHTML;
+    btn.disabled = false;
+  }
 }
 
 async function mergeSelected() {
