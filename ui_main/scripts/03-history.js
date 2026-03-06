@@ -306,11 +306,14 @@ function updateCounts() {
       if (systemEntries.length > 0) {
         tagListHTML += `<div class="filter-section-title" style="padding-top:4px">${t('notebook.system_tags')}</div>`;
         tagListHTML += systemEntries.map(([name, count]) => {
-          const label = name === 'merged' ? t('catMerged') : name === 'duplicated' ? t('catDuplicated') : name;
+          const label = systemTagLabel(name);
           const c = getTagColor(name);
+          const sidebarIcon = name === 'pending'
+            ? `<svg class="icon tag-icon-clr" viewBox="0 0 24 24" fill="none" stroke="${c.text}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`
+            : `<svg class="icon tag-icon-clr" viewBox="0 0 24 24" fill="none" stroke="${c.text}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
           return `
           <div class="filter-item tag-sidebar-item${_activeFilters.tags.includes(name) ? ' active' : ''} system-tag-item" data-filter="cat:${esc(name)}" data-tag="${esc(name)}">
-            <svg class="icon tag-icon-clr" viewBox="0 0 24 24" fill="none" stroke="${c.text}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            ${sidebarIcon}
             <span class="filter-label" title="${esc(label)}">${esc(label)}</span>
             <span class="filter-count">${count}</span>
           </div>
@@ -458,8 +461,9 @@ function _selectAutocompleteHighlight(input) {
 }
 
 function _renderEntryCard(e) {
+  const isPending = (e.tags || []).includes('pending');
   return `
-    <div class="entry${e.pinned ? ' pinned' : ''}${_expandedId === e.id ? ' expanded' : ''}${_selectedIds.has(e.id) ? ' selected' : ''}" data-id="${e.id}">
+    <div class="entry${e.pinned ? ' pinned' : ''}${isPending ? ' pending' : ''}${_expandedId === e.id ? ' expanded' : ''}${_selectedIds.has(e.id) ? ' selected' : ''}" data-id="${e.id}">
       <div class="entry-header">
         <div class="entry-checkbox${_selectedIds.has(e.id) ? ' checked' : ''}" data-select-id="${e.id}"></div>
         <div style="flex:1;min-width:0">
@@ -484,9 +488,9 @@ function _renderEntryCard(e) {
           <button class="btn-icon" title="${t('smart.action')}" data-action="smart" data-id="${e.id}">${icons.sparkle}</button>
         </div>
       </div>
-      <div class="entry-preview">${highlightSearch(e.text, _searchQuery)}</div>
+      <div class="entry-preview">${isPending && !e.text ? '<span class="pending-hint">' + icons.refreshCw + ' ' + t('pending_transcription') + '</span>' : highlightSearch(e.text, _searchQuery)}</div>
       <div class="entry-tags-row">
-        ${(e.tags || []).map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = tag === 'merged' ? t('catMerged') : tag === 'duplicated' ? t('catDuplicated') : tag; return '<span class="tag' + (sys ? ' system-tag' : '') + '" data-tag="' + esc(tag) + '" style="background:'+c.bg+';color:'+c.text+';border-color:'+c.border+'">' + (sys ? '<svg class="icon" style="width:10px;height:10px;vertical-align:-1px;margin-right:2px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '') + esc(lbl) + '</span>'; }).join('')}
+        ${(e.tags || []).map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = systemTagLabel(tag); return '<span class="tag' + (sys ? ' system-tag' : '') + '" data-tag="' + esc(tag) + '" style="background:'+c.bg+';color:'+c.text+';border-color:'+c.border+'">' + (sys ? systemTagIcon(tag) : '') + esc(lbl) + '</span>'; }).join('')}
         <span class="tag-add-inline" title="${t('notebook.add_tag')}" data-id="${e.id}">+</span>
       </div>
       <div class="entry-full">
@@ -496,9 +500,9 @@ function _renderEntryCard(e) {
         </div>
         <div class="entry-tags-section">
           <div class="tag-chips-container">
-            ${(e.tags || []).map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = tag === 'merged' ? t('catMerged') : tag === 'duplicated' ? t('catDuplicated') : tag; return `
+            ${(e.tags || []).map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = systemTagLabel(tag); return `
               <span class="tag-chip${sys ? ' system-tag' : ''}" style="background:${c.bg};color:${c.text};border-color:${c.border}">
-                ${sys ? '<svg class="icon" style="width:10px;height:10px;vertical-align:-1px;margin-right:2px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : ''}${esc(lbl)}
+                ${sys ? systemTagIcon(tag) : ''}${esc(lbl)}
                 ${sys ? '' : '<span class="tag-chip-remove" data-remove-tag="' + esc(tag) + '" data-id="' + e.id + '">&times;</span>'}
               </span>
             `; }).join('')}

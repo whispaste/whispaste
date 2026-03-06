@@ -112,6 +112,36 @@ func (h *History) AddWithModel(text string, durationSec float64, processingDurat
 	return entry.ID
 }
 
+// AddPendingEntry creates a history entry for audio that hasn't been
+// transcribed yet (cancelled or failed). Tagged with system tag "pending".
+// Returns the entry ID for audio caching.
+func (h *History) AddPendingEntry(durationSec float64, language, model string, isLocal bool, reason string) string {
+	title := "⏳ " + reason
+	entry := HistoryEntry{
+		ID:        generateID(),
+		Text:      "",
+		Title:     title,
+		Timestamp: time.Now().Format(time.RFC3339),
+		Duration:  durationSec,
+		Language:  language,
+		Source:    "dictation",
+		Model:     model,
+		IsLocal:   isLocal,
+		Tags:      []string{"pending"},
+	}
+
+	h.mu.Lock()
+	h.cache = nil
+	h.mu.Unlock()
+
+	if h.db == nil {
+		return entry.ID
+	}
+	h.insertEntry(entry)
+	h.pruneToLimit(defaultMaxHistory)
+	return entry.ID
+}
+
 // insertEntry inserts a single entry into the database.
 func (h *History) insertEntry(e HistoryEntry) {
 	pinned := 0
@@ -294,6 +324,50 @@ func (h *History) UpdateText(id, newText string) bool {
 	res, err := execWithFTSRepair(h.db, "UPDATE history_entries SET text = ?, title = ? WHERE id = ?", newText, newTitle, id)
 	if err != nil {
 		logError("Update text: %v", err)
+		return false
+	}
+	n, _ := res.RowsAffected()
+	return n > 0
+}
+
+// CompletePendingEntry updates a pending entry with transcription text,
+// auto-generated title, processing duration, cost, and removes the "pending" tag.
+func (h *History) CompletePendingEntry(id, text string, processingDurationSec float64, model string, isLocal bool) bool {
+	if h.db == nil {
+		return false
+	}
+	h.mu.Lock()
+	h.cache = nil
+	h.mu.Unlock()
+
+	title := autoTitle(text)
+	var cost float64
+	// look up duration for cost calc
+	var durationSec float64
+	var tagsJSON string
+	err := h.db.QueryRow("SELECT duration_sec, tags FROM history_entries WHERE id = ?", id).Scan(&durationSec, &tagsJSON)
+	if err != nil {
+		logError("CompletePendingEntry lookup: %v", err)
+		return false
+	}
+	if !isLocal && durationSec > 0 {
+		cost = (durationSec / 60.0) * WhisperCostPerMinute
+	}
+	// remove "pending" tag
+	tags := unmarshalTags(tagsJSON)
+	filtered := make([]string, 0, len(tags))
+	for _, t := range tags {
+		if t != "pending" {
+			filtered = append(filtered, t)
+		}
+	}
+	res, err := execWithFTSRepair(h.db,
+		`UPDATE history_entries SET text = ?, title = ?, processing_duration_sec = ?,
+		 model = ?, is_local = ?, cost_usd = ?, tags = ? WHERE id = ?`,
+		text, title, processingDurationSec, model, boolToInt(isLocal), cost,
+		marshalTags(filtered), id)
+	if err != nil {
+		logError("CompletePendingEntry update: %v", err)
 		return false
 	}
 	n, _ := res.RowsAffected()
