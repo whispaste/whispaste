@@ -102,6 +102,9 @@
   padding: 12px 10px 6px;
 }
 
+.sidebar-add-tag-header { background: none; border: none; cursor: pointer; transition: opacity var(--transition-fast); }
+.sidebar-add-tag-header:hover { opacity: 1 !important; }
+
 .filter-items {
   display: flex;
   flex-direction: column;
@@ -255,7 +258,7 @@
   line-height: 1.4;
   background: var(--accent-subtle);
   color: var(--accent);
-  border-radius: 3px;
+  border-radius: var(--radius-full);
   font-weight: var(--weight-medium);
   border: 1px solid var(--border-accent);
 }
@@ -289,6 +292,23 @@
   border-color: var(--border-accent);
 }
 
+/* Tag remove button (visible when entry expanded) */
+.tag-remove {
+  display: none;
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 13px;
+  line-height: 1;
+  margin-left: 2px;
+}
+.entry.expanded .tag-remove { display: inline; }
+.tag-remove:hover { opacity: 1; color: var(--danger); }
+
+/* Tag input (expanded mode only) */
+.tag-input-expanded { display: none; }
+.entry.expanded .tag-input-expanded { display: flex; align-items: center; gap: 4px; }
+.entry.expanded .tag-add-inline { display: none; }
+
 /* ── Sidebar "Add Tag" Button ─────────────────────────── */
 .sidebar-add-tag {
   display: flex;
@@ -319,9 +339,26 @@
 .tag-sidebar-item[draggable="true"] { cursor: grab; }
 .tag-sidebar-item[draggable="true"]:active { cursor: grabbing; }
 .tag-sidebar-item.dragging { opacity: 0.4; }
-.tag-sidebar-item.drag-over {
+.tag-sidebar-item.drag-over-top {
+  border-top: 2px solid var(--accent);
+  border-radius: 0;
+  margin-top: -1px;
+}
+.tag-sidebar-item.drag-over-bottom {
   border-bottom: 2px solid var(--accent);
   border-radius: 0;
+  margin-bottom: -1px;
+}
+
+/* ── Entry-to-Tag Drop Target ─────────────────────────── */
+.tag-sidebar-item.tag-drop-target {
+  background: var(--accent-subtle);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+.entry.dragging {
+  opacity: 0.5;
 }
 
 .entry-actions {
