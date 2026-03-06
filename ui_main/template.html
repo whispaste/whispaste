@@ -147,7 +147,12 @@
             </div>
           </div>
           <div id="categoriesSection" style="display:none">
-            <div class="filter-section-title" data-i18n="notebook.tags">Tags</div>
+            <div class="filter-section-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span data-i18n="notebook.tags">Tags</span>
+              <button class="btn-icon sidebar-add-tag-header" id="sidebarAddTagHeader" title="Add tag" style="width:16px;height:16px;padding:0;opacity:0.5">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              </button>
+            </div>
             <div id="categoryList" class="filter-items nav-tags"></div>
           </div>
           <div id="clearFiltersBar" class="clear-filters-bar" style="display:none">
