@@ -703,24 +703,61 @@ async function doPin(id) {
 
 // Audio playback state
 let _currentAudio = null;
+let _playingId = null;
 
 async function doPlayAudio(id) {
-  // Stop any currently playing audio
+  const btn = document.querySelector(`[data-action="play-audio"][data-id="${id}"]`);
+
+  // If this entry is already playing → stop it
+  if (_currentAudio && _playingId === id) {
+    _currentAudio.pause();
+    _currentAudio = null;
+    _resetPlayButton(_playingId);
+    _playingId = null;
+    return;
+  }
+
+  // Stop any other entry that's playing
   if (_currentAudio) {
     _currentAudio.pause();
     _currentAudio = null;
+    _resetPlayButton(_playingId);
+    _playingId = null;
   }
+
   try {
     const dataUrl = await window.getAudioBase64(id);
-    if (!dataUrl) {
-      showToast(t('notebook.no_audio'), true);
-      return;
-    }
+    if (!dataUrl) { showToast(t('notebook.no_audio'), true); return; }
     _currentAudio = new Audio(dataUrl);
+    _playingId = id;
+
+    // Update button to stop icon
+    if (btn) {
+      btn.innerHTML = icons.stop;
+      btn.title = t('notebook.stop_audio');
+      btn.classList.add('playing');
+    }
+
     _currentAudio.play();
-    _currentAudio.onended = () => { _currentAudio = null; };
+    _currentAudio.onended = () => {
+      _currentAudio = null;
+      _resetPlayButton(_playingId);
+      _playingId = null;
+    };
   } catch (e) {
     showToast(t('notebook.no_audio'), true);
+    _resetPlayButton(id);
+    _playingId = null;
+  }
+}
+
+function _resetPlayButton(id) {
+  if (!id) return;
+  const btn = document.querySelector(`[data-action="play-audio"][data-id="${id}"]`);
+  if (btn) {
+    btn.innerHTML = icons.play;
+    btn.title = t('notebook.play_audio');
+    btn.classList.remove('playing');
   }
 }
 
