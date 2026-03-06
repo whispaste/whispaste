@@ -157,6 +157,21 @@ async function onbStartDownload() {
   }
 }
 
+function onbUpdateKeyPreview() {
+  const input = document.getElementById('onb-apikey');
+  const preview = document.getElementById('onbKeyPreview');
+  if (!preview) return;
+  const val = input ? input.value : '';
+  // Only show masked preview when key is long enough to hide a meaningful middle
+  if (val.length < 16) {
+    preview.textContent = val.length > 0 ? `(${val.length} chars)` : '';
+    return;
+  }
+  const head = val.slice(0, 7);
+  const tail = val.slice(-4);
+  preview.textContent = head + '••••••' + tail;
+}
+
 async function onbTestApiKey() {
   const keyInput = document.getElementById('onb-apikey');
   const testBtn = document.getElementById('onbTestKeyBtn');
