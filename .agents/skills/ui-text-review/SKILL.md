@@ -42,6 +42,7 @@ well-crafted tool for a tech-savvy audience.
 
 - **"Sie/Ihnen/Ihr/Ihre/Ihrem/Ihres"** for addressing the user
   (exception: pronoun referring to a noun, e.g. "Die Taste… sie wird…" is fine)
+  (exception: `impressum.astro` — legal pages may use formal/neutral German as legally required)
 - **Bureaucratic filler**: "hiermit", "diesbezüglich", "zwecks", "gemäß",
   "bezüglich", "hinsichtlich", "dahingehend"
 - **Passive voice** when active is clearer
@@ -81,7 +82,10 @@ well-crafted tool for a tech-savvy audience.
 | `ui_main/scripts/01-translations.js` | Main UI translations EN + DE |
 | `ui_main/template.html` | Hardcoded text in HTML |
 | `ui_main/scripts/*.js` | Hardcoded strings, toast messages |
-| `website/src/**/*.astro` | Landing page text (both languages) |
+| `website/src/scripts/i18n.ts` | Landing page translations EN + DE |
+| `website/src/**/*.astro` | Landing page components — hardcoded text, feature descriptions |
+| `website/src/pages/impressum.astro` | Legal page — **exempt from du-form** (legal requirement) |
+| `website/src/pages/datenschutz.astro` | Privacy policy — du-form applies (modern style) |
 
 ---
 
