@@ -8,6 +8,10 @@ const SMART_PRESETS = [
     { id: 'bullets' },
     { id: 'summary' },
     { id: 'notes' },
+    { id: 'meeting' },
+    { id: 'social' },
+    { id: 'technical' },
+    { id: 'casual' },
     { id: 'translate' },
     { id: 'custom' },
 ];

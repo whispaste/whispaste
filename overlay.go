@@ -503,7 +503,7 @@ case _WM_NCHITTEST:
 	o.mu.Lock()
 	st := o.state
 	o.mu.Unlock()
-	if st == StateRecording || st == StatePaused {
+	if st == StateRecording || st == StatePaused || st == StateTranscribing || st == StateProcessing {
 		xScreen := int32(lParam & 0xFFFF)
 		yScreen := int32((lParam >> 16) & 0xFFFF)
 		var pt pointT
@@ -521,13 +521,15 @@ case _WM_NCHITTEST:
 			pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
 			return 1 // HTCLIENT
 		}
-		if pt.X >= _BTN_CONFIRM_X && pt.X <= _BTN_CONFIRM_X+_BTN_SIZE &&
-			pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
-			return 1 // HTCLIENT
-		}
-		if pt.X >= _BTN_PAUSE_X && pt.X <= _BTN_PAUSE_X+_BTN_SIZE &&
-			pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
-			return 1 // HTCLIENT
+		if st == StateRecording || st == StatePaused {
+			if pt.X >= _BTN_CONFIRM_X && pt.X <= _BTN_CONFIRM_X+_BTN_SIZE &&
+				pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
+				return 1 // HTCLIENT
+			}
+			if pt.X >= _BTN_PAUSE_X && pt.X <= _BTN_PAUSE_X+_BTN_SIZE &&
+				pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
+				return 1 // HTCLIENT
+			}
 		}
 	}
 	return _HTCAPTION
@@ -536,18 +538,20 @@ case 0x0200: // WM_MOUSEMOVE
 	o.mu.Lock()
 	st := o.state
 	o.mu.Unlock()
-	if st == StateRecording || st == StatePaused {
+	if st == StateRecording || st == StatePaused || st == StateTranscribing || st == StateProcessing {
 		x := int32(float64(lParam&0xFFFF) / o.scale)
 		y := int32(float64((lParam>>16)&0xFFFF) / o.scale)
 		btn := 0
-		if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-			btn = 1
-		} else if x >= _BTN_CANCEL_X && x <= _BTN_CANCEL_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+		if x >= _BTN_CANCEL_X && x <= _BTN_CANCEL_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
 			btn = 2
-		} else if x >= _BTN_PAUSE_X && x <= _BTN_PAUSE_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-			btn = 3
-		} else if x >= _BTN_CONFIRM_X && x <= _BTN_CONFIRM_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-			btn = 4
+		} else if st == StateRecording || st == StatePaused {
+			if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+				btn = 1
+			} else if x >= _BTN_PAUSE_X && x <= _BTN_PAUSE_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+				btn = 3
+			} else if x >= _BTN_CONFIRM_X && x <= _BTN_CONFIRM_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+				btn = 4
+			}
 		}
 		o.mu.Lock()
 		if !o.tracking {
@@ -601,19 +605,10 @@ case 0x0201: // WM_LBUTTONDOWN
 	pauseCB := o.onPause
 	dashCB := o.onDash
 	o.mu.Unlock()
-	if st == StateRecording || st == StatePaused {
+	if st == StateRecording || st == StatePaused || st == StateTranscribing || st == StateProcessing {
 		x := int32(float64(lParam&0xFFFF) / o.scale)
 		y := int32(float64((lParam>>16)&0xFFFF) / o.scale)
-		if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE &&
-			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-			o.mu.Lock()
-			o.pressBtn = 1
-			o.mu.Unlock()
-			if dashCB != nil {
-				go dashCB()
-			}
-			return 0
-		}
+		// Cancel button — available in all interactive states
 		if x >= _BTN_CANCEL_X && x <= _BTN_CANCEL_X+_BTN_SIZE &&
 			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
 			o.mu.Lock()
@@ -624,25 +619,38 @@ case 0x0201: // WM_LBUTTONDOWN
 			}
 			return 0
 		}
-		if x >= _BTN_CONFIRM_X && x <= _BTN_CONFIRM_X+_BTN_SIZE &&
-			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-			o.mu.Lock()
-			o.pressBtn = 4
-			o.mu.Unlock()
-			if confirmCB != nil {
-				go confirmCB()
+		// Other buttons only during recording/paused
+		if st == StateRecording || st == StatePaused {
+			if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE &&
+				y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+				o.mu.Lock()
+				o.pressBtn = 1
+				o.mu.Unlock()
+				if dashCB != nil {
+					go dashCB()
+				}
+				return 0
 			}
-			return 0
-		}
-		if x >= _BTN_PAUSE_X && x <= _BTN_PAUSE_X+_BTN_SIZE &&
-			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-			o.mu.Lock()
-			o.pressBtn = 3
-			o.mu.Unlock()
-			if pauseCB != nil {
-				go pauseCB()
+			if x >= _BTN_CONFIRM_X && x <= _BTN_CONFIRM_X+_BTN_SIZE &&
+				y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+				o.mu.Lock()
+				o.pressBtn = 4
+				o.mu.Unlock()
+				if confirmCB != nil {
+					go confirmCB()
+				}
+				return 0
 			}
-			return 0
+			if x >= _BTN_PAUSE_X && x <= _BTN_PAUSE_X+_BTN_SIZE &&
+				y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+				o.mu.Lock()
+				o.pressBtn = 3
+				o.mu.Unlock()
+				if pauseCB != nil {
+					go pauseCB()
+				}
+				return 0
+			}
 		}
 	}
 	ret, _, _ := procDefWindowProcW.Call(hwnd, msg, wParam, lParam)
@@ -1166,7 +1174,7 @@ switch state {
 case StateRecording, StatePaused:
 o.paintRecordingULW(g, frame, startTime, pauseAccum, isPaused, levels, levelIdx, contentX, hoverBtn, pressBtn, maxRecordSec)
 case StateTranscribing, StateProcessing:
-o.paintTranscribingULW(g, frame, contentX)
+o.paintTranscribingULW(g, frame, contentX, hoverBtn, pressBtn)
 case StateError:
 o.paintErrorULW(g, contentX)
 case StateCopied:
@@ -1472,8 +1480,12 @@ func (o *Overlay) drawPlayIcon(g uintptr, bx, by int32) {
 	}
 }
 
-func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32) {
+func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hoverBtn, pressBtn int) {
 cy := int32(_OVL_HEIGHT / 2)
+
+// Cancel button (dark circle with ✕)
+gdipFillCircleG(g, btnColor(0xFF1E2A36, 2, hoverBtn, pressBtn), _BTN_CANCEL_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+o.drawXIcon(g, _BTN_CANCEL_X, int32(cy)-_BTN_SIZE/2)
 
 // Build text with animated dots
 text := T("overlay.transcribing")

@@ -451,6 +451,10 @@ const translations = {
     'onboarding.model_ready': '✓ Ready to use',
     'onboarding.model_downloading': 'Downloading…',
     'onboarding.download_model': 'Download',
+    'onboarding.test_key': 'Test Key',
+    'onboarding.api_key_valid': 'API key is valid',
+    'onboarding.api_key_invalid': 'Invalid API key',
+    'onboarding.api_key_empty': 'Please enter an API key',
     smartProviderNoKey: 'No API key configured. Add your key in Settings → General to use OpenAI.',
     smartProviderNoProvider: 'No API key or local model available. Configure one to use Smart Mode.',
 
@@ -949,6 +953,10 @@ const translations = {
     'onboarding.model_ready': '✓ Einsatzbereit',
     'onboarding.model_downloading': 'Wird heruntergeladen…',
     'onboarding.download_model': 'Herunterladen',
+    'onboarding.test_key': 'Testen',
+    'onboarding.api_key_valid': 'API-Schlüssel ist gültig',
+    'onboarding.api_key_invalid': 'Ungültiger API-Schlüssel',
+    'onboarding.api_key_empty': 'Bitte einen API-Schlüssel eingeben',
     smartProviderNoKey: 'Kein API-Schlüssel konfiguriert. Füge ihn unter Einstellungen → Allgemein hinzu.',
     smartProviderNoProvider: 'Kein API-Schlüssel oder lokales Modell verfügbar. Konfiguriere eines, um Smart Mode zu nutzen.',
 

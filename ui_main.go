@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -396,7 +397,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				text, err2 = GetLocalRecognizer().Transcribe(pcm, 16000, cfg.Language, modelDir)
 			} else {
 				wav := EncodeWAV(pcm, 16000, 1, 16)
-				text, err2 = Transcribe(wav, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), "")
+				text, err2 = Transcribe(context.Background(), wav, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), "")
 			}
 			if err2 != nil {
 				logError("Test transcription failed: %v", err2)
@@ -417,6 +418,15 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		// Bind: testSound → plays a success chime for preview
 		w.Bind("_testSound", func() {
 			PlayFeedback(SoundSuccess)
+		})
+
+		// Bind: _testApiKey → validates an API key without recording
+		w.Bind("_testApiKey", func(key string) map[string]interface{} {
+			err := TestAPIKey(key, cfg.GetAPIEndpoint())
+			if err != nil {
+				return map[string]interface{}{"success": false, "error": err.Error()}
+			}
+			return map[string]interface{}{"success": true, "error": ""}
 		})
 
 		// Bind: _getModels → returns available models with download status

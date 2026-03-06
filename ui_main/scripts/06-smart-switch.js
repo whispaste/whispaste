@@ -1,8 +1,6 @@
 /* ── Smart Mode Quick Switcher (status bar popover) ──── */
 
 async function showSmartSwitcher(anchor) {
-  document.querySelector('.smart-switcher-popover')?.remove();
-
   let cfg = {};
   try {
     const raw = await window.getConfig();
@@ -27,83 +25,50 @@ async function showSmartSwitcher(anchor) {
     { id: 'translate', icon: icons.globe },
   ];
 
-  const popover = document.createElement('div');
-  popover.className = 'smart-switcher-popover';
+  const items = [];
 
-  let html = '<div class="smart-switcher-header">';
-  html += `<span>${t('smartSwitcher.title')}</span>`;
-  html += `<button class="smart-switcher-toggle ${isActive ? 'on' : ''}" data-action="toggle">${isActive ? t('statusbar.on') : t('statusbar.off')}</button>`;
-  html += '</div>';
-  html += '<div class="smart-switcher-list">';
-
-  for (const p of presets) {
-    const active = isActive && p.id === currentPreset;
-    html += `<div class="smart-switcher-item${active ? ' active' : ''}" data-preset="${p.id}">
-      <span class="smart-switcher-icon">${p.icon || icons.sparkles}</span>
-      <span class="smart-switcher-label">${t('smart.preset.' + p.id)}</span>
-      ${active ? '<span class="smart-switcher-check">' + icons.check + '</span>' : ''}
-    </div>`;
-  }
-
-  html += '</div>';
-  html += '<div class="smart-switcher-footer"><a class="smart-switcher-settings">' + t('smartSwitcher.settings') + '</a></div>';
-
-  popover.innerHTML = html;
-  document.body.appendChild(popover);
-
-  // Position above anchor
-  const rect = anchor.getBoundingClientRect();
-  popover.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
-  popover.style.left = rect.left + 'px';
-
-  // Click handler
-  popover.addEventListener('click', async (e) => {
-    // Toggle on/off
-    const toggleBtn = e.target.closest('[data-action="toggle"]');
-    if (toggleBtn) {
-      const newState = !cfg.smart_mode;
-      if (newState) {
-        await window.setSmartPreset(currentPreset);
-      } else {
-        await window.setSmartPreset('');
-      }
-      const raw2 = await window.getConfig();
-      const newCfg = typeof raw2 === 'string' ? JSON.parse(raw2) : raw2;
-      updateStatusBar(newCfg);
-      popover.remove();
-      showToast(newState ? t('smartSwitcher.enabled') : t('smartSwitcher.disabled'), false);
-      return;
-    }
-
-    // Select preset
-    const item = e.target.closest('.smart-switcher-item');
-    if (item) {
-      const preset = item.dataset.preset;
-      await window.setSmartPreset(preset);
-      const raw2 = await window.getConfig();
-      const newCfg = typeof raw2 === 'string' ? JSON.parse(raw2) : raw2;
-      updateStatusBar(newCfg);
-      popover.remove();
-      showToast(t('smartSwitcher.switched') + ': ' + t('smart.preset.' + preset), false);
-      return;
-    }
-
-    // Settings link
-    if (e.target.closest('.smart-switcher-settings')) {
-      popover.remove();
-      switchPage('smartmode');
-      return;
-    }
+  // Header with on/off toggle
+  items.push({
+    header: t('smartSwitcher.title'),
+    headerToggle: {
+      label: isActive ? t('statusbar.on') : t('statusbar.off'),
+      on: isActive,
+      action: async () => {
+        const newState = !isActive;
+        await window.setSmartPreset(newState ? currentPreset : '');
+        const raw2 = await window.getConfig();
+        const newCfg = typeof raw2 === 'string' ? JSON.parse(raw2) : raw2;
+        updateStatusBar(newCfg);
+        showToast(newState ? t('smartSwitcher.enabled') : t('smartSwitcher.disabled'), false);
+      },
+    },
   });
 
-  // Close on outside click
-  setTimeout(() => {
-    const closeHandler = (e) => {
-      if (!popover.contains(e.target) && e.target !== anchor && !anchor.contains(e.target)) {
-        popover.remove();
-        document.removeEventListener('click', closeHandler);
-      }
-    };
-    document.addEventListener('click', closeHandler);
-  }, 10);
+  // Preset items
+  for (const p of presets) {
+    const active = isActive && p.id === currentPreset;
+    const presetId = p.id;
+    items.push({
+      icon: p.icon || icons.sparkles,
+      label: t('smart.preset.' + presetId),
+      checked: active,
+      action: async () => {
+        await window.setSmartPreset(presetId);
+        const raw2 = await window.getConfig();
+        const newCfg = typeof raw2 === 'string' ? JSON.parse(raw2) : raw2;
+        updateStatusBar(newCfg);
+        showToast(t('smartSwitcher.switched') + ': ' + t('smart.preset.' + presetId), false);
+      },
+    });
+  }
+
+  // Footer: settings link
+  items.push({
+    footer: {
+      label: t('smartSwitcher.settings'),
+      action: () => switchPage('smartmode'),
+    },
+  });
+
+  showPopover(anchor, { items });
 }

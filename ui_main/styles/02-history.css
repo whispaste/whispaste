@@ -91,22 +91,7 @@
 }
 .sort-trigger:hover { color: var(--text-primary); background: var(--bg-hover); }
 .sort-trigger .icon-xs { width: 14px; height: 14px; transition: transform 0.2s; }
-.sort-dropdown.open .sort-trigger .icon-xs { transform: rotate(180deg); }
-.sort-menu {
-  display: none; position: absolute; top: 100%; left: 0; z-index: 100;
-  min-width: 180px; padding: 4px;
-  background: var(--bg-primary); border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
-  margin-top: 4px;
-}
-.sort-dropdown.open .sort-menu { display: block; }
-.sort-option {
-  padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer;
-  font-size: 0.85rem; color: var(--text-secondary);
-  transition: background 0.15s, color 0.15s;
-}
-.sort-option:hover { background: var(--bg-hover); color: var(--text-primary); }
-.sort-option.active { color: var(--accent); font-weight: 500; }
+/* Sort dropdown now uses the central popover component (10-popover.js) */
 
 .filter-section-title {
   font-size: 10px;

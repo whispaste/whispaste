@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -114,15 +116,17 @@ func main() {
 
 	// Application state
 	var (
-		state        = StateIdle
-		stateMu      sync.Mutex
-		stateGen     uint64 // generation counter for auto-hide goroutines
-		levelDone    chan struct{}
-		recordStart  time.Time // wall-clock time when recording started
-		recordSource RecordSource // what triggered the current recording
-		hkMu         sync.Mutex // protects hkMgr
-		tray         *AppTray   // set after creation, used by transition
-		showDashboard func()    // opens main window, set after onSettingsSaved is defined
+		state            = StateIdle
+		stateMu          sync.Mutex
+		stateGen         uint64 // generation counter for auto-hide goroutines
+		levelDone        chan struct{}
+		recordStart      time.Time // wall-clock time when recording started
+		recordSource     RecordSource // what triggered the current recording
+		transcribeCancel context.CancelFunc // cancels in-flight transcription
+		transcribeGen    uint64             // generation counter for transcription ownership
+		hkMu             sync.Mutex // protects hkMgr
+		tray             *AppTray   // set after creation, used by transition
+		showDashboard    func()    // opens main window, set after onSettingsSaved is defined
 	)
 
 	// Snapshot config values under lock to avoid data races
@@ -348,8 +352,21 @@ func main() {
 			stateMu.Lock()
 			recSrc := recordSource
 			stateMu.Unlock()
+			// Create cancellable context for the transcription
+			transcribeCtx, tCancel := context.WithCancel(context.Background())
+			stateMu.Lock()
+			transcribeGen++
+			myGen := transcribeGen
+			transcribeCancel = tCancel
+			stateMu.Unlock()
 			go func() {
 				defer func() {
+					stateMu.Lock()
+					if transcribeGen == myGen {
+						transcribeCancel = nil
+					}
+					stateMu.Unlock()
+					tCancel() // ensure context resources are freed
 					if r := recover(); r != nil {
 						logError("Transcription goroutine panic: %v", r)
 						if playSounds {
@@ -390,10 +407,15 @@ func main() {
 					}
 				} else {
 					wav := EncodeWAV(pcm, 16000, 1, 16)
-					text, err = Transcribe(wav, lang, apiKey, model, endpoint, "")
+					text, err = Transcribe(transcribeCtx, wav, lang, apiKey, model, endpoint, "")
 				}
 				processingDurationSec := time.Since(transcribeStart).Seconds()
 				if err != nil {
+					// If user cancelled via overlay button, exit silently
+					if errors.Is(err, context.Canceled) {
+						logInfo("Transcription cancelled by user")
+						return
+					}
 					logError("Transcription error: %v", err)
 					if playSounds {
 						PlayFeedback(SoundError)
@@ -411,6 +433,12 @@ func main() {
 					if tray != nil {
 						tray.SetTooltipState(StateIdle)
 					}
+					return
+				}
+
+				// Check if user cancelled while local transcription was running
+				if transcribeCtx.Err() != nil {
+					logInfo("Transcription cancelled by user (post-return)")
 					return
 				}
 
@@ -475,6 +503,12 @@ func main() {
 							text = processed
 						}
 					}
+				}
+
+				// Bail out if cancelled during smart mode post-processing
+				if transcribeCtx.Err() != nil {
+					logInfo("Transcription cancelled during post-processing")
+					return
 				}
 
 				// Record stats and history with model info
@@ -583,23 +617,32 @@ func main() {
 					transition(StateTranscribing)
 				}
 			},
-			func() { // onCancel: abort recording, discard audio
+			func() { // onCancel: abort recording or transcription
 				stateMu.Lock()
 				s := state
-				if s != StateRecording && s != StatePaused {
+				if s != StateRecording && s != StatePaused && s != StateTranscribing && s != StateProcessing {
 					stateMu.Unlock()
 					return
 				}
 				state = StateIdle
 				ld := levelDone
 				levelDone = nil
+				tc := transcribeCancel
+				transcribeCancel = nil
 				stateMu.Unlock()
 
-				logInfo("Recording cancelled via overlay button")
-				if recorder.IsPaused() {
-					recorder.Resume()
+				if s == StateTranscribing || s == StateProcessing {
+					logInfo("Transcription cancelled via overlay button")
+					if tc != nil {
+						tc() // cancel in-flight HTTP request
+					}
+				} else {
+					logInfo("Recording cancelled via overlay button")
+					if recorder.IsPaused() {
+						recorder.Resume()
+					}
+					recorder.Stop() // discard audio
 				}
-				recorder.Stop() // discard audio
 				ps, _, _, _, _, _, _, _ := snapshotConfig()
 				if ps {
 					PlayFeedback(SoundError)
@@ -681,8 +724,8 @@ func main() {
 				}
 			},
 		)
-		// Show the button initially if enabled
-		if cfg.GetFloatingButtonEnabled() {
+		// Show the button initially if enabled and onboarding is complete
+		if cfg.GetFloatingButtonEnabled() && cfg.GetOnboardingDone() {
 			floatingBtn.Show()
 		}
 	}
