@@ -645,7 +645,7 @@ const translations = {
     // Settings — Actions
     btnTest: 'Testen',
     btnTestTranscription: 'Transkription testen',
-    descTestTranscription: 'Nimmt 3 Sekunden auf und transkribiert zur Überprüfung der Einrichtung',
+    descTestTranscription: 'Nimmt 3 Sekunden auf, um zu prüfen, ob alles funktioniert',
     btnCancel: 'Abbrechen',
     btnSave: 'Speichern',
     statusSaved: 'Einstellungen gespeichert ✓',
@@ -667,7 +667,7 @@ const translations = {
     modelDownloadFile: 'Datei',
     modelDownloaded: 'Heruntergeladen',
     modelDelete: 'Modell löschen',
-    modelDeleteConfirm: 'Dieses Modell löschen? Dies gibt Speicherplatz frei, aber das Modell muss erneut heruntergeladen werden.',
+    modelDeleteConfirm: 'Modell löschen? Du kannst es jederzeit neu herunterladen.',
     modelDownloadDone: 'Modell erfolgreich heruntergeladen',
     modelDownloadError: 'Modell-Download fehlgeschlagen',
     modelDeleted: 'Modell gelöscht',
@@ -695,7 +695,7 @@ const translations = {
     appDetectionEmpty: 'Keine App-Regeln definiert. Füge eine hinzu, um Vorlagen pro Anwendung zuzuweisen.',
     appDetectionAddTitle: 'App-Regel hinzufügen',
     appDetectionAddMsg: 'Name der Programmdatei eingeben (z.B. code.exe, outlook.exe):',
-    smartAppActiveNotice: 'App-basierte Erkennung ist aktiv. Die Vorlage wird automatisch basierend auf der aktiven Anwendung ausgewählt.',
+    smartAppActiveNotice: 'App-Erkennung aktiv — die Vorlage wechselt automatisch je nach aktiver App.',
     smartViewPromptTitle: 'Vorlagen-Prompt',
     smartNoPrompt: 'Kein Prompt für diese Vorlage definiert.',
     smartPromptLangNote: 'Hinweis: Deine UI-Spracheinstellung wird beim Ausführen automatisch an diesen Prompt angehängt.',
@@ -880,8 +880,8 @@ const translations = {
     searchHelpWild: 'Platzhaltersuche',
 
     // Model descriptions
-    'model.desc.whisper-base': 'Schnell, geeignet für klare Sprache in einer Sprache. Kann bei gemischtsprachigen Inhalten Probleme bereiten.',
-    'model.desc.whisper-small': 'Genauer, besser bei gemischten Sprachen und Akzenten. Empfohlen bei Verwendung von Fachbegriffen aus einer anderen Sprache.',
+    'model.desc.whisper-base': 'Schnell, geeignet für klare Sprache in einer Sprache. Bei gemischten Sprachen weniger genau.',
+    'model.desc.whisper-small': 'Genauer, besser bei gemischten Sprachen und Akzenten. Empfohlen, wenn du Fachbegriffe aus einer anderen Sprache nutzt.',
 
     // Model switcher
     'modelSwitcher.title': 'Modell wechseln',
@@ -901,9 +901,9 @@ const translations = {
     'smart.title': 'Smart-Aktion anwenden',
     'smart.custom': 'Eigene Anweisung…',
     'smart.customTitle': 'Eigene Smart-Aktion',
-    'smart.customPlaceholder': 'Geben Sie Ihre Anweisungen zur Texttransformation ein...',
+    'smart.customPlaceholder': 'Gib deine Anweisungen zur Texttransformation ein...',
     'smart.apply': 'Anwenden',
-    'smart.processing': 'Smart-Aktion wird angewendet...',
+    'smart.processing': 'Smart-Aktion wird angewendet…',
     'smart.resultTitle': 'Ergebnis der Smart-Aktion',
     'smart.resultMessage': 'Originaltext ersetzen oder neuen Eintrag erstellen?',
     'smart.replace': 'Original ersetzen',
@@ -972,7 +972,7 @@ const translations = {
     'onboarding.api_key_invalid': 'Ungültiger API-Schlüssel',
     'onboarding.api_key_empty': 'Bitte einen API-Schlüssel eingeben',
     smartProviderNoKey: 'Kein API-Schlüssel konfiguriert. Füge ihn unter Einstellungen → Allgemein hinzu.',
-    smartProviderNoProvider: 'Kein API-Schlüssel oder lokales Modell verfügbar. Konfiguriere eines, um Smart Mode zu nutzen.',
+    smartProviderNoProvider: 'Kein API-Schlüssel oder lokales Modell verfügbar. Richte eines ein, um Smart Mode zu nutzen.',
 
     // Text Replacements
     tabReplacements: 'Textersetzungen',
@@ -992,7 +992,7 @@ const translations = {
     replacementsToggleItem: 'Aktivieren/Deaktivieren',
 
     // Smart Mode Provider
-    smartProvider: 'KI-Verarbeitungsengine',
+    smartProvider: 'KI-Anbieter',
     smartProviderOpenai: 'OpenAI API',
     smartProviderLocal: 'Lokales Modell',
     smartProviderAuto: 'Automatisch',
@@ -1002,12 +1002,12 @@ const translations = {
     smartLlmCard: 'Lokales Sprachmodell',
     smartLlmName: 'SmolLM2 · 270 MB · 6 Sprachen',
     smartLlmDownload: 'Herunterladen',
-    smartLlmDownloading: 'Wird heruntergeladen...',
+    smartLlmDownloading: 'Wird heruntergeladen…',
     smartLlmReady: 'Bereit',
     smartLlmDelete: 'Modell löschen',
-    smartLlmDeleteConfirm: 'Lokales Modell löschen? Dies kann nicht rückgängig gemacht werden.',
-    smartLlmDownloadServer: 'Engine wird heruntergeladen...',
-    smartLlmDownloadModel: 'Modell wird heruntergeladen...',
+    smartLlmDeleteConfirm: 'Lokales Modell löschen? Du kannst es jederzeit neu herunterladen.',
+    smartLlmDownloadServer: 'Engine wird heruntergeladen…',
+    smartLlmDownloadModel: 'Modell wird heruntergeladen…',
     smartLlmNotInstalled: 'Nicht installiert',
     smartFallback: 'Fallback-Vorlage',
     smartFallbackDesc: 'Wird verwendet, wenn keine App automatisch erkannt wird',
