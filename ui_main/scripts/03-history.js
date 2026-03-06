@@ -304,7 +304,6 @@ function updateCounts() {
       // Build tag list HTML with system tags grouped at top
       let tagListHTML = '';
       if (systemEntries.length > 0) {
-        tagListHTML += `<div class="filter-section-title" style="padding-top:4px">${t('notebook.system_tags')}</div>`;
         tagListHTML += systemEntries.map(([name, count]) => {
           const label = systemTagLabel(name);
           const c = getTagColor(name);
@@ -344,6 +343,18 @@ function updateCounts() {
       });
       _bindSidebarAddTag();
       _bindSidebarDragDrop(catList);
+      _bindEntryToTagDrop(catList);
+      const headerAdd = document.getElementById('sidebarAddTagHeader');
+      if (headerAdd) {
+        headerAdd.onclick = (ev) => {
+          ev.stopPropagation();
+          const bottomBtn = document.getElementById('sidebarAddTag');
+          if (bottomBtn) {
+            bottomBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            setTimeout(() => bottomBtn.click(), 200);
+          }
+        };
+      }
     } else {
       catSection.style.display = 'none';
     }
@@ -410,6 +421,13 @@ function _showTagAutocomplete(input) {
       (query === '' || c.toLowerCase().includes(query))
     );
     if (filtered.length === 0) return;
+    // Sort by sidebar order (_cachedCustomTags)
+    const order = window._cachedCustomTags || [];
+    filtered.sort((a, b) => {
+      const ia = order.indexOf(a);
+      const ib = order.indexOf(b);
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
     _closeTagAutocomplete(); // clear any dropdown from a concurrent resolve
     const dd = document.createElement('div');
     dd.className = 'tag-autocomplete';
@@ -463,7 +481,7 @@ function _selectAutocompleteHighlight(input) {
 function _renderEntryCard(e) {
   const isPending = (e.tags || []).includes('pending');
   return `
-    <div class="entry${e.pinned ? ' pinned' : ''}${isPending ? ' pending' : ''}${_expandedId === e.id ? ' expanded' : ''}${_selectedIds.has(e.id) ? ' selected' : ''}" data-id="${e.id}">
+    <div class="entry${e.pinned ? ' pinned' : ''}${isPending ? ' pending' : ''}${_expandedId === e.id ? ' expanded' : ''}${_selectedIds.has(e.id) ? ' selected' : ''}" data-id="${e.id}" draggable="true">
       <div class="entry-header">
         <div class="entry-checkbox${_selectedIds.has(e.id) ? ' checked' : ''}" data-select-id="${e.id}"></div>
         <div style="flex:1;min-width:0">
@@ -490,28 +508,19 @@ function _renderEntryCard(e) {
       </div>
       <div class="entry-preview">${isPending && !e.text ? '<span class="pending-hint">' + icons.refreshCw + ' ' + t('pending_transcription') + '</span>' : highlightSearch(e.text, _searchQuery)}</div>
       <div class="entry-tags-row">
-        ${(e.tags || []).map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = systemTagLabel(tag); return '<span class="tag' + (sys ? ' system-tag' : '') + '" data-tag="' + esc(tag) + '" style="background:'+c.bg+';color:'+c.text+';border-color:'+c.border+'">' + (sys ? systemTagIcon(tag) : '') + esc(lbl) + '</span>'; }).join('')}
+        ${(e.tags || []).map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = systemTagLabel(tag); return `<span class="tag${sys ? ' system-tag' : ''}" data-tag="${esc(tag)}" data-id="${e.id}" style="background:${c.bg};color:${c.text};border-color:${c.border}">${sys ? systemTagIcon(tag) : ''}${esc(lbl)}${sys ? '' : '<span class="tag-remove" data-remove-tag="' + esc(tag) + '" data-id="' + e.id + '">&times;</span>'}</span>`; }).join('')}
         <span class="tag-add-inline" title="${t('notebook.add_tag')}" data-id="${e.id}">+</span>
+        <div class="tag-input-row tag-input-expanded" data-id="${e.id}">
+          ${icons.tag}
+          <input type="text" class="tag-input" placeholder="${t('notebook.add_tag')}" data-id="${e.id}" />
+        </div>
       </div>
       <div class="entry-full">
         <div class="entry-full-text" id="text-${e.id}">${highlightSearch(e.text, _searchQuery)}</div>
         <div class="entry-text-actions">
           <button class="btn-icon" title="${t('notebook.edit_text')}" data-action="edit-text" data-id="${e.id}">${icons.pencil}</button>
         </div>
-        <div class="entry-tags-section">
-          <div class="tag-chips-container">
-            ${(e.tags || []).map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = systemTagLabel(tag); return `
-              <span class="tag-chip${sys ? ' system-tag' : ''}" style="background:${c.bg};color:${c.text};border-color:${c.border}">
-                ${sys ? systemTagIcon(tag) : ''}${esc(lbl)}
-                ${sys ? '' : '<span class="tag-chip-remove" data-remove-tag="' + esc(tag) + '" data-id="' + e.id + '">&times;</span>'}
-              </span>
-            `; }).join('')}
-            <div class="tag-input-row">
-              ${icons.tag}
-              <input type="text" class="tag-input" placeholder="${t('notebook.add_tag')}" data-id="${e.id}" />
-            </div>
-          </div>
-        </div>
+
       </div>
     </div>`;
 }
@@ -639,8 +648,8 @@ function renderHistory() {
     });
   });
 
-  // Bind tag chip remove buttons
-  list.querySelectorAll('.tag-chip-remove').forEach(btn => {
+  // Bind tag remove buttons
+  list.querySelectorAll('.tag-remove').forEach(btn => {
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       removeTag(btn.dataset.id, btn.dataset.removeTag);
@@ -651,7 +660,56 @@ function renderHistory() {
   list.querySelectorAll('.tag-add-inline').forEach(btn => {
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      _showInlineTagPopover(ev.clientX, ev.clientY, btn.dataset.id);
+      const row = btn.closest('.entry-tags-row');
+      if (!row) return;
+      const inputRow = row.querySelector('.tag-input-expanded');
+      if (!inputRow) return;
+      // Temporarily show the inline input
+      btn.style.display = 'none';
+      inputRow.style.display = 'flex';
+      const input = inputRow.querySelector('.tag-input');
+      if (input) {
+        const ac = new AbortController();
+        const sig = ac.signal;
+        setTimeout(() => input.focus(), 30);
+        input.addEventListener('input', () => _showTagAutocomplete(input), { signal: sig });
+        input.addEventListener('focus', () => _showTagAutocomplete(input), { signal: sig });
+        const cleanup = () => {
+          ac.abort();
+          _closeTagAutocomplete();
+          inputRow.style.display = '';
+          btn.style.display = '';
+          input.value = '';
+        };
+        input.addEventListener('blur', () => setTimeout(cleanup, 150), { once: true, signal: sig });
+        input.addEventListener('keydown', (ev2) => {
+          if (ev2.key === 'Escape') { ev2.stopPropagation(); cleanup(); return; }
+          if (ev2.key === 'Enter') {
+            ev2.preventDefault();
+            ev2.stopImmediatePropagation();
+            if (!_selectAutocompleteHighlight(input)) addTag(input);
+            cleanup();
+            return;
+          }
+          const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
+          if (!dd) return;
+          if (ev2.key === 'ArrowDown') { ev2.preventDefault(); _navigateAutocomplete(input, 1); }
+          else if (ev2.key === 'ArrowUp') { ev2.preventDefault(); _navigateAutocomplete(input, -1); }
+        }, { signal: sig });
+      }
+    });
+  });
+
+  // Bind entry drag-to-tag
+  list.querySelectorAll('.entry[draggable="true"]').forEach(el => {
+    el.addEventListener('dragstart', (ev) => {
+      ev.dataTransfer.effectAllowed = 'link';
+      ev.dataTransfer.setData('text/x-entry-drag', el.dataset.id);
+      el.classList.add('dragging');
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      document.querySelectorAll('.tag-drop-target, .drag-over-top, .drag-over-bottom').forEach(x => x.classList.remove('tag-drop-target', 'drag-over-top', 'drag-over-bottom'));
     });
   });
 
@@ -1020,39 +1078,7 @@ async function removeTag(id, tagToRemove) {
   }
 }
 
-/* ── Inline Tag-Add Popover (compact mode "+" button) ──── */
-function _showInlineTagPopover(x, y, entryId) {
-  const pop = showPopoverAt(x, y, { className: 'tag-add-popover' });
-  pop.innerHTML = `<div class="tag-input-row" style="padding:6px 8px;min-width:180px">
-    ${icons.tag}
-    <input type="text" class="tag-input" placeholder="${t('notebook.add_tag')}" data-id="${entryId}" autofocus />
-  </div>`;
-  const input = pop.querySelector('.tag-input');
-  if (input) {
-    setTimeout(() => input.focus(), 50);
-    input.addEventListener('input', () => _showTagAutocomplete(input));
-    input.addEventListener('focus', () => _showTagAutocomplete(input));
-    input.addEventListener('blur', () => {
-      _closeTagAutocomplete();
-      setTimeout(() => hidePopovers(), 100);
-    });
-    input.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape') { hidePopovers(); ev.stopPropagation(); return; }
-      if (ev.key === 'Enter') {
-        ev.preventDefault();
-        if (!_selectAutocompleteHighlight(input)) addTag(input);
-        hidePopovers();
-        return;
-      }
-      const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
-      if (!dd) return;
-      if (ev.key === 'ArrowDown') { ev.preventDefault(); _navigateAutocomplete(input, 1); }
-      else if (ev.key === 'ArrowUp') { ev.preventDefault(); _navigateAutocomplete(input, -1); }
-    });
-  }
-}
-
-/* ── Delete Tag from All Entries ───────────────────────── */
+/* ── Delete Tag from All Entries───────────────────────── */
 async function deleteTagFromAll(tagName) {
   const msg = (t('tag_delete_confirm') || 'Remove tag "{tag}" from all entries?').replace('{tag}', tagName);
   const confirmed = await showConfirmDialog(
@@ -1114,46 +1140,107 @@ function _bindSidebarDragDrop(catList) {
       _dragTag = el.dataset.tag;
       el.classList.add('dragging');
       ev.dataTransfer.effectAllowed = 'move';
-      ev.dataTransfer.setData('text/plain', el.dataset.tag);
+      ev.dataTransfer.setData('text/x-tag-reorder', el.dataset.tag);
     });
     el.addEventListener('dragend', () => {
       el.classList.remove('dragging');
       _dragTag = null;
-      catList.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
+      catList.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(x => {
+        x.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
     });
     el.addEventListener('dragover', (ev) => {
+      if (!_dragTag) return; // only handle tag reorder, not entry drags
       ev.preventDefault();
       ev.dataTransfer.dropEffect = 'move';
-      if (el.dataset.tag !== _dragTag && !isSystemTag(el.dataset.tag)) {
-        el.classList.add('drag-over');
+      if (el.dataset.tag === _dragTag || isSystemTag(el.dataset.tag)) return;
+      const rect = el.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      el.classList.remove('drag-over-top', 'drag-over-bottom');
+      if (ev.clientY < midY) {
+        el.classList.add('drag-over-top');
+      } else {
+        el.classList.add('drag-over-bottom');
       }
     });
-    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('dragleave', () => {
+      el.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
     el.addEventListener('drop', (ev) => {
       ev.preventDefault();
-      el.classList.remove('drag-over');
+      const isTop = el.classList.contains('drag-over-top');
+      el.classList.remove('drag-over-top', 'drag-over-bottom');
       const fromTag = _dragTag;
       const toTag = el.dataset.tag;
       if (!fromTag || fromTag === toTag || isSystemTag(toTag)) return;
-      _reorderCustomTag(fromTag, toTag);
+      _reorderCustomTag(fromTag, toTag, isTop);
     });
   });
 }
 
-async function _reorderCustomTag(fromTag, toTag) {
+async function _reorderCustomTag(fromTag, toTag, insertBefore) {
   const tags = window._cachedCustomTags || [];
+  // Bootstrap: ensure both tags exist in the ordering array
+  if (!tags.includes(fromTag)) tags.push(fromTag);
+  if (!tags.includes(toTag)) tags.push(toTag);
   const fromIdx = tags.indexOf(fromTag);
-  const toIdx = tags.indexOf(toTag);
-  if (fromIdx === -1 || toIdx === -1) return;
-  // Insert before the drop target: adjust for index shift after removal
+  if (fromIdx === tags.indexOf(toTag)) return;
   tags.splice(fromIdx, 1);
-  const adjustedIdx = fromIdx < toIdx ? toIdx - 1 : toIdx;
-  tags.splice(adjustedIdx, 0, fromTag);
+  // Recalculate toIdx after removal
+  const toIdx = tags.indexOf(toTag);
+  const insertIdx = insertBefore ? toIdx : toIdx + 1;
+  tags.splice(insertIdx, 0, fromTag);
   window._cachedCustomTags = tags;
   if (window.saveCustomTags) {
     await window.saveCustomTags(JSON.stringify(tags));
   }
   updateCounts();
+}
+
+/* ── Entry-to-Tag Drop (assign tag via drag) ──────────── */
+function _bindEntryToTagDrop(catList) {
+  catList.querySelectorAll('.tag-sidebar-item').forEach(el => {
+    el.addEventListener('dragover', (ev) => {
+      if (_dragTag) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = 'link';
+      el.classList.add('tag-drop-target');
+    });
+    el.addEventListener('dragleave', () => {
+      el.classList.remove('tag-drop-target');
+    });
+    el.addEventListener('drop', (ev) => {
+      el.classList.remove('tag-drop-target');
+      const entryId = ev.dataTransfer.getData('text/x-entry-drag');
+      if (!entryId) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const tagName = el.dataset.tag;
+      if (!tagName) return;
+      _assignTagToEntry(entryId, tagName);
+    });
+  });
+}
+
+async function _assignTagToEntry(entryId, tagName) {
+  const entry = _entries.find(e => e.id === entryId);
+  if (!entry) return;
+  const tags = entry.tags ? [...entry.tags] : [];
+  if (tags.includes(tagName)) {
+    showToast(t('notebook.tag_already_assigned') || 'Tag already assigned');
+    return;
+  }
+  tags.push(tagName);
+  if (window.updateEntry) {
+    const ok = await window.updateEntry(entryId, entry.title || '', JSON.stringify(tags));
+    if (ok) {
+      if (!isSystemTag(tagName)) await _persistCustomTag(tagName);
+      await loadEntries();
+      showToast(t('notebook.tag_updated'));
+    } else {
+      showToast(t('notebook.error_update') || 'Update failed', true);
+    }
+  }
 }
 
 function showExportMenu(id, anchorEl) {
