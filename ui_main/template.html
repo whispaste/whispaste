@@ -1129,9 +1129,10 @@
       </div>
       <div class="onboarding-apikey-section" id="onbApikeySection" style="display:none">
         <div class="onboarding-apikey-field">
-          <input type="password" id="onb-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false">
+          <input type="password" id="onb-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false" oninput="onbUpdateKeyPreview()">
           <button type="button" class="onb-test-key-btn" id="onbTestKeyBtn" onclick="onbTestApiKey()" data-i18n="onboarding.test_key">Test Key</button>
         </div>
+        <div class="onb-key-preview" id="onbKeyPreview"></div>
         <div class="onb-api-feedback" id="onbApiKeyFeedback"></div>
         <small data-i18n="onboarding.apikey_hint">Get your key at platform.openai.com · You can add it later in Settings</small>
       </div>
