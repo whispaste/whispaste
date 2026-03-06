@@ -678,9 +678,29 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			// Apply text replacements
 			text = cfg.ApplyTextReplacements(text)
 
-			// Update the entry text
-			if !history.UpdateText(id, text) {
-				return map[string]interface{}{"ok": false, "error": "Failed to update entry"}
+			// Determine model name for CompletePendingEntry
+			modelName := model
+			if useLocal {
+				modelName = cfg.GetLocalModelID()
+			}
+			processingDur := 0.0 // re-transcribe doesn't track processing time precisely
+
+			// Check if this is a pending entry → use CompletePendingEntry to remove tag
+			isPending := false
+			for _, tag := range entry.Tags {
+				if tag == "pending" {
+					isPending = true
+					break
+				}
+			}
+			if isPending {
+				if !history.CompletePendingEntry(id, text, processingDur, modelName, useLocal) {
+					return map[string]interface{}{"ok": false, "error": "Failed to complete pending entry"}
+				}
+			} else {
+				if !history.UpdateText(id, text) {
+					return map[string]interface{}{"ok": false, "error": "Failed to update entry"}
+				}
 			}
 			return map[string]interface{}{"ok": true, "text": text}
 		})

@@ -189,6 +189,10 @@ var translations = map[string]map[string]string{
 		"balloon.sponsor":        "You've completed 50 dictations! If WhisPaste saves you time, consider supporting its development. ❤️",
 		"balloon.transcription_complete": "Transcription complete.",
 
+		// Pending transcription
+		"transcription_cancelled": "Cancelled",
+		"transcription_failed":   "Failed",
+
 		// Stats
 		"stats.title":           "Usage This Month",
 		"stats.dictations":      "Dictations",
@@ -372,6 +376,10 @@ var translations = map[string]map[string]string{
 		"balloon.sponsor_title":  "Gefällt dir WhisPaste?",
 		"balloon.sponsor":        "Du hast 50 Diktate abgeschlossen! Wenn WhisPaste dir Zeit spart, unterstütze gerne die Weiterentwicklung. ❤️",
 		"balloon.transcription_complete": "Transkription abgeschlossen.",
+
+		// Pending transcription
+		"transcription_cancelled": "Abgebrochen",
+		"transcription_failed":   "Fehlgeschlagen",
 
 		// Stats
 		"stats.title":           "Nutzung diesen Monat",
