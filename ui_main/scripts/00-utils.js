@@ -1,9 +1,25 @@
 /* ── Utility Functions ─────────────────────────────────── */
 
-const SYSTEM_TAGS = ['merged', 'duplicated'];
+const SYSTEM_TAGS = ['merged', 'duplicated', 'pending'];
 
 function isSystemTag(name) {
   return SYSTEM_TAGS.includes(name);
+}
+
+/** Returns the localized display label for a system tag, or the tag name itself */
+function systemTagLabel(tag) {
+  if (tag === 'merged') return t('catMerged');
+  if (tag === 'duplicated') return t('catDuplicated');
+  if (tag === 'pending') return t('catPending');
+  return tag;
+}
+
+/** Returns inline SVG icon for system tags */
+function systemTagIcon(tag) {
+  if (tag === 'pending') {
+    return '<svg class="icon" style="width:10px;height:10px;vertical-align:-1px;margin-right:2px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  }
+  return '<svg class="icon" style="width:10px;height:10px;vertical-align:-1px;margin-right:2px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 }
 
 /** HTML-escape a string to prevent XSS */
@@ -160,6 +176,10 @@ function loadCustomTagColors() {
 
 /** Get a deterministic color for a tag name (custom override first) */
 function getTagColor(tagName) {
+  // Pending tag always uses amber/warning color
+  if (tagName === 'pending') {
+    return { bg: 'rgba(245,158,11,0.15)', text: '#f59e0b', border: 'rgba(245,158,11,0.3)' };
+  }
   if (_customTagColors[tagName] !== undefined) {
     const idx = _customTagColors[tagName];
     if (idx >= 0 && idx < TAG_COLORS.length) {
