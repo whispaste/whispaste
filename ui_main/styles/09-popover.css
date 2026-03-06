@@ -5,6 +5,11 @@
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes wp-popover-in-up {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .wp-popover {
   position: fixed;
   z-index: 9999;
@@ -19,6 +24,10 @@
   padding: var(--space-1) 0;
   animation: wp-popover-in var(--duration-fast) var(--ease-out) both;
   overscroll-behavior: contain;
+}
+
+.wp-popover.wp-popover-flip-up {
+  animation-name: wp-popover-in-up;
 }
 
 .wp-popover::-webkit-scrollbar { width: 5px; }
@@ -103,6 +112,59 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   user-select: none;
+}
+
+/* ── Toggle button in header ─────────────────────────── */
+.wp-popover-toggle {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.wp-popover-toggle.on {
+  background: var(--accent, #06b6d4);
+  border-color: var(--accent, #06b6d4);
+  color: var(--bg-primary);
+}
+.wp-popover-toggle:hover { opacity: 0.85; }
+
+/* ── Checked item ────────────────────────────────────── */
+.wp-popover-item.checked {
+  color: var(--accent, #06b6d4);
+  font-weight: 500;
+}
+.wp-popover-item.checked .icon {
+  color: var(--accent, #06b6d4);
+}
+.wp-popover-check {
+  flex-shrink: 0;
+  color: var(--accent, #06b6d4);
+}
+.wp-popover-check .icon,
+.wp-popover-check svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Footer ──────────────────────────────────────────── */
+.wp-popover-footer {
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-primary);
+  text-align: center;
+}
+.wp-popover-footer-link {
+  font-size: var(--text-sm);
+  color: var(--accent, #06b6d4);
+  cursor: pointer;
+  text-decoration: none;
+}
+.wp-popover-footer-link:hover {
+  text-decoration: underline;
 }
 
 /* ── Dark Theme (already handled by CSS variables, but ─
