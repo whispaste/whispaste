@@ -286,7 +286,6 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.Mode = newCfg.Mode
 			cfg.Language = newCfg.Language
 			cfg.Model = newCfg.Model
-			cfg.Prompt = newCfg.Prompt
 			cfg.OverlayPos = newCfg.OverlayPos
 			cfg.AutoPaste = newCfg.AutoPaste
 			cfg.PlaySounds = newCfg.PlaySounds
@@ -302,7 +301,6 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.SmartModePrompt = newCfg.SmartModePrompt
 			cfg.SmartModeTarget = newCfg.SmartModeTarget
 			// LocalModelID only changed via switchModel binding — skip here
-			cfg.TranscriptionLanguage = newCfg.TranscriptionLanguage
 			cfg.InputDevice = newCfg.InputDevice
 			cfg.InputGain = newCfg.InputGain
 			cfg.CleanupEnabled = newCfg.CleanupEnabled
@@ -395,10 +393,10 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				if mdErr != nil {
 					return map[string]interface{}{"success": false, "text": "", "error": mdErr.Error()}
 				}
-				text, err2 = GetLocalRecognizer().Transcribe(pcm, 16000, cfg.GetTranscriptionLanguage(), modelDir)
+				text, err2 = GetLocalRecognizer().Transcribe(pcm, 16000, cfg.Language, modelDir)
 			} else {
 				wav := EncodeWAV(pcm, 16000, 1, 16)
-				text, err2 = Transcribe(wav, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), cfg.GetPrompt())
+				text, err2 = Transcribe(wav, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), "")
 			}
 			if err2 != nil {
 				logError("Test transcription failed: %v", err2)

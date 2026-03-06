@@ -376,29 +376,9 @@
               <label class="form-label" data-i18n="labelLocalModel">Model</label>
               <div id="model-list" class="model-list"></div>
             </div>
-            <div class="form-group">
-              <label class="form-label" for="select-transcription-language" data-i18n="labelTranscriptionLanguage">Model Language</label>
-              <p class="form-hint" style="margin-bottom:8px" data-i18n="descTranscriptionLanguage">Set your spoken language for better accuracy with local models. Helps with mixed-language content (e.g. German with English terms).</p>
-              <select class="form-select" id="select-transcription-language">
-                <option value="" data-i18n-opt="transLangGlobal">Use global setting</option>
-                <option value="auto" data-i18n-opt="langAuto">Auto-detect</option>
-                <option value="en" data-i18n-opt="langEn">English</option>
-                <option value="de" data-i18n-opt="langDe">German</option>
-                <option value="es" data-i18n-opt="langEs">Spanish</option>
-                <option value="fr" data-i18n-opt="langFr">French</option>
-                <option value="it" data-i18n-opt="langIt">Italian</option>
-                <option value="pt" data-i18n-opt="langPt">Portuguese</option>
-                <option value="ja" data-i18n-opt="langJa">Japanese</option>
-                <option value="zh" data-i18n-opt="langZh">Chinese</option>
-                <option value="ko" data-i18n-opt="langKo">Korean</option>
-                <option value="ru" data-i18n-opt="langRu">Russian</option>
-                <option value="ar" data-i18n-opt="langAr">Arabic</option>
-                <option value="hi" data-i18n-opt="langHi">Hindi</option>
-              </select>
-            </div>
           </div>
 
-          <!-- Transcription Language -->
+          <!-- Transcription Language (applies to all models) -->
           <div class="card">
             <div class="card-title" data-i18n="cardLanguage">Transcription Language</div>
             <div class="form-group">
@@ -419,15 +399,6 @@
                 <option value="ar" data-i18n-opt="langAr">Arabic</option>
                 <option value="hi" data-i18n-opt="langHi">Hindi</option>
               </select>
-            </div>
-          </div>
-
-          <!-- Whisper Prompt -->
-          <div class="card">
-            <div class="card-title" data-i18n="labelPrompt">Whisper Prompt</div>
-            <div class="form-group">
-              <p class="form-hint" data-i18n="descPrompt">Improve accuracy for domain-specific terms (e.g. Kubernetes, kubectl)</p>
-              <input class="form-input" type="text" id="input-prompt" placeholder="e.g. Kubernetes, kubectl, Terraform">
             </div>
           </div>
 
