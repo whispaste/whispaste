@@ -195,7 +195,9 @@ func TestAPIKey(apiKey, endpoint string) error {
 	if base == "" {
 		base = "https://api.openai.com/v1"
 	}
+	// Strip transcription path to get the base API URL
 	base = strings.TrimSuffix(base, "/")
+	base = strings.TrimSuffix(base, "/audio/transcriptions")
 	url := base + "/models"
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
