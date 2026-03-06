@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -113,6 +114,12 @@ func main() {
 	stats := LoadStats()
 	history := LoadHistory()
 	defer history.Close()
+
+	// Clean up orphaned audio files on startup
+	go func() {
+		validIDs := history.AllEntryIDs()
+		CleanupOrphanedAudio(validIDs)
+	}()
 
 	// Initialize overlay
 	overlay, err := NewOverlay()
@@ -475,6 +482,29 @@ func main() {
 
 				// Apply text replacements before smart mode
 				text = cfg.ApplyTextReplacements(text)
+
+				// Treat empty/whitespace-only transcription as failed
+				if strings.TrimSpace(text) == "" {
+					logWarn("Transcription returned empty text")
+					savePendingEntry(history, pcm, durationSec, lang, modelName, useLocal, "transcription_failed")
+					if playSounds {
+						PlayFeedback(SoundError)
+					}
+					if overlay != nil {
+						overlay.Hide()
+					}
+					if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
+						floatingBtn.Show()
+					}
+					stateMu.Lock()
+					state = StateIdle
+					stateMu.Unlock()
+					NotifyRecordingState(StateIdle)
+					if tray != nil {
+						tray.SetTooltipState(StateIdle)
+					}
+					return
+				}
 
 				// Smart Mode: post-process with AI
 				smartEnabled, smartPreset, smartCustom, smartTarget := snapshotSmart()
