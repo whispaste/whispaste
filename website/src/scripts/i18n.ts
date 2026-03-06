@@ -40,7 +40,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'hero.desc': 'Ein schlankes Desktop-Tool — transkribiert Sprache lokal oder via OpenAI Whisper und fügt das Ergebnis direkt in jedes Eingabefeld ein.',
     'hero.download': 'Von GitHub herunterladen',
     'hero.github': 'Auf GitHub ansehen',
-    'hero.meta': 'Portable .exe · Kein Installer · ~8 MB · Frühe Alpha – mit Problemen rechnen',
+    'hero.meta': 'Portable .exe · Kein Installer · ~8 MB · Frühe Alpha – kann noch Ecken und Kanten haben',
     'hero.portable': 'Oder portable .exe herunterladen',
     'nav.features': 'Features',
     'nav.howitworks': 'So funktioniert\'s',
