@@ -25,6 +25,8 @@ document.addEventListener('change', function(e) {
     if (row) row.style.display = e.target.checked ? '' : 'none';
     const sizeRow = document.getElementById('fab-size-row');
     if (sizeRow) sizeRow.style.display = e.target.checked ? '' : 'none';
+    const fab = document.getElementById('captureBtn');
+    if (fab) fab.style.display = e.target.checked ? 'none' : '';
   }
 });
 
