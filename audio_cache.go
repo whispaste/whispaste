@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -38,11 +41,27 @@ func SaveAudio(id string, pcm []byte) error {
 		return err
 	}
 	wav := EncodeWAV(pcm, 16000, 1, 16)
+
+	// Gzip compress
+	var buf bytes.Buffer
+	gz, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	if err != nil {
+		return fmt.Errorf("create gzip writer: %w", err)
+	}
+	if _, err := gz.Write(wav); err != nil {
+		gz.Close()
+		return fmt.Errorf("gzip write: %w", err)
+	}
+	if err := gz.Close(); err != nil {
+		return fmt.Errorf("gzip close: %w", err)
+	}
+	compressed := buf.Bytes()
+
 	path := filepath.Join(dir, id+".wav")
-	if err := os.WriteFile(path, wav, 0600); err != nil {
+	if err := os.WriteFile(path, compressed, 0600); err != nil {
 		return fmt.Errorf("write audio file: %w", err)
 	}
-	logDebug("Saved audio cache: %s (%d bytes WAV)", id, len(wav))
+	logDebug("Saved audio cache: %s (%d bytes WAV → %d bytes gzip, %.0f%% saved)", id, len(wav), len(compressed), (1-float64(len(compressed))/float64(len(wav)))*100)
 	return nil
 }
 
@@ -60,6 +79,19 @@ func LoadAudio(id string) ([]byte, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read audio file: %w", err)
+	}
+	// Transparently decompress gzip (new format) or return raw WAV (old format)
+	if len(data) >= 2 && data[0] == 0x1f && data[1] == 0x8b {
+		gr, err := gzip.NewReader(bytes.NewReader(data))
+		if err != nil {
+			return nil, fmt.Errorf("gzip reader: %w", err)
+		}
+		defer gr.Close()
+		decompressed, err := io.ReadAll(gr)
+		if err != nil {
+			return nil, fmt.Errorf("gzip decompress: %w", err)
+		}
+		return decompressed, nil
 	}
 	return data, nil
 }
