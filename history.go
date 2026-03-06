@@ -81,7 +81,7 @@ func (h *History) Add(text string, durationSec float64, language string) {
 }
 
 // AddWithModel appends a new entry with model tracking and prunes to the limit.
-func (h *History) AddWithModel(text string, durationSec float64, processingDurationSec float64, language, model string, isLocal bool) {
+func (h *History) AddWithModel(text string, durationSec float64, processingDurationSec float64, language, model string, isLocal bool) string {
 	var cost float64
 	if !isLocal && durationSec > 0 {
 		cost = (durationSec / 60.0) * WhisperCostPerMinute
@@ -105,10 +105,11 @@ func (h *History) AddWithModel(text string, durationSec float64, processingDurat
 	h.mu.Unlock()
 
 	if h.db == nil {
-		return
+		return entry.ID
 	}
 	h.insertEntry(entry)
 	h.pruneToLimit(defaultMaxHistory)
+	return entry.ID
 }
 
 // insertEntry inserts a single entry into the database.
@@ -215,7 +216,7 @@ func scanEntries(rows *sql.Rows) []HistoryEntry {
 	return entries
 }
 
-// Delete removes an entry by ID.
+// Delete removes an entry by ID and its cached audio file.
 func (h *History) Delete(id string) bool {
 	if h.db == nil {
 		return false
@@ -230,6 +231,9 @@ func (h *History) Delete(id string) bool {
 		return false
 	}
 	n, _ := res.RowsAffected()
+	if n > 0 {
+		DeleteAudio(id)
+	}
 	return n > 0
 }
 
@@ -710,11 +714,14 @@ func (h *History) AddSmart(text, language string, tags []string) {
 
 // Cleanup removes old entries based on config settings.
 // When includePinned is false, pinned entries are preserved.
-// Returns the number of entries removed.
+// Returns the number of entries removed. Also cleans up orphaned audio files.
 func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 	if h.db == nil {
 		return 0
 	}
+
+	// Collect IDs that will be deleted (for audio cleanup)
+	var deletedIDs []string
 
 	h.mu.Lock()
 	h.cache = nil
@@ -730,6 +737,17 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 	// Remove by age
 	if maxAgeDays > 0 {
 		cutoff := time.Now().AddDate(0, 0, -maxAgeDays).Format(time.RFC3339)
+		// Collect IDs before deletion
+		rows, err := h.db.Query("SELECT id FROM history_entries WHERE timestamp < ?"+pinnedFilter, cutoff)
+		if err == nil {
+			for rows.Next() {
+				var id string
+				if rows.Scan(&id) == nil {
+					deletedIDs = append(deletedIDs, id)
+				}
+			}
+			rows.Close()
+		}
 		res, err := execWithFTSRepair(h.db, "DELETE FROM history_entries WHERE timestamp < ?"+pinnedFilter, cutoff)
 		if err != nil {
 			logError("Cleanup by age: %v", err)
@@ -745,6 +763,21 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 		if includePinned {
 			whereClause = "1=1"
 		}
+		// Collect IDs before deletion
+		rows, err := h.db.Query(`SELECT id FROM history_entries WHERE id IN (
+			SELECT id FROM history_entries WHERE `+whereClause+`
+			ORDER BY timestamp ASC
+			LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries) - ?)
+		)`, maxEntries)
+		if err == nil {
+			for rows.Next() {
+				var id string
+				if rows.Scan(&id) == nil {
+					deletedIDs = append(deletedIDs, id)
+				}
+			}
+			rows.Close()
+		}
 		res, err := execWithFTSRepair(h.db, `DELETE FROM history_entries WHERE id IN (
 			SELECT id FROM history_entries WHERE `+whereClause+`
 			ORDER BY timestamp ASC
@@ -756,6 +789,11 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 			n, _ := res.RowsAffected()
 			totalRemoved += n
 		}
+	}
+
+	// Delete audio files for removed entries
+	for _, id := range deletedIDs {
+		DeleteAudio(id)
 	}
 
 	return int(totalRemoved)
