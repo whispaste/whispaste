@@ -329,6 +329,14 @@
 .entry-actions .btn-icon:hover { background: var(--bg-hover); }
 .entry-actions .btn-icon.delete:hover { color: var(--error); }
 .entry-actions .btn-icon.pin.active { color: var(--accent); }
+.entry-actions .btn-icon.audio-play:hover { color: var(--accent); }
+.entry-actions .btn-icon.audio-retranscribe:hover { color: var(--accent); }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.icon.spin { animation: spin 1s linear infinite; }
 
 .entry-preview {
   margin-top: 8px;

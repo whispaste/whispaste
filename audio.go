@@ -407,3 +407,105 @@ func TrimSilence(data []byte, threshold float32, windowMs int) []byte {
 	}
 	return data[startByte:endByte]
 }
+
+// StripInternalSilence removes contiguous silent regions longer than
+// minSilenceMs from the middle of PCM audio (16-bit LE, 16 kHz mono).
+// A short crossfade (10 ms) is kept at each splice to avoid clicks.
+func StripInternalSilence(data []byte, threshold float32, minSilenceMs int) []byte {
+	if len(data) < 2 || threshold <= 0 || minSilenceMs <= 0 {
+		return data
+	}
+
+	const sampleRate = 16000
+	const windowMs = 30
+	samplesPerWindow := sampleRate * windowMs / 1000
+	bytesPerWindow := samplesPerWindow * 2
+	minSilenceWindows := (sampleRate * minSilenceMs / 1000) / samplesPerWindow
+	if minSilenceWindows < 1 {
+		minSilenceWindows = 1
+	}
+
+	// crossfade margin in bytes (10 ms on each side)
+	crossfadeBytes := sampleRate * 10 / 1000 * 2
+	if crossfadeBytes < 2 {
+		crossfadeBytes = 2
+	}
+
+	rmsWindow := func(offset, count int) float32 {
+		var sum float64
+		for i := 0; i < count && offset+i*2+1 < len(data); i++ {
+			s := float64(int16(binary.LittleEndian.Uint16(data[offset+i*2 : offset+i*2+2])))
+			sum += s * s
+		}
+		return float32(math.Sqrt(sum/float64(count)) / 32768.0)
+	}
+
+	totalSamples := len(data) / 2
+
+	// Classify each window as silent or voiced
+	type region struct {
+		startByte, endByte int
+	}
+	var silentRegions []region
+	silentStart := -1
+	silentCount := 0
+
+	for off := 0; off < len(data)-1; off += bytesPerWindow {
+		n := samplesPerWindow
+		if off/2+n > totalSamples {
+			n = totalSamples - off/2
+		}
+		if n <= 0 {
+			break
+		}
+		if rmsWindow(off, n) < threshold {
+			if silentStart < 0 {
+				silentStart = off
+			}
+			silentCount++
+		} else {
+			if silentCount >= minSilenceWindows {
+				silentRegions = append(silentRegions, region{silentStart, off})
+			}
+			silentStart = -1
+			silentCount = 0
+		}
+	}
+	// Don't strip trailing silence (TrimSilence handles that)
+
+	if len(silentRegions) == 0 {
+		return data
+	}
+
+	// Build output by copying voiced segments, skipping silent regions
+	// but keeping crossfade margins at boundaries.
+	var out bytes.Buffer
+	out.Grow(len(data))
+	cursor := 0
+	for _, r := range silentRegions {
+		// Keep crossfade before the silent region
+		keepEnd := r.startByte + crossfadeBytes
+		if keepEnd > r.endByte {
+			keepEnd = r.endByte
+		}
+		out.Write(data[cursor:keepEnd])
+
+		// Skip to crossfade before the end of the silent region
+		cursor = r.endByte - crossfadeBytes
+		if cursor < keepEnd {
+			cursor = keepEnd
+		}
+		// Align to 2-byte boundary
+		cursor = cursor &^ 1
+	}
+	// Write remaining data
+	if cursor < len(data) {
+		out.Write(data[cursor:])
+	}
+
+	result := out.Bytes()
+	if len(result) < 2 {
+		return data
+	}
+	return result
+}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -42,6 +43,11 @@ func init() {
 func escapeJS(s string) string {
 	r := strings.NewReplacer("\\", "\\\\", "'", "\\'", "\"", "\\\"", "\n", "\\n", "\r", "\\r")
 	return r.Replace(s)
+}
+
+// base64Encode encodes binary data to standard base64.
+func base64Encode(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
 }
 
 // assembleMainHTML reads template.html and injects concatenated CSS/JS from ui_main/ subdirectories.
@@ -602,6 +608,81 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 		// Bind: deleteEntry → removes entry by ID
 		w.Bind("deleteEntry", func(id string) bool {
 			return history.Delete(id)
+		})
+
+		// Bind: hasAudio → check if audio cache exists for an entry
+		w.Bind("hasAudio", func(id string) bool {
+			return HasAudio(id)
+		})
+
+		// Bind: getAudioBase64 → returns WAV audio as base64 data URL for playback
+		// Capped at 50 MB to prevent OOM from very long recordings.
+		w.Bind("getAudioBase64", func(id string) string {
+			data, err := LoadAudio(id)
+			if err != nil {
+				logWarn("Load audio for playback: %v", err)
+				return ""
+			}
+			const maxPlaybackSize = 50 * 1024 * 1024
+			if len(data) > maxPlaybackSize {
+				logWarn("Audio file too large for playback: %d bytes", len(data))
+				return ""
+			}
+			encoded := base64Encode(data)
+			return "data:audio/wav;base64," + encoded
+		})
+
+		// Bind: reTranscribe → re-transcribe from cached audio
+		w.Bind("reTranscribe", func(id string) map[string]interface{} {
+			entry := history.GetByID(id)
+			if entry == nil {
+				return map[string]interface{}{"ok": false, "error": "Entry not found"}
+			}
+			wavData, err := LoadAudio(id)
+			if err != nil {
+				return map[string]interface{}{"ok": false, "error": "No cached audio"}
+			}
+
+			apiKey := cfg.GetAPIKey()
+			endpoint := cfg.GetAPIEndpoint()
+			lang := cfg.GetTranscriptionLanguage()
+			useLocal := cfg.GetActiveModelLocal()
+
+			cfg.mu.RLock()
+			model := cfg.Model
+			cfg.mu.RUnlock()
+
+			var text string
+			if useLocal {
+				// Extract PCM from WAV (skip 44-byte header)
+				if len(wavData) <= 44 {
+					return map[string]interface{}{"ok": false, "error": "Invalid audio file"}
+				}
+				pcmData := wavData[44:]
+				modelDir, mdErr := GetModelDir(cfg.GetLocalModelID())
+				if mdErr != nil {
+					return map[string]interface{}{"ok": false, "error": mdErr.Error()}
+				}
+				localLang := cfg.GetTranscriptionLanguage()
+				text, err = GetLocalRecognizer().Transcribe(pcmData, 16000, localLang, modelDir)
+			} else {
+				if apiKey == "" {
+					return map[string]interface{}{"ok": false, "error": "No API key configured"}
+				}
+				text, err = Transcribe(context.Background(), wavData, lang, apiKey, model, endpoint, "")
+			}
+			if err != nil {
+				return map[string]interface{}{"ok": false, "error": err.Error()}
+			}
+
+			// Apply text replacements
+			text = cfg.ApplyTextReplacements(text)
+
+			// Update the entry text
+			if !history.UpdateText(id, text) {
+				return map[string]interface{}{"ok": false, "error": "Failed to update entry"}
+			}
+			return map[string]interface{}{"ok": true, "text": text}
 		})
 
 		// Bind: pinEntry → toggles pin state

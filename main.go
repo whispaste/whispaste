@@ -347,6 +347,16 @@ func main() {
 				}
 			}
 
+			// Strip long internal silence (>1s) to reduce duration and API cost
+			{
+				before := len(pcm)
+				stripped := StripInternalSilence(pcm, 0.01, 1000)
+				if len(stripped) >= 2 && len(stripped) < before {
+					logDebug("Stripped internal silence: %d → %d bytes", before, len(stripped))
+					pcm = stripped
+				}
+			}
+
 			// Transcribe in background (use snapshot values, not cfg directly)
 			// Capture recording source before entering the goroutine.
 			stateMu.Lock()
@@ -513,12 +523,20 @@ func main() {
 
 				// Record stats and history with model info
 				totalDictations := stats.RecordDictation(text, durationSec, useLocal)
+				var entryID string
 				if useLocal {
 					history.RecordDailyStats(durationSec, processingDurationSec, text, cfg.GetLocalModelID(), true)
-					history.AddWithModel(text, durationSec, processingDurationSec, lang, cfg.GetLocalModelID(), true)
+					entryID = history.AddWithModel(text, durationSec, processingDurationSec, lang, cfg.GetLocalModelID(), true)
 				} else {
 					history.RecordDailyStats(durationSec, processingDurationSec, text, model, false)
-					history.AddWithModel(text, durationSec, processingDurationSec, lang, model, false)
+					entryID = history.AddWithModel(text, durationSec, processingDurationSec, lang, model, false)
+				}
+
+				// Cache the processed audio for re-listen / re-transcribe
+				if entryID != "" {
+					if err := SaveAudio(entryID, pcm); err != nil {
+						logWarn("Save audio cache: %v", err)
+					}
 				}
 				// Auto-cleanup if enabled
 				if cfg.GetCleanupEnabled() {
