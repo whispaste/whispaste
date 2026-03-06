@@ -751,6 +751,27 @@ func (h *History) Merge(ids []string) string {
 	return merged.ID
 }
 
+// AllEntryIDs returns a set of all entry IDs in the database.
+func (h *History) AllEntryIDs() map[string]bool {
+	ids := make(map[string]bool)
+	if h.db == nil {
+		return ids
+	}
+	rows, err := h.db.Query("SELECT id FROM history_entries")
+	if err != nil {
+		logError("AllEntryIDs: %v", err)
+		return ids
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if rows.Scan(&id) == nil {
+			ids[id] = true
+		}
+	}
+	return ids
+}
+
 // GetByID returns a copy of the entry with the given ID, or nil if not found.
 func (h *History) GetByID(id string) *HistoryEntry {
 	if h.db == nil {
@@ -869,6 +890,10 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 	for _, id := range deletedIDs {
 		DeleteAudio(id)
 	}
+
+	// Clean up orphaned audio files (from crashes, manual DB edits, etc.)
+	validIDs := h.AllEntryIDs()
+	CleanupOrphanedAudio(validIDs)
 
 	return int(totalRemoved)
 }
