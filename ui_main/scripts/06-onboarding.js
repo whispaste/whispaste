@@ -5,6 +5,7 @@ let _onboardingSmart = null;  // true or false
 let _onbModelId = 'whisper-base';
 let _onbModelReady = false;
 let _onbDownloading = false;
+let _onbApiKeyValid = false;
 
 function showOnboarding() {
   const overlay = document.getElementById('onboardingOverlay');
@@ -16,6 +17,7 @@ function showOnboarding() {
     _onbModelId = 'whisper-base';
     _onbModelReady = false;
     _onbDownloading = false;
+    _onbApiKeyValid = false;
     updateOnboardingStep();
   }
 }
@@ -76,7 +78,21 @@ async function selectOnboardingOption(choice) {
 
   const nextBtn = document.getElementById('onbNextStep2');
   if (choice === 'api') {
-    if (nextBtn) nextBtn.disabled = false;
+    // Disable until key is tested successfully
+    if (nextBtn) nextBtn.disabled = true;
+    _onbApiKeyValid = false;
+    // Reset validation when key input changes
+    const keyInput = document.getElementById('onb-apikey');
+    if (keyInput && !keyInput._onbChangeWired) {
+      keyInput._onbChangeWired = true;
+      keyInput.addEventListener('input', () => {
+        _onbApiKeyValid = false;
+        const fb = document.getElementById('onbApiKeyFeedback');
+        if (fb) { fb.textContent = ''; fb.className = 'onb-api-feedback'; }
+        const nb = document.getElementById('onbNextStep2');
+        if (nb && _onboardingChoice === 'api') nb.disabled = true;
+      });
+    }
   } else if (choice === 'local') {
     await onbCheckModelStatus();
     if (nextBtn) nextBtn.disabled = !_onbModelReady;
@@ -141,6 +157,39 @@ async function onbStartDownload() {
   }
 }
 
+async function onbTestApiKey() {
+  const keyInput = document.getElementById('onb-apikey');
+  const testBtn = document.getElementById('onbTestKeyBtn');
+  const feedback = document.getElementById('onbApiKeyFeedback');
+  const nextBtn = document.getElementById('onbNextStep2');
+  const key = keyInput ? keyInput.value.trim() : '';
+
+  if (!key) {
+    if (feedback) { feedback.textContent = t('onboarding.api_key_empty') || 'Please enter an API key'; feedback.className = 'onb-api-feedback error'; }
+    return;
+  }
+  if (testBtn) { testBtn.disabled = true; testBtn.textContent = '...'; }
+  if (feedback) { feedback.textContent = ''; feedback.className = 'onb-api-feedback'; }
+
+  try {
+    const result = await window._testApiKey(key);
+    if (result && result.success) {
+      _onbApiKeyValid = true;
+      if (feedback) { feedback.textContent = '✓ ' + (t('onboarding.api_key_valid') || 'API key is valid'); feedback.className = 'onb-api-feedback success'; }
+      if (nextBtn) nextBtn.disabled = false;
+    } else {
+      _onbApiKeyValid = false;
+      if (feedback) { feedback.textContent = '✗ ' + (result?.error || t('onboarding.api_key_invalid') || 'Invalid API key'); feedback.className = 'onb-api-feedback error'; }
+      if (nextBtn) nextBtn.disabled = true;
+    }
+  } catch (e) {
+    _onbApiKeyValid = false;
+    if (feedback) { feedback.textContent = '✗ ' + (e.message || 'Test failed'); feedback.className = 'onb-api-feedback error'; }
+    if (nextBtn) nextBtn.disabled = true;
+  }
+  if (testBtn) { testBtn.disabled = false; testBtn.textContent = t('onboarding.test_key') || 'Test Key'; }
+}
+
 // Called from Go via window.onbDownloadComplete (set up as alias)
 window.onbDownloadComplete = function(modelId, success, errorMsg) {
   if (modelId !== _onbModelId) return;
@@ -191,6 +240,8 @@ function selectOnboardingSmart(enabled) {
 }
 
 async function finishOnboarding() {
+  // Guard: don't proceed if API mode selected without validated key
+  if (_onboardingChoice === 'api' && !_onbApiKeyValid) return;
   try {
     const raw = await window.getConfig();
     const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;

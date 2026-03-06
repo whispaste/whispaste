@@ -103,12 +103,6 @@
                 <span id="sortLabel" data-i18n="notebook.sort_newest">Newest first</span>
                 <svg class="icon icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
               </button>
-              <div class="sort-menu" id="sortMenu">
-                <div class="sort-option active" data-sort="newest" data-i18n="notebook.sort_newest">Newest first</div>
-                <div class="sort-option" data-sort="oldest" data-i18n="notebook.sort_oldest">Oldest first</div>
-                <div class="sort-option" data-sort="alpha" data-i18n="notebook.sort_alpha">Alphabetical</div>
-                <div class="sort-option" data-sort="duration" data-i18n="notebook.sort_duration">By duration</div>
-              </div>
             </div>
           </div>
           <div class="filter-items">
@@ -174,17 +168,17 @@
       <div class="settings-layout">
         <nav class="settings-nav">
           <div class="filter-items">
-            <div class="filter-item active" data-settings-section="section-audio">
+            <div class="filter-item active" data-settings-section="section-general">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>
+              <span data-i18n="settingsNavGeneral">General</span>
+            </div>
+            <div class="filter-item" data-settings-section="section-audio">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
               <span data-i18n="settingsNavAudio">Audio & Recording</span>
             </div>
             <div class="filter-item" data-settings-section="section-transcription">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
               <span data-i18n="settingsNavTranscription">Transcription</span>
-            </div>
-            <div class="filter-item" data-settings-section="section-general">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>
-              <span data-i18n="settingsNavGeneral">General</span>
             </div>
             <div class="filter-item" data-settings-section="section-cleanup">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -193,6 +187,177 @@
           </div>
         </nav>
         <div class="settings-scroll">
+
+          <!-- Section: General -->
+          <div class="settings-section-header" id="section-general">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>
+            <span data-i18n="settingsNavGeneral">General</span>
+          </div>
+
+          <div class="card">
+            <div class="card-title" data-i18n="settingsNavGeneral">General</div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-autopaste" data-i18n="labelAutoPaste">Auto-paste</label>
+                  <p class="toggle-desc" data-i18n="descAutoPaste">Automatically paste transcription into focused field</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-autopaste" checked>
+                  <label class="toggle-track" for="toggle-autopaste"></label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-updates" data-i18n="labelCheckUpdates">Check for updates</label>
+                  <p class="toggle-desc" data-i18n="descCheckUpdates">Automatically check for new versions</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-updates" checked>
+                  <label class="toggle-track" for="toggle-updates"></label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-autostart" data-i18n="labelAutostart">Start with Windows</label>
+                  <p class="toggle-desc" data-i18n="descAutostart">Launch WhisPaste automatically when you sign in</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-autostart">
+                  <label class="toggle-track" for="toggle-autostart"></label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-close-to-tray" data-i18n="labelCloseToTray">Minimize to tray on close</label>
+                  <p class="toggle-desc" data-i18n="descCloseToTray">Keep the app running in the system tray when you close the window</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-close-to-tray" checked>
+                  <label class="toggle-track" for="toggle-close-to-tray"></label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-floating-btn" data-i18n="labelFloatingButton">Floating Record Button</label>
+                  <p class="toggle-desc" data-i18n="descFloatingButton">Show a floating button on screen for quick recording access</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-floating-btn">
+                  <label class="toggle-track" for="toggle-floating-btn"></label>
+                </div>
+              </div>
+              <div class="fab-color-row" id="fab-color-row">
+                <span class="fab-color-label" data-i18n="labelFloatingColor">Button Color</span>
+                <div class="fab-color-grid">
+                  <button type="button" class="fab-color-option selected" data-color="cyan" title="Cyan">
+                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#22D3EE,#0891B2)"></span>
+                  </button>
+                  <button type="button" class="fab-color-option" data-color="blue" title="Blue">
+                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#60A5FA,#2563EB)"></span>
+                  </button>
+                  <button type="button" class="fab-color-option" data-color="purple" title="Purple">
+                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#C084FC,#9333EA)"></span>
+                  </button>
+                  <button type="button" class="fab-color-option" data-color="rose" title="Rose">
+                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#FB7185,#E11D48)"></span>
+                  </button>
+                  <button type="button" class="fab-color-option" data-color="orange" title="Orange">
+                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#FB923C,#EA580C)"></span>
+                  </button>
+                  <button type="button" class="fab-color-option" data-color="amber" title="Amber">
+                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#FBBF24,#D97706)"></span>
+                  </button>
+                  <button type="button" class="fab-color-option" data-color="emerald" title="Emerald">
+                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#34D399,#059669)"></span>
+                  </button>
+                  <button type="button" class="fab-color-option" data-color="slate" title="Slate">
+                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#94A3B8,#475569)"></span>
+                  </button>
+                </div>
+              </div>
+              <div class="fab-size-row" id="fab-size-row">
+                <span class="fab-size-label" data-i18n="labelFloatingSize">Button Size</span>
+                <div class="fab-size-slider-group">
+                  <span class="fab-size-value" id="fab-size-value">56 px</span>
+                  <input type="range" id="range-fab-size" min="36" max="80" value="56" step="2" class="duration-slider" oninput="updateFabSizeLabel(this.value)">
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" data-i18n="labelMaxDuration">Max Recording Duration</label>
+                  <div class="toggle-desc" data-i18n="descMaxDuration">Automatically stop recording after this time to prevent accidental long recordings</div>
+                </div>
+                <div class="duration-slider-group">
+                  <span class="duration-value" id="max-duration-value">2 min</span>
+                  <input type="range" id="range-max-duration" min="0" max="300" value="120" step="60" class="duration-slider" oninput="updateDurationLabel(this.value)">
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="select-theme" data-i18n="labelTheme">Theme</label>
+              <select class="form-select" id="select-theme" onchange="applyTheme(this.value)">
+                <option value="system" data-i18n-opt="themeSystem">System</option>
+                <option value="light" data-i18n-opt="themeLight">Light</option>
+                <option value="dark" data-i18n-opt="themeDark">Dark</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title" data-i18n="cardNotifications">Notifications</div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-notify-bg" data-i18n="labelNotifyBg">Background notification</label>
+                  <p class="toggle-desc form-hint" data-i18n="descNotifyBg">Show notification when the window is closed and the app continues in the system tray</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-notify-bg" checked>
+                  <label class="toggle-track" for="toggle-notify-bg"></label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-notify-complete" data-i18n="labelNotifyComplete">Transcription complete</label>
+                  <p class="toggle-desc form-hint" data-i18n="descNotifyComplete">Show notification when transcription is finished</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-notify-complete" checked>
+                  <label class="toggle-track" for="toggle-notify-complete"></label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-notify-donate" data-i18n="labelNotifyDonate">Donation reminder</label>
+                  <p class="toggle-desc form-hint" data-i18n="descNotifyDonate">One-time reminder after 50 dictations to support development ❤️</p>
+                  <p class="toggle-desc form-hint sponsor-links">
+                    <a href="#" onclick="openExternal('https://github.com/sponsors/silvio-l'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> GitHub Sponsors</a>
+                    <span style="opacity:0.3;margin:0 6px">·</span>
+                    <a href="#" onclick="openExternal('https://ko-fi.com/silviol'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px"><path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/></svg> Ko-fi</a>
+                  </p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-notify-donate" checked>
+                  <label class="toggle-track" for="toggle-notify-donate"></label>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <!-- Section: Audio & Recording -->
           <div class="settings-section-header" id="section-audio">
@@ -399,177 +564,6 @@
                 <option value="ar" data-i18n-opt="langAr">Arabic</option>
                 <option value="hi" data-i18n-opt="langHi">Hindi</option>
               </select>
-            </div>
-          </div>
-
-          <!-- Section: General -->
-          <div class="settings-section-header" id="section-general">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>
-            <span data-i18n="settingsNavGeneral">General</span>
-          </div>
-
-          <div class="card">
-            <div class="card-title" data-i18n="settingsNavGeneral">General</div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-autopaste" data-i18n="labelAutoPaste">Auto-paste</label>
-                  <p class="toggle-desc" data-i18n="descAutoPaste">Automatically paste transcription into focused field</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-autopaste" checked>
-                  <label class="toggle-track" for="toggle-autopaste"></label>
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-updates" data-i18n="labelCheckUpdates">Check for updates</label>
-                  <p class="toggle-desc" data-i18n="descCheckUpdates">Automatically check for new versions</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-updates" checked>
-                  <label class="toggle-track" for="toggle-updates"></label>
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-autostart" data-i18n="labelAutostart">Start with Windows</label>
-                  <p class="toggle-desc" data-i18n="descAutostart">Launch WhisPaste automatically when you sign in</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-autostart">
-                  <label class="toggle-track" for="toggle-autostart"></label>
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-close-to-tray" data-i18n="labelCloseToTray">Minimize to tray on close</label>
-                  <p class="toggle-desc" data-i18n="descCloseToTray">Keep the app running in the system tray when you close the window</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-close-to-tray" checked>
-                  <label class="toggle-track" for="toggle-close-to-tray"></label>
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-floating-btn" data-i18n="labelFloatingButton">Floating Record Button</label>
-                  <p class="toggle-desc" data-i18n="descFloatingButton">Show a floating button on screen for quick recording access</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-floating-btn">
-                  <label class="toggle-track" for="toggle-floating-btn"></label>
-                </div>
-              </div>
-              <div class="fab-color-row" id="fab-color-row">
-                <span class="fab-color-label" data-i18n="labelFloatingColor">Button Color</span>
-                <div class="fab-color-grid">
-                  <button type="button" class="fab-color-option selected" data-color="cyan" title="Cyan">
-                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#22D3EE,#0891B2)"></span>
-                  </button>
-                  <button type="button" class="fab-color-option" data-color="blue" title="Blue">
-                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#60A5FA,#2563EB)"></span>
-                  </button>
-                  <button type="button" class="fab-color-option" data-color="purple" title="Purple">
-                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#C084FC,#9333EA)"></span>
-                  </button>
-                  <button type="button" class="fab-color-option" data-color="rose" title="Rose">
-                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#FB7185,#E11D48)"></span>
-                  </button>
-                  <button type="button" class="fab-color-option" data-color="orange" title="Orange">
-                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#FB923C,#EA580C)"></span>
-                  </button>
-                  <button type="button" class="fab-color-option" data-color="amber" title="Amber">
-                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#FBBF24,#D97706)"></span>
-                  </button>
-                  <button type="button" class="fab-color-option" data-color="emerald" title="Emerald">
-                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#34D399,#059669)"></span>
-                  </button>
-                  <button type="button" class="fab-color-option" data-color="slate" title="Slate">
-                    <span class="fab-color-swatch" style="background:linear-gradient(135deg,#94A3B8,#475569)"></span>
-                  </button>
-                </div>
-              </div>
-              <div class="fab-size-row" id="fab-size-row">
-                <span class="fab-size-label" data-i18n="labelFloatingSize">Button Size</span>
-                <div class="fab-size-slider-group">
-                  <span class="fab-size-value" id="fab-size-value">56 px</span>
-                  <input type="range" id="range-fab-size" min="36" max="80" value="56" step="2" class="duration-slider" oninput="updateFabSizeLabel(this.value)">
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" data-i18n="labelMaxDuration">Max Recording Duration</label>
-                  <div class="toggle-desc" data-i18n="descMaxDuration">Automatically stop recording after this time to prevent accidental long recordings</div>
-                </div>
-                <div class="duration-slider-group">
-                  <span class="duration-value" id="max-duration-value">2 min</span>
-                  <input type="range" id="range-max-duration" min="0" max="300" value="120" step="60" class="duration-slider" oninput="updateDurationLabel(this.value)">
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="select-theme" data-i18n="labelTheme">Theme</label>
-              <select class="form-select" id="select-theme" onchange="applyTheme(this.value)">
-                <option value="system" data-i18n-opt="themeSystem">System</option>
-                <option value="light" data-i18n-opt="themeLight">Light</option>
-                <option value="dark" data-i18n-opt="themeDark">Dark</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-title" data-i18n="cardNotifications">Notifications</div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-notify-bg" data-i18n="labelNotifyBg">Background notification</label>
-                  <p class="toggle-desc form-hint" data-i18n="descNotifyBg">Show notification when the window is closed and the app continues in the system tray</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-notify-bg" checked>
-                  <label class="toggle-track" for="toggle-notify-bg"></label>
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-notify-complete" data-i18n="labelNotifyComplete">Transcription complete</label>
-                  <p class="toggle-desc form-hint" data-i18n="descNotifyComplete">Show notification when transcription is finished</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-notify-complete" checked>
-                  <label class="toggle-track" for="toggle-notify-complete"></label>
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-notify-donate" data-i18n="labelNotifyDonate">Donation reminder</label>
-                  <p class="toggle-desc form-hint" data-i18n="descNotifyDonate">One-time reminder after 50 dictations to support development ❤️</p>
-                  <p class="toggle-desc form-hint sponsor-links">
-                    <a href="#" onclick="openExternal('https://github.com/sponsors/silvio-l'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> GitHub Sponsors</a>
-                    <span style="opacity:0.3;margin:0 6px">·</span>
-                    <a href="#" onclick="openExternal('https://ko-fi.com/silviol'); return false;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px"><path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/></svg> Ko-fi</a>
-                  </p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-notify-donate" checked>
-                  <label class="toggle-track" for="toggle-notify-donate"></label>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -1136,8 +1130,10 @@
       <div class="onboarding-apikey-section" id="onbApikeySection" style="display:none">
         <div class="onboarding-apikey-field">
           <input type="password" id="onb-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false">
-          <small data-i18n="onboarding.apikey_hint">Get your key at platform.openai.com · You can add it later in Settings</small>
+          <button type="button" class="onb-test-key-btn" id="onbTestKeyBtn" onclick="onbTestApiKey()" data-i18n="onboarding.test_key">Test Key</button>
         </div>
+        <div class="onb-api-feedback" id="onbApiKeyFeedback"></div>
+        <small data-i18n="onboarding.apikey_hint">Get your key at platform.openai.com · You can add it later in Settings</small>
       </div>
       <div class="onboarding-model-section" id="onbModelSection" style="display:none">
         <div class="onb-model-cards">
