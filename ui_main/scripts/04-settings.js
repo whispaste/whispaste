@@ -40,7 +40,6 @@ function gatherConfig() {
     mode: document.querySelector('[name="mode"]:checked')?.value || 'push_to_talk',
     language: document.getElementById('select-language')?.value || '',
     model: _savedModel,
-    prompt: document.getElementById('input-prompt')?.value || '',
     overlay_position: document.querySelector('[name="overlay"]:checked')?.value || 'top_center',
     play_sounds: document.getElementById('toggle-sound')?.checked || false,
     sound_volume: parseInt(document.getElementById('volume-slider')?.value || '80', 10) / 100.0,
@@ -56,7 +55,6 @@ function gatherConfig() {
     smart_mode_prompt: document.getElementById('input-smartprompt')?.value || '',
     smart_mode_target: document.getElementById('select-smarttarget')?.value || 'en',
 
-    transcription_language: document.getElementById('select-transcription-language')?.value || '',
     notify_background: document.getElementById('toggle-notify-bg')?.checked ?? true,
     notify_complete: document.getElementById('toggle-notify-complete')?.checked ?? true,
     notify_donate: document.getElementById('toggle-notify-donate')?.checked ?? true,
@@ -107,7 +105,6 @@ function applyConfig(cfg) {
   if (cfg.model) _savedModel = cfg.model;
   if (cfg.ui_language) _savedUILang = cfg.ui_language;
   if (cfg.api_endpoint != null) _savedAPIEndpoint = cfg.api_endpoint;
-  if (cfg.prompt != null) { const el = document.getElementById('input-prompt'); if (el) el.value = cfg.prompt; }
   if (cfg.max_record_sec != null) {
     const slider = document.getElementById('range-max-duration');
     if (slider) slider.value = cfg.max_record_sec;
@@ -132,7 +129,6 @@ function applyConfig(cfg) {
   // Cache active model type for sync access (e.g. language switch badge update)
   window._activeModelLocal = !!cfg.active_model_local;
 
-  if (cfg.transcription_language != null) { const el = document.getElementById('select-transcription-language'); if (el) el.value = cfg.transcription_language; }
   { const el = document.getElementById('toggle-notify-bg'); if (el) el.checked = cfg.notify_background !== false; }
   { const el = document.getElementById('toggle-notify-complete'); if (el) el.checked = cfg.notify_complete !== false; }
   { const el = document.getElementById('toggle-notify-donate'); if (el) el.checked = cfg.notify_donate !== false; }
