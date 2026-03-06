@@ -193,6 +193,21 @@
   background: linear-gradient(90deg, var(--accent-subtle) 0%, var(--bg-primary) 50%);
 }
 
+.entry.pending {
+  border-left: 3px solid var(--warning, #f59e0b);
+  background: linear-gradient(90deg, rgba(245,158,11,0.08) 0%, var(--bg-primary) 50%);
+}
+.entry.pending .entry-preview { opacity: 0.85; }
+.entry.pending .pending-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--warning, #f59e0b);
+  font-style: italic;
+}
+.entry.pending .pending-hint .icon { width: 14px; height: 14px; }
+.entry.pending .audio-retranscribe { display: inline-flex !important; }
+
 .entry-header {
   display: flex;
   align-items: flex-start;

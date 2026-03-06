@@ -12,6 +12,24 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// savePendingEntry creates a pending history entry and caches the audio
+// when transcription fails or is cancelled.
+func savePendingEntry(h *History, pcm []byte, durationSec float64, lang, modelName string, isLocal bool, reason string) {
+	if len(pcm) < 9600 { // less than 0.3s of 16kHz 16-bit mono
+		logDebug("Audio too short for pending entry (%d bytes), skipping", len(pcm))
+		return
+	}
+	pendingID := h.AddPendingEntry(durationSec, lang, modelName, isLocal, T(reason))
+	if pendingID == "" {
+		return
+	}
+	if err := SaveAudio(pendingID, pcm); err != nil {
+		logWarn("Save pending audio: %v", err)
+	}
+	logInfo("Created pending entry %s (reason: %s, duration: %.1fs)", pendingID, reason, durationSec)
+	NotifyHistoryChanged()
+}
+
 func main() {
 	// Single-instance guard: only one WhisPaste process at a time
 	mutexName, _ := windows.UTF16PtrFromString("Global\\WhisPaste_SingleInstance")
@@ -421,12 +439,14 @@ func main() {
 				}
 				processingDurationSec := time.Since(transcribeStart).Seconds()
 				if err != nil {
-					// If user cancelled via overlay button, exit silently
+					// If user cancelled via overlay button, save audio as pending
 					if errors.Is(err, context.Canceled) {
 						logInfo("Transcription cancelled by user")
+						savePendingEntry(history, pcm, durationSec, lang, modelName, useLocal, "transcription_cancelled")
 						return
 					}
 					logError("Transcription error: %v", err)
+					savePendingEntry(history, pcm, durationSec, lang, modelName, useLocal, "transcription_failed")
 					if playSounds {
 						PlayFeedback(SoundError)
 					}
@@ -449,6 +469,7 @@ func main() {
 				// Check if user cancelled while local transcription was running
 				if transcribeCtx.Err() != nil {
 					logInfo("Transcription cancelled by user (post-return)")
+					savePendingEntry(history, pcm, durationSec, lang, modelName, useLocal, "transcription_cancelled")
 					return
 				}
 
@@ -516,9 +537,10 @@ func main() {
 				}
 
 				// Bail out if cancelled during smart mode post-processing
-				if transcribeCtx.Err() != nil {
-					logInfo("Transcription cancelled during post-processing")
-					return
+				// (transcription already succeeded, save raw text without auto-paste)
+				postProcCancelled := transcribeCtx.Err() != nil
+				if postProcCancelled {
+					logInfo("Transcription cancelled during post-processing, saving raw text")
 				}
 
 				// Record stats and history with model info
@@ -551,7 +573,7 @@ func main() {
 					}
 				}
 
-				if autoPaste && recSrc != SourceAppUI {
+				if autoPaste && recSrc != SourceAppUI && !postProcCancelled {
 					// PasteText writes to clipboard and simulates Ctrl+V
 					if err := PasteText(text); err != nil {
 						logError("Paste error: %v", err)
