@@ -126,18 +126,15 @@ func main() {
 	)
 
 	// Snapshot config values under lock to avoid data races
-	snapshotConfig := func() (playSounds, autoPaste bool, lang, localLang, apiKey, model, endpoint, prompt string, useLocal bool) {
+	snapshotConfig := func() (playSounds, autoPaste bool, lang, localLang, apiKey, model, endpoint string, useLocal bool) {
 		cfg.mu.RLock()
 		defer cfg.mu.RUnlock()
 		endpoint = cfg.APIEndpoint
 		if endpoint == "" {
 			endpoint = "https://api.openai.com/v1/audio/transcriptions"
 		}
-		localLang = cfg.TranscriptionLanguage
-		if localLang == "" {
-			localLang = cfg.Language
-		}
-		return cfg.PlaySounds, cfg.AutoPaste, cfg.Language, localLang, cfg.APIKey, cfg.Model, endpoint, cfg.Prompt, cfg.ActiveModelLocal
+		localLang = cfg.Language
+		return cfg.PlaySounds, cfg.AutoPaste, cfg.Language, localLang, cfg.APIKey, cfg.Model, endpoint, cfg.ActiveModelLocal
 	}
 	snapshotSmart := func() (enabled bool, preset, customPrompt, targetLang string) {
 		cfg.mu.RLock()
@@ -165,7 +162,7 @@ func main() {
 		}
 		NotifyRecordingState(newState)
 
-		playSounds, autoPaste, lang, localLang, apiKey, model, endpoint, prompt, useLocal := snapshotConfig()
+		playSounds, autoPaste, lang, localLang, apiKey, model, endpoint, useLocal := snapshotConfig()
 
 		// Clean up level-monitoring goroutine when leaving recording/paused state
 		if (oldState == StateRecording || oldState == StatePaused) && levelDone != nil {
@@ -294,7 +291,7 @@ func main() {
 						gen := stateGen
 						stateMu.Unlock()
 						if s == StateRecording && gen == expectedGen {
-							ps, _, _, _, _, _, _, _, _ := snapshotConfig()
+							ps, _, _, _, _, _, _, _ := snapshotConfig()
 							if ps {
 								PlayFeedback(SoundWarning)
 							}
@@ -393,7 +390,7 @@ func main() {
 					}
 				} else {
 					wav := EncodeWAV(pcm, 16000, 1, 16)
-					text, err = Transcribe(wav, lang, apiKey, model, endpoint, prompt)
+					text, err = Transcribe(wav, lang, apiKey, model, endpoint, "")
 				}
 				processingDurationSec := time.Since(transcribeStart).Seconds()
 				if err != nil {
@@ -603,7 +600,7 @@ func main() {
 					recorder.Resume()
 				}
 				recorder.Stop() // discard audio
-				ps, _, _, _, _, _, _, _, _ := snapshotConfig()
+				ps, _, _, _, _, _, _, _ := snapshotConfig()
 				if ps {
 					PlayFeedback(SoundError)
 				}
@@ -701,7 +698,7 @@ func main() {
 		stateMu.Unlock()
 
 		if !cfg.HasAnyModel() {
-			ps, _, _, _, _, _, _, _, _ := snapshotConfig()
+			ps, _, _, _, _, _, _, _ := snapshotConfig()
 			if ps {
 				PlayFeedback(SoundError)
 			}
