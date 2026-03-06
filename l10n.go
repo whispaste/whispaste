@@ -278,7 +278,7 @@ var translations = map[string]map[string]string{
 		"settings.overlay_top":     "Oben Mitte",
 		"settings.overlay_cursor":  "In Cursornähe",
 		"settings.auto_paste":      "Transkription automatisch einfügen",
-		"settings.play_sounds":     "Akustische Rückmeldung",
+		"settings.play_sounds":     "Tonsignale",
 		"settings.check_updates":   "Automatisch nach Updates suchen",
 		"settings.save":            "Speichern",
 		"settings.cancel":          "Abbrechen",
@@ -300,7 +300,7 @@ var translations = map[string]map[string]string{
 
 		// First run
 		"firstrun.title":    "Willkommen bei WhisPaste",
-		"firstrun.message":  "Um zu starten, benötigen Sie einen OpenAI API-Schlüssel.",
+		"firstrun.message":  "Um zu starten, brauchst du einen OpenAI API-Schlüssel.",
 		"firstrun.get_key":  "API-Schlüssel erhalten",
 		"firstrun.enter":    "API-Schlüssel eingeben:",
 		"firstrun.continue": "Weiter",
@@ -310,7 +310,7 @@ var translations = map[string]map[string]string{
 		"error.no_local_model": "Kein lokales Modell heruntergeladen. Öffne Einstellungen → Lokale Modelle und lade zuerst ein Modell herunter.",
 		"error.recording":      "Aufnahme fehlgeschlagen: %s",
 		"error.transcription":  "Transkription fehlgeschlagen: %s",
-		"error.hotkey":         "Tastenkombination %s konnte nicht registriert werden. Sie wird möglicherweise von einer anderen Anwendung verwendet.",
+		"error.hotkey":         "Tastenkombination %s konnte nicht registriert werden — vermutlich von einer anderen App belegt.",
 		"error.microphone":     "Zugriff auf Mikrofon nicht möglich: %s",
 		"error.clipboard":      "Zugriff auf Zwischenablage nicht möglich: %s",
 
@@ -326,7 +326,7 @@ var translations = map[string]map[string]string{
 		"settings.smart_mode":         "Smart-Modus (KI-Nachbearbeitung)",
 		"settings.smart_preset":       "Vorlage",
 		"settings.smart_preset_off":   "Aus",
-		"settings.smart_preset_cleanup": "Aufräumen",
+		"settings.smart_preset_cleanup": "Bereinigen",
 		"settings.smart_preset_concise": "Kompakt",
 		"settings.smart_preset_email": "E-Mail-Format",
 		"settings.smart_preset_bullets": "Aufzählung",
@@ -372,7 +372,7 @@ var translations = map[string]map[string]string{
 
 		// Balloon notifications
 		"balloon.copied":   "In Zwischenablage kopiert",
-		"balloon.minimize":       "WhisPaste läuft weiterhin im Hintergrund. Nutzen Sie die Tastenkombination zum Diktieren.",
+		"balloon.minimize":       "WhisPaste läuft weiterhin im Hintergrund. Nutze die Tastenkombination zum Diktieren.",
 		"balloon.sponsor_title":  "Gefällt dir WhisPaste?",
 		"balloon.sponsor":        "Du hast 50 Diktate abgeschlossen! Wenn WhisPaste dir Zeit spart, unterstütze gerne die Weiterentwicklung. ❤️",
 		"balloon.transcription_complete": "Transkription abgeschlossen.",
@@ -397,7 +397,7 @@ var translations = map[string]map[string]string{
 		"notebook.today":        "Heute",
 		"notebook.this_week":    "Diese Woche",
 		"notebook.older":        "Älter",
-		"notebook.empty":        "Noch keine Einträge. Drücken Sie die Hotkey-Taste, um mit dem Diktieren zu beginnen.",
+		"notebook.empty":        "Noch keine Einträge. Drück die Hotkey-Taste, um mit dem Diktieren zu beginnen.",
 		"notebook.no_results":   "Keine passenden Einträge gefunden.",
 		"notebook.copy":         "In Zwischenablage kopieren",
 		"notebook.delete":       "Löschen",
