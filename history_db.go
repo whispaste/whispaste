@@ -56,14 +56,31 @@ func initHistoryDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
 
-	if err := createHistoryTables(db); err != nil {
+	// For existing DBs, run migration FIRST so new columns (e.g. project_id)
+	// exist before createHistoryTables tries to create indexes on them.
+	// For fresh DBs, create tables first so migrations can reference them.
+	var tableExists int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='history_entries'`).Scan(&tableExists); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("create tables: %w", err)
+		return nil, fmt.Errorf("check history_entries existence: %w", err)
 	}
 
-	// Migrate schema if needed (e.g. external-content FTS5 → regular FTS5)
-	if err := ensureSchemaVersion(db); err != nil {
-		logWarn("Schema migration: %v", err)
+	if tableExists > 0 {
+		if err := ensureSchemaVersion(db); err != nil {
+			logWarn("Schema migration: %v", err)
+		}
+		if err := createHistoryTables(db); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("create tables: %w", err)
+		}
+	} else {
+		if err := createHistoryTables(db); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("create tables: %w", err)
+		}
+		if err := ensureSchemaVersion(db); err != nil {
+			logWarn("Schema migration: %v", err)
+		}
 	}
 
 	// Check DB integrity and repair FTS if needed
