@@ -70,6 +70,7 @@ type Config struct {
 	FloatingButtonSize    int                      `json:"floating_button_size,omitempty"`
 	UseVAD                bool                     `json:"use_vad,omitempty"`
 	VADSensitivity        float32                  `json:"vad_sensitivity"`
+	LastProjectID         string                   `json:"last_project_id,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -704,6 +705,20 @@ func (c *Config) SetCustomTags(tags []string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.CustomTags = tags
+}
+
+// GetLastProjectID returns the last selected project ID (thread-safe).
+func (c *Config) GetLastProjectID() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.LastProjectID
+}
+
+// SetLastProjectID sets the last selected project ID (thread-safe).
+func (c *Config) SetLastProjectID(id string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.LastProjectID = id
 }
 
 // SetAppPresets replaces the app→preset mappings (thread-safe).

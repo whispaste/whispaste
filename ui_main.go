@@ -852,6 +852,62 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 			return true
 		})
 
+		// --- Project management ---
+
+		w.Bind("getProjects", func() (string, error) {
+			projects := history.ListProjects()
+			if projects == nil {
+				projects = []Project{}
+			}
+			data, err := json.Marshal(projects)
+			return string(data), err
+		})
+
+		w.Bind("createProject", func(name string) (string, error) {
+			p, err := history.CreateProject(name)
+			if err != nil {
+				return "", err
+			}
+			data, err := json.Marshal(p)
+			return string(data), err
+		})
+
+		w.Bind("renameProject", func(id, newName string) (bool, error) {
+			err := history.RenameProject(id, newName)
+			return err == nil, err
+		})
+
+		w.Bind("deleteProject", func(id string, deleteEntries bool) (bool, error) {
+			err := history.DeleteProject(id, deleteEntries)
+			if err == nil {
+				NotifyHistoryChanged()
+			}
+			return err == nil, err
+		})
+
+		w.Bind("setEntryProject", func(entryID, projectID string) (bool, error) {
+			err := history.SetEntryProject(entryID, projectID)
+			return err == nil, err
+		})
+
+		w.Bind("setEntriesProject", func(idsJSON, projectID string) (bool, error) {
+			var ids []string
+			if err := json.Unmarshal([]byte(idsJSON), &ids); err != nil {
+				return false, err
+			}
+			err := history.SetEntriesProject(ids, projectID)
+			return err == nil, err
+		})
+
+		w.Bind("getLastProjectID", func() string {
+			return cfg.GetLastProjectID()
+		})
+
+		w.Bind("setLastProjectID", func(id string) {
+			cfg.SetLastProjectID(id)
+			go cfg.Save()
+		})
+
 		// Bind: getAnalytics → returns usage analytics for a time period
 		w.Bind("getAnalytics", func(periodDays int) string {
 			data := history.GetAnalytics(periodDays)

@@ -41,7 +41,7 @@ const historyDBFile = "history.db"
 // 1 = external-content FTS5 (value-matching delete triggers — broken with modernc.org/sqlite)
 // 2 = regular FTS5 (rowid-based triggers)
 // 3 = daily_stats aggregation table
-const currentSchemaVersion = 3
+const currentSchemaVersion = 4
 
 // initHistoryDB opens (or creates) the SQLite database and ensures tables exist.
 func initHistoryDB() (*sql.DB, error) {
@@ -319,7 +319,7 @@ func ensureSchemaVersion(db *sql.DB) error {
 			version = 2
 
 		case 2:
-			// Migration to v3: add daily_stats aggregation table
+			// Migration to v3: add daily_stats aggregation table (falls through from above)
 			if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS daily_stats (
 				date                  TEXT NOT NULL,
 				model                 TEXT NOT NULL,
@@ -363,6 +363,27 @@ func ensureSchemaVersion(db *sql.DB) error {
 			}
 			version = 3
 
+		case 3:
+			// Migration to v4: add projects table and project_id column
+			if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS projects (
+				id         TEXT PRIMARY KEY,
+				name       TEXT NOT NULL UNIQUE,
+				created_at TEXT NOT NULL
+			)`); err != nil {
+				return fmt.Errorf("create projects table: %w", err)
+			}
+			// SQLite: ALTER TABLE can only add one column at a time
+			if _, err := db.Exec(`ALTER TABLE history_entries ADD COLUMN project_id TEXT NOT NULL DEFAULT ''`); err != nil {
+				// Column may already exist from a partial migration
+				if !strings.Contains(err.Error(), "duplicate column") {
+					return fmt.Errorf("add project_id column: %w", err)
+				}
+			}
+			if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_history_project ON history_entries(project_id)`); err != nil {
+				logWarn("create project_id index: %v", err)
+			}
+			version = 4
+
 		default:
 			return fmt.Errorf("unexpected schema version %d, cannot migrate", version)
 		}
@@ -394,11 +415,19 @@ func createHistoryTables(db *sql.DB) error {
 			source        TEXT NOT NULL DEFAULT 'dictation',
 			model         TEXT NOT NULL DEFAULT '',
 			is_local      INTEGER NOT NULL DEFAULT 0,
-			cost_usd      REAL NOT NULL DEFAULT 0
+			cost_usd      REAL NOT NULL DEFAULT 0,
+			project_id    TEXT NOT NULL DEFAULT ''
 		);
 
 		CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history_entries(timestamp);
 		CREATE INDEX IF NOT EXISTS idx_history_pinned ON history_entries(pinned);
+		CREATE INDEX IF NOT EXISTS idx_history_project ON history_entries(project_id);
+
+		CREATE TABLE IF NOT EXISTS projects (
+			id         TEXT PRIMARY KEY,
+			name       TEXT NOT NULL UNIQUE,
+			created_at TEXT NOT NULL
+		);
 
 		CREATE TABLE IF NOT EXISTS daily_stats (
 			date TEXT NOT NULL, model TEXT NOT NULL, is_local INTEGER NOT NULL,
@@ -583,7 +612,7 @@ func scanEntry(row interface{ Scan(...interface{}) error }) (HistoryEntry, error
 	var pinned, isLocal int
 	err := row.Scan(&e.ID, &e.Text, &e.Title, &e.Timestamp,
 		&e.Duration, &e.ProcessingDuration, &e.Language, &tagsJSON,
-		&pinned, &e.Source, &e.Model, &isLocal, &e.CostUSD)
+		&pinned, &e.Source, &e.Model, &isLocal, &e.CostUSD, &e.ProjectID)
 	if err != nil {
 		return e, err
 	}
@@ -595,7 +624,7 @@ func scanEntry(row interface{ Scan(...interface{}) error }) (HistoryEntry, error
 
 // allColumns is the column list for SELECT queries on history_entries.
 const allColumns = `id, text, title, timestamp, duration_sec, processing_duration_sec,
-	language, tags, pinned, source, model, is_local, cost_usd`
+	language, tags, pinned, source, model, is_local, cost_usd, project_id`
 
 // RecordDailyStats upserts a row in daily_stats for the current transcription.
 func (h *History) RecordDailyStats(durationSec, processingSec float64, text string, model string, isLocal bool) {

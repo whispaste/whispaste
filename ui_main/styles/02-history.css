@@ -93,6 +93,187 @@
 .sort-trigger .icon-xs { width: 14px; height: 14px; transition: transform 0.2s; }
 /* Sort dropdown now uses the central popover component (10-popover.js) */
 
+/* --- Project Selector --- */
+.project-selector {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.project-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  font-family: var(--font);
+  transition: all var(--transition);
+}
+
+.project-trigger:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-accent);
+}
+
+.project-trigger .icon:first-child {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+
+.project-trigger .project-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: transform var(--transition);
+}
+
+.project-selector.open .project-chevron {
+  transform: rotate(180deg);
+}
+
+#projectLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.project-add-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px dashed var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-hint);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.project-add-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+/* Project dropdown list */
+.project-dropdown-list {
+  margin-top: 4px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.project-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.project-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.project-dropdown-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.project-dropdown-item.active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.project-dropdown-item .project-count {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-hint);
+  min-width: 18px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.project-dropdown-item .project-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.project-dropdown-item:hover .project-actions {
+  opacity: 1;
+}
+
+.project-dropdown-item .project-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--text-hint);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.project-dropdown-item .project-actions button:hover {
+  color: var(--text-primary);
+}
+
+/* Project badge on entry cards */
+.project-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  font-size: 0.6rem;
+  line-height: 1.4;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  font-weight: var(--weight-medium);
+  border: 1px solid var(--border-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.project-badge:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.project-badge .icon {
+  width: 10px;
+  height: 10px;
+}
+
 .filter-section-title {
   font-size: 10px;
   font-weight: 700;
