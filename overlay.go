@@ -458,8 +458,9 @@ maxRecordSec int  // max recording duration in seconds (0 = unlimited)
 hoverBtn  int    // 0=none, 1=dash, 2=cancel, 3=pause, 4=stop
 pressBtn  int    // 0=none, same mapping
 tracking  bool   // whether TrackMouseEvent is active
-scale     float64 // DPI scale factor (1.0 = 96 DPI)
-mu        sync.Mutex
+	scale     float64    // DPI scale factor (1.0 = 96 DPI)
+	isSmartMode bool     // whether Smart Mode post-processing is active
+	mu        sync.Mutex
 }
 
 // dpiScale returns the DPI scale factor for the overlay window.
@@ -670,6 +671,7 @@ if o.state == StateRecording {
 o.startTime = time.Now()
 o.pauseAccum = 0
 o.paused = false
+o.isSmartMode = false
 for i := range o.levels {
 o.levels[i] = 0
 }
@@ -1030,6 +1032,13 @@ func (o *Overlay) SetMaxRecordSec(sec int) {
 	o.mu.Unlock()
 }
 
+// SetSmartMode sets whether the current processing uses Smart Mode.
+func (o *Overlay) SetSmartMode(enabled bool) {
+	o.mu.Lock()
+	o.isSmartMode = enabled
+	o.mu.Unlock()
+}
+
 // Show displays the overlay for the given state.
 func (o *Overlay) Show(state AppState) {
 if o.hwnd != 0 {
@@ -1162,6 +1171,7 @@ isPaused := o.paused
 hoverBtn := o.hoverBtn
 pressBtn := o.pressBtn
 maxRecordSec := o.maxRecordSec
+smartMode := o.isSmartMode
 if isPaused {
 	pauseAccum += time.Since(o.pauseStart)
 }
@@ -1174,7 +1184,7 @@ switch state {
 case StateRecording, StatePaused:
 o.paintRecordingULW(g, frame, startTime, pauseAccum, isPaused, levels, levelIdx, contentX, hoverBtn, pressBtn, maxRecordSec)
 case StateTranscribing, StateProcessing:
-o.paintTranscribingULW(g, frame, contentX, hoverBtn, pressBtn)
+o.paintTranscribingULW(g, frame, contentX, hoverBtn, pressBtn, smartMode)
 case StateError:
 o.paintErrorULW(g, contentX)
 case StateCopied:
@@ -1480,15 +1490,23 @@ func (o *Overlay) drawPlayIcon(g uintptr, bx, by int32) {
 	}
 }
 
-func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hoverBtn, pressBtn int) {
+func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hoverBtn, pressBtn int, smartMode bool) {
 cy := int32(_OVL_HEIGHT / 2)
 
 // Cancel button (dark circle with ✕)
 gdipFillCircleG(g, btnColor(0xFF1E2A36, 2, hoverBtn, pressBtn), _BTN_CANCEL_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 o.drawXIcon(g, _BTN_CANCEL_X, int32(cy)-_BTN_SIZE/2)
 
+// Choose label and spinner color based on Smart Mode
+labelKey := "overlay.transcribing"
+spinnerColor := uint32(0x0022D3EE) // cyan (BGR for #22D3EE)
+if smartMode {
+	labelKey = "overlay.smart_processing"
+	spinnerColor = 0x0000B4FF // gold (BGR for #FFB400)
+}
+
 // Build text with animated dots
-text := T("overlay.transcribing")
+text := T(labelKey)
 for len(text) > 0 && text[len(text)-1] == '.' {
 text = text[:len(text)-1]
 }
@@ -1520,7 +1538,7 @@ angle := angleOffset + float64(i)*2.0*math.Pi/float64(numDots)
 dx := int32(float64(spinR) * math.Cos(angle))
 dy := int32(float64(spinR) * math.Sin(angle))
 alpha := uint32(60 + (195 * uint32(i) / uint32(numDots-1)))
-argb := (alpha << 24) | 0x0022D3EE
+argb := (alpha << 24) | spinnerColor
 gdipFillCircleG(g, argb, spinCx+dx, spinCy+dy, dotR)
 }
 

@@ -68,6 +68,8 @@ type Config struct {
 	FloatingButtonY       int                      `json:"floating_button_y,omitempty"`
 	FloatingButtonColor   string                   `json:"floating_button_color,omitempty"`
 	FloatingButtonSize    int                      `json:"floating_button_size,omitempty"`
+	UseVAD                bool                     `json:"use_vad,omitempty"`
+	VADSensitivity        float32                  `json:"vad_sensitivity"`
 	mu          sync.RWMutex
 }
 
@@ -618,6 +620,23 @@ func (c *Config) GetTrimSilence() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.TrimSilence
+}
+
+// GetUseVAD returns whether Voice Activity Detection is enabled (thread-safe).
+func (c *Config) GetUseVAD() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.UseVAD
+}
+
+// GetVADSensitivity returns the VAD sensitivity (0.0–1.0, default 0.5) (thread-safe).
+func (c *Config) GetVADSensitivity() float32 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.VADSensitivity <= 0 {
+		return 0.5
+	}
+	return c.VADSensitivity
 }
 
 // GetAppDetectionEnabled returns whether app-based preset detection is on.

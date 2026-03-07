@@ -76,7 +76,7 @@
   color: var(--text);
   margin-bottom: 12px;
 }
-.chart-container { position: relative; overflow: visible; min-height: 120px; }
+.chart-container { position: relative; overflow: hidden; min-height: 120px; }
 
 /* SVG bar chart */
 .bar-chart { width: 100%; height: 160px; }
@@ -113,11 +113,10 @@
 
 /* Duration histogram */
 .duration-bars { display: flex; gap: 8px; align-items: flex-end; height: 130px; padding-top: 10px; }
-.dur-col { flex: 1; display: flex; flex-direction: column; align-items: center; max-width: 60px; height: 100%; }
+.dur-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
 .dur-bar-wrap { display: flex; align-items: flex-end; justify-content: center; flex: 1; width: 100%; }
 .dur-bar {
   width: 100%;
-  max-width: 40px;
   background: var(--accent);
   border-radius: 2px 2px 0 0;
   min-height: 2px;

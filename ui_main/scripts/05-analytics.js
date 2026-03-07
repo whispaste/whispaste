@@ -1,13 +1,17 @@
 /* ── Analytics Page ──────────────────────────────────── */
 let _analyticsPeriod = 30;
+let _analyticsData = null;
 let _analyticsInterval = null;
+let _analyticsResizeObserver = null;
 
 function startAnalyticsAutoRefresh() {
   stopAnalyticsAutoRefresh();
   _analyticsInterval = setInterval(() => loadAnalytics(), 2000);
+  _initAnalyticsResize();
 }
 function stopAnalyticsAutoRefresh() {
   if (_analyticsInterval) { clearInterval(_analyticsInterval); _analyticsInterval = null; }
+  if (_analyticsResizeObserver) { _analyticsResizeObserver.disconnect(); _analyticsResizeObserver = null; }
 }
 
 async function loadAnalytics(periodDays) {
@@ -87,14 +91,16 @@ async function loadAnalytics(periodDays) {
   </div>`;
 
   html += '</div>';
+  _analyticsData = data;
   container.innerHTML = html;
+  _fitDailyChart(container, data.dailyCounts);
 }
 
 function _localDateKey(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
-function renderDailyChart(dailyCounts) {
+function renderDailyChart(dailyCounts, svgWidth) {
   if (!dailyCounts || Object.keys(dailyCounts).length === 0) {
     return `<p style="color:var(--text-hint);font-size:12px">${t('analytics.no_data')}</p>`;
   }
@@ -130,7 +136,8 @@ function renderDailyChart(dailyCounts) {
   const h = 140;
   const padding = { top: 10, bottom: 25, left: 30, right: 5 };
   const chartH = h - padding.top - padding.bottom;
-  const chartW = 400 - padding.left - padding.right;
+  svgWidth = svgWidth || 400;
+  const chartW = svgWidth - padding.left - padding.right;
 
   // Grid lines (3-4 horizontal lines with value labels)
   const gridSteps = 4;
@@ -138,7 +145,7 @@ function renderDailyChart(dailyCounts) {
   for (let i = 0; i <= gridSteps; i++) {
     const y = padding.top + chartH - (i / gridSteps) * chartH;
     const val = Math.round((i / gridSteps) * maxCount);
-    gridLines += `<line class="grid-line" x1="${padding.left}" y1="${y}" x2="${400 - padding.right}" y2="${y}"/>`;
+    gridLines += `<line class="grid-line" x1="${padding.left}" y1="${y}" x2="${svgWidth - padding.right}" y2="${y}"/>`;
     gridLines += `<text class="grid-label" x="${padding.left - 4}" y="${y + 3}" text-anchor="end">${val}</text>`;
   }
 
@@ -160,9 +167,9 @@ function renderDailyChart(dailyCounts) {
     }
   });
 
-  return `<svg class="bar-chart" viewBox="0 0 400 ${h}" preserveAspectRatio="xMidYMid meet">
+  return `<svg class="bar-chart" viewBox="0 0 ${svgWidth} ${h}" preserveAspectRatio="xMidYMid meet">
     ${gridLines}
-    <line class="axis" x1="${padding.left}" y1="${padding.top + chartH}" x2="${400 - padding.right}" y2="${padding.top + chartH}"/>
+    <line class="axis" x1="${padding.left}" y1="${padding.top + chartH}" x2="${svgWidth - padding.right}" y2="${padding.top + chartH}"/>
     ${bars}
   </svg>`;
 }
@@ -224,4 +231,25 @@ function renderDurationBars(buckets) {
       <div class="dur-bar-value">${v}</div>
     </div>`;
   }).join('')}</div>`;
+}
+
+function _fitDailyChart(root, dailyCounts) {
+  const wrap = root.querySelector('.chart-card.full-width .chart-container');
+  if (!wrap || !dailyCounts) return;
+  const w = wrap.clientWidth;
+  if (w > 0) wrap.innerHTML = renderDailyChart(dailyCounts, w);
+}
+
+function _initAnalyticsResize() {
+  if (_analyticsResizeObserver) return;
+  const container = document.getElementById('analytics-content');
+  if (!container) return;
+  let resizeTimer = null;
+  _analyticsResizeObserver = new ResizeObserver(() => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (_analyticsData) _fitDailyChart(container, _analyticsData.dailyCounts);
+    }, 150);
+  });
+  _analyticsResizeObserver.observe(container);
 }
