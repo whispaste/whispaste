@@ -463,7 +463,19 @@ function _showTagAutocomplete(input) {
       });
       dd.appendChild(item);
     });
-    row.appendChild(dd);
+    // Position fixed relative to viewport to escape stacking contexts
+    const rect = row.getBoundingClientRect();
+    dd.style.position = 'fixed';
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.left = rect.left + 'px';
+    dd.style.width = rect.width + 'px';
+    document.body.appendChild(dd);
+
+    // Close on scroll so the dropdown doesn't float detached
+    const scrollParent = row.closest('.entries-area');
+    if (scrollParent) {
+      scrollParent.addEventListener('scroll', () => _closeTagAutocomplete(), { once: true, passive: true });
+    }
   });
 }
 
@@ -473,7 +485,7 @@ function _closeTagAutocomplete() {
 }
 
 function _navigateAutocomplete(input, direction) {
-  const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
+  const dd = document.querySelector('.tag-autocomplete[data-for-id="' + input.dataset.id + '"]');
   if (!dd) return;
   const items = dd.querySelectorAll('.tag-autocomplete-item');
   if (items.length === 0) return;
@@ -486,7 +498,7 @@ function _navigateAutocomplete(input, direction) {
 }
 
 function _selectAutocompleteHighlight(input) {
-  const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
+  const dd = document.querySelector('.tag-autocomplete[data-for-id="' + input.dataset.id + '"]');
   if (!dd) return false;
   const active = dd.querySelector('.tag-autocomplete-item.active');
   if (!active) return false;
@@ -648,7 +660,7 @@ function renderHistory() {
     input.addEventListener('input', () => _showTagAutocomplete(input));
     input.addEventListener('blur', () => _closeTagAutocomplete());
     input.addEventListener('keydown', (ev) => {
-      const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
+      const dd = document.querySelector('.tag-autocomplete[data-for-id="' + input.dataset.id + '"]');
       if (ev.key === 'Escape') { _closeTagAutocomplete(); ev.stopPropagation(); return; }
       if (ev.key === 'Enter') { ev.preventDefault(); if (!_selectAutocompleteHighlight(input)) addTag(input); return; }
       if (!dd) return;
