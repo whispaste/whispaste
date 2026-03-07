@@ -661,7 +661,6 @@
 .entry.expanded .entry-chevron { transform: rotate(180deg); }
 
 .entry.expanded .entry-preview { display: none; }
-.entry.expanded { position: relative; z-index: 10; }
 
 .entry-full {
   display: none;
@@ -793,18 +792,13 @@
 .tag-input-row { position: relative; }
 
 .tag-autocomplete {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  margin-top: 4px;
   max-height: 160px;
   overflow-y: auto;
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  z-index: 200;
+  z-index: 9999;
   padding: 4px;
 }
 .tag-autocomplete:empty { display: none; }
