@@ -1,6 +1,6 @@
 /* ── History Page Logic ────────────────────────────────── */
 let _entries = [];
-let _activeFilters = { time: null, pinned: false, tags: [] };
+let _activeFilters = { project: null, time: null, pinned: false, tags: [] };
 let _searchQuery = '';
 let _currentSort = 'newest';
 let _expandedId = null;
@@ -9,6 +9,7 @@ let _lastCheckedIndex = -1;
 let _acHighlight = -1;
 let _acSeq = 0;
 let _pinnedCollapsed = false;
+let _projects = [];
 
 function isToday(ts) {
   const d = new Date(ts), now = new Date();
@@ -22,6 +23,14 @@ function isThisWeek(ts) {
 }
 
 function matchesFilter(e) {
+  // Project filter
+  if (_activeFilters.project !== null) {
+    if (_activeFilters.project === '') {
+      if (e.project_id && e.project_id !== '') return false;
+    } else {
+      if (e.project_id !== _activeFilters.project) return false;
+    }
+  }
   // Time filter
   if (_activeFilters.time === 'today' && !isToday(e.timestamp)) return false;
   if (_activeFilters.time === 'week' && !isThisWeek(e.timestamp)) return false;
@@ -200,8 +209,8 @@ function initSortDropdown() {
 function setFilter(f) {
   const timeFilters = ['today', 'week', 'older', 'custom'];
   if (f === 'all') {
-    // Reset all filters
-    _activeFilters = { time: null, pinned: false, tags: [] };
+    // Reset time/pinned/tag filters but preserve project scope
+    _activeFilters = { project: _activeFilters.project, time: null, pinned: false, tags: [] };
   } else if (f === 'pinned') {
     _activeFilters.pinned = !_activeFilters.pinned;
   } else if (timeFilters.includes(f)) {
@@ -232,7 +241,7 @@ function _hasActiveFilters() {
 }
 
 function clearAllFilters() {
-  _activeFilters = { time: null, pinned: false, tags: [] };
+  _activeFilters = { project: _activeFilters.project, time: null, pinned: false, tags: [] };
   const picker = document.getElementById('dateRangePicker');
   if (picker) picker.style.display = 'none';
   _updateFilterUI();
@@ -270,16 +279,23 @@ function _updateFilterUI() {
 
 function updateCounts() {
   const setCount = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  setCount('countAll', _entries.length);
-  setCount('countPinned', _entries.filter(e => e.pinned).length);
-  setCount('countToday', _entries.filter(e => isToday(e.timestamp)).length);
-  setCount('countWeek', _entries.filter(e => isThisWeek(e.timestamp)).length);
-  setCount('countOlder', _entries.filter(e => !isThisWeek(e.timestamp)).length);
+  // Scope counts to active project
+  const scoped = _activeFilters.project !== null
+    ? _entries.filter(e => {
+        if (_activeFilters.project === '') return !e.project_id || e.project_id === '';
+        return e.project_id === _activeFilters.project;
+      })
+    : _entries;
+  setCount('countAll', scoped.length);
+  setCount('countPinned', scoped.filter(e => e.pinned).length);
+  setCount('countToday', scoped.filter(e => isToday(e.timestamp)).length);
+  setCount('countWeek', scoped.filter(e => isThisWeek(e.timestamp)).length);
+  setCount('countOlder', scoped.filter(e => !isThisWeek(e.timestamp)).length);
 
-  // Dynamic categories (include persisted custom tags with count 0)
+  // Dynamic categories (include persisted custom tags with count 0 only when unfiltered)
   const cats = {};
-  _loadCustomTagsInto(cats);
-  _entries.forEach(e => { (e.tags || []).forEach(tag => { cats[tag] = (cats[tag] || 0) + 1; }); });
+  if (_activeFilters.project === null) _loadCustomTagsInto(cats);
+  scoped.forEach(e => { (e.tags || []).forEach(tag => { cats[tag] = (cats[tag] || 0) + 1; }); });
   const catSection = document.getElementById('categoriesSection');
   const catList = document.getElementById('categoryList');
   if (catSection && catList) {
@@ -445,7 +461,19 @@ function _showTagAutocomplete(input) {
       });
       dd.appendChild(item);
     });
-    row.appendChild(dd);
+    // Position fixed relative to viewport to escape stacking contexts
+    const rect = row.getBoundingClientRect();
+    dd.style.position = 'fixed';
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.left = rect.left + 'px';
+    dd.style.width = rect.width + 'px';
+    document.body.appendChild(dd);
+
+    // Close on scroll so the dropdown doesn't float detached
+    const scrollParent = row.closest('.entries-area');
+    if (scrollParent) {
+      scrollParent.addEventListener('scroll', () => _closeTagAutocomplete(), { once: true, passive: true });
+    }
   });
 }
 
@@ -455,7 +483,7 @@ function _closeTagAutocomplete() {
 }
 
 function _navigateAutocomplete(input, direction) {
-  const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
+  const dd = document.querySelector('.tag-autocomplete[data-for-id="' + input.dataset.id + '"]');
   if (!dd) return;
   const items = dd.querySelectorAll('.tag-autocomplete-item');
   if (items.length === 0) return;
@@ -468,7 +496,7 @@ function _navigateAutocomplete(input, direction) {
 }
 
 function _selectAutocompleteHighlight(input) {
-  const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
+  const dd = document.querySelector('.tag-autocomplete[data-for-id="' + input.dataset.id + '"]');
   if (!dd) return false;
   const active = dd.querySelector('.tag-autocomplete-item.active');
   if (!active) return false;
@@ -508,8 +536,8 @@ function _renderEntryCard(e) {
       </div>
       <div class="entry-preview">${isPending && !e.text ? '<span class="pending-hint">' + icons.refreshCw + ' ' + t('pending_transcription') + '</span>' : highlightSearch(e.text, _searchQuery)}</div>
       <div class="entry-tags-row">
+        ${(e.project_id && e.project_name) ? `<span class="project-badge" data-entry-id="${e.id}" title="${t('notebook.assign_project')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>${esc(e.project_name)}</span>` : `<span class="project-badge project-badge-empty" data-entry-id="${e.id}" title="${t('notebook.assign_project')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>${t('notebook.project')}</span>`}
         ${(e.tags || []).map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = systemTagLabel(tag); return `<span class="tag${sys ? ' system-tag' : ''}" data-tag="${esc(tag)}" data-id="${e.id}" style="background:${c.bg};color:${c.text};border-color:${c.border}">${sys ? systemTagIcon(tag) : ''}${esc(lbl)}${sys ? '' : '<span class="tag-remove" data-remove-tag="' + esc(tag) + '" data-id="' + e.id + '">&times;</span>'}</span>`; }).join('')}
-        <span class="tag-add-inline" title="${t('notebook.add_tag')}" data-id="${e.id}">+</span>
         <div class="tag-input-row tag-input-expanded" data-id="${e.id}">
           ${icons.tag}
           <input type="text" class="tag-input" placeholder="${t('notebook.add_tag')}" data-id="${e.id}" />
@@ -573,7 +601,7 @@ function renderHistory() {
   // Bind entry click to expand/collapse
   list.querySelectorAll('.entry').forEach(el => {
     el.addEventListener('click', (ev) => {
-      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea') || ev.target.closest('.entry-full-text') || ev.target.closest('.tag-add-inline')) return;
+      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea') || ev.target.closest('.entry-full-text') || ev.target.closest('.project-badge')) return;
       const id = el.dataset.id;
       _expandedId = _expandedId === id ? null : id;
       renderHistory();
@@ -630,7 +658,7 @@ function renderHistory() {
     input.addEventListener('input', () => _showTagAutocomplete(input));
     input.addEventListener('blur', () => _closeTagAutocomplete());
     input.addEventListener('keydown', (ev) => {
-      const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
+      const dd = document.querySelector('.tag-autocomplete[data-for-id="' + input.dataset.id + '"]');
       if (ev.key === 'Escape') { _closeTagAutocomplete(); ev.stopPropagation(); return; }
       if (ev.key === 'Enter') { ev.preventDefault(); if (!_selectAutocompleteHighlight(input)) addTag(input); return; }
       if (!dd) return;
@@ -656,47 +684,12 @@ function renderHistory() {
     });
   });
 
-  // Bind inline tag-add "+" buttons (compact mode)
-  list.querySelectorAll('.tag-add-inline').forEach(btn => {
-    btn.addEventListener('click', (ev) => {
+  // Bind project badge click → inline project assignment
+  list.querySelectorAll('.project-badge').forEach(badge => {
+    badge.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      const row = btn.closest('.entry-tags-row');
-      if (!row) return;
-      const inputRow = row.querySelector('.tag-input-expanded');
-      if (!inputRow) return;
-      // Temporarily show the inline input
-      btn.style.display = 'none';
-      inputRow.style.display = 'flex';
-      const input = inputRow.querySelector('.tag-input');
-      if (input) {
-        const ac = new AbortController();
-        const sig = ac.signal;
-        setTimeout(() => input.focus(), 30);
-        input.addEventListener('input', () => _showTagAutocomplete(input), { signal: sig });
-        input.addEventListener('focus', () => _showTagAutocomplete(input), { signal: sig });
-        const cleanup = () => {
-          ac.abort();
-          _closeTagAutocomplete();
-          inputRow.style.display = '';
-          btn.style.display = '';
-          input.value = '';
-        };
-        input.addEventListener('blur', () => setTimeout(cleanup, 150), { once: true, signal: sig });
-        input.addEventListener('keydown', (ev2) => {
-          if (ev2.key === 'Escape') { ev2.stopPropagation(); cleanup(); return; }
-          if (ev2.key === 'Enter') {
-            ev2.preventDefault();
-            ev2.stopImmediatePropagation();
-            if (!_selectAutocompleteHighlight(input)) addTag(input);
-            cleanup();
-            return;
-          }
-          const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
-          if (!dd) return;
-          if (ev2.key === 'ArrowDown') { ev2.preventDefault(); _navigateAutocomplete(input, 1); }
-          else if (ev2.key === 'ArrowUp') { ev2.preventDefault(); _navigateAutocomplete(input, -1); }
-        }, { signal: sig });
-      }
+      const entryId = badge.dataset.entryId;
+      if (entryId) showProjectAssignDialog(entryId);
     });
   });
 
@@ -1313,4 +1306,368 @@ function showExportFormatDialog() {
       if (ev.target === overlay) { overlay.remove(); resolve(null); }
     });
   });
+}
+
+/* ── Project Functions ──────────────────────────────── */
+
+async function loadProjects() {
+  if (window.getProjects) {
+    try {
+      const data = await window.getProjects();
+      _projects = JSON.parse(data || '[]');
+    } catch (e) {
+      _projects = [];
+    }
+  }
+}
+
+function renderProjectDropdown() {
+  const list = document.getElementById('projectDropdownList');
+  if (!list) return;
+
+  const allCount = _entries.length;
+  const noProjectCount = _entries.filter(e => !e.project_id || e.project_id === '').length;
+
+  let html = '';
+
+  // "All Projects" option
+  html += `<div class="project-dropdown-item${_activeFilters.project === null ? ' active' : ''}" data-project-id="__all__">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    <span>${t('notebook.all_projects')}</span>
+    <span class="project-count">${allCount}</span>
+  </div>`;
+
+  // "No Project" option
+  html += `<div class="project-dropdown-item${_activeFilters.project === '' ? ' active' : ''}" data-project-id="__none__">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M20 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2Z"/><path d="m9.5 10.5 5 5"/><path d="m14.5 10.5-5 5"/></svg>
+    <span>${t('notebook.no_project')}</span>
+    <span class="project-count">${noProjectCount}</span>
+  </div>`;
+
+  // Individual projects
+  for (const p of _projects) {
+    const count = _entries.filter(e => e.project_id === p.id).length;
+    const isActive = _activeFilters.project === p.id;
+    html += `<div class="project-dropdown-item${isActive ? ' active' : ''}" data-project-id="${p.id}">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</span>
+      <span class="project-count">${count}</span>
+      <span class="project-actions">
+        <button data-project-rename="${p.id}" title="${t('notebook.rename_project')}">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>
+        </button>
+        <button data-project-delete="${p.id}" data-project-name="${esc(p.name)}" title="${t('notebook.delete_project')}">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        </button>
+      </span>
+    </div>`;
+  }
+
+  // "New Project…" action
+  html += `<div class="project-dropdown-item project-dropdown-add" data-project-action="add">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+    <span>${t('notebook.new_project')}</span>
+  </div>`;
+
+  list.innerHTML = html;
+
+  // Bind add-project handler
+  list.querySelector('[data-project-action="add"]')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    toggleProjectDropdown(false);
+    const name = await showPromptDialog(t('notebook.new_project'), t('notebook.project_name'));
+    if (!name) return;
+    if (window.createProject) {
+      try {
+        const result = await window.createProject(name);
+        showToast(t('notebook.project_created'));
+        await loadProjects();
+        renderProjectDropdown();
+        renderHistory();
+      } catch (err) {
+        showToast(err.message || t('notebook.error_update'), true);
+      }
+    }
+  });
+
+  // Bind click handlers
+  list.querySelectorAll('.project-dropdown-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('[data-project-rename]') || e.target.closest('[data-project-delete]') || e.target.closest('[data-project-action]')) return;
+
+      const pid = item.dataset.projectId;
+      if (pid === '__all__') {
+        _activeFilters.project = null;
+      } else if (pid === '__none__') {
+        _activeFilters.project = '';
+      } else {
+        _activeFilters.project = pid;
+      }
+
+      if (window.setLastProjectID) {
+        window.setLastProjectID(pid === '__all__' ? '' : (pid === '__none__' ? '__none__' : pid));
+      }
+
+      // Clear tag filters — available tags change per project
+      _activeFilters.tags = [];
+
+      updateProjectLabel();
+      toggleProjectDropdown(false);
+      renderHistory();
+    });
+  });
+
+  // Bind rename handlers
+  list.querySelectorAll('[data-project-rename]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const pid = btn.dataset.projectRename;
+      const project = _projects.find(p => p.id === pid);
+      if (!project) return;
+
+      const newName = await showPromptDialog(t('notebook.rename_project'), t('notebook.project_name'), { defaultValue: project.name });
+      if (!newName || newName === project.name) return;
+
+      if (window.renameProject) {
+        const ok = await window.renameProject(pid, newName);
+        if (ok) {
+          showToast(t('notebook.project_renamed'));
+          await loadProjects();
+          renderProjectDropdown();
+          updateProjectLabel();
+        }
+      }
+    });
+  });
+
+  // Bind delete handlers
+  list.querySelectorAll('[data-project-delete]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const pid = btn.dataset.projectDelete;
+      const pname = btn.dataset.projectName;
+      await showDeleteProjectDialog(pname, pid);
+    });
+  });
+}
+
+async function showDeleteProjectDialog(name, id) {
+  const msg = t('notebook.delete_project_confirm').replace('{name}', esc(name));
+  const checkboxLabel = t('notebook.delete_project_entries');
+
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'dialog-overlay';
+    overlay.innerHTML = `
+      <div class="dialog-box">
+        <div class="dialog-title">${t('notebook.delete_project')}</div>
+        <div class="dialog-body">
+          <p>${msg}</p>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="deleteProjectEntries" style="accent-color:var(--accent)">
+            <span>${checkboxLabel}</span>
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary dialog-cancel">${t('notebook.confirm_cancel')}</button>
+          <button class="btn btn-danger dialog-confirm">${t('notebook.delete_project')}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('.dialog-cancel').onclick = () => {
+      overlay.remove();
+      resolve(false);
+    };
+
+    overlay.querySelector('.dialog-confirm').onclick = async () => {
+      const deleteEntries = document.getElementById('deleteProjectEntries')?.checked || false;
+      overlay.remove();
+
+      if (window.deleteProject) {
+        const ok = await window.deleteProject(id, deleteEntries);
+        if (ok) {
+          showToast(t('notebook.project_deleted'));
+          if (_activeFilters.project === id) {
+            _activeFilters.project = null;
+            if (window.setLastProjectID) window.setLastProjectID('');
+          }
+          await loadProjects();
+          await loadEntries();
+          renderProjectDropdown();
+          updateProjectLabel();
+        }
+      }
+      resolve(true);
+    };
+
+    overlay.addEventListener('click', (ev) => {
+      if (ev.target === overlay) {
+        overlay.remove();
+        resolve(false);
+      }
+    });
+  });
+}
+
+function updateProjectLabel() {
+  const label = document.getElementById('projectLabel');
+  if (!label) return;
+
+  if (_activeFilters.project === null) {
+    label.textContent = t('notebook.all_projects');
+  } else if (_activeFilters.project === '') {
+    label.textContent = t('notebook.no_project');
+  } else {
+    const project = _projects.find(p => p.id === _activeFilters.project);
+    label.textContent = project ? project.name : t('notebook.all_projects');
+  }
+}
+
+function toggleProjectDropdown(show) {
+  const list = document.getElementById('projectDropdownList');
+  const selector = document.getElementById('projectSelector');
+  if (!list || !selector) return;
+
+  if (show === undefined) {
+    show = list.style.display === 'none';
+  }
+
+  list.style.display = show ? 'block' : 'none';
+  selector.classList.toggle('open', show);
+
+  if (show) {
+    renderProjectDropdown();
+  }
+}
+
+function initSidebarResize() {
+  const handle = document.getElementById('sidebarResizeHandle');
+  const sidebar = document.querySelector('.filter-sidebar');
+  if (!handle || !sidebar) return;
+
+  // Restore saved width from config
+  if (window.getSidebarWidth) {
+    window.getSidebarWidth().then(w => {
+      if (w >= 140 && w <= 360) sidebar.style.width = w + 'px';
+    }).catch(() => {});
+  }
+
+  let startX, startWidth;
+
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    startX = e.clientX;
+    startWidth = sidebar.getBoundingClientRect().width;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (e) => {
+      const dx = e.clientX - startX;
+      const newWidth = Math.min(360, Math.max(140, startWidth + dx));
+      sidebar.style.width = newWidth + 'px';
+    };
+
+    const onMouseUp = () => {
+      handle.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      const finalWidth = Math.round(sidebar.getBoundingClientRect().width);
+      if (window.setSidebarWidth) window.setSidebarWidth(finalWidth);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
+}
+
+async function initProjectSelector() {
+  await loadProjects();
+
+  // Restore last project selection
+  if (window.getLastProjectID) {
+    try {
+      const lastId = await window.getLastProjectID();
+      if (lastId === '__none__') {
+        _activeFilters.project = '';
+      } else if (lastId && lastId !== '') {
+        if (_projects.find(p => p.id === lastId)) {
+          _activeFilters.project = lastId;
+        }
+      }
+      updateProjectLabel();
+    } catch (e) { /* ignore */ }
+  }
+
+  // Toggle dropdown on trigger click
+  document.getElementById('projectTrigger')?.addEventListener('click', () => {
+    toggleProjectDropdown();
+  });
+
+  // Close dropdown on outside click
+  document.addEventListener('click', (e) => {
+    const selector = document.getElementById('projectSelector');
+    if (selector && !selector.contains(e.target)) {
+      toggleProjectDropdown(false);
+    }
+  });
+}
+
+async function showProjectAssignDialog(entryId) {
+  await loadProjects();
+
+  const entry = _entries.find(e => e.id === entryId);
+  const currentPid = entry?.project_id || '';
+
+  const noProjectIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>';
+  const folderIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>';
+
+  const items = [
+    { label: t('notebook.no_project'), value: '', icon: noProjectIcon },
+    ..._projects.map(p => ({ label: p.name, value: p.id, icon: folderIcon }))
+  ];
+
+  const selected = await showListDialog(t('notebook.assign_project'), items, { selectedValue: currentPid });
+  if (selected === null) return;
+
+  if (window.setEntryProject) {
+    try {
+      await window.setEntryProject(entryId, selected);
+      showToast(t('notebook.project_updated'));
+      await loadEntries();
+    } catch (err) {
+      showToast(err.message || t('notebook.error_update'), true);
+    }
+  }
+}
+
+async function assignSelectedToProject() {
+  if (_selectedIds.size === 0) return;
+
+  await loadProjects();
+
+  const noProjectIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>';
+  const folderIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>';
+
+  const items = [
+    { label: t('notebook.no_project'), value: '', icon: noProjectIcon },
+    ..._projects.map(p => ({ label: p.name, value: p.id, icon: folderIcon }))
+  ];
+
+  const selected = await showListDialog(t('notebook.assign_project'), items);
+  if (selected === null) return;
+
+  if (window.setEntriesProject) {
+    const ids = Array.from(_selectedIds);
+    const ok = await window.setEntriesProject(JSON.stringify(ids), selected);
+    if (ok) {
+      showToast(t('notebook.project_updated'));
+      clearSelection();
+      await loadEntries();
+    }
+  }
 }

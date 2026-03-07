@@ -231,6 +231,8 @@ var translations = map[string]map[string]string{
 		"notebook.sort":          "Sort",
 		"notebook.add_tag":       "Add tag…",
 		"notebook.tag_updated":   "Tag updated",
+		"notebook.project_created": "Project created",
+		"notebook.project_deleted": "Project deleted",
 	},
 	"de": {
 		// App
@@ -420,5 +422,7 @@ var translations = map[string]map[string]string{
 		"notebook.sort":          "Sortierung",
 		"notebook.add_tag":       "Tag hinzufügen…",
 		"notebook.tag_updated":   "Tag aktualisiert",
+		"notebook.project_created": "Projekt erstellt",
+		"notebook.project_deleted": "Projekt gelöscht",
 	},
 }

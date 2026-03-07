@@ -70,7 +70,9 @@
 
 /* ── Filter Sidebar ───────────────────────────────────── */
 .filter-sidebar {
-  width: 180px;
+  width: var(--sidebar-width, 180px);
+  min-width: 140px;
+  max-width: 360px;
   padding: 12px;
   overflow-y: auto;
   flex-shrink: 0;
@@ -78,6 +80,28 @@
   background: var(--bg-primary);
 }
 .filter-sidebar::-webkit-scrollbar { width: 4px; }
+
+/* Sidebar resize handle */
+.sidebar-resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  position: relative;
+}
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle.dragging {
+  background: var(--accent);
+}
+.sidebar-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  right: -4px;
+}
 
 .filter-section { margin-bottom: 12px; }
 
@@ -92,6 +116,229 @@
 .sort-trigger:hover { color: var(--text-primary); background: var(--bg-hover); }
 .sort-trigger .icon-xs { width: 14px; height: 14px; transition: transform 0.2s; }
 /* Sort dropdown now uses the central popover component (10-popover.js) */
+
+/* --- Project Selector --- */
+.project-selector {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.project-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  font-family: var(--font);
+  transition: all var(--transition);
+}
+
+.project-trigger:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-accent);
+}
+
+.project-trigger .icon:first-child {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+
+.project-trigger .project-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: transform var(--transition);
+}
+
+.project-selector.open .project-chevron {
+  transform: rotate(180deg);
+}
+
+#projectLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* Project dropdown list */
+.project-dropdown-list {
+  margin-top: 4px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.project-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.project-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.project-dropdown-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.project-dropdown-item.active {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.project-dropdown-add {
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-hint);
+  font-style: italic;
+}
+.project-dropdown-add:hover {
+  color: var(--accent);
+}
+
+.project-dropdown-item .project-count {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-hint);
+  min-width: 18px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.project-dropdown-item .project-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.project-dropdown-item:hover .project-actions {
+  opacity: 1;
+}
+
+.project-dropdown-item .project-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--text-hint);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.project-dropdown-item .project-actions button:hover {
+  color: var(--text-primary);
+}
+
+/* Project badge on entry cards */
+.project-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  font-size: 0.6rem;
+  line-height: 1.4;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  font-weight: var(--weight-medium);
+  border: 1px solid var(--border-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.project-badge:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.project-badge-empty {
+  opacity: 0.5;
+  border-style: dashed;
+}
+.project-badge-empty:hover {
+  opacity: 1;
+}
+
+.project-badge .icon {
+  width: 10px;
+  height: 10px;
+}
+
+/* Project dialog overlay (assign, delete) */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: dialogFadeIn 200ms ease-out;
+}
+@keyframes dialogFadeIn { from { opacity: 0; } }
+.dialog-box {
+  width: 360px;
+  max-width: 90vw;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  box-shadow: var(--shadow-xl), var(--shadow-glow);
+  animation: dialogIn 280ms cubic-bezier(.34, 1.56, .64, 1);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+.dialog-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dialog-body {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.dialog-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
 
 .filter-section-title {
   font-size: 10px;
@@ -545,18 +792,13 @@
 .tag-input-row { position: relative; }
 
 .tag-autocomplete {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  margin-top: 4px;
   max-height: 160px;
   overflow-y: auto;
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  z-index: 200;
+  z-index: 9999;
   padding: 4px;
 }
 .tag-autocomplete:empty { display: none; }
