@@ -294,10 +294,10 @@ function updateCounts() {
   setCount('countWeek', scoped.filter(e => isThisWeek(e.timestamp)).length);
   setCount('countOlder', scoped.filter(e => !isThisWeek(e.timestamp)).length);
 
-  // Dynamic categories (include persisted custom tags with count 0)
+  // Dynamic categories (include persisted custom tags with count 0 only when unfiltered)
   const cats = {};
-  _loadCustomTagsInto(cats);
-  _entries.forEach(e => { (e.tags || []).forEach(tag => { cats[tag] = (cats[tag] || 0) + 1; }); });
+  if (_activeFilters.project === null) _loadCustomTagsInto(cats);
+  scoped.forEach(e => { (e.tags || []).forEach(tag => { cats[tag] = (cats[tag] || 0) + 1; }); });
   const catSection = document.getElementById('categoriesSection');
   const catList = document.getElementById('categoryList');
   if (catSection && catList) {
@@ -1409,6 +1409,9 @@ function renderProjectDropdown() {
       if (window.setLastProjectID) {
         window.setLastProjectID(pid === '__all__' ? '' : (pid === '__none__' ? '__none__' : pid));
       }
+
+      // Clear tag filters — available tags change per project
+      _activeFilters.tags = [];
 
       updateProjectLabel();
       toggleProjectDropdown(false);
