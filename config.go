@@ -71,6 +71,7 @@ type Config struct {
 	UseVAD                bool                     `json:"use_vad,omitempty"`
 	VADSensitivity        float32                  `json:"vad_sensitivity"`
 	LastProjectID         string                   `json:"last_project_id,omitempty"`
+	SidebarWidth          int                      `json:"sidebar_width,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -719,6 +720,25 @@ func (c *Config) SetLastProjectID(id string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.LastProjectID = id
+}
+
+// GetSidebarWidth returns the sidebar width (thread-safe).
+func (c *Config) GetSidebarWidth() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.SidebarWidth
+}
+
+// SetSidebarWidth sets the sidebar width (thread-safe), clamped to [140, 360].
+func (c *Config) SetSidebarWidth(w int) {
+	if w < 140 {
+		w = 140
+	} else if w > 360 {
+		w = 360
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.SidebarWidth = w
 }
 
 // SetAppPresets replaces the app→preset mappings (thread-safe).
