@@ -89,6 +89,10 @@
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span data-i18n="notebook.export_selected">Export</span>
           </button>
+          <button class="btn btn-secondary btn-sm" onclick="assignSelectedToProject()">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>
+            <span data-i18n="notebook.assign_project">Assign to project</span>
+          </button>
           <button class="btn btn-danger btn-sm" id="deleteSelectedBtn">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
             <span data-i18n="notebook.delete_selected">Delete</span>
@@ -97,7 +101,24 @@
       </div>
       <div class="history-layout">
         <div class="filter-sidebar">
+          <!-- Project selector -->
           <div class="filter-section">
+            <div class="filter-section-title" data-i18n="notebook.project">Project</div>
+            <div class="project-selector" id="projectSelector">
+              <button class="project-trigger" id="projectTrigger" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>
+                <span id="projectLabel" data-i18n="notebook.all_projects">All Projects</span>
+                <svg class="icon icon-xs project-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+
+            </div>
+            <div class="project-dropdown-list" id="projectDropdownList" style="display:none">
+              <!-- Populated dynamically by JS -->
+            </div>
+          </div>
+          <!-- Sorting -->
+          <div class="filter-section">
+            <div class="filter-section-title" data-i18n="notebook.sorting">Sorting</div>
             <div class="sort-dropdown" id="sortDropdown">
               <button class="sort-trigger" id="sortTrigger" type="button">
                 <span id="sortLabel" data-i18n="notebook.sort_newest">Newest first</span>
@@ -105,6 +126,8 @@
               </button>
             </div>
           </div>
+          <!-- Filters -->
+          <div class="filter-section-title" data-i18n="notebook.filter">Filter</div>
           <div class="filter-items">
             <div class="filter-item active" data-filter="all">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
@@ -159,6 +182,7 @@
             <button class="clear-filters-btn" id="clearFiltersBtn" type="button"></button>
           </div>
         </div>
+        <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
         <div class="entries-area">
           <div class="entries" id="entriesList"></div>
         </div>
