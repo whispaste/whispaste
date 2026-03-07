@@ -262,6 +262,44 @@ func TestHistoryGetAnalytics(t *testing.T) {
 	if analytics["apiEntries"].(int) != 1 {
 		t.Errorf("expected 1 API entry, got %v", analytics["apiEntries"])
 	}
+
+	// modelBenchmarks
+	benchmarks, ok := analytics["modelBenchmarks"].(map[string]map[string]interface{})
+	if !ok {
+		t.Fatal("modelBenchmarks missing or wrong type")
+	}
+	if _, exists := benchmarks["whisper-1"]; !exists {
+		t.Error("modelBenchmarks missing whisper-1")
+	}
+	if benchmarks["whisper-1"]["count"] != 1 {
+		t.Errorf("whisper-1 count = %v, want 1", benchmarks["whisper-1"]["count"])
+	}
+
+	// monthlyCosts
+	mc, ok := analytics["monthlyCosts"].(map[string]float64)
+	if !ok {
+		t.Fatal("monthlyCosts missing or wrong type")
+	}
+	if len(mc) == 0 {
+		t.Error("monthlyCosts should not be empty")
+	}
+
+	// totalWords and avgWordsPerEntry
+	tw, ok := analytics["totalWords"].(float64)
+	if !ok {
+		t.Fatal("totalWords missing or wrong type")
+	}
+	if tw == 0 {
+		t.Error("totalWords should be > 0")
+	}
+
+	awpe, ok := analytics["avgWordsPerEntry"].(float64)
+	if !ok {
+		t.Fatal("avgWordsPerEntry missing or wrong type")
+	}
+	if awpe == 0 {
+		t.Error("avgWordsPerEntry should be > 0")
+	}
 }
 
 func TestHistoryNilDB(t *testing.T) {

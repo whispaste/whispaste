@@ -408,9 +408,19 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 	var totalEntries, localEntries, apiEntries int
 	var totalDuration, totalCost, localDuration float64
 	var totalProcessingDuration float64
+	var totalWords float64
 	dailyCounts := map[string]int{}
 	modelCounts := map[string]int{}
 	durationBuckets := map[string]int{"<15s": 0, "15-30s": 0, "30-60s": 0, "1-3m": 0, ">3m": 0}
+	monthlyCosts := map[string]float64{}
+
+	type modelStats struct {
+		Count      int
+		Duration   float64
+		Processing float64
+		Words      float64
+	}
+	modelBenchmarks := map[string]*modelStats{}
 
 	for rows.Next() {
 		var date, model string
@@ -426,6 +436,7 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		totalDuration += durSec
 		totalCost += costUSD
 		totalProcessingDuration += procSec
+		totalWords += words
 
 		if isLocal == 1 {
 			localEntries += count
@@ -441,6 +452,20 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		}
 		modelCounts[model] += count
 
+		mb, ok := modelBenchmarks[model]
+		if !ok {
+			mb = &modelStats{}
+			modelBenchmarks[model] = mb
+		}
+		mb.Count += count
+		mb.Duration += durSec
+		mb.Processing += procSec
+		mb.Words += words
+
+		if len(date) >= 7 {
+			monthlyCosts[date[:7]] += costUSD
+		}
+
 		durationBuckets["<15s"] += durU15
 		durationBuckets["15-30s"] += dur1530
 		durationBuckets["30-60s"] += dur3060
@@ -453,6 +478,18 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 
 	savings := (localDuration / 60.0) * WhisperCostPerMinute
 	avgDuration := safeDiv(totalDuration, float64(totalEntries))
+
+	benchmarks := map[string]map[string]interface{}{}
+	for m, s := range modelBenchmarks {
+		benchmarks[m] = map[string]interface{}{
+			"count":       s.Count,
+			"duration":    s.Duration,
+			"processing":  s.Processing,
+			"words":       s.Words,
+			"speedRatio":  safeDiv(s.Processing, s.Duration),
+			"wordsPerMin": safeDiv(s.Words, s.Duration/60.0),
+		}
+	}
 
 	result := map[string]interface{}{
 		"totalEntries":          totalEntries,
@@ -469,6 +506,10 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		"maxDuration":           avgDuration, // approximation from aggregates
 		"avgProcessingDuration": safeDiv(totalProcessingDuration, float64(totalEntries)),
 		"totalProcessingTime":   totalProcessingDuration,
+		"modelBenchmarks":       benchmarks,
+		"monthlyCosts":          monthlyCosts,
+		"totalWords":            totalWords,
+		"avgWordsPerEntry":      safeDiv(totalWords, float64(totalEntries)),
 	}
 
 	h.mu.Lock()
@@ -479,6 +520,23 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 	h.mu.Unlock()
 
 	return result
+}
+
+// ResetStatistics clears all daily_stats data and the analytics cache.
+func (h *History) ResetStatistics() error {
+	if h.db == nil {
+		return fmt.Errorf("database not available")
+	}
+	_, err := h.db.Exec("DELETE FROM daily_stats")
+	if err != nil {
+		logError("ResetStatistics: %v", err)
+		return err
+	}
+	h.mu.Lock()
+	h.cache = nil
+	h.mu.Unlock()
+	logInfo("Statistics reset: daily_stats cleared")
+	return nil
 }
 
 func safeDiv(a, b float64) float64 {
