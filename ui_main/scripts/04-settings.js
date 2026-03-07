@@ -18,6 +18,13 @@ document.addEventListener('click', function(e) {
   opt.classList.add('selected');
   if (typeof autoSave === 'function') autoSave();
 });
+// Show/hide VAD sensitivity slider when VAD toggle changes
+document.addEventListener('change', function(e) {
+  if (e.target.id === 'toggle-use-vad') {
+    const row = document.getElementById('vad-sensitivity-row');
+    if (row) row.style.display = e.target.checked ? '' : 'none';
+  }
+});
 // Show/hide color picker when floating toggle changes
 document.addEventListener('change', function(e) {
   if (e.target.id === 'toggle-floating-btn') {
@@ -65,6 +72,8 @@ function gatherConfig() {
     cleanup_max_age_days: parseInt(document.getElementById('input-cleanup-max-age')?.value || '0', 10),
     cleanup_include_pinned: document.getElementById('toggle-cleanup-pinned')?.checked || false,
     trim_silence: document.getElementById('toggle-trim-silence')?.checked || false,
+    use_vad: document.getElementById('toggle-use-vad')?.checked || false,
+    vad_sensitivity: parseInt(document.getElementById('range-vad-sensitivity')?.value || '50', 10) / 100.0,
     floating_button_enabled: document.getElementById('toggle-floating-btn')?.checked || false,
     floating_button_color: document.querySelector('.fab-color-option.selected')?.dataset?.color || 'cyan',
     floating_button_size: parseInt(document.getElementById('range-fab-size')?.value || '56', 10)
@@ -145,6 +154,16 @@ function applyConfig(cfg) {
   { const el = document.getElementById('toggle-cleanup-pinned'); if (el) el.checked = !!cfg.cleanup_include_pinned; }
   updateCleanupDependents();
   { const el = document.getElementById('toggle-trim-silence'); if (el) el.checked = !!cfg.trim_silence; }
+  { const el = document.getElementById('toggle-use-vad'); if (el) el.checked = !!cfg.use_vad; }
+  {
+    const sens = cfg.vad_sensitivity != null ? cfg.vad_sensitivity : 0.5;
+    const slider = document.getElementById('range-vad-sensitivity');
+    const label = document.getElementById('vad-sensitivity-value');
+    if (slider) slider.value = Math.round(sens * 100);
+    if (label) label.textContent = sens.toFixed(2);
+    const row = document.getElementById('vad-sensitivity-row');
+    if (row) row.style.display = cfg.use_vad ? '' : 'none';
+  }
   { const el = document.getElementById('toggle-floating-btn'); if (el) el.checked = !!cfg.floating_button_enabled; }
   { const fab = document.getElementById('captureBtn'); if (fab) fab.style.display = cfg.floating_button_enabled ? 'none' : ''; }
   {
