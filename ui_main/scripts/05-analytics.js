@@ -67,6 +67,8 @@ async function loadAnalytics(periodDays) {
     <div class="stat-card"><div class="stat-value">${avgProc > 0 ? fmtDur(avgProc) : '—'}</div><div class="stat-label">${t('analytics.avg_processing')}</div>${processingDetail}</div>
     <div class="stat-card"><div class="stat-value">${data.localEntries || 0}</div><div class="stat-label">${t('analytics.local')}</div></div>
     <div class="stat-card"><div class="stat-value">${fmtCost(data.totalCost)}</div><div class="stat-label">${t('analytics.cost')}</div></div>
+    <div class="stat-card"><div class="stat-value">${Math.round(data.totalWords || 0).toLocaleString()}</div><div class="stat-label">${t('analytics.total_words')}</div></div>
+    <div class="stat-card"><div class="stat-value">${Math.round(data.avgWordsPerEntry || 0)}</div><div class="stat-label">${t('analytics.avg_words')}</div></div>
   </div>`;
 
   // Charts
@@ -90,7 +92,31 @@ async function loadAnalytics(periodDays) {
     <div class="chart-container">${renderDurationBars(data.durationBuckets)}</div>
   </div>`;
 
+  // Model benchmarks table
+  if (data.modelBenchmarks && Object.keys(data.modelBenchmarks).length > 0) {
+    html += `<div class="chart-card full-width">
+      <div class="chart-title">${t('analytics.benchmark_title')}</div>
+      <div class="chart-container">${renderBenchmarkTable(data.modelBenchmarks)}</div>
+    </div>`;
+  }
+
+  // Monthly costs
+  if (data.monthlyCosts && Object.keys(data.monthlyCosts).length > 0) {
+    html += `<div class="chart-card">
+      <div class="chart-title">${t('analytics.monthly_costs_title')}</div>
+      <div class="chart-container">${renderMonthlyCosts(data.monthlyCosts)}</div>
+    </div>`;
+  }
+
   html += '</div>';
+
+  // Reset button
+  html += `<div class="analytics-reset-section">
+    <button class="reset-stats-btn" onclick="confirmResetStatistics()">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+      ${t('analytics.reset_btn')}
+    </button>
+  </div>`;
   _analyticsData = data;
   container.innerHTML = html;
   _fitDailyChart(container, data.dailyCounts);
@@ -152,8 +178,10 @@ function renderDailyChart(dailyCounts, svgWidth) {
   const barW = chartW / allDays.length;
   const maxBarPx = 48;
   let bars = '';
-  // Show labels selectively to avoid overlap
-  const labelEvery = allDays.length > 14 ? Math.ceil(allDays.length / 14) : 1;
+  // Show labels selectively to avoid overlap (width-based)
+  const minLabelSlot = 32;
+  const maxLabels = Math.max(1, Math.floor(chartW / minLabelSlot));
+  const labelEvery = Math.max(1, Math.ceil(allDays.length / maxLabels));
   allDays.forEach((d, i) => {
     const barH = (d.count / maxCount) * chartH;
     const bwRaw = barW * 0.7;
@@ -167,7 +195,7 @@ function renderDailyChart(dailyCounts, svgWidth) {
     }
   });
 
-  return `<svg class="bar-chart" viewBox="0 0 ${svgWidth} ${h}" preserveAspectRatio="xMidYMid meet">
+  return `<svg class="bar-chart" viewBox="0 0 ${svgWidth} ${h}" preserveAspectRatio="none">
     ${gridLines}
     <line class="axis" x1="${padding.left}" y1="${padding.top + chartH}" x2="${svgWidth - padding.right}" y2="${padding.top + chartH}"/>
     ${bars}
@@ -238,6 +266,81 @@ function _fitDailyChart(root, dailyCounts) {
   if (!wrap || !dailyCounts) return;
   const w = wrap.clientWidth;
   if (w > 0) wrap.innerHTML = renderDailyChart(dailyCounts, w);
+}
+
+function renderBenchmarkTable(benchmarks) {
+  const models = Object.entries(benchmarks).sort((a, b) => b[1].count - a[1].count);
+  let rows = models.map(([model, s]) => {
+    // speedRatio = processing/duration — lower is faster
+    // Display as realtime factor: 1/speedRatio (higher = faster)
+    const factor = s.speedRatio > 0 ? 1 / s.speedRatio : 0;
+    const speed = factor > 0 ? `${factor.toFixed(1)}x` : '—';
+    const speedClass = factor >= 2 ? 'fast' : factor >= 1 ? 'medium' : 'slow';
+    return `<tr>
+      <td class="bench-model">${model}</td>
+      <td class="bench-count">${s.count}</td>
+      <td class="bench-speed ${speedClass}">${speed}</td>
+      <td>${s.wordsPerMin > 0 ? Math.round(s.wordsPerMin) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  return `<table class="benchmark-table">
+    <thead><tr>
+      <th>${t('analytics.bench_model')}</th>
+      <th>${t('analytics.bench_count')}</th>
+      <th>${t('analytics.bench_speed')}</th>
+      <th>${t('analytics.bench_wpm')}</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function renderMonthlyCosts(monthlyCosts) {
+  const months = Object.entries(monthlyCosts).sort((a, b) => b[0].localeCompare(a[0]));
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  let rows = months.map(([month, cost]) => {
+    const isCurrent = month === currentMonth;
+    return `<tr class="${isCurrent ? 'current-month' : ''}">
+      <td>${month}</td>
+      <td>${'$' + cost.toFixed(4)}</td>
+    </tr>`;
+  }).join('');
+
+  return `<table class="monthly-costs-table">
+    <thead><tr>
+      <th>${t('analytics.month')}</th>
+      <th>${t('analytics.cost')}</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function confirmResetStatistics() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal-dialog">
+    <div class="modal-title">${t('analytics.reset_title')}</div>
+    <div class="modal-text">${t('analytics.reset_confirm')}</div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">${t('analytics.reset_cancel')}</button>
+      <button class="btn-danger" onclick="doResetStatistics()">${t('analytics.reset_confirm_btn')}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function doResetStatistics() {
+  try {
+    const raw = await window.resetStatistics();
+    const result = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    document.querySelector('.modal-overlay')?.remove();
+    if (result && result.ok) {
+      loadAnalytics();
+    }
+  } catch (e) {
+    document.querySelector('.modal-overlay')?.remove();
+    console.error('Reset failed:', e);
+  }
 }
 
 function _initAnalyticsResize() {

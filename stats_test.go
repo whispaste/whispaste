@@ -119,3 +119,16 @@ func TestSnapshot(t *testing.T) {
 		t.Errorf("snapshot month_dictations = %v, want 3", snap["month_dictations"])
 	}
 }
+
+func TestStatsReset(t *testing.T) {
+	t.Setenv("APPDATA", t.TempDir())
+	s := &UsageStats{}
+	s.RecordDictation("hello world test", 5.0, false)
+	if s.TotalWords == 0 {
+		t.Fatal("expected words after recording")
+	}
+	s.Reset()
+	if s.TotalWords != 0 || s.TotalDictations != 0 || s.TotalSeconds != 0 {
+		t.Errorf("after reset: words=%d dicts=%d secs=%f", s.TotalWords, s.TotalDictations, s.TotalSeconds)
+	}
+}
