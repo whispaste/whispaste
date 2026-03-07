@@ -79,7 +79,7 @@
 .chart-container { position: relative; overflow: hidden; min-height: 120px; }
 
 /* SVG bar chart */
-.bar-chart { width: 100%; height: 160px; }
+.bar-chart { width: 100%; height: 160px; display: block; }
 .bar-chart rect.bar { fill: var(--accent); opacity: 0.85; }
 .bar-chart rect.bar:hover { opacity: 1; }
 .bar-chart text { font-size: 10px; fill: var(--text-hint); }
@@ -153,6 +153,142 @@
   color: var(--text-hint);
 }
 .analytics-empty .icon { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.4; }
+
+/* Benchmark table */
+.benchmark-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.benchmark-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.benchmark-table td {
+  padding: 8px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.benchmark-table tr:last-child td { border-bottom: none; }
+.bench-model { font-weight: 500; }
+.bench-speed.fast { color: #22c55e; font-weight: 600; }
+.bench-speed.medium { color: #f59e0b; font-weight: 600; }
+.bench-speed.slow { color: #ef4444; font-weight: 600; }
+
+/* Monthly costs table */
+.monthly-costs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.monthly-costs-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.monthly-costs-table td {
+  padding: 8px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.monthly-costs-table tr:last-child td { border-bottom: none; }
+.monthly-costs-table tr.current-month td { color: var(--accent); font-weight: 600; }
+
+/* Reset section */
+.analytics-reset-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+}
+.reset-stats-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-family: var(--font);
+  color: #ef4444;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.reset-stats-btn .icon { width: 14px; height: 14px; }
+.reset-stats-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+}
+
+/* Modal (confirmation dialog) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-dialog {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+}
+.modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.modal-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.btn-secondary {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.btn-danger {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-family: var(--font);
+  color: #fff;
+  background: #ef4444;
+  border: 1px solid #ef4444;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.btn-danger:hover { background: #dc2626; }
 
 @media (max-width: 600px) {
   .analytics-charts { grid-template-columns: 1fr; }
