@@ -197,6 +197,7 @@
   color: var(--text-secondary);
   transition: all var(--transition-fast);
   border-bottom: 1px solid var(--border-subtle);
+  position: relative;
 }
 
 .project-dropdown-item:last-child {
@@ -237,11 +238,19 @@
   display: flex;
   gap: 2px;
   opacity: 0;
+  visibility: hidden;
+  position: absolute;
+  right: 10px;
   transition: opacity var(--transition-fast);
 }
 
 .project-dropdown-item:hover .project-actions {
   opacity: 1;
+  visibility: visible;
+}
+
+.project-dropdown-item:hover .project-count {
+  display: none;
 }
 
 .project-dropdown-item .project-actions button {
