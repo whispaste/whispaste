@@ -145,7 +145,7 @@ func NotifyHistoryChanged() {
 }
 
 // ShowMainWindow opens the unified main window with WebView2.
-func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved func(), onClose func(), onCapture func(), initialPage string) {
+func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *UsageStats, onSaved func(), onClose func(), onCapture func(), initialPage string) {
 	mainWindowMu.Lock()
 	if mainWindowOpen {
 		if mainWindowHwnd != 0 {
@@ -860,6 +860,15 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				return "{}"
 			}
 			return string(b)
+		})
+
+		// Bind: resetStatistics → clears all analytics data (irreversible)
+		w.Bind("resetStatistics", func() map[string]interface{} {
+			if err := history.ResetStatistics(); err != nil {
+				return map[string]interface{}{"ok": false, "error": err.Error()}
+			}
+			stats.Reset()
+			return map[string]interface{}{"ok": true}
 		})
 
 		// Bind: _mergeEntries → merges multiple entries into one
