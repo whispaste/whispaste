@@ -40,6 +40,12 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.HotkeyKey != "V" {
 		t.Errorf("HotkeyKey = %q, want V", cfg.HotkeyKey)
 	}
+	if cfg.UseVAD {
+		t.Error("UseVAD should be false by default")
+	}
+	if cfg.GetVADSensitivity() != 0.5 {
+		t.Errorf("GetVADSensitivity() = %f, want 0.5 (default)", cfg.GetVADSensitivity())
+	}
 }
 
 func TestConfigSaveLoad(t *testing.T) {
@@ -125,6 +131,8 @@ func TestConfigThreadSafe(t *testing.T) {
 			cfg.GetUILanguage()
 			cfg.GetCheckUpdates()
 			cfg.IsPushToTalk()
+			cfg.GetUseVAD()
+			cfg.GetVADSensitivity()
 		}
 		close(done)
 	}()
@@ -178,6 +186,32 @@ func TestConfigPartialJSON(t *testing.T) {
 	}
 	if cfg.Theme != "system" {
 		t.Errorf("Theme = %q, want system (default)", cfg.Theme)
+	}
+}
+
+func TestConfigVADRoundtrip(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.UseVAD = true
+	cfg.VADSensitivity = 0.7
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+
+	var decoded Config
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if !decoded.UseVAD {
+		t.Error("UseVAD should survive roundtrip")
+	}
+	if decoded.VADSensitivity != 0.7 {
+		t.Errorf("VADSensitivity = %f, want 0.7", decoded.VADSensitivity)
+	}
+	if decoded.GetVADSensitivity() != 0.7 {
+		t.Errorf("GetVADSensitivity() = %f, want 0.7", decoded.GetVADSensitivity())
 	}
 }
 
