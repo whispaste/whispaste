@@ -145,6 +145,19 @@ When using the OpenAI Whisper API, transcription is billed per audio minute at *
 
 <br>
 
+## 🔄 Auto-Update
+
+WhisPaste includes a secure self-updater that keeps the app current without manual downloads.
+
+- **How it works** – on startup and periodically, WhisPaste queries the [GitHub Releases API](../../releases/latest) for newer versions. If one is found, it downloads the new binary alongside a SHA256 checksum file, verifies integrity, and replaces the executable.
+- **Rate limiting** – at most one check per hour (`minCheckInterval`). Manual checks from Settings pass `force=true` to bypass the cooldown.
+- **MSIX / Store package** – auto-update is automatically disabled when running as an MSIX package (detected via `GetCurrentPackageFullName`). Store users receive updates through the Microsoft Store instead.
+- **HTTPS only** – all API calls and downloads use HTTPS exclusively.
+- **Configuration** – controlled by the `check_updates` setting in `config.json` (default: `true`). Toggle it in Settings → "Check Updates".
+- **Testing** – the `Updater` struct exposes an overridable `releasesURL` field, allowing tests to swap in an `httptest.NewServer` and verify update logic without hitting GitHub. See `update_test.go` for examples.
+
+<br>
+
 ## 🏗️ Building from Source
 
 ### Prerequisites

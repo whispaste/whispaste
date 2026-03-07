@@ -358,8 +358,43 @@ func main() {
 				return
 			}
 
-			// Trim silence if enabled
-			if cfg.GetTrimSilence() {
+			// Create cancellable context early so cancel works during VAD too
+			transcribeCtx, tCancel := context.WithCancel(context.Background())
+			stateMu.Lock()
+			transcribeGen++
+			myGen := transcribeGen
+			transcribeCancel = tCancel
+			recSrc := recordSource
+			stateMu.Unlock()
+
+			// Voice Activity Detection or simple silence trimming
+			vadApplied := false
+			if cfg.GetUseVAD() {
+				origPCM := make([]byte, len(pcm))
+				copy(origPCM, pcm)
+				before := len(pcm)
+				vadResult, vadErr := GetVADProcessor().ProcessPCM(pcm, cfg.GetVADSensitivity())
+				if vadErr != nil {
+					logWarn("VAD processing failed, falling back to RMS: %v", vadErr)
+					// Fallback to existing pipeline
+					if cfg.GetTrimSilence() {
+						pcm = TrimSilence(pcm, 0.01, 30)
+						if len(pcm) < 9600 {
+							logWarn("TrimSilence result too short (%d bytes), using original audio", len(pcm))
+							pcm = origPCM
+						}
+					}
+				} else if len(vadResult) < 9600 {
+					logWarn("VAD result too short (%d bytes), using original audio", len(vadResult))
+					pcm = origPCM
+				} else {
+					if len(vadResult) < before {
+						logDebug("VAD trimmed: %d → %d bytes", before, len(vadResult))
+					}
+					pcm = vadResult
+					vadApplied = true
+				}
+			} else if cfg.GetTrimSilence() {
 				origPCM := make([]byte, len(pcm))
 				copy(origPCM, pcm)
 				before := len(pcm)
@@ -372,8 +407,9 @@ func main() {
 				}
 			}
 
-			// Strip long internal silence (>1s) to reduce duration and API cost
-			{
+			// Strip long internal silence (>1s) to reduce duration and API cost.
+			// Skipped only when VAD actually succeeded (it removes silence itself).
+			if !vadApplied {
 				before := len(pcm)
 				stripped := StripInternalSilence(pcm, 0.01, 1000)
 				if len(stripped) >= 2 && len(stripped) < before {
@@ -382,18 +418,7 @@ func main() {
 				}
 			}
 
-			// Transcribe in background (use snapshot values, not cfg directly)
-			// Capture recording source before entering the goroutine.
-			stateMu.Lock()
-			recSrc := recordSource
-			stateMu.Unlock()
-			// Create cancellable context for the transcription
-			transcribeCtx, tCancel := context.WithCancel(context.Background())
-			stateMu.Lock()
-			transcribeGen++
-			myGen := transcribeGen
-			transcribeCancel = tCancel
-			stateMu.Unlock()
+			// Transcribe in background
 			go func() {
 				defer func() {
 					stateMu.Lock()
@@ -534,6 +559,7 @@ func main() {
 				}
 				if smartEnabled && smartPreset != "" && smartPreset != "off" {
 					if overlay != nil {
+						overlay.SetSmartMode(true)
 						overlay.Show(StateProcessing)
 					}
 
@@ -956,6 +982,7 @@ func main() {
 			}
 			hkMu.Unlock()
 			localLLM.Stop()
+			GetVADProcessor().Close()
 			CloseMainWindow()
 			CloseLogViewer()
 			if overlay != nil {
