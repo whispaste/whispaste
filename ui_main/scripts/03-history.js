@@ -528,7 +528,6 @@ function _renderEntryCard(e) {
       <div class="entry-tags-row">
         ${(e.project_id && e.project_name) ? `<span class="project-badge" data-entry-id="${e.id}" title="${t('notebook.assign_project')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>${esc(e.project_name)}</span>` : `<span class="project-badge project-badge-empty" data-entry-id="${e.id}" title="${t('notebook.assign_project')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>${t('notebook.project')}</span>`}
         ${(e.tags || []).map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = systemTagLabel(tag); return `<span class="tag${sys ? ' system-tag' : ''}" data-tag="${esc(tag)}" data-id="${e.id}" style="background:${c.bg};color:${c.text};border-color:${c.border}">${sys ? systemTagIcon(tag) : ''}${esc(lbl)}${sys ? '' : '<span class="tag-remove" data-remove-tag="' + esc(tag) + '" data-id="' + e.id + '">&times;</span>'}</span>`; }).join('')}
-        <span class="tag-add-inline" title="${t('notebook.add_tag')}" data-id="${e.id}">+</span>
         <div class="tag-input-row tag-input-expanded" data-id="${e.id}">
           ${icons.tag}
           <input type="text" class="tag-input" placeholder="${t('notebook.add_tag')}" data-id="${e.id}" />
@@ -592,7 +591,7 @@ function renderHistory() {
   // Bind entry click to expand/collapse
   list.querySelectorAll('.entry').forEach(el => {
     el.addEventListener('click', (ev) => {
-      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea') || ev.target.closest('.entry-full-text') || ev.target.closest('.tag-add-inline') || ev.target.closest('.project-badge')) return;
+      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea') || ev.target.closest('.entry-full-text') || ev.target.closest('.project-badge')) return;
       const id = el.dataset.id;
       _expandedId = _expandedId === id ? null : id;
       renderHistory();
@@ -672,50 +671,6 @@ function renderHistory() {
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       removeTag(btn.dataset.id, btn.dataset.removeTag);
-    });
-  });
-
-  // Bind inline tag-add "+" buttons (compact mode)
-  list.querySelectorAll('.tag-add-inline').forEach(btn => {
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const row = btn.closest('.entry-tags-row');
-      if (!row) return;
-      const inputRow = row.querySelector('.tag-input-expanded');
-      if (!inputRow) return;
-      // Temporarily show the inline input
-      btn.style.display = 'none';
-      inputRow.style.display = 'flex';
-      const input = inputRow.querySelector('.tag-input');
-      if (input) {
-        const ac = new AbortController();
-        const sig = ac.signal;
-        setTimeout(() => input.focus(), 30);
-        input.addEventListener('input', () => _showTagAutocomplete(input), { signal: sig });
-        input.addEventListener('focus', () => _showTagAutocomplete(input), { signal: sig });
-        const cleanup = () => {
-          ac.abort();
-          _closeTagAutocomplete();
-          inputRow.style.display = '';
-          btn.style.display = '';
-          input.value = '';
-        };
-        input.addEventListener('blur', () => setTimeout(cleanup, 150), { once: true, signal: sig });
-        input.addEventListener('keydown', (ev2) => {
-          if (ev2.key === 'Escape') { ev2.stopPropagation(); cleanup(); return; }
-          if (ev2.key === 'Enter') {
-            ev2.preventDefault();
-            ev2.stopImmediatePropagation();
-            if (!_selectAutocompleteHighlight(input)) addTag(input);
-            cleanup();
-            return;
-          }
-          const dd = input.closest('.tag-input-row')?.querySelector('.tag-autocomplete');
-          if (!dd) return;
-          if (ev2.key === 'ArrowDown') { ev2.preventDefault(); _navigateAutocomplete(input, 1); }
-          else if (ev2.key === 'ArrowUp') { ev2.preventDefault(); _navigateAutocomplete(input, -1); }
-        }, { signal: sig });
-      }
     });
   });
 
