@@ -315,6 +315,8 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			cfg.CleanupMaxAgeDays = newCfg.CleanupMaxAgeDays
 			cfg.CleanupIncludePinned = newCfg.CleanupIncludePinned
 			cfg.TrimSilence = newCfg.TrimSilence
+			cfg.UseVAD = newCfg.UseVAD
+			cfg.VADSensitivity = newCfg.VADSensitivity
 			cfg.SmartModeProvider = newCfg.SmartModeProvider
 			cfg.FloatingButtonEnabled = newCfg.FloatingButtonEnabled
 			cfg.FloatingButtonColor = newCfg.FloatingButtonColor

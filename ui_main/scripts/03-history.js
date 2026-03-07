@@ -1248,6 +1248,9 @@ function showExportMenu(id, anchorEl) {
     items: [
       { icon: icons.files, label: t('notebook.export_txt'), action: () => doExport(id, 'txt') },
       { icon: icons.files, label: t('notebook.export_md'), action: () => doExport(id, 'md') },
+      { icon: icons.files, label: t('notebook.export_csv'), action: () => doExport(id, 'csv') },
+      { icon: icons.files, label: t('notebook.export_json'), action: () => doExport(id, 'json') },
+      { icon: icons.files, label: t('notebook.export_docx'), action: () => doExport(id, 'docx') },
     ],
   });
 }
@@ -1285,6 +1288,9 @@ function showExportFormatDialog() {
         <div class="dialog-body" style="display:flex;gap:8px;justify-content:center">
           <button class="btn btn-secondary" data-fmt="txt">TXT</button>
           <button class="btn btn-primary" data-fmt="md">Markdown</button>
+          <button class="btn btn-secondary" data-fmt="csv">CSV</button>
+          <button class="btn btn-secondary" data-fmt="json">JSON</button>
+          <button class="btn btn-secondary" data-fmt="docx">Word</button>
         </div>
         <div class="dialog-actions">
           <button class="btn btn-secondary dialog-cancel">${t('dialog.cancel') || 'Cancel'}</button>

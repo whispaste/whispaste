@@ -732,6 +732,13 @@ const translations = {
     descInputGain: 'Mikrofon-Empfindlichkeit anpassen (1.0 = normal)',
     labelTrimSilence: 'Stille trimmen',
     descTrimSilence: 'Automatisch Stille am Anfang und Ende der Aufnahme entfernen',
+    cardVAD: 'Sprachaktivitätserkennung',
+    labelUseVAD: 'VAD aktivieren',
+    descUseVAD: 'KI-basierte Spracherkennung zum Entfernen von Stille — präziser als einfaches Schwellwert-Trimming',
+    labelVADSensitivity: 'Empfindlichkeit',
+    descVADSensitivity: 'Höhere Werte erkennen leisere Sprache, können aber mehr Hintergrundgeräusche einschließen',
+    vadSensitivityLow: 'Niedrig',
+    vadSensitivityHigh: 'Hoch',
 
     // App Detection
     cardAppDetection: 'App-basierte Vorlagen',

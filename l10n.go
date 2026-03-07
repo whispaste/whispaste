@@ -167,8 +167,9 @@ var translations = map[string]map[string]string{
 		"settings.unlimited":          "∞ Unlimited",
 
 		// Overlay
-		"overlay.processing":   "Processing…",
-		"overlay.cancelled":    "Cancelled",
+		"overlay.processing":       "Processing…",
+		"overlay.smart_processing": "Smart processing…",
+		"overlay.cancelled":        "Cancelled",
 
 		// Tray
 		"tray.start_record":  "Start Recording",
@@ -355,8 +356,9 @@ var translations = map[string]map[string]string{
 		"settings.unlimited":          "∞ Unbegrenzt",
 
 		// Overlay
-		"overlay.processing":   "Verarbeitung…",
-		"overlay.cancelled":    "Abgebrochen",
+		"overlay.processing":       "Verarbeitung…",
+		"overlay.smart_processing": "Smart-Verarbeitung…",
+		"overlay.cancelled":        "Abgebrochen",
 
 		// Tray
 		"tray.start_record":  "Aufnahme starten",
