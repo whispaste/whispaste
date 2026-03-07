@@ -1389,12 +1389,37 @@ function renderProjectDropdown() {
     </div>`;
   }
 
+  // "New Project…" action
+  html += `<div class="project-dropdown-item project-dropdown-add" data-project-action="add">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+    <span>${t('notebook.new_project')}</span>
+  </div>`;
+
   list.innerHTML = html;
+
+  // Bind add-project handler
+  list.querySelector('[data-project-action="add"]')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    toggleProjectDropdown(false);
+    const name = await showPromptDialog(t('notebook.new_project'), t('notebook.project_name'));
+    if (!name) return;
+    if (window.createProject) {
+      try {
+        const result = await window.createProject(name);
+        showToast(t('notebook.project_created'));
+        await loadProjects();
+        renderProjectDropdown();
+        renderHistory();
+      } catch (err) {
+        showToast(err.message || t('notebook.error_update'), true);
+      }
+    }
+  });
 
   // Bind click handlers
   list.querySelectorAll('.project-dropdown-item').forEach(item => {
     item.addEventListener('click', (e) => {
-      if (e.target.closest('[data-project-rename]') || e.target.closest('[data-project-delete]')) return;
+      if (e.target.closest('[data-project-rename]') || e.target.closest('[data-project-delete]') || e.target.closest('[data-project-action]')) return;
 
       const pid = item.dataset.projectId;
       if (pid === '__all__') {
@@ -1540,6 +1565,49 @@ function toggleProjectDropdown(show) {
   }
 }
 
+function initSidebarResize() {
+  const handle = document.getElementById('sidebarResizeHandle');
+  const sidebar = document.querySelector('.filter-sidebar');
+  if (!handle || !sidebar) return;
+
+  // Restore saved width
+  const saved = localStorage.getItem('wp_sidebar_width');
+  if (saved) {
+    const w = parseInt(saved, 10);
+    if (w >= 140 && w <= 360) sidebar.style.width = w + 'px';
+  }
+
+  let startX, startWidth;
+
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    startX = e.clientX;
+    startWidth = sidebar.getBoundingClientRect().width;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (e) => {
+      const dx = e.clientX - startX;
+      const newWidth = Math.min(360, Math.max(140, startWidth + dx));
+      sidebar.style.width = newWidth + 'px';
+    };
+
+    const onMouseUp = () => {
+      handle.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      const finalWidth = Math.round(sidebar.getBoundingClientRect().width);
+      localStorage.setItem('wp_sidebar_width', String(finalWidth));
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
+}
+
 async function initProjectSelector() {
   await loadProjects();
 
@@ -1561,28 +1629,6 @@ async function initProjectSelector() {
   // Toggle dropdown on trigger click
   document.getElementById('projectTrigger')?.addEventListener('click', () => {
     toggleProjectDropdown();
-  });
-
-  // Add project button
-  document.getElementById('projectAddBtn')?.addEventListener('click', async () => {
-    const name = await showPromptDialog(t('notebook.new_project'), t('notebook.project_name'));
-    if (!name) return;
-
-    if (window.createProject) {
-      try {
-        const result = await window.createProject(name);
-        const project = JSON.parse(result);
-        showToast(t('notebook.project_created'));
-        await loadProjects();
-        _activeFilters.project = project.id;
-        if (window.setLastProjectID) window.setLastProjectID(project.id);
-        updateProjectLabel();
-        renderProjectDropdown();
-        renderHistory();
-      } catch (e) {
-        showToast(e.message || t('notebook.error_update'), true);
-      }
-    }
   });
 
   // Close dropdown on outside click

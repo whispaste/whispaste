@@ -27,7 +27,7 @@ type HistoryEntry struct {
 	Model              string   `json:"model,omitempty"`
 	IsLocal            bool     `json:"is_local,omitempty"`
 	CostUSD            float64  `json:"cost_usd,omitempty"`
-	ProjectID          string   `json:"project_id,omitempty"`
+	ProjectID          string   `json:"project_id"`
 	ProjectName        string   `json:"project_name,omitempty"` // computed, not stored
 }
 
