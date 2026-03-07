@@ -949,6 +949,20 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 
 		// --- Quick Mode Switching bindings ---
 
+		// Bind: switchRecordingMode → change between push_to_talk and toggle
+		w.Bind("switchRecordingMode", func(mode string) {
+			if mode != "push_to_talk" && mode != "toggle" {
+				return
+			}
+			cfg.mu.Lock()
+			cfg.Mode = mode
+			cfg.mu.Unlock()
+			if err := cfg.Save(); err != nil {
+				logError("Save config after recording mode switch: %v", err)
+			}
+			logInfo("Recording mode switched to: %s", mode)
+		})
+
 		// Bind: setSmartPreset → quickly switch smart mode preset from status bar
 		w.Bind("setSmartPreset", func(preset string) {
 			cfg.SetSmartModePreset(preset)
