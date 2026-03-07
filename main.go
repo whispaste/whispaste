@@ -968,12 +968,12 @@ func main() {
 	}
 	stateMu.Lock()
 	showDashboard = func() {
-		ShowMainWindow(cfg, recorder, history, onSettingsSaved, onWindowClose, onToggle, "")
+		ShowMainWindow(cfg, recorder, history, stats, onSettingsSaved, onWindowClose, onToggle, "")
 	}
 	stateMu.Unlock()
 	tray = NewAppTray(
 		func(page string) {
-			ShowMainWindow(cfg, recorder, history, onSettingsSaved, onWindowClose, onToggle, page)
+			ShowMainWindow(cfg, recorder, history, stats, onSettingsSaved, onWindowClose, onToggle, page)
 		},
 		func() {
 			hkMu.Lock()
@@ -1004,13 +1004,13 @@ func main() {
 	if !cfg.HasAnyModel() {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
-			ShowMainWindow(cfg, recorder, history, onSettingsSaved, onWindowClose, onToggle, "settings")
+			ShowMainWindow(cfg, recorder, history, stats, onSettingsSaved, onWindowClose, onToggle, "settings")
 		}()
 	} else if !isAutostart {
 		// Manual launch: show dashboard immediately
 		go func() {
 			time.Sleep(500 * time.Millisecond)
-			ShowMainWindow(cfg, recorder, history, onSettingsSaved, onWindowClose, onToggle, "history")
+			ShowMainWindow(cfg, recorder, history, stats, onSettingsSaved, onWindowClose, onToggle, "history")
 		}()
 	}
 

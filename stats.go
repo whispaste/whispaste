@@ -151,6 +151,26 @@ func (s *UsageStats) EstimatedCostLocked() float64 {
 	return apiSeconds / 60.0 * 0.006
 }
 
+// Reset clears all usage statistics and saves.
+func (s *UsageStats) Reset() {
+	s.mu.Lock()
+	s.TotalWords = 0
+	s.TotalDictations = 0
+	s.TotalSeconds = 0
+	s.LocalDictations = 0
+	s.LocalWords = 0
+	s.LocalSeconds = 0
+	s.MonthWords = 0
+	s.MonthDictations = 0
+	s.MonthSeconds = 0
+	s.MonthLocalDictations = 0
+	s.MonthLocalWords = 0
+	s.MonthLocalSeconds = 0
+	s.MonthKey = time.Now().Format("2006-01")
+	s.mu.Unlock()
+	s.save()
+}
+
 func (s *UsageStats) save() {
 	dir, err := configDir()
 	if err != nil {
