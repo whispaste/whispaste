@@ -94,6 +94,43 @@
 }
 .confirm-icon.info { background: var(--accent-subtle); color: var(--accent); }
 
+/* ── List Dialog ──────────────────────────────────────── */
+.confirm-list {
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0 -4px 20px;
+  padding: 4px;
+}
+.confirm-list::-webkit-scrollbar { width: 4px; }
+.confirm-list::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 2px; }
+
+.confirm-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+  margin-bottom: 2px;
+}
+.confirm-list-item .icon { width: 16px; height: 16px; flex-shrink: 0; }
+.confirm-list-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text);
+  border-color: var(--border-primary);
+}
+.confirm-list-item:active { transform: scale(.98); }
+.confirm-list-item.selected {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
 /* ── Buttons ──────────────────────────────────────────── */
 .btn {
   display: inline-flex;

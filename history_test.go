@@ -262,6 +262,44 @@ func TestHistoryGetAnalytics(t *testing.T) {
 	if analytics["apiEntries"].(int) != 1 {
 		t.Errorf("expected 1 API entry, got %v", analytics["apiEntries"])
 	}
+
+	// modelBenchmarks
+	benchmarks, ok := analytics["modelBenchmarks"].(map[string]map[string]interface{})
+	if !ok {
+		t.Fatal("modelBenchmarks missing or wrong type")
+	}
+	if _, exists := benchmarks["whisper-1"]; !exists {
+		t.Error("modelBenchmarks missing whisper-1")
+	}
+	if benchmarks["whisper-1"]["count"] != 1 {
+		t.Errorf("whisper-1 count = %v, want 1", benchmarks["whisper-1"]["count"])
+	}
+
+	// monthlyCosts
+	mc, ok := analytics["monthlyCosts"].(map[string]float64)
+	if !ok {
+		t.Fatal("monthlyCosts missing or wrong type")
+	}
+	if len(mc) == 0 {
+		t.Error("monthlyCosts should not be empty")
+	}
+
+	// totalWords and avgWordsPerEntry
+	tw, ok := analytics["totalWords"].(float64)
+	if !ok {
+		t.Fatal("totalWords missing or wrong type")
+	}
+	if tw == 0 {
+		t.Error("totalWords should be > 0")
+	}
+
+	awpe, ok := analytics["avgWordsPerEntry"].(float64)
+	if !ok {
+		t.Fatal("avgWordsPerEntry missing or wrong type")
+	}
+	if awpe == 0 {
+		t.Error("avgWordsPerEntry should be > 0")
+	}
 }
 
 func TestHistoryNilDB(t *testing.T) {
@@ -379,5 +417,141 @@ func TestHistorySearch(t *testing.T) {
 	results = h.Search("elephants")
 	if len(results) != 0 {
 		t.Errorf("expected 0 results after delete, got %d", len(results))
+	}
+}
+
+// TestSchemaV3ToV4Migration verifies that a pre-v4 database (without project_id column)
+// can be opened and migrated successfully — the exact bug that caused startup crashes.
+func TestSchemaV3ToV4Migration(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "history.db")
+
+	// Create a v3 schema database WITHOUT project_id column
+	db, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create the v3-era table (no project_id column)
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS history_entries (
+			id            TEXT PRIMARY KEY,
+			text          TEXT NOT NULL DEFAULT '',
+			title         TEXT NOT NULL DEFAULT '',
+			timestamp     TEXT NOT NULL,
+			duration_sec  REAL NOT NULL DEFAULT 0,
+			processing_duration_sec REAL NOT NULL DEFAULT 0,
+			language      TEXT NOT NULL DEFAULT '',
+			tags          TEXT NOT NULL DEFAULT '[]',
+			pinned        INTEGER NOT NULL DEFAULT 0,
+			source        TEXT NOT NULL DEFAULT 'dictation',
+			model         TEXT NOT NULL DEFAULT '',
+			is_local      INTEGER NOT NULL DEFAULT 0,
+			cost_usd      REAL NOT NULL DEFAULT 0
+		);
+		CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history_entries(timestamp);
+		CREATE INDEX IF NOT EXISTS idx_history_pinned ON history_entries(pinned);
+		CREATE TABLE IF NOT EXISTS daily_stats (
+			date TEXT NOT NULL, model TEXT NOT NULL, is_local INTEGER NOT NULL,
+			count INTEGER NOT NULL DEFAULT 0, total_duration_sec REAL NOT NULL DEFAULT 0,
+			total_processing_sec REAL NOT NULL DEFAULT 0, total_words INTEGER NOT NULL DEFAULT 0,
+			total_cost_usd REAL NOT NULL DEFAULT 0, dur_under_15s INTEGER NOT NULL DEFAULT 0,
+			dur_15_30s INTEGER NOT NULL DEFAULT 0, dur_30_60s INTEGER NOT NULL DEFAULT 0,
+			dur_1_3m INTEGER NOT NULL DEFAULT 0, dur_over_3m INTEGER NOT NULL DEFAULT 0,
+			PRIMARY KEY (date, model, is_local));
+		CREATE TABLE IF NOT EXISTS schema_version (version INTEGER);
+		INSERT INTO schema_version (version) VALUES (3);
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Insert a legacy entry without project_id
+	_, err = db.Exec(`INSERT INTO history_entries (id, text, title, timestamp, language, model)
+		VALUES ('legacy-1', 'test text', 'test title', '2025-01-01T12:00:00Z', 'en', 'whisper-1')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	// Now open with full init (simulates app startup on an existing v3 DB)
+	db2, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db2.Close()
+
+	// This is the exact sequence from initHistoryDB that was crashing
+	var tableExists int
+	db2.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='history_entries'`).Scan(&tableExists)
+	if tableExists == 0 {
+		t.Fatal("expected history_entries table to exist")
+	}
+
+	// Run migration first (as the fix does)
+	if err := ensureSchemaVersion(db2); err != nil {
+		t.Fatalf("migration failed: %v", err)
+	}
+
+	// Then create tables (should succeed now that project_id column exists)
+	if err := createHistoryTables(db2); err != nil {
+		t.Fatalf("createHistoryTables failed after migration: %v", err)
+	}
+
+	// Verify the legacy entry survived with project_id defaulting to ''
+	h := &History{db: db2}
+	all := h.All()
+	if len(all) != 1 {
+		t.Fatalf("expected 1 entry after migration, got %d", len(all))
+	}
+	if all[0].ProjectID != "" {
+		t.Errorf("expected empty project_id for legacy entry, got %q", all[0].ProjectID)
+	}
+
+	// Verify schema version is now v4
+	var version int
+	if err := db2.QueryRow("SELECT version FROM schema_version LIMIT 1").Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	if version != currentSchemaVersion {
+		t.Errorf("expected schema version %d, got %d", currentSchemaVersion, version)
+	}
+
+	// Verify project operations work
+	if _, err := db2.Exec(`INSERT INTO projects (id, name, created_at) VALUES ('p1', 'Test Project', '2025-01-01T00:00:00Z')`); err != nil {
+		t.Fatalf("insert project failed: %v", err)
+	}
+}
+
+// TestFreshDBInit verifies that a brand-new database initializes correctly.
+func TestFreshDBInit(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	// Fresh DB: createHistoryTables first, then migration
+	if err := createHistoryTables(db); err != nil {
+		t.Fatalf("createHistoryTables on fresh DB: %v", err)
+	}
+	if err := ensureSchemaVersion(db); err != nil {
+		t.Fatalf("ensureSchemaVersion on fresh DB: %v", err)
+	}
+
+	// Verify all tables exist
+	h := &History{db: db}
+	h.AddWithModel("test entry", 5.0, 1.0, "en", "whisper-1", false)
+	all := h.All()
+	if len(all) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(all))
+	}
+	if all[0].ProjectID != "" {
+		t.Errorf("expected empty project_id, got %q", all[0].ProjectID)
+	}
+
+	// Verify projects table works
+	if _, err := db.Exec(`INSERT INTO projects (id, name, created_at) VALUES ('p1', 'My Project', '2025-01-01T00:00:00Z')`); err != nil {
+		t.Fatalf("insert project on fresh DB: %v", err)
 	}
 }

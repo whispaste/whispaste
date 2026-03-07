@@ -90,6 +90,9 @@ func formatEntryTXT(e *HistoryEntry) string {
 	if len(e.Tags) > 0 {
 		b.WriteString(fmt.Sprintf("Tags: %s\n", strings.Join(e.Tags, ", ")))
 	}
+	if e.ProjectName != "" {
+		b.WriteString(fmt.Sprintf("Project: %s\n", e.ProjectName))
+	}
 	b.WriteString("\n")
 	b.WriteString(e.Text)
 	b.WriteString("\n")
@@ -113,6 +116,9 @@ func formatEntryMD(e *HistoryEntry) string {
 			tagStr[i] = "`" + t + "`"
 		}
 		b.WriteString(fmt.Sprintf("- **Tags:** %s\n", strings.Join(tagStr, ", ")))
+	}
+	if e.ProjectName != "" {
+		b.WriteString(fmt.Sprintf("- **Project:** %s\n", e.ProjectName))
 	}
 	b.WriteString("\n")
 	b.WriteString(e.Text)
@@ -230,7 +236,7 @@ func formatEntriesCSV(entries []*HistoryEntry) ([]byte, error) {
 	var buf strings.Builder
 	w := csv.NewWriter(&buf)
 
-	header := []string{"ID", "Title", "Text", "Timestamp", "Duration", "Language", "Tags", "Pinned", "Model", "IsLocal", "CostUSD"}
+	header := []string{"ID", "Title", "Text", "Timestamp", "Duration", "Language", "Tags", "Pinned", "Model", "IsLocal", "CostUSD", "Project"}
 	if err := w.Write(header); err != nil {
 		return nil, fmt.Errorf("csv header: %w", err)
 	}
@@ -248,6 +254,7 @@ func formatEntriesCSV(entries []*HistoryEntry) ([]byte, error) {
 			e.Model,
 			fmt.Sprintf("%t", e.IsLocal),
 			fmt.Sprintf("%.6f", e.CostUSD),
+			csvSafe(e.ProjectName),
 		}
 		if err := w.Write(row); err != nil {
 			return nil, fmt.Errorf("csv row %s: %w", e.ID, err)
@@ -332,6 +339,14 @@ func generateDOCX(entries []*HistoryEntry) ([]byte, error) {
 			body.WriteString(`<w:p><w:pPr><w:pStyle w:val="Meta"/></w:pPr>`)
 			body.WriteString(`<w:r><w:t xml:space="preserve">Tags: `)
 			body.WriteString(xmlEscape(strings.Join(e.Tags, ", ")))
+			body.WriteString(`</w:t></w:r></w:p>`)
+		}
+
+		// Project line
+		if e.ProjectName != "" {
+			body.WriteString(`<w:p><w:pPr><w:pStyle w:val="Meta"/></w:pPr>`)
+			body.WriteString(`<w:r><w:t xml:space="preserve">Project: `)
+			body.WriteString(xmlEscape(e.ProjectName))
 			body.WriteString(`</w:t></w:r></w:p>`)
 		}
 

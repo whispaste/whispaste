@@ -145,7 +145,7 @@ func NotifyHistoryChanged() {
 }
 
 // ShowMainWindow opens the unified main window with WebView2.
-func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved func(), onClose func(), onCapture func(), initialPage string) {
+func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *UsageStats, onSaved func(), onClose func(), onCapture func(), initialPage string) {
 	mainWindowMu.Lock()
 	if mainWindowOpen {
 		if mainWindowHwnd != 0 {
@@ -225,6 +225,18 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 
 		// Set window icon from embedded .ico
 		setWindowIcon(hwndPtr)
+
+		// Bind: _logJS → allows JS to log messages to the Go logger
+		w.Bind("_logJS", func(level, msg string) {
+			switch level {
+			case "error":
+				logError("JS: %s", msg)
+			case "warn":
+				logWarn("JS: %s", msg)
+			default:
+				logDebug("JS: %s", msg)
+			}
+		})
 
 		// Bind: windowReady → shows the window and focuses it after HTML is fully loaded
 		w.Bind("windowReady", func() {
@@ -852,6 +864,71 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 			return true
 		})
 
+		// --- Project management ---
+
+		w.Bind("getProjects", func() (string, error) {
+			projects := history.ListProjects()
+			if projects == nil {
+				projects = []Project{}
+			}
+			data, err := json.Marshal(projects)
+			return string(data), err
+		})
+
+		w.Bind("createProject", func(name string) (string, error) {
+			p, err := history.CreateProject(name)
+			if err != nil {
+				return "", err
+			}
+			data, err := json.Marshal(p)
+			return string(data), err
+		})
+
+		w.Bind("renameProject", func(id, newName string) (bool, error) {
+			err := history.RenameProject(id, newName)
+			return err == nil, err
+		})
+
+		w.Bind("deleteProject", func(id string, deleteEntries bool) (bool, error) {
+			err := history.DeleteProject(id, deleteEntries)
+			if err == nil {
+				NotifyHistoryChanged()
+			}
+			return err == nil, err
+		})
+
+		w.Bind("setEntryProject", func(entryID, projectID string) (bool, error) {
+			err := history.SetEntryProject(entryID, projectID)
+			return err == nil, err
+		})
+
+		w.Bind("setEntriesProject", func(idsJSON, projectID string) (bool, error) {
+			var ids []string
+			if err := json.Unmarshal([]byte(idsJSON), &ids); err != nil {
+				return false, err
+			}
+			err := history.SetEntriesProject(ids, projectID)
+			return err == nil, err
+		})
+
+		w.Bind("getLastProjectID", func() string {
+			return cfg.GetLastProjectID()
+		})
+
+		w.Bind("setLastProjectID", func(id string) {
+			cfg.SetLastProjectID(id)
+			go cfg.Save()
+		})
+
+		w.Bind("getSidebarWidth", func() int {
+			return cfg.GetSidebarWidth()
+		})
+
+		w.Bind("setSidebarWidth", func(w int) {
+			cfg.SetSidebarWidth(w)
+			go cfg.Save()
+		})
+
 		// Bind: getAnalytics → returns usage analytics for a time period
 		w.Bind("getAnalytics", func(periodDays int) string {
 			data := history.GetAnalytics(periodDays)
@@ -860,6 +937,15 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, onSaved f
 				return "{}"
 			}
 			return string(b)
+		})
+
+		// Bind: resetStatistics → clears all analytics data (irreversible)
+		w.Bind("resetStatistics", func() map[string]interface{} {
+			if err := history.ResetStatistics(); err != nil {
+				return map[string]interface{}{"ok": false, "error": err.Error()}
+			}
+			stats.Reset()
+			return map[string]interface{}{"ok": true}
 		})
 
 		// Bind: _mergeEntries → merges multiple entries into one

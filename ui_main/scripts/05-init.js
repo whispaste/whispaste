@@ -230,6 +230,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   // Sort dropdown
   initSortDropdown();
+  // Project selector
+  initProjectSelector();
+  // Sidebar resize
+  initSidebarResize();
   // Filter items
   document.querySelectorAll('.filter-item[data-filter]').forEach(el => {
     el.addEventListener('click', () => setFilter(el.dataset.filter));
