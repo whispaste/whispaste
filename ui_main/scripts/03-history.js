@@ -1607,50 +1607,29 @@ async function initProjectSelector() {
 async function showProjectAssignDialog(entryId) {
   await loadProjects();
 
-  const options = [
-    { id: '', name: t('notebook.no_project') },
-    ..._projects.map(p => ({ id: p.id, name: p.name }))
+  const entry = _entries.find(e => e.id === entryId);
+  const currentPid = entry?.project_id || '';
+
+  const noProjectIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>';
+  const folderIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>';
+
+  const items = [
+    { label: t('notebook.no_project'), value: '', icon: noProjectIcon },
+    ..._projects.map(p => ({ label: p.name, value: p.id, icon: folderIcon }))
   ];
 
-  const items = options.map(o => `<div class="project-dropdown-item" data-assign-project="${o.id}" style="cursor:pointer">${esc(o.name)}</div>`).join('');
+  const selected = await showListDialog(t('notebook.assign_project'), items, { selectedValue: currentPid });
+  if (selected === null) return;
 
-  return new Promise(resolve => {
-    const overlay = document.createElement('div');
-    overlay.className = 'dialog-overlay';
-    overlay.innerHTML = `
-      <div class="dialog-box" style="max-width:300px">
-        <div class="dialog-title">${t('notebook.assign_project')}</div>
-        <div class="dialog-body" style="max-height:250px;overflow-y:auto">
-          ${items}
-        </div>
-        <div class="dialog-actions">
-          <button class="btn btn-secondary dialog-cancel">${t('notebook.confirm_cancel')}</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-
-    overlay.querySelector('.dialog-cancel').onclick = () => { overlay.remove(); resolve(); };
-    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) { overlay.remove(); resolve(); } });
-
-    overlay.querySelectorAll('[data-assign-project]').forEach(item => {
-      item.addEventListener('click', async () => {
-        const pid = item.dataset.assignProject;
-        overlay.remove();
-
-        if (window.setEntryProject) {
-          try {
-            await window.setEntryProject(entryId, pid);
-            showToast(t('notebook.project_updated'));
-            await loadEntries();
-          } catch (err) {
-            showToast(err.message || t('notebook.error_update'), true);
-          }
-        }
-        resolve();
-      });
-    });
-  });
+  if (window.setEntryProject) {
+    try {
+      await window.setEntryProject(entryId, selected);
+      showToast(t('notebook.project_updated'));
+      await loadEntries();
+    } catch (err) {
+      showToast(err.message || t('notebook.error_update'), true);
+    }
+  }
 }
 
 async function assignSelectedToProject() {
@@ -1658,48 +1637,24 @@ async function assignSelectedToProject() {
 
   await loadProjects();
 
-  const options = [
-    { id: '', name: t('notebook.no_project') },
-    ..._projects.map(p => ({ id: p.id, name: p.name }))
+  const noProjectIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>';
+  const folderIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>';
+
+  const items = [
+    { label: t('notebook.no_project'), value: '', icon: noProjectIcon },
+    ..._projects.map(p => ({ label: p.name, value: p.id, icon: folderIcon }))
   ];
 
-  const items = options.map(o => `<div class="project-dropdown-item" data-assign-project="${o.id}" style="cursor:pointer">${esc(o.name)}</div>`).join('');
+  const selected = await showListDialog(t('notebook.assign_project'), items);
+  if (selected === null) return;
 
-  return new Promise(resolve => {
-    const overlay = document.createElement('div');
-    overlay.className = 'dialog-overlay';
-    overlay.innerHTML = `
-      <div class="dialog-box" style="max-width:300px">
-        <div class="dialog-title">${t('notebook.assign_project')}</div>
-        <div class="dialog-body" style="max-height:250px;overflow-y:auto">
-          ${items}
-        </div>
-        <div class="dialog-actions">
-          <button class="btn btn-secondary dialog-cancel">${t('notebook.confirm_cancel')}</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-
-    overlay.querySelector('.dialog-cancel').onclick = () => { overlay.remove(); resolve(); };
-    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) { overlay.remove(); resolve(); } });
-
-    overlay.querySelectorAll('[data-assign-project]').forEach(item => {
-      item.addEventListener('click', async () => {
-        const pid = item.dataset.assignProject;
-        overlay.remove();
-
-        if (window.setEntriesProject) {
-          const ids = Array.from(_selectedIds);
-          const ok = await window.setEntriesProject(JSON.stringify(ids), pid);
-          if (ok) {
-            showToast(t('notebook.assign_project'));
-            clearSelection();
-            await loadEntries();
-          }
-        }
-        resolve();
-      });
-    });
-  });
+  if (window.setEntriesProject) {
+    const ids = Array.from(_selectedIds);
+    const ok = await window.setEntriesProject(JSON.stringify(ids), selected);
+    if (ok) {
+      showToast(t('notebook.project_updated'));
+      clearSelection();
+      await loadEntries();
+    }
+  }
 }
