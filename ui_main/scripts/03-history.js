@@ -230,7 +230,6 @@ function setFilter(f) {
 
 function _getActiveFilterCount() {
   let n = 0;
-  if (_activeFilters.project !== null) n++;
   if (_activeFilters.time) n++;
   if (_activeFilters.pinned) n++;
   n += _activeFilters.tags.length;
@@ -242,8 +241,7 @@ function _hasActiveFilters() {
 }
 
 function clearAllFilters() {
-  _activeFilters = { project: null, time: null, pinned: false, tags: [] };
-  updateProjectLabel();
+  _activeFilters = { project: _activeFilters.project, time: null, pinned: false, tags: [] };
   const picker = document.getElementById('dateRangePicker');
   if (picker) picker.style.display = 'none';
   _updateFilterUI();
