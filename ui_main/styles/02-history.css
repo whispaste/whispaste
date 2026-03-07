@@ -293,6 +293,57 @@
   height: 10px;
 }
 
+/* Project dialog overlay (assign, delete) */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.dialog-box {
+  width: 340px;
+  max-width: 90vw;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  box-shadow: var(--shadow-xl), var(--shadow-glow);
+  animation: dialogIn 280ms cubic-bezier(.34, 1.56, .64, 1);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+.dialog-title {
+  font-size: 15px;
+  font-weight: var(--weight-semibold);
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+.dialog-body {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.dialog-body .project-dropdown-item {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.dialog-body .project-dropdown-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+
 .filter-section-title {
   font-size: 10px;
   font-weight: 700;
