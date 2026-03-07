@@ -333,22 +333,6 @@
   font-size: 13px;
   line-height: 1.5;
 }
-.dialog-body .project-dropdown-item {
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  border: 1px solid transparent;
-  margin-bottom: 2px;
-}
-.dialog-body .project-dropdown-item:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border-color: var(--border-primary);
-}
-.dialog-body .project-dropdown-item:active {
-  transform: scale(.98);
-}
 .dialog-actions {
   display: flex;
   gap: 10px;

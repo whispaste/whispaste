@@ -134,3 +134,64 @@ function showPromptDialog(title, message, opts = {}) {
     document.addEventListener('keydown', onEsc);
   });
 }
+
+/**
+ * Show a list selection dialog using the unified dialog system.
+ * @param {string} title - Dialog title
+ * @param {Array<{label: string, value: string, icon?: string}>} items
+ * @param {Object} [opts]
+ * @param {string} [opts.message] - Optional subtitle
+ * @param {string} [opts.icon] - SVG icon HTML for header badge
+ * @param {string} [opts.cancelText] - Cancel button text
+ * @param {string} [opts.selectedValue] - Currently selected value (highlighted)
+ * @returns {Promise<string|null>} Selected value or null if cancelled
+ */
+function showListDialog(title, items, opts = {}) {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('confirmOverlay');
+    if (!overlay) { resolve(null); return; }
+    const dialog = overlay.querySelector('.confirm-dialog');
+
+    const iconHTML = opts.icon || '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>';
+
+    const listHTML = items.map(item => {
+      const sel = item.value === opts.selectedValue ? ' selected' : '';
+      const itemIcon = item.icon || '';
+      return `<div class="confirm-list-item${sel}" data-list-value="${esc(item.value)}">${itemIcon}<span>${esc(item.label)}</span></div>`;
+    }).join('');
+
+    dialog.innerHTML = `
+      <div class="confirm-icon info">${iconHTML}</div>
+      <div class="confirm-title">${title}</div>
+      ${opts.message ? `<div class="confirm-msg">${opts.message}</div>` : ''}
+      <div class="confirm-list">${listHTML}</div>
+      <div class="confirm-btns">
+        <button class="btn btn-secondary flex-1" id="dialogCancel">${opts.cancelText || t('notebook.confirm_cancel')}</button>
+      </div>
+    `;
+
+    overlay.classList.add('show');
+
+    let closed = false;
+    function cleanup(val) {
+      if (closed) return;
+      closed = true;
+      overlay.classList.remove('show');
+      overlay.removeEventListener('click', onOverlay);
+      document.removeEventListener('keydown', onEsc);
+      resolve(val);
+    }
+
+    dialog.querySelectorAll('[data-list-value]').forEach(el => {
+      el.addEventListener('click', () => cleanup(el.dataset.listValue), { once: true });
+    });
+
+    document.getElementById('dialogCancel')?.addEventListener('click', () => cleanup(null), { once: true });
+
+    function onOverlay(ev) { if (ev.target === overlay) cleanup(null); }
+    overlay.addEventListener('click', onOverlay);
+
+    function onEsc(ev) { if (ev.key === 'Escape') cleanup(null); }
+    document.addEventListener('keydown', onEsc);
+  });
+}
