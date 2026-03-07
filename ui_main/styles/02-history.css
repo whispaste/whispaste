@@ -677,6 +677,7 @@
 .entry.expanded .entry-chevron { transform: rotate(180deg); }
 
 .entry.expanded .entry-preview { display: none; }
+.entry.expanded { position: relative; z-index: 10; }
 
 .entry-full {
   display: none;
