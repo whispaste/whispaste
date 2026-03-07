@@ -280,6 +280,14 @@
   color: var(--accent);
 }
 
+.project-badge-empty {
+  opacity: 0.5;
+  border-style: dashed;
+}
+.project-badge-empty:hover {
+  opacity: 1;
+}
+
 .project-badge .icon {
   width: 10px;
   height: 10px;
