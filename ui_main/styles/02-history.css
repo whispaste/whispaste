@@ -70,7 +70,9 @@
 
 /* ── Filter Sidebar ───────────────────────────────────── */
 .filter-sidebar {
-  width: 180px;
+  width: var(--sidebar-width, 180px);
+  min-width: 140px;
+  max-width: 360px;
   padding: 12px;
   overflow-y: auto;
   flex-shrink: 0;
@@ -78,6 +80,28 @@
   background: var(--bg-primary);
 }
 .filter-sidebar::-webkit-scrollbar { width: 4px; }
+
+/* Sidebar resize handle */
+.sidebar-resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  position: relative;
+}
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle.dragging {
+  background: var(--accent);
+}
+.sidebar-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  right: -4px;
+}
 
 .filter-section { margin-bottom: 12px; }
 
@@ -150,28 +174,6 @@
   text-align: left;
 }
 
-.project-add-btn {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: 1px dashed var(--border-primary);
-  border-radius: var(--radius-md);
-  color: var(--text-hint);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.project-add-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-subtle);
-}
-
 /* Project dropdown list */
 .project-dropdown-list {
   margin-top: 4px;
@@ -210,6 +212,15 @@
   background: var(--accent-subtle);
   color: var(--accent);
   font-weight: 600;
+}
+
+.project-dropdown-add {
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-hint);
+  font-style: italic;
+}
+.project-dropdown-add:hover {
+  color: var(--accent);
 }
 
 .project-dropdown-item .project-count {
