@@ -1570,11 +1570,11 @@ function initSidebarResize() {
   const sidebar = document.querySelector('.filter-sidebar');
   if (!handle || !sidebar) return;
 
-  // Restore saved width
-  const saved = localStorage.getItem('wp_sidebar_width');
-  if (saved) {
-    const w = parseInt(saved, 10);
-    if (w >= 140 && w <= 360) sidebar.style.width = w + 'px';
+  // Restore saved width from config
+  if (window.getSidebarWidth) {
+    window.getSidebarWidth().then(w => {
+      if (w >= 140 && w <= 360) sidebar.style.width = w + 'px';
+    }).catch(() => {});
   }
 
   let startX, startWidth;
@@ -1598,7 +1598,7 @@ function initSidebarResize() {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       const finalWidth = Math.round(sidebar.getBoundingClientRect().width);
-      localStorage.setItem('wp_sidebar_width', String(finalWidth));
+      if (window.setSidebarWidth) window.setSidebarWidth(finalWidth);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };

@@ -226,6 +226,18 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 		// Set window icon from embedded .ico
 		setWindowIcon(hwndPtr)
 
+		// Bind: _logJS → allows JS to log messages to the Go logger
+		w.Bind("_logJS", func(level, msg string) {
+			switch level {
+			case "error":
+				logError("JS: %s", msg)
+			case "warn":
+				logWarn("JS: %s", msg)
+			default:
+				logDebug("JS: %s", msg)
+			}
+		})
+
 		// Bind: windowReady → shows the window and focuses it after HTML is fully loaded
 		w.Bind("windowReady", func() {
 			showWindow.Call(hwnd, swShow)
@@ -905,6 +917,15 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 
 		w.Bind("setLastProjectID", func(id string) {
 			cfg.SetLastProjectID(id)
+			go cfg.Save()
+		})
+
+		w.Bind("getSidebarWidth", func() int {
+			return cfg.GetSidebarWidth()
+		})
+
+		w.Bind("setSidebarWidth", func(w int) {
+			cfg.SetSidebarWidth(w)
 			go cfg.Save()
 		})
 

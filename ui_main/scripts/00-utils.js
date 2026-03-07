@@ -1,3 +1,15 @@
+/* ── Global Error Handlers ─────────────────────────────── */
+window.onerror = function(msg, src, line, col, err) {
+  const detail = `${msg} at ${src}:${line}:${col}`;
+  if (window._logJS) window._logJS('error', detail);
+  else console.error('JS ERROR:', detail);
+};
+window.onunhandledrejection = function(ev) {
+  const detail = 'Unhandled rejection: ' + (ev.reason && ev.reason.stack || ev.reason || 'unknown');
+  if (window._logJS) window._logJS('error', detail);
+  else console.error('JS REJECTION:', detail);
+};
+
 /* ── Utility Functions ─────────────────────────────────── */
 
 const SYSTEM_TAGS = ['merged', 'duplicated', 'pending'];
