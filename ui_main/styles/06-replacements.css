@@ -24,7 +24,7 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  transition: opacity 0.2s, background 0.2s;
+  transition: opacity var(--transition), background var(--transition);
 }
 
 .replacement-row:hover {
@@ -135,7 +135,7 @@
 
 .repl-dialog-input {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 14px;
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
@@ -143,10 +143,12 @@
   font-size: 14px;
   font-family: var(--font-mono, 'Cascadia Code', 'Consolas', monospace);
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color var(--transition), box-shadow var(--transition);
   box-sizing: border-box;
 }
 
 .repl-dialog-input:focus {
-  border-color: var(--brand-primary);
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  outline: none;
 }
