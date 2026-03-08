@@ -15,6 +15,7 @@
 - Requires MinGW GCC in PATH (CGO dependency)
 - Go 1.24+ required (dependency constraint)
 - **Always build the production exe** (`-H windowsgui`) after changes. Only build a debug exe additionally if needed for console output.
+- **Always build a fresh exe before marking a task complete.** This is a mandatory final step for every coding task.
 
 ## Debugging
 
