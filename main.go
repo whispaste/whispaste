@@ -67,6 +67,11 @@ func main() {
 	// Without this, Shell_NotifyIconW NIF_INFO balloons are silently dropped.
 	setAppUserModelID()
 
+	// Ensure a Start Menu shortcut with the AUMID exists. Windows 10/11
+	// requires this for toast notifications (converted from balloons via
+	// NOTIFYICON_VERSION_4) to actually display on screen.
+	ensureStartMenuShortcut()
+
 	// Detect --autostart flag (set by Windows autostart registry entry)
 	isAutostart := false
 	forceOnboarding := false

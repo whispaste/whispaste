@@ -27,8 +27,9 @@ const (
 	_NIM_MODIFY     = 0x00000001
 	_NIM_SETVERSION = 0x00000004
 	_NIF_INFO       = 0x00000010
-	_NIIF_INFO      = 0x00000001
-	_NIIF_USER      = 0x00000004
+	_NIIF_INFO       = 0x00000001
+	_NIIF_USER       = 0x00000004
+	_NIIF_LARGE_ICON = 0x00000020
 	_systrayUID     = 100 // UID used by getlantern/systray
 
 	// NOTIFYICON_VERSION_4 enables modern notification behavior on Windows 10/11.
@@ -285,11 +286,12 @@ func (t *AppTray) ShowBalloon(title, text string) {
 		return
 	}
 
-	// Use custom icon if available, otherwise fall back to system info icon
-	infoFlags := uint32(_NIIF_USER)
+	// Use custom icon if available, otherwise fall back to system info icon.
+	// NIIF_LARGE_ICON is required on Win10/11 for proper toast rendering.
+	infoFlags := uint32(_NIIF_INFO | _NIIF_LARGE_ICON)
 	iconHandle := t.balloonIcon
-	if iconHandle == 0 {
-		infoFlags = _NIIF_INFO
+	if iconHandle != 0 {
+		infoFlags = uint32(_NIIF_USER | _NIIF_LARGE_ICON)
 	}
 
 	nid := notifyIconDataW{

@@ -38,15 +38,15 @@ func GetBuiltinPresets() map[string]string {
 
 // defaultTemplateMetas provides default metadata and keywords for builtin presets.
 var defaultTemplateMetas = map[string]TemplateMeta{
-	"cleanup":   {Description: "General text cleanup and grammar correction", Keywords: nil},
-	"concise":   {Description: "Rewrite text more concisely", Keywords: nil},
+	"cleanup":   {Description: "Fix grammar, spelling, and punctuation without changing content", Keywords: nil},
+	"concise":   {Description: "Shorten text by removing redundancy — same meaning, fewer words", Keywords: nil},
 	"email":     {Description: "Professional email formatting", Keywords: []string{"*outlook*", "*thunderbird*", "*mail*", "*gmail*", "*yahoo*", "*proton*"}},
-	"bullets":   {Description: "Structured bullet-point list", Keywords: nil},
+	"bullets":   {Description: "Flat bullet-point list without headings", Keywords: nil},
 	"formal":    {Description: "Formal professional language", Keywords: nil},
 	"aiprompt":  {Description: "Optimized AI prompt", Keywords: []string{"*copilot*", "*chatgpt*", "*claude*", "*gemini*", "*cursor*"}},
-	"summary":   {Description: "Concise summary of key points", Keywords: nil},
-	"notes":     {Description: "Structured notes and bullet points", Keywords: []string{"*notepad*", "*onenote*", "*obsidian*", "*notion*", "*evernote*", "*joplin*", "*typora*"}},
-	"meeting":   {Description: "Meeting minutes with action items", Keywords: []string{"*teams*", "*zoom*", "*webex*", "*meet*", "*skype*"}},
+	"summary":   {Description: "Distill to key points only, in a few sentences", Keywords: nil},
+	"notes":     {Description: "Flexible notes with headings and bullet points", Keywords: []string{"*notepad*", "*onenote*", "*obsidian*", "*notion*", "*evernote*", "*joplin*", "*typora*"}},
+	"meeting":   {Description: "Formal minutes with date, topics, decisions, and action items", Keywords: []string{"*teams*", "*zoom*", "*webex*", "*meet*", "*skype*"}},
 	"social":    {Description: "Engaging social media post", Keywords: []string{"*twitter*", "*facebook*", "*instagram*", "*linkedin*", "*reddit*", "*tiktok*"}},
 	"technical": {Description: "Technical documentation", Keywords: []string{"*code*", "*visual studio*", "*intellij*", "*vim*", "*neovim*", "*sublime*", "*terminal*", "*powershell*", "*cmd*"}},
 	"casual":    {Description: "Casual chat message", Keywords: []string{"*slack*", "*discord*", "*whatsapp*", "*telegram*", "*signal*", "*element*"}},
