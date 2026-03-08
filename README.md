@@ -47,6 +47,17 @@
 | 🔄 **Auto-Update** | SHA256-verified self-updater checks for new versions automatically. |
 | 🌐 **Localized** | English & German UI, auto-detected from your system language. |
 | ⚡ **Portable & Installer** | Run portable (just extract and run) or install via the Windows Setup installer with Start Menu integration. |
+| 🗂️ **Projects** | Organize transcriptions into projects for better structure. |
+| 📦 **Archive** | Archive transcriptions to hide from the main view while preserving them from auto-cleanup. |
+| 🏷️ **Tag System** | Create, assign, and filter by custom tags — drag tags onto cards for fast assignment. |
+| ⌨️ **Command Palette** | Press `Ctrl+K` to access actions, search transcriptions, and navigate the app quickly. |
+| 🎯 **Voice Activity Detection** | Automatic silence stripping sends only speech to the transcription engine, improving accuracy and reducing costs. |
+| 📤 **Export** | Export transcriptions as TXT, Markdown, CSV, JSON, or DOCX. Export single entries or batch selections. |
+| 🔊 **Audio Playback** | Re-listen to recorded audio directly from the dashboard. Compressed gzip storage. |
+| 💬 **Floating Button** | Optional always-visible desktop button for one-click recording without using the hotkey. |
+| 🎓 **Onboarding** | First-run setup wizard guides through API key or local model configuration. |
+| ✏️ **Text Replacements** | Define automatic text substitutions that run after every transcription. |
+| 🤖 **Local Smart Mode** | Run post-processing locally with a small LLM (SmolLM2-360M) — no GPT API needed. |
 
 <br>
 
@@ -107,6 +118,12 @@ Right-click the tray icon → **Settings** to configure:
 | **Theme** | System | Color scheme: light, dark, or match OS |
 | **Autostart** | Off | Launch WhisPaste on Windows login |
 | **Check Updates** | On | Automatically check for new versions |
+| **VAD** | Off | Voice Activity Detection — strip silence before transcription |
+| **Floating Button** | Off | Show a floating record button on the desktop |
+| **Text Replacements** | *(none)* | Custom text substitutions applied after transcription |
+| **Smart Provider** | OpenAI | Smart Mode engine: OpenAI (GPT), Local (SmolLM2), or Auto |
+| **History Limit** | 500 | Maximum transcriptions stored (pinned/archived excluded) |
+| **Auto-Cleanup** | Off | Automatically remove old transcriptions by age or count |
 
 Config is stored in `%APPDATA%\Whispaste\config.json`. The API endpoint can be customized by editing this file directly.
 
@@ -195,6 +212,7 @@ go build -ldflags="-s -w -H windowsgui" -o whispaste.exe .
 whispaste/
 ├── main.go            # Entry point, state machine
 ├── audio.go           # Microphone recording (miniaudio/WASAPI)
+├── audio_cache.go     # Audio caching with gzip compression
 ├── api.go             # OpenAI Whisper API client
 ├── offline.go         # Local Whisper transcription (sherpa-onnx)
 ├── models.go          # Local model management (download, paths)
@@ -202,9 +220,13 @@ whispaste/
 ├── paste.go           # Clipboard + SendInput (Ctrl+V)
 ├── hotkey.go          # Global hotkey (PTT + toggle)
 ├── overlay.go         # Recording overlay (GDI+ with per-pixel alpha)
+├── floating.go        # Floating desktop record button
+├── vad.go             # Voice Activity Detection (silence stripping)
+├── notification.go    # Windows toast notification support
 ├── tray.go            # System tray icon, menu, history submenu
 ├── ui.go              # Window management helpers
 ├── ui_main.go         # Main dashboard window (WebView2 bindings)
+├── ui_log.go          # Log viewer window (WebView2)
 ├── ui_main/           # Dashboard UI (HTML/CSS/JS, modular)
 │   ├── template.html  #   Page structure and layout
 │   ├── styles/        #   CSS modules (variables, layout, pages)
@@ -222,7 +244,7 @@ whispaste/
 ├── windowdetect.go    # Active window detection (Win32)
 ├── llm.go             # Local LLM integration (llama-server)
 ├── llm_download.go    # LLM model download manager
-├── export.go          # Export flows (TXT, MD, DOCX)
+├── export.go          # Export flows (TXT, MD, CSV, JSON, DOCX)
 ├── types.go           # Shared types and constants
 ├── build.ps1          # Build script
 ├── installer/         # NSIS installer configuration
@@ -262,7 +284,7 @@ Contributions are welcome! Please:
 MIT License — see [LICENSE](LICENSE) for details.
 
 <p align="center">
-  <sub>© 2025 <a href="https://github.com/silvio-l">Silvio Lindstedt</a></sub>
+  <sub>© 2025–2026 <a href="https://github.com/silvio-l">Silvio Lindstedt</a></sub>
 </p>
 
 <br>
@@ -270,9 +292,9 @@ MIT License — see [LICENSE](LICENSE) for details.
 ## 💡 How It Works
 
 ```
- 🎤 Hotkey        →  🔴 Record        →  📦 Encode        →  ☁️ Transcribe    →  🧠 Smart Mode   →  📋 Paste
- RegisterHotKey      miniaudio/WASAPI     PCM → WAV            Whisper API or      GPT-4o-mini        Clipboard +
- (global)            16 kHz mono          container             local Whisper       (optional)         SendInput
+ 🎤 Hotkey        →  🔴 Record        →  🎯 VAD           →  📦 Encode        →  ☁️ Transcribe    →  🧠 Smart Mode   →  📋 Paste
+ RegisterHotKey      miniaudio/WASAPI     Silence strip       PCM → WAV            Whisper API or      GPT / local        Clipboard +
+ (global)            16 kHz mono          (optional)          container             local Whisper       LLM (optional)     SendInput
 ```
 
-The recording overlay uses GDI+ with `UpdateLayeredWindow` for per-pixel alpha compositing, smooth waveform animation, and interactive controls.
+The recording overlay uses GDI+ with `UpdateLayeredWindow` for per-pixel alpha compositing, smooth waveform animation, and interactive controls. Voice Activity Detection optionally strips silence before transcription to improve accuracy and reduce API costs.
