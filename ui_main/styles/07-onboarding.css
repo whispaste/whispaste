@@ -38,6 +38,17 @@
   height: 40px;
 }
 
+.onboarding-icon.onboarding-icon-logo {
+  width: 128px;
+  height: 128px;
+}
+
+.onboarding-icon-logo img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
 .onboarding-icon-success {
   background: linear-gradient(135deg, #10b981, color-mix(in srgb, #10b981, transparent 60%));
 }
