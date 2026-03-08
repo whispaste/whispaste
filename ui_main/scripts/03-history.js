@@ -522,19 +522,12 @@ function _renderEntryCard(e) {
             ${(e.text || '').length > 0 ? (() => { const wc = (e.text || '').split(/\s+/).filter(Boolean).length; return '<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg> ' + wc + ' ' + (wc === 1 ? t('meta_word') : t('meta_words')) + '</span>'; })() : ''}
           </div>
         </div>
-        <span class="entry-chevron">${icons.chevronDown}</span>
         <div class="entry-actions">
           <button class="btn-icon copy" title="${t('notebook.copy')}" data-action="copy" data-id="${e.id}">${icons.copy}</button>
-          <button class="btn-icon" title="${t('notebook.export')}" data-action="export" data-id="${e.id}">${icons.download}</button>
-          <button class="btn-icon" title="${t('notebook.duplicate')}" data-action="duplicate" data-id="${e.id}">${icons.filePlus}</button>
-          <button class="btn-icon audio-play" title="${t('notebook.play_audio')}" data-action="play-audio" data-id="${e.id}" style="display:none">${icons.play}</button>
-          <button class="btn-icon audio-retranscribe" title="${t('notebook.retranscribe')}" data-action="retranscribe" data-id="${e.id}" style="display:none">${icons.refreshCw}</button>
-          <button class="btn-icon pin${e.pinned ? ' active' : ''}" title="${e.pinned ? t('notebook.unpin') : t('notebook.pin')}" data-action="pin" data-id="${e.id}">${icons.pin}</button>
-          <button class="btn-icon delete" title="${t('notebook.delete')}" data-action="delete" data-id="${e.id}">${icons.trash}</button>
-          <button class="btn-icon" title="${t('smart.action')}" data-action="smart" data-id="${e.id}">${icons.sparkle}</button>
+          <button class="btn-icon entry-more" title="${t('notebook.more_actions')}" data-action="entry-menu" data-id="${e.id}">${icons.moreVertical}</button>
         </div>
       </div>
-      <div class="entry-preview">${isPending && !e.text ? '<span class="pending-hint">' + icons.refreshCw + ' ' + t('pending_transcription') + '</span>' : highlightSearch(e.text, _searchQuery)}</div>
+      <div class="entry-preview-row"><div class="entry-preview">${isPending && !e.text ? '<span class="pending-hint">' + icons.refreshCw + ' ' + t('pending_transcription') + '</span>' : highlightSearch(e.text, _searchQuery)}</div><span class="entry-preview-chevron">${icons.chevronDown}</span></div>
       <div class="entry-tags-row">
         ${(e.project_id && e.project_name) ? `<span class="project-badge" data-entry-id="${e.id}" title="${t('notebook.assign_project')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>${esc(e.project_name)}</span>` : `<span class="project-badge project-badge-empty" data-entry-id="${e.id}" title="${t('notebook.assign_project')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>${t('notebook.project')}</span>`}
         ${(e.tags || []).map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = systemTagLabel(tag); return `<span class="tag${sys ? ' system-tag' : ''}" data-tag="${esc(tag)}" data-id="${e.id}" style="background:${c.bg};color:${c.text};border-color:${c.border}">${sys ? systemTagIcon(tag) : ''}${esc(lbl)}${sys ? '' : '<span class="tag-remove" data-remove-tag="' + esc(tag) + '" data-id="' + e.id + '">&times;</span>'}</span>`; }).join('')}
@@ -638,6 +631,7 @@ function renderHistory() {
       const action = btn.dataset.action;
       const id = btn.dataset.id;
       if (action === 'copy') doCopy(id);
+      else if (action === 'entry-menu') _showEntryMenu(id, btn);
       else if (action === 'export') showExportMenu(id, btn);
       else if (action === 'duplicate') doDuplicate(id);
       else if (action === 'pin') doPin(id);
@@ -1234,6 +1228,40 @@ async function _assignTagToEntry(entryId, tagName) {
       showToast(t('notebook.error_update') || 'Update failed', true);
     }
   }
+}
+
+async function _showEntryMenu(id, anchorEl) {
+  const entry = _entries.find(e => e.id === id);
+  if (!entry) return;
+
+  const hasAudioCached = window.hasAudio ? await window.hasAudio(id).catch(() => false) : false;
+  const isPinned = entry.pinned;
+
+  const items = [
+    { icon: icons.copy, label: t('notebook.copy'), action: () => doCopy(id) },
+    { icon: icons.download, label: t('notebook.export'), action: () => {
+      const btn = document.querySelector(`[data-action="entry-menu"][data-id="${id}"]`);
+      if (btn) showExportMenu(id, btn);
+    }},
+    { icon: icons.filePlus, label: t('notebook.duplicate'), action: () => doDuplicate(id) },
+    { divider: true },
+  ];
+
+  if (hasAudioCached) {
+    items.push({ icon: icons.play, label: t('notebook.play_audio'), action: () => doPlayAudio(id) });
+    items.push({ icon: icons.refreshCw, label: t('notebook.retranscribe'), action: () => doReTranscribe(id, anchorEl) });
+    items.push({ divider: true });
+  }
+
+  items.push({ icon: icons.pin, label: isPinned ? t('notebook.unpin') : t('notebook.pin'), action: () => doPin(id) });
+  items.push({ icon: icons.sparkle, label: t('smart.action'), action: () => {
+    const btn = document.querySelector(`[data-action="entry-menu"][data-id="${id}"]`);
+    if (btn) showSmartActionMenu(id, btn);
+  }});
+  items.push({ divider: true });
+  items.push({ icon: icons.trash, label: t('notebook.delete'), danger: true, action: () => confirmDelete(id) });
+
+  showPopover(anchorEl, { items });
 }
 
 function showExportMenu(id, anchorEl) {
