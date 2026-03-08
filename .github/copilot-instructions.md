@@ -17,6 +17,23 @@
 - **Always build the production exe** (`-H windowsgui`) after changes. Only build a debug exe additionally if needed for console output.
 - **Always build a fresh exe before marking a task complete.** This is a mandatory final step for every coding task.
 
+### Fixing "cannot find -lsherpa-onnx-c-api" linker error
+
+If `go build` fails with `cannot find -lsherpa-onnx-c-api` or `cannot find -lonnxruntime`, the import libraries (`.a` files) are missing from the Go module cache. The sherpa-onnx module ships only DLLs — you must generate import libs from them. **This MUST be fixed immediately, never deferred.**
+
+```powershell
+$sherpaDir = "$env:USERPROFILE\go\pkg\mod\github.com\k2-fsa\sherpa-onnx-go-windows@v1.12.28\lib\x86_64-pc-windows-gnu"
+Push-Location $sherpaDir
+gendef sherpa-onnx-c-api.dll
+dlltool -d sherpa-onnx-c-api.def -l libsherpa-onnx-c-api.a -D sherpa-onnx-c-api.dll
+gendef onnxruntime.dll
+dlltool -d onnxruntime.def -l libonnxruntime.a -D onnxruntime.dll
+Remove-Item *.def -Force
+Pop-Location
+```
+
+Requires `gendef` and `dlltool` from MinGW (both in `C:\ProgramData\mingw64\mingw64\bin`). After this, `go build` will link successfully. If the sherpa-onnx module version changes, update the path accordingly.
+
 ## Debugging
 
 - **App log**: `%APPDATA%\Whispaste\whispaste.log` — always check this FIRST when investigating runtime bugs
