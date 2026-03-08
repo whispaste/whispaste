@@ -93,6 +93,10 @@ async function selectOnboardingOption(choice) {
         if (nb && _onboardingChoice === 'api') nb.disabled = true;
       });
     }
+    // Auto-validate existing key from config (pre-populated field)
+    if (keyInput && keyInput.value.trim()) {
+      setTimeout(() => onbTestApiKey(), 150);
+    }
   } else if (choice === 'local') {
     await onbCheckModelStatus();
     if (nextBtn) nextBtn.disabled = !_onbModelReady;
@@ -257,6 +261,8 @@ function selectOnboardingSmart(enabled) {
 async function finishOnboarding() {
   // Guard: don't proceed if API mode selected without validated key
   if (_onboardingChoice === 'api' && !_onbApiKeyValid) return;
+  // Guard: don't proceed if local mode selected without downloaded model
+  if (_onboardingChoice === 'local' && !_onbModelReady) return;
   try {
     const raw = await window.getConfig();
     const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;

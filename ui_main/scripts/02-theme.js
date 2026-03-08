@@ -39,6 +39,13 @@ function applyTheme(theme) {
       ? aboutLogo.dataset.darkSrc
       : aboutLogo.dataset.lightSrc;
   }
+  // Update onboarding logo for theme
+  const onbLogo = document.getElementById('onboardingLogo');
+  if (onbLogo) {
+    onbLogo.src = eff === 'dark'
+      ? onbLogo.dataset.darkSrc
+      : onbLogo.dataset.lightSrc;
+  }
 }
 
 /** Cycle theme: system → dark → light → system */
