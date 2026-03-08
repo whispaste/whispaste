@@ -277,6 +277,7 @@ const translations = {
     'notebook.empty': 'No entries yet.',
     'notebook.no_results': 'No matching entries.',
     'notebook.copy': 'Copy',
+    'notebook.more_actions': 'More actions',
     'notebook.pin': 'Pin',
     'notebook.unpin': 'Unpin',
     'notebook.delete': 'Delete',
@@ -863,6 +864,7 @@ const translations = {
     'notebook.empty': 'Noch keine Einträge.',
     'notebook.no_results': 'Keine passenden Einträge.',
     'notebook.copy': 'Kopieren',
+    'notebook.more_actions': 'Weitere Aktionen',
     'notebook.pin': 'Anheften',
     'notebook.unpin': 'Lösen',
     'notebook.delete': 'Löschen',
@@ -1197,6 +1199,10 @@ function applyTranslations() {
   document.querySelectorAll('[data-i18n-tooltip]').forEach(el => {
     const key = el.getAttribute('data-i18n-tooltip');
     if (t[key] != null) el.setAttribute('data-tooltip', t[key]);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    if (t[key] != null) el.title = t[key];
   });
 }
 
