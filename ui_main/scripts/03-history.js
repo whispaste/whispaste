@@ -1,6 +1,6 @@
 /* ── History Page Logic ────────────────────────────────── */
 let _entries = [];
-let _activeFilters = { project: null, time: null, pinned: false, tags: [] };
+let _activeFilters = { project: null, time: null, pinned: false, archived: false, tags: [] };
 let _searchQuery = '';
 let _currentSort = 'newest';
 let _expandedId = null;
@@ -156,7 +156,10 @@ function getFiltered() {
 
 async function loadEntries() {
   try {
-    if (window.getEntries) {
+    if (_activeFilters.archived && window.getArchivedEntries) {
+      const json = await window.getArchivedEntries();
+      _entries = JSON.parse(json);
+    } else if (window.getEntries) {
       const json = await window.getEntries();
       _entries = JSON.parse(json);
     }
@@ -206,13 +209,26 @@ function initSortDropdown() {
   });
 }
 
-function setFilter(f) {
+async function setFilter(f) {
   const timeFilters = ['today', 'week', 'older', 'custom'];
   if (f === 'all') {
-    // Reset time/pinned/tag filters but preserve project scope
-    _activeFilters = { project: _activeFilters.project, time: null, pinned: false, tags: [] };
+    const wasArchived = _activeFilters.archived;
+    _activeFilters = { project: _activeFilters.project, time: null, pinned: false, archived: false, tags: [] };
+    if (wasArchived) { _updateFilterUI(); await loadEntries(); return; }
   } else if (f === 'pinned') {
     _activeFilters.pinned = !_activeFilters.pinned;
+    if (_activeFilters.pinned && _activeFilters.archived) {
+      _activeFilters.archived = false;
+      _updateFilterUI();
+      await loadEntries();
+      return;
+    }
+  } else if (f === 'archived') {
+    _activeFilters.archived = !_activeFilters.archived;
+    if (_activeFilters.archived) _activeFilters.pinned = false;
+    _updateFilterUI();
+    await loadEntries();
+    return;
   } else if (timeFilters.includes(f)) {
     // Radio-style: toggle off if same, otherwise switch
     _activeFilters.time = _activeFilters.time === f ? null : f;
@@ -232,6 +248,7 @@ function _getActiveFilterCount() {
   let n = 0;
   if (_activeFilters.time) n++;
   if (_activeFilters.pinned) n++;
+  if (_activeFilters.archived) n++;
   n += _activeFilters.tags.length;
   return n;
 }
@@ -240,12 +257,14 @@ function _hasActiveFilters() {
   return _getActiveFilterCount() > 0;
 }
 
-function clearAllFilters() {
-  _activeFilters = { project: _activeFilters.project, time: null, pinned: false, tags: [] };
+async function clearAllFilters() {
+  const wasArchived = _activeFilters.archived;
+  _activeFilters = { project: _activeFilters.project, time: null, pinned: false, archived: false, tags: [] };
   const picker = document.getElementById('dateRangePicker');
   if (picker) picker.style.display = 'none';
   _updateFilterUI();
   renderHistory();
+  if (wasArchived) await loadEntries();
 }
 
 function _updateFilterUI() {
@@ -256,6 +275,8 @@ function _updateFilterUI() {
       el.classList.toggle('active', !_hasActiveFilters());
     } else if (f === 'pinned') {
       el.classList.toggle('active', _activeFilters.pinned);
+    } else if (f === 'archived') {
+      el.classList.toggle('active', _activeFilters.archived);
     } else if (['today', 'week', 'older', 'custom'].includes(f)) {
       el.classList.toggle('active', _activeFilters.time === f);
     } else if (f.startsWith('cat:')) {
@@ -746,6 +767,18 @@ async function doPin(id) {
   } catch (e) {}
 }
 
+async function doArchive(id) {
+  if (window.archiveEntry) {
+    const entry = _entries.find(e => e.id === id);
+    const wasArchived = entry && entry.archived;
+    const ok = await window.archiveEntry(id);
+    if (ok) {
+      await loadEntries();
+      showToast(t(wasArchived ? 'notebook.unarchive' : 'notebook.archived'), false);
+    }
+  }
+}
+
 // Audio playback state
 let _currentAudio = null;
 let _playingId = null;
@@ -922,6 +955,25 @@ async function confirmDelete(id) {
     }
     updateSelectionBar();
     await loadEntries();
+  }
+}
+
+async function archiveSelected() {
+  if (_selectedIds.size === 0) return;
+  let count = 0;
+  for (const id of _selectedIds) {
+    try {
+      if (window.archiveEntry) {
+        const ok = await window.archiveEntry(id);
+        if (ok) count++;
+      }
+    } catch (e) {}
+  }
+  if (count > 0) {
+    const msg = _activeFilters.archived ? 'notebook.unarchive' : 'notebook.archived';
+    clearSelection();
+    await loadEntries();
+    showToast(t(msg), false);
   }
 }
 
@@ -1254,6 +1306,8 @@ async function _showEntryMenu(id, anchorEl) {
   }
 
   items.push({ icon: icons.pin, label: isPinned ? t('notebook.unpin') : t('notebook.pin'), action: () => doPin(id) });
+  const isArchived = entry.archived;
+  items.push({ icon: isArchived ? icons.archiveRestore : icons.archive, label: isArchived ? t('notebook.unarchive') : t('notebook.archive'), action: () => doArchive(id) });
   items.push({ icon: icons.sparkle, label: t('smart.action'), action: () => {
     const btn = document.querySelector(`[data-action="entry-menu"][data-id="${id}"]`);
     if (btn) showSmartActionMenu(id, btn);
