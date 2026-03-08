@@ -29,6 +29,7 @@ type HistoryEntry struct {
 	CostUSD            float64  `json:"cost_usd,omitempty"`
 	ProjectID          string   `json:"project_id"`
 	ProjectName        string   `json:"project_name,omitempty"` // computed, not stored
+	Archived           bool     `json:"archived,omitempty"`
 }
 
 // Project represents a named project that groups transcriptions.
@@ -178,11 +179,12 @@ func (h *History) pruneToLimit(limit int) {
 	if h.db == nil {
 		return
 	}
-	// Delete oldest non-pinned entries beyond the limit
+	// Delete oldest non-pinned, non-archived entries beyond the limit
+	// Count only non-archived entries (pinned still count against limit but aren't deletable)
 	_, err := execWithFTSRepair(h.db, `DELETE FROM history_entries WHERE id IN (
-		SELECT id FROM history_entries WHERE pinned = 0
+		SELECT id FROM history_entries WHERE pinned = 0 AND archived = 0
 		ORDER BY timestamp ASC
-		LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries) - ?)
+		LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries WHERE archived = 0) - ?)
 	)`, limit)
 	if err != nil {
 		logError("Prune history: %v", err)
@@ -195,7 +197,8 @@ func (h *History) Recent(n int) []HistoryEntry {
 		return nil
 	}
 	rows, err := h.db.Query(`SELECT `+allColumns+` FROM history_entries
-		ORDER BY timestamp DESC LIMIT ?`, n)
+		WHERE archived = 0
+		ORDER BY timestamp DESC, rowid DESC LIMIT ?`, n)
 	if err != nil {
 		logError("Recent query: %v", err)
 		return nil
@@ -206,14 +209,30 @@ func (h *History) Recent(n int) []HistoryEntry {
 	return entries
 }
 
-// All returns all entries (newest first).
+// All returns all non-archived entries (newest first).
 func (h *History) All() []HistoryEntry {
 	if h.db == nil {
 		return nil
 	}
-	rows, err := h.db.Query(`SELECT ` + allColumns + ` FROM history_entries ORDER BY timestamp DESC`)
+	rows, err := h.db.Query(`SELECT ` + allColumns + ` FROM history_entries WHERE archived = 0 ORDER BY timestamp DESC, rowid DESC`)
 	if err != nil {
 		logError("All query: %v", err)
+		return nil
+	}
+	defer rows.Close()
+	entries := scanEntries(rows)
+	h.fillProjectNames(entries)
+	return entries
+}
+
+// AllArchived returns only archived entries (newest first).
+func (h *History) AllArchived() []HistoryEntry {
+	if h.db == nil {
+		return nil
+	}
+	rows, err := h.db.Query(`SELECT ` + allColumns + ` FROM history_entries WHERE archived = 1 ORDER BY timestamp DESC, rowid DESC`)
+	if err != nil {
+		logError("AllArchived query: %v", err)
 		return nil
 	}
 	defer rows.Close()
@@ -234,10 +253,10 @@ func (h *History) Search(query string) []HistoryEntry {
 		return nil
 	}
 	rows, err := h.db.Query(`SELECT `+allColumns+` FROM history_entries
-		WHERE rowid IN (
+		WHERE archived = 0 AND rowid IN (
 			SELECT rowid FROM history_fts WHERE history_fts MATCH ?
 			ORDER BY rank
-		) ORDER BY timestamp DESC`, query)
+		) ORDER BY timestamp DESC, rowid DESC`, query)
 	if err != nil {
 		logError("FTS search query: %v", err)
 		return nil
@@ -301,7 +320,24 @@ func (h *History) TogglePin(id string) bool {
 	return n > 0
 }
 
-// UpdateEntry updates title and/or tags for an entry by ID.
+// ToggleArchive toggles the archived state of an entry by ID.
+func (h *History) ToggleArchive(id string) bool {
+	if h.db == nil {
+		return false
+	}
+	h.mu.Lock()
+	h.cache = nil
+	h.mu.Unlock()
+
+	res, err := execWithFTSRepair(h.db, `UPDATE history_entries SET archived = CASE WHEN archived = 0 THEN 1 ELSE 0 END WHERE id = ?`, id)
+	if err != nil {
+		logError("Toggle archive: %v", err)
+		return false
+	}
+	n, _ := res.RowsAffected()
+	return n > 0
+}
+
 func (h *History) UpdateEntry(id, title string, tags []string) bool {
 	if h.db == nil {
 		return false
@@ -1092,6 +1128,7 @@ func (h *History) AddSmart(text, language string, tags []string) {
 
 // Cleanup removes old entries based on config settings.
 // When includePinned is false, pinned entries are preserved.
+// Archived entries are always preserved regardless of settings.
 // Returns the number of entries removed. Also cleans up orphaned audio files.
 func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 	if h.db == nil {
@@ -1105,9 +1142,10 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 	h.cache = nil
 	h.mu.Unlock()
 
-	pinnedFilter := " AND pinned = 0"
-	if includePinned {
-		pinnedFilter = ""
+	// Archived entries are always excluded from cleanup
+	protectFilter := " AND archived = 0"
+	if !includePinned {
+		protectFilter += " AND pinned = 0"
 	}
 
 	var totalRemoved int64
@@ -1116,7 +1154,7 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 	if maxAgeDays > 0 {
 		cutoff := time.Now().AddDate(0, 0, -maxAgeDays).Format(time.RFC3339)
 		// Collect IDs before deletion
-		rows, err := h.db.Query("SELECT id FROM history_entries WHERE timestamp < ?"+pinnedFilter, cutoff)
+		rows, err := h.db.Query("SELECT id FROM history_entries WHERE timestamp < ?"+protectFilter, cutoff)
 		if err == nil {
 			for rows.Next() {
 				var id string
@@ -1126,7 +1164,7 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 			}
 			rows.Close()
 		}
-		res, err := execWithFTSRepair(h.db, "DELETE FROM history_entries WHERE timestamp < ?"+pinnedFilter, cutoff)
+		res, err := execWithFTSRepair(h.db, "DELETE FROM history_entries WHERE timestamp < ?"+protectFilter, cutoff)
 		if err != nil {
 			logError("Cleanup by age: %v", err)
 		} else {
@@ -1137,15 +1175,15 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 
 	// Remove by count (keep newest)
 	if maxEntries > 0 {
-		whereClause := "pinned = 0"
-		if includePinned {
-			whereClause = "1=1"
+		whereClause := "archived = 0"
+		if !includePinned {
+			whereClause += " AND pinned = 0"
 		}
 		// Collect IDs before deletion
 		rows, err := h.db.Query(`SELECT id FROM history_entries WHERE id IN (
 			SELECT id FROM history_entries WHERE `+whereClause+`
 			ORDER BY timestamp ASC
-			LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries) - ?)
+			LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries WHERE archived = 0) - ?)
 		)`, maxEntries)
 		if err == nil {
 			for rows.Next() {
@@ -1159,7 +1197,7 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 		res, err := execWithFTSRepair(h.db, `DELETE FROM history_entries WHERE id IN (
 			SELECT id FROM history_entries WHERE `+whereClause+`
 			ORDER BY timestamp ASC
-			LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries) - ?)
+			LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries WHERE archived = 0) - ?)
 		)`, maxEntries)
 		if err != nil {
 			logError("Cleanup by count: %v", err)

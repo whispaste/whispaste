@@ -41,7 +41,7 @@ const historyDBFile = "history.db"
 // 1 = external-content FTS5 (value-matching delete triggers — broken with modernc.org/sqlite)
 // 2 = regular FTS5 (rowid-based triggers)
 // 3 = daily_stats aggregation table
-const currentSchemaVersion = 4
+const currentSchemaVersion = 5
 
 // initHistoryDB opens (or creates) the SQLite database and ensures tables exist.
 func initHistoryDB() (*sql.DB, error) {
@@ -401,6 +401,18 @@ func ensureSchemaVersion(db *sql.DB) error {
 			}
 			version = 4
 
+		case 4:
+			// Migration to v5: add archived column
+			if _, err := db.Exec(`ALTER TABLE history_entries ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`); err != nil {
+				if !strings.Contains(err.Error(), "duplicate column") {
+					return fmt.Errorf("add archived column: %w", err)
+				}
+			}
+			if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_history_archived ON history_entries(archived)`); err != nil {
+				logWarn("create archived index: %v", err)
+			}
+			version = 5
+
 		default:
 			return fmt.Errorf("unexpected schema version %d, cannot migrate", version)
 		}
@@ -433,12 +445,14 @@ func createHistoryTables(db *sql.DB) error {
 			model         TEXT NOT NULL DEFAULT '',
 			is_local      INTEGER NOT NULL DEFAULT 0,
 			cost_usd      REAL NOT NULL DEFAULT 0,
-			project_id    TEXT NOT NULL DEFAULT ''
+			project_id    TEXT NOT NULL DEFAULT '',
+			archived      INTEGER NOT NULL DEFAULT 0
 		);
 
 		CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history_entries(timestamp);
 		CREATE INDEX IF NOT EXISTS idx_history_pinned ON history_entries(pinned);
 		CREATE INDEX IF NOT EXISTS idx_history_project ON history_entries(project_id);
+		CREATE INDEX IF NOT EXISTS idx_history_archived ON history_entries(archived);
 
 		CREATE TABLE IF NOT EXISTS projects (
 			id         TEXT PRIMARY KEY,
@@ -626,22 +640,23 @@ func unmarshalTags(s string) []string {
 func scanEntry(row interface{ Scan(...interface{}) error }) (HistoryEntry, error) {
 	var e HistoryEntry
 	var tagsJSON string
-	var pinned, isLocal int
+	var pinned, isLocal, archived int
 	err := row.Scan(&e.ID, &e.Text, &e.Title, &e.Timestamp,
 		&e.Duration, &e.ProcessingDuration, &e.Language, &tagsJSON,
-		&pinned, &e.Source, &e.Model, &isLocal, &e.CostUSD, &e.ProjectID)
+		&pinned, &e.Source, &e.Model, &isLocal, &e.CostUSD, &e.ProjectID, &archived)
 	if err != nil {
 		return e, err
 	}
 	e.Tags = unmarshalTags(tagsJSON)
 	e.Pinned = pinned != 0
 	e.IsLocal = isLocal != 0
+	e.Archived = archived != 0
 	return e, nil
 }
 
 // allColumns is the column list for SELECT queries on history_entries.
 const allColumns = `id, text, title, timestamp, duration_sec, processing_duration_sec,
-	language, tags, pinned, source, model, is_local, cost_usd, project_id`
+	language, tags, pinned, source, model, is_local, cost_usd, project_id, archived`
 
 // RecordDailyStats upserts a row in daily_stats for the current transcription.
 func (h *History) RecordDailyStats(durationSec, processingSec float64, text string, model string, isLocal bool) {
