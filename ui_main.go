@@ -729,6 +729,21 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 			return history.DuplicateEntry(id)
 		})
 
+		// Bind: archiveEntry → toggles archived state
+		w.Bind("archiveEntry", func(id string) bool {
+			return history.ToggleArchive(id)
+		})
+
+		// Bind: getArchivedEntries → returns only archived entries as JSON
+		w.Bind("getArchivedEntries", func() (string, error) {
+			entries := history.AllArchived()
+			data, err := json.Marshal(entries)
+			if err != nil {
+				return "[]", err
+			}
+			return string(data), nil
+		})
+
 		// Bind: updateEntry → update title/tags (tags as JSON array string)
 		w.Bind("updateEntry", func(id, title, tagsJSON string) bool {
 			var tags []string
