@@ -60,10 +60,12 @@ func assembleMainHTML() string {
 
 	css := collectEmbeddedFiles(uiMainFS, "ui_main/styles", ".css")
 	js := collectEmbeddedFiles(uiMainFS, "ui_main/scripts", ".js")
+	pages := collectEmbeddedFiles(uiMainFS, "ui_main/pages", ".html")
 
 	html := string(tmpl)
 	html = strings.Replace(html, "/* {{STYLES}} */", css, 1)
 	html = strings.Replace(html, "/* {{SCRIPTS}} */", js, 1)
+	html = strings.Replace(html, "<!-- {{PAGES}} -->", pages, 1)
 	return html
 }
 
@@ -88,7 +90,11 @@ func collectEmbeddedFiles(fsys embed.FS, dir, ext string) string {
 			logWarn("Failed to read UI file %s/%s: %v", dir, name, err)
 			continue
 		}
-		buf.WriteString("/* --- " + name + " --- */\n")
+		if ext == ".html" {
+			buf.WriteString("<!-- --- " + name + " --- -->\n")
+		} else {
+			buf.WriteString("/* --- " + name + " --- */\n")
+		}
 		buf.Write(data)
 		buf.WriteByte('\n')
 	}

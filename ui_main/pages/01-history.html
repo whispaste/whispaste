@@ -1,0 +1,136 @@
+    <!-- Page: History -->
+    <div class="page" id="page-history">
+      <div class="topbar">
+        <div class="search-box">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" id="searchInput" data-i18n-placeholder="notebook.search" placeholder="Search…">
+          <button class="search-clear-btn" id="searchClear" title="Clear" style="display:none">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+          <button class="search-help-btn" id="searchHelp" title="Search syntax help">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          </button>
+        </div>
+      </div>
+      <!-- Selection Bar (shown when items selected) -->
+      <div class="selection-bar hidden" id="selectionBar">
+        <div class="selection-info">
+          <button class="btn-icon" id="selectionClose" title="Cancel">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+          <span id="selectionCount">0</span> <span data-i18n="notebook.selected">selected</span>
+        </div>
+        <div class="selection-actions">
+          <a class="selection-link" href="#" onclick="event.preventDefault();selectAllVisible()" data-i18n="notebook.select_all">Select All</a>
+          <a class="selection-link" href="#" onclick="event.preventDefault();clearSelection()" data-i18n="notebook.select_none">None</a>
+          <span class="selection-divider"></span>
+          <button class="btn-icon" id="mergeSelectedBtn" onclick="mergeSelected()" data-i18n-title="notebook.merge">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>
+          </button>
+          <button class="btn-icon" id="exportSelectedBtn" onclick="exportSelected()" data-i18n-title="notebook.export_selected">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </button>
+          <button class="btn-icon" onclick="assignSelectedToProject()" data-i18n-title="notebook.assign_project">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>
+          </button>
+          <button class="btn-icon" id="archiveSelectedBtn" onclick="archiveSelected()" data-i18n-title="notebook.archive">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+          </button>
+          <button class="btn-icon selection-delete" id="deleteSelectedBtn" data-i18n-title="notebook.delete_selected">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="history-layout">
+        <div class="filter-sidebar">
+          <!-- Project selector -->
+          <div class="filter-section">
+            <div class="filter-section-title" data-i18n="notebook.project">Project</div>
+            <div class="project-selector" id="projectSelector">
+              <button class="project-trigger" id="projectTrigger" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>
+                <span id="projectLabel" data-i18n="notebook.all_projects">All Projects</span>
+                <svg class="icon icon-xs project-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+
+            </div>
+            <div class="project-dropdown-list" id="projectDropdownList" style="display:none">
+              <!-- Populated dynamically by JS -->
+            </div>
+          </div>
+          <!-- Sorting -->
+          <div class="filter-section">
+            <div class="filter-section-title" data-i18n="notebook.sorting">Sorting</div>
+            <div class="sort-dropdown" id="sortDropdown">
+              <button class="sort-trigger" id="sortTrigger" type="button">
+                <span id="sortLabel" data-i18n="notebook.sort_newest">Newest first</span>
+                <svg class="icon icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+            </div>
+          </div>
+          <!-- Filters -->
+          <div class="filter-section-title" data-i18n="notebook.filter">Filter</div>
+          <div class="filter-items">
+            <div class="filter-item active" data-filter="all">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <span data-i18n="notebook.all">All</span>
+              <span class="filter-count" id="countAll">0</span>
+            </div>
+            <div class="filter-item" data-filter="pinned">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+              <span data-i18n="notebook.pinned">Pinned</span>
+              <span class="filter-count" id="countPinned">0</span>
+            </div>
+            <div class="filter-item" data-filter="archived">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+              <span data-i18n="notebook.archived">Archived</span>
+            </div>
+            <div class="filter-item" data-filter="today">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+              <span data-i18n="notebook.today">Today</span>
+              <span class="filter-count" id="countToday">0</span>
+            </div>
+            <div class="filter-item" data-filter="week">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span data-i18n="notebook.this_week">This Week</span>
+              <span class="filter-count" id="countWeek">0</span>
+            </div>
+            <div class="filter-item" data-filter="older">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+              <span data-i18n="notebook.older">Older</span>
+              <span class="filter-count" id="countOlder">0</span>
+            </div>
+            <div class="filter-item" data-filter="custom">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
+              <span data-i18n="notebook.custom_range">Custom Range</span>
+            </div>
+            <div class="date-range-picker" id="dateRangePicker" style="display:none">
+              <div class="form-group" style="margin-bottom:8px">
+                <label class="form-label form-label-sm" data-i18n="notebook.date_from">From</label>
+                <input type="date" class="form-input form-input-sm" id="dateFrom">
+              </div>
+              <div class="form-group" style="margin-bottom:8px">
+                <label class="form-label form-label-sm" data-i18n="notebook.date_to">To</label>
+                <input type="date" class="form-input form-input-sm" id="dateTo">
+              </div>
+            </div>
+          </div>
+          <div id="categoriesSection" style="display:none">
+            <div class="filter-section-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span data-i18n="notebook.tags">Tags</span>
+              <button class="btn-icon sidebar-add-tag-header" id="sidebarAddTagHeader" title="Add tag" style="width:16px;height:16px;padding:0;opacity:0.5">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              </button>
+            </div>
+            <div id="categoryList" class="filter-items nav-tags"></div>
+          </div>
+          <div id="clearFiltersBar" class="clear-filters-bar" style="display:none">
+            <button class="clear-filters-btn" id="clearFiltersBtn" type="button"></button>
+          </div>
+        </div>
+        <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
+        <div class="entries-area">
+          <div class="entries" id="entriesList"></div>
+        </div>
+      </div>
+    </div>
