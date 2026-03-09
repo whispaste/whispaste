@@ -224,18 +224,12 @@ function updateSmartModeVisibility() {
   const howto = document.getElementById('smart-howto');
   const appDetRow = document.getElementById('smart-app-detection-row');
   const appNotice = document.getElementById('smart-app-active-notice');
-  const disabledNotice = document.getElementById('smart-disabled-notice');
-  const settingsToggle = document.getElementById('toggle-smartmode-settings');
-  const providerInfo = document.getElementById('smart-provider-info');
 
   const on = toggle ? toggle.checked : false;
   if (options) options.classList.toggle('hidden', !on);
   if (howto) howto.classList.toggle('hidden', !on);
   if (appDetRow) appDetRow.classList.toggle('hidden', !on);
   if (!on && appNotice) appNotice.classList.add('hidden');
-  if (disabledNotice) disabledNotice.classList.toggle('hidden', on);
-  if (providerInfo) providerInfo.classList.toggle('hidden', !on);
-  if (settingsToggle) settingsToggle.checked = on;
   if (on) {
     updateSmartPresetVisibility();
     updateAppDetectionState();
@@ -257,7 +251,6 @@ function updateAppDetectionState() {
   if (presetTitle) presetTitle.style.opacity = appDetOn ? '0.45' : '';
   if (appNotice) appNotice.classList.toggle('hidden', !appDetOn);
   if (appRules) appRules.classList.toggle('hidden', !appDetOn);
-  updateFallbackPresetState();
 }
 
 function onAppDetectionToggle() {
@@ -291,85 +284,9 @@ function selectSmartPreset(preset) {
 }
 
 /* ── Smart Mode Provider ──────────────────────────────── */
-function selectSmartProvider(provider) {
-  document.querySelectorAll('.provider-option').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.provider === provider);
-  });
-  if (window.setSmartModeProvider) window.setSmartModeProvider(provider);
-  updateLLMCardVisibility(provider);
-  updateProviderWarning(provider);
-  const provBadge = document.getElementById('smart-provider-badge');
-  if (provBadge) {
-    const labels = { openai: t('smartProviderOpenai'), local: t('smartProviderLocal'), auto: t('smartProviderAuto') };
-    provBadge.textContent = labels[provider] || provider;
-  }
-}
-
-function updateLLMCardVisibility(provider) {
-  const show = provider === 'local' || provider === 'auto';
-  const card1 = document.getElementById('llm-card');
-  const card2 = document.getElementById('settings-llm-card');
-  if (card1) card1.classList.toggle('hidden', !show);
-  if (card2) card2.classList.toggle('hidden', !show);
-}
 
 async function initSmartProvider() {
-  let provider = 'auto';
-  try {
-    if (window.getSmartModeProvider) provider = await window.getSmartModeProvider() || 'auto';
-  } catch (e) {}
-  document.querySelectorAll('.provider-option').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.provider === provider);
-  });
-  updateLLMCardVisibility(provider);
   await updateLLMStatus();
-  await initFallbackPreset();
-  updateProviderWarning(provider);
-
-  // Update read-only badge on Smart Mode page
-  const provBadge = document.getElementById('smart-provider-badge');
-  if (provBadge) {
-    const labels = { openai: t('smartProviderOpenai'), local: t('smartProviderLocal'), auto: t('smartProviderAuto') };
-    provBadge.textContent = labels[provider] || provider;
-  }
-
-  // Sync settings-side toggles
-  const smToggle = document.getElementById('toggle-smartmode');
-  const settingsToggle = document.getElementById('toggle-smartmode-settings');
-  if (smToggle && settingsToggle) settingsToggle.checked = smToggle.checked;
-
-  const replToggle = document.getElementById('replacements-toggle');
-  const settingsReplToggle = document.getElementById('toggle-replacements-settings');
-  if (replToggle && settingsReplToggle) settingsReplToggle.checked = replToggle.checked;
-}
-
-async function updateProviderWarning(provider) {
-  updateProviderWarningEl('provider-warning', 'provider-warning-text', provider);
-  updateProviderWarningEl('settings-provider-warning', 'settings-provider-warning-text', provider);
-}
-
-async function updateProviderWarningEl(warnId, textId, provider) {
-  const warn = document.getElementById(warnId);
-  const warnText = document.getElementById(textId);
-  if (!warn || !warnText) return;
-  const apiKey = document.getElementById('input-apikey')?.value;
-  let llmInstalled = false;
-  try {
-    if (window.getLLMStatus) {
-      const raw = await window.getLLMStatus();
-      const s = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      llmInstalled = !!s.installed;
-    }
-  } catch (e) {}
-  if (provider === 'openai' && !apiKey) {
-    warnText.textContent = t('smartProviderNoKey');
-    warn.classList.remove('hidden');
-  } else if (provider === 'auto' && !apiKey && !llmInstalled) {
-    warnText.textContent = t('smartProviderNoProvider');
-    warn.classList.remove('hidden');
-  } else {
-    warn.classList.add('hidden');
-  }
 }
 
 async function updateLLMStatus() {
@@ -485,20 +402,6 @@ window.onLLMDownloadComplete = function() {
   updateLLMStatus();
 };
 
-/* ── Settings ↔ Smart Mode Sync ──────────────────────── */
-function syncSmartModeToggle(checked) {
-  const smartToggle = document.getElementById('toggle-smartmode');
-  if (smartToggle) smartToggle.checked = checked;
-  updateSmartModeVisibility();
-  autoSave();
-}
-
-function syncReplacementsToggle(checked) {
-  const replToggle = document.getElementById('replacements-toggle');
-  if (replToggle) replToggle.checked = checked;
-  autoSave();
-}
-
 async function startSettingsLLMDownload() {
   const online = await updateConnectivityStatus('settingsLlmConnectivityStatus');
   if (!online) {
@@ -547,85 +450,6 @@ async function updateConnectivityStatus(elementId) {
     el.classList.add('offline');
     if (textEl) textEl.textContent = t('connectivityOffline');
     return false;
-  }
-}
-
-/* ── Fallback Preset ──────────────────────────────────── */
-async function initFallbackPreset() {
-  const sel = document.getElementById('select-fallback-preset');
-  if (!sel) return;
-
-  // Populate with builtin + custom presets
-  const builtins = [
-    { id: 'cleanup', key: 'smartCleanup' },
-    { id: 'concise', key: 'smartConcise' },
-    { id: 'email', key: 'smartEmail' },
-    { id: 'bullets', key: 'smartBullets' },
-    { id: 'formal', key: 'smartFormal' },
-    { id: 'aiprompt', key: 'smartAiPrompt' },
-    { id: 'summary', key: 'smartSummary' },
-    { id: 'notes', key: 'smartNotes' },
-    { id: 'meeting', key: 'smartMeeting' },
-    { id: 'social', key: 'smartSocial' },
-    { id: 'technical', key: 'smartTechnical' },
-    { id: 'casual', key: 'smartCasual' },
-    { id: 'translate', key: 'smartTranslate' }
-  ];
-  sel.innerHTML = '';
-  for (const { id, key } of builtins) {
-    const opt = document.createElement('option');
-    opt.value = id;
-    opt.textContent = t(key) || id;
-    sel.appendChild(opt);
-  }
-  // Add custom templates
-  try {
-    if (window.getCustomTemplates) {
-      const raw = await window.getCustomTemplates();
-      const custom = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      if (custom) {
-        for (const name of Object.keys(custom)) {
-          const opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = name;
-          sel.appendChild(opt);
-        }
-      }
-    }
-  } catch (e) {}
-
-  // Set current value
-  let current = 'cleanup';
-  try {
-    if (window.getFallbackPreset) current = await window.getFallbackPreset() || 'cleanup';
-  } catch (e) {}
-  sel.value = current;
-
-  sel.removeEventListener('change', _onFallbackChange);
-  sel.addEventListener('change', _onFallbackChange);
-
-  updateFallbackPresetState();
-}
-
-function _onFallbackChange() {
-  const sel = document.getElementById('select-fallback-preset');
-  if (sel && window.setFallbackPreset) window.setFallbackPreset(sel.value);
-}
-
-function updateFallbackPresetState() {
-  const appDetOn = document.getElementById('toggle-app-detection')?.checked;
-  const sel = document.getElementById('select-fallback-preset');
-  const fallbackRow = document.getElementById('smart-fallback-row');
-  if (!fallbackRow) return;
-  const hint = fallbackRow.querySelector('.form-hint');
-  if (appDetOn) {
-    if (sel) sel.disabled = true;
-    if (hint) hint.textContent = t('smartAppActiveNotice');
-    fallbackRow.style.opacity = '0.5';
-  } else {
-    if (sel) sel.disabled = false;
-    if (hint) hint.textContent = t('smartFallbackDesc');
-    fallbackRow.style.opacity = '';
   }
 }
 

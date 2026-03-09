@@ -338,37 +338,7 @@
   color: var(--error);
 }
 
-/* ── Provider info (read-only on Smart Mode page) ──── */
-.smart-provider-info {
-  display: flex;
-  align-items: center;
-}
-.smart-provider-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  gap: 12px;
-}
-.smart-provider-row .llm-badge {
-  margin-left: 8px;
-}
-.smart-disabled-notice {
-  border-left: 3px solid var(--text-tertiary);
-}
-.smart-disabled-notice p {
-  margin: 0 0 4px;
-  color: var(--text-secondary);
-}
-.smart-disabled-notice a {
-  color: var(--accent);
-  text-decoration: none;
-}
-.smart-disabled-notice a:hover {
-  text-decoration: underline;
-}
-
-/* ── Keyword Chips ──────────────────────────────────── */
+/* ── Keyword Chips──────────────────────────────────── */
 .keyword-chips {
   display: flex;
   flex-wrap: wrap;
