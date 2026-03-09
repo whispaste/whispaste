@@ -12,20 +12,22 @@ import Footer from "../components/Footer.astro";
 
 <Layout title="WhisPaste — Voice to text, pasted anywhere">
   <Nav variant="landing" />
-  <Hero />
+  <main id="main-content">
+    <Hero />
 
-  <!-- Gradient transition -->
-  <div class="h-24 bg-gradient-to-b from-transparent via-brand-cyan/[0.03] to-transparent -mt-12 -mb-12 relative z-0"></div>
+    <!-- Gradient transition -->
+    <div class="h-24 bg-gradient-to-b from-transparent via-brand-cyan/[0.03] to-transparent -mt-12 -mb-12 relative z-0"></div>
 
-  <Features />
+    <Features />
 
-  <!-- Gradient transition -->
-  <div class="h-24 bg-gradient-to-b from-transparent via-brand-cyan/[0.03] to-transparent -mt-12 -mb-12 relative z-0"></div>
+    <!-- Gradient transition -->
+    <div class="h-24 bg-gradient-to-b from-transparent via-brand-cyan/[0.03] to-transparent -mt-12 -mb-12 relative z-0"></div>
 
-  <AppPreview />
-  <HowItWorks />
-  <Privacy />
-  <Support />
+    <AppPreview />
+    <HowItWorks />
+    <Privacy />
+    <Support />
+  </main>
   <Footer variant="landing" />
 
   <style is:global>

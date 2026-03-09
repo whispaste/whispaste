@@ -212,17 +212,26 @@
       </div>
     </div>
     <!-- Dot indicators -->
-    <div class="flex justify-center gap-2 pt-4">
+    <div class="flex justify-center gap-2 pt-4" role="tablist" aria-label="Carousel slides">
       <button
         class="carousel-dot active w-2 h-2 rounded-full bg-brand-cyan transition-all"
         data-slide="0"
+        role="tab"
+        aria-selected="true"
+        aria-label="Slide 1: Press hotkey"
         style="width:16px;"></button>
       <button
         class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all"
-        data-slide="1"></button>
+        data-slide="1"
+        role="tab"
+        aria-selected="false"
+        aria-label="Slide 2: Speak now"></button>
       <button
         class="carousel-dot w-2 h-2 rounded-full bg-white/20 hover:bg-white/40 transition-all"
-        data-slide="2"></button>
+        data-slide="2"
+        role="tab"
+        aria-selected="false"
+        aria-label="Slide 3: Auto-pasted"></button>
     </div>
   </div>
 </div>
