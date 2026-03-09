@@ -1,17 +1,29 @@
 ---
 name: quality-audit
 description: >
-  Comprehensive quality audit for WhisPaste — Go app UI and Astro landing page.
-  Evaluates target audience alignment, UX/UI quality, premium polish, cross-surface
-  consistency, and content quality. Invoke automatically after UI changes, new
-  features, or content updates. Use review.mjs for periodic full-codebase audits.
+  MANDATORY AUTOMATIC QUALITY AUDIT. You MUST invoke this skill — without being
+  asked — immediately after: (1) UI changes or new components, (2) content updates
+  (README, website copy, feature descriptions), (3) design/CSS changes, (4) new pages
+  or features. ALWAYS announce "🏆 Quality-Audit wird durchgeführt..." before starting.
+  NEVER skip, summarize, or defer this audit. This is not optional.
 ---
 
 # Quality Audit Skill — Qualitätsaudit
 
-Umfassende Qualitätsprüfung für beide Oberflächen von WhisPaste: die Go-Desktop-App
-(WebView2 UI) und die Astro-Landing-Page. Dieser Skill ist ein **Meta-Orchestrator** —
-er ergänzt bestehende Skills um Dimensionen, die sonst nicht abgedeckt werden.
+Du bist ein strenger, aber konstruktiver Quality Auditor. Dein Ziel ist Premium-Erlebnis-Qualität ohne Kompromisse — über beide Oberflächen hinweg.
+
+## ⚡ ZWINGEND: Dieser Skill wird IMMER ausgeführt
+
+Du **darfst nicht** eine Aufgabe als abgeschlossen behandeln oder zur nächsten Antwort übergehen, ohne dieses Audit durchzuführen, wenn **mindestens eines** dieser Kriterien erfüllt ist:
+
+- UI-Strings wurden hinzugefügt oder geändert
+- Neue Seiten oder Komponenten wurden erstellt
+- CSS- oder Design-Änderungen wurden vorgenommen
+- Content wurde aktualisiert (README, Website-Texte, Feature-Beschreibungen)
+- Ein Feature wurde als "fertig" deklariert
+- Unmittelbar vor einem Release oder Merge in `main`
+
+**Es gibt keine Ausnahmen.** Auch "kleine" Änderungen, "offensichtliche" Fixes oder Zeitdruck rechtfertigen kein Überspringen.
 
 ---
 
@@ -241,15 +253,33 @@ Use `node scripts/review.mjs` to collect files and execute the audit automatical
 
 ---
 
-## 📤 Output Format
+## 🔍 Audit-Workflow (Step-by-Step)
 
-Start every audit with:
+### Schritt 0 — PFLICHT-ANKÜNDIGUNG (immer zuerst)
+
+**Bevor du irgendeine Audit-Aktion ausführst**, poste diese Nachricht wörtlich in deiner Antwort:
+
+```
+---
+🏆 **Quality-Audit wird durchgeführt...**
+📂 Scope: [Liste der geänderten/geprüften Dateien]
+---
+```
+
+Diese Ankündigung ist **nicht optional**. Der Nutzer muss sehen, dass ein Audit stattfindet. Ohne diese Ankündigung gilt das Audit als nicht ausgeführt.
+
+---
+
+## 📤 Pflicht-Output-Format
+
+Starte den Report immer mit:
 
 ```
 ## 🏆 Quality Audit Report
+**Datum:** [Datum]
 **Modus:** Inkrementell | Vollständig
-**Scope:** [list of files/components audited]
-**Datum:** [date]
+**Scope:** [Liste der geprüften Dateien/Komponenten]
+**Ergebnis:** ✅ Bestanden | ⚠️ Bedingt Bestanden | ❌ Nicht Bestanden
 ```
 
 Score each dimension:
@@ -268,39 +298,41 @@ Score each dimension:
 **Gesamtbewertung:** 🟢/🟡/🔴
 ```
 
-For each issue found:
+Für jedes gefundene Problem:
 
 ```
 ### [SEVERITY] Issue description
 **Dimension:** [1-6]
 **Datei:** `file.ext` L42
 **Persona betroffen:** [which personas struggle with this]
-**Problem:** Precise description
-**Vorschlag:** Concrete fix or improvement
+**Problem:** Genaue Beschreibung des Problems und seiner Auswirkungen.
+**Vorschlag:** Konkrete Lösung oder Verbesserung.
 ```
 
-**Severity levels:**
+**Severity-Levels:**
 
-| Level | Meaning | Action |
-|---|---|---|
-| 🔴 **BLOCKER** | Persona can't complete the task, or content is wrong/misleading | Fix immediately |
-| 🟡 **MAJOR** | Friction, confusion, or quality gap visible to users | Fix before release |
-| 🔵 **POLISH** | Works but could be better — refinement opportunity | Backlog |
+| Level            | Bedeutung                                                            | Aktion                            |
+| ---------------- | -------------------------------------------------------------------- | --------------------------------- |
+| 🔴 **BLOCKER**   | Persona kann Aufgabe nicht abschließen, Inhalt falsch/irreführend    | Sofort fixen — kein Merge möglich |
+| 🟠 **CRITICAL**  | Schwerer UX/Content-Fehler, aber kein vollständiger Blocker          | Muss vor Merge behoben werden     |
+| 🟡 **MAJOR**     | Reibung, Verwirrung oder sichtbare Qualitätslücke                   | Sollte vor Merge behoben werden   |
+| 🔵 **MINOR**     | Funktioniert, könnte aber besser sein — Verfeinerungsmöglichkeit     | Vermerken, optional beheben       |
 
-Close with:
+Schließe den Report ab mit:
 
 ```
-### Zusammenfassung
+### ✅ Zusammenfassung
 - 🔴 Blocker: X
+- 🟠 Critical: X
 - 🟡 Major: X
-- 🔵 Polish: X
+- 🔵 Minor: X
 
 **Prioritized Refactoring List:**
 1. [Highest impact fix — which files, what to change]
 2. [Second highest]
 3. ...
 
-**Nächste Schritte:** [concrete recommendation]
+**Nächste Schritte:** [Konkrete Handlungsempfehlung]
 ```
 
 ---
@@ -321,6 +353,18 @@ This skill works alongside — never replaces — these existing skills:
 **Rule**: If an issue is better handled by a complementary skill (e.g., a missing
 translation key → `l10n-review`), note it but don't duplicate the full check.
 Reference the skill: "→ Delegate to `l10n-review`".
+
+---
+
+## 🚫 Absolute Verbote (Red Flags — niemals brechen)
+
+1. **NIEMALS** ein Audit überspringen, weil die Änderung "zu klein" oder "nur CSS" ist
+2. **NIEMALS** ein Audit als "Bestanden" markieren, wenn noch ungefixte Blocker oder Critical Issues existieren
+3. **NIEMALS** Persona-Probleme als "low priority" degradieren ohne klare, explizite Begründung
+4. **NIEMALS** ein Audit abkürzen bei Zeitdruck oder wegen vorheriger fehlerfreier Sessions
+5. **NIEMALS** Qualitätsprobleme kommentarlos ignorieren — jeder Fund muss im Report auftauchen
+6. **NIEMALS** die Pflicht-Ankündigung (Schritt 0) weglassen — das Audit ist ohne sie ungültig
+7. **NIEMALS** nach UI/Content-Änderungen einfach antworten, ohne zuerst diesen Skill ausgeführt zu haben
 
 ---
 

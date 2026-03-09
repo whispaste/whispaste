@@ -278,17 +278,6 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
-.btn-danger {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-family: var(--font);
-  color: var(--text-inverse);
-  background: var(--error);
-  border: 1px solid var(--error);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.btn-danger:hover { background: var(--error-hover); }
 
 @media (max-width: 600px) {
   .analytics-charts { grid-template-columns: 1fr; }

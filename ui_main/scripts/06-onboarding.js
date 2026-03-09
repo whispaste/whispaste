@@ -10,7 +10,7 @@ let _onbApiKeyValid = false;
 function showOnboarding() {
   const overlay = document.getElementById('onboardingOverlay');
   if (overlay) {
-    overlay.style.display = '';
+    overlay.classList.remove('hidden');
     _onboardingStep = 1;
     _onboardingChoice = null;
     _onboardingSmart = null;
@@ -24,12 +24,12 @@ function showOnboarding() {
 
 function hideOnboarding() {
   const overlay = document.getElementById('onboardingOverlay');
-  if (overlay) overlay.style.display = 'none';
+  if (overlay) overlay.classList.add('hidden');
 }
 
 function updateOnboardingStep() {
   document.querySelectorAll('.onboarding-step').forEach(step => {
-    step.style.display = parseInt(step.dataset.step) === _onboardingStep ? '' : 'none';
+    step.classList.toggle('hidden', parseInt(step.dataset.step) !== _onboardingStep);
   });
   // Update dots
   document.querySelectorAll('.onboarding-dots .dot').forEach((dot, i) => {
@@ -73,8 +73,8 @@ async function selectOnboardingOption(choice) {
 
   const keySection = document.getElementById('onbApikeySection');
   const modelSection = document.getElementById('onbModelSection');
-  if (keySection) keySection.style.display = choice === 'api' ? '' : 'none';
-  if (modelSection) modelSection.style.display = choice === 'local' ? '' : 'none';
+  if (keySection) keySection.classList.toggle('hidden', choice !== 'api');
+  if (modelSection) modelSection.classList.toggle('hidden', choice !== 'local');
 
   const nextBtn = document.getElementById('onbNextStep2');
   if (choice === 'api') {
@@ -121,17 +121,17 @@ function onbUpdateModelUI() {
 
   if (_onbDownloading) {
     if (statusEl) { statusEl.textContent = t('onboarding.model_downloading'); statusEl.className = 'onb-model-status downloading'; }
-    if (downloadBtn) downloadBtn.style.display = 'none';
-    if (progressWrap) progressWrap.style.display = '';
+    if (downloadBtn) downloadBtn.classList.add('hidden');
+    if (progressWrap) progressWrap.classList.remove('hidden');
   } else if (_onbModelReady) {
     if (statusEl) { statusEl.textContent = t('onboarding.model_ready'); statusEl.className = 'onb-model-status ready'; }
-    if (downloadBtn) downloadBtn.style.display = 'none';
-    if (progressWrap) progressWrap.style.display = 'none';
+    if (downloadBtn) downloadBtn.classList.add('hidden');
+    if (progressWrap) progressWrap.classList.add('hidden');
     if (nextBtn) nextBtn.disabled = false;
   } else {
     if (statusEl) { statusEl.textContent = t('onboarding.model_needed'); statusEl.className = 'onb-model-status needed'; }
-    if (downloadBtn) downloadBtn.style.display = '';
-    if (progressWrap) progressWrap.style.display = 'none';
+    if (downloadBtn) downloadBtn.classList.remove('hidden');
+    if (progressWrap) progressWrap.classList.add('hidden');
     if (nextBtn) nextBtn.disabled = true;
   }
 
@@ -226,7 +226,7 @@ const _origDownloadComplete = window.downloadComplete;
 window.downloadComplete = function(modelId, success, errorMsg) {
   // Forward to onboarding handler if overlay is visible
   const overlay = document.getElementById('onboardingOverlay');
-  if (overlay && overlay.style.display !== 'none') {
+  if (overlay && !overlay.classList.contains('hidden')) {
     window.onbDownloadComplete(modelId, success, errorMsg);
   }
   // Forward to settings handler
@@ -237,7 +237,7 @@ const _origUpdateModelProgress = window.updateModelProgress;
 window.updateModelProgress = function(modelId, pct, fileNum, fileCount, fileName) {
   // Update onboarding progress bar if overlay is visible
   const overlay = document.getElementById('onboardingOverlay');
-  if (overlay && overlay.style.display !== 'none') {
+  if (overlay && !overlay.classList.contains('hidden')) {
     const bar = document.getElementById('onbProgressBar');
     if (bar) bar.style.width = pct + '%';
     const label = document.getElementById('onbProgressLabel');
@@ -253,7 +253,7 @@ function selectOnboardingSmart(enabled) {
   const el = document.getElementById(enabled ? 'onb-smart-on' : 'onb-smart-off');
   if (el) el.classList.add('selected');
   const note = document.getElementById('onbSmartNote');
-  if (note) note.style.display = enabled ? '' : 'none';
+  if (note) note.classList.toggle('hidden', !enabled);
   const nextBtn = document.getElementById('onbNextStep3');
   if (nextBtn) nextBtn.disabled = false;
 }

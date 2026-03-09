@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/whispaste/whispaste/internal/i18n"
 )
 
 // smartModePresets maps preset names to system prompts.
@@ -157,17 +159,17 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLa
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return text, fmt.Errorf("smart mode request failed: %w", err)
+		return text, fmt.Errorf("%s: %w", i18n.T("error.postprocess_request"), err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return text, fmt.Errorf("failed to read response: %w", err)
+		return text, fmt.Errorf("%s: %w", i18n.T("error.postprocess_request"), err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return text, fmt.Errorf("smart mode API error %d: %s", resp.StatusCode, string(respBody))
+		return text, fmt.Errorf(i18n.T("error.postprocess_api")+" (%s)", resp.StatusCode, string(respBody))
 	}
 
 	var result struct {
@@ -178,10 +180,10 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLa
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
-		return text, fmt.Errorf("failed to parse response: %w", err)
+		return text, fmt.Errorf("%s: %w", i18n.T("error.postprocess_parse"), err)
 	}
 	if len(result.Choices) == 0 || result.Choices[0].Message.Content == "" {
-		return text, fmt.Errorf("empty response from smart mode")
+		return text, fmt.Errorf("%s", i18n.T("error.postprocess_empty"))
 	}
 	return result.Choices[0].Message.Content, nil
 }

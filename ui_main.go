@@ -960,30 +960,36 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStat
 		})
 
 		w.Bind("renameProject", func(id, newName string) (bool, error) {
-			err := history.RenameProject(id, newName)
-			return err == nil, err
+			if err := history.RenameProject(id, newName); err != nil {
+				return false, fmt.Errorf("renameProject: %w", err)
+			}
+			return true, nil
 		})
 
 		w.Bind("deleteProject", func(id string, deleteEntries bool) (bool, error) {
-			err := history.DeleteProject(id, deleteEntries)
-			if err == nil {
-				NotifyHistoryChanged()
+			if err := history.DeleteProject(id, deleteEntries); err != nil {
+				return false, fmt.Errorf("deleteProject: %w", err)
 			}
-			return err == nil, err
+			NotifyHistoryChanged()
+			return true, nil
 		})
 
 		w.Bind("setEntryProject", func(entryID, projectID string) (bool, error) {
-			err := history.SetEntryProject(entryID, projectID)
-			return err == nil, err
+			if err := history.SetEntryProject(entryID, projectID); err != nil {
+				return false, fmt.Errorf("setEntryProject: %w", err)
+			}
+			return true, nil
 		})
 
 		w.Bind("setEntriesProject", func(idsJSON, projectID string) (bool, error) {
 			var ids []string
 			if err := json.Unmarshal([]byte(idsJSON), &ids); err != nil {
-				return false, err
+				return false, fmt.Errorf("setEntriesProject: unmarshal IDs: %w", err)
 			}
-			err := history.SetEntriesProject(ids, projectID)
-			return err == nil, err
+			if err := history.SetEntriesProject(ids, projectID); err != nil {
+				return false, fmt.Errorf("setEntriesProject: %w", err)
+			}
+			return true, nil
 		})
 
 		w.Bind("getLastProjectID", func() string {

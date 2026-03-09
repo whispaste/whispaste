@@ -79,9 +79,6 @@ _OVL_HEIGHT = 80
 _OVL_MARGIN = 24
 _OVL_RADIUS = 40 // fully rounded pill ends
 
-// Icon display size (unused — icon removed from overlay)
-// _ICON_SIZE = 38
-
 // Colors (COLORREF = 0x00BBGGRR) – derived from app logo palette
 _CLR_BACKGROUND = 0x00291A0A // RGB(10,26,41) – dark navy
 _CLR_TEXT       = 0x00FFFFFF // white
@@ -190,6 +187,32 @@ type sizeT struct{ CX, CY int32 }
 
 type gdipRectF struct {
 X, Y, Width, Height float32
+}
+
+// getHitButton returns which button is at position (x, y) in logical overlay
+// coordinates: 1=dashboard, 2=cancel, 3=pause, 4=confirm, 0=none.
+// Cancel is always checked. When allButtons is true, dashboard/pause/confirm
+// are also checked (for recording/paused states).
+func getHitButton(x, y int32, allButtons bool) int {
+	if x >= _BTN_CANCEL_X && x <= _BTN_CANCEL_X+_BTN_SIZE &&
+		y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+		return 2
+	}
+	if allButtons {
+		if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE &&
+			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			return 1
+		}
+		if x >= _BTN_PAUSE_X && x <= _BTN_PAUSE_X+_BTN_SIZE &&
+			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			return 3
+		}
+		if x >= _BTN_CONFIRM_X && x <= _BTN_CONFIRM_X+_BTN_SIZE &&
+			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			return 4
+		}
+	}
+	return 0
 }
 
 // ───────────────────── Win32 procs ─────────────────────
@@ -514,23 +537,8 @@ case _WM_NCHITTEST:
 		// Convert physical client coords to logical for hit testing
 		pt.X = int32(float64(pt.X) / o.scale)
 		pt.Y = int32(float64(pt.Y) / o.scale)
-		if pt.X >= _BTN_DASH_X && pt.X <= _BTN_DASH_X+_BTN_SIZE &&
-			pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
+		if getHitButton(pt.X, pt.Y, true) != 0 {
 			return 1 // HTCLIENT
-		}
-		if pt.X >= _BTN_CANCEL_X && pt.X <= _BTN_CANCEL_X+_BTN_SIZE &&
-			pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
-			return 1 // HTCLIENT
-		}
-		if st == StateRecording || st == StatePaused {
-			if pt.X >= _BTN_CONFIRM_X && pt.X <= _BTN_CONFIRM_X+_BTN_SIZE &&
-				pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
-				return 1 // HTCLIENT
-			}
-			if pt.X >= _BTN_PAUSE_X && pt.X <= _BTN_PAUSE_X+_BTN_SIZE &&
-				pt.Y >= _BTN_Y && pt.Y <= _BTN_Y+_BTN_SIZE {
-				return 1 // HTCLIENT
-			}
 		}
 	}
 	return _HTCAPTION
@@ -542,18 +550,7 @@ case 0x0200: // WM_MOUSEMOVE
 	if st == StateRecording || st == StatePaused || st == StateTranscribing || st == StateProcessing {
 		x := int32(float64(lParam&0xFFFF) / o.scale)
 		y := int32(float64((lParam>>16)&0xFFFF) / o.scale)
-		btn := 0
-		if x >= _BTN_CANCEL_X && x <= _BTN_CANCEL_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-			btn = 2
-		} else if st == StateRecording || st == StatePaused {
-			if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-				btn = 1
-			} else if x >= _BTN_PAUSE_X && x <= _BTN_PAUSE_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-				btn = 3
-			} else if x >= _BTN_CONFIRM_X && x <= _BTN_CONFIRM_X+_BTN_SIZE && y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-				btn = 4
-			}
-		}
+		btn := getHitButton(x, y, st == StateRecording || st == StatePaused)
 		o.mu.Lock()
 		if !o.tracking {
 			type trackMouseEventT struct {
@@ -609,49 +606,16 @@ case 0x0201: // WM_LBUTTONDOWN
 	if st == StateRecording || st == StatePaused || st == StateTranscribing || st == StateProcessing {
 		x := int32(float64(lParam&0xFFFF) / o.scale)
 		y := int32(float64((lParam>>16)&0xFFFF) / o.scale)
-		// Cancel button — available in all interactive states
-		if x >= _BTN_CANCEL_X && x <= _BTN_CANCEL_X+_BTN_SIZE &&
-			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+		btn := getHitButton(x, y, st == StateRecording || st == StatePaused)
+		if btn != 0 {
 			o.mu.Lock()
-			o.pressBtn = 2
+			o.pressBtn = btn
 			o.mu.Unlock()
-			if cancelCB != nil {
-				go cancelCB()
+			cbs := map[int]func(){1: dashCB, 2: cancelCB, 3: pauseCB, 4: confirmCB}
+			if cb := cbs[btn]; cb != nil {
+				go cb()
 			}
 			return 0
-		}
-		// Other buttons only during recording/paused
-		if st == StateRecording || st == StatePaused {
-			if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE &&
-				y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-				o.mu.Lock()
-				o.pressBtn = 1
-				o.mu.Unlock()
-				if dashCB != nil {
-					go dashCB()
-				}
-				return 0
-			}
-			if x >= _BTN_CONFIRM_X && x <= _BTN_CONFIRM_X+_BTN_SIZE &&
-				y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-				o.mu.Lock()
-				o.pressBtn = 4
-				o.mu.Unlock()
-				if confirmCB != nil {
-					go confirmCB()
-				}
-				return 0
-			}
-			if x >= _BTN_PAUSE_X && x <= _BTN_PAUSE_X+_BTN_SIZE &&
-				y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-				o.mu.Lock()
-				o.pressBtn = 3
-				o.mu.Unlock()
-				if pauseCB != nil {
-					go pauseCB()
-				}
-				return 0
-			}
 		}
 	}
 	ret, _, _ := procDefWindowProcW.Call(hwnd, msg, wParam, lParam)
@@ -930,9 +894,6 @@ uintptr(fontHeightSmall), 0, 0, 0, _FW_NORMAL,
 uintptr(unsafe.Pointer(fontName)),
 )
 
-// Icon no longer rendered in overlay (removed per user request)
-// o.loadIcon(48)
-
 // Create GDI+ font resources for anti-aliased text
 fontName16, _ := windows.UTF16PtrFromString("Segoe UI")
 procGdipCreateFontFamilyFromName.Call(
@@ -946,11 +907,6 @@ uintptr(math.Float32bits(11.0)), _FontStyleRegular, _UnitPixel,
 uintptr(unsafe.Pointer(&o.gdipFontSmall)))
 }
 procGdipCreateStringFormat.Call(0, 0, uintptr(unsafe.Pointer(&o.gdipStrFmt)))
-
-// Icon bitmap no longer used (overlay icon removed)
-// if o.hIcon != 0 {
-// procGdipCreateBitmapFromHICON.Call(o.hIcon, uintptr(unsafe.Pointer(&o.gdipIconBmp)))
-// }
 
 // Create persistent DIB section for ULW rendering
 o.createDIB()

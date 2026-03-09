@@ -175,11 +175,11 @@ func (c *Config) Save() error {
 
 	path, err := configPath()
 	if err != nil {
-		return err
+		return fmt.Errorf("Save: config path: %w", err)
 	}
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("Save: marshal: %w", err)
 	}
 	return os.WriteFile(path, data, 0600)
 }
@@ -190,6 +190,10 @@ func (c *Config) HasAPIKey() bool {
 	defer c.mu.RUnlock()
 	return c.APIKey != ""
 }
+
+// TODO: The Get* config field getters below follow a repetitive RLock/RUnlock pattern
+// that could be replaced by code generation (e.g. go generate + a template).
+// Deferring since 30+ getters would need migration and the current approach is safe.
 
 // GetAPIKey returns the API key (thread-safe).
 func (c *Config) GetAPIKey() string {

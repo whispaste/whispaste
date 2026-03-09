@@ -105,6 +105,29 @@ func traySubclassWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	return ret
 }
 
+// verifySystrayWindow finds the SystrayClass window and verifies it belongs
+// to our process. Returns the window handle or 0 if not found/wrong PID.
+func verifySystrayWindow(caller string) uintptr {
+	className, err := windows.UTF16PtrFromString("SystrayClass")
+	if err != nil {
+		logWarn("%s: UTF16 class failed: %v", caller, err)
+		return 0
+	}
+	hwnd, _, _ := procFindWindow.Call(uintptr(unsafe.Pointer(className)), 0)
+	if hwnd == 0 {
+		logWarn("%s: systray window not found", caller)
+		return 0
+	}
+	var windowPID uint32
+	procGetWindowThreadProcess.Call(hwnd, uintptr(unsafe.Pointer(&windowPID)))
+	ourPID, _, _ := procGetCurrentProcessId.Call()
+	if windowPID != uint32(ourPID) {
+		logWarn("%s: window PID %d != our PID %d", caller, windowPID, ourPID)
+		return 0
+	}
+	return hwnd
+}
+
 // notifyIconDataW matches the Windows NOTIFYICONDATAW (Version 4) struct
 // layout with correct SDK field offsets. cbSize = 976 on 64-bit, which is
 // the proper size for the struct including hBalloonIcon. The getlantern/
@@ -264,23 +287,8 @@ func (t *AppTray) loadBalloonIcon() {
 
 // ShowBalloon shows a Windows balloon notification from the system tray icon.
 func (t *AppTray) ShowBalloon(title, text string) {
-	className, err := windows.UTF16PtrFromString("SystrayClass")
-	if err != nil {
-		logWarn("ShowBalloon: UTF16 class failed: %v", err)
-		return
-	}
-	hwnd, _, _ := procFindWindow.Call(uintptr(unsafe.Pointer(className)), 0)
+	hwnd := verifySystrayWindow("ShowBalloon")
 	if hwnd == 0 {
-		logWarn("ShowBalloon: systray window not found")
-		return
-	}
-
-	// Verify the found window belongs to our process
-	var windowPID uint32
-	procGetWindowThreadProcess.Call(hwnd, uintptr(unsafe.Pointer(&windowPID)))
-	ourPID, _, _ := procGetCurrentProcessId.Call()
-	if windowPID != uint32(ourPID) {
-		logWarn("ShowBalloon: window PID %d != our PID %d, wrong SystrayClass window", windowPID, ourPID)
 		return
 	}
 
@@ -309,7 +317,7 @@ func (t *AppTray) ShowBalloon(title, text string) {
 		copy(nid.szInfo[:255], textUTF16)
 	}
 
-	logDebug("ShowBalloon: hwnd=%d pid=%d cbSize=%d flags=0x%X balloonIcon=%d title=%q", hwnd, windowPID, nid.cbSize, infoFlags, iconHandle, title)
+	logDebug("ShowBalloon: hwnd=%d cbSize=%d flags=0x%X balloonIcon=%d title=%q", hwnd, nid.cbSize, infoFlags, iconHandle, title)
 	ret, _, callErr := procShellNotifyIcon.Call(_NIM_MODIFY, uintptr(unsafe.Pointer(&nid)))
 	if ret == 0 {
 		if errno, ok := callErr.(syscall.Errno); ok {
@@ -325,19 +333,8 @@ func (t *AppTray) ShowBalloon(title, text string) {
 // subclassSystrayWindow replaces the systray window procedure to intercept
 // NIN_BALLOONUSERCLICK events (balloon notification clicks).
 func (t *AppTray) subclassSystrayWindow() {
-	className, err := windows.UTF16PtrFromString("SystrayClass")
-	if err != nil {
-		return
-	}
-	hwnd, _, _ := procFindWindow.Call(uintptr(unsafe.Pointer(className)), 0)
+	hwnd := verifySystrayWindow("subclassSystrayWindow")
 	if hwnd == 0 {
-		logWarn("subclassSystrayWindow: window not found")
-		return
-	}
-	var windowPID uint32
-	procGetWindowThreadProcess.Call(hwnd, uintptr(unsafe.Pointer(&windowPID)))
-	ourPID, _, _ := procGetCurrentProcessId.Call()
-	if windowPID != uint32(ourPID) {
 		return
 	}
 	globalTrayRef = t
@@ -363,19 +360,8 @@ func (t *AppTray) subclassSystrayWindow() {
 // Windows 10/11. Must be called after subclassSystrayWindow (which translates
 // version 4 callback messages for the systray library).
 func (t *AppTray) setNotifyIconVersion() {
-	className, err := windows.UTF16PtrFromString("SystrayClass")
-	if err != nil {
-		return
-	}
-	hwnd, _, _ := procFindWindow.Call(uintptr(unsafe.Pointer(className)), 0)
+	hwnd := verifySystrayWindow("setNotifyIconVersion")
 	if hwnd == 0 {
-		logWarn("setNotifyIconVersion: window not found")
-		return
-	}
-	var windowPID uint32
-	procGetWindowThreadProcess.Call(hwnd, uintptr(unsafe.Pointer(&windowPID)))
-	ourPID, _, _ := procGetCurrentProcessId.Call()
-	if windowPID != uint32(ourPID) {
 		return
 	}
 	nid := notifyIconDataW{
@@ -735,6 +721,10 @@ func (t *AppTray) onExit() {
 	}
 	if t.onQuit != nil {
 		t.onQuit()
+	}
+	if t.balloonIcon != 0 {
+		procDestroyIcon := trayUser32.NewProc("DestroyIcon")
+		procDestroyIcon.Call(t.balloonIcon)
 	}
 	logInfo("Cleanup complete, exiting process")
 	os.Exit(0)
