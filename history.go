@@ -1081,6 +1081,29 @@ func (h *History) Merge(ids []string) string {
 		logError("Merge commit: %v", err)
 		return ""
 	}
+
+	// Copy audio in same order as merged text (timestamp-sorted matches)
+	orderedIDs := make([]string, len(matches))
+	for i, m := range matches {
+		orderedIDs[i] = m.ID
+	}
+	copied := audiocache.CopyForMerge(orderedIDs, merged.ID)
+	if copied > 0 {
+		logInfo("Merged %d audio files for entry %s", copied, merged.ID)
+	}
+	// Only delete originals if all audio was successfully copied (prevent data loss)
+	expected := 0
+	for _, id := range orderedIDs {
+		expected += audiocache.AudioCount(id)
+	}
+	if copied >= expected {
+		for _, id := range orderedIDs {
+			audiocache.Delete(id)
+		}
+	} else {
+		logWarn("Merge audio: copied %d of %d files, keeping originals", copied, expected)
+	}
+
 	return merged.ID
 }
 
