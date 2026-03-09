@@ -219,15 +219,23 @@ function updateFabSizeLabel(val) {
 
 /* ── Smart Mode Visibility ────────────────────────────── */
 function updateSmartModeVisibility() {
-  const on = document.getElementById('toggle-smartmode')?.checked;
-  const section = document.getElementById('smart-mode-options');
+  const toggle = document.getElementById('toggle-smartmode');
+  const options = document.getElementById('smart-mode-options');
   const howto = document.getElementById('smart-howto');
   const appDetRow = document.getElementById('smart-app-detection-row');
   const appNotice = document.getElementById('smart-app-active-notice');
-  if (section) section.classList.toggle('hidden', !on);
+  const disabledNotice = document.getElementById('smart-disabled-notice');
+  const settingsToggle = document.getElementById('toggle-smartmode-settings');
+  const providerInfo = document.getElementById('smart-provider-info');
+
+  const on = toggle ? toggle.checked : false;
+  if (options) options.classList.toggle('hidden', !on);
   if (howto) howto.classList.toggle('hidden', !on);
   if (appDetRow) appDetRow.classList.toggle('hidden', !on);
   if (!on && appNotice) appNotice.classList.add('hidden');
+  if (disabledNotice) disabledNotice.classList.toggle('hidden', on);
+  if (providerInfo) providerInfo.classList.toggle('hidden', !on);
+  if (settingsToggle) settingsToggle.checked = on;
   if (on) {
     updateSmartPresetVisibility();
     updateAppDetectionState();
@@ -290,12 +298,19 @@ function selectSmartProvider(provider) {
   if (window.setSmartModeProvider) window.setSmartModeProvider(provider);
   updateLLMCardVisibility(provider);
   updateProviderWarning(provider);
+  const provBadge = document.getElementById('smart-provider-badge');
+  if (provBadge) {
+    const labels = { openai: t('smartProviderOpenai'), local: t('smartProviderLocal'), auto: t('smartProviderAuto') };
+    provBadge.textContent = labels[provider] || provider;
+  }
 }
 
 function updateLLMCardVisibility(provider) {
-  const card = document.getElementById('llm-card');
-  if (!card) return;
-  card.classList.toggle('hidden', !(provider === 'local' || provider === 'auto'));
+  const show = provider === 'local' || provider === 'auto';
+  const card1 = document.getElementById('llm-card');
+  const card2 = document.getElementById('settings-llm-card');
+  if (card1) card1.classList.toggle('hidden', !show);
+  if (card2) card2.classList.toggle('hidden', !show);
 }
 
 async function initSmartProvider() {
@@ -310,11 +325,32 @@ async function initSmartProvider() {
   await updateLLMStatus();
   await initFallbackPreset();
   updateProviderWarning(provider);
+
+  // Update read-only badge on Smart Mode page
+  const provBadge = document.getElementById('smart-provider-badge');
+  if (provBadge) {
+    const labels = { openai: t('smartProviderOpenai'), local: t('smartProviderLocal'), auto: t('smartProviderAuto') };
+    provBadge.textContent = labels[provider] || provider;
+  }
+
+  // Sync settings-side toggles
+  const smToggle = document.getElementById('toggle-smartmode');
+  const settingsToggle = document.getElementById('toggle-smartmode-settings');
+  if (smToggle && settingsToggle) settingsToggle.checked = smToggle.checked;
+
+  const replToggle = document.getElementById('replacements-toggle');
+  const settingsReplToggle = document.getElementById('toggle-replacements-settings');
+  if (replToggle && settingsReplToggle) settingsReplToggle.checked = replToggle.checked;
 }
 
 async function updateProviderWarning(provider) {
-  const warn = document.getElementById('provider-warning');
-  const warnText = document.getElementById('provider-warning-text');
+  updateProviderWarningEl('provider-warning', 'provider-warning-text', provider);
+  updateProviderWarningEl('settings-provider-warning', 'settings-provider-warning-text', provider);
+}
+
+async function updateProviderWarningEl(warnId, textId, provider) {
+  const warn = document.getElementById(warnId);
+  const warnText = document.getElementById(textId);
   if (!warn || !warnText) return;
   const apiKey = document.getElementById('input-apikey')?.value;
   let llmInstalled = false;
@@ -337,11 +373,6 @@ async function updateProviderWarning(provider) {
 }
 
 async function updateLLMStatus() {
-  const badge = document.getElementById('llm-badge');
-  const actionArea = document.getElementById('llm-action-area');
-  const progress = document.getElementById('llm-progress');
-  if (!badge) return;
-
   let status = { installed: false, running: false };
   try {
     if (window.getLLMStatus) {
@@ -349,6 +380,20 @@ async function updateLLMStatus() {
       status = typeof raw === 'string' ? JSON.parse(raw) : raw;
     }
   } catch (e) {}
+
+  updateLLMBadge(status, 'llm-badge', 'llm-action-area', 'llm-progress');
+  updateLLMBadge(status, 'settings-llm-badge', 'settings-llm-action-area', 'settings-llm-progress');
+}
+
+function updateLLMBadge(status, badgeId, actionId, progressId) {
+  const badge = document.getElementById(badgeId);
+  const actionArea = document.getElementById(actionId);
+  const progress = document.getElementById(progressId);
+  if (!badge) return;
+
+  const isSettings = badgeId.startsWith('settings-');
+  const downloadFn = isSettings ? 'startSettingsLLMDownload' : 'startLLMDownload';
+  const connectId = isSettings ? 'settingsLlmConnectivityStatus' : 'llmConnectivityStatus';
 
   if (status.installed) {
     badge.className = 'llm-badge ready';
@@ -358,15 +403,15 @@ async function updateLLMStatus() {
   } else {
     badge.className = 'llm-badge not-installed';
     badge.textContent = t('smartLlmNotInstalled');
-    if (actionArea) actionArea.innerHTML = `<button class="btn btn-primary btn-sm" id="btn-llm-download" onclick="startLLMDownload()">
+    if (actionArea) actionArea.innerHTML = `<button class="btn btn-primary btn-sm" onclick="${downloadFn}()">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
       <span>${t('smartLlmDownload')}</span>
     </button>
-    <div class="connectivity-status" id="llmConnectivityStatus" style="display:none">
+    <div class="connectivity-status" id="${connectId}" style="display:none">
       <span class="connectivity-dot"></span>
       <span class="connectivity-text"></span>
     </div>`;
-    updateConnectivityStatus('llmConnectivityStatus');
+    updateConnectivityStatus(connectId);
   }
 }
 
@@ -405,34 +450,76 @@ async function deleteLLM() {
 }
 
 window.onLLMDownloadProgress = function(phase, pct) {
-  const fill = document.getElementById('llm-progress-fill');
-  const text = document.getElementById('llm-progress-text');
-  const progress = document.getElementById('llm-progress');
-  if (progress) progress.classList.remove('hidden');
-  if (fill) fill.style.width = pct + '%';
-  const label = phase === 'server' ? t('smartLlmDownloadServer') : t('smartLlmDownloadModel');
-  if (text) {
-    text.textContent = label + ' ' + pct + '%';
-    text.style.color = '';
-  }
+  ['', 'settings-'].forEach(prefix => {
+    const fill = document.getElementById(prefix + 'llm-progress-fill');
+    const text = document.getElementById(prefix + 'llm-progress-text');
+    const progress = document.getElementById(prefix + 'llm-progress');
+    if (progress) progress.classList.remove('hidden');
+    if (fill) fill.style.width = pct + '%';
+    const label = phase === 'server' ? t('smartLlmDownloadServer') : t('smartLlmDownloadModel');
+    if (text) {
+      text.textContent = label + ' ' + pct + '%';
+      text.style.color = '';
+    }
+  });
 };
 
 window.onLLMDownloadError = function(errorMsg) {
-  const progress = document.getElementById('llm-progress');
-  const text = document.getElementById('llm-progress-text');
-  if (progress) progress.classList.remove('hidden');
-  if (text) {
-    text.textContent = errorMsg;
-    text.style.color = 'var(--error)';
-  }
+  ['', 'settings-'].forEach(prefix => {
+    const progress = document.getElementById(prefix + 'llm-progress');
+    const text = document.getElementById(prefix + 'llm-progress-text');
+    if (progress) progress.classList.remove('hidden');
+    if (text) {
+      text.textContent = errorMsg;
+      text.style.color = 'var(--error)';
+    }
+  });
   updateLLMStatus();
 };
 
 window.onLLMDownloadComplete = function() {
-  const progress = document.getElementById('llm-progress');
-  if (progress) progress.classList.add('hidden');
+  ['', 'settings-'].forEach(prefix => {
+    const progress = document.getElementById(prefix + 'llm-progress');
+    if (progress) progress.classList.add('hidden');
+  });
   updateLLMStatus();
 };
+
+/* ── Settings ↔ Smart Mode Sync ──────────────────────── */
+function syncSmartModeToggle(checked) {
+  const smartToggle = document.getElementById('toggle-smartmode');
+  if (smartToggle) smartToggle.checked = checked;
+  updateSmartModeVisibility();
+  autoSave();
+}
+
+function syncReplacementsToggle(checked) {
+  const replToggle = document.getElementById('replacements-toggle');
+  if (replToggle) replToggle.checked = checked;
+  autoSave();
+}
+
+async function startSettingsLLMDownload() {
+  const online = await updateConnectivityStatus('settingsLlmConnectivityStatus');
+  if (!online) {
+    showToast(t('connectivityRequired'), true);
+    return;
+  }
+  const actionArea = document.getElementById('settings-llm-action-area');
+  const progress = document.getElementById('settings-llm-progress');
+  const badge = document.getElementById('settings-llm-badge');
+  if (actionArea) actionArea.innerHTML = '';
+  if (progress) progress.classList.remove('hidden');
+  if (badge) {
+    badge.className = 'llm-badge not-installed';
+    badge.textContent = t('smartLlmDownloading');
+  }
+  try {
+    if (window.downloadLLM) await window.downloadLLM();
+  } catch (e) {
+    if (window.onLLMDownloadError) window.onLLMDownloadError(e.message || String(e));
+  }
+}
 
 async function updateConnectivityStatus(elementId) {
   const el = document.getElementById(elementId);

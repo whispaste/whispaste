@@ -22,6 +22,10 @@
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
               <span data-i18n="settingsNavTranscription">Transcription</span>
             </div>
+            <div class="filter-item" data-settings-section="section-ai">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+              <span data-i18n="settingsNavAI">AI & Models</span>
+            </div>
             <div class="filter-item" data-settings-section="section-cleanup">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
               <span data-i18n="settingsNavCleanup">Cleanup</span>
@@ -83,6 +87,18 @@
                 <div class="toggle-switch">
                   <input type="checkbox" id="toggle-close-to-tray" checked>
                   <label class="toggle-track" for="toggle-close-to-tray"></label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-archive-instead" data-i18n="labelArchiveInstead">Archive instead of delete</label>
+                  <p class="toggle-desc" data-i18n="descArchiveInstead">When enabled, deleted items are archived instead of permanently removed</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-archive-instead">
+                  <label class="toggle-track" for="toggle-archive-instead"></label>
                 </div>
               </div>
             </div>
@@ -441,6 +457,101 @@
                 <option value="hi" data-i18n-opt="langHi">Hindi</option>
               </select>
             </div>
+          </div>
+
+          <!-- Section: AI & Models -->
+          <div class="settings-section-header" id="section-ai">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+            <span data-i18n="settingsNavAI">AI & Models</span>
+          </div>
+
+          <div class="card">
+            <div class="card-title" data-i18n="cardSmartMode">Smart Mode</div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-smartmode-settings" data-i18n="labelSmartMode">AI Post-Processing</label>
+                  <p class="toggle-desc" data-i18n="descSmartModeSettings">Automatically refine transcriptions with AI before pasting</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-smartmode-settings" onchange="syncSmartModeToggle(this.checked)">
+                  <label class="toggle-track" for="toggle-smartmode-settings"></label>
+                </div>
+              </div>
+            </div>
+            <p class="form-hint">
+              <a href="#" onclick="switchToPage('page-smartmode'); return false;" data-i18n="settingsAiConfigurePresets">Configure presets and templates →</a>
+            </p>
+          </div>
+
+          <div class="card" id="settings-ai-provider-card">
+            <div class="card-title" data-i18n="smartProvider">AI Processing Engine</div>
+            <div class="provider-control" id="settings-provider-control">
+              <button class="provider-option" data-provider="openai" onclick="selectSmartProvider('openai')">
+                <div class="provider-option-label" data-i18n="smartProviderOpenai">OpenAI API</div>
+                <div class="provider-option-desc" data-i18n="smartProviderOpenaiDesc">Highest quality, requires API key and internet</div>
+              </button>
+              <button class="provider-option" data-provider="local" onclick="selectSmartProvider('local')">
+                <div class="provider-option-label" data-i18n="smartProviderLocal">Local Model</div>
+                <div class="provider-option-desc" data-i18n="smartProviderLocalDesc">Offline processing, no API key needed</div>
+              </button>
+              <button class="provider-option active" data-provider="auto" onclick="selectSmartProvider('auto')">
+                <div class="provider-option-label" data-i18n="smartProviderAuto">Auto</div>
+                <div class="provider-option-desc" data-i18n="smartProviderAutoDesc">Uses local model if available, otherwise OpenAI API</div>
+              </button>
+            </div>
+            <div class="provider-warning hidden" id="settings-provider-warning">
+              <svg class="icon" style="width:14px;height:14px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span id="settings-provider-warning-text"></span>
+            </div>
+          </div>
+
+          <div class="card" id="settings-llm-card">
+            <div class="card-title" data-i18n="smartLlmCard">Local Language Model</div>
+            <div class="llm-card-header">
+              <div class="llm-card-info">
+                <svg class="icon" style="width:22px;height:22px;color:var(--accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+                <div>
+                  <div class="llm-card-subtitle" data-i18n="smartLlmName">SmolLM2 · 270 MB · 6 Languages</div>
+                </div>
+              </div>
+              <div id="settings-llm-status-area">
+                <span class="llm-badge not-installed" id="settings-llm-badge" data-i18n="smartLlmNotInstalled">Not installed</span>
+              </div>
+            </div>
+            <div id="settings-llm-action-area" style="margin-top:12px">
+              <button class="btn btn-primary btn-sm" id="btn-settings-llm-download" onclick="startSettingsLLMDownload()">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                <span data-i18n="smartLlmDownload">Download</span>
+              </button>
+              <div class="connectivity-status hidden" id="settingsLlmConnectivityStatus">
+                <span class="connectivity-dot"></span>
+                <span class="connectivity-text"></span>
+              </div>
+            </div>
+            <div class="llm-progress hidden" id="settings-llm-progress">
+              <div class="llm-progress-bar"><div class="llm-progress-fill" id="settings-llm-progress-fill" style="width:0%"></div></div>
+              <div class="llm-progress-text" id="settings-llm-progress-text"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title" data-i18n="tabReplacements">Text Replacements</div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-replacements-settings" data-i18n="labelReplacements">Enable text replacements</label>
+                  <p class="toggle-desc" data-i18n="descReplacementsSettings">Automatically replace trigger words in your transcriptions</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-replacements-settings" onchange="syncReplacementsToggle(this.checked)">
+                  <label class="toggle-track" for="toggle-replacements-settings"></label>
+                </div>
+              </div>
+            </div>
+            <p class="form-hint">
+              <a href="#" onclick="switchToPage('page-replacements'); return false;" data-i18n="settingsAiConfigureReplacements">Manage replacement rules →</a>
+            </p>
           </div>
 
           <!-- Section: Cleanup -->
