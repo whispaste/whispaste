@@ -35,13 +35,8 @@
 
 ### Typography
 
-- **Heading Font:** Inter
-- **Body Font:** Inter
-
-### Typography
-
 - **Font Stack:** System-UI / Tailwind Default (kein separater Google Fonts Import nötig)
-- **Optional Inter:** `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap')`
+- **Optional Enhancement:** Inter via `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap')`
 - **Mood:** minimal, clean, professional, dark, premium
 
 | Ebene          | Größe (Tailwind)        | Gewicht               | Verwendung             |

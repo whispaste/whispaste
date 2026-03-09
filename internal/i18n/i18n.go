@@ -119,7 +119,7 @@ var translations = map[string]map[string]string{
 
 		// First run
 		"firstrun.title":    "Welcome to WhisPaste",
-		"firstrun.message":  "To get started, you need an OpenAI API key.",
+		"firstrun.message":  "To get started, you need an OpenAI API key — a personal access code from openai.com. Or choose local models for free, offline transcription.",
 		"firstrun.get_key":  "Get API Key",
 		"firstrun.enter":    "Enter your API key:",
 		"firstrun.continue": "Continue",
@@ -132,6 +132,10 @@ var translations = map[string]map[string]string{
 		"error.hotkey":         "Could not register hotkey %s. It may be used by another application.",
 		"error.microphone":     "Could not access microphone: %s",
 		"error.clipboard":      "Could not access clipboard: %s",
+		"error.postprocess_request": "Smart Mode request failed",
+		"error.postprocess_api":     "Smart Mode API error %d",
+		"error.postprocess_empty":   "Empty response from Smart Mode",
+		"error.postprocess_parse":   "Failed to parse response",
 
 		// Updates
 		"update.available":     "Update available: v%s",
@@ -311,7 +315,7 @@ var translations = map[string]map[string]string{
 
 		// First run
 		"firstrun.title":    "Willkommen bei WhisPaste",
-		"firstrun.message":  "Um zu starten, brauchst du einen OpenAI API-Schlüssel.",
+		"firstrun.message":  "Zum Starten benötigst du einen OpenAI API-Key — einen persönlichen Zugangscode von openai.com. Oder wähle lokale Modelle für kostenlose Offline-Transkription.",
 		"firstrun.get_key":  "API-Schlüssel erhalten",
 		"firstrun.enter":    "API-Schlüssel eingeben:",
 		"firstrun.continue": "Weiter",
@@ -324,6 +328,10 @@ var translations = map[string]map[string]string{
 		"error.hotkey":         "Tastenkombination %s konnte nicht registriert werden — vermutlich von einer anderen App belegt.",
 		"error.microphone":     "Zugriff auf Mikrofon nicht möglich: %s",
 		"error.clipboard":      "Zugriff auf Zwischenablage nicht möglich: %s",
+		"error.postprocess_request": "Smart-Mode-Anfrage fehlgeschlagen",
+		"error.postprocess_api":     "Smart-Mode-API-Fehler %d",
+		"error.postprocess_empty":   "Leere Antwort vom Smart Mode",
+		"error.postprocess_parse":   "Antwort konnte nicht verarbeitet werden",
 
 		// Updates
 		"update.available":     "Update verfügbar: v%s",

@@ -43,14 +43,12 @@ const { variant = "landing" } = Astro.props;
           <button
             id="langToggle"
             data-testid="lang-toggle"
-            onclick="toggleLang()"
             class="text-gray-400 hover:text-white transition-colors text-sm font-medium"
           >
             DE
           </button>
           <button
             id="themeToggle"
-            onclick="toggleTheme()"
             class="text-gray-400 hover:text-white transition-colors"
             title="Toggle theme"
           >
@@ -86,14 +84,12 @@ const { variant = "landing" } = Astro.props;
           <button
             id="langToggle"
             data-testid="lang-toggle"
-            onclick="toggleLang()"
             class="text-gray-400 hover:text-white transition-colors font-medium"
           >
             DE
           </button>
           <button
             id="themeToggle"
-            onclick="toggleTheme()"
             class="text-gray-400 hover:text-white transition-colors"
             title="Toggle theme"
           >
@@ -115,3 +111,14 @@ const { variant = "landing" } = Astro.props;
     }
   </div>
 </nav>
+
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('langToggle')?.addEventListener('click', function () {
+      if (typeof toggleLang === 'function') toggleLang();
+    });
+    document.getElementById('themeToggle')?.addEventListener('click', function () {
+      if (typeof toggleTheme === 'function') toggleTheme();
+    });
+  });
+</script>

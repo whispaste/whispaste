@@ -202,12 +202,24 @@ function renderDailyChart(dailyCounts, svgWidth) {
   </svg>`;
 }
 
+function getChartColors() {
+  const style = getComputedStyle(document.documentElement);
+  return [
+    style.getPropertyValue('--accent').trim()  || '#22D3EE',
+    style.getPropertyValue('--warning').trim() || '#F59E0B',
+    '#8B5CF6',
+    style.getPropertyValue('--error').trim()   || '#EF4444',
+    style.getPropertyValue('--success').trim() || '#22C55E',
+    '#EC4899'
+  ];
+}
+
 function renderModelDonut(modelCounts) {
   if (!modelCounts || Object.keys(modelCounts).length === 0) {
     return `<p style="color:var(--text-hint);font-size:12px">${t('analytics.no_data')}</p>`;
   }
 
-  const colors = ['#22D3EE', '#F59E0B', '#8B5CF6', '#EF4444', '#22C55E', '#EC4899'];
+  const colors = getChartColors();
   const entries = Object.entries(modelCounts).sort((a, b) => b[1] - a[1]);
   const total = entries.reduce((s, e) => s + e[1], 0);
 

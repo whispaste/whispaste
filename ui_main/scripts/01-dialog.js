@@ -1,5 +1,8 @@
 /* ── Unified Dialog System ─────────────────────────── */
 
+/** Store the element that had focus before a dialog opened */
+let _dialogPreviousFocus = null;
+
 /**
  * Show a modal dialog. Returns a Promise that resolves to the button clicked.
  * @param {Object} opts
@@ -15,6 +18,8 @@ function showDialog(opts) {
   return new Promise(resolve => {
     const overlay = document.getElementById('confirmOverlay');
     if (!overlay) { resolve(false); return; }
+
+    _dialogPreviousFocus = document.activeElement;
 
     const dialog = overlay.querySelector('.confirm-dialog');
     const variant = opts.variant || 'info';
@@ -35,6 +40,10 @@ function showDialog(opts) {
 
     function cleanup(result) {
       overlay.classList.remove('show');
+      if (_dialogPreviousFocus && typeof _dialogPreviousFocus.focus === 'function') {
+        _dialogPreviousFocus.focus();
+        _dialogPreviousFocus = null;
+      }
       resolve(result);
     }
 
@@ -101,6 +110,7 @@ function showPromptDialog(title, message, opts = {}) {
   return new Promise(resolve => {
     const overlay = document.getElementById('confirmOverlay');
     if (!overlay) { resolve(null); return; }
+    _dialogPreviousFocus = document.activeElement;
     const dialog = overlay.querySelector('.confirm-dialog');
     const iconHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
     const inputHTML = opts.multiline
@@ -122,6 +132,10 @@ function showPromptDialog(title, message, opts = {}) {
 
     function cleanup(val) {
       overlay.classList.remove('show');
+      if (_dialogPreviousFocus && typeof _dialogPreviousFocus.focus === 'function') {
+        _dialogPreviousFocus.focus();
+        _dialogPreviousFocus = null;
+      }
       resolve(val);
     }
     document.getElementById('dialogConfirm')?.addEventListener('click', () => cleanup(input?.value || null), { once: true });
@@ -150,6 +164,7 @@ function showListDialog(title, items, opts = {}) {
   return new Promise(resolve => {
     const overlay = document.getElementById('confirmOverlay');
     if (!overlay) { resolve(null); return; }
+    _dialogPreviousFocus = document.activeElement;
     const dialog = overlay.querySelector('.confirm-dialog');
 
     const iconHTML = opts.icon || '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>';
@@ -179,6 +194,10 @@ function showListDialog(title, items, opts = {}) {
       overlay.classList.remove('show');
       overlay.removeEventListener('click', onOverlay);
       document.removeEventListener('keydown', onEsc);
+      if (_dialogPreviousFocus && typeof _dialogPreviousFocus.focus === 'function') {
+        _dialogPreviousFocus.focus();
+        _dialogPreviousFocus = null;
+      }
       resolve(val);
     }
 

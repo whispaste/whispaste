@@ -332,28 +332,30 @@ func parseVersion(v string) [3]int {
 func downloadFile(ctx context.Context, url, dest, version string) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("downloadFile: create request: %w", err)
 	}
 	req.Header.Set("User-Agent", "WhisPaste/"+version+" auto-updater")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("downloadFile: execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP %d", resp.StatusCode)
+		return fmt.Errorf("downloadFile: HTTP %d", resp.StatusCode)
 	}
 
 	f, err := os.Create(dest)
 	if err != nil {
-		return err
+		return fmt.Errorf("downloadFile: create file: %w", err)
 	}
 	defer f.Close()
 
-	_, err = io.Copy(f, resp.Body)
-	return err
+	if _, err = io.Copy(f, resp.Body); err != nil {
+		return fmt.Errorf("downloadFile: write file: %w", err)
+	}
+	return nil
 }
 
 func downloadChecksum(ctx context.Context, url, version string) (string, error) {

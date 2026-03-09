@@ -123,7 +123,7 @@
   // Load when smart mode page becomes visible
   const observer = new MutationObserver(() => {
     const page = document.getElementById('page-smartmode');
-    if (page && page.style.display !== 'none') {
+    if (page && !page.classList.contains('hidden')) {
       loadAppPresets();
     }
   });

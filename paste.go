@@ -159,7 +159,7 @@ func readClipboard() (string, error) {
 func writeClipboard(text string) error {
 	utf16, err := windows.UTF16FromString(text)
 	if err != nil {
-		return err
+		return fmt.Errorf("writeClipboard: UTF16 conversion: %w", err)
 	}
 
 	r, _, _ := procOpenClipboard.Call(0)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 	"sync"
@@ -45,7 +46,7 @@ func (m *HotkeyManager) Start() error {
 
 	m.hk = hotkey.New(mods, key)
 	if err := m.hk.Register(); err != nil {
-		return err
+		return fmt.Errorf("Start: register hotkey: %w", err)
 	}
 
 	go m.listen()

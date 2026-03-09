@@ -9,6 +9,7 @@ let _savedAPIEndpoint = '';
 let _downloadingModel = null;
 let _configLoaded = false;
 let _autoSaveTimer = null;
+const DEBOUNCE_MS = 500;
 
 // Floating button color picker — delegated click handler
 document.addEventListener('click', function(e) {
@@ -22,18 +23,18 @@ document.addEventListener('click', function(e) {
 document.addEventListener('change', function(e) {
   if (e.target.id === 'toggle-use-vad') {
     const row = document.getElementById('vad-sensitivity-row');
-    if (row) row.style.display = e.target.checked ? '' : 'none';
+    if (row) row.classList.toggle('hidden', !e.target.checked);
   }
 });
 // Show/hide color picker when floating toggle changes
 document.addEventListener('change', function(e) {
   if (e.target.id === 'toggle-floating-btn') {
     const row = document.getElementById('fab-color-row');
-    if (row) row.style.display = e.target.checked ? '' : 'none';
+    if (row) row.classList.toggle('hidden', !e.target.checked);
     const sizeRow = document.getElementById('fab-size-row');
-    if (sizeRow) sizeRow.style.display = e.target.checked ? '' : 'none';
+    if (sizeRow) sizeRow.classList.toggle('hidden', !e.target.checked);
     const fab = document.getElementById('captureBtn');
-    if (fab) fab.style.display = e.target.checked ? 'none' : '';
+    if (fab) fab.classList.toggle('hidden', e.target.checked);
   }
 });
 
@@ -162,19 +163,19 @@ function applyConfig(cfg) {
     if (slider) slider.value = Math.round(sens * 100);
     if (label) label.textContent = sens.toFixed(2);
     const row = document.getElementById('vad-sensitivity-row');
-    if (row) row.style.display = cfg.use_vad ? '' : 'none';
+    if (row) row.classList.toggle('hidden', !cfg.use_vad);
   }
   { const el = document.getElementById('toggle-floating-btn'); if (el) el.checked = !!cfg.floating_button_enabled; }
-  { const fab = document.getElementById('captureBtn'); if (fab) fab.style.display = cfg.floating_button_enabled ? 'none' : ''; }
+  { const fab = document.getElementById('captureBtn'); if (fab) fab.classList.toggle('hidden', !!cfg.floating_button_enabled); }
   {
     const color = cfg.floating_button_color || 'cyan';
     document.querySelectorAll('.fab-color-option').forEach(el => {
       el.classList.toggle('selected', el.dataset.color === color);
     });
     const row = document.getElementById('fab-color-row');
-    if (row) row.style.display = cfg.floating_button_enabled ? '' : 'none';
+    if (row) row.classList.toggle('hidden', !cfg.floating_button_enabled);
     const sizeRow = document.getElementById('fab-size-row');
-    if (sizeRow) sizeRow.style.display = cfg.floating_button_enabled ? '' : 'none';
+    if (sizeRow) sizeRow.classList.toggle('hidden', !cfg.floating_button_enabled);
   }
   {
     const sz = cfg.floating_button_size || 56;
@@ -198,7 +199,7 @@ function updateCleanupDependents() {
   if (!toggle) return;
   const enabled = toggle.checked;
   if (btn) btn.disabled = !enabled;
-  if (hint) hint.style.display = enabled ? '' : 'none';
+  if (hint) hint.classList.toggle('hidden', !enabled);
 }
 
 async function doManualCleanup() {
@@ -287,8 +288,8 @@ function startHotkeyRecording() {
   _hotkeyRecording = true;
   const recorder = document.getElementById('hotkey-recorder');
   const btn = document.getElementById('btn-change-hotkey');
-  if (recorder) recorder.style.display = 'block';
-  if (btn) btn.style.display = 'none';
+  if (recorder) recorder.classList.remove('hidden');
+  if (btn) btn.classList.add('hidden');
   const preview = document.getElementById('hotkey-preview');
   if (preview) preview.innerHTML = '';
   document.addEventListener('keydown', onHotkeyKeyDown, true);
@@ -299,8 +300,8 @@ function cancelHotkeyRecording() {
   _hotkeyRecording = false;
   const recorder = document.getElementById('hotkey-recorder');
   const btn = document.getElementById('btn-change-hotkey');
-  if (recorder) recorder.style.display = 'none';
-  if (btn) btn.style.display = '';
+  if (recorder) recorder.classList.add('hidden');
+  if (btn) btn.classList.remove('hidden');
   document.removeEventListener('keydown', onHotkeyKeyDown, true);
   document.removeEventListener('keyup', onHotkeyKeyUp, true);
 }
@@ -416,10 +417,10 @@ function updateSmartModeVisibility() {
   const howto = document.getElementById('smart-howto');
   const appDetRow = document.getElementById('smart-app-detection-row');
   const appNotice = document.getElementById('smart-app-active-notice');
-  if (section) section.style.display = on ? '' : 'none';
-  if (howto) howto.style.display = on ? '' : 'none';
-  if (appDetRow) appDetRow.style.display = on ? '' : 'none';
-  if (!on && appNotice) appNotice.style.display = 'none';
+  if (section) section.classList.toggle('hidden', !on);
+  if (howto) howto.classList.toggle('hidden', !on);
+  if (appDetRow) appDetRow.classList.toggle('hidden', !on);
+  if (!on && appNotice) appNotice.classList.add('hidden');
   if (on) {
     updateSmartPresetVisibility();
     updateAppDetectionState();
@@ -439,8 +440,8 @@ function updateAppDetectionState() {
     presetGrid.style.opacity = appDetOn ? '0.45' : '';
   }
   if (presetTitle) presetTitle.style.opacity = appDetOn ? '0.45' : '';
-  if (appNotice) appNotice.style.display = appDetOn ? '' : 'none';
-  if (appRules) appRules.style.display = appDetOn ? '' : 'none';
+  if (appNotice) appNotice.classList.toggle('hidden', !appDetOn);
+  if (appRules) appRules.classList.toggle('hidden', !appDetOn);
   updateFallbackPresetState();
 }
 
@@ -450,15 +451,15 @@ function onAppDetectionToggle() {
   updateAppDetectionState();
   if (on && window.loadAppPresets) window.loadAppPresets();
   const explainer = document.getElementById('appDetectionExplainer');
-  if (explainer) explainer.style.display = on ? '' : 'none';
+  if (explainer) explainer.classList.toggle('hidden', !on);
 }
 
 function updateSmartPresetVisibility() {
   const preset = document.getElementById('select-smartpreset')?.value;
   const targetRow = document.getElementById('smart-target-row');
   const promptRow = document.getElementById('smart-prompt-row');
-  if (targetRow) targetRow.style.display = preset === 'translate' ? '' : 'none';
-  if (promptRow) promptRow.style.display = preset === 'custom' ? '' : 'none';
+  if (targetRow) targetRow.classList.toggle('hidden', preset !== 'translate');
+  if (promptRow) promptRow.classList.toggle('hidden', preset !== 'custom');
 }
 
 function selectSmartPreset(preset) {
@@ -469,8 +470,8 @@ function selectSmartPreset(preset) {
   if (sel) sel.value = preset;
   const targetRow = document.getElementById('smart-target-row');
   const promptRow = document.getElementById('smart-prompt-row');
-  if (targetRow) targetRow.style.display = preset === 'translate' ? '' : 'none';
-  if (promptRow) promptRow.style.display = preset === 'custom' ? '' : 'none';
+  if (targetRow) targetRow.classList.toggle('hidden', preset !== 'translate');
+  if (promptRow) promptRow.classList.toggle('hidden', preset !== 'custom');
   autoSave();
 }
 
@@ -487,7 +488,7 @@ function selectSmartProvider(provider) {
 function updateLLMCardVisibility(provider) {
   const card = document.getElementById('llm-card');
   if (!card) return;
-  card.style.display = (provider === 'local' || provider === 'auto') ? '' : 'none';
+  card.classList.toggle('hidden', !(provider === 'local' || provider === 'auto'));
 }
 
 async function initSmartProvider() {
@@ -519,12 +520,12 @@ async function updateProviderWarning(provider) {
   } catch (e) {}
   if (provider === 'openai' && !apiKey) {
     warnText.textContent = t('smartProviderNoKey');
-    warn.style.display = '';
+    warn.classList.remove('hidden');
   } else if (provider === 'auto' && !apiKey && !llmInstalled) {
     warnText.textContent = t('smartProviderNoProvider');
-    warn.style.display = '';
+    warn.classList.remove('hidden');
   } else {
-    warn.style.display = 'none';
+    warn.classList.add('hidden');
   }
 }
 
@@ -546,7 +547,7 @@ async function updateLLMStatus() {
     badge.className = 'llm-badge ready';
     badge.innerHTML = '<svg class="icon" style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> ' + t('smartLlmReady');
     if (actionArea) actionArea.innerHTML = '<button class="llm-delete-link" onclick="deleteLLM()">' + t('smartLlmDelete') + '</button>';
-    if (progress) progress.style.display = 'none';
+    if (progress) progress.classList.add('hidden');
   } else {
     badge.className = 'llm-badge not-installed';
     badge.textContent = t('smartLlmNotInstalled');
@@ -572,7 +573,7 @@ async function startLLMDownload() {
   const progress = document.getElementById('llm-progress');
   const badge = document.getElementById('llm-badge');
   if (actionArea) actionArea.innerHTML = '';
-  if (progress) progress.style.display = '';
+  if (progress) progress.classList.remove('hidden');
   if (badge) {
     badge.className = 'llm-badge not-installed';
     badge.textContent = t('smartLlmDownloading');
@@ -600,7 +601,7 @@ window.onLLMDownloadProgress = function(phase, pct) {
   const fill = document.getElementById('llm-progress-fill');
   const text = document.getElementById('llm-progress-text');
   const progress = document.getElementById('llm-progress');
-  if (progress) progress.style.display = '';
+  if (progress) progress.classList.remove('hidden');
   if (fill) fill.style.width = pct + '%';
   const label = phase === 'server' ? t('smartLlmDownloadServer') : t('smartLlmDownloadModel');
   if (text) {
@@ -612,7 +613,7 @@ window.onLLMDownloadProgress = function(phase, pct) {
 window.onLLMDownloadError = function(errorMsg) {
   const progress = document.getElementById('llm-progress');
   const text = document.getElementById('llm-progress-text');
-  if (progress) progress.style.display = '';
+  if (progress) progress.classList.remove('hidden');
   if (text) {
     text.textContent = errorMsg;
     text.style.color = 'var(--error)';
@@ -622,7 +623,7 @@ window.onLLMDownloadError = function(errorMsg) {
 
 window.onLLMDownloadComplete = function() {
   const progress = document.getElementById('llm-progress');
-  if (progress) progress.style.display = 'none';
+  if (progress) progress.classList.add('hidden');
   updateLLMStatus();
 };
 
@@ -630,7 +631,7 @@ async function updateConnectivityStatus(elementId) {
   const el = document.getElementById(elementId);
   if (!el || !window.checkConnectivity) return true;
 
-  el.style.display = 'inline-flex';
+  el.classList.remove('hidden');
   el.className = 'connectivity-status checking';
   const textEl = el.querySelector('.connectivity-text');
   if (textEl) textEl.textContent = t('connectivityChecking');
@@ -776,7 +777,7 @@ function testSound() {
 function autoSave() {
   if (!_configLoaded) return;
   clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(() => saveSettings(), 500);
+  _autoSaveTimer = setTimeout(() => saveSettings(), DEBOUNCE_MS);
 }
 
 /* ── Save Settings ────────────────────────────────────── */
@@ -813,7 +814,7 @@ async function testRecording() {
 
   _isTesting = true;
   if (btn) btn.classList.add('recording');
-  if (icon) icon.innerHTML = '<span style="display:inline-block;width:10px;height:10px;background:#FF3B30;border-radius:50%;animation:pulse 1.2s ease infinite"></span>';
+  if (icon) icon.innerHTML = '<span class="recording-dot"></span>';
   if (text) text.textContent = t('statusTesting');
   showStatus(t('statusTesting'), 'success');
 
@@ -876,7 +877,7 @@ async function testAudioInput() {
   if (_testAudioInterval) {
     clearInterval(_testAudioInterval);
     _testAudioInterval = null;
-    if (meter) meter.style.display = 'none';
+    if (meter) meter.classList.add('hidden');
     if (btn) btn.classList.remove('recording');
     try { if (window._stopAudioMonitor) await window._stopAudioMonitor(); } catch (e) {}
     return;
@@ -897,7 +898,7 @@ async function testAudioInput() {
     return;
   }
 
-  if (meter) meter.style.display = 'block';
+  if (meter) meter.classList.remove('hidden');
   if (btn) btn.classList.add('recording');
   let count = 0;
   _testAudioInterval = setInterval(async () => {
@@ -905,7 +906,7 @@ async function testAudioInput() {
     if (count > 100) { // 10 seconds
       clearInterval(_testAudioInterval);
       _testAudioInterval = null;
-      if (meter) meter.style.display = 'none';
+      if (meter) meter.classList.add('hidden');
       if (btn) btn.classList.remove('recording');
       try { if (window._stopAudioMonitor) await window._stopAudioMonitor(); } catch (e) {}
       return;

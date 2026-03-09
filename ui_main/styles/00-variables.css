@@ -69,6 +69,12 @@
   --error-bg: rgba(239, 68, 68, 0.1);
   --error-border: rgba(239, 68, 68, 0.3);
 
+  /* ── Semantic: Sponsor ─── */
+  --sponsor: #DB61A2;
+  --sponsor-hover: #C74B8F;
+  --sponsor-bg: rgba(219, 97, 162, 0.1);
+  --sponsor-border: rgba(219, 97, 162, 0.3);
+
   /* ── Spacing Scale (4px base) ─── */
   --space-0: 0;
   --space-1: 4px;
@@ -162,6 +168,8 @@
   --text-hint: var(--text-tertiary);
   --transition: var(--duration-normal) var(--ease-default);
   --font: var(--font-sans);
+  --danger: var(--error);
+  --radius: var(--radius-md);
 }
 
 /* ── Dark Theme ──────────────────────────────────────── */
@@ -203,6 +211,11 @@
   --error-hover: #EF4444;
   --error-bg: rgba(248, 113, 113, 0.1);
   --error-border: rgba(248, 113, 113, 0.3);
+
+  --sponsor: #F472B6;
+  --sponsor-hover: #EC4899;
+  --sponsor-bg: rgba(244, 114, 182, 0.1);
+  --sponsor-border: rgba(244, 114, 182, 0.3);
 
   /* Dark shadows — increased opacity */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);

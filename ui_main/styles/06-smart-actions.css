@@ -2,7 +2,7 @@
 .smart-custom-textarea {
     width: 100%;
     padding: 10px 12px;
-    background: var(--input-bg, var(--card-bg));
+    background: var(--bg-input);
     border: 1px solid var(--border);
     border-radius: 8px;
     color: var(--text-primary);

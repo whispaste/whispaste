@@ -106,8 +106,12 @@ func initHistoryDB() (*sql.DB, error) {
 			db.Close()
 			return nil, fmt.Errorf("create tables on fresh db: %w", err)
 		}
-		db.Exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER)")
-		db.Exec("INSERT INTO schema_version (version) VALUES (?)", currentSchemaVersion)
+		if _, err := db.Exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER)"); err != nil {
+			logWarn("initHistoryDB: create schema_version: %v", err)
+		}
+		if _, err := db.Exec("INSERT INTO schema_version (version) VALUES (?)", currentSchemaVersion); err != nil {
+			logWarn("initHistoryDB: insert schema version: %v", err)
+		}
 	}
 
 	// Migrate from JSON if the DB is empty and JSON file exists
@@ -210,9 +214,15 @@ func recreateDB(db *sql.DB) {
 		dur_1_3m INTEGER NOT NULL DEFAULT 0, dur_over_3m INTEGER NOT NULL DEFAULT 0,
 		PRIMARY KEY (date, model, is_local))`)
 	// Set schema version
-	db.Exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER)")
-	db.Exec("DELETE FROM schema_version")
-	db.Exec("INSERT INTO schema_version (version) VALUES (?)", currentSchemaVersion)
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER)"); err != nil {
+		logWarn("repairMainDB: create schema_version: %v", err)
+	}
+	if _, err := db.Exec("DELETE FROM schema_version"); err != nil {
+		logWarn("repairMainDB: clear schema_version: %v", err)
+	}
+	if _, err := db.Exec("INSERT INTO schema_version (version) VALUES (?)", currentSchemaVersion); err != nil {
+		logWarn("repairMainDB: insert schema version: %v", err)
+	}
 	logInfo("Database tables recreated successfully")
 }
 
@@ -470,7 +480,7 @@ func createHistoryTables(db *sql.DB) error {
 			PRIMARY KEY (date, model, is_local));
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("createHistoryTables: %w", err)
 	}
 	return createFTSTables(db)
 }
@@ -523,7 +533,7 @@ func createFTSTables(db *sql.DB) error {
 func migrateFromJSON(db *sql.DB, dir string) error {
 	var count int
 	if err := db.QueryRow("SELECT COUNT(*) FROM history_entries").Scan(&count); err != nil {
-		return err
+		return fmt.Errorf("migrateFromJSON: count entries: %w", err)
 	}
 	if count > 0 {
 		return nil // already have data
@@ -550,7 +560,7 @@ func migrateFromJSON(db *sql.DB, dir string) error {
 
 	tx, err := db.Begin()
 	if err != nil {
-		return err
+		return fmt.Errorf("migrateFromJSON: begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
@@ -559,7 +569,7 @@ func migrateFromJSON(db *sql.DB, dir string) error {
 		 language, tags, pinned, source, model, is_local, cost_usd)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
-		return err
+		return fmt.Errorf("migrateFromJSON: prepare stmt: %w", err)
 	}
 	defer stmt.Close()
 
@@ -597,7 +607,7 @@ func migrateFromJSON(db *sql.DB, dir string) error {
 	}
 
 	if err := tx.Commit(); err != nil {
-		return err
+		return fmt.Errorf("migrateFromJSON: commit: %w", err)
 	}
 
 	logInfo("Migrated %d entries from history.json to SQLite", len(legacy.Entries))

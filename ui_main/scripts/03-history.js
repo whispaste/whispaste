@@ -242,7 +242,7 @@ async function setFilter(f) {
   }
   _updateFilterUI();
   const picker = document.getElementById('dateRangePicker');
-  if (picker) picker.style.display = _activeFilters.time === 'custom' ? '' : 'none';
+  if (picker) picker.classList.toggle('hidden', _activeFilters.time !== 'custom');
   renderHistory();
 }
 
@@ -263,7 +263,7 @@ async function clearAllFilters() {
   const wasArchived = _activeFilters.archived;
   _activeFilters = { project: _activeFilters.project, time: null, pinned: false, archived: false, tags: [] };
   const picker = document.getElementById('dateRangePicker');
-  if (picker) picker.style.display = 'none';
+  if (picker) picker.classList.add('hidden');
   _updateFilterUI();
   renderHistory();
   if (wasArchived) await loadEntries();
@@ -293,9 +293,9 @@ function _updateFilterUI() {
     if (n > 0) {
       const label = n === 1 ? t('notebook.filters_active') : t('notebook.filters_active_plural');
       btn.innerHTML = `${label.replace('{n}', n)} <svg class="icon" style="width:12px;height:12px;margin-left:4px;vertical-align:-1px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
-      bar.style.display = '';
+      bar.classList.remove('hidden');
     } else {
-      bar.style.display = 'none';
+      bar.classList.add('hidden');
     }
   }
 }
@@ -328,7 +328,7 @@ function updateCounts() {
   const catList = document.getElementById('categoryList');
   if (catSection && catList) {
     if (Object.keys(cats).length > 0 || true) {
-      catSection.style.display = '';
+      catSection.classList.remove('hidden');
 
       // Separate system tags (top) from custom tags (ordered by _cachedCustomTags)
       const systemEntries = [];
@@ -400,7 +400,7 @@ function updateCounts() {
         };
       }
     } else {
-      catSection.style.display = 'none';
+      catSection.classList.add('hidden');
     }
   }
   _updateFilterUI();
@@ -791,11 +791,31 @@ let _currentAudio = null;
 let _playingId = null;
 let _playingIndex = null;
 
+/** Wait for an audio element to finish or get paused/interrupted. */
+function _audioEnded(audio) {
+  return new Promise(resolve => {
+    audio.addEventListener('ended', resolve, { once: true });
+    audio.addEventListener('pause', resolve, { once: true });
+  });
+}
+
+/** Stop current playback and clean up state. */
+function _stopCurrentPlayback() {
+  if (_currentAudio) {
+    _currentAudio.pause();
+    _currentAudio = null;
+    _resetPlayButton(_playingId);
+    _playingId = null;
+    _playingIndex = null;
+    hideStatusbarAudio();
+  }
+}
+
 function showStatusbarAudio(label) {
   const chip = document.getElementById('statusAudio');
   const lbl = document.getElementById('statusAudioLabel');
   if (chip) {
-    chip.style.display = '';
+    chip.classList.remove('hidden');
     chip.title = t('statusbar.audio_stop') || 'Stop playback';
   }
   if (lbl) lbl.textContent = label || (t('statusbar.audio_playing') || 'Playing…');
@@ -803,18 +823,11 @@ function showStatusbarAudio(label) {
 
 function hideStatusbarAudio() {
   const chip = document.getElementById('statusAudio');
-  if (chip) chip.style.display = 'none';
+  if (chip) chip.classList.add('hidden');
 }
 
 function stopStatusbarAudio() {
-  if (_currentAudio) {
-    _currentAudio.pause();
-    _currentAudio = null;
-    _resetPlayButton(_playingId);
-    _playingId = null;
-    _playingIndex = null;
-  }
-  hideStatusbarAudio();
+  _stopCurrentPlayback();
   if (typeof renderHistory === 'function') renderHistory();
 }
 window.stopStatusbarAudio = stopStatusbarAudio;
@@ -822,26 +835,12 @@ window.stopStatusbarAudio = stopStatusbarAudio;
 async function doPlayAudio(id) {
   const btn = document.querySelector(`[data-action="play-audio"][data-id="${id}"]`);
 
-  // If this entry is already playing → stop it
   if (_currentAudio && _playingId === id) {
-    _currentAudio.pause();
-    _currentAudio = null;
-    _resetPlayButton(_playingId);
-    _playingId = null;
-    _playingIndex = null;
-    hideStatusbarAudio();
+    _stopCurrentPlayback();
     return;
   }
 
-  // Stop any other entry that's playing
-  if (_currentAudio) {
-    _currentAudio.pause();
-    _currentAudio = null;
-    _resetPlayButton(_playingId);
-    _playingId = null;
-    _playingIndex = null;
-    hideStatusbarAudio();
-  }
+  _stopCurrentPlayback();
 
   try {
     const dataUrl = await window.getAudioBase64(id);
@@ -850,7 +849,6 @@ async function doPlayAudio(id) {
     _playingId = id;
     _playingIndex = 0;
 
-    // Update button to stop icon
     if (btn) {
       btn.innerHTML = icons.stop;
       btn.title = t('notebook.stop_audio');
@@ -859,17 +857,17 @@ async function doPlayAudio(id) {
 
     const audioInstance = _currentAudio;
     const capturedId = id;
-    _currentAudio.play();
+    await audioInstance.play();
     showStatusbarAudio(t('statusbar.audio_playing'));
-    audioInstance.onended = () => {
-      _resetPlayButton(capturedId);
-      if (_currentAudio === audioInstance) {
-        _currentAudio = null;
-        _playingId = null;
-        _playingIndex = null;
-        hideStatusbarAudio();
-      }
-    };
+    await _audioEnded(audioInstance);
+
+    _resetPlayButton(capturedId);
+    if (_currentAudio === audioInstance) {
+      _currentAudio = null;
+      _playingId = null;
+      _playingIndex = null;
+      hideStatusbarAudio();
+    }
   } catch (e) {
     showToast(t('notebook.no_audio'), true);
     _resetPlayButton(id);
@@ -880,26 +878,12 @@ async function doPlayAudio(id) {
 }
 
 async function doPlayAudioByIndex(id, idx) {
-  // If this exact segment is already playing → stop it
   if (_currentAudio && _playingId === id && _playingIndex === idx) {
-    _currentAudio.pause();
-    _currentAudio = null;
-    _resetPlayButton(_playingId);
-    _playingId = null;
-    _playingIndex = null;
-    hideStatusbarAudio();
+    _stopCurrentPlayback();
     return;
   }
 
-  // Stop any other playback
-  if (_currentAudio) {
-    _currentAudio.pause();
-    _currentAudio = null;
-    _resetPlayButton(_playingId);
-    _playingId = null;
-    _playingIndex = null;
-    hideStatusbarAudio();
-  }
+  _stopCurrentPlayback();
 
   try {
     const dataUrl = await window.getAudioBase64ByIndex(id, idx);
@@ -910,17 +894,17 @@ async function doPlayAudioByIndex(id, idx) {
 
     const audioInstance = _currentAudio;
     const capturedId = id;
-    _currentAudio.play();
+    await audioInstance.play();
     showStatusbarAudio(t('statusbar.audio_playing'));
-    audioInstance.onended = () => {
-      _resetPlayButton(capturedId);
-      if (_currentAudio === audioInstance) {
-        _currentAudio = null;
-        _playingId = null;
-        _playingIndex = null;
-        hideStatusbarAudio();
-      }
-    };
+    await _audioEnded(audioInstance);
+
+    _resetPlayButton(capturedId);
+    if (_currentAudio === audioInstance) {
+      _currentAudio = null;
+      _playingId = null;
+      _playingIndex = null;
+      hideStatusbarAudio();
+    }
   } catch (e) {
     showToast(t('notebook.no_audio'), true);
     _playingId = null;
@@ -1116,7 +1100,7 @@ function updateSelectionBar() {
     bar.classList.remove('hidden');
     if (page) page.classList.add('selecting');
     if (countEl) countEl.textContent = _selectedIds.size;
-    if (mergeBtn) mergeBtn.style.display = _selectedIds.size >= 2 ? '' : 'none';
+    if (mergeBtn) mergeBtn.classList.toggle('hidden', _selectedIds.size < 2);
   } else {
     bar.classList.add('hidden');
     if (page) page.classList.remove('selecting');
@@ -1731,10 +1715,10 @@ function toggleProjectDropdown(show) {
   if (!list || !selector) return;
 
   if (show === undefined) {
-    show = list.style.display === 'none';
+    show = list.classList.contains('hidden');
   }
 
-  list.style.display = show ? 'block' : 'none';
+  list.classList.toggle('hidden', !show);
   selector.classList.toggle('open', show);
 
   if (show) {

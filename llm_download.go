@@ -82,7 +82,7 @@ func downloadAndExtractLLMServer(destDir string, progressFn func(pct int)) error
 			}
 		}
 	}); err != nil {
-		return err
+		return fmt.Errorf("downloadAndExtractLLMServer: download: %w", err)
 	}
 	defer os.Remove(zipPath) // clean up ZIP after extraction
 
@@ -115,7 +115,7 @@ func downloadAndExtractLLMServer(destDir string, progressFn func(pct int)) error
 func extractZipFile(f *zip.File, dest string) error {
 	rc, err := f.Open()
 	if err != nil {
-		return err
+		return fmt.Errorf("extractZipFile: open: %w", err)
 	}
 	defer rc.Close()
 
