@@ -400,16 +400,41 @@
 
 /* ── Date Range Picker ────────────────────────────────── */
 .date-range-picker {
-  padding: 8px 12px;
-  border-top: 1px solid var(--border-primary);
-  margin-top: 4px;
+  padding: 10px;
+  margin: 4px 0 0;
+  background: var(--accent-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-accent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: filterExpand var(--transition-fast) ease-out;
 }
-.form-label-sm { font-size: 0.75rem; margin-bottom: 4px; }
+.date-range-picker .form-group { margin-bottom: 0; }
+.form-label-sm {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-hint);
+  margin-bottom: 3px;
+}
 .form-input-sm {
-  width: 100%; padding: 6px 8px; font-size: 0.8rem;
-  background: var(--bg-input); border: 1px solid var(--border-primary);
-  border-radius: var(--radius-sm); color: var(--text-primary);
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  transition: border-color var(--transition-fast);
 }
 .form-input-sm:focus {
-  outline: none; border-color: var(--accent);
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+@keyframes filterExpand {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
