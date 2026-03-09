@@ -789,6 +789,7 @@ async function doArchive(id) {
 // Audio playback state
 let _currentAudio = null;
 let _playingId = null;
+let _playingIndex = null;
 
 async function doPlayAudio(id) {
   const btn = document.querySelector(`[data-action="play-audio"][data-id="${id}"]`);
@@ -799,6 +800,7 @@ async function doPlayAudio(id) {
     _currentAudio = null;
     _resetPlayButton(_playingId);
     _playingId = null;
+    _playingIndex = null;
     return;
   }
 
@@ -808,6 +810,7 @@ async function doPlayAudio(id) {
     _currentAudio = null;
     _resetPlayButton(_playingId);
     _playingId = null;
+    _playingIndex = null;
   }
 
   try {
@@ -815,6 +818,7 @@ async function doPlayAudio(id) {
     if (!dataUrl) { showToast(t('notebook.no_audio'), true); return; }
     _currentAudio = new Audio(dataUrl);
     _playingId = id;
+    _playingIndex = 0;
 
     // Update button to stop icon
     if (btn) {
@@ -828,11 +832,54 @@ async function doPlayAudio(id) {
       _currentAudio = null;
       _resetPlayButton(_playingId);
       _playingId = null;
+      _playingIndex = null;
     };
   } catch (e) {
     showToast(t('notebook.no_audio'), true);
     _resetPlayButton(id);
     _playingId = null;
+    _playingIndex = null;
+  }
+}
+
+async function doPlayAudioByIndex(id, idx) {
+  // If this exact segment is already playing → stop it
+  if (_currentAudio && _playingId === id && _playingIndex === idx) {
+    _currentAudio.pause();
+    _currentAudio = null;
+    _resetPlayButton(_playingId);
+    _playingId = null;
+    _playingIndex = null;
+    return;
+  }
+
+  // Stop any other playback
+  if (_currentAudio) {
+    _currentAudio.pause();
+    _currentAudio = null;
+    _resetPlayButton(_playingId);
+    _playingId = null;
+    _playingIndex = null;
+  }
+
+  try {
+    const dataUrl = await window.getAudioBase64ByIndex(id, idx);
+    if (!dataUrl) { showToast(t('notebook.no_audio'), true); return; }
+    _currentAudio = new Audio(dataUrl);
+    _playingId = id;
+    _playingIndex = idx;
+
+    _currentAudio.play();
+    _currentAudio.onended = () => {
+      _currentAudio = null;
+      _resetPlayButton(_playingId);
+      _playingId = null;
+      _playingIndex = null;
+    };
+  } catch (e) {
+    showToast(t('notebook.no_audio'), true);
+    _playingId = null;
+    _playingIndex = null;
   }
 }
 
@@ -1307,7 +1354,25 @@ async function _showEntryMenu(id, anchorEl) {
   ];
 
   if (hasAudioCached) {
-    items.push({ icon: icons.play, label: t('notebook.play_audio'), action: () => doPlayAudio(id) });
+    let audioCount = 1;
+    if (window.getAudioCount) {
+      try { audioCount = await window.getAudioCount(id); } catch(e) {}
+    }
+
+    if (audioCount > 1) {
+      for (let i = 0; i < audioCount; i++) {
+        const idx = i;
+        const isPlaying = _playingId === id && _playingIndex === idx && _currentAudio;
+        items.push({
+          icon: isPlaying ? icons.stop : icons.play,
+          label: isPlaying ? `${t('notebook.stop_audio')} ${idx + 1}` : `${t('notebook.play_audio')} ${idx + 1}`,
+          action: () => doPlayAudioByIndex(id, idx)
+        });
+      }
+    } else {
+      const isPlaying = _playingId === id && _currentAudio;
+      items.push({ icon: isPlaying ? icons.stop : icons.play, label: isPlaying ? t('notebook.stop_audio') : t('notebook.play_audio'), action: () => doPlayAudio(id) });
+    }
     items.push({ icon: icons.refreshCw, label: t('notebook.retranscribe'), action: () => doReTranscribe(id, anchorEl) });
     items.push({ divider: true });
   }
