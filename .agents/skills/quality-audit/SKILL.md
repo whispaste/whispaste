@@ -52,7 +52,7 @@ without technical knowledge, while not being patronizing to power users.
 
 ---
 
-## 📐 Five Review Dimensions
+## 📐 Six Review Dimensions
 
 ### Dimension 1: Target Audience Alignment (Zielgruppen-Passung)
 
@@ -151,6 +151,42 @@ Check:
 - 🟡 Mostly good, some outdated or unclear sections
 - 🔴 Misleading, outdated, or missing content
 
+### Dimension 6: Code Architecture & Maintainability (Wartbarkeit)
+
+**Question**: Is the codebase structured for long-term maintainability and clean separation of concerns?
+
+This dimension enforces the project's SoC rules from `.github/copilot-instructions.md` and flags refactoring needs proactively.
+
+Check:
+- [ ] **File size**: Files exceeding ~300 lines are flagged for split evaluation
+- [ ] **Single responsibility**: Each file has one clear domain (Go: file-per-domain pattern)
+- [ ] **HTML/CSS/JS separation**: Styles in `styles/`, scripts in `scripts/`, structure in `template.html`
+- [ ] **No inline styles or scripts** in template HTML (except where embedded self-containment is required)
+- [ ] **DRY across surfaces**: No duplicated logic between Go app and Astro website
+- [ ] **Component extraction**: Repeated UI patterns are extracted into reusable components/functions
+- [ ] **Go template structure**: Embedded HTML uses `//go:embed` with external files, not string literals
+- [ ] **Astro components**: Scoped `<style>` blocks, shared CSS in `src/styles/`, shared JS in `src/scripts/`
+- [ ] **Design token consistency**: CSS uses variables from `00-variables.css`, not hardcoded values
+- [ ] **Import/dependency hygiene**: No circular imports, no unused imports, minimal coupling between domains
+
+**File-size assessment triggers** (run during full audit — PowerShell):
+```powershell
+# Go files
+Get-ChildItem *.go | ForEach-Object { [PSCustomObject]@{File=$_.Name; Lines=(Get-Content $_ | Measure-Object -Line).Lines} } | Sort-Object Lines -Descending | Select-Object -First 20
+# JS files
+Get-ChildItem ui_main/scripts/*.js | ForEach-Object { [PSCustomObject]@{File=$_.Name; Lines=(Get-Content $_ | Measure-Object -Line).Lines} } | Sort-Object Lines -Descending
+# CSS files
+Get-ChildItem ui_main/styles/*.css | ForEach-Object { [PSCustomObject]@{File=$_.Name; Lines=(Get-Content $_ | Measure-Object -Line).Lines} } | Sort-Object Lines -Descending
+# Astro files
+Get-ChildItem website/src -Recurse -Filter *.astro | ForEach-Object { [PSCustomObject]@{File=$_.FullName.Replace("$PWD\",''); Lines=(Get-Content $_ | Measure-Object -Line).Lines} } | Sort-Object Lines -Descending
+```
+Flag any file > 300 lines. For files > 500 lines, recommend immediate split.
+
+**Scoring**:
+- 🟢 Clean SoC, no oversized files, clear domain boundaries
+- 🟡 1-3 files need refactoring, minor SoC violations
+- 🔴 Multiple oversized files, mixed concerns, significant tech debt
+
 ---
 
 ## 📂 Scope — Files to Audit
@@ -165,6 +201,7 @@ Check:
 | `ui_main/scripts/01-translations.js` | Content quality (EN + DE) |
 | `l10n.go` | Tray/notification text quality |
 | `postprocess.go` | Smart Mode template descriptions and prompts |
+| `*.go` (all) | File size, SoC, single responsibility (Dimension 6) |
 
 ### Astro Landing Page
 
@@ -193,6 +230,7 @@ Focus on dimensions most relevant to the change type:
 - Text changes → Dimension 1 (Audience) + Dimension 5 (Content)
 - UI changes → Dimension 2 (UX) + Dimension 3 (Premium)
 - Design changes → Dimension 3 (Premium) + Dimension 4 (Consistency)
+- Code/architecture changes → Dimension 6 (Maintainability)
 
 ### Mode 2: Full (Periodic via review.ps1)
 
@@ -225,6 +263,7 @@ Score each dimension:
 | 3 | Hochwertigkeit | 🟢/🟡/🔴 | X issues |
 | 4 | Oberflächen-Konsistenz | 🟢/🟡/🔴 | X issues |
 | 5 | Inhaltsqualität | 🟢/🟡/🔴 | X issues |
+| 6 | Wartbarkeit (SoC) | 🟢/🟡/🔴 | X issues |
 
 **Gesamtbewertung:** 🟢/🟡/🔴
 ```
@@ -233,7 +272,7 @@ For each issue found:
 
 ```
 ### [SEVERITY] Issue description
-**Dimension:** [1-5]
+**Dimension:** [1-6]
 **Datei:** `file.ext` L42
 **Persona betroffen:** [which personas struggle with this]
 **Problem:** Precise description
