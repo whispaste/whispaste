@@ -1,0 +1,145 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+---
+
+<Layout title="Privacy Policy — WhisPaste" description="Privacy Policy for the WhisPaste desktop application. Learn how WhisPaste handles your data.">
+  <div class="min-h-screen flex flex-col">
+    <Nav variant="subpage" />
+
+    <!-- Content -->
+    <main class="flex-1 pt-24 pb-16 px-6">
+      <div class="max-w-3xl mx-auto">
+        <h1 class="text-3xl font-bold text-white mb-8">Privacy Policy</h1>
+
+        <div class="prose prose-invert max-w-none space-y-6 text-gray-300 leading-relaxed">
+          <p>
+            <strong class="text-white">Effective date:</strong> July 2025<br>
+            WhisPaste is a desktop application for Windows that transcribes speech to text. This policy explains what data the application processes, where it is stored, and what — if anything — is transmitted.
+          </p>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">1. Core Principle</h2>
+            <p>
+              WhisPaste is designed with <strong class="text-white">privacy first</strong>. The application collects <strong class="text-white">no analytics, no telemetry, and no tracking data</strong>. All user data stays on your device unless you explicitly choose to use a cloud-based transcription service.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">2. Audio Recording &amp; Transcription</h2>
+            <p>
+              WhisPaste records audio from your microphone when you activate recording (via hotkey or button). The recorded audio is processed in one of two ways, depending on your settings:
+            </p>
+            <ul class="list-disc list-inside space-y-2 ml-4">
+              <li>
+                <strong class="text-white">Local / Offline transcription:</strong> Audio is processed entirely on your device using a local AI model (Whisper via sherpa-onnx). No audio data leaves your computer.
+              </li>
+              <li>
+                <strong class="text-white">Cloud transcription (OpenAI Whisper API):</strong> Audio is sent to OpenAI's servers for transcription. This requires you to provide your own OpenAI API key. The audio is transmitted directly from your device to OpenAI — WhisPaste does not route, store, or process audio on any intermediary server.
+              </li>
+            </ul>
+            <p class="mt-3">
+              When using the OpenAI API, OpenAI's data processing terms apply. Please review the <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">OpenAI Privacy Policy</a> for details on how they handle audio data.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">3. Transcription History</h2>
+            <p>
+              Transcribed text is stored locally on your device in an SQLite database located in <code class="text-brand-cyan">%APPDATA%\WhisPaste\</code>. This data never leaves your device. You can view, search, export, and delete your transcription history at any time through the application.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">4. API Key Storage</h2>
+            <p>
+              Your OpenAI API key is stored locally in the configuration file at <code class="text-brand-cyan">%APPDATA%\WhisPaste\config.json</code>. The key is <strong class="text-white">never transmitted anywhere</strong> except directly to OpenAI's API endpoint when performing a transcription request. WhisPaste does not send your API key to any other service or server.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">5. Configuration &amp; Local Storage</h2>
+            <p>
+              All application settings (language, hotkey, theme, model preferences, etc.) are stored locally in <code class="text-brand-cyan">%APPDATA%\WhisPaste\config.json</code>. No configuration data is transmitted to external servers.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">6. AI Model Downloads</h2>
+            <p>
+              For local/offline transcription, WhisPaste can download AI models from <strong class="text-white">HuggingFace</strong>. During a model download, a standard HTTPS request is made to HuggingFace's servers. No personal data or identifiers are sent — only the model file URL is requested. Downloaded models are stored locally on your device.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">7. Smart Mode (Local LLM)</h2>
+            <p>
+              WhisPaste's Smart Mode can use a local LLM (large language model) to post-process transcriptions (e.g., formatting, summarization). This model runs entirely on your device. No transcription data is sent to external servers for Smart Mode processing.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">8. Auto-Update</h2>
+            <p>
+              WhisPaste checks for updates by querying the <strong class="text-white">GitHub Releases API</strong>. This request contains no personal data — it simply fetches the latest release version information. No user identifiers, device information, or usage data are transmitted. Auto-update is disabled automatically when running as an MSIX Store package.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">9. Third-Party Data Sharing</h2>
+            <p>
+              WhisPaste does <strong class="text-white">not share any data with third parties</strong>. The only exception is when you explicitly choose to use the OpenAI Whisper API for transcription, in which case audio data is sent directly to OpenAI under their terms. No other data is shared with any third party.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">10. Network Connections</h2>
+            <p>
+              WhisPaste only makes network connections for the following purposes:
+            </p>
+            <ul class="list-disc list-inside space-y-1 ml-4">
+              <li>OpenAI Whisper API — when cloud transcription is enabled (user-initiated)</li>
+              <li>HuggingFace — when downloading offline AI models (user-initiated)</li>
+              <li>GitHub Releases API — for automatic update checks</li>
+            </ul>
+            <p class="mt-3">
+              All network connections use <strong class="text-white">HTTPS</strong> encryption. No background network activity occurs beyond the update check.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">11. Children's Privacy</h2>
+            <p>
+              WhisPaste does not knowingly collect data from children. Since the application does not collect any personal data or require account creation, there are no age-related data concerns.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">12. Changes to This Policy</h2>
+            <p>
+              This privacy policy may be updated to reflect changes in the application. Significant changes will be noted in the application's release notes on GitHub.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">13. Contact</h2>
+            <p>
+              For privacy-related questions or concerns, please refer to the <a href="/whispaste/impressum/" class="text-brand-cyan hover:underline">Legal Notice (Impressum)</a> page for contact information.
+            </p>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <Footer variant="subpage" />
+  </div>
+
+  <script>
+    import { applyLang } from '../scripts/i18n';
+    import { updateThemeIcon } from '../scripts/theme';
+
+    applyLang();
+    updateThemeIcon();
+  </script>
+</Layout>
