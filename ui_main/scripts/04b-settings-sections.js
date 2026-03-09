@@ -315,7 +315,10 @@ function updateLLMBadge(status, badgeId, actionId, progressId) {
   if (status.installed) {
     badge.className = 'llm-badge ready';
     badge.innerHTML = '<svg class="icon" style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> ' + t('smartLlmReady');
-    if (actionArea) actionArea.innerHTML = '<button class="llm-delete-link" onclick="deleteLLM()">' + t('smartLlmDelete') + '</button>';
+    if (actionArea) {
+      const testBtnId = isSettings ? 'btn-test-llm-settings' : 'btn-test-llm';
+      actionArea.innerHTML = `<button class="btn btn-secondary btn-sm btn-model-test" id="${testBtnId}" onclick="testLLMModel('${testBtnId}')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg> ${t('modelTest')}</button> <button class="llm-delete-link" onclick="deleteLLM()">${t('smartLlmDelete')}</button>`;
+    }
     if (progress) progress.classList.add('hidden');
   } else {
     badge.className = 'llm-badge not-installed';
@@ -364,6 +367,31 @@ async function deleteLLM() {
     if (window.deleteLLM) await window.deleteLLM();
     await updateLLMStatus();
   } catch (e) {}
+}
+
+async function testLLMModel(btnId) {
+  const btn = document.getElementById(btnId);
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  const origHTML = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-sm"></span> ' + t('modelTesting');
+
+  try {
+    if (window._testLLMModel) {
+      const result = await window._testLLMModel();
+      const res = typeof result === 'string' ? JSON.parse(result) : result;
+      if (res && res.success) {
+        showToast(t('modelTestSuccess'), false);
+      } else {
+        showToast(res?.error || t('modelTestFailed'), true);
+      }
+    }
+  } catch (e) {
+    showToast(t('modelTestFailed'), true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHTML;
+  }
 }
 
 window.onLLMDownloadProgress = function(phase, pct) {

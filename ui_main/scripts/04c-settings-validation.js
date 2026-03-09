@@ -150,7 +150,7 @@ async function renderModelList() {
       actionBtn = `<button class="btn btn-secondary btn-sm" disabled>${t('modelDownloading')}</button>
         <div class="model-progress"><div class="model-progress-bar" id="progress-${m.id}"></div></div>`;
     } else if (m.downloaded) {
-      actionBtn = `<span class="model-badge model-badge-success">✓ ${t('modelDownloaded')}</span><button class="btn btn-icon btn-sm btn-ghost" onclick="event.stopPropagation();confirmDeleteModel('${m.id}')" title="${t('modelDelete')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>`;
+      actionBtn = `<button class="btn btn-secondary btn-sm btn-model-test" id="btn-test-stt-${m.id}" onclick="event.stopPropagation();testSTTModel('${m.id}')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg> ${t('modelTest')}</button><span class="model-badge model-badge-success">✓ ${t('modelDownloaded')}</span><button class="btn btn-icon btn-sm btn-ghost" onclick="event.stopPropagation();confirmDeleteModel('${m.id}')" title="${t('modelDelete')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>`;
     } else {
       actionBtn = `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();downloadModel('${m.id}')">${t('modelDownload')}</button>`;
     }
@@ -165,6 +165,32 @@ async function renderModelList() {
   }).join('');
 }
 
+
+/* ── STT Model Test ─────────────────────────────────────── */
+async function testSTTModel(modelId) {
+  const btn = document.getElementById('btn-test-stt-' + modelId);
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  const origHTML = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-sm"></span> ' + t('modelTesting');
+
+  try {
+    if (window._testSTTModel) {
+      const result = await window._testSTTModel(modelId);
+      const res = typeof result === 'string' ? JSON.parse(result) : result;
+      if (res && res.success) {
+        showToast(t('modelTestSuccess'), false);
+      } else {
+        showToast(res?.error || t('modelTestFailed'), true);
+      }
+    }
+  } catch (e) {
+    showToast(t('modelTestFailed'), true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHTML;
+  }
+}
 
 async function downloadModel(id) {
   if (window.checkConnectivity) {
