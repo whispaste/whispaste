@@ -586,6 +586,12 @@ func main() {
 					entryID = history.AddWithModel(text, durationSec, processingDurationSec, lang, model, false)
 				}
 
+				// Auto-tag with local LLM if available
+				if entryID != "" && IsLLMInstalled() {
+					tagEntryID, tagText := entryID, text
+					go AutoTagEntry(history, tagEntryID, tagText)
+				}
+
 				// Cache the processed audio for re-listen / re-transcribe
 				if entryID != "" {
 					if err := audiocache.Save(entryID, pcm); err != nil {
