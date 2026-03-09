@@ -88,19 +88,9 @@ const translations = {
     statusAutoSaved: 'Saved ✓',
 
     // Settings — Smart Mode
-    cardSmartMode: 'Smart Mode',
     labelSmartMode: 'AI Post-Processing',
     descSmartMode: 'Transcriptions are refined by AI using your chosen preset before pasting',
-    descSmartModeSettings: 'Automatically refine transcriptions with AI before pasting',
-    settingsAiConfigurePresets: 'Configure presets and templates →',
-    labelReplacements: 'Enable text replacements',
-    descReplacementsSettings: 'Automatically replace trigger words in your transcriptions',
-    settingsAiConfigureReplacements: 'Manage replacement rules →',
-    settingsAiChangeProvider: 'Change in Settings →',
-    smartCurrentProvider: 'Current AI provider:',
-    smartDisabledNotice: 'Smart Mode is currently disabled.',
-    smartEnableInSettings: 'Enable in Settings →',
-    smartModeDesc: 'AI automatically improves every transcription before pasting — fixing grammar, formatting emails, creating summaries, and more',
+    smartModeDesc:'AI automatically improves every transcription before pasting — fixing grammar, formatting emails, creating summaries, and more',
     labelSmartPreset: 'Preset',
     smartChoosePreset: 'Choose a preset',
     smartHowTitle: 'How Smart Mode works',
@@ -323,6 +313,7 @@ const translations = {
     'notebook.stop_audio': 'Stop playback',
     'notebook.retranscribe': 'Re-transcribe',
     'notebook.retranscribed': 'Re-transcribed successfully',
+    'notebook.retranscribing': 'Re-transcribing...',
     'notebook.no_audio': 'No cached audio available',
     'fab.record': 'Record',
     'fab.stop': 'Stop recording',
@@ -535,8 +526,6 @@ const translations = {
     'onboarding.api_key_valid': 'API key is valid',
     'onboarding.api_key_invalid': 'Invalid API key',
     'onboarding.api_key_empty': 'Please enter an API key',
-    smartProviderNoKey: 'No API key configured. Add your key in Settings → General to use OpenAI.',
-    smartProviderNoProvider: 'No API key or local model available. Configure one to use Smart Mode.',
 
     // Text Replacements
     tabReplacements: 'Text Replacements',
@@ -555,14 +544,7 @@ const translations = {
     replacementsDeleteConfirm: 'Delete the replacement for "{trigger}"?',
     replacementsToggleItem: 'Enable/Disable',
 
-    // Smart Mode Provider
-    smartProvider: 'AI Processing Engine',
-    smartProviderOpenai: 'OpenAI API',
-    smartProviderLocal: 'Offline',
-    smartProviderAuto: 'Auto',
-    smartProviderAutoDesc: 'Uses offline model when available, otherwise OpenAI',
-    smartProviderOpenaiDesc: 'Best quality · requires API key',
-    smartProviderLocalDesc: 'Processes locally · no internet needed',
+    // Smart Mode LLM
     smartLlmCard: 'Offline Language Model',
     smartLlmName: 'SmolLM2 · 270 MB · 6 Languages',
     smartLlmDownload: 'Download',
@@ -714,19 +696,9 @@ const translations = {
     statusAutoSaved: 'Gespeichert ✓',
 
     // Settings — Smart Mode
-    cardSmartMode: 'Smart-Modus',
     labelSmartMode: 'KI-Nachbearbeitung',
     descSmartMode: 'Transkriptionen werden vor dem Einfügen mit KI und deiner gewählten Vorlage verfeinert',
-    descSmartModeSettings: 'Transkriptionen automatisch per KI verfeinern, bevor sie eingefügt werden',
-    settingsAiConfigurePresets: 'Vorlagen und Voreinstellungen konfigurieren →',
-    labelReplacements: 'Textersetzungen aktivieren',
-    descReplacementsSettings: 'Triggerwörter in Transkriptionen automatisch ersetzen',
-    settingsAiConfigureReplacements: 'Ersetzungsregeln verwalten →',
-    settingsAiChangeProvider: 'In Einstellungen ändern →',
-    smartCurrentProvider: 'Aktueller KI-Anbieter:',
-    smartDisabledNotice: 'Der Smart-Modus ist derzeit deaktiviert.',
-    smartEnableInSettings: 'In Einstellungen aktivieren →',
-    smartModeDesc: 'KI verbessert automatisch jede Transkription vor dem Einfügen — Grammatik korrigieren, E-Mails formatieren, Zusammenfassungen erstellen und mehr',
+    smartModeDesc:'KI verbessert automatisch jede Transkription vor dem Einfügen — Grammatik korrigieren, E-Mails formatieren, Zusammenfassungen erstellen und mehr',
     labelSmartPreset: 'Vorlage',
     smartChoosePreset: 'Wähle eine Vorlage',
     smartHowTitle: 'So funktioniert der Smart-Modus',
@@ -949,6 +921,7 @@ const translations = {
     'notebook.stop_audio': 'Wiedergabe stoppen',
     'notebook.retranscribe': 'Erneut transkribieren',
     'notebook.retranscribed': 'Erfolgreich neu transkribiert',
+    'notebook.retranscribing': 'Wird neu transkribiert...',
     'notebook.no_audio': 'Kein zwischengespeichertes Audio verfügbar',
     'fab.record': 'Aufnehmen',
     'fab.stop': 'Aufnahme beenden',
@@ -1161,8 +1134,6 @@ const translations = {
     'onboarding.api_key_valid': 'API-Schlüssel ist gültig',
     'onboarding.api_key_invalid': 'Ungültiger API-Schlüssel',
     'onboarding.api_key_empty': 'Bitte einen API-Schlüssel eingeben',
-    smartProviderNoKey: 'Kein API-Schlüssel konfiguriert. Füge ihn unter Einstellungen → Allgemein hinzu.',
-    smartProviderNoProvider: 'Kein API-Schlüssel oder lokales Modell verfügbar. Richte eines ein, um Smart-Modus zu nutzen.',
 
     // Text Replacements
     tabReplacements: 'Textersetzungen',
@@ -1181,14 +1152,7 @@ const translations = {
     replacementsDeleteConfirm: 'Die Ersetzung für „{trigger}" löschen?',
     replacementsToggleItem: 'Aktivieren/Deaktivieren',
 
-    // Smart Mode Provider
-    smartProvider: 'KI-Anbieter',
-    smartProviderOpenai: 'OpenAI API',
-    smartProviderLocal: 'Offline',
-    smartProviderAuto: 'Automatisch',
-    smartProviderAutoDesc: 'Nutzt Offline-Modell wenn verfügbar, sonst OpenAI',
-    smartProviderOpenaiDesc: 'Beste Qualität · erfordert API-Schlüssel',
-    smartProviderLocalDesc: 'Verarbeitet lokal · kein Internet nötig',
+    // Smart Mode LLM
     smartLlmCard: 'Offline-Sprachmodell',
     smartLlmName: 'SmolLM2 · 270 MB · 6 Sprachen',
     smartLlmDownload: 'Herunterladen',

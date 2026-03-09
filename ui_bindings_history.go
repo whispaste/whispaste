@@ -98,62 +98,84 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 			return map[string]interface{}{"ok": false, "error": "No cached audio"}
 		}
 
-		apiKey := cfg.GetAPIKey()
-		endpoint := cfg.GetAPIEndpoint()
-		lang := cfg.GetTranscriptionLanguage()
-		useLocal := cfg.GetActiveModelLocal()
+		// Run transcription async to avoid blocking UI
+		go func() {
+			safeEval := func(js string) {
+				mainWindowMu.Lock()
+				open := mainWindowOpen
+				mainWindowMu.Unlock()
+				if open {
+					w.Dispatch(func() { w.Eval(js) })
+				}
+			}
 
-		cfg.mu.RLock()
-		model := cfg.Model
-		cfg.mu.RUnlock()
+			apiKey := cfg.GetAPIKey()
+			endpoint := cfg.GetAPIEndpoint()
+			lang := cfg.GetTranscriptionLanguage()
+			useLocal := cfg.GetActiveModelLocal()
 
-		var text string
-		if useLocal {
-			if len(wavData) <= 44 {
-				return map[string]interface{}{"ok": false, "error": "Invalid audio file"}
-			}
-			pcmData := wavData[44:]
-			modelDir, mdErr := models.GetDir(cfg.GetLocalModelID())
-			if mdErr != nil {
-				return map[string]interface{}{"ok": false, "error": mdErr.Error()}
-			}
-			localLang := cfg.GetTranscriptionLanguage()
-			text, err = GetLocalRecognizer().Transcribe(pcmData, 16000, localLang, modelDir)
-		} else {
-			if apiKey == "" {
-				return map[string]interface{}{"ok": false, "error": "No API key configured"}
-			}
-			text, err = Transcribe(context.Background(), wavData, lang, apiKey, model, endpoint, "")
-		}
-		if err != nil {
-			return map[string]interface{}{"ok": false, "error": err.Error()}
-		}
+			cfg.mu.RLock()
+			model := cfg.Model
+			cfg.mu.RUnlock()
 
-		text = cfg.ApplyTextReplacements(text)
+			var text string
+			var txErr error
+			if useLocal {
+				if len(wavData) <= 44 {
+					safeEval(`onReTranscribeResult(` + jsStr(id) + `, false, "Invalid audio file")`)
+					return
+				}
+				pcmData := wavData[44:]
+				modelDir, mdErr := models.GetDir(cfg.GetLocalModelID())
+				if mdErr != nil {
+					safeEval(`onReTranscribeResult(` + jsStr(id) + `, false, ` + jsStr(mdErr.Error()) + `)`)
+					return
+				}
+				localLang := cfg.GetTranscriptionLanguage()
+				text, txErr = GetLocalRecognizer().Transcribe(pcmData, 16000, localLang, modelDir)
+			} else {
+				if apiKey == "" {
+					safeEval(`onReTranscribeResult(` + jsStr(id) + `, false, "No API key configured")`)
+					return
+				}
+				text, txErr = Transcribe(context.Background(), wavData, lang, apiKey, model, endpoint, "")
+			}
+			if txErr != nil {
+				safeEval(`onReTranscribeResult(` + jsStr(id) + `, false, ` + jsStr(txErr.Error()) + `)`)
+				return
+			}
 
-		modelName := model
-		if useLocal {
-			modelName = cfg.GetLocalModelID()
-		}
-		processingDur := 0.0
+			text = cfg.ApplyTextReplacements(text)
 
-		isPending := false
-		for _, tag := range entry.Tags {
-			if tag == "pending" {
-				isPending = true
-				break
+			modelName := model
+			if useLocal {
+				modelName = cfg.GetLocalModelID()
 			}
-		}
-		if isPending {
-			if !history.CompletePendingEntry(id, text, processingDur, modelName, useLocal) {
-				return map[string]interface{}{"ok": false, "error": "Failed to complete pending entry"}
+			processingDur := 0.0
+
+			isPending := false
+			for _, tag := range entry.Tags {
+				if tag == "pending" {
+					isPending = true
+					break
+				}
 			}
-		} else {
-			if !history.UpdateText(id, text) {
-				return map[string]interface{}{"ok": false, "error": "Failed to update entry"}
+			if isPending {
+				if !history.CompletePendingEntry(id, text, processingDur, modelName, useLocal) {
+					safeEval(`onReTranscribeResult(` + jsStr(id) + `, false, "Failed to complete pending entry")`)
+					return
+				}
+			} else {
+				if !history.UpdateText(id, text) {
+					safeEval(`onReTranscribeResult(` + jsStr(id) + `, false, "Failed to update entry")`)
+					return
+				}
 			}
-		}
-		return map[string]interface{}{"ok": true, "text": text}
+			safeEval(`onReTranscribeResult(` + jsStr(id) + `, true, "")`)
+		}()
+
+		// Return immediately — result will come via onReTranscribeResult callback
+		return map[string]interface{}{"ok": true, "async": true}
 	})
 
 	w.Bind("pinEntry", func(id string) bool { return history.TogglePin(id) })

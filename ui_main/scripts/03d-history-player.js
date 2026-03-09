@@ -139,8 +139,18 @@ async function doReTranscribe(id, btn) {
   const origHTML = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<svg class="icon spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+
+  showStatus(t('notebook.retranscribing') || 'Re-transcribing...', 'info');
+
   try {
     const result = await window.reTranscribe(id);
+    if (result && result.async) {
+      // Async mode — result will come via onReTranscribeResult callback
+      window._reTranscribeBtn = btn;
+      window._reTranscribeBtnHTML = origHTML;
+      return;
+    }
+    // Fallback for sync mode (defensive)
     if (result && result.ok) {
       showToast(t('notebook.retranscribed'), false);
       await loadEntries();
@@ -149,8 +159,27 @@ async function doReTranscribe(id, btn) {
     }
   } catch (e) {
     showToast(t('notebook.no_audio'), true);
-  } finally {
-    btn.innerHTML = origHTML;
+  }
+  btn.innerHTML = origHTML;
+  btn.disabled = false;
+}
+
+// Callback from Go when async re-transcription completes
+window.onReTranscribeResult = async function(id, success, errorMsg) {
+  const btn = window._reTranscribeBtn;
+  const origHTML = window._reTranscribeBtnHTML;
+
+  if (success) {
+    showStatus(t('notebook.retranscribed') || 'Re-transcribed', 'success');
+    await loadEntries();
+  } else {
+    showStatus(errorMsg || t('notebook.no_audio'), 'error');
+  }
+
+  if (btn) {
+    btn.innerHTML = origHTML || '';
     btn.disabled = false;
   }
-}
+  window._reTranscribeBtn = null;
+  window._reTranscribeBtnHTML = null;
+};
