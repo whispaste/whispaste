@@ -400,36 +400,40 @@
 
 /* ── Date Range Picker ────────────────────────────────── */
 .date-range-picker {
-  padding: 10px;
-  margin: 4px 0 0;
-  background: var(--accent-subtle);
+  padding: 8px;
+  margin: 2px 0 0;
+  background: var(--bg-hover);
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-accent);
   display: flex;
   flex-direction: column;
   gap: 6px;
   animation: filterExpand var(--transition-fast) ease-out;
 }
 .date-range-picker .form-group { margin-bottom: 0; }
-.form-label-sm {
-  font-size: 10px;
+.date-range-picker label {
+  display: block;
+  font-size: var(--text-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  color: var(--text-hint);
-  margin-bottom: 3px;
+  letter-spacing: .03em;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
 }
-.form-input-sm {
+.date-range-picker input[type="date"] {
   width: 100%;
-  padding: 6px 8px;
-  font-size: 12px;
+  padding: 5px 6px;
+  font-size: var(--text-xs);
+  font-family: var(--font);
   background: var(--bg-input);
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
   transition: border-color var(--transition-fast);
+  color-scheme: light;
 }
-.form-input-sm:focus {
+[data-theme="dark"] .date-range-picker input[type="date"] {
+  color-scheme: dark;
+}
+.date-range-picker input[type="date"]:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-subtle);
