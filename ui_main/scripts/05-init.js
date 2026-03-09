@@ -74,7 +74,7 @@ function switchPage(pageId) {
   });
   // Show/hide pages
   document.querySelectorAll('.page').forEach(page => {
-    page.style.display = page.id === 'page-' + pageId ? '' : 'none';
+    page.classList.toggle('hidden', page.id !== 'page-' + pageId);
   });
   // Load history entries when switching to history page
   if (pageId === 'history') loadEntries();
@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       applyConfig(cfg);
       // Hide in-app FAB when floating desktop button is active (avoids duplicate)
       const fab = document.getElementById('captureBtn');
-      if (fab) fab.style.display = cfg.floating_button_enabled ? 'none' : '';
+      if (fab) fab.classList.toggle('hidden', !!cfg.floating_button_enabled);
       updateModeBadge(cfg);
       updateStatusBar(cfg);
       loadAudioDevices();
@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const soundToggle = document.getElementById('toggle-sound');
   const volRow = document.getElementById('volume-row');
   if (soundToggle && volRow) {
-    const updateVolRow = () => { volRow.style.display = soundToggle.checked ? 'flex' : 'none'; };
+    const updateVolRow = () => { volRow.classList.toggle('hidden', !soundToggle.checked); };
     soundToggle.addEventListener('change', updateVolRow);
     updateVolRow();
   }
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (searchInput) {
     searchInput.addEventListener('input', (ev) => {
       _searchQuery = ev.target.value;
-      if (searchClear) searchClear.style.display = searchInput.value ? '' : 'none';
+      if (searchClear) searchClear.classList.toggle('hidden', !searchInput.value);
       renderHistory();
     });
   }
@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchClear.addEventListener('click', () => {
       searchInput.value = '';
       _searchQuery = '';
-      searchClear.style.display = 'none';
+      searchClear.classList.add('hidden');
       renderHistory();
     });
   }
@@ -277,6 +277,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       const search = document.getElementById('searchInput');
       if (search) search.focus();
     }
+    // Allow Enter/Space to trigger click on [role="button"] elements
+    if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.getAttribute('role') === 'button') {
+      ev.preventDefault();
+      ev.target.click();
+    }
+    // ArrowUp/ArrowDown navigation within custom dropdown lists
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      const list = ev.target.closest('.project-dropdown-list, .preset-grid');
+      if (list) {
+        ev.preventDefault();
+        const items = [...list.querySelectorAll('[tabindex="0"], [role="button"], button:not([disabled])')];
+        const idx = items.indexOf(ev.target);
+        const next = ev.key === 'ArrowDown' ? idx + 1 : idx - 1;
+        if (next >= 0 && next < items.length) items[next].focus();
+      }
+    }
   });
 
   // --- Start on correct page ---
@@ -308,7 +324,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Auto-refresh history when window regains focus (e.g. after recording)
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && document.getElementById('page-history')?.style.display !== 'none') {
+    if (!document.hidden && !document.getElementById('page-history')?.classList.contains('hidden')) {
       loadEntries();
     }
   });

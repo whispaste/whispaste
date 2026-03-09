@@ -55,6 +55,13 @@ type History struct {
 	cache map[int]*analyticsCache // keyed by periodDays
 }
 
+// invalidateCache clears the analytics cache under lock.
+func (h *History) invalidateCache() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.cache = nil
+}
+
 func generateID() string {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
@@ -113,9 +120,7 @@ func (h *History) AddWithModel(text string, durationSec float64, processingDurat
 		CostUSD:            cost,
 	}
 
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
 	if h.db == nil {
 		return entry.ID
@@ -143,9 +148,7 @@ func (h *History) AddPendingEntry(durationSec float64, language, model string, i
 		Tags:      []string{"pending"},
 	}
 
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
 	if h.db == nil {
 		return entry.ID
@@ -305,9 +308,7 @@ func (h *History) Delete(id string) bool {
 	if h.db == nil {
 		return false
 	}
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
 	res, err := execWithFTSRepair(h.db, "DELETE FROM history_entries WHERE id = ?", id)
 	if err != nil {
@@ -326,9 +327,7 @@ func (h *History) TogglePin(id string) bool {
 	if h.db == nil {
 		return false
 	}
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
 	res, err := execWithFTSRepair(h.db, `UPDATE history_entries SET pinned = CASE WHEN pinned = 0 THEN 1 ELSE 0 END WHERE id = ?`, id)
 	if err != nil {
@@ -344,9 +343,7 @@ func (h *History) ToggleArchive(id string) bool {
 	if h.db == nil {
 		return false
 	}
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
 	res, err := execWithFTSRepair(h.db, `UPDATE history_entries SET archived = CASE WHEN archived = 0 THEN 1 ELSE 0 END WHERE id = ?`, id)
 	if err != nil {
@@ -361,9 +358,7 @@ func (h *History) UpdateEntry(id, title string, tags []string) bool {
 	if h.db == nil {
 		return false
 	}
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
 	var res sql.Result
 	var err error
@@ -387,9 +382,7 @@ func (h *History) UpdateText(id, newText string) bool {
 	if h.db == nil {
 		return false
 	}
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
 	newTitle := autoTitle(newText)
 	res, err := execWithFTSRepair(h.db, "UPDATE history_entries SET text = ?, title = ? WHERE id = ?", newText, newTitle, id)
@@ -407,9 +400,7 @@ func (h *History) CompletePendingEntry(id, text string, processingDurationSec fl
 	if h.db == nil {
 		return false
 	}
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
 	title := autoTitle(text)
 	var cost float64
@@ -453,14 +444,18 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		return map[string]interface{}{}
 	}
 
-	h.mu.Lock()
-	if h.cache != nil {
-		if c, ok := h.cache[periodDays]; ok && time.Now().Before(c.validUntil) {
-			h.mu.Unlock()
-			return c.data
+	if data := func() map[string]interface{} {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		if h.cache != nil {
+			if c, ok := h.cache[periodDays]; ok && time.Now().Before(c.validUntil) {
+				return c.data
+			}
 		}
+		return nil
+	}(); data != nil {
+		return data
 	}
-	h.mu.Unlock()
 
 	var rows *sql.Rows
 	var err error
@@ -583,12 +578,14 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		"avgWordsPerEntry":      safeDiv(totalWords, float64(totalEntries)),
 	}
 
-	h.mu.Lock()
-	if h.cache == nil {
-		h.cache = make(map[int]*analyticsCache)
-	}
-	h.cache[periodDays] = &analyticsCache{data: result, validUntil: time.Now().Add(2 * time.Second)}
-	h.mu.Unlock()
+	func() {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		if h.cache == nil {
+			h.cache = make(map[int]*analyticsCache)
+		}
+		h.cache[periodDays] = &analyticsCache{data: result, validUntil: time.Now().Add(2 * time.Second)}
+	}()
 
 	return result
 }
@@ -601,11 +598,9 @@ func (h *History) ResetStatistics() error {
 	_, err := h.db.Exec("DELETE FROM daily_stats")
 	if err != nil {
 		logError("ResetStatistics: %v", err)
-		return err
+		return fmt.Errorf("ResetStatistics: %w", err)
 	}
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 	logInfo("Statistics reset: daily_stats cleared")
 	return nil
 }
@@ -646,29 +641,27 @@ func (h *History) Tags() []string {
 	return result
 }
 
-// RenameTag renames a tag across all entries that have it.
-func (h *History) RenameTag(oldName, newName string) int {
+// updateTagEntries finds entries matching tagName via LIKE pattern and applies
+// the modifier function to each entry's tags, updating the database in a transaction.
+func (h *History) updateTagEntries(label, tagName string, modifier func(tags []string) []string) int {
 	if h.db == nil {
 		return 0
 	}
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
-	// Escape LIKE wildcards in tag name
-	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(oldName)
+	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(tagName)
 	pattern := `%"` + escaped + `"%`
 
 	tx, err := h.db.Begin()
 	if err != nil {
-		logError("RenameTag begin tx: %v", err)
+		logError("%s begin tx: %v", label, err)
 		return 0
 	}
 	defer tx.Rollback()
 
 	rows, err := tx.Query("SELECT id, tags FROM history_entries WHERE tags LIKE ? ESCAPE '\\'", pattern)
 	if err != nil {
-		logError("RenameTag query: %v", err)
+		logError("%s query: %v", label, err)
 		return 0
 	}
 
@@ -682,17 +675,9 @@ func (h *History) RenameTag(oldName, newName string) int {
 		if err := rows.Scan(&id, &tagsJSON); err != nil {
 			continue
 		}
-		tags := unmarshalTags(tagsJSON)
-		changed := false
-		for j, tag := range tags {
-			if tag == oldName {
-				tags[j] = newName
-				changed = true
-				break
-			}
-		}
-		if changed {
-			updates = append(updates, idTags{id, tags})
+		newTags := modifier(unmarshalTags(tagsJSON))
+		if newTags != nil {
+			updates = append(updates, idTags{id, newTags})
 		}
 	}
 	rows.Close()
@@ -700,55 +685,35 @@ func (h *History) RenameTag(oldName, newName string) int {
 	count := 0
 	for _, u := range updates {
 		if _, err := tx.Exec("UPDATE history_entries SET tags = ? WHERE id = ?", marshalTags(u.tags), u.id); err != nil {
-			logError("RenameTag update %s: %v", u.id, err)
+			logError("%s update %s: %v", label, u.id, err)
 			return 0
 		}
 		count++
 	}
 
 	if err := tx.Commit(); err != nil {
-		logError("RenameTag commit: %v", err)
+		logError("%s commit: %v", label, err)
 		return 0
 	}
 	return count
 }
 
+// RenameTag renames a tag across all entries that have it.
+func (h *History) RenameTag(oldName, newName string) int {
+	return h.updateTagEntries("RenameTag", oldName, func(tags []string) []string {
+		for j, tag := range tags {
+			if tag == oldName {
+				tags[j] = newName
+				return tags
+			}
+		}
+		return nil
+	})
+}
+
 // DeleteTag removes a tag from all entries that have it.
 func (h *History) DeleteTag(tagName string) int {
-	if h.db == nil {
-		return 0
-	}
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
-
-	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(tagName)
-	pattern := `%"` + escaped + `"%`
-
-	tx, err := h.db.Begin()
-	if err != nil {
-		logError("DeleteTag begin tx: %v", err)
-		return 0
-	}
-	defer tx.Rollback()
-
-	rows, err := tx.Query("SELECT id, tags FROM history_entries WHERE tags LIKE ? ESCAPE '\\'", pattern)
-	if err != nil {
-		logError("DeleteTag query: %v", err)
-		return 0
-	}
-
-	type idTags struct {
-		id   string
-		tags []string
-	}
-	var updates []idTags
-	for rows.Next() {
-		var id, tagsJSON string
-		if err := rows.Scan(&id, &tagsJSON); err != nil {
-			continue
-		}
-		tags := unmarshalTags(tagsJSON)
+	return h.updateTagEntries("DeleteTag", tagName, func(tags []string) []string {
 		filtered := make([]string, 0, len(tags))
 		for _, tag := range tags {
 			if tag != tagName {
@@ -756,25 +721,10 @@ func (h *History) DeleteTag(tagName string) int {
 			}
 		}
 		if len(filtered) < len(tags) {
-			updates = append(updates, idTags{id, filtered})
+			return filtered
 		}
-	}
-	rows.Close()
-
-	count := 0
-	for _, u := range updates {
-		if _, err := tx.Exec("UPDATE history_entries SET tags = ? WHERE id = ?", marshalTags(u.tags), u.id); err != nil {
-			logError("DeleteTag update %s: %v", u.id, err)
-			return 0
-		}
-		count++
-	}
-
-	if err := tx.Commit(); err != nil {
-		logError("DeleteTag commit: %v", err)
-		return 0
-	}
-	return count
+		return nil
+	})
 }
 
 // --- Project management ---
@@ -987,9 +937,7 @@ func (h *History) Merge(ids []string) string {
 		return ""
 	}
 
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
 	// Build placeholder query
 	placeholders := make([]string, len(ids))
@@ -1148,9 +1096,7 @@ func (h *History) GetByID(id string) *HistoryEntry {
 
 // AddSmart creates a new entry with the given text, language, and tags.
 func (h *History) AddSmart(text, language string, tags []string) {
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
 	if h.db == nil {
 		return
@@ -1180,9 +1126,7 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 	// Collect IDs that will be deleted (for audio cleanup)
 	var deletedIDs []string
 
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
 	// Archived entries are always excluded from cleanup
 	protectFilter := " AND archived = 0"
@@ -1268,9 +1212,7 @@ func (h *History) DuplicateEntry(id string) bool {
 		return false
 	}
 
-	h.mu.Lock()
-	h.cache = nil
-	h.mu.Unlock()
+	h.invalidateCache()
 
 	dup := *e
 	dup.ID = generateID()

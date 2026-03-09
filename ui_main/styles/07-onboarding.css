@@ -7,7 +7,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn var(--duration-normal) ease;
 }
 
 .onboarding-card {
@@ -50,7 +50,7 @@
 }
 
 .onboarding-icon-success {
-  background: linear-gradient(135deg, #10b981, color-mix(in srgb, #10b981, transparent 60%));
+  background: linear-gradient(135deg, var(--success), color-mix(in srgb, var(--success), transparent 60%));
 }
 
 .onboarding-title {
@@ -82,7 +82,7 @@
   border: 2px solid var(--border-primary);
   border-radius: 12px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast) ease;
   text-align: left;
 }
 
@@ -152,7 +152,7 @@
   height: 8px;
   border-radius: 50%;
   background: var(--border-primary);
-  transition: background 0.2s;
+  transition: background var(--transition-fast);
 }
 
 .onboarding-dots .dot.active {
@@ -199,7 +199,7 @@
   border-radius: 8px;
   color: var(--text-primary);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--transition-fast);
   box-sizing: border-box;
 }
 .onboarding-apikey-field input:focus {
@@ -215,7 +215,7 @@
   color: var(--text-primary);
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 .onb-test-key-btn:hover { background: var(--bg-hover); border-color: var(--accent); }
 .onb-test-key-btn:disabled { opacity: 0.5; cursor: wait; }
@@ -233,8 +233,8 @@
   min-height: 18px;
   text-align: center;
 }
-.onb-api-feedback.success { color: var(--success, #34D399); }
-.onb-api-feedback.error { color: var(--error, #FF3C3C); }
+.onb-api-feedback.success { color: var(--success); }
+.onb-api-feedback.error { color: var(--error); }
 .onboarding-apikey-section small {
   font-size: 11px;
   color: var(--text-tertiary);
@@ -274,7 +274,7 @@
   border: 2px solid var(--border-primary);
   border-radius: 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast) ease;
   text-align: left;
 }
 .onb-model-card:hover {
@@ -334,7 +334,7 @@
   width: 0%;
   background: var(--accent);
   border-radius: 3px;
-  transition: width 0.3s ease;
+  transition: width var(--transition-normal) ease;
 }
 .onb-progress-label {
   font-size: 11px;

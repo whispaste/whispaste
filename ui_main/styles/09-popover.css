@@ -20,7 +20,7 @@
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(12px);
+  backdrop-filter: var(--glass-blur);
   padding: var(--space-1) 0;
   animation: wp-popover-in var(--duration-fast) var(--ease-out) both;
   overscroll-behavior: contain;
@@ -127,23 +127,23 @@
   transition: all var(--transition-fast);
 }
 .wp-popover-toggle.on {
-  background: var(--accent, #06b6d4);
-  border-color: var(--accent, #06b6d4);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--bg-primary);
 }
 .wp-popover-toggle:hover { opacity: 0.85; }
 
 /* ── Checked item ────────────────────────────────────── */
 .wp-popover-item.checked {
-  color: var(--accent, #06b6d4);
+  color: var(--accent);
   font-weight: 500;
 }
 .wp-popover-item.checked .icon {
-  color: var(--accent, #06b6d4);
+  color: var(--accent);
 }
 .wp-popover-check {
   flex-shrink: 0;
-  color: var(--accent, #06b6d4);
+  color: var(--accent);
 }
 .wp-popover-check .icon,
 .wp-popover-check svg {
@@ -159,7 +159,7 @@
 }
 .wp-popover-footer-link {
   font-size: var(--text-sm);
-  color: var(--accent, #06b6d4);
+  color: var(--accent);
   cursor: pointer;
   text-decoration: none;
 }
@@ -173,4 +173,18 @@
   background: var(--bg-secondary);
   border-color: var(--border-secondary);
   box-shadow: var(--shadow-lg);
+}
+
+/* ── Model Switcher (merged from 05-model-switch) ────── */
+.model-switcher {
+  min-width: 240px;
+  max-width: 320px;
+}
+
+/* ── Model Description (settings list) ────────────────── */
+.model-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  line-height: 1.3;
 }

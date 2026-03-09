@@ -205,8 +205,8 @@ func (fb *FloatingButton) dpiScale() float64 {
 // getSize returns the cached button diameter (thread-safe), scaled for DPI.
 func (fb *FloatingButton) getSize() int {
 	fb.mu.Lock()
+	defer fb.mu.Unlock()
 	s := fb.size
-	fb.mu.Unlock()
 	if s <= 0 {
 		s = _FLOAT_SIZE
 	}
@@ -238,20 +238,23 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		// Record window position before the system's modal move loop starts
 		var rc rectT
 		procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
-		fb.mu.Lock()
-		fb.dragStartX = rc.Left
-		fb.dragStartY = rc.Top
-		fb.mu.Unlock()
+		func() {
+			fb.mu.Lock()
+			defer fb.mu.Unlock()
+			fb.dragStartX = rc.Left
+			fb.dragStartY = rc.Top
+		}()
 		// DefWindowProc enters a modal move loop and blocks until the
 		// mouse button is released. After it returns we check whether
 		// the window actually moved — if not, treat it as a click.
 		ret, _, _ := procDefWindowProcW.Call(hwnd, msg, wParam, lParam)
 		var rc2 rectT
 		procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&rc2)))
-		fb.mu.Lock()
-		wasDrag := rc2.Left != fb.dragStartX || rc2.Top != fb.dragStartY
-		cb := fb.onStartRecording
-		fb.mu.Unlock()
+		wasDrag, cb := func() (bool, func()) {
+			fb.mu.Lock()
+			defer fb.mu.Unlock()
+			return rc2.Left != fb.dragStartX || rc2.Top != fb.dragStartY, fb.onStartRecording
+		}()
 		if !wasDrag && cb != nil {
 			procPostMessageW.Call(hwnd, _WM_FLOAT_HIDE, 0, 0)
 			go cb()
@@ -268,31 +271,36 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		return 0
 
 	case _WM_MOUSEMOVE:
-		fb.mu.Lock()
-		wasHovered := fb.hovered
-		fb.hovered = true
-		fb.targetOpacity = _FLOAT_OPACITY_HOVER
-		if !fb.tracking {
-			fb.tracking = true
-			tme := trackMouseEventT{
-				CbSize:    uint32(unsafe.Sizeof(trackMouseEventT{})),
-				DwFlags:   _TME_LEAVE,
-				HwndTrack: hwnd,
+		wasHovered := func() bool {
+			fb.mu.Lock()
+			defer fb.mu.Unlock()
+			was := fb.hovered
+			fb.hovered = true
+			fb.targetOpacity = _FLOAT_OPACITY_HOVER
+			if !fb.tracking {
+				fb.tracking = true
+				tme := trackMouseEventT{
+					CbSize:    uint32(unsafe.Sizeof(trackMouseEventT{})),
+					DwFlags:   _TME_LEAVE,
+					HwndTrack: hwnd,
+				}
+				procTrackMouseEvent.Call(uintptr(unsafe.Pointer(&tme)))
 			}
-			procTrackMouseEvent.Call(uintptr(unsafe.Pointer(&tme)))
-		}
-		fb.mu.Unlock()
+			return was
+		}()
 		if !wasHovered {
 			procSetTimer.Call(hwnd, _FLOAT_TIMER_ID, _FLOAT_TIMER_MS, 0)
 		}
 		return 0
 
 	case _WM_MOUSELEAVE:
-		fb.mu.Lock()
-		fb.hovered = false
-		fb.tracking = false
-		fb.targetOpacity = _FLOAT_OPACITY_IDLE
-		fb.mu.Unlock()
+		func() {
+			fb.mu.Lock()
+			defer fb.mu.Unlock()
+			fb.hovered = false
+			fb.tracking = false
+			fb.targetOpacity = _FLOAT_OPACITY_IDLE
+		}()
 		return 0
 
 	case _WM_MOVE:
@@ -301,10 +309,11 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 	case _WM_TIMER:
 		if wParam == _FLOAT_TIMER_ID {
-			fb.mu.Lock()
-			target := fb.targetOpacity
-			current := fb.opacity
-			fb.mu.Unlock()
+			target, current := func() (byte, byte) {
+				fb.mu.Lock()
+				defer fb.mu.Unlock()
+				return fb.targetOpacity, fb.opacity
+			}()
 
 			if current != target {
 				if current < target {
@@ -322,15 +331,19 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 						}
 					}
 				}
-				fb.mu.Lock()
-				fb.opacity = current
-				fb.mu.Unlock()
+				func() {
+					fb.mu.Lock()
+					defer fb.mu.Unlock()
+					fb.opacity = current
+				}()
 				fb.render()
 			} else {
 				// Stop timer when target reached and not hovered
-				fb.mu.Lock()
-				h := fb.hovered
-				fb.mu.Unlock()
+				h := func() bool {
+					fb.mu.Lock()
+					defer fb.mu.Unlock()
+					return fb.hovered
+				}()
 				if !h {
 					procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
 				}
@@ -341,9 +354,11 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	case _WM_COMMAND:
 		switch int(wParam & 0xFFFF) {
 		case _FLOAT_MENU_SETTINGS:
-			fb.mu.Lock()
-			cb := fb.onShowSettings
-			fb.mu.Unlock()
+			cb := func() func() {
+				fb.mu.Lock()
+				defer fb.mu.Unlock()
+				return fb.onShowSettings
+			}()
 			if cb != nil {
 				go cb()
 			}
@@ -453,9 +468,9 @@ func NewFloatingButton(c *Config) (*FloatingButton, error) {
 // SetCallbacks sets the floating button callbacks (thread-safe).
 func (fb *FloatingButton) SetCallbacks(onStart func(), onSettings func()) {
 	fb.mu.Lock()
+	defer fb.mu.Unlock()
 	fb.onStartRecording = onStart
 	fb.onShowSettings = onSettings
-	fb.mu.Unlock()
 }
 
 // Show displays the floating button.
@@ -494,10 +509,13 @@ func (fb *FloatingButton) UpdateSize() {
 		return
 	}
 	newSize := fb.cfg.GetFloatingButtonSize()
-	fb.mu.Lock()
-	changed := fb.size != newSize
-	fb.size = newSize
-	fb.mu.Unlock()
+	changed := func() bool {
+		fb.mu.Lock()
+		defer fb.mu.Unlock()
+		c := fb.size != newSize
+		fb.size = newSize
+		return c
+	}()
 	if changed {
 		// Post a custom message to rebuild DIB and resize on the window thread
 		procPostMessageW.Call(fb.hwnd, _WM_FLOAT_RESIZE, 0, 0)
@@ -632,10 +650,11 @@ func (fb *FloatingButton) render() {
 	// Clear to transparent
 	procGdipGraphicsClear.Call(g, 0x00000000)
 
-	fb.mu.Lock()
-	hovered := fb.hovered
-	alpha := fb.opacity
-	fb.mu.Unlock()
+	hovered, alpha := func() (bool, byte) {
+		fb.mu.Lock()
+		defer fb.mu.Unlock()
+		return fb.hovered, fb.opacity
+	}()
 
 	a := uint32(alpha)
 	preset := getFloatPreset(fb.cfg.GetFloatingButtonColor())
@@ -768,13 +787,18 @@ func (fb *FloatingButton) drawMicIcon(g uintptr, alpha uint32) {
 func (fb *FloatingButton) onWindowMoved() {
 	// Debounce: save at most every 500ms
 	now := time.Now()
-	fb.mu.Lock()
-	if now.Sub(fb.lastMoveSave) < 500*time.Millisecond {
-		fb.mu.Unlock()
+	shouldSave := func() bool {
+		fb.mu.Lock()
+		defer fb.mu.Unlock()
+		if now.Sub(fb.lastMoveSave) < 500*time.Millisecond {
+			return false
+		}
+		fb.lastMoveSave = now
+		return true
+	}()
+	if !shouldSave {
 		return
 	}
-	fb.lastMoveSave = now
-	fb.mu.Unlock()
 
 	var rc rectT
 	procGetWindowRect.Call(fb.hwnd, uintptr(unsafe.Pointer(&rc)))

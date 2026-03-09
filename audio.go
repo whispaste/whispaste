@@ -3,11 +3,29 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"sync"
 
 	"github.com/gen2brain/malgo"
 )
+
+// applyGain scales 16-bit PCM samples in place by the given gain factor,
+// clamping to the int16 range.
+func applyGain(samples []byte, gain float64) {
+	if gain == 1.0 {
+		return
+	}
+	for i := 0; i+1 < len(samples); i += 2 {
+		s := float64(int16(binary.LittleEndian.Uint16(samples[i:i+2]))) * gain
+		if s > 32767 {
+			s = 32767
+		} else if s < -32768 {
+			s = -32768
+		}
+		binary.LittleEndian.PutUint16(samples[i:i+2], uint16(int16(s)))
+	}
+}
 
 // Recorder captures microphone audio via miniaudio.
 type Recorder struct {
@@ -76,17 +94,7 @@ func (r *Recorder) Start() error {
 			g := r.gain
 			r.mu.Unlock()
 			// Apply gain to samples for both recording and level computation
-			if g != 1.0 {
-				for i := 0; i+1 < len(pInputSamples); i += 2 {
-					s := float64(int16(binary.LittleEndian.Uint16(pInputSamples[i:i+2]))) * g
-					if s > 32767 {
-						s = 32767
-					} else if s < -32768 {
-						s = -32768
-					}
-					binary.LittleEndian.PutUint16(pInputSamples[i:i+2], uint16(int16(s)))
-				}
-			}
+			applyGain(pInputSamples, g)
 			if active {
 				r.mu.Lock()
 				r.buf.Write(pInputSamples)
@@ -98,12 +106,12 @@ func (r *Recorder) Start() error {
 
 	device, err := malgo.InitDevice(r.ctx.Context, deviceConfig, callbacks)
 	if err != nil {
-		return err
+		return fmt.Errorf("Start: init device: %w", err)
 	}
 
 	if err := device.Start(); err != nil {
 		device.Uninit()
-		return err
+		return fmt.Errorf("Start: start device: %w", err)
 	}
 
 	r.device = device
@@ -190,29 +198,19 @@ func (r *Recorder) StartMonitor() error {
 			r.mu.Lock()
 			g := r.gain
 			r.mu.Unlock()
-			if g != 1.0 {
-				for i := 0; i+1 < len(pInputSamples); i += 2 {
-					s := float64(int16(binary.LittleEndian.Uint16(pInputSamples[i:i+2]))) * g
-					if s > 32767 {
-						s = 32767
-					} else if s < -32768 {
-						s = -32768
-					}
-					binary.LittleEndian.PutUint16(pInputSamples[i:i+2], uint16(int16(s)))
-				}
-			}
+			applyGain(pInputSamples, g)
 			r.computeLevel(pInputSamples)
 		},
 	}
 
 	device, err := malgo.InitDevice(r.ctx.Context, deviceConfig, callbacks)
 	if err != nil {
-		return err
+		return fmt.Errorf("StartMonitor: init device: %w", err)
 	}
 
 	if err := device.Start(); err != nil {
 		device.Uninit()
-		return err
+		return fmt.Errorf("StartMonitor: start device: %w", err)
 	}
 
 	r.monDevice = device
@@ -251,25 +249,30 @@ func (r *Recorder) stopMonitorLocked() {
 // Close releases all audio resources. Safe to call multiple times.
 func (r *Recorder) Close() {
 	r.closeOnce.Do(func() {
-		r.mu.Lock()
-		if r.monitoring && r.monDevice != nil {
-			r.monitoring = false
-			monDevice := r.monDevice
-			r.monDevice = nil
-			r.mu.Unlock()
+		// Copy device references under lock, then stop outside lock
+		var monDevice, device *malgo.Device
+		func() {
+			r.mu.Lock()
+			defer r.mu.Unlock()
+			if r.monitoring && r.monDevice != nil {
+				r.monitoring = false
+				monDevice = r.monDevice
+				r.monDevice = nil
+			}
+			if r.recording && r.device != nil {
+				r.recording = false
+				device = r.device
+				r.device = nil
+			}
+		}()
+
+		if monDevice != nil {
 			monDevice.Stop()
 			monDevice.Uninit()
-			r.mu.Lock()
 		}
-		if r.recording && r.device != nil {
-			r.recording = false
-			device := r.device
-			r.device = nil
-			r.mu.Unlock()
+		if device != nil {
 			device.Stop()
 			device.Uninit()
-		} else {
-			r.mu.Unlock()
 		}
 
 		if r.ctx != nil {

@@ -165,7 +165,7 @@
   // Auto-load when page becomes visible
   const observer = new MutationObserver(() => {
     const page = document.getElementById('page-replacements');
-    if (page && page.style.display !== 'none') {
+    if (page && !page.classList.contains('hidden')) {
       loadReplacements();
     }
   });
