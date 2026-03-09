@@ -60,7 +60,7 @@
     try {
       await window.setTextReplacements(JSON.stringify(replacements));
     } catch (e) {
-      console.error('Save replacements failed:', e);
+      showToast(t('saveError') || 'Failed to save', true);
     }
   }
 

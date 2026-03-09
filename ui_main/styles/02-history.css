@@ -58,7 +58,7 @@
 .mode-badge.mode-local {
   background: var(--success-bg);
   color: var(--success);
-  border-color: rgba(16, 185, 129, 0.25);
+  border-color: var(--success-border);
 }
 
 /* ── History Layout (filter sidebar + entries) ────────── */
@@ -973,13 +973,13 @@
 
 /* ── Search Highlighting ──────────────────────────────── */
 .search-hl {
-  background: rgba(234, 179, 8, 0.25);
+  background: var(--warning-bg);
   color: inherit;
   border-radius: 2px;
   padding: 0 1px;
 }
 [data-theme="dark"] .search-hl {
-  background: rgba(234, 179, 8, 0.3);
+  background: var(--warning-bg);
 }
 
 /* ── Search Help Button ───────────────────────────────── */

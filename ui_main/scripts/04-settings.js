@@ -822,7 +822,7 @@ async function loadAudioDevices() {
       sel.appendChild(opt);
     });
   } catch (e) {
-    console.error('Failed to load audio devices:', e);
+    showToast(t('audioDeviceError') || 'Failed to load audio devices', true);
   }
 }
 
@@ -898,7 +898,7 @@ async function renderModelList() {
       const result = await window._getModels();
       models = typeof result === 'string' ? JSON.parse(result) : result;
     } catch (e) {
-      console.error('Failed to get models:', e);
+      showToast(t('modelLoadError') || 'Failed to load models', true);
     }
   }
   

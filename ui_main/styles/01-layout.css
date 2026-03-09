@@ -317,8 +317,8 @@
 }
 .status-heart:hover {
   opacity: 0.85;
-  color: #c27a7a;
-  background: color-mix(in srgb, #c27a7a 8%, transparent);
+  color: var(--error);
+  background: var(--error-bg);
 }
 
 /* Status message (shared with settings save feedback) */
