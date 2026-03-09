@@ -2,11 +2,19 @@
 import "../styles/global.css";
 
 interface Props {
-  title: string;
+  title?: string;
   description?: string;
+  ogImage?: string;
 }
 
-const { title, description = "Voice to text, pasted anywhere. A lightweight Windows tool that transcribes speech with OpenAI Whisper and pastes the result into any input field." } = Astro.props;
+const {
+  title = 'WhisPaste — Voice to text, pasted anywhere',
+  description = 'A lightweight Windows desktop tool that transcribes your speech and pastes the text anywhere. Free, open source, and privacy-first.',
+  ogImage = '/whispaste/og-image.png',
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, 'https://whispaste.github.io');
+const ogImageURL = new URL(ogImage, 'https://whispaste.github.io');
 ---
 
 <!doctype html>
@@ -18,7 +26,25 @@ const { title, description = "Voice to text, pasted anywhere. A lightweight Wind
     <meta name="theme-color" content="#1E2026" />
     <link rel="icon" type="image/png" href="/whispaste/app-icon.png" />
     <link rel="apple-touch-icon" href="/whispaste/app-icon.png" />
+    <link rel="sitemap" href="/whispaste/sitemap-index.xml" />
+    <link rel="canonical" href={canonicalURL.href} />
     <title>{title}</title>
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalURL.href} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImageURL.href} />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="de_DE" />
+    <meta property="og:site_name" content="WhisPaste" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageURL.href} />
     <script is:inline>
       (function(){
         var t = localStorage.getItem('whispaste-theme');
@@ -28,7 +54,7 @@ const { title, description = "Voice to text, pasted anywhere. A lightweight Wind
     </script>
   </head>
   <body class="antialiased">
-    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-brand-cyan focus:text-brand-darker focus:rounded-lg focus:font-semibold focus:shadow-lg">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-brand-cyan focus:text-brand-darker focus:rounded-lg focus:font-semibold focus:shadow-lg" data-i18n="nav.skip">
       Skip to content
     </a>
     <slot />
