@@ -19,23 +19,6 @@ import (
 	"github.com/whispaste/whispaste/internal/wav"
 )
 
-// savePendingEntry creates a pending history entry and caches the audio
-// when transcription fails or is cancelled.
-func savePendingEntry(h *History, pcm []byte, durationSec float64, lang, modelName string, isLocal bool, reason string) {
-	if len(pcm) < 9600 { // less than 0.3s of 16kHz 16-bit mono
-		logDebug("Audio too short for pending entry (%d bytes), skipping", len(pcm))
-		return
-	}
-	pendingID := h.AddPendingEntry(durationSec, lang, modelName, isLocal, T(reason))
-	if pendingID == "" {
-		return
-	}
-	if err := audiocache.Save(pendingID, pcm); err != nil {
-		logWarn("Save pending audio: %v", err)
-	}
-	logInfo("Created pending entry %s (reason: %s, duration: %.1fs)", pendingID, reason, durationSec)
-	NotifyHistoryChanged()
-}
 
 func main() {
 	// Single-instance guard: only one WhisPaste process at a time
@@ -1049,57 +1032,4 @@ func main() {
 	}
 
 	tray.Run() // blocks until quit
-}
-
-// enableDarkMode opts the process into Windows dark mode so native menus
-// (system tray context menu) follow the system theme. Uses uxtheme.dll
-// setAppUserModelID registers the application's AUMID so that
-// Shell_NotifyIconW toast notifications are not silently dropped
-// by Windows 10/11. Must be called before any notification code.
-func setAppUserModelID() {
-	shell32 := windows.NewLazySystemDLL("shell32.dll")
-	proc := shell32.NewProc("SetCurrentProcessExplicitAppUserModelID")
-	appID, _ := windows.UTF16PtrFromString("WhisPaste.WhisPaste")
-	hr, _, _ := proc.Call(uintptr(unsafe.Pointer(appID)))
-	if hr != 0 {
-		logWarn("SetCurrentProcessExplicitAppUserModelID failed: HRESULT 0x%X", hr)
-	} else {
-		logDebug("AUMID set: WhisPaste.WhisPaste")
-	}
-}
-
-// ordinals 135 (SetPreferredAppMode) and 136 (FlushMenuThemes).
-// Requires Windows 10 1903+; fails silently on older versions.
-func enableDarkMode() {
-	dll, err := windows.LoadDLL("uxtheme.dll")
-	if err != nil {
-		return
-	}
-	defer dll.Release()
-	if proc, err := dll.FindProcByOrdinal(135); err == nil {
-		proc.Call(1) // AllowDark
-	}
-	if proc, err := dll.FindProcByOrdinal(136); err == nil {
-		proc.Call()
-	}
-}
-
-// detectAndSetLanguage uses GetUserDefaultUILanguage to detect system locale.
-func detectAndSetLanguage() {
-	kernel32 := windows.NewLazySystemDLL("kernel32.dll")
-	proc := kernel32.NewProc("GetUserDefaultUILanguage")
-	langID, _, _ := proc.Call()
-	primaryLang := langID & 0xFF
-	if primaryLang == 0x07 {
-		SetLanguage("de")
-	}
-}
-
-// showError displays a Windows message box with an error.
-func showError(msg string) {
-	user32 := windows.NewLazySystemDLL("user32.dll")
-	proc := user32.NewProc("MessageBoxW")
-	title, _ := windows.UTF16PtrFromString(AppName)
-	text, _ := windows.UTF16PtrFromString(msg)
-	proc.Call(0, uintptr(unsafe.Pointer(text)), uintptr(unsafe.Pointer(title)), 0x10)
 }
