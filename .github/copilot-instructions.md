@@ -7,6 +7,12 @@
 - Records speech, transcribes via OpenAI Whisper API, and pastes text anywhere
 - Dependencies: malgo, systray, webview_go, hotkey, golang.org/x/sys/windows
 
+## Target Audience
+
+Menschen, die regelmäßig Gedanken, Notizen, Aufgaben oder Inhalte per Sprache oder Text erfassen und daraus schnell strukturierte, weiterverwendbare Ergebnisse machen möchten — unabhängig davon, ob sie technisch versiert sind oder nicht — von Power-Usern und Entwicklern bis zu Content Creatorn, Assistenzen, Selbstständigen und alltäglichen Vielschreibern.
+
+People who regularly capture thoughts, notes, tasks, or content via speech or text and want to quickly create structured, reusable results — regardless of technical skill level — from power users and developers to content creators, assistants, self-employed professionals, and everyday heavy writers.
+
 ## Build & Test
 
 - Build: `$env:CGO_ENABLED="1"; go build -ldflags="-s -w -H windowsgui" -o whispaste.exe .`

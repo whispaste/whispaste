@@ -26,8 +26,8 @@ well-crafted tool for a tech-savvy audience.
 
 | Dimension | Definition |
 |---|---|
-| **Users** | Content creators, developers, students, tech-savvy everyday users |
-| **Age range** | Primarily 18–45 |
+| **Users** | People who capture thoughts/notes/tasks via speech or text — power users, developers, content creators, assistants, self-employed, everyday writers (all skill levels) |
+| **Age range** | All ages — no restriction (core: 20–55) |
 | **Address form** | Informal **"du"** — NEVER "Sie/Ihnen/Ihr" in direct address |
 | **Tone** | Approachable, clear, professional, premium |
 | **Vibe** | Apple-level polish meets casual startup friendliness |
