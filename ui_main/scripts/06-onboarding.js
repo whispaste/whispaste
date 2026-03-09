@@ -41,6 +41,9 @@ function updateOnboardingStep() {
 function nextOnboardingStep() {
   if (_onboardingStep < 4) {
     _onboardingStep++;
+    if (_onboardingStep === 3 && _onboardingSmart === null) {
+      selectOnboardingSmart(true);
+    }
     if (_onboardingStep === 4) {
       const kbd = document.getElementById('onbHotkeyDisplay');
       if (kbd && window.getConfig) {
