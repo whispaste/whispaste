@@ -765,6 +765,11 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStat
 			return string(data), nil
 		})
 
+		// Bind: getArchivedCount → returns count of archived entries
+		w.Bind("getArchivedCount", func() int {
+			return history.ArchivedCount()
+		})
+
 		// Bind: updateEntry → update title/tags (tags as JSON array string)
 		w.Bind("updateEntry", func(id, title, tagsJSON string) bool {
 			var tags []string

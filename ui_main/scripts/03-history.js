@@ -159,9 +159,11 @@ async function loadEntries() {
     if (_activeFilters.archived && window.getArchivedEntries) {
       const json = await window.getArchivedEntries();
       _entries = JSON.parse(json);
+      if (!_entries) _entries = [];
     } else if (window.getEntries) {
       const json = await window.getEntries();
       _entries = JSON.parse(json);
+      if (!_entries) _entries = [];
     }
   } catch (e) { _entries = []; }
   await _refreshCustomTags();
@@ -313,7 +315,12 @@ function updateCounts() {
   setCount('countWeek', scoped.filter(e => isThisWeek(e.timestamp)).length);
   setCount('countOlder', scoped.filter(e => !isThisWeek(e.timestamp)).length);
 
-  // Dynamic categories (include persisted custom tags with count 0 only when unfiltered)
+  // Archived count (separate query since archived entries are loaded from different endpoint)
+  if (window.getArchivedCount) {
+    window.getArchivedCount().then(c => setCount('countArchived', c));
+  }
+
+  // Dynamic categories(include persisted custom tags with count 0 only when unfiltered)
   const cats = {};
   if (_activeFilters.project === null) _loadCustomTagsInto(cats);
   scoped.forEach(e => { (e.tags || []).forEach(tag => { cats[tag] = (cats[tag] || 0) + 1; }); });
