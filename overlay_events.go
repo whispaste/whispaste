@@ -171,6 +171,10 @@ o.levels[i] = 0
 }
 o.levelIdx = 0
 }
+if o.state == StateTranscribing {
+o.transcribeStart = time.Now()
+o.estimatedSec = 0
+}
 pos := o.position
 o.visible = true
 o.mu.Unlock()
