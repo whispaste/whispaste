@@ -241,6 +241,29 @@
   text-align: center;
 }
 
+.onb-apikey-label {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+.onb-badge-recommended {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
 /* ── Onboarding: Smart Note ──────────────────────────── */
 .onboarding-smart-note {
   display: flex;
