@@ -416,11 +416,9 @@ function updateSmartModeVisibility() {
   const howto = document.getElementById('smart-howto');
   const appDetRow = document.getElementById('smart-app-detection-row');
   const appNotice = document.getElementById('smart-app-active-notice');
-  const customTplSection = document.getElementById('smart-custom-templates-section');
   if (section) section.style.display = on ? '' : 'none';
   if (howto) howto.style.display = on ? '' : 'none';
   if (appDetRow) appDetRow.style.display = on ? '' : 'none';
-  if (customTplSection) customTplSection.style.display = on ? '' : 'none';
   if (!on && appNotice) appNotice.style.display = 'none';
   if (on) {
     updateSmartPresetVisibility();
