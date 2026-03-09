@@ -74,6 +74,7 @@ type Config struct {
 	VADSensitivity        float32                  `json:"vad_sensitivity"`
 	LastProjectID         string                   `json:"last_project_id,omitempty"`
 	SidebarWidth          int                      `json:"sidebar_width,omitempty"`
+	DeleteBehavior        string                   `json:"delete_behavior,omitempty"` // "delete" or "archive"
 	mu          sync.RWMutex
 }
 
@@ -745,6 +746,17 @@ func (c *Config) SetSidebarWidth(w int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.SidebarWidth = w
+}
+
+// GetDeleteBehavior returns the delete behavior setting (thread-safe).
+// Returns "delete" as default if not set.
+func (c *Config) GetDeleteBehavior() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.DeleteBehavior == "" {
+		return "delete"
+	}
+	return c.DeleteBehavior
 }
 
 // SetAppPresets replaces the app→preset mappings (thread-safe).

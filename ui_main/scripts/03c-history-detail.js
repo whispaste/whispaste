@@ -166,6 +166,8 @@ function startEditText(id) {
   const textEl = document.getElementById('text-' + id);
   const actionsEl = textEl?.nextElementSibling;
   if (!textEl) return;
+  const entryEl = textEl.closest('.entry');
+  if (entryEl) entryEl.setAttribute('draggable', 'false');
   const currentText = textEl.textContent;
   textEl.innerHTML = `<textarea class="edit-textarea" id="edit-area-${id}">${esc(currentText)}</textarea>`;
   if (actionsEl) {
