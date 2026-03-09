@@ -49,7 +49,7 @@ function nextOnboardingStep() {
           if (cfg) {
             const mods = cfg.hotkey_modifiers || ['Ctrl', 'Shift'];
             const key = cfg.hotkey_key || 'V';
-            kbd.textContent = mods.join('+') + '+' + key;
+            kbd.textContent = formatHotkeyParts([...mods, key]).join('+');
           }
         }).catch(() => {});
       }

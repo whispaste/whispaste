@@ -10,6 +10,22 @@ window.onunhandledrejection = function(ev) {
   else console.error('JS REJECTION:', detail);
 };
 
+/* ── Hotkey Localization ──────────────────────────────── */
+
+const _modKeyMap = { 'Ctrl': 'key.ctrl', 'Shift': 'key.shift', 'Alt': 'key.alt' };
+
+/** Translate a single modifier key name or a full combo string like "Ctrl+Shift+V" */
+function formatModKey(key) {
+  if (key.includes('+')) return key.split('+').map(formatModKey).join('+');
+  const tKey = _modKeyMap[key];
+  return tKey && typeof t === 'function' ? t(tKey) : key;
+}
+
+/** Translate an array of key names, returning a new localized array */
+function formatHotkeyParts(parts) {
+  return parts.map(formatModKey);
+}
+
 /* ── Utility Functions ─────────────────────────────────── */
 
 const SYSTEM_TAGS = ['merged', 'duplicated', 'pending'];
@@ -126,7 +142,7 @@ function updateStatusBar(cfg) {
   const hotkeyChip = document.getElementById('statusHotkey');
   const mods = cfg.hotkey_modifiers || ['Ctrl', 'Shift'];
   const key = cfg.hotkey_key || 'V';
-  if (hotkeyLabel) hotkeyLabel.textContent = mods.join('+') + '+' + key;
+  if (hotkeyLabel) hotkeyLabel.textContent = formatHotkeyParts([...mods, key]).join('+');
   if (hotkeyChip) hotkeyChip.title = t('statusbar.hotkey_tip');
 
   // Smart Mode chip
@@ -146,12 +162,7 @@ function updateStatusBar(cfg) {
     }
   }
 
-  // Version chip
-  const versionLabel = document.getElementById('statusVersionLabel');
-  if (versionLabel) {
-    const ver = (translations[_currentUILang] && translations[_currentUILang]['app.version']) || 'v' + (window._appVersion || '0.1.1-alpha');
-    versionLabel.textContent = ver;
-  }
+  // Version chip removed — version is shown on the About page
 }
 
 /** Navigate to settings page and scroll to a specific section */
