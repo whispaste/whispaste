@@ -133,6 +133,35 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		return map[string]interface{}{"success": true, "text": strings.TrimSpace(text), "error": ""}
 	})
 
+	// Test a specific STT model by transcribing 1 second of silence.
+	// Validates the model loads and the recognizer pipeline works end-to-end.
+	w.Bind("_testSTTModel", func(modelID string) map[string]interface{} {
+		logInfo("STT model test started for %s", modelID)
+		modelDir, err := models.GetDir(modelID)
+		if err != nil {
+			logError("STT model test: model dir: %v", err)
+			return map[string]interface{}{"success": false, "error": err.Error()}
+		}
+
+		// Generate 1 second of silence at 16 kHz, 16-bit mono (32000 bytes)
+		silentPCM := make([]byte, 32000)
+
+		lang := cfg.Language
+		if lang == "" {
+			lang = "en"
+		}
+
+		// Use the panic-safe singleton recognizer (has defer/recover protection)
+		text, err := GetLocalRecognizer().Transcribe(silentPCM, 16000, lang, modelDir)
+		if err != nil {
+			logError("STT model test failed: %v", err)
+			return map[string]interface{}{"success": false, "error": err.Error()}
+		}
+
+		logInfo("STT model test passed for %s (result: %q)", modelID, text)
+		return map[string]interface{}{"success": true, "text": strings.TrimSpace(text)}
+	})
+
 	w.Bind("_testSound", func() { PlayFeedback(SoundSuccess) })
 
 	w.Bind("testNotification", func() {
