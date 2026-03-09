@@ -112,6 +112,12 @@ func TestHTMLTemplateValid(t *testing.T) {
 	if strings.Contains(html, "/* {{SCRIPTS}} */") {
 		t.Error("JS placeholder was not replaced")
 	}
+	if strings.Contains(html, "<!-- {{PAGES}} -->") {
+		t.Error("Pages placeholder was not replaced")
+	}
+	if !strings.Contains(html, "page-history") {
+		t.Error("Missing history page content after assembly")
+	}
 	if !strings.Contains(html, "<html") {
 		t.Error("Missing <html> tag")
 	}
