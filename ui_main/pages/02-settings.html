@@ -1,5 +1,5 @@
     <!-- Page: Settings -->
-    <div class="page" id="page-settings" class="hidden">
+    <div class="page hidden" id="page-settings">
       <div class="page-header">
         <h2 class="page-title" data-i18n="settingsTitle">Settings</h2>
       </div>
@@ -253,7 +253,7 @@
                 </div>
                 <button class="btn btn-secondary btn-sm" id="btn-change-hotkey" onclick="startHotkeyRecording()" data-i18n="btnChangeHotkey">Change</button>
               </div>
-              <div class="hotkey-recorder" id="hotkey-recorder" class="hidden">
+              <div class="hotkey-recorder hidden" id="hotkey-recorder">
                 <div class="hotkey-recorder-text" data-i18n="hotkeyRecording">Press your desired key combination…</div>
                 <div class="hotkey-recorder-preview" id="hotkey-preview"></div>
                 <div class="hotkey-recorder-actions">
@@ -339,7 +339,7 @@
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
                 <span data-i18n="btnTestAudio">Test Microphone</span>
               </button>
-              <div class="audio-level-meter" id="audioLevelMeter" class="hidden">
+              <div class="audio-level-meter hidden" id="audioLevelMeter">
                 <div class="audio-level-bar" id="audioLevelBar"></div>
               </div>
             </div>
@@ -368,7 +368,7 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
-            <div class="form-group" id="vad-sensitivity-row" class="hidden">
+            <div class="form-group hidden" id="vad-sensitivity-row">
               <label class="form-label" data-i18n="labelVADSensitivity">Sensitivity</label>
               <p class="form-hint" data-i18n="descVADSensitivity">Higher values detect quieter speech but may include more background noise</p>
               <div class="range-row">
