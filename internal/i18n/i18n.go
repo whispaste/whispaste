@@ -1,4 +1,4 @@
-package main
+package i18n
 
 import "sync"
 
@@ -6,6 +6,13 @@ var (
 	langMu      sync.RWMutex
 	currentLang = "en"
 )
+
+// Init injects the app version into translation strings.
+// Must be called before T() is used.
+func Init(appVersion string) {
+	translations["en"]["app.version"] = "v" + appVersion
+	translations["de"]["app.version"] = "v" + appVersion
+}
 
 // T returns the localized string for the given key.
 func T(key string) string {
@@ -47,7 +54,7 @@ var translations = map[string]map[string]string{
 		// App
 		"app.name":        "WhisPaste",
 		"app.description": "Voice to text, pasted anywhere",
-		"app.version":     "v" + AppVersion,
+		"app.version":     "",
 
 		// Tray menu
 		"tray.tooltip":   "WhisPaste – Voice to Text",
@@ -239,7 +246,7 @@ var translations = map[string]map[string]string{
 		// App
 		"app.name":        "WhisPaste",
 		"app.description": "Sprache zu Text, überall eingefügt",
-		"app.version":     "v" + AppVersion,
+		"app.version":     "",
 
 		// Tray menu
 		"tray.tooltip":   "WhisPaste – Sprache zu Text",

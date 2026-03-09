@@ -210,49 +210,58 @@ go build -ldflags="-s -w -H windowsgui" -o whispaste.exe .
 
 ```
 whispaste/
-├── main.go            # Entry point, state machine
-├── audio.go           # Microphone recording (miniaudio/WASAPI)
-├── audio_cache.go     # Audio caching with gzip compression
-├── api.go             # OpenAI Whisper API client
-├── offline.go         # Local Whisper transcription (sherpa-onnx)
-├── models.go          # Local model management (download, paths)
-├── wav.go             # PCM → WAV encoder
-├── paste.go           # Clipboard + SendInput (Ctrl+V)
-├── hotkey.go          # Global hotkey (PTT + toggle)
-├── overlay.go         # Recording overlay (GDI+ with per-pixel alpha)
-├── floating.go        # Floating desktop record button
-├── vad.go             # Voice Activity Detection (silence stripping)
-├── notification.go    # Windows toast notification support
-├── tray.go            # System tray icon, menu, history submenu
-├── ui.go              # Window management helpers
-├── ui_main.go         # Main dashboard window (WebView2 bindings)
-├── ui_log.go          # Log viewer window (WebView2)
-├── ui_main/           # Dashboard UI (HTML/CSS/JS, modular)
-│   ├── template.html  #   Page structure and layout
-│   ├── styles/        #   CSS modules (variables, layout, pages)
-│   └── scripts/       #   JS modules (translations, utils, pages)
-├── config.go          # Configuration management
-├── update.go          # Secure auto-updater (GitHub Releases)
-├── logger.go          # File-based logging with rotation
-├── l10n.go            # Localization (EN/DE)
-├── sound.go           # Audio feedback with volume control
-├── postprocess.go     # Smart Mode (GPT-4o-mini post-processing)
-├── history.go         # Transcription history with model/cost tracking
-├── history_db.go      # SQLite database layer (FTS5 full-text search)
-├── stats.go           # Usage statistics
-├── autostart.go       # Windows login autostart
-├── windowdetect.go    # Active window detection (Win32)
-├── llm.go             # Local LLM integration (llama-server)
-├── llm_download.go    # LLM model download manager
-├── export.go          # Export flows (TXT, MD, CSV, JSON, DOCX)
-├── types.go           # Shared types and constants
-├── build.ps1          # Build script
-├── installer/         # NSIS installer configuration
-│   └── whispaste.nsi  #   Windows Setup installer script
-├── msix/              # MSIX packaging (Microsoft Store)
-├── website/           # Landing page (Astro)
-├── LICENSE            # MIT License
-└── README.md          # This file
+├── internal/                ← Self-contained Go packages
+│   ├── audiocache/          #   Audio file caching with gzip compression
+│   ├── export/              #   Export flows (TXT, MD, CSV, JSON, DOCX)
+│   ├── i18n/                #   Localization (EN/DE translations)
+│   ├── models/              #   Local model management (download, paths)
+│   ├── stats/               #   Usage statistics
+│   └── wav/                 #   PCM → WAV encoder
+├── scripts/                 ← Build & review scripts
+│   ├── build.ps1            #   Production build script
+│   └── review.ps1           #   Code review script
+├── resources/               ← Embedded assets (sounds, icons, debug logos)
+├── ui_main/                 ← Dashboard UI (HTML/CSS/JS, modular)
+│   ├── template.html        #   Page structure and layout
+│   ├── pages/               #   Page partials (01-history through 06-about)
+│   ├── components/          #   Reusable UI components
+│   ├── styles/              #   CSS modules (variables, layout, pages)
+│   └── scripts/             #   JS modules (translations, utils, pages)
+├── installer/               ← NSIS installer configuration
+│   └── whispaste.nsi        #   Windows Setup installer script
+├── msix/                    ← MSIX packaging (Microsoft Store)
+├── website/                 ← Landing page (Astro)
+├── winres/                  ← Windows resource embedding
+├── main.go                  # Entry point, state machine
+├── audio.go                 # Microphone recording (miniaudio/WASAPI)
+├── api.go                   # OpenAI Whisper API client
+├── offline.go               # Local Whisper transcription (sherpa-onnx)
+├── paste.go                 # Clipboard + SendInput (Ctrl+V)
+├── hotkey.go                # Global hotkey (PTT + toggle)
+├── overlay.go               # Recording overlay (GDI+ with per-pixel alpha)
+├── floating.go              # Floating desktop record button
+├── vad.go                   # Voice Activity Detection (silence stripping)
+├── notification.go          # Windows toast notification support
+├── tray.go                  # System tray icon, menu, history submenu
+├── ui.go                    # Window management helpers
+├── ui_main.go               # Main dashboard window (WebView2 bindings)
+├── ui_log.go                # Log viewer window (WebView2)
+├── ui_components.go         # Reusable Go UI component generators
+├── config.go                # Configuration management
+├── update.go                # Secure auto-updater (GitHub Releases)
+├── logger.go                # File-based logging with rotation
+├── l10n_bridge.go           # T() bridge to internal/i18n
+├── sound.go                 # Audio feedback with volume control
+├── postprocess.go           # Smart Mode (GPT-4o-mini post-processing)
+├── history.go               # Transcription history with model/cost tracking
+├── history_db.go            # SQLite database layer (FTS5 full-text search)
+├── autostart.go             # Windows login autostart
+├── windowdetect.go          # Active window detection (Win32)
+├── llm.go                   # Local LLM integration (llama-server)
+├── llm_download.go          # LLM model download manager
+├── types.go                 # Shared types and constants
+├── LICENSE                  # MIT License
+└── README.md                # This file
 ```
 
 <br>

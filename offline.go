@@ -9,6 +9,8 @@ import (
 	"time"
 
 	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
+
+	"github.com/whispaste/whispaste/internal/models"
 )
 
 // numThreads returns a safe thread count for sherpa-onnx.
@@ -99,19 +101,19 @@ func TranscribeLocal(pcmS16 []byte, sampleRate int, language string, modelDir st
 	return strings.TrimSpace(result.Text), nil
 }
 
-// findModelByDir returns the ModelInfo whose ID matches the last path component of dir.
-func findModelByDir(dir string) *ModelInfo {
+// findModelByDir returns the Info whose ID matches the last path component of dir.
+func findModelByDir(dir string) *models.Info {
 	base := filepath.Base(dir)
-	for i := range AvailableModels {
-		if AvailableModels[i].ID == base {
-			return &AvailableModels[i]
+	for i := range models.Available {
+		if models.Available[i].ID == base {
+			return &models.Available[i]
 		}
 	}
 	return nil
 }
 
 // resolveModelFiles returns full paths for encoder, decoder, and tokens files.
-func resolveModelFiles(m *ModelInfo, dir string) (encoder, decoder, tokens string) {
+func resolveModelFiles(m *models.Info, dir string) (encoder, decoder, tokens string) {
 	for _, f := range m.Files {
 		path := filepath.Join(dir, f)
 		switch {

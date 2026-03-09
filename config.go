@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/whispaste/whispaste/internal/models"
 )
 
 // Config holds all application settings.
@@ -384,7 +386,7 @@ func (c *Config) HasAnyModel() bool {
 	if c.HasAPIKey() {
 		return true
 	}
-	return len(ListDownloadedModels()) > 0
+	return len(models.ListDownloaded()) > 0
 }
 
 // GetActiveModelLocal returns whether the currently selected model is local (thread-safe).

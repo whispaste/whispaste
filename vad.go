@@ -7,6 +7,8 @@ import (
 	"sync"
 
 	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
+
+	"github.com/whispaste/whispaste/internal/models"
 )
 
 const (
@@ -57,7 +59,7 @@ func (v *VADProcessor) ensureModel() (string, error) {
 
 	logInfo("Downloading Silero VAD model...")
 	var lastPct int = -1
-	if err := downloadModelFile(vadModelURL, dest, func(downloaded, total int64) {
+	if err := models.DownloadFile(vadModelURL, dest, func(downloaded, total int64) {
 		if total <= 0 {
 			total = vadModelSize
 		}
