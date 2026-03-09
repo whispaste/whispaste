@@ -440,6 +440,15 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 			PlayFeedback(SoundSuccess)
 		})
 
+		// Bind: testNotification → fires a test balloon notification
+		w.Bind("testNotification", func() {
+			if t := globalTrayRef; t != nil {
+				t.ShowBalloon("WhisPaste", T("balloon.test"))
+			} else {
+				logWarn("testNotification: no tray reference available")
+			}
+		})
+
 		// Bind: _testApiKey → validates an API key without recording
 		w.Bind("_testApiKey", func(key string) map[string]interface{} {
 			err := TestAPIKey(key, cfg.GetAPIEndpoint())

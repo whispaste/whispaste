@@ -196,5 +196,11 @@ func ensureStartMenuShortcut() {
 		return
 	}
 
-	logInfo("Created Start Menu shortcut with AUMID for toast notifications")
+	// Verify the .lnk file was actually written to disk
+	if _, err := os.Stat(lnkPath); err != nil {
+		logWarn("ensureStartMenuShortcut: file not found after Save: %v", err)
+		return
+	}
+
+	logInfo("Created Start Menu shortcut with AUMID for toast notifications: %s", lnkPath)
 }
