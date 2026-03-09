@@ -69,39 +69,8 @@
           </div>
         </div>
 
-        <!-- Disabled state -->
-        <div class="card smart-disabled-notice hidden" id="smart-disabled-notice">
-          <div class="notice-row">
-            <svg class="icon notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-            <div>
-              <p data-i18n="smartDisabledNotice">Smart Mode is currently disabled.</p>
-              <a href="#" onclick="switchToPage('page-settings'); setTimeout(function(){document.getElementById('section-ai')?.scrollIntoView({behavior:'smooth'})},100); return false;" data-i18n="smartEnableInSettings">Enable in Settings →</a>
-            </div>
-          </div>
-        </div>
-
         <!-- Preset Cards -->
         <div id="smart-mode-options" class="hidden">
-          <!-- Provider Info (read-only) — configured in Settings → AI & Models -->
-          <div class="card smart-provider-info" id="smart-provider-info">
-            <div class="smart-provider-row">
-              <div>
-                <span class="text-sm text-secondary" data-i18n="smartCurrentProvider">Current AI provider:</span>
-                <span class="llm-badge ready" id="smart-provider-badge">Auto</span>
-              </div>
-              <a href="#" class="text-sm" onclick="switchToPage('page-settings'); setTimeout(function(){document.getElementById('section-ai')?.scrollIntoView({behavior:'smooth'})},100); return false;" data-i18n="settingsAiChangeProvider">Change in Settings →</a>
-            </div>
-          </div>
-
-          <!-- Fallback Template -->
-          <div class="card" id="smart-fallback-row" style="margin-top:16px">
-            <div class="card-title" data-i18n="smartFallback">Fallback Template</div>
-            <p class="form-hint" style="margin-bottom:8px" data-i18n="smartFallbackDesc">Used when no app is automatically detected</p>
-            <div class="form-group">
-              <select class="form-select" id="select-fallback-preset"></select>
-            </div>
-          </div>
-
           <h3 class="section-title" data-i18n="smartChoosePreset">Choose a preset</h3>
           <select id="select-smartpreset" class="hidden">
             <option value="cleanup">Cleanup</option>

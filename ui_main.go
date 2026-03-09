@@ -46,6 +46,12 @@ func escapeJS(s string) string {
 	return r.Replace(s)
 }
 
+// jsStr JSON-encodes a string for safe embedding in JavaScript code.
+func jsStr(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
+}
+
 // base64Encode encodes binary data to standard base64.
 func base64Encode(data []byte) string {
 	return base64.StdEncoding.EncodeToString(data)
