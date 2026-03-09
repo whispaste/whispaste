@@ -250,7 +250,7 @@
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
             </div>
-            <div class="preset-card preset-card-ghost" onclick="document.getElementById('btn-add-custom-template')?.click()">
+            <div class="preset-card preset-card-ghost" onclick="document.getElementById('btn-add-custom-template')?.click()" id="preset-ghost-add">
               <svg class="icon preset-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
               <span class="preset-label" data-i18n="customTemplateAdd">Add Template</span>
               <span class="preset-desc" data-i18n="smartGhostDesc">Create your own reusable preset with a custom prompt</span>
@@ -285,16 +285,8 @@
             </div>
           </div>
 
-          <!-- Custom Templates -->
-          <div class="card" id="smart-custom-templates-section" style="display:none;margin-top:16px">
-            <div class="card-title" data-i18n="cardCustomTemplates">Your Templates</div>
-            <p class="form-hint" style="margin-bottom:4px" data-i18n="descCustomTemplates">Create your own reusable presets with custom prompts</p>
-            <div class="custom-templates-list" id="custom-templates-list"></div>
-            <button class="btn btn-secondary btn-sm" id="btn-add-custom-template" style="margin-top:12px">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-              <span data-i18n="customTemplateAdd">Add Template</span>
-            </button>
-          </div>
+          <!-- Hidden trigger for custom template add (ghost card delegates here) -->
+          <button id="btn-add-custom-template" style="display:none"></button>
 
           <!-- App Rules (visible when app detection is on) -->
           <div class="card" id="smart-app-rules-section" style="display:none;margin-top:16px">
