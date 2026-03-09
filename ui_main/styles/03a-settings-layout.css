@@ -107,7 +107,6 @@
   line-height: 1.5;
   margin: 0 0 16px 0;
 }
-.card-title + .form-group,
-.card-title + .llm-card-header {
+.card-title + .form-group {
   margin-top: 16px;
 }

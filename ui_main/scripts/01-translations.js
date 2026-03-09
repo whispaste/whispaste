@@ -88,9 +88,9 @@ const translations = {
     statusAutoSaved: 'Saved ✓',
 
     // Settings — AI & Models
-    aiSttTitle: 'Speech Recognition',
+    aiSttTitle: 'Speech-to-Text Models',
     aiSttDesc: 'Offline Whisper models for local transcription — no internet or API key required. Used for voice-to-text conversion.',
-    aiLlmTitle: 'Language Model',
+    aiLlmTitle: 'AI Text Processing',
     aiLlmDesc: 'Local AI model for Smart Mode and text processing — runs entirely on your device, no data leaves your computer.',
 
     // Settings — Smart Mode
@@ -567,6 +567,7 @@ const translations = {
     smartLlmDownloadServer: 'Downloading engine...',
     smartLlmDownloadModel: 'Downloading model...',
     smartLlmNotInstalled: 'Not installed',
+    smartLlmLanguages: 'Languages',
     connectivityOnline: 'Connected',
     connectivityOffline: 'No internet connection',
     connectivityRequired: 'Internet connection required for download',
@@ -708,9 +709,9 @@ const translations = {
     statusAutoSaved: 'Gespeichert ✓',
 
     // Settings — AI & Models
-    aiSttTitle: 'Spracherkennung',
+    aiSttTitle: 'Sprache-zu-Text-Modelle',
     aiSttDesc: 'Offline-Whisper-Modelle für lokale Transkription — kein Internet oder API-Schlüssel erforderlich. Wird für die Sprache-zu-Text-Umwandlung verwendet.',
-    aiLlmTitle: 'Sprachmodell',
+    aiLlmTitle: 'KI-Textverarbeitung',
     aiLlmDesc: 'Lokales KI-Modell für den Smart-Modus und Textverarbeitung — läuft komplett auf deinem Gerät, keine Daten verlassen deinen Computer.',
 
     // Settings — Smart Mode
@@ -1187,6 +1188,7 @@ const translations = {
     smartLlmDownloadServer: 'Engine wird heruntergeladen…',
     smartLlmDownloadModel: 'Modell wird heruntergeladen…',
     smartLlmNotInstalled: 'Nicht installiert',
+    smartLlmLanguages: 'Sprachen',
     connectivityOnline: 'Verbunden',
     connectivityOffline: 'Keine Internetverbindung',
     connectivityRequired: 'Internetverbindung für Download erforderlich',
