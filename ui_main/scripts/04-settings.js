@@ -553,11 +553,21 @@ async function updateLLMStatus() {
     if (actionArea) actionArea.innerHTML = `<button class="btn btn-primary btn-sm" id="btn-llm-download" onclick="startLLMDownload()">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
       <span>${t('smartLlmDownload')}</span>
-    </button>`;
+    </button>
+    <div class="connectivity-status" id="llmConnectivityStatus" style="display:none">
+      <span class="connectivity-dot"></span>
+      <span class="connectivity-text"></span>
+    </div>`;
+    updateConnectivityStatus('llmConnectivityStatus');
   }
 }
 
 async function startLLMDownload() {
+  const online = await updateConnectivityStatus('llmConnectivityStatus');
+  if (!online) {
+    showToast(t('connectivityRequired'), true);
+    return;
+  }
   const actionArea = document.getElementById('llm-action-area');
   const progress = document.getElementById('llm-progress');
   const badge = document.getElementById('llm-badge');
@@ -615,6 +625,35 @@ window.onLLMDownloadComplete = function() {
   if (progress) progress.style.display = 'none';
   updateLLMStatus();
 };
+
+async function updateConnectivityStatus(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el || !window.checkConnectivity) return true;
+
+  el.style.display = 'inline-flex';
+  el.className = 'connectivity-status checking';
+  const textEl = el.querySelector('.connectivity-text');
+  if (textEl) textEl.textContent = t('connectivityChecking');
+
+  try {
+    const online = await window.checkConnectivity();
+    if (online) {
+      el.classList.remove('checking');
+      el.classList.remove('offline');
+      if (textEl) textEl.textContent = t('connectivityOnline');
+    } else {
+      el.classList.remove('checking');
+      el.classList.add('offline');
+      if (textEl) textEl.textContent = t('connectivityOffline');
+    }
+    return online;
+  } catch (e) {
+    el.classList.remove('checking');
+    el.classList.add('offline');
+    if (textEl) textEl.textContent = t('connectivityOffline');
+    return false;
+  }
+}
 
 /* ── Fallback Preset ──────────────────────────────────── */
 async function initFallbackPreset() {
@@ -933,6 +972,15 @@ async function renderModelList() {
 
 
 async function downloadModel(id) {
+  if (window.checkConnectivity) {
+    try {
+      const online = await window.checkConnectivity();
+      if (!online) {
+        showToast(t('connectivityRequired'), true);
+        return;
+      }
+    } catch (e) {}
+  }
   _downloadingModel = id;
   renderModelList();
   
