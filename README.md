@@ -6,8 +6,8 @@
 
 <p align="center">
   <b>Voice to text, pasted anywhere.</b><br>
-  An open-source Windows desktop tool that transcribes your speech<br>
-  and pastes the result into any focused input field — using OpenAI Whisper or local models.
+  Press a hotkey, speak, and your words appear wherever your cursor is.<br>
+  Open-source speech-to-text for Windows — cloud or fully offline.
 </p>
 
 <p align="center">
@@ -18,14 +18,54 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><b>📥 Download</b></a>&ensp;·&ensp;
+  <a href="../../releases/latest"><b>📥 Download Latest Release</b></a>&ensp;·&ensp;
   <a href="https://whispaste.github.io/whispaste/"><b>🌐 Website</b></a>&ensp;·&ensp;
   <a href="#-quick-start"><b>🚀 Quick Start</b></a>&ensp;·&ensp;
   <a href="#-configuration"><b>⚙️ Config</b></a>&ensp;·&ensp;
-  <a href="#-api-costs"><b>💰 Costs</b></a>&ensp;·&ensp;
   <a href="#%EF%B8%8F-building-from-source"><b>🏗️ Build</b></a>&ensp;·&ensp;
   <a href="#-support"><b>❤️ Support</b></a>
 </p>
+
+<br>
+
+## 🤔 What is WhisPaste?
+
+WhisPaste is a Windows desktop app that turns your voice into text — instantly pasted wherever your cursor is. Press a hotkey, speak naturally, and your words appear in any application: emails, documents, chat, code editors, you name it.
+
+It works with **OpenAI Whisper** for high-accuracy cloud transcription, or **fully offline** with local Whisper models — no API key, no internet, no data leaving your device. Smart Mode can optionally clean up your text, convert it to bullet points, formal emails, meeting notes, and more using AI post-processing.
+
+Free, open source, and privacy-first. No telemetry, no tracking, no account required.
+
+<br>
+
+## 📸 Screenshots
+
+<p align="center">
+  <img src="screenshots/mockup-dark.png" alt="WhisPaste Dashboard — Dark Mode" width="720">
+</p>
+
+<details>
+<summary>Recording overlay states</summary>
+
+| Recording | Paused | Transcribing | Done |
+|:-:|:-:|:-:|:-:|
+| <img src="screenshots/recording.png" alt="Recording" width="180"> | <img src="screenshots/paused.png" alt="Paused" width="180"> | <img src="screenshots/transcribing.png" alt="Transcribing" width="180"> | <img src="screenshots/success.png" alt="Success" width="180"> |
+
+</details>
+
+<br>
+
+## 💡 How It Works
+
+```
+ 🎤 Hotkey  →  🔴 Record  →  🎯 VAD  →  ☁️ Transcribe  →  🧠 Smart Mode  →  📋 Paste
+```
+
+1. **Press your hotkey** (`Ctrl+Shift+V` by default) — hold to talk or toggle on/off
+2. **Speak naturally** — a small overlay shows a live waveform and timer while you record
+3. **Text appears at your cursor** — transcribed, optionally post-processed, and auto-pasted
+
+Voice Activity Detection strips silence before sending audio. Smart Mode can optionally clean up grammar, format as an email, create bullet points, translate, or apply a custom prompt — powered by GPT-4o-mini or a local LLM.
 
 <br>
 
@@ -35,29 +75,26 @@
 |---|---|
 | 🎤 **Global Hotkey** | Press `Ctrl+Shift+V` from anywhere to start dictating. Fully configurable. |
 | 🔄 **Push-to-Talk & Toggle** | Hold the hotkey while speaking, or press once to start and again to stop. |
-| ☁️ **Cloud & Local Models** | Use OpenAI Whisper API or run offline with local Whisper models (base, small) — no API key needed for local. |
-| 📋 **Auto-Paste** | Transcribed text is automatically pasted at your cursor via clipboard + simulated Ctrl+V. |
-| 🧠 **Smart Mode** | Optional AI post-processing via GPT-4o-mini: clean up text, convert to email, bullet points, formal tone, translate, or use a custom prompt. |
-| 🌍 **Multi-Language** | Transcribe in any language Whisper supports, or let it auto-detect. |
-| 🖥️ **Recording Overlay** | A small overlay with live waveform, timer, and confirm/pause controls appears during recording. Draggable, always on top. |
-| 📜 **History & Dashboard** | Browse, search, tag, pin, edit, and re-copy past transcriptions. Up to 500 entries, accessible from the tray or dashboard. |
-| 📊 **Analytics** | Track transcription counts, duration distribution, model usage, API costs, and savings from using local models. |
-| ✏️ **Text Editing** | Edit transcription text directly in the dashboard after dictation. |
-| 🔔 **Audio Feedback** | Subtle sounds for start, stop, success, and error states. Adjustable volume. |
-| 🔄 **Auto-Update** | SHA256-verified self-updater checks for new versions automatically. |
-| 🌐 **Localized** | English & German UI, auto-detected from your system language. |
-| ⚡ **Portable & Installer** | Run portable (just extract and run) or install via the Windows Setup installer with Start Menu integration. |
-| 🗂️ **Projects** | Organize transcriptions into projects for better structure. |
-| 📦 **Archive** | Archive transcriptions to hide from the main view while preserving them from auto-cleanup. |
-| 🏷️ **Tag System** | Create, assign, and filter by custom tags — drag tags onto cards for fast assignment. |
-| ⌨️ **Command Palette** | Press `Ctrl+K` to access actions, search transcriptions, and navigate the app quickly. |
-| 🎯 **Voice Activity Detection** | Automatic silence stripping sends only speech to the transcription engine, improving accuracy and reducing costs. |
-| 📤 **Export** | Export transcriptions as TXT, Markdown, CSV, JSON, or DOCX. Export single entries or batch selections. |
+| ☁️ **Cloud & Local Models** | Use OpenAI Whisper API or run offline with local Whisper models — no API key needed for local. |
+| 📋 **Auto-Paste** | Transcribed text is automatically pasted at your cursor. Smart terminal detection (Windows Terminal, WSL, mintty). |
+| 🧠 **Smart Mode** | 13 AI post-processing presets: cleanup, email, bullets, formal, translate, meeting notes, and more. Custom prompts supported. |
+| 🤖 **Local Smart Mode** | Run post-processing entirely offline with a local LLM (SmolLM2-360M) — no cloud API needed. |
+| 🎯 **Voice Activity Detection** | Automatic silence stripping improves accuracy and reduces API costs. Configurable sensitivity. |
+| 🖥️ **Recording Overlay** | Pill-shaped overlay with live waveform, timer, pause, and cancel controls. Always on top, never steals focus. |
+| 📜 **History & Dashboard** | Browse, search (full-text), tag, pin, archive, edit, merge, and re-copy past transcriptions. |
+| 🗂️ **Projects & Tags** | Organize transcriptions into projects. Create, assign, and filter by color-coded tags with drag-and-drop. |
+| 📊 **Analytics** | Track dictation counts, duration, model usage, API costs, and savings from local transcription. |
+| 📤 **Export** | Export as TXT, Markdown, CSV, JSON, or DOCX — single entries or batch selections. |
 | 🔊 **Audio Playback** | Re-listen to recorded audio directly from the dashboard. Compressed gzip storage. |
-| 💬 **Floating Button** | Optional always-visible desktop button for one-click recording without using the hotkey. |
-| 🎓 **Onboarding** | First-run setup wizard guides through API key or local model configuration. |
+| 🏷️ **Auto-Tagging** | Automatically tag transcriptions using a local LLM based on your existing tags. |
 | ✏️ **Text Replacements** | Define automatic text substitutions that run after every transcription. |
-| 🤖 **Local Smart Mode** | Run post-processing locally with a small LLM (SmolLM2-360M) — no GPT API needed. |
+| ⌨️ **Command Palette** | Press `Ctrl+K` to access actions, search transcriptions, and navigate quickly. |
+| 💬 **Floating Button** | Optional always-visible desktop button for one-click recording without using the hotkey. |
+| 🌍 **Multi-Language** | Transcribe in any language Whisper supports. English & German UI, auto-detected from system. |
+| 🔔 **Audio Feedback** | Subtle sounds for start, stop, success, and error states. Adjustable volume. |
+| 🔄 **Auto-Update** | SHA256-verified self-updater checks for new versions. HTTPS only. |
+| ⚡ **Portable & Installer** | Run portable (just the exe) or install with Start Menu integration and autostart. |
+| 🎓 **Onboarding** | First-run setup wizard guides through API key or local model configuration. |
 
 <br>
 
@@ -159,19 +196,6 @@ When using the OpenAI Whisper API, transcription is billed per audio minute at *
 - **Secure updates** – auto-updater verifies SHA256 checksums before applying, HTTPS only
 - **No telemetry** – zero analytics, tracking, or phone-home
 - **Open source** – audit every line of code yourself
-
-<br>
-
-## 🔄 Auto-Update
-
-WhisPaste includes a secure self-updater that keeps the app current without manual downloads.
-
-- **How it works** – on startup and periodically, WhisPaste queries the [GitHub Releases API](../../releases/latest) for newer versions. If one is found, it downloads the new binary alongside a SHA256 checksum file, verifies integrity, and replaces the executable.
-- **Rate limiting** – at most one check per hour (`minCheckInterval`). Manual checks from Settings pass `force=true` to bypass the cooldown.
-- **MSIX / Store package** – auto-update is automatically disabled when running as an MSIX package (detected via `GetCurrentPackageFullName`). Store users receive updates through the Microsoft Store instead.
-- **HTTPS only** – all API calls and downloads use HTTPS exclusively.
-- **Configuration** – controlled by the `check_updates` setting in `config.json` (default: `true`). Toggle it in Settings → "Check Updates".
-- **Testing** – the `Updater` struct exposes an overridable `releasesURL` field, allowing tests to swap in an `httptest.NewServer` and verify update logic without hitting GitHub. See `update_test.go` for examples.
 
 <br>
 
@@ -295,15 +319,3 @@ MIT License — see [LICENSE](LICENSE) for details.
 <p align="center">
   <sub>© 2025–2026 <a href="https://github.com/silvio-l">Silvio Lindstedt</a></sub>
 </p>
-
-<br>
-
-## 💡 How It Works
-
-```
- 🎤 Hotkey        →  🔴 Record        →  🎯 VAD           →  📦 Encode        →  ☁️ Transcribe    →  🧠 Smart Mode   →  📋 Paste
- RegisterHotKey      miniaudio/WASAPI     Silence strip       PCM → WAV            Whisper API or      GPT / local        Clipboard +
- (global)            16 kHz mono          (optional)          container             local Whisper       LLM (optional)     SendInput
-```
-
-The recording overlay uses GDI+ with `UpdateLayeredWindow` for per-pixel alpha compositing, smooth waveform animation, and interactive controls. Voice Activity Detection optionally strips silence before transcription to improve accuracy and reduce API costs.
