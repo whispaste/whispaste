@@ -70,7 +70,7 @@
     try {
       await window.setAppPresets(JSON.stringify(appPresets));
     } catch (e) {
-      console.error('Save app presets failed:', e);
+      showToast(t('saveError') || 'Failed to save', true);
     }
   }
 
@@ -98,9 +98,16 @@
     }
     const del = e.target.closest('.app-preset-delete');
     if (del) {
-      delete appPresets[del.dataset.app];
-      saveAppPresets();
-      renderAppPresets();
+      const appName = del.dataset.app;
+      showConfirmDialog(
+        t('appPresetDeleteTitle') || 'Delete Preset',
+        (t('appPresetDeleteMsg') || 'Remove the preset for "{app}"?').replace('{app}', appName)
+      ).then(ok => {
+        if (!ok) return;
+        delete appPresets[appName];
+        saveAppPresets();
+        renderAppPresets();
+      });
       return;
     }
   });

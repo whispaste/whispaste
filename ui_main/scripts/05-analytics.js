@@ -340,6 +340,7 @@ async function doResetStatistics() {
   } catch (e) {
     document.querySelector('.modal-overlay')?.remove();
     console.error('Reset failed:', e);
+    showToast(t('resetError') || 'Reset failed', true);
   }
 }
 

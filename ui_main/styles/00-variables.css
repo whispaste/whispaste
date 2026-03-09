@@ -60,10 +60,14 @@
   /* ── Semantic: Status ─── */
   --success: #22C55E;
   --success-bg: rgba(34, 197, 94, 0.1);
+  --success-border: rgba(34, 197, 94, 0.3);
   --warning: #F59E0B;
   --warning-bg: rgba(245, 158, 11, 0.1);
+  --warning-border: rgba(245, 158, 11, 0.3);
   --error: #EF4444;
+  --error-hover: #DC2626;
   --error-bg: rgba(239, 68, 68, 0.1);
+  --error-border: rgba(239, 68, 68, 0.3);
 
   /* ── Spacing Scale (4px base) ─── */
   --space-0: 0;
@@ -191,10 +195,14 @@
 
   --success: #4ADE80;
   --success-bg: rgba(74, 222, 128, 0.1);
+  --success-border: rgba(74, 222, 128, 0.3);
   --warning: #FBBF24;
   --warning-bg: rgba(251, 191, 36, 0.1);
+  --warning-border: rgba(251, 191, 36, 0.3);
   --error: #F87171;
+  --error-hover: #EF4444;
   --error-bg: rgba(248, 113, 113, 0.1);
+  --error-border: rgba(248, 113, 113, 0.3);
 
   /* Dark shadows — increased opacity */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
