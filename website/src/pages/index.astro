@@ -30,6 +30,30 @@ import Footer from "../components/Footer.astro";
   </main>
   <Footer variant="landing" />
 
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "WhisPaste",
+    "description": "A lightweight Windows desktop tool that transcribes your speech and pastes the text anywhere.",
+    "url": "https://whispaste.github.io/whispaste/",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Windows 10, Windows 11",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "softwareVersion": "0.3.0-alpha",
+    "license": "https://opensource.org/licenses/MIT",
+    "author": {
+      "@type": "Person",
+      "name": "Silvio Lindstedt"
+    },
+    "downloadUrl": "https://github.com/Silvio-Lindstedt/whispaste/releases/latest"
+  }
+  </script>
+
   <style is:global>
     .scroll-reveal {
       opacity: 0;
