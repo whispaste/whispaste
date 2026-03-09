@@ -4,7 +4,7 @@
         <div class="search-box">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <input type="text" id="searchInput" data-i18n-placeholder="notebook.search" placeholder="Search…">
-          <button class="search-clear-btn" id="searchClear" title="Clear" class="hidden">
+          <button class="search-clear-btn hidden" id="searchClear" title="Clear">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
           <button class="search-help-btn" id="searchHelp" title="Search syntax help">
@@ -54,7 +54,7 @@
               </button>
 
             </div>
-            <div class="project-dropdown-list" id="projectDropdownList" class="hidden">
+            <div class="project-dropdown-list hidden" id="projectDropdownList">
               <!-- Populated dynamically by JS -->
             </div>
           </div>
@@ -105,12 +105,12 @@
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
               <span data-i18n="notebook.custom_range">Custom Range</span>
             </div>
-            <div class="date-range-picker" id="dateRangePicker" class="hidden">
-              <div class="form-group" style="margin-bottom:8px">
+            <div class="date-range-picker hidden" id="dateRangePicker">
+              <div class="form-group">
                 <label class="form-label form-label-sm" data-i18n="notebook.date_from">From</label>
                 <input type="date" class="form-input form-input-sm" id="dateFrom">
               </div>
-              <div class="form-group" style="margin-bottom:8px">
+              <div class="form-group">
                 <label class="form-label form-label-sm" data-i18n="notebook.date_to">To</label>
                 <input type="date" class="form-input form-input-sm" id="dateTo">
               </div>
