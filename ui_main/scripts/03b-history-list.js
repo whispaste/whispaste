@@ -290,6 +290,11 @@ function renderHistory() {
   // Bind entry drag-to-tag
   list.querySelectorAll('.entry[draggable="true"]').forEach(el => {
     el.addEventListener('dragstart', (ev) => {
+      // Suppress drag when editing text inside the entry
+      if (el.querySelector('.edit-textarea')) {
+        ev.preventDefault();
+        return;
+      }
       ev.dataTransfer.effectAllowed = 'link';
       ev.dataTransfer.setData('text/x-entry-drag', el.dataset.id);
       el.classList.add('dragging');

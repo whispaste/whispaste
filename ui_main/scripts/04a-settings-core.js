@@ -55,6 +55,7 @@ function gatherConfig() {
     check_updates: document.getElementById('toggle-updates')?.checked || false,
     autostart: document.getElementById('toggle-autostart')?.checked || false,
     close_to_tray: document.getElementById('toggle-close-to-tray')?.checked ?? true,
+    delete_behavior: document.getElementById('toggle-archive-instead')?.checked ? 'archive' : 'delete',
     ui_language: _savedUILang,
     theme: document.getElementById('select-theme')?.value || 'system',
     max_record_sec: parseInt(document.getElementById('range-max-duration')?.value || '120', 10),
@@ -100,6 +101,7 @@ function applyConfig(cfg) {
   if (cfg.check_updates != null) { const el = document.getElementById('toggle-updates'); if (el) el.checked = cfg.check_updates; }
   if (cfg.autostart != null) { const el = document.getElementById('toggle-autostart'); if (el) el.checked = cfg.autostart; }
   { const el = document.getElementById('toggle-close-to-tray'); if (el) el.checked = cfg.close_to_tray !== false; }
+  { const el = document.getElementById('toggle-archive-instead'); if (el) el.checked = cfg.delete_behavior === 'archive'; }
   updateCloseToTrayDependents();
   if (cfg.theme) {
     const el = document.getElementById('select-theme');
