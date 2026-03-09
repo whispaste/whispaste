@@ -410,6 +410,12 @@ func main() {
 				}
 			}
 
+			// Set transcription time estimate on overlay (16-bit mono = 2 bytes/sample at 16kHz)
+			if overlay != nil {
+				audioDurSec := float64(len(pcm)) / (16000.0 * 2.0)
+				overlay.SetTranscribeEstimate(audioDurSec, useLocal)
+			}
+
 			// Transcribe in background
 			go func() {
 				defer func() {
