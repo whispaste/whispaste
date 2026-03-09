@@ -1,4 +1,4 @@
-package main
+package export
 
 import (
 	"archive/zip"
@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-func testEntry() *HistoryEntry {
-	return &HistoryEntry{
+func testEntry() *Entry {
+	return &Entry{
 		ID:        "test-1",
 		Title:     "Test Entry",
 		Text:      "Hello world",
@@ -41,9 +41,9 @@ func TestCSVSafe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := csvSafe(tt.in)
+			got := CSVSafe(tt.in)
 			if got != tt.want {
-				t.Errorf("csvSafe(%q) = %q, want %q", tt.in, got, tt.want)
+				t.Errorf("CSVSafe(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
 	}
@@ -61,9 +61,9 @@ func TestXMLEscape(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := xmlEscape(tt.in)
+			got := XMLEscape(tt.in)
 			if got != tt.want {
-				t.Errorf("xmlEscape(%q) = %q, want %q", tt.in, got, tt.want)
+				t.Errorf("XMLEscape(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
 	}
@@ -83,9 +83,9 @@ func TestSanitizeFilename(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := sanitizeFilename(tt.in)
+			got := SanitizeFilename(tt.in)
 			if got != tt.want {
-				t.Errorf("sanitizeFilename(%q) = %q, want %q", tt.in, got, tt.want)
+				t.Errorf("SanitizeFilename(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
 	}
@@ -94,7 +94,7 @@ func TestSanitizeFilename(t *testing.T) {
 func TestFormatEntriesJSON(t *testing.T) {
 	t.Run("single entry", func(t *testing.T) {
 		e := testEntry()
-		data, err := formatEntriesJSON([]*HistoryEntry{e})
+		data, err := FormatEntriesJSON([]*Entry{e})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -114,7 +114,7 @@ func TestFormatEntriesJSON(t *testing.T) {
 	})
 
 	t.Run("empty slice", func(t *testing.T) {
-		data, err := formatEntriesJSON([]*HistoryEntry{})
+		data, err := FormatEntriesJSON([]*Entry{})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -131,7 +131,7 @@ func TestFormatEntriesJSON(t *testing.T) {
 func TestFormatEntriesCSV(t *testing.T) {
 	t.Run("normal entry", func(t *testing.T) {
 		e := testEntry()
-		data, err := formatEntriesCSV([]*HistoryEntry{e})
+		data, err := FormatEntriesCSV([]*Entry{e})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -150,7 +150,7 @@ func TestFormatEntriesCSV(t *testing.T) {
 	t.Run("formula injection sanitized", func(t *testing.T) {
 		e := testEntry()
 		e.Text = "=HYPERLINK(\"http://evil\")"
-		data, err := formatEntriesCSV([]*HistoryEntry{e})
+		data, err := FormatEntriesCSV([]*Entry{e})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -164,7 +164,7 @@ func TestFormatEntriesCSV(t *testing.T) {
 func TestGenerateDOCX(t *testing.T) {
 	t.Run("valid zip structure", func(t *testing.T) {
 		e := testEntry()
-		data, err := generateDOCX([]*HistoryEntry{e})
+		data, err := GenerateDOCX([]*Entry{e})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -197,7 +197,7 @@ func TestGenerateDOCX(t *testing.T) {
 		e := testEntry()
 		e.Title = "Test <&> Title"
 		e.Text = "Body with \"quotes\" & <tags>"
-		data, err := generateDOCX([]*HistoryEntry{e})
+		data, err := GenerateDOCX([]*Entry{e})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -231,7 +231,7 @@ func TestGenerateDOCX(t *testing.T) {
 
 func TestFormatEntryTXT(t *testing.T) {
 	e := testEntry()
-	got := formatEntryTXT(e)
+	got := FormatEntryTXT(e)
 
 	checks := []string{
 		"Test Entry\n",
@@ -242,14 +242,14 @@ func TestFormatEntryTXT(t *testing.T) {
 	}
 	for _, want := range checks {
 		if !strings.Contains(got, want) {
-			t.Errorf("formatEntryTXT missing %q\ngot:\n%s", want, got)
+			t.Errorf("FormatEntryTXT missing %q\ngot:\n%s", want, got)
 		}
 	}
 }
 
 func TestFormatEntryMD(t *testing.T) {
 	e := testEntry()
-	got := formatEntryMD(e)
+	got := FormatEntryMD(e)
 
 	checks := []string{
 		"# Test Entry",
@@ -262,7 +262,7 @@ func TestFormatEntryMD(t *testing.T) {
 	}
 	for _, want := range checks {
 		if !strings.Contains(got, want) {
-			t.Errorf("formatEntryMD missing %q\ngot:\n%s", want, got)
+			t.Errorf("FormatEntryMD missing %q\ngot:\n%s", want, got)
 		}
 	}
 }

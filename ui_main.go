@@ -15,6 +15,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/whispaste/whispaste/internal/audiocache"
+	"github.com/whispaste/whispaste/internal/export"
+	"github.com/whispaste/whispaste/internal/models"
+	"github.com/whispaste/whispaste/internal/stats"
+	"github.com/whispaste/whispaste/internal/wav"
+
 	"golang.org/x/sys/windows"
 
 	webview "github.com/webview/webview_go"
@@ -151,7 +157,7 @@ func NotifyHistoryChanged() {
 }
 
 // ShowMainWindow opens the unified main window with WebView2.
-func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *UsageStats, onSaved func(), onClose func(), onCapture func(), initialPage string) {
+func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStats *stats.UsageStats, onSaved func(), onClose func(), onCapture func(), initialPage string) {
 	mainWindowMu.Lock()
 	if mainWindowOpen {
 		if mainWindowHwnd != 0 {
@@ -416,14 +422,14 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 			var text string
 			var err2 error
 			if cfg.GetActiveModelLocal() {
-				modelDir, mdErr := GetModelDir(cfg.GetLocalModelID())
+				modelDir, mdErr := models.GetDir(cfg.GetLocalModelID())
 				if mdErr != nil {
 					return map[string]interface{}{"success": false, "text": "", "error": mdErr.Error()}
 				}
 				text, err2 = GetLocalRecognizer().Transcribe(pcm, 16000, cfg.Language, modelDir)
 			} else {
-				wav := EncodeWAV(pcm, 16000, 1, 16)
-				text, err2 = Transcribe(context.Background(), wav, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), "")
+				wavData := wav.Encode(pcm, 16000, 1, 16)
+				text, err2 = Transcribe(context.Background(), wavData, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), "")
 			}
 			if err2 != nil {
 				logError("Test transcription failed: %v", err2)
@@ -467,12 +473,12 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 		// Bind: _getModels → returns available models with download status
 		w.Bind("_getModels", func() []map[string]interface{} {
 			var result []map[string]interface{}
-			for _, m := range AvailableModels {
+			for _, m := range models.Available {
 				result = append(result, map[string]interface{}{
 					"id":         m.ID,
 					"name":       m.Name,
 					"size":       m.Size,
-					"downloaded": IsModelDownloaded(m.ID),
+					"downloaded": models.IsDownloaded(m.ID),
 				})
 			}
 			return result
@@ -490,7 +496,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 						w.Dispatch(func() { w.Eval(js) })
 					}
 				}
-				err := DownloadModel(modelID, func(fileDownloaded, fileTotal int64, fileIdx, fileCount int, fileName string) {
+				err := models.Download(modelID, func(fileDownloaded, fileTotal int64, fileIdx, fileCount int, fileName string) {
 					var pct int
 					if fileTotal > 0 {
 						pct = int(float64(fileDownloaded) / float64(fileTotal) * 100)
@@ -515,13 +521,13 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 		w.Bind("_deleteModel", func(modelID string) map[string]interface{} {
 			// Capture active state before deletion to avoid TOCTOU race
 			wasActive := cfg.GetActiveModelLocal() && cfg.GetLocalModelID() == modelID
-			if err := DeleteModel(modelID); err != nil {
+			if err := models.Delete(modelID); err != nil {
 				logError("Model delete failed: %v", err)
 				return map[string]interface{}{"success": false, "error": err.Error()}
 			}
 			// If the deleted model was the active one, fall back
 			if wasActive {
-				downloaded := ListDownloadedModels()
+				downloaded := models.ListDownloaded()
 				if len(downloaded) > 0 {
 					cfg.mu.Lock()
 					cfg.LocalModelID = downloaded[0].ID
@@ -547,7 +553,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 
 		// Bind: _isModelDownloaded → check if a model is fully downloaded
 		w.Bind("_isModelDownloaded", func(modelID string) bool {
-			return IsModelDownloaded(modelID)
+			return models.IsDownloaded(modelID)
 		})
 
 		// Bind: _getAudioDevices → returns available audio capture devices
@@ -641,13 +647,13 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 
 		// Bind: hasAudio → check if audio cache exists for an entry
 		w.Bind("hasAudio", func(id string) bool {
-			return HasAudio(id)
+			return audiocache.Has(id)
 		})
 
 		// Bind: getAudioBase64 → returns WAV audio as base64 data URL for playback
 		// Capped at 50 MB to prevent OOM from very long recordings.
 		w.Bind("getAudioBase64", func(id string) string {
-			data, err := LoadAudio(id)
+			data, err := audiocache.Load(id)
 			if err != nil {
 				logWarn("Load audio for playback: %v", err)
 				return ""
@@ -667,7 +673,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 			if entry == nil {
 				return map[string]interface{}{"ok": false, "error": "Entry not found"}
 			}
-			wavData, err := LoadAudio(id)
+			wavData, err := audiocache.Load(id)
 			if err != nil {
 				return map[string]interface{}{"ok": false, "error": "No cached audio"}
 			}
@@ -688,7 +694,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 					return map[string]interface{}{"ok": false, "error": "Invalid audio file"}
 				}
 				pcmData := wavData[44:]
-				modelDir, mdErr := GetModelDir(cfg.GetLocalModelID())
+				modelDir, mdErr := models.GetDir(cfg.GetLocalModelID())
 				if mdErr != nil {
 					return map[string]interface{}{"ok": false, "error": mdErr.Error()}
 				}
@@ -974,7 +980,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 			if err := history.ResetStatistics(); err != nil {
 				return map[string]interface{}{"ok": false, "error": err.Error()}
 			}
-			stats.Reset()
+			usageStats.Reset()
 			return map[string]interface{}{"ok": true}
 		})
 
@@ -1035,7 +1041,12 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 			if e == nil {
 				return ""
 			}
-			return exportEntries([]*HistoryEntry{e}, format)
+			path, err := export.Entries([]*export.Entry{toExportEntry(e)}, format)
+			if err != nil {
+				logError("Export failed: %v", err)
+				return ""
+			}
+			return path
 		})
 
 		// Bind: exportSelected → export multiple entries by IDs
@@ -1045,13 +1056,18 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 				logError("Export parse IDs: %v", err)
 				return ""
 			}
-			var entries []*HistoryEntry
+			var expEntries []*export.Entry
 			for _, id := range ids {
 				if e := history.GetByID(id); e != nil {
-					entries = append(entries, e)
+					expEntries = append(expEntries, toExportEntry(e))
 				}
 			}
-			return exportEntries(entries, format)
+			path, err := export.Entries(expEntries, format)
+			if err != nil {
+				logError("Export failed: %v", err)
+				return ""
+			}
+			return path
 		})
 
 		// --- Onboarding bindings ---
@@ -1401,7 +1417,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 				Meta    string `json:"meta"`
 				IsLocal bool   `json:"isLocal"`
 			}
-			var models []modelInfo
+			var modelList []modelInfo
 
 			// API model (always available if API key is set)
 			if cfg.GetAPIKey() != "" {
@@ -1411,7 +1427,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 				if apiModel == "" {
 					apiModel = "whisper-1"
 				}
-				models = append(models, modelInfo{
+				modelList = append(modelList, modelInfo{
 					ID:      apiModel,
 					Name:    "Whisper API (" + apiModel + ")",
 					Meta:    "Cloud",
@@ -1420,8 +1436,8 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 			}
 
 			// Local models (always list downloaded models — capability-based)
-			for _, m := range ListDownloadedModels() {
-				models = append(models, modelInfo{
+			for _, m := range models.ListDownloaded() {
+				modelList = append(modelList, modelInfo{
 					ID:      m.ID,
 					Name:    m.Name,
 					Meta:    "Local · " + m.Size,
@@ -1429,7 +1445,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 				})
 			}
 
-			data, _ := json.Marshal(models)
+			data, _ := json.Marshal(modelList)
 			return string(data)
 		})
 
@@ -1484,4 +1500,20 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, stats *Us
 	}()
 }
 
+func toExportEntry(e *HistoryEntry) *export.Entry {
+	return &export.Entry{
+		ID:          e.ID,
+		Text:        e.Text,
+		Title:       e.Title,
+		Timestamp:   e.Timestamp,
+		Duration:    e.Duration,
+		Language:    e.Language,
+		Tags:        e.Tags,
+		Pinned:      e.Pinned,
+		Model:       e.Model,
+		IsLocal:     e.IsLocal,
+		CostUSD:     e.CostUSD,
+		ProjectName: e.ProjectName,
+	}
+}
 

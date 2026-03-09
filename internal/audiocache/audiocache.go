@@ -1,4 +1,4 @@
-package main
+package audiocache
 
 import (
 	"bytes"
@@ -9,38 +9,46 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/whispaste/whispaste/internal/wav"
 )
 
-// validAudioID matches hex-only IDs (8-32 chars) to prevent path traversal.
-var validAudioID = regexp.MustCompile(`^[0-9a-f]{8,32}$`)
+// ValidID matches hex-only IDs (8-32 chars) to prevent path traversal.
+var ValidID = regexp.MustCompile(`^[0-9a-f]{8,32}$`)
 
-// AudioCacheDir returns the audio cache directory, creating it if needed.
-func AudioCacheDir() (string, error) {
-	dir, err := configDir()
-	if err != nil {
-		return "", fmt.Errorf("config dir: %w", err)
+var baseDir string
+
+// Init sets the base directory for the audio cache (e.g. configDir).
+func Init(dir string) {
+	baseDir = dir
+}
+
+// Dir returns the audio cache directory, creating it if needed.
+func Dir() (string, error) {
+	if baseDir == "" {
+		return "", fmt.Errorf("audiocache: not initialized (call Init first)")
 	}
-	audioDir := filepath.Join(dir, "audio")
+	audioDir := filepath.Join(baseDir, "audio")
 	if err := os.MkdirAll(audioDir, 0700); err != nil {
 		return "", fmt.Errorf("create audio dir: %w", err)
 	}
 	return audioDir, nil
 }
 
-// SaveAudio saves WAV-encoded audio for a history entry.
+// Save saves WAV-encoded audio for a history entry.
 // The pcm data is encoded to WAV (16kHz/16bit/mono) before saving.
-func SaveAudio(id string, pcm []byte) error {
-	if !validAudioID.MatchString(id) {
+func Save(id string, pcm []byte) error {
+	if !ValidID.MatchString(id) {
 		return fmt.Errorf("invalid audio ID: %q", id)
 	}
 	if len(pcm) == 0 {
 		return nil
 	}
-	dir, err := AudioCacheDir()
+	dir, err := Dir()
 	if err != nil {
 		return err
 	}
-	wav := EncodeWAV(pcm, 16000, 1, 16)
+	wavData := wav.Encode(pcm, 16000, 1, 16)
 
 	// Gzip compress
 	var buf bytes.Buffer
@@ -48,7 +56,7 @@ func SaveAudio(id string, pcm []byte) error {
 	if err != nil {
 		return fmt.Errorf("create gzip writer: %w", err)
 	}
-	if _, err := gz.Write(wav); err != nil {
+	if _, err := gz.Write(wavData); err != nil {
 		gz.Close()
 		return fmt.Errorf("gzip write: %w", err)
 	}
@@ -61,17 +69,16 @@ func SaveAudio(id string, pcm []byte) error {
 	if err := os.WriteFile(path, compressed, 0600); err != nil {
 		return fmt.Errorf("write audio file: %w", err)
 	}
-	logDebug("Saved audio cache: %s (%d bytes WAV → %d bytes gzip, %.0f%% saved)", id, len(wav), len(compressed), (1-float64(len(compressed))/float64(len(wav)))*100)
 	return nil
 }
 
-// LoadAudio loads the cached WAV file for a history entry.
+// Load loads the cached WAV file for a history entry.
 // Returns the raw WAV bytes (with header) or an error.
-func LoadAudio(id string) ([]byte, error) {
-	if !validAudioID.MatchString(id) {
+func Load(id string) ([]byte, error) {
+	if !ValidID.MatchString(id) {
 		return nil, fmt.Errorf("invalid audio ID: %q", id)
 	}
-	dir, err := AudioCacheDir()
+	dir, err := Dir()
 	if err != nil {
 		return nil, err
 	}
@@ -96,12 +103,12 @@ func LoadAudio(id string) ([]byte, error) {
 	return data, nil
 }
 
-// HasAudio checks whether a cached audio file exists for the given entry ID.
-func HasAudio(id string) bool {
-	if !validAudioID.MatchString(id) {
+// Has checks whether a cached audio file exists for the given entry ID.
+func Has(id string) bool {
+	if !ValidID.MatchString(id) {
 		return false
 	}
-	dir, err := AudioCacheDir()
+	dir, err := Dir()
 	if err != nil {
 		return false
 	}
@@ -109,32 +116,34 @@ func HasAudio(id string) bool {
 	return err == nil
 }
 
-// DeleteAudio removes the cached audio file for an entry (if it exists).
-func DeleteAudio(id string) {
-	if !validAudioID.MatchString(id) {
-		return
+// Delete removes the cached audio file for an entry (if it exists).
+func Delete(id string) error {
+	if !ValidID.MatchString(id) {
+		return fmt.Errorf("invalid audio ID: %q", id)
 	}
-	dir, err := AudioCacheDir()
+	dir, err := Dir()
 	if err != nil {
-		return
+		return err
 	}
 	path := filepath.Join(dir, id+".wav")
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		logWarn("Delete audio file %s: %v", id, err)
+		return fmt.Errorf("delete audio file %s: %w", id, err)
 	}
+	return nil
 }
 
-// CleanupOrphanedAudio removes audio files that don't belong to any valid entry.
-func CleanupOrphanedAudio(validIDs map[string]bool) {
-	dir, err := AudioCacheDir()
+// CleanupOrphaned removes audio files that don't belong to any valid entry.
+// Returns the number of files removed.
+func CleanupOrphaned(validIDs map[string]bool) int {
+	dir, err := Dir()
 	if err != nil {
-		return
+		return 0
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		logWarn("Read audio dir: %v", err)
-		return
+		return 0
 	}
+	removed := 0
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -146,11 +155,10 @@ func CleanupOrphanedAudio(validIDs map[string]bool) {
 		id := strings.TrimSuffix(name, ".wav")
 		if !validIDs[id] {
 			path := filepath.Join(dir, name)
-			if err := os.Remove(path); err != nil {
-				logWarn("Cleanup orphaned audio %s: %v", name, err)
-			} else {
-				logDebug("Removed orphaned audio: %s", name)
+			if err := os.Remove(path); err == nil {
+				removed++
 			}
 		}
 	}
+	return removed
 }

@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/whispaste/whispaste/internal/models"
 )
 
 const (
@@ -41,7 +43,7 @@ func DownloadLLM(progressFn func(phase string, pct int)) error {
 	}
 	modelDest := filepath.Join(dir, "model.gguf")
 	var lastPct int = -1
-	if err := downloadModelFile(llmModelURL, modelDest, func(downloaded, total int64) {
+	if err := models.DownloadFile(llmModelURL, modelDest, func(downloaded, total int64) {
 		if progressFn != nil {
 			if total <= 0 {
 				total = llmModelSize
@@ -68,7 +70,7 @@ func downloadAndExtractLLMServer(destDir string, progressFn func(pct int)) error
 	zipPath := filepath.Join(destDir, "llama-server.zip")
 
 	var lastPct int = -1
-	if err := downloadModelFile(llmServerURL, zipPath, func(downloaded, total int64) {
+	if err := models.DownloadFile(llmServerURL, zipPath, func(downloaded, total int64) {
 		if progressFn != nil && total > 0 {
 			pct := int(float64(downloaded) / float64(total) * 100)
 			if pct > 100 {
