@@ -358,6 +358,8 @@ paused    bool   // whether recording is paused
 pauseStart time.Time    // when current pause began
 pauseAccum time.Duration // accumulated pause time
 maxRecordSec int  // max recording duration in seconds (0 = unlimited)
+transcribeStart time.Time     // when transcription began
+estimatedSec    float64       // estimated transcription duration in seconds
 hoverBtn  int    // 0=none, 1=dash, 2=cancel, 3=pause, 4=stop
 pressBtn  int    // 0=none, same mapping
 tracking  bool   // whether TrackMouseEvent is active
@@ -641,6 +643,22 @@ func (o *Overlay) Show(state AppState) {
 if o.hwnd != 0 {
 procPostMessageW.Call(o.hwnd, _WM_OVL_SHOW, uintptr(state), 0)
 }
+}
+
+// SetTranscribeEstimate sets the estimated transcription duration based on
+// audio length and transcription method. Call before Show(StateTranscribing).
+// Uses pessimistic speed ratios: cloud ≈ 0.5× real-time, local ≈ 1.5× real-time.
+func (o *Overlay) SetTranscribeEstimate(audioDurationSec float64, isLocal bool) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	ratio := 0.5 // cloud: typically fast
+	if isLocal {
+		ratio = 1.5 // local: pessimistic estimate
+	}
+	o.estimatedSec = audioDurationSec * ratio
+	if o.estimatedSec < 3 {
+		o.estimatedSec = 3 // minimum 3 seconds to avoid flicker
+	}
 }
 
 // Hide hides the overlay window.
