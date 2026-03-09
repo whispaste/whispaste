@@ -294,6 +294,32 @@
   opacity: 1;
   border-color: var(--border-subtle);
 }
+.status-chip-audio {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-color: var(--accent);
+  gap: 6px;
+}
+.status-chip-audio .icon {
+  width: 14px;
+  height: 14px;
+}
+.status-chip-audio .status-audio-stop {
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.status-chip-audio:hover .status-audio-stop {
+  opacity: 1;
+}
+@keyframes audioPlaying {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.status-chip-audio .icon:first-child {
+  animation: audioPlaying 1.5s ease-in-out infinite;
+}
 
 .status-heart {
   display: inline-flex;

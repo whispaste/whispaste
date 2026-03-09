@@ -21,7 +21,7 @@
   function buildCommands() {
     return [
       // Smart Mode
-      { id: 'smart-toggle',      label: t('palette.cmd.smartToggle'),      icon: paletteIcons.toggleRight, category: 'palette.cat.smartMode', action: smartToggleAction },
+      { id: 'smart-toggle',      label: t('palette.cmd.smartToggle'),      icon: paletteIcons.toggleRight, category: 'palette.cat.smartMode', action: smartToggleAction, shortcut: 'Ctrl+Shift+S' },
       { id: 'preset-cleanup',    label: t('palette.cmd.presetCleanup'),    icon: icons.sparkles,           category: 'palette.cat.smartMode', action: () => setPreset('cleanup') },
       { id: 'preset-concise',    label: t('palette.cmd.presetConcise'),    icon: icons.minimize,           category: 'palette.cat.smartMode', action: () => setPreset('concise') },
       { id: 'preset-email',      label: t('palette.cmd.presetEmail'),      icon: icons.mail,               category: 'palette.cat.smartMode', action: () => setPreset('email') },
@@ -46,12 +46,12 @@
       { id: 'export-json', label: t('palette.cmd.exportJSON'), icon: paletteIcons.braces,  category: 'palette.cat.export', action: () => exportSelected('json') },
 
       // Navigation
-      { id: 'nav-history',      label: t('palette.cmd.navHistory'),      icon: paletteIcons.clock,    category: 'palette.cat.navigation', action: () => switchPage('history') },
-      { id: 'nav-analytics',    label: t('palette.cmd.navAnalytics'),    icon: paletteIcons.barChart, category: 'palette.cat.navigation', action: () => switchPage('analytics') },
-      { id: 'nav-settings',     label: t('palette.cmd.navSettings'),     icon: paletteIcons.settings, category: 'palette.cat.navigation', action: () => switchPage('settings') },
-      { id: 'nav-smartmode',    label: t('palette.cmd.navSmartMode'),    icon: icons.sparkles,        category: 'palette.cat.navigation', action: () => switchPage('smartmode') },
-      { id: 'nav-replacements', label: t('palette.cmd.navReplacements'), icon: icons.replace,         category: 'palette.cat.navigation', action: () => switchPage('replacements') },
-      { id: 'nav-about',        label: t('palette.cmd.navAbout'),        icon: paletteIcons.info,     category: 'palette.cat.navigation', action: () => switchPage('about') },
+      { id: 'nav-history',      label: t('palette.cmd.navHistory'),      icon: paletteIcons.clock,    category: 'palette.cat.navigation', action: () => switchPage('history'),      shortcut: 'Ctrl+1' },
+      { id: 'nav-analytics',    label: t('palette.cmd.navAnalytics'),    icon: paletteIcons.barChart, category: 'palette.cat.navigation', action: () => switchPage('analytics'),    shortcut: 'Ctrl+2' },
+      { id: 'nav-settings',     label: t('palette.cmd.navSettings'),     icon: paletteIcons.settings, category: 'palette.cat.navigation', action: () => switchPage('settings'),     shortcut: 'Ctrl+3' },
+      { id: 'nav-smartmode',    label: t('palette.cmd.navSmartMode'),    icon: icons.sparkles,        category: 'palette.cat.navigation', action: () => switchPage('smartmode'),    shortcut: 'Ctrl+4' },
+      { id: 'nav-replacements', label: t('palette.cmd.navReplacements'), icon: icons.replace,         category: 'palette.cat.navigation', action: () => switchPage('replacements'), shortcut: 'Ctrl+5' },
+      { id: 'nav-about',        label: t('palette.cmd.navAbout'),        icon: paletteIcons.info,     category: 'palette.cat.navigation', action: () => switchPage('about'),        shortcut: 'Ctrl+6' },
     ];
   }
 
@@ -152,6 +152,10 @@
         html += '<div class="cp-item' + activeClass + '" data-idx="' + globalIdx + '">';
         html += '<span class="cp-item-icon">' + cmd.icon + '</span>';
         html += '<span class="cp-item-label">' + esc(cmd.label) + '</span>';
+        if (cmd.shortcut) {
+          const localized = cmd.shortcut.split('+').map(k => formatModKey(k)).join('+');
+          html += '<span class="cp-item-shortcut">' + esc(localized) + '</span>';
+        }
         html += '</div>';
         globalIdx++;
       }
@@ -225,7 +229,7 @@
     _paletteEl = backdrop;
 
     const input = modal.querySelector('.cp-search');
-    input.focus();
+    if (input) input.focus();
     renderPalette('');
 
     // Input handler
@@ -275,6 +279,29 @@
       }
     }
   });
+
+  // ── Global navigation shortcuts ─────────────────────────
+
+  document.addEventListener('keydown', function(e) {
+    if (typeof _hotkeyRecording !== 'undefined' && _hotkeyRecording) return;
+
+    // Navigation shortcuts: Ctrl+1..6
+    if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key >= '1' && e.key <= '6') {
+      const pages = ['history', 'analytics', 'settings', 'smartmode', 'replacements', 'about'];
+      const idx = parseInt(e.key) - 1;
+      if (idx >= 0 && idx < pages.length) {
+        e.preventDefault();
+        closePalette();
+        switchPage(pages[idx]);
+      }
+    }
+    // Smart toggle: Ctrl+Shift+S
+    if (e.ctrlKey && e.shiftKey && !e.altKey && e.key.toUpperCase() === 'S') {
+      e.preventDefault();
+      closePalette();
+      smartToggleAction();
+    }
+  }, true);
 
   // ── Status bar button ──────────────────────────────────
 

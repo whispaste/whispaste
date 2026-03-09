@@ -154,6 +154,23 @@
   text-overflow: ellipsis;
 }
 
+/* ── Shortcut badge ──────────────────────────────────── */
+
+.cp-item-shortcut {
+  margin-left: auto;
+  padding-left: 16px;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.cp-item-active .cp-item-shortcut {
+  color: var(--accent);
+  opacity: 1;
+}
+
 /* ── Empty state ─────────────────────────────────────── */
 
 .cp-empty {
