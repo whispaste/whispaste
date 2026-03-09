@@ -1,0 +1,286 @@
+/* ── Local STT Model List ─────────────────── */
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.model-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  transition: border-color var(--transition-fast);
+  cursor: pointer;
+}
+
+.model-item.unavailable {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.model-item.active {
+  border-color: var(--accent);
+}
+
+.model-item-radio {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--text-tertiary);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.model-item-radio:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--bg-secondary);
+}
+
+.model-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.model-item-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.model-item-meta {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.model-item-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.model-badge-success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.btn-ghost {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.btn-ghost:hover {
+  color: var(--error);
+  background: var(--error-bg);
+}
+
+.model-item-action .btn {
+  min-width: 90px;
+  font-size: 0.8rem;
+  padding: 6px 12px;
+}
+
+.model-progress {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-tertiary);
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.model-progress-bar {
+  height: 100%;
+  background: var(--gradient-accent);
+  border-radius: 2px;
+  transition: width var(--transition-normal);
+  width: 0%;
+}
+
+/* ── Test Recording Button ───────────────────────────── */
+.btn-test {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-test:hover { border-color: var(--text-tertiary); background: var(--bg-hover); }
+.btn-test .icon { width: 16px; height: 16px; }
+.btn-test.recording {
+  border-color: var(--error);
+  color: var(--error);
+  animation: hotkeyPulse 1.5s ease infinite;
+}
+.recording-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background: var(--error);
+  border-radius: 50%;
+  animation: pulse 1.2s ease infinite;
+}
+
+/* ── Duration Slider ───────────────────────────────────── */
+.duration-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.duration-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 48px;
+  text-align: right;
+}
+
+.duration-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+
+.duration-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg);
+  box-shadow: 0 2px 6px rgba(0,0,0,.15), 0 1px 2px rgba(0,0,0,.1);
+  transition: transform var(--duration-fast) ease;
+}
+
+.duration-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+.duration-slider::-webkit-slider-thumb:active {
+  transform: scale(0.95);
+}
+
+/* ── Range Row ───────────────────────────────────────── */
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── Audio Level Meter ──────────────────────────────── */
+.audio-level-meter {
+  height: 10px; border-radius: 5px; overflow: hidden;
+  background: var(--bg-input); margin-top: 8px;
+}
+.audio-level-bar {
+  height: 100%; width: 0%; border-radius: 5px;
+  background: var(--success);
+  transition: width 0.08s ease-out;
+}
+
+/* ── Floating Button Color Picker ─────────────────────── */
+.fab-color-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 0 0;
+}
+.fab-color-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.fab-color-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fab-color-option {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: none;
+  padding: 2px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fab-color-option:hover {
+  transform: scale(1.15);
+  border-color: var(--border-primary);
+}
+.fab-color-option.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow, rgba(8, 145, 178, 0.25));
+}
+.fab-color-swatch {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.fab-size-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 0 0;
+}
+.fab-size-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.fab-size-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.fab-size-value {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-width: 42px;
+  text-align: right;
+}
