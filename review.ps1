@@ -63,7 +63,7 @@ $ConcernGroups = @{
             'ui_main/styles/*.css'
             'website/src/components/*.astro'
         )
-        Dimensions  = @(2, 3)  # UX Quality + Premium Score
+        Dimensions  = @(2, 3, 6)  # UX Quality + Premium Score + Maintainability
     }
     code = @{
         Label       = 'Code Quality'
@@ -72,7 +72,7 @@ $ConcernGroups = @{
             '*.go'
         )
         Exclude     = @('*_test.go')
-        Dimensions  = @(2)  # UX Quality (error handling, loading states)
+        Dimensions  = @(2, 6)  # UX Quality + Maintainability (SoC)
     }
     design = @{
         Label       = 'Design System'
@@ -92,6 +92,7 @@ $DimensionNames = @{
     3 = 'Hochwertigkeit (Premium Quality Score)'
     4 = 'Oberflächen-Konsistenz (Cross-Surface Consistency)'
     5 = 'Inhaltsqualität (Content Quality)'
+    6 = 'Wartbarkeit / SoC (Code Architecture & Maintainability)'
 }
 
 # --- Functions ---
