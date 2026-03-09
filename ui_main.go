@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -54,6 +55,18 @@ func escapeJS(s string) string {
 // base64Encode encodes binary data to standard base64.
 func base64Encode(data []byte) string {
 	return base64.StdEncoding.EncodeToString(data)
+}
+
+// checkConnectivity tests internet connectivity by pinging model download endpoints.
+func checkConnectivity() bool {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Head("https://huggingface.co")
+	if err != nil {
+		logDebug("Connectivity check failed: %v", err)
+		return false
+	}
+	resp.Body.Close()
+	return resp.StatusCode < 500
 }
 
 // assembleMainHTML reads template.html and injects concatenated CSS/JS from ui_main/ subdirectories.
@@ -667,6 +680,27 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStat
 			return "data:audio/wav;base64," + encoded
 		})
 
+		// Bind: getAudioCount → returns number of audio files for an entry (1 = normal, 2+ = merged)
+		w.Bind("getAudioCount", func(id string) int {
+			return audiocache.AudioCount(id)
+		})
+
+		// Bind: getAudioBase64ByIndex → returns audio by index for merged entries
+		w.Bind("getAudioBase64ByIndex", func(id string, idx int) string {
+			data, err := audiocache.LoadByIndex(id, idx)
+			if err != nil {
+				logWarn("Load audio index %d for %s: %v", idx, id, err)
+				return ""
+			}
+			const maxPlaybackSize = 50 * 1024 * 1024
+			if len(data) > maxPlaybackSize {
+				logWarn("Audio file too large for playback: %d bytes", len(data))
+				return ""
+			}
+			encoded := base64Encode(data)
+			return "data:audio/wav;base64," + encoded
+		})
+
 		// Bind: reTranscribe → re-transcribe from cached audio
 		w.Bind("reTranscribe", func(id string) map[string]interface{} {
 			entry := history.GetByID(id)
@@ -1265,6 +1299,10 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStat
 			cfg.TemplateMetas[name] = meta
 			cfg.mu.Unlock()
 			cfg.Save()
+		})
+
+		w.Bind("checkConnectivity", func() bool {
+			return checkConnectivity()
 		})
 
 		w.Bind("isLLMInstalled", func() bool {
