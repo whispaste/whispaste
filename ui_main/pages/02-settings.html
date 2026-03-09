@@ -460,7 +460,7 @@
           <div class="card" data-section="local-stt">
             <div class="card-title">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-              <span data-i18n="aiSttTitle">Speech Recognition</span>
+              <span data-i18n="aiSttTitle">Speech-to-Text Models</span>
             </div>
             <p class="card-desc" data-i18n="aiSttDesc">Offline Whisper models for local transcription — no internet or API key required. Used for voice-to-text conversion.</p>
             <div class="form-group">
@@ -468,37 +468,15 @@
             </div>
           </div>
 
-          <!-- LLM — Language Model -->
+          <!-- LLM — AI Text Processing -->
           <div class="card" id="settings-llm-card">
             <div class="card-title">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-              <span data-i18n="aiLlmTitle">Language Model</span>
+              <span data-i18n="aiLlmTitle">AI Text Processing</span>
             </div>
             <p class="card-desc" data-i18n="aiLlmDesc">Local AI model for Smart Mode and text processing — runs entirely on your device, no data leaves your computer.</p>
-            <div class="llm-card-header">
-              <div class="llm-card-info">
-                <svg class="icon" style="width:22px;height:22px;color:var(--accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-                <div>
-                  <div class="llm-card-subtitle" data-i18n="smartLlmName">SmolLM2 · 270 MB · 6 Languages</div>
-                </div>
-              </div>
-              <div id="settings-llm-status-area">
-                <span class="llm-badge not-installed" id="settings-llm-badge" data-i18n="smartLlmNotInstalled">Not installed</span>
-              </div>
-            </div>
-            <div id="settings-llm-action-area" style="margin-top:12px">
-              <button class="btn btn-primary btn-sm" id="btn-settings-llm-download" onclick="startSettingsLLMDownload()">
-                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                <span data-i18n="smartLlmDownload">Download</span>
-              </button>
-              <div class="connectivity-status hidden" id="settingsLlmConnectivityStatus">
-                <span class="connectivity-dot"></span>
-                <span class="connectivity-text"></span>
-              </div>
-            </div>
-            <div class="llm-progress hidden" id="settings-llm-progress">
-              <div class="llm-progress-bar"><div class="llm-progress-fill" id="settings-llm-progress-fill" style="width:0%"></div></div>
-              <div class="llm-progress-text" id="settings-llm-progress-text"></div>
+            <div class="form-group">
+              <div id="settings-llm-model-list" class="model-list"></div>
             </div>
           </div>
 
