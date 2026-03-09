@@ -142,6 +142,10 @@ const translations = {
     btnSave: 'Save',
     statusSaved: 'Settings saved ✓',
     statusError: 'Error saving settings',
+    saveError: 'Failed to save',
+    resetError: 'Reset failed',
+    audioDeviceError: 'Failed to load audio devices',
+    modelLoadError: 'Failed to load models',
     statusTesting: 'Recording…',
     statusTestDone: 'Test complete',
     statusTestError: 'Test failed',
@@ -216,6 +220,8 @@ const translations = {
     customTemplateCardDesc: 'Custom template',
     cardAppRules: 'App Rules',
     descAppRules: 'Assign presets to specific applications.',
+    appPresetDeleteTitle: 'Delete Preset',
+    appPresetDeleteMsg: 'Remove the preset for "{app}"?',
     btnTestAudio: 'Test Microphone',
 
     // Mode badge
@@ -734,6 +740,10 @@ const translations = {
     btnSave: 'Speichern',
     statusSaved: 'Einstellungen gespeichert ✓',
     statusError: 'Fehler beim Speichern',
+    saveError: 'Speichern fehlgeschlagen',
+    resetError: 'Zurücksetzen fehlgeschlagen',
+    audioDeviceError: 'Audiogeräte konnten nicht geladen werden',
+    modelLoadError: 'Modelle konnten nicht geladen werden',
     statusTesting: 'Aufnahme…',
     statusTestDone: 'Test abgeschlossen',
     statusTestError: 'Test fehlgeschlagen',
@@ -808,6 +818,8 @@ const translations = {
     customTemplateCardDesc: 'Eigene Vorlage',
     cardAppRules: 'App-Regeln',
     descAppRules: 'Weise bestimmten Anwendungen Vorlagen zu.',
+    appPresetDeleteTitle: 'Preset löschen',
+    appPresetDeleteMsg: 'Preset für „{app}" entfernen?',
     btnTestAudio: 'Mikrofon testen',
 
     // Mode badge

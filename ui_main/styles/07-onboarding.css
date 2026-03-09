@@ -307,7 +307,7 @@
   font-weight: 500;
 }
 .onb-model-status.ready {
-  color: #10b981;
+  color: var(--success);
 }
 .onb-model-status.needed {
   color: var(--text-tertiary);

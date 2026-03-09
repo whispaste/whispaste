@@ -289,7 +289,7 @@ async function finishOnboarding() {
         await window.switchModel(cfg.model || 'whisper-1', false);
       }
     }
-  } catch (e) { console.error('Onboarding save error:', e); }
+  } catch (e) { showToast(t('saveError') || 'Settings could not be saved', true); }
 
   if (window.completeOnboarding) {
     await window.completeOnboarding();
