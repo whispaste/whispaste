@@ -28,6 +28,35 @@ async function mergeSelected() {
 
 
 async function confirmDelete(id) {
+  // Check if delete should archive instead
+  let useArchive = false;
+  try {
+    if (window.getConfig) {
+      const raw = await window.getConfig();
+      const cfg = JSON.parse(raw);
+      useArchive = cfg.delete_behavior === 'archive';
+    }
+  } catch (e) {}
+
+  if (useArchive) {
+    try {
+      let ok = true;
+      if (window.archiveEntry) ok = await window.archiveEntry(id);
+      if (ok) {
+        if (_expandedId === id) _expandedId = null;
+        _selectedIds.delete(id);
+        showToast(t('notebook.archived'), false);
+      } else {
+        showToast(t('statusError'), true);
+      }
+    } catch (e) {
+      showToast(t('statusError'), true);
+    }
+    updateSelectionBar();
+    await loadEntries();
+    return;
+  }
+
   const confirmed = await showConfirmDialog(
     t('notebook.confirm_title'),
     t('notebook.confirm_msg'),
@@ -76,6 +105,38 @@ async function archiveSelected() {
 async function confirmDeleteSelected() {
   const count = _selectedIds.size;
   if (count === 0) return;
+
+  // Check if delete should archive instead
+  let useArchive = false;
+  try {
+    if (window.getConfig) {
+      const raw = await window.getConfig();
+      const cfg = JSON.parse(raw);
+      useArchive = cfg.delete_behavior === 'archive';
+    }
+  } catch (e) {}
+
+  if (useArchive) {
+    const btn = document.getElementById('deleteSelectedBtn');
+    setLoading(btn, true);
+    let archived = 0;
+    for (const id of _selectedIds) {
+      try {
+        if (window.archiveEntry) {
+          const ok = await window.archiveEntry(id);
+          if (ok) archived++;
+        }
+      } catch (e) {}
+    }
+    setLoading(btn, false);
+    if (archived > 0) {
+      clearSelection();
+      await loadEntries();
+      showToast(t('notebook.archived'), false);
+    }
+    return;
+  }
+
   const confirmed = await showConfirmDialog(
     t('notebook.confirm_delete_multi_title').replace('{n}', count),
     t('notebook.confirm_delete_multi_msg').replace('{n}', count),

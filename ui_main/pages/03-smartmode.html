@@ -69,56 +69,27 @@
           </div>
         </div>
 
+        <!-- Disabled state -->
+        <div class="card smart-disabled-notice hidden" id="smart-disabled-notice">
+          <div class="notice-row">
+            <svg class="icon notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            <div>
+              <p data-i18n="smartDisabledNotice">Smart Mode is currently disabled.</p>
+              <a href="#" onclick="switchToPage('page-settings'); setTimeout(function(){document.getElementById('section-ai')?.scrollIntoView({behavior:'smooth'})},100); return false;" data-i18n="smartEnableInSettings">Enable in Settings →</a>
+            </div>
+          </div>
+        </div>
+
         <!-- Preset Cards -->
         <div id="smart-mode-options" class="hidden">
-          <!-- AI Processing Engine -->
-          <h3 class="section-title" data-i18n="smartProvider">AI Processing Engine</h3>
-          <div class="provider-control" id="provider-control">
-            <button class="provider-option" data-provider="openai" onclick="selectSmartProvider('openai')">
-              <div class="provider-option-label" data-i18n="smartProviderOpenai">OpenAI API</div>
-              <div class="provider-option-desc" data-i18n="smartProviderOpenaiDesc">Highest quality, requires API key and internet</div>
-            </button>
-            <button class="provider-option" data-provider="local" onclick="selectSmartProvider('local')">
-              <div class="provider-option-label" data-i18n="smartProviderLocal">Local Model</div>
-              <div class="provider-option-desc" data-i18n="smartProviderLocalDesc">Offline processing, no API key needed</div>
-            </button>
-            <button class="provider-option active" data-provider="auto" onclick="selectSmartProvider('auto')">
-              <div class="provider-option-label" data-i18n="smartProviderAuto">Auto</div>
-              <div class="provider-option-desc" data-i18n="smartProviderAutoDesc">Uses local model if available, otherwise OpenAI API</div>
-            </button>
-          </div>
-          <div class="provider-warning hidden" id="provider-warning">
-            <svg class="icon" style="width:14px;height:14px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <span id="provider-warning-text"></span>
-          </div>
-
-          <!-- Local LLM Card -->
-          <div class="llm-card hidden" id="llm-card">
-            <div class="llm-card-header">
-              <div class="llm-card-info">
-                <svg class="icon" style="width:22px;height:22px;color:var(--accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-                <div>
-                  <div class="llm-card-title" data-i18n="smartLlmCard">Local Language Model</div>
-                  <div class="llm-card-subtitle" data-i18n="smartLlmName">SmolLM2 · 270 MB · 6 Languages</div>
-                </div>
+          <!-- Provider Info (read-only) — configured in Settings → AI & Models -->
+          <div class="card smart-provider-info" id="smart-provider-info">
+            <div class="smart-provider-row">
+              <div>
+                <span class="text-sm text-secondary" data-i18n="smartCurrentProvider">Current AI provider:</span>
+                <span class="llm-badge ready" id="smart-provider-badge">Auto</span>
               </div>
-              <div id="llm-status-area">
-                <span class="llm-badge not-installed" id="llm-badge" data-i18n="smartLlmNotInstalled">Not installed</span>
-              </div>
-            </div>
-            <div id="llm-action-area" style="margin-top:12px">
-              <button class="btn btn-primary btn-sm" id="btn-llm-download" onclick="startLLMDownload()">
-                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                <span data-i18n="smartLlmDownload">Download</span>
-              </button>
-              <div class="connectivity-status hidden" id="llmConnectivityStatus">
-                <span class="connectivity-dot"></span>
-                <span class="connectivity-text"></span>
-              </div>
-            </div>
-            <div class="llm-progress hidden" id="llm-progress">
-              <div class="llm-progress-bar"><div class="llm-progress-fill" id="llm-progress-fill" style="width:0%"></div></div>
-              <div class="llm-progress-text" id="llm-progress-text"></div>
+              <a href="#" class="text-sm" onclick="switchToPage('page-settings'); setTimeout(function(){document.getElementById('section-ai')?.scrollIntoView({behavior:'smooth'})},100); return false;" data-i18n="settingsAiChangeProvider">Change in Settings →</a>
             </div>
           </div>
 
