@@ -3,18 +3,29 @@
       <div class="page-header">
         <h2 class="page-title" data-i18n="tabReplacements">Text Replacements</h2>
         <p class="page-subtitle" data-i18n="replacementsDesc">Define trigger words that automatically get replaced in your transcriptions.</p>
-        <div class="page-header-actions">
-          <label class="toggle-switch" title="">
-            <input type="checkbox" id="replacements-toggle">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
       </div>
       <div class="replacements-scroll">
-        <div class="replacements-list" id="replacements-list"></div>
-        <button class="replacements-add-btn" id="replacements-add-btn">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-          <span data-i18n="replacementsAdd">Add Replacement</span>
-        </button>
+        <!-- Enable/Disable Toggle Card -->
+        <div class="card">
+          <div class="form-group">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <label class="toggle-label" for="replacements-toggle" data-i18n="labelReplacementsToggle">Text Replacements</label>
+                <p class="toggle-desc" data-i18n="descReplacementsToggle">When enabled, trigger words are automatically replaced in every transcription before pasting</p>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="replacements-toggle" onchange="updateReplacementsVisibility()">
+                <label class="toggle-track" for="replacements-toggle"></label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="replacements-content">
+          <div class="replacements-list" id="replacements-list"></div>
+          <button class="replacements-add-btn" id="replacements-add-btn">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            <span data-i18n="replacementsAdd">Add Replacement</span>
+          </button>
+        </div>
       </div>
     </div>

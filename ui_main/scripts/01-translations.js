@@ -87,6 +87,12 @@ const translations = {
     cardSoundVolume: 'Sound & Volume',
     statusAutoSaved: 'Saved ✓',
 
+    // Settings — AI & Models
+    aiSttTitle: 'Speech Recognition',
+    aiSttDesc: 'Offline Whisper models for local transcription — no internet or API key required. Used for voice-to-text conversion.',
+    aiLlmTitle: 'Language Model',
+    aiLlmDesc: 'Local AI model for Smart Mode and text processing — runs entirely on your device, no data leaves your computer.',
+
     // Settings — Smart Mode
     labelSmartMode: 'AI Post-Processing',
     descSmartMode: 'Transcriptions are refined by AI using your chosen preset before pasting',
@@ -530,6 +536,8 @@ const translations = {
     // Text Replacements
     tabReplacements: 'Text Replacements',
     replacementsDesc: 'Define trigger words that automatically get replaced in your transcriptions.',
+    labelReplacementsToggle: 'Text Replacements',
+    descReplacementsToggle: 'When enabled, trigger words are automatically replaced in every transcription before pasting',
     replacementsEmpty: 'No replacements defined yet. Add one to get started!',
     replacementsAdd: 'Add Replacement',
     replacementsAddTitle: 'Add Replacement',
@@ -694,6 +702,12 @@ const translations = {
     settingsNavNotifications: 'Benachrichtigungen',
     cardSoundVolume: 'Ton & Lautstärke',
     statusAutoSaved: 'Gespeichert ✓',
+
+    // Settings — AI & Models
+    aiSttTitle: 'Spracherkennung',
+    aiSttDesc: 'Offline-Whisper-Modelle für lokale Transkription — kein Internet oder API-Schlüssel erforderlich. Wird für die Sprache-zu-Text-Umwandlung verwendet.',
+    aiLlmTitle: 'Sprachmodell',
+    aiLlmDesc: 'Lokales KI-Modell für den Smart-Modus und Textverarbeitung — läuft komplett auf deinem Gerät, keine Daten verlassen deinen Computer.',
 
     // Settings — Smart Mode
     labelSmartMode: 'KI-Nachbearbeitung',
@@ -1138,6 +1152,8 @@ const translations = {
     // Text Replacements
     tabReplacements: 'Textersetzungen',
     replacementsDesc: 'Definiere Auslösewörter, die automatisch in deinen Transkriptionen ersetzt werden.',
+    labelReplacementsToggle: 'Textersetzungen',
+    descReplacementsToggle: 'Wenn aktiviert, werden Auslösewörter automatisch bei jeder Transkription vor dem Einfügen ersetzt',
     replacementsEmpty: 'Noch keine Ersetzungen definiert. Füge eine hinzu!',
     replacementsAdd: 'Ersetzung hinzufügen',
     replacementsAddTitle: 'Ersetzung hinzufügen',
