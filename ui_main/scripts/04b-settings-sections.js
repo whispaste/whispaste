@@ -298,41 +298,42 @@ async function updateLLMStatus() {
     }
   } catch (e) {}
 
-  updateLLMBadge(status, 'llm-badge', 'llm-action-area', 'llm-progress');
-  updateLLMBadge(status, 'settings-llm-badge', 'settings-llm-action-area', 'settings-llm-progress');
+  renderSettingsLLMModel(status);
 }
 
-function updateLLMBadge(status, badgeId, actionId, progressId) {
-  const badge = document.getElementById(badgeId);
-  const actionArea = document.getElementById(actionId);
-  const progress = document.getElementById(progressId);
-  if (!badge) return;
+function renderSettingsLLMModel(status) {
+  const container = document.getElementById('settings-llm-model-list');
+  if (!container) return;
 
-  const isSettings = badgeId.startsWith('settings-');
-  const downloadFn = isSettings ? 'startSettingsLLMDownload' : 'startLLMDownload';
-  const connectId = isSettings ? 'settingsLlmConnectivityStatus' : 'llmConnectivityStatus';
+  const name = 'SmolLM2';
+  const meta = '270 MB · 6 ' + t('smartLlmLanguages');
+  const isDownloading = container.dataset.downloading === 'true';
 
-  if (status.installed) {
-    badge.className = 'llm-badge ready';
-    badge.innerHTML = '<svg class="icon" style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> ' + t('smartLlmReady');
-    if (actionArea) {
-      const testBtnId = isSettings ? 'btn-test-llm-settings' : 'btn-test-llm';
-      actionArea.innerHTML = `<button class="btn btn-secondary btn-sm btn-model-test" id="${testBtnId}" onclick="testLLMModel('${testBtnId}')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg> ${t('modelTest')}</button> <button class="llm-delete-link" onclick="deleteLLM()">${t('smartLlmDelete')}</button>`;
-    }
-    if (progress) progress.classList.add('hidden');
+  let actionBtn;
+  if (isDownloading) {
+    actionBtn = `<button class="btn btn-secondary btn-sm" disabled>${t('modelDownloading')}</button>
+      <div class="model-progress"><div class="model-progress-bar" id="settings-llm-progress-bar" style="width:0%"></div></div>`;
+  } else if (status.installed) {
+    actionBtn = `<button class="btn btn-secondary btn-sm btn-model-test" id="btn-test-llm-settings" onclick="event.stopPropagation();testLLMModel('btn-test-llm-settings')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg> ${t('modelTest')}</button><span class="model-badge model-badge-success">✓ ${t('modelDownloaded')}</span><button class="btn btn-icon btn-sm btn-ghost" onclick="event.stopPropagation();deleteLLM()" title="${t('smartLlmDelete')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>`;
   } else {
-    badge.className = 'llm-badge not-installed';
-    badge.textContent = t('smartLlmNotInstalled');
-    if (actionArea) actionArea.innerHTML = `<button class="btn btn-primary btn-sm" onclick="${downloadFn}()">
-      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-      <span>${t('smartLlmDownload')}</span>
-    </button>
-    <div class="connectivity-status" id="${connectId}" style="display:none">
-      <span class="connectivity-dot"></span>
-      <span class="connectivity-text"></span>
-    </div>`;
-    updateConnectivityStatus(connectId);
+    actionBtn = `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();startSettingsLLMDownload()">${t('modelDownload')}</button>`;
   }
+
+  container.innerHTML = `<div class="model-item ${!status.installed && !isDownloading ? 'unavailable' : ''}" data-model-id="smollm2">
+    <div class="model-item-info">
+      <div class="model-item-name">${name}</div>
+      <div class="model-item-meta">${meta}${!status.installed ? ' · ' + t('modelNotDownloaded') : ''}</div>
+    </div>
+    <div class="model-item-action">${actionBtn}</div>
+  </div>
+  <div class="llm-progress hidden" id="settings-llm-progress">
+    <div class="llm-progress-bar"><div class="llm-progress-fill" id="settings-llm-progress-fill" style="width:0%"></div></div>
+    <div class="llm-progress-text" id="settings-llm-progress-text"></div>
+  </div>
+  <div class="connectivity-status hidden" id="settingsLlmConnectivityStatus">
+    <span class="connectivity-dot"></span>
+    <span class="connectivity-text"></span>
+  </div>`;
 }
 
 async function startLLMDownload() {
@@ -341,15 +342,8 @@ async function startLLMDownload() {
     showToast(t('connectivityRequired'), true);
     return;
   }
-  const actionArea = document.getElementById('llm-action-area');
   const progress = document.getElementById('llm-progress');
-  const badge = document.getElementById('llm-badge');
-  if (actionArea) actionArea.innerHTML = '';
   if (progress) progress.classList.remove('hidden');
-  if (badge) {
-    badge.className = 'llm-badge not-installed';
-    badge.textContent = t('smartLlmDownloading');
-  }
   try {
     if (window.downloadLLM) await window.downloadLLM();
   } catch (e) {
@@ -419,6 +413,8 @@ window.onLLMDownloadError = function(errorMsg) {
       text.style.color = 'var(--error)';
     }
   });
+  const container = document.getElementById('settings-llm-model-list');
+  if (container) delete container.dataset.downloading;
   updateLLMStatus();
 };
 
@@ -427,6 +423,8 @@ window.onLLMDownloadComplete = function() {
     const progress = document.getElementById(prefix + 'llm-progress');
     if (progress) progress.classList.add('hidden');
   });
+  const container = document.getElementById('settings-llm-model-list');
+  if (container) delete container.dataset.downloading;
   updateLLMStatus();
 };
 
@@ -436,15 +434,10 @@ async function startSettingsLLMDownload() {
     showToast(t('connectivityRequired'), true);
     return;
   }
-  const actionArea = document.getElementById('settings-llm-action-area');
+  const container = document.getElementById('settings-llm-model-list');
+  if (container) container.dataset.downloading = 'true';
   const progress = document.getElementById('settings-llm-progress');
-  const badge = document.getElementById('settings-llm-badge');
-  if (actionArea) actionArea.innerHTML = '';
   if (progress) progress.classList.remove('hidden');
-  if (badge) {
-    badge.className = 'llm-badge not-installed';
-    badge.textContent = t('smartLlmDownloading');
-  }
   try {
     if (window.downloadLLM) await window.downloadLLM();
   } catch (e) {
