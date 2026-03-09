@@ -54,11 +54,79 @@ Requires `gendef` and `dlltool` from MinGW (both in `C:\ProgramData\mingw64\ming
 
 ## Architecture
 
-- File-per-domain: audio.go, api.go, config.go, hotkey.go, overlay.go, paste.go, tray.go, ui.go, update.go, etc.
-- Settings UI: single embedded HTML file (ui_settings.html) with CSS/JS, loaded via WebView2
-- Localization: data-i18n attributes + JS translations object (EN/DE)
+### Project Structure
+
+```
+whispaste/
+├── internal/                          ← extracted Go packages (self-contained)
+│   ├── audiocache/                    ← audio file caching (gzip WAV storage)
+│   ├── export/                        ← DOCX/CSV/TXT/JSON/MD export
+│   ├── i18n/                          ← localization (EN/DE translations)
+│   ├── models/                        ← STT model management & downloads
+│   ├── stats/                         ← usage statistics
+│   └── wav/                           ← pure WAV encoding
+│
+├── scripts/                           ← build & review scripts
+│   ├── build.ps1
+│   └── review.ps1
+│
+├── resources/                         ← embedded assets (sounds, icons, debug logos)
+├── ui_main/                           ← main UI: pages/, components/, styles/, scripts/
+├── installer/                         ← NSIS installer
+├── msix/                              ← Microsoft Store packaging
+├── winres/                            ← Windows resource embedding
+├── website/                           ← Astro landing page
+├── cmd/screenshot/                    ← screenshot utility
+├── build/                             ← build output
+├── .github/                           ← CI workflows & Copilot instructions
+│
+├── main.go                            ← entry point
+├── api.go + api_test.go               ← OpenAI Whisper API
+├── audio.go                           ← audio recording (CGO/malgo)
+├── config.go + config_test.go         ← configuration management
+├── floating.go                        ← floating button window
+├── history.go + history_test.go       ← history management
+├── history_db.go                      ← SQLite database layer
+├── hotkey.go                          ← global hotkey registration
+├── l10n_bridge.go                     ← T() bridge to internal/i18n
+├── llm.go                             ← local LLM server management
+├── llm_download.go                    ← LLM model downloads
+├── logger.go + logger_test.go         ← structured file logging
+├── notification.go                    ← Windows toast notifications
+├── offline.go + offline_test.go       ← offline STT (sherpa-onnx CGO)
+├── overlay.go                         ← recording overlay window
+├── paste.go                           ← clipboard/paste (Win32 API)
+├── postprocess.go + postprocess_test.go ← smart mode processing
+├── sound.go + sound_test.go           ← sound feedback
+├── tray.go + tray_test.go             ← system tray
+├── types.go                           ← shared types & constants
+├── ui.go                              ← WebView2 setup
+├── ui_components.go + test            ← reusable UI components
+├── ui_log.go                          ← log viewer window
+├── ui_main.go + ui_main_test.go       ← main UI window
+├── update.go + update_test.go         ← auto-updater
+├── vad.go                             ← voice activity detection
+├── windowdetect.go                    ← active window detection
+└── go.mod, go.sum, LICENSE, README.md
+```
+
+### Design Principles
+
+- **Root-level Go files**: Core app logic that stays in `package main` due to heavy cross-dependencies, `//go:embed` constraints, or pervasive usage (logger has 22+ callers)
+- **`internal/` packages**: Self-contained modules with ≤3 external dependencies. Each package uses parameter injection instead of accessing `configDir()` or `AppName` directly
+- **File-per-domain**: audio.go, api.go, config.go, hotkey.go, overlay.go, paste.go, tray.go, ui.go, update.go, etc.
+- Settings UI: modular HTML/CSS/JS in `ui_main/` (pages, components, styles, scripts), assembled by `assembleMainHTML()`
+- Localization: Go translations in `internal/i18n/`, JS translations via `data-i18n` attributes
 - Logging: structured file logging in logger.go (logDebug/logInfo/logWarn/logError)
 - Config: JSON in %APPDATA%\Whispaste\config.json, thread-safe with sync.RWMutex
+
+### Component Reuse Policy
+
+- **Always check `internal/` packages and existing root files before creating new modules.** Reuse what exists.
+- **UI components**: Check `ui_components.go` and `ui_main/components/` before creating new UI elements. Use existing component patterns.
+- **New `internal/` packages**: Only create when a module is self-contained with ≤3 external dependencies and no circular dependency risk.
+- **Bridge pattern**: When extracting a widely-used function (like `T()`), create a thin bridge file (e.g., `l10n_bridge.go`) to avoid mass caller updates.
+- **`//go:embed` constraint**: Files using `//go:embed` (sound.go, tray.go, ui.go, ui_main.go, overlay.go) CANNOT move to subdirectories — Go forbids `..` in embed paths.
 
 ## Code Conventions
 
@@ -72,11 +140,13 @@ Requires `gendef` and `dlltool` from MinGW (both in `C:\ProgramData\mingw64\ming
 ## Separation of Concerns
 
 - **Prefer smaller, focused files** over large monolithic ones — each file should have a single clear responsibility
+- **Self-contained logic → `internal/` package**: If a module has ≤3 external deps and no circular dependency risk, extract to `internal/{pkg}/`
 - Separate HTML structure, CSS styling, and JavaScript logic into distinct files or scoped blocks
 - Extract reusable components rather than duplicating code across files
 - For Astro: use component files (`*.astro`) with scoped `<style>` blocks; extract shared CSS into `src/styles/`; extract shared JS into `src/scripts/`
-- For Go: maintain the existing file-per-domain pattern (audio.go, config.go, etc.)
-- For HTML (WebView): keep CSS/JS in the same file only when the file is embedded and must be self-contained (e.g., `ui_settings.html`)
+- For Go root files: maintain the file-per-domain pattern (audio.go, config.go, etc.)
+- For Go internal packages: one package per domain (wav/, audiocache/, export/, stats/, i18n/, models/)
+- For HTML (WebView): modular files in `ui_main/` — pages, components, styles, scripts assembled at runtime
 - General guideline: if a file exceeds ~300 lines, evaluate whether it can be split into focused modules
 
 ## UI Icons
@@ -113,7 +183,8 @@ Goal: maximum stability gain at minimum maintenance cost. Not a goal: coverage m
 Only write P0 and P1 tests. Skip P2.
 
 - **When adding new code**: write 1–2 targeted tests covering the core happy path + primary error path
-- Tests in `package main` (same package) for access to unexported functions
+- Root-level tests in `package main` (same package) for access to unexported functions
+- `internal/` package tests in their own package (e.g., `package wav`, `package export`)
 - Use `httptest.NewServer` for HTTP-dependent tests
 - Use `t.TempDir()` for file isolation
 - No mocking frameworks — keep it simple

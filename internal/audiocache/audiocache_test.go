@@ -1,4 +1,4 @@
-package main
+package audiocache
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestValidAudioID(t *testing.T) {
+func TestValidID(t *testing.T) {
 	tests := []struct {
 		id    string
 		valid bool
@@ -24,17 +24,17 @@ func TestValidAudioID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.id, func(t *testing.T) {
-			got := validAudioID.MatchString(tt.id)
+			got := ValidID.MatchString(tt.id)
 			if got != tt.valid {
-				t.Errorf("validAudioID(%q) = %v, want %v", tt.id, got, tt.valid)
+				t.Errorf("ValidID(%q) = %v, want %v", tt.id, got, tt.valid)
 			}
 		})
 	}
 }
 
-func TestSaveLoadAudioRoundtrip(t *testing.T) {
+func TestSaveLoadRoundtrip(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("APPDATA", tmpDir)
+	Init(tmpDir)
 
 	// Create PCM test data (16-bit LE samples)
 	pcm := make([]byte, 3200) // 100ms at 16kHz
@@ -44,17 +44,17 @@ func TestSaveLoadAudioRoundtrip(t *testing.T) {
 	}
 
 	id := "aabbccdd11223344"
-	if err := SaveAudio(id, pcm); err != nil {
-		t.Fatalf("SaveAudio: %v", err)
+	if err := Save(id, pcm); err != nil {
+		t.Fatalf("Save: %v", err)
 	}
 
-	if !HasAudio(id) {
-		t.Error("HasAudio returned false after save")
+	if !Has(id) {
+		t.Error("Has returned false after save")
 	}
 
-	loaded, err := LoadAudio(id)
+	loaded, err := Load(id)
 	if err != nil {
-		t.Fatalf("LoadAudio: %v", err)
+		t.Fatalf("Load: %v", err)
 	}
 
 	// Loaded data should be WAV (starts with RIFF header)
@@ -72,31 +72,31 @@ func TestSaveLoadAudioRoundtrip(t *testing.T) {
 	}
 }
 
-func TestSaveAudioInvalidID(t *testing.T) {
+func TestSaveInvalidID(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("APPDATA", tmpDir)
+	Init(tmpDir)
 
-	err := SaveAudio("../../../etc/evil", []byte{1, 2})
+	err := Save("../../../etc/evil", []byte{1, 2})
 	if err == nil {
 		t.Error("expected error for path-traversal ID")
 	}
 }
 
-func TestSaveAudioEmptyPCM(t *testing.T) {
+func TestSaveEmptyPCM(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("APPDATA", tmpDir)
+	Init(tmpDir)
 
-	err := SaveAudio("aabbccdd11223344", nil)
+	err := Save("aabbccdd11223344", nil)
 	if err != nil {
 		t.Errorf("empty PCM should succeed (no-op), got: %v", err)
 	}
 }
 
-func TestCleanupOrphanedAudio(t *testing.T) {
+func TestCleanupOrphaned(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("APPDATA", tmpDir)
+	Init(tmpDir)
 
-	audioDir := filepath.Join(tmpDir, AppName, "audio")
+	audioDir := filepath.Join(tmpDir, "audio")
 	os.MkdirAll(audioDir, 0700)
 
 	// Create some fake audio files
@@ -109,7 +109,7 @@ func TestCleanupOrphanedAudio(t *testing.T) {
 		"aabbccdd00000001": true,
 		"aabbccdd00000003": true,
 	}
-	CleanupOrphanedAudio(validIDs)
+	CleanupOrphaned(validIDs)
 
 	// ID 2 should be removed
 	if _, err := os.Stat(filepath.Join(audioDir, "aabbccdd00000002.wav")); !os.IsNotExist(err) {

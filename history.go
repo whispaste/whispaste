@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/whispaste/whispaste/internal/audiocache"
 )
 
 const defaultMaxHistory = 500
@@ -297,7 +299,7 @@ func (h *History) Delete(id string) bool {
 	}
 	n, _ := res.RowsAffected()
 	if n > 0 {
-		DeleteAudio(id)
+		audiocache.Delete(id)
 	}
 	return n > 0
 }
@@ -830,7 +832,7 @@ func (h *History) DeleteProject(id string, deleteEntries bool) error {
 			for rows.Next() {
 				var entryID string
 				if err := rows.Scan(&entryID); err == nil {
-					DeleteAudio(entryID)
+					audiocache.Delete(entryID)
 				}
 			}
 		}
@@ -1209,12 +1211,12 @@ func (h *History) Cleanup(maxEntries, maxAgeDays int, includePinned bool) int {
 
 	// Delete audio files for removed entries
 	for _, id := range deletedIDs {
-		DeleteAudio(id)
+		audiocache.Delete(id)
 	}
 
 	// Clean up orphaned audio files (from crashes, manual DB edits, etc.)
 	validIDs := h.AllEntryIDs()
-	CleanupOrphanedAudio(validIDs)
+	audiocache.CleanupOrphaned(validIDs)
 
 	return int(totalRemoved)
 }

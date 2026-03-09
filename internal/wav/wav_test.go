@@ -1,4 +1,4 @@
-package main
+package wav
 
 import (
 	"encoding/binary"
@@ -7,7 +7,7 @@ import (
 
 func TestEncodeWAVHeader(t *testing.T) {
 	pcm := make([]byte, 100)
-	wav := EncodeWAV(pcm, 16000, 1, 16)
+	wav := Encode(pcm, 16000, 1, 16)
 
 	if len(wav) != 44+100 {
 		t.Fatalf("WAV length = %d, want %d", len(wav), 144)
@@ -69,7 +69,7 @@ func TestEncodeWAVHeader(t *testing.T) {
 }
 
 func TestEncodeWAVEmptyPCM(t *testing.T) {
-	wav := EncodeWAV(nil, 16000, 1, 16)
+	wav := Encode(nil, 16000, 1, 16)
 	if len(wav) != 44 {
 		t.Errorf("Empty WAV length = %d, want 44 (header only)", len(wav))
 	}
@@ -81,7 +81,7 @@ func TestEncodeWAVEmptyPCM(t *testing.T) {
 
 func TestEncodeWAVStereo(t *testing.T) {
 	pcm := make([]byte, 200)
-	wav := EncodeWAV(pcm, 44100, 2, 16)
+	wav := Encode(pcm, 44100, 2, 16)
 
 	channels := binary.LittleEndian.Uint16(wav[22:24])
 	if channels != 2 {
@@ -104,7 +104,7 @@ func TestEncodeWAVStereo(t *testing.T) {
 
 func TestEncodeWAVDataIntegrity(t *testing.T) {
 	pcm := []byte{0x01, 0x02, 0x03, 0x04, 0xFF, 0xFE}
-	wav := EncodeWAV(pcm, 16000, 1, 16)
+	wav := Encode(pcm, 16000, 1, 16)
 
 	for i, b := range pcm {
 		if wav[44+i] != b {

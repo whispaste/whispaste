@@ -1,4 +1,4 @@
-package main
+package i18n
 
 import (
 	"testing"
@@ -74,13 +74,11 @@ func TestTranslationCompleteness(t *testing.T) {
 	en := translations["en"]
 	de := translations["de"]
 
-	// Every EN key must exist in DE
 	for key := range en {
 		if _, ok := de[key]; !ok {
 			t.Errorf("DE translation missing key: %q", key)
 		}
 	}
-	// Every DE key must exist in EN
 	for key := range de {
 		if _, ok := en[key]; !ok {
 			t.Errorf("EN translation missing key: %q (exists in DE but not EN)", key)
@@ -89,6 +87,8 @@ func TestTranslationCompleteness(t *testing.T) {
 }
 
 func TestTranslationNoEmpty(t *testing.T) {
+	Init("0.0.0-test")
+	defer Init("")
 	for lang, trans := range translations {
 		for key, val := range trans {
 			if val == "" {

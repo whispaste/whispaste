@@ -1,13 +1,11 @@
-package main
+package stats
 
 import (
 	"testing"
 )
 
 func TestRecordDictation(t *testing.T) {
-	t.Setenv("APPDATA", t.TempDir())
-
-	s := &UsageStats{}
+	s := &UsageStats{dir: t.TempDir()}
 	total := s.RecordDictation("hello world foo bar", 5.0, false)
 	if total != 1 {
 		t.Errorf("total dictations = %d, want 1", total)
@@ -36,8 +34,6 @@ func TestRecordDictation(t *testing.T) {
 }
 
 func TestRecordDictationMonthRollover(t *testing.T) {
-	t.Setenv("APPDATA", t.TempDir())
-
 	s := &UsageStats{
 		MonthKey:        "2025-01", // old month
 		MonthWords:      100,
@@ -45,6 +41,7 @@ func TestRecordDictationMonthRollover(t *testing.T) {
 		MonthSeconds:    60.0,
 		TotalWords:      200,
 		TotalDictations: 20,
+		dir:             t.TempDir(),
 	}
 	s.RecordDictation("new month", 2.0, false)
 	if s.MonthWords != 2 {
@@ -121,8 +118,7 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestStatsReset(t *testing.T) {
-	t.Setenv("APPDATA", t.TempDir())
-	s := &UsageStats{}
+	s := &UsageStats{dir: t.TempDir()}
 	s.RecordDictation("hello world test", 5.0, false)
 	if s.TotalWords == 0 {
 		t.Fatal("expected words after recording")

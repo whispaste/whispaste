@@ -1,4 +1,4 @@
-package main
+package stats
 
 import (
 	"encoding/json"
@@ -23,22 +23,21 @@ type UsageStats struct {
 	MonthLocalDictations int     `json:"month_local_dictations"`
 	MonthLocalWords      int     `json:"month_local_words"`
 	MonthLocalSeconds    float64 `json:"month_local_seconds"`
-	MonthKey        string  `json:"month_key"` // "2026-03" format
+	MonthKey        string  `json:"month_key"`
 	mu              sync.Mutex
+	dir             string // directory for stats.json persistence
 }
 
-// LoadStats reads stats from disk or returns fresh defaults.
-func LoadStats() *UsageStats {
-	s := &UsageStats{}
-	dir, err := configDir()
-	if err != nil {
-		return s
-	}
+// Load reads stats from disk or returns fresh defaults.
+// dir is the directory containing stats.json.
+func Load(dir string) *UsageStats {
+	s := &UsageStats{dir: dir}
 	data, err := os.ReadFile(filepath.Join(dir, "stats.json"))
 	if err != nil {
 		return s
 	}
 	json.Unmarshal(data, s)
+	s.dir = dir
 	// Reset month counters if month changed
 	current := time.Now().Format("2006-01")
 	if s.MonthKey != current {
@@ -126,13 +125,13 @@ func (s *UsageStats) Snapshot() map[string]interface{} {
 		"month_words":          s.MonthWords,
 		"month_dictations":     s.MonthDictations,
 		"month_seconds":        s.MonthSeconds,
-		"time_saved_min":       s.TimeSavedMinutesLocked(),
-		"estimated_cost":       s.EstimatedCostLocked(),
+		"time_saved_min":       s.timeSavedMinutesLocked(),
+		"estimated_cost":       s.estimatedCostLocked(),
 	}
 }
 
-// TimeSavedMinutesLocked is the internal version (caller holds lock).
-func (s *UsageStats) TimeSavedMinutesLocked() float64 {
+// timeSavedMinutesLocked is the internal version (caller holds lock).
+func (s *UsageStats) timeSavedMinutesLocked() float64 {
 	typingMin := float64(s.MonthWords) / 40.0
 	dictationMin := s.MonthSeconds / 60.0
 	saved := typingMin - dictationMin
@@ -142,8 +141,8 @@ func (s *UsageStats) TimeSavedMinutesLocked() float64 {
 	return saved
 }
 
-// EstimatedCostLocked is the internal version (caller holds lock).
-func (s *UsageStats) EstimatedCostLocked() float64 {
+// estimatedCostLocked is the internal version (caller holds lock).
+func (s *UsageStats) estimatedCostLocked() float64 {
 	apiSeconds := s.MonthSeconds - s.MonthLocalSeconds
 	if apiSeconds < 0 {
 		apiSeconds = 0
@@ -172,8 +171,7 @@ func (s *UsageStats) Reset() {
 }
 
 func (s *UsageStats) save() {
-	dir, err := configDir()
-	if err != nil {
+	if s.dir == "" {
 		return
 	}
 	s.mu.Lock()
@@ -182,5 +180,5 @@ func (s *UsageStats) save() {
 	if err != nil {
 		return
 	}
-	os.WriteFile(filepath.Join(dir, "stats.json"), data, 0600)
+	os.WriteFile(filepath.Join(s.dir, "stats.json"), data, 0600)
 }
