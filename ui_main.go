@@ -306,6 +306,8 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStat
 		if recorder != nil {
 			recorder.StopMonitor()
 		}
+		// Close log viewer if open
+		CloseLogViewer()
 		// Notify caller
 		if onClose != nil {
 			logDebug("Main window: calling onClose callback")
