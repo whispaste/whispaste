@@ -105,13 +105,12 @@ func traySubclassWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	return ret
 }
 
-// notifyIconDataW matches the Windows NOTIFYICONDATAW struct layout.
-// The trailing _pad field is required because getlantern/systray v1.2.2
-// has a struct bug: it declares Timeout AND Version as separate uint32
-// fields (8 bytes) where Windows has a 4-byte union. This makes the
-// library's NIM_ADD use cbSize=984 instead of the correct 976. Windows
-// may reject NIM_MODIFY calls with a different cbSize than NIM_ADD.
-// Our padding keeps all field offsets correct while matching cbSize=984.
+// notifyIconDataW matches the Windows NOTIFYICONDATAW (Version 4) struct
+// layout with correct SDK field offsets. cbSize = 976 on 64-bit, which is
+// the proper size for the struct including hBalloonIcon. The getlantern/
+// systray library has a bug (Timeout + Version = 8 bytes instead of a
+// 4-byte union) giving cbSize=984, but Windows accepts NIM_MODIFY with
+// the correct 976-byte size regardless of what NIM_ADD used.
 type notifyIconDataW struct {
 	cbSize           uint32
 	hWnd             uintptr
@@ -128,7 +127,6 @@ type notifyIconDataW struct {
 	dwInfoFlags      uint32
 	guidItem         [16]byte
 	hBalloonIcon     uintptr
-	_pad             [8]byte // match systray library cbSize (984 vs 976)
 }
 
 // AppTray manages the system tray icon and menu.
@@ -287,8 +285,9 @@ func (t *AppTray) ShowBalloon(title, text string) {
 	}
 
 	// Use custom icon if available, otherwise fall back to system info icon.
-	// NIIF_LARGE_ICON is required on Win10/11 for proper toast rendering.
-	infoFlags := uint32(_NIIF_INFO | _NIIF_LARGE_ICON)
+	// NIIF_LARGE_ICON requires a valid hBalloonIcon — omit it when no icon
+	// is loaded, otherwise Windows may silently suppress the notification.
+	infoFlags := uint32(_NIIF_INFO)
 	iconHandle := t.balloonIcon
 	if iconHandle != 0 {
 		infoFlags = uint32(_NIIF_USER | _NIIF_LARGE_ICON)
@@ -310,7 +309,7 @@ func (t *AppTray) ShowBalloon(title, text string) {
 		copy(nid.szInfo[:255], textUTF16)
 	}
 
-	logDebug("ShowBalloon: hwnd=%d pid=%d cbSize=%d flags=0x%X title=%q", hwnd, windowPID, nid.cbSize, infoFlags, title)
+	logDebug("ShowBalloon: hwnd=%d pid=%d cbSize=%d flags=0x%X balloonIcon=%d title=%q", hwnd, windowPID, nid.cbSize, infoFlags, iconHandle, title)
 	ret, _, callErr := procShellNotifyIcon.Call(_NIM_MODIFY, uintptr(unsafe.Pointer(&nid)))
 	if ret == 0 {
 		if errno, ok := callErr.(syscall.Errno); ok {

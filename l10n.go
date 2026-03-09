@@ -139,7 +139,7 @@ var translations = map[string]map[string]string{
 		"settings.smart_preset":       "Preset",
 		"settings.smart_preset_off":   "Off",
 		"settings.smart_preset_cleanup": "Clean Up",
-		"settings.smart_preset_concise": "Concise",
+		"settings.smart_preset_concise": "Condense",
 		"settings.smart_preset_email": "Email Format",
 		"settings.smart_preset_bullets": "Bullet List",
 		"settings.smart_preset_formal": "Formal",
@@ -189,6 +189,7 @@ var translations = map[string]map[string]string{
 		"balloon.sponsor_title":  "Enjoying WhisPaste?",
 		"balloon.sponsor":        "You've completed 50 dictations! If WhisPaste saves you time, consider supporting its development. ❤️",
 		"balloon.transcription_complete": "Transcription complete.",
+		"balloon.test":                  "Test notification — if you see this, notifications work!",
 
 		// Pending transcription
 		"transcription_cancelled": "Cancelled",
@@ -330,7 +331,7 @@ var translations = map[string]map[string]string{
 		"settings.smart_preset":       "Vorlage",
 		"settings.smart_preset_off":   "Aus",
 		"settings.smart_preset_cleanup": "Bereinigen",
-		"settings.smart_preset_concise": "Kompakt",
+		"settings.smart_preset_concise": "Straffen",
 		"settings.smart_preset_email": "E-Mail-Format",
 		"settings.smart_preset_bullets": "Aufzählung",
 		"settings.smart_preset_formal": "Formell",
@@ -380,6 +381,7 @@ var translations = map[string]map[string]string{
 		"balloon.sponsor_title":  "Gefällt dir WhisPaste?",
 		"balloon.sponsor":        "Du hast 50 Diktate abgeschlossen! Wenn WhisPaste dir Zeit spart, unterstütze gerne die Weiterentwicklung. ❤️",
 		"balloon.transcription_complete": "Transkription abgeschlossen.",
+		"balloon.test":                  "Test-Benachrichtigung — wenn du das siehst, funktionieren Benachrichtigungen!",
 
 		// Pending transcription
 		"transcription_cancelled": "Abgebrochen",

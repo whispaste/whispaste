@@ -225,6 +225,13 @@ function updateCloseToTrayDependents() {
   if (!closeToTray.checked) notifyBg.checked = false;
 }
 
+/* ── Test Notification Button ─────────────────────────── */
+document.addEventListener('click', function(e) {
+  if (e.target.closest('#btn-test-notification')) {
+    if (window.testNotification) window.testNotification();
+  }
+});
+
 /* ── Radio Card Selection ─────────────────────────────── */
 function selectMode(mode) {
   document.querySelectorAll('[name="mode"]').forEach(r => {
