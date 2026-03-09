@@ -557,7 +557,7 @@ function _renderEntryCard(e) {
       </div>
       <div class="entry-preview-row"><div class="entry-preview">${isPending && !e.text ? '<span class="pending-hint">' + icons.refreshCw + ' ' + t('pending_transcription') + '</span>' : highlightSearch(e.text, _searchQuery)}</div><span class="entry-preview-chevron">${icons.chevronDown}</span></div>
       <div class="entry-tags-row">
-        ${(e.project_id && e.project_name) ? `<span class="project-badge" data-entry-id="${e.id}" title="${t('notebook.assign_project')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>${esc(e.project_name)}</span>` : `<span class="project-badge project-badge-empty" data-entry-id="${e.id}" title="${t('notebook.assign_project')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>${t('notebook.project')}</span>`}
+        ${(e.project_id && e.project_name) ? `<span class="project-badge" data-entry-id="${e.id}" title="${t('notebook.assign_project')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>${esc(e.project_name)}</span>` : `<span class="project-badge project-badge-empty" data-entry-id="${e.id}" title="${t('notebook.assign_project')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>${t('notebook.project')}</span>`}
         ${(e.tags || []).map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = systemTagLabel(tag); return `<span class="tag${sys ? ' system-tag' : ''}" data-tag="${esc(tag)}" data-id="${e.id}" style="background:${c.bg};color:${c.text};border-color:${c.border}">${sys ? systemTagIcon(tag) : ''}${esc(lbl)}${sys ? '' : '<span class="tag-remove" data-remove-tag="' + esc(tag) + '" data-id="' + e.id + '">&times;</span>'}</span>`; }).join('')}
         <div class="tag-input-row tag-input-expanded" data-id="${e.id}">
           ${icons.tag}
@@ -791,6 +791,34 @@ let _currentAudio = null;
 let _playingId = null;
 let _playingIndex = null;
 
+function showStatusbarAudio(label) {
+  const chip = document.getElementById('statusAudio');
+  const lbl = document.getElementById('statusAudioLabel');
+  if (chip) {
+    chip.style.display = '';
+    chip.title = t('statusbar.audio_stop') || 'Stop playback';
+  }
+  if (lbl) lbl.textContent = label || (t('statusbar.audio_playing') || 'Playing…');
+}
+
+function hideStatusbarAudio() {
+  const chip = document.getElementById('statusAudio');
+  if (chip) chip.style.display = 'none';
+}
+
+function stopStatusbarAudio() {
+  if (_currentAudio) {
+    _currentAudio.pause();
+    _currentAudio = null;
+    _resetPlayButton(_playingId);
+    _playingId = null;
+    _playingIndex = null;
+  }
+  hideStatusbarAudio();
+  if (typeof renderHistory === 'function') renderHistory();
+}
+window.stopStatusbarAudio = stopStatusbarAudio;
+
 async function doPlayAudio(id) {
   const btn = document.querySelector(`[data-action="play-audio"][data-id="${id}"]`);
 
@@ -801,6 +829,7 @@ async function doPlayAudio(id) {
     _resetPlayButton(_playingId);
     _playingId = null;
     _playingIndex = null;
+    hideStatusbarAudio();
     return;
   }
 
@@ -811,6 +840,7 @@ async function doPlayAudio(id) {
     _resetPlayButton(_playingId);
     _playingId = null;
     _playingIndex = null;
+    hideStatusbarAudio();
   }
 
   try {
@@ -827,18 +857,25 @@ async function doPlayAudio(id) {
       btn.classList.add('playing');
     }
 
+    const audioInstance = _currentAudio;
+    const capturedId = id;
     _currentAudio.play();
-    _currentAudio.onended = () => {
-      _currentAudio = null;
-      _resetPlayButton(_playingId);
-      _playingId = null;
-      _playingIndex = null;
+    showStatusbarAudio(t('statusbar.audio_playing'));
+    audioInstance.onended = () => {
+      _resetPlayButton(capturedId);
+      if (_currentAudio === audioInstance) {
+        _currentAudio = null;
+        _playingId = null;
+        _playingIndex = null;
+        hideStatusbarAudio();
+      }
     };
   } catch (e) {
     showToast(t('notebook.no_audio'), true);
     _resetPlayButton(id);
     _playingId = null;
     _playingIndex = null;
+    hideStatusbarAudio();
   }
 }
 
@@ -850,6 +887,7 @@ async function doPlayAudioByIndex(id, idx) {
     _resetPlayButton(_playingId);
     _playingId = null;
     _playingIndex = null;
+    hideStatusbarAudio();
     return;
   }
 
@@ -860,6 +898,7 @@ async function doPlayAudioByIndex(id, idx) {
     _resetPlayButton(_playingId);
     _playingId = null;
     _playingIndex = null;
+    hideStatusbarAudio();
   }
 
   try {
@@ -869,17 +908,24 @@ async function doPlayAudioByIndex(id, idx) {
     _playingId = id;
     _playingIndex = idx;
 
+    const audioInstance = _currentAudio;
+    const capturedId = id;
     _currentAudio.play();
-    _currentAudio.onended = () => {
-      _currentAudio = null;
-      _resetPlayButton(_playingId);
-      _playingId = null;
-      _playingIndex = null;
+    showStatusbarAudio(t('statusbar.audio_playing'));
+    audioInstance.onended = () => {
+      _resetPlayButton(capturedId);
+      if (_currentAudio === audioInstance) {
+        _currentAudio = null;
+        _playingId = null;
+        _playingIndex = null;
+        hideStatusbarAudio();
+      }
     };
   } catch (e) {
     showToast(t('notebook.no_audio'), true);
     _playingId = null;
     _playingIndex = null;
+    hideStatusbarAudio();
   }
 }
 

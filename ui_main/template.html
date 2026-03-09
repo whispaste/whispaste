@@ -78,8 +78,10 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
           <span class="status-chip-label" id="statusSmartLabel">Off</span>
         </button>
-        <button class="status-chip status-chip-subtle" id="statusVersion" title="">
-          <span class="status-chip-label" id="statusVersionLabel">v0.3.0-alpha</span>
+        <button class="status-chip status-chip-audio" id="statusAudio" style="display:none" title="" onclick="stopStatusbarAudio()">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+          <span class="status-chip-label" id="statusAudioLabel"></span>
+          <svg class="icon status-audio-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
         </button>
       </div>
       <button class="status-heart" id="statusSponsor" title="Support WhisPaste" onclick="window.openURL && window.openURL('https://github.com/sponsors/silvio-l')">

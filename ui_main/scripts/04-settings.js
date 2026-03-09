@@ -275,10 +275,10 @@ function setHotkeyDisplay(keys) {
     }
     const span = document.createElement('span');
     span.className = 'hotkey-key';
-    span.textContent = key;
+    span.textContent = formatModKey(key);
     container.appendChild(span);
   });
-  container.setAttribute('aria-label', 'Current hotkey: ' + keys.join(' + '));
+  container.setAttribute('aria-label', 'Current hotkey: ' + formatHotkeyParts(keys).join(' + '));
 }
 
 let _hotkeyRecording = false;
@@ -335,7 +335,7 @@ function onHotkeyKeyDown(e) {
   if (normalized) parts.push(normalized);
   else if (!isModOnly) parts.push(key);
   if (preview) {
-    preview.innerHTML = parts.map(k => `<span class="hotkey-key">${k}</span>`).join('<span class="hotkey-plus">+</span>');
+    preview.innerHTML = formatHotkeyParts(parts).map(k => `<span class="hotkey-key">${esc(k)}</span>`).join('<span class="hotkey-plus">+</span>');
   }
   if (normalized && mods.length > 0) {
     _savedHotkeyMods = mods;
@@ -449,6 +449,8 @@ function onAppDetectionToggle() {
   if (window.setAppDetectionEnabled) window.setAppDetectionEnabled(on);
   updateAppDetectionState();
   if (on && window.loadAppPresets) window.loadAppPresets();
+  const explainer = document.getElementById('appDetectionExplainer');
+  if (explainer) explainer.style.display = on ? '' : 'none';
 }
 
 function updateSmartPresetVisibility() {
