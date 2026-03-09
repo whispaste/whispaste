@@ -2,19 +2,23 @@ package main
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/whispaste/whispaste/internal/models"
 )
 
 const (
-	llmServerURL = "https://github.com/ggerganov/llama.cpp/releases/download/b5220/llama-server-b5220-bin-win-cpu-x64.zip"
-	llmModelURL  = "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/main/SmolLM2-360M-Instruct-Q4_K_M.gguf"
-	llmModelSize = int64(283_000_000) // approximate size for progress
+	llmServerRepo     = "ggml-org/llama.cpp"
+	llmServerAssetKey = "win-cpu-x64" // substring to match in release asset name
+	llmModelURL       = "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/main/SmolLM2-360M-Instruct-Q4_K_M.gguf"
+	llmModelSize      = int64(283_000_000) // approximate size for progress
 )
 
 // DownloadLLM downloads the llama-server binary and GGUF model.
@@ -65,12 +69,58 @@ func DownloadLLM(progressFn func(phase string, pct int)) error {
 	return nil
 }
 
+// resolveLLMServerURL queries the GitHub API for the latest llama.cpp release
+// and returns the download URL for the Windows CPU x64 asset.
+func resolveLLMServerURL() (string, error) {
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", llmServerRepo)
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("GitHub API request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("GitHub API returned %d", resp.StatusCode)
+	}
+
+	var release struct {
+		Assets []struct {
+			Name               string `json:"name"`
+			BrowserDownloadURL string `json:"browser_download_url"`
+		} `json:"assets"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return "", fmt.Errorf("decode response: %w", err)
+	}
+
+	for _, a := range release.Assets {
+		if strings.Contains(strings.ToLower(a.Name), llmServerAssetKey) &&
+			strings.HasSuffix(strings.ToLower(a.Name), ".zip") {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+	return "", fmt.Errorf("no matching asset (%s) found in latest release", llmServerAssetKey)
+}
+
 // downloadAndExtractLLMServer downloads the ZIP and extracts llama-server.exe and ggml DLLs.
 func downloadAndExtractLLMServer(destDir string, progressFn func(pct int)) error {
+	serverURL, err := resolveLLMServerURL()
+	if err != nil {
+		return fmt.Errorf("resolve server URL: %w", err)
+	}
+	logInfo("LLM server download URL: %s", serverURL)
+
 	zipPath := filepath.Join(destDir, "llama-server.zip")
 
 	var lastPct int = -1
-	if err := models.DownloadFile(llmServerURL, zipPath, func(downloaded, total int64) {
+	if err := models.DownloadFile(serverURL, zipPath, func(downloaded, total int64) {
 		if progressFn != nil && total > 0 {
 			pct := int(float64(downloaded) / float64(total) * 100)
 			if pct > 100 {
