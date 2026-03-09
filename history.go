@@ -230,17 +230,34 @@ func (h *History) All() []HistoryEntry {
 // AllArchived returns only archived entries (newest first).
 func (h *History) AllArchived() []HistoryEntry {
 	if h.db == nil {
-		return nil
+		return []HistoryEntry{}
 	}
 	rows, err := h.db.Query(`SELECT ` + allColumns + ` FROM history_entries WHERE archived = 1 ORDER BY timestamp DESC, rowid DESC`)
 	if err != nil {
 		logError("AllArchived query: %v", err)
-		return nil
+		return []HistoryEntry{}
 	}
 	defer rows.Close()
 	entries := scanEntries(rows)
+	if entries == nil {
+		return []HistoryEntry{}
+	}
 	h.fillProjectNames(entries)
 	return entries
+}
+
+// ArchivedCount returns the number of archived entries.
+func (h *History) ArchivedCount() int {
+	if h.db == nil {
+		return 0
+	}
+	var count int
+	err := h.db.QueryRow("SELECT COUNT(*) FROM history_entries WHERE archived = 1").Scan(&count)
+	if err != nil {
+		logError("ArchivedCount: %v", err)
+		return 0
+	}
+	return count
 }
 
 // Search returns entries matching the FTS5 query, ordered by newest first.
