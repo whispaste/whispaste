@@ -1,3 +1,12 @@
+// Text Replacements visibility toggle
+function updateReplacementsVisibility() {
+  const toggle = document.getElementById('replacements-toggle');
+  const content = document.getElementById('replacements-content');
+  if (!content) return;
+  const on = toggle ? toggle.checked : false;
+  content.classList.toggle('hidden', !on);
+}
+
 // Text Replacements page logic
 (function() {
   let replacements = [];
@@ -15,6 +24,7 @@
     try {
       const enabled = await window.getTextReplacementsEnabled();
       document.getElementById('replacements-toggle').checked = !!enabled;
+      updateReplacementsVisibility();
     } catch (e) {}
   }
 
@@ -158,6 +168,7 @@
     }
     if (e.target.id === 'replacements-toggle') {
       window.setTextReplacementsEnabled(e.target.checked);
+      updateReplacementsVisibility();
       return;
     }
   });
