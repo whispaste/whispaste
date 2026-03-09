@@ -68,7 +68,7 @@ whispaste/
 │
 ├── scripts/                           ← build & review scripts
 │   ├── build.ps1
-│   └── review.ps1
+│   └── review.mjs
 │
 ├── resources/                         ← embedded assets (sounds, icons, debug logos)
 ├── ui_main/                           ← main UI: pages/, components/, styles/, scripts/

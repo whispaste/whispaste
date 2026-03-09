@@ -219,7 +219,7 @@ whispaste/
 │   └── wav/                 #   PCM → WAV encoder
 ├── scripts/                 ← Build & review scripts
 │   ├── build.ps1            #   Production build script
-│   └── review.ps1           #   Code review script
+│   └── review.mjs           #   Code review script (Node.js)
 ├── resources/               ← Embedded assets (sounds, icons, debug logos)
 ├── ui_main/                 ← Dashboard UI (HTML/CSS/JS, modular)
 │   ├── template.html        #   Page structure and layout

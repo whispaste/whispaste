@@ -4,7 +4,7 @@ description: >
   Comprehensive quality audit for WhisPaste — Go app UI and Astro landing page.
   Evaluates target audience alignment, UX/UI quality, premium polish, cross-surface
   consistency, and content quality. Invoke automatically after UI changes, new
-  features, or content updates. Use review.ps1 for periodic full-codebase audits.
+  features, or content updates. Use review.mjs for periodic full-codebase audits.
 ---
 
 # Quality Audit Skill — Qualitätsaudit
@@ -232,12 +232,12 @@ Focus on dimensions most relevant to the change type:
 - Design changes → Dimension 3 (Premium) + Dimension 4 (Consistency)
 - Code/architecture changes → Dimension 6 (Maintainability)
 
-### Mode 2: Full (Periodic via review.ps1)
+### Mode 2: Full (Periodic via review.mjs)
 
 Run periodically (recommended: before each release, or weekly during active development).
 
 **Full scope**: Audit ALL files in scope. Check ALL 5 dimensions.
-Use `.\review.ps1` to collect files and execute the audit automatically.
+Use `node scripts/review.mjs` to collect files and execute the audit automatically.
 
 ---
 
