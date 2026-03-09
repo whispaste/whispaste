@@ -218,4 +218,27 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		data, _ := json.Marshal(status)
 		return string(data)
 	})
+
+	// Test the local LLM by starting the server (if needed) and sending a simple prompt.
+	w.Bind("_testLLMModel", func() map[string]interface{} {
+		logInfo("LLM model test started")
+		if !IsLLMInstalled() {
+			return map[string]interface{}{"success": false, "error": "LLM not installed"}
+		}
+
+		endpoint, err := localLLM.Start()
+		if err != nil {
+			logError("LLM model test: start failed: %v", err)
+			return map[string]interface{}{"success": false, "error": err.Error()}
+		}
+
+		result, err := PostProcess("Hello, this is a test.", "cleanup", "", "", "", endpoint, "en", nil)
+		if err != nil {
+			logError("LLM model test failed: %v", err)
+			return map[string]interface{}{"success": false, "error": err.Error()}
+		}
+
+		logInfo("LLM model test passed (result: %q)", result)
+		return map[string]interface{}{"success": true, "text": result}
+	})
 }
