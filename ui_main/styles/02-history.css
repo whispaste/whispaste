@@ -86,7 +86,7 @@
   width: 4px;
   cursor: col-resize;
   background: transparent;
-  transition: background 0.15s;
+  transition: background var(--transition-fast);
   flex-shrink: 0;
   position: relative;
 }
@@ -111,10 +111,10 @@
   background: none; border: none; color: var(--text-secondary);
   font-size: 0.85rem; cursor: pointer; padding: 6px 10px;
   border-radius: var(--radius-sm); font-family: var(--font);
-  transition: color 0.15s, background 0.15s;
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 .sort-trigger:hover { color: var(--text-primary); background: var(--bg-hover); }
-.sort-trigger .icon-xs { width: 14px; height: 14px; transition: transform 0.2s; }
+.sort-trigger .icon-xs { width: 14px; height: 14px; transition: transform var(--transition-fast); }
 /* Sort dropdown now uses the central popover component (10-popover.js) */
 
 /* --- Project Selector --- */
@@ -311,9 +311,9 @@
   align-items: center;
   justify-content: center;
   z-index: 500;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  animation: dialogFadeIn 200ms ease-out;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  animation: dialogFadeIn var(--duration-fast) ease-out;
 }
 @keyframes dialogFadeIn { from { opacity: 0; } }
 .dialog-box {
@@ -665,7 +665,7 @@
   align-items: center;
   color: var(--text-hint);
   flex-shrink: 0;
-  transition: transform 0.2s ease;
+  transition: transform var(--transition-fast) ease;
   padding-bottom: 2px;
 }
 .entry-preview-chevron .icon-chevron { width: 14px; height: 14px; }
@@ -676,7 +676,7 @@
 .entry-full {
   display: none;
   margin-top: 12px;
-  animation: fadeIn 200ms ease;
+  animation: fadeIn var(--duration-fast) ease;
 }
 .entry.expanded .entry-full { display: block; }
 
@@ -858,7 +858,7 @@
   background: var(--accent-subtle);
   border-bottom: 1px solid var(--border-accent);
   flex-shrink: 0;
-  animation: fadeIn 200ms ease;
+  animation: fadeIn var(--duration-fast) ease;
 }
 .selection-info {
   display: flex;

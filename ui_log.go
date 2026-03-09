@@ -47,9 +47,11 @@ const (
 func logViewerWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	if msg == logViewerWmClose {
 		logDebug("LogViewer: WM_CLOSE intercepted, terminating")
-		logViewerMu.Lock()
-		wv := logViewerWindow
-		logViewerMu.Unlock()
+		wv := func() webview.WebView {
+			logViewerMu.Lock()
+			defer logViewerMu.Unlock()
+			return logViewerWindow
+		}()
 		if wv != nil {
 			// Stop the JS auto-refresh interval to prevent new binding calls
 			wv.Eval("if(window._stopAutoRefresh)window._stopAutoRefresh()")
@@ -63,9 +65,11 @@ func logViewerWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 // CloseLogViewer terminates the log viewer window if it's open.
 func CloseLogViewer() {
-	logViewerMu.Lock()
-	wv := logViewerWindow
-	logViewerMu.Unlock()
+	wv := func() webview.WebView {
+		logViewerMu.Lock()
+		defer logViewerMu.Unlock()
+		return logViewerWindow
+	}()
 	if wv != nil {
 		logDebug("CloseLogViewer: terminating log viewer")
 		wv.Terminate()
@@ -74,11 +78,16 @@ func CloseLogViewer() {
 
 // ShowLogViewer opens (or focuses) the log viewer window.
 func ShowLogViewer() {
-	logViewerMu.Lock()
-	if logViewerOpen {
-		hwnd := logViewerHwnd
-		logViewerMu.Unlock()
+	alreadyOpen, hwnd := func() (bool, uintptr) {
+		logViewerMu.Lock()
+		defer logViewerMu.Unlock()
+		if logViewerOpen {
+			return true, logViewerHwnd
+		}
+		return false, 0
+	}()
 
+	if alreadyOpen {
 		if hwnd != 0 {
 			r, _, _ := logViewerIsWindow.Call(hwnd)
 			if r != 0 {
@@ -90,21 +99,23 @@ func ShowLogViewer() {
 		}
 		// Window handle is gone but state was never reset (Run() stuck)
 		logDebug("ShowLogViewer: stale state detected, force-resetting")
-		logViewerMu.Lock()
-		if logViewerWindow != nil {
-			logViewerWindow.Terminate()
-		}
-		logViewerWindow = nil
-		logViewerHwnd = 0
-		logViewerOpen = false
-		logViewerMu.Unlock()
-	} else {
-		logViewerMu.Unlock()
+		func() {
+			logViewerMu.Lock()
+			defer logViewerMu.Unlock()
+			if logViewerWindow != nil {
+				logViewerWindow.Terminate()
+			}
+			logViewerWindow = nil
+			logViewerHwnd = 0
+			logViewerOpen = false
+		}()
 	}
 
-	logViewerMu.Lock()
-	logViewerOpen = true
-	logViewerMu.Unlock()
+	func() {
+		logViewerMu.Lock()
+		defer logViewerMu.Unlock()
+		logViewerOpen = true
+	}()
 	logDebug("ShowLogViewer: opening log viewer")
 
 	go func() {
@@ -112,11 +123,13 @@ func ShowLogViewer() {
 		defer runtime.UnlockOSThread()
 
 		defer func() {
-			logViewerMu.Lock()
-			logViewerWindow = nil
-			logViewerHwnd = 0
-			logViewerOpen = false
-			logViewerMu.Unlock()
+			func() {
+				logViewerMu.Lock()
+				defer logViewerMu.Unlock()
+				logViewerWindow = nil
+				logViewerHwnd = 0
+				logViewerOpen = false
+			}()
 			logDebug("ShowLogViewer: goroutine exiting, state reset")
 		}()
 
@@ -126,18 +139,22 @@ func ShowLogViewer() {
 			return
 		}
 
-		logViewerMu.Lock()
-		logViewerWindow = w
-		logViewerMu.Unlock()
+		func() {
+			logViewerMu.Lock()
+			defer logViewerMu.Unlock()
+			logViewerWindow = w
+		}()
 
 		w.SetTitle("WhisPaste — Log Viewer")
 		w.SetSize(900, 600, webview.HintNone)
 		w.SetSize(600, 400, webview.HintMin)
 
 		hwnd := uintptr(w.Window())
-		logViewerMu.Lock()
-		logViewerHwnd = hwnd
-		logViewerMu.Unlock()
+		func() {
+			logViewerMu.Lock()
+			defer logViewerMu.Unlock()
+			logViewerHwnd = hwnd
+		}()
 
 		setWindowIcon(w.Window())
 
@@ -155,9 +172,11 @@ func ShowLogViewer() {
 		})
 
 		w.Bind("setAlwaysOnTop", func(topmost bool) {
-			logViewerMu.Lock()
-			h := logViewerHwnd
-			logViewerMu.Unlock()
+			h := func() uintptr {
+				logViewerMu.Lock()
+				defer logViewerMu.Unlock()
+				return logViewerHwnd
+			}()
 			if h == 0 {
 				return
 			}

@@ -23,7 +23,7 @@
   pointer-events: auto;
 }
 .toast.error {
-  background: linear-gradient(135deg, var(--error), #DC2626);
+  background: linear-gradient(135deg, var(--error), var(--error-hover));
   box-shadow: var(--shadow-lg), 0 0 20px rgba(239, 68, 68, 0.3);
 }
 
@@ -39,8 +39,8 @@
   opacity: 0;
   visibility: hidden;
   transition: opacity var(--transition-normal), visibility var(--transition-normal);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 .confirm-overlay.show { opacity: 1; visibility: visible; }
 
@@ -173,7 +173,7 @@
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, var(--error), #DC2626);
+  background: linear-gradient(135deg, var(--error), var(--error-hover));
   color: var(--text-inverse);
   box-shadow: var(--shadow-sm), 0 0 12px var(--error-bg);
 }
@@ -227,7 +227,7 @@
   overflow: hidden;
   max-height: 0;
   opacity: 0;
-  transition: max-height 400ms cubic-bezier(.4, 0, .2, 1), opacity 300ms ease;
+  transition: max-height 400ms cubic-bezier(.4, 0, .2, 1), opacity var(--duration-normal) ease;
 }
 .smart-mode-section.visible {
   max-height: 600px;
@@ -291,3 +291,26 @@
 .flex-1 { flex: 1; }
 .hidden { display: none !important; }
 .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Icon buttons (shared utility, merged from 05-profiles) ── */
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.btn-icon:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+.btn-icon .icon {
+  width: 16px;
+  height: 16px;
+}

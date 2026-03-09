@@ -189,12 +189,14 @@ func main() {
 	// State transition handler
 	var transition func(AppState)
 	transition = func(newState AppState) {
-		stateMu.Lock()
-		oldState := state
-		state = newState
-		stateGen++
-		currentGen := stateGen
-		stateMu.Unlock()
+		oldState, currentGen := func() (AppState, uint64) {
+			stateMu.Lock()
+			defer stateMu.Unlock()
+			old := state
+			state = newState
+			stateGen++
+			return old, stateGen
+		}()
 
 		if oldState == newState {
 			return
@@ -214,6 +216,19 @@ func main() {
 			levelDone = nil
 		}
 
+		// resetToIdle sets state back to idle under lock and sends notifications.
+		resetToIdle := func() {
+			func() {
+				stateMu.Lock()
+				defer stateMu.Unlock()
+				state = StateIdle
+			}()
+			NotifyRecordingState(StateIdle)
+			if tray != nil {
+				tray.SetTooltipState(StateIdle)
+			}
+		}
+
 		switch newState {
 		case StateRecording:
 			// Validate transcription backend is available before starting
@@ -225,13 +240,7 @@ func main() {
 				if playSounds {
 					PlayFeedback(SoundError)
 				}
-				stateMu.Lock()
-				state = StateIdle
-				stateMu.Unlock()
-				NotifyRecordingState(StateIdle)
-				if tray != nil {
-					tray.SetTooltipState(StateIdle)
-				}
+				resetToIdle()
 				return
 			}
 			if !useLocal && apiKey == "" {
@@ -242,13 +251,7 @@ func main() {
 				if playSounds {
 					PlayFeedback(SoundError)
 				}
-				stateMu.Lock()
-				state = StateIdle
-				stateMu.Unlock()
-				NotifyRecordingState(StateIdle)
-				if tray != nil {
-					tray.SetTooltipState(StateIdle)
-				}
+				resetToIdle()
 				return
 			}
 			if playSounds {
@@ -272,13 +275,7 @@ func main() {
 				if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
 					floatingBtn.Show()
 				}
-				stateMu.Lock()
-				state = StateIdle
-				stateMu.Unlock()
-				NotifyRecordingState(StateIdle)
-				if tray != nil {
-					tray.SetTooltipState(StateIdle)
-				}
+				resetToIdle()
 				return
 			}
 			recordStart = time.Now()
@@ -312,10 +309,11 @@ func main() {
 					case <-ld:
 						return
 					case <-timer.C:
-						stateMu.Lock()
-						s := state
-						gen := stateGen
-						stateMu.Unlock()
+						s, gen := func() (AppState, uint64) {
+							stateMu.Lock()
+							defer stateMu.Unlock()
+							return state, stateGen
+						}()
 						if s == StateRecording && gen == expectedGen {
 							logInfo("Max recording duration reached (%ds)", maxSec)
 							transition(StateTranscribing)
@@ -330,10 +328,11 @@ func main() {
 					case <-ld:
 						return
 					case <-time.After(time.Duration(maxSec-10) * time.Second):
-						stateMu.Lock()
-						s := state
-						gen := stateGen
-						stateMu.Unlock()
+						s, gen := func() (AppState, uint64) {
+							stateMu.Lock()
+							defer stateMu.Unlock()
+							return state, stateGen
+						}()
 						if s == StateRecording && gen == expectedGen {
 							ps, _, _, _, _, _, _, _ := snapshotConfig()
 							if ps {
@@ -363,24 +362,19 @@ func main() {
 				if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
 					floatingBtn.Show()
 				}
-				stateMu.Lock()
-				state = StateIdle
-				stateMu.Unlock()
-				NotifyRecordingState(StateIdle)
-				if tray != nil {
-					tray.SetTooltipState(StateIdle)
-				}
+				resetToIdle()
 				return
 			}
 
 			// Create cancellable context early so cancel works during VAD too
 			transcribeCtx, tCancel := context.WithCancel(context.Background())
-			stateMu.Lock()
-			transcribeGen++
-			myGen := transcribeGen
-			transcribeCancel = tCancel
-			recSrc := recordSource
-			stateMu.Unlock()
+			myGen, recSrc := func() (uint64, RecordSource) {
+				stateMu.Lock()
+				defer stateMu.Unlock()
+				transcribeGen++
+				transcribeCancel = tCancel
+				return transcribeGen, recordSource
+			}()
 
 			// Voice Activity Detection or simple silence trimming
 			vadApplied := false
@@ -436,11 +430,13 @@ func main() {
 			// Transcribe in background
 			go func() {
 				defer func() {
-					stateMu.Lock()
-					if transcribeGen == myGen {
-						transcribeCancel = nil
-					}
-					stateMu.Unlock()
+					func() {
+						stateMu.Lock()
+						defer stateMu.Unlock()
+						if transcribeGen == myGen {
+							transcribeCancel = nil
+						}
+					}()
 					tCancel() // ensure context resources are freed
 					if r := recover(); r != nil {
 						logError("Transcription goroutine panic: %v", r)
@@ -453,13 +449,7 @@ func main() {
 						if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
 							floatingBtn.Show()
 						}
-						stateMu.Lock()
-						state = StateIdle
-						stateMu.Unlock()
-						NotifyRecordingState(StateIdle)
-						if tray != nil {
-							tray.SetTooltipState(StateIdle)
-						}
+						resetToIdle()
 					}
 				}()
 				durationSec := time.Since(recordStart).Seconds()
@@ -503,13 +493,7 @@ func main() {
 					if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
 						floatingBtn.Show()
 					}
-					stateMu.Lock()
-					state = StateIdle
-					stateMu.Unlock()
-					NotifyRecordingState(StateIdle)
-					if tray != nil {
-						tray.SetTooltipState(StateIdle)
-					}
+					resetToIdle()
 					return
 				}
 
@@ -536,13 +520,7 @@ func main() {
 					if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
 						floatingBtn.Show()
 					}
-					stateMu.Lock()
-					state = StateIdle
-					stateMu.Unlock()
-					NotifyRecordingState(StateIdle)
-					if tray != nil {
-						tray.SetTooltipState(StateIdle)
-					}
+					resetToIdle()
 					return
 				}
 
@@ -670,11 +648,13 @@ func main() {
 				}
 
 				// Show "Copied" feedback briefly, then auto-hide
-				stateMu.Lock()
-				state = StateIdle
-				stateGen++
-				gen := stateGen
-				stateMu.Unlock()
+				gen := func() uint64 {
+					stateMu.Lock()
+					defer stateMu.Unlock()
+					state = StateIdle
+					stateGen++
+					return stateGen
+				}()
 				NotifyRecordingState(StateIdle)
 				// Re-show floating button now that we're idle
 				if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
@@ -688,9 +668,11 @@ func main() {
 					overlay.Show(StateCopied)
 					go func(expectedGen uint64) {
 						time.Sleep(2 * time.Second)
-						stateMu.Lock()
-						match := stateGen == expectedGen
-						stateMu.Unlock()
+						match := func() bool {
+							stateMu.Lock()
+							defer stateMu.Unlock()
+							return stateGen == expectedGen
+						}()
 						if match {
 							overlay.Hide()
 						}
@@ -718,9 +700,11 @@ func main() {
 	if overlay != nil {
 		overlay.SetCallbacks(
 			func() { // onConfirm: end recording → transcribe
-				stateMu.Lock()
-				s := state
-				stateMu.Unlock()
+				s := func() AppState {
+					stateMu.Lock()
+					defer stateMu.Unlock()
+					return state
+				}()
 				if s == StateRecording || s == StatePaused {
 					if recorder.IsPaused() {
 						recorder.Resume()
@@ -729,18 +713,23 @@ func main() {
 				}
 			},
 			func() { // onCancel: abort recording or transcription
-				stateMu.Lock()
-				s := state
+				s, ld, tc := func() (AppState, chan struct{}, context.CancelFunc) {
+					stateMu.Lock()
+					defer stateMu.Unlock()
+					s := state
+					if s != StateRecording && s != StatePaused && s != StateTranscribing && s != StateProcessing {
+						return s, nil, nil
+					}
+					state = StateIdle
+					ld := levelDone
+					levelDone = nil
+					tc := transcribeCancel
+					transcribeCancel = nil
+					return s, ld, tc
+				}()
 				if s != StateRecording && s != StatePaused && s != StateTranscribing && s != StateProcessing {
-					stateMu.Unlock()
 					return
 				}
-				state = StateIdle
-				ld := levelDone
-				levelDone = nil
-				tc := transcribeCancel
-				transcribeCancel = nil
-				stateMu.Unlock()
 
 				if s == StateTranscribing || s == StateProcessing {
 					logInfo("Transcription cancelled via overlay button")
@@ -773,14 +762,18 @@ func main() {
 				NotifyRecordingState(StateIdle)
 			},
 			func() { // onPause: toggle pause/resume
-				stateMu.Lock()
-				s := state
-				stateMu.Unlock()
+				s := func() AppState {
+					stateMu.Lock()
+					defer stateMu.Unlock()
+					return state
+				}()
 				if s == StateRecording {
 					recorder.Pause()
-					stateMu.Lock()
-					state = StatePaused
-					stateMu.Unlock()
+					func() {
+						stateMu.Lock()
+						defer stateMu.Unlock()
+						state = StatePaused
+					}()
 					if overlay != nil {
 						overlay.SetPaused(true)
 					}
@@ -790,9 +783,11 @@ func main() {
 					NotifyRecordingState(StatePaused)
 				} else if s == StatePaused {
 					recorder.Resume()
-					stateMu.Lock()
-					state = StateRecording
-					stateMu.Unlock()
+					func() {
+						stateMu.Lock()
+						defer stateMu.Unlock()
+						state = StateRecording
+					}()
 					if overlay != nil {
 						overlay.SetPaused(false)
 					}
@@ -803,9 +798,11 @@ func main() {
 				}
 			},
 			func() { // onDash: open dashboard/main window
-				stateMu.Lock()
-				fn := showDashboard
-				stateMu.Unlock()
+				fn := func() func() {
+					stateMu.Lock()
+					defer stateMu.Unlock()
+					return showDashboard
+				}()
 				if fn != nil {
 					go fn()
 				}
@@ -817,19 +814,25 @@ func main() {
 	if floatingBtn != nil {
 		floatingBtn.SetCallbacks(
 			func() { // onStartRecording: click → start recording
-				stateMu.Lock()
-				if state != StateIdle {
-					stateMu.Unlock()
-					return
+				ok := func() bool {
+					stateMu.Lock()
+					defer stateMu.Unlock()
+					if state != StateIdle {
+						return false
+					}
+					recordSource = SourceFloating
+					return true
+				}()
+				if ok {
+					transition(StateRecording)
 				}
-				recordSource = SourceFloating
-				stateMu.Unlock()
-				transition(StateRecording)
 			},
 			func() { // onShowSettings: open main window on settings tab
-				stateMu.Lock()
-				fn := showDashboard
-				stateMu.Unlock()
+				fn := func() func() {
+					stateMu.Lock()
+					defer stateMu.Unlock()
+					return showDashboard
+				}()
 				if fn != nil {
 					go fn()
 				}
@@ -844,12 +847,13 @@ func main() {
 	// Hotkey callbacks
 	onHotkeyDown := func() {
 		logInfo("Hotkey DOWN event received")
-		stateMu.Lock()
-		if state != StateIdle {
-			stateMu.Unlock()
+		if func() bool {
+			stateMu.Lock()
+			defer stateMu.Unlock()
+			return state != StateIdle
+		}() {
 			return
 		}
-		stateMu.Unlock()
 
 		if !cfg.HasAnyModel() {
 			ps, _, _, _, _, _, _, _ := snapshotConfig()
@@ -861,9 +865,11 @@ func main() {
 					overlay.Show(StateError)
 					time.Sleep(2 * time.Second)
 					// Only hide if app is still idle (avoid hiding a recording overlay)
-					stateMu.Lock()
-					cur := state
-					stateMu.Unlock()
+					cur := func() AppState {
+						stateMu.Lock()
+						defer stateMu.Unlock()
+						return state
+					}()
 					if cur == StateIdle {
 						overlay.Hide()
 					}
@@ -872,20 +878,26 @@ func main() {
 			logInfo("Hotkey pressed but no API key configured")
 			return
 		}
-		stateMu.Lock()
-		if state != StateIdle {
-			stateMu.Unlock()
-			return
+		ok := func() bool {
+			stateMu.Lock()
+			defer stateMu.Unlock()
+			if state != StateIdle {
+				return false
+			}
+			recordSource = SourceHotkey
+			return true
+		}()
+		if ok {
+			transition(StateRecording)
 		}
-		recordSource = SourceHotkey
-		stateMu.Unlock()
-		transition(StateRecording)
 	}
 
 	onHotkeyUp := func() {
-		stateMu.Lock()
-		s := state
-		stateMu.Unlock()
+		s := func() AppState {
+			stateMu.Lock()
+			defer stateMu.Unlock()
+			return state
+		}()
 
 		if s == StateRecording || s == StatePaused {
 			if recorder.IsPaused() {
@@ -897,21 +909,23 @@ func main() {
 
 	// Start hotkey listener (protected by hkMu)
 	var hkMgr *HotkeyManager
-	hkMu.Lock()
-	hkMgr = NewHotkeyManager(cfg, onHotkeyDown, onHotkeyUp)
-	if err := hkMgr.Start(); err != nil {
-		logWarn("Hotkey registration failed: %v", err)
-	} else {
-		logInfo("Hotkey registered: %v + %s", cfg.HotkeyMods, cfg.HotkeyKey)
-	}
-	hkMu.Unlock()
+	func() {
+		hkMu.Lock()
+		defer hkMu.Unlock()
+		hkMgr = NewHotkeyManager(cfg, onHotkeyDown, onHotkeyUp)
+		if err := hkMgr.Start(); err != nil {
+			logWarn("Hotkey registration failed: %v", err)
+		} else {
+			logInfo("Hotkey registered: %v + %s", cfg.HotkeyMods, cfg.HotkeyKey)
+		}
+	}()
 
 	defer func() {
 		hkMu.Lock()
+		defer hkMu.Unlock()
 		if hkMgr != nil {
 			hkMgr.Stop()
 		}
-		hkMu.Unlock()
 	}()
 
 	// Settings callback (called when config is saved from WebView goroutine)
@@ -924,9 +938,11 @@ func main() {
 		if floatingBtn != nil {
 			floatingBtn.UpdateColor() // pick up any color change
 			floatingBtn.UpdateSize()  // pick up any size change
-			stateMu.Lock()
-			s := state
-			stateMu.Unlock()
+			s := func() AppState {
+				stateMu.Lock()
+				defer stateMu.Unlock()
+				return state
+			}()
 			if cfg.GetFloatingButtonEnabled() && s == StateIdle {
 				floatingBtn.Show()
 			} else if !cfg.GetFloatingButtonEnabled() {
@@ -949,24 +965,23 @@ func main() {
 
 	// System tray (this blocks on the main thread)
 	onToggle := func() {
-		stateMu.Lock()
-		s := state
-		if s == StateIdle {
-			if cfg.HasAnyModel() {
+		s, started := func() (AppState, bool) {
+			stateMu.Lock()
+			defer stateMu.Unlock()
+			s := state
+			if s == StateIdle && cfg.HasAnyModel() {
 				recordSource = SourceAppUI
-				stateMu.Unlock()
-				transition(StateRecording)
-			} else {
-				stateMu.Unlock()
+				return s, true
 			}
+			return s, false
+		}()
+		if started {
+			transition(StateRecording)
 		} else if s == StateRecording || s == StatePaused {
-			stateMu.Unlock()
 			if recorder.IsPaused() {
 				recorder.Resume()
 			}
 			transition(StateTranscribing)
-		} else {
-			stateMu.Unlock()
 		}
 	}
 	// onWindowClose handles window close: minimize to tray or quit
@@ -981,21 +996,25 @@ func main() {
 			}
 		}
 	}
-	stateMu.Lock()
-	showDashboard = func() {
-		ShowMainWindow(cfg, recorder, history, usageStats, onSettingsSaved, onWindowClose, onToggle, "")
-	}
-	stateMu.Unlock()
+	func() {
+		stateMu.Lock()
+		defer stateMu.Unlock()
+		showDashboard = func() {
+			ShowMainWindow(cfg, recorder, history, usageStats, onSettingsSaved, onWindowClose, onToggle, "")
+		}
+	}()
 	tray = NewAppTray(
 		func(page string) {
 			ShowMainWindow(cfg, recorder, history, usageStats, onSettingsSaved, onWindowClose, onToggle, page)
 		},
 		func() {
-			hkMu.Lock()
-			if hkMgr != nil {
-				hkMgr.Stop()
-			}
-			hkMu.Unlock()
+			func() {
+				hkMu.Lock()
+				defer hkMu.Unlock()
+				if hkMgr != nil {
+					hkMgr.Stop()
+				}
+			}()
 			localLLM.Stop()
 			GetVADProcessor().Close()
 			CloseMainWindow()

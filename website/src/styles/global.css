@@ -41,3 +41,147 @@ html.light .bg-brand-dark\/80 { background: rgba(248,250,252,0.9) !important; }
 html.light .shadow-black\/50 { box-shadow: 0 25px 50px rgba(0,0,0,0.1) !important; }
 html.light .shadow-brand-cyan\/\[0\.05\] { box-shadow: 0 4px 12px rgba(8,145,178,0.1) !important; }
 html.light .bg-brand-card\/60 { background: rgba(255,255,255,0.8) !important; }
+
+/* ---- Feature cards (light theme) ---- */
+html.light .feature-card { background: rgba(255,255,255,0.7) !important; border-color: #E2E8F0 !important; }
+html.light .feature-card:hover { background: rgba(255,255,255,0.9) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important; }
+
+/* ---- Hero carousel global styles ---- */
+/* Dynamic elements created by JS need global scope */
+.overlay-wave-bar {
+  width: 4px;
+  border-radius: 2px;
+  min-height: 2px;
+  flex-shrink: 0;
+}
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: #22d3ee;
+  margin-left: 1px;
+  animation: cursor-blink 0.8s step-end infinite;
+  vertical-align: text-bottom;
+}
+.carousel-heart {
+  color: #ef4444;
+}
+@keyframes cursor-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Light theme: carousel overrides */
+html.light .carousel-key {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.05) 0%,
+    rgba(0, 0, 0, 0.08) 100%
+  ) !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.12),
+    0 6px 12px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+}
+html.light .carousel-key svg {
+  color: #334155 !important;
+}
+html.light .carousel-cursor path {
+  fill: #334155 !important;
+  fill-opacity: 0.8 !important;
+  stroke: rgba(0, 0, 0, 0.15) !important;
+}
+html.light .speaking-head {
+  color: rgba(0, 0, 0, 0.5) !important;
+}
+html.light .microphone-icon {
+  color: rgba(0, 0, 0, 0.4) !important;
+}
+html.light .carousel-dot {
+  background: rgba(0, 0, 0, 0.15) !important;
+}
+html.light .carousel-dot.bg-brand-cyan {
+  background: #0891b2 !important;
+}
+html.light #typed-text {
+  color: #1e293b !important;
+}
+html.light .microphone-icon {
+  animation-name: mic-glow-light !important;
+}
+@keyframes mic-glow-light {
+  0%,
+  100% {
+    color: rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    color: #0891b2;
+  }
+}
+html.light .overlay-pill {
+  background: rgba(10, 26, 41, 0.85);
+  box-shadow: 3px 3px 16px rgba(0, 0, 0, 0.15) !important;
+}
+html.light .typing-cursor {
+  background: #0891b2 !important;
+}
+
+/* Reduced motion for dynamic elements */
+@media (prefers-reduced-motion: reduce) {
+  .overlay-wave-bar,
+  .typing-cursor {
+    animation: none !important;
+  }
+}
+
+/* ---- App Preview mockup (light theme) ---- */
+html.light .mockup-glow {
+  background: linear-gradient(135deg, rgba(8,145,178,0.25), rgba(14,116,144,0.12), rgba(8,145,178,0.2));
+  box-shadow: 0 8px 40px rgba(0,0,0,0.12), 0 0 80px rgba(8,145,178,0.08);
+}
+html.light .mockup-glow:hover {
+  box-shadow: 0 12px 50px rgba(0,0,0,0.15), 0 0 100px rgba(8,145,178,0.12);
+}
+html.light .mockup-window { background: #F8FAFC; }
+html.light .mockup-titlebar { background: #FFFFFF; border-bottom-color: #E2E8F0; }
+html.light .mockup-titlebar-text { color: #0F172A; }
+html.light .mockup-nb-body { background: linear-gradient(160deg, #F8FAFC 0%, color-mix(in srgb, #0891B2 5%, #F8FAFC) 50%, #F8FAFC 100%); }
+html.light .mockup-nb-topbar { background: #FFFFFF; border-bottom-color: color-mix(in srgb, #0891B2 15%, #E2E8F0); }
+html.light .mockup-nb-search { background: #F1F5F9; border-color: #E2E8F0; color: #0F172A; }
+html.light .mockup-nb-search-icon { color: #94A3B8; }
+html.light .mockup-nb-card { background: #FFFFFF; border-color: #E2E8F0; box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.02); }
+html.light .mockup-nb-card-title { color: #0F172A; }
+html.light .mockup-nb-card-meta { color: #94A3B8; }
+html.light .mockup-nb-card-preview { color: #64748B; }
+html.light .mockup-nb-pin-bar { background: linear-gradient(180deg, #22D3EE, #0891B2); }
+html.light .mockup-nb-action-btn-sm { color: #64748B; }
+html.light .mockup-nb-fab { background: linear-gradient(135deg, #22D3EE, #0891B2); box-shadow: 0 4px 16px rgba(8,145,178,.2); }
+html.light .mockup-sidebar { background: #FFFFFF; border-right-color: rgba(0,0,0,.06); }
+html.light .mockup-sidebar::before { background: radial-gradient(ellipse at 50% 0%, rgba(8,145,178,0.1) 0%, transparent 70%); }
+html.light .mockup-sidebar-brand { border-bottom-color: rgba(0,0,0,.04); }
+html.light .mockup-sidebar-item { color: #64748B; }
+html.light .mockup-sidebar-item-active { background: linear-gradient(135deg, #0891B2, #0E7490); color: #FFFFFF; box-shadow: 0 2px 8px rgba(8,145,178,0.2), 0 0 16px rgba(8,145,178,0.1); }
+html.light .mockup-sidebar-bottom { border-top-color: rgba(0,0,0,.04); }
+html.light .mockup-sidebar-bottom-btn { color: #64748B; }
+html.light .mockup-nb-count { background: rgba(8,145,178,0.06); color: #0891B2; border: 1px solid rgba(8,145,178,0.2); }
+html.light .mockup-filter-sidebar { background: #FFFFFF; border-right-color: rgba(0,0,0,.06); }
+html.light .mockup-sort-trigger { color: #64748B; }
+html.light .mockup-filter-item { color: #64748B; }
+html.light .mockup-filter-item-active { background: rgba(8,145,178,0.06); color: #0891B2; border-color: rgba(8,145,178,0.2); }
+html.light .mockup-filter-count { color: #94A3B8; }
+html.light .mockup-filter-item-active .mockup-filter-count { color: rgba(8,145,178,0.6); }
+html.light .mockup-nb-selection-bar { background: rgba(8,145,178,0.04); border-bottom-color: rgba(8,145,178,0.2); }
+html.light .mockup-nb-selection-info { color: #0891B2; }
+html.light .mockup-nb-selection-close { color: #94A3B8; }
+html.light .mockup-nb-sel-btn { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); color: #0F172A; }
+html.light .mockup-nb-sel-delete { background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.2); color: #DC2626; }
+html.light .mockup-nb-checkbox { border-color: rgba(0,0,0,0.15); }
+html.light .mockup-nb-checkbox-checked { background: linear-gradient(135deg, #0891B2, #0E7490); border-color: #0891B2; }
+html.light .mockup-nb-card-selected { border-color: rgba(8,145,178,0.3) !important; background: rgba(8,145,178,0.04) !important; }

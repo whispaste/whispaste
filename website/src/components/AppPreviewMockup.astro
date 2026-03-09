@@ -1,0 +1,631 @@
+<!-- App Preview Mockup — notebook UI with sidebar, filters, and history cards -->
+<div class="mockup-collage">
+  <!-- Notebook Mockup -->
+  <div class="mockup-collage-notebook scroll-reveal" aria-hidden="true">
+    <div class="mockup-glow rounded-2xl p-px">
+      <div class="mockup-window rounded-2xl overflow-hidden">
+        <!-- Title bar (macOS style) -->
+        <div class="mockup-titlebar">
+          <div class="flex gap-1.5">
+            <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
+          </div>
+          <div class="flex items-center gap-1.5 absolute left-1/2 -translate-x-1/2">
+            <img class="mockup-app-icon w-4 h-4" src="/whispaste/app-icon-dark.png" alt="" />
+            <span class="mockup-titlebar-text">WhisPaste</span>
+          </div>
+        </div>
+        <!-- Notebook content -->
+        <div class="mockup-nb-body">
+          <!-- Icon-only sidebar -->
+          <div class="mockup-sidebar">
+            <div class="mockup-sidebar-brand">
+              <img class="mockup-app-icon w-6 h-6" src="/whispaste/app-icon-dark.png" alt="" />
+            </div>
+            <div class="mockup-sidebar-nav">
+              <div class="mockup-sidebar-item mockup-sidebar-item-active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div class="mockup-sidebar-item">
+                <!-- Lightbulb icon for Smart Mode -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+              </div>
+              <div class="mockup-sidebar-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+              </div>
+              <div class="mockup-sidebar-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </div>
+            </div>
+            <div class="mockup-sidebar-spacer"></div>
+            <div class="mockup-sidebar-bottom">
+              <span class="mockup-sidebar-bottom-btn"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>
+              <span class="mockup-sidebar-bottom-btn mockup-sidebar-lang-label">EN</span>
+            </div>
+          </div>
+          <!-- Content -->
+          <div class="mockup-nb-content">
+            <!-- Top bar -->
+            <div class="mockup-nb-topbar">
+              <div class="mockup-nb-search-wrap">
+                <svg class="mockup-nb-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="text" class="mockup-nb-search" placeholder="Search transcriptions..." disabled />
+              </div>
+              <span class="mockup-nb-count">4</span>
+            </div>
+            <!-- History layout -->
+            <div class="mockup-nb-history-layout">
+              <!-- Filter sidebar -->
+              <div class="mockup-filter-sidebar">
+                <div class="mockup-sort-section">
+                  <span class="mockup-sort-trigger">
+                    <span>Newest first</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </span>
+                </div>
+                <div class="mockup-filter-items">
+                  <div class="mockup-filter-item mockup-filter-item-active">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <span>All</span>
+                    <span class="mockup-filter-count">4</span>
+                  </div>
+                  <div class="mockup-filter-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+                    <span>Pinned</span>
+                    <span class="mockup-filter-count">1</span>
+                  </div>
+                  <div class="mockup-filter-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+                    <span>Today</span>
+                    <span class="mockup-filter-count">3</span>
+                  </div>
+                  <div class="mockup-filter-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>This Week</span>
+                    <span class="mockup-filter-count">4</span>
+                  </div>
+                  <div class="mockup-filter-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+                    <span>Older</span>
+                    <span class="mockup-filter-count">0</span>
+                  </div>
+                  <div class="mockup-filter-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
+                    <span>Custom Range</span>
+                  </div>
+                </div>
+              </div>
+              <!-- Entries -->
+              <div class="mockup-nb-entries">
+                <!-- Entry 1 (pinned) -->
+                <div class="mockup-nb-card mockup-nb-card-pinned">
+                  <div class="mockup-nb-pin-bar"></div>
+                  <div class="mockup-nb-card-header">
+                    <span class="mockup-nb-card-title">Meeting notes from product sync</span>
+                    <div class="mockup-nb-card-actions">
+                      <span class="mockup-nb-action-btn-sm"><svg class="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
+                      <span class="mockup-nb-action-btn-sm"><svg class="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span>
+                      <span class="mockup-nb-action-btn-sm"><svg class="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></span>
+                    </div>
+                  </div>
+                  <div class="mockup-nb-card-meta">
+                    <span>2 min ago</span>
+                    <span class="mockup-nb-meta-dot">·</span>
+                    <span>0:45</span>
+                  </div>
+                  <div class="mockup-nb-card-preview">Discussed the Q2 roadmap and prioritized the backlog items for the next sprint cycle...</div>
+                </div>
+                <!-- Entry 2 -->
+                <div class="mockup-nb-card">
+                  <div class="mockup-nb-card-header">
+                    <span class="mockup-nb-card-title">Quick reminder about the deadline</span>
+                  </div>
+                  <div class="mockup-nb-card-meta">
+                    <span>15 min ago</span>
+                    <span class="mockup-nb-meta-dot">·</span>
+                    <span>0:12</span>
+                  </div>
+                  <div class="mockup-nb-card-preview">Don't forget to submit the final report by Friday end of day...</div>
+                </div>
+                <!-- Entry 3 -->
+                <div class="mockup-nb-card">
+                  <div class="mockup-nb-card-header">
+                    <span class="mockup-nb-card-title">Email draft for client update</span>
+                  </div>
+                  <div class="mockup-nb-card-meta">
+                    <span>1 hour ago</span>
+                    <span class="mockup-nb-meta-dot">·</span>
+                    <span>0:38</span>
+                  </div>
+                  <div class="mockup-nb-card-preview">Hi team, I wanted to give you a quick update on the project status and next steps...</div>
+                </div>
+                <!-- Entry 4 -->
+                <div class="mockup-nb-card">
+                  <div class="mockup-nb-card-header">
+                    <span class="mockup-nb-card-title">Ideas for the presentation</span>
+                  </div>
+                  <div class="mockup-nb-card-meta">
+                    <span>3 hours ago</span>
+                    <span class="mockup-nb-meta-dot">·</span>
+                    <span>1:22</span>
+                  </div>
+                  <div class="mockup-nb-card-preview">We should start with the market analysis and then move into the competitive landscape...</div>
+                </div>
+              </div>
+            </div>
+            <!-- FAB -->
+            <div class="mockup-nb-fab">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ---- Mockup Design Tokens ---- */
+  .mockup-collage {
+    --mockup-bg: #0F1117;
+    --mockup-surface: #1A1D27;
+    --mockup-input-bg: #181B24;
+    --mockup-text: #F0F6FC;
+    --mockup-text-muted: #8899A6;
+    --mockup-text-dim: #64748B;
+    --mockup-text-dimmer: #475569;
+    --mockup-border: rgba(255, 255, 255, 0.08);
+    --mockup-cyan: var(--color-brand-cyan);
+    --mockup-teal: #0891B2;
+  }
+
+  /* ---- Mockup window chrome ---- */
+  .mockup-glow {
+    background: linear-gradient(135deg, rgba(34,211,238,0.25), rgba(14,116,144,0.12), rgba(34,211,238,0.2));
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 80px rgba(34,211,238,0.08);
+    border-radius: 16px;
+    padding: 1px;
+    transition: box-shadow 0.4s ease;
+  }
+  .mockup-glow:hover {
+    box-shadow: 0 12px 50px rgba(0,0,0,0.5), 0 0 100px rgba(34,211,238,0.12);
+  }
+  .mockup-window {
+    background: var(--mockup-bg);
+    font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  }
+  .mockup-titlebar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--mockup-surface);
+    border-bottom: 1px solid var(--mockup-border);
+    font-size: 12px;
+    user-select: none;
+  }
+  .mockup-titlebar-text {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--mockup-text);
+  }
+
+  /* ---- Notebook mockup ---- */
+  .mockup-nb-body {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    background: linear-gradient(160deg, var(--mockup-bg) 0%, color-mix(in srgb, var(--mockup-cyan) 4%, var(--mockup-bg)) 50%, var(--mockup-bg) 100%);
+    min-height: 340px;
+  }
+  .mockup-nb-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--mockup-surface);
+    border-bottom: 1px solid color-mix(in srgb, var(--mockup-cyan) 15%, var(--mockup-border));
+  }
+  .mockup-nb-search-wrap {
+    position: relative;
+    flex: 1;
+    max-width: 400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .mockup-nb-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    color: var(--mockup-text-dim);
+  }
+  .mockup-nb-search {
+    width: 100%;
+    padding: 6px 10px 6px 30px;
+    border: 1px solid var(--mockup-border);
+    border-radius: 999px;
+    background: var(--mockup-input-bg);
+    color: var(--mockup-text-dim);
+    font-size: 12px;
+    outline: none;
+  }
+  .mockup-nb-count {
+    font-size: 10px;
+    color: var(--mockup-cyan);
+    padding: 3px 8px;
+    background: rgba(34, 211, 238, 0.08);
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+  /* Unified sidebar — icon-only */
+  .mockup-sidebar {
+    width: 55px;
+    flex-shrink: 0;
+    background: var(--mockup-surface);
+    border-right: 1px solid var(--mockup-border);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mockup-sidebar-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 0 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    position: relative;
+    z-index: 1;
+  }
+  .mockup-sidebar-nav {
+    padding: 8px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+    z-index: 1;
+  }
+  .mockup-sidebar-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    color: var(--mockup-text-muted);
+    position: relative;
+  }
+  .mockup-sidebar-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .mockup-sidebar-item-active {
+    background: linear-gradient(135deg, var(--mockup-cyan), var(--mockup-teal));
+    color: #FFFFFF;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(34, 211, 238, 0.25), 0 0 16px rgba(34, 211, 238, 0.15);
+  }
+  .mockup-sidebar-spacer { flex: 1; }
+  .mockup-sidebar-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 0;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    position: relative;
+    z-index: 1;
+  }
+  .mockup-sidebar-bottom-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    color: var(--mockup-text-muted);
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .mockup-sidebar-lang-label {
+    width: auto;
+    padding: 0;
+    font-size: 9px;
+  }
+  /* Notebook content area */
+  .mockup-nb-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    min-width: 0;
+  }
+  /* Entries */
+  .mockup-nb-entries {
+    flex: 1;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .mockup-nb-card {
+    position: relative;
+    background: linear-gradient(180deg, var(--mockup-surface), color-mix(in srgb, var(--mockup-cyan) 2%, var(--mockup-surface)));
+    border: 1px solid var(--mockup-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .mockup-nb-card-pinned {
+    padding-left: 18px;
+    border-left-color: rgba(34,211,238,0.3);
+  }
+  .mockup-nb-pin-bar {
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    background: var(--mockup-cyan);
+    border-radius: 0 2px 2px 0;
+  }
+  .mockup-nb-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .mockup-nb-card-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--mockup-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  .mockup-nb-card-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .mockup-nb-action-btn-sm {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 5px;
+    color: var(--mockup-text-muted);
+  }
+  .mockup-nb-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--mockup-text-dim);
+    margin-top: 3px;
+  }
+  .mockup-nb-meta-dot {
+    color: var(--mockup-text-dimmer);
+  }
+  .mockup-nb-card-preview {
+    font-size: 11px;
+    color: var(--mockup-text-muted);
+    line-height: 1.5;
+    margin-top: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  /* History layout (filter sidebar + entries) */
+  .mockup-nb-history-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  /* Filter sidebar */
+  .mockup-filter-sidebar {
+    width: 140px;
+    flex-shrink: 0;
+    padding: 10px;
+    overflow-y: auto;
+    border-right: 1px solid var(--mockup-border);
+    background: var(--mockup-surface);
+  }
+  .mockup-sort-section { margin-bottom: 10px; }
+  .mockup-sort-trigger {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    color: var(--mockup-text-muted);
+    font-size: 11px;
+    cursor: default;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-family: inherit;
+  }
+  .mockup-sort-trigger svg { width: 12px; height: 12px; flex-shrink: 0; }
+  .mockup-filter-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .mockup-filter-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    color: var(--mockup-text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid transparent;
+  }
+  .mockup-filter-item svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .mockup-filter-item-active {
+    background: rgba(34,211,238,0.08);
+    color: var(--mockup-cyan);
+    font-weight: 600;
+    border-color: rgba(34,211,238,0.3);
+  }
+  .mockup-filter-count {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--mockup-text-dimmer);
+  }
+  .mockup-filter-item-active .mockup-filter-count { color: rgba(34,211,238,0.6); }
+  /* Selection bar */
+  .mockup-nb-selection-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 16px;
+    background: rgba(34,211,238,0.06);
+    border-bottom: 1px solid rgba(34,211,238,0.3);
+  }
+  .mockup-nb-selection-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--mockup-cyan);
+  }
+  .mockup-nb-selection-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    color: var(--mockup-text-muted);
+  }
+  .mockup-nb-selection-close svg { width: 12px; height: 12px; }
+  .mockup-nb-selection-actions { display: flex; gap: 6px; }
+  .mockup-nb-sel-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 500;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--mockup-border);
+    color: var(--mockup-text);
+  }
+  .mockup-nb-sel-btn svg { width: 11px; height: 11px; }
+  .mockup-nb-sel-delete {
+    background: rgba(239,68,68,0.1);
+    border-color: rgba(239,68,68,0.3);
+    color: #EF4444;
+  }
+  /* Checkbox */
+  .mockup-nb-checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1.5px solid rgba(255,255,255,0.15);
+    flex-shrink: 0;
+  }
+  .mockup-nb-checkbox-checked {
+    background: linear-gradient(135deg, var(--mockup-cyan), var(--mockup-teal));
+    border-color: var(--mockup-cyan);
+  }
+  .mockup-nb-checkbox-checked::after {
+    content: '';
+    display: block;
+    width: 4px;
+    height: 7px;
+    border: solid #fff;
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg) translate(-1px, -1px);
+  }
+  .mockup-nb-card-selected {
+    border-color: rgba(34,211,238,0.3) !important;
+    background: rgba(34,211,238,0.04) !important;
+  }
+
+  .mockup-nb-fab {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--mockup-cyan), var(--mockup-teal));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(34,211,238,.25), 0 2px 8px rgba(0,0,0,.3);
+  }
+
+  .mockup-nb-lang-label {
+    font-size: 10px;
+    font-weight: 600;
+    width: auto;
+    padding: 0 5px;
+  }
+
+  /* Collage layout */
+  .mockup-collage {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 0;
+  }
+  .mockup-collage-notebook {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    transition: opacity 0.7s ease-out, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .mockup-collage-notebook:hover {
+    transform: scale(1.01);
+  }
+  @media (max-width: 1023px) {
+    .mockup-collage {
+      padding: 20px 0;
+    }
+    .mockup-collage-notebook {
+      max-width: 600px;
+    }
+    .mockup-collage-notebook:hover {
+      transform: none;
+    }
+  }
+
+  /* Hide sidebar on very small mockup widths */
+  @media (max-width: 639px) {
+    .mockup-sidebar { display: none; }
+    .mockup-filter-sidebar { display: none; }
+  }
+
+  /* Accessibility: respect reduced-motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-reveal {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
+    }
+  }
+</style>

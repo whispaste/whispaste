@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -32,15 +33,15 @@ func SetAutostart(enable bool) error {
 	if enable {
 		exe, err := os.Executable()
 		if err != nil {
-			return err
+			return fmt.Errorf("SetAutostart: get executable: %w", err)
 		}
 		exe, err = filepath.Abs(exe)
 		if err != nil {
-			return err
+			return fmt.Errorf("SetAutostart: abs path: %w", err)
 		}
 		k, _, err := registry.CreateKey(registry.CURRENT_USER, autostartRegKey, registry.SET_VALUE)
 		if err != nil {
-			return err
+			return fmt.Errorf("SetAutostart: create registry key: %w", err)
 		}
 		defer k.Close()
 		return k.SetStringValue(autostartValueName, `"`+exe+`" --autostart`)
