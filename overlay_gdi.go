@@ -207,6 +207,8 @@ hoverBtn := o.hoverBtn
 pressBtn := o.pressBtn
 maxRecordSec := o.maxRecordSec
 smartMode := o.isSmartMode
+transcribeStart := o.transcribeStart
+estimatedSec := o.estimatedSec
 if isPaused {
 	pauseAccum += time.Since(o.pauseStart)
 }
@@ -219,7 +221,7 @@ switch state {
 case StateRecording, StatePaused:
 o.paintRecordingULW(g, frame, startTime, pauseAccum, isPaused, levels, levelIdx, contentX, hoverBtn, pressBtn, maxRecordSec)
 case StateTranscribing, StateProcessing:
-o.paintTranscribingULW(g, frame, contentX, hoverBtn, pressBtn, smartMode)
+o.paintTranscribingULW(g, frame, contentX, hoverBtn, pressBtn, smartMode, transcribeStart, estimatedSec)
 case StateError:
 o.paintErrorULW(g, contentX)
 case StateCopied:
@@ -525,7 +527,7 @@ func (o *Overlay) drawPlayIcon(g uintptr, bx, by int32) {
 	}
 }
 
-func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hoverBtn, pressBtn int, smartMode bool) {
+func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hoverBtn, pressBtn int, smartMode bool, transcribeStart time.Time, estimatedSec float64) {
 cy := int32(_OVL_HEIGHT / 2)
 
 // Cancel button (dark circle with ✕)
@@ -550,6 +552,20 @@ for i := 0; i < n; i++ {
 text += "."
 }
 
+// Append time estimate if available
+timeText := ""
+if estimatedSec > 0 && !transcribeStart.IsZero() {
+	elapsed := time.Since(transcribeStart).Seconds()
+	remaining := estimatedSec - elapsed
+	if remaining > 1 {
+		secs := int(remaining + 0.5) // round up
+		timeText = fmt.Sprintf(" ~%ds", secs)
+	} else if remaining > -5 {
+		// Estimate expired but not too long ago — show "almost done"
+		timeText = " ..."
+	}
+}
+
 // Spinner geometry
 const numDots = 8
 const spinR = 10
@@ -558,7 +574,8 @@ const gap = 16
 spinnerW := float32(spinR*2 + 2)
 
 // Center spinner+gap+text group in full overlay width
-textW := o.measureGdipTextWidth(g, text, o.gdipFontMain)
+fullText := text + timeText
+textW := o.measureGdipTextWidth(g, fullText, o.gdipFontMain)
 if textW < 80 {
 	textW = 80
 }
@@ -577,8 +594,16 @@ argb := (alpha << 24) | spinnerColor
 gdipFillCircleG(g, argb, spinCx+dx, spinCy+dy, dotR)
 }
 
+// Draw main text
 textX := groupX + spinnerW + float32(gap)
 o.drawGdipText(g, text, textX, float32(cy-10), textW+20, o.gdipFontMain, 0xFFFFFFFF)
+
+// Draw time estimate in subdued color next to main text
+if timeText != "" {
+	mainTextW := o.measureGdipTextWidth(g, text, o.gdipFontMain)
+	timeX := textX + mainTextW
+	o.drawGdipText(g, timeText, timeX, float32(cy-10), 80, o.gdipFontSmall, 0xAA8899AA)
+}
 }
 
 func (o *Overlay) paintErrorULW(g uintptr, contentX int32) {
