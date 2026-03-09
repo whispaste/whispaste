@@ -6,17 +6,15 @@ import (
 )
 
 // TestNotifyIconDataWSize verifies that our notifyIconDataW struct size
-// matches the systray library's struct (984 bytes). The library has a bug
-// where Timeout and Version are two separate uint32 fields instead of a
-// 4-byte union, adding 4 bytes + 4 bytes padding = 8 bytes total.
-// Our struct uses correct field layout + trailing _pad to match cbSize.
+// matches the correct Windows SDK NOTIFYICONDATAW Version 4 size (976
+// bytes on amd64, including hBalloonIcon without extra padding).
 func TestNotifyIconDataWSize(t *testing.T) {
 	var nid notifyIconDataW
 	got := unsafe.Sizeof(nid)
-	// Must match systray library's struct size (984 on amd64)
-	const want = 984
+	// Correct SDK size for NOTIFYICONDATAW V4 on amd64: 976 bytes
+	const want = 976
 	if got != want {
-		t.Errorf("notifyIconDataW size = %d, want %d (must match systray library)", got, want)
+		t.Errorf("notifyIconDataW size = %d, want %d (Windows SDK NOTIFYICONDATAW V4)", got, want)
 	}
 }
 

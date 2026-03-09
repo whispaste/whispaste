@@ -390,6 +390,9 @@
                 </div>
               </div>
             </div>
+            <div class="form-group">
+              <button class="btn btn-secondary btn-sm" id="btn-test-notification" data-i18n="btnTestNotification">Test Notification</button>
+            </div>
           </div>
 
           <!-- Section: Audio & Recording -->
@@ -1000,12 +1003,14 @@
           </label>
         </div>
       </div>
-      <p class="page-description" data-i18n="replacementsDesc">Define trigger words that automatically get replaced in your transcriptions.</p>
-      <div class="replacements-list" id="replacements-list"></div>
-      <button class="btn btn-primary replacements-add-btn" id="replacements-add-btn">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-        <span data-i18n="replacementsAdd">Add Replacement</span>
-      </button>
+      <div class="replacements-scroll">
+        <p class="page-description" data-i18n="replacementsDesc">Define trigger words that automatically get replaced in your transcriptions.</p>
+        <div class="replacements-list" id="replacements-list"></div>
+        <button class="replacements-add-btn" id="replacements-add-btn">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          <span data-i18n="replacementsAdd">Add Replacement</span>
+        </button>
+      </div>
     </div>
 
     <!-- Page: Analytics -->
