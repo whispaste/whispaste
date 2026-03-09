@@ -6,6 +6,7 @@ const { variant = "landing" } = Astro.props;
 ---
 
 <nav
+  aria-label="Main navigation"
   class="fixed top-0 w-full z-50 bg-brand-darker/80 backdrop-blur-xl border-b border-white/5"
 >
   <div
@@ -43,12 +44,14 @@ const { variant = "landing" } = Astro.props;
           <button
             id="langToggle"
             data-testid="lang-toggle"
+            aria-label="Switch language"
             class="text-gray-400 hover:text-white transition-colors text-sm font-medium"
           >
             DE
           </button>
           <button
             id="themeToggle"
+            aria-label="Toggle theme"
             class="text-gray-400 hover:text-white transition-colors"
             title="Toggle theme"
           >
@@ -69,6 +72,7 @@ const { variant = "landing" } = Astro.props;
             href="https://github.com/whispaste/whispaste"
             target="_blank"
             rel="noopener"
+            aria-label="WhisPaste on GitHub"
             class="hover:text-white transition-colors"
           >
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -84,12 +88,14 @@ const { variant = "landing" } = Astro.props;
           <button
             id="langToggle"
             data-testid="lang-toggle"
+            aria-label="Switch language"
             class="text-gray-400 hover:text-white transition-colors font-medium"
           >
             DE
           </button>
           <button
             id="themeToggle"
+            aria-label="Toggle theme"
             class="text-gray-400 hover:text-white transition-colors"
             title="Toggle theme"
           >

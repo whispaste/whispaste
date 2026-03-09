@@ -103,6 +103,14 @@ function openExternal(url) {
   if (window.openURL) window.openURL(url);
 }
 
+/** Set loading state on a button (disables it, shows spinner, sets aria-busy) */
+function setLoading(btn, loading) {
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.classList.toggle('loading', loading);
+  btn.setAttribute('aria-busy', String(loading));
+}
+
 /** Update the transcription mode badge (Local / API) */
 function updateModeBadge(cfg) {
   const badge = document.getElementById('modeBadge');
