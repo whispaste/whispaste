@@ -292,6 +292,32 @@
 .hidden { display: none !important; }
 .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* ── Loading Spinner ──────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.icon.spin {
+  animation: spin 1s linear infinite;
+}
+.btn.loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+.btn.loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin: -8px 0 0 -8px;
+  border: 2px solid var(--border-primary);
+  border-top-color: var(--accent);
+  border-radius: var(--radius-full);
+  animation: spin 1s linear infinite;
+}
+
 /* ── Icon buttons (shared utility, merged from 05-profiles) ── */
 .btn-icon {
   display: flex;

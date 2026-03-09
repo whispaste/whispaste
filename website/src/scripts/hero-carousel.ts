@@ -37,10 +37,12 @@ function goToSlide(n: number) {
       dot.classList.remove("bg-white/20");
       dot.classList.add("bg-brand-cyan");
       (dot as HTMLElement).style.width = "16px";
+      dot.setAttribute("aria-selected", "true");
     } else {
       dot.classList.add("bg-white/20");
       dot.classList.remove("bg-brand-cyan");
       (dot as HTMLElement).style.width = "8px";
+      dot.setAttribute("aria-selected", "false");
     }
   });
   if (n === 1) startOverlayTimer();
