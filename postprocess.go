@@ -13,7 +13,7 @@ import (
 
 // smartModePresets maps preset names to system prompts.
 var smartModePresets = map[string]string{
-	"cleanup":   "Clean up the following dictated text. Fix grammar, punctuation, and capitalization. Remove filler words. Keep the original language and meaning. Return only the cleaned text.",
+	"cleanup":   "Clean up the following dictated text. Fix grammar, punctuation, capitalization, and spelling errors. Do not remove words, change meaning, or restructure sentences. Keep the original language. Return only the cleaned text.",
 	"concise":   "Rewrite the following text more concisely. Keep the core message and all important information, but remove filler words, redundancy, and unnecessary verbosity. Maintain the original language and tone. Return only the rewritten text.",
 	"email":     "Rewrite the following dictated text as a professional email. Use proper greeting and closing. Fix grammar and punctuation. Keep the original language. Return only the email text.",
 	"bullets":   "Rewrite the following dictated text as a structured bullet-point list. Fix grammar and punctuation. Keep the original language. Return only the bullet list.",
@@ -38,14 +38,14 @@ func GetBuiltinPresets() map[string]string {
 
 // defaultTemplateMetas provides default metadata and keywords for builtin presets.
 var defaultTemplateMetas = map[string]TemplateMeta{
-	"cleanup":   {Description: "Fix grammar, spelling, and punctuation without changing content", Keywords: nil},
-	"concise":   {Description: "Shorten text by removing redundancy — same meaning, fewer words", Keywords: nil},
-	"email":     {Description: "Professional email formatting", Keywords: []string{"*outlook*", "*thunderbird*", "*mail*", "*gmail*", "*yahoo*", "*proton*"}},
+	"cleanup":   {Description: "Fixes grammar, spelling, and punctuation — content and length stay untouched", Keywords: nil},
+	"concise":   {Description: "Cuts redundancy and filler words — same message, fewer words", Keywords: nil},
+	"email":     {Description: "Formats as a professional email with greeting, body, and sign-off", Keywords: []string{"*outlook*", "*thunderbird*", "*mail*", "*gmail*", "*yahoo*", "*proton*"}},
 	"bullets":   {Description: "Flat bullet-point list without headings", Keywords: nil},
-	"formal":    {Description: "Formal professional language", Keywords: nil},
+	"formal":    {Description: "Rewrites in formal, professional tone without changing the format", Keywords: nil},
 	"aiprompt":  {Description: "Optimized AI prompt", Keywords: []string{"*copilot*", "*chatgpt*", "*claude*", "*gemini*", "*cursor*"}},
-	"summary":   {Description: "Distill to key points only, in a few sentences", Keywords: nil},
-	"notes":     {Description: "Flexible notes with headings and bullet points", Keywords: []string{"*notepad*", "*onenote*", "*obsidian*", "*notion*", "*evernote*", "*joplin*", "*typora*"}},
+	"summary":   {Description: "Extracts key points as a brief prose summary — details are dropped", Keywords: nil},
+	"notes":     {Description: "Flexible personal notes with headings and bullet points — quick reference", Keywords: []string{"*notepad*", "*onenote*", "*obsidian*", "*notion*", "*evernote*", "*joplin*", "*typora*"}},
 	"meeting":   {Description: "Formal minutes with date, topics, decisions, and action items", Keywords: []string{"*teams*", "*zoom*", "*webex*", "*meet*", "*skype*"}},
 	"social":    {Description: "Engaging social media post", Keywords: []string{"*twitter*", "*facebook*", "*instagram*", "*linkedin*", "*reddit*", "*tiktok*"}},
 	"technical": {Description: "Technical documentation", Keywords: []string{"*code*", "*visual studio*", "*intellij*", "*vim*", "*neovim*", "*sublime*", "*terminal*", "*powershell*", "*cmd*"}},

@@ -1,4 +1,11 @@
 /* Text Replacements page styles */
+.replacements-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 24px 24px;
+}
+
 .replacements-list {
   display: flex;
   flex-direction: column;
@@ -83,6 +90,22 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  background: transparent;
+  border: 1px dashed var(--border-secondary);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  padding: 10px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+  width: 100%;
+  justify-content: center;
+}
+
+.replacements-add-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-subtle);
 }
 
 .replacements-add-btn .icon {
@@ -126,11 +149,9 @@
 }
 
 .repl-dialog-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .repl-dialog-input {
