@@ -11,6 +11,12 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/whispaste/whispaste/internal/audiocache"
+	"github.com/whispaste/whispaste/internal/i18n"
+	"github.com/whispaste/whispaste/internal/models"
+	"github.com/whispaste/whispaste/internal/stats"
+	"github.com/whispaste/whispaste/internal/wav"
 )
 
 // savePendingEntry creates a pending history entry and caches the audio
@@ -24,7 +30,7 @@ func savePendingEntry(h *History, pcm []byte, durationSec float64, lang, modelNa
 	if pendingID == "" {
 		return
 	}
-	if err := SaveAudio(pendingID, pcm); err != nil {
+	if err := audiocache.Save(pendingID, pcm); err != nil {
 		logWarn("Save pending audio: %v", err)
 	}
 	logInfo("Created pending entry %s (reason: %s, duration: %.1fs)", pendingID, reason, durationSec)
@@ -59,6 +65,8 @@ func main() {
 
 	InitLogger(LogDebug)
 	defer CloseLogger()
+	i18n.Init(AppVersion)
+	models.Init(AppName)
 
 	// Log build metadata for debugging
 	logStartupMetadata()
@@ -115,15 +123,17 @@ func main() {
 	}
 	defer recorder.Close()
 
-	// Initialize stats and history
-	stats := LoadStats()
+	// Initialize stats, audiocache, and history
+	cfgDir, _ := configDir()
+	usageStats := stats.Load(cfgDir)
+	audiocache.Init(cfgDir)
 	history := LoadHistory()
 	defer history.Close()
 
 	// Clean up orphaned audio files on startup
 	go func() {
 		validIDs := history.AllEntryIDs()
-		CleanupOrphanedAudio(validIDs)
+		audiocache.CleanupOrphaned(validIDs)
 	}()
 
 	// Initialize overlay
@@ -207,7 +217,7 @@ func main() {
 		switch newState {
 		case StateRecording:
 			// Validate transcription backend is available before starting
-			if useLocal && !IsModelDownloaded(cfg.GetLocalModelID()) {
+			if useLocal && !models.IsDownloaded(cfg.GetLocalModelID()) {
 				logWarn("Recording aborted: local STT enabled but no model downloaded (model=%s)", cfg.GetLocalModelID())
 				if tray != nil {
 					tray.ShowBalloon(AppName, T("error.no_local_model"))
@@ -462,7 +472,7 @@ func main() {
 				}
 				logInfo("Transcribing with: useLocal=%v model=%s", useLocal, modelName)
 				if useLocal {
-					modelDir, mdErr := GetModelDir(cfg.GetLocalModelID())
+					modelDir, mdErr := models.GetDir(cfg.GetLocalModelID())
 					if mdErr != nil {
 						logError("Model directory error: %v", mdErr)
 						text, err = "", mdErr
@@ -471,8 +481,8 @@ func main() {
 						text, err = GetLocalRecognizer().Transcribe(pcm, 16000, localLang, modelDir)
 					}
 				} else {
-					wav := EncodeWAV(pcm, 16000, 1, 16)
-					text, err = Transcribe(transcribeCtx, wav, lang, apiKey, model, endpoint, "")
+					wavData := wav.Encode(pcm, 16000, 1, 16)
+					text, err = Transcribe(transcribeCtx, wavData, lang, apiKey, model, endpoint, "")
 				}
 				processingDurationSec := time.Since(transcribeStart).Seconds()
 				if err != nil {
@@ -605,7 +615,7 @@ func main() {
 				}
 
 				// Record stats and history with model info
-				totalDictations := stats.RecordDictation(text, durationSec, useLocal)
+				totalDictations := usageStats.RecordDictation(text, durationSec, useLocal)
 				var entryID string
 				if useLocal {
 					history.RecordDailyStats(durationSec, processingDurationSec, text, cfg.GetLocalModelID(), true)
@@ -617,7 +627,7 @@ func main() {
 
 				// Cache the processed audio for re-listen / re-transcribe
 				if entryID != "" {
-					if err := SaveAudio(entryID, pcm); err != nil {
+					if err := audiocache.Save(entryID, pcm); err != nil {
 						logWarn("Save audio cache: %v", err)
 					}
 				}
@@ -973,12 +983,12 @@ func main() {
 	}
 	stateMu.Lock()
 	showDashboard = func() {
-		ShowMainWindow(cfg, recorder, history, stats, onSettingsSaved, onWindowClose, onToggle, "")
+		ShowMainWindow(cfg, recorder, history, usageStats, onSettingsSaved, onWindowClose, onToggle, "")
 	}
 	stateMu.Unlock()
 	tray = NewAppTray(
 		func(page string) {
-			ShowMainWindow(cfg, recorder, history, stats, onSettingsSaved, onWindowClose, onToggle, page)
+			ShowMainWindow(cfg, recorder, history, usageStats, onSettingsSaved, onWindowClose, onToggle, page)
 		},
 		func() {
 			hkMu.Lock()
@@ -1009,13 +1019,13 @@ func main() {
 	if !cfg.HasAnyModel() {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
-			ShowMainWindow(cfg, recorder, history, stats, onSettingsSaved, onWindowClose, onToggle, "settings")
+			ShowMainWindow(cfg, recorder, history, usageStats, onSettingsSaved, onWindowClose, onToggle, "settings")
 		}()
 	} else if !isAutostart {
 		// Manual launch: show dashboard immediately
 		go func() {
 			time.Sleep(500 * time.Millisecond)
-			ShowMainWindow(cfg, recorder, history, stats, onSettingsSaved, onWindowClose, onToggle, "history")
+			ShowMainWindow(cfg, recorder, history, usageStats, onSettingsSaved, onWindowClose, onToggle, "history")
 		}()
 	}
 

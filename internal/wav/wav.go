@@ -1,9 +1,9 @@
-package main
+package wav
 
 import "encoding/binary"
 
-// EncodeWAV wraps raw PCM data in a valid WAV/RIFF container.
-func EncodeWAV(pcmData []byte, sampleRate uint32, channels uint16, bitsPerSample uint16) []byte {
+// Encode wraps raw PCM data in a valid WAV/RIFF container.
+func Encode(pcmData []byte, sampleRate uint32, channels uint16, bitsPerSample uint16) []byte {
 	dataSize := uint32(len(pcmData))
 	byteRate := sampleRate * uint32(channels) * uint32(bitsPerSample) / 8
 	blockAlign := channels * bitsPerSample / 8

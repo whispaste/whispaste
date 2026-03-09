@@ -1,4 +1,4 @@
-package main
+package export
 
 import (
 	"archive/zip"
@@ -13,6 +13,22 @@ import (
 
 	"golang.org/x/sys/windows"
 )
+
+// Entry holds the data needed for export formatting.
+type Entry struct {
+	ID          string   `json:"id"`
+	Text        string   `json:"text"`
+	Title       string   `json:"title,omitempty"`
+	Timestamp   string   `json:"timestamp"`
+	Duration    float64  `json:"duration_sec"`
+	Language    string   `json:"language"`
+	Tags        []string `json:"tags,omitempty"`
+	Pinned      bool     `json:"pinned,omitempty"`
+	Model       string   `json:"model,omitempty"`
+	IsLocal     bool     `json:"is_local,omitempty"`
+	CostUSD     float64  `json:"cost_usd,omitempty"`
+	ProjectName string   `json:"project_name,omitempty"`
+}
 
 var (
 	comdlg32          = windows.NewLazySystemDLL("comdlg32.dll")
@@ -52,9 +68,9 @@ const (
 	ofnExplorer        = 0x00080000
 )
 
-// showSaveDialog opens a Windows Save File dialog and returns the chosen path.
+// ShowSaveDialog opens a Windows Save File dialog and returns the chosen path.
 // Returns empty string if the user cancels.
-func showSaveDialog(title string, defaultName string, filter string) string {
+func ShowSaveDialog(title string, defaultName string, filter string) string {
 	filterUTF16, _ := windows.UTF16PtrFromString(strings.ReplaceAll(filter, "|", "\x00") + "\x00")
 	titleUTF16, _ := windows.UTF16PtrFromString(title)
 
@@ -78,8 +94,8 @@ func showSaveDialog(title string, defaultName string, filter string) string {
 	return windows.UTF16ToString(fileBuf)
 }
 
-// formatEntryTXT formats a single entry as plain text.
-func formatEntryTXT(e *HistoryEntry) string {
+// FormatEntryTXT formats a single entry as plain text.
+func FormatEntryTXT(e *Entry) string {
 	var b strings.Builder
 	b.WriteString(e.Title)
 	b.WriteString("\n")
@@ -99,8 +115,8 @@ func formatEntryTXT(e *HistoryEntry) string {
 	return b.String()
 }
 
-// formatEntryMD formats a single entry as Markdown.
-func formatEntryMD(e *HistoryEntry) string {
+// FormatEntryMD formats a single entry as Markdown.
+func FormatEntryMD(e *Entry) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("# %s\n\n", e.Title))
 	b.WriteString(fmt.Sprintf("- **Date:** %s\n", e.Timestamp))
@@ -126,11 +142,11 @@ func formatEntryMD(e *HistoryEntry) string {
 	return b.String()
 }
 
-// exportEntries formats multiple entries and writes them to a file chosen by the user.
-// format must be "txt", "md", "json", "csv", or "docx". Returns the file path on success or empty string.
-func exportEntries(entries []*HistoryEntry, format string) string {
+// Entries formats multiple entries and writes them to a file chosen by the user.
+// format must be "txt", "md", "json", "csv", or "docx". Returns the file path on success, or an error.
+func Entries(entries []*Entry, format string) (string, error) {
 	if len(entries) == 0 {
-		return ""
+		return "", nil
 	}
 
 	var ext, filterStr, defName string
@@ -158,15 +174,15 @@ func exportEntries(entries []*HistoryEntry, format string) string {
 	}
 
 	if len(entries) == 1 {
-		safe := sanitizeFilename(entries[0].Title)
+		safe := SanitizeFilename(entries[0].Title)
 		if safe != "" {
 			defName = safe + ext
 		}
 	}
 
-	path := showSaveDialog("Export", defName, filterStr)
+	path := ShowSaveDialog("Export", defName, filterStr)
 	if path == "" {
-		return "" // user cancelled
+		return "", nil // user cancelled
 	}
 
 	var data []byte
@@ -174,19 +190,19 @@ func exportEntries(entries []*HistoryEntry, format string) string {
 
 	switch format {
 	case "json":
-		data, err = formatEntriesJSON(entries)
+		data, err = FormatEntriesJSON(entries)
 	case "csv":
-		data, err = formatEntriesCSV(entries)
+		data, err = FormatEntriesCSV(entries)
 	case "docx":
-		data, err = generateDOCX(entries)
+		data, err = GenerateDOCX(entries)
 	default:
 		var content strings.Builder
 		for i, e := range entries {
 			switch format {
 			case "md":
-				content.WriteString(formatEntryMD(e))
+				content.WriteString(FormatEntryMD(e))
 			default:
-				content.WriteString(formatEntryTXT(e))
+				content.WriteString(FormatEntryTXT(e))
 			}
 			if i < len(entries)-1 {
 				content.WriteString("\n---\n\n")
@@ -196,21 +212,18 @@ func exportEntries(entries []*HistoryEntry, format string) string {
 	}
 
 	if err != nil {
-		logError("Export format failed: %v", err)
-		return ""
+		return "", fmt.Errorf("export format: %w", err)
 	}
 
 	if err := os.WriteFile(path, data, 0644); err != nil {
-		logError("Export write failed: %v", err)
-		return ""
+		return "", fmt.Errorf("export write: %w", err)
 	}
 
-	logInfo("Exported %d entries to %s", len(entries), path)
-	return path
+	return path, nil
 }
 
-// formatEntriesJSON serializes entries as pretty-printed JSON.
-func formatEntriesJSON(entries []*HistoryEntry) ([]byte, error) {
+// FormatEntriesJSON serializes entries as pretty-printed JSON.
+func FormatEntriesJSON(entries []*Entry) ([]byte, error) {
 	data, err := json.MarshalIndent(entries, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("json marshal: %w", err)
@@ -218,10 +231,10 @@ func formatEntriesJSON(entries []*HistoryEntry) ([]byte, error) {
 	return append(data, '\n'), nil
 }
 
-// csvSafe prevents CSV formula injection by prefixing dangerous leading
+// CSVSafe prevents CSV formula injection by prefixing dangerous leading
 // characters with a tab. Cells starting with =, +, -, or @ can be
 // interpreted as formulas by spreadsheet applications.
-func csvSafe(s string) string {
+func CSVSafe(s string) string {
 	if len(s) > 0 {
 		switch s[0] {
 		case '=', '+', '-', '@':
@@ -231,8 +244,8 @@ func csvSafe(s string) string {
 	return s
 }
 
-// formatEntriesCSV serializes entries as CSV with a header row.
-func formatEntriesCSV(entries []*HistoryEntry) ([]byte, error) {
+// FormatEntriesCSV serializes entries as CSV with a header row.
+func FormatEntriesCSV(entries []*Entry) ([]byte, error) {
 	var buf strings.Builder
 	w := csv.NewWriter(&buf)
 
@@ -244,8 +257,8 @@ func formatEntriesCSV(entries []*HistoryEntry) ([]byte, error) {
 	for _, e := range entries {
 		row := []string{
 			e.ID,
-			csvSafe(e.Title),
-			csvSafe(e.Text),
+			CSVSafe(e.Title),
+			CSVSafe(e.Text),
 			e.Timestamp,
 			fmt.Sprintf("%.1f", e.Duration),
 			e.Language,
@@ -254,7 +267,7 @@ func formatEntriesCSV(entries []*HistoryEntry) ([]byte, error) {
 			e.Model,
 			fmt.Sprintf("%t", e.IsLocal),
 			fmt.Sprintf("%.6f", e.CostUSD),
-			csvSafe(e.ProjectName),
+			CSVSafe(e.ProjectName),
 		}
 		if err := w.Write(row); err != nil {
 			return nil, fmt.Errorf("csv row %s: %w", e.ID, err)
@@ -268,8 +281,8 @@ func formatEntriesCSV(entries []*HistoryEntry) ([]byte, error) {
 	return []byte(buf.String()), nil
 }
 
-// generateDOCX creates a minimal DOCX file from history entries using stdlib only.
-func generateDOCX(entries []*HistoryEntry) ([]byte, error) {
+// GenerateDOCX creates a minimal DOCX file from history entries using stdlib only.
+func GenerateDOCX(entries []*Entry) ([]byte, error) {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 
@@ -315,7 +328,7 @@ func generateDOCX(entries []*HistoryEntry) ([]byte, error) {
 		// Heading 1: title
 		body.WriteString(`<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr>`)
 		body.WriteString(`<w:r><w:t xml:space="preserve">`)
-		body.WriteString(xmlEscape(e.Title))
+		body.WriteString(XMLEscape(e.Title))
 		body.WriteString(`</w:t></w:r></w:p>`)
 
 		// Metadata line
@@ -331,14 +344,14 @@ func generateDOCX(entries []*HistoryEntry) ([]byte, error) {
 		}
 		body.WriteString(`<w:p><w:pPr><w:pStyle w:val="Meta"/></w:pPr>`)
 		body.WriteString(`<w:r><w:t xml:space="preserve">`)
-		body.WriteString(xmlEscape(meta))
+		body.WriteString(XMLEscape(meta))
 		body.WriteString(`</w:t></w:r></w:p>`)
 
 		// Tags line
 		if len(e.Tags) > 0 {
 			body.WriteString(`<w:p><w:pPr><w:pStyle w:val="Meta"/></w:pPr>`)
 			body.WriteString(`<w:r><w:t xml:space="preserve">Tags: `)
-			body.WriteString(xmlEscape(strings.Join(e.Tags, ", ")))
+			body.WriteString(XMLEscape(strings.Join(e.Tags, ", ")))
 			body.WriteString(`</w:t></w:r></w:p>`)
 		}
 
@@ -346,7 +359,7 @@ func generateDOCX(entries []*HistoryEntry) ([]byte, error) {
 		if e.ProjectName != "" {
 			body.WriteString(`<w:p><w:pPr><w:pStyle w:val="Meta"/></w:pPr>`)
 			body.WriteString(`<w:r><w:t xml:space="preserve">Project: `)
-			body.WriteString(xmlEscape(e.ProjectName))
+			body.WriteString(XMLEscape(e.ProjectName))
 			body.WriteString(`</w:t></w:r></w:p>`)
 		}
 
@@ -356,7 +369,7 @@ func generateDOCX(entries []*HistoryEntry) ([]byte, error) {
 		// Body text — split into paragraphs on newlines
 		for _, line := range strings.Split(e.Text, "\n") {
 			body.WriteString(`<w:p><w:r><w:t xml:space="preserve">`)
-			body.WriteString(xmlEscape(line))
+			body.WriteString(XMLEscape(line))
 			body.WriteString(`</w:t></w:r></w:p>`)
 		}
 	}
@@ -392,8 +405,8 @@ func generateDOCX(entries []*HistoryEntry) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// xmlEscape escapes a string for safe inclusion in XML text content.
-func xmlEscape(s string) string {
+// XMLEscape escapes a string for safe inclusion in XML text content.
+func XMLEscape(s string) string {
 	var b strings.Builder
 	if err := xml.EscapeText(&b, []byte(s)); err != nil {
 		return s
@@ -401,8 +414,8 @@ func xmlEscape(s string) string {
 	return b.String()
 }
 
-// sanitizeFilename removes characters invalid for Windows filenames.
-func sanitizeFilename(name string) string {
+// SanitizeFilename removes characters invalid for Windows filenames.
+func SanitizeFilename(name string) string {
 	name = strings.TrimSpace(name)
 	if len(name) > 50 {
 		name = name[:50]
