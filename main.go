@@ -878,6 +878,21 @@ func main() {
 					go fn()
 				}
 			},
+			func() { // onShowDashboard: open main window on history tab
+				fn := func() func() {
+					stateMu.Lock()
+					defer stateMu.Unlock()
+					return showDashboard
+				}()
+				if fn != nil {
+					go fn()
+				}
+			},
+			func() { // onQuit: trigger app shutdown via tray
+				if tray != nil {
+					tray.Quit()
+				}
+			},
 		)
 		// Show the button initially if enabled and onboarding is complete
 		if cfg.GetFloatingButtonEnabled() && cfg.GetOnboardingDone() {
