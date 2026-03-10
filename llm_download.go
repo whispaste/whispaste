@@ -153,6 +153,11 @@ func downloadAndExtractLLMServer(destDir string, progressFn func(pct int)) error
 		}
 
 		destPath := filepath.Join(destDir, baseName)
+		// Zip Slip protection: verify extracted path stays within destDir
+		if !strings.HasPrefix(filepath.Clean(destPath), filepath.Clean(destDir)+string(os.PathSeparator)) {
+			logWarn("Skipping potentially unsafe zip entry: %s", f.Name)
+			continue
+		}
 		if err := extractZipFile(f, destPath); err != nil {
 			return fmt.Errorf("extract %s: %w", baseName, err)
 		}
