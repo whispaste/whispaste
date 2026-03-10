@@ -15,15 +15,18 @@
       <!-- Selection Bar (shown when items selected) -->
       <div class="selection-bar hidden" id="selectionBar">
         <div class="selection-info">
-          <button class="btn-icon" id="selectionClose" title="Cancel">
+          <button class="btn-icon" id="selectionClose" data-i18n-title="cancel">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
           <span id="selectionCount">0</span> <span data-i18n="notebook.selected">selected</span>
+          <span class="selection-divider"></span>
+          <a class="selection-link" href="#" onclick="event.preventDefault();selectAllVisible()" data-i18n="notebook.select_all">All</a>
+          <a class="selection-link" href="#" onclick="event.preventDefault();clearSelection()" data-i18n="notebook.select_none">None</a>
         </div>
         <div class="selection-actions">
-          <a class="selection-link" href="#" onclick="event.preventDefault();selectAllVisible()" data-i18n="notebook.select_all">Select All</a>
-          <a class="selection-link" href="#" onclick="event.preventDefault();clearSelection()" data-i18n="notebook.select_none">None</a>
-          <span class="selection-divider"></span>
+          <button class="btn-icon" id="bulkSmartBtn" data-i18n-title="notebook.bulk_smart">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+          </button>
           <button class="btn-icon" id="mergeSelectedBtn" onclick="mergeSelected()" data-i18n-title="notebook.merge">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/></svg>
           </button>

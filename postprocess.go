@@ -194,6 +194,53 @@ func ApplySmartAction(text, preset, customPrompt, apiKey, endpoint, appLang stri
 	return PostProcess(text, preset, customPrompt, "", apiKey, endpoint, appLang, userTemplates)
 }
 
+// joinTextsForBulk joins multiple transcription texts with numbered separators.
+func joinTextsForBulk(texts []string) string {
+	var sb strings.Builder
+	for i, t := range texts {
+		if i > 0 {
+			sb.WriteString("\n\n")
+		}
+		fmt.Fprintf(&sb, "[%d] %s", i+1, strings.TrimSpace(t))
+	}
+	return sb.String()
+}
+
+// buildBulkSmartPrompt creates a compound prompt that instructs the LLM to
+// merge multiple transcriptions coherently and then apply the preset transformation.
+func buildBulkSmartPrompt(preset, customPrompt, appLang string, userTemplates map[string]string) string {
+	// Resolve the action prompt
+	var actionPrompt string
+	if preset == "translate" {
+		actionPrompt = "Translate the combined text to English. Return only the translation."
+	} else if preset == "custom" && customPrompt != "" {
+		actionPrompt = customPrompt
+	} else {
+		p, ok := smartModePresets[preset]
+		if !ok && userTemplates != nil {
+			p, ok = userTemplates[preset]
+		}
+		if !ok {
+			return ""
+		}
+		actionPrompt = p
+	}
+
+	langInstruction := ""
+	if appLang == "de" {
+		langInstruction = " Respond in German."
+	}
+
+	return fmt.Sprintf(`You receive multiple numbered transcription segments from the same user. Your task has two parts:
+
+STEP 1 — MERGE: Combine all segments into one coherent, flowing text. Preserve ALL information, facts, and statements from every segment. Do not drop, summarize, or reduce any content. Fix transitions so the result reads naturally as a single text.
+
+STEP 2 — TRANSFORM: Apply the following transformation to the merged text:
+%s
+
+Return only the final transformed result. No explanations, no segment markers, no meta-commentary.%s`, actionPrompt, langInstruction)
+}
+
 func buildSmartPrompt(preset, customPrompt, targetLang, appLang string, userTemplates map[string]string) string {
 	if preset == "translate" {
 		if targetLang == "" {
