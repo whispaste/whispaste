@@ -216,8 +216,11 @@ async function saveSettings() {
       const res = typeof result === 'string' ? JSON.parse(result) : result;
       if (res && res.success) {
         showStatus(t('statusAutoSaved'), 'success');
-        updateModeBadge(cfg);
-        updateStatusBar(cfg);
+        // Re-read full config from Go (includes active_model_local etc.)
+        const freshRaw = await window.getConfig();
+        const freshCfg = typeof freshRaw === 'string' ? JSON.parse(freshRaw) : freshRaw;
+        updateModeBadge(freshCfg);
+        updateStatusBar(freshCfg);
       } else {
         showStatus(res?.error || t('statusError'), 'error');
       }
