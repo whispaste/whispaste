@@ -37,8 +37,8 @@ var LLMModels = map[string]LLMModelDef{
 	"qwen3-0.6b": {
 		ID:       "qwen3-0.6b",
 		Name:     "Qwen3-0.6B",
-		URL:      "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf",
-		Size:     480_000_000,
+		URL:      "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF/resolve/main/Qwen_Qwen3-0.6B-Q4_K_M.gguf",
+		Size:     484_220_320,
 		Filename: "qwen3-0.6b.gguf",
 		Langs:    29,
 	},

@@ -244,7 +244,7 @@
         </div>
       </div>
       <div class="onboarding-llm-models hidden" id="onbLlmModelSection">
-        <p class="onb-llm-hint" data-i18n="onboarding.smart_llm_hint">Choose an offline AI model for Smart Mode — you can download it later in Settings.</p>
+        <p class="onb-llm-hint" data-i18n="onboarding.smart_llm_hint">Download a model to use Smart Mode offline</p>
         <div class="onb-llm-cards">
           <div class="onb-llm-card selected" data-llm-id="smollm2" tabindex="0" role="button" onclick="onbSelectLLMModel('smollm2')">
             <div class="onb-llm-card-name" data-i18n="onboarding.smart_llm_smollm2">SmolLM2</div>
@@ -253,6 +253,17 @@
           <div class="onb-llm-card" data-llm-id="qwen3-0.6b" tabindex="0" role="button" onclick="onbSelectLLMModel('qwen3-0.6b')">
             <div class="onb-llm-card-name" data-i18n="onboarding.smart_llm_qwen3">Qwen3-0.6B</div>
             <div class="onb-llm-card-desc" data-i18n="onboarding.smart_llm_qwen3_desc">Powerful · 480 MB · 29 Languages</div>
+          </div>
+        </div>
+        <div class="onb-model-status-row">
+          <span class="onb-model-status needed" id="onbLlmStatus" data-i18n="onboarding.model_needed">Download required</span>
+          <button class="btn btn-primary btn-sm" id="onbLlmDownloadBtn" onclick="onbDownloadLLM()">
+            <svg class="icon" style="width:14px;height:14px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <span data-i18n="onboarding.smart_llm_download">Download Model</span>
+          </button>
+          <div class="onb-download-progress hidden" id="onbLlmDownloadProgress">
+            <div class="onb-progress-track"><div class="onb-progress-bar" id="onbLlmProgressBar"></div></div>
+            <span class="onb-progress-label" id="onbLlmProgressLabel">0%</span>
           </div>
         </div>
       </div>
