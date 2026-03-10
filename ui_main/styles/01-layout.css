@@ -321,6 +321,14 @@
   animation: audioPlaying 1.5s ease-in-out infinite;
 }
 
+/* Connectivity indicator */
+.status-dot {
+  font-size: 10px;
+  line-height: 1;
+}
+.status-dot.online { color: #22c55e; }
+.status-dot.offline { color: #ef4444; }
+
 .status-heart {
   display: inline-flex;
   align-items: center;
