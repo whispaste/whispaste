@@ -98,14 +98,9 @@ async function executeSmartAction(entryId, preset, customPrompt) {
             return;
         }
 
-        const modelType = (result.model === 'local') ? 'local' : 'cloud';
-        const modelLabel = modelType === 'local' ? t('modeLocal') : t('modeApi');
-        const modelBadge = `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:var(--radius-sm);background:var(--bg-hover);color:var(--text-secondary);margin-top:4px">${modelType === 'local' ? icons.microphone : icons.globe} ${modelLabel}</span>`;
-
         const replace = await showDialog({
             title: t('smart.resultTitle'),
-            message: t('smart.resultMessage') + '<br>' + modelBadge,
-            htmlMessage: true,
+            message: t('smart.resultMessage'),
             confirmText: t('smart.replace'),
             cancelText: t('smart.createNew'),
         });

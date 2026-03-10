@@ -92,6 +92,14 @@ const translations = {
     aiSttDesc: 'Offline Whisper models for local transcription — no internet or API key required. Used for voice-to-text conversion.',
     aiLlmTitle: 'AI Text Processing',
     aiLlmDesc: 'Local AI model for Smart Mode and text processing — runs entirely on your device, no data leaves your computer.',
+    aiSmartProviderLabel: 'Smart Mode AI Provider',
+    aiSmartProviderDesc: 'Choose whether Smart Mode uses the local AI model or the cloud API for text processing',
+    aiSmartProviderLocal: 'Local model',
+    aiSmartProviderCloud: 'Cloud API',
+    aiTextReplaceProviderLabel: 'Text Replacement AI Provider',
+    aiTextReplaceProviderDesc: 'Choose whether AI-assisted text replacement uses the local model or the cloud API',
+    aiTextReplaceProviderLocal: 'Local model',
+    aiTextReplaceProviderCloud: 'Cloud API',
 
     // Settings — Smart Mode
     labelSmartMode: 'AI Post-Processing',
@@ -740,6 +748,14 @@ const translations = {
     aiSttDesc: 'Offline-Whisper-Modelle für lokale Transkription — kein Internet oder API-Schlüssel erforderlich. Wird für die Sprache-zu-Text-Umwandlung verwendet.',
     aiLlmTitle: 'KI-Textverarbeitung',
     aiLlmDesc: 'Lokales KI-Modell für den Smart-Modus und Textverarbeitung — läuft komplett auf deinem Gerät, keine Daten verlassen deinen Computer.',
+    aiSmartProviderLabel: 'Smart-Modus KI-Anbieter',
+    aiSmartProviderDesc: 'Wähle, ob der Smart-Modus das lokale KI-Modell oder die Cloud-API für die Textverarbeitung nutzt',
+    aiSmartProviderLocal: 'Lokales Modell',
+    aiSmartProviderCloud: 'Cloud-API',
+    aiTextReplaceProviderLabel: 'Textersetzung KI-Anbieter',
+    aiTextReplaceProviderDesc: 'Wähle, ob die KI-gestützte Textersetzung das lokale Modell oder die Cloud-API verwendet',
+    aiTextReplaceProviderLocal: 'Lokales Modell',
+    aiTextReplaceProviderCloud: 'Cloud-API',
 
     // Settings — Smart Mode
     labelSmartMode: 'KI-Nachbearbeitung',

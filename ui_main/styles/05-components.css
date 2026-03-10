@@ -73,7 +73,8 @@
 .confirm-title { font-size: 17px; font-weight: 700; text-align: center; margin-bottom: 8px; color: var(--text); }
 .confirm-msg { font-size: 13px; text-align: center; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px; }
 
-.confirm-btns { display: flex; gap: 10px; }
+.confirm-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.confirm-btns .btn { min-width: 0; white-space: nowrap; }
 
 .prompt-input {
   width: 100%;

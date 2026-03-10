@@ -58,7 +58,8 @@ type Config struct {
 	CustomTemplates   map[string]string          `json:"custom_templates,omitempty"`
 	TextReplacementsEnabled bool               `json:"text_replacements_enabled,omitempty"`
 	TextReplacements  []TextReplacement         `json:"text_replacements,omitempty"`
-	TextReplacementsAI bool                     `json:"text_replacements_ai,omitempty"`
+	TextReplacementsAI       bool               `json:"text_replacements_ai,omitempty"`
+	TextReplacementProvider  string             `json:"text_replacement_provider,omitempty"`
 	TrimSilence       bool                      `json:"trim_silence,omitempty"`
 	AppDetection      bool                      `json:"app_detection,omitempty"`
 	AppPresets          map[string]string          `json:"app_presets,omitempty"`
@@ -633,6 +634,16 @@ func (c *Config) GetTextReplacementsAI() bool {
 	return c.TextReplacementsAI
 }
 
+// GetTextReplacementProvider returns the AI text replacement provider ("local" or "cloud"), defaulting to "local".
+func (c *Config) GetTextReplacementProvider() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.TextReplacementProvider == "" {
+		return "local"
+	}
+	return c.TextReplacementProvider
+}
+
 // GetTrimSilence returns whether silence trimming is enabled (thread-safe).
 func (c *Config) GetTrimSilence() bool {
 	c.mu.RLock()
@@ -787,6 +798,13 @@ func (c *Config) SetTextReplacementsAI(v bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.TextReplacementsAI = v
+}
+
+// SetTextReplacementProvider sets the provider for AI text replacement ("local" or "cloud").
+func (c *Config) SetTextReplacementProvider(v string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.TextReplacementProvider = v
 }
 
 // GetTextReplacements returns a copy of all text replacements (thread-safe).
