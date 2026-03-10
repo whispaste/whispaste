@@ -27,6 +27,7 @@ async function _persistCustomTag(tag) {
       tags.push(tag);
       window._cachedCustomTags = tags;
       await window.saveCustomTags(JSON.stringify(tags));
+      window.dispatchEvent(new Event('tags-changed'));
     }
   } catch (_) {}
 }
@@ -34,7 +35,11 @@ async function _persistCustomTag(tag) {
 /* ── Tag Autocomplete ─────────────────────────────────── */
 async function _fetchCategories() {
   try {
-    if (window.getCategories) return JSON.parse(await window.getCategories());
+    const cats = window.getCategories ? JSON.parse(await window.getCategories()) : [];
+    // Merge custom tags so zero-count tags appear in autocomplete
+    const custom = window._cachedCustomTags || [];
+    custom.forEach(tag => { if (!cats.includes(tag)) cats.push(tag); });
+    return cats;
   } catch (_) {}
   return [];
 }
@@ -276,6 +281,7 @@ async function deleteTagFromAll(tagName) {
     if (window.saveCustomTags) await window.saveCustomTags(JSON.stringify(tags));
   }
   await loadEntries();
+  window.dispatchEvent(new Event('tags-changed'));
   showToast(t('notebook.tag_updated'));
 }
 

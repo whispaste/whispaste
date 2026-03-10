@@ -335,6 +335,11 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 		return true, nil
 	})
 
+	w.Bind("setActiveProject", func(id string) {
+		setSelectedProjectID(id)
+		logDebug("Active project set to: %s", id)
+	})
+
 	w.Bind("getLastProjectID", func() string { return cfg.GetLastProjectID() })
 
 	w.Bind("setLastProjectID", func(id string) {

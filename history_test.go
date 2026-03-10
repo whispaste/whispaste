@@ -25,8 +25,8 @@ func newTestHistory(t *testing.T) *History {
 
 func TestHistoryAddAndAll(t *testing.T) {
 	h := newTestHistory(t)
-	h.AddWithModel("hello world", 10.5, 1.2, "en", "whisper-1", false)
-	h.AddWithModel("zweiter eintrag", 5.0, 0.8, "de", "whisper-base", true)
+	h.AddWithModel("hello world", 10.5, 1.2, "en", "whisper-1", false, "")
+	h.AddWithModel("zweiter eintrag", 5.0, 0.8, "de", "whisper-base", true, "")
 
 	all := h.All()
 	if len(all) != 2 {
@@ -247,9 +247,9 @@ func TestHistoryCleanup(t *testing.T) {
 
 func TestHistoryGetAnalytics(t *testing.T) {
 	h := newTestHistory(t)
-	h.AddWithModel("test1", 30.0, 2.0, "en", "whisper-1", false)
+	h.AddWithModel("test1", 30.0, 2.0, "en", "whisper-1", false, "")
 	h.RecordDailyStats(30.0, 2.0, "test1", "whisper-1", false)
-	h.AddWithModel("test2", 60.0, 1.5, "de", "whisper-base", true)
+	h.AddWithModel("test2", 60.0, 1.5, "de", "whisper-base", true, "")
 	h.RecordDailyStats(60.0, 1.5, "test2", "whisper-base", true)
 
 	analytics := h.GetAnalytics(0)
@@ -360,9 +360,9 @@ func TestMigrateFromJSON(t *testing.T) {
 
 func TestHistorySearch(t *testing.T) {
 	h := newTestHistory(t)
-	h.AddWithModel("The quick brown fox jumps over the lazy dog", 10.0, 1.0, "en", "whisper-1", false)
-	h.AddWithModel("Die Katze sitzt auf der Matte", 5.0, 0.5, "de", "whisper-base", true)
-	h.AddWithModel("Testing microphone input levels", 3.0, 0.3, "en", "whisper-1", false)
+	h.AddWithModel("The quick brown fox jumps over the lazy dog", 10.0, 1.0, "en", "whisper-1", false, "")
+	h.AddWithModel("Die Katze sitzt auf der Matte", 5.0, 0.5, "de", "whisper-base", true, "")
+	h.AddWithModel("Testing microphone input levels", 3.0, 0.3, "en", "whisper-1", false, "")
 
 	// Basic search
 	results := h.Search("fox")
@@ -541,7 +541,7 @@ func TestFreshDBInit(t *testing.T) {
 
 	// Verify all tables exist
 	h := &History{db: db}
-	h.AddWithModel("test entry", 5.0, 1.0, "en", "whisper-1", false)
+	h.AddWithModel("test entry", 5.0, 1.0, "en", "whisper-1", false, "")
 	all := h.All()
 	if len(all) != 1 {
 		t.Fatalf("expected 1 entry, got %d", len(all))

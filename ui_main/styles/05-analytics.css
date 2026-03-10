@@ -80,9 +80,13 @@
 
 /* SVG bar chart */
 .bar-chart { width: 100%; height: 160px; display: block; }
+.bar-chart.stacked { height: 184px; }
 .bar-chart rect.bar { fill: var(--accent); opacity: 0.85; }
 .bar-chart rect.bar:hover { opacity: 1; }
+.bar-chart rect.bar-segment { opacity: 0.85; }
+.bar-chart rect.bar-segment:hover { opacity: 1; }
 .bar-chart text { font-size: 10px; fill: var(--text-hint); }
+.bar-chart text.chart-legend-label { font-size: 9px; fill: var(--text-secondary); }
 .bar-chart line.axis { stroke: var(--border); stroke-width: 1; }
 .bar-chart line.grid-line { stroke: var(--text-hint); stroke-width: 0.5; stroke-dasharray: 4 2; opacity: 0.3; }
 .bar-chart text.grid-label { font-size: 9px; fill: var(--text-hint); }

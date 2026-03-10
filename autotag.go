@@ -14,7 +14,7 @@ import (
 // It retrieves all known tags (both from history and custom config tags), asks
 // the LLM which ones match the text, and updates the entry with the matching
 // tags. Only known tags are assigned — no new tags are created.
-func AutoTagEntry(history *History, entryID, text string) {
+func AutoTagEntry(history *History, entryID, text string, customTags []string) {
 	if history == nil || entryID == "" || text == "" {
 		return
 	}
@@ -22,8 +22,7 @@ func AutoTagEntry(history *History, entryID, text string) {
 
 	existingTags := history.Tags()
 
-	// Merge custom tags from config (tags the user created but may not yet be assigned)
-	customTags := cfg.GetCustomTags()
+	// Merge custom tags (tags the user created but may not yet be assigned)
 	tagSet := make(map[string]bool, len(existingTags)+len(customTags))
 	for _, t := range existingTags {
 		tagSet[t] = true

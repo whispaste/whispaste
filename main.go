@@ -442,13 +442,31 @@ func main() {
 					}
 				}()
 				durationSec := time.Since(recordStart).Seconds()
-				transcribeStart := time.Now()
-				var text string
-				var err error
 				modelName := model
 				if useLocal {
 					modelName = cfg.GetLocalModelID()
 				}
+
+				// Create pending entry BEFORE transcription so audio is preserved if app crashes
+				pendingID := ""
+				if len(pcm) >= 9600 {
+					pendingID = history.AddPendingEntry(durationSec, lang, modelName, useLocal, T("transcribing"))
+					if pendingID != "" {
+						projID := getSelectedProjectID()
+						if projID != "" {
+							history.SetEntryProject(pendingID, projID)
+						}
+						if err := audiocache.Save(pendingID, pcm); err != nil {
+							logWarn("Save pre-transcription audio: %v", err)
+						}
+						logDebug("Created pre-transcription pending entry %s", pendingID)
+						NotifyHistoryChanged()
+					}
+				}
+
+				transcribeStart := time.Now()
+				var text string
+				var err error
 				logInfo("Transcribing with: useLocal=%v model=%s", useLocal, modelName)
 				if useLocal {
 					modelDir, mdErr := models.GetDir(cfg.GetLocalModelID())
@@ -465,14 +483,18 @@ func main() {
 				}
 				processingDurationSec := time.Since(transcribeStart).Seconds()
 				if err != nil {
-					// If user cancelled via overlay button, save audio as pending
 					if errors.Is(err, context.Canceled) {
 						logInfo("Transcription cancelled by user")
-						savePendingEntry(history, pcm, durationSec, lang, modelName, useLocal, "transcription_cancelled")
+						// Pending entry already exists with audio cached — update reason
+						if pendingID != "" {
+							history.UpdatePendingReason(pendingID, T("transcription_cancelled"))
+						}
 						return
 					}
 					logError("Transcription error: %v", err)
-					savePendingEntry(history, pcm, durationSec, lang, modelName, useLocal, "transcription_failed")
+					if pendingID != "" {
+						history.UpdatePendingReason(pendingID, T("transcription_failed"))
+					}
 					if playSounds {
 						PlayFeedback(SoundError)
 					}
@@ -489,17 +511,24 @@ func main() {
 				// Check if user cancelled while local transcription was running
 				if transcribeCtx.Err() != nil {
 					logInfo("Transcription cancelled by user (post-return)")
-					savePendingEntry(history, pcm, durationSec, lang, modelName, useLocal, "transcription_cancelled")
+					if pendingID != "" {
+						history.UpdatePendingReason(pendingID, T("transcription_cancelled"))
+					}
 					return
 				}
 
-				// Apply text replacements before smart mode
-				text = cfg.ApplyTextReplacements(text)
+				// Apply text replacements (exact match + optional AI semantic match)
+				if cfg.GetTextReplacementsEnabled() {
+					replacements := cfg.GetTextReplacements()
+					text = ApplyTextReplacementsWithAI(text, replacements, cfg.GetTextReplacementsAI())
+				}
 
 				// Treat empty/whitespace-only transcription as failed
 				if strings.TrimSpace(text) == "" {
 					logWarn("Transcription returned empty text")
-					savePendingEntry(history, pcm, durationSec, lang, modelName, useLocal, "transcription_failed")
+					if pendingID != "" {
+						history.UpdatePendingReason(pendingID, T("transcription_failed"))
+					}
 					if playSounds {
 						PlayFeedback(SoundError)
 					}
@@ -584,22 +613,35 @@ func main() {
 				// Record stats and history with model info
 				totalDictations := usageStats.RecordDictation(text, durationSec, useLocal)
 				var entryID string
+				activeModel := model
+				activeLocal := false
 				if useLocal {
-					history.RecordDailyStats(durationSec, processingDurationSec, text, cfg.GetLocalModelID(), true)
-					entryID = history.AddWithModel(text, durationSec, processingDurationSec, lang, cfg.GetLocalModelID(), true)
+					activeModel = cfg.GetLocalModelID()
+					activeLocal = true
+				}
+				history.RecordDailyStats(durationSec, processingDurationSec, text, activeModel, activeLocal)
+
+				// Complete the pending entry or create a new one
+				if pendingID != "" {
+					if history.CompletePendingEntry(pendingID, text, processingDurationSec, activeModel, activeLocal) {
+						entryID = pendingID
+						logDebug("Completed pending entry %s with transcription", pendingID)
+					} else {
+						logWarn("Failed to complete pending entry %s, creating new entry", pendingID)
+						entryID = history.AddWithModel(text, durationSec, processingDurationSec, lang, activeModel, activeLocal, getSelectedProjectID())
+					}
 				} else {
-					history.RecordDailyStats(durationSec, processingDurationSec, text, model, false)
-					entryID = history.AddWithModel(text, durationSec, processingDurationSec, lang, model, false)
+					entryID = history.AddWithModel(text, durationSec, processingDurationSec, lang, activeModel, activeLocal, getSelectedProjectID())
 				}
 
 				// Auto-tag with local LLM if available
 				if entryID != "" && IsLLMInstalled() {
-					tagEntryID, tagText := entryID, text
-					go AutoTagEntry(history, tagEntryID, tagText)
+					tagEntryID, tagText, tagCustom := entryID, text, cfg.GetCustomTags()
+					go AutoTagEntry(history, tagEntryID, tagText, tagCustom)
 				}
 
-				// Cache the processed audio for re-listen / re-transcribe
-				if entryID != "" {
+				// Audio already cached for pending entries; cache for new entries
+				if entryID != "" && pendingID == "" {
 					if err := audiocache.Save(entryID, pcm); err != nil {
 						logWarn("Save audio cache: %v", err)
 					}

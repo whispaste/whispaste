@@ -223,3 +223,130 @@ func buildSmartPrompt(preset, customPrompt, targetLang, appLang string, userTemp
 	}
 	return p
 }
+
+// ApplyTextReplacementsWithAI runs exact replacements first, then uses the local LLM
+// to find semantic matches for remaining trigger phrases.
+func ApplyTextReplacementsWithAI(text string, replacements []TextReplacement, aiEnabled bool) string {
+	if len(replacements) == 0 {
+		return text
+	}
+
+	// First pass: exact string replacements
+	remaining := make([]TextReplacement, 0)
+	for _, r := range replacements {
+		if !r.Enabled || r.Trigger == "" {
+			continue
+		}
+		if strings.Contains(text, r.Trigger) {
+			text = strings.ReplaceAll(text, r.Trigger, r.Replacement)
+		} else {
+			remaining = append(remaining, r)
+		}
+	}
+
+	// Second pass: AI semantic matching (only for triggers not found literally)
+	if !aiEnabled || len(remaining) == 0 || !IsLLMInstalled() {
+		return text
+	}
+
+	endpoint, err := localLLM.Start()
+	if err != nil {
+		logWarn("AI text replacement: LLM start failed: %v", err)
+		return text
+	}
+
+	aiResult, err := queryLLMForReplacements(endpoint, text, remaining)
+	if err != nil {
+		logWarn("AI text replacement failed: %v", err)
+		return text
+	}
+
+	return aiResult
+}
+
+func queryLLMForReplacements(llmEndpoint, text string, replacements []TextReplacement) (string, error) {
+	chatURL := llmEndpoint + "/chat/completions"
+
+	// Build the replacement rules description
+	var rules strings.Builder
+	for i, r := range replacements {
+		fmt.Fprintf(&rules, "%d. When the text semantically mentions \"%s\" → replace with \"%s\"\n", i+1, r.Trigger, r.Replacement)
+	}
+
+	systemPrompt := fmt.Sprintf(`You are a text replacement assistant. Apply semantic replacements to the user's text.
+
+RULES:
+%s
+INSTRUCTIONS:
+1. Read the user's text carefully
+2. For each rule, check if the text SEMANTICALLY contains the trigger phrase (not just literally — the meaning must match)
+3. If a trigger phrase is semantically present, replace that part of the text with the replacement value
+4. Preserve the rest of the text exactly as-is (formatting, punctuation, capitalization)
+5. If no triggers match semantically, return the text unchanged
+6. Return ONLY the modified text, nothing else — no explanations, no quotes
+
+IMPORTANT: Only replace when the meaning clearly matches. When in doubt, do NOT replace.`, rules.String())
+
+	reqBody := map[string]interface{}{
+		"model": "local",
+		"messages": []map[string]string{
+			{"role": "system", "content": systemPrompt},
+			{"role": "user", "content": text},
+		},
+		"temperature": 0.0,
+		"max_tokens":  len(text) + 200,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return text, fmt.Errorf("marshal request: %w", err)
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("POST", chatURL, bytes.NewReader(jsonData))
+	if err != nil {
+		return text, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer local")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return text, fmt.Errorf("LLM request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return text, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return text, fmt.Errorf("LLM returned status %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return text, fmt.Errorf("parse response: %w", err)
+	}
+	if len(result.Choices) == 0 {
+		return text, fmt.Errorf("empty response from LLM")
+	}
+
+	modified := strings.TrimSpace(result.Choices[0].Message.Content)
+	if modified == "" {
+		return text, nil
+	}
+	// Guard against LLM truncation/hallucination
+	if len(modified) < len(text)/2 {
+		logWarn("AI text replacement: response too short (%d vs %d chars), keeping original", len(modified), len(text))
+		return text, nil
+	}
+	return modified, nil
+}
