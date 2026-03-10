@@ -299,6 +299,7 @@ async function updateLLMStatus() {
   } catch (e) {}
 
   renderSettingsLLMModel(status);
+  updateProviderModelPickers(status);
 }
 
 function renderSettingsLLMModel(status) {
@@ -306,7 +307,6 @@ function renderSettingsLLMModel(status) {
   if (!container) return;
 
   const models = status.models || {};
-  const selectedModel = status.selectedModel || 'smollm2';
 
   // Model definitions for display order
   const modelOrder = ['smollm2', 'qwen3-0.6b'];
@@ -326,9 +326,8 @@ function renderSettingsLLMModel(status) {
     if (!m) continue;
     const trans = modelTranslations[id] || { name: m.name, desc: '' };
     const isInstalled = m.installed;
-    const isSelected = id === selectedModel;
 
-    html += `<div class="llm-model-card${isSelected ? ' llm-model-active' : ''}" data-model-id="${esc(id)}">
+    html += `<div class="llm-model-card" data-model-id="${esc(id)}">
       <div class="llm-model-card-header">
         <div class="llm-model-info">
           <span class="llm-model-name">${esc(trans.name)}</span>
@@ -343,11 +342,7 @@ function renderSettingsLLMModel(status) {
       </div>
       <div class="llm-model-card-actions">
         ${isInstalled
-          ? `${isSelected
-              ? `<button class="btn btn-sm btn-secondary" disabled>${esc(t('smartLlmSelected'))}</button>`
-              : `<button class="btn btn-sm btn-primary llm-select-btn" data-model="${esc(id)}">${esc(t('smartLlmSelect'))}</button>`
-            }
-            <button class="btn btn-sm btn-ghost llm-delete-btn" data-model="${esc(id)}" title="${esc(t('smartLlmDelete'))}">
+          ? `<button class="btn btn-sm btn-ghost llm-delete-btn" data-model="${esc(id)}" title="${esc(t('smartLlmDelete'))}">
               <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>`
           : `<button class="btn btn-sm btn-primary llm-download-btn" data-model="${esc(id)}">${esc(t('smartLlmDownload'))}</button>`
@@ -374,9 +369,70 @@ function renderSettingsLLMModel(status) {
   container.querySelectorAll('.llm-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => deleteLLMModel(btn.dataset.model));
   });
-  container.querySelectorAll('.llm-select-btn').forEach(btn => {
-    btn.addEventListener('click', () => selectLLMModel(btn.dataset.model));
+}
+
+function updateProviderModelPickers(status) {
+  const models = status ? (status.models || {}) : {};
+  const selectedModel = status ? (status.selectedModel || 'smollm2') : 'smollm2';
+  const modelOrder = ['smollm2', 'qwen3-0.6b'];
+  const modelTranslations = {
+    'smollm2': { name: t('smartLlmModelSmollm2'), desc: t('smartLlmModelSmollm2Desc') },
+    'qwen3-0.6b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
+  };
+
+  ['smartProviderModelSelect', 'textReplaceProviderModelSelect'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    sel.innerHTML = '';
+    for (const id of modelOrder) {
+      const m = models[id];
+      if (!m) continue;
+      const trans = modelTranslations[id] || { name: m.name, desc: '' };
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = trans.name;
+      if (!m.installed) {
+        opt.textContent += ' (' + t('smartLlmNotInstalled') + ')';
+        opt.disabled = true;
+      }
+      if (id === selectedModel) opt.selected = true;
+      sel.appendChild(opt);
+    }
   });
+
+  // Show/hide pickers based on radio selection
+  toggleProviderModelPicker('smartProvider', 'smartProviderModelPicker');
+  toggleProviderModelPicker('textReplaceProvider', 'textReplaceProviderModelPicker');
+}
+
+function toggleProviderModelPicker(radioName, pickerId) {
+  const radio = document.querySelector('[name="' + radioName + '"]:checked');
+  const picker = document.getElementById(pickerId);
+  if (picker) picker.classList.toggle('hidden', !radio || radio.value !== 'local');
+}
+
+function initProviderModelPickerEvents() {
+  document.querySelectorAll('[name="smartProvider"]').forEach(r => {
+    r.addEventListener('change', () => toggleProviderModelPicker('smartProvider', 'smartProviderModelPicker'));
+  });
+  document.querySelectorAll('[name="textReplaceProvider"]').forEach(r => {
+    r.addEventListener('change', () => toggleProviderModelPicker('textReplaceProvider', 'textReplaceProviderModelPicker'));
+  });
+  const smartSel = document.getElementById('smartProviderModelSelect');
+  if (smartSel) smartSel.addEventListener('change', () => {
+    if (window.setLocalLLMModel) window.setLocalLLMModel(smartSel.value);
+  });
+  const trSel = document.getElementById('textReplaceProviderModelSelect');
+  if (trSel) trSel.addEventListener('change', () => {
+    if (window.setLocalLLMModel) window.setLocalLLMModel(trSel.value);
+  });
+}
+
+// Initialize picker events when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initProviderModelPickerEvents);
+} else {
+  initProviderModelPickerEvents();
 }
 
 async function downloadLLMModel(modelID) {
@@ -408,13 +464,6 @@ async function deleteLLMModel(modelID) {
   if (!ok) return;
   try {
     if (window.deleteLLM) await window.deleteLLM(modelID);
-  } catch (e) {}
-  updateLLMStatus();
-}
-
-async function selectLLMModel(modelID) {
-  try {
-    if (window.setLocalLLMModel) await window.setLocalLLMModel(modelID);
   } catch (e) {}
   updateLLMStatus();
 }
