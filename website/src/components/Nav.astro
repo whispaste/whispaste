@@ -13,12 +13,12 @@ const { variant = "landing" } = Astro.props;
     class={`mx-auto px-6 h-14 flex items-center justify-between ${variant === "subpage" ? "max-w-4xl" : "max-w-6xl"}`}
   >
     <a
-      href={variant === "subpage" ? "/whispaste/" : "#"}
+      href={variant === "subpage" ? "/" : "#"}
       class="flex items-center gap-2 text-white font-semibold tracking-tight"
     >
       <img
         id="navLogo"
-        src="/whispaste/app-icon-dark.png"
+        src="/app-icon-dark.png"
         alt="WhisPaste"
         class="w-8 h-8"
       />
@@ -82,7 +82,7 @@ const { variant = "landing" } = Astro.props;
         </div>
       ) : (
         <div class="flex items-center gap-4 text-sm text-gray-400">
-          <a href="/whispaste/" class="hover:text-white transition-colors" data-i18n="nav.back">
+          <a href="/" class="hover:text-white transition-colors" data-i18n="nav.back">
             &larr; Back
           </a>
           <button
