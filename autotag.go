@@ -11,17 +11,34 @@ import (
 )
 
 // AutoTagEntry uses the local LLM to assign existing tags to a history entry.
-// It retrieves all known tags, asks the LLM which ones match the text, and
-// updates the entry with the matching tags. Only existing tags are assigned —
-// no new tags are created. Runs asynchronously and fails silently.
+// It retrieves all known tags (both from history and custom config tags), asks
+// the LLM which ones match the text, and updates the entry with the matching
+// tags. Only known tags are assigned — no new tags are created.
 func AutoTagEntry(history *History, entryID, text string) {
 	if history == nil || entryID == "" || text == "" {
 		return
 	}
+	logDebug("AutoTag: entry=%s, text_len=%d", entryID, len(text))
 
 	existingTags := history.Tags()
-	if len(existingTags) == 0 {
-		logDebug("AutoTag: no existing tags, skipping")
+
+	// Merge custom tags from config (tags the user created but may not yet be assigned)
+	customTags := cfg.GetCustomTags()
+	tagSet := make(map[string]bool, len(existingTags)+len(customTags))
+	for _, t := range existingTags {
+		tagSet[t] = true
+	}
+	for _, t := range customTags {
+		tagSet[t] = true
+	}
+	allTags := make([]string, 0, len(tagSet))
+	for t := range tagSet {
+		allTags = append(allTags, t)
+	}
+	logDebug("AutoTag: %d candidate tags (from entries: %d, from custom: %d)", len(allTags), len(existingTags), len(customTags))
+
+	if len(allTags) == 0 {
+		logDebug("AutoTag: no candidate tags, skipping")
 		return
 	}
 
@@ -32,15 +49,16 @@ func AutoTagEntry(history *History, entryID, text string) {
 
 	endpoint, err := localLLM.Start()
 	if err != nil {
-		logWarn("AutoTag: failed to start local LLM: %v", err)
+		logWarn("AutoTag: failed for entry %s: %v", entryID, err)
 		return
 	}
 
-	matchedTags, err := queryLLMForTags(endpoint, text, existingTags)
+	matchedTags, err := queryLLMForTags(endpoint, text, allTags)
 	if err != nil {
-		logWarn("AutoTag: LLM query failed: %v", err)
+		logWarn("AutoTag: failed for entry %s: %v", entryID, err)
 		return
 	}
+	logDebug("AutoTag: LLM returned %d tags for entry %s", len(matchedTags), entryID)
 
 	if len(matchedTags) == 0 {
 		logDebug("AutoTag: no matching tags found for entry %s", entryID)
