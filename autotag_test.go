@@ -54,6 +54,26 @@ func TestParseTagResponse(t *testing.T) {
 			content:   ``,
 			wantEmpty: true,
 		},
+		{
+			name:     "markdown fenced multiline",
+			content:  "```json\n[\"Work\", \"Meeting\"]\n```",
+			wantTags: []string{"Work", "Meeting"},
+		},
+		{
+			name:     "markdown fenced inline",
+			content:  "```[\"Work\"]```",
+			wantTags: []string{"Work"},
+		},
+		{
+			name:     "markdown fenced with extra text",
+			content:  "Here are the tags:\n```json\n[\"Personal\"]\n```\n",
+			wantTags: []string{"Personal"},
+		},
+		{
+			name:     "markdown multiple fenced blocks",
+			content:  "Example:\n```\nfoo\n```\n\nAnswer:\n```json\n[\"Work\"]\n```",
+			wantTags: []string{"Work"},
+		},
 	}
 
 	for _, tt := range tests {
