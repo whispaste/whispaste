@@ -60,23 +60,42 @@ func queryLLMForTags(llmEndpoint, text string, availableTags []string) ([]string
 	tagList := strings.Join(availableTags, ", ")
 
 	systemPrompt := fmt.Sprintf(
-		`You are a tag classifier. Given a text and a list of available tags, return ONLY the tags that are relevant to the text content. Rules:
-- Return tags as a JSON array of strings, e.g. ["tag1", "tag2"]
-- Only use tags from the provided list — never invent new tags
-- Select 1–3 tags maximum
-- If no tags match, return an empty array []
-- Return ONLY the JSON array, no explanation
+		`Classify transcribed speech by assigning tags from a fixed list. Precision is critical — a wrong tag is worse than no tag.
 
-Available tags: %s`, tagList)
+RULES:
+1. Return a JSON array, e.g. ["tag1"] or ["tag1", "tag2"]
+2. ONLY use tags from the AVAILABLE TAGS list below — never invent new ones
+3. A tag must match the MAIN TOPIC of the text, not just a passing mention
+4. If you are unsure whether a tag fits → leave it out
+5. If no tag clearly fits → return []
+6. Maximum 2 tags, only if the text genuinely covers two distinct topics
+7. Return ONLY the JSON array, nothing else
+
+WHAT COUNTS AS A MATCH:
+- The text is primarily about that tag's topic
+- The tag describes the core subject or purpose of the text
+
+WHAT DOES NOT COUNT:
+- A word related to the tag appears once briefly
+- The tag is only loosely or vaguely associated
+- You are guessing
+
+AVAILABLE TAGS: %s`, tagList)
+
+	// Truncate very long texts — classification only needs the gist
+	classifyText := text
+	if len(classifyText) > 2000 {
+		classifyText = classifyText[:2000]
+	}
 
 	reqBody := map[string]interface{}{
 		"model": "local",
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
-			{"role": "user", "content": text},
+			{"role": "user", "content": "TRANSCRIBED TEXT:\n" + classifyText},
 		},
-		"temperature": 0.1,
-		"max_tokens":  256,
+		"temperature": 0.0,
+		"max_tokens":  64,
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -160,9 +179,9 @@ func parseTagResponse(content string, availableTags []string) ([]string, error) 
 		}
 	}
 
-	// Cap at 3 tags
-	if len(matched) > 3 {
-		matched = matched[:3]
+	// Cap at 2 tags — stricter to avoid false positives with local models
+	if len(matched) > 2 {
+		matched = matched[:2]
 	}
 
 	return matched, nil
