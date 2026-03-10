@@ -192,15 +192,24 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 					w.Dispatch(func() { w.Eval(js) })
 				}
 			}
-			err := models.Download(modelID, func(fileDownloaded, fileTotal int64, fileIdx, fileCount int, fileName string) {
-				var pct int
-				if fileTotal > 0 {
-					pct = int(float64(fileDownloaded) / float64(fileTotal) * 100)
-					if pct > 100 {
-						pct = 100
+
+			model := models.Find(modelID)
+			modelFileName := modelID
+			if model != nil {
+				modelFileName = model.Filename
+			}
+			needsServer := !IsSTTServerInstalled()
+
+			err := DownloadSTT(modelID, func(phase string, pct int) {
+				if phase == "server" && needsServer {
+					safeDispatch(fmt.Sprintf("window.updateModelProgress('%s', %d, 1, 2, 'whisper-server')", escapeJS(modelID), pct))
+				} else if phase == "model" {
+					fileIdx, fileCount := 1, 1
+					if needsServer {
+						fileIdx, fileCount = 2, 2
 					}
+					safeDispatch(fmt.Sprintf("window.updateModelProgress('%s', %d, %d, %d, '%s')", escapeJS(modelID), pct, fileIdx, fileCount, escapeJS(modelFileName)))
 				}
-				safeDispatch(fmt.Sprintf("window.updateModelProgress('%s', %d, %d, %d, '%s')", escapeJS(modelID), pct, fileIdx+1, fileCount, escapeJS(fileName)))
 			})
 			if err != nil {
 				logError("Model download failed: %v", err)
