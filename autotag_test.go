@@ -40,9 +40,9 @@ func TestParseTagResponse(t *testing.T) {
 			wantEmpty: false,
 		},
 		{
-			name:     "caps at 3 tags",
+			name:     "caps at 2 tags",
 			content:  `["Work", "Personal", "Meeting", "Urgent", "Ideas"]`,
-			wantTags: []string{"Work", "Personal", "Meeting"},
+			wantTags: []string{"Work", "Personal"},
 		},
 		{
 			name:     "deduplicates",
