@@ -106,7 +106,7 @@ type ConfigProfile struct {
 func DefaultConfig() *Config {
 	return &Config{
 		HotkeyMods:   []string{"Ctrl", "Shift"},
-		HotkeyKey:    "V",
+		HotkeyKey:    "D",
 		Mode:         "push_to_talk",
 		Language:     "auto",
 		Model:        "whisper-1",

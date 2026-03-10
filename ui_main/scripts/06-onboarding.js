@@ -60,7 +60,7 @@ function nextOnboardingStep() {
           const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
           if (cfg) {
             const mods = cfg.hotkey_modifiers || ['Ctrl', 'Shift'];
-            const key = cfg.hotkey_key || 'V';
+            const key = cfg.hotkey_key || 'D';
             kbd.textContent = formatHotkeyParts([...mods, key]).join('+');
           }
         }).catch(() => {});
