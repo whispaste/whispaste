@@ -171,6 +171,30 @@ function updateStatusBar(cfg) {
   }
 
   // Version chip removed — version is shown on the About page
+
+  // Connectivity chip — fire once, then poll
+  if (!window._connCheckStarted) {
+    window._connCheckStarted = true;
+    updateConnectivityChip();
+    window._connCheckInterval = setInterval(updateConnectivityChip, 30000);
+  }
+}
+
+/** Update the connectivity status chip */
+async function updateConnectivityChip() {
+  const dot = document.getElementById('statusConnDot');
+  const label = document.getElementById('statusConnLabel');
+  const chip = document.getElementById('statusConnectivity');
+  if (!dot || !label || !chip) return;
+  try {
+    const online = window.checkConnectivity ? await window.checkConnectivity() : false;
+    dot.className = 'status-dot ' + (online ? 'online' : 'offline');
+    label.textContent = online ? t('status.online') : t('status.offline');
+    chip.title = online ? t('status.online_tip') : t('status.offline_tip');
+  } catch {
+    dot.className = 'status-dot offline';
+    label.textContent = t('status.offline');
+  }
 }
 
 /** Navigate to settings page and scroll to a specific section */
