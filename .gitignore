@@ -47,5 +47,9 @@ skills.yaml
 .agents/
 .claude/
 
+# Internal dev tools
+cmd/screenshot/
+scripts/review.mjs
+
 # Design source files
 *.afdesign
