@@ -288,9 +288,6 @@
   margin-bottom: 8px;
   transition: border-color 0.2s;
 }
-.llm-model-active {
-  border-color: var(--accent);
-}
 .llm-model-card-header {
   display: flex;
   justify-content: space-between;
