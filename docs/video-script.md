@@ -42,7 +42,7 @@
 1. Willkommensscreen (1s)
 2. API-Auswahl: „Cloud oder Lokal?" — Klick auf „Lokal" (2s)
 3. Modell wird heruntergeladen (Fortschrittsbalken, zeitgerafft) (2s)
-4. Hotkey bestätigen: `Strg+Shift+V` (1s)
+4. Hotkey bestätigen: `Strg+Shift+D` (1s)
 5. „Fertig!" Button wird geklickt (1s)
 
 **Voiceover:**
@@ -61,7 +61,7 @@
 
 **Aktion (Schritt für Schritt):**
 
-1. **Hotkey drücken** (`Strg+Shift+V`)
+1. **Hotkey drücken** (`Strg+Shift+D`)
    - Overlay erscheint oben: Pill-Shape mit Waveform
    - Start-Sound ertönt 🔊
    - Aufnahmepunkt blinkt rot
@@ -309,7 +309,7 @@ Nimm jede Szene einzeln auf. Du musst nicht alles in einem Durchlauf machen!
 1. **Take: Erste Diktierung** (Szene 3)
    - Öffne Notepad
    - Starte OBS-Aufnahme
-   - Drücke `Strg+Shift+V` → Sprich den Text → Stoppe
+   - Drücke `Strg+Shift+D` → Sprich den Text → Stoppe
    - Warte bis Text erscheint → Stoppe OBS
 
 2. **Take: Smart Mode** (Szene 4)

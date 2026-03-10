@@ -14,7 +14,7 @@ window.onunhandledrejection = function(ev) {
 
 const _modKeyMap = { 'Ctrl': 'key.ctrl', 'Shift': 'key.shift', 'Alt': 'key.alt' };
 
-/** Translate a single modifier key name or a full combo string like "Ctrl+Shift+V" */
+/** Translate a single modifier key name or a full combo string like "Ctrl+Shift+D" */
 function formatModKey(key) {
   if (key.includes('+')) return key.split('+').map(formatModKey).join('+');
   const tKey = _modKeyMap[key];
@@ -155,7 +155,7 @@ function updateStatusBar(cfg) {
   const hotkeyLabel = document.getElementById('statusHotkeyLabel');
   const hotkeyChip = document.getElementById('statusHotkey');
   const mods = cfg.hotkey_modifiers || ['Ctrl', 'Shift'];
-  const key = cfg.hotkey_key || 'V';
+  const key = cfg.hotkey_key || 'D';
   if (hotkeyLabel) hotkeyLabel.textContent = formatHotkeyParts([...mods, key]).join('+');
   if (hotkeyChip) hotkeyChip.title = t('statusbar.hotkey_tip');
 
