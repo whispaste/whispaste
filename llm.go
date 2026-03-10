@@ -63,8 +63,8 @@ func LLMModelPath(modelID string) (string, error) {
 	if _, err := os.Stat(legacy); err == nil {
 		return legacy, nil
 	}
-	// Deterministic fallback: check smollm2 first, then qwen3
-	for _, id := range []string{"smollm2", "qwen3-0.6b"} {
+	// Deterministic fallback: check smollm2 first, then qwen3.5
+	for _, id := range []string{"smollm2", "qwen3.5-0.8b"} {
 		if m, ok := LLMModels[id]; ok {
 			p := filepath.Join(dir, m.Filename)
 			if _, err := os.Stat(p); err == nil {
