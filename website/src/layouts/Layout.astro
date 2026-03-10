@@ -10,11 +10,11 @@ interface Props {
 const {
   title = 'WhisPaste — Voice to text, pasted anywhere',
   description = 'A lightweight Windows desktop tool that transcribes your speech and pastes the text anywhere. Free, open source, and privacy-first.',
-  ogImage = '/whispaste/og-image.png',
+  ogImage = '/og-image.png',
 } = Astro.props;
 
-const canonicalURL = new URL(Astro.url.pathname, 'https://whispaste.github.io');
-const ogImageURL = new URL(ogImage, 'https://whispaste.github.io');
+const canonicalURL = new URL(Astro.url.pathname, 'https://whispaste.de');
+const ogImageURL = new URL(ogImage, 'https://whispaste.de');
 ---
 
 <!doctype html>
@@ -24,9 +24,9 @@ const ogImageURL = new URL(ogImage, 'https://whispaste.github.io');
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
     <meta name="theme-color" content="#1E2026" />
-    <link rel="icon" type="image/png" href="/whispaste/app-icon.png" />
-    <link rel="apple-touch-icon" href="/whispaste/app-icon.png" />
-    <link rel="sitemap" href="/whispaste/sitemap-index.xml" />
+    <link rel="icon" type="image/png" href="/app-icon.png" />
+    <link rel="apple-touch-icon" href="/app-icon.png" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
     <link rel="canonical" href={canonicalURL.href} />
     <title>{title}</title>
 
