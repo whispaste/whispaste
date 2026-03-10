@@ -65,6 +65,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		cfg.UseVAD = newCfg.UseVAD
 		cfg.VADSensitivity = newCfg.VADSensitivity
 		cfg.SmartModeProvider = newCfg.SmartModeProvider
+		cfg.TextReplacementProvider = newCfg.TextReplacementProvider
 		cfg.FloatingButtonEnabled = newCfg.FloatingButtonEnabled
 		cfg.FloatingButtonColor = newCfg.FloatingButtonColor
 		cfg.FloatingButtonSize = newCfg.FloatingButtonSize

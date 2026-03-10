@@ -282,3 +282,65 @@
 .hotkey-recorder-preview { min-height: 32px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .hotkey-recorder-actions { margin-top: 8px; display: flex; justify-content: flex-end; }
 .hotkey-recorder-hint { font-size: 11px; color: var(--text-hint); margin-top: 6px; }
+
+/* ── Radio Row (Provider Selection) ────────────────────── */
+.radio-row {
+  display: flex;
+  gap: 8px;
+}
+.radio-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.radio-option:hover {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+.radio-option input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--text-tertiary);
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: border-color .15s;
+  position: relative;
+}
+.radio-option input[type="radio"]:checked {
+  border-color: var(--accent);
+}
+.radio-option input[type="radio"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.radio-option input[type="radio"]:checked ~ span {
+  color: var(--text);
+  font-weight: 500;
+}
+.radio-option span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.radio-option span .icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
