@@ -94,19 +94,14 @@ Voice Activity Detection strips silence before sending audio. Smart Mode can opt
 
 ### Portable
 
-1. **Download** all files from the latest [**Release**](../../releases/latest):
-   - `whispaste.exe` — the application
-   - `onnxruntime.dll` — required for local speech recognition
-   - `sherpa-onnx-c-api.dll` — required for local speech recognition
-   - `sherpa-onnx-cxx-api.dll` — required for local speech recognition
-2. **Place all files in the same folder** — the DLLs must be next to `whispaste.exe`
-3. **Run** — double-click `whispaste.exe`. It will appear in your system tray.
-4. **Set up transcription** — either:
+1. **Download** `whispaste.exe` from the latest [**Release**](../../releases/latest)
+2. **Run** — double-click `whispaste.exe`. It will appear in your system tray.
+3. **Set up transcription** — either:
    - Enter your [OpenAI API key](https://platform.openai.com/api-keys) in Settings → API Key, or
    - Enable local models in Settings → Local STT and download a model (no API key needed)
-5. **Use** — press `Ctrl+Shift+D`, speak, release → text appears at your cursor!
+4. **Use** — press `Ctrl+Shift+D`, speak, release → text appears at your cursor!
 
-> **Note:** If you don't need local models, the DLL files are optional — the app works with just the `.exe` and an OpenAI API key.
+> **Note:** Local STT uses [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — the server binary and models are downloaded automatically on first use.
 
 ### MSIX Package
 
@@ -190,7 +185,7 @@ When using the OpenAI Whisper API, transcription is billed per audio minute at *
 
 - [Go 1.24+](https://go.dev/dl/)
 - GCC for Windows ([MSYS2 MinGW-w64](https://www.msys2.org/) or [TDM-GCC](https://jmeubank.github.io/tdm-gcc/))
-- The runtime DLLs (`onnxruntime.dll`, `sherpa-onnx-c-api.dll`, `sherpa-onnx-cxx-api.dll`) must be in the working directory for local model support
+- Local STT uses whisper.cpp (downloaded at runtime — no bundled DLLs required)
 
 ### Build
 
@@ -244,7 +239,7 @@ whispaste/
 ├── main.go                  # Entry point, state machine
 ├── audio.go                 # Microphone recording (miniaudio/WASAPI)
 ├── api.go                   # OpenAI Whisper API client
-├── offline.go               # Local Whisper transcription (sherpa-onnx)
+├── offline.go               # Local Whisper transcription (whisper.cpp HTTP)
 ├── paste.go                 # Clipboard + SendInput (Ctrl+V)
 ├── hotkey.go                # Global hotkey (PTT + toggle)
 ├── overlay.go               # Recording overlay (GDI+ with per-pixel alpha)

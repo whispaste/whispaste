@@ -2,7 +2,7 @@
 let _onboardingStep = 1;
 let _onboardingChoice = null; // 'api' or 'local'
 let _onboardingSmart = null;  // true or false
-let _onbModelId = 'whisper-small';
+let _onbModelId = 'whisper-turbo';
 let _onbModelReady = false;
 let _onbDownloading = false;
 let _onbApiKeyValid = false;
@@ -17,7 +17,7 @@ function showOnboarding() {
     _onboardingStep = 1;
     _onboardingChoice = null;
     _onboardingSmart = null;
-    _onbModelId = 'whisper-small';
+    _onbModelId = 'whisper-turbo';
     _onbModelReady = false;
     _onbDownloading = false;
     _onbApiKeyValid = false;
