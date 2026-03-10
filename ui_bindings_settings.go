@@ -131,26 +131,36 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 	})
 
 	// Test a specific STT model by transcribing 1 second of silence.
-	// Validates the model loads and the recognizer pipeline works end-to-end.
+	// Runs async to avoid blocking the WebView UI thread during model load.
 	w.Bind("_testSTTModel", func(modelID string) map[string]interface{} {
 		logInfo("STT model test started for %s", modelID)
+		go func() {
+			safeDispatch := func(js string) {
+				mainWindowMu.Lock()
+				open := mainWindowOpen
+				mainWindowMu.Unlock()
+				if open {
+					w.Dispatch(func() { w.Eval(js) })
+				}
+			}
 
-		// Generate 1 second of silence at 16 kHz, 16-bit mono (32000 bytes)
-		silentPCM := make([]byte, 32000)
+			silentPCM := make([]byte, 32000)
+			lang := cfg.Language
+			if lang == "" {
+				lang = "en"
+			}
 
-		lang := cfg.Language
-		if lang == "" {
-			lang = "en"
-		}
+			text, err := TranscribeLocal(silentPCM, 16000, lang, modelID)
+			if err != nil {
+				logError("STT model test failed: %v", err)
+				safeDispatch(fmt.Sprintf("window._onSTTTestComplete('%s', false, '', '%s')", escapeJS(modelID), escapeJS(err.Error())))
+				return
+			}
 
-		text, err := TranscribeLocal(silentPCM, 16000, lang, modelID)
-		if err != nil {
-			logError("STT model test failed: %v", err)
-			return map[string]interface{}{"success": false, "error": err.Error()}
-		}
-
-		logInfo("STT model test passed for %s (result: %q)", modelID, text)
-		return map[string]interface{}{"success": true, "text": strings.TrimSpace(text)}
+			logInfo("STT model test passed for %s (result: %q)", modelID, text)
+			safeDispatch(fmt.Sprintf("window._onSTTTestComplete('%s', true, '%s', '')", escapeJS(modelID), escapeJS(strings.TrimSpace(text))))
+		}()
+		return map[string]interface{}{"started": true}
 	})
 
 	w.Bind("_testSound", func() { PlayFeedback(SoundSuccess) })
