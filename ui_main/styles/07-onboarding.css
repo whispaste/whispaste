@@ -55,51 +55,101 @@
 .onb-preferences {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin: 20px 0 8px;
-  width: 100%;
+  align-items: center;
+  gap: 20px;
+  margin: 28px 0 12px;
 }
 
-.onb-pref-row {
+/* Flag-based language selector */
+.onb-lang-selector {
+  display: flex;
+  gap: 16px;
+}
+
+.onb-lang-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 28px;
+  border-radius: 14px;
+  border: 2px solid var(--border-primary);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.onb-lang-card:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent), transparent 92%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.onb-lang-card.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent), transparent 85%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent), transparent 75%);
+}
+
+.onb-flag {
+  width: 48px;
+  height: 32px;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.onb-lang-code {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.onb-lang-card.active .onb-lang-code {
+  color: var(--accent);
+}
+
+/* Icon-based theme selector (segmented control) */
+.onb-theme-selector {
+  display: inline-flex;
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  padding: 3px;
+  gap: 2px;
+}
+
+.onb-theme-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.onb-pref-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  min-width: 70px;
-  flex-shrink: 0;
-}
-
-.onb-pref-options {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.onb-pref-btn {
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 13px;
+  justify-content: center;
+  width: 44px;
+  height: 36px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all 0.2s ease;
 }
 
-.onb-pref-btn:hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent), transparent 90%);
+.onb-theme-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
 }
 
-.onb-pref-btn.active {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent), transparent 80%);
+.onb-theme-btn.active {
   color: var(--accent);
-  font-weight: 600;
+  background: var(--bg-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.onb-theme-btn .icon {
+  width: 18px;
+  height: 18px;
 }
 
 /* Model quality/speed hints */
