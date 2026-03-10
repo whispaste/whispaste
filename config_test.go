@@ -37,8 +37,8 @@ func TestDefaultConfig(t *testing.T) {
 	if len(cfg.HotkeyMods) != 2 || cfg.HotkeyMods[0] != "Ctrl" || cfg.HotkeyMods[1] != "Shift" {
 		t.Errorf("HotkeyMods = %v, want [Ctrl Shift]", cfg.HotkeyMods)
 	}
-	if cfg.HotkeyKey != "V" {
-		t.Errorf("HotkeyKey = %q, want V", cfg.HotkeyKey)
+	if cfg.HotkeyKey != "D" {
+		t.Errorf("HotkeyKey = %q, want D", cfg.HotkeyKey)
 	}
 	if cfg.UseVAD {
 		t.Error("UseVAD should be false by default")
