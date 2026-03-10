@@ -13,9 +13,10 @@ async function showSmartSwitcher(anchor) {
   // Icon map for built-in presets
   const presetIcons = {
     cleanup: icons.sparkles, concise: icons.minimize, email: icons.mail,
-    formal: icons.fileText, bullets: icons.list, summary: icons.fileText,
-    notes: icons.clipboard, meeting: icons.users, social: icons.share,
-    technical: icons.code, casual: icons.messageCircle, translate: icons.globe,
+    formal: icons.fileText, bullets: icons.list, aiprompt: icons.bot,
+    summary: icons.fileText, notes: icons.clipboard, meeting: icons.users,
+    social: icons.share, technical: icons.code, casual: icons.messageCircle,
+    translate: icons.globe,
   };
 
   const templates = await getAllSmartTemplates();
