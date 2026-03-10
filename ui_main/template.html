@@ -120,20 +120,20 @@
       <h2 class="onboarding-title" data-i18n="onboarding.welcome_title">Welcome to WhisPaste</h2>
       <p class="onboarding-desc" data-i18n="onboarding.welcome_desc">Transform your voice into text instantly. Press a hotkey, speak, and your words appear wherever you type.</p>
       <div class="onb-preferences">
-        <div class="onb-pref-row">
-          <span class="onb-pref-label" data-i18n="onboarding.pref_language">Language</span>
-          <div class="onb-pref-options" id="onbLangOptions">
-            <button class="onb-pref-btn" data-lang="en" onclick="onbSetLanguage('en')">English</button>
-            <button class="onb-pref-btn" data-lang="de" onclick="onbSetLanguage('de')">Deutsch</button>
-          </div>
+        <div class="onb-lang-selector" id="onbLangOptions">
+          <button class="onb-lang-card" data-lang="en" onclick="onbSetLanguage('en')" title="English" aria-label="English">
+            <svg class="onb-flag" viewBox="0 0 60 40" aria-hidden="true"><rect width="60" height="40" fill="#B22234"/><rect y="3.08" width="60" height="3.08" fill="#fff"/><rect y="9.23" width="60" height="3.08" fill="#fff"/><rect y="15.38" width="60" height="3.08" fill="#fff"/><rect y="21.54" width="60" height="3.08" fill="#fff"/><rect y="27.69" width="60" height="3.08" fill="#fff"/><rect y="33.85" width="60" height="3.08" fill="#fff"/><rect width="24" height="21.54" fill="#3C3B6E"/><circle cx="5" cy="4" r="1.2" fill="#fff"/><circle cx="11" cy="4" r="1.2" fill="#fff"/><circle cx="17" cy="4" r="1.2" fill="#fff"/><circle cx="8" cy="8" r="1.2" fill="#fff"/><circle cx="14" cy="8" r="1.2" fill="#fff"/><circle cx="20" cy="8" r="1.2" fill="#fff"/><circle cx="5" cy="12" r="1.2" fill="#fff"/><circle cx="11" cy="12" r="1.2" fill="#fff"/><circle cx="17" cy="12" r="1.2" fill="#fff"/><circle cx="8" cy="16" r="1.2" fill="#fff"/><circle cx="14" cy="16" r="1.2" fill="#fff"/><circle cx="20" cy="16" r="1.2" fill="#fff"/><circle cx="5" cy="20" r="1.2" fill="#fff"/><circle cx="11" cy="20" r="1.2" fill="#fff"/><circle cx="17" cy="20" r="1.2" fill="#fff"/></svg>
+            <span class="onb-lang-code">EN</span>
+          </button>
+          <button class="onb-lang-card" data-lang="de" onclick="onbSetLanguage('de')" title="Deutsch" aria-label="Deutsch">
+            <svg class="onb-flag" viewBox="0 0 60 40" aria-hidden="true"><rect width="60" height="13.33" fill="#000"/><rect y="13.33" width="60" height="13.34" fill="#DD0000"/><rect y="26.67" width="60" height="13.33" fill="#FFCC00"/></svg>
+            <span class="onb-lang-code">DE</span>
+          </button>
         </div>
-        <div class="onb-pref-row">
-          <span class="onb-pref-label" data-i18n="onboarding.pref_theme">Theme</span>
-          <div class="onb-pref-options" id="onbThemeOptions">
-            <button class="onb-pref-btn" data-theme="system" onclick="onbSetTheme('system')" data-i18n="onboarding.theme_system">System</button>
-            <button class="onb-pref-btn" data-theme="light" onclick="onbSetTheme('light')" data-i18n="onboarding.theme_light">Light</button>
-            <button class="onb-pref-btn" data-theme="dark" onclick="onbSetTheme('dark')" data-i18n="onboarding.theme_dark">Dark</button>
-          </div>
+        <div class="onb-theme-selector" id="onbThemeOptions">
+          <button class="onb-theme-btn" data-theme="system" onclick="onbSetTheme('system')" data-i18n-title="onboarding.theme_system" title="System"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></button>
+          <button class="onb-theme-btn" data-theme="light" onclick="onbSetTheme('light')" data-i18n-title="onboarding.theme_light" title="Light"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
+          <button class="onb-theme-btn" data-theme="dark" onclick="onbSetTheme('dark')" data-i18n-title="onboarding.theme_dark" title="Dark"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
         </div>
       </div>
       <div class="onboarding-actions">
