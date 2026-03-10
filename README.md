@@ -46,7 +46,7 @@ Free, open source, and privacy-first. No telemetry, no tracking, no account requ
  🎤 Hotkey  →  🔴 Record  →  🎯 VAD  →  ☁️ Transcribe  →  🧠 Smart Mode  →  📋 Paste
 ```
 
-1. **Press your hotkey** (`Ctrl+Shift+V` by default) — hold to talk or toggle on/off
+1. **Press your hotkey** (`Ctrl+Shift+D` by default) — hold to talk or toggle on/off
 2. **Speak naturally** — a small overlay shows a live waveform and timer while you record
 3. **Text appears at your cursor** — transcribed, optionally post-processed, and auto-pasted
 
@@ -58,7 +58,7 @@ Voice Activity Detection strips silence before sending audio. Smart Mode can opt
 
 | | |
 |---|---|
-| 🎤 **Global Hotkey** | Press `Ctrl+Shift+V` from anywhere to start dictating. Fully configurable. |
+| 🎤 **Global Hotkey** | Press `Ctrl+Shift+D` from anywhere to start dictating. Fully configurable. |
 | 🔄 **Push-to-Talk & Toggle** | Hold the hotkey while speaking, or press once to start and again to stop. |
 | ☁️ **Cloud & Local Models** | Use OpenAI Whisper API or run offline with local Whisper models — no API key needed for local. |
 | 📋 **Auto-Paste** | Transcribed text is automatically pasted at your cursor. Smart terminal detection (Windows Terminal, WSL, mintty). |
@@ -104,7 +104,7 @@ Voice Activity Detection strips silence before sending audio. Smart Mode can opt
 4. **Set up transcription** — either:
    - Enter your [OpenAI API key](https://platform.openai.com/api-keys) in Settings → API Key, or
    - Enable local models in Settings → Local STT and download a model (no API key needed)
-5. **Use** — press `Ctrl+Shift+V`, speak, release → text appears at your cursor!
+5. **Use** — press `Ctrl+Shift+D`, speak, release → text appears at your cursor!
 
 > **Note:** If you don't need local models, the DLL files are optional — the app works with just the `.exe` and an OpenAI API key.
 
@@ -121,7 +121,7 @@ Right-click the tray icon → **Settings** to configure:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | **API Key** | *(required for cloud)* | Your OpenAI API key |
-| **Hotkey** | `Ctrl+Shift+V` | Global keyboard shortcut |
+| **Hotkey** | `Ctrl+Shift+D` | Global keyboard shortcut |
 | **Mode** | Push-to-Talk | Hold hotkey or toggle on/off |
 | **Language** | Auto-detect | Force a specific transcription language |
 | **Model** | `whisper-1` | OpenAI Whisper model for cloud transcription |

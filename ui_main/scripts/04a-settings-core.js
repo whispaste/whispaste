@@ -113,7 +113,7 @@ function applyConfig(cfg) {
   // Preserve non-editable fields for round-tripping
   if (cfg.hotkey_modifiers && Array.isArray(cfg.hotkey_modifiers) && cfg.hotkey_modifiers.length > 0) {
     _savedHotkeyMods = cfg.hotkey_modifiers;
-    _savedHotkeyKey = cfg.hotkey_key || 'V';
+    _savedHotkeyKey = cfg.hotkey_key || 'D';
   }
   setHotkeyDisplay([..._savedHotkeyMods, _savedHotkeyKey]);
   if (cfg.model) _savedModel = cfg.model;
