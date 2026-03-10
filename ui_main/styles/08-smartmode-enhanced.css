@@ -69,6 +69,32 @@
 }
 
 /* ── Custom Template Section ─────────────────────────── */
+
+/* Action buttons group on custom preset cards (edit + delete) */
+.preset-card-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 2px;
+  z-index: 2;
+}
+.preset-card-actions .btn-preset-prompt {
+  position: static;
+  opacity: 0;
+}
+.preset-card:hover .preset-card-actions .btn-preset-prompt {
+  opacity: 0.7;
+}
+.preset-card-actions .btn-preset-prompt:hover {
+  opacity: 1 !important;
+}
+.preset-card-actions .custom-template-delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
 .custom-templates-list {
   display: flex;
   flex-direction: column;
