@@ -470,3 +470,47 @@
   min-width: 32px;
   text-align: right;
 }
+
+/* LLM model selection in Smart Mode step */
+.onboarding-llm-models {
+  margin-top: 16px;
+  text-align: left;
+}
+.onb-llm-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  text-align: center;
+}
+.onb-llm-cards {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.onb-llm-card {
+  flex: 1;
+  padding: 12px 14px;
+  border: 2px solid var(--border-primary);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+  text-align: left;
+}
+.onb-llm-card:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent), transparent 94%);
+}
+.onb-llm-card.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent), transparent 88%);
+}
+.onb-llm-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.onb-llm-card-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+}

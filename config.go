@@ -77,6 +77,7 @@ type Config struct {
 	LastProjectID         string                   `json:"last_project_id,omitempty"`
 	SidebarWidth          int                      `json:"sidebar_width,omitempty"`
 	DeleteBehavior        string                   `json:"delete_behavior,omitempty"` // "delete" or "archive"
+	LocalLLMModel         string                   `json:"local_llm_model,omitempty"`
 	mu          sync.RWMutex
 }
 
@@ -411,6 +412,16 @@ func (c *Config) GetLocalModelID() string {
 		return "whisper-tiny"
 	}
 	return c.LocalModelID
+}
+
+// GetLocalLLMModel returns the selected local LLM model ID (thread-safe).
+func (c *Config) GetLocalLLMModel() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.LocalLLMModel == "" {
+		return "smollm2"
+	}
+	return c.LocalLLMModel
 }
 
 // GetTranscriptionLanguage returns the local STT language hint (thread-safe).

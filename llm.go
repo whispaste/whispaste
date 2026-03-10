@@ -18,6 +18,7 @@ type LocalLLM struct {
 	cmd     *exec.Cmd
 	port    int
 	running bool
+	cfg     *Config // set during init, used for model selection
 }
 
 var localLLM LocalLLM
@@ -41,32 +42,72 @@ func LLMServerPath() (string, error) {
 	return filepath.Join(dir, "llama-server.exe"), nil
 }
 
-// LLMModelPath returns the path to the GGUF model file.
-func LLMModelPath() (string, error) {
+// LLMModelPath returns the path to the GGUF model file for the given model ID.
+// Falls back to legacy model.gguf, then default "smollm2".
+func LLMModelPath(modelID string) (string, error) {
 	dir, err := LLMDir()
 	if err != nil {
 		return "", err
 	}
+	// If a specific model is requested, use its filename
+	if modelID != "" {
+		if m, ok := LLMModels[modelID]; ok {
+			p := filepath.Join(dir, m.Filename)
+			if _, err := os.Stat(p); err == nil {
+				return p, nil
+			}
+		}
+	}
+	// Legacy: if model.gguf exists, use it (pre-registry installs)
+	legacy := filepath.Join(dir, "model.gguf")
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy, nil
+	}
+	// Deterministic fallback: check smollm2 first, then qwen3
+	for _, id := range []string{"smollm2", "qwen3-0.6b"} {
+		if m, ok := LLMModels[id]; ok {
+			p := filepath.Join(dir, m.Filename)
+			if _, err := os.Stat(p); err == nil {
+				return p, nil
+			}
+		}
+	}
 	return filepath.Join(dir, "model.gguf"), nil
 }
 
-// IsLLMInstalled checks if both llama-server.exe and model.gguf exist.
+// LLMModelPathForID returns the model path for a specific model ID.
+func LLMModelPathForID(modelID string) (string, error) {
+	model, ok := LLMModels[modelID]
+	if !ok {
+		return "", fmt.Errorf("unknown LLM model: %s", modelID)
+	}
+	dir, err := LLMDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, model.Filename), nil
+}
+
+// IsLLMInstalled checks if llama-server.exe and at least one model exist.
 func IsLLMInstalled() bool {
-	serverPath, err := LLMServerPath()
+	if !IsLLMServerInstalled() {
+		return false
+	}
+	dir, err := LLMDir()
 	if err != nil {
 		return false
 	}
-	modelPath, err := LLMModelPath()
-	if err != nil {
-		return false
+	// Check legacy model.gguf
+	if _, err := os.Stat(filepath.Join(dir, "model.gguf")); err == nil {
+		return true
 	}
-	if _, err := os.Stat(serverPath); err != nil {
-		return false
+	// Check any registered model
+	for _, m := range LLMModels {
+		if _, err := os.Stat(filepath.Join(dir, m.Filename)); err == nil {
+			return true
+		}
 	}
-	if _, err := os.Stat(modelPath); err != nil {
-		return false
-	}
-	return true
+	return false
 }
 
 // Start starts the llama-server subprocess on a random port.
@@ -83,7 +124,11 @@ func (l *LocalLLM) Start() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("llm server path: %w", err)
 	}
-	modelPath, err := LLMModelPath()
+	selectedModel := ""
+	if l.cfg != nil {
+		selectedModel = l.cfg.GetLocalLLMModel()
+	}
+	modelPath, err := LLMModelPath(selectedModel)
 	if err != nil {
 		return "", fmt.Errorf("llm model path: %w", err)
 	}
@@ -178,4 +223,26 @@ func (l *LocalLLM) Endpoint() string {
 		return ""
 	}
 	return fmt.Sprintf("http://127.0.0.1:%d/v1", l.port)
+}
+
+// migrateLegacyLLMModel renames legacy model.gguf to smollm2.gguf for the new registry.
+func migrateLegacyLLMModel() {
+	dir, err := LLMDir()
+	if err != nil {
+		return
+	}
+	legacy := filepath.Join(dir, "model.gguf")
+	if _, err := os.Stat(legacy); err != nil {
+		return // no legacy file
+	}
+	target := filepath.Join(dir, LLMModels["smollm2"].Filename)
+	if _, err := os.Stat(target); err == nil {
+		os.Remove(legacy) // target already exists, just clean up
+		return
+	}
+	if err := os.Rename(legacy, target); err != nil {
+		logWarn("Failed to migrate legacy LLM model: %v", err)
+		return
+	}
+	logInfo("Migrated legacy model.gguf to %s", LLMModels["smollm2"].Filename)
 }

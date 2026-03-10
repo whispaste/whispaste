@@ -175,9 +175,9 @@ type FloatingButton struct {
 	cfg     *Config
 
 	onStartRecording  func()
-	onShowSettings    func()
-	onShowDashboard   func()
+	onOpenWindow      func(string)
 	onQuit            func()
+	onSmartToggled    func(bool)
 
 	hovered       bool
 	tracking      bool
@@ -363,27 +363,36 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			go func() {
 				fb.cfg.mu.Lock()
 				fb.cfg.SmartMode = !fb.cfg.SmartMode
+				newState := fb.cfg.SmartMode
 				fb.cfg.mu.Unlock()
 				fb.cfg.Save()
-				logInfo("Floating menu toggled Smart Mode: %v", fb.cfg.GetSmartMode())
+				logInfo("Floating menu toggled Smart Mode: %v", newState)
+				cb := func() func(bool) {
+					fb.mu.Lock()
+					defer fb.mu.Unlock()
+					return fb.onSmartToggled
+				}()
+				if cb != nil {
+					cb(newState)
+				}
 			}()
 		case _FLOAT_MENU_DASHBOARD:
-			cb := func() func() {
+			cb := func() func(string) {
 				fb.mu.Lock()
 				defer fb.mu.Unlock()
-				return fb.onShowDashboard
+				return fb.onOpenWindow
 			}()
 			if cb != nil {
-				go cb()
+				go cb("history")
 			}
 		case _FLOAT_MENU_SETTINGS:
-			cb := func() func() {
+			cb := func() func(string) {
 				fb.mu.Lock()
 				defer fb.mu.Unlock()
-				return fb.onShowSettings
+				return fb.onOpenWindow
 			}()
 			if cb != nil {
-				go cb()
+				go cb("settings")
 			}
 		case _FLOAT_MENU_HIDE:
 			procPostMessageW.Call(hwnd, _WM_FLOAT_HIDE, 0, 0)
@@ -498,13 +507,13 @@ func NewFloatingButton(c *Config) (*FloatingButton, error) {
 }
 
 // SetCallbacks sets the floating button callbacks (thread-safe).
-func (fb *FloatingButton) SetCallbacks(onStart, onSettings, onDashboard, onQuit func()) {
+func (fb *FloatingButton) SetCallbacks(onStart func(), onOpenWindow func(string), onQuit func(), onSmartToggled func(bool)) {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 	fb.onStartRecording = onStart
-	fb.onShowSettings = onSettings
-	fb.onShowDashboard = onDashboard
+	fb.onOpenWindow = onOpenWindow
 	fb.onQuit = onQuit
+	fb.onSmartToggled = onSmartToggled
 }
 
 // Show displays the floating button.
