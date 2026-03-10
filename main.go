@@ -520,7 +520,8 @@ func main() {
 				// Apply text replacements (exact match + optional AI semantic match)
 				if cfg.GetTextReplacementsEnabled() {
 					replacements := cfg.GetTextReplacements()
-					text = ApplyTextReplacementsWithAI(text, replacements, cfg.GetTextReplacementsAI())
+					trProvider := cfg.GetTextReplacementProvider()
+					text = ApplyTextReplacementsWithAI(text, replacements, cfg.GetTextReplacementsAI(), trProvider, apiKey, endpoint)
 				}
 
 				// Treat empty/whitespace-only transcription as failed
