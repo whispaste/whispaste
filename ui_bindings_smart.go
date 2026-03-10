@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	webview "github.com/webview/webview_go"
 )
@@ -27,7 +28,11 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 			resp, _ := json.Marshal(map[string]string{"error": err.Error()})
 			return string(resp)
 		}
-		resp, _ := json.Marshal(map[string]string{"text": result})
+		modelType := "cloud"
+		if strings.Contains(endpoint, "127.0.0.1") || strings.Contains(endpoint, "localhost") {
+			modelType = "local"
+		}
+		resp, _ := json.Marshal(map[string]string{"text": result, "model": modelType})
 		return string(resp)
 	})
 
@@ -90,7 +95,11 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 				dominantLang = lang
 			}
 		}
-		resp, _ := json.Marshal(map[string]string{"text": result, "language": dominantLang})
+		modelType := "cloud"
+		if strings.Contains(endpoint, "127.0.0.1") || strings.Contains(endpoint, "localhost") {
+			modelType = "local"
+		}
+		resp, _ := json.Marshal(map[string]string{"text": result, "language": dominantLang, "model": modelType})
 		return string(resp)
 	})
 

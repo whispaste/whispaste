@@ -62,8 +62,8 @@
     if (!grid) return;
     // Remove existing custom template cards
     grid.querySelectorAll('.preset-card[data-custom-template]').forEach(c => c.remove());
-    // Insert custom template cards before the "custom" card
-    const customCard = grid.querySelector('.preset-card[data-preset="custom"]');
+    // Insert custom template cards before the ghost "add" card
+    const ghostCard = document.getElementById('preset-ghost-add');
     for (const [name] of Object.entries(customTemplates)) {
       const card = document.createElement('div');
       card.className = 'preset-card';
@@ -81,8 +81,8 @@
       // Highlight if currently selected
       const sel = document.getElementById('select-smartpreset');
       if (sel && sel.value === name) card.classList.add('active');
-      if (customCard) {
-        grid.insertBefore(card, customCard);
+      if (ghostCard) {
+        grid.insertBefore(card, ghostCard);
       } else {
         grid.appendChild(card);
       }
