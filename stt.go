@@ -109,26 +109,25 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 
 func (s *LocalSTT) waitReady(port int) error {
 	healthURL := fmt.Sprintf("http://127.0.0.1:%d/health", port)
-	rootURL := fmt.Sprintf("http://127.0.0.1:%d/", port)
 	client := &http.Client{Timeout: 2 * time.Second}
 	for i := 0; i < 120; i++ {
 		resp, err := client.Get(healthURL)
 		if err == nil {
+			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				return nil
 			}
-		}
-		resp, err = client.Get(rootURL)
-		if err == nil {
-			resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return nil
+			// 503 = model still loading — log periodically
+			if i%10 == 9 {
+				logInfo("STT server loading model... (%ds, status=%d, body=%s)", i+1, resp.StatusCode, string(body))
 			}
+		} else if i%10 == 9 {
+			logInfo("STT server not reachable yet (%ds): %v", i+1, err)
 		}
 		time.Sleep(1 * time.Second)
 	}
-	return fmt.Errorf("timeout waiting for whisper-server")
+	return fmt.Errorf("timeout waiting for whisper-server (120s)")
 }
 
 func (s *LocalSTT) Stop() {
@@ -198,9 +197,12 @@ func (s *LocalSTT) Transcribe(wavData []byte, lang string) (string, error) {
 	}
 
 	url := fmt.Sprintf("http://127.0.0.1:%d/inference", port)
+	logDebug("STT inference request: port=%d wavBytes=%d lang=%s", port, len(wavData), lang)
+	start := time.Now()
+
 	resp, err := sttInferenceClient.Post(url, writer.FormDataContentType(), &body)
 	if err != nil {
-		return "", fmt.Errorf("inference request: %w", err)
+		return "", fmt.Errorf("inference request (after %v): %w", time.Since(start), err)
 	}
 	defer resp.Body.Close()
 
@@ -208,6 +210,8 @@ func (s *LocalSTT) Transcribe(wavData []byte, lang string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read response: %w", err)
 	}
+
+	logDebug("STT inference response: status=%d duration=%v bodyLen=%d", resp.StatusCode, time.Since(start), len(respBody))
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("inference failed (HTTP %d): %s", resp.StatusCode, string(respBody))
