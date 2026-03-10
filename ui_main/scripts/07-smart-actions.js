@@ -6,6 +6,7 @@ const SMART_PRESETS = [
     { id: 'email' },
     { id: 'formal' },
     { id: 'bullets' },
+    { id: 'aiprompt' },
     { id: 'summary' },
     { id: 'notes' },
     { id: 'meeting' },

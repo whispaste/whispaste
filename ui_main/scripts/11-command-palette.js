@@ -40,6 +40,7 @@
       { id: 'preset-email',      label: t('palette.cmd.presetEmail'),      icon: icons.mail,               category: 'palette.cat.smartMode', action: () => setPreset('email') },
       { id: 'preset-formal',     label: t('palette.cmd.presetFormal'),     icon: icons.fileText,           category: 'palette.cat.smartMode', action: () => setPreset('formal') },
       { id: 'preset-bullets',    label: t('palette.cmd.presetBullets'),    icon: icons.list,               category: 'palette.cat.smartMode', action: () => setPreset('bullets') },
+      { id: 'preset-aiprompt',   label: t('palette.cmd.presetAiPrompt'),   icon: icons.bot,                category: 'palette.cat.smartMode', action: () => setPreset('aiprompt') },
       { id: 'preset-summary',    label: t('palette.cmd.presetSummary'),    icon: icons.fileText,           category: 'palette.cat.smartMode', action: () => setPreset('summary') },
       { id: 'preset-notes',      label: t('palette.cmd.presetNotes'),      icon: icons.clipboard,          category: 'palette.cat.smartMode', action: () => setPreset('notes') },
       { id: 'preset-meeting',    label: t('palette.cmd.presetMeeting'),    icon: icons.users,              category: 'palette.cat.smartMode', action: () => setPreset('meeting') },
