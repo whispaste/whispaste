@@ -25,6 +25,14 @@ async function showSmartSwitcher(anchor) {
     { id: 'translate', icon: icons.globe },
   ];
 
+  // Load custom templates
+  let customTemplates = {};
+  try {
+    const rawCt = await window.getCustomTemplates();
+    customTemplates = typeof rawCt === 'string' ? JSON.parse(rawCt) : rawCt;
+    if (!customTemplates || typeof customTemplates !== 'object') customTemplates = {};
+  } catch (e) {}
+
   const items = [];
 
   // Header with on/off toggle
@@ -44,7 +52,7 @@ async function showSmartSwitcher(anchor) {
     },
   });
 
-  // Preset items
+  // Built-in preset items
   for (const p of presets) {
     const active = isActive && p.id === currentPreset;
     const presetId = p.id;
@@ -60,6 +68,27 @@ async function showSmartSwitcher(anchor) {
         showToast(t('smartSwitcher.switched') + ': ' + t('smart.preset.' + presetId), false);
       },
     });
+  }
+
+  // Custom template items
+  const customNames = Object.keys(customTemplates);
+  if (customNames.length > 0) {
+    items.push({ divider: true });
+    for (const name of customNames) {
+      const active = isActive && name === currentPreset;
+      items.push({
+        icon: icons.fileText,
+        label: name,
+        checked: active,
+        action: async () => {
+          await window.setSmartPreset(name);
+          const raw2 = await window.getConfig();
+          const newCfg = typeof raw2 === 'string' ? JSON.parse(raw2) : raw2;
+          updateStatusBar(newCfg);
+          showToast(t('smartSwitcher.switched') + ': ' + name, false);
+        },
+      });
+    }
   }
 
   // Footer: settings link

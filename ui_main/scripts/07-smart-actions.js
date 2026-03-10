@@ -13,28 +13,47 @@ const SMART_PRESETS = [
     { id: 'technical' },
     { id: 'casual' },
     { id: 'translate' },
-    { id: 'custom' },
 ];
 
-function showSmartActionMenu(entryId, anchor) {
+async function showSmartActionMenu(entryId, anchor) {
+    // Load custom templates
+    let customTemplates = {};
+    try {
+        const raw = await window.getCustomTemplates();
+        customTemplates = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!customTemplates || typeof customTemplates !== 'object') customTemplates = {};
+    } catch (e) {}
+
     const items = [];
     items.push({ header: t('smart.title') });
 
+    // Built-in presets
     for (const p of SMART_PRESETS) {
-        if (p.id === 'custom') {
-            items.push({ divider: true });
+        const presetId = p.id;
+        items.push({
+            label: t('smart.preset.' + presetId),
+            action: () => executeSmartAction(entryId, presetId, ''),
+        });
+    }
+
+    // Custom templates
+    const customNames = Object.keys(customTemplates);
+    if (customNames.length > 0) {
+        items.push({ divider: true });
+        for (const name of customNames) {
             items.push({
-                label: t('smart.custom'),
-                action: () => showCustomPromptDialog(entryId),
-            });
-        } else {
-            const presetId = p.id;
-            items.push({
-                label: t('smart.preset.' + presetId),
-                action: () => executeSmartAction(entryId, presetId, ''),
+                label: name,
+                action: () => executeSmartAction(entryId, name, ''),
             });
         }
     }
+
+    // Custom prompt option
+    items.push({ divider: true });
+    items.push({
+        label: t('smart.custom'),
+        action: () => showCustomPromptDialog(entryId),
+    });
 
     showPopover(anchor, { items });
 }

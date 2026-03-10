@@ -2,7 +2,7 @@
 let _onboardingStep = 1;
 let _onboardingChoice = null; // 'api' or 'local'
 let _onboardingSmart = null;  // true or false
-let _onbModelId = 'whisper-base';
+let _onbModelId = 'whisper-small';
 let _onbModelReady = false;
 let _onbDownloading = false;
 let _onbApiKeyValid = false;
@@ -14,10 +14,11 @@ function showOnboarding() {
     _onboardingStep = 1;
     _onboardingChoice = null;
     _onboardingSmart = null;
-    _onbModelId = 'whisper-base';
+    _onbModelId = 'whisper-small';
     _onbModelReady = false;
     _onbDownloading = false;
     _onbApiKeyValid = false;
+    onbInitPreferences();
     updateOnboardingStep();
   }
 }
@@ -320,4 +321,38 @@ async function finishOnboarding() {
 
 function restartOnboarding() {
   showOnboarding();
+}
+
+/* ── Onboarding Preferences (Language/Theme on Page 1) ── */
+function onbInitPreferences() {
+  // Highlight active language button
+  const lang = window._lang || 'en';
+  document.querySelectorAll('#onbLangOptions .onb-pref-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === lang);
+  });
+  // Highlight active theme button
+  const theme = document.documentElement.dataset.theme || 'system';
+  document.querySelectorAll('#onbThemeOptions .onb-pref-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === theme);
+  });
+}
+
+async function onbSetLanguage(lang) {
+  document.querySelectorAll('#onbLangOptions .onb-pref-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === lang);
+  });
+  if (window.setUILanguage) {
+    await window.setUILanguage(lang);
+    window._lang = lang;
+    applyTranslations();
+  }
+}
+
+async function onbSetTheme(theme) {
+  document.querySelectorAll('#onbThemeOptions .onb-pref-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === theme);
+  });
+  if (window.setTheme) {
+    await window.setTheme(theme);
+  }
 }

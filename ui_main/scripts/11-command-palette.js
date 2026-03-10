@@ -18,8 +18,21 @@
     braces: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></svg>',
   };
 
+  // Cache for custom templates in the palette
+  let _customTemplateNames = [];
+
+  async function loadCustomTemplateNames() {
+    try {
+      const raw = await window.getCustomTemplates();
+      const ct = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      _customTemplateNames = (ct && typeof ct === 'object') ? Object.keys(ct) : [];
+    } catch (e) {
+      _customTemplateNames = [];
+    }
+  }
+
   function buildCommands() {
-    return [
+    const cmds = [
       // Smart Mode
       { id: 'smart-toggle',      label: t('palette.cmd.smartToggle'),      icon: paletteIcons.toggleRight, category: 'palette.cat.smartMode', action: smartToggleAction, shortcut: 'Ctrl+Shift+S' },
       { id: 'preset-cleanup',    label: t('palette.cmd.presetCleanup'),    icon: icons.sparkles,           category: 'palette.cat.smartMode', action: () => setPreset('cleanup') },
@@ -34,7 +47,20 @@
       { id: 'preset-technical',  label: t('palette.cmd.presetTechnical'),  icon: icons.code,               category: 'palette.cat.smartMode', action: () => setPreset('technical') },
       { id: 'preset-casual',     label: t('palette.cmd.presetCasual'),     icon: icons.messageCircle,      category: 'palette.cat.smartMode', action: () => setPreset('casual') },
       { id: 'preset-translate',  label: t('palette.cmd.presetTranslate'),  icon: icons.globe,              category: 'palette.cat.smartMode', action: () => setPreset('translate') },
+    ];
 
+    // Append custom templates
+    for (const name of _customTemplateNames) {
+      cmds.push({
+        id: 'preset-custom-' + name,
+        label: name,
+        icon: icons.fileText,
+        category: 'palette.cat.smartMode',
+        action: () => setPreset(name),
+      });
+    }
+
+    cmds.push(
       // Recording Mode
       { id: 'mode-ptt',    label: t('palette.cmd.modePTT'),    icon: icons.microphone,    category: 'palette.cat.recording', action: () => switchRecordMode('push_to_talk') },
       { id: 'mode-toggle', label: t('palette.cmd.modeToggle'), icon: paletteIcons.micOff,  category: 'palette.cat.recording', action: () => switchRecordMode('toggle') },
@@ -52,7 +78,9 @@
       { id: 'nav-smartmode',    label: t('palette.cmd.navSmartMode'),    icon: icons.sparkles,        category: 'palette.cat.navigation', action: () => switchPage('smartmode'),    shortcut: 'Ctrl+4' },
       { id: 'nav-replacements', label: t('palette.cmd.navReplacements'), icon: icons.replace,         category: 'palette.cat.navigation', action: () => switchPage('replacements'), shortcut: 'Ctrl+5' },
       { id: 'nav-about',        label: t('palette.cmd.navAbout'),        icon: paletteIcons.info,     category: 'palette.cat.navigation', action: () => switchPage('about'),        shortcut: 'Ctrl+6' },
-    ];
+    );
+
+    return cmds;
   }
 
   // ── Actions ────────────────────────────────────────────
@@ -77,7 +105,9 @@
       const raw = await window.getConfig();
       const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
       updateStatusBar(cfg);
-      showToast(t('smartSwitcher.switched') + ': ' + t('smart.preset.' + presetId), false);
+      const label = t('smart.preset.' + presetId);
+      const displayName = label.startsWith('smart.preset.') ? presetId : label;
+      showToast(t('smartSwitcher.switched') + ': ' + displayName, false);
     } catch (e) { /* ignore */ }
   }
 
@@ -196,7 +226,7 @@
 
   // ── Open / Close ───────────────────────────────────────
 
-  function openPalette() {
+  async function openPalette() {
     if (_paletteEl) return;
 
     _palettePreviousFocus = document.activeElement;
@@ -205,6 +235,9 @@
     if (typeof hidePopovers === 'function') hidePopovers();
 
     _activeIndex = 0;
+
+    // Load custom templates for palette commands
+    await loadCustomTemplateNames();
 
     const backdrop = document.createElement('div');
     backdrop.className = 'cp-backdrop';
