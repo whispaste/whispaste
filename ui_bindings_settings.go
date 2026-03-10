@@ -117,11 +117,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		var text string
 		var err2 error
 		if cfg.GetActiveModelLocal() {
-			modelDir, mdErr := models.GetDir(cfg.GetLocalModelID())
-			if mdErr != nil {
-				return map[string]interface{}{"success": false, "text": "", "error": mdErr.Error()}
-			}
-			text, err2 = GetLocalRecognizer().Transcribe(pcm, 16000, cfg.Language, modelDir)
+			text, err2 = TranscribeLocal(pcm, 16000, cfg.Language, cfg.GetLocalModelID())
 		} else {
 			wavData := wav.Encode(pcm, 16000, 1, 16)
 			text, err2 = Transcribe(context.Background(), wavData, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), "")
@@ -138,11 +134,6 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 	// Validates the model loads and the recognizer pipeline works end-to-end.
 	w.Bind("_testSTTModel", func(modelID string) map[string]interface{} {
 		logInfo("STT model test started for %s", modelID)
-		modelDir, err := models.GetDir(modelID)
-		if err != nil {
-			logError("STT model test: model dir: %v", err)
-			return map[string]interface{}{"success": false, "error": err.Error()}
-		}
 
 		// Generate 1 second of silence at 16 kHz, 16-bit mono (32000 bytes)
 		silentPCM := make([]byte, 32000)
@@ -152,8 +143,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 			lang = "en"
 		}
 
-		// Use the panic-safe singleton recognizer (has defer/recover protection)
-		text, err := GetLocalRecognizer().Transcribe(silentPCM, 16000, lang, modelDir)
+		text, err := TranscribeLocal(silentPCM, 16000, lang, modelID)
 		if err != nil {
 			logError("STT model test failed: %v", err)
 			return map[string]interface{}{"success": false, "error": err.Error()}
