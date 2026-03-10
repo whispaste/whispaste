@@ -303,7 +303,7 @@
   });
   document.addEventListener('DOMContentLoaded', () => {
     const page = document.getElementById('page-smartmode');
-    if (page) observer.observe(page, { attributes: true, attributeFilter: ['style'] });
+    if (page) observer.observe(page, { attributes: true, attributeFilter: ['class'] });
   });
 
   window.loadCustomTemplates = loadCustomTemplates;

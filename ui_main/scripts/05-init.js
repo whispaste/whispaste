@@ -93,6 +93,8 @@ function switchPage(pageId) {
   }
   // Load system info when switching to about page
   if (pageId === 'about') loadSystemInfo();
+  // Load custom templates when switching to smart mode page
+  if (pageId === 'smartmode' && typeof loadCustomTemplates === 'function') loadCustomTemplates();
 }
 
 /* ── Init ──────────────────────────────────────────────── */

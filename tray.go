@@ -191,8 +191,31 @@ func NewAppTray(onOpenWindow func(string), onQuit func(), updater *Updater, hist
 	}
 }
 
+// enableDarkModeMenus calls the undocumented uxtheme SetPreferredAppMode +
+// FlushMenuThemes APIs so native Win32 context menus follow the system dark
+// mode setting. These ordinal-based APIs are used by major apps (VS Code,
+// Notepad++, etc.) and have been stable since Windows 10 1903.
+func enableDarkModeMenus() {
+	dll, err := windows.LoadDLL("uxtheme.dll")
+	if err != nil {
+		logDebug("Could not load uxtheme.dll: %v", err)
+		return
+	}
+	defer dll.Release()
+	// SetPreferredAppMode (ordinal 135): 0=Default, 1=AllowDark, 2=ForceDark
+	if proc, err := dll.FindProcByOrdinal(135); err == nil {
+		proc.Call(1) // AllowDark
+	}
+	// FlushMenuThemes (ordinal 136): forces menu theme refresh
+	if proc, err := dll.FindProcByOrdinal(136); err == nil {
+		proc.Call()
+	}
+	logDebug("Dark mode menus enabled")
+}
+
 // Run starts the system tray. This blocks the calling goroutine.
 func (t *AppTray) Run() {
+	enableDarkModeMenus()
 	systray.Run(t.onReady, t.onExit)
 }
 
@@ -400,6 +423,7 @@ func (t *AppTray) onReady() {
 	t.mToggle = systray.AddMenuItem(T("tray.start_record"), T("tray.start_record"))
 	systray.AddSeparator()
 	mDashboard := systray.AddMenuItem(T("tray.notebook"), T("tray.notebook"))
+	mSettings := systray.AddMenuItem(T("tray.settings"), T("tray.settings"))
 
 	// Smart Mode submenu
 	mSmart := systray.AddMenuItem(T("tray.smart_mode"), T("tray.smart_mode"))
@@ -497,6 +521,10 @@ func (t *AppTray) onReady() {
 			case <-mDashboard.ClickedCh:
 				if t.onOpenWindow != nil {
 					t.onOpenWindow("history")
+				}
+			case <-mSettings.ClickedCh:
+				if t.onOpenWindow != nil {
+					t.onOpenWindow("settings")
 				}
 			case <-t.mUpdate.ClickedCh:
 				t.handleUpdateClick()

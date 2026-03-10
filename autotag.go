@@ -77,27 +77,22 @@ func queryLLMForTags(llmEndpoint, text string, availableTags []string) ([]string
 	tagList := strings.Join(availableTags, ", ")
 
 	systemPrompt := fmt.Sprintf(
-		`Classify transcribed speech by assigning tags from a fixed list. Precision is critical — a wrong tag is worse than no tag.
+		`You are a tag classifier. Given a text and a list of tags, return which tags match the text.
 
-RULES:
-1. Return a JSON array, e.g. ["tag1"] or ["tag1", "tag2"]
-2. ONLY use tags from the AVAILABLE TAGS list below — never invent new ones
-3. A tag must match the MAIN TOPIC of the text, not just a passing mention
-4. If you are unsure whether a tag fits → leave it out
-5. If no tag clearly fits → return []
-6. Maximum 2 tags, only if the text genuinely covers two distinct topics
-7. Return ONLY the JSON array, nothing else
+TAGS: %s
 
-WHAT COUNTS AS A MATCH:
-- The text is primarily about that tag's topic
-- The tag describes the core subject or purpose of the text
+Rules:
+- Return a JSON array of matching tags, e.g. ["tag1", "tag2"]
+- Only use tags from the list above
+- A tag matches if the text is about that topic
+- Return at most 2 tags
+- If no tag fits, return []
+- Return ONLY the JSON array
 
-WHAT DOES NOT COUNT:
-- A word related to the tag appears once briefly
-- The tag is only loosely or vaguely associated
-- You are guessing
-
-AVAILABLE TAGS: %s`, tagList)
+Example:
+Tags: meeting, cooking, travel
+Text: "We discussed the project timeline and assigned tasks for next week"
+Answer: ["meeting"]`, tagList)
 
 	// Truncate very long texts — classification only needs the gist
 	classifyText := text
@@ -111,8 +106,8 @@ AVAILABLE TAGS: %s`, tagList)
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": "TRANSCRIBED TEXT:\n" + classifyText},
 		},
-		"temperature": 0.0,
-		"max_tokens":  64,
+		"temperature": 0.2,
+		"max_tokens":  100,
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -170,6 +165,24 @@ func parseTagResponse(content string, availableTags []string) ([]string, error) 
 		validTags[strings.ToLower(strings.TrimSpace(t))] = t
 	}
 
+	// Strip markdown code fences that small models often emit.
+	// Extract the LAST fenced block (most likely the actual answer).
+	content = strings.TrimSpace(content)
+	if idx := strings.LastIndex(content, "```"); idx > 0 {
+		// Find the opening fence that pairs with this closing fence
+		before := content[:idx]
+		if open := strings.LastIndex(before, "```"); open >= 0 {
+			inner := before[open+3:]
+			// Skip optional language tag on opening fence
+			if nl := strings.IndexByte(inner, '\n'); nl >= 0 {
+				inner = inner[nl+1:]
+			} else {
+				inner = strings.TrimSpace(inner)
+			}
+			content = strings.TrimSpace(inner)
+		}
+	}
+
 	// Try JSON array parse first
 	var tags []string
 	if err := json.Unmarshal([]byte(content), &tags); err != nil {
@@ -196,7 +209,7 @@ func parseTagResponse(content string, availableTags []string) ([]string, error) 
 		}
 	}
 
-	// Cap at 2 tags — stricter to avoid false positives with local models
+	// Cap at 2 tags
 	if len(matched) > 2 {
 		matched = matched[:2]
 	}
