@@ -63,6 +63,8 @@ function gatherConfig() {
     smart_mode_preset: document.getElementById('select-smartpreset')?.value || 'cleanup',
     smart_mode_prompt: document.getElementById('input-smartprompt')?.value || '',
     smart_mode_target: document.getElementById('select-smarttarget')?.value || 'en',
+    smart_mode_provider: document.querySelector('[name="smartProvider"]:checked')?.value || 'auto',
+    text_replacement_provider: document.querySelector('[name="textReplaceProvider"]:checked')?.value || 'local',
 
     notify_background: document.getElementById('toggle-notify-bg')?.checked ?? true,
     notify_complete: document.getElementById('toggle-notify-complete')?.checked ?? true,
@@ -137,6 +139,19 @@ function applyConfig(cfg) {
   }
   if (cfg.smart_mode_prompt != null) { const el = document.getElementById('input-smartprompt'); if (el) el.value = cfg.smart_mode_prompt; }
   if (cfg.smart_mode_target) { const el = document.getElementById('select-smarttarget'); if (el) el.value = cfg.smart_mode_target; }
+  {
+    const provider = cfg.smart_mode_provider || 'auto';
+    const safe = ['local', 'cloud', 'auto'].includes(provider) ? provider : 'auto';
+    const radioVal = safe === 'auto' ? 'local' : safe;
+    const radio = document.querySelector('[name="smartProvider"][value="' + radioVal + '"]');
+    if (radio) radio.checked = true;
+  }
+  {
+    const provider = cfg.text_replacement_provider || 'local';
+    const safe = ['local', 'cloud'].includes(provider) ? provider : 'local';
+    const radio = document.querySelector('[name="textReplaceProvider"][value="' + safe + '"]');
+    if (radio) radio.checked = true;
+  }
   renderModelList();
   updateLLMStatus();
   // Cache active model type for sync access (e.g. language switch badge update)

@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	webview "github.com/webview/webview_go"
 )
@@ -11,14 +10,36 @@ import (
 // bindSmartHandlers registers smart mode, template, text replacement, app detection, and LLM JS bindings.
 func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 
+	// resolveSmartEndpoint determines the correct endpoint and API key for smart
+	// mode operations, based on the SmartModeProvider config setting.
+	resolveSmartEndpoint := func() (endpoint, apiKey, modelType string, err error) {
+		provider := cfg.GetSmartModeProvider()
+
+		if provider == "local" || (provider == "auto" && IsLLMInstalled()) {
+			localEndpoint, llmErr := localLLM.Start()
+			if llmErr == nil {
+				return localEndpoint, "local", "local", nil
+			}
+			if provider == "local" {
+				return "", "", "", fmt.Errorf("local LLM required but not available: %w", llmErr)
+			}
+			logWarn("Local LLM start failed, falling back to cloud: %v", llmErr)
+		}
+
+		return cfg.GetAPIEndpoint(), cfg.GetAPIKey(), "cloud", nil
+	}
+
 	w.Bind("applySmartAction", func(entryID, preset, customPrompt string) string {
 		entry := history.GetByID(entryID)
 		if entry == nil {
 			resp, _ := json.Marshal(map[string]string{"error": "Entry not found"})
 			return string(resp)
 		}
-		apiKey := cfg.GetAPIKey()
-		endpoint := cfg.GetAPIEndpoint()
+		endpoint, apiKey, modelType, err := resolveSmartEndpoint()
+		if err != nil {
+			resp, _ := json.Marshal(map[string]string{"error": err.Error()})
+			return string(resp)
+		}
 		appLang := cfg.GetUILanguage()
 		if appLang == "" {
 			appLang = "en"
@@ -27,10 +48,6 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		if err != nil {
 			resp, _ := json.Marshal(map[string]string{"error": err.Error()})
 			return string(resp)
-		}
-		modelType := "cloud"
-		if strings.Contains(endpoint, "127.0.0.1") || strings.Contains(endpoint, "localhost") {
-			modelType = "local"
 		}
 		resp, _ := json.Marshal(map[string]string{"text": result, "model": modelType})
 		return string(resp)
@@ -67,8 +84,11 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		// Join texts with separator for the LLM
 		combined := joinTextsForBulk(texts)
 
-		apiKey := cfg.GetAPIKey()
-		endpoint := cfg.GetAPIEndpoint()
+		endpoint, apiKey, modelType, err := resolveSmartEndpoint()
+		if err != nil {
+			resp, _ := json.Marshal(map[string]string{"error": err.Error()})
+			return string(resp)
+		}
 		appLang := cfg.GetUILanguage()
 		if appLang == "" {
 			appLang = "en"
@@ -94,10 +114,6 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 				maxCount = count
 				dominantLang = lang
 			}
-		}
-		modelType := "cloud"
-		if strings.Contains(endpoint, "127.0.0.1") || strings.Contains(endpoint, "localhost") {
-			modelType = "local"
 		}
 		resp, _ := json.Marshal(map[string]string{"text": result, "language": dominantLang, "model": modelType})
 		return string(resp)
@@ -196,6 +212,15 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		cfg.SetTextReplacementsAI(enabled)
 		if err := cfg.Save(); err != nil {
 			logError("Save text replacements AI: %v", err)
+		}
+	})
+
+	w.Bind("getTextReplacementProvider", func() string { return cfg.GetTextReplacementProvider() })
+
+	w.Bind("setTextReplacementProvider", func(provider string) {
+		cfg.SetTextReplacementProvider(provider)
+		if err := cfg.Save(); err != nil {
+			logError("Save text replacement provider: %v", err)
 		}
 	})
 

@@ -271,9 +271,9 @@ func buildSmartPrompt(preset, customPrompt, targetLang, appLang string, userTemp
 	return p
 }
 
-// ApplyTextReplacementsWithAI runs exact replacements first, then uses the local LLM
+// ApplyTextReplacementsWithAI runs exact replacements first, then uses AI (local or cloud)
 // to find semantic matches for remaining trigger phrases.
-func ApplyTextReplacementsWithAI(text string, replacements []TextReplacement, aiEnabled bool) string {
+func ApplyTextReplacementsWithAI(text string, replacements []TextReplacement, aiEnabled bool, provider, apiKey, cloudEndpoint string) string {
 	if len(replacements) == 0 {
 		return text
 	}
@@ -292,17 +292,34 @@ func ApplyTextReplacementsWithAI(text string, replacements []TextReplacement, ai
 	}
 
 	// Second pass: AI semantic matching (only for triggers not found literally)
-	if !aiEnabled || len(remaining) == 0 || !IsLLMInstalled() {
+	if !aiEnabled || len(remaining) == 0 {
 		return text
 	}
 
-	endpoint, err := localLLM.Start()
-	if err != nil {
-		logWarn("AI text replacement: LLM start failed: %v", err)
-		return text
+	var llmEndpoint, llmAPIKey string
+	if provider == "cloud" && apiKey != "" {
+		// Use cloud API for semantic matching
+		base := cloudEndpoint
+		if idx := len(base) - len("/audio/transcriptions"); idx >= 0 && base[idx:] == "/audio/transcriptions" {
+			base = base[:idx]
+		}
+		llmEndpoint = base
+		llmAPIKey = apiKey
+	} else {
+		// Default: use local LLM
+		if !IsLLMInstalled() {
+			return text
+		}
+		ep, err := localLLM.Start()
+		if err != nil {
+			logWarn("AI text replacement: LLM start failed: %v", err)
+			return text
+		}
+		llmEndpoint = ep
+		llmAPIKey = "local"
 	}
 
-	aiResult, err := queryLLMForReplacements(endpoint, text, remaining)
+	aiResult, err := queryLLMForReplacements(llmEndpoint, llmAPIKey, text, remaining)
 	if err != nil {
 		logWarn("AI text replacement failed: %v", err)
 		return text
@@ -311,8 +328,13 @@ func ApplyTextReplacementsWithAI(text string, replacements []TextReplacement, ai
 	return aiResult
 }
 
-func queryLLMForReplacements(llmEndpoint, text string, replacements []TextReplacement) (string, error) {
+func queryLLMForReplacements(llmEndpoint, apiKey, text string, replacements []TextReplacement) (string, error) {
 	chatURL := llmEndpoint + "/chat/completions"
+
+	modelName := "local"
+	if !strings.Contains(chatURL, "127.0.0.1") && !strings.Contains(chatURL, "localhost") {
+		modelName = "gpt-4o-mini"
+	}
 
 	// Build the replacement rules description
 	var rules strings.Builder
@@ -335,7 +357,7 @@ INSTRUCTIONS:
 IMPORTANT: Only replace when the meaning clearly matches. When in doubt, do NOT replace.`, rules.String())
 
 	reqBody := map[string]interface{}{
-		"model": "local",
+		"model": modelName,
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": text},
@@ -354,7 +376,7 @@ IMPORTANT: Only replace when the meaning clearly matches. When in doubt, do NOT 
 	if err != nil {
 		return text, fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer local")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
