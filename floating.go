@@ -38,12 +38,16 @@ const (
 	_FLOAT_CLR_ICON = 0xFFFFFFFF // white mic icon
 
 	// Context menu IDs
-	_FLOAT_MENU_SETTINGS = 1
-	_FLOAT_MENU_HIDE     = 2
+	_FLOAT_MENU_SMART_MODE = 1
+	_FLOAT_MENU_DASHBOARD  = 2
+	_FLOAT_MENU_SETTINGS   = 3
+	_FLOAT_MENU_HIDE       = 4
+	_FLOAT_MENU_QUIT       = 5
 
 	// Win32 menu constants
 	_MF_STRING    = 0x0000
 	_MF_SEPARATOR = 0x0800
+	_MF_CHECKED   = 0x0008
 	_TPM_RIGHTBUTTON = 0x0002
 
 	// Non-client messages (needed because HTCAPTION consumes LBUTTONxx/RBUTTONxx)
@@ -170,8 +174,10 @@ type FloatingButton struct {
 	done    chan struct{}
 	cfg     *Config
 
-	onStartRecording func()
-	onShowSettings   func()
+	onStartRecording  func()
+	onShowSettings    func()
+	onShowDashboard   func()
+	onQuit            func()
 
 	hovered       bool
 	tracking      bool
@@ -353,6 +359,23 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 	case _WM_COMMAND:
 		switch int(wParam & 0xFFFF) {
+		case _FLOAT_MENU_SMART_MODE:
+			go func() {
+				fb.cfg.mu.Lock()
+				fb.cfg.SmartMode = !fb.cfg.SmartMode
+				fb.cfg.mu.Unlock()
+				fb.cfg.Save()
+				logInfo("Floating menu toggled Smart Mode: %v", fb.cfg.GetSmartMode())
+			}()
+		case _FLOAT_MENU_DASHBOARD:
+			cb := func() func() {
+				fb.mu.Lock()
+				defer fb.mu.Unlock()
+				return fb.onShowDashboard
+			}()
+			if cb != nil {
+				go cb()
+			}
 		case _FLOAT_MENU_SETTINGS:
 			cb := func() func() {
 				fb.mu.Lock()
@@ -370,6 +393,15 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 				fb.cfg.mu.Unlock()
 				fb.cfg.Save()
 			}()
+		case _FLOAT_MENU_QUIT:
+			cb := func() func() {
+				fb.mu.Lock()
+				defer fb.mu.Unlock()
+				return fb.onQuit
+			}()
+			if cb != nil {
+				go cb()
+			}
 		}
 		return 0
 
@@ -466,11 +498,13 @@ func NewFloatingButton(c *Config) (*FloatingButton, error) {
 }
 
 // SetCallbacks sets the floating button callbacks (thread-safe).
-func (fb *FloatingButton) SetCallbacks(onStart func(), onSettings func()) {
+func (fb *FloatingButton) SetCallbacks(onStart, onSettings, onDashboard, onQuit func()) {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 	fb.onStartRecording = onStart
 	fb.onShowSettings = onSettings
+	fb.onShowDashboard = onDashboard
+	fb.onQuit = onQuit
 }
 
 // Show displays the floating button.
@@ -882,21 +916,40 @@ func (fb *FloatingButton) showContextMenu(hwnd uintptr) {
 		return
 	}
 
-	settingsText, _ := windows.UTF16PtrFromString(T("tray.settings"))
-	hideText, _ := windows.UTF16PtrFromString(T("floating.hide"))
+	// Smart Mode toggle (checked when active)
+	smartText, _ := windows.UTF16PtrFromString(T("tray.smart_mode"))
+	smartFlags := uintptr(_MF_STRING)
+	if fb.cfg.GetSmartMode() {
+		smartFlags |= _MF_CHECKED
+	}
+	procAppendMenuW.Call(hMenu, smartFlags, _FLOAT_MENU_SMART_MODE, uintptr(unsafe.Pointer(smartText)))
 
-	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_SETTINGS, uintptr(unsafe.Pointer(settingsText)))
 	procAppendMenuW.Call(hMenu, _MF_SEPARATOR, 0, 0)
+
+	// Dashboard
+	dashText, _ := windows.UTF16PtrFromString(T("tray.notebook"))
+	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_DASHBOARD, uintptr(unsafe.Pointer(dashText)))
+
+	// Settings
+	settingsText, _ := windows.UTF16PtrFromString(T("tray.settings"))
+	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_SETTINGS, uintptr(unsafe.Pointer(settingsText)))
+
+	procAppendMenuW.Call(hMenu, _MF_SEPARATOR, 0, 0)
+
+	// Hide button
+	hideText, _ := windows.UTF16PtrFromString(T("floating.hide"))
 	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_HIDE, uintptr(unsafe.Pointer(hideText)))
+
+	// Quit
+	quitText, _ := windows.UTF16PtrFromString(T("tray.quit"))
+	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_QUIT, uintptr(unsafe.Pointer(quitText)))
 
 	var pt pointT
 	procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
 
-	// Required for popup menu to work on a tool window
 	procSetForegroundWindow.Call(hwnd)
 	procTrackPopupMenu.Call(hMenu, _TPM_RIGHTBUTTON, uintptr(pt.X), uintptr(pt.Y), 0, hwnd, 0)
 	procDestroyMenu.Call(hMenu)
 
-	// Post a dummy message to dismiss the menu properly
 	procPostMessageW.Call(hwnd, _WM_USER, 0, 0)
 }
