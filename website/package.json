@@ -9,7 +9,8 @@
     "preview": "astro preview",
     "test": "playwright test",
     "test:ci": "playwright test --reporter=github",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "screenshot": "node ../scripts/screenshot.mjs"
   },
   "type": "module",
   "dependencies": {
