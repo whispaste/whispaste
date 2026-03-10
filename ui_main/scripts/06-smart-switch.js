@@ -10,28 +10,15 @@ async function showSmartSwitcher(anchor) {
   const isActive = !!cfg.smart_mode;
   const currentPreset = cfg.smart_mode_preset || 'cleanup';
 
-  const presets = [
-    { id: 'cleanup',   icon: icons.sparkles },
-    { id: 'concise',   icon: icons.minimize },
-    { id: 'email',     icon: icons.mail },
-    { id: 'formal',    icon: icons.fileText },
-    { id: 'bullets',   icon: icons.list },
-    { id: 'summary',   icon: icons.fileText },
-    { id: 'notes',     icon: icons.clipboard },
-    { id: 'meeting',   icon: icons.users },
-    { id: 'social',    icon: icons.share },
-    { id: 'technical', icon: icons.code },
-    { id: 'casual',    icon: icons.messageCircle },
-    { id: 'translate', icon: icons.globe },
-  ];
+  // Icon map for built-in presets
+  const presetIcons = {
+    cleanup: icons.sparkles, concise: icons.minimize, email: icons.mail,
+    formal: icons.fileText, bullets: icons.list, summary: icons.fileText,
+    notes: icons.clipboard, meeting: icons.users, social: icons.share,
+    technical: icons.code, casual: icons.messageCircle, translate: icons.globe,
+  };
 
-  // Load custom templates
-  let customTemplates = {};
-  try {
-    const rawCt = await window.getCustomTemplates();
-    customTemplates = typeof rawCt === 'string' ? JSON.parse(rawCt) : rawCt;
-    if (!customTemplates || typeof customTemplates !== 'object') customTemplates = {};
-  } catch (e) {}
+  const templates = await getAllSmartTemplates();
 
   const items = [];
 
@@ -53,39 +40,38 @@ async function showSmartSwitcher(anchor) {
   });
 
   // Built-in preset items
-  for (const p of presets) {
-    const active = isActive && p.id === currentPreset;
-    const presetId = p.id;
+  for (const tpl of templates.filter(x => !x.isCustom)) {
+    const active = isActive && tpl.id === currentPreset;
     items.push({
-      icon: p.icon || icons.sparkles,
-      label: t('smart.preset.' + presetId),
+      icon: presetIcons[tpl.id] || icons.sparkles,
+      label: tpl.label,
       checked: active,
       action: async () => {
-        await window.setSmartPreset(presetId);
+        await window.setSmartPreset(tpl.id);
         const raw2 = await window.getConfig();
         const newCfg = typeof raw2 === 'string' ? JSON.parse(raw2) : raw2;
         updateStatusBar(newCfg);
-        showToast(t('smartSwitcher.switched') + ': ' + t('smart.preset.' + presetId), false);
+        showToast(t('smartSwitcher.switched') + ': ' + tpl.label, false);
       },
     });
   }
 
   // Custom template items
-  const customNames = Object.keys(customTemplates);
-  if (customNames.length > 0) {
+  const customTpls = templates.filter(x => x.isCustom);
+  if (customTpls.length > 0) {
     items.push({ divider: true });
-    for (const name of customNames) {
-      const active = isActive && name === currentPreset;
+    for (const tpl of customTpls) {
+      const active = isActive && tpl.id === currentPreset;
       items.push({
         icon: icons.fileText,
-        label: name,
+        label: esc(tpl.label),
         checked: active,
         action: async () => {
-          await window.setSmartPreset(name);
+          await window.setSmartPreset(tpl.id);
           const raw2 = await window.getConfig();
           const newCfg = typeof raw2 === 'string' ? JSON.parse(raw2) : raw2;
           updateStatusBar(newCfg);
-          showToast(t('smartSwitcher.switched') + ': ' + name, false);
+          showToast(t('smartSwitcher.switched') + ': ' + esc(tpl.label), false);
         },
       });
     }

@@ -488,6 +488,10 @@ const translations = {
     'smart.preset.bullets': 'Bullet Points',
     'smart.preset.summary': 'Summarize',
     'smart.preset.notes': 'Meeting Notes',
+    'smart.preset.meeting': 'Meeting Minutes',
+    'smart.preset.social': 'Social Media',
+    'smart.preset.technical': 'Technical Docs',
+    'smart.preset.casual': 'Casual',
     'smart.preset.translate': 'Translate',
 
     // Cleanup settings
@@ -567,6 +571,7 @@ const translations = {
     replacementsDeleteTitle: 'Delete Replacement',
     replacementsDeleteConfirm: 'Delete the replacement for "{trigger}"?',
     replacementsToggleItem: 'Enable/Disable',
+    replacementsDisabledHint: 'Text replacements are currently disabled. Manage your replacements here — they\'ll be applied once you enable the feature.',
 
     // Smart Mode LLM
     smartLlmCard: 'Offline Language Model',
@@ -1121,6 +1126,10 @@ const translations = {
     'smart.preset.bullets': 'Aufzählungsliste',
     'smart.preset.summary': 'Zusammenfassen',
     'smart.preset.notes': 'Besprechungsnotizen',
+    'smart.preset.meeting': 'Protokoll',
+    'smart.preset.social': 'Social Media',
+    'smart.preset.technical': 'Technische Doku',
+    'smart.preset.casual': 'Locker',
     'smart.preset.translate': 'Übersetzen',
 
     // Cleanup settings
@@ -1200,6 +1209,7 @@ const translations = {
     replacementsDeleteTitle: 'Ersetzung löschen',
     replacementsDeleteConfirm: 'Die Ersetzung für „{trigger}" löschen?',
     replacementsToggleItem: 'Aktivieren/Deaktivieren',
+    replacementsDisabledHint: 'Textersetzungen sind derzeit deaktiviert. Verwalte deine Ersetzungen hier — sie werden angewendet, sobald du die Funktion aktivierst.',
 
     // Smart Mode LLM
     smartLlmCard: 'Offline-Sprachmodell',
