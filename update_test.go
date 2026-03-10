@@ -18,20 +18,30 @@ import (
 func TestParseVersion(t *testing.T) {
 	tests := []struct {
 		input string
-		want  [3]int
+		want  parsedVersion
 	}{
-		{"1.0.0", [3]int{1, 0, 0}},
-		{"v2.3.4", [3]int{2, 3, 4}},
-		{"0.0.1", [3]int{0, 0, 1}},
-		{"10.20.30", [3]int{10, 20, 30}},
-		{"", [3]int{0, 0, 0}},
-		{"invalid", [3]int{0, 0, 0}},
-		{"v1.2", [3]int{1, 2, 0}},
+		{"1.0.0", parsedVersion{1, 0, 0, 4}},
+		{"v2.3.4", parsedVersion{2, 3, 4, 4}},
+		{"0.0.1", parsedVersion{0, 0, 1, 4}},
+		{"10.20.30", parsedVersion{10, 20, 30, 4}},
+		{"", parsedVersion{0, 0, 0, 0}},
+		{"invalid", parsedVersion{0, 0, 0, 0}},
+		{"v1.2", parsedVersion{1, 2, 0, 4}},
+		// Pre-release labels
+		{"1.0.0-alpha", parsedVersion{1, 0, 0, 1}},
+		{"1.0.0-beta", parsedVersion{1, 0, 0, 2}},
+		{"1.0.0-rc", parsedVersion{1, 0, 0, 3}},
+		{"1.0.0-rc.1", parsedVersion{1, 0, 0, 3}},
+		{"v0.4.0-alpha", parsedVersion{0, 4, 0, 1}},
+		{"1.0.0-Beta", parsedVersion{1, 0, 0, 2}},     // case-insensitive
+		{"2.0.0-ALPHA", parsedVersion{2, 0, 0, 1}},     // case-insensitive
+		{"1.0.0-preview", parsedVersion{1, 0, 0, 1}},   // unknown → alpha
+		{"1.0.0-beta.2", parsedVersion{1, 0, 0, 2}},    // beta variant
 	}
 	for _, tt := range tests {
 		got := parseVersion(tt.input)
 		if got != tt.want {
-			t.Errorf("parseVersion(%q) = %v, want %v", tt.input, got, tt.want)
+			t.Errorf("parseVersion(%q) = %+v, want %+v", tt.input, got, tt.want)
 		}
 	}
 }
@@ -49,6 +59,19 @@ func TestIsNewer(t *testing.T) {
 		{"0.9.0", "1.0.0", false},
 		{"v2.0.0", "v1.0.0", true},
 		{"1.0.0", "2.0.0", false},
+		// Pre-release ordering within same base version
+		{"1.0.0", "1.0.0-beta", true},      // release > beta
+		{"1.0.0", "1.0.0-alpha", true},      // release > alpha
+		{"1.0.0-beta", "1.0.0-alpha", true}, // beta > alpha
+		{"1.0.0-rc", "1.0.0-beta", true},    // rc > beta
+		{"1.0.0", "1.0.0-rc", true},         // release > rc
+		{"1.0.0-alpha", "1.0.0-beta", false},
+		{"1.0.0-beta", "1.0.0", false},      // beta < release
+		{"1.0.0-alpha", "1.0.0", false},     // alpha < release
+		// Pre-release with version bumps
+		{"1.1.0-alpha", "1.0.0", true},      // higher base wins
+		{"1.0.0", "1.1.0-alpha", false},     // lower base loses
+		{"2.0.0-beta", "1.9.9", true},       // major bump wins
 	}
 	for _, tt := range tests {
 		got := isNewer(tt.remote, tt.current)
@@ -96,12 +119,15 @@ func TestNewUpdater(t *testing.T) {
 }
 
 func TestUpdaterRateLimit(t *testing.T) {
-	// Create a test server that returns a valid but no-update response
+	// Create a test server that returns a valid but no-update response (array format)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"tag_name": "v1.0.0",
-			"html_url": "https://github.com/test/test/releases/v1.0.0",
-			"assets":   []interface{}{},
+		json.NewEncoder(w).Encode([]map[string]interface{}{
+			{
+				"tag_name": "v1.0.0",
+				"html_url": "https://github.com/test/test/releases/v1.0.0",
+				"draft":    false,
+				"assets":   []interface{}{},
+			},
 		})
 	}))
 	defer srv.Close()
@@ -180,17 +206,20 @@ func TestChecksumDownload(t *testing.T) {
 func TestDownloadChecksumHTTPSValidation(t *testing.T) {
 	// Test that CheckNow rejects non-HTTPS download URLs
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"tag_name": "v2.0.0",
-			"html_url": "https://github.com/test/releases",
-			"assets": []interface{}{
-				map[string]interface{}{
-					"name":                 "whispaste.exe",
-					"browser_download_url": "http://evil.com/malware.exe", // non-HTTPS
-				},
-				map[string]interface{}{
-					"name":                 "whispaste.exe.sha256",
-					"browser_download_url": "https://github.com/test/checksum",
+		json.NewEncoder(w).Encode([]map[string]interface{}{
+			{
+				"tag_name": "v2.0.0",
+				"html_url": "https://github.com/test/releases",
+				"draft":    false,
+				"assets": []interface{}{
+					map[string]interface{}{
+						"name":                 "whispaste.exe",
+						"browser_download_url": "http://evil.com/malware.exe", // non-HTTPS
+					},
+					map[string]interface{}{
+						"name":                 "whispaste.exe.sha256",
+						"browser_download_url": "https://github.com/test/checksum",
+					},
 				},
 			},
 		})
@@ -220,11 +249,15 @@ func TestIsNewerEdgeCases(t *testing.T) {
 		{"alpha to alpha minor bump", "0.4.0-alpha", "0.3.0-alpha", true},
 		{"same version no update", "0.3.0", "0.3.0", false},
 		{"major beats high minor", "1.0.0", "0.9.9", true},
-		// parseVersion uses Sscanf("%d.%d.%d") which stops at the hyphen,
-		// so 0.3.0-alpha parses as [0,3,0] — same as 0.3.0. Pre-release
-		// ordering is not supported by the current simple semver parser.
-		{"release vs alpha same base", "0.3.0", "0.3.0-alpha", false},
+		// Pre-release ordering — fixed: release > alpha for same base version
+		{"release vs alpha same base", "0.3.0", "0.3.0-alpha", true},
+		{"release vs beta same base", "1.0.0", "1.0.0-beta", true},
+		{"beta vs release same base", "1.0.0-beta", "1.0.0", false},
 		{"alpha higher base than release", "0.4.0-alpha", "0.3.0", true},
+		{"beta to rc same base", "1.0.0-rc", "1.0.0-beta", true},
+		{"rc to release", "1.0.0", "1.0.0-rc", true},
+		{"alpha to beta same base", "1.0.0-beta", "1.0.0-alpha", true},
+		{"same prerelease same base", "1.0.0-beta", "1.0.0-beta", false},
 		{"empty remote", "", "1.0.0", false},
 		{"empty current", "1.0.0", "", true},
 		{"both empty", "", "", false},
@@ -248,22 +281,31 @@ func TestUpdateCheckWithMockServer(t *testing.T) {
 	checksum := hex.EncodeToString(h[:])
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/releases", func(w http.ResponseWriter, r *http.Request) {
 		if ua := r.Header.Get("User-Agent"); !strings.Contains(ua, "WhisPaste") {
 			t.Errorf("missing WhisPaste User-Agent, got %q", ua)
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"tag_name": "v2.0.0",
-			"html_url": "https://github.com/whispaste/whispaste/releases/tag/v2.0.0",
-			"assets": []interface{}{
-				map[string]interface{}{
-					"name":                 "whispaste.exe",
-					"browser_download_url": "https://github.com/whispaste/releases/download/v2.0.0/whispaste.exe",
+		json.NewEncoder(w).Encode([]map[string]interface{}{
+			{
+				"tag_name": "v2.0.0",
+				"html_url": "https://github.com/whispaste/whispaste/releases/tag/v2.0.0",
+				"draft":    false,
+				"assets": []interface{}{
+					map[string]interface{}{
+						"name":                 "whispaste.exe",
+						"browser_download_url": "https://github.com/whispaste/releases/download/v2.0.0/whispaste.exe",
+					},
+					map[string]interface{}{
+						"name":                 "whispaste.exe.sha256",
+						"browser_download_url": "https://github.com/whispaste/releases/download/v2.0.0/whispaste.exe.sha256",
+					},
 				},
-				map[string]interface{}{
-					"name":                 "whispaste.exe.sha256",
-					"browser_download_url": "https://github.com/whispaste/releases/download/v2.0.0/whispaste.exe.sha256",
-				},
+			},
+			{
+				"tag_name": "v1.0.0",
+				"html_url": "https://github.com/whispaste/whispaste/releases/tag/v1.0.0",
+				"draft":    false,
+				"assets":   []interface{}{},
 			},
 		})
 	})
@@ -279,7 +321,7 @@ func TestUpdateCheckWithMockServer(t *testing.T) {
 
 	// Part 1: Verify the updater detects a newer version
 	u := NewUpdater("1.0.0", func() bool { return true })
-	u.releasesURL = srv.URL + "/api/releases/latest"
+	u.releasesURL = srv.URL + "/api/releases"
 
 	info, err := u.CheckNow(context.Background(), true)
 	if err != nil {
@@ -375,10 +417,13 @@ func TestUpdateSkipWhenDisabled(t *testing.T) {
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"tag_name": "v99.0.0",
-			"html_url": "https://github.com/test/releases",
-			"assets":   []interface{}{},
+		json.NewEncoder(w).Encode([]map[string]interface{}{
+			{
+				"tag_name": "v99.0.0",
+				"html_url": "https://github.com/test/releases",
+				"draft":    false,
+				"assets":   []interface{}{},
+			},
 		})
 	}))
 	defer srv.Close()
@@ -391,5 +436,133 @@ func TestUpdateSkipWhenDisabled(t *testing.T) {
 
 	if calls != 0 {
 		t.Errorf("server was hit %d times; expected 0 when updates disabled", calls)
+	}
+}
+
+// TestUpdatePrereleaseDetection verifies that the updater correctly finds
+// pre-release versions (beta, rc) among multiple releases, and picks the
+// highest version regardless of ordering in the API response.
+func TestUpdatePrereleaseDetection(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]map[string]interface{}{
+			// Newest by creation date but lower version
+			{
+				"tag_name": "v0.4.1-alpha",
+				"html_url": "https://github.com/test/releases/v0.4.1-alpha",
+				"draft":    false,
+				"assets": []interface{}{
+					map[string]interface{}{
+						"name":                 "whispaste.exe",
+						"browser_download_url": "https://github.com/test/download/whispaste.exe",
+					},
+					map[string]interface{}{
+						"name":                 "whispaste.exe.sha256",
+						"browser_download_url": "https://github.com/test/download/whispaste.exe.sha256",
+					},
+				},
+			},
+			// Highest version — beta prerelease
+			{
+				"tag_name": "v1.0.0-beta",
+				"html_url": "https://github.com/test/releases/v1.0.0-beta",
+				"draft":    false,
+				"assets": []interface{}{
+					map[string]interface{}{
+						"name":                 "whispaste.exe",
+						"browser_download_url": "https://github.com/test/download/v1-beta/whispaste.exe",
+					},
+					map[string]interface{}{
+						"name":                 "whispaste.exe.sha256",
+						"browser_download_url": "https://github.com/test/download/v1-beta/whispaste.exe.sha256",
+					},
+				},
+			},
+			// Older version
+			{
+				"tag_name": "v0.4.0-alpha",
+				"html_url": "https://github.com/test/releases/v0.4.0-alpha",
+				"draft":    false,
+				"assets":   []interface{}{},
+			},
+			// Draft — should be skipped
+			{
+				"tag_name": "v2.0.0",
+				"html_url": "https://github.com/test/releases/v2.0.0",
+				"draft":    true,
+				"assets":   []interface{}{},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	u := NewUpdater("0.4.0-alpha", func() bool { return true })
+	u.releasesURL = srv.URL
+
+	info, err := u.CheckNow(context.Background(), true)
+	if err != nil {
+		t.Fatalf("CheckNow: %v", err)
+	}
+	if !info.Available {
+		t.Fatal("expected update to be available")
+	}
+	if info.Version != "1.0.0-beta" {
+		t.Errorf("version = %q, want %q", info.Version, "1.0.0-beta")
+	}
+	// Should have picked the beta's download URL, not the alpha's
+	if !strings.Contains(info.DownloadURL, "v1-beta") {
+		t.Errorf("download URL = %q, want URL containing 'v1-beta'", info.DownloadURL)
+	}
+}
+
+// TestUpdateDraftSkipping ensures that draft releases are ignored.
+func TestUpdateDraftSkipping(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]map[string]interface{}{
+			{
+				"tag_name": "v5.0.0",
+				"html_url": "https://github.com/test/releases/v5.0.0",
+				"draft":    true,
+				"assets": []interface{}{
+					map[string]interface{}{
+						"name":                 "whispaste.exe",
+						"browser_download_url": "https://github.com/test/download/whispaste.exe",
+					},
+					map[string]interface{}{
+						"name":                 "whispaste.exe.sha256",
+						"browser_download_url": "https://github.com/test/download/whispaste.exe.sha256",
+					},
+				},
+			},
+			{
+				"tag_name": "v1.0.0",
+				"html_url": "https://github.com/test/releases/v1.0.0",
+				"draft":    false,
+				"assets": []interface{}{
+					map[string]interface{}{
+						"name":                 "whispaste.exe",
+						"browser_download_url": "https://github.com/test/download/v1/whispaste.exe",
+					},
+					map[string]interface{}{
+						"name":                 "whispaste.exe.sha256",
+						"browser_download_url": "https://github.com/test/download/v1/whispaste.exe.sha256",
+					},
+				},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	u := NewUpdater("0.5.0", func() bool { return true })
+	u.releasesURL = srv.URL
+
+	info, err := u.CheckNow(context.Background(), true)
+	if err != nil {
+		t.Fatalf("CheckNow: %v", err)
+	}
+	if !info.Available {
+		t.Fatal("expected update to v1.0.0 (draft v5.0.0 skipped)")
+	}
+	if info.Version != "1.0.0" {
+		t.Errorf("version = %q, want %q (draft v5.0.0 should be skipped)", info.Version, "1.0.0")
 	}
 }
