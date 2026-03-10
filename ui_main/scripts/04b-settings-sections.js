@@ -309,10 +309,10 @@ function renderSettingsLLMModel(status) {
   const models = status.models || {};
 
   // Model definitions for display order
-  const modelOrder = ['smollm2', 'qwen3-0.6b'];
+  const modelOrder = ['smollm2', 'qwen3.5-0.8b'];
   const modelTranslations = {
     'smollm2': { name: t('smartLlmModelSmollm2'), desc: t('smartLlmModelSmollm2Desc') },
-    'qwen3-0.6b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
+    'qwen3.5-0.8b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
   };
 
   // Backward compat: if status has no models map, build one from legacy fields
@@ -374,10 +374,10 @@ function renderSettingsLLMModel(status) {
 function updateProviderModelPickers(status) {
   const models = status ? (status.models || {}) : {};
   const selectedModel = status ? (status.selectedModel || 'smollm2') : 'smollm2';
-  const modelOrder = ['smollm2', 'qwen3-0.6b'];
+  const modelOrder = ['smollm2', 'qwen3.5-0.8b'];
   const modelTranslations = {
     'smollm2': { name: t('smartLlmModelSmollm2'), desc: t('smartLlmModelSmollm2Desc') },
-    'qwen3-0.6b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
+    'qwen3.5-0.8b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
   };
 
   ['smartProviderModelSelect', 'textReplaceProviderModelSelect'].forEach(selId => {

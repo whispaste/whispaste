@@ -421,6 +421,10 @@ func (c *Config) GetLocalLLMModel() string {
 	if c.LocalLLMModel == "" {
 		return "smollm2"
 	}
+	// Migrate legacy model ID
+	if c.LocalLLMModel == "qwen3-0.6b" {
+		return "qwen3.5-0.8b"
+	}
 	return c.LocalLLMModel
 }
 
