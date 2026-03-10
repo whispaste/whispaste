@@ -138,6 +138,7 @@ function applyConfig(cfg) {
   if (cfg.smart_mode_prompt != null) { const el = document.getElementById('input-smartprompt'); if (el) el.value = cfg.smart_mode_prompt; }
   if (cfg.smart_mode_target) { const el = document.getElementById('select-smarttarget'); if (el) el.value = cfg.smart_mode_target; }
   renderModelList();
+  updateLLMStatus();
   // Cache active model type for sync access (e.g. language switch badge update)
   window._activeModelLocal = !!cfg.active_model_local;
 
