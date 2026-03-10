@@ -45,7 +45,9 @@
 .confirm-overlay.show { opacity: 1; visibility: visible; }
 
 .confirm-dialog {
-  width: 340px;
+  width: fit-content;
+  min-width: 320px;
+  max-width: min(440px, 90vw);
   background: var(--glass-bg-strong);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-xl);
@@ -74,7 +76,7 @@
 .confirm-msg { font-size: 13px; text-align: center; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px; }
 
 .confirm-btns { display: flex; gap: 10px; flex-wrap: wrap; }
-.confirm-btns .btn { min-width: 0; white-space: nowrap; }
+.confirm-btns .btn { min-width: 100px; white-space: nowrap; }
 
 .prompt-input {
   width: 100%;
