@@ -1,0 +1,75 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Sundays at 03:00 UTC
+    - cron: "0 3 * * 0"
+
+jobs:
+  analyze:
+    name: Analyze Go
+    runs-on: windows-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Setup MinGW
+        run: |
+          if (Test-Path "C:\mingw64\bin\gcc.exe") {
+            echo "C:\mingw64\bin" | Out-File -Append $env:GITHUB_PATH
+            Write-Host "Using pre-installed MinGW"
+          } else {
+            choco install mingw -y --no-progress
+            echo "C:\ProgramData\mingw64\mingw64\bin" | Out-File -Append $env:GITHUB_PATH
+          }
+
+      - name: Download dependencies
+        env:
+          CGO_ENABLED: "1"
+        run: go mod download
+
+      - name: Generate sherpa-onnx import libraries
+        run: |
+          $modCache = go env GOMODCACHE
+          $ver = (Select-String 'sherpa-onnx-go-windows (v[^ ]+)' go.sum).Matches[0].Groups[1].Value
+          $libDir = "$modCache\github.com\k2-fsa\sherpa-onnx-go-windows@$ver\lib\x86_64-pc-windows-gnu"
+          if (!(Test-Path $libDir)) { throw "Library directory not found: $libDir" }
+          $libDir | Out-File -Append $env:GITHUB_PATH
+          Get-ChildItem $libDir -File | ForEach-Object { $_.Attributes = 'Normal' }
+          Copy-Item "build\sherpa-onnx\onnxruntime.def" $libDir
+          Copy-Item "build\sherpa-onnx\sherpa-onnx-c-api.def" $libDir
+          Push-Location $libDir
+          dlltool -d onnxruntime.def -l libonnxruntime.a -k
+          dlltool -d sherpa-onnx-c-api.def -l libsherpa-onnx-c-api.a -k
+          Pop-Location
+          Write-Host "Import libraries generated from .def files"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
+          build-mode: manual
+
+      - name: Build for CodeQL
+        env:
+          CGO_ENABLED: "1"
+        run: go build -ldflags="-s -w -H windowsgui" -o whispaste.exe .
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:go"
