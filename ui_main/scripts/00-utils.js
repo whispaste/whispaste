@@ -132,17 +132,17 @@ function updateStatusBar(cfg) {
   if (!cfg) return;
   const isLocal = cfg.active_model_local;
 
-  // Mode + Model combined chip
+  // Mode chip — icon changes between cloud and cpu
+  const modeIcon = document.getElementById('statusModeIcon');
   const modeLabel = document.getElementById('statusModeLabel');
   const modeChip = document.getElementById('statusMode');
+  if (modeIcon) modeIcon.innerHTML = isLocal ? icons.cpu : icons.cloud;
   const modelName = isLocal ? (cfg.local_model_id || 'whisper-tiny') : (cfg.model || 'whisper-1');
-  const modeText = (isLocal ? t('modeLocal') : t('modeApi')) + ' · ' + modelName;
-  if (modeLabel) modeLabel.textContent = modeText;
+  if (modeLabel) modeLabel.textContent = (isLocal ? t('modeLocal') : t('modeApi')) + ' · ' + modelName;
   if (modeChip) modeChip.title = isLocal ? t('modeLocalTip') : t('modeApiTip');
 
   // Make mode chip clickable for model switching
   if (modeChip && !modeChip._switcherBound) {
-    modeChip.style.cursor = 'pointer';
     modeChip.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
@@ -151,7 +151,7 @@ function updateStatusBar(cfg) {
     modeChip._switcherBound = true;
   }
 
-  // Hotkey chip
+  // Hotkey chip — informational only
   const hotkeyLabel = document.getElementById('statusHotkeyLabel');
   const hotkeyChip = document.getElementById('statusHotkey');
   const mods = cfg.hotkey_modifiers || ['Ctrl', 'Shift'];
@@ -159,15 +159,28 @@ function updateStatusBar(cfg) {
   if (hotkeyLabel) hotkeyLabel.textContent = formatHotkeyParts([...mods, key]).join('+');
   if (hotkeyChip) hotkeyChip.title = t('statusbar.hotkey_tip');
 
-  // Smart Mode chip
+  // Smart Mode chip — shows preset name when active
   const smartLabel = document.getElementById('statusSmartLabel');
   const smartChip = document.getElementById('statusSmart');
-  if (smartLabel) smartLabel.textContent = cfg.smart_mode ? t('statusbar.on') : t('statusbar.off');
+  if (smartLabel) {
+    if (cfg.smart_mode) {
+      if (cfg.smart_mode_preset) {
+        const presetKey = 'smart.preset.' + cfg.smart_mode_preset;
+        const translated = t(presetKey);
+        // If t() returns the raw key (no translation found), show raw preset name
+        smartLabel.textContent = (translated && !translated.startsWith('smart.preset.'))
+          ? translated : cfg.smart_mode_preset;
+      } else {
+        smartLabel.textContent = t('statusbar.on');
+      }
+    } else {
+      smartLabel.textContent = t('statusbar.off');
+    }
+  }
   if (smartChip) {
     smartChip.title = t('statusbar.smart_tip');
     smartChip.classList.toggle('accent', !!cfg.smart_mode);
     if (!smartChip._switcherBound) {
-      smartChip.style.cursor = 'pointer';
       smartChip.addEventListener('click', (e) => {
         e.stopPropagation();
         showSmartSwitcher(smartChip);
@@ -176,7 +189,21 @@ function updateStatusBar(cfg) {
     }
   }
 
-  // Version chip removed — version is shown on the About page
+  // Command palette chip — update label with localized modifier
+  const paletteLabel = document.getElementById('statusPaletteLabel');
+  const paletteChip = document.getElementById('statusPalette');
+  if (paletteLabel) paletteLabel.textContent = formatModKey('Ctrl') + '+K';
+  if (paletteChip) {
+    paletteChip.title = t('palette.hint');
+    if (!paletteChip._bound) {
+      paletteChip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (typeof openPalette === 'function') openPalette();
+        else if (window.openCommandPalette) window.openCommandPalette();
+      });
+      paletteChip._bound = true;
+    }
+  }
 
   // Connectivity chip — fire once, then poll
   if (!window._connCheckStarted) {
@@ -314,5 +341,7 @@ const icons = {
   refreshCw: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>',
   archive: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>',
   archiveRestore: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="m9.5 17 2.5-2.5L14.5 17"/><path d="M12 14.5V10"/></svg>',
-  moreVertical: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>'
+  moreVertical: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>',
+  cloud: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>',
+  cpu: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>',
 };
