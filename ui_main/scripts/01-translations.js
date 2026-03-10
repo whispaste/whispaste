@@ -555,9 +555,11 @@ const translations = {
 
     // Text Replacements
     tabReplacements: 'Text Replacements',
-    replacementsDesc: 'Define trigger words that automatically get replaced in your transcriptions.',
+    replacementsDesc: 'Define trigger phrases that automatically get replaced in your transcriptions.',
     labelReplacementsToggle: 'Text Replacements',
-    descReplacementsToggle: 'When enabled, trigger words are automatically replaced in every transcription before pasting',
+    descReplacementsToggle: 'When enabled, trigger phrases are automatically replaced in every transcription before pasting',
+    labelReplacementsAI: 'AI-Assisted Matching',
+    descReplacementsAI: 'Uses the local AI model to detect trigger phrases even when they appear in different wording',
     replacementsEmpty: 'No replacements defined yet. Add one to get started!',
     replacementsAdd: 'Add Replacement',
     replacementsAddTitle: 'Add Replacement',
@@ -1193,9 +1195,11 @@ const translations = {
 
     // Text Replacements
     tabReplacements: 'Textersetzungen',
-    replacementsDesc: 'Definiere Auslösewörter, die automatisch in deinen Transkriptionen ersetzt werden.',
+    replacementsDesc: 'Definiere Auslösephrasen, die automatisch in deinen Transkriptionen ersetzt werden.',
     labelReplacementsToggle: 'Textersetzungen',
-    descReplacementsToggle: 'Wenn aktiviert, werden Auslösewörter automatisch bei jeder Transkription vor dem Einfügen ersetzt',
+    descReplacementsToggle: 'Wenn aktiviert, werden Auslösephrasen automatisch bei jeder Transkription vor dem Einfügen ersetzt',
+    labelReplacementsAI: 'KI-gestützte Erkennung',
+    descReplacementsAI: 'Nutzt das lokale KI-Modell, um Auslösephrasen auch bei abweichender Formulierung zu erkennen',
     replacementsEmpty: 'Noch keine Ersetzungen definiert. Füge eine hinzu!',
     replacementsAdd: 'Ersetzung hinzufügen',
     replacementsAddTitle: 'Ersetzung hinzufügen',

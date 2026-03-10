@@ -18,9 +18,9 @@ function updateCounts() {
     window.getArchivedCount().then(c => setCount('countArchived', c));
   }
 
-  // Dynamic categories(include persisted custom tags with count 0 only when unfiltered)
+  // Dynamic categories (always include persisted custom tags with count 0)
   const cats = {};
-  if (_activeFilters.project === null) _loadCustomTagsInto(cats);
+  _loadCustomTagsInto(cats);
   scoped.forEach(e => { (e.tags || []).forEach(tag => { cats[tag] = (cats[tag] || 0) + 1; }); });
   const catSection = document.getElementById('categoriesSection');
   const catList = document.getElementById('categoryList');
@@ -105,6 +105,9 @@ function updateCounts() {
 }
 
 // Load persisted custom tags into the cats map with count 0 if not already present.
+
+// Re-render sidebar tags when any tag mutation occurs elsewhere
+window.addEventListener('tags-changed', () => { updateCounts(); });
 
 function _renderEntryCard(e) {
   const isPending = (e.tags || []).includes('pending');

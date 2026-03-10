@@ -203,6 +203,7 @@ var translations = map[string]map[string]string{
 		"balloon.test":                  "Test notification — if you see this, notifications work!",
 
 		// Pending transcription
+		"transcribing":              "Transcribing…",
 		"transcription_cancelled": "Cancelled",
 		"transcription_failed":   "Failed",
 
@@ -399,6 +400,7 @@ var translations = map[string]map[string]string{
 		"balloon.test":                  "Test-Benachrichtigung — wenn du das siehst, funktionieren Benachrichtigungen!",
 
 		// Pending transcription
+		"transcribing":              "Wird transkribiert…",
 		"transcription_cancelled": "Abgebrochen",
 		"transcription_failed":   "Fehlgeschlagen",
 

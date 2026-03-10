@@ -27,6 +27,7 @@ func bindUIHandlers(w webview.WebView, cfg *Config, recorder *Recorder) {
 		if theme != "system" && theme != "light" && theme != "dark" {
 			return
 		}
+		logDebug("Theme: saving '%s' to config", theme)
 		cfg.mu.Lock()
 		cfg.Theme = theme
 		cfg.mu.Unlock()
