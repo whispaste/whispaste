@@ -16,6 +16,17 @@ const SMART_PRESETS = [
     { id: 'translate' },
 ];
 
+function _presetIcon(id) {
+    const map = {
+        cleanup: icons.sparkles, concise: icons.minimize, email: icons.mail,
+        formal: icons.fileText, bullets: icons.list, aiprompt: icons.bot,
+        summary: icons.fileText, notes: icons.clipboard, meeting: icons.users,
+        social: icons.share, technical: icons.code, casual: icons.messageCircle,
+        translate: icons.globe,
+    };
+    return map[id] || icons.sparkles;
+}
+
 async function showSmartActionMenu(entryId, anchor) {
     const templates = await getAllSmartTemplates();
     const items = [];
@@ -25,6 +36,7 @@ async function showSmartActionMenu(entryId, anchor) {
     const builtIn = templates.filter(tpl => !tpl.isCustom);
     for (const tpl of builtIn) {
         items.push({
+            icon: _presetIcon(tpl.id),
             label: tpl.label,
             action: () => executeSmartAction(entryId, tpl.id, ''),
         });
@@ -34,8 +46,10 @@ async function showSmartActionMenu(entryId, anchor) {
     const custom = templates.filter(tpl => tpl.isCustom);
     if (custom.length > 0) {
         items.push({ divider: true });
+        items.push({ header: t('smart.customSection') });
         for (const tpl of custom) {
             items.push({
+                icon: icons.fileText,
                 label: esc(tpl.label),
                 action: () => executeSmartAction(entryId, tpl.id, ''),
             });
@@ -45,6 +59,7 @@ async function showSmartActionMenu(entryId, anchor) {
     // Custom prompt option
     items.push({ divider: true });
     items.push({
+        icon: icons.pencil,
         label: t('smart.custom'),
         action: () => showCustomPromptDialog(entryId),
     });
@@ -71,20 +86,26 @@ async function showCustomPromptDialog(entryId) {
 }
 
 async function executeSmartAction(entryId, preset, customPrompt) {
-    showToast(t('smart.processing'), false);
+    const processingToast = showToast(t('smart.processing'), false, 0);
 
     try {
         const raw = await window.applySmartAction(entryId, preset, customPrompt);
         const result = JSON.parse(raw);
+        if (processingToast) processingToast.classList.remove('show');
 
         if (result.error) {
             showToast(result.error, true);
             return;
         }
 
+        const modelType = (result.model === 'local') ? 'local' : 'cloud';
+        const modelLabel = modelType === 'local' ? t('modeLocal') : t('modeApi');
+        const modelBadge = `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:var(--radius-sm);background:var(--bg-hover);color:var(--text-secondary);margin-top:4px">${modelType === 'local' ? icons.microphone : icons.globe} ${modelLabel}</span>`;
+
         const replace = await showDialog({
             title: t('smart.resultTitle'),
-            message: t('smart.resultMessage'),
+            message: t('smart.resultMessage') + '<br>' + modelBadge,
+            htmlMessage: true,
             confirmText: t('smart.replace'),
             cancelText: t('smart.createNew'),
         });
@@ -103,6 +124,7 @@ async function executeSmartAction(entryId, preset, customPrompt) {
 
         loadEntries();
     } catch (e) {
+        if (processingToast) processingToast.classList.remove('show');
         showToast(t('smart.error'), true);
     }
 }
@@ -120,6 +142,7 @@ async function showBulkSmartActionMenu(anchor) {
 
     for (const tpl of templates.filter(x => !x.isCustom)) {
         items.push({
+            icon: _presetIcon(tpl.id),
             label: tpl.label,
             action: () => executeBulkSmartAction(tpl.id, ''),
         });
@@ -128,8 +151,10 @@ async function showBulkSmartActionMenu(anchor) {
     const custom = templates.filter(x => x.isCustom);
     if (custom.length > 0) {
         items.push({ divider: true });
+        items.push({ header: t('smart.customSection') });
         for (const tpl of custom) {
             items.push({
+                icon: icons.fileText,
                 label: esc(tpl.label),
                 action: () => executeBulkSmartAction(tpl.id, ''),
             });
@@ -138,6 +163,7 @@ async function showBulkSmartActionMenu(anchor) {
 
     items.push({ divider: true });
     items.push({
+        icon: icons.pencil,
         label: t('smart.custom'),
         action: () => showBulkCustomPromptDialog(),
     });
@@ -165,11 +191,12 @@ async function showBulkCustomPromptDialog() {
 
 async function executeBulkSmartAction(preset, customPrompt) {
     const ids = [..._selectedIds];
-    showToast(t('smart.bulkProcessing'), false);
+    const processingToast = showToast(t('smart.bulkProcessing'), false, 0);
 
     try {
         const raw = await window.applyBulkSmartAction(JSON.stringify(ids), preset, customPrompt);
         const result = JSON.parse(raw);
+        if (processingToast) processingToast.classList.remove('show');
 
         if (result.error) {
             showToast(result.error, true);
@@ -184,6 +211,7 @@ async function executeBulkSmartAction(preset, customPrompt) {
         clearSelection();
         loadEntries();
     } catch (e) {
+        if (processingToast) processingToast.classList.remove('show');
         showToast(t('smart.error'), true);
     }
 }

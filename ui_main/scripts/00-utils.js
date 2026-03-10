@@ -76,12 +76,18 @@ function formatDuration(sec) {
 }
 
 /** Show a toast notification */
-function showToast(msg, isError) {
+function showToast(msg, isError, duration) {
   const t = document.getElementById('toast');
-  if (!t) return;
+  if (!t) return null;
   t.textContent = msg;
   t.className = 'toast show' + (isError ? ' error' : '');
-  setTimeout(() => t.classList.remove('show'), 2200);
+  clearTimeout(t._toastTimer);
+  t.onclick = () => { clearTimeout(t._toastTimer); t.classList.remove('show'); };
+  const dur = duration !== undefined ? duration : 2200;
+  if (dur > 0) {
+    t._toastTimer = setTimeout(() => t.classList.remove('show'), dur);
+  }
+  return t;
 }
 
 /** Show an inline status message */

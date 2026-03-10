@@ -35,6 +35,9 @@ async function showSmartSwitcher(anchor) {
         const raw2 = await window.getConfig();
         const newCfg = typeof raw2 === 'string' ? JSON.parse(raw2) : raw2;
         updateStatusBar(newCfg);
+        // Sync settings form checkbox to prevent auto-save from reverting
+        const toggle = document.getElementById('toggle-smartmode');
+        if (toggle) toggle.checked = !!newCfg.smart_mode;
         showToast(newState ? t('smartSwitcher.enabled') : t('smartSwitcher.disabled'), false);
       },
     },
@@ -52,6 +55,11 @@ async function showSmartSwitcher(anchor) {
         const raw2 = await window.getConfig();
         const newCfg = typeof raw2 === 'string' ? JSON.parse(raw2) : raw2;
         updateStatusBar(newCfg);
+        // Sync settings form to prevent auto-save from reverting
+        const toggle = document.getElementById('toggle-smartmode');
+        if (toggle) toggle.checked = true;
+        const sel = document.getElementById('select-smartpreset');
+        if (sel) sel.value = tpl.id;
         showToast(t('smartSwitcher.switched') + ': ' + tpl.label, false);
       },
     });
@@ -72,6 +80,11 @@ async function showSmartSwitcher(anchor) {
           const raw2 = await window.getConfig();
           const newCfg = typeof raw2 === 'string' ? JSON.parse(raw2) : raw2;
           updateStatusBar(newCfg);
+          // Sync settings form to prevent auto-save from reverting
+          const toggle = document.getElementById('toggle-smartmode');
+          if (toggle) toggle.checked = true;
+          const sel = document.getElementById('select-smartpreset');
+          if (sel) sel.value = tpl.id;
           showToast(t('smartSwitcher.switched') + ': ' + esc(tpl.label), false);
         },
       });
