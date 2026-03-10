@@ -263,12 +263,12 @@ const translations = {
     aboutRestartOnboarding: 'Restart Setup Wizard',
     aboutCreditsTitle: 'Credits',
     aboutMadeBy: 'Made by Silvio Lindstedt',
-    aboutPoweredBy: 'Powered by OpenAI Whisper API & sherpa-onnx',
+    aboutPoweredBy: 'Powered by OpenAI Whisper API & whisper.cpp',
     aboutBuiltWith: 'Built with Go & WebView2',
     aboutSupportTitle: 'Support this project',
     aboutSupportText: 'WhisPaste is free and open source. If you find it useful, please consider supporting its development!',
     aboutLibsTitle: 'Open Source Libraries',
-    libSherpa: 'Local speech recognition',
+    libWhisperCpp: 'Local speech recognition',
     libWhisper: 'Speech recognition models',
     libSilero: 'Voice activity detection',
     libMalgo: 'Audio capture',
@@ -461,7 +461,8 @@ const translations = {
 
     // Model descriptions
     'model.desc.whisper-base': 'Fast, suitable for clear speech in one language. May struggle with mixed-language content.',
-    'model.desc.whisper-small': 'More accurate, better with mixed languages and accents. Recommended when using technical terms from another language.',
+    'model.desc.whisper-small': 'Good balance of speed and quality. Better with mixed languages and accents.',
+    'model.desc.whisper-turbo': 'Best quality, handles accents, mixed languages, and technical terms with high accuracy.',
 
     // Model switcher
     'modelSwitcher.title': 'Switch Model',
@@ -565,8 +566,9 @@ const translations = {
     'onboarding.smart_llm_ready': 'Ready to use',
     'onboarding.model_recommended': 'Recommended',
     'onboarding.model_better_accuracy': 'Better accuracy',
-    'onboarding.model_base_desc': 'Fast, basic quality',
-    'onboarding.model_small_desc': 'High accuracy, best results',
+    'onboarding.model_base_desc': 'Fastest, basic quality',
+    'onboarding.model_small_desc': 'Good balance of speed and quality',
+    'onboarding.model_turbo_desc': 'Best quality, larger download',
     'onboarding.model_performance_hint': 'Local models run directly on your device. Speed depends on your hardware — on slower machines, processing may take a bit longer than the cloud option.',
     'onboarding.model_needed': 'Download required',
     'onboarding.model_ready': '✓ Ready to use',
@@ -931,12 +933,12 @@ const translations = {
     aboutRestartOnboarding: 'Einrichtungsassistent erneut starten',
     aboutCreditsTitle: 'Danksagungen',
     aboutMadeBy: 'Erstellt von Silvio Lindstedt',
-    aboutPoweredBy: 'Basierend auf OpenAI Whisper API & sherpa-onnx',
+    aboutPoweredBy: 'Basierend auf OpenAI Whisper API & whisper.cpp',
     aboutBuiltWith: 'Entwickelt mit Go & WebView2',
     aboutSupportTitle: 'Projekt unterstützen',
     aboutSupportText: 'WhisPaste ist kostenlos und Open Source. Wenn du es nützlich findest, unterstütze gerne die Weiterentwicklung!',
     aboutLibsTitle: 'Open-Source-Bibliotheken',
-    libSherpa: 'Lokale Spracherkennung',
+    libWhisperCpp: 'Lokale Spracherkennung',
     libWhisper: 'Spracherkennungsmodelle',
     libSilero: 'Sprachaktivitätserkennung',
     libMalgo: 'Audioaufnahme',
@@ -1129,7 +1131,8 @@ const translations = {
 
     // Model descriptions
     'model.desc.whisper-base': 'Schnell, geeignet für klare Sprache in einer Sprache. Bei gemischten Sprachen weniger genau.',
-    'model.desc.whisper-small': 'Genauer, besser bei gemischten Sprachen und Akzenten. Empfohlen, wenn du Fachbegriffe aus einer anderen Sprache nutzt.',
+    'model.desc.whisper-small': 'Gute Balance aus Geschwindigkeit und Qualität. Besser bei gemischten Sprachen und Akzenten.',
+    'model.desc.whisper-turbo': 'Beste Qualität, verarbeitet Akzente, gemischte Sprachen und Fachbegriffe mit hoher Genauigkeit.',
 
     // Model switcher
     'modelSwitcher.title': 'Modell wechseln',
@@ -1233,8 +1236,9 @@ const translations = {
     'onboarding.smart_llm_ready': 'Einsatzbereit',
     'onboarding.model_recommended': 'Empfohlen',
     'onboarding.model_better_accuracy': 'Bessere Genauigkeit',
-    'onboarding.model_base_desc': 'Schnell, grundlegende Qualität',
-    'onboarding.model_small_desc': 'Hohe Genauigkeit, beste Ergebnisse',
+    'onboarding.model_base_desc': 'Am schnellsten, grundlegende Qualität',
+    'onboarding.model_small_desc': 'Gute Balance aus Geschwindigkeit und Qualität',
+    'onboarding.model_turbo_desc': 'Beste Qualität, größerer Download',
     'onboarding.model_performance_hint': 'Lokale Modelle laufen direkt auf deinem Gerät. Die Geschwindigkeit hängt von deiner Hardware ab — auf langsameren Geräten kann die Verarbeitung etwas länger dauern als die Cloud-Variante.',
     'onboarding.model_needed': 'Download erforderlich',
     'onboarding.model_ready': '✓ Einsatzbereit',
