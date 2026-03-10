@@ -121,7 +121,38 @@ if (Test-Tool "gitleaks") {
 }
 
 # ------------------------------------------------------------------
-# 5. go vet
+# 5. DevSkim (multi-language security linter: Go, JS, HTML, CSS)
+# ------------------------------------------------------------------
+Write-Header "DevSkim (Multi-Language Security Linter)"
+
+if (Test-Tool "devskim") {
+    $devskimOutput = & devskim analyze `
+        --source-code . `
+        --file-format text `
+        --severity "Critical,Important,Moderate" `
+        --ignore-globs "**/.git/**,**/bin/**,**/node_modules/**,**/dist/**,**/*.exe,**/*.dll,**/*.syso,skills-lock.json" `
+        2>&1
+    $devskimExit = $LASTEXITCODE
+
+    if ($devskimExit -ne 0) {
+        Write-Result "DevSkim" "ERROR" "Scanner failed (exit code $devskimExit)"
+        $script:toolError = $true
+    } else {
+        $devskimFindings = ($devskimOutput | Where-Object { $_ -match "\[(Critical|Important|Moderate)\]" })
+        $findingCount = ($devskimFindings | Measure-Object).Count
+
+        if ($findingCount -eq 0) {
+            Write-Result "DevSkim" "PASS" "No security issues found (Go, JS, HTML, CSS)"
+        } else {
+            Write-Result "DevSkim" "WARN" "$findingCount finding(s) — review for false positives"
+            $devskimFindings | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow }
+            if ($script:exitCode -lt 1) { $script:exitCode = 1 }
+        }
+    }
+}
+
+# ------------------------------------------------------------------
+# 6. go vet
 # ------------------------------------------------------------------
 Write-Header "go vet (Static Analysis)"
 
