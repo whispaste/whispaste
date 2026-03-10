@@ -93,18 +93,6 @@
             <div class="form-group">
               <div class="toggle-row">
                 <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-archive-instead" data-i18n="labelArchiveInstead">Archive instead of delete</label>
-                  <p class="toggle-desc" data-i18n="descArchiveInstead">When enabled, deleted items are archived instead of permanently removed</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-archive-instead">
-                  <label class="toggle-track" for="toggle-archive-instead"></label>
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
                   <label class="toggle-label" for="toggle-floating-btn" data-i18n="labelFloatingButton">Floating Record Button</label>
                   <p class="toggle-desc" data-i18n="descFloatingButton">Show a floating button on screen for quick recording access</p>
                 </div>
@@ -359,6 +347,17 @@
                 <div class="audio-level-bar" id="audioLevelBar"></div>
               </div>
             </div>
+          </div>
+
+          <!-- Section: Transcription -->
+          <div class="settings-section-header" id="section-transcription">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+            <span data-i18n="settingsNavTranscription">Transcription</span>
+          </div>
+
+          <!-- Trim Silence -->
+          <div class="card">
+            <div class="card-title" data-i18n="cardTrimSilence">Trim Silence</div>
             <div class="form-group">
               <div class="toggle-row">
                 <div class="toggle-info">
@@ -398,12 +397,6 @@
                 <span class="volume-value" id="vad-sensitivity-value">0.50</span>
               </div>
             </div>
-          </div>
-
-          <!-- Section: Transcription -->
-          <div class="settings-section-header" id="section-transcription">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-            <span data-i18n="settingsNavTranscription">Transcription</span>
           </div>
 
           <!-- API Key -->
@@ -492,6 +485,18 @@
 
           <div class="card">
             <div class="card-title" data-i18n="cardCleanup">History Cleanup</div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-archive-instead" data-i18n="labelArchiveInstead">Archive instead of delete</label>
+                  <p class="toggle-desc" data-i18n="descArchiveInstead">When enabled, deleted items are archived instead of permanently removed</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-archive-instead">
+                  <label class="toggle-track" for="toggle-archive-instead"></label>
+                </div>
+              </div>
+            </div>
             <div class="form-group">
               <div class="toggle-row">
                 <div class="toggle-info">
