@@ -411,6 +411,10 @@ func (c *Config) GetLocalModelID() string {
 	if c.LocalModelID == "" {
 		return "whisper-base"
 	}
+	// Migrate removed turbo model to small
+	if c.LocalModelID == "whisper-turbo" {
+		return "whisper-small"
+	}
 	return c.LocalModelID
 }
 
