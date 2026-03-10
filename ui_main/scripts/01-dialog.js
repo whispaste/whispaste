@@ -7,7 +7,8 @@ let _dialogPreviousFocus = null;
  * Show a modal dialog. Returns a Promise that resolves to the button clicked.
  * @param {Object} opts
  * @param {string} opts.title - Dialog title
- * @param {string} opts.message - Dialog message
+ * @param {string} opts.message - Dialog message (plain text by default)
+ * @param {boolean} [opts.htmlMessage] - If true, message is treated as trusted HTML
  * @param {string} [opts.icon] - SVG icon HTML (optional)
  * @param {string} [opts.variant] - 'danger' | 'info' | 'warning' (default: 'info')
  * @param {string} [opts.confirmText] - Confirm button text (default: 'OK')
@@ -23,18 +24,48 @@ function showDialog(opts) {
 
     const dialog = overlay.querySelector('.confirm-dialog');
     const variant = opts.variant || 'info';
-
     const iconHTML = opts.icon || _defaultDialogIcon(variant);
 
-    dialog.innerHTML = `
-      <div class="confirm-icon ${variant}">${iconHTML}</div>
-      <div class="confirm-title">${opts.title}</div>
-      <div class="confirm-msg">${opts.message}</div>
-      <div class="confirm-btns">
-        ${opts.cancelText !== null ? `<button class="btn btn-secondary flex-1" id="dialogCancel">${opts.cancelText || t('notebook.confirm_cancel')}</button>` : ''}
-        <button class="btn btn-${variant === 'danger' ? 'danger' : 'primary'} flex-1" id="dialogConfirm">${opts.confirmText || 'OK'}</button>
-      </div>
-    `;
+    // Safe DOM construction — textContent for user strings, innerHTML only for trusted SVG
+    dialog.textContent = '';
+
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'confirm-icon ' + variant;
+    iconDiv.innerHTML = iconHTML;
+    dialog.appendChild(iconDiv);
+
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'confirm-title';
+    titleDiv.textContent = opts.title;
+    dialog.appendChild(titleDiv);
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'confirm-msg';
+    if (opts.htmlMessage) {
+      msgDiv.innerHTML = opts.message;
+    } else {
+      msgDiv.textContent = opts.message;
+    }
+    dialog.appendChild(msgDiv);
+
+    const btnsDiv = document.createElement('div');
+    btnsDiv.className = 'confirm-btns';
+
+    if (opts.cancelText !== null) {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'btn btn-secondary flex-1';
+      cancelBtn.id = 'dialogCancel';
+      cancelBtn.textContent = opts.cancelText || t('notebook.confirm_cancel');
+      btnsDiv.appendChild(cancelBtn);
+    }
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn btn-' + (variant === 'danger' ? 'danger' : 'primary') + ' flex-1';
+    confirmBtn.id = 'dialogConfirm';
+    confirmBtn.textContent = opts.confirmText || 'OK';
+    btnsDiv.appendChild(confirmBtn);
+
+    dialog.appendChild(btnsDiv);
 
     overlay.classList.add('show');
 
@@ -47,11 +78,9 @@ function showDialog(opts) {
       resolve(result);
     }
 
-    const confirmBtn = document.getElementById('dialogConfirm');
-    const cancelBtn = document.getElementById('dialogCancel');
-
     if (confirmBtn) confirmBtn.addEventListener('click', () => cleanup(true), { once: true });
-    if (cancelBtn) cancelBtn.addEventListener('click', () => cleanup(false), { once: true });
+    const cancelBtnEl = document.getElementById('dialogCancel');
+    if (cancelBtnEl) cancelBtnEl.addEventListener('click', () => cleanup(false), { once: true });
 
     overlay.addEventListener('click', (ev) => {
       if (ev.target === overlay) cleanup(false);
@@ -113,21 +142,60 @@ function showPromptDialog(title, message, opts = {}) {
     _dialogPreviousFocus = document.activeElement;
     const dialog = overlay.querySelector('.confirm-dialog');
     const iconHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
-    const inputHTML = opts.multiline
-      ? `<textarea id="dialogPromptInput" class="prompt-input" rows="5" style="resize:vertical">${esc(opts.defaultValue || '')}</textarea>`
-      : `<input type="text" id="dialogPromptInput" class="prompt-input" value="${esc(opts.defaultValue || '')}" />`;
-    dialog.innerHTML = `
-      <div class="confirm-icon info">${iconHTML}</div>
-      <div class="confirm-title">${title}</div>
-      <div class="confirm-msg">${message}</div>
-      ${inputHTML}
-      <div class="confirm-btns">
-        <button class="btn btn-secondary flex-1" id="dialogCancel">${t('notebook.confirm_cancel')}</button>
-        <button class="btn btn-primary flex-1" id="dialogConfirm">${opts.confirmText || 'OK'}</button>
-      </div>
-    `;
+
+    // Safe DOM construction
+    dialog.textContent = '';
+
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'confirm-icon info';
+    iconDiv.innerHTML = iconHTML;
+    dialog.appendChild(iconDiv);
+
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'confirm-title';
+    titleDiv.textContent = title;
+    dialog.appendChild(titleDiv);
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'confirm-msg';
+    msgDiv.textContent = message;
+    dialog.appendChild(msgDiv);
+
+    let input;
+    if (opts.multiline) {
+      input = document.createElement('textarea');
+      input.id = 'dialogPromptInput';
+      input.className = 'prompt-input';
+      input.rows = 5;
+      input.style.resize = 'vertical';
+      input.textContent = opts.defaultValue || '';
+    } else {
+      input = document.createElement('input');
+      input.type = 'text';
+      input.id = 'dialogPromptInput';
+      input.className = 'prompt-input';
+      input.value = opts.defaultValue || '';
+    }
+    dialog.appendChild(input);
+
+    const btnsDiv = document.createElement('div');
+    btnsDiv.className = 'confirm-btns';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-secondary flex-1';
+    cancelBtn.id = 'dialogCancel';
+    cancelBtn.textContent = t('notebook.confirm_cancel');
+    btnsDiv.appendChild(cancelBtn);
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn btn-primary flex-1';
+    confirmBtn.id = 'dialogConfirm';
+    confirmBtn.textContent = opts.confirmText || 'OK';
+    btnsDiv.appendChild(confirmBtn);
+
+    dialog.appendChild(btnsDiv);
+
     overlay.classList.add('show');
-    const input = document.getElementById('dialogPromptInput');
     if (input) { input.focus(); if (input.select) input.select(); }
 
     function cleanup(val) {
@@ -138,8 +206,8 @@ function showPromptDialog(title, message, opts = {}) {
       }
       resolve(val);
     }
-    document.getElementById('dialogConfirm')?.addEventListener('click', () => cleanup(input?.value || null), { once: true });
-    document.getElementById('dialogCancel')?.addEventListener('click', () => cleanup(null), { once: true });
+    confirmBtn.addEventListener('click', () => cleanup(input?.value || null), { once: true });
+    cancelBtn.addEventListener('click', () => cleanup(null), { once: true });
     overlay.addEventListener('click', (ev) => { if (ev.target === overlay) cleanup(null); }, { once: true });
     if (input && !opts.multiline) input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') cleanup(input.value); });
     function onEsc(ev) {
@@ -169,21 +237,52 @@ function showListDialog(title, items, opts = {}) {
 
     const iconHTML = opts.icon || '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>';
 
-    const listHTML = items.map(item => {
-      const sel = item.value === opts.selectedValue ? ' selected' : '';
-      const itemIcon = item.icon || '';
-      return `<div class="confirm-list-item${sel}" data-list-value="${esc(item.value)}">${itemIcon}<span>${esc(item.label)}</span></div>`;
-    }).join('');
+    // Safe DOM construction
+    dialog.textContent = '';
 
-    dialog.innerHTML = `
-      <div class="confirm-icon info">${iconHTML}</div>
-      <div class="confirm-title">${title}</div>
-      ${opts.message ? `<div class="confirm-msg">${opts.message}</div>` : ''}
-      <div class="confirm-list">${listHTML}</div>
-      <div class="confirm-btns">
-        <button class="btn btn-secondary flex-1" id="dialogCancel">${opts.cancelText || t('notebook.confirm_cancel')}</button>
-      </div>
-    `;
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'confirm-icon info';
+    iconDiv.innerHTML = iconHTML;
+    dialog.appendChild(iconDiv);
+
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'confirm-title';
+    titleDiv.textContent = title;
+    dialog.appendChild(titleDiv);
+
+    if (opts.message) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'confirm-msg';
+      msgDiv.textContent = opts.message;
+      dialog.appendChild(msgDiv);
+    }
+
+    const listDiv = document.createElement('div');
+    listDiv.className = 'confirm-list';
+    items.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'confirm-list-item' + (item.value === opts.selectedValue ? ' selected' : '');
+      el.dataset.listValue = item.value;
+      if (item.icon) {
+        const iconSpan = document.createElement('span');
+        iconSpan.innerHTML = item.icon;
+        el.appendChild(iconSpan);
+      }
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = item.label;
+      el.appendChild(labelSpan);
+      listDiv.appendChild(el);
+    });
+    dialog.appendChild(listDiv);
+
+    const btnsDiv = document.createElement('div');
+    btnsDiv.className = 'confirm-btns';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-secondary flex-1';
+    cancelBtn.id = 'dialogCancel';
+    cancelBtn.textContent = opts.cancelText || t('notebook.confirm_cancel');
+    btnsDiv.appendChild(cancelBtn);
+    dialog.appendChild(btnsDiv);
 
     overlay.classList.add('show');
 
@@ -205,7 +304,7 @@ function showListDialog(title, items, opts = {}) {
       el.addEventListener('click', () => cleanup(el.dataset.listValue), { once: true });
     });
 
-    document.getElementById('dialogCancel')?.addEventListener('click', () => cleanup(null), { once: true });
+    cancelBtn.addEventListener('click', () => cleanup(null), { once: true });
 
     function onOverlay(ev) { if (ev.target === overlay) cleanup(null); }
     overlay.addEventListener('click', onOverlay);
