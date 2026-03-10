@@ -19,7 +19,7 @@
 
 <p align="center">
   <a href="../../releases/latest"><b>📥 Download Latest Release</b></a>&ensp;·&ensp;
-  <a href="https://whispaste.github.io/whispaste/"><b>🌐 Website</b></a>&ensp;·&ensp;
+  <a href="https://whispaste.de"><b>🌐 Website</b></a>&ensp;·&ensp;
   <a href="#-quick-start"><b>🚀 Quick Start</b></a>&ensp;·&ensp;
   <a href="#-configuration"><b>⚙️ Config</b></a>&ensp;·&ensp;
   <a href="#%EF%B8%8F-building-from-source"><b>🏗️ Build</b></a>&ensp;·&ensp;
@@ -37,21 +37,6 @@ It works with **OpenAI Whisper** for high-accuracy cloud transcription, or **ful
 Free, open source, and privacy-first. No telemetry, no tracking, no account required.
 
 <br>
-
-## 📸 Screenshots
-
-<p align="center">
-  <img src="screenshots/mockup-dark.png" alt="WhisPaste Dashboard — Dark Mode" width="720">
-</p>
-
-<details>
-<summary>Recording overlay states</summary>
-
-| Recording | Paused | Transcribing | Done |
-|:-:|:-:|:-:|:-:|
-| <img src="screenshots/recording.png" alt="Recording" width="180"> | <img src="screenshots/paused.png" alt="Paused" width="180"> | <img src="screenshots/transcribing.png" alt="Transcribing" width="180"> | <img src="screenshots/success.png" alt="Success" width="180"> |
-
-</details>
 
 <br>
 
