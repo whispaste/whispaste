@@ -134,7 +134,7 @@ function renderDailyChart(dailyCounts, dailyModelCounts, svgWidth) {
   const hasModelData = dailyModelCounts && Object.keys(dailyModelCounts).length > 0;
 
   // Build a stable color map: local models → cyan shades, API models → purple/indigo
-  const localColors = ['#22D3EE', '#06B6D4', '#0891B2', '#0E7490', '#155E75'];
+  const localColors = ['#22D3EE', '#10B981', '#F59E0B', '#F97316', '#06B6D4'];
   const apiColors = ['#818CF8', '#A78BFA', '#8B5CF6', '#7C3AED', '#6D28D9'];
   const modelColorMap = {};
   let localIdx = 0, apiIdx = 0;
@@ -241,7 +241,7 @@ function renderDailyChart(dailyCounts, dailyModelCounts, svgWidth) {
     const legendItems = [];
     for (const [key, color] of Object.entries(modelColorMap)) {
       const [model, isLocal] = [key.slice(0, key.lastIndexOf('|')), key.slice(key.lastIndexOf('|') + 1)];
-      const label = model + (isLocal === '1' ? ' ⏻' : '');
+      const label = model;
       legendItems.push({ label, color });
     }
     let lx = padding.left;

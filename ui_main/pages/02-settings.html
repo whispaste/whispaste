@@ -355,50 +355,6 @@
             <span data-i18n="settingsNavTranscription">Transcription</span>
           </div>
 
-          <!-- Trim Silence -->
-          <div class="card">
-            <div class="card-title" data-i18n="cardTrimSilence">Trim Silence</div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-trim-silence" data-i18n="labelTrimSilence">Trim Silence</label>
-                  <p class="toggle-desc" data-i18n="descTrimSilence">Automatically remove silence from the start and end of recordings</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-trim-silence">
-                  <label class="toggle-track" for="toggle-trim-silence"></label>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Voice Activity Detection -->
-          <div class="card">
-            <div class="card-title" data-i18n="cardVAD">Voice Activity Detection</div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-use-vad" data-i18n="labelUseVAD">Enable VAD</label>
-                  <p class="toggle-desc" data-i18n="descUseVAD">Use AI-based voice detection to remove silence — more accurate than simple threshold trimming</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-use-vad">
-                  <label class="toggle-track" for="toggle-use-vad"></label>
-                </div>
-              </div>
-            </div>
-            <div class="form-group hidden" id="vad-sensitivity-row">
-              <label class="form-label" data-i18n="labelVADSensitivity">Sensitivity</label>
-              <p class="form-hint" data-i18n="descVADSensitivity">Higher values detect quieter speech but may include more background noise</p>
-              <div class="range-row">
-                <span style="font-size:12px;color:var(--text-secondary)" data-i18n="vadSensitivityLow">Low</span>
-                <input type="range" id="range-vad-sensitivity" min="0" max="100" value="50" step="5" class="volume-slider" oninput="document.getElementById('vad-sensitivity-value').textContent = (this.value/100).toFixed(2)">
-                <span style="font-size:12px;color:var(--text-secondary)" data-i18n="vadSensitivityHigh">High</span>
-                <span class="volume-value" id="vad-sensitivity-value">0.50</span>
-              </div>
-            </div>
-          </div>
-
           <!-- API Key -->
           <div class="card">
             <div class="card-title" data-i18n="cardApiKey">API Key</div>
@@ -447,6 +403,50 @@
             </div>
           </div>
 
+          <!-- Trim Silence -->
+          <div class="card">
+            <div class="card-title" data-i18n="cardTrimSilence">Trim Silence</div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-trim-silence" data-i18n="labelTrimSilence">Trim Silence</label>
+                  <p class="toggle-desc" data-i18n="descTrimSilence">Automatically remove silence from the start and end of recordings</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-trim-silence">
+                  <label class="toggle-track" for="toggle-trim-silence"></label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Voice Activity Detection -->
+          <div class="card">
+            <div class="card-title" data-i18n="cardVAD">Voice Activity Detection</div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-use-vad" data-i18n="labelUseVAD">Enable VAD</label>
+                  <p class="toggle-desc" data-i18n="descUseVAD">Use AI-based voice detection to remove silence — more accurate than simple threshold trimming</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-use-vad">
+                  <label class="toggle-track" for="toggle-use-vad"></label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group hidden" id="vad-sensitivity-row">
+              <label class="form-label" data-i18n="labelVADSensitivity">Sensitivity</label>
+              <p class="form-hint" data-i18n="descVADSensitivity">Higher values detect quieter speech but may include more background noise</p>
+              <div class="range-row">
+                <span style="font-size:12px;color:var(--text-secondary)" data-i18n="vadSensitivityLow">Low</span>
+                <input type="range" id="range-vad-sensitivity" min="0" max="100" value="50" step="5" class="volume-slider" oninput="document.getElementById('vad-sensitivity-value').textContent = (this.value/100).toFixed(2)">
+                <span style="font-size:12px;color:var(--text-secondary)" data-i18n="vadSensitivityHigh">High</span>
+                <span class="volume-value" id="vad-sensitivity-value">0.50</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Section: AI & Models -->
           <div class="settings-section-header" id="section-ai">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
@@ -488,18 +488,6 @@
             <div class="form-group">
               <div class="toggle-row">
                 <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-archive-instead" data-i18n="labelArchiveInstead">Archive instead of delete</label>
-                  <p class="toggle-desc" data-i18n="descArchiveInstead">When enabled, deleted items are archived instead of permanently removed</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-archive-instead">
-                  <label class="toggle-track" for="toggle-archive-instead"></label>
-                </div>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
                   <label class="toggle-label" for="toggle-cleanup" data-i18n="labelCleanupEnabled">Auto-cleanup</label>
                   <p class="toggle-desc" data-i18n="descCleanupEnabled">Automatically remove old entries</p>
                 </div>
@@ -529,6 +517,18 @@
                 <div class="toggle-switch">
                   <input type="checkbox" id="toggle-cleanup-pinned">
                   <label class="toggle-track" for="toggle-cleanup-pinned"></label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-archive-instead" data-i18n="labelArchiveInstead">Archive instead of delete</label>
+                  <p class="toggle-desc" data-i18n="descArchiveInstead">When enabled, deleted items are archived instead of permanently removed</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-archive-instead">
+                  <label class="toggle-track" for="toggle-archive-instead"></label>
                 </div>
               </div>
             </div>
