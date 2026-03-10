@@ -500,8 +500,9 @@ async function viewPresetPrompt(key) {
   const langNote = t('smartPromptLangNote') || 'Note: Your UI language setting is automatically appended to this prompt at runtime.';
   const fullMessage = esc(prompt) + '<div class="prompt-lang-note">' + esc(langNote) + '</div>';
   showDialog({
-    title: (t('smartViewPromptTitle') || 'Preset Prompt') + (isCustom ? ' — ' + esc(key) : ''),
+    title: (t('smartViewPromptTitle') || 'Preset Prompt') + (isCustom ? ' — ' + key : ''),
     message: fullMessage,
+    htmlMessage: true,
     variant: 'info',
     confirmText: t('ok') || 'OK'
   });

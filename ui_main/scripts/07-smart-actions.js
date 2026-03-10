@@ -43,6 +43,7 @@ async function showCustomPromptDialog(entryId) {
     const result = await showDialog({
         title: t('smart.customTitle'),
         message: '<textarea id="smartCustomPrompt" class="smart-custom-textarea" rows="4" placeholder="' + esc(t('smart.customPlaceholder')) + '"></textarea>',
+        htmlMessage: true,
         confirmText: t('smart.apply'),
         cancelText: t('cancel'),
     });
