@@ -113,8 +113,9 @@ func main() {
 	history := LoadHistory()
 	defer history.Close()
 
-	// Clean up orphaned audio files on startup
+	// Clean up orphaned audio files and stale pending entries on startup
 	go func() {
+		history.CleanupStalePending(1 * time.Hour)
 		validIDs := history.AllEntryIDs()
 		audiocache.CleanupOrphaned(validIDs)
 	}()
@@ -485,9 +486,9 @@ func main() {
 				if err != nil {
 					if errors.Is(err, context.Canceled) {
 						logInfo("Transcription cancelled by user")
-						// Pending entry already exists with audio cached — update reason
 						if pendingID != "" {
-							history.UpdatePendingReason(pendingID, T("transcription_cancelled"))
+							logDebug("Removing cancelled pending entry %s", pendingID)
+							history.Delete(pendingID)
 						}
 						return
 					}
@@ -512,7 +513,8 @@ func main() {
 				if transcribeCtx.Err() != nil {
 					logInfo("Transcription cancelled by user (post-return)")
 					if pendingID != "" {
-						history.UpdatePendingReason(pendingID, T("transcription_cancelled"))
+						logDebug("Removing cancelled pending entry %s", pendingID)
+						history.Delete(pendingID)
 					}
 					return
 				}
@@ -528,7 +530,8 @@ func main() {
 				if strings.TrimSpace(text) == "" {
 					logWarn("Transcription returned empty text")
 					if pendingID != "" {
-						history.UpdatePendingReason(pendingID, T("transcription_failed"))
+						logDebug("Removing empty pending entry %s", pendingID)
+						history.Delete(pendingID)
 					}
 					if playSounds {
 						PlayFeedback(SoundError)

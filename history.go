@@ -427,6 +427,42 @@ func (h *History) UpdatePendingReason(id, reason string) {
 	}
 }
 
+// CleanupStalePending removes pending entries older than maxAge that have no
+// cached audio (true crash orphans). Entries with audio are kept for retry.
+func (h *History) CleanupStalePending(maxAge time.Duration) int {
+	if h.db == nil {
+		return 0
+	}
+	cutoff := time.Now().Add(-maxAge).Format(time.RFC3339)
+	rows, err := h.db.Query(
+		`SELECT id FROM history_entries WHERE tags LIKE '%"pending"%' AND text = '' AND timestamp < ?`, cutoff)
+	if err != nil {
+		logWarn("CleanupStalePending query: %v", err)
+		return 0
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err == nil {
+			if !audiocache.Has(id) {
+				ids = append(ids, id)
+			}
+		}
+	}
+	if len(ids) == 0 {
+		return 0
+	}
+
+	h.invalidateCache()
+	for _, id := range ids {
+		h.Delete(id)
+	}
+	logInfo("Cleaned up %d stale pending entries (older than %v, no audio)", len(ids), maxAge)
+	return len(ids)
+}
+
 // Merge combines multiple entries into one. The newest entry's metadata is used as the base.
 // Returns the ID of the merged entry, or empty string on error.
 func (h *History) Merge(ids []string) string {
