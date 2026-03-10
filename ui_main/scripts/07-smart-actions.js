@@ -16,34 +16,27 @@ const SMART_PRESETS = [
 ];
 
 async function showSmartActionMenu(entryId, anchor) {
-    // Load custom templates
-    let customTemplates = {};
-    try {
-        const raw = await window.getCustomTemplates();
-        customTemplates = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        if (!customTemplates || typeof customTemplates !== 'object') customTemplates = {};
-    } catch (e) {}
-
+    const templates = await getAllSmartTemplates();
     const items = [];
     items.push({ header: t('smart.title') });
 
     // Built-in presets
-    for (const p of SMART_PRESETS) {
-        const presetId = p.id;
+    const builtIn = templates.filter(tpl => !tpl.isCustom);
+    for (const tpl of builtIn) {
         items.push({
-            label: t('smart.preset.' + presetId),
-            action: () => executeSmartAction(entryId, presetId, ''),
+            label: tpl.label,
+            action: () => executeSmartAction(entryId, tpl.id, ''),
         });
     }
 
     // Custom templates
-    const customNames = Object.keys(customTemplates);
-    if (customNames.length > 0) {
+    const custom = templates.filter(tpl => tpl.isCustom);
+    if (custom.length > 0) {
         items.push({ divider: true });
-        for (const name of customNames) {
+        for (const tpl of custom) {
             items.push({
-                label: name,
-                action: () => executeSmartAction(entryId, name, ''),
+                label: esc(tpl.label),
+                action: () => executeSmartAction(entryId, tpl.id, ''),
             });
         }
     }
