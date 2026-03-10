@@ -139,8 +139,7 @@ async function renderModelList() {
   if (!models || models.length === 0) {
     models = [
       { id: 'whisper-base', name: 'Whisper Base', size: '57MB', downloaded: false },
-      { id: 'whisper-small', name: 'Whisper Small', size: '175MB', downloaded: false },
-      { id: 'whisper-turbo', name: 'Whisper Turbo', size: '547MB', downloaded: false }
+      { id: 'whisper-small', name: 'Whisper Small', size: '175MB', downloaded: false }
     ];
   }
   

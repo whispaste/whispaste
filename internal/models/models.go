@@ -45,14 +45,6 @@ var Available = []Info{
 		URL:       "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
 		Filename:  "ggml-small-q5_1.bin",
 	},
-	{
-		ID:        "whisper-turbo",
-		Name:      "Whisper Turbo",
-		Size:      "547MB",
-		SizeBytes: 574_000_000,
-		URL:       "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
-		Filename:  "ggml-large-v3-turbo-q5_0.bin",
-	},
 }
 
 // Dir returns the directory where local models are stored.

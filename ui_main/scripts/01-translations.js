@@ -462,7 +462,6 @@ const translations = {
     // Model descriptions
     'model.desc.whisper-base': 'Fast, suitable for clear speech in one language. May struggle with mixed-language content.',
     'model.desc.whisper-small': 'Good balance of speed and quality. Better with mixed languages and accents.',
-    'model.desc.whisper-turbo': 'Best quality, handles accents, mixed languages, and technical terms with high accuracy.',
 
     // Model switcher
     'modelSwitcher.title': 'Switch Model',
@@ -568,8 +567,7 @@ const translations = {
     'onboarding.model_better_accuracy': 'Better accuracy',
     'onboarding.model_base_desc': 'Fastest, basic quality',
     'onboarding.model_small_desc': 'Good balance of speed and quality',
-    'onboarding.model_turbo_desc': 'Best quality, larger download',
-    'onboarding.model_performance_hint': 'Local models run directly on your device. Speed depends on your hardware — on slower machines, processing may take a bit longer than the cloud option.',
+    'onboarding.model_performance_hint':'Local models run directly on your device. Speed depends on your hardware — on slower machines, processing may take a bit longer than the cloud option.',
     'onboarding.model_needed': 'Download required',
     'onboarding.model_ready': '✓ Ready to use',
     'onboarding.model_downloading': 'Downloading…',
@@ -1132,7 +1130,6 @@ const translations = {
     // Model descriptions
     'model.desc.whisper-base': 'Schnell, geeignet für klare Sprache in einer Sprache. Bei gemischten Sprachen weniger genau.',
     'model.desc.whisper-small': 'Gute Balance aus Geschwindigkeit und Qualität. Besser bei gemischten Sprachen und Akzenten.',
-    'model.desc.whisper-turbo': 'Beste Qualität, verarbeitet Akzente, gemischte Sprachen und Fachbegriffe mit hoher Genauigkeit.',
 
     // Model switcher
     'modelSwitcher.title': 'Modell wechseln',
@@ -1238,8 +1235,7 @@ const translations = {
     'onboarding.model_better_accuracy': 'Bessere Genauigkeit',
     'onboarding.model_base_desc': 'Am schnellsten, grundlegende Qualität',
     'onboarding.model_small_desc': 'Gute Balance aus Geschwindigkeit und Qualität',
-    'onboarding.model_turbo_desc': 'Beste Qualität, größerer Download',
-    'onboarding.model_performance_hint': 'Lokale Modelle laufen direkt auf deinem Gerät. Die Geschwindigkeit hängt von deiner Hardware ab — auf langsameren Geräten kann die Verarbeitung etwas länger dauern als die Cloud-Variante.',
+    'onboarding.model_performance_hint':'Lokale Modelle laufen direkt auf deinem Gerät. Die Geschwindigkeit hängt von deiner Hardware ab — auf langsameren Geräten kann die Verarbeitung etwas länger dauern als die Cloud-Variante.',
     'onboarding.model_needed': 'Download erforderlich',
     'onboarding.model_ready': '✓ Einsatzbereit',
     'onboarding.model_downloading': 'Wird heruntergeladen…',
