@@ -344,35 +344,8 @@
   }, true);
 
   // ── Status bar button ──────────────────────────────────
-
-  function addPaletteButton() {
-    const statusBar = document.getElementById('globalStatusBar');
-    if (!statusBar) return;
-    const indicators = statusBar.querySelector('.status-indicators');
-    if (!indicators) return;
-
-    const btn = document.createElement('button');
-    btn.className = 'status-chip status-chip-subtle';
-    btn.id = 'statusPalette';
-    btn.title = t('palette.hint');
-    btn.innerHTML =
-      '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></svg>' +
-      '<span class="status-chip-label">' + esc(formatModKey('Ctrl')) + '+K</span>';
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openPalette();
-    });
-
-    indicators.appendChild(btn);
-  }
+  // Palette chip is now static in template.html — binding handled by updateStatusBar()
 
   // Expose globally for other scripts
   window.openCommandPalette = openPalette;
-
-  // Add button after DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', addPaletteButton);
-  } else {
-    addPaletteButton();
-  }
 })();
