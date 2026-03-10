@@ -329,6 +329,13 @@
 .status-dot.online { color: #22c55e; }
 .status-dot.offline { color: #ef4444; }
 
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .status-heart {
   display: inline-flex;
   align-items: center;

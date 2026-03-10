@@ -39,15 +39,15 @@
 }
 
 .onboarding-icon.onboarding-icon-logo {
-  width: 128px;
-  height: 128px;
+  width: 160px;
+  height: 160px;
   background: none;
   border-radius: 0;
 }
 
 .onboarding-icon-logo img {
-  width: 96px;
-  height: 96px;
+  width: 128px;
+  height: 128px;
   object-fit: contain;
 }
 
