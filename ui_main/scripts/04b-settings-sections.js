@@ -305,35 +305,118 @@ function renderSettingsLLMModel(status) {
   const container = document.getElementById('settings-llm-model-list');
   if (!container) return;
 
-  const name = 'SmolLM2';
-  const meta = '270 MB · 6 ' + t('smartLlmLanguages');
-  const isDownloading = container.dataset.downloading === 'true';
+  const models = status.models || {};
+  const selectedModel = status.selectedModel || 'smollm2';
 
-  let actionBtn;
-  if (isDownloading) {
-    actionBtn = `<button class="btn btn-secondary btn-sm" disabled>${t('modelDownloading')}</button>
-      <div class="model-progress"><div class="model-progress-bar" id="settings-llm-progress-bar" style="width:0%"></div></div>`;
-  } else if (status.installed) {
-    actionBtn = `<button class="btn btn-secondary btn-sm btn-model-test" id="btn-test-llm-settings" onclick="event.stopPropagation();testLLMModel('btn-test-llm-settings')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg> ${t('modelTest')}</button><span class="model-badge model-badge-success">✓ ${t('modelDownloaded')}</span><button class="btn btn-icon btn-sm btn-ghost" onclick="event.stopPropagation();deleteLLM()" title="${t('smartLlmDelete')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>`;
-  } else {
-    actionBtn = `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();startSettingsLLMDownload()">${t('modelDownload')}</button>`;
+  // Model definitions for display order
+  const modelOrder = ['smollm2', 'qwen3-0.6b'];
+  const modelTranslations = {
+    'smollm2': { name: t('smartLlmModelSmollm2'), desc: t('smartLlmModelSmollm2Desc') },
+    'qwen3-0.6b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
+  };
+
+  // Backward compat: if status has no models map, build one from legacy fields
+  if (Object.keys(models).length === 0 && status.installed !== undefined) {
+    models['smollm2'] = { name: 'SmolLM2', installed: !!status.installed };
   }
 
-  container.innerHTML = `<div class="model-item ${!status.installed && !isDownloading ? 'unavailable' : ''}" data-model-id="smollm2">
-    <div class="model-item-info">
-      <div class="model-item-name">${name}</div>
-      <div class="model-item-meta">${meta}${!status.installed ? ' · ' + t('modelNotDownloaded') : ''}</div>
-    </div>
-    <div class="model-item-action">${actionBtn}</div>
-  </div>
-  <div class="llm-progress hidden" id="settings-llm-progress">
-    <div class="llm-progress-bar"><div class="llm-progress-fill" id="settings-llm-progress-fill" style="width:0%"></div></div>
-    <div class="llm-progress-text" id="settings-llm-progress-text"></div>
-  </div>
-  <div class="connectivity-status hidden" id="settingsLlmConnectivityStatus">
+  let html = '';
+  for (const id of modelOrder) {
+    const m = models[id];
+    if (!m) continue;
+    const trans = modelTranslations[id] || { name: m.name, desc: '' };
+    const isInstalled = m.installed;
+    const isSelected = id === selectedModel;
+
+    html += `<div class="llm-model-card${isSelected ? ' llm-model-active' : ''}" data-model-id="${esc(id)}">
+      <div class="llm-model-card-header">
+        <div class="llm-model-info">
+          <span class="llm-model-name">${esc(trans.name)}</span>
+          <span class="llm-model-desc">${esc(trans.desc)}</span>
+        </div>
+        <div class="llm-model-status">
+          ${isInstalled
+            ? `<span class="llm-badge llm-badge-ready">${esc(t('smartLlmReady'))}</span>`
+            : `<span class="llm-badge llm-badge-not-installed">${esc(t('smartLlmNotInstalled'))}</span>`
+          }
+        </div>
+      </div>
+      <div class="llm-model-card-actions">
+        ${isInstalled
+          ? `${isSelected
+              ? `<button class="btn btn-sm btn-secondary" disabled>${esc(t('smartLlmSelected'))}</button>`
+              : `<button class="btn btn-sm btn-primary llm-select-btn" data-model="${esc(id)}">${esc(t('smartLlmSelect'))}</button>`
+            }
+            <button class="btn btn-sm btn-ghost llm-delete-btn" data-model="${esc(id)}" title="${esc(t('smartLlmDelete'))}">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>`
+          : `<button class="btn btn-sm btn-primary llm-download-btn" data-model="${esc(id)}">${esc(t('smartLlmDownload'))}</button>`
+        }
+      </div>
+      <div class="llm-progress-bar" style="display:none" data-model-progress="${esc(id)}">
+        <div class="llm-progress-fill"></div>
+        <span class="llm-progress-text"></span>
+      </div>
+    </div>`;
+  }
+
+  html += `<div class="connectivity-status hidden" id="settingsLlmConnectivityStatus">
     <span class="connectivity-dot"></span>
     <span class="connectivity-text"></span>
   </div>`;
+
+  container.innerHTML = html;
+
+  // Bind actions
+  container.querySelectorAll('.llm-download-btn').forEach(btn => {
+    btn.addEventListener('click', () => downloadLLMModel(btn.dataset.model));
+  });
+  container.querySelectorAll('.llm-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteLLMModel(btn.dataset.model));
+  });
+  container.querySelectorAll('.llm-select-btn').forEach(btn => {
+    btn.addEventListener('click', () => selectLLMModel(btn.dataset.model));
+  });
+}
+
+async function downloadLLMModel(modelID) {
+  const online = await updateConnectivityStatus('settingsLlmConnectivityStatus');
+  if (!online) {
+    showToast(t('connectivityRequired'), true);
+    return;
+  }
+  const safeID = CSS.escape(modelID);
+  const progressBar = document.querySelector(`[data-model-progress="${safeID}"]`);
+  const card = document.querySelector(`[data-model-id="${safeID}"]`);
+  if (!card) return;
+  const btn = card.querySelector('.llm-download-btn');
+  if (btn) { btn.disabled = true; btn.textContent = t('smartLlmDownloading'); }
+  if (progressBar) { progressBar.style.display = ''; }
+  try {
+    if (window.downloadLLM) await window.downloadLLM(modelID);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = t('smartLlmDownload'); }
+    if (window.onLLMDownloadError) window.onLLMDownloadError(e.message || String(e));
+  }
+}
+
+async function deleteLLMModel(modelID) {
+  const ok = await showConfirmDialog(
+    t('smartLlmDelete'),
+    t('smartLlmDeleteConfirm')
+  );
+  if (!ok) return;
+  try {
+    if (window.deleteLLM) await window.deleteLLM(modelID);
+  } catch (e) {}
+  updateLLMStatus();
+}
+
+async function selectLLMModel(modelID) {
+  try {
+    if (window.setLocalLLMModel) await window.setLocalLLMModel(modelID);
+  } catch (e) {}
+  updateLLMStatus();
 }
 
 async function startLLMDownload() {
@@ -349,18 +432,6 @@ async function startLLMDownload() {
   } catch (e) {
     if (window.onLLMDownloadError) window.onLLMDownloadError(e.message || String(e));
   }
-}
-
-async function deleteLLM() {
-  const ok = await showConfirmDialog(
-    t('smartLlmDelete'),
-    t('smartLlmDeleteConfirm')
-  );
-  if (!ok) return;
-  try {
-    if (window.deleteLLM) await window.deleteLLM();
-    await updateLLMStatus();
-  } catch (e) {}
 }
 
 async function testLLMModel(btnId) {
@@ -388,7 +459,21 @@ async function testLLMModel(btnId) {
   }
 }
 
-window.onLLMDownloadProgress = function(phase, pct) {
+window.onLLMDownloadProgress = function(phase, pct, modelID) {
+  // Update per-model progress bar (new multi-model UI)
+  if (modelID) {
+    const safeID = CSS.escape(modelID);
+    const bar = document.querySelector(`[data-model-progress="${safeID}"]`);
+    if (bar) {
+      bar.style.display = '';
+      const fill = bar.querySelector('.llm-progress-fill');
+      const text = bar.querySelector('.llm-progress-text');
+      if (fill) fill.style.width = pct + '%';
+      const label = phase === 'server' ? t('smartLlmDownloadServer') : t('smartLlmDownloadModel');
+      if (text) { text.textContent = label + ' ' + pct + '%'; text.style.color = ''; }
+    }
+  }
+  // Legacy ID-based progress elements
   ['', 'settings-'].forEach(prefix => {
     const fill = document.getElementById(prefix + 'llm-progress-fill');
     const text = document.getElementById(prefix + 'llm-progress-text');
@@ -403,7 +488,18 @@ window.onLLMDownloadProgress = function(phase, pct) {
   });
 };
 
-window.onLLMDownloadError = function(errorMsg) {
+window.onLLMDownloadError = function(errorMsg, modelID) {
+  // Update per-model progress bar
+  if (modelID) {
+    const safeID = CSS.escape(modelID);
+    const bar = document.querySelector(`[data-model-progress="${safeID}"]`);
+    if (bar) {
+      bar.style.display = '';
+      const text = bar.querySelector('.llm-progress-text');
+      if (text) { text.textContent = errorMsg; text.style.color = 'var(--error)'; }
+    }
+  }
+  // Legacy ID-based progress elements
   ['', 'settings-'].forEach(prefix => {
     const progress = document.getElementById(prefix + 'llm-progress');
     const text = document.getElementById(prefix + 'llm-progress-text');
@@ -413,37 +509,23 @@ window.onLLMDownloadError = function(errorMsg) {
       text.style.color = 'var(--error)';
     }
   });
-  const container = document.getElementById('settings-llm-model-list');
-  if (container) delete container.dataset.downloading;
   updateLLMStatus();
 };
 
-window.onLLMDownloadComplete = function() {
+window.onLLMDownloadComplete = function(modelID) {
+  // Hide per-model progress bar
+  if (modelID) {
+    const safeID = CSS.escape(modelID);
+    const bar = document.querySelector(`[data-model-progress="${safeID}"]`);
+    if (bar) bar.style.display = 'none';
+  }
+  // Legacy ID-based progress elements
   ['', 'settings-'].forEach(prefix => {
     const progress = document.getElementById(prefix + 'llm-progress');
     if (progress) progress.classList.add('hidden');
   });
-  const container = document.getElementById('settings-llm-model-list');
-  if (container) delete container.dataset.downloading;
   updateLLMStatus();
 };
-
-async function startSettingsLLMDownload() {
-  const online = await updateConnectivityStatus('settingsLlmConnectivityStatus');
-  if (!online) {
-    showToast(t('connectivityRequired'), true);
-    return;
-  }
-  const container = document.getElementById('settings-llm-model-list');
-  if (container) container.dataset.downloading = 'true';
-  const progress = document.getElementById('settings-llm-progress');
-  if (progress) progress.classList.remove('hidden');
-  try {
-    if (window.downloadLLM) await window.downloadLLM();
-  } catch (e) {
-    if (window.onLLMDownloadError) window.onLLMDownloadError(e.message || String(e));
-  }
-}
 
 async function updateConnectivityStatus(elementId) {
   const el = document.getElementById(elementId);

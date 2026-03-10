@@ -301,40 +301,92 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 	w.Bind("checkConnectivity", func() bool { return checkConnectivity() })
 	w.Bind("isLLMInstalled", func() bool { return IsLLMInstalled() })
 
-	w.Bind("downloadLLM", func() map[string]interface{} {
+	w.Bind("downloadLLM", func(modelID string) map[string]interface{} {
+		if modelID == "" {
+			modelID = cfg.GetLocalLLMModel()
+		}
+		mid := modelID // capture for goroutine
 		go func() {
-			err := DownloadLLM(func(phase string, pct int) {
+			err := DownloadLLM(mid, func(phase string, pct int) {
 				if mainWebview != nil {
-					js := fmt.Sprintf("if(typeof onLLMDownloadProgress==='function')onLLMDownloadProgress('%s',%d)", phase, pct)
+					js := fmt.Sprintf("if(typeof onLLMDownloadProgress==='function')onLLMDownloadProgress('%s',%d,'%s')", escapeJS(phase), pct, escapeJS(mid))
 					mainWebview.Dispatch(func() { mainWebview.Eval(js) })
 				}
 			})
 			if err != nil {
 				logError("LLM download failed: %v", err)
 				if mainWebview != nil {
-					js := fmt.Sprintf("if(typeof onLLMDownloadError==='function')onLLMDownloadError('%s')", escapeJS(err.Error()))
+					js := fmt.Sprintf("if(typeof onLLMDownloadError==='function')onLLMDownloadError('%s','%s')", escapeJS(err.Error()), escapeJS(mid))
 					mainWebview.Dispatch(func() { mainWebview.Eval(js) })
 				}
 				return
 			}
 			if mainWebview != nil {
-				mainWebview.Dispatch(func() { mainWebview.Eval("if(typeof onLLMDownloadComplete==='function')onLLMDownloadComplete()") })
+				js := fmt.Sprintf("if(typeof onLLMDownloadComplete==='function')onLLMDownloadComplete('%s')", escapeJS(mid))
+				mainWebview.Dispatch(func() { mainWebview.Eval(js) })
 			}
 		}()
 		return map[string]interface{}{"status": "started"}
 	})
 
-	w.Bind("deleteLLM", func() bool {
+	w.Bind("deleteLLM", func(modelID string) bool {
+		if modelID == "" {
+			modelID = cfg.GetLocalLLMModel()
+		}
 		localLLM.Stop()
-		return DeleteLLM() == nil
+		return DeleteLLMModel(modelID) == nil
 	})
 
 	w.Bind("getLLMStatus", func() string {
-		status := map[string]interface{}{
-			"installed": IsLLMInstalled(),
-			"running":   localLLM.IsRunning(),
+		result := map[string]interface{}{
+			"installed":       IsLLMInstalled(),
+			"running":         localLLM.IsRunning(),
+			"serverInstalled": IsLLMServerInstalled(),
+			"selectedModel":   cfg.GetLocalLLMModel(),
+			"models":          map[string]interface{}{},
 		}
-		data, _ := json.Marshal(status)
+		models := result["models"].(map[string]interface{})
+		for id, m := range LLMModels {
+			models[id] = map[string]interface{}{
+				"id":        m.ID,
+				"name":      m.Name,
+				"size":      m.Size,
+				"langs":     m.Langs,
+				"filename":  m.Filename,
+				"installed": IsLLMModelInstalled(id),
+			}
+		}
+		data, _ := json.Marshal(result)
+		return string(data)
+	})
+
+	w.Bind("setLocalLLMModel", func(modelID string) {
+		if _, ok := LLMModels[modelID]; !ok {
+			return
+		}
+		cfg.mu.Lock()
+		cfg.LocalLLMModel = modelID
+		cfg.mu.Unlock()
+		cfg.Save()
+		// Restart server with new model if running
+		if localLLM.IsRunning() {
+			localLLM.Stop()
+		}
+		logInfo("Local LLM model set to: %s", modelID)
+	})
+
+	w.Bind("getAvailableLLMModels", func() string {
+		result := make([]map[string]interface{}, 0, len(LLMModels))
+		for _, m := range LLMModels {
+			result = append(result, map[string]interface{}{
+				"id":        m.ID,
+				"name":      m.Name,
+				"size":      m.Size,
+				"langs":     m.Langs,
+				"installed": IsLLMModelInstalled(m.ID),
+			})
+		}
+		data, _ := json.Marshal(result)
 		return string(data)
 	})
 

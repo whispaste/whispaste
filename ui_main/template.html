@@ -243,6 +243,19 @@
           </div>
         </div>
       </div>
+      <div class="onboarding-llm-models hidden" id="onbLlmModelSection">
+        <p class="onb-llm-hint" data-i18n="onboarding.smart_llm_hint">Choose an offline AI model for Smart Mode — you can download it later in Settings.</p>
+        <div class="onb-llm-cards">
+          <div class="onb-llm-card selected" data-llm-id="smollm2" tabindex="0" role="button" onclick="onbSelectLLMModel('smollm2')">
+            <div class="onb-llm-card-name" data-i18n="onboarding.smart_llm_smollm2">SmolLM2</div>
+            <div class="onb-llm-card-desc" data-i18n="onboarding.smart_llm_smollm2_desc">Compact · 270 MB · 6 Languages</div>
+          </div>
+          <div class="onb-llm-card" data-llm-id="qwen3-0.6b" tabindex="0" role="button" onclick="onbSelectLLMModel('qwen3-0.6b')">
+            <div class="onb-llm-card-name" data-i18n="onboarding.smart_llm_qwen3">Qwen3-0.6B</div>
+            <div class="onb-llm-card-desc" data-i18n="onboarding.smart_llm_qwen3_desc">Powerful · 480 MB · 29 Languages</div>
+          </div>
+        </div>
+      </div>
       <div class="onboarding-actions">
         <button class="btn btn-secondary" onclick="prevOnboardingStep()"><span data-i18n="onboarding.back">Back</span></button>
         <button class="btn btn-primary" id="onbNextStep3" onclick="nextOnboardingStep()" disabled><span data-i18n="onboarding.next">Next</span></button>
