@@ -7,6 +7,8 @@ let _onbModelReady = false;
 let _onbDownloading = false;
 let _onbApiKeyValid = false;
 let _onbLlmModel = 'smollm2'; // selected LLM model for smart mode
+let _onbLlmReady = false;
+let _onbLlmDownloading = false;
 
 function showOnboarding() {
   const overlay = document.getElementById('onboardingOverlay');
@@ -20,6 +22,8 @@ function showOnboarding() {
     _onbDownloading = false;
     _onbApiKeyValid = false;
     _onbLlmModel = 'smollm2';
+    _onbLlmReady = false;
+    _onbLlmDownloading = false;
     onbInitPreferences();
     updateOnboardingStep();
   }
@@ -43,6 +47,8 @@ function updateOnboardingStep() {
 
 function nextOnboardingStep() {
   if (_onboardingStep < 4) {
+    // Guard: step 3 requires LLM downloaded when smart mode is on
+    if (_onboardingStep === 3 && _onboardingSmart === true && !_onbLlmReady) return;
     _onboardingStep++;
     if (_onboardingStep === 3 && _onboardingSmart === null) {
       selectOnboardingSmart(true);
@@ -253,6 +259,40 @@ window.updateModelProgress = function(modelId, pct, fileNum, fileCount, fileName
   if (_origUpdateModelProgress) _origUpdateModelProgress(modelId, pct, fileNum, fileCount, fileName);
 };
 
+// Hook LLM download callbacks for onboarding step 3
+const _origLLMProgress = window.onLLMDownloadProgress;
+window.onLLMDownloadProgress = function(phase, pct, modelID) {
+  const overlay = document.getElementById('onboardingOverlay');
+  if (overlay && !overlay.classList.contains('hidden') && _onbLlmDownloading) {
+    const bar = document.getElementById('onbLlmProgressBar');
+    if (bar) bar.style.width = pct + '%';
+    const label = document.getElementById('onbLlmProgressLabel');
+    if (label) label.textContent = pct + '%';
+  }
+  if (_origLLMProgress) _origLLMProgress(phase, pct, modelID);
+};
+
+const _origLLMComplete = window.onLLMDownloadComplete;
+window.onLLMDownloadComplete = function(modelID) {
+  const overlay = document.getElementById('onboardingOverlay');
+  if (overlay && !overlay.classList.contains('hidden') && _onbLlmDownloading) {
+    _onbLlmDownloading = false;
+    _onbLlmReady = true;
+    onbUpdateLlmUI();
+  }
+  if (_origLLMComplete) _origLLMComplete(modelID);
+};
+
+const _origLLMError = window.onLLMDownloadError;
+window.onLLMDownloadError = function(errorMsg, modelID) {
+  const overlay = document.getElementById('onboardingOverlay');
+  if (overlay && !overlay.classList.contains('hidden') && _onbLlmDownloading) {
+    _onbLlmDownloading = false;
+    onbUpdateLlmUI();
+  }
+  if (_origLLMError) _origLLMError(errorMsg, modelID);
+};
+
 function selectOnboardingSmart(enabled) {
   _onboardingSmart = enabled;
   document.querySelectorAll('#onboardingOverlay .onboarding-step[data-step="3"] .onboarding-option').forEach(opt => opt.classList.remove('selected'));
@@ -260,15 +300,71 @@ function selectOnboardingSmart(enabled) {
   if (el) el.classList.add('selected');
   const llmSection = document.getElementById('onbLlmModelSection');
   if (llmSection) llmSection.classList.toggle('hidden', !enabled);
-  const nextBtn= document.getElementById('onbNextStep3');
-  if (nextBtn) nextBtn.disabled = false;
+  const nextBtn = document.getElementById('onbNextStep3');
+  if (enabled) {
+    onbCheckLLMStatus();
+  } else {
+    if (nextBtn) nextBtn.disabled = false;
+  }
 }
 
-function onbSelectLLMModel(modelId) {
+async function onbSelectLLMModel(modelId) {
+  if (_onbLlmDownloading) return;
   _onbLlmModel = modelId;
   document.querySelectorAll('.onb-llm-card').forEach(card => {
     card.classList.toggle('selected', card.dataset.llmId === modelId);
   });
+  await onbCheckLLMStatus();
+}
+
+async function onbCheckLLMStatus() {
+  _onbLlmReady = false;
+  if (window.getLLMStatus) {
+    try {
+      const raw = await window.getLLMStatus();
+      const status = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      const models = status.models || {};
+      const m = models[_onbLlmModel];
+      if (m && m.installed) _onbLlmReady = true;
+    } catch (e) {}
+  }
+  onbUpdateLlmUI();
+}
+
+function onbUpdateLlmUI() {
+  const statusEl = document.getElementById('onbLlmStatus');
+  const downloadBtn = document.getElementById('onbLlmDownloadBtn');
+  const progressWrap = document.getElementById('onbLlmDownloadProgress');
+  const nextBtn = document.getElementById('onbNextStep3');
+
+  if (_onbLlmDownloading) {
+    if (statusEl) { statusEl.textContent = t('onboarding.smart_llm_downloading'); statusEl.className = 'onb-model-status downloading'; }
+    if (downloadBtn) downloadBtn.classList.add('hidden');
+    if (progressWrap) progressWrap.classList.remove('hidden');
+    if (nextBtn) nextBtn.disabled = true;
+  } else if (_onbLlmReady) {
+    if (statusEl) { statusEl.textContent = t('onboarding.smart_llm_ready'); statusEl.className = 'onb-model-status ready'; }
+    if (downloadBtn) downloadBtn.classList.add('hidden');
+    if (progressWrap) progressWrap.classList.add('hidden');
+    if (nextBtn) nextBtn.disabled = false;
+  } else {
+    if (statusEl) { statusEl.textContent = t('onboarding.model_needed'); statusEl.className = 'onb-model-status needed'; }
+    if (downloadBtn) downloadBtn.classList.remove('hidden');
+    if (progressWrap) progressWrap.classList.add('hidden');
+    if (nextBtn) nextBtn.disabled = true;
+  }
+}
+
+async function onbDownloadLLM() {
+  if (_onbLlmDownloading || !window.downloadLLM) return;
+  _onbLlmDownloading = true;
+  onbUpdateLlmUI();
+  try {
+    await window.downloadLLM(_onbLlmModel);
+  } catch (e) {
+    _onbLlmDownloading = false;
+    onbUpdateLlmUI();
+  }
 }
 
 async function finishOnboarding() {
