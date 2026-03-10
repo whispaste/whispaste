@@ -48,8 +48,11 @@ skills.yaml
 .claude/
 
 # Internal dev tools
-cmd/screenshot/
+cmd/
 scripts/review.mjs
+
+# Screenshots (local only)
+screenshots/
 
 # Design source files
 *.afdesign
