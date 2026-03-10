@@ -236,6 +236,7 @@
 
     loadCustomTemplates();
     if (typeof _builtinPresetsCache !== 'undefined') _builtinPresetsCache = null;
+    window.dispatchEvent(new Event('smart-templates-changed'));
   }
 
   async function editCustomTemplate(name) {
@@ -260,6 +261,7 @@
 
     loadCustomTemplates();
     if (typeof _builtinPresetsCache !== 'undefined') _builtinPresetsCache = null;
+    window.dispatchEvent(new Event('smart-templates-changed'));
   }
 
   async function deleteCustomTemplate(name) {
@@ -272,6 +274,7 @@
     delete templateMetas[name];
     await window.deleteCustomTemplate(name);
     loadCustomTemplates();
+    window.dispatchEvent(new Event('smart-templates-changed'));
   }
 
   document.addEventListener('click', (e) => {

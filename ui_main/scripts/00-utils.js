@@ -248,6 +248,33 @@ function getTagColor(tagName) {
   return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
 }
 
+/** Unified smart template list — single source of truth for all menus */
+async function getAllSmartTemplates() {
+  const builtIn = (typeof SMART_PRESETS !== 'undefined' ? SMART_PRESETS : []).map(p => ({
+    id: p.id,
+    label: t('smart.preset.' + p.id) || p.id,
+    prompt: p.prompt || '',
+    icon: p.icon,
+    isCustom: false,
+  }));
+
+  let custom = [];
+  try {
+    const raw = await window.getCustomTemplates();
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (parsed && typeof parsed === 'object') {
+      custom = Object.entries(parsed).map(([name, prompt]) => ({
+        id: name,
+        label: name,
+        prompt: typeof prompt === 'string' ? prompt : '',
+        isCustom: true,
+      }));
+    }
+  } catch (e) {}
+
+  return [...builtIn, ...custom];
+}
+
 const icons = {
   copy: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>',
   pin: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>',
