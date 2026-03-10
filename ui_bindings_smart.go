@@ -105,6 +105,17 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		return cfg.GetTextReplacementsEnabled()
 	})
 
+	w.Bind("getTextReplacementsAI", func() bool {
+		return cfg.GetTextReplacementsAI()
+	})
+
+	w.Bind("setTextReplacementsAI", func(enabled bool) {
+		cfg.SetTextReplacementsAI(enabled)
+		if err := cfg.Save(); err != nil {
+			logError("Save text replacements AI: %v", err)
+		}
+	})
+
 	w.Bind("getAppPresets", func() string {
 		m := cfg.GetAppPresets()
 		data, _ := json.Marshal(m)

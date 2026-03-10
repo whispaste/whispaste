@@ -2,7 +2,7 @@
     <div class="page hidden" id="page-replacements">
       <div class="page-header">
         <h2 class="page-title" data-i18n="tabReplacements">Text Replacements</h2>
-        <p class="page-subtitle" data-i18n="replacementsDesc">Define trigger words that automatically get replaced in your transcriptions.</p>
+        <p class="page-subtitle" data-i18n="replacementsDesc">Define trigger phrases that automatically get replaced in your transcriptions.</p>
       </div>
       <div class="replacements-scroll">
         <!-- Enable/Disable Toggle Card -->
@@ -11,7 +11,7 @@
             <div class="toggle-row">
               <div class="toggle-info">
                 <label class="toggle-label" for="replacements-toggle" data-i18n="labelReplacementsToggle">Text Replacements</label>
-                <p class="toggle-desc" data-i18n="descReplacementsToggle">When enabled, trigger words are automatically replaced in every transcription before pasting</p>
+                <p class="toggle-desc" data-i18n="descReplacementsToggle">When enabled, trigger phrases are automatically replaced in every transcription before pasting</p>
               </div>
               <div class="toggle-switch">
                 <input type="checkbox" id="replacements-toggle" onchange="updateReplacementsVisibility()">
@@ -19,6 +19,24 @@
               </div>
             </div>
           </div>
+        </div>
+        <div class="card" id="replacements-ai-card">
+          <div class="form-group">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <label class="toggle-label" for="replacements-ai-toggle" data-i18n="labelReplacementsAI">AI-Assisted Matching</label>
+                <p class="toggle-desc" data-i18n="descReplacementsAI">Uses the local AI model to detect trigger phrases even when they appear in different wording</p>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="replacements-ai-toggle">
+                <label class="toggle-track" for="replacements-ai-toggle"></label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="replacements-disabled-hint" class="replacements-disabled-hint hidden">
+          <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <span data-i18n="replacementsDisabledHint"></span>
         </div>
         <div id="replacements-content">
           <div class="replacements-list" id="replacements-list"></div>

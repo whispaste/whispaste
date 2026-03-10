@@ -77,7 +77,7 @@ async function loadAnalytics(periodDays) {
   // Daily bar chart
   html += `<div class="chart-card full-width">
     <div class="chart-title">${t('analytics.daily_chart')}</div>
-    <div class="chart-container">${renderDailyChart(data.dailyCounts)}</div>
+    <div class="chart-container">${renderDailyChart(data.dailyCounts, data.dailyModelCounts)}</div>
   </div>`;
 
   // Model donut chart
@@ -119,16 +119,40 @@ async function loadAnalytics(periodDays) {
   </div>`;
   _analyticsData = data;
   container.innerHTML = html;
-  _fitDailyChart(container, data.dailyCounts);
+  _fitDailyChart(container, data.dailyCounts, data.dailyModelCounts);
 }
 
 function _localDateKey(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
-function renderDailyChart(dailyCounts, svgWidth) {
+function renderDailyChart(dailyCounts, dailyModelCounts, svgWidth) {
   if (!dailyCounts || Object.keys(dailyCounts).length === 0) {
     return `<p style="color:var(--text-hint);font-size:12px">${t('analytics.no_data')}</p>`;
+  }
+
+  const hasModelData = dailyModelCounts && Object.keys(dailyModelCounts).length > 0;
+
+  // Build a stable color map: local models → cyan shades, API models → purple/indigo
+  const localColors = ['#22D3EE', '#06B6D4', '#0891B2', '#0E7490', '#155E75'];
+  const apiColors = ['#818CF8', '#A78BFA', '#8B5CF6', '#7C3AED', '#6D28D9'];
+  const modelColorMap = {};
+  let localIdx = 0, apiIdx = 0;
+  if (hasModelData) {
+    const allModels = new Set();
+    for (const entries of Object.values(dailyModelCounts)) {
+      for (const m of entries) allModels.add(m.model + '|' + (m.isLocal ? '1' : '0'));
+    }
+    for (const key of [...allModels].sort()) {
+      const [model, isLocal] = [key.slice(0, key.lastIndexOf('|')), key.slice(key.lastIndexOf('|') + 1)];
+      if (isLocal === '1') {
+        modelColorMap[key] = localColors[localIdx % localColors.length];
+        localIdx++;
+      } else {
+        modelColorMap[key] = apiColors[apiIdx % apiColors.length];
+        apiIdx++;
+      }
+    }
   }
 
   // Fill ALL days in the selected period
@@ -138,7 +162,6 @@ function renderDailyChart(dailyCounts, svgWidth) {
   const dataDays = Object.keys(dailyCounts).sort();
 
   if (_analyticsPeriod > 0) {
-    // Fixed range: show exactly N days
     for (let i = _analyticsPeriod - 1; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
@@ -146,7 +169,6 @@ function renderDailyChart(dailyCounts, svgWidth) {
       allDays.push({ date: key, count: dailyCounts[key] || 0, label: d.getDate().toString() });
     }
   } else {
-    // All Time: span from earliest data to today
     const earliest = new Date(dataDays[0]);
     earliest.setHours(0, 0, 0, 0);
     const span = Math.round((today - earliest) / 86400000) + 1;
@@ -160,12 +182,14 @@ function renderDailyChart(dailyCounts, svgWidth) {
 
   const maxCount = Math.max(...allDays.map(d => d.count), 1);
   const h = 140;
+  const legendH = hasModelData ? 24 : 0;
+  const totalH = h + legendH;
   const padding = { top: 10, bottom: 25, left: 30, right: 5 };
   const chartH = h - padding.top - padding.bottom;
   svgWidth = svgWidth || 400;
   const chartW = svgWidth - padding.left - padding.right;
 
-  // Grid lines (3-4 horizontal lines with value labels)
+  // Grid lines
   const gridSteps = 4;
   let gridLines = '';
   for (let i = 0; i <= gridSteps; i++) {
@@ -178,27 +202,61 @@ function renderDailyChart(dailyCounts, svgWidth) {
   const barW = chartW / allDays.length;
   const maxBarPx = 48;
   let bars = '';
-  // Show labels selectively to avoid overlap (width-based)
   const minLabelSlot = 32;
   const maxLabels = Math.max(1, Math.floor(chartW / minLabelSlot));
   const labelEvery = Math.max(1, Math.ceil(allDays.length / maxLabels));
+
   allDays.forEach((d, i) => {
-    const barH = (d.count / maxCount) * chartH;
     const bwRaw = barW * 0.7;
     const bw = Math.min(bwRaw, maxBarPx);
     const x = padding.left + i * barW + (barW - bw) / 2;
-    if (d.count > 0) {
-      bars += `<rect class="bar" x="${x}" y="${padding.top + chartH - barH}" width="${bw}" height="${barH}" rx="2"><title>${d.date}: ${d.count}</title></rect>`;
+    const totalBarH = (d.count / maxCount) * chartH;
+
+    if (d.count > 0 && hasModelData && dailyModelCounts[d.date]) {
+      // Stacked bar: render segments bottom-up
+      const segments = dailyModelCounts[d.date];
+      let yOffset = 0;
+      segments.forEach((seg, si) => {
+        const segH = (seg.count / maxCount) * chartH;
+        const key = seg.model + '|' + (seg.isLocal ? '1' : '0');
+        const color = modelColorMap[key] || 'var(--accent)';
+        const segY = padding.top + chartH - yOffset - segH;
+        const isTop = si === segments.length - 1;
+        bars += `<rect class="bar-segment" x="${x}" y="${segY}" width="${bw}" height="${segH}" rx="${isTop ? 2 : 0}" fill="${color}"><title>${d.date}: ${seg.model} (${seg.isLocal ? 'local' : 'API'}) — ${seg.count}</title></rect>`;
+        yOffset += segH;
+      });
+    } else if (d.count > 0) {
+      // Fallback: single-color bar
+      bars += `<rect class="bar" x="${x}" y="${padding.top + chartH - totalBarH}" width="${bw}" height="${totalBarH}" rx="2"><title>${d.date}: ${d.count}</title></rect>`;
     }
+
     if (i % labelEvery === 0) {
       bars += `<text x="${padding.left + i * barW + barW / 2}" y="${h - 4}" text-anchor="middle">${d.label}</text>`;
     }
   });
 
-  return `<svg class="bar-chart" viewBox="0 0 ${svgWidth} ${h}" preserveAspectRatio="none">
+  // Legend for model types
+  let legendSvg = '';
+  if (hasModelData) {
+    const legendItems = [];
+    for (const [key, color] of Object.entries(modelColorMap)) {
+      const [model, isLocal] = [key.slice(0, key.lastIndexOf('|')), key.slice(key.lastIndexOf('|') + 1)];
+      const label = model + (isLocal === '1' ? ' ⏻' : '');
+      legendItems.push({ label, color });
+    }
+    let lx = padding.left;
+    for (const item of legendItems) {
+      legendSvg += `<rect x="${lx}" y="${h + 4}" width="8" height="8" rx="2" fill="${item.color}"/>`;
+      legendSvg += `<text x="${lx + 11}" y="${h + 12}" class="chart-legend-label">${item.label}</text>`;
+      lx += item.label.length * 5.5 + 22;
+    }
+  }
+
+  return `<svg class="bar-chart${hasModelData ? ' stacked' : ''}" viewBox="0 0 ${svgWidth} ${totalH}" preserveAspectRatio="none">
     ${gridLines}
     <line class="axis" x1="${padding.left}" y1="${padding.top + chartH}" x2="${svgWidth - padding.right}" y2="${padding.top + chartH}"/>
     ${bars}
+    ${legendSvg}
   </svg>`;
 }
 
@@ -273,11 +331,11 @@ function renderDurationBars(buckets) {
   }).join('')}</div>`;
 }
 
-function _fitDailyChart(root, dailyCounts) {
+function _fitDailyChart(root, dailyCounts, dailyModelCounts) {
   const wrap = root.querySelector('.chart-card.full-width .chart-container');
   if (!wrap || !dailyCounts) return;
   const w = wrap.clientWidth;
-  if (w > 0) wrap.innerHTML = renderDailyChart(dailyCounts, w);
+  if (w > 0) wrap.innerHTML = renderDailyChart(dailyCounts, dailyModelCounts, w);
 }
 
 function renderBenchmarkTable(benchmarks) {
@@ -364,7 +422,7 @@ function _initAnalyticsResize() {
   _analyticsResizeObserver = new ResizeObserver(() => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      if (_analyticsData) _fitDailyChart(container, _analyticsData.dailyCounts);
+      if (_analyticsData) _fitDailyChart(container, _analyticsData.dailyCounts, _analyticsData.dailyModelCounts);
     }, 150);
   });
   _analyticsResizeObserver.observe(container);

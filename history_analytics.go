@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+type dailyModelCount struct {
+	Model   string `json:"model"`
+	IsLocal bool   `json:"isLocal"`
+	Count   int    `json:"count"`
+}
+
 // GetAnalytics computes usage statistics for a given time period.
 // Results are cached for 2 seconds to avoid recomputation on rapid refreshes.
 // Reads from the daily_stats aggregation table instead of scanning history_entries.
@@ -46,6 +52,7 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 	var totalProcessingDuration float64
 	var totalWords float64
 	dailyCounts := map[string]int{}
+	dailyModelCounts := map[string][]dailyModelCount{}
 	modelCounts := map[string]int{}
 	durationBuckets := map[string]int{"<15s": 0, "15-30s": 0, "30-60s": 0, "1-3m": 0, ">3m": 0}
 	monthlyCosts := map[string]float64{}
@@ -86,6 +93,11 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		if model == "" {
 			model = "unknown"
 		}
+		dailyModelCounts[date] = append(dailyModelCounts[date], dailyModelCount{
+			Model:   model,
+			IsLocal: isLocal == 1,
+			Count:   count,
+		})
 		modelCounts[model] += count
 
 		mb, ok := modelBenchmarks[model]
@@ -135,6 +147,7 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		"totalCost":             totalCost,
 		"savings":               savings,
 		"dailyCounts":           dailyCounts,
+		"dailyModelCounts":      dailyModelCounts,
 		"modelCounts":           modelCounts,
 		"durationBuckets":       durationBuckets,
 		"avgDuration":           avgDuration,
@@ -147,6 +160,9 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		"totalWords":            totalWords,
 		"avgWordsPerEntry":      safeDiv(totalWords, float64(totalEntries)),
 	}
+
+	// Data audit: compare daily_stats totals against history_entries (rate-limited)
+	h.auditDailyStatsThrottled()
 
 	func() {
 		h.mu.Lock()
@@ -180,4 +196,69 @@ func safeDiv(a, b float64) float64 {
 		return 0
 	}
 	return a / b
+}
+
+// auditDailyStatsThrottled runs the audit at most once every 5 minutes.
+func (h *History) auditDailyStatsThrottled() {
+	h.mu.Lock()
+	if time.Since(h.lastAuditTime) < 5*time.Minute {
+		h.mu.Unlock()
+		return
+	}
+	h.lastAuditTime = time.Now()
+	h.mu.Unlock()
+	h.auditDailyStats()
+}
+
+// auditDailyStats logs discrepancies between daily_stats and history_entries for the last 7 days.
+func (h *History) auditDailyStats() {
+	cutoff := time.Now().AddDate(0, 0, -7).Format("2006-01-02")
+
+	// Get daily_stats totals per date
+	statsRows, err := h.db.Query(`SELECT date, SUM(count) FROM daily_stats WHERE date >= ? GROUP BY date`, cutoff)
+	if err != nil {
+		logDebug("Audit daily_stats query: %v", err)
+		return
+	}
+	statsTotals := map[string]int{}
+	for statsRows.Next() {
+		var date string
+		var count int
+		if err := statsRows.Scan(&date, &count); err == nil {
+			statsTotals[date] = count
+		}
+	}
+	statsRows.Close()
+
+	// Get history_entries counts per date
+	entryRows, err := h.db.Query(`SELECT substr(timestamp, 1, 10) as date, COUNT(*) FROM history_entries WHERE substr(timestamp, 1, 10) >= ? GROUP BY date`, cutoff)
+	if err != nil {
+		logDebug("Audit history_entries query: %v", err)
+		return
+	}
+	entryTotals := map[string]int{}
+	for entryRows.Next() {
+		var date string
+		var count int
+		if err := entryRows.Scan(&date, &count); err == nil {
+			entryTotals[date] = count
+		}
+	}
+	entryRows.Close()
+
+	// Compare and log discrepancies
+	allDates := map[string]bool{}
+	for d := range statsTotals {
+		allDates[d] = true
+	}
+	for d := range entryTotals {
+		allDates[d] = true
+	}
+	for date := range allDates {
+		sc := statsTotals[date]
+		ec := entryTotals[date]
+		if sc != ec {
+			logDebug("Stats audit %s: daily_stats=%d history_entries=%d (diff=%d)", date, sc, ec, sc-ec)
+		}
+	}
 }

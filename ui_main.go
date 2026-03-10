@@ -282,6 +282,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStat
 		if initialPage == "smart-mode" {
 			effectivePage = "settings"
 		}
+		logDebug("Theme: injecting '%s' from config", cfg.GetTheme())
 		// Set data-theme attribute immediately so CSS variables apply before first paint (prevents white flash)
 		// Guard against document.documentElement being null on about:blank
 		initJS := fmt.Sprintf(`(function(){var d=document.documentElement;if(!d)return;var t=%s;if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';if(t==='dark')d.setAttribute('data-theme','dark');})();`, themeJSON)
