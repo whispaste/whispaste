@@ -31,6 +31,69 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		return string(resp)
 	})
 
+	w.Bind("applyBulkSmartAction", func(idsJSON, preset, customPrompt string) string {
+		var ids []string
+		if err := json.Unmarshal([]byte(idsJSON), &ids); err != nil {
+			resp, _ := json.Marshal(map[string]string{"error": "invalid input"})
+			return string(resp)
+		}
+		if len(ids) < 2 {
+			resp, _ := json.Marshal(map[string]string{"error": "need at least 2 entries"})
+			return string(resp)
+		}
+
+		// Collect texts and languages from all selected entries
+		var texts []string
+		langCount := map[string]int{}
+		for _, id := range ids {
+			entry := history.GetByID(id)
+			if entry != nil && entry.Text != "" {
+				texts = append(texts, entry.Text)
+				if entry.Language != "" {
+					langCount[entry.Language]++
+				}
+			}
+		}
+		if len(texts) < 2 {
+			resp, _ := json.Marshal(map[string]string{"error": "need at least 2 entries with text"})
+			return string(resp)
+		}
+
+		// Join texts with separator for the LLM
+		combined := joinTextsForBulk(texts)
+
+		apiKey := cfg.GetAPIKey()
+		endpoint := cfg.GetAPIEndpoint()
+		appLang := cfg.GetUILanguage()
+		if appLang == "" {
+			appLang = "en"
+		}
+
+		// Use a compound prompt: merge coherently, then apply the preset
+		bulkPrompt := buildBulkSmartPrompt(preset, customPrompt, appLang, cfg.GetCustomTemplates())
+		if bulkPrompt == "" {
+			resp, _ := json.Marshal(map[string]string{"error": "unknown preset"})
+			return string(resp)
+		}
+
+		result, err := PostProcess(combined, "custom", bulkPrompt, "", apiKey, endpoint, appLang, cfg.GetCustomTemplates())
+		if err != nil {
+			resp, _ := json.Marshal(map[string]string{"error": err.Error()})
+			return string(resp)
+		}
+		// Determine dominant language from source entries
+		dominantLang := appLang
+		maxCount := 0
+		for lang, count := range langCount {
+			if count > maxCount {
+				maxCount = count
+				dominantLang = lang
+			}
+		}
+		resp, _ := json.Marshal(map[string]string{"text": result, "language": dominantLang})
+		return string(resp)
+	})
+
 	w.Bind("addSmartEntry", func(sourceID, text, preset string) {
 		entry := history.GetByID(sourceID)
 		if entry == nil {
@@ -38,6 +101,17 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		}
 		history.AddSmart(text, entry.Language, []string{"smart:" + preset})
 		logInfo("New smart entry created from %s using preset %s", sourceID, preset)
+	})
+
+	w.Bind("addBulkSmartEntry", func(text, preset, lang string) {
+		if lang == "" {
+			lang = cfg.GetUILanguage()
+			if lang == "" {
+				lang = "en"
+			}
+		}
+		history.AddSmart(text, lang, []string{"smart:bulk:" + preset})
+		logInfo("New bulk smart entry created using preset %s", preset)
 	})
 
 	w.Bind("setSmartPreset", func(preset string) {
