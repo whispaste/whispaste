@@ -473,10 +473,11 @@ func (c *Config) GetTagColors() map[string]int {
 }
 
 // SetSmartModePreset sets the smart mode preset and enables/disables smart mode (thread-safe).
+// An empty string or "off" disables smart mode; any other value enables it with that preset.
 func (c *Config) SetSmartModePreset(preset string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if preset == "off" {
+	if preset == "" || preset == "off" {
 		c.SmartMode = false
 	} else {
 		c.SmartMode = true

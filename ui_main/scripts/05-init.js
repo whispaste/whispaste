@@ -251,8 +251,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Selection bar buttons
   const selClose = document.getElementById('selectionClose');
   const delSelected = document.getElementById('deleteSelectedBtn');
+  const bulkSmart = document.getElementById('bulkSmartBtn');
   if (selClose) selClose.addEventListener('click', clearSelection);
   if (delSelected) delSelected.addEventListener('click', confirmDeleteSelected);
+  if (bulkSmart) bulkSmart.addEventListener('click', () => showBulkSmartActionMenu(bulkSmart));
 
   // --- Navigation ---
   document.querySelectorAll('.nav-item[data-page]').forEach(item => {
