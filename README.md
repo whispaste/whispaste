@@ -63,7 +63,7 @@ Voice Activity Detection strips silence before sending audio. Smart Mode can opt
 | ☁️ **Cloud & Local Models** | Use OpenAI Whisper API or run offline with local Whisper models — no API key needed for local. |
 | 📋 **Auto-Paste** | Transcribed text is automatically pasted at your cursor. Smart terminal detection (Windows Terminal, WSL, mintty). |
 | 🧠 **Smart Mode** | 13 AI post-processing presets: cleanup, email, bullets, formal, translate, meeting notes, and more. Custom prompts supported. |
-| 🤖 **Local Smart Mode** | Run post-processing entirely offline with a local LLM (Qwen3-0.6B or SmolLM2-360M) — no cloud API needed. |
+| 🤖 **Local Smart Mode** | Run post-processing entirely offline with a local LLM (Qwen3.5-0.8B or SmolLM2-360M) — no cloud API needed. |
 | 🎯 **Voice Activity Detection** | Automatic silence stripping improves accuracy and reduces API costs. Configurable sensitivity. |
 | 🖥️ **Recording Overlay** | Pill-shaped overlay with live waveform, timer, pause, and cancel controls. Always on top, never steals focus. |
 | 📜 **History & Dashboard** | Browse, search (full-text), tag, pin, archive, edit, merge, and re-copy past transcriptions. |

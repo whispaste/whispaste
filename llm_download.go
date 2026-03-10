@@ -34,12 +34,12 @@ var LLMModels = map[string]LLMModelDef{
 		Filename: "smollm2.gguf",
 		Langs:    6,
 	},
-	"qwen3-0.6b": {
-		ID:       "qwen3-0.6b",
-		Name:     "Qwen3-0.6B",
-		URL:      "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF/resolve/main/Qwen_Qwen3-0.6B-Q4_K_M.gguf",
-		Size:     484_220_320,
-		Filename: "qwen3-0.6b.gguf",
+	"qwen3.5-0.8b": {
+		ID:       "qwen3.5-0.8b",
+		Name:     "Qwen3.5-0.8B",
+		URL:      "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf",
+		Size:     532_517_120,
+		Filename: "qwen3.5-0.8b.gguf",
 		Langs:    29,
 	},
 }
