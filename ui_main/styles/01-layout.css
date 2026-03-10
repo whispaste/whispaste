@@ -294,6 +294,27 @@
   opacity: 1;
   border-color: var(--border-subtle);
 }
+/* Info chips (non-interactive indicators like hotkey, palette, connectivity) */
+.status-chip-info {
+  border-color: transparent;
+  color: var(--text-muted, var(--text-secondary));
+  opacity: 0.7;
+}
+.status-chip-info:hover {
+  opacity: 1;
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+/* Vertical divider between chip groups */
+.status-divider {
+  display: inline-block;
+  width: 1px;
+  height: 14px;
+  background: var(--border-subtle);
+  opacity: 0.5;
+  flex-shrink: 0;
+  margin: 0 2px;
+}
 .status-chip-audio {
   background: var(--accent-subtle);
   color: var(--accent);
@@ -323,11 +344,15 @@
 
 /* Connectivity indicator */
 .status-dot {
-  font-size: 10px;
-  line-height: 1;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-muted, #888);
 }
-.status-dot.online { color: #22c55e; }
-.status-dot.offline { color: #ef4444; }
+.status-dot.online { background: #22c55e; }
+.status-dot.offline { background: #ef4444; }
 
 .status-right {
   display: flex;
