@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/whispaste/whispaste/internal/models"
@@ -18,9 +19,14 @@ const (
 	sttServerAssetKey = "bin-x64"
 )
 
+// sttDownloadMu serializes STT downloads to prevent concurrent server binary extraction.
+var sttDownloadMu sync.Mutex
+
 // DownloadSTT downloads the whisper-server binary (if needed) and a GGML model.
 // progressFn is called with phase ("server" or "model") and percentage (0–100).
 func DownloadSTT(modelID string, progressFn func(phase string, pct int)) error {
+	sttDownloadMu.Lock()
+	defer sttDownloadMu.Unlock()
 	model := models.Find(modelID)
 	if model == nil {
 		return fmt.Errorf("unknown STT model: %s", modelID)
