@@ -33,7 +33,7 @@ import Footer from "../components/Footer.astro";
             </p>
             <ul class="list-disc list-inside space-y-2 ml-4">
               <li>
-                <strong class="text-white">Local / Offline transcription:</strong> Audio is processed entirely on your device using a local AI model (Whisper via sherpa-onnx). No audio data leaves your computer.
+                <strong class="text-white">Local / Offline transcription:</strong> Audio is processed entirely on your device using a local AI model (Whisper via whisper.cpp). No audio data leaves your computer.
               </li>
               <li>
                 <strong class="text-white">Cloud transcription (OpenAI Whisper API):</strong> Audio is sent to OpenAI's servers for transcription. This requires you to provide your own OpenAI API key. The audio is transmitted directly from your device to OpenAI — WhisPaste does not route, store, or process audio on any intermediary server.

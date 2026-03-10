@@ -473,14 +473,9 @@ func main() {
 				var err error
 				logInfo("Transcribing with: useLocal=%v model=%s", useLocal, modelName)
 				if useLocal {
-					modelDir, mdErr := models.GetDir(cfg.GetLocalModelID())
-					if mdErr != nil {
-						logError("Model directory error: %v", mdErr)
-						text, err = "", mdErr
-					} else {
-						logDebug("starting local transcription: model=%s lang=%s audioBytes=%d", modelDir, localLang, len(pcm))
-						text, err = GetLocalRecognizer().Transcribe(pcm, 16000, localLang, modelDir)
-					}
+					localModelID := cfg.GetLocalModelID()
+					logDebug("starting local transcription: model=%s lang=%s audioBytes=%d", localModelID, localLang, len(pcm))
+					text, err = TranscribeLocal(pcm, 16000, localLang, localModelID)
 				} else {
 					wavData := wav.Encode(pcm, 16000, 1, 16)
 					text, err = Transcribe(transcribeCtx, wavData, lang, apiKey, model, endpoint, "")
@@ -1078,6 +1073,7 @@ func main() {
 				}
 			}()
 			localLLM.Stop()
+			localSTT.Stop()
 			GetVADProcessor().Close()
 			CloseMainWindow()
 			CloseLogViewer()
