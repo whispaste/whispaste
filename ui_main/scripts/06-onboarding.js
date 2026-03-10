@@ -6,6 +6,7 @@ let _onbModelId = 'whisper-small';
 let _onbModelReady = false;
 let _onbDownloading = false;
 let _onbApiKeyValid = false;
+let _onbLlmModel = 'smollm2'; // selected LLM model for smart mode
 
 function showOnboarding() {
   const overlay = document.getElementById('onboardingOverlay');
@@ -18,6 +19,7 @@ function showOnboarding() {
     _onbModelReady = false;
     _onbDownloading = false;
     _onbApiKeyValid = false;
+    _onbLlmModel = 'smollm2';
     onbInitPreferences();
     updateOnboardingStep();
   }
@@ -256,8 +258,17 @@ function selectOnboardingSmart(enabled) {
   document.querySelectorAll('#onboardingOverlay .onboarding-step[data-step="3"] .onboarding-option').forEach(opt => opt.classList.remove('selected'));
   const el = document.getElementById(enabled ? 'onb-smart-on' : 'onb-smart-off');
   if (el) el.classList.add('selected');
+  const llmSection = document.getElementById('onbLlmModelSection');
+  if (llmSection) llmSection.classList.toggle('hidden', !enabled);
   const nextBtn= document.getElementById('onbNextStep3');
   if (nextBtn) nextBtn.disabled = false;
+}
+
+function onbSelectLLMModel(modelId) {
+  _onbLlmModel = modelId;
+  document.querySelectorAll('.onb-llm-card').forEach(card => {
+    card.classList.toggle('selected', card.dataset.llmId === modelId);
+  });
 }
 
 async function finishOnboarding() {
@@ -282,6 +293,7 @@ async function finishOnboarding() {
       if (_onboardingSmart === true) {
         cfg.smart_mode = true;
         cfg.smart_mode_provider = 'auto';
+        cfg.local_llm_model = _onbLlmModel;
       } else if (_onboardingSmart === false) {
         cfg.smart_mode = false;
       }
@@ -291,6 +303,10 @@ async function finishOnboarding() {
         await window.switchModel(_onbModelId, true);
       } else if (_onboardingChoice === 'api' && window.switchModel) {
         await window.switchModel(cfg.model || 'whisper-1', false);
+      }
+      // Persist LLM model selection
+      if (_onboardingSmart && window.setLocalLLMModel) {
+        try { await window.setLocalLLMModel(_onbLlmModel); } catch (e) {}
       }
     }
   } catch (e) { showToast(t('saveError') || 'Settings could not be saved', true); }

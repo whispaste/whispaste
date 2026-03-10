@@ -213,6 +213,17 @@ function updateStatusBar(cfg) {
   }
 }
 
+window.refreshFromConfig = async function() {
+  try {
+    const raw = await window.getConfig();
+    const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    updateStatusBar(cfg);
+    // Sync smart mode toggle in settings if visible
+    const toggle = document.getElementById('toggle-smartmode');
+    if (toggle) toggle.checked = !!cfg.smart_mode;
+  } catch (e) {}
+};
+
 /** Update the connectivity status chip */
 async function updateConnectivityChip() {
   const dot = document.getElementById('statusConnDot');

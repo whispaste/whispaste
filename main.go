@@ -95,6 +95,8 @@ func main() {
 	if err != nil {
 		logWarn("Config load error: %v (using defaults)", err)
 	}
+	migrateLegacyLLMModel()
+	localLLM.cfg = cfg
 	SetLanguage(cfg.GetUILanguage())
 	SetSoundVolume(cfg.SoundVolume)
 
@@ -150,7 +152,8 @@ func main() {
 		transcribeGen    uint64             // generation counter for transcription ownership
 		hkMu             sync.Mutex // protects hkMgr
 		tray             *AppTray   // set after creation, used by transition
-		showDashboard    func()    // opens main window, set after onSettingsSaved is defined
+		showDashboard    func()          // opens main window, set after onSettingsSaved is defined
+		showMainPage     func(string)    // opens main window at specific page
 	)
 
 	// Snapshot config values under lock to avoid data races
@@ -854,7 +857,7 @@ func main() {
 	// Wire floating button callbacks
 	if floatingBtn != nil {
 		floatingBtn.SetCallbacks(
-			func() { // onStartRecording: click → start recording
+			func() { // onStartRecording
 				ok := func() bool {
 					stateMu.Lock()
 					defer stateMu.Unlock()
@@ -868,29 +871,29 @@ func main() {
 					transition(StateRecording)
 				}
 			},
-			func() { // onShowSettings: open main window on settings tab
-				fn := func() func() {
+			func(page string) { // onOpenWindow
+				fn := func() func(string) {
 					stateMu.Lock()
 					defer stateMu.Unlock()
-					return showDashboard
+					return showMainPage
 				}()
 				if fn != nil {
-					go fn()
+					go fn(page)
 				}
 			},
-			func() { // onShowDashboard: open main window on history tab
-				fn := func() func() {
-					stateMu.Lock()
-					defer stateMu.Unlock()
-					return showDashboard
-				}()
-				if fn != nil {
-					go fn()
-				}
-			},
-			func() { // onQuit: trigger app shutdown via tray
+			func() { // onQuit
 				if tray != nil {
 					tray.Quit()
+				}
+			},
+			func(newState bool) { // onSmartToggled - push to WebView
+				mainWindowMu.Lock()
+				wv := mainWebview
+				mainWindowMu.Unlock()
+				if wv != nil {
+					wv.Dispatch(func() {
+						wv.Eval("if(typeof window.refreshFromConfig==='function')window.refreshFromConfig()")
+					})
 				}
 			},
 		)
@@ -1057,6 +1060,9 @@ func main() {
 		defer stateMu.Unlock()
 		showDashboard = func() {
 			ShowMainWindow(cfg, recorder, history, usageStats, onSettingsSaved, onWindowClose, onToggle, "")
+		}
+		showMainPage = func(page string) {
+			ShowMainWindow(cfg, recorder, history, usageStats, onSettingsSaved, onWindowClose, onToggle, page)
 		}
 	}()
 	tray = NewAppTray(

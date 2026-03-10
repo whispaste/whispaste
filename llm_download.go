@@ -14,43 +14,82 @@ import (
 	"github.com/whispaste/whispaste/internal/models"
 )
 
+// LLMModelDef describes a downloadable local LLM model.
+type LLMModelDef struct {
+	ID       string // unique identifier (e.g. "smollm2")
+	Name     string // display name
+	URL      string // GGUF download URL
+	Size     int64  // approximate download size in bytes
+	Filename string // local filename for the GGUF
+	Langs    int    // number of supported languages
+}
+
+// LLMModels is the registry of available local LLM models.
+var LLMModels = map[string]LLMModelDef{
+	"smollm2": {
+		ID:       "smollm2",
+		Name:     "SmolLM2",
+		URL:      "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/main/SmolLM2-360M-Instruct-Q4_K_M.gguf",
+		Size:     283_000_000,
+		Filename: "smollm2.gguf",
+		Langs:    6,
+	},
+	"qwen3-0.6b": {
+		ID:       "qwen3-0.6b",
+		Name:     "Qwen3-0.6B",
+		URL:      "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf",
+		Size:     480_000_000,
+		Filename: "qwen3-0.6b.gguf",
+		Langs:    29,
+	},
+}
+
 const (
 	llmServerRepo     = "ggml-org/llama.cpp"
-	llmServerAssetKey = "win-cpu-x64" // substring to match in release asset name
-	llmModelURL       = "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/main/SmolLM2-360M-Instruct-Q4_K_M.gguf"
-	llmModelSize      = int64(283_000_000) // approximate size for progress
+	llmServerAssetKey = "win-cpu-x64"
 )
 
-// DownloadLLM downloads the llama-server binary and GGUF model.
+// DownloadLLM downloads the llama-server binary (if needed) and a GGUF model.
 // progressFn is called with phase ("server" or "model") and percentage (0–100).
-func DownloadLLM(progressFn func(phase string, pct int)) error {
+func DownloadLLM(modelID string, progressFn func(phase string, pct int)) error {
+	model, ok := LLMModels[modelID]
+	if !ok {
+		return fmt.Errorf("unknown LLM model: %s", modelID)
+	}
+
 	dir, err := LLMDir()
 	if err != nil {
 		return fmt.Errorf("llm dir: %w", err)
 	}
 
-	// Phase 1: Download and extract llama-server ZIP
-	if progressFn != nil {
-		progressFn("server", 0)
-	}
-	if err := downloadAndExtractLLMServer(dir, func(pct int) {
+	// Phase 1: Download and extract llama-server ZIP (skip if already installed)
+	if !IsLLMServerInstalled() {
 		if progressFn != nil {
-			progressFn("server", pct)
+			progressFn("server", 0)
 		}
-	}); err != nil {
-		return fmt.Errorf("download llama-server: %w", err)
+		if err := downloadAndExtractLLMServer(dir, func(pct int) {
+			if progressFn != nil {
+				progressFn("server", pct)
+			}
+		}); err != nil {
+			return fmt.Errorf("download llama-server: %w", err)
+		}
+	} else {
+		if progressFn != nil {
+			progressFn("server", 100)
+		}
 	}
 
 	// Phase 2: Download model GGUF
 	if progressFn != nil {
 		progressFn("model", 0)
 	}
-	modelDest := filepath.Join(dir, "model.gguf")
+	modelDest := filepath.Join(dir, model.Filename)
 	var lastPct int = -1
-	if err := models.DownloadFile(llmModelURL, modelDest, func(downloaded, total int64) {
+	if err := models.DownloadFile(model.URL, modelDest, func(downloaded, total int64) {
 		if progressFn != nil {
 			if total <= 0 {
-				total = llmModelSize
+				total = model.Size
 			}
 			pct := int(float64(downloaded) / float64(total) * 100)
 			if pct > 100 {
@@ -65,7 +104,7 @@ func DownloadLLM(progressFn func(phase string, pct int)) error {
 		return fmt.Errorf("download llm model: %w", err)
 	}
 
-	logInfo("LLM download complete")
+	logInfo("LLM download complete: %s", modelID)
 	return nil
 }
 
@@ -199,6 +238,24 @@ func extractZipFile(f *zip.File, dest string) error {
 	return nil
 }
 
+// DeleteLLMModel removes the GGUF file for a specific model.
+func DeleteLLMModel(modelID string) error {
+	model, ok := LLMModels[modelID]
+	if !ok {
+		return fmt.Errorf("unknown LLM model: %s", modelID)
+	}
+	dir, err := LLMDir()
+	if err != nil {
+		return fmt.Errorf("llm dir: %w", err)
+	}
+	modelPath := filepath.Join(dir, model.Filename)
+	if err := os.Remove(modelPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove model: %w", err)
+	}
+	logInfo("LLM model %s deleted", modelID)
+	return nil
+}
+
 // DeleteLLM removes all LLM files (server binary, model, DLLs).
 func DeleteLLM() error {
 	dir, err := LLMDir()
@@ -210,4 +267,28 @@ func DeleteLLM() error {
 	}
 	logInfo("LLM files deleted")
 	return nil
+}
+
+// IsLLMModelInstalled checks if the GGUF file for a specific model exists.
+func IsLLMModelInstalled(modelID string) bool {
+	model, ok := LLMModels[modelID]
+	if !ok {
+		return false
+	}
+	dir, err := LLMDir()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(filepath.Join(dir, model.Filename))
+	return err == nil
+}
+
+// IsLLMServerInstalled checks if llama-server.exe exists.
+func IsLLMServerInstalled() bool {
+	p, err := LLMServerPath()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(p)
+	return err == nil
 }
