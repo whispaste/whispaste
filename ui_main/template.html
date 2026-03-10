@@ -78,6 +78,10 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
           <span class="status-chip-label" id="statusSmartLabel">Off</span>
         </button>
+        <button class="status-chip" id="statusConnectivity" title="">
+          <span class="status-dot" id="statusConnDot">●</span>
+          <span class="status-chip-label" id="statusConnLabel" data-i18n="status.checking">…</span>
+        </button>
         <button class="status-chip status-chip-audio hidden" id="statusAudio" title="" onclick="stopStatusbarAudio()">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
           <span class="status-chip-label" id="statusAudioLabel"></span>
@@ -115,6 +119,23 @@
       </div>
       <h2 class="onboarding-title" data-i18n="onboarding.welcome_title">Welcome to WhisPaste</h2>
       <p class="onboarding-desc" data-i18n="onboarding.welcome_desc">Transform your voice into text instantly. Press a hotkey, speak, and your words appear wherever you type.</p>
+      <div class="onb-preferences">
+        <div class="onb-pref-row">
+          <span class="onb-pref-label" data-i18n="onboarding.pref_language">Language</span>
+          <div class="onb-pref-options" id="onbLangOptions">
+            <button class="onb-pref-btn" data-lang="en" onclick="onbSetLanguage('en')">English</button>
+            <button class="onb-pref-btn" data-lang="de" onclick="onbSetLanguage('de')">Deutsch</button>
+          </div>
+        </div>
+        <div class="onb-pref-row">
+          <span class="onb-pref-label" data-i18n="onboarding.pref_theme">Theme</span>
+          <div class="onb-pref-options" id="onbThemeOptions">
+            <button class="onb-pref-btn" data-theme="system" onclick="onbSetTheme('system')" data-i18n="onboarding.theme_system">System</button>
+            <button class="onb-pref-btn" data-theme="light" onclick="onbSetTheme('light')" data-i18n="onboarding.theme_light">Light</button>
+            <button class="onb-pref-btn" data-theme="dark" onclick="onbSetTheme('dark')" data-i18n="onboarding.theme_dark">Dark</button>
+          </div>
+        </div>
+      </div>
       <div class="onboarding-actions">
         <button class="btn btn-primary btn-lg" onclick="nextOnboardingStep()"><span data-i18n="onboarding.get_started">Get Started</span></button>
       </div>
@@ -157,15 +178,18 @@
       </div>
       <div class="onboarding-model-section hidden" id="onbModelSection">
         <div class="onb-model-cards">
-          <div class="onb-model-card selected" data-model-id="whisper-base" tabindex="0" role="button" onclick="onbSelectModel('whisper-base')">
+          <div class="onb-model-card" data-model-id="whisper-base" tabindex="0" role="button" onclick="onbSelectModel('whisper-base')">
             <div class="onb-model-card-name">Whisper Base</div>
-            <div class="onb-model-card-meta">74 MB · <span data-i18n="onboarding.model_recommended">Recommended</span></div>
+            <div class="onb-model-card-meta">74 MB</div>
+            <div class="onb-model-card-desc" data-i18n="onboarding.model_base_desc">Fast, basic quality</div>
           </div>
-          <div class="onb-model-card" data-model-id="whisper-small" tabindex="0" role="button" onclick="onbSelectModel('whisper-small')">
+          <div class="onb-model-card selected" data-model-id="whisper-small" tabindex="0" role="button" onclick="onbSelectModel('whisper-small')">
             <div class="onb-model-card-name">Whisper Small</div>
-            <div class="onb-model-card-meta">244 MB · <span data-i18n="onboarding.model_better_accuracy">Better accuracy</span></div>
+            <div class="onb-model-card-meta">244 MB · <span data-i18n="onboarding.model_recommended">Recommended</span></div>
+            <div class="onb-model-card-desc" data-i18n="onboarding.model_small_desc">High accuracy, best results</div>
           </div>
         </div>
+        <div class="onb-model-hint" data-i18n="onboarding.model_performance_hint">Local models run directly on your device. Speed depends on your hardware — on slower machines, processing may take a bit longer than the cloud option.</div>
         <div class="onb-model-status-row">
           <span class="onb-model-status needed" id="onbModelStatus" data-i18n="onboarding.model_needed">Download required</span>
           <button class="btn btn-primary btn-sm" id="onbDownloadBtn" onclick="onbStartDownload()">
@@ -196,7 +220,7 @@
         </svg>
       </div>
       <h2 class="onboarding-title" data-i18n="onboarding.smart_title">AI Text Enhancement</h2>
-      <p class="onboarding-desc" data-i18n="onboarding.smart_desc">Smart Mode polishes your transcriptions — fix grammar, format emails, create summaries, and more.</p>
+      <p class="onboarding-desc" data-i18n="onboarding.smart_desc">After recording, AI can automatically improve your text — fix grammar, format emails, create summaries, and more.</p>
       <div class="onboarding-options">
         <div class="onboarding-option" id="onb-smart-on" tabindex="0" role="button" onclick="selectOnboardingSmart(true)">
           <div class="onboarding-option-icon"><svg class="icon" aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
@@ -211,13 +235,13 @@
           </div>
           <div class="onboarding-option-text">
             <strong data-i18n="onboarding.smart_disable">Plain Text Only</strong>
-            <small data-i18n="onboarding.smart_disable_desc">Paste transcription as-is</small>
+            <small data-i18n="onboarding.smart_disable_desc">Your spoken text is pasted exactly as recognized</small>
           </div>
         </div>
       </div>
       <div class="onboarding-smart-note hidden" id="onbSmartNote">
         <svg class="icon" style="width:14px;height:14px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        <small data-i18n="onboarding.smart_note">Provider set to Auto — uses local model if available, otherwise OpenAI API.</small>
+        <small data-i18n="onboarding.smart_note">A local or cloud AI model will be used automatically — no extra setup needed.</small>
       </div>
       <div class="onboarding-actions">
         <button class="btn btn-secondary" onclick="prevOnboardingStep()"><span data-i18n="onboarding.back">Back</span></button>
