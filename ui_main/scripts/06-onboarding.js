@@ -325,33 +325,32 @@ function restartOnboarding() {
 
 /* ── Onboarding Preferences (Language/Theme on Page 1) ── */
 function onbInitPreferences() {
-  // Highlight active language button
   const lang = window._lang || 'en';
-  document.querySelectorAll('#onbLangOptions .onb-pref-btn').forEach(btn => {
+  document.querySelectorAll('#onbLangOptions .onb-lang-card').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === lang);
   });
-  // Highlight active theme button
-  const theme = document.documentElement.dataset.theme || 'system';
-  document.querySelectorAll('#onbThemeOptions .onb-pref-btn').forEach(btn => {
+  const theme = _currentTheme || 'system';
+  document.querySelectorAll('#onbThemeOptions .onb-theme-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.theme === theme);
   });
 }
 
 async function onbSetLanguage(lang) {
-  document.querySelectorAll('#onbLangOptions .onb-pref-btn').forEach(btn => {
+  document.querySelectorAll('#onbLangOptions .onb-lang-card').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === lang);
   });
   if (window.setUILanguage) {
     await window.setUILanguage(lang);
-    window._lang = lang;
-    applyTranslations();
   }
+  window._lang = lang;
+  setLang(lang);
 }
 
 async function onbSetTheme(theme) {
-  document.querySelectorAll('#onbThemeOptions .onb-pref-btn').forEach(btn => {
+  document.querySelectorAll('#onbThemeOptions .onb-theme-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.theme === theme);
   });
+  applyTheme(theme);
   if (window.setTheme) {
     await window.setTheme(theme);
   }
