@@ -325,7 +325,15 @@ function restartOnboarding() {
 
 /* ── Onboarding Preferences (Language/Theme on Page 1) ── */
 function onbInitPreferences() {
-  const lang = window._lang || 'en';
+  // Detect system language — default to 'de' if browser reports German, otherwise 'en'
+  let lang = window._lang;
+  if (!lang) {
+    const sysLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+    lang = sysLang.startsWith('de') ? 'de' : 'en';
+    // Apply detected language so the onboarding UI is localized
+    window._lang = lang;
+    setLang(lang);
+  }
   document.querySelectorAll('#onbLangOptions .onb-lang-card').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === lang);
   });
