@@ -317,8 +317,9 @@
 }
 @keyframes dialogFadeIn { from { opacity: 0; } }
 .dialog-box {
-  width: 360px;
-  max-width: 90vw;
+  width: fit-content;
+  min-width: 320px;
+  max-width: min(440px, 90vw);
   background: var(--glass-bg-strong);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-xl);
@@ -347,7 +348,9 @@
   gap: 10px;
   margin-top: 20px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
+.dialog-actions .btn { min-width: 100px; white-space: nowrap; }
 
 .filter-section-title {
   font-size: 10px;
