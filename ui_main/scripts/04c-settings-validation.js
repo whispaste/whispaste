@@ -177,21 +177,30 @@ async function testSTTModel(modelId) {
 
   try {
     if (window._testSTTModel) {
-      const result = await window._testSTTModel(modelId);
-      const res = typeof result === 'string' ? JSON.parse(result) : result;
-      if (res && res.success) {
-        showToast(t('modelTestSuccess'), false);
-      } else {
-        showToast(res?.error || t('modelTestFailed'), true);
-      }
+      // Async: Go runs in goroutine and calls _onSTTTestComplete when done
+      await window._testSTTModel(modelId);
     }
   } catch (e) {
-    showToast(t('modelTestFailed'), true);
-  } finally {
     btn.disabled = false;
     btn.innerHTML = origHTML;
+    showToast(t('modelTestFailed'), true);
   }
 }
+
+// Callback from Go when STT model test completes (async).
+window._onSTTTestComplete = function(modelId, success, text, error) {
+  const btn = document.getElementById('btn-test-stt-' + modelId);
+  if (btn) {
+    btn.disabled = false;
+    const playIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
+    btn.innerHTML = playIcon + ' ' + t('modelTest');
+  }
+  if (success) {
+    showToast(t('modelTestSuccess'), false);
+  } else {
+    showToast(error || t('modelTestFailed'), true);
+  }
+};
 
 async function downloadModel(id) {
   if (window.checkConnectivity) {
