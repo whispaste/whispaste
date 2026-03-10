@@ -170,13 +170,16 @@ function updateSelectionBar() {
   const bar = document.getElementById('selectionBar');
   const countEl = document.getElementById('selectionCount');
   const mergeBtn = document.getElementById('mergeSelectedBtn');
+  const bulkSmartBtn = document.getElementById('bulkSmartBtn');
   const page = document.getElementById('page-history');
   if (!bar) return;
   if (_selectedIds.size > 0) {
     bar.classList.remove('hidden');
     if (page) page.classList.add('selecting');
     if (countEl) countEl.textContent = _selectedIds.size;
-    if (mergeBtn) mergeBtn.classList.toggle('hidden', _selectedIds.size < 2);
+    const multiSelected = _selectedIds.size >= 2;
+    if (mergeBtn) mergeBtn.classList.toggle('hidden', !multiSelected);
+    if (bulkSmartBtn) bulkSmartBtn.classList.toggle('hidden', !multiSelected);
   } else {
     bar.classList.add('hidden');
     if (page) page.classList.remove('selecting');
