@@ -424,6 +424,11 @@ function renderProjectDropdown() {
         window.setLastProjectID(pid === '__all__' ? '' : (pid === '__none__' ? '__none__' : pid));
       }
 
+      if (window.setActiveProject) {
+        const activePid = _activeFilters.project;
+        window.setActiveProject(activePid && activePid !== '__all__' ? activePid : '');
+      }
+
       // Clear tag filters — available tags change per project
       _activeFilters.tags = [];
 
@@ -508,6 +513,7 @@ async function showDeleteProjectDialog(name, id) {
           if (_activeFilters.project === id) {
             _activeFilters.project = null;
             if (window.setLastProjectID) window.setLastProjectID('');
+            if (window.setActiveProject) window.setActiveProject('');
           }
           await loadProjects();
           await loadEntries();
@@ -615,6 +621,13 @@ async function initProjectSelector() {
           _activeFilters.project = lastId;
         }
       }
+
+      // Sync active project to Go backend for auto-assign
+      if (window.setActiveProject) {
+        const activePid = _activeFilters.project;
+        window.setActiveProject(activePid && activePid !== '__all__' ? activePid : '');
+      }
+
       updateProjectLabel();
     } catch (e) { /* ignore */ }
   }

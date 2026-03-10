@@ -120,7 +120,7 @@ async function promptRenameTag(oldName) {
         if (window.saveCustomTags) await window.saveCustomTags(JSON.stringify(tags));
       }
       await loadEntries();
-      if (typeof updateCounts === 'function') updateCounts();
+      window.dispatchEvent(new Event('tags-changed'));
     }
   }
 }

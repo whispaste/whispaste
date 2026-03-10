@@ -11,11 +11,15 @@ function resolveTheme(theme) {
 function applyTheme(theme) {
   _currentTheme = theme;
   const eff = resolveTheme(theme);
+  console.log('[Theme] applyTheme:', theme, '→ resolved:', eff);
   if (eff === 'dark') {
     document.documentElement.setAttribute('data-theme', 'dark');
   } else {
     document.documentElement.removeAttribute('data-theme');
   }
+  // Keep settings dropdown in sync so autoSave won't overwrite with stale value
+  const sel = document.getElementById('select-theme');
+  if (sel && sel.value !== theme) sel.value = theme;
   // Update theme toggle icon in sidebar
   const iconEl = document.getElementById('themeIcon');
   if (iconEl) {
@@ -50,9 +54,11 @@ function applyTheme(theme) {
 
 /** Cycle theme: system → dark → light → system */
 function toggleTheme() {
+  const prev = _currentTheme;
   if (_currentTheme === 'system') _currentTheme = 'dark';
   else if (_currentTheme === 'dark') _currentTheme = 'light';
   else _currentTheme = 'system';
+  console.log('[Theme] toggle:', prev, '→', _currentTheme);
   applyTheme(_currentTheme);
   try { if (window.setTheme) window.setTheme(_currentTheme); } catch (e) {}
 }

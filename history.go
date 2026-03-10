@@ -50,9 +50,10 @@ type analyticsCache struct {
 
 // History manages transcription history backed by SQLite.
 type History struct {
-	db    *sql.DB
-	mu    sync.Mutex
-	cache map[int]*analyticsCache // keyed by periodDays
+	db             *sql.DB
+	mu             sync.Mutex
+	cache          map[int]*analyticsCache // keyed by periodDays
+	lastAuditTime  time.Time
 }
 
 // invalidateCache clears the analytics cache under lock.
@@ -97,11 +98,12 @@ const WhisperCostPerMinute = 0.006
 
 // Add appends a new entry and prunes to the limit.
 func (h *History) Add(text string, durationSec float64, language string) {
-	h.AddWithModel(text, durationSec, 0, language, "", false)
+	h.AddWithModel(text, durationSec, 0, language, "", false, "")
 }
 
 // AddWithModel appends a new entry with model tracking and prunes to the limit.
-func (h *History) AddWithModel(text string, durationSec float64, processingDurationSec float64, language, model string, isLocal bool) string {
+// If projectID is non-empty, the entry is assigned to that project.
+func (h *History) AddWithModel(text string, durationSec float64, processingDurationSec float64, language, model string, isLocal bool, projectID string) string {
 	var cost float64
 	if !isLocal && durationSec > 0 {
 		cost = (durationSec / 60.0) * WhisperCostPerMinute
@@ -118,6 +120,7 @@ func (h *History) AddWithModel(text string, durationSec float64, processingDurat
 		Model:              model,
 		IsLocal:            isLocal,
 		CostUSD:            cost,
+		ProjectID:          projectID,
 	}
 
 	h.invalidateCache()
@@ -408,6 +411,20 @@ func (h *History) CompletePendingEntry(id, text string, processingDurationSec fl
 	}
 	n, _ := res.RowsAffected()
 	return n > 0
+}
+
+// UpdatePendingReason updates the title/reason of a pending entry (e.g. from
+// "transcribing" to "transcription_failed" when transcription fails).
+func (h *History) UpdatePendingReason(id, reason string) {
+	if h.db == nil || id == "" {
+		return
+	}
+	title := "⏳ " + reason
+	_, err := execWithFTSRepair(h.db,
+		`UPDATE history_entries SET title = ? WHERE id = ?`, title, id)
+	if err != nil {
+		logWarn("UpdatePendingReason: %v", err)
+	}
 }
 
 // Merge combines multiple entries into one. The newest entry's metadata is used as the base.
