@@ -256,9 +256,7 @@ function selectOnboardingSmart(enabled) {
   document.querySelectorAll('#onboardingOverlay .onboarding-step[data-step="3"] .onboarding-option').forEach(opt => opt.classList.remove('selected'));
   const el = document.getElementById(enabled ? 'onb-smart-on' : 'onb-smart-off');
   if (el) el.classList.add('selected');
-  const note = document.getElementById('onbSmartNote');
-  if (note) note.classList.toggle('hidden', !enabled);
-  const nextBtn = document.getElementById('onbNextStep3');
+  const nextBtn= document.getElementById('onbNextStep3');
   if (nextBtn) nextBtn.disabled = false;
 }
 

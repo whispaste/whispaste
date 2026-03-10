@@ -163,7 +163,7 @@
 .onb-model-hint {
   font-size: 12px;
   color: var(--text-secondary);
-  margin-top: 12px;
+  margin: 12px 0 16px;
   padding: 8px 12px;
   background: var(--bg-secondary);
   border-radius: 8px;
@@ -384,23 +384,6 @@
   border-radius: var(--radius-sm);
   margin-left: 6px;
   vertical-align: middle;
-}
-
-/* ── Onboarding: Smart Note ──────────────────────────── */
-.onboarding-smart-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 10px 14px;
-  background: color-mix(in srgb, var(--accent), transparent 90%);
-  border-radius: 8px;
-  animation: fadeIn 0.25s ease;
-}
-.onboarding-smart-note small {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.4;
 }
 
 /* ── Onboarding: Model Download Section ─────────────── */
