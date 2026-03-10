@@ -1,0 +1,16 @@
+# Gitleaks configuration for WhisPaste
+# https://github.com/gitleaks/gitleaks
+
+title = "WhisPaste gitleaks config"
+
+[allowlist]
+  description = "Allowlist for false positives"
+
+  # Test API keys used in unit tests
+  regexTarget = "match"
+  commits = ["3e202004ec33e483964ff040548f75961594b046"]
+
+  [[allowlist.rules]]
+    description = "Test API key in config_test.go"
+    regex = '''sk-test-\d+'''
+    path = '''config_test\.go'''
