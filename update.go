@@ -21,11 +21,17 @@ import (
 
 const (
 	githubRepo          = "whispaste/whispaste"
-	releasesAPI         = "https://api.github.com/repos/" + githubRepo + "/releases/latest"
+	releasesAPI         = "https://api.github.com/repos/" + githubRepo + "/releases?per_page=10"
 	updateCheckInterval = 6 * time.Hour
 	minCheckInterval    = 1 * time.Hour
 	downloadTimeout     = 60 * time.Second
 )
+
+// parsedVersion represents a parsed semantic version with pre-release info.
+type parsedVersion struct {
+	Major, Minor, Patch int
+	PreRelease          int // 4=release, 3=rc, 2=beta, 1=alpha, 0=unknown/empty
+}
 
 var (
 	storePackageOnce   sync.Once
@@ -136,6 +142,7 @@ func (u *Updater) checkAndNotify(ctx context.Context) {
 		return
 	}
 	if u.checkEnabled != nil && !u.checkEnabled() {
+		logDebug("Update check skipped: updates disabled by user setting")
 		return
 	}
 	info, err := u.CheckNow(ctx)
@@ -144,23 +151,30 @@ func (u *Updater) checkAndNotify(ctx context.Context) {
 		return
 	}
 	if info.Available {
+		logInfo("Update available: %s → %s", u.currentVersion, info.Version)
 		u.mu.Lock()
 		fn := u.onAvailable
 		u.mu.Unlock()
 		if fn != nil {
 			fn(*info)
 		}
+	} else {
+		logDebug("Update check: %s is up to date", u.currentVersion)
 	}
 }
 
 // CheckNow queries the GitHub releases API for a newer version.
-// It rate-limits to at most one request per minCheckInterval.
+// It fetches the 10 most recent releases (including prereleases) and picks the
+// highest version that is not a draft. This ensures pre-release versions like
+// beta and rc are also detected, unlike the /releases/latest endpoint which
+// only returns stable releases.
 // Pass force=true to bypass the rate limit (e.g. for manual user-initiated checks).
 func (u *Updater) CheckNow(ctx context.Context, force ...bool) (*UpdateInfo, error) {
 	bypass := len(force) > 0 && force[0]
 	u.mu.Lock()
 	if !bypass && time.Since(u.lastCheck) < minCheckInterval {
 		u.mu.Unlock()
+		logDebug("Update check skipped (rate-limited, last check %s ago)", time.Since(u.lastCheck).Round(time.Second))
 		return &UpdateInfo{Available: false}, nil
 	}
 	u.mu.Unlock()
@@ -188,19 +202,43 @@ func (u *Updater) CheckNow(ctx context.Context, force ...bool) (*UpdateInfo, err
 	u.lastCheck = time.Now()
 	u.mu.Unlock()
 
-	var release struct {
-		TagName string `json:"tag_name"`
-		HTMLURL string `json:"html_url"`
-		Assets  []struct {
-			Name               string `json:"name"`
-			BrowserDownloadURL string `json:"browser_download_url"`
-		} `json:"assets"`
+	type releaseAsset struct {
+		Name               string `json:"name"`
+		BrowserDownloadURL string `json:"browser_download_url"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+	type githubRelease struct {
+		TagName string         `json:"tag_name"`
+		HTMLURL string         `json:"html_url"`
+		Draft   bool           `json:"draft"`
+		Assets  []releaseAsset `json:"assets"`
+	}
+
+	var releases []githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
 		return nil, fmt.Errorf("parse response: %w", err)
 	}
 
-	remoteVersion := strings.TrimPrefix(release.TagName, "v")
+	// Find the release with the highest version number (skip drafts)
+	var best *githubRelease
+	var bestVer parsedVersion
+	for i := range releases {
+		r := &releases[i]
+		if r.Draft {
+			continue
+		}
+		ver := parseVersion(r.TagName)
+		if best == nil || compareVersions(ver, bestVer) > 0 {
+			best = r
+			bestVer = ver
+		}
+	}
+
+	if best == nil {
+		logDebug("Update check: no non-draft releases found")
+		return &UpdateInfo{Available: false}, nil
+	}
+
+	remoteVersion := strings.TrimPrefix(best.TagName, "v")
 	if !isNewer(remoteVersion, u.currentVersion) {
 		return &UpdateInfo{Available: false}, nil
 	}
@@ -208,9 +246,9 @@ func (u *Updater) CheckNow(ctx context.Context, force ...bool) (*UpdateInfo, err
 	info := &UpdateInfo{
 		Available:  true,
 		Version:    remoteVersion,
-		ReleaseURL: release.HTMLURL,
+		ReleaseURL: best.HTMLURL,
 	}
-	for _, asset := range release.Assets {
+	for _, asset := range best.Assets {
 		switch asset.Name {
 		case "whispaste.exe":
 			if !strings.HasPrefix(asset.BrowserDownloadURL, "https://") {
@@ -307,26 +345,62 @@ func (u *Updater) Apply(info *UpdateInfo) error {
 	return nil
 }
 
-// isNewer returns true if remote version is newer than current (simple semver).
+// isNewer returns true if remote version is newer than current.
+// Supports pre-release labels: alpha < beta < rc < release.
 func isNewer(remote, current string) bool {
-	rParts := parseVersion(remote)
-	cParts := parseVersion(current)
-	for i := 0; i < 3; i++ {
-		if rParts[i] > cParts[i] {
-			return true
-		}
-		if rParts[i] < cParts[i] {
-			return false
-		}
-	}
-	return false
+	return compareVersions(parseVersion(remote), parseVersion(current)) > 0
 }
 
-func parseVersion(v string) [3]int {
+// compareVersions returns >0 if a > b, 0 if a == b, <0 if a < b.
+func compareVersions(a, b parsedVersion) int {
+	if a.Major != b.Major {
+		return a.Major - b.Major
+	}
+	if a.Minor != b.Minor {
+		return a.Minor - b.Minor
+	}
+	if a.Patch != b.Patch {
+		return a.Patch - b.Patch
+	}
+	return a.PreRelease - b.PreRelease
+}
+
+func parseVersion(v string) parsedVersion {
 	v = strings.TrimPrefix(v, "v")
-	var parts [3]int
-	fmt.Sscanf(v, "%d.%d.%d", &parts[0], &parts[1], &parts[2])
-	return parts
+	if v == "" {
+		return parsedVersion{}
+	}
+
+	var pv parsedVersion
+
+	// Split on first hyphen to separate "1.0.0" from "beta"
+	base := v
+	suffix := ""
+	if idx := strings.Index(v, "-"); idx >= 0 {
+		base = v[:idx]
+		suffix = strings.ToLower(v[idx+1:])
+	}
+
+	n, _ := fmt.Sscanf(base, "%d.%d.%d", &pv.Major, &pv.Minor, &pv.Patch)
+	if n == 0 {
+		return parsedVersion{} // not a valid version string
+	}
+
+	// Pre-release ordering (higher = newer)
+	switch {
+	case suffix == "":
+		pv.PreRelease = 4 // stable release
+	case strings.HasPrefix(suffix, "rc"):
+		pv.PreRelease = 3
+	case strings.HasPrefix(suffix, "beta"):
+		pv.PreRelease = 2
+	case strings.HasPrefix(suffix, "alpha"):
+		pv.PreRelease = 1
+	default:
+		pv.PreRelease = 1 // unknown pre-release treated as alpha
+	}
+
+	return pv
 }
 
 func downloadFile(ctx context.Context, url, dest, version string) error {
