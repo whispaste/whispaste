@@ -325,34 +325,15 @@ function renderSettingsLLMModel(status) {
     const m = models[id];
     if (!m) continue;
     const trans = modelTranslations[id] || { name: m.name, desc: '' };
-    const isInstalled = m.installed;
 
-    html += `<div class="llm-model-card" data-model-id="${esc(id)}">
-      <div class="llm-model-card-header">
-        <div class="llm-model-info">
-          <span class="llm-model-name">${esc(trans.name)}</span>
-          <span class="llm-model-desc">${esc(trans.desc)}</span>
-        </div>
-        <div class="llm-model-status">
-          ${isInstalled
-            ? `<span class="llm-badge llm-badge-ready">${esc(t('smartLlmReady'))}</span>`
-            : `<span class="llm-badge llm-badge-not-installed">${esc(t('smartLlmNotInstalled'))}</span>`
-          }
-        </div>
-      </div>
-      <div class="llm-model-card-actions">
-        ${isInstalled
-          ? `<button class="btn btn-sm btn-ghost llm-delete-btn" data-model="${esc(id)}" title="${esc(t('smartLlmDelete'))}">
-              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            </button>`
-          : `<button class="btn btn-sm btn-primary llm-download-btn" data-model="${esc(id)}">${esc(t('smartLlmDownload'))}</button>`
-        }
-      </div>
-      <div class="llm-progress-bar" style="display:none" data-model-progress="${esc(id)}">
-        <div class="llm-progress-fill"></div>
-        <span class="llm-progress-text"></span>
-      </div>
-    </div>`;
+    html += renderModelCard({
+      id: id,
+      name: trans.name,
+      description: trans.desc,
+      size: m.size || '',
+      downloaded: m.installed,
+      downloading: false
+    }, { type: 'llm', showTest: false });
   }
 
   html += `<div class="connectivity-status hidden" id="settingsLlmConnectivityStatus">
@@ -361,14 +342,6 @@ function renderSettingsLLMModel(status) {
   </div>`;
 
   container.innerHTML = html;
-
-  // Bind actions
-  container.querySelectorAll('.llm-download-btn').forEach(btn => {
-    btn.addEventListener('click', () => downloadLLMModel(btn.dataset.model));
-  });
-  container.querySelectorAll('.llm-delete-btn').forEach(btn => {
-    btn.addEventListener('click', () => deleteLLMModel(btn.dataset.model));
-  });
 }
 
 function updateProviderModelPickers(status) {
@@ -441,19 +414,29 @@ async function downloadLLMModel(modelID) {
     showToast(t('connectivityRequired'), true);
     return;
   }
-  const safeID = CSS.escape(modelID);
-  const progressBar = document.querySelector(`[data-model-progress="${safeID}"]`);
-  const card = document.querySelector(`[data-model-id="${safeID}"]`);
+  const card = document.querySelector(`[data-model-id="${CSS.escape(modelID)}"]`);
   if (!card) return;
-  const btn = card.querySelector('.llm-download-btn');
+  const btn = card.querySelector('.model-item-action .btn');
   if (btn) { btn.disabled = true; btn.textContent = t('smartLlmDownloading'); }
-  if (progressBar) { progressBar.style.display = ''; }
+  // Inject progress bar into the card
+  let progressDiv = card.querySelector('.model-progress');
+  if (!progressDiv) {
+    progressDiv = document.createElement('div');
+    progressDiv.className = 'model-progress';
+    progressDiv.innerHTML = '<div class="model-progress-bar" id="progress-' + modelID + '"></div>';
+    card.querySelector('.model-item-info')?.appendChild(progressDiv);
+  }
   try {
     if (window.downloadLLM) await window.downloadLLM(modelID);
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = t('smartLlmDownload'); }
     if (window.onLLMDownloadError) window.onLLMDownloadError(e.message || String(e));
   }
+}
+
+// Alias for unified model card onclick
+function confirmDeleteLLMModel(modelID) {
+  deleteLLMModel(modelID);
 }
 
 async function deleteLLMModel(modelID) {
@@ -509,17 +492,15 @@ async function testLLMModel(btnId) {
 }
 
 window.onLLMDownloadProgress = function(phase, pct, modelID) {
-  // Update per-model progress bar (new multi-model UI)
+  // Update per-model progress bar (unified model card)
   if (modelID) {
-    const safeID = CSS.escape(modelID);
-    const bar = document.querySelector(`[data-model-progress="${safeID}"]`);
-    if (bar) {
-      bar.style.display = '';
-      const fill = bar.querySelector('.llm-progress-fill');
-      const text = bar.querySelector('.llm-progress-text');
-      if (fill) fill.style.width = pct + '%';
+    const bar = document.getElementById('progress-' + modelID);
+    if (bar) bar.style.width = pct + '%';
+    const card = document.querySelector(`[data-model-id="${CSS.escape(modelID)}"]`);
+    if (card) {
+      const btn = card.querySelector('.model-item-action .btn');
       const label = phase === 'server' ? t('smartLlmDownloadServer') : t('smartLlmDownloadModel');
-      if (text) { text.textContent = label + ' ' + pct + '%'; text.style.color = ''; }
+      if (btn) btn.textContent = label + ' ' + pct + '%';
     }
   }
   // Legacy ID-based progress elements
@@ -538,14 +519,12 @@ window.onLLMDownloadProgress = function(phase, pct, modelID) {
 };
 
 window.onLLMDownloadError = function(errorMsg, modelID) {
-  // Update per-model progress bar
+  // Update per-model card
   if (modelID) {
-    const safeID = CSS.escape(modelID);
-    const bar = document.querySelector(`[data-model-progress="${safeID}"]`);
-    if (bar) {
-      bar.style.display = '';
-      const text = bar.querySelector('.llm-progress-text');
-      if (text) { text.textContent = errorMsg; text.style.color = 'var(--error)'; }
+    const card = document.querySelector(`[data-model-id="${CSS.escape(modelID)}"]`);
+    if (card) {
+      const btn = card.querySelector('.model-item-action .btn');
+      if (btn) { btn.textContent = errorMsg; btn.style.color = 'var(--error)'; }
     }
   }
   // Legacy ID-based progress elements
@@ -562,12 +541,6 @@ window.onLLMDownloadError = function(errorMsg, modelID) {
 };
 
 window.onLLMDownloadComplete = function(modelID) {
-  // Hide per-model progress bar
-  if (modelID) {
-    const safeID = CSS.escape(modelID);
-    const bar = document.querySelector(`[data-model-progress="${safeID}"]`);
-    if (bar) bar.style.display = 'none';
-  }
   // Legacy ID-based progress elements
   ['', 'settings-'].forEach(prefix => {
     const progress = document.getElementById(prefix + 'llm-progress');

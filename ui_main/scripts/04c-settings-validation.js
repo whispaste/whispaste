@@ -144,26 +144,14 @@ async function renderModelList() {
     ];
   }
   
-  container.innerHTML = models.map(m => {
-    const isDownloading = _downloadingModel === m.id;
-    let actionBtn;
-    if (isDownloading) {
-      actionBtn = `<button class="btn btn-secondary btn-sm" disabled>${t('modelDownloading')}</button>
-        <div class="model-progress"><div class="model-progress-bar" id="progress-${m.id}"></div></div>`;
-    } else if (m.downloaded) {
-      actionBtn = `<button class="btn btn-secondary btn-sm btn-model-test" id="btn-test-stt-${m.id}" onclick="event.stopPropagation();testSTTModel('${m.id}')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg> ${t('modelTest')}</button><span class="model-badge model-badge-success">✓ ${t('modelDownloaded')}</span><button class="btn btn-icon btn-sm btn-ghost" onclick="event.stopPropagation();confirmDeleteModel('${m.id}')" title="${t('modelDelete')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>`;
-    } else {
-      actionBtn = `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();downloadModel('${m.id}')">${t('modelDownload')}</button>`;
-    }
-    return `<div class="model-item ${!m.downloaded && !isDownloading ? 'unavailable' : ''}" data-model-id="${m.id}">
-      <div class="model-item-info">
-        <div class="model-item-name">${m.name}</div>
-        ${t('model.desc.' + m.id) ? '<div class="model-desc">' + esc(t('model.desc.' + m.id)) + '</div>' : ''}
-        <div class="model-item-meta">${m.size}${!m.downloaded ? ' · ' + t('modelNotDownloaded') : ''}</div>
-      </div>
-      <div class="model-item-action">${actionBtn}</div>
-    </div>`;
-  }).join('');
+  container.innerHTML = models.map(m => renderModelCard({
+    id: m.id,
+    name: m.name,
+    description: t('model.desc.' + m.id) || '',
+    size: m.size,
+    downloaded: m.downloaded,
+    downloading: _downloadingModel === m.id
+  }, { type: 'stt', showTest: true })).join('');
 }
 
 
