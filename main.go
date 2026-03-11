@@ -164,7 +164,12 @@ func main() {
 		if endpoint == "" {
 			endpoint = "https://api.openai.com/v1/audio/transcriptions"
 		}
+		// For local STT, fall back to UI language when transcription language is "auto".
+		// Small local whisper models are unreliable at auto-detecting language.
 		localLang = cfg.Language
+		if localLang == "auto" && cfg.UILanguage != "" && cfg.UILanguage != "auto" {
+			localLang = cfg.UILanguage
+		}
 		return cfg.PlaySounds, cfg.AutoPaste, cfg.Language, localLang, cfg.APIKey, cfg.Model, endpoint, cfg.ActiveModelLocal
 	}
 	snapshotSmart := func() (enabled bool, preset, customPrompt, targetLang string) {
