@@ -94,19 +94,14 @@ Voice Activity Detection strips silence before sending audio. Smart Mode can opt
 
 ### Portable
 
-1. **Download** all files from the latest [**Release**](../../releases/latest):
-   - `whispaste.exe` — the application
-   - `onnxruntime.dll` — required for local speech recognition
-   - `sherpa-onnx-c-api.dll` — required for local speech recognition
-   - `sherpa-onnx-cxx-api.dll` — required for local speech recognition
-2. **Place all files in the same folder** — the DLLs must be next to `whispaste.exe`
-3. **Run** — double-click `whispaste.exe`. It will appear in your system tray.
-4. **Set up transcription** — either:
+1. **Download** `whispaste.exe` from the latest [**Release**](../../releases/latest)
+2. **Run** — double-click `whispaste.exe`. It will appear in your system tray.
+3. **Set up transcription** — either:
    - Enter your [OpenAI API key](https://platform.openai.com/api-keys) in Settings → API Key, or
    - Enable local models in Settings → Local STT and download a model (no API key needed)
-5. **Use** — press `Ctrl+Shift+D`, speak, release → text appears at your cursor!
+4. **Use** — press `Ctrl+Shift+D`, speak, release → text appears at your cursor!
 
-> **Note:** If you don't need local models, the DLL files are optional — the app works with just the `.exe` and an OpenAI API key.
+> **Note:** Local STT uses [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — the server binary and models are downloaded automatically on first use.
 
 ### MSIX Package
 
@@ -126,7 +121,7 @@ Right-click the tray icon → **Settings** to configure:
 | **Language** | Auto-detect | Force a specific transcription language |
 | **Model** | `whisper-1` | OpenAI Whisper model for cloud transcription |
 | **Local STT** | Off | Use local Whisper models instead of the API |
-| **Local Model** | *(none)* | Download and select a local model (base or small) |
+| **Local Model** | *(none)* | Download and select a local model (base, small, or medium) |
 | **Input Device** | *(system default)* | Select a specific microphone |
 | **Input Gain** | 1.0 | Adjust microphone input level |
 | **Prompt** | *(empty)* | System prompt sent with each Whisper request |
@@ -190,7 +185,7 @@ When using the OpenAI Whisper API, transcription is billed per audio minute at *
 
 - [Go 1.24+](https://go.dev/dl/)
 - GCC for Windows ([MSYS2 MinGW-w64](https://www.msys2.org/) or [TDM-GCC](https://jmeubank.github.io/tdm-gcc/))
-- The runtime DLLs (`onnxruntime.dll`, `sherpa-onnx-c-api.dll`, `sherpa-onnx-cxx-api.dll`) must be in the working directory for local model support
+- Local STT uses whisper.cpp (downloaded at runtime — no bundled DLLs required)
 
 ### Build
 
@@ -223,7 +218,7 @@ whispaste/
 │   ├── audiocache/          #   Audio file caching with gzip compression
 │   ├── export/              #   Export flows (TXT, MD, CSV, JSON, DOCX)
 │   ├── i18n/                #   Localization (EN/DE translations)
-│   ├── models/              #   Local model management (download, paths)
+│   ├── models/              #   Local model management (download, SHA256 verify)
 │   ├── stats/               #   Usage statistics
 │   └── wav/                 #   PCM → WAV encoder
 ├── scripts/                 ← Build & review scripts
@@ -242,18 +237,28 @@ whispaste/
 ├── website/                 ← Landing page (Astro)
 ├── winres/                  ← Windows resource embedding
 ├── main.go                  # Entry point, state machine
+├── main_state.go            # App state management (recording, processing)
+├── main_handlers.go         # State transition handlers
 ├── audio.go                 # Microphone recording (miniaudio/WASAPI)
 ├── api.go                   # OpenAI Whisper API client
-├── offline.go               # Local Whisper transcription (sherpa-onnx)
+├── stt.go                   # Local STT subprocess (whisper.cpp HTTP server)
+├── stt_download.go          # STT server + model download with SHA256 verify
+├── offline.go               # Local Whisper transcription client
 ├── paste.go                 # Clipboard + SendInput (Ctrl+V)
 ├── hotkey.go                # Global hotkey (PTT + toggle)
 ├── overlay.go               # Recording overlay (GDI+ with per-pixel alpha)
+├── overlay_events.go        # Overlay event handling
+├── overlay_gdi.go           # Overlay GDI+ rendering
 ├── floating.go              # Floating desktop record button
 ├── vad.go                   # Voice Activity Detection (silence stripping)
 ├── notification.go          # Windows toast notification support
 ├── tray.go                  # System tray icon, menu, history submenu
 ├── ui.go                    # Window management helpers
 ├── ui_main.go               # Main dashboard window (WebView2 bindings)
+├── ui_bindings_settings.go  # Settings/model WebView bindings
+├── ui_bindings_history.go   # History WebView bindings
+├── ui_bindings_smart.go     # Smart mode WebView bindings
+├── ui_bindings_ui.go        # UI utility WebView bindings
 ├── ui_log.go                # Log viewer window (WebView2)
 ├── ui_components.go         # Reusable Go UI component generators
 ├── config.go                # Configuration management
@@ -262,8 +267,12 @@ whispaste/
 ├── l10n_bridge.go           # T() bridge to internal/i18n
 ├── sound.go                 # Audio feedback with volume control
 ├── postprocess.go           # Smart Mode (GPT-4o-mini post-processing)
-├── history.go               # Transcription history with model/cost tracking
+├── history.go               # Transcription history CRUD
 ├── history_db.go            # SQLite database layer (FTS5 full-text search)
+├── history_search.go        # Full-text search and tag queries
+├── history_analytics.go     # Usage statistics and analytics
+├── history_projects.go      # Project management
+├── autotag.go               # Auto-tagging via local LLM
 ├── autostart.go             # Windows login autostart
 ├── windowdetect.go          # Active window detection (Win32)
 ├── llm.go                   # Local LLM integration (llama-server)

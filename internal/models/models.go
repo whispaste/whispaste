@@ -1,6 +1,8 @@
 package models
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -17,33 +19,45 @@ func Init(name string) {
 	appName = name
 }
 
-// Info describes an available local Whisper model.
+// Info describes an available local Whisper model (single GGML file).
 type Info struct {
-	ID        string   // e.g. "whisper-tiny"
-	Name      string   // e.g. "Whisper Tiny"
-	Size      string   // human-readable size, e.g. "39MB"
-	SizeBytes int64    // approximate total size in bytes (for progress)
-	BaseURL   string   // HuggingFace base URL for direct file downloads
-	Files     []string // file names to download (encoder, decoder, tokens)
+	ID        string // e.g. "whisper-base"
+	Name      string // e.g. "Whisper Base"
+	Size      string // human-readable size, e.g. "57MB"
+	SizeBytes int64  // approximate size in bytes (for progress)
+	URL       string // direct download URL for the GGML file
+	Filename  string // e.g. "ggml-base-q5_1.bin"
+	SHA256    string // expected SHA256 hash (lowercase hex) from HuggingFace LFS
 }
 
-// Available lists all supported local Whisper models.
+// Available lists all supported local Whisper models (GGML format).
 var Available = []Info{
 	{
 		ID:        "whisper-base",
 		Name:      "Whisper Base",
-		Size:      "74MB",
-		SizeBytes: 77_594_624,
-		BaseURL:   "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main",
-		Files:     []string{"base-encoder.onnx", "base-decoder.onnx", "base-tokens.txt"},
+		Size:      "57MB",
+		SizeBytes: 59_700_000,
+		URL:       "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin",
+		Filename:  "ggml-base-q5_1.bin",
+		SHA256:    "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898",
 	},
 	{
 		ID:        "whisper-small",
 		Name:      "Whisper Small",
-		Size:      "244MB",
-		SizeBytes: 255_852_544,
-		BaseURL:   "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small/resolve/main",
-		Files:     []string{"small-encoder.onnx", "small-decoder.onnx", "small-tokens.txt"},
+		Size:      "181MB",
+		SizeBytes: 190_085_487,
+		URL:       "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
+		Filename:  "ggml-small-q5_1.bin",
+		SHA256:    "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
+	},
+	{
+		ID:        "whisper-medium",
+		Name:      "Whisper Medium",
+		Size:      "514MB",
+		SizeBytes: 539_212_467,
+		URL:       "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin",
+		Filename:  "ggml-medium-q5_0.bin",
+		SHA256:    "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f",
 	},
 }
 
@@ -57,13 +71,13 @@ func Dir() (string, error) {
 	return dir, os.MkdirAll(dir, 0700)
 }
 
-// GetDir returns the directory for a specific model.
+// GetDir returns the directory for a specific model (stt/ subdirectory).
 func GetDir(modelID string) (string, error) {
 	base, err := Dir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get models directory: %w", err)
 	}
-	return filepath.Join(base, modelID), nil
+	return filepath.Join(base, "stt"), nil
 }
 
 // Find returns the Info for the given ID, or nil if not found.
@@ -76,22 +90,19 @@ func Find(modelID string) *Info {
 	return nil
 }
 
-// IsDownloaded checks whether all required files for a model exist on disk.
+// IsDownloaded checks whether the GGML model file exists on disk.
 func IsDownloaded(modelID string) bool {
 	model := Find(modelID)
 	if model == nil {
 		return false
 	}
-	dir, err := GetDir(modelID)
+	dir, err := Dir()
 	if err != nil {
 		return false
 	}
-	for _, f := range model.Files {
-		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
-			return false
-		}
-	}
-	return true
+	sttDir := filepath.Join(dir, "stt")
+	_, err = os.Stat(filepath.Join(sttDir, model.Filename))
+	return err == nil
 }
 
 // ListDownloaded returns all models that are fully downloaded.
@@ -113,46 +124,48 @@ var modelHTTPClient = &http.Client{
 	},
 }
 
-// Download downloads all files for the specified model.
+// Download downloads the GGML model file for the specified model.
 func Download(modelID string, progressFn func(fileDownloaded, fileTotal int64, fileIdx, fileCount int, fileName string)) error {
 	model := Find(modelID)
 	if model == nil {
 		return fmt.Errorf("unknown model: %s", modelID)
 	}
 
-	dir, err := GetDir(modelID)
+	dir, err := Dir()
 	if err != nil {
-		return fmt.Errorf("failed to get model directory: %w", err)
+		return fmt.Errorf("failed to get models directory: %w", err)
 	}
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("failed to create model directory: %w", err)
+	sttDir := filepath.Join(dir, "stt")
+	if err := os.MkdirAll(sttDir, 0700); err != nil {
+		return fmt.Errorf("failed to create stt directory: %w", err)
 	}
 
-	fileCount := len(model.Files)
+	dest := filepath.Join(sttDir, model.Filename)
 	var lastPct int = -1
-	var lastFileIdx int = -1
 
-	for i, fname := range model.Files {
-		url := model.BaseURL + "/" + fname
-		dest := filepath.Join(dir, fname)
-
-		if err := DownloadFile(url, dest, func(downloaded, total int64) {
-			if progressFn != nil {
-				var pct int
-				if total > 0 {
-					pct = int(float64(downloaded) / float64(total) * 100)
-					if pct > 100 {
-						pct = 100
-					}
-				}
-				if pct != lastPct || i != lastFileIdx {
-					lastPct = pct
-					lastFileIdx = i
-					progressFn(downloaded, total, i, fileCount, fname)
+	if err := DownloadFile(model.URL, dest, func(downloaded, total int64) {
+		if progressFn != nil {
+			var pct int
+			if total > 0 {
+				pct = int(float64(downloaded) / float64(total) * 100)
+				if pct > 100 {
+					pct = 100
 				}
 			}
-		}); err != nil {
-			return fmt.Errorf("failed to download %s: %w", fname, err)
+			if pct != lastPct {
+				lastPct = pct
+				progressFn(downloaded, total, 0, 1, model.Filename)
+			}
+		}
+	}); err != nil {
+		return fmt.Errorf("failed to download %s: %w", model.Filename, err)
+	}
+
+	// Verify SHA256 hash if specified
+	if model.SHA256 != "" {
+		if err := VerifyFileHash(dest, model.SHA256); err != nil {
+			os.Remove(dest)
+			return fmt.Errorf("hash verification failed for %s: %w", model.Filename, err)
 		}
 	}
 
@@ -217,14 +230,49 @@ func DownloadFile(url, dest string, progressFn func(downloaded, total int64)) er
 	return nil
 }
 
-// Delete removes all files for a downloaded model.
+// Delete removes the GGML model file and any old-format per-model directory.
 func Delete(modelID string) error {
-	dir, err := GetDir(modelID)
-	if err != nil {
-		return fmt.Errorf("failed to get model directory: %w", err)
+	model := Find(modelID)
+	if model == nil {
+		return fmt.Errorf("unknown model: %s", modelID)
 	}
-	if err := os.RemoveAll(dir); err != nil {
-		return fmt.Errorf("failed to delete model directory: %w", err)
+
+	dir, err := Dir()
+	if err != nil {
+		return fmt.Errorf("failed to get models directory: %w", err)
+	}
+
+	sttDir := filepath.Join(dir, "stt")
+	filePath := filepath.Join(sttDir, model.Filename)
+	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete model file: %w", err)
+	}
+
+	// Clean up old-format per-model directory if it exists
+	oldDir := filepath.Join(dir, modelID)
+	if info, e := os.Stat(oldDir); e == nil && info.IsDir() {
+		os.RemoveAll(oldDir)
+	}
+
+	return nil
+}
+
+// VerifyFileHash computes the SHA256 hash of a file and compares it to the expected value.
+func VerifyFileHash(path, expectedHash string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open file: %w", err)
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return fmt.Errorf("read file: %w", err)
+	}
+
+	actual := hex.EncodeToString(h.Sum(nil))
+	if actual != expectedHash {
+		return fmt.Errorf("SHA256 mismatch: expected %s, got %s", expectedHash, actual)
 	}
 	return nil
 }
