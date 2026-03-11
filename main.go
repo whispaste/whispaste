@@ -107,6 +107,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer recorder.Close()
+	recorder.SetGain(cfg.GetInputGain())
 
 	// Initialize stats, audiocache, and history
 	cfgDir, _ := configDir()
