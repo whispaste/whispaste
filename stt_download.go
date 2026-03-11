@@ -79,6 +79,20 @@ func DownloadSTT(modelID string, progressFn func(phase string, pct int)) error {
 		return fmt.Errorf("download stt model: %w", err)
 	}
 
+	// Verify SHA256 hash if specified
+	if model.SHA256 != "" {
+		if progressFn != nil {
+			progressFn("verify", 0)
+		}
+		if err := models.VerifyFileHash(modelDest, model.SHA256); err != nil {
+			os.Remove(modelDest)
+			return fmt.Errorf("model hash verification failed: %w", err)
+		}
+		if progressFn != nil {
+			progressFn("verify", 100)
+		}
+	}
+
 	logInfo("STT download complete: %s", modelID)
 	return nil
 }

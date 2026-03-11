@@ -1,6 +1,8 @@
 package models
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -25,6 +27,7 @@ type Info struct {
 	SizeBytes int64  // approximate size in bytes (for progress)
 	URL       string // direct download URL for the GGML file
 	Filename  string // e.g. "ggml-base-q5_1.bin"
+	SHA256    string // expected SHA256 hash (lowercase hex) from HuggingFace LFS
 }
 
 // Available lists all supported local Whisper models (GGML format).
@@ -36,14 +39,25 @@ var Available = []Info{
 		SizeBytes: 59_700_000,
 		URL:       "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin",
 		Filename:  "ggml-base-q5_1.bin",
+		SHA256:    "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898",
 	},
 	{
 		ID:        "whisper-small",
 		Name:      "Whisper Small",
-		Size:      "175MB",
-		SizeBytes: 181_000_000,
+		Size:      "181MB",
+		SizeBytes: 190_085_487,
 		URL:       "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
 		Filename:  "ggml-small-q5_1.bin",
+		SHA256:    "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
+	},
+	{
+		ID:        "whisper-medium",
+		Name:      "Whisper Medium",
+		Size:      "514MB",
+		SizeBytes: 539_212_467,
+		URL:       "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin",
+		Filename:  "ggml-medium-q5_0.bin",
+		SHA256:    "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f",
 	},
 }
 
@@ -147,6 +161,14 @@ func Download(modelID string, progressFn func(fileDownloaded, fileTotal int64, f
 		return fmt.Errorf("failed to download %s: %w", model.Filename, err)
 	}
 
+	// Verify SHA256 hash if specified
+	if model.SHA256 != "" {
+		if err := VerifyFileHash(dest, model.SHA256); err != nil {
+			os.Remove(dest)
+			return fmt.Errorf("hash verification failed for %s: %w", model.Filename, err)
+		}
+	}
+
 	return nil
 }
 
@@ -232,5 +254,25 @@ func Delete(modelID string) error {
 		os.RemoveAll(oldDir)
 	}
 
+	return nil
+}
+
+// VerifyFileHash computes the SHA256 hash of a file and compares it to the expected value.
+func VerifyFileHash(path, expectedHash string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open file: %w", err)
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return fmt.Errorf("read file: %w", err)
+	}
+
+	actual := hex.EncodeToString(h.Sum(nil))
+	if actual != expectedHash {
+		return fmt.Errorf("SHA256 mismatch: expected %s, got %s", expectedHash, actual)
+	}
 	return nil
 }
