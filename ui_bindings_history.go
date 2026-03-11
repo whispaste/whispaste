@@ -7,7 +7,6 @@ import (
 
 	"github.com/whispaste/whispaste/internal/audiocache"
 	"github.com/whispaste/whispaste/internal/export"
-	"github.com/whispaste/whispaste/internal/models"
 	"github.com/whispaste/whispaste/internal/stats"
 
 	webview "github.com/webview/webview_go"
@@ -126,13 +125,8 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 					return
 				}
 				pcmData := wavData[44:]
-				modelDir, mdErr := models.GetDir(cfg.GetLocalModelID())
-				if mdErr != nil {
-					safeEval(`onReTranscribeResult(` + jsStr(id) + `, false, ` + jsStr(mdErr.Error()) + `)`)
-					return
-				}
 				localLang := cfg.GetTranscriptionLanguage()
-				text, txErr = GetLocalRecognizer().Transcribe(pcmData, 16000, localLang, modelDir)
+				text, txErr = TranscribeLocal(pcmData, 16000, localLang, cfg.GetLocalModelID())
 			} else {
 				if apiKey == "" {
 					safeEval(`onReTranscribeResult(` + jsStr(id) + `, false, "No API key configured")`)

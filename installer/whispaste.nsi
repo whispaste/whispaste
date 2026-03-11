@@ -58,9 +58,6 @@ Section "WhisPaste (required)" SecCore
 
   SetOutPath "$INSTDIR"
   File "..\whispaste.exe"
-  File "..\onnxruntime.dll"
-  File "..\sherpa-onnx-c-api.dll"
-  File "..\sherpa-onnx-cxx-api.dll"
   File "..\LICENSE"
 
   ; Create Start Menu shortcuts
@@ -112,9 +109,6 @@ Section "Uninstall"
 
   ; Remove files
   Delete "$INSTDIR\whispaste.exe"
-  Delete "$INSTDIR\onnxruntime.dll"
-  Delete "$INSTDIR\sherpa-onnx-c-api.dll"
-  Delete "$INSTDIR\sherpa-onnx-cxx-api.dll"
   Delete "$INSTDIR\LICENSE"
   Delete "$INSTDIR\uninstall.exe"
 
