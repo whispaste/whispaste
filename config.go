@@ -123,7 +123,7 @@ func DefaultConfig() *Config {
 		NotifyComplete:   true,
 		NotifyDonate:     true,
 		UseLocalSTT:      false,
-		LocalModelID:     "whisper-tiny",
+		LocalModelID:     "whisper-base",
 		InputGain:        1.0,
 	}
 }
@@ -409,7 +409,11 @@ func (c *Config) GetLocalModelID() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.LocalModelID == "" {
-		return "whisper-tiny"
+		return "whisper-base"
+	}
+	// Migrate removed turbo model to small
+	if c.LocalModelID == "whisper-turbo" {
+		return "whisper-small"
 	}
 	return c.LocalModelID
 }
