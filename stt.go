@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -80,12 +81,15 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	listener.Close()
 
+	threads := sttThreadCount()
 	cmd := exec.Command(serverPath,
 		"--model", modelPath,
 		"--host", "127.0.0.1",
 		"--port", fmt.Sprintf("%d", port),
+		"--threads", fmt.Sprintf("%d", threads),
 		"--convert",
 	)
+	logInfo("Starting whisper-server with %d threads (logical CPUs: %d)", threads, runtime.NumCPU())
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
 	if err := cmd.Start(); err != nil {
@@ -164,6 +168,19 @@ func (s *LocalSTT) Endpoint() string {
 		return ""
 	}
 	return fmt.Sprintf("http://127.0.0.1:%d", s.port)
+}
+
+// sttThreadCount returns the optimal thread count for whisper-server.
+// Uses half of logical CPUs (approximating physical cores), clamped to [2, 8].
+func sttThreadCount() int {
+	n := runtime.NumCPU() / 2
+	if n < 2 {
+		n = 2
+	}
+	if n > 8 {
+		n = 8
+	}
+	return n
 }
 
 func (s *LocalSTT) Transcribe(wavData []byte, lang string) (string, error) {
