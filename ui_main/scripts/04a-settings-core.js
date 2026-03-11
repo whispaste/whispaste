@@ -11,6 +11,57 @@ let _configLoaded = false;
 let _autoSaveTimer = null;
 const DEBOUNCE_MS = 500;
 
+/* ── Shared Model Card Renderer ───────────────────────── */
+/**
+ * Renders a unified model card used by both STT and LLM sections.
+ * @param {Object} m - Model data
+ * @param {string} m.id - Model identifier
+ * @param {string} m.name - Display name
+ * @param {string} m.description - Description text
+ * @param {string} m.size - Size string (e.g. "57MB")
+ * @param {boolean} m.downloaded - Whether the model is installed/downloaded
+ * @param {boolean} m.downloading - Whether currently downloading
+ * @param {Object} opts - Rendering options
+ * @param {string} opts.type - 'stt' or 'llm'
+ * @param {boolean} [opts.showTest] - Show test button when downloaded
+ * @returns {string} HTML string for the model card
+ */
+function renderModelCard(m, opts) {
+  const type = opts.type;
+  const isDownloading = !!m.downloading;
+  let actionHTML;
+
+  if (isDownloading) {
+    actionHTML = `<button class="btn btn-secondary btn-sm" disabled>${esc(t('modelDownloading'))}</button>
+      <div class="model-progress"><div class="model-progress-bar" id="progress-${esc(m.id)}"></div></div>`;
+  } else if (m.downloaded) {
+    const testBtn = opts.showTest
+      ? `<button class="btn btn-secondary btn-sm btn-model-test" id="btn-test-${esc(type)}-${esc(m.id)}" onclick="event.stopPropagation();${type === 'stt' ? 'testSTTModel' : 'testLLMModelById'}('${esc(m.id)}')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg> ${esc(t('modelTest'))}</button>`
+      : '';
+    const badgeText = type === 'stt' ? t('modelDownloaded') : t('smartLlmReady');
+    const deleteHandler = type === 'stt' ? 'confirmDeleteModel' : 'confirmDeleteLLMModel';
+    const deleteTitle = type === 'stt' ? t('modelDelete') : t('smartLlmDelete');
+    actionHTML = `${testBtn}<span class="model-badge model-badge-success">✓ ${esc(badgeText)}</span><button class="btn btn-icon btn-sm btn-ghost" onclick="event.stopPropagation();${deleteHandler}('${esc(m.id)}')" title="${esc(deleteTitle)}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>`;
+  } else {
+    const downloadHandler = type === 'stt' ? 'downloadModel' : 'downloadLLMModel';
+    const downloadText = type === 'stt' ? t('modelDownload') : t('smartLlmDownload');
+    actionHTML = `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();${downloadHandler}('${esc(m.id)}')">${esc(downloadText)}</button>`;
+  }
+
+  const statusText = m.downloaded
+    ? ''
+    : ' · ' + esc(type === 'stt' ? t('modelNotDownloaded') : t('smartLlmNotInstalled'));
+
+  return `<div class="model-item${!m.downloaded && !isDownloading ? ' unavailable' : ''}" data-model-id="${esc(m.id)}">
+    <div class="model-item-info">
+      <div class="model-item-name">${esc(m.name)}</div>
+      ${m.description ? '<div class="model-desc">' + esc(m.description) + '</div>' : ''}
+      <div class="model-item-meta">${esc(m.size)}${statusText}</div>
+    </div>
+    <div class="model-item-action">${actionHTML}</div>
+  </div>`;
+}
+
 // Floating button color picker — delegated click handler
 document.addEventListener('click', function(e) {
   const opt = e.target.closest('.fab-color-option');
