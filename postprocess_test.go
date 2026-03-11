@@ -56,7 +56,7 @@ func TestBuildSmartPrompt(t *testing.T) {
 		{"custom prompt", "custom", "Fix spelling", "", "en", nil, false, "Fix spelling"},
 		{"custom without prompt", "custom", "", "", "en", nil, true, ""},
 		{"unknown preset", "nonexistent", "", "", "en", nil, true, ""},
-		{"german suffix", "email", "", "", "de", nil, false, "Respond in German"},
+		{"german prefix", "email", "", "", "de", nil, false, "WICHTIG: Antworte IMMER auf Deutsch"},
 		{"user template", "mypreset", "", "", "en", map[string]string{"mypreset": "Do stuff"}, false, "Do stuff"},
 	}
 	for _, tt := range tests {
