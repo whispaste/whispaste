@@ -264,9 +264,10 @@ func buildSmartPrompt(preset, customPrompt, targetLang, appLang string, userTemp
 	if !ok {
 		return ""
 	}
-	// Add language instruction based on app's UI language
+	// Prepend strong language instruction for non-English UI languages.
+	// Small local LLMs ignore weak trailing instructions — front-loading works.
 	if appLang == "de" {
-		p += " Respond in German."
+		p = "WICHTIG: Antworte IMMER auf Deutsch. " + p
 	}
 	return p
 }
