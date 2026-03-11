@@ -429,6 +429,8 @@
   justify-content: center;
   gap: 12px;
   flex-wrap: wrap;
+  margin-top: 4px;
+  margin-bottom: 8px;
 }
 .onb-model-status {
   font-size: 12px;
