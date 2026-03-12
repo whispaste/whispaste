@@ -25,9 +25,9 @@
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
 OutFile "WhisPaste-${PRODUCT_VERSION}-Setup.exe"
-InstallDir "$PROGRAMFILES64\${PRODUCT_NAME}"
-InstallDirRegKey HKLM "${PRODUCT_UNINST_KEY}" "InstallLocation"
-RequestExecutionLevel admin
+InstallDir "$LOCALAPPDATA\Programs\${PRODUCT_NAME}"
+InstallDirRegKey HKCU "${PRODUCT_UNINST_KEY}" "InstallLocation"
+RequestExecutionLevel user
 SetCompressor /SOLID lzma
 Unicode True
 
@@ -121,22 +121,22 @@ Section "$(SEC_CORE_NAME)" SecCore
   ; Write uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
-  ; Add/Remove Programs registry
-  WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
-  WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
-  WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
-  WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
-  WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "UninstallString" '"$INSTDIR\uninstall.exe"'
-  WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "QuietUninstallString" '"$INSTDIR\uninstall.exe" /S'
-  WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "InstallLocation" "$INSTDIR"
-  WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\whispaste.exe"
-  WriteRegDWORD HKLM "${PRODUCT_UNINST_KEY}" "NoModify" 1
-  WriteRegDWORD HKLM "${PRODUCT_UNINST_KEY}" "NoRepair" 1
+  ; Add/Remove Programs registry (per-user)
+  WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
+  WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
+  WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
+  WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
+  WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "UninstallString" '"$INSTDIR\uninstall.exe"'
+  WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "QuietUninstallString" '"$INSTDIR\uninstall.exe" /S'
+  WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "InstallLocation" "$INSTDIR"
+  WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\whispaste.exe"
+  WriteRegDWORD HKCU "${PRODUCT_UNINST_KEY}" "NoModify" 1
+  WriteRegDWORD HKCU "${PRODUCT_UNINST_KEY}" "NoRepair" 1
 
   ; Compute installed size
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
-  WriteRegDWORD HKLM "${PRODUCT_UNINST_KEY}" "EstimatedSize" $0
+  WriteRegDWORD HKCU "${PRODUCT_UNINST_KEY}" "EstimatedSize" $0
 SectionEnd
 
 Section "$(SEC_DESKTOP_NAME)" SecDesktop
@@ -185,6 +185,9 @@ Section "Uninstall"
   Delete "$APPDATA\Microsoft\Windows\Start Menu\Programs\${PRODUCT_NAME}.lnk"
 
   ; Remove registry entries
+  DeleteRegKey HKCU "${PRODUCT_UNINST_KEY}"
+  ; Also clean up legacy HKLM entries from older per-machine installs
+  ; (silently ignored if running without admin privileges)
   DeleteRegKey HKLM "${PRODUCT_UNINST_KEY}"
   DeleteRegValue HKCU "${PRODUCT_AUTORUN_KEY}" "${PRODUCT_NAME}"
   DeleteRegKey HKCU "Software\${PRODUCT_NAME}"
