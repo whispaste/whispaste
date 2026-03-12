@@ -90,6 +90,8 @@ LangString SEC_AUTOSTART_DESC ${LANG_GERMAN} "WhisPaste beim Systemstart automat
 ; Finish page
 LangString FINISH_RUN ${LANG_ENGLISH} "Start WhisPaste"
 LangString FINISH_RUN ${LANG_GERMAN} "WhisPaste starten"
+LangString UNINST_REMOVE_DATA ${LANG_ENGLISH} "Also remove all settings, models, and history?$\n(Located in: $APPDATA\${PRODUCT_NAME})"
+LangString UNINST_REMOVE_DATA ${LANG_GERMAN} "Auch alle Einstellungen, Modelle und den Verlauf entfernen?$\n(Pfad: $APPDATA\${PRODUCT_NAME})"
 
 ; --- Init Function (language selection dialog) ---
 Function .onInit
@@ -101,7 +103,9 @@ FunctionEnd
 Section "$(SEC_CORE_NAME)" SecCore
   SectionIn RO
 
-  ; Close running instance and wait for process to exit
+  ; Close running instance and subprocesses, wait for processes to exit
+  nsExec::ExecToLog 'taskkill /F /IM whisper-server.exe'
+  nsExec::ExecToLog 'taskkill /F /IM llama-server.exe'
   nsExec::ExecToLog 'taskkill /F /IM whispaste.exe'
   Sleep 1000
 
@@ -157,7 +161,9 @@ Function un.onInit
 FunctionEnd
 
 Section "Uninstall"
-  ; Close running instance and wait for process to exit
+  ; Close running instance and subprocesses, wait for processes to exit
+  nsExec::ExecToLog 'taskkill /F /IM whisper-server.exe'
+  nsExec::ExecToLog 'taskkill /F /IM llama-server.exe'
   nsExec::ExecToLog 'taskkill /F /IM whispaste.exe'
   Sleep 1000
 
@@ -166,16 +172,27 @@ Section "Uninstall"
   Delete "$INSTDIR\LICENSE"
   Delete "$INSTDIR\uninstall.exe"
 
+  ; Remove WebView2 user data (EBWebView directory next to exe)
+  RMDir /r "$INSTDIR\EBWebView"
+
   ; Remove shortcuts
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk"
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk"
   RMDir "$SMPROGRAMS\${PRODUCT_NAME}"
   Delete "$DESKTOP\${PRODUCT_NAME}.lnk"
 
+  ; Remove AUMID Start Menu shortcut used for toast notifications
+  Delete "$APPDATA\Microsoft\Windows\Start Menu\Programs\${PRODUCT_NAME}.lnk"
+
   ; Remove registry entries
   DeleteRegKey HKLM "${PRODUCT_UNINST_KEY}"
   DeleteRegValue HKCU "${PRODUCT_AUTORUN_KEY}" "${PRODUCT_NAME}"
   DeleteRegKey HKCU "Software\${PRODUCT_NAME}"
+
+  ; Ask user whether to remove app data (settings, models, history)
+  MessageBox MB_YESNO|MB_ICONQUESTION "$(UNINST_REMOVE_DATA)" IDNO skip_data_removal
+    RMDir /r "$APPDATA\${PRODUCT_NAME}"
+  skip_data_removal:
 
   ; Remove install directory (only if empty)
   RMDir "$INSTDIR"
