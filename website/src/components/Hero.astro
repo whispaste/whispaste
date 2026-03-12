@@ -3,7 +3,7 @@ import HeroCarousel from './HeroCarousel.astro';
 ---
 <!-- Hero Section -->
 <section
-  class="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-14"
+  class="relative sm:min-h-[100svh] flex items-center justify-center overflow-hidden pt-14"
 >
   <!-- W-wave background (exact brand logo: wave + audio bars) -->
   <div class="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
@@ -33,16 +33,16 @@ import HeroCarousel from './HeroCarousel.astro';
 
   <div class="relative z-10 text-center px-6 max-w-4xl mx-auto">
     <div class="animate-fade-in">
-      <div class="mb-6 mt-4">
+      <div class="mb-4 sm:mb-6 mt-4">
         <img
           id="heroLogo"
           src="/app-icon-dark.png"
           alt="WhisPaste"
-          class="w-20 h-20 mx-auto rounded-2xl"
+          class="w-14 h-14 sm:w-20 sm:h-20 mx-auto rounded-xl sm:rounded-2xl"
         />
       </div>
       <h1
-        class="text-5xl sm:text-7xl lg:text-8xl font-bold tracking-tight text-white leading-[1.05]"
+        class="text-4xl sm:text-7xl lg:text-8xl font-bold tracking-tight text-white leading-[1.05]"
       >
         <span data-i18n="hero.title1">Press. Speak.</span><br />
         <span class="hero-gradient" data-i18n="hero.title2"
@@ -50,7 +50,7 @@ import HeroCarousel from './HeroCarousel.astro';
         >
       </h1>
       <p
-        class="mt-6 text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed"
+        class="mt-4 sm:mt-6 text-base sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed"
         data-i18n="hero.desc"
       >
         WhisPaste turns your voice into text — right where your cursor is. In any Windows app, offline or online, without a subscription.
@@ -59,7 +59,7 @@ import HeroCarousel from './HeroCarousel.astro';
 
     <!-- CTA buttons -->
     <div
-      class="mt-8 flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-delay"
+      class="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center animate-fade-in-delay"
     >
       <a
         href="/download/"
@@ -85,25 +85,25 @@ import HeroCarousel from './HeroCarousel.astro';
       </a>
     </div>
     <p
-      class="mt-4 text-sm text-gray-500 animate-fade-in-delay"
+      class="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-500 animate-fade-in-delay"
       data-i18n="hero.meta"
     >
       Windows 10/11 · Just download and run · Free & open source
     </p>
 
     <div
-      class="mt-6 flex flex-wrap items-center justify-center gap-3 animate-fade-in-delay"
+      class="mt-4 sm:mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3 animate-fade-in-delay"
     >
-      <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-gray-200 backdrop-blur-sm">
-        <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+      <div class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-200 backdrop-blur-sm">
+        <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
         <span data-i18n="hero.trust.anywhere">Open source</span>
       </div>
-      <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-gray-200 backdrop-blur-sm">
-        <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
+      <div class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-200 backdrop-blur-sm">
+        <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
         <span data-i18n="hero.trust.private">Privacy-first</span>
       </div>
-      <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-gray-200 backdrop-blur-sm">
-        <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1v22"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+      <div class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-gray-200 backdrop-blur-sm">
+        <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1v22"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
         <span data-i18n="hero.trust.nosub">No subscription</span>
       </div>
     </div>
