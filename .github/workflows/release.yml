@@ -83,8 +83,9 @@ jobs:
         run: |
           choco install nsis -y --no-progress
           $ver = "${{ steps.version.outputs.VERSION }}"
+          $numVer = "${{ steps.version.outputs.MSIX_VERSION }}"
           Push-Location installer
-          & "C:\Program Files (x86)\NSIS\makensis.exe" /DPRODUCT_VERSION=$ver whispaste.nsi
+          & "C:\Program Files (x86)\NSIS\makensis.exe" /DPRODUCT_VERSION=$ver /DPRODUCT_VERSION_NUMERIC=$numVer whispaste.nsi
           Pop-Location
           $installer = "installer\WhisPaste-$ver-Setup.exe"
           if (!(Test-Path $installer)) { throw "Installer build failed" }
