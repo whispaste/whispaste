@@ -171,6 +171,49 @@
   line-height: 1.4;
 }
 
+.onb-preflight-panel {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  text-align: left;
+}
+
+.onb-preflight-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.onb-preflight-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.onb-preflight-summary {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.onb-preflight-message {
+  display: none;
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.onb-preflight-message.visible {
+  display: block;
+}
+
 .onboarding-icon-success {
   background: linear-gradient(135deg, var(--success), color-mix(in srgb, var(--success), transparent 60%));
 }
@@ -444,6 +487,12 @@
 }
 .onb-model-status.downloading {
   color: var(--accent);
+}
+.onb-model-status.checking {
+  color: var(--warning);
+}
+.onb-model-status.blocked {
+  color: var(--error);
 }
 .onb-download-progress {
   display: flex;

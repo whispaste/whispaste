@@ -3,10 +3,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 24px 14px;
-  flex-shrink: 0;
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-primary);
+   padding: 0 24px 16px;
+   flex-shrink: 0;
+   background: transparent;
+   border-bottom: none;
 }
 
 .search-box {
@@ -14,12 +14,12 @@
   align-items: center;
   gap: 8px;
   flex: 1;
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 9px 16px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-full);
+   max-width: 620px;
+   margin: 0;
+   padding: 9px 16px;
+   background: var(--bg-secondary);
+   border: 1px solid var(--border-primary);
+   border-radius: var(--radius-full);
   transition: border-color var(--transition-normal), box-shadow var(--transition-normal), background var(--transition-normal);
 }
 .search-box:focus-within {
@@ -59,6 +59,58 @@
   background: var(--success-bg);
   color: var(--success);
   border-color: var(--success-border);
+}
+
+.history-page-header {
+  padding-bottom: 18px;
+}
+
+.history-page-header-main {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.history-page-copy {
+  min-width: 0;
+}
+
+.history-page-header .page-subtitle {
+  max-width: 680px;
+}
+
+.history-header-actions {
+  flex-shrink: 0;
+  min-width: min(100%, 460px);
+  justify-content: flex-end;
+}
+
+.history-search-box {
+  width: min(460px, 100%);
+  box-shadow: var(--shadow-xs);
+}
+
+.history-search-box:focus-within {
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+@media (max-width: 980px) {
+  .history-page-header-main {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .history-header-actions {
+    min-width: 0;
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .history-search-box {
+    width: 100%;
+    max-width: none;
+  }
 }
 
 /* ── History Layout (filter sidebar + entries) ────────── */
@@ -353,12 +405,24 @@
 .dialog-actions .btn { min-width: 100px; white-space: nowrap; }
 
 .filter-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .06em;
   color: var(--text-hint);
-  padding: 12px 10px 6px;
+  padding: 12px 10px 8px;
+}
+
+.filter-section-title::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--gradient-accent);
+  flex-shrink: 0;
 }
 
 .sidebar-add-tag-header { background: none; border: none; cursor: pointer; transition: opacity var(--transition-fast); }

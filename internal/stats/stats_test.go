@@ -85,10 +85,10 @@ func TestEstimatedCost(t *testing.T) {
 		monthLocalSeconds float64
 		wantCost          float64
 	}{
-		{"all API", 600, 0, 600.0 / 60.0 * 0.006},         // 10 min * $0.006/min
-		{"mixed", 600, 300, 300.0 / 60.0 * 0.006},          // 5 min API
-		{"all local", 600, 600, 0},                          // no API cost
-		{"more local than total", 100, 200, 0},              // clamped to 0
+		{"all API", 600, 0, 600.0 / 60.0 * 0.006}, // 10 min * $0.006/min
+		{"mixed", 600, 300, 300.0 / 60.0 * 0.006}, // 5 min API
+		{"all local", 600, 600, 0},                // no API cost
+		{"more local than total", 100, 200, 0},    // clamped to 0
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -74,6 +74,10 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 			logWarn("Failed to set autostart: %v", err)
 		}
 		SetLanguage(newCfg.UILanguage)
+		if recorder != nil {
+			recorder.SetGain(newCfg.InputGain)
+			recorder.SetInputDevice(newCfg.InputDevice)
+		}
 		if err := cfg.Save(); err != nil {
 			return map[string]interface{}{"success": false, "error": fmt.Sprintf("Save failed: %v", err)}
 		}
@@ -95,6 +99,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		}
 		recorder.StopMonitor()
 		recorder.SetGain(cfg.GetInputGain())
+		recorder.SetInputDevice(cfg.GetInputDevice())
 		if err := recorder.Start(); err != nil {
 			logError("Test recording start failed: %v", err)
 			return map[string]interface{}{"success": false, "text": "", "error": fmt.Sprintf(T("error.recording"), err)}
@@ -117,6 +122,10 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		var text string
 		var err2 error
 		if cfg.GetActiveModelLocal() {
+			if err := ensureLocalSTTAllowed(cfg.GetLocalModelID(), "use"); err != nil {
+				logWarn("Test transcription blocked by local STT preflight: %v", err)
+				return map[string]interface{}{"success": false, "text": "", "error": err.Error()}
+			}
 			text, err2 = TranscribeLocal(pcm, 16000, cfg.Language, cfg.GetLocalModelID())
 		} else {
 			wavData := wav.Encode(pcm, 16000, 1, 16)
@@ -148,6 +157,11 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 			lang := cfg.Language
 			if lang == "" {
 				lang = "en"
+			}
+			if err := ensureLocalSTTAllowed(modelID, "use"); err != nil {
+				logWarn("STT model test blocked by local STT preflight: %v", err)
+				safeDispatch(fmt.Sprintf("window._onSTTTestComplete('%s', false, '', '%s')", escapeJS(modelID), escapeJS(err.Error())))
+				return
 			}
 
 			text, err := TranscribeLocal(silentPCM, 16000, lang, modelID)
@@ -183,12 +197,26 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 	w.Bind("_getModels", func() []map[string]interface{} {
 		var result []map[string]interface{}
 		for _, m := range models.Available {
+			purpose := "download"
+			if models.IsDownloaded(m.ID) {
+				purpose = "use"
+			}
+			preflight := localSTTPreflightViewFor(m.ID, purpose)
 			result = append(result, map[string]interface{}{
 				"id": m.ID, "name": m.Name, "size": m.Size,
-				"downloaded": models.IsDownloaded(m.ID),
+				"downloaded":        models.IsDownloaded(m.ID),
+				"preflight_blocked": preflight.Blocking,
+				"preflight_status":  preflight.Status,
+				"preflight_message": preflight.Message,
 			})
 		}
 		return result
+	})
+
+	w.Bind("getLocalSTTPreflight", func(modelID string, purpose string) string {
+		view := localSTTPreflightViewFor(modelID, purpose)
+		data, _ := json.Marshal(view)
+		return string(data)
 	})
 
 	w.Bind("_downloadModel", func(modelID string) map[string]interface{} {
@@ -207,6 +235,11 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 			modelFileName := modelID
 			if model != nil {
 				modelFileName = model.Filename
+			}
+			if err := ensureLocalSTTAllowed(modelID, "download"); err != nil {
+				logWarn("Model download blocked by local STT preflight: %v", err)
+				safeDispatch(fmt.Sprintf("window.downloadComplete('%s', false, '%s')", escapeJS(modelID), escapeJS(err.Error())))
+				return
 			}
 			needsServer := !IsSTTServerInstalled()
 
@@ -227,6 +260,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 				return
 			}
 			logInfo("Model downloaded: %s", modelID)
+			invalidateLocalSTTPreflight()
 			safeDispatch(fmt.Sprintf("window.downloadComplete('%s', true, '')", escapeJS(modelID)))
 		}()
 		return map[string]interface{}{"started": true}
@@ -282,11 +316,20 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		return fmt.Sprintf("%.4f", recorder.GetLevel())
 	})
 
+	w.Bind("_getAudioMonitorSnapshot", func() string {
+		if recorder == nil {
+			return `{"level":0,"peak":0,"average":0,"status":"checking"}`
+		}
+		data, _ := json.Marshal(recorder.GetMonitorSnapshot())
+		return string(data)
+	})
+
 	w.Bind("_startAudioMonitor", func() string {
 		if recorder == nil {
 			return `{"success":false,"error":"no recorder"}`
 		}
 		recorder.SetGain(cfg.GetInputGain())
+		recorder.SetInputDevice(cfg.GetInputDevice())
 		if err := recorder.StartMonitor(); err != nil {
 			logWarn("StartMonitor failed: %v", err)
 			return fmt.Sprintf(`{"success":false,"error":"%s"}`, err.Error())
@@ -345,7 +388,13 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		return string(data)
 	})
 
-	w.Bind("switchModel", func(modelID string, isLocal bool) {
+	w.Bind("switchModel", func(modelID string, isLocal bool) map[string]interface{} {
+		if isLocal {
+			if err := ensureLocalSTTAllowed(modelID, "use"); err != nil {
+				logWarn("Model switch blocked by local STT preflight: %v", err)
+				return map[string]interface{}{"success": false, "error": err.Error()}
+			}
+		}
 		cfg.mu.Lock()
 		if isLocal {
 			cfg.ActiveModelLocal = true
@@ -355,19 +404,25 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 			cfg.Model = modelID
 		}
 		cfg.mu.Unlock()
-		cfg.Save()
+		if err := cfg.Save(); err != nil {
+			logError("Save config after model switch failed: %v", err)
+			return map[string]interface{}{"success": false, "error": err.Error()}
+		}
 		logInfo("Model switched to %s (local=%v)", modelID, isLocal)
+		return map[string]interface{}{"success": true, "error": ""}
 	})
 
 	w.Bind("getSystemInfo", func() string {
 		cfgPath, _ := configPath()
 		dir, _ := configDir()
 		logPath := filepath.Join(dir, logFile)
-		info := map[string]string{
+		preflight := localSTTPreflightViewFor("", "inspect")
+		info := map[string]interface{}{
 			"appVersion": AppVersion, "goVersion": runtime.Version(),
 			"os": runtime.GOOS, "arch": runtime.GOARCH,
 			"configPath": cfgPath, "logPath": logPath,
 			"buildCommit": BuildCommit, "buildBranch": BuildBranch, "buildDate": BuildDate,
+			"localSttPreflight": preflight,
 		}
 		data, _ := json.Marshal(info)
 		return string(data)

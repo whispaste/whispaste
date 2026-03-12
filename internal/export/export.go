@@ -31,7 +31,7 @@ type Entry struct {
 }
 
 var (
-	comdlg32          = windows.NewLazySystemDLL("comdlg32.dll")
+	comdlg32             = windows.NewLazySystemDLL("comdlg32.dll")
 	procGetSaveFileNameW = comdlg32.NewProc("GetSaveFileNameW")
 )
 

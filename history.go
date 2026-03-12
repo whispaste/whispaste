@@ -50,10 +50,10 @@ type analyticsCache struct {
 
 // History manages transcription history backed by SQLite.
 type History struct {
-	db             *sql.DB
-	mu             sync.Mutex
-	cache          map[int]*analyticsCache // keyed by periodDays
-	lastAuditTime  time.Time
+	db            *sql.DB
+	mu            sync.Mutex
+	cache         map[int]*analyticsCache // keyed by periodDays
+	lastAuditTime time.Time
 }
 
 // invalidateCache clears the analytics cache under lock.

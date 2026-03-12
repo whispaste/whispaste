@@ -36,6 +36,7 @@ async function loadSystemInfo() {
     { key: 'sysGoVersion', value: info.goVersion },
     { key: 'sysOS', value: info.os },
     { key: 'sysArch', value: info.arch },
+    { key: 'sysPreflight', value: info.localSttPreflight?.summary || '—' },
     { key: 'sysConfigPath', value: info.configPath, isPath: true },
     { key: 'sysLogPath', value: info.logPath, isPath: true },
   );
@@ -48,15 +49,15 @@ async function loadSystemInfo() {
 
   // Copy button
   const btn = document.getElementById('sysinfoCopyBtn');
-  if (btn) {
-    btn.onclick = () => {
-      const lines = rows.map(r => `${t(r.key)}: ${r.value || '—'}`);
-      lines.unshift('WhisPaste Debug Info');
-      lines.push(`User-Agent: ${navigator.userAgent}`);
-      navigator.clipboard.writeText(lines.join('\n')).then(() => {
-        showToast(t('aboutCopied'));
-      });
-    };
+    if (btn) {
+      btn.onclick = () => {
+        const lines = rows.map(r => `${t(r.key)}: ${r.value || '—'}`);
+        lines.unshift(t('aboutDebugInfo'));
+        lines.push(`${t('sysUserAgent')}: ${navigator.userAgent}`);
+        navigator.clipboard.writeText(lines.join('\n')).then(() => {
+          showToast(t('aboutCopied'));
+        });
+      };
   }
 }
 
@@ -124,13 +125,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.getConfig) {
       const raw = await window.getConfig();
       const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (typeof loadAudioDevices === 'function') {
+        await loadAudioDevices();
+      }
       applyConfig(cfg);
+      if (typeof refreshLocalSTTPreflight === 'function') {
+        refreshLocalSTTPreflight();
+      }
       // Hide in-app FAB when floating desktop button is active (avoids duplicate)
       const fab = document.getElementById('captureBtn');
       if (fab) fab.classList.toggle('hidden', !!cfg.floating_button_enabled);
       updateModeBadge(cfg);
       updateStatusBar(cfg);
-      loadAudioDevices();
     }
   } catch (e) {
     console.warn('Failed to load config:', e);

@@ -12,14 +12,14 @@ func TestValidID(t *testing.T) {
 		id    string
 		valid bool
 	}{
-		{"0123456789abcdef", true},    // 16 hex chars
-		{"abcdef01", true},            // 8 hex chars (minimum)
-		{"0123456789abcdef01234567", true}, // 24 hex chars
-		{"ABCDEF01", false},           // uppercase
-		{"../etc/passwd", false},      // path traversal
-		{"abc", false},                // too short
-		{"ghijklmn", false},           // non-hex
-		{"", false},                   // empty
+		{"0123456789abcdef", true},                    // 16 hex chars
+		{"abcdef01", true},                            // 8 hex chars (minimum)
+		{"0123456789abcdef01234567", true},            // 24 hex chars
+		{"ABCDEF01", false},                           // uppercase
+		{"../etc/passwd", false},                      // path traversal
+		{"abc", false},                                // too short
+		{"ghijklmn", false},                           // non-hex
+		{"", false},                                   // empty
 		{"abcdefgh01234567890123456789012345", false}, // >32 chars
 	}
 	for _, tt := range tests {

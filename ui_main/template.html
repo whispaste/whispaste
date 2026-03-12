@@ -29,7 +29,7 @@
       <div class="nav-item" data-page="smartmode" data-tooltip="Smart Mode" data-i18n-tooltip="navSmartMode">
         <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
       </div>
-      <div class="nav-item" data-page="replacements" data-tooltip="Text Replacements" data-i18n-tooltip="navReplacements">
+      <div class="nav-item" data-page="replacements" data-tooltip="Snippets" data-i18n-tooltip="navReplacements">
         <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4c0-1.1.9-2 2-2"/><path d="M20 2c1.1 0 2 .9 2 2"/><path d="M22 8c0 1.1-.9 2-2 2"/><path d="M16 10c-1.1 0-2-.9-2-2"/><rect x="2" y="14" width="8" height="8" rx="2"/><path d="m6 6 8 8"/></svg>
       </div>
       <div class="nav-item" data-page="analytics" data-tooltip="Analytics" data-i18n-tooltip="navAnalytics">
@@ -59,7 +59,7 @@
     <!-- {{PAGES}} -->
 
     <!-- ── FAB (always visible) ─────────────────────── -->
-    <button class="fab" id="captureBtn" onclick="window.startCapture()" data-i18n-title="notebook.record" title="Record">
+    <button class="fab" id="captureBtn" onclick="window.startCapture()" data-i18n-title="fab.record" title="Record">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
     </button>
 
@@ -199,6 +199,17 @@
           </div>
         </div>
         <div class="onb-model-hint" data-i18n="onboarding.model_performance_hint">Local models run directly on your device. Speed depends on your hardware — on slower machines, processing may take a bit longer than the cloud option.</div>
+        <div class="onb-preflight-panel">
+          <div class="onb-preflight-header">
+            <span class="onb-preflight-title" data-i18n="preflightTitle">Local STT readiness</span>
+            <button class="btn btn-secondary btn-sm" id="onbPreflightRetry" onclick="onbRefreshPreflight()">
+              <span data-i18n="preflightRefresh">Re-run check</span>
+            </button>
+          </div>
+          <div class="onb-preflight-summary" id="onbPreflightSummary"></div>
+          <div class="onb-preflight-message" id="onbPreflightMessage"></div>
+        </div>
+        <div class="onb-model-hint" data-i18n="onboarding.audio_check_hint">If the first result sounds too quiet, open Settings → Check Microphone. WhisPaste will show whether the mic level is too low.</div>
         <div class="onb-model-status-row">
           <span class="onb-model-status needed" id="onbModelStatus" data-i18n="onboarding.model_needed">Download required</span>
           <button class="btn btn-primary btn-sm" id="onbDownloadBtn" onclick="onbStartDownload()">

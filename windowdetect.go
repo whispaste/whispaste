@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	wdUser32              = windows.NewLazySystemDLL("user32.dll")
-	procGetWindowThreadPID = wdUser32.NewProc("GetWindowThreadProcessId")
+	wdUser32                = windows.NewLazySystemDLL("user32.dll")
+	procGetWindowThreadPID  = wdUser32.NewProc("GetWindowThreadProcessId")
 	procGetForegroundWindow = wdUser32.NewProc("GetForegroundWindow")
 	procGetWindowTextW      = wdUser32.NewProc("GetWindowTextW")
 )

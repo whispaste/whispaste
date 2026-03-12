@@ -7,6 +7,7 @@ const { variant = "landing" } = Astro.props;
 
 <nav
   aria-label="Main navigation"
+  data-i18n-aria="nav.mainAria"
   class="fixed top-0 w-full z-50 bg-brand-darker/80 backdrop-blur-xl border-b border-white/5"
 >
   <div
@@ -45,6 +46,7 @@ const { variant = "landing" } = Astro.props;
             id="langToggle"
             data-testid="lang-toggle"
             aria-label="Switch language"
+            data-i18n-aria="nav.switchLanguageAria"
             class="text-gray-400 hover:text-white transition-colors text-sm font-medium"
           >
             DE
@@ -52,8 +54,10 @@ const { variant = "landing" } = Astro.props;
           <button
             id="themeToggle"
             aria-label="Toggle theme"
+            data-i18n-aria="nav.toggleThemeAria"
             class="text-gray-400 hover:text-white transition-colors"
             title="Toggle theme"
+            data-i18n-title="nav.toggleThemeTitle"
           >
             <svg
               id="themeIcon"
@@ -73,6 +77,7 @@ const { variant = "landing" } = Astro.props;
             target="_blank"
             rel="noopener"
             aria-label="WhisPaste on GitHub"
+            data-i18n-aria="nav.githubAria"
             class="hover:text-white transition-colors"
           >
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -89,6 +94,7 @@ const { variant = "landing" } = Astro.props;
             id="langToggle"
             data-testid="lang-toggle"
             aria-label="Switch language"
+            data-i18n-aria="nav.switchLanguageAria"
             class="text-gray-400 hover:text-white transition-colors font-medium"
           >
             DE
@@ -96,8 +102,10 @@ const { variant = "landing" } = Astro.props;
           <button
             id="themeToggle"
             aria-label="Toggle theme"
+            data-i18n-aria="nav.toggleThemeAria"
             class="text-gray-400 hover:text-white transition-colors"
             title="Toggle theme"
+            data-i18n-title="nav.toggleThemeTitle"
           >
             <svg
               id="themeIcon"
