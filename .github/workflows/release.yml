@@ -87,10 +87,10 @@ jobs:
           Push-Location installer
           & "C:\Program Files (x86)\NSIS\makensis.exe" /DPRODUCT_VERSION=$ver /DPRODUCT_VERSION_NUMERIC=$numVer whispaste.nsi
           Pop-Location
-          $installer = "installer\WhisPaste-$ver-Setup.exe"
+          $installer = "installer\WhisPaste-Setup.exe"
           if (!(Test-Path $installer)) { throw "Installer build failed" }
           Move-Item $installer .
-          $size = (Get-Item "WhisPaste-$ver-Setup.exe").Length / 1MB
+          $size = (Get-Item "WhisPaste-Setup.exe").Length / 1MB
           Write-Host "Installer size: $([math]::Round($size, 2)) MB"
 
       - name: Package MSIX
@@ -132,7 +132,7 @@ jobs:
             ## 📦 Installation
 
             ### Installer (recommended)
-            Download **`WhisPaste-${{ steps.version.outputs.VERSION }}-Setup.exe`** and run it. The installer adds WhisPaste to your Start Menu, optionally creates a desktop shortcut, and supports auto-start with Windows.
+            Download **`WhisPaste-Setup.exe`** and run it. The installer adds WhisPaste to your Start Menu, optionally creates a desktop shortcut, and supports auto-start with Windows.
 
             ### Portable
             1. Download **`whispaste.exe`**
@@ -147,7 +147,7 @@ jobs:
 
             ---
           files: |
-            WhisPaste-${{ steps.version.outputs.VERSION }}-Setup.exe
+            WhisPaste-Setup.exe
             whispaste.exe
             whispaste.exe.sha256
             whispaste.msix
