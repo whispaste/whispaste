@@ -199,15 +199,9 @@
           </div>
         </div>
         <div class="onb-model-hint" data-i18n="onboarding.model_performance_hint">Local models run directly on your device. Speed depends on your hardware — on slower machines, processing may take a bit longer than the cloud option.</div>
-        <div class="onb-preflight-panel">
-          <div class="onb-preflight-header">
-            <span class="onb-preflight-title" data-i18n="preflightTitle">Local STT readiness</span>
-            <button class="btn btn-secondary btn-sm" id="onbPreflightRetry" onclick="onbRefreshPreflight()">
-              <span data-i18n="preflightRefresh">Re-run check</span>
-            </button>
-          </div>
-          <div class="onb-preflight-summary" id="onbPreflightSummary"></div>
-          <div class="onb-preflight-message" id="onbPreflightMessage"></div>
+        <div class="onb-preflight-inline" id="onbPreflightInline">
+          <span class="preflight-icon" id="onbPreflightIcon"></span>
+          <span class="preflight-text" id="onbPreflightText" data-i18n="preflightChecking">Checking…</span>
         </div>
         <div class="onb-model-hint" data-i18n="onboarding.audio_check_hint">If the first result sounds too quiet, open Settings → Check Microphone. WhisPaste will show whether the mic level is too low.</div>
         <div class="onb-model-status-row">
