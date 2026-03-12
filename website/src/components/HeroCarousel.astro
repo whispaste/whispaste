@@ -370,7 +370,7 @@
   /* Overlay pill (Scene 2) — matches redesigned app overlay */
   .overlay-pill {
     position: relative;
-    width: 490px;
+    width: clamp(280px, 85vw, 490px);
     height: 80px;
     border-radius: 40px;
     background: rgba(10, 26, 41, 0.8);
@@ -435,7 +435,7 @@
     margin-right: 8px;
     height: 56px;
     flex-shrink: 0;
-    min-width: 137px;
+    min-width: min(137px, 30vw);
   }
   .overlay-buttons {
     display: flex;
