@@ -155,16 +155,17 @@ function onbUpdateModelUI() {
   const downloadBtn = document.getElementById('onbDownloadBtn');
   const progressWrap = document.getElementById('onbDownloadProgress');
   const nextBtn = document.getElementById('onbNextStep2');
-  const preflightSummary = document.getElementById('onbPreflightSummary');
-  const preflightMessage = document.getElementById('onbPreflightMessage');
-  const retryBtn = document.getElementById('onbPreflightRetry');
+  const preflightIcon = document.getElementById('onbPreflightIcon');
+  const preflightText = document.getElementById('onbPreflightText');
 
-  if (preflightSummary) preflightSummary.textContent = _onbPreflight?.summary || '';
-  if (preflightMessage) {
-    preflightMessage.textContent = _onbPreflight?.message || '';
-    preflightMessage.classList.toggle('visible', !!_onbPreflight?.message);
+  // Compact inline preflight status
+  if (preflightIcon && preflightText) {
+    const status = _onbPreflightRunning ? 'checking' : (_onbPreflight?.status || '');
+    const icons = { pass: '✓', warn: '⚠', fail: '✗', checking: '…' };
+    preflightIcon.textContent = icons[status] || '';
+    preflightIcon.className = 'preflight-icon' + (status ? ' status-' + status : '');
+    preflightText.textContent = _onbPreflightRunning ? t('preflightChecking') : (_onbPreflight?.summary || '');
   }
-  if (retryBtn) retryBtn.disabled = _onbDownloading || _onbPreflightRunning;
 
   if (_onbPreflightRunning) {
     if (statusEl) { statusEl.textContent = t('preflightChecking'); statusEl.className = 'onb-model-status checking'; }

@@ -11,33 +11,29 @@ async function fetchLocalSTTPreflight(modelId, purpose) {
 
 function renderLocalSTTPreflight(preflight) {
   const card = document.getElementById('localSttPreflightCard');
-  const statusEl = document.getElementById('localSttPreflightStatus');
+  const iconEl = document.getElementById('localSttPreflightIcon');
   const summaryEl = document.getElementById('localSttPreflightSummary');
-  const messageEl = document.getElementById('localSttPreflightMessage');
-  if (!card || !statusEl || !summaryEl || !messageEl) return;
+  if (!card || !iconEl || !summaryEl) return;
+
+  card.classList.remove('is-fail', 'is-warn', 'is-pass');
 
   if (!preflight) {
-    card.classList.remove('is-fail', 'is-warn', 'is-pass');
-    statusEl.textContent = t('preflightChecking');
-    summaryEl.textContent = '';
-    messageEl.textContent = '';
-    messageEl.classList.remove('visible');
+    iconEl.innerHTML = '<span class="spinner-sm"></span>';
+    summaryEl.textContent = t('preflightChecking');
     return;
   }
 
-  card.classList.toggle('is-fail', preflight.status === 'fail');
-  card.classList.toggle('is-warn', preflight.status === 'warn');
-  card.classList.toggle('is-pass', preflight.status === 'pass');
+  card.classList.add(`is-${preflight.status}`);
 
-  const statusKey = preflight.status === 'fail'
-    ? 'preflightStatusFail'
-    : preflight.status === 'warn'
-      ? 'preflightStatusWarn'
-      : 'preflightStatusPass';
-  statusEl.textContent = t(statusKey);
+  const icons = {
+    pass: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    warn: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>',
+    fail: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>'
+  };
+  iconEl.innerHTML = icons[preflight.status] || icons.pass;
+
+  // Show only the summary (message is logged server-side for diagnostics)
   summaryEl.textContent = preflight.summary || '';
-  messageEl.textContent = preflight.message || '';
-  messageEl.classList.toggle('visible', !!preflight.message);
 }
 
 async function refreshLocalSTTPreflight(modelId) {
