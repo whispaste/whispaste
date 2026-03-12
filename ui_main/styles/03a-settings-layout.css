@@ -32,6 +32,10 @@
   padding: 4px 24px 20px;
 }
 
+.settings-page-header .page-subtitle {
+  max-width: 760px;
+}
+
 .settings-section-header {
   display: flex;
   align-items: center;
@@ -44,12 +48,29 @@
   margin: 24px 0 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border-subtle);
+  position: relative;
 }
 .settings-section-header:first-child { margin-top: 8px; }
+.settings-section-header::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--gradient-accent);
+  flex-shrink: 0;
+}
 .settings-section-header .icon {
   width: 14px;
   height: 14px;
   opacity: 0.6;
+}
+
+.settings-section-intro {
+  margin: -2px 0 14px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  max-width: 760px;
 }
 
 /* ── Cards ─────────────────────────────────────────────── */

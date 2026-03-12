@@ -1,15 +1,23 @@
     <!-- Page: History -->
     <div class="page" id="page-history">
-      <div class="topbar">
-        <div class="search-box">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input type="text" id="searchInput" data-i18n-placeholder="notebook.search" placeholder="Search…">
-          <button class="search-clear-btn hidden" id="searchClear" title="Clear">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-          </button>
-          <button class="search-help-btn" id="searchHelp" title="Search syntax help">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
-          </button>
+      <div class="page-header history-page-header">
+        <div class="history-page-header-main">
+          <div class="history-page-copy">
+            <h2 class="page-title" data-i18n="notebook.title">History</h2>
+            <p class="page-subtitle" data-i18n="historyDesc">Search, organize, and revisit every dictation from one place.</p>
+          </div>
+          <div class="page-header-actions history-header-actions">
+            <div class="search-box history-search-box">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="searchInput" data-i18n-placeholder="notebook.search" placeholder="Search…">
+              <button class="search-clear-btn hidden" id="searchClear" title="Clear" data-i18n-title="clear">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+              <button class="search-help-btn" id="searchHelp" title="Search syntax help" data-i18n-title="notebook.search_help">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       <!-- Selection Bar (shown when items selected) -->
@@ -125,7 +133,7 @@
           <div id="categoriesSection" class="hidden">
             <div class="filter-section-title" style="display:flex;align-items:center;justify-content:space-between">
               <span data-i18n="notebook.tags">Tags</span>
-              <button class="btn-icon sidebar-add-tag-header" id="sidebarAddTagHeader" title="Add tag" style="width:16px;height:16px;padding:0;opacity:0.5">
+              <button class="btn-icon sidebar-add-tag-header" id="sidebarAddTagHeader" title="Add tag" data-i18n-title="sidebar_add_tag" style="width:16px;height:16px;padding:0;opacity:0.5">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
               </button>
             </div>

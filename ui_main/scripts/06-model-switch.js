@@ -46,7 +46,12 @@ async function showModelSwitcher(anchor) {
       action: async () => {
         try {
           if (window.switchModel) {
-            await window.switchModel(modelId, wantLocal);
+            const result = await window.switchModel(modelId, wantLocal);
+            const res = typeof result === 'string' ? JSON.parse(result) : result;
+            if (res && res.success === false) {
+              showToast(res.error || t('modelSwitcher.error'), true);
+              return;
+            }
             const raw = await window.getConfig();
             const newCfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
             window._activeModelLocal = !!newCfg.active_model_local;

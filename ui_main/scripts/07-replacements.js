@@ -1,4 +1,4 @@
-// Text Replacements visibility toggle
+// Snippets visibility toggle
 function updateReplacementsVisibility() {
   const toggle = document.getElementById('replacements-toggle');
   const hint = document.getElementById('replacements-disabled-hint');
@@ -7,7 +7,7 @@ function updateReplacementsVisibility() {
   hint.classList.toggle('hidden', on);
 }
 
-// Text Replacements page logic
+// Snippets page logic
 (function() {
   let replacements = [];
 
@@ -75,7 +75,7 @@ function updateReplacementsVisibility() {
     try {
       await window.setTextReplacements(JSON.stringify(replacements));
     } catch (e) {
-      showToast(t('saveError') || 'Failed to save', true);
+      showToast(t('saveError'), true);
     }
   }
 

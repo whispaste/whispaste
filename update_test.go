@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -33,10 +34,10 @@ func TestParseVersion(t *testing.T) {
 		{"1.0.0-rc", parsedVersion{1, 0, 0, 3}},
 		{"1.0.0-rc.1", parsedVersion{1, 0, 0, 3}},
 		{"v0.4.0-alpha", parsedVersion{0, 4, 0, 1}},
-		{"1.0.0-Beta", parsedVersion{1, 0, 0, 2}},     // case-insensitive
-		{"2.0.0-ALPHA", parsedVersion{2, 0, 0, 1}},     // case-insensitive
-		{"1.0.0-preview", parsedVersion{1, 0, 0, 1}},   // unknown → alpha
-		{"1.0.0-beta.2", parsedVersion{1, 0, 0, 2}},    // beta variant
+		{"1.0.0-Beta", parsedVersion{1, 0, 0, 2}},    // case-insensitive
+		{"2.0.0-ALPHA", parsedVersion{2, 0, 0, 1}},   // case-insensitive
+		{"1.0.0-preview", parsedVersion{1, 0, 0, 1}}, // unknown → alpha
+		{"1.0.0-beta.2", parsedVersion{1, 0, 0, 2}},  // beta variant
 	}
 	for _, tt := range tests {
 		got := parseVersion(tt.input)
@@ -60,18 +61,18 @@ func TestIsNewer(t *testing.T) {
 		{"v2.0.0", "v1.0.0", true},
 		{"1.0.0", "2.0.0", false},
 		// Pre-release ordering within same base version
-		{"1.0.0", "1.0.0-beta", true},      // release > beta
+		{"1.0.0", "1.0.0-beta", true},       // release > beta
 		{"1.0.0", "1.0.0-alpha", true},      // release > alpha
 		{"1.0.0-beta", "1.0.0-alpha", true}, // beta > alpha
 		{"1.0.0-rc", "1.0.0-beta", true},    // rc > beta
 		{"1.0.0", "1.0.0-rc", true},         // release > rc
 		{"1.0.0-alpha", "1.0.0-beta", false},
-		{"1.0.0-beta", "1.0.0", false},      // beta < release
-		{"1.0.0-alpha", "1.0.0", false},     // alpha < release
+		{"1.0.0-beta", "1.0.0", false},  // beta < release
+		{"1.0.0-alpha", "1.0.0", false}, // alpha < release
 		// Pre-release with version bumps
-		{"1.1.0-alpha", "1.0.0", true},      // higher base wins
-		{"1.0.0", "1.1.0-alpha", false},     // lower base loses
-		{"2.0.0-beta", "1.9.9", true},       // major bump wins
+		{"1.1.0-alpha", "1.0.0", true},  // higher base wins
+		{"1.0.0", "1.1.0-alpha", false}, // lower base loses
+		{"2.0.0-beta", "1.9.9", true},   // major bump wins
 	}
 	for _, tt := range tests {
 		got := isNewer(tt.remote, tt.current)
@@ -162,6 +163,152 @@ func TestUpdaterApplyNotAvailable(t *testing.T) {
 	err := u.Apply(&UpdateInfo{Available: false})
 	if err == nil {
 		t.Error("Apply with Available=false should return error")
+	}
+}
+
+func TestReplaceBinaryInPlace(t *testing.T) {
+	tmpDir := t.TempDir()
+	exePath := filepath.Join(tmpDir, "whispaste.exe")
+	stagedPath := filepath.Join(tmpDir, "whispaste-update.exe")
+
+	if err := os.WriteFile(exePath, []byte("old-binary"), 0644); err != nil {
+		t.Fatalf("WriteFile exe: %v", err)
+	}
+	if err := os.WriteFile(stagedPath, []byte("new-binary"), 0644); err != nil {
+		t.Fatalf("WriteFile staged: %v", err)
+	}
+
+	if err := replaceBinaryInPlace(exePath, stagedPath); err != nil {
+		t.Fatalf("replaceBinaryInPlace: %v", err)
+	}
+
+	got, err := os.ReadFile(exePath)
+	if err != nil {
+		t.Fatalf("ReadFile exe: %v", err)
+	}
+	if string(got) != "new-binary" {
+		t.Fatalf("exe contents = %q, want %q", string(got), "new-binary")
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "whispaste.exe.new")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected .new cleanup, got err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "whispaste.exe.old")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected .old cleanup, got err=%v", err)
+	}
+}
+
+func TestUpdaterApplyFallsBackToElevatedHelperOnPermissionError(t *testing.T) {
+	binaryContent := []byte("fake-whispaste-binary-v2.0.0")
+	h := sha256.Sum256(binaryContent)
+	checksum := hex.EncodeToString(h[:])
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/download/whispaste.exe", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(binaryContent)
+	})
+	mux.HandleFunc("/download/whispaste.exe.sha256", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "%s  whispaste.exe\n", checksum)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	tmpDir := t.TempDir()
+	exePath := filepath.Join(tmpDir, "whispaste.exe")
+	if err := os.WriteFile(exePath, []byte("old-binary"), 0644); err != nil {
+		t.Fatalf("WriteFile exe: %v", err)
+	}
+
+	u := NewUpdater("1.0.0", func() bool { return true })
+	u.resolveExePath = func() (string, error) { return exePath, nil }
+	u.replaceBinary = func(exePath, stagedPath string) error {
+		if _, err := os.Stat(stagedPath); err != nil {
+			t.Fatalf("staged file missing before fallback: %v", err)
+		}
+		return os.ErrPermission
+	}
+
+	var launched bool
+	var gotStagedPath, gotExePath string
+	var gotPID int
+	u.launchElevated = func(stagedPath, targetExePath string, pid int) error {
+		launched = true
+		gotStagedPath = stagedPath
+		gotExePath = targetExePath
+		gotPID = pid
+		return nil
+	}
+
+	err := u.Apply(&UpdateInfo{
+		Available:   true,
+		Version:     "2.0.0",
+		DownloadURL: srv.URL + "/download/whispaste.exe",
+		ChecksumURL: srv.URL + "/download/whispaste.exe.sha256",
+	})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !launched {
+		t.Fatal("expected elevated helper to be launched")
+	}
+	if gotExePath != exePath {
+		t.Fatalf("exe path = %q, want %q", gotExePath, exePath)
+	}
+	if gotPID != os.Getpid() {
+		t.Fatalf("pid = %d, want %d", gotPID, os.Getpid())
+	}
+	if gotStagedPath == "" {
+		t.Fatal("expected staged path for elevated helper")
+	}
+	defer os.Remove(gotStagedPath)
+
+	got, err := os.ReadFile(gotStagedPath)
+	if err != nil {
+		t.Fatalf("ReadFile staged: %v", err)
+	}
+	if string(got) != string(binaryContent) {
+		t.Fatalf("staged contents = %q, want %q", string(got), string(binaryContent))
+	}
+}
+
+func TestUpdaterApplyReturnsElevatedHelperError(t *testing.T) {
+	binaryContent := []byte("fake-whispaste-binary-v2.0.0")
+	h := sha256.Sum256(binaryContent)
+	checksum := hex.EncodeToString(h[:])
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/download/whispaste.exe", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(binaryContent)
+	})
+	mux.HandleFunc("/download/whispaste.exe.sha256", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "%s  whispaste.exe\n", checksum)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	tmpDir := t.TempDir()
+	exePath := filepath.Join(tmpDir, "whispaste.exe")
+	if err := os.WriteFile(exePath, []byte("old-binary"), 0644); err != nil {
+		t.Fatalf("WriteFile exe: %v", err)
+	}
+
+	u := NewUpdater("1.0.0", func() bool { return true })
+	u.resolveExePath = func() (string, error) { return exePath, nil }
+	u.replaceBinary = func(exePath, stagedPath string) error { return os.ErrPermission }
+	u.launchElevated = func(stagedPath, targetExePath string, pid int) error {
+		return fmt.Errorf("uac denied")
+	}
+
+	err := u.Apply(&UpdateInfo{
+		Available:   true,
+		Version:     "2.0.0",
+		DownloadURL: srv.URL + "/download/whispaste.exe",
+		ChecksumURL: srv.URL + "/download/whispaste.exe.sha256",
+	})
+	if err == nil {
+		t.Fatal("expected Apply to return error when elevated helper fails")
+	}
+	if !strings.Contains(err.Error(), "launch elevated updater") {
+		t.Fatalf("error = %q, want launch elevated updater context", err)
 	}
 }
 

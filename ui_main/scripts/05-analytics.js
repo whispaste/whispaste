@@ -29,14 +29,19 @@ async function loadAnalytics(periodDays) {
     const raw = await window.getAnalytics(_analyticsPeriod);
     data = typeof raw === 'string' ? JSON.parse(raw) : raw;
   } catch (e) {
-    container.innerHTML = `<div class="analytics-empty"><p>${t('analytics.error')}</p></div>`;
+    container.innerHTML = `<div class="analytics-empty">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="analytics-empty-title">${t('analytics.error_title') || t('analytics.error')}</div>
+      <p class="analytics-empty-text">${t('analytics.error_text') || t('analytics.error')}</p>
+    </div>`;
     return;
   }
 
   if (!data || data.totalEntries === 0) {
     container.innerHTML = `<div class="analytics-empty">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-      <p>${t('analytics.empty')}</p>
+      <div class="analytics-empty-title">${t('analytics.empty_title') || t('analytics.empty')}</div>
+      <p class="analytics-empty-text">${t('analytics.empty_text') || t('analytics.empty')}</p>
     </div>`;
     return;
   }
