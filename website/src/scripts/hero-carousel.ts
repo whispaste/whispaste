@@ -90,7 +90,7 @@ if (waveformEl) {
     const bar = document.createElement("div");
     bar.className = "overlay-wave-bar";
     bar.style.height = "2px";
-    bar.style.background = "#186688";
+    bar.style.background = "rgba(34,102,136,0.5)";
     waveformEl.appendChild(bar);
     waveBars.push({
       el: bar,
@@ -104,9 +104,10 @@ if (waveformEl) {
     for (let i = 0; i < waveBars.length; i++) {
       const b = waveBars[i];
       const val = ((Math.sin(t * 0.003 * b.speed + b.phase) + 1) / 2) * b.amp;
-      const h = Math.max(2, Math.round(val * 36));
+      const h = Math.max(3, Math.round(val * 44));
       b.el.style.height = h + "px";
-      b.el.style.background = h > 6 ? "#22D3EE" : "#186688";
+      b.el.style.background =
+        h > 6 ? "rgba(34,211,238,0.88)" : "rgba(34,102,136,0.5)";
     }
     waveRaf = requestAnimationFrame(animateWave);
   }
