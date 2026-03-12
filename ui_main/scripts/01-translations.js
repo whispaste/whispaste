@@ -96,8 +96,8 @@ const translations = {
     statusAutoSaved: 'Saved ✓',
 
     // Settings — AI & Models
-    aiSttTitle: 'Speech-to-Text Models',
-    aiSttDesc: 'Offline Whisper models for local transcription — no internet or API key required. Used for voice-to-text conversion.',
+    aiSttTitle: 'Speech Recognition Models',
+    aiSttDesc: 'Local models for offline transcription — no internet or API key required.',
     aiLlmTitle: 'AI Text Processing',
     aiLlmDesc: 'Local AI model for Smart Mode and text processing — runs entirely on your device, no data leaves your computer.',
     aiSmartProviderLabel: 'Smart Mode AI Provider',
@@ -331,7 +331,7 @@ const translations = {
     sysGoVersion: 'Go Version',
     sysOS: 'OS',
     sysArch: 'Architecture',
-    sysPreflight: 'Local STT readiness',
+    sysPreflight: 'Device readiness',
     sysConfigPath: 'Config Path',
     sysLogPath: 'Log Path',
     sysUserAgent: 'User-Agent',
@@ -523,14 +523,8 @@ const translations = {
     // Model descriptions
     'model.desc.whisper-base': 'Fast, suitable for clear speech in one language. May struggle with mixed-language content.',
     'model.desc.whisper-small': 'Good balance of speed and quality. Better with mixed languages and accents.',
-    preflightTitle: 'Local STT readiness',
-    preflightDesc: 'A quick check to confirm whether this device is ready for local transcription.',
-    preflightRefresh: 'Re-run check',
-    preflightChecking: 'Checking this device…',
-    preflightStatusPass: 'Ready',
-    preflightStatusWarn: 'Needs attention',
-    preflightStatusFail: 'Not ready',
-    preflightBlockedBadge: 'Not ready',
+    preflightChecking: 'Checking compatibility…',
+    preflightBlockedBadge: 'Not compatible',
 
     // Model switcher
     'modelSwitcher.title': 'Switch Model',
@@ -843,8 +837,8 @@ const translations = {
     statusAutoSaved: 'Gespeichert ✓',
 
     // Settings — AI & Models
-    aiSttTitle: 'Sprache-zu-Text-Modelle',
-    aiSttDesc: 'Offline-Whisper-Modelle für lokale Transkription — kein Internet oder API-Schlüssel erforderlich. Wird für die Sprache-zu-Text-Umwandlung verwendet.',
+    aiSttTitle: 'Spracherkennungsmodelle',
+    aiSttDesc: 'Lokale Modelle für Offline-Transkription — kein Internet oder API-Schlüssel erforderlich.',
     aiLlmTitle: 'KI-Textverarbeitung',
     aiLlmDesc: 'Lokales KI-Modell für den Smart-Modus und Textverarbeitung — läuft komplett auf deinem Gerät, keine Daten verlassen deinen Computer.',
     aiSmartProviderLabel: 'Smart-Modus KI-Anbieter',
@@ -1078,7 +1072,7 @@ const translations = {
     sysGoVersion: 'Go-Version',
     sysOS: 'Betriebssystem',
     sysArch: 'Architektur',
-    sysPreflight: 'Bereitschaft für lokalen STT',
+    sysPreflight: 'Gerätebereitschaft',
     sysConfigPath: 'Konfigurationspfad',
     sysLogPath: 'Log-Pfad',
     sysUserAgent: 'User-Agent',
@@ -1270,14 +1264,8 @@ const translations = {
     // Model descriptions
     'model.desc.whisper-base': 'Schnell, geeignet für klare Sprache in einer Sprache. Bei gemischten Sprachen weniger genau.',
     'model.desc.whisper-small': 'Gute Balance aus Geschwindigkeit und Qualität. Besser bei gemischten Sprachen und Akzenten.',
-    preflightTitle: 'Bereitschaft für lokalen STT',
-    preflightDesc: 'Ein kurzer Check zeigt, ob dieses Gerät für lokale Transkription bereit ist.',
-    preflightRefresh: 'Check erneut starten',
-    preflightChecking: 'Gerät wird geprüft…',
-    preflightStatusPass: 'Bereit',
-    preflightStatusWarn: 'Braucht Aufmerksamkeit',
-    preflightStatusFail: 'Noch nicht bereit',
-    preflightBlockedBadge: 'Noch nicht bereit',
+    preflightChecking: 'Kompatibilität wird geprüft…',
+    preflightBlockedBadge: 'Nicht kompatibel',
 
     // Model switcher
     'modelSwitcher.title': 'Modell wechseln',

@@ -468,24 +468,16 @@
           </div>
           <p class="settings-section-intro" data-i18n="settingsSectionAIIntro">Choose where refinement happens, which local models are installed, and how much privacy or convenience you want by default.</p>
 
-          <!-- STT Models — Speech Recognition -->
+          <!-- Speech Recognition Models -->
           <div class="card" data-section="local-stt">
             <div class="card-title">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-              <span data-i18n="aiSttTitle">Speech-to-Text Models</span>
+              <span data-i18n="aiSttTitle">Speech Recognition Models</span>
             </div>
-            <p class="card-desc" data-i18n="aiSttDesc">Offline Whisper models for local transcription — no internet or API key required. Used for voice-to-text conversion.</p>
-            <div class="preflight-card" id="localSttPreflightCard">
-              <div class="preflight-header">
-                <div>
-              <div class="preflight-title" data-i18n="preflightTitle">Local STT readiness</div>
-              <div class="preflight-desc" data-i18n="preflightDesc">A quick check to confirm whether this device is ready for local transcription.</div>
-                </div>
-                <button class="btn btn-secondary btn-sm" onclick="refreshLocalSTTPreflight()" data-i18n="preflightRefresh">Re-run check</button>
-              </div>
-              <div class="preflight-status" id="localSttPreflightStatus"></div>
-              <div class="preflight-summary" id="localSttPreflightSummary"></div>
-              <div class="preflight-message" id="localSttPreflightMessage"></div>
+            <p class="card-desc" data-i18n="aiSttDesc">Local models for offline transcription — no internet or API key required.</p>
+            <div class="preflight-inline" id="localSttPreflightCard">
+              <span class="preflight-inline-icon" id="localSttPreflightIcon"></span>
+              <span class="preflight-inline-text" id="localSttPreflightSummary"></span>
             </div>
             <div class="form-group">
               <div id="model-list" class="model-list"></div>

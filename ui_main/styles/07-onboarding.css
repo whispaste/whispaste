@@ -171,48 +171,23 @@
   line-height: 1.4;
 }
 
-.onb-preflight-panel {
+.onb-preflight-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 14px;
-  padding: 12px 14px;
-  border-radius: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg-secondary);
-  text-align: left;
-}
-
-.onb-preflight-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-}
-
-.onb-preflight-title {
   font-size: 12px;
-  font-weight: 700;
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.onb-preflight-summary {
-  margin-top: 10px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-primary);
-}
-
-.onb-preflight-message {
-  display: none;
-  margin-top: 8px;
-  font-size: 11px;
-  line-height: 1.45;
   color: var(--text-secondary);
 }
 
-.onb-preflight-message.visible {
-  display: block;
-}
+.onb-preflight-inline .preflight-icon { font-weight: 700; }
+.onb-preflight-inline .status-pass  { color: var(--success); }
+.onb-preflight-inline .status-warn  { color: var(--warning); }
+.onb-preflight-inline .status-fail  { color: var(--danger); }
 
 .onboarding-icon-success {
   background: linear-gradient(135deg, var(--success), color-mix(in srgb, var(--success), transparent 60%));
