@@ -86,7 +86,6 @@ type Updater struct {
 	applyWg        sync.WaitGroup
 	resolveExePath func() (string, error)
 	replaceBinary  func(exePath, stagedPath string) error
-	launchElevated func(stagedPath, exePath string, pid int) error
 }
 
 // NewUpdater creates an updater that checks GitHub releases.
@@ -99,7 +98,6 @@ func NewUpdater(currentVersion string, checkEnabled func() bool, channelFunc fun
 		done:           make(chan struct{}),
 		resolveExePath: currentExecutablePath,
 		replaceBinary:  replaceBinaryInPlace,
-		launchElevated: launchElevatedUpdateHelper,
 	}
 }
 
@@ -345,15 +343,7 @@ func (u *Updater) Apply(info *UpdateInfo) error {
 	}
 
 	if err := u.replaceBinary(exePath, stagedPath); err != nil {
-		if !isUpdateAccessError(err) {
-			return fmt.Errorf("replace exe: %w", err)
-		}
-		if err := u.launchElevated(stagedPath, exePath, os.Getpid()); err != nil {
-			return fmt.Errorf("launch elevated updater: %w", err)
-		}
-		keepStaged = true
-		logInfo("Update staged for elevated apply: %s → %s", u.currentVersion, info.Version)
-		return nil
+		return fmt.Errorf("replace exe (if installed in a protected location, please reinstall from whispaste.com): %w", err)
 	}
 
 	logInfo("Update applied: %s → %s (restart to activate)", u.currentVersion, info.Version)
@@ -429,109 +419,6 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return out.Close()
-}
-
-func isUpdateAccessError(err error) bool {
-	return errors.Is(err, os.ErrPermission) ||
-		errors.Is(err, windows.ERROR_ACCESS_DENIED) ||
-		errors.Is(err, windows.ERROR_SHARING_VIOLATION) ||
-		errors.Is(err, windows.ERROR_PRIVILEGE_NOT_HELD)
-}
-
-func launchElevatedUpdateHelper(stagedPath, exePath string, pid int) error {
-	scriptPath, err := writeElevatedUpdateScript(stagedPath, exePath, pid)
-	if err != nil {
-		return err
-	}
-
-	shell32 := windows.NewLazySystemDLL("shell32.dll")
-	proc := shell32.NewProc("ShellExecuteW")
-
-	verb, err := windows.UTF16PtrFromString("runas")
-	if err != nil {
-		return err
-	}
-	file, err := windows.UTF16PtrFromString("powershell.exe")
-	if err != nil {
-		return err
-	}
-	params, err := windows.UTF16PtrFromString(`-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "` + scriptPath + `"`)
-	if err != nil {
-		return err
-	}
-
-	ret, _, callErr := proc.Call(
-		0,
-		uintptr(unsafe.Pointer(verb)),
-		uintptr(unsafe.Pointer(file)),
-		uintptr(unsafe.Pointer(params)),
-		0,
-		0,
-	)
-	if ret <= 32 {
-		os.Remove(scriptPath)
-		return fmt.Errorf("ShellExecuteW returned %d: %v", ret, callErr)
-	}
-	return nil
-}
-
-func writeElevatedUpdateScript(stagedPath, exePath string, pid int) (string, error) {
-	f, err := os.CreateTemp("", "whispaste-update-*.ps1")
-	if err != nil {
-		return "", err
-	}
-	path := f.Name()
-	if err := f.Close(); err != nil {
-		os.Remove(path)
-		return "", err
-	}
-
-	script := fmt.Sprintf(`$ErrorActionPreference = 'Stop'
-$exePath = %s
-$stagedPath = %s
-$newPath = Join-Path (Split-Path -Parent $exePath) 'whispaste.exe.new'
-$oldPath = Join-Path (Split-Path -Parent $exePath) 'whispaste.exe.old'
-$targetPid = %d
-
-Stop-Process -Id $targetPid -Force -ErrorAction SilentlyContinue
-for ($i = 0; $i -lt 100; $i++) {
-    if (-not (Get-Process -Id $targetPid -ErrorAction SilentlyContinue)) {
-        break
-    }
-    Start-Sleep -Milliseconds 100
-}
-
-if (Get-Process -Id $targetPid -ErrorAction SilentlyContinue) {
-    throw 'update helper: process did not exit'
-}
-
-Remove-Item -LiteralPath $newPath -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $oldPath -Force -ErrorAction SilentlyContinue
-Copy-Item -LiteralPath $stagedPath -Destination $newPath -Force
-Move-Item -LiteralPath $exePath -Destination $oldPath -Force
-
-try {
-    Move-Item -LiteralPath $newPath -Destination $exePath -Force
-} catch {
-    Move-Item -LiteralPath $oldPath -Destination $exePath -Force
-    throw
-}
-
-Remove-Item -LiteralPath $oldPath -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $stagedPath -Force -ErrorAction SilentlyContinue
-Start-Process -FilePath $exePath
-Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
-`, quotePowerShellLiteral(exePath), quotePowerShellLiteral(stagedPath), pid)
-
-	if err := os.WriteFile(path, []byte(script), 0600); err != nil {
-		os.Remove(path)
-		return "", err
-	}
-	return path, nil
-}
-
-func quotePowerShellLiteral(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
 }
 
 // isNewer returns true if remote version is newer than current.
