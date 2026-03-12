@@ -2,11 +2,11 @@
 import Layout from "../layouts/Layout.astro";
 import Nav from "../components/Nav.astro";
 import Hero from "../components/Hero.astro";
-import Features from "../components/Features.astro";
-import AppPreview from "../components/AppPreview.astro";
 import HowItWorks from "../components/HowItWorks.astro";
 import Privacy from "../components/Privacy.astro";
-import Support from "../components/Support.astro";
+import Pricing from "../components/Pricing.astro";
+import Languages from "../components/Languages.astro";
+import FAQ from "../components/FAQ.astro";
 import Footer from "../components/Footer.astro";
 ---
 
@@ -14,19 +14,11 @@ import Footer from "../components/Footer.astro";
   <Nav variant="landing" />
   <main id="main-content">
     <Hero />
-
-    <!-- Gradient transition -->
-    <div class="h-24 bg-gradient-to-b from-transparent via-brand-cyan/[0.03] to-transparent -mt-12 -mb-12 relative z-0"></div>
-
-    <Features />
-
-    <!-- Gradient transition -->
-    <div class="h-24 bg-gradient-to-b from-transparent via-brand-cyan/[0.03] to-transparent -mt-12 -mb-12 relative z-0"></div>
-
-    <AppPreview />
     <HowItWorks />
     <Privacy />
-    <Support />
+    <Pricing />
+    <Languages />
+    <FAQ />
   </main>
   <Footer variant="landing" />
 
