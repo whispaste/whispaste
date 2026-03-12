@@ -197,80 +197,7 @@ func TestReplaceBinaryInPlace(t *testing.T) {
 	}
 }
 
-func TestUpdaterApplyFallsBackToElevatedHelperOnPermissionError(t *testing.T) {
-	binaryContent := []byte("fake-whispaste-binary-v2.0.0")
-	h := sha256.Sum256(binaryContent)
-	checksum := hex.EncodeToString(h[:])
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/download/whispaste.exe", func(w http.ResponseWriter, r *http.Request) {
-		w.Write(binaryContent)
-	})
-	mux.HandleFunc("/download/whispaste.exe.sha256", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "%s  whispaste.exe\n", checksum)
-	})
-	srv := httptest.NewServer(mux)
-	defer srv.Close()
-
-	tmpDir := t.TempDir()
-	exePath := filepath.Join(tmpDir, "whispaste.exe")
-	if err := os.WriteFile(exePath, []byte("old-binary"), 0644); err != nil {
-		t.Fatalf("WriteFile exe: %v", err)
-	}
-
-	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
-	u.resolveExePath = func() (string, error) { return exePath, nil }
-	u.replaceBinary = func(exePath, stagedPath string) error {
-		if _, err := os.Stat(stagedPath); err != nil {
-			t.Fatalf("staged file missing before fallback: %v", err)
-		}
-		return os.ErrPermission
-	}
-
-	var launched bool
-	var gotStagedPath, gotExePath string
-	var gotPID int
-	u.launchElevated = func(stagedPath, targetExePath string, pid int) error {
-		launched = true
-		gotStagedPath = stagedPath
-		gotExePath = targetExePath
-		gotPID = pid
-		return nil
-	}
-
-	err := u.Apply(&UpdateInfo{
-		Available:   true,
-		Version:     "2.0.0",
-		DownloadURL: srv.URL + "/download/whispaste.exe",
-		ChecksumURL: srv.URL + "/download/whispaste.exe.sha256",
-	})
-	if err != nil {
-		t.Fatalf("Apply: %v", err)
-	}
-	if !launched {
-		t.Fatal("expected elevated helper to be launched")
-	}
-	if gotExePath != exePath {
-		t.Fatalf("exe path = %q, want %q", gotExePath, exePath)
-	}
-	if gotPID != os.Getpid() {
-		t.Fatalf("pid = %d, want %d", gotPID, os.Getpid())
-	}
-	if gotStagedPath == "" {
-		t.Fatal("expected staged path for elevated helper")
-	}
-	defer os.Remove(gotStagedPath)
-
-	got, err := os.ReadFile(gotStagedPath)
-	if err != nil {
-		t.Fatalf("ReadFile staged: %v", err)
-	}
-	if string(got) != string(binaryContent) {
-		t.Fatalf("staged contents = %q, want %q", string(got), string(binaryContent))
-	}
-}
-
-func TestUpdaterApplyReturnsElevatedHelperError(t *testing.T) {
+func TestUpdaterApplyReturnsPermissionError(t *testing.T) {
 	binaryContent := []byte("fake-whispaste-binary-v2.0.0")
 	h := sha256.Sum256(binaryContent)
 	checksum := hex.EncodeToString(h[:])
@@ -294,9 +221,6 @@ func TestUpdaterApplyReturnsElevatedHelperError(t *testing.T) {
 	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
 	u.resolveExePath = func() (string, error) { return exePath, nil }
 	u.replaceBinary = func(exePath, stagedPath string) error { return os.ErrPermission }
-	u.launchElevated = func(stagedPath, targetExePath string, pid int) error {
-		return fmt.Errorf("uac denied")
-	}
 
 	err := u.Apply(&UpdateInfo{
 		Available:   true,
@@ -305,10 +229,10 @@ func TestUpdaterApplyReturnsElevatedHelperError(t *testing.T) {
 		ChecksumURL: srv.URL + "/download/whispaste.exe.sha256",
 	})
 	if err == nil {
-		t.Fatal("expected Apply to return error when elevated helper fails")
+		t.Fatal("expected Apply to return error on permission failure")
 	}
-	if !strings.Contains(err.Error(), "launch elevated updater") {
-		t.Fatalf("error = %q, want launch elevated updater context", err)
+	if !strings.Contains(err.Error(), "replace exe") {
+		t.Fatalf("error = %q, want 'replace exe' context with reinstall hint", err)
 	}
 }
 
