@@ -1021,7 +1021,7 @@ func main() {
 	}
 
 	// Initialize updater
-	updater := NewUpdater(AppVersion, cfg.GetCheckUpdates)
+	updater := NewUpdater(AppVersion, cfg.GetCheckUpdates, cfg.GetUpdateChannel)
 
 	// System tray (this blocks on the main thread)
 	onToggle := func() {

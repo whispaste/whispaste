@@ -69,6 +69,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		cfg.FloatingButtonEnabled = newCfg.FloatingButtonEnabled
 		cfg.FloatingButtonColor = newCfg.FloatingButtonColor
 		cfg.FloatingButtonSize = newCfg.FloatingButtonSize
+		cfg.UpdateChannel = newCfg.UpdateChannel
 		cfg.mu.Unlock()
 		if err := SetAutostart(newCfg.Autostart); err != nil {
 			logWarn("Failed to set autostart: %v", err)
