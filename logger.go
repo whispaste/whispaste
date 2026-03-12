@@ -162,4 +162,7 @@ func logStartupMetadata() {
 		logInfo("Build date: %s", BuildDate)
 	}
 	logInfo("Go: %s, OS: %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	if exe, err := os.Executable(); err == nil {
+		logDebug("Executable: %s", exe)
+	}
 }
