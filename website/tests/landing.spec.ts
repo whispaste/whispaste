@@ -18,10 +18,18 @@ test('hero CTA points to the latest GitHub release', async ({ page }) => {
 test('language toggle switches the landing page from EN to DE', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.locator('h1')).toContainText('Speak naturally.');
+  await expect(page.locator('h1')).toContainText('Press. Speak.');
   await page.getByTestId('lang-toggle').click();
-  await expect(page.locator('h1')).toContainText('Natürlich sprechen.');
-  await expect(page.locator('[data-i18n="features.label"]')).toHaveText('Warum WhisPaste');
+  await expect(page.locator('h1')).toContainText('Drücken. Sprechen.');
+});
+
+test('FAQ section is visible and has accordion items', async ({ page }) => {
+  await page.goto('/');
+
+  const faq = page.locator('#faq');
+  await faq.scrollIntoViewIfNeeded();
+  await expect(faq).toBeVisible();
+  await expect(faq.locator('details')).toHaveCount(6);
 });
 
 test('legal pages load without 404s', async ({ page }) => {

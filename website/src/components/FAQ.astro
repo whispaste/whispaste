@@ -1,0 +1,44 @@
+---
+const faqs = [
+  { key: 'free', q: 'Is WhisPaste really free?', a: 'Yes — completely free, open source under the MIT license. No trial period, no feature gates, no "premium tier" later. It runs on your machine, so there are no server costs to pass on to you.' },
+  { key: 'offline', q: 'Does it actually work offline?', a: 'Fully. WhisPaste ships with local Whisper models that run entirely on your CPU. No internet connection needed. If you want, you can also use OpenAI\'s cloud API for higher accuracy — but that\'s your choice, not a requirement.' },
+  { key: 'accuracy', q: 'How accurate is the transcription?', a: 'That depends on the model you pick. The small model handles everyday dictation well. Larger models are more precise but need more RAM and processing time. You can switch any time and find your own sweet spot.' },
+  { key: 'languages', q: 'Which languages are supported?', a: 'Whisper supports over 100 languages — from English and German to Japanese, Arabic, and Hindi. You can switch languages in settings, or let WhisPaste auto-detect what you\'re speaking.' },
+  { key: 'privacy', q: 'Is my voice data safe?', a: 'Your audio never leaves your machine in local mode. If you use the cloud path, recordings go directly from your device to OpenAI\'s API — WhisPaste doesn\'t proxy, store, or touch them. No telemetry, no analytics, no tracking.' },
+  { key: 'windows', q: 'Windows only — what about Mac or Linux?', a: 'Right now, WhisPaste is built for Windows 10 and 11. macOS support is being explored. The core is designed to be portable, but a proper Mac version takes time to do right.' },
+];
+---
+
+<!-- FAQ Section -->
+<section id="faq" class="py-24 sm:py-32 relative scroll-mt-20">
+  <div class="relative max-w-3xl mx-auto px-6">
+    <div class="text-center mb-12 scroll-reveal">
+      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="faq.label">FAQ</p>
+      <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="faq.title">Good questions, honest answers</h2>
+    </div>
+
+    <div class="space-y-3 scroll-reveal" id="faq-accordion">
+      {faqs.map(({ key, q, a }) => (
+        <details class="faq-item group rounded-2xl border border-white/[0.06] overflow-hidden">
+          <summary class="flex items-center justify-between gap-4 px-6 py-5 cursor-pointer select-none text-white font-medium hover:bg-white/[0.02] transition-colors" data-i18n={`faq.${key}.q`}>
+            {q}
+            <svg class="faq-chevron w-5 h-5 text-gray-500 shrink-0 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="px-6 pb-5 text-gray-400 text-sm leading-relaxed" data-i18n={`faq.${key}.a`}>{a}</div>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq-item {
+    background: linear-gradient(135deg, rgba(37, 40, 48, 0.4) 0%, rgba(30, 32, 38, 0.2) 100%);
+  }
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+  .faq-item summary::marker {
+    content: '';
+  }
+</style>
