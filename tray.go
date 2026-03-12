@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -152,24 +153,34 @@ type notifyIconDataW struct {
 	hBalloonIcon     uintptr
 }
 
+// balloonAction describes what happens when the user clicks a balloon notification.
+type balloonAction int
+
+const (
+	balloonActionNone    balloonAction = iota
+	balloonActionSponsor               // open sponsor URL
+	balloonActionRestart               // restart app after update
+)
+
 // AppTray manages the system tray icon and menu.
 type AppTray struct {
-	onOpenWindow       func(string) // opens unified window with page name: "history", "settings", "about", "smart-mode"
-	onQuit             func()
-	onToggle           func()
-	updater            *Updater
-	mToggle            *systray.MenuItem
-	mUpdate            *systray.MenuItem
-	updateInfo         *UpdateInfo
-	updateMu           sync.Mutex
-	history            *History
-	balloonShown       bool // tracks whether minimize-to-tray balloon was shown this session
-	cfg                *Config
-	smartItems         []*systray.MenuItem
-	smartPresets       []string
-	onSaved            func()
-	balloonIcon        uintptr // HICON for balloon notifications
-	lastBalloonSponsor bool    // true if last balloon was a sponsor notification
+	onOpenWindow          func(string) // opens unified window with page name: "history", "settings", "about", "smart-mode"
+	onQuit                func()
+	onToggle              func()
+	updater               *Updater
+	mToggle               *systray.MenuItem
+	mUpdate               *systray.MenuItem
+	updateInfo            *UpdateInfo
+	updateMu              sync.Mutex
+	history               *History
+	balloonShown          bool // tracks whether minimize-to-tray balloon was shown this session
+	cfg                   *Config
+	smartItems            []*systray.MenuItem
+	smartPresets          []string
+	onSaved               func()
+	balloonIcon           uintptr       // HICON for balloon notifications
+	pendingBalloonAction  balloonAction // what the next balloon click should do
+	updateDownloaded      bool          // true after update binary has been downloaded
 	// History submenu
 	historyEmpty *systray.MenuItem
 	historyItems [_HISTORY_SLOTS]*systray.MenuItem
@@ -224,15 +235,65 @@ func (t *AppTray) Quit() {
 	systray.Quit()
 }
 
-// ShowUpdateAvailable updates the tray menu to indicate a new version.
+// ShowUpdateAvailable updates the tray menu to indicate a new version
+// and shows a toast notification. Triggers auto-download in the background.
 func (t *AppTray) ShowUpdateAvailable(info UpdateInfo) {
 	t.updateMu.Lock()
 	t.updateInfo = &info
+	t.updateDownloaded = false
 	t.updateMu.Unlock()
 	if t.mUpdate != nil {
 		t.mUpdate.SetTitle(fmt.Sprintf(T("update.available"), info.Version))
 		t.mUpdate.Show()
 	}
+	// Notify user via toast and auto-download
+	t.ShowBalloon(AppName, fmt.Sprintf(T("update.notify_downloading"), info.Version))
+	go t.autoApplyUpdate(info)
+}
+
+// autoApplyUpdate downloads and installs an update in the background,
+// then shows a toast notification prompting the user to restart.
+func (t *AppTray) autoApplyUpdate(info UpdateInfo) {
+	if t.mUpdate != nil {
+		t.mUpdate.SetTitle(T("update.downloading"))
+	}
+	if err := t.updater.Apply(&info); err != nil {
+		if errors.Is(err, ErrUpdateInProgress) {
+			logDebug("Auto-update: another apply already running, skipping")
+			return
+		}
+		logError("Auto-update failed: %v", err)
+		if t.mUpdate != nil {
+			t.mUpdate.SetTitle(fmt.Sprintf(T("update.failed"), err))
+		}
+		return
+	}
+	t.updateMu.Lock()
+	t.updateInfo = nil
+	t.updateDownloaded = true
+	t.updateMu.Unlock()
+	if t.mUpdate != nil {
+		t.mUpdate.SetTitle(T("update.ready"))
+	}
+	logInfo("Auto-update downloaded successfully, prompting restart")
+	t.showBalloonWithAction(balloonActionRestart, AppName, T("update.notify_ready"))
+}
+
+// restartApp starts a new instance of the application and exits the current one.
+func restartApp() {
+	exe, err := os.Executable()
+	if err != nil {
+		logError("restartApp: resolve exe: %v", err)
+		return
+	}
+	logInfo("Restarting app: %s", exe)
+	cmd := exec.Command(exe)
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x00000008} // DETACHED_PROCESS
+	if err := cmd.Start(); err != nil {
+		logError("restartApp: start failed: %v", err)
+		return
+	}
+	systray.Quit()
 }
 
 // ShowMinimizeBalloon shows a one-time notification that the app is still running.
@@ -309,15 +370,36 @@ func (t *AppTray) loadBalloonIcon() {
 }
 
 // ShowBalloon shows a Windows balloon notification from the system tray icon.
+// It resets any pending balloon action so stale actions cannot leak to unrelated
+// balloon clicks. Use showBalloonWithAction for balloons that should trigger
+// an action on click.
 func (t *AppTray) ShowBalloon(title, text string) {
+	t.updateMu.Lock()
+	t.pendingBalloonAction = balloonActionNone
+	t.updateMu.Unlock()
+	t.showBalloonRaw(title, text)
+}
+
+// showBalloonWithAction shows a balloon and atomically sets the pending action
+// so the click handler knows what to do. This avoids a race between setting the
+// action and showing the balloon.
+func (t *AppTray) showBalloonWithAction(action balloonAction, title, text string) {
+	t.updateMu.Lock()
+	t.pendingBalloonAction = action
+	t.updateMu.Unlock()
+	// Bypass ShowBalloon (which resets the action) — call the Win32 API directly.
+	t.showBalloonRaw(title, text)
+}
+
+// showBalloonRaw performs the raw Win32 Shell_NotifyIconW balloon call without
+// touching pendingBalloonAction. ShowBalloon and showBalloonWithAction both
+// delegate here after setting the action appropriately.
+func (t *AppTray) showBalloonRaw(title, text string) {
 	hwnd := verifySystrayWindow("ShowBalloon")
 	if hwnd == 0 {
 		return
 	}
 
-	// Use custom icon if available, otherwise fall back to system info icon.
-	// NIIF_LARGE_ICON requires a valid hBalloonIcon — omit it when no icon
-	// is loaded, otherwise Windows may silently suppress the notification.
 	infoFlags := uint32(_NIIF_INFO)
 	iconHandle := t.balloonIcon
 	if iconHandle != 0 {
@@ -404,11 +486,14 @@ func (t *AppTray) setNotifyIconVersion() {
 // handleBalloonClick opens the sponsor URL when a sponsor balloon is clicked.
 func (t *AppTray) handleBalloonClick() {
 	t.updateMu.Lock()
-	isSponsor := t.lastBalloonSponsor
-	t.lastBalloonSponsor = false
+	action := t.pendingBalloonAction
+	t.pendingBalloonAction = balloonActionNone
 	t.updateMu.Unlock()
-	if isSponsor {
+	switch action {
+	case balloonActionSponsor:
 		_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", supportURL).Start()
+	case balloonActionRestart:
+		restartApp()
 	}
 }
 
@@ -545,7 +630,14 @@ func (t *AppTray) onReady() {
 func (t *AppTray) handleUpdateClick() {
 	t.updateMu.Lock()
 	info := t.updateInfo
+	downloaded := t.updateDownloaded
 	t.updateMu.Unlock()
+
+	// Update already downloaded — restart to activate
+	if downloaded {
+		restartApp()
+		return
+	}
 
 	if info == nil || !info.Available {
 		// No update stored yet — trigger a manual check
@@ -567,18 +659,9 @@ func (t *AppTray) handleUpdateClick() {
 		return
 	}
 
+	// Update available but auto-download may not have started yet — trigger manually
 	t.mUpdate.SetTitle(T("update.downloading"))
-	go func() {
-		if err := t.updater.Apply(info); err != nil {
-			logError("Update apply failed: %v", err)
-			t.mUpdate.SetTitle(fmt.Sprintf(T("update.failed"), err))
-			return
-		}
-		t.updateMu.Lock()
-		t.updateInfo = nil
-		t.updateMu.Unlock()
-		t.mUpdate.SetTitle(T("update.ready"))
-	}()
+	go t.autoApplyUpdate(*info)
 }
 
 // SetTooltipState updates the tray tooltip to reflect current state.
@@ -684,10 +767,7 @@ func (t *AppTray) MaybeSponsorBalloon(totalDictations int) {
 	if err := t.cfg.Save(); err != nil {
 		logWarn("Failed to save sponsor reminder: %v", err)
 	}
-	t.updateMu.Lock()
-	t.lastBalloonSponsor = true
-	t.updateMu.Unlock()
-	t.ShowBalloon(T("balloon.sponsor_title"), T("balloon.sponsor"))
+	t.showBalloonWithAction(balloonActionSponsor, T("balloon.sponsor_title"), T("balloon.sponsor"))
 }
 
 // RefreshHistory rebuilds the history submenu from disk. Call after adding entries.

@@ -171,12 +171,14 @@ var translations = map[string]map[string]string{
 		"audio.device_unavailable":                "The selected microphone is no longer available. Choose another recording device in Settings.",
 
 		// Updates
-		"update.available":   "Update available: v%s",
-		"update.downloading": "Downloading update…",
-		"update.ready":       "Restart to update",
-		"update.failed":      "Update failed: %s",
-		"update.check":       "Check for updates",
-		"update.up_to_date":  "Up to date ✓",
+		"update.available":      "Update available: v%s",
+		"update.downloading":    "Downloading update…",
+		"update.ready":          "Restart to update",
+		"update.failed":         "Update failed: %s",
+		"update.check":          "Check for updates",
+		"update.up_to_date":     "Up to date ✓",
+		"update.notify_downloading": "Downloading update v%s…",
+		"update.notify_ready":   "Update installed — click to restart WhisPaste",
 
 		// Smart Mode
 		"settings.smart_mode":             "Smart Mode (AI Post-Processing)",
@@ -401,12 +403,14 @@ var translations = map[string]map[string]string{
 		"audio.device_unavailable":                "Das gewählte Mikrofon ist nicht mehr verfügbar. Wähle in den Einstellungen ein anderes Aufnahmegerät.",
 
 		// Updates
-		"update.available":   "Update verfügbar: v%s",
-		"update.downloading": "Update wird heruntergeladen…",
-		"update.ready":       "Neustart für Update",
-		"update.failed":      "Update fehlgeschlagen: %s",
-		"update.check":       "Nach Updates suchen",
-		"update.up_to_date":  "Aktuell ✓",
+		"update.available":      "Update verfügbar: v%s",
+		"update.downloading":    "Update wird heruntergeladen…",
+		"update.ready":          "Neustart für Update",
+		"update.failed":         "Update fehlgeschlagen: %s",
+		"update.check":          "Nach Updates suchen",
+		"update.up_to_date":     "Aktuell ✓",
+		"update.notify_downloading": "Update v%s wird heruntergeladen…",
+		"update.notify_ready":   "Update installiert — zum Neustarten klicken",
 
 		// Smart Mode
 		"settings.smart_mode":             "Smart-Modus (KI-Nachbearbeitung)",
