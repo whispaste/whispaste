@@ -130,9 +130,9 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 		"--host", "127.0.0.1",
 		"--port", fmt.Sprintf("%d", port),
 		"--threads", fmt.Sprintf("%d", threads),
-		"--convert",
 	)
 	logInfo("Starting whisper-server with %d threads (logical CPUs: %d)", threads, runtime.NumCPU())
+	logDebug("whisper-server command: %s", strings.Join(cmd.Args, " "))
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	startupLog := &limitedProcessOutput{}
 	cmd.Stdout = startupLog
@@ -277,6 +277,8 @@ func whisperServerExitMessage(waitErr error, output string) string {
 	msg := "whisper-server exited before becoming ready"
 	if waitErr != nil {
 		msg += ": " + waitErr.Error()
+	} else {
+		msg += " (exit code 0)"
 	}
 	if output != "" {
 		msg += " (output: " + output + ")"
