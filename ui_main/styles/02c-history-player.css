@@ -17,6 +17,16 @@
   color: var(--accent);
 }
 .empty-state p { font-size: var(--text-md); color: var(--text-secondary); }
+.empty-state-title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.empty-state-text {
+  max-width: 440px;
+  line-height: 1.6;
+}
 
 /* ── Selection Bar ───────────────────────────────────── */
 .selection-bar {

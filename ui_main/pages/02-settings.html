@@ -1,7 +1,8 @@
     <!-- Page: Settings -->
     <div class="page hidden" id="page-settings">
-      <div class="page-header">
+      <div class="page-header settings-page-header">
         <h2 class="page-title" data-i18n="settingsTitle">Settings</h2>
+        <p class="page-subtitle" data-i18n="settingsDesc">Configure how WhisPaste records, transcribes, refines, and stays out of your way.</p>
       </div>
       <div class="settings-layout">
         <nav class="settings-nav">
@@ -39,6 +40,7 @@
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>
             <span data-i18n="settingsNavGeneral">General</span>
           </div>
+          <p class="settings-section-intro" data-i18n="settingsSectionGeneralIntro">Control the everyday behavior of WhisPaste — startup, pasting, window handling, and quick-access UI.</p>
 
           <div class="card">
             <div class="card-title" data-i18n="settingsNavGeneral">General</div>
@@ -165,6 +167,7 @@
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
             <span data-i18n="settingsNavNotifications">Notifications</span>
           </div>
+          <p class="settings-section-intro" data-i18n="settingsSectionNotificationsIntro">Decide which alerts are actually helpful, so WhisPaste feels present when needed and quiet when not.</p>
 
           <div class="card">
             <div class="card-title" data-i18n="cardNotifications">Notifications</div>
@@ -219,6 +222,7 @@
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
             <span data-i18n="settingsNavAudio">Audio & Recording</span>
           </div>
+          <p class="settings-section-intro" data-i18n="settingsSectionAudioIntro">Shape the recording workflow: how you trigger dictation, what you hear, and which microphone input is used.</p>
 
           <!-- Recording Mode -->
           <div class="card">
@@ -331,20 +335,29 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" data-i18n="labelInputGain">Input Gain</label>
-              <p class="form-hint" style="margin-bottom:8px" data-i18n="descInputGain">Adjust microphone sensitivity (1.0 = normal)</p>
+              <label class="form-label" data-i18n="labelInputGain">Recording Boost</label>
+              <p class="form-hint" style="margin-bottom:8px" data-i18n="descInputGain">Gently boost the recorded signal after capture (1.0 = neutral)</p>
               <div class="range-row">
                 <input type="range" id="range-input-gain" min="50" max="200" value="100" step="10" class="volume-slider" oninput="document.getElementById('input-gain-value').textContent = (this.value/100).toFixed(1) + 'x'">
                 <span class="volume-value" id="input-gain-value">1.0x</span>
               </div>
+              <p class="form-hint" style="margin-top:8px" data-i18n="audioBoostNote">This does not change the Windows microphone volume.</p>
             </div>
             <div class="form-group">
               <button class="btn btn-secondary btn-sm" id="btn-test-audio" onclick="testAudioInput()">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                <span data-i18n="btnTestAudio">Test Microphone</span>
+                <span data-i18n="btnTestAudio">Check Microphone</span>
               </button>
               <div class="audio-level-meter hidden" id="audioLevelMeter">
                 <div class="audio-level-bar" id="audioLevelBar"></div>
+              </div>
+              <div class="audio-health hidden" id="audioHealthCard">
+                <div class="audio-health-top">
+                  <span class="audio-health-badge" id="audioHealthBadge"></span>
+                  <span class="audio-health-value" id="audioHealthValue">0%</span>
+                </div>
+                <div class="audio-health-message" id="audioHealthMessage"></div>
+                <div class="audio-health-tip" id="audioHealthTip"></div>
               </div>
             </div>
           </div>
@@ -354,6 +367,7 @@
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
             <span data-i18n="settingsNavTranscription">Transcription</span>
           </div>
+          <p class="settings-section-intro" data-i18n="settingsSectionTranscriptionIntro">Set up the speech-to-text path itself — API access, language behavior, and cleanup before words become text.</p>
 
           <!-- API Key -->
           <div class="card">
@@ -452,6 +466,7 @@
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
             <span data-i18n="settingsNavAI">AI & Models</span>
           </div>
+          <p class="settings-section-intro" data-i18n="settingsSectionAIIntro">Choose where refinement happens, which local models are installed, and how much privacy or convenience you want by default.</p>
 
           <!-- STT Models — Speech Recognition -->
           <div class="card" data-section="local-stt">
@@ -460,6 +475,18 @@
               <span data-i18n="aiSttTitle">Speech-to-Text Models</span>
             </div>
             <p class="card-desc" data-i18n="aiSttDesc">Offline Whisper models for local transcription — no internet or API key required. Used for voice-to-text conversion.</p>
+            <div class="preflight-card" id="localSttPreflightCard">
+              <div class="preflight-header">
+                <div>
+              <div class="preflight-title" data-i18n="preflightTitle">Local STT readiness</div>
+              <div class="preflight-desc" data-i18n="preflightDesc">A quick check to confirm whether this device is ready for local transcription.</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="refreshLocalSTTPreflight()" data-i18n="preflightRefresh">Re-run check</button>
+              </div>
+              <div class="preflight-status" id="localSttPreflightStatus"></div>
+              <div class="preflight-summary" id="localSttPreflightSummary"></div>
+              <div class="preflight-message" id="localSttPreflightMessage"></div>
+            </div>
             <div class="form-group">
               <div id="model-list" class="model-list"></div>
             </div>
@@ -537,6 +564,7 @@
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
             <span data-i18n="settingsNavCleanup">Cleanup</span>
           </div>
+          <p class="settings-section-intro" data-i18n="settingsSectionCleanupIntro">Keep your history under control with clear retention rules, predictable cleanup behavior, and optional archiving.</p>
 
           <div class="card">
             <div class="card-title" data-i18n="cardCleanup">History Cleanup</div>

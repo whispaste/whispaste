@@ -1,5 +1,74 @@
 /* ── Test Recording ───────────────────────────────────── */
 let _isTesting = false;
+let _localSTTPreflight = null;
+let _localSTTModels = [];
+
+async function fetchLocalSTTPreflight(modelId, purpose) {
+  if (!window.getLocalSTTPreflight) return null;
+  const raw = await window.getLocalSTTPreflight(modelId || '', purpose || 'inspect');
+  return typeof raw === 'string' ? JSON.parse(raw) : raw;
+}
+
+function renderLocalSTTPreflight(preflight) {
+  const card = document.getElementById('localSttPreflightCard');
+  const statusEl = document.getElementById('localSttPreflightStatus');
+  const summaryEl = document.getElementById('localSttPreflightSummary');
+  const messageEl = document.getElementById('localSttPreflightMessage');
+  if (!card || !statusEl || !summaryEl || !messageEl) return;
+
+  if (!preflight) {
+    card.classList.remove('is-fail', 'is-warn', 'is-pass');
+    statusEl.textContent = t('preflightChecking');
+    summaryEl.textContent = '';
+    messageEl.textContent = '';
+    messageEl.classList.remove('visible');
+    return;
+  }
+
+  card.classList.toggle('is-fail', preflight.status === 'fail');
+  card.classList.toggle('is-warn', preflight.status === 'warn');
+  card.classList.toggle('is-pass', preflight.status === 'pass');
+
+  const statusKey = preflight.status === 'fail'
+    ? 'preflightStatusFail'
+    : preflight.status === 'warn'
+      ? 'preflightStatusWarn'
+      : 'preflightStatusPass';
+  statusEl.textContent = t(statusKey);
+  summaryEl.textContent = preflight.summary || '';
+  messageEl.textContent = preflight.message || '';
+  messageEl.classList.toggle('visible', !!preflight.message);
+}
+
+async function refreshLocalSTTPreflight(modelId) {
+  try {
+    _localSTTPreflight = await fetchLocalSTTPreflight(modelId || '', modelId ? 'download' : 'inspect');
+  } catch (e) {
+    _localSTTPreflight = null;
+  }
+  if (typeof _sysInfoCache !== 'undefined') {
+    _sysInfoCache = null;
+  }
+  renderLocalSTTPreflight(_localSTTPreflight);
+  if (typeof renderModelList === 'function') {
+    renderModelList();
+  }
+  return _localSTTPreflight;
+}
+
+async function flushAudioConfig() {
+  if (!window.saveConfig || typeof gatherConfig !== 'function') {
+    return true;
+  }
+  const result = await window.saveConfig(JSON.stringify(gatherConfig()));
+  const res = typeof result === 'string' ? JSON.parse(result) : result;
+  if (!res?.success) {
+    showStatus(res?.error || t('statusError'), 'error');
+    return false;
+  }
+  return true;
+}
+
 async function testRecording() {
   if (_isTesting) return;
   const btn = document.getElementById('btn-test');
@@ -13,6 +82,9 @@ async function testRecording() {
   showStatus(t('statusTesting'), 'success');
 
   try {
+    if (!await flushAudioConfig()) {
+      return;
+    }
     if (window._doTestRecording) {
       const result = await window._doTestRecording();
       const res = typeof result === 'string' ? JSON.parse(result) : result;
@@ -31,7 +103,7 @@ async function testRecording() {
     _isTesting = false;
     if (btn) btn.classList.remove('recording');
     if (icon) icon.innerHTML = icons.microphone;
-    if (text) text.textContent = t('btnTest');
+    if (text) text.textContent = t('btnTestTranscription');
   }
 }
 
@@ -56,24 +128,120 @@ async function loadAudioDevices() {
       sel.appendChild(opt);
     });
   } catch (e) {
-    showToast(t('audioDeviceError') || 'Failed to load audio devices', true);
+    showToast(t('audioDeviceError'), true);
   }
 }
 
 /* ── Test Audio Input ─────────────────────────────────── */
 let _testAudioInterval = null;
+let _latestAudioSnapshot = { level: 0, peak: 0, average: 0, status: 'checking' };
+
+function resetAudioHealthUI() {
+  const card = document.getElementById('audioHealthCard');
+  const badge = document.getElementById('audioHealthBadge');
+  const message = document.getElementById('audioHealthMessage');
+  const tip = document.getElementById('audioHealthTip');
+  const value = document.getElementById('audioHealthValue');
+  if (card) {
+    card.classList.add('hidden');
+    card.classList.remove('is-checking', 'is-silent', 'is-quiet', 'is-good', 'is-hot');
+  }
+  if (badge) badge.textContent = '';
+  if (message) message.textContent = '';
+  if (tip) tip.textContent = '';
+  if (value) value.textContent = '0%';
+}
+
+function getAudioHealthCopy(status) {
+  switch (status) {
+    case 'silent':
+      return {
+        badge: t('audioHealthSilentBadge'),
+        message: t('audioHealthSilentMessage'),
+        tip: t('audioHealthSilentTip')
+      };
+    case 'quiet':
+      return {
+        badge: t('audioHealthQuietBadge'),
+        message: t('audioHealthQuietMessage'),
+        tip: t('audioHealthQuietTip')
+      };
+    case 'hot':
+      return {
+        badge: t('audioHealthHotBadge'),
+        message: t('audioHealthHotMessage'),
+        tip: t('audioHealthHotTip')
+      };
+    case 'good':
+      return {
+        badge: t('audioHealthGoodBadge'),
+        message: t('audioHealthGoodMessage'),
+        tip: t('audioHealthGoodTip')
+      };
+    default:
+      return {
+        badge: t('audioHealthCheckingBadge'),
+        message: t('audioHealthCheckingMessage'),
+        tip: t('audioHealthCheckingTip')
+      };
+  }
+}
+
+function renderAudioHealth(snapshot) {
+  const card = document.getElementById('audioHealthCard');
+  const badge = document.getElementById('audioHealthBadge');
+  const message = document.getElementById('audioHealthMessage');
+  const tip = document.getElementById('audioHealthTip');
+  const value = document.getElementById('audioHealthValue');
+  if (!card || !badge || !message || !tip || !value) return;
+
+  const status = snapshot?.status || 'checking';
+  const copy = getAudioHealthCopy(status);
+  const peakPct = Math.min(100, Math.round((parseFloat(snapshot?.peak || 0) || 0) * 100));
+
+  card.classList.remove('hidden', 'is-checking', 'is-silent', 'is-quiet', 'is-good', 'is-hot');
+  card.classList.add(`is-${status}`);
+  badge.textContent = copy.badge;
+  message.textContent = copy.message;
+  tip.textContent = copy.tip;
+  value.textContent = `${peakPct}%`;
+}
+
+function renderAudioLevelBar(level) {
+  const bar = document.getElementById('audioLevelBar');
+  const pct = Math.min(100, Math.round((parseFloat(level) || 0) * 100));
+  if (!bar) return;
+  bar.style.width = pct + '%';
+  if (pct > 85) bar.style.background = 'var(--error)';
+  else if (pct > 60) bar.style.background = 'var(--warning)';
+  else bar.style.background = 'var(--success)';
+}
+
+async function stopAudioInputMonitor({ hideMeter = true } = {}) {
+  const meter = document.getElementById('audioLevelMeter');
+  const btn = document.getElementById('btn-test-audio');
+  if (_testAudioInterval) {
+    clearInterval(_testAudioInterval);
+    _testAudioInterval = null;
+  }
+  if (hideMeter && meter) meter.classList.add('hidden');
+  if (btn) btn.classList.remove('recording');
+  try {
+    if (window._stopAudioMonitor) await window._stopAudioMonitor();
+  } catch (e) {}
+}
+
 async function testAudioInput() {
   const meter = document.getElementById('audioLevelMeter');
-  const bar = document.getElementById('audioLevelBar');
   const btn = document.getElementById('btn-test-audio');
 
   // Toggle off
   if (_testAudioInterval) {
-    clearInterval(_testAudioInterval);
-    _testAudioInterval = null;
-    if (meter) meter.classList.add('hidden');
-    if (btn) btn.classList.remove('recording');
-    try { if (window._stopAudioMonitor) await window._stopAudioMonitor(); } catch (e) {}
+    await stopAudioInputMonitor();
+    return;
+  }
+
+  if (!await flushAudioConfig()) {
     return;
   }
 
@@ -92,30 +260,26 @@ async function testAudioInput() {
     return;
   }
 
+  _latestAudioSnapshot = { level: 0, peak: 0, average: 0, status: 'checking' };
   if (meter) meter.classList.remove('hidden');
   if (btn) btn.classList.add('recording');
+  renderAudioLevelBar(0);
+  renderAudioHealth(_latestAudioSnapshot);
   let count = 0;
   _testAudioInterval = setInterval(async () => {
     count++;
     if (count > 100) { // 10 seconds
-      clearInterval(_testAudioInterval);
-      _testAudioInterval = null;
-      if (meter) meter.classList.add('hidden');
-      if (btn) btn.classList.remove('recording');
-      try { if (window._stopAudioMonitor) await window._stopAudioMonitor(); } catch (e) {}
+      await stopAudioInputMonitor();
+      renderAudioHealth(_latestAudioSnapshot);
       return;
     }
-    if (window._getAudioLevel) {
+    if (window._getAudioMonitorSnapshot) {
       try {
-        const level = await window._getAudioLevel();
-        const pct = Math.min(100, Math.round(parseFloat(level) * 100));
-        if (bar) {
-          bar.style.width = pct + '%';
-          // Color: green < 60%, yellow 60-85%, red > 85%
-          if (pct > 85) bar.style.background = 'var(--clr-error, #FF3B30)';
-          else if (pct > 60) bar.style.background = 'var(--clr-warning, #FF9500)';
-          else bar.style.background = 'var(--clr-success, #34C759)';
-        }
+        const raw = await window._getAudioMonitorSnapshot();
+        const snapshot = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        _latestAudioSnapshot = snapshot || _latestAudioSnapshot;
+        renderAudioLevelBar(snapshot?.level || 0);
+        renderAudioHealth(_latestAudioSnapshot);
       } catch (e) {}
     }
   }, 100);
@@ -131,8 +295,9 @@ async function renderModelList() {
     try {
       const result = await window._getModels();
       models = typeof result === 'string' ? JSON.parse(result) : result;
+      _localSTTModels = models;
     } catch (e) {
-      showToast(t('modelLoadError') || 'Failed to load models', true);
+      showToast(t('modelLoadError'), true);
     }
   }
   
@@ -150,13 +315,21 @@ async function renderModelList() {
     description: t('model.desc.' + m.id) || '',
     size: m.size,
     downloaded: m.downloaded,
-    downloading: _downloadingModel === m.id
+    downloading: _downloadingModel === m.id,
+    preflight_blocked: !!m.preflight_blocked,
+    preflight_message: m.preflight_message || '',
+    preflight_status: m.preflight_status || 'pass'
   }, { type: 'stt', showTest: true })).join('');
 }
 
 
 /* ── STT Model Test ─────────────────────────────────────── */
 async function testSTTModel(modelId) {
+  const model = _localSTTModels.find(m => m.id === modelId);
+  if (model && model.preflight_blocked) {
+    showToast(model.preflight_message || t('preflightBlockedBadge'), true);
+    return;
+  }
   const btn = document.getElementById('btn-test-stt-' + modelId);
   if (!btn || btn.disabled) return;
   btn.disabled = true;
@@ -191,6 +364,11 @@ window._onSTTTestComplete = function(modelId, success, text, error) {
 };
 
 async function downloadModel(id) {
+  const model = _localSTTModels.find(m => m.id === id);
+  if (model && model.preflight_blocked) {
+    showToast(model.preflight_message || t('preflightBlockedBadge'), true);
+    return;
+  }
   if (window.checkConnectivity) {
     try {
       const online = await window.checkConnectivity();
@@ -220,11 +398,11 @@ window.downloadComplete = function(modelId, success, errorMsg) {
   if (success) {
     showStatus(t('modelDownloadDone'), 'success');
     _downloadingModel = null;
-    renderModelList();
+    refreshLocalSTTPreflight(modelId).finally(() => renderModelList());
   } else {
     showStatus(errorMsg || t('modelDownloadError'), 'error');
     _downloadingModel = null;
-    renderModelList();
+    refreshLocalSTTPreflight(modelId).finally(() => renderModelList());
   }
 };
 

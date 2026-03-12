@@ -33,12 +33,12 @@ var (
 )
 
 const (
-	logViewerWmClose     = 0x0010
-	logViewerSwRestore   = 9
-	logViewerGwlpWndProc = ^uintptr(3) // -4
-	logViewerSwpNoSize   = 0x0001
-	logViewerSwpNoMove   = 0x0002
-	logViewerHwndTopmost = ^uintptr(0) // -1
+	logViewerWmClose       = 0x0010
+	logViewerSwRestore     = 9
+	logViewerGwlpWndProc   = ^uintptr(3) // -4
+	logViewerSwpNoSize     = 0x0001
+	logViewerSwpNoMove     = 0x0002
+	logViewerHwndTopmost   = ^uintptr(0) // -1
 	logViewerHwndNoTopmost = ^uintptr(1) // -2
 )
 

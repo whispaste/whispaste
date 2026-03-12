@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 
 	"github.com/gen2brain/malgo"
@@ -29,18 +30,22 @@ func applyGain(samples []byte, gain float64) {
 
 // Recorder captures microphone audio via miniaudio.
 type Recorder struct {
-	ctx        *malgo.AllocatedContext
-	device     *malgo.Device
-	buf        bytes.Buffer
-	mu         sync.Mutex
-	level      float32
-	levelMu    sync.RWMutex
-	recording  bool
-	paused     bool
-	monitoring bool // level-only monitoring (no buffer accumulation)
-	monDevice  *malgo.Device
-	gain       float64
-	closeOnce  sync.Once
+	ctx           *malgo.AllocatedContext
+	device        *malgo.Device
+	buf           bytes.Buffer
+	mu            sync.Mutex
+	inputDeviceID string
+	level         float32
+	levelPeak     float32
+	levelSum      float64
+	levelReads    uint32
+	levelMu       sync.RWMutex
+	recording     bool
+	paused        bool
+	monitoring    bool // level-only monitoring (no buffer accumulation)
+	monDevice     *malgo.Device
+	gain          float64
+	closeOnce     sync.Once
 }
 
 // NewRecorder initializes the audio context.
@@ -65,7 +70,14 @@ func (r *Recorder) SetGain(g float64) {
 	r.gain = g
 }
 
-// Start begins capturing audio from the default microphone.
+// SetInputDevice stores the selected capture device ID for future recordings.
+func (r *Recorder) SetInputDevice(deviceID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.inputDeviceID = strings.TrimSpace(deviceID)
+}
+
+// Start begins capturing audio from the configured microphone.
 func (r *Recorder) Start() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -81,11 +93,16 @@ func (r *Recorder) Start() error {
 
 	r.buf.Reset()
 	r.paused = false
+	r.resetLevelState()
 
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Capture)
 	deviceConfig.Capture.Format = malgo.FormatS16
 	deviceConfig.Capture.Channels = 1
 	deviceConfig.SampleRate = 16000
+	deviceName, err := r.configureCaptureDevice(strings.TrimSpace(r.inputDeviceID), &deviceConfig)
+	if err != nil {
+		return fmt.Errorf("Start: %w", err)
+	}
 
 	callbacks := malgo.DeviceCallbacks{
 		Data: func(_, pInputSamples []byte, framecount uint32) {
@@ -93,13 +110,13 @@ func (r *Recorder) Start() error {
 			active := r.recording && !r.paused
 			g := r.gain
 			r.mu.Unlock()
-			// Apply gain to samples for both recording and level computation
-			applyGain(pInputSamples, g)
+			r.computeLevel(pInputSamples)
 			if active {
+				// Keep diagnostics based on raw mic input while still boosting recorded audio.
+				applyGain(pInputSamples, g)
 				r.mu.Lock()
 				r.buf.Write(pInputSamples)
 				r.mu.Unlock()
-				r.computeLevel(pInputSamples)
 			}
 		},
 	}
@@ -116,6 +133,9 @@ func (r *Recorder) Start() error {
 
 	r.device = device
 	r.recording = true
+	if deviceName != "" {
+		logInfo("Recorder started with input device: %s", deviceName)
+	}
 	return nil
 }
 
@@ -141,6 +161,7 @@ func (r *Recorder) Stop() ([]byte, error) {
 	copy(data, r.buf.Bytes())
 	r.buf.Reset()
 	r.mu.Unlock()
+	r.resetLevelState()
 
 	return data, nil
 }
@@ -150,6 +171,30 @@ func (r *Recorder) GetLevel() float32 {
 	r.levelMu.RLock()
 	defer r.levelMu.RUnlock()
 	return r.level
+}
+
+type AudioMonitorSnapshot struct {
+	Level   float32 `json:"level"`
+	Peak    float32 `json:"peak"`
+	Average float32 `json:"average"`
+	Status  string  `json:"status"`
+}
+
+func (r *Recorder) GetMonitorSnapshot() AudioMonitorSnapshot {
+	r.levelMu.RLock()
+	defer r.levelMu.RUnlock()
+
+	average := float32(0)
+	if r.levelReads > 0 {
+		average = float32(r.levelSum / float64(r.levelReads))
+	}
+
+	return AudioMonitorSnapshot{
+		Level:   r.level,
+		Peak:    r.levelPeak,
+		Average: average,
+		Status:  classifyAudioInputHealth(r.levelPeak, average, r.levelReads),
+	}
 }
 
 // Pause temporarily stops accumulating audio data without stopping the device.
@@ -187,18 +232,18 @@ func (r *Recorder) StartMonitor() error {
 		return nil
 	}
 
+	r.resetLevelState()
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Capture)
 	deviceConfig.Capture.Format = malgo.FormatS16
 	deviceConfig.Capture.Channels = 1
 	deviceConfig.SampleRate = 16000
+	deviceName, err := r.configureCaptureDevice(strings.TrimSpace(r.inputDeviceID), &deviceConfig)
+	if err != nil {
+		return fmt.Errorf("StartMonitor: %w", err)
+	}
 
 	callbacks := malgo.DeviceCallbacks{
 		Data: func(_, pInputSamples []byte, framecount uint32) {
-			// Apply gain for accurate level display
-			r.mu.Lock()
-			g := r.gain
-			r.mu.Unlock()
-			applyGain(pInputSamples, g)
 			r.computeLevel(pInputSamples)
 		},
 	}
@@ -215,6 +260,9 @@ func (r *Recorder) StartMonitor() error {
 
 	r.monDevice = device
 	r.monitoring = true
+	if deviceName != "" {
+		logInfo("Recorder monitor started with input device: %s", deviceName)
+	}
 	return nil
 }
 
@@ -241,9 +289,7 @@ func (r *Recorder) stopMonitorLocked() {
 	r.mu.Lock()
 
 	// Reset level to zero
-	r.levelMu.Lock()
-	r.level = 0
-	r.levelMu.Unlock()
+	r.resetLevelState()
 }
 
 // Close releases all audio resources. Safe to call multiple times.
@@ -332,7 +378,59 @@ func (r *Recorder) computeLevel(samples []byte) {
 	}
 	r.levelMu.Lock()
 	r.level = level
+	if level > r.levelPeak {
+		r.levelPeak = level
+	}
+	r.levelSum += float64(level)
+	r.levelReads++
 	r.levelMu.Unlock()
+}
+
+func (r *Recorder) resetLevelState() {
+	r.levelMu.Lock()
+	r.level = 0
+	r.levelPeak = 0
+	r.levelSum = 0
+	r.levelReads = 0
+	r.levelMu.Unlock()
+}
+
+func (r *Recorder) configureCaptureDevice(selectedID string, deviceConfig *malgo.DeviceConfig) (string, error) {
+	if selectedID == "" {
+		return "", nil
+	}
+
+	devices, err := r.ctx.Context.Devices(malgo.Capture)
+	if err != nil {
+		return "", fmt.Errorf("list capture devices: %w", err)
+	}
+
+	for _, info := range devices {
+		if info.ID.String() != selectedID {
+			continue
+		}
+		deviceID := info.ID
+		deviceConfig.Capture.DeviceID = deviceID.Pointer()
+		return info.Name(), nil
+	}
+
+	return "", fmt.Errorf("%s", T("audio.device_unavailable"))
+}
+
+func classifyAudioInputHealth(peak, average float32, reads uint32) string {
+	if reads < 6 {
+		return "checking"
+	}
+	if peak < 0.03 && average < 0.01 {
+		return "silent"
+	}
+	if peak > 0.92 || average > 0.55 {
+		return "hot"
+	}
+	if peak < 0.12 && average < 0.045 {
+		return "quiet"
+	}
+	return "good"
 }
 
 // TrimSilence removes leading and trailing silence from 16-bit mono PCM data.

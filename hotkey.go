@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	hkUser32          = windows.NewLazySystemDLL("user32.dll")
+	hkUser32             = windows.NewLazySystemDLL("user32.dll")
 	procGetAsyncKeyState = hkUser32.NewProc("GetAsyncKeyState")
 )
 

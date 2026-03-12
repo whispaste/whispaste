@@ -15,70 +15,70 @@ import (
 
 // Config holds all application settings.
 type Config struct {
-	APIKey      string   `json:"api_key"`
-	APIEndpoint string   `json:"api_endpoint"`
-	HotkeyMods  []string `json:"hotkey_modifiers"`
-	HotkeyKey   string   `json:"hotkey_key"`
-	Mode        string   `json:"mode"`
-	Language    string   `json:"language"`
-	Model       string   `json:"model"`
-	Prompt      string   `json:"prompt"`
-	OverlayPos  string   `json:"overlay_position"`
-	AutoPaste    bool     `json:"auto_paste"`
-	PlaySounds   bool     `json:"play_sounds"`
-	CheckUpdates bool     `json:"check_updates"`
-	UILanguage   string   `json:"ui_language"`
-	Theme        string   `json:"theme"`
-	Autostart    bool     `json:"autostart"`
-	CloseToTray  bool     `json:"close_to_tray"`
-	SoundVolume  float64  `json:"sound_volume"`
-	MaxRecordSec int      `json:"max_record_sec"`
-	SmartMode       bool   `json:"smart_mode"`
-	SmartModePreset string `json:"smart_mode_preset"`
-	SmartModePrompt string `json:"smart_mode_prompt"`
-	SmartModeTarget string `json:"smart_mode_target"`
-	SponsorLastRemindedAt int `json:"sponsor_last_reminded_at"`
-	NotifyBackground bool  `json:"notify_background"`
-	NotifyComplete   bool  `json:"notify_complete"`
-	NotifyDonate     bool  `json:"notify_donate"`
-	UseLocalSTT            bool   `json:"use_local_stt"`
-	ActiveModelLocal       bool   `json:"active_model_local"`
-	LocalModelID           string `json:"local_model_id"`
-	TranscriptionLanguage  string `json:"transcription_language"`
-	InputDevice     string  `json:"input_device,omitempty"`
-	InputGain       float64 `json:"input_gain"`
-	TagColors       map[string]int `json:"tag_colors,omitempty"`
-	CleanupEnabled    bool `json:"cleanup_enabled,omitempty"`
-	CleanupMaxEntries int  `json:"cleanup_max_entries,omitempty"`
-	CleanupMaxAgeDays     int  `json:"cleanup_max_age_days,omitempty"`
-	CleanupIncludePinned  bool `json:"cleanup_include_pinned,omitempty"`
-	OnboardingDone    bool `json:"onboarding_done,omitempty"`
-	ActiveProfile     string                    `json:"active_profile,omitempty"`
-	Profiles          map[string]ConfigProfile   `json:"profiles,omitempty"`
-	CustomTemplates   map[string]string          `json:"custom_templates,omitempty"`
-	TextReplacementsEnabled bool               `json:"text_replacements_enabled,omitempty"`
-	TextReplacements  []TextReplacement         `json:"text_replacements,omitempty"`
-	TextReplacementsAI       bool               `json:"text_replacements_ai,omitempty"`
-	TextReplacementProvider  string             `json:"text_replacement_provider,omitempty"`
-	TrimSilence       bool                      `json:"trim_silence,omitempty"`
-	AppDetection      bool                      `json:"app_detection,omitempty"`
-	AppPresets          map[string]string          `json:"app_presets,omitempty"`
-	SmartModeProvider   string                     `json:"smart_mode_provider,omitempty"`
-	TemplateMetas       map[string]TemplateMeta    `json:"template_metas,omitempty"`
-	FallbackPreset      string                     `json:"fallback_preset,omitempty"`
-	CustomTags          []string                   `json:"customTags,omitempty"`
-	FloatingButtonEnabled bool                     `json:"floating_button_enabled,omitempty"`
-	FloatingButtonX       int                      `json:"floating_button_x,omitempty"`
-	FloatingButtonY       int                      `json:"floating_button_y,omitempty"`
-	FloatingButtonColor   string                   `json:"floating_button_color,omitempty"`
-	FloatingButtonSize    int                      `json:"floating_button_size,omitempty"`
-	UseVAD                bool                     `json:"use_vad,omitempty"`
-	VADSensitivity        float32                  `json:"vad_sensitivity"`
-	LastProjectID         string                   `json:"last_project_id,omitempty"`
-	SidebarWidth          int                      `json:"sidebar_width,omitempty"`
-	DeleteBehavior        string                   `json:"delete_behavior,omitempty"` // "delete" or "archive"
-	LocalLLMModel         string                   `json:"local_llm_model,omitempty"`
-	mu          sync.RWMutex
+	APIKey                  string                   `json:"api_key"`
+	APIEndpoint             string                   `json:"api_endpoint"`
+	HotkeyMods              []string                 `json:"hotkey_modifiers"`
+	HotkeyKey               string                   `json:"hotkey_key"`
+	Mode                    string                   `json:"mode"`
+	Language                string                   `json:"language"`
+	Model                   string                   `json:"model"`
+	Prompt                  string                   `json:"prompt"`
+	OverlayPos              string                   `json:"overlay_position"`
+	AutoPaste               bool                     `json:"auto_paste"`
+	PlaySounds              bool                     `json:"play_sounds"`
+	CheckUpdates            bool                     `json:"check_updates"`
+	UILanguage              string                   `json:"ui_language"`
+	Theme                   string                   `json:"theme"`
+	Autostart               bool                     `json:"autostart"`
+	CloseToTray             bool                     `json:"close_to_tray"`
+	SoundVolume             float64                  `json:"sound_volume"`
+	MaxRecordSec            int                      `json:"max_record_sec"`
+	SmartMode               bool                     `json:"smart_mode"`
+	SmartModePreset         string                   `json:"smart_mode_preset"`
+	SmartModePrompt         string                   `json:"smart_mode_prompt"`
+	SmartModeTarget         string                   `json:"smart_mode_target"`
+	SponsorLastRemindedAt   int                      `json:"sponsor_last_reminded_at"`
+	NotifyBackground        bool                     `json:"notify_background"`
+	NotifyComplete          bool                     `json:"notify_complete"`
+	NotifyDonate            bool                     `json:"notify_donate"`
+	UseLocalSTT             bool                     `json:"use_local_stt"`
+	ActiveModelLocal        bool                     `json:"active_model_local"`
+	LocalModelID            string                   `json:"local_model_id"`
+	TranscriptionLanguage   string                   `json:"transcription_language"`
+	InputDevice             string                   `json:"input_device,omitempty"`
+	InputGain               float64                  `json:"input_gain"`
+	TagColors               map[string]int           `json:"tag_colors,omitempty"`
+	CleanupEnabled          bool                     `json:"cleanup_enabled,omitempty"`
+	CleanupMaxEntries       int                      `json:"cleanup_max_entries,omitempty"`
+	CleanupMaxAgeDays       int                      `json:"cleanup_max_age_days,omitempty"`
+	CleanupIncludePinned    bool                     `json:"cleanup_include_pinned,omitempty"`
+	OnboardingDone          bool                     `json:"onboarding_done,omitempty"`
+	ActiveProfile           string                   `json:"active_profile,omitempty"`
+	Profiles                map[string]ConfigProfile `json:"profiles,omitempty"`
+	CustomTemplates         map[string]string        `json:"custom_templates,omitempty"`
+	TextReplacementsEnabled bool                     `json:"text_replacements_enabled,omitempty"`
+	TextReplacements        []TextReplacement        `json:"text_replacements,omitempty"`
+	TextReplacementsAI      bool                     `json:"text_replacements_ai,omitempty"`
+	TextReplacementProvider string                   `json:"text_replacement_provider,omitempty"`
+	TrimSilence             bool                     `json:"trim_silence,omitempty"`
+	AppDetection            bool                     `json:"app_detection,omitempty"`
+	AppPresets              map[string]string        `json:"app_presets,omitempty"`
+	SmartModeProvider       string                   `json:"smart_mode_provider,omitempty"`
+	TemplateMetas           map[string]TemplateMeta  `json:"template_metas,omitempty"`
+	FallbackPreset          string                   `json:"fallback_preset,omitempty"`
+	CustomTags              []string                 `json:"customTags,omitempty"`
+	FloatingButtonEnabled   bool                     `json:"floating_button_enabled,omitempty"`
+	FloatingButtonX         int                      `json:"floating_button_x,omitempty"`
+	FloatingButtonY         int                      `json:"floating_button_y,omitempty"`
+	FloatingButtonColor     string                   `json:"floating_button_color,omitempty"`
+	FloatingButtonSize      int                      `json:"floating_button_size,omitempty"`
+	UseVAD                  bool                     `json:"use_vad,omitempty"`
+	VADSensitivity          float32                  `json:"vad_sensitivity"`
+	LastProjectID           string                   `json:"last_project_id,omitempty"`
+	SidebarWidth            int                      `json:"sidebar_width,omitempty"`
+	DeleteBehavior          string                   `json:"delete_behavior,omitempty"` // "delete" or "archive"
+	LocalLLMModel           string                   `json:"local_llm_model,omitempty"`
+	mu                      sync.RWMutex
 }
 
 // TextReplacement defines a trigger→replacement mapping applied to transcriptions.
@@ -90,35 +90,35 @@ type TextReplacement struct {
 
 // ConfigProfile stores a named set of transcription & smart mode settings.
 type ConfigProfile struct {
-	UseLocalSTT      bool   `json:"use_local_stt"`
-	ActiveModelLocal bool   `json:"active_model_local"`
-	LocalModelID     string `json:"local_model_id,omitempty"`
-	Model            string `json:"model,omitempty"`
-	SmartMode       bool   `json:"smart_mode"`
-	SmartModePreset string `json:"smart_mode_preset,omitempty"`
-	SmartModePrompt string `json:"smart_mode_prompt,omitempty"`
-	SmartModeTarget string `json:"smart_mode_target,omitempty"`
-	Language        string `json:"language,omitempty"`
+	UseLocalSTT           bool   `json:"use_local_stt"`
+	ActiveModelLocal      bool   `json:"active_model_local"`
+	LocalModelID          string `json:"local_model_id,omitempty"`
+	Model                 string `json:"model,omitempty"`
+	SmartMode             bool   `json:"smart_mode"`
+	SmartModePreset       string `json:"smart_mode_preset,omitempty"`
+	SmartModePrompt       string `json:"smart_mode_prompt,omitempty"`
+	SmartModeTarget       string `json:"smart_mode_target,omitempty"`
+	Language              string `json:"language,omitempty"`
 	TranscriptionLanguage string `json:"transcription_language,omitempty"`
 }
 
 // DefaultConfig returns a config with sensible defaults.
 func DefaultConfig() *Config {
 	return &Config{
-		HotkeyMods:   []string{"Ctrl", "Shift"},
-		HotkeyKey:    "D",
-		Mode:         "push_to_talk",
-		Language:     "auto",
-		Model:        "whisper-1",
-		OverlayPos:   "top_center",
-		AutoPaste:    true,
-		PlaySounds:   true,
-		CheckUpdates: true,
-		UILanguage:   detectSystemLanguage(),
-		Theme:        "system",
-		CloseToTray: true,
-		SoundVolume:  1.0,
-		MaxRecordSec: 120,
+		HotkeyMods:       []string{"Ctrl", "Shift"},
+		HotkeyKey:        "D",
+		Mode:             "push_to_talk",
+		Language:         "auto",
+		Model:            "whisper-1",
+		OverlayPos:       "top_center",
+		AutoPaste:        true,
+		PlaySounds:       true,
+		CheckUpdates:     true,
+		UILanguage:       detectSystemLanguage(),
+		Theme:            "system",
+		CloseToTray:      true,
+		SoundVolume:      1.0,
+		MaxRecordSec:     120,
 		NotifyBackground: true,
 		NotifyComplete:   true,
 		NotifyDonate:     true,

@@ -45,9 +45,9 @@ const (
 	_FLOAT_MENU_QUIT       = 5
 
 	// Win32 menu constants
-	_MF_STRING    = 0x0000
-	_MF_SEPARATOR = 0x0800
-	_MF_CHECKED   = 0x0008
+	_MF_STRING       = 0x0000
+	_MF_SEPARATOR    = 0x0800
+	_MF_CHECKED      = 0x0008
 	_TPM_RIGHTBUTTON = 0x0002
 
 	// Non-client messages (needed because HTCAPTION consumes LBUTTONxx/RBUTTONxx)
@@ -56,7 +56,7 @@ const (
 	_WM_NCRBUTTONUP   = 0x00A5
 
 	// Mouse tracking
-	_TME_LEAVE    = 0x00000002
+	_TME_LEAVE     = 0x00000002
 	_WM_MOUSEMOVE  = 0x0200
 	_WM_MOUSELEAVE = 0x02A3
 	_WM_MOVE       = 0x0003
@@ -86,17 +86,17 @@ type monitorInfo struct {
 
 // Win32 procs (reuse overlay DLL handles)
 var (
-	procCreatePopupMenu  = ovlUser32.NewProc("CreatePopupMenu")
-	procAppendMenuW      = ovlUser32.NewProc("AppendMenuW")
-	procTrackPopupMenu   = ovlUser32.NewProc("TrackPopupMenu")
-	procDestroyMenu      = ovlUser32.NewProc("DestroyMenu")
+	procCreatePopupMenu     = ovlUser32.NewProc("CreatePopupMenu")
+	procAppendMenuW         = ovlUser32.NewProc("AppendMenuW")
+	procTrackPopupMenu      = ovlUser32.NewProc("TrackPopupMenu")
+	procDestroyMenu         = ovlUser32.NewProc("DestroyMenu")
 	procSetForegroundWindow = ovlUser32.NewProc("SetForegroundWindow")
-	procMonitorFromWindow = ovlUser32.NewProc("MonitorFromWindow")
-	procGetMonitorInfoW  = ovlUser32.NewProc("GetMonitorInfoW")
-	procDestroyWindow    = ovlUser32.NewProc("DestroyWindow")
-	procGetWindowRect    = ovlUser32.NewProc("GetWindowRect")
-	procMoveWindow       = ovlUser32.NewProc("MoveWindow")
-	procGetDpiForWindow  = ovlUser32.NewProc("GetDpiForWindow")
+	procMonitorFromWindow   = ovlUser32.NewProc("MonitorFromWindow")
+	procGetMonitorInfoW     = ovlUser32.NewProc("GetMonitorInfoW")
+	procDestroyWindow       = ovlUser32.NewProc("DestroyWindow")
+	procGetWindowRect       = ovlUser32.NewProc("GetWindowRect")
+	procMoveWindow          = ovlUser32.NewProc("MoveWindow")
+	procGetDpiForWindow     = ovlUser32.NewProc("GetDpiForWindow")
 
 	// GDI+ string alignment (used in drawMicIcon)
 	procGdipSetStringFormatAlign     = ovlGdiplus.NewProc("GdipSetStringFormatAlign")
@@ -167,17 +167,17 @@ var globalFloating *FloatingButton
 
 // FloatingButton is a small always-on-top circle that starts recording on click.
 type FloatingButton struct {
-	hwnd    uintptr
-	dibDC   uintptr
-	dibBmp  uintptr
-	ready   chan error
-	done    chan struct{}
-	cfg     *Config
+	hwnd   uintptr
+	dibDC  uintptr
+	dibBmp uintptr
+	ready  chan error
+	done   chan struct{}
+	cfg    *Config
 
-	onStartRecording  func()
-	onOpenWindow      func(string)
-	onQuit            func()
-	onSmartToggled    func(bool)
+	onStartRecording func()
+	onOpenWindow     func(string)
+	onQuit           func()
+	onSmartToggled   func(bool)
 
 	hovered       bool
 	tracking      bool
@@ -791,7 +791,7 @@ func (fb *FloatingButton) drawMicIcon(g uintptr, alpha uint32) {
 	}
 	defer procGdipDeletePen.Call(pen)
 	procGdipSetPenLineCap197819.Call(pen, 2, 2, 0) // LineCapRound
-	procGdipSetPenLineJoin.Call(pen, 2)             // LineJoinRound
+	procGdipSetPenLineJoin.Call(pen, 2)            // LineJoinRound
 
 	const o = 16 // offset to center 24px icon in 56px button
 

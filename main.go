@@ -19,7 +19,6 @@ import (
 	"github.com/whispaste/whispaste/internal/wav"
 )
 
-
 func main() {
 	// Single-instance guard: only one WhisPaste process at a time
 	mutexName, _ := windows.UTF16PtrFromString("Global\\WhisPaste_SingleInstance")
@@ -108,6 +107,7 @@ func main() {
 	}
 	defer recorder.Close()
 	recorder.SetGain(cfg.GetInputGain())
+	recorder.SetInputDevice(cfg.GetInputDevice())
 
 	// Initialize stats, audiocache, and history
 	cfgDir, _ := configDir()
@@ -147,14 +147,14 @@ func main() {
 		stateMu          sync.Mutex
 		stateGen         uint64 // generation counter for auto-hide goroutines
 		levelDone        chan struct{}
-		recordStart      time.Time // wall-clock time when recording started
-		recordSource     RecordSource // what triggered the current recording
+		recordStart      time.Time          // wall-clock time when recording started
+		recordSource     RecordSource       // what triggered the current recording
 		transcribeCancel context.CancelFunc // cancels in-flight transcription
 		transcribeGen    uint64             // generation counter for transcription ownership
-		hkMu             sync.Mutex // protects hkMgr
-		tray             *AppTray   // set after creation, used by transition
-		showDashboard    func()          // opens main window, set after onSettingsSaved is defined
-		showMainPage     func(string)    // opens main window at specific page
+		hkMu             sync.Mutex         // protects hkMgr
+		tray             *AppTray           // set after creation, used by transition
+		showDashboard    func()             // opens main window, set after onSettingsSaved is defined
+		showMainPage     func(string)       // opens main window at specific page
 	)
 
 	// Snapshot config values under lock to avoid data races

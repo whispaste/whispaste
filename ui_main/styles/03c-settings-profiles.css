@@ -22,6 +22,12 @@
   cursor: default;
 }
 
+.model-item.preflight-blocked {
+  opacity: 1;
+  border-color: var(--error-border);
+  background: color-mix(in srgb, var(--error-bg), var(--bg-secondary) 72%);
+}
+
 .model-item.active {
   border-color: var(--accent);
 }
@@ -81,6 +87,18 @@
   color: var(--success);
 }
 
+.model-badge-error {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.model-warning {
+  margin-top: 8px;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--error);
+}
+
 .btn-ghost {
   background: transparent;
   border: none;
@@ -99,6 +117,82 @@
   min-width: 90px;
   font-size: 0.8rem;
   padding: 6px 12px;
+}
+
+.preflight-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.preflight-card.is-pass {
+  border-color: var(--success-border);
+  background: color-mix(in srgb, var(--success-bg), var(--bg-secondary) 60%);
+}
+
+.preflight-card.is-warn {
+  border-color: var(--warning-border);
+  background: color-mix(in srgb, var(--warning-bg), var(--bg-secondary) 55%);
+}
+
+.preflight-card.is-fail {
+  border-color: var(--error-border);
+  background: color-mix(in srgb, var(--error-bg), var(--bg-secondary) 55%);
+}
+
+.preflight-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.preflight-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.preflight-desc {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.preflight-status {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: color-mix(in srgb, var(--bg-primary), transparent 10%);
+}
+
+.preflight-summary {
+  margin-top: 6px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.preflight-message {
+  display: none;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.preflight-message.visible {
+  display: block;
 }
 
 .model-progress {
@@ -207,13 +301,100 @@
 
 /* ── Audio Level Meter ──────────────────────────────── */
 .audio-level-meter {
-  height: 10px; border-radius: 5px; overflow: hidden;
-  background: var(--bg-input); margin-top: 8px;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg-input);
+  margin-top: 10px;
 }
+
 .audio-level-bar {
-  height: 100%; width: 0%; border-radius: 5px;
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
   background: var(--success);
   transition: width 0.08s ease-out;
+}
+
+.audio-health {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.audio-health-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.audio-health-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.audio-health-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.audio-health-message {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.audio-health-tip {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.audio-health.is-good {
+  border-color: var(--success-border);
+  background: color-mix(in srgb, var(--success-bg), var(--bg-secondary) 62%);
+}
+
+.audio-health.is-good .audio-health-badge {
+  color: var(--success);
+}
+
+.audio-health.is-quiet,
+.audio-health.is-checking {
+  border-color: var(--warning-border);
+  background: color-mix(in srgb, var(--warning-bg), var(--bg-secondary) 68%);
+}
+
+.audio-health.is-quiet .audio-health-badge,
+.audio-health.is-checking .audio-health-badge {
+  color: var(--warning);
+}
+
+.audio-health.is-silent,
+.audio-health.is-hot {
+  border-color: var(--error-border);
+  background: color-mix(in srgb, var(--error-bg), var(--bg-secondary) 68%);
+}
+
+.audio-health.is-silent .audio-health-badge,
+.audio-health.is-hot .audio-health-badge {
+  color: var(--error);
 }
 
 /* ── Floating Button Color Picker ─────────────────────── */

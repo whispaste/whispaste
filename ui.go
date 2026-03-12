@@ -79,7 +79,7 @@ func setWindowIcon(hwndPtr unsafe.Pointer) {
 		hIcon, _, _ := createIconFromResourceEx.Call(
 			uintptr(unsafe.Pointer(&iconData[0])),
 			uintptr(dataSize),
-			1, // fIcon = TRUE
+			1,          // fIcon = TRUE
 			0x00030000, // version
 			uintptr(target.size), uintptr(target.size),
 			lrDefaultColor,
