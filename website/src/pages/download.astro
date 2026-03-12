@@ -1,0 +1,119 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+---
+
+<Layout title="Download WhisPaste" description="Download WhisPaste for Windows — free, open-source voice-to-text. Installation guide included.">
+  <div class="min-h-screen flex flex-col">
+    <Nav variant="subpage" />
+
+    <main id="main-content" class="flex-1 pt-24 pb-16 px-6">
+      <div class="max-w-3xl mx-auto">
+
+        <!-- Download status -->
+        <div class="text-center mb-14">
+          <div class="mb-6">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-cyan/10 border border-brand-cyan/20">
+              <svg id="downloadIcon" class="w-8 h-8 text-brand-cyan animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            </div>
+          </div>
+          <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3" data-i18n="download.title">Your download is starting…</h1>
+          <p class="text-gray-400 text-lg" data-i18n="download.subtitle">WhisPaste Setup will download automatically.</p>
+          <p class="mt-4 text-sm text-gray-500">
+            <span data-i18n="download.manual">Download didn't start?</span>
+            <a href="https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-Setup.exe" class="text-brand-cyan hover:underline ml-1" data-i18n="download.manualLink">Click here to download manually</a>
+          </p>
+        </div>
+
+        <!-- SmartScreen guide -->
+        <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6">
+          <div class="flex items-start gap-3 mb-6">
+            <div class="shrink-0 w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+            </div>
+            <div>
+              <h2 class="text-xl font-semibold text-white" data-i18n="download.smartscreen.title">Windows may show a warning</h2>
+              <p class="text-gray-400 text-sm mt-1" data-i18n="download.smartscreen.desc">This is normal for new open-source software. Here's how to proceed:</p>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <!-- Step 1 -->
+            <div class="flex gap-4">
+              <div class="shrink-0 w-8 h-8 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-sm">1</div>
+              <div>
+                <h3 class="font-medium text-white" data-i18n="download.step1.title">Browser blocks the download</h3>
+                <p class="text-gray-400 text-sm mt-1 leading-relaxed" data-i18n="download.step1.desc">Chrome or Edge may show "not commonly downloaded". Click the arrow (↑) or "…" menu next to the download bar, then select "Keep".</p>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="flex gap-4">
+              <div class="shrink-0 w-8 h-8 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-sm">2</div>
+              <div>
+                <h3 class="font-medium text-white" data-i18n="download.step2.title">SmartScreen warning appears</h3>
+                <p class="text-gray-400 text-sm mt-1 leading-relaxed" data-i18n="download.step2.desc">When you run the installer, Windows may show "Windows protected your PC". Click "More info", then "Run anyway".</p>
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="flex gap-4">
+              <div class="shrink-0 w-8 h-8 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-sm">3</div>
+              <div>
+                <h3 class="font-medium text-white" data-i18n="download.step3.title">Install and run WhisPaste</h3>
+                <p class="text-gray-400 text-sm mt-1 leading-relaxed" data-i18n="download.step3.desc">Follow the installer steps — WhisPaste will be ready in seconds.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trust signals -->
+        <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8">
+          <h3 class="font-semibold text-white mb-3" data-i18n="download.trust.title">Why the warning?</h3>
+          <p class="text-gray-400 text-sm leading-relaxed mb-5" data-i18n="download.trust.desc">Microsoft SmartScreen warns about any new software that hasn't built download reputation — regardless of whether it's safe. WhisPaste is fully open source and every release is built transparently through GitHub Actions.</p>
+          <div class="flex flex-wrap gap-3">
+            <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-gray-300">
+              <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+              <span data-i18n="download.trust.opensource">Open source on GitHub</span>
+            </div>
+            <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-gray-300">
+              <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span data-i18n="download.trust.cicd">Built via GitHub Actions</span>
+            </div>
+            <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-gray-300">
+              <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+              <span data-i18n="download.trust.notelemetry">No telemetry or tracking</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+    <Footer variant="subpage" />
+  </div>
+
+  <script>
+    import { applyLang } from '../scripts/i18n';
+    import { updateThemeIcon } from '../scripts/theme';
+
+    // Auto-start download after brief delay
+    setTimeout(() => {
+      window.location.href = 'https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-Setup.exe';
+    }, 1500);
+
+    applyLang();
+    updateThemeIcon();
+  </script>
+</Layout>
+
+<style>
+  .download-card {
+    background: linear-gradient(135deg, rgba(37, 40, 48, 0.4) 0%, rgba(30, 32, 38, 0.2) 100%);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #downloadIcon {
+      animation: none !important;
+    }
+  }
+</style>
