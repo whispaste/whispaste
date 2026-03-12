@@ -1,0 +1,30 @@
+---
+const languages = [
+  "English", "Deutsch", "Español", "Français", "Italiano", "Português",
+  "日本語", "中文", "한국어", "Русский", "العربية", "हिन्दी",
+  "Polski", "Nederlands", "Türkçe", "Svenska", "Čeština", "Українська",
+  "Bahasa", "Tiếng Việt", "ไทย", "Ελληνικά", "Română", "Magyar",
+];
+---
+
+<!-- Languages Section -->
+<section id="languages" class="py-24 sm:py-32 relative scroll-mt-20">
+  <div class="relative max-w-4xl mx-auto px-6">
+    <div class="text-center mb-12 scroll-reveal">
+      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="languages.label">Languages</p>
+      <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="languages.title">Speaks your language</h2>
+      <p class="mt-4 text-gray-400 text-lg max-w-2xl mx-auto" data-i18n="languages.desc">WhisPaste supports 100+ languages through Whisper — whether you dictate in English, switch to German mid-sentence, or work in Japanese.</p>
+    </div>
+
+    <div class="flex flex-wrap justify-center gap-2.5 scroll-reveal">
+      {languages.map((lang) => (
+        <span class="lang-pill px-4 py-2 rounded-full text-sm font-medium border border-white/[0.08] text-gray-300 bg-white/[0.03] hover:border-brand-cyan/30 hover:text-white transition-all cursor-default">
+          {lang}
+        </span>
+      ))}
+      <span class="lang-pill px-4 py-2 rounded-full text-sm font-medium border border-brand-cyan/20 text-brand-cyan bg-brand-cyan/[0.06] cursor-default" data-i18n="languages.more">
+        +80 more
+      </span>
+    </div>
+  </div>
+</section>

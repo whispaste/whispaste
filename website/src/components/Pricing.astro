@@ -1,0 +1,55 @@
+<!-- Pricing Section -->
+<section id="pricing" class="py-24 sm:py-32 relative scroll-mt-20">
+  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(14,116,144,0.06)_0%,_transparent_60%)]"></div>
+  <div class="relative max-w-3xl mx-auto px-6">
+    <div class="text-center mb-12 scroll-reveal">
+      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="pricing.label">Pricing</p>
+      <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="pricing.title">Free. Forever. No catch.</h2>
+      <p class="mt-4 text-gray-400 text-lg max-w-2xl mx-auto" data-i18n="pricing.desc">No server costs, no subscription trap. WhisPaste runs on your machine, so there's nothing to charge you for.</p>
+    </div>
+
+    <div class="pricing-card relative p-8 sm:p-10 rounded-3xl border border-brand-cyan/20 scroll-reveal">
+      <div class="absolute inset-0 rounded-3xl bg-gradient-to-br from-brand-cyan/[0.04] to-transparent pointer-events-none"></div>
+      <div class="relative">
+        <div class="text-center mb-8">
+          <div class="text-5xl sm:text-6xl font-bold text-white">$0</div>
+          <div class="mt-1 text-gray-400 text-sm" data-i18n="pricing.forever">forever — no trial, no limits</div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 mb-8">
+          {[
+            { key: 'offline', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Offline transcription" },
+            { key: 'snippets', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Voice Snippets" },
+            { key: 'smartmode', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Smart Mode" },
+            { key: 'history', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "History & search" },
+            { key: 'updates', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Auto-updates" },
+            { key: 'opensource', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Open source (MIT)" },
+          ].map(({ key, icon, text }) => (
+            <div class="flex items-center gap-2.5">
+              <Fragment set:html={icon} />
+              <span class="text-gray-300 text-sm" data-i18n={`pricing.feature.${key}`}>{text}</span>
+            </div>
+          ))}
+        </div>
+
+        <div class="text-center">
+          <a
+            href="https://github.com/whispaste/whispaste/releases/latest"
+            class="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-brand-cyan text-brand-darker font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(34,211,238,0.25)] hover:shadow-[0_0_40px_rgba(34,211,238,0.4)]"
+          >
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <span data-i18n="hero.download">Download for Windows</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .pricing-card {
+    background: linear-gradient(135deg, rgba(37, 40, 48, 0.6) 0%, rgba(30, 32, 38, 0.3) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+</style>
