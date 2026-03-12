@@ -107,4 +107,8 @@ func bindUIHandlers(w webview.WebView, cfg *Config, recorder *Recorder) {
 		}
 		w.Terminate()
 	})
+
+	w.Bind("isStorePackage", func() bool {
+		return isStorePackage()
+	})
 }

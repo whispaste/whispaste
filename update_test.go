@@ -110,7 +110,7 @@ func TestFileSHA256NotFound(t *testing.T) {
 }
 
 func TestNewUpdater(t *testing.T) {
-	u := NewUpdater("1.0.0", func() bool { return true })
+	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
 	if u == nil {
 		t.Fatal("NewUpdater returned nil")
 	}
@@ -133,7 +133,7 @@ func TestUpdaterRateLimit(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := NewUpdater("1.0.0", func() bool { return true })
+	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
 
 	// Override lastCheck to simulate a recent check
 	u.mu.Lock()
@@ -151,7 +151,7 @@ func TestUpdaterRateLimit(t *testing.T) {
 }
 
 func TestUpdaterApplyNilInfo(t *testing.T) {
-	u := NewUpdater("1.0.0", func() bool { return true })
+	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
 	err := u.Apply(nil)
 	if err == nil {
 		t.Error("Apply(nil) should return error")
@@ -159,7 +159,7 @@ func TestUpdaterApplyNilInfo(t *testing.T) {
 }
 
 func TestUpdaterApplyNotAvailable(t *testing.T) {
-	u := NewUpdater("1.0.0", func() bool { return true })
+	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
 	err := u.Apply(&UpdateInfo{Available: false})
 	if err == nil {
 		t.Error("Apply with Available=false should return error")
@@ -218,7 +218,7 @@ func TestUpdaterApplyFallsBackToElevatedHelperOnPermissionError(t *testing.T) {
 		t.Fatalf("WriteFile exe: %v", err)
 	}
 
-	u := NewUpdater("1.0.0", func() bool { return true })
+	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
 	u.resolveExePath = func() (string, error) { return exePath, nil }
 	u.replaceBinary = func(exePath, stagedPath string) error {
 		if _, err := os.Stat(stagedPath); err != nil {
@@ -291,7 +291,7 @@ func TestUpdaterApplyReturnsElevatedHelperError(t *testing.T) {
 		t.Fatalf("WriteFile exe: %v", err)
 	}
 
-	u := NewUpdater("1.0.0", func() bool { return true })
+	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
 	u.resolveExePath = func() (string, error) { return exePath, nil }
 	u.replaceBinary = func(exePath, stagedPath string) error { return os.ErrPermission }
 	u.launchElevated = func(stagedPath, targetExePath string, pid int) error {
@@ -373,7 +373,7 @@ func TestDownloadChecksumHTTPSValidation(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := NewUpdater("1.0.0", func() bool { return true })
+	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
 	u.releasesURL = srv.URL
 
 	_, err := u.CheckNow(context.Background(), true)
@@ -467,7 +467,7 @@ func TestUpdateCheckWithMockServer(t *testing.T) {
 	defer srv.Close()
 
 	// Part 1: Verify the updater detects a newer version
-	u := NewUpdater("1.0.0", func() bool { return true })
+	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
 	u.releasesURL = srv.URL + "/api/releases"
 
 	info, err := u.CheckNow(context.Background(), true)
@@ -575,7 +575,7 @@ func TestUpdateSkipWhenDisabled(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := NewUpdater("1.0.0", func() bool { return false })
+	u := NewUpdater("1.0.0", func() bool { return false }, func() string { return "beta" })
 	u.releasesURL = srv.URL
 
 	// checkAndNotify should bail out before hitting the server
@@ -642,7 +642,7 @@ func TestUpdatePrereleaseDetection(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := NewUpdater("0.4.0-alpha", func() bool { return true })
+	u := NewUpdater("0.4.0-alpha", func() bool { return true }, func() string { return "beta" })
 	u.releasesURL = srv.URL
 
 	info, err := u.CheckNow(context.Background(), true)
@@ -699,7 +699,7 @@ func TestUpdateDraftSkipping(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := NewUpdater("0.5.0", func() bool { return true })
+	u := NewUpdater("0.5.0", func() bool { return true }, func() string { return "beta" })
 	u.releasesURL = srv.URL
 
 	info, err := u.CheckNow(context.Background(), true)
@@ -711,5 +711,93 @@ func TestUpdateDraftSkipping(t *testing.T) {
 	}
 	if info.Version != "1.0.0" {
 		t.Errorf("version = %q, want %q (draft v5.0.0 should be skipped)", info.Version, "1.0.0")
+	}
+}
+
+// TestUpdateChannelStableSkipsBeta verifies that the "stable" channel ignores
+// beta/alpha/rc releases and only offers stable versions.
+func TestUpdateChannelStableSkipsBeta(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]map[string]interface{}{
+			{
+				"tag_name":   "v2.0.0-beta",
+				"html_url":   "https://github.com/test/releases/v2.0.0-beta",
+				"draft":      false,
+				"prerelease": true,
+				"assets": []interface{}{
+					map[string]interface{}{"name": "whispaste.exe", "browser_download_url": "https://github.com/test/download/v2-beta/whispaste.exe"},
+					map[string]interface{}{"name": "whispaste.exe.sha256", "browser_download_url": "https://github.com/test/download/v2-beta/whispaste.exe.sha256"},
+				},
+			},
+			{
+				"tag_name":   "v1.0.0",
+				"html_url":   "https://github.com/test/releases/v1.0.0",
+				"draft":      false,
+				"prerelease": false,
+				"assets": []interface{}{
+					map[string]interface{}{"name": "whispaste.exe", "browser_download_url": "https://github.com/test/download/v1/whispaste.exe"},
+					map[string]interface{}{"name": "whispaste.exe.sha256", "browser_download_url": "https://github.com/test/download/v1/whispaste.exe.sha256"},
+				},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	// On stable channel: should skip v2.0.0-beta and offer v1.0.0
+	u := NewUpdater("0.5.0", func() bool { return true }, func() string { return "stable" })
+	u.releasesURL = srv.URL
+	info, err := u.CheckNow(context.Background(), true)
+	if err != nil {
+		t.Fatalf("CheckNow: %v", err)
+	}
+	if !info.Available {
+		t.Fatal("expected v1.0.0 to be available on stable channel")
+	}
+	if info.Version != "1.0.0" {
+		t.Errorf("version = %q, want %q", info.Version, "1.0.0")
+	}
+
+	// On beta channel: should offer v2.0.0-beta (higher)
+	u2 := NewUpdater("0.5.0", func() bool { return true }, func() string { return "beta" })
+	u2.releasesURL = srv.URL
+	info2, err := u2.CheckNow(context.Background(), true)
+	if err != nil {
+		t.Fatalf("CheckNow beta: %v", err)
+	}
+	if !info2.Available {
+		t.Fatal("expected v2.0.0-beta to be available on beta channel")
+	}
+	if info2.Version != "2.0.0-beta" {
+		t.Errorf("version = %q, want %q", info2.Version, "2.0.0-beta")
+	}
+}
+
+// TestUpdateChannelStableNoStableRelease verifies that stable channel returns
+// no update when only pre-release versions are available.
+func TestUpdateChannelStableNoStableRelease(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]map[string]interface{}{
+			{
+				"tag_name":   "v3.0.0-beta",
+				"html_url":   "https://github.com/test/releases/v3.0.0-beta",
+				"draft":      false,
+				"prerelease": true,
+				"assets": []interface{}{
+					map[string]interface{}{"name": "whispaste.exe", "browser_download_url": "https://github.com/test/download/v3-beta/whispaste.exe"},
+					map[string]interface{}{"name": "whispaste.exe.sha256", "browser_download_url": "https://github.com/test/download/v3-beta/whispaste.exe.sha256"},
+				},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	u := NewUpdater("0.5.0", func() bool { return true }, func() string { return "stable" })
+	u.releasesURL = srv.URL
+	info, err := u.CheckNow(context.Background(), true)
+	if err != nil {
+		t.Fatalf("CheckNow: %v", err)
+	}
+	if info.Available {
+		t.Errorf("stable channel should not offer beta-only release, got version %q", info.Version)
 	}
 }

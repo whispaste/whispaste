@@ -98,6 +98,18 @@ document.addEventListener('change', function(e) {
   }
 });
 
+/* ── Update Channel Visibility ────────────────────────── */
+async function initUpdateChannelVisibility() {
+  const group = document.getElementById('update-channel-group');
+  if (!group) return;
+  try {
+    const store = await window.isStorePackage();
+    group.style.display = store ? 'none' : '';
+  } catch (_) {
+    group.style.display = '';
+  }
+}
+
 /* ── Gather Config from Form ──────────────────────────── */
 function gatherConfig() {
   return {
@@ -113,6 +125,7 @@ function gatherConfig() {
     sound_volume: parseInt(document.getElementById('volume-slider')?.value || '80', 10) / 100.0,
     auto_paste: document.getElementById('toggle-autopaste')?.checked || false,
     check_updates: document.getElementById('toggle-updates')?.checked || false,
+    update_channel: document.getElementById('select-update-channel')?.value || 'stable',
     autostart: document.getElementById('toggle-autostart')?.checked || false,
     close_to_tray: document.getElementById('toggle-close-to-tray')?.checked ?? true,
     delete_behavior: document.getElementById('toggle-archive-instead')?.checked ? 'archive' : 'delete',
@@ -161,6 +174,8 @@ function applyConfig(cfg) {
   }
   if (cfg.auto_paste != null) { const el = document.getElementById('toggle-autopaste'); if (el) el.checked = cfg.auto_paste; }
   if (cfg.check_updates != null) { const el = document.getElementById('toggle-updates'); if (el) el.checked = cfg.check_updates; }
+  if (cfg.update_channel) { const el = document.getElementById('select-update-channel'); if (el) el.value = cfg.update_channel; }
+  initUpdateChannelVisibility();
   if (cfg.autostart != null) { const el = document.getElementById('toggle-autostart'); if (el) el.checked = cfg.autostart; }
   { const el = document.getElementById('toggle-close-to-tray'); if (el) el.checked = cfg.close_to_tray !== false; }
   { const el = document.getElementById('toggle-archive-instead'); if (el) el.checked = cfg.delete_behavior === 'archive'; }
