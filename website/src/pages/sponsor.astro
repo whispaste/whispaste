@@ -1,0 +1,116 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+---
+
+<Layout title="Support WhisPaste" description="Support WhisPaste development via GitHub Sponsors or Ko-fi. Every contribution helps keep the project free, open source, and independent.">
+  <div class="min-h-screen flex flex-col">
+    <Nav variant="subpage" />
+
+    <main id="main-content" class="flex-1 pt-24 pb-16 px-6">
+      <div class="max-w-3xl mx-auto">
+
+        <!-- Header -->
+        <div class="text-center mb-14">
+          <div class="mb-5">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-pink-500/10 border border-pink-500/20">
+              <svg class="w-8 h-8 text-pink-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            </div>
+          </div>
+          <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3" data-i18n="sponsor.title">Support WhisPaste</h1>
+          <p class="text-gray-400 text-lg max-w-xl mx-auto leading-relaxed" data-i18n="sponsor.desc">WhisPaste is free and open source — no ads, no subscriptions, no data collection. Your support helps keep it that way.</p>
+        </div>
+
+        <!-- Sponsor cards -->
+        <div class="grid sm:grid-cols-2 gap-5 mb-12">
+
+          <!-- GitHub Sponsors -->
+          <a
+            href="https://github.com/sponsors/silvio-l"
+            target="_blank"
+            rel="noopener"
+            class="sponsor-card group relative rounded-2xl border border-white/[0.06] p-6 transition-all hover:scale-[1.02] hover:border-pink-500/30 hover:shadow-[0_0_30px_rgba(236,72,153,0.1)]"
+          >
+            <div class="flex items-center gap-4 mb-4">
+              <div class="shrink-0 w-12 h-12 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center group-hover:border-pink-500/20 transition-colors">
+                <svg class="w-6 h-6 text-gray-300 group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold text-white" data-i18n="sponsor.github.title">GitHub Sponsors</h2>
+                <p class="text-sm text-gray-500" data-i18n="sponsor.github.subtitle">Monthly or one-time</p>
+              </div>
+            </div>
+            <p class="text-gray-400 text-sm leading-relaxed" data-i18n="sponsor.github.desc">Support directly through GitHub. Choose a monthly tier or make a one-time contribution. Includes sponsor badge on your profile.</p>
+            <div class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-pink-400 group-hover:text-pink-300 transition-colors">
+              <span data-i18n="sponsor.github.cta">Sponsor on GitHub</span>
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </div>
+          </a>
+
+          <!-- Ko-fi -->
+          <a
+            href="https://ko-fi.com/silviol"
+            target="_blank"
+            rel="noopener"
+            class="sponsor-card group relative rounded-2xl border border-white/[0.06] p-6 transition-all hover:scale-[1.02] hover:border-pink-500/30 hover:shadow-[0_0_30px_rgba(236,72,153,0.1)]"
+          >
+            <div class="flex items-center gap-4 mb-4">
+              <div class="shrink-0 w-12 h-12 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center group-hover:border-pink-500/20 transition-colors">
+                <svg class="w-6 h-6 text-gray-300 group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/></svg>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold text-white" data-i18n="sponsor.kofi.title">Ko-fi</h2>
+                <p class="text-sm text-gray-500" data-i18n="sponsor.kofi.subtitle">Buy me a coffee</p>
+              </div>
+            </div>
+            <p class="text-gray-400 text-sm leading-relaxed" data-i18n="sponsor.kofi.desc">A quick one-time contribution through Ko-fi. No account needed — just pick an amount and support the project.</p>
+            <div class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-pink-400 group-hover:text-pink-300 transition-colors">
+              <span data-i18n="sponsor.kofi.cta">Support on Ko-fi</span>
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </div>
+          </a>
+
+        </div>
+
+        <!-- What your support covers -->
+        <div class="sponsor-card rounded-2xl border border-white/[0.06] p-6 sm:p-8">
+          <h3 class="font-semibold text-white mb-5" data-i18n="sponsor.whathelps.title">What your support covers</h3>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div class="flex items-start gap-3">
+              <svg class="w-5 h-5 text-brand-cyan shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span class="text-gray-400 text-sm" data-i18n="sponsor.whathelps.dev">Active development & new features</span>
+            </div>
+            <div class="flex items-start gap-3">
+              <svg class="w-5 h-5 text-brand-cyan shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span class="text-gray-400 text-sm" data-i18n="sponsor.whathelps.infra">Infrastructure & code signing</span>
+            </div>
+            <div class="flex items-start gap-3">
+              <svg class="w-5 h-5 text-brand-cyan shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span class="text-gray-400 text-sm" data-i18n="sponsor.whathelps.free">Keeping WhisPaste free for everyone</span>
+            </div>
+            <div class="flex items-start gap-3">
+              <svg class="w-5 h-5 text-brand-cyan shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span class="text-gray-400 text-sm" data-i18n="sponsor.whathelps.indie">Supporting independent open source</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+    <Footer variant="subpage" />
+  </div>
+
+  <script>
+    import { applyLang } from '../scripts/i18n';
+    import { updateThemeIcon } from '../scripts/theme';
+    applyLang();
+    updateThemeIcon();
+  </script>
+</Layout>
+
+<style>
+  .sponsor-card {
+    background: linear-gradient(135deg, rgba(37, 40, 48, 0.4) 0%, rgba(30, 32, 38, 0.2) 100%);
+  }
+</style>
