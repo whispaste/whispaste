@@ -76,6 +76,7 @@ type Updater struct {
 	currentVersion string
 	releasesURL    string // overridable for testing; defaults to releasesAPI
 	checkEnabled   func() bool
+	channelFunc    func() string // returns "stable" or "beta"
 	onAvailable    func(UpdateInfo)
 	lastCheck      time.Time
 	mu             sync.Mutex
@@ -89,11 +90,12 @@ type Updater struct {
 }
 
 // NewUpdater creates an updater that checks GitHub releases.
-func NewUpdater(currentVersion string, checkEnabled func() bool) *Updater {
+func NewUpdater(currentVersion string, checkEnabled func() bool, channelFunc func() string) *Updater {
 	return &Updater{
 		currentVersion: currentVersion,
 		releasesURL:    releasesAPI,
 		checkEnabled:   checkEnabled,
+		channelFunc:    channelFunc,
 		done:           make(chan struct{}),
 		resolveExePath: currentExecutablePath,
 		replaceBinary:  replaceBinaryInPlace,
@@ -171,10 +173,9 @@ func (u *Updater) checkAndNotify(ctx context.Context) {
 }
 
 // CheckNow queries the GitHub releases API for a newer version.
-// It fetches the 10 most recent releases (including prereleases) and picks the
-// highest version that is not a draft. This ensures pre-release versions like
-// beta and rc are also detected, unlike the /releases/latest endpoint which
-// only returns stable releases.
+// It fetches the 10 most recent releases and picks the highest version that
+// is not a draft. On the "stable" channel, pre-release versions (alpha, beta,
+// rc) are skipped; on the "beta" channel all non-draft releases are considered.
 // Pass force=true to bypass the rate limit (e.g. for manual user-initiated checks).
 func (u *Updater) CheckNow(ctx context.Context, force ...bool) (*UpdateInfo, error) {
 	bypass := len(force) > 0 && force[0]
@@ -214,10 +215,11 @@ func (u *Updater) CheckNow(ctx context.Context, force ...bool) (*UpdateInfo, err
 		BrowserDownloadURL string `json:"browser_download_url"`
 	}
 	type githubRelease struct {
-		TagName string         `json:"tag_name"`
-		HTMLURL string         `json:"html_url"`
-		Draft   bool           `json:"draft"`
-		Assets  []releaseAsset `json:"assets"`
+		TagName    string         `json:"tag_name"`
+		HTMLURL    string         `json:"html_url"`
+		Draft      bool           `json:"draft"`
+		Prerelease bool           `json:"prerelease"`
+		Assets     []releaseAsset `json:"assets"`
 	}
 
 	var releases []githubRelease
@@ -225,7 +227,14 @@ func (u *Updater) CheckNow(ctx context.Context, force ...bool) (*UpdateInfo, err
 		return nil, fmt.Errorf("parse response: %w", err)
 	}
 
-	// Find the release with the highest version number (skip drafts)
+	// Determine update channel
+	channel := "stable"
+	if u.channelFunc != nil {
+		channel = u.channelFunc()
+	}
+
+	// Find the release with the highest version number (skip drafts).
+	// On the "stable" channel, also skip pre-release versions.
 	var best *githubRelease
 	var bestVer parsedVersion
 	for i := range releases {
@@ -234,6 +243,9 @@ func (u *Updater) CheckNow(ctx context.Context, force ...bool) (*UpdateInfo, err
 			continue
 		}
 		ver := parseVersion(r.TagName)
+		if channel == "stable" && ver.PreRelease < 4 {
+			continue // skip alpha/beta/rc on stable channel
+		}
 		if best == nil || compareVersions(ver, bestVer) > 0 {
 			best = r
 			bestVer = ver

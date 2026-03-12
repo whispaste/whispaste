@@ -78,6 +78,7 @@ type Config struct {
 	SidebarWidth            int                      `json:"sidebar_width,omitempty"`
 	DeleteBehavior          string                   `json:"delete_behavior,omitempty"` // "delete" or "archive"
 	LocalLLMModel           string                   `json:"local_llm_model,omitempty"`
+	UpdateChannel           string                   `json:"update_channel,omitempty"` // "stable" or "beta"
 	mu                      sync.RWMutex
 }
 
@@ -125,6 +126,7 @@ func DefaultConfig() *Config {
 		UseLocalSTT:      false,
 		LocalModelID:     "whisper-base",
 		InputGain:        1.0,
+		UpdateChannel:    "stable",
 	}
 }
 
@@ -239,6 +241,17 @@ func (c *Config) GetCloseToTray() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.CloseToTray
+}
+
+// GetUpdateChannel returns the update channel ("stable" or "beta"). Thread-safe.
+func (c *Config) GetUpdateChannel() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	ch := c.UpdateChannel
+	if ch != "beta" {
+		return "stable"
+	}
+	return ch
 }
 
 // GetOverlayPos returns the overlay position preference (thread-safe).
