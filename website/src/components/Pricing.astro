@@ -16,7 +16,7 @@
           <div class="mt-1 text-gray-400 text-sm" data-i18n="pricing.forever">forever — no trial, no limits</div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 mb-8">
+        <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 mb-8 list-none p-0 m-0">
           {[
             { key: 'offline', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Offline transcription" },
             { key: 'snippets', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Voice Snippets" },
@@ -25,12 +25,12 @@
             { key: 'updates', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Auto-updates" },
             { key: 'opensource', icon: `<svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>`, text: "Open source (MIT)" },
           ].map(({ key, icon, text }) => (
-            <div class="flex items-center gap-2.5">
+            <li class="flex items-center gap-2.5">
               <Fragment set:html={icon} />
               <span class="text-gray-300 text-sm" data-i18n={`pricing.feature.${key}`}>{text}</span>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
 
         <div class="text-center">
           <a
