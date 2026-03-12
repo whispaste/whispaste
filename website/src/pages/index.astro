@@ -26,6 +26,7 @@ import Footer from "../components/Footer.astro";
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
+    "@id": "https://whispaste.de/#app",
     "name": "WhisPaste",
     "description": "Hotkey dictation for Windows that brings your voice into any app as text, snippets, or polished output — private by default.",
     "url": "https://whispaste.de/",
@@ -36,13 +37,69 @@ import Footer from "../components/Footer.astro";
       "price": "0",
       "priceCurrency": "USD"
     },
-    "softwareVersion": "1.0.3-beta",
     "license": "https://opensource.org/licenses/MIT",
     "author": {
       "@type": "Person",
       "name": "Silvio Lindstedt"
     },
     "downloadUrl": "https://github.com/whispaste/whispaste/releases/latest"
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is WhisPaste really free?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes — completely free, open source under the MIT license. No trial period, no feature gates, no premium tier later. It runs on your machine, so there are no server costs to pass on to you."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does it actually work offline?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Fully. WhisPaste ships with local Whisper models that run entirely on your CPU. No internet connection needed. You can also use OpenAI's cloud API for higher accuracy — but that's your choice, not a requirement."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How accurate is the transcription?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "That depends on the model you pick. The small model handles everyday dictation well. Larger models are more precise but need more RAM and processing time. You can switch any time."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Which languages are supported?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Whisper supports over 100 languages — from English and German to Japanese, Arabic, and Hindi. You can switch languages in settings, or let WhisPaste auto-detect what you're speaking."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is my voice data safe?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Your audio never leaves your machine in local mode. If you use the cloud path, recordings go directly from your device to OpenAI's API — WhisPaste doesn't proxy, store, or touch them. No telemetry, no analytics, no tracking."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Windows only — what about Mac or Linux?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Right now, WhisPaste is built for Windows 10 and 11. macOS support is being explored. The core is designed to be portable, but a proper Mac version takes time to do right."
+        }
+      }
+    ]
   }
   </script>
 
