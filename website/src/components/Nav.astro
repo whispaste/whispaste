@@ -25,117 +25,96 @@ const { variant = "landing" } = Astro.props;
       />
       <span class="text-lg font-semibold tracking-tight">WhisPaste</span>
     </a>
-    {
-      variant === "landing" ? (
-        <div class="hidden sm:flex items-center gap-6 text-sm text-gray-400">
-          <a
-            href="#how-it-works"
-            class="hover:text-white transition-colors"
-            data-i18n="nav.howitworks"
-          >
-            How It Works
-          </a>
-          <a
-            href="#pricing"
-            class="hover:text-white transition-colors"
-            data-i18n="nav.pricing"
-          >
-            Pricing
-          </a>
-          <a
-            href="#faq"
-            class="hover:text-white transition-colors"
-            data-i18n="nav.faq"
-          >
-            FAQ
-          </a>
-          <button
-            id="langToggle"
-            data-testid="lang-toggle"
-            aria-label="Switch language"
-            data-i18n-aria="nav.switchLanguageAria"
-            class="text-gray-400 hover:text-white transition-colors text-sm font-medium"
-          >
-            DE
+    {variant === "landing" && (
+      <div class="hidden sm:flex items-center gap-6 text-sm text-gray-400">
+        <a href="#how-it-works" class="hover:text-white transition-colors" data-i18n="nav.howitworks">How It Works</a>
+        <a href="#pricing" class="hover:text-white transition-colors" data-i18n="nav.pricing">Pricing</a>
+        <a href="#faq" class="hover:text-white transition-colors" data-i18n="nav.faq">FAQ</a>
+        <button
+          id="langToggle"
+          data-testid="lang-toggle"
+          aria-label="Switch language"
+          data-i18n-aria="nav.switchLanguageAria"
+          class="lang-toggle-btn text-gray-400 hover:text-white transition-colors text-sm font-medium"
+        >DE</button>
+        <button
+          id="themeToggle"
+          aria-label="Toggle theme"
+          data-i18n-aria="nav.toggleThemeAria"
+          class="text-gray-400 hover:text-white transition-colors"
+          title="Toggle theme"
+          data-i18n-title="nav.toggleThemeTitle"
+        >
+          <svg class="theme-toggle-icon w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        </button>
+        <a href="/sponsor/" class="text-pink-400/70 hover:text-pink-400 transition-colors" aria-label="Support WhisPaste" data-i18n-aria="nav.sponsorAria" title="Sponsor">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        </a>
+        <a href="/download/" class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-cyan text-brand-darker text-sm font-semibold rounded-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_16px_rgba(34,211,238,0.2)]" data-i18n="nav.download">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Download
+        </a>
+      </div>
+    )}
+    {variant === "landing" && (
+      <button
+        id="mobileMenuBtn"
+        class="sm:hidden text-gray-400 hover:text-white transition-colors p-1"
+        aria-label="Open menu"
+        aria-expanded="false"
+      >
+        <svg id="menuBtnIcon" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+      </button>
+    )}
+    {variant === "subpage" && (
+      <div class="flex items-center gap-4 text-sm text-gray-400">
+        <a href="/" class="hover:text-white transition-colors" data-i18n="nav.back">&larr; Back</a>
+        <button
+          id="langToggle"
+          data-testid="lang-toggle"
+          aria-label="Switch language"
+          data-i18n-aria="nav.switchLanguageAria"
+          class="lang-toggle-btn text-gray-400 hover:text-white transition-colors font-medium"
+        >DE</button>
+        <button
+          id="themeToggle"
+          aria-label="Toggle theme"
+          data-i18n-aria="nav.toggleThemeAria"
+          class="text-gray-400 hover:text-white transition-colors"
+          title="Toggle theme"
+          data-i18n-title="nav.toggleThemeTitle"
+        >
+          <svg class="theme-toggle-icon w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        </button>
+      </div>
+    )}
+  </div>
+  {variant === "landing" && (
+    <div id="mobileMenu" class="sm:hidden hidden border-t border-white/[0.06]">
+      <div class="max-w-6xl mx-auto px-6 py-3 flex flex-col">
+        <a href="#how-it-works" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px]" data-i18n="nav.howitworks">How It Works</a>
+        <a href="#pricing" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.pricing">Pricing</a>
+        <a href="#faq" class="mobile-nav-link block py-3 text-gray-300 hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.faq">FAQ</a>
+        <div class="flex items-center gap-5 py-3 border-t border-white/[0.04]">
+          <button id="mobileLangToggle" class="lang-toggle-btn text-gray-400 hover:text-white transition-colors text-sm font-medium" aria-label="Switch language" data-i18n-aria="nav.switchLanguageAria">DE</button>
+          <button id="mobileThemeToggle" class="text-gray-400 hover:text-white transition-colors" aria-label="Toggle theme" data-i18n-aria="nav.toggleThemeAria">
+            <svg class="theme-toggle-icon w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
           </button>
-          <button
-            id="themeToggle"
-            aria-label="Toggle theme"
-            data-i18n-aria="nav.toggleThemeAria"
-            class="text-gray-400 hover:text-white transition-colors"
-            title="Toggle theme"
-            data-i18n-title="nav.toggleThemeTitle"
-          >
-            <svg
-              id="themeIcon"
-              class="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
-          </button>
-          <a
-            href="/sponsor/"
-            class="text-pink-400/70 hover:text-pink-400 transition-colors"
-            aria-label="Support WhisPaste"
-            data-i18n-aria="nav.sponsorAria"
-            title="Sponsor"
-          >
+          <a href="/sponsor/" class="text-pink-400/70 hover:text-pink-400 transition-colors" aria-label="Support WhisPaste" data-i18n-aria="nav.sponsorAria">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
           </a>
-          <a
-            href="/download/"
-            class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-cyan text-brand-darker text-sm font-semibold rounded-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_16px_rgba(34,211,238,0.2)]"
-            data-i18n="nav.download"
-          >
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-            Download
-          </a>
         </div>
-      ) : (
-        <div class="flex items-center gap-4 text-sm text-gray-400">
-          <a href="/" class="hover:text-white transition-colors" data-i18n="nav.back">
-            &larr; Back
-          </a>
-          <button
-            id="langToggle"
-            data-testid="lang-toggle"
-            aria-label="Switch language"
-            data-i18n-aria="nav.switchLanguageAria"
-            class="text-gray-400 hover:text-white transition-colors font-medium"
-          >
-            DE
-          </button>
-          <button
-            id="themeToggle"
-            aria-label="Toggle theme"
-            data-i18n-aria="nav.toggleThemeAria"
-            class="text-gray-400 hover:text-white transition-colors"
-            title="Toggle theme"
-            data-i18n-title="nav.toggleThemeTitle"
-          >
-            <svg
-              id="themeIcon"
-              class="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
-          </button>
-        </div>
-      )
-    }
-  </div>
+        <a href="/download/" class="mobile-nav-link flex items-center justify-center gap-2 mt-1 mb-1 px-6 py-3 bg-brand-cyan text-brand-darker font-semibold rounded-xl transition-all active:scale-[0.98] shadow-[0_0_16px_rgba(34,211,238,0.2)]" data-i18n="nav.download">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Download
+        </a>
+      </div>
+    </div>
+  )}
 </nav>
 
 <script is:inline>
@@ -146,11 +125,44 @@ const { variant = "landing" } = Astro.props;
     document.getElementById('themeToggle')?.addEventListener('click', function () {
       if (typeof toggleTheme === 'function') toggleTheme();
     });
+    document.getElementById('mobileLangToggle')?.addEventListener('click', function () {
+      if (typeof toggleLang === 'function') toggleLang();
+    });
+    document.getElementById('mobileThemeToggle')?.addEventListener('click', function () {
+      if (typeof toggleTheme === 'function') toggleTheme();
+    });
+    var menuBtn = document.getElementById('mobileMenuBtn');
+    var mobileMenu = document.getElementById('mobileMenu');
+    var menuIcon = document.getElementById('menuBtnIcon');
+    var hamburgerSVG = '<line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>';
+    var closeSVG = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+    if (menuBtn && mobileMenu) {
+      menuBtn.addEventListener('click', function () {
+        var isOpen = !mobileMenu.classList.contains('hidden');
+        mobileMenu.classList.toggle('hidden');
+        menuBtn.setAttribute('aria-expanded', String(!isOpen));
+        if (menuIcon) menuIcon.innerHTML = isOpen ? hamburgerSVG : closeSVG;
+      });
+      mobileMenu.querySelectorAll('.mobile-nav-link').forEach(function (link) {
+        link.addEventListener('click', function () {
+          mobileMenu.classList.add('hidden');
+          menuBtn.setAttribute('aria-expanded', 'false');
+          if (menuIcon) menuIcon.innerHTML = hamburgerSVG;
+        });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !mobileMenu.classList.contains('hidden')) {
+          mobileMenu.classList.add('hidden');
+          menuBtn.setAttribute('aria-expanded', 'false');
+          if (menuIcon) menuIcon.innerHTML = hamburgerSVG;
+          menuBtn.focus();
+        }
+      });
+    }
   });
 </script>
 
 <style>
-  /* Apple-style frosted glass gradient glare */
   nav::before {
     content: '';
     position: absolute;
@@ -160,5 +172,21 @@ const { variant = "landing" } = Astro.props;
   }
   :global(.light) nav::before {
     background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, transparent 60%);
+  }
+  #mobileMenu {
+    background: rgba(3, 14, 24, 0.97);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+  :global(.light) #mobileMenu {
+    background: rgba(255, 255, 255, 0.97);
+  }
+  :global(.light) #mobileMenu a,
+  :global(.light) #mobileMenu button {
+    color: #374151;
+  }
+  :global(.light) #mobileMenu a:hover,
+  :global(.light) #mobileMenu button:hover {
+    color: #111827;
   }
 </style>

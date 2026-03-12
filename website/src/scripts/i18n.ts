@@ -258,8 +258,9 @@ export function toggleLang() {
 
 export function applyLang() {
   document.documentElement.lang = currentLang;
-  const btn = document.getElementById('langToggle');
-  if (btn) btn.textContent = currentLang === 'en' ? 'DE' : 'EN';
+  document.querySelectorAll<HTMLElement>('.lang-toggle-btn').forEach(btn => {
+    btn.textContent = currentLang === 'en' ? 'DE' : 'EN';
+  });
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n')!;
     if (i18n[currentLang]?.[key]) {
