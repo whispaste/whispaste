@@ -11,7 +11,7 @@ test('hero CTA points to the latest GitHub release', async ({ page }) => {
 
   await expect(page.getByTestId('hero-cta-store')).toHaveAttribute(
     'href',
-    'https://github.com/whispaste/whispaste/releases/latest/download/whispaste.exe',
+    'https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-Setup.exe',
   );
 });
 

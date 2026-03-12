@@ -24,7 +24,7 @@
 !endif
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "WhisPaste-${PRODUCT_VERSION}-Setup.exe"
+OutFile "WhisPaste-Setup.exe"
 InstallDir "$LOCALAPPDATA\Programs\${PRODUCT_NAME}"
 InstallDirRegKey HKCU "${PRODUCT_UNINST_KEY}" "InstallLocation"
 RequestExecutionLevel user
