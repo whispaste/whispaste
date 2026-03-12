@@ -24,20 +24,20 @@ const supportURL = "https://github.com/sponsors/silvio-l"
 
 // Win32 balloon notification constants and API
 const (
-	_NIM_MODIFY     = 0x00000001
-	_NIM_SETVERSION = 0x00000004
-	_NIF_INFO       = 0x00000010
+	_NIM_MODIFY      = 0x00000001
+	_NIM_SETVERSION  = 0x00000004
+	_NIF_INFO        = 0x00000010
 	_NIIF_INFO       = 0x00000001
 	_NIIF_USER       = 0x00000004
 	_NIIF_LARGE_ICON = 0x00000020
-	_systrayUID     = 100 // UID used by getlantern/systray
+	_systrayUID      = 100 // UID used by getlantern/systray
 
 	// NOTIFYICON_VERSION_4 enables modern notification behavior on Windows 10/11.
 	// Without this, Shell_NotifyIconW NIF_INFO balloons may be silently dropped.
 	_NOTIFYICON_VERSION_4 = 4
 
 	// Tray icon left-click notification (lParam event in VERSION_4 callback)
-	_NIN_SELECT           = 0x0400 // WM_USER + 0
+	_NIN_SELECT = 0x0400 // WM_USER + 0
 	// Balloon click notification (lParam value in systray callback)
 	_NIN_BALLOONUSERCLICK = 0x0405 // WM_USER + 5
 	// systray callback message (WM_USER + 1, set by getlantern/systray v1.2.2)
@@ -154,22 +154,22 @@ type notifyIconDataW struct {
 
 // AppTray manages the system tray icon and menu.
 type AppTray struct {
-	onOpenWindow func(string) // opens unified window with page name: "history", "settings", "about", "smart-mode"
-	onQuit       func()
-	onToggle     func()
-	updater      *Updater
-	mToggle      *systray.MenuItem
-	mUpdate      *systray.MenuItem
-	updateInfo   *UpdateInfo
-	updateMu     sync.Mutex
-	history      *History
-	balloonShown bool // tracks whether minimize-to-tray balloon was shown this session
-	cfg          *Config
-	smartItems   []*systray.MenuItem
-	smartPresets []string
-	onSaved      func()
-	balloonIcon  uintptr // HICON for balloon notifications
-	lastBalloonSponsor bool // true if last balloon was a sponsor notification
+	onOpenWindow       func(string) // opens unified window with page name: "history", "settings", "about", "smart-mode"
+	onQuit             func()
+	onToggle           func()
+	updater            *Updater
+	mToggle            *systray.MenuItem
+	mUpdate            *systray.MenuItem
+	updateInfo         *UpdateInfo
+	updateMu           sync.Mutex
+	history            *History
+	balloonShown       bool // tracks whether minimize-to-tray balloon was shown this session
+	cfg                *Config
+	smartItems         []*systray.MenuItem
+	smartPresets       []string
+	onSaved            func()
+	balloonIcon        uintptr // HICON for balloon notifications
+	lastBalloonSponsor bool    // true if last balloon was a sponsor notification
 	// History submenu
 	historyEmpty *systray.MenuItem
 	historyItems [_HISTORY_SLOTS]*systray.MenuItem

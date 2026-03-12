@@ -5,6 +5,8 @@ let _onboardingSmart = null;  // true or false
 let _onbModelId = 'whisper-small';
 let _onbModelReady = false;
 let _onbDownloading = false;
+let _onbPreflight = null;
+let _onbPreflightRunning = false;
 let _onbApiKeyValid = false;
 let _onbLlmModel = 'smollm2'; // selected LLM model for smart mode
 let _onbLlmReady = false;
@@ -20,6 +22,8 @@ function showOnboarding() {
     _onbModelId = 'whisper-small';
     _onbModelReady = false;
     _onbDownloading = false;
+    _onbPreflight = null;
+    _onbPreflightRunning = false;
     _onbApiKeyValid = false;
     _onbLlmModel = 'smollm2';
     _onbLlmReady = false;
@@ -110,8 +114,9 @@ async function selectOnboardingOption(choice) {
       setTimeout(() => onbTestApiKey(), 150);
     }
   } else if (choice === 'local') {
+    await onbRefreshPreflight();
     await onbCheckModelStatus();
-    if (nextBtn) nextBtn.disabled = !_onbModelReady;
+    if (nextBtn) nextBtn.disabled = !!_onbPreflight?.blocking || !_onbModelReady;
   }
 }
 
@@ -125,13 +130,53 @@ async function onbCheckModelStatus() {
   onbUpdateModelUI();
 }
 
+async function onbRefreshPreflight() {
+  _onbPreflightRunning = true;
+  onbUpdateModelUI();
+  if (!window.getLocalSTTPreflight) {
+    _onbPreflightRunning = false;
+    _onbPreflight = null;
+    onbUpdateModelUI();
+    return null;
+  }
+  try {
+    const raw = await window.getLocalSTTPreflight(_onbModelId, 'onboarding');
+    _onbPreflight = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch (e) {
+    _onbPreflight = null;
+  }
+  _onbPreflightRunning = false;
+  onbUpdateModelUI();
+  return _onbPreflight;
+}
+
 function onbUpdateModelUI() {
   const statusEl = document.getElementById('onbModelStatus');
   const downloadBtn = document.getElementById('onbDownloadBtn');
   const progressWrap = document.getElementById('onbDownloadProgress');
   const nextBtn = document.getElementById('onbNextStep2');
+  const preflightSummary = document.getElementById('onbPreflightSummary');
+  const preflightMessage = document.getElementById('onbPreflightMessage');
+  const retryBtn = document.getElementById('onbPreflightRetry');
 
-  if (_onbDownloading) {
+  if (preflightSummary) preflightSummary.textContent = _onbPreflight?.summary || '';
+  if (preflightMessage) {
+    preflightMessage.textContent = _onbPreflight?.message || '';
+    preflightMessage.classList.toggle('visible', !!_onbPreflight?.message);
+  }
+  if (retryBtn) retryBtn.disabled = _onbDownloading || _onbPreflightRunning;
+
+  if (_onbPreflightRunning) {
+    if (statusEl) { statusEl.textContent = t('preflightChecking'); statusEl.className = 'onb-model-status checking'; }
+    if (downloadBtn) downloadBtn.classList.add('hidden');
+    if (progressWrap) progressWrap.classList.add('hidden');
+    if (nextBtn) nextBtn.disabled = true;
+  } else if (_onbPreflight?.blocking) {
+    if (statusEl) { statusEl.textContent = t('preflightBlockedBadge'); statusEl.className = 'onb-model-status blocked'; }
+    if (downloadBtn) downloadBtn.classList.add('hidden');
+    if (progressWrap) progressWrap.classList.add('hidden');
+    if (nextBtn) nextBtn.disabled = true;
+  } else if (_onbDownloading) {
     if (statusEl) { statusEl.textContent = t('onboarding.model_downloading'); statusEl.className = 'onb-model-status downloading'; }
     if (downloadBtn) downloadBtn.classList.add('hidden');
     if (progressWrap) progressWrap.classList.remove('hidden');
@@ -156,6 +201,7 @@ function onbUpdateModelUI() {
 async function onbSelectModel(modelId) {
   if (_onbDownloading) return;
   _onbModelId = modelId;
+  await onbRefreshPreflight();
   await onbCheckModelStatus();
 }
 
@@ -180,7 +226,7 @@ function onbUpdateKeyPreview() {
   const val = input ? input.value : '';
   // Only show masked preview when key is long enough to hide a meaningful middle
   if (val.length < 16) {
-    preview.textContent = val.length > 0 ? `(${val.length} chars)` : '';
+    preview.textContent = val.length > 0 ? t('onboarding.apikey_chars').replace('{n}', val.length) : '';
     return;
   }
   const head = val.slice(0, 7);
@@ -196,7 +242,7 @@ async function onbTestApiKey() {
   const key = keyInput ? keyInput.value.trim() : '';
 
   if (!key) {
-    if (feedback) { feedback.textContent = t('onboarding.api_key_empty') || 'Please enter an API key'; feedback.className = 'onb-api-feedback error'; }
+    if (feedback) { feedback.textContent = t('onboarding.api_key_empty'); feedback.className = 'onb-api-feedback error'; }
     return;
   }
   if (testBtn) { testBtn.disabled = true; testBtn.textContent = '...'; }
@@ -206,19 +252,19 @@ async function onbTestApiKey() {
     const result = await window._testApiKey(key);
     if (result && result.success) {
       _onbApiKeyValid = true;
-      if (feedback) { feedback.textContent = '✓ ' + (t('onboarding.api_key_valid') || 'API key is valid'); feedback.className = 'onb-api-feedback success'; }
+      if (feedback) { feedback.textContent = '✓ ' + t('onboarding.api_key_valid'); feedback.className = 'onb-api-feedback success'; }
       if (nextBtn) nextBtn.disabled = false;
     } else {
       _onbApiKeyValid = false;
-      if (feedback) { feedback.textContent = '✗ ' + (result?.error || t('onboarding.api_key_invalid') || 'Invalid API key'); feedback.className = 'onb-api-feedback error'; }
+      if (feedback) { feedback.textContent = '✗ ' + (result?.error || t('onboarding.api_key_invalid')); feedback.className = 'onb-api-feedback error'; }
       if (nextBtn) nextBtn.disabled = true;
     }
   } catch (e) {
     _onbApiKeyValid = false;
-    if (feedback) { feedback.textContent = '✗ ' + (e.message || 'Test failed'); feedback.className = 'onb-api-feedback error'; }
+    if (feedback) { feedback.textContent = '✗ ' + (e.message || t('statusTestError')); feedback.className = 'onb-api-feedback error'; }
     if (nextBtn) nextBtn.disabled = true;
   }
-  if (testBtn) { testBtn.disabled = false; testBtn.textContent = t('onboarding.test_key') || 'Test Key'; }
+  if (testBtn) { testBtn.disabled = false; testBtn.textContent = t('onboarding.test_key'); }
 }
 
 // Called from Go via window.onbDownloadComplete (set up as alias)
@@ -230,6 +276,8 @@ window.onbDownloadComplete = function(modelId, success, errorMsg) {
   if (!success && errorMsg) {
     const statusEl = document.getElementById('onbModelStatus');
     if (statusEl) { statusEl.textContent = errorMsg; statusEl.className = 'onb-model-status needed'; }
+  } else if (success) {
+    onbRefreshPreflight();
   }
 };
 
@@ -371,11 +419,19 @@ async function finishOnboarding() {
   // Guard: don't proceed if API mode selected without validated key
   if (_onboardingChoice === 'api' && !_onbApiKeyValid) return;
   // Guard: don't proceed if local mode selected without downloaded model
-  if (_onboardingChoice === 'local' && !_onbModelReady) return;
+  if (_onboardingChoice === 'local' && (!_onbModelReady || _onbPreflight?.blocking)) return;
   try {
     const raw = await window.getConfig();
     const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (cfg) {
+      if (_onboardingChoice === 'local' && window.switchModel) {
+        const switchResult = await window.switchModel(_onbModelId, true);
+        const parsed = typeof switchResult === 'string' ? JSON.parse(switchResult) : switchResult;
+        if (parsed && parsed.success === false) {
+          showToast(parsed.error || t('preflightBlockedBadge'), true);
+          return;
+        }
+      }
       if (_onboardingChoice === 'local') {
         cfg.local_model_id = _onbModelId;
         cfg.active_model_local = true;
@@ -394,10 +450,7 @@ async function finishOnboarding() {
         cfg.smart_mode = false;
       }
       await window.saveConfig(JSON.stringify(cfg));
-      // Persist model selection via the dedicated switchModel binding
-      if (_onboardingChoice === 'local' && window.switchModel) {
-        await window.switchModel(_onbModelId, true);
-      } else if (_onboardingChoice === 'api' && window.switchModel) {
+      if (_onboardingChoice === 'api' && window.switchModel) {
         await window.switchModel(cfg.model || 'whisper-1', false);
       }
       // Persist LLM model selection
@@ -405,7 +458,7 @@ async function finishOnboarding() {
         try { await window.setLocalLLMModel(_onbLlmModel); } catch (e) {}
       }
     }
-  } catch (e) { showToast(t('saveError') || 'Settings could not be saved', true); }
+  } catch (e) { showToast(t('saveError'), true); }
 
   if (window.completeOnboarding) {
     await window.completeOnboarding();

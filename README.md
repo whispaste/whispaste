@@ -61,6 +61,7 @@ Voice Activity Detection strips silence before sending audio. Smart Mode can opt
 | 🎤 **Global Hotkey** | Press `Ctrl+Shift+D` from anywhere to start dictating. Fully configurable. |
 | 🔄 **Push-to-Talk & Toggle** | Hold the hotkey while speaking, or press once to start and again to stop. |
 | ☁️ **Cloud & Local Models** | Use OpenAI Whisper API or run offline with local Whisper models — no API key needed for local. |
+| 🧪 **Local STT Compatibility Check** | Hardware/runtime preflight blocks unsupported devices before local downloads or onboarding finish, with detailed diagnostics in Settings and About. |
 | 📋 **Auto-Paste** | Transcribed text is automatically pasted at your cursor. Smart terminal detection (Windows Terminal, WSL, mintty). |
 | 🧠 **Smart Mode** | 13 AI post-processing presets: cleanup, email, bullets, formal, translate, meeting notes, and more. Custom prompts supported. |
 | 🤖 **Local Smart Mode** | Run post-processing entirely offline with a local LLM (Qwen3.5-0.8B or SmolLM2-360M) — no cloud API needed. |
@@ -72,7 +73,7 @@ Voice Activity Detection strips silence before sending audio. Smart Mode can opt
 | 📤 **Export** | Export as TXT, Markdown, CSV, JSON, or DOCX — single entries or batch selections. |
 | 🔊 **Audio Playback** | Re-listen to recorded audio directly from the dashboard. Compressed gzip storage. |
 | 🏷️ **Auto-Tagging** | Automatically tag transcriptions using a local LLM based on your existing tags. |
-| ✏️ **Text Replacements** | Define automatic text substitutions that run after every transcription. |
+| ✏️ **Snippets** | Define spoken trigger phrases that expand into links, signatures, and reusable text before pasting. |
 | ⌨️ **Command Palette** | Press `Ctrl+K` to access actions, search transcriptions, and navigate quickly. |
 | 💬 **Floating Button** | Optional always-visible desktop button for one-click recording without using the hotkey. |
 | 🌍 **Multi-Language** | Transcribe in any language Whisper supports. English & German UI, auto-detected from system. |
@@ -101,7 +102,7 @@ Voice Activity Detection strips silence before sending audio. Smart Mode can opt
    - Enable local models in Settings → Local STT and download a model (no API key needed)
 4. **Use** — press `Ctrl+Shift+D`, speak, release → text appears at your cursor!
 
-> **Note:** Local STT uses [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — the server binary and models are downloaded automatically on first use.
+> **Note:** Local STT uses [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — the server binary and models are downloaded automatically on first use. WhisPaste now runs a compatibility preflight first and blocks unsupported hardware/runtime setups before local models are enabled.
 
 ### MSIX Package
 
@@ -122,6 +123,7 @@ Right-click the tray icon → **Settings** to configure:
 | **Model** | `whisper-1` | OpenAI Whisper model for cloud transcription |
 | **Local STT** | Off | Use local Whisper models instead of the API |
 | **Local Model** | *(none)* | Download and select a local model (base, small, or medium) |
+| **Local STT Compatibility Check** | Automatic | Scans CPU features, RAM, disk, and whisper-server runtime readiness before local downloads or activation |
 | **Input Device** | *(system default)* | Select a specific microphone |
 | **Input Gain** | 1.0 | Adjust microphone input level |
 | **Prompt** | *(empty)* | System prompt sent with each Whisper request |
@@ -137,7 +139,7 @@ Right-click the tray icon → **Settings** to configure:
 | **Check Updates** | On | Automatically check for new versions |
 | **VAD** | Off | Voice Activity Detection — strip silence before transcription |
 | **Floating Button** | Off | Show a floating record button on the desktop |
-| **Text Replacements** | *(none)* | Custom text substitutions applied after transcription |
+| **Snippets** | *(none)* | Spoken trigger phrases that expand into custom text before pasting |
 | **Smart Provider** | OpenAI | Smart Mode engine: OpenAI (GPT), Local (SmolLM2), or Auto |
 | **History Limit** | 500 | Maximum transcriptions stored (pinned/archived excluded) |
 | **Auto-Cleanup** | Off | Automatically remove old transcriptions by age or count |
@@ -219,6 +221,7 @@ whispaste/
 │   ├── export/              #   Export flows (TXT, MD, CSV, JSON, DOCX)
 │   ├── i18n/                #   Localization (EN/DE translations)
 │   ├── models/              #   Local model management (download, SHA256 verify)
+│   ├── preflight/           #   Local STT hardware/runtime compatibility checks
 │   ├── stats/               #   Usage statistics
 │   └── wav/                 #   PCM → WAV encoder
 ├── scripts/                 ← Build & review scripts
@@ -244,6 +247,7 @@ whispaste/
 ├── stt.go                   # Local STT subprocess (whisper.cpp HTTP server)
 ├── stt_download.go          # STT server + model download with SHA256 verify
 ├── offline.go               # Local Whisper transcription client
+├── preflight.go             # Local STT compatibility bridge + UI payloads
 ├── paste.go                 # Clipboard + SendInput (Ctrl+V)
 ├── hotkey.go                # Global hotkey (PTT + toggle)
 ├── overlay.go               # Recording overlay (GDI+ with per-pixel alpha)

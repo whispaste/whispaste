@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -19,14 +20,50 @@ import (
 )
 
 type LocalSTT struct {
-	mu        sync.Mutex
-	cmd       *exec.Cmd
-	port      int
-	running   bool
-	modelPath string
+	mu         sync.Mutex
+	cmd        *exec.Cmd
+	port       int
+	running    bool
+	modelPath  string
+	waitCh     chan error
+	startupLog *limitedProcessOutput
 }
 
 var localSTT LocalSTT
+
+const maxWhisperStartupOutput = 8 * 1024
+
+type limitedProcessOutput struct {
+	mu   sync.Mutex
+	data []byte
+}
+
+func (b *limitedProcessOutput) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.data = append(b.data, p...)
+	if len(b.data) > maxWhisperStartupOutput {
+		b.data = append([]byte(nil), b.data[len(b.data)-maxWhisperStartupOutput:]...)
+	}
+	return len(p), nil
+}
+
+func (b *limitedProcessOutput) Summary() string {
+	if b == nil {
+		return ""
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	text := strings.Join(strings.Fields(string(b.data)), " ")
+	text = strings.TrimSpace(text)
+	if len(text) > 300 {
+		text = "..." + text[len(text)-300:]
+	}
+	return text
+}
 
 // sttInferenceClient is reused for all STT inference requests (connection pooling).
 var sttInferenceClient = &http.Client{Timeout: 120 * time.Second}
@@ -73,6 +110,12 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("stt server path: %w", err)
 	}
+	if err := validateSTTStartupFiles(serverPath, modelPath); err != nil {
+		return "", err
+	}
+	if err := ensureLocalSTTAllowed("", "use"); err != nil {
+		return "", err
+	}
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -91,6 +134,9 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 	)
 	logInfo("Starting whisper-server with %d threads (logical CPUs: %d)", threads, runtime.NumCPU())
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	startupLog := &limitedProcessOutput{}
+	cmd.Stdout = startupLog
+	cmd.Stderr = startupLog
 
 	if err := cmd.Start(); err != nil {
 		return "", fmt.Errorf("start whisper-server: %w", err)
@@ -100,6 +146,12 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 	s.port = port
 	s.running = true
 	s.modelPath = modelPath
+	s.startupLog = startupLog
+	waitCh := make(chan error, 1)
+	s.waitCh = waitCh
+	go func(waitCh chan error) {
+		waitCh <- cmd.Wait()
+	}(waitCh)
 
 	endpoint := fmt.Sprintf("http://127.0.0.1:%d", port)
 	if err := s.waitReady(port); err != nil {
@@ -114,7 +166,15 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 func (s *LocalSTT) waitReady(port int) error {
 	healthURL := fmt.Sprintf("http://127.0.0.1:%d/health", port)
 	client := &http.Client{Timeout: 2 * time.Second}
+	lastErr := ""
 	for i := 0; i < 120; i++ {
+		select {
+		case waitErr := <-s.waitCh:
+			s.waitCh = nil
+			return errors.New(whisperServerExitMessage(waitErr, s.startupLog.Summary()))
+		default:
+		}
+
 		resp, err := client.Get(healthURL)
 		if err == nil {
 			body, _ := io.ReadAll(resp.Body)
@@ -122,14 +182,21 @@ func (s *LocalSTT) waitReady(port int) error {
 			if resp.StatusCode == http.StatusOK {
 				return nil
 			}
+			lastErr = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 			// 503 = model still loading — log periodically
 			if i%10 == 9 {
 				logInfo("STT server loading model... (%ds, status=%d, body=%s)", i+1, resp.StatusCode, string(body))
 			}
-		} else if i%10 == 9 {
-			logInfo("STT server not reachable yet (%ds): %v", i+1, err)
+		} else {
+			lastErr = err.Error()
+			if i%10 == 9 {
+				logInfo("STT server not reachable yet (%ds): %v", i+1, err)
+			}
 		}
 		time.Sleep(1 * time.Second)
+	}
+	if lastErr != "" {
+		return fmt.Errorf("timeout waiting for whisper-server (120s): %s", lastErr)
 	}
 	return fmt.Errorf("timeout waiting for whisper-server (120s)")
 }
@@ -143,16 +210,119 @@ func (s *LocalSTT) Stop() {
 func (s *LocalSTT) stopLocked() {
 	if !s.running || s.cmd == nil || s.cmd.Process == nil {
 		s.running = false
+		s.cmd = nil
+		s.port = 0
+		s.modelPath = ""
+		s.waitCh = nil
+		s.startupLog = nil
 		return
 	}
-	if err := s.cmd.Process.Kill(); err != nil {
-		logWarn("Failed to kill whisper-server: %v", err)
+
+	waitCh := s.waitCh
+	s.waitCh = nil
+	exited := false
+	if waitCh != nil {
+		select {
+		case waitErr := <-waitCh:
+			exited = true
+			if waitErr != nil {
+				logDebug("whisper-server already exited: %v", waitErr)
+			}
+		default:
+		}
 	}
-	s.cmd.Wait()
+
+	if !exited {
+		if err := s.cmd.Process.Kill(); err != nil {
+			if waitCh != nil {
+				select {
+				case waitErr := <-waitCh:
+					exited = true
+					if waitErr != nil {
+						logDebug("whisper-server exited before kill completed: %v", waitErr)
+					}
+				case <-time.After(250 * time.Millisecond):
+				}
+			}
+			if !exited && isAlreadyExitedProcessKillError(err) {
+				exited = true
+				logDebug("whisper-server already exited before kill: %v", err)
+			}
+			if !exited {
+				logWarn("Failed to kill whisper-server: %v", err)
+			}
+		}
+	}
+
+	if !exited && waitCh != nil {
+		select {
+		case waitErr := <-waitCh:
+			if waitErr != nil {
+				logDebug("whisper-server wait after stop: %v", waitErr)
+			}
+		case <-time.After(5 * time.Second):
+			logWarn("Timed out waiting for whisper-server to stop")
+		}
+	}
+
 	s.running = false
+	s.cmd = nil
 	s.port = 0
 	s.modelPath = ""
+	s.startupLog = nil
 	logInfo("Local STT stopped")
+}
+
+func whisperServerExitMessage(waitErr error, output string) string {
+	msg := "whisper-server exited before becoming ready"
+	if waitErr != nil {
+		msg += ": " + waitErr.Error()
+	}
+	if output != "" {
+		msg += " (output: " + output + ")"
+	}
+	return msg
+}
+
+func isAlreadyExitedProcessKillError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, os.ErrProcessDone) {
+		return true
+	}
+	if errors.Is(err, syscall.EINVAL) {
+		return true
+	}
+	var errno syscall.Errno
+	if errors.As(err, &errno) && errno == syscall.EINVAL {
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "invalid argument")
+}
+
+func validateSTTStartupFiles(serverPath, modelPath string) error {
+	if err := validateSTTStartupFile(serverPath, "whisper-server executable", "download the local transcription runtime again"); err != nil {
+		return err
+	}
+	if err := validateSTTStartupFile(modelPath, "STT model file", "download the selected local model again"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateSTTStartupFile(path, label, hint string) error {
+	info, err := os.Stat(path)
+	if err == nil {
+		if info.IsDir() {
+			return fmt.Errorf("%s points to a directory: %s", label, path)
+		}
+		return nil
+	}
+	if os.IsNotExist(err) {
+		return fmt.Errorf("%s not found at %s; %s", label, path, hint)
+	}
+	return fmt.Errorf("check %s at %s: %w", label, path, err)
 }
 
 func (s *LocalSTT) IsRunning() bool {

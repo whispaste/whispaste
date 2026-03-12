@@ -16,14 +16,14 @@ func unsafeAddr(p uintptr) unsafe.Pointer {
 }
 
 const (
-	_CF_UNICODETEXT   = 13
-	_GMEM_MOVEABLE    = 0x0002
-	_INPUT_KEYBOARD   = 1
-	_KEYEVENTF_KEYUP  = 0x0002
-	_VK_CONTROL       = 0x11
-	_VK_SHIFT         = 0x10
-	_VK_V             = 0x56
-	_VK_INSERT        = 0x2D
+	_CF_UNICODETEXT  = 13
+	_GMEM_MOVEABLE   = 0x0002
+	_INPUT_KEYBOARD  = 1
+	_KEYEVENTF_KEYUP = 0x0002
+	_VK_CONTROL      = 0x11
+	_VK_SHIFT        = 0x10
+	_VK_V            = 0x56
+	_VK_INSERT       = 0x2D
 )
 
 var (

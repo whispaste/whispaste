@@ -1,7 +1,8 @@
     <!-- Page: About -->
     <div class="page hidden" id="page-about">
-      <div class="page-header">
+      <div class="page-header about-page-header">
         <h2 class="page-title" data-i18n="navAbout">Info</h2>
+        <p class="page-subtitle" data-i18n="aboutDesc">See what powers WhisPaste, where your data stays, and where to go when you need help or debugging context.</p>
       </div>
       <div class="about-scroll">
 
@@ -16,7 +17,7 @@
               alt="WhisPaste" />
           </div>
           <h1 class="about-name">WhisPaste</h1>
-          <div class="about-version" id="about-version" data-i18n="app.version">v1.0.1-beta</div>
+          <div class="about-version" id="about-version" data-i18n="app.version">v1.0.4-beta</div>
           <p class="about-tagline" data-i18n="aboutTagline">Voice to text, instantly.</p>
           <a href="#" class="about-license-pill" onclick="openExternal('https://github.com/whispaste/whispaste/blob/main/LICENSE'); return false;">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
@@ -70,6 +71,7 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span data-i18n="aboutCreditsTitle">Credits</span>
         </div>
+        <p class="about-section-intro" data-i18n="aboutCreditsIntro">A quick overview of the person, technologies, and runtime pieces behind the app.</p>
         <div class="card about-credits-card">
           <div class="about-credit-item">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
@@ -90,6 +92,7 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
           <span data-i18n="aboutCostTitle">API Costs</span>
         </div>
+        <p class="about-section-intro" data-i18n="aboutCostSectionIntro">Useful if you use cloud transcription and want a realistic sense of what typical usage costs over time.</p>
         <div class="card">
           <p class="about-cost-intro" data-i18n="aboutCostText">Whisper is billed per audio minute (~$0.006/min). A short sentence costs fractions of a cent; typical monthly usage is $1–5.</p>
           <div class="about-cost-grid">
@@ -116,6 +119,7 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg>
           <span data-i18n="aboutLibsTitle">Open Source Libraries</span>
         </div>
+        <p class="about-section-intro" data-i18n="aboutLibsIntro">The core libraries and frameworks that make local dictation, UI rendering, and desktop integration possible.</p>
         <div class="card about-libs-card">
           <a href="#" class="about-lib-row" onclick="openExternal('https://github.com/ggml-org/whisper.cpp'); return false;">
             <div class="about-lib-main">
@@ -180,6 +184,7 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/></svg>
           <span data-i18n="aboutSystemTitle">System Info</span>
         </div>
+        <p class="about-section-intro" data-i18n="aboutSystemIntro">Copy a compact diagnostics snapshot when you need to file a bug report or compare runtime setup details.</p>
         <div class="card">
           <div class="sysinfo-grid" id="sysinfo-grid">
             <!-- populated by JS -->

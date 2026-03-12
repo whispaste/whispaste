@@ -1,8 +1,8 @@
-    <!-- Page: Text Replacements -->
+    <!-- Page: Snippets -->
     <div class="page hidden" id="page-replacements">
       <div class="page-header">
-        <h2 class="page-title" data-i18n="tabReplacements">Text Replacements</h2>
-        <p class="page-subtitle" data-i18n="replacementsDesc">Define trigger phrases that automatically get replaced in your transcriptions.</p>
+        <h2 class="page-title" data-i18n="tabReplacements">Snippets</h2>
+        <p class="page-subtitle" data-i18n="replacementsDesc">Create voice snippets that expand short trigger phrases into full text, links, signatures, and reusable replies.</p>
       </div>
       <div class="replacements-scroll">
         <!-- Enable/Disable Toggle Card -->
@@ -10,8 +10,8 @@
           <div class="form-group">
             <div class="toggle-row">
               <div class="toggle-info">
-                <label class="toggle-label" for="replacements-toggle" data-i18n="labelReplacementsToggle">Text Replacements</label>
-                <p class="toggle-desc" data-i18n="descReplacementsToggle">When enabled, trigger phrases are automatically replaced in every transcription before pasting</p>
+                <label class="toggle-label" for="replacements-toggle" data-i18n="labelReplacementsToggle">Snippets</label>
+                <p class="toggle-desc" data-i18n="descReplacementsToggle">When enabled, spoken trigger phrases expand automatically before the final text is pasted</p>
               </div>
               <div class="toggle-switch">
                 <input type="checkbox" id="replacements-toggle" onchange="updateReplacementsVisibility()">
@@ -24,13 +24,45 @@
           <div class="form-group">
             <div class="toggle-row">
               <div class="toggle-info">
-                <label class="toggle-label" for="replacements-ai-toggle" data-i18n="labelReplacementsAI">AI-Assisted Matching</label>
-                <p class="toggle-desc" data-i18n="descReplacementsAI">Uses the local AI model to detect trigger phrases even when they appear in different wording</p>
+                <label class="toggle-label" for="replacements-ai-toggle" data-i18n="labelReplacementsAI">Flexible Matching</label>
+                <p class="toggle-desc" data-i18n="descReplacementsAI">Uses the local AI model to catch snippet triggers even when you phrase them a little differently</p>
               </div>
               <div class="toggle-switch">
                 <input type="checkbox" id="replacements-ai-toggle">
                 <label class="toggle-track" for="replacements-ai-toggle"></label>
               </div>
+            </div>
+          </div>
+        </div>
+        <div class="card replacements-examples-card">
+          <div class="replacements-examples-header">
+            <h3 class="replacements-examples-title" data-i18n="replacementsExamplesTitle">Popular snippet ideas</h3>
+            <p class="replacements-examples-desc" data-i18n="replacementsExamplesDesc">Keep triggers short, memorable, and easy to say naturally.</p>
+          </div>
+          <div class="replacements-examples-grid">
+            <div class="snippet-example-card">
+              <div class="snippet-example-label" data-i18n="replacementsTrigger">Trigger phrase</div>
+              <div class="snippet-example-trigger" data-i18n="replacementsExample1Trigger">support email</div>
+              <div class="snippet-example-arrow" aria-hidden="true">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </div>
+              <div class="snippet-example-value" data-i18n="replacementsExample1Value">hello@whispaste.app</div>
+            </div>
+            <div class="snippet-example-card">
+              <div class="snippet-example-label" data-i18n="replacementsTrigger">Trigger phrase</div>
+              <div class="snippet-example-trigger" data-i18n="replacementsExample2Trigger">meeting follow-up</div>
+              <div class="snippet-example-arrow" aria-hidden="true">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </div>
+              <div class="snippet-example-value" data-i18n="replacementsExample2Value">Thanks again — here is the summary and the next steps.</div>
+            </div>
+            <div class="snippet-example-card">
+              <div class="snippet-example-label" data-i18n="replacementsTrigger">Trigger phrase</div>
+              <div class="snippet-example-trigger" data-i18n="replacementsExample3Trigger">website link</div>
+              <div class="snippet-example-arrow" aria-hidden="true">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </div>
+              <div class="snippet-example-value" data-i18n="replacementsExample3Value">https://whispaste.de</div>
             </div>
           </div>
         </div>
@@ -42,7 +74,7 @@
           <div class="replacements-list" id="replacements-list"></div>
           <button class="replacements-add-btn" id="replacements-add-btn">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-            <span data-i18n="replacementsAdd">Add Replacement</span>
+            <span data-i18n="replacementsAdd">Add Snippet</span>
           </button>
         </div>
       </div>

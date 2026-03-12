@@ -12,7 +12,7 @@ type VADProcessor struct {
 
 var (
 	vadInstance *VADProcessor
-	vadOnce    sync.Once
+	vadOnce     sync.Once
 )
 
 // GetVADProcessor returns the singleton VADProcessor, initializing it lazily.

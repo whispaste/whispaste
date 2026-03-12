@@ -70,7 +70,7 @@ type iPropertyStoreVtbl struct {
 	getCount       uintptr
 	getAt          uintptr
 	getValue       uintptr
-	setValue        uintptr // index 6
+	setValue       uintptr // index 6
 	commit         uintptr // index 7
 }
 type iPropertyStore struct{ vtbl *iPropertyStoreVtbl }

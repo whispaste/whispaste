@@ -1,4 +1,4 @@
-/* Text Replacements page styles */
+/* Snippets page styles */
 .replacements-scroll {
   flex: 1;
   overflow-y: auto;
@@ -128,6 +128,105 @@
   flex-shrink: 0;
   margin-top: 1px;
   color: var(--text-hint);
+}
+
+.replacements-examples-card {
+  margin-bottom: 12px;
+}
+
+.replacements-examples-header {
+  margin-bottom: 14px;
+}
+
+.replacements-examples-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.replacements-examples-desc {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.replacements-examples-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.snippet-example-card {
+  display: grid;
+  grid-template-columns: minmax(110px, 140px) 20px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+}
+
+.snippet-example-card:hover {
+  border-color: var(--border-focus);
+  background: var(--bg-tertiary);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+
+.snippet-example-label {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.snippet-example-trigger,
+.snippet-example-value {
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-primary);
+  font-family: var(--font-mono, 'Cascadia Code', 'Consolas', monospace);
+  font-size: 12px;
+}
+
+.snippet-example-trigger {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.snippet-example-value {
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.snippet-example-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+}
+
+.snippet-example-arrow .icon {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 720px) {
+  .snippet-example-card {
+    grid-template-columns: 1fr;
+  }
+
+  .snippet-example-arrow {
+    justify-content: flex-start;
+  }
 }
 
 .page-description {
