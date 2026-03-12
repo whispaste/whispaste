@@ -275,6 +275,9 @@ func (u *Updater) CheckNow(ctx context.Context, force ...bool) (*UpdateInfo, err
 	return info, nil
 }
 
+// ErrUpdateInProgress is returned by Apply when another update is already running.
+var ErrUpdateInProgress = errors.New("update already in progress")
+
 // Apply downloads and replaces the current binary with the new version.
 // It is safe to call from multiple goroutines — only one Apply runs at a time.
 func (u *Updater) Apply(info *UpdateInfo) error {
@@ -282,7 +285,7 @@ func (u *Updater) Apply(info *UpdateInfo) error {
 		return fmt.Errorf("no update available")
 	}
 	if !u.applying.CompareAndSwap(false, true) {
-		return fmt.Errorf("update already in progress")
+		return ErrUpdateInProgress
 	}
 	u.applyWg.Add(1)
 	defer func() {
