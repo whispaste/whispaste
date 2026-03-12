@@ -27,9 +27,12 @@ html.light {
 }
 
 html.light .text-white { color: #1E293B !important; }
+html.light .text-gray-100 { color: #0F172A !important; }
+html.light .text-gray-200 { color: #1E293B !important; }
+html.light .text-gray-300 { color: #334155 !important; }
 html.light .text-gray-400 { color: #64748B !important; }
 html.light .text-gray-500 { color: #94A3B8 !important; }
-html.light .border-white\/5, html.light .border-white\/10, html.light .border-white\/\[0\.05\], html.light .border-white\/\[0\.06\] { border-color: #E2E8F0 !important; }
+html.light .border-white\/5, html.light .border-white\/10, html.light .border-white\/20, html.light .border-white\/\[0\.05\], html.light .border-white\/\[0\.06\], html.light .border-white\/\[0\.08\] { border-color: #E2E8F0 !important; }
 html.light .bg-white\/\[0\.02\], html.light .bg-white\/\[0\.03\], html.light .bg-white\/\[0\.04\] { background: rgba(0,0,0,0.02) !important; }
 html.light nav { background: rgba(241,245,249,0.55) !important; border-bottom-color: #E2E8F0 !important; backdrop-filter: blur(24px) saturate(1.5) !important; }
 html.light footer { border-top-color: #E2E8F0 !important; }
@@ -41,6 +44,10 @@ html.light .bg-brand-dark\/80 { background: rgba(248,250,252,0.9) !important; }
 html.light .shadow-black\/50 { box-shadow: 0 25px 50px rgba(0,0,0,0.1) !important; }
 html.light .shadow-brand-cyan\/\[0\.05\] { box-shadow: 0 4px 12px rgba(8,145,178,0.1) !important; }
 html.light .bg-brand-card\/60 { background: rgba(255,255,255,0.8) !important; }
+html.light .bg-brand-cyan\/10 { background: rgba(8,145,178,0.12) !important; }
+html.light .bg-brand-cyan\/\[0\.04\] { background: rgba(8,145,178,0.06) !important; }
+html.light .hover\:bg-white\/\[0\.08\]:hover { background: rgba(0,0,0,0.04) !important; }
+html.light .hover\:border-white\/20:hover { border-color: #CBD5E1 !important; }
 
 /* ---- Feature cards (light theme) ---- */
 html.light .feature-card { background: rgba(255,255,255,0.7) !important; border-color: #E2E8F0 !important; }
