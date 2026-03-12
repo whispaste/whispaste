@@ -11,7 +11,7 @@ test('hero CTA points to the latest GitHub release', async ({ page }) => {
 
   await expect(page.getByTestId('hero-cta-store')).toHaveAttribute(
     'href',
-    'https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-Setup.exe',
+    '/download/',
   );
 });
 
@@ -29,7 +29,7 @@ test('FAQ section is visible and has accordion items', async ({ page }) => {
   const faq = page.locator('#faq');
   await faq.scrollIntoViewIfNeeded();
   await expect(faq).toBeVisible();
-  await expect(faq.locator('details')).toHaveCount(6);
+  await expect(faq.locator('details')).toHaveCount(7);
 });
 
 test('legal pages load without 404s', async ({ page }) => {
@@ -38,4 +38,10 @@ test('legal pages load without 404s', async ({ page }) => {
 
   await page.goto('/impressum/');
   await expect(page.locator('#pageTitle')).toBeVisible();
+});
+
+test('download page loads and contains SmartScreen guide', async ({ page }) => {
+  await page.goto('/download/');
+  await expect(page.locator('h1')).toContainText('download');
+  await expect(page.locator('h2')).toContainText('warning');
 });
