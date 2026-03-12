@@ -42,7 +42,7 @@ Works in emails, chat apps, code editors, browsers, terminals — everywhere.
 
 **Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into any app · Voice Activity Detection · Recording overlay with waveform
 
-**Transcription** — OpenAI Whisper API (cloud) or local Whisper models via [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — fully offline, no API key needed · 100+ languages · Hardware compatibility preflight
+**Transcription** — OpenAI Whisper API (cloud) or local Whisper models via [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — fully offline, no API key needed · [99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py) · Hardware compatibility preflight
 
 **Smart Mode** — 13 AI post-processing presets: grammar cleanup, formal email, bullet points, meeting notes, translation, and more · Custom prompts · Runs locally (Qwen3.5) or via OpenAI
 
