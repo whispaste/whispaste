@@ -47,6 +47,10 @@ function updateOnboardingStep() {
     dot.classList.toggle('active', i === _onboardingStep - 1);
   });
   applyTranslations();
+  // Auto-select "local" when entering step 2 for the first time (offline-first)
+  if (_onboardingStep === 2 && _onboardingChoice === null) {
+    selectOnboardingOption('local');
+  }
 }
 
 function nextOnboardingStep() {
