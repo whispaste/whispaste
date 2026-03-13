@@ -65,6 +65,7 @@ var translations = map[string]map[string]string{
 
 		// Floating button
 		"floating.hide":           "Hide Button",
+		"floating.lock":           "Lock Position",
 		"floating.tooltip":        "Click to record",
 		"floating.status_ready":   "Ready",
 		"floating.status_record":  "Recording…",
@@ -301,6 +302,7 @@ var translations = map[string]map[string]string{
 
 		// Floating button
 		"floating.hide":           "Button ausblenden",
+		"floating.lock":           "Position sperren",
 		"floating.tooltip":        "Klicken zum Aufnehmen",
 		"floating.status_ready":   "Bereit",
 		"floating.status_record":  "Aufnahme…",

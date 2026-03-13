@@ -72,6 +72,9 @@ type Config struct {
 	FloatingButtonY         int                      `json:"floating_button_y,omitempty"`
 	FloatingButtonColor     string                   `json:"floating_button_color,omitempty"`
 	FloatingButtonSize      int                      `json:"floating_button_size,omitempty"`
+	FloatingButtonOpacity   int                      `json:"floating_button_opacity,omitempty"`
+	FloatingButtonLocked    bool                     `json:"floating_button_locked,omitempty"`
+	FloatingButtonBorder    bool                     `json:"floating_button_border,omitempty"`
 	UseVAD                  bool                     `json:"use_vad,omitempty"`
 	VADSensitivity          float32                  `json:"vad_sensitivity"`
 	LastProjectID           string                   `json:"last_project_id,omitempty"`
@@ -309,6 +312,37 @@ func (c *Config) GetFloatingButtonSize() int {
 		return 80
 	}
 	return s
+}
+
+// GetFloatingButtonOpacity returns the idle opacity percentage (30–100, default 70).
+func (c *Config) GetFloatingButtonOpacity() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	o := c.FloatingButtonOpacity
+	if o <= 0 {
+		return 70
+	}
+	if o < 30 {
+		return 30
+	}
+	if o > 100 {
+		return 100
+	}
+	return o
+}
+
+// GetFloatingButtonLocked returns whether the floating button position is locked.
+func (c *Config) GetFloatingButtonLocked() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.FloatingButtonLocked
+}
+
+// GetFloatingButtonBorder returns whether the floating button shows an accent border.
+func (c *Config) GetFloatingButtonBorder() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.FloatingButtonBorder
 }
 
 // detectSystemLanguage returns "de" for German systems, "en" otherwise.
