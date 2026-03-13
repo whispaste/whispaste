@@ -411,17 +411,21 @@
 }
 .onb-model-cards {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   margin-bottom: 14px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 .onb-model-card {
-  flex: 1;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border: 2px solid var(--border-primary);
   border-radius: 10px;
   cursor: pointer;
   transition: all var(--transition-fast) ease;
   text-align: left;
+  flex-shrink: 0;
 }
 .onb-model-card:hover {
   border-color: var(--accent);
