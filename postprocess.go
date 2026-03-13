@@ -25,6 +25,15 @@ func normalizeTranscription(text string) string {
 	return strings.TrimSpace(text)
 }
 
+var thinkBlockRe = regexp.MustCompile(`(?s)<think>.*?</think>`)
+
+// stripThinkBlocks removes <think>…</think> blocks that some LLMs (Qwen3+)
+// emit in "thinking mode". The blocks waste tokens and pollute output.
+func stripThinkBlocks(text string) string {
+	text = thinkBlockRe.ReplaceAllString(text, "")
+	return strings.TrimSpace(text)
+}
+
 // smartModePresets maps preset names to system prompts.
 var smartModePresets = map[string]string{
 	"cleanup":   "Clean up the following dictated text. Fix grammar, punctuation, capitalization, and spelling errors. Do not remove words, change meaning, or restructure sentences. Keep the original language. Return only the cleaned text.",
@@ -197,7 +206,7 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLa
 	if len(result.Choices) == 0 || result.Choices[0].Message.Content == "" {
 		return text, fmt.Errorf("%s", i18n.T("error.postprocess_empty"))
 	}
-	return result.Choices[0].Message.Content, nil
+	return stripThinkBlocks(result.Choices[0].Message.Content), nil
 }
 
 // ApplySmartAction applies a smart mode preset or custom prompt to existing text.
@@ -421,7 +430,7 @@ IMPORTANT: Only replace when the meaning clearly matches. When in doubt, do NOT 
 		return text, fmt.Errorf("empty response from LLM")
 	}
 
-	modified := strings.TrimSpace(result.Choices[0].Message.Content)
+	modified := stripThinkBlocks(result.Choices[0].Message.Content)
 	if modified == "" {
 		return text, nil
 	}
