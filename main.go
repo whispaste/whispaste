@@ -1045,8 +1045,9 @@ func main() {
 		}
 		// Live-toggle floating button based on setting
 		if floatingBtn != nil {
-			floatingBtn.UpdateColor() // pick up any color change
-			floatingBtn.UpdateSize()  // pick up any size change
+			floatingBtn.UpdateColor()   // pick up any color change
+			floatingBtn.UpdateSize()    // pick up any size change
+			floatingBtn.UpdateOpacity() // pick up any opacity/border change
 			s := func() AppState {
 				stateMu.Lock()
 				defer stateMu.Unlock()

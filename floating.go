@@ -21,6 +21,7 @@ const (
 	_WM_FLOAT_HIDE     = _WM_USER + 21
 	_WM_FLOAT_RERENDER = _WM_USER + 22
 	_WM_FLOAT_RESIZE   = _WM_USER + 23
+	_WM_FLOAT_OPACITY  = _WM_USER + 24
 
 	// Timer for hover/opacity animation
 	_FLOAT_TIMER_ID = 2
@@ -57,13 +58,16 @@ const (
 	_WM_NCLBUTTONDOWN = 0x00A1
 	_WM_NCLBUTTONUP   = 0x00A2
 	_WM_NCRBUTTONUP   = 0x00A5
+	_WM_NCMOUSEMOVE   = 0x00A0
+	_WM_NCMOUSELEAVE  = 0x02A2
 
 	// Mouse tracking
-	_TME_LEAVE     = 0x00000002
-	_WM_MOUSEMOVE  = 0x0200
-	_WM_MOUSELEAVE = 0x02A3
-	_WM_MOVE       = 0x0003
-	_WM_COMMAND    = 0x0111
+	_TME_LEAVE      = 0x00000002
+	_TME_NONCLIENT  = 0x00000010
+	_WM_MOUSEMOVE   = 0x0200
+	_WM_MOUSELEAVE  = 0x02A3
+	_WM_MOVE        = 0x0003
+	_WM_COMMAND     = 0x0111
 
 	// Monitor info
 	_MONITOR_DEFAULTTONEAREST = 0x00000002
@@ -235,6 +239,55 @@ func (fb *FloatingButton) idleOpacity() byte {
 	return byte(pct * 255 / 100)
 }
 
+// cursorInWindow returns true if the cursor is currently inside the button window.
+func (fb *FloatingButton) cursorInWindow() bool {
+	var pt pointT
+	procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
+	var rc rectT
+	procGetWindowRect.Call(fb.hwnd, uintptr(unsafe.Pointer(&rc)))
+	return pt.X >= rc.Left && pt.X < rc.Right && pt.Y >= rc.Top && pt.Y < rc.Bottom
+}
+
+// enterHover sets the hovered state and starts the animation timer.
+func (fb *FloatingButton) enterHover(hwnd uintptr, nonclient bool) {
+	wasHovered := func() bool {
+		fb.mu.Lock()
+		defer fb.mu.Unlock()
+		was := fb.hovered
+		fb.hovered = true
+		fb.targetOpacity = _FLOAT_OPACITY_HOVER
+		if !fb.tracking {
+			fb.tracking = true
+			flags := uintptr(_TME_LEAVE)
+			if nonclient {
+				flags |= _TME_NONCLIENT
+			}
+			tme := trackMouseEventT{
+				CbSize:    uint32(unsafe.Sizeof(trackMouseEventT{})),
+				DwFlags:   uint32(flags),
+				HwndTrack: hwnd,
+			}
+			procTrackMouseEvent.Call(uintptr(unsafe.Pointer(&tme)))
+		}
+		return was
+	}()
+	if !wasHovered {
+		procSetTimer.Call(hwnd, _FLOAT_TIMER_ID, _FLOAT_TIMER_MS, 0)
+	}
+}
+
+// leaveHover clears the hovered state after verifying the cursor is truly outside.
+func (fb *FloatingButton) leaveHover() {
+	if fb.cursorInWindow() {
+		return // spurious leave — cursor is still inside (UpdateLayeredWindow artifact)
+	}
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	fb.hovered = false
+	fb.tracking = false
+	fb.targetOpacity = fb.idleOpacity()
+}
+
 func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	fb := globalFloating
 	if fb == nil {
@@ -311,36 +364,15 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		return 0
 
 	case _WM_MOUSEMOVE:
-		wasHovered := func() bool {
-			fb.mu.Lock()
-			defer fb.mu.Unlock()
-			was := fb.hovered
-			fb.hovered = true
-			fb.targetOpacity = _FLOAT_OPACITY_HOVER
-			if !fb.tracking {
-				fb.tracking = true
-				tme := trackMouseEventT{
-					CbSize:    uint32(unsafe.Sizeof(trackMouseEventT{})),
-					DwFlags:   _TME_LEAVE,
-					HwndTrack: hwnd,
-				}
-				procTrackMouseEvent.Call(uintptr(unsafe.Pointer(&tme)))
-			}
-			return was
-		}()
-		if !wasHovered {
-			procSetTimer.Call(hwnd, _FLOAT_TIMER_ID, _FLOAT_TIMER_MS, 0)
-		}
+		fb.enterHover(hwnd, false)
 		return 0
 
-	case _WM_MOUSELEAVE:
-		func() {
-			fb.mu.Lock()
-			defer fb.mu.Unlock()
-			fb.hovered = false
-			fb.tracking = false
-			fb.targetOpacity = fb.idleOpacity()
-		}()
+	case _WM_NCMOUSEMOVE:
+		fb.enterHover(hwnd, true)
+		return 0
+
+	case _WM_MOUSELEAVE, _WM_NCMOUSELEAVE:
+		fb.leaveHover()
 		return 0
 
 	case _WM_MOVE:
@@ -520,6 +552,19 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		fb.handleResize()
 		return 0
 
+	case _WM_FLOAT_OPACITY:
+		idle := fb.idleOpacity()
+		func() {
+			fb.mu.Lock()
+			defer fb.mu.Unlock()
+			if !fb.hovered {
+				fb.opacity = idle
+				fb.targetOpacity = idle
+			}
+		}()
+		fb.render()
+		return 0
+
 	case _WM_DPICHANGED:
 		fb.handleResize()
 		return 0
@@ -631,6 +676,13 @@ func (fb *FloatingButton) Close() {
 func (fb *FloatingButton) UpdateColor() {
 	if fb.hwnd != 0 {
 		procPostMessageW.Call(fb.hwnd, _WM_FLOAT_RERENDER, 0, 0)
+	}
+}
+
+// UpdateOpacity applies the current config opacity immediately.
+func (fb *FloatingButton) UpdateOpacity() {
+	if fb.hwnd != 0 {
+		procPostMessageW.Call(fb.hwnd, _WM_FLOAT_OPACITY, 0, 0)
 	}
 }
 
