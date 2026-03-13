@@ -923,7 +923,7 @@ func main() {
 			if overlay != nil {
 				go func() {
 					overlay.Show(StateError)
-					time.Sleep(2 * time.Second)
+					time.Sleep(3 * time.Second)
 					// Only hide if app is still idle (avoid hiding a recording overlay)
 					cur := func() AppState {
 						stateMu.Lock()
