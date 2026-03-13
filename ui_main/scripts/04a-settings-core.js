@@ -60,11 +60,24 @@ function renderModelCard(m, opts) {
 
   const blockedNote = isBlocked ? `<div class="model-warning">${esc(m.preflight_message || t('preflightBlockedBadge'))}</div>` : '';
 
-  return `<div class="model-item${!m.downloaded && !isDownloading ? ' unavailable' : ''}${isBlocked ? ' preflight-blocked' : ''}" data-model-id="${esc(m.id)}">
+  // HW recommendation badge (STT only)
+  let hwBadge = '';
+  if (type === 'stt' && m.recommended) {
+    hwBadge = `<span class="model-badge model-badge-rec">★ ${esc(t('modelRecommended'))}</span>`;
+  }
+
+  // Quality stars (STT only)
+  let qualityHTML = '';
+  if (type === 'stt' && m.quality) {
+    const stars = '★'.repeat(m.quality) + '☆'.repeat(5 - m.quality);
+    qualityHTML = `<span class="model-quality" title="${esc(t('modelQuality'))}">${stars}</span>`;
+  }
+
+  return `<div class="model-item${!m.downloaded && !isDownloading ? ' unavailable' : ''}${isBlocked ? ' preflight-blocked' : ''}${m.recommended ? ' recommended' : ''}" data-model-id="${esc(m.id)}">
     <div class="model-item-info">
-      <div class="model-item-name">${esc(m.name)}</div>
+      <div class="model-item-name">${esc(m.name)} ${hwBadge}</div>
       ${m.description ? '<div class="model-desc">' + esc(m.description) + '</div>' : ''}
-      <div class="model-item-meta">${esc(m.size)}${statusText}</div>
+      <div class="model-item-meta">${esc(m.size)}${qualityHTML}${statusText}</div>
       ${blockedNote}
     </div>
     <div class="model-item-action">${actionHTML}</div>
