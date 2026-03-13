@@ -252,6 +252,7 @@ var (
 	procGdipCreateSolidFill  = ovlGdiplus.NewProc("GdipCreateSolidFill")
 	procGdipDeleteBrush      = ovlGdiplus.NewProc("GdipDeleteBrush")
 	procGdipFillEllipseI     = ovlGdiplus.NewProc("GdipFillEllipseI")
+	procGdipDrawEllipseI     = ovlGdiplus.NewProc("GdipDrawEllipseI")
 	procGdipFillRectangleI   = ovlGdiplus.NewProc("GdipFillRectangleI")
 
 	// ULW and DIB
