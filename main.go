@@ -904,6 +904,46 @@ func main() {
 				}
 			},
 		)
+		floatingBtn.SetMenuCallbacks(
+			func() { // onToggle - start/stop recording
+				s, started := func() (AppState, bool) {
+					stateMu.Lock()
+					defer stateMu.Unlock()
+					if state == StateIdle {
+						recordSource = SourceFloating
+						return state, true
+					}
+					if state == StateRecording || state == StatePaused {
+						return state, false
+					}
+					return state, false
+				}()
+				if started {
+					transition(StateRecording)
+				} else if s == StateRecording || s == StatePaused {
+					transition(StateIdle)
+				}
+			},
+			func() AppState { // getState
+				stateMu.Lock()
+				defer stateMu.Unlock()
+				return state
+			},
+			func() string { // getHotkeyStr
+				cfg.mu.RLock()
+				mods := cfg.HotkeyMods
+				key := cfg.HotkeyKey
+				cfg.mu.RUnlock()
+				return strings.Join(mods, "+") + "+" + key
+			},
+			func() string { // getLatestText
+				entries := history.Recent(1)
+				if len(entries) == 0 || entries[0].Text == "" {
+					return ""
+				}
+				return entries[0].Text
+			},
+		)
 		// Show the button initially if enabled and onboarding is complete
 		if cfg.GetFloatingButtonEnabled() && cfg.GetOnboardingDone() {
 			floatingBtn.Show()

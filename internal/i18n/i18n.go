@@ -64,8 +64,12 @@ var translations = map[string]map[string]string{
 		"tray.quit":     "Quit",
 
 		// Floating button
-		"floating.hide":    "Hide Button",
-		"floating.tooltip": "Click to record",
+		"floating.hide":           "Hide Button",
+		"floating.tooltip":        "Click to record",
+		"floating.status_ready":   "Ready",
+		"floating.status_record":  "Recording…",
+		"floating.status_working": "Processing…",
+		"floating.last_text":      "Last: \"%s\"",
 
 		// States
 		"state.idle":         "Ready",
@@ -296,8 +300,12 @@ var translations = map[string]map[string]string{
 		"tray.quit":     "Beenden",
 
 		// Floating button
-		"floating.hide":    "Button ausblenden",
-		"floating.tooltip": "Klicken zum Aufnehmen",
+		"floating.hide":           "Button ausblenden",
+		"floating.tooltip":        "Klicken zum Aufnehmen",
+		"floating.status_ready":   "Bereit",
+		"floating.status_record":  "Aufnahme…",
+		"floating.status_working": "Verarbeitung…",
+		"floating.last_text":      "Zuletzt: \"%s\"",
 
 		// States
 		"state.idle":         "Bereit",
