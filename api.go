@@ -129,7 +129,7 @@ func doTranscribeAttempt(ctx context.Context, body []byte, contentType, endpoint
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return "", fmt.Errorf("failed to parse response: %w", err), false
 	}
-	return result.Text, nil, false
+	return normalizeTranscription(result.Text), nil, false
 }
 
 // isRetryableError checks if a network-level error is transient.

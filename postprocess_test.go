@@ -132,3 +132,31 @@ func TestGetBuiltinPresets(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeTranscription(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"no newlines", "Hello world", "Hello world"},
+		{"single newline", "Hello\nworld", "Hello world"},
+		{"multiple newlines", "Hello\nbeautiful\nworld", "Hello beautiful world"},
+		{"crlf", "Hello\r\nworld", "Hello world"},
+		{"mixed newlines", "Hello\r\nbeautiful\nworld", "Hello beautiful world"},
+		{"leading trailing whitespace", "  Hello world  ", "Hello world"},
+		{"multi spaces collapsed", "Hello   world", "Hello world"},
+		{"newline creates double space", "Hello \n world", "Hello world"},
+		{"empty string", "", ""},
+		{"only newlines", "\n\n\n", ""},
+		{"tabs collapsed", "Hello\t\tworld", "Hello world"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeTranscription(tt.in)
+			if got != tt.want {
+				t.Errorf("normalizeTranscription(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
