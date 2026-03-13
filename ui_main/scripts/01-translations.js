@@ -675,6 +675,8 @@ const translations = {
     replacementsExample2Value: 'Thanks again — here is the summary and the next steps.',
     replacementsExample3Trigger: 'website link',
     replacementsExample3Value: 'https://whispaste.de',
+    replacementsExampleAdd: 'Add this snippet',
+    replacementsExampleAdded: 'Added',
 
     // Smart Mode LLM
     smartLlmCard: 'Offline Language Models',
@@ -1420,6 +1422,8 @@ const translations = {
     replacementsExample2Value: 'Danke dir — hier sind die Zusammenfassung und die nächsten Schritte.',
     replacementsExample3Trigger: 'Website Link',
     replacementsExample3Value: 'https://whispaste.de',
+    replacementsExampleAdd: 'Dieses Snippet hinzufügen',
+    replacementsExampleAdded: 'Hinzugefügt',
 
     // Smart Mode LLM
     smartLlmCard: 'Offline-Sprachmodelle',
