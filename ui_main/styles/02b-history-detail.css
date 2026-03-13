@@ -39,6 +39,7 @@
 .entry.pending {
   border-left: 3px solid var(--warning, #f59e0b);
   background: linear-gradient(90deg, rgba(245,158,11,0.08) 0%, var(--bg-primary) 50%);
+  cursor: pointer;
 }
 .entry.pending .entry-preview { opacity: 0.85; }
 .entry.pending .pending-hint {

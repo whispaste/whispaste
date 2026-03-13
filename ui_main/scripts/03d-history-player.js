@@ -135,7 +135,7 @@ function _resetPlayButton(id) {
 }
 
 async function doReTranscribe(id, btn) {
-  if (!window.reTranscribe) return;
+  if (!window.reTranscribe) { _pendingRetryInFlight = false; return; }
   const origHTML = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<svg class="icon spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
@@ -162,6 +162,7 @@ async function doReTranscribe(id, btn) {
   }
   btn.innerHTML = origHTML;
   btn.disabled = false;
+  _pendingRetryInFlight = false;
 }
 
 // Callback from Go when async re-transcription completes
@@ -182,4 +183,5 @@ window.onReTranscribeResult = async function(id, success, errorMsg) {
   }
   window._reTranscribeBtn = null;
   window._reTranscribeBtnHTML = null;
+  _pendingRetryInFlight = false;
 };
