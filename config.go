@@ -174,6 +174,12 @@ func LoadConfig() (*Config, error) {
 	if !bytes.Contains(data, []byte(`"active_model_local"`)) && cfg.UseLocalSTT {
 		cfg.ActiveModelLocal = true
 	}
+	// Offline-first: if no API key configured and a local model is downloaded,
+	// auto-enable local STT so the app works out of the box.
+	if !cfg.UseLocalSTT && cfg.APIKey == "" && len(models.ListDownloaded()) > 0 {
+		cfg.UseLocalSTT = true
+		cfg.ActiveModelLocal = true
+	}
 	return cfg, nil
 }
 
