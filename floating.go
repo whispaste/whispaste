@@ -178,6 +178,7 @@ type FloatingButton struct {
 	onOpenWindow     func(string)
 	onQuit           func()
 	onSmartToggled   func(bool)
+	onHide           func() // called when user hides via context menu
 
 	hovered       bool
 	tracking      bool
@@ -401,6 +402,14 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 				fb.cfg.FloatingButtonEnabled = false
 				fb.cfg.mu.Unlock()
 				fb.cfg.Save()
+				cb := func() func() {
+					fb.mu.Lock()
+					defer fb.mu.Unlock()
+					return fb.onHide
+				}()
+				if cb != nil {
+					cb()
+				}
 			}()
 		case _FLOAT_MENU_QUIT:
 			cb := func() func() {
@@ -507,13 +516,14 @@ func NewFloatingButton(c *Config) (*FloatingButton, error) {
 }
 
 // SetCallbacks sets the floating button callbacks (thread-safe).
-func (fb *FloatingButton) SetCallbacks(onStart func(), onOpenWindow func(string), onQuit func(), onSmartToggled func(bool)) {
+func (fb *FloatingButton) SetCallbacks(onStart func(), onOpenWindow func(string), onQuit func(), onSmartToggled func(bool), onHide func()) {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 	fb.onStartRecording = onStart
 	fb.onOpenWindow = onOpenWindow
 	fb.onQuit = onQuit
 	fb.onSmartToggled = onSmartToggled
+	fb.onHide = onHide
 }
 
 // Show displays the floating button.
