@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -176,6 +177,8 @@ type AppTray struct {
 	balloonShown          bool // tracks whether minimize-to-tray balloon was shown this session
 	cfg                   *Config
 	smartItem             *systray.MenuItem  // single smart mode toggle
+	mStatus              *systray.MenuItem  // disabled status line
+	mPreview             *systray.MenuItem  // last transcription preview
 	onSaved               func()
 	balloonIcon           uintptr       // HICON for balloon notifications
 	pendingBalloonAction  balloonAction // what the next balloon click should do
@@ -504,7 +507,29 @@ func (t *AppTray) onReady() {
 	t.subclassSystrayWindow()
 	t.setNotifyIconVersion()
 
-	t.mToggle = systray.AddMenuItem(T("tray.start_record"), T("tray.start_record"))
+	// Status line (disabled, informational)
+	t.mStatus = systray.AddMenuItem("● "+T("floating.status_ready"), "")
+	t.mStatus.Disable()
+
+	// Last transcription preview (click to copy)
+	t.mPreview = systray.AddMenuItem("", "")
+	t.mPreview.Hide()
+
+	go func() {
+		for range t.mPreview.ClickedCh {
+			t.copyLatestTranscription()
+		}
+	}()
+
+	systray.AddSeparator()
+
+	// Start/Stop Recording with hotkey display
+	hotkeyStr := t.formatHotkey()
+	toggleLabel := T("tray.start_record")
+	if hotkeyStr != "" {
+		toggleLabel += "\t" + hotkeyStr
+	}
+	t.mToggle = systray.AddMenuItem(toggleLabel, T("tray.start_record"))
 	systray.AddSeparator()
 
 	// Smart Mode — simple on/off toggle (preset selection in Settings)
@@ -626,30 +651,50 @@ func (t *AppTray) handleUpdateClick() {
 
 // SetTooltipState updates the tray tooltip to reflect current state.
 func (t *AppTray) SetTooltipState(state AppState) {
+	hotkeyStr := t.formatHotkey()
+	appendHotkey := func(label string) string {
+		if hotkeyStr != "" {
+			return label + "\t" + hotkeyStr
+		}
+		return label
+	}
+
 	switch state {
 	case StateRecording:
 		systray.SetTooltip(T("tray.status_recording"))
 		if t.mToggle != nil {
-			t.mToggle.SetTitle(T("tray.stop_record"))
+			t.mToggle.SetTitle(appendHotkey(T("tray.stop_record")))
 			t.mToggle.SetTooltip(T("tray.stop_record"))
+		}
+		if t.mStatus != nil {
+			t.mStatus.SetTitle("● " + T("floating.status_record"))
 		}
 	case StatePaused:
 		systray.SetTooltip(T("tray.status_paused"))
 		if t.mToggle != nil {
-			t.mToggle.SetTitle(T("tray.stop_record"))
+			t.mToggle.SetTitle(appendHotkey(T("tray.stop_record")))
 			t.mToggle.SetTooltip(T("tray.stop_record"))
+		}
+		if t.mStatus != nil {
+			t.mStatus.SetTitle("● " + T("floating.status_record"))
 		}
 	case StateTranscribing, StateProcessing:
 		systray.SetTooltip(T("tray.status_working"))
 		if t.mToggle != nil {
-			t.mToggle.SetTitle(T("tray.start_record"))
+			t.mToggle.SetTitle(appendHotkey(T("tray.start_record")))
 			t.mToggle.SetTooltip(T("tray.start_record"))
+		}
+		if t.mStatus != nil {
+			t.mStatus.SetTitle("● " + T("floating.status_working"))
 		}
 	default:
 		systray.SetTooltip(T("tray.status_ready"))
 		if t.mToggle != nil {
-			t.mToggle.SetTitle(T("tray.start_record"))
+			t.mToggle.SetTitle(appendHotkey(T("tray.start_record")))
 			t.mToggle.SetTooltip(T("tray.start_record"))
+		}
+		if t.mStatus != nil {
+			t.mStatus.SetTitle("● " + T("floating.status_ready"))
 		}
 	}
 }
@@ -670,6 +715,17 @@ func (t *AppTray) updateHistoryMenu() {
 		}
 	}
 	t.historyMu.Unlock()
+
+	// Update last-text preview item
+	if t.mPreview != nil {
+		if len(entries) > 0 && entries[0].Text != "" {
+			preview := truncateRunes(entries[0].Text, 35)
+			t.mPreview.SetTitle(fmt.Sprintf(T("floating.last_text"), preview))
+			t.mPreview.Show()
+		} else {
+			t.mPreview.Hide()
+		}
+	}
 
 	if len(entries) == 0 {
 		t.historyEmpty.Show()
@@ -761,7 +817,6 @@ func relativeTime(ts string) string {
 	}
 }
 
-// updateSmartCheckmarks checks the active preset and unchecks others.
 // updateSmartCheck updates the tray Smart Mode item check state.
 func (t *AppTray) updateSmartCheck() {
 	if t.smartItem == nil {
@@ -772,6 +827,40 @@ func (t *AppTray) updateSmartCheck() {
 	} else {
 		t.smartItem.Uncheck()
 	}
+}
+
+// formatHotkey returns the current hotkey as display string (e.g. "Ctrl+Shift+D").
+func (t *AppTray) formatHotkey() string {
+	if t.cfg == nil {
+		return ""
+	}
+	t.cfg.mu.RLock()
+	mods := t.cfg.HotkeyMods
+	key := t.cfg.HotkeyKey
+	t.cfg.mu.RUnlock()
+	if len(mods) == 0 && key == "" {
+		return ""
+	}
+	return strings.Join(mods, "+") + "+" + key
+}
+
+// copyLatestTranscription copies the most recent transcription to the clipboard.
+func (t *AppTray) copyLatestTranscription() {
+	if t.history == nil {
+		return
+	}
+	entries := t.history.Recent(1)
+	if len(entries) == 0 || entries[0].Text == "" {
+		return
+	}
+	text := entries[0].Text
+	if err := writeClipboard(text); err != nil {
+		logWarn("Tray preview copy failed: %v", err)
+		return
+	}
+	logInfo("Copied latest transcription from tray menu (%d chars)", len(text))
+	preview := truncateRunes(text, 200)
+	t.ShowBalloon(T("balloon.copied"), preview)
 }
 
 func (t *AppTray) onExit() {
