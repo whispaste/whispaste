@@ -175,8 +175,7 @@ type AppTray struct {
 	history               *History
 	balloonShown          bool // tracks whether minimize-to-tray balloon was shown this session
 	cfg                   *Config
-	smartItems            []*systray.MenuItem
-	smartPresets          []string
+	smartItem             *systray.MenuItem  // single smart mode toggle
 	onSaved               func()
 	balloonIcon           uintptr       // HICON for balloon notifications
 	pendingBalloonAction  balloonAction // what the next balloon click should do
@@ -507,63 +506,32 @@ func (t *AppTray) onReady() {
 
 	t.mToggle = systray.AddMenuItem(T("tray.start_record"), T("tray.start_record"))
 	systray.AddSeparator()
+
+	// Smart Mode — simple on/off toggle (preset selection in Settings)
+	mSmart := systray.AddMenuItem(T("tray.smart_mode"), T("tray.smart_mode"))
+	t.smartItem = mSmart
+	t.updateSmartCheck()
+
+	go func() {
+		for range mSmart.ClickedCh {
+			t.cfg.mu.Lock()
+			t.cfg.SmartMode = !t.cfg.SmartMode
+			t.cfg.mu.Unlock()
+			if err := t.cfg.Save(); err != nil {
+				logWarn("Failed to save smart mode: %v", err)
+			}
+			t.updateSmartCheck()
+			if t.onSaved != nil {
+				t.onSaved()
+			}
+		}
+	}()
+
+	systray.AddSeparator()
 	mDashboard := systray.AddMenuItem(T("tray.notebook"), T("tray.notebook"))
 	mSettings := systray.AddMenuItem(T("tray.settings"), T("tray.settings"))
 
-	// Smart Mode submenu
-	mSmart := systray.AddMenuItem(T("tray.smart_mode"), T("tray.smart_mode"))
-	smartDefs := []struct {
-		preset string
-		key    string
-	}{
-		{"off", "settings.smart_preset_off"},
-		{"cleanup", "settings.smart_preset_cleanup"},
-		{"concise", "settings.smart_preset_concise"},
-		{"email", "settings.smart_preset_email"},
-		{"bullets", "settings.smart_preset_bullets"},
-		{"formal", "settings.smart_preset_formal"},
-		{"aiprompt", "settings.smart_preset_aiprompt"},
-		{"summary", "settings.smart_preset_summary"},
-		{"notes", "settings.smart_preset_notes"},
-		{"meeting", "settings.smart_preset_meeting"},
-		{"social", "settings.smart_preset_social"},
-		{"technical", "settings.smart_preset_technical"},
-		{"casual", "settings.smart_preset_casual"},
-		{"translate", "settings.smart_preset_translate"},
-		{"custom", "settings.smart_preset_custom"},
-	}
-	subItems := make([]*systray.MenuItem, len(smartDefs))
-	for i, d := range smartDefs {
-		subItems[i] = mSmart.AddSubMenuItem(T(d.key), T(d.key))
-	}
-	t.smartItems = subItems
-	t.smartPresets = make([]string, len(smartDefs))
-	for i, d := range smartDefs {
-		t.smartPresets[i] = d.preset
-	}
-	t.updateSmartCheckmarks()
-
-	for i, item := range subItems {
-		go func(idx int, menuItem *systray.MenuItem) {
-			for range menuItem.ClickedCh {
-				t.cfg.SetSmartModePreset(t.smartPresets[idx])
-				if err := t.cfg.Save(); err != nil {
-					logWarn("Failed to save smart mode: %v", err)
-				}
-				t.updateSmartCheckmarks()
-				if t.onSaved != nil {
-					t.onSaved()
-				}
-				// If "custom" selected with empty prompt, open settings at smart section
-				if t.smartPresets[idx] == "custom" && t.cfg.GetSmartModePrompt() == "" {
-					if t.onOpenWindow != nil {
-						t.onOpenWindow("smart-mode")
-					}
-				}
-			}
-		}(i, item)
-	}
-
+	// History submenu
 	mHistory := systray.AddMenuItem(T("tray.history"), T("tray.history"))
 	t.historyEmpty = mHistory.AddSubMenuItem(T("tray.history_empty"), "")
 	t.historyEmpty.Disable()
@@ -583,8 +551,7 @@ func (t *AppTray) onReady() {
 
 	systray.AddSeparator()
 	t.mUpdate = systray.AddMenuItem(T("update.check"), T("update.check"))
-	mAbout := systray.AddMenuItem(T("tray.about"), T("tray.about"))
-	mSupport := systray.AddMenuItem(T("tray.support"), T("tray.support"))
+	t.mUpdate.Hide()
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem(T("tray.quit"), T("tray.quit"))
 
@@ -613,12 +580,6 @@ func (t *AppTray) onReady() {
 				}
 			case <-t.mUpdate.ClickedCh:
 				t.handleUpdateClick()
-			case <-mAbout.ClickedCh:
-				if t.onOpenWindow != nil {
-					t.onOpenWindow("about")
-				}
-			case <-mSupport.ClickedCh:
-				_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", supportURL).Start()
 			case <-mQuit.ClickedCh:
 				systray.Quit()
 				return
@@ -802,23 +763,15 @@ func relativeTime(ts string) string {
 }
 
 // updateSmartCheckmarks checks the active preset and unchecks others.
-func (t *AppTray) updateSmartCheckmarks() {
-	if t.cfg == nil || len(t.smartItems) == 0 {
+// updateSmartCheck updates the tray Smart Mode item check state.
+func (t *AppTray) updateSmartCheck() {
+	if t.smartItem == nil {
 		return
 	}
-	currentPreset := "off"
 	if t.cfg.GetSmartMode() {
-		currentPreset = t.cfg.GetSmartModePreset()
-		if currentPreset == "" {
-			currentPreset = "cleanup"
-		}
-	}
-	for i, item := range t.smartItems {
-		if t.smartPresets[i] == currentPreset {
-			item.Check()
-		} else {
-			item.Uncheck()
-		}
+		t.smartItem.Check()
+	} else {
+		t.smartItem.Uncheck()
 	}
 }
 
