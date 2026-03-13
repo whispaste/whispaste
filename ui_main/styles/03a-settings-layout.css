@@ -9,16 +9,13 @@
 .settings-nav {
   width: 200px;
   flex-shrink: 0;
-  padding: 12px 0 12px 16px;
+  padding: 12px;
   overflow-y: auto;
   border-right: 1px solid var(--border-subtle);
 }
+.settings-nav::-webkit-scrollbar { width: 4px; }
+.settings-nav::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 4px; }
 .settings-nav .filter-items { gap: 2px; }
-.settings-nav .filter-item {
-  font-size: 13px;
-  padding: 8px 12px;
-  gap: 8px;
-}
 .settings-nav .filter-item .icon {
   width: 16px;
   height: 16px;
@@ -40,10 +37,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: .06em;
   color: var(--text-hint);
   margin: 24px 0 12px;
   padding-bottom: 8px;
