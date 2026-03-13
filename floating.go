@@ -27,7 +27,6 @@ const (
 	_FLOAT_TIMER_MS = 16 // ~60 FPS
 
 	// Opacity
-	_FLOAT_OPACITY_IDLE  = 178 // ~70%
 	_FLOAT_OPACITY_HOVER = 255 // 100%
 	_FLOAT_OPACITY_STEP  = 20  // per-frame change
 
@@ -45,6 +44,7 @@ const (
 	_FLOAT_MENU_QUIT       = 5
 	_FLOAT_MENU_RECORD     = 6
 	_FLOAT_MENU_PREVIEW    = 7
+	_FLOAT_MENU_LOCK       = 8
 
 	// Win32 menu constants
 	_MF_STRING       = 0x0000
@@ -229,6 +229,12 @@ func (fb *FloatingButton) getSize() int {
 	return int(float64(s) * fb.dpiScale())
 }
 
+// idleOpacity returns the configured idle opacity as a byte (0–255).
+func (fb *FloatingButton) idleOpacity() byte {
+	pct := fb.cfg.GetFloatingButtonOpacity() // 30–100
+	return byte(pct * 255 / 100)
+}
+
 func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	fb := globalFloating
 	if fb == nil {
@@ -247,7 +253,9 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		return 1
 
 	case _WM_NCHITTEST:
-		// Entire window is draggable
+		if fb.cfg.GetFloatingButtonLocked() {
+			return 1 // HTCLIENT — prevents drag, allows click
+		}
 		return _HTCAPTION
 
 	case _WM_NCLBUTTONDOWN:
@@ -282,7 +290,23 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		// The primary click detection is in NCLBUTTONDOWN above.
 		return 0
 
+	case 0x0201: // WM_LBUTTONDOWN — when position is locked, NCHITTEST returns HTCLIENT
+		cb := func() func() {
+			fb.mu.Lock()
+			defer fb.mu.Unlock()
+			return fb.onStartRecording
+		}()
+		if cb != nil {
+			procPostMessageW.Call(hwnd, _WM_FLOAT_HIDE, 0, 0)
+			go cb()
+		}
+		return 0
+
 	case _WM_NCRBUTTONUP:
+		fb.showContextMenu(hwnd)
+		return 0
+
+	case 0x0205: // WM_RBUTTONUP — context menu when position is locked
 		fb.showContextMenu(hwnd)
 		return 0
 
@@ -315,7 +339,7 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			defer fb.mu.Unlock()
 			fb.hovered = false
 			fb.tracking = false
-			fb.targetOpacity = _FLOAT_OPACITY_IDLE
+			fb.targetOpacity = fb.idleOpacity()
 		}()
 		return 0
 
@@ -456,6 +480,15 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 					}
 				}()
 			}
+		case _FLOAT_MENU_LOCK:
+			go func() {
+				fb.cfg.mu.Lock()
+				fb.cfg.FloatingButtonLocked = !fb.cfg.FloatingButtonLocked
+				locked := fb.cfg.FloatingButtonLocked
+				fb.cfg.mu.Unlock()
+				fb.cfg.Save()
+				logInfo("Floating button position lock: %v", locked)
+			}()
 		}
 		return 0
 
@@ -515,8 +548,8 @@ func NewFloatingButton(c *Config) (*FloatingButton, error) {
 		ready:         make(chan error, 1),
 		done:          make(chan struct{}),
 		cfg:           c,
-		opacity:       _FLOAT_OPACITY_IDLE,
-		targetOpacity: _FLOAT_OPACITY_IDLE,
+		opacity:       byte(c.GetFloatingButtonOpacity() * 255 / 100),
+		targetOpacity: byte(c.GetFloatingButtonOpacity() * 255 / 100),
 		size:          c.GetFloatingButtonSize(),
 	}
 	globalFloating = fb
@@ -804,6 +837,18 @@ func (fb *FloatingButton) render() {
 		procGdipDeleteBrush.Call(gradBrush)
 	}
 
+	// Optional accent border ring
+	if fb.cfg.GetFloatingButtonBorder() {
+		borderAlpha := uint32(a) * 200 / 255
+		borderColor := (borderAlpha << 24) | 0x00FFFFFF // white ring
+		var borderPen uintptr
+		procGdipCreatePen1.Call(uintptr(borderColor), f32(2.0), 2, uintptr(unsafe.Pointer(&borderPen)))
+		if borderPen != 0 {
+			procGdipDrawEllipseI.Call(g, borderPen, 3, 3, uintptr(sz-6), uintptr(sz-6))
+			procGdipDeletePen.Call(borderPen)
+		}
+	}
+
 	// Mic icon
 	fb.drawMicIcon(g, a)
 
@@ -1060,6 +1105,14 @@ func (fb *FloatingButton) showContextMenu(hwnd uintptr) {
 	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_SETTINGS, uintptr(unsafe.Pointer(settingsText)))
 
 	procAppendMenuW.Call(hMenu, _MF_SEPARATOR, 0, 0)
+
+	// --- Lock position toggle ---
+	lockText, _ := windows.UTF16PtrFromString(T("floating.lock"))
+	lockFlags := uintptr(_MF_STRING)
+	if fb.cfg.GetFloatingButtonLocked() {
+		lockFlags |= _MF_CHECKED
+	}
+	procAppendMenuW.Call(hMenu, lockFlags, _FLOAT_MENU_LOCK, uintptr(unsafe.Pointer(lockText)))
 
 	// --- Hide button ---
 	hideText, _ := windows.UTF16PtrFromString(T("floating.hide"))
