@@ -7,11 +7,23 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/whispaste/whispaste/internal/i18n"
 )
+
+var multiSpace = regexp.MustCompile(`\s{2,}`)
+
+// normalizeTranscription removes artificial line breaks that whisper inserts
+// at segment boundaries and collapses resulting multi-spaces.
+func normalizeTranscription(text string) string {
+	text = strings.ReplaceAll(text, "\r\n", " ")
+	text = strings.ReplaceAll(text, "\n", " ")
+	text = multiSpace.ReplaceAllString(text, " ")
+	return strings.TrimSpace(text)
+}
 
 // smartModePresets maps preset names to system prompts.
 var smartModePresets = map[string]string{

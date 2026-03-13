@@ -413,5 +413,5 @@ func (s *LocalSTT) Transcribe(wavData []byte, lang string) (string, error) {
 		return "", fmt.Errorf("decode response: %w", err)
 	}
 
-	return strings.TrimSpace(result.Text), nil
+	return normalizeTranscription(result.Text), nil
 }
