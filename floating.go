@@ -43,11 +43,14 @@ const (
 	_FLOAT_MENU_SETTINGS   = 3
 	_FLOAT_MENU_HIDE       = 4
 	_FLOAT_MENU_QUIT       = 5
+	_FLOAT_MENU_RECORD     = 6
+	_FLOAT_MENU_PREVIEW    = 7
 
 	// Win32 menu constants
 	_MF_STRING       = 0x0000
 	_MF_SEPARATOR    = 0x0800
 	_MF_CHECKED      = 0x0008
+	_MF_GRAYED       = 0x0001
 	_TPM_RIGHTBUTTON = 0x0002
 
 	// Non-client messages (needed because HTCAPTION consumes LBUTTONxx/RBUTTONxx)
@@ -179,6 +182,12 @@ type FloatingButton struct {
 	onQuit           func()
 	onSmartToggled   func(bool)
 	onHide           func() // called when user hides via context menu
+	onToggle         func() // start/stop recording toggle
+
+	// Menu state providers (called at menu-open time)
+	getState      func() AppState
+	getHotkeyStr  func() string
+	getLatestText func() string
 
 	hovered       bool
 	tracking      bool
@@ -420,6 +429,33 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			if cb != nil {
 				go cb()
 			}
+		case _FLOAT_MENU_RECORD:
+			cb := func() func() {
+				fb.mu.Lock()
+				defer fb.mu.Unlock()
+				return fb.onToggle
+			}()
+			if cb != nil {
+				go cb()
+			}
+		case _FLOAT_MENU_PREVIEW:
+			// Copy latest transcription to clipboard
+			cb := func() func() string {
+				fb.mu.Lock()
+				defer fb.mu.Unlock()
+				return fb.getLatestText
+			}()
+			if cb != nil {
+				go func() {
+					if text := cb(); text != "" {
+						if err := writeClipboard(text); err != nil {
+							logWarn("Menu preview copy failed: %v", err)
+						} else {
+							logInfo("Copied last transcription from menu (%d chars)", len(text))
+						}
+					}
+				}()
+			}
 		}
 		return 0
 
@@ -524,6 +560,16 @@ func (fb *FloatingButton) SetCallbacks(onStart func(), onOpenWindow func(string)
 	fb.onQuit = onQuit
 	fb.onSmartToggled = onSmartToggled
 	fb.onHide = onHide
+}
+
+// SetMenuCallbacks sets the state-provider callbacks for the context menu.
+func (fb *FloatingButton) SetMenuCallbacks(onToggle func(), getState func() AppState, getHotkeyStr func() string, getLatestText func() string) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	fb.onToggle = onToggle
+	fb.getState = getState
+	fb.getHotkeyStr = getHotkeyStr
+	fb.getLatestText = getLatestText
 }
 
 // Show displays the floating button.
@@ -935,7 +981,67 @@ func (fb *FloatingButton) showContextMenu(hwnd uintptr) {
 		return
 	}
 
-	// Smart Mode toggle (checked when active)
+	// Snapshot state providers under lock
+	var getState func() AppState
+	var getHotkeyStr func() string
+	var getLatestText func() string
+	func() {
+		fb.mu.Lock()
+		defer fb.mu.Unlock()
+		getState = fb.getState
+		getHotkeyStr = fb.getHotkeyStr
+		getLatestText = fb.getLatestText
+	}()
+
+	// --- Status line (disabled/grayed, informational) ---
+	statusKey := "floating.status_ready"
+	appState := StateIdle
+	if getState != nil {
+		appState = getState()
+	}
+	switch appState {
+	case StateRecording, StatePaused:
+		statusKey = "floating.status_record"
+	case StateTranscribing, StateProcessing:
+		statusKey = "floating.status_working"
+	}
+	statusText, _ := windows.UTF16PtrFromString("● " + T(statusKey))
+	procAppendMenuW.Call(hMenu, _MF_STRING|_MF_GRAYED, 0, uintptr(unsafe.Pointer(statusText)))
+
+	// --- Last transcription preview (click to copy) ---
+	var previewFull string
+	if getLatestText != nil {
+		previewFull = getLatestText()
+	}
+	if previewFull != "" {
+		preview := truncateRunes(previewFull, 35)
+		previewLabel := fmt.Sprintf(T("floating.last_text"), preview)
+		previewPtr, _ := windows.UTF16PtrFromString(previewLabel)
+		procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_PREVIEW, uintptr(unsafe.Pointer(previewPtr)))
+	}
+
+	procAppendMenuW.Call(hMenu, _MF_SEPARATOR, 0, 0)
+
+	// --- Start/Stop Recording + hotkey shortcut ---
+	isRecording := appState == StateRecording || appState == StatePaused
+	recordKey := "tray.start_record"
+	if isRecording {
+		recordKey = "tray.stop_record"
+	}
+	recordLabel := T(recordKey)
+	if getHotkeyStr != nil {
+		if hk := getHotkeyStr(); hk != "" {
+			recordLabel += "\t" + hk
+		}
+	}
+	recordPtr, _ := windows.UTF16PtrFromString(recordLabel)
+	recordFlags := uintptr(_MF_STRING)
+	if appState == StateTranscribing || appState == StateProcessing {
+		recordFlags |= _MF_GRAYED
+	}
+	procAppendMenuW.Call(hMenu, recordFlags, _FLOAT_MENU_RECORD, uintptr(unsafe.Pointer(recordPtr)))
+
+	// --- Smart Mode toggle ---
 	smartText, _ := windows.UTF16PtrFromString(T("tray.smart_mode"))
 	smartFlags := uintptr(_MF_STRING)
 	if fb.cfg.GetSmartMode() {
@@ -945,21 +1051,21 @@ func (fb *FloatingButton) showContextMenu(hwnd uintptr) {
 
 	procAppendMenuW.Call(hMenu, _MF_SEPARATOR, 0, 0)
 
-	// Dashboard
+	// --- Dashboard ---
 	dashText, _ := windows.UTF16PtrFromString(T("tray.notebook"))
 	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_DASHBOARD, uintptr(unsafe.Pointer(dashText)))
 
-	// Settings
+	// --- Settings ---
 	settingsText, _ := windows.UTF16PtrFromString(T("tray.settings"))
 	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_SETTINGS, uintptr(unsafe.Pointer(settingsText)))
 
 	procAppendMenuW.Call(hMenu, _MF_SEPARATOR, 0, 0)
 
-	// Hide button
+	// --- Hide button ---
 	hideText, _ := windows.UTF16PtrFromString(T("floating.hide"))
 	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_HIDE, uintptr(unsafe.Pointer(hideText)))
 
-	// Quit
+	// --- Quit ---
 	quitText, _ := windows.UTF16PtrFromString(T("tray.quit"))
 	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_QUIT, uintptr(unsafe.Pointer(quitText)))
 
