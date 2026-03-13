@@ -132,6 +132,7 @@
   background: var(--bg-primary);
 }
 .filter-sidebar::-webkit-scrollbar { width: 4px; }
+.filter-sidebar::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 4px; }
 
 /* Sidebar resize handle */
 .sidebar-resize-handle {
@@ -448,10 +449,20 @@
 }
 .filter-item:hover { background: var(--bg-hover); color: var(--text); }
 .filter-item.active {
-  background: var(--accent-subtle);
+  background: color-mix(in srgb, var(--accent), transparent 92%);
   color: var(--accent);
   font-weight: 600;
-  border: 1px solid var(--border-accent);
+  position: relative;
+}
+.filter-item.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
 }
 .filter-item .icon { width: 14px; height: 14px; }
 
