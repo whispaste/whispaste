@@ -155,6 +155,7 @@ func main() {
 		tray             *AppTray           // set after creation, used by transition
 		showDashboard    func()             // opens main window, set after onSettingsSaved is defined
 		showMainPage     func(string)       // opens main window at specific page
+		settingsSaved    func()             // refreshes UI after config changes, set after onSettingsSaved is defined
 	)
 
 	// Snapshot config values under lock to avoid data races
@@ -897,6 +898,11 @@ func main() {
 					})
 				}
 			},
+			func() { // onHide - sync WebView settings after context menu hide
+				if settingsSaved != nil {
+					settingsSaved()
+				}
+			},
 		)
 		// Show the button initially if enabled and onboarding is complete
 		if cfg.GetFloatingButtonEnabled() && cfg.GetOnboardingDone() {
@@ -1019,6 +1025,7 @@ func main() {
 			logWarn("Hotkey re-registration failed: %v", err)
 		}
 	}
+	settingsSaved = onSettingsSaved
 
 	// Initialize updater
 	updater := NewUpdater(AppVersion, cfg.GetCheckUpdates, cfg.GetUpdateChannel)
