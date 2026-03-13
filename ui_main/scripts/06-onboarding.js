@@ -114,6 +114,7 @@ async function selectOnboardingOption(choice) {
       setTimeout(() => onbTestApiKey(), 150);
     }
   } else if (choice === 'local') {
+    await onbRenderModelCards();
     await onbRefreshPreflight();
     await onbCheckModelStatus();
     if (nextBtn) nextBtn.disabled = !!_onbPreflight?.blocking || !_onbModelReady;
@@ -197,6 +198,36 @@ function onbUpdateModelUI() {
   document.querySelectorAll('.onb-model-card').forEach(card => {
     card.classList.toggle('selected', card.dataset.modelId === _onbModelId);
   });
+}
+
+async function onbRenderModelCards() {
+  const container = document.getElementById('onbModelCards');
+  if (!container || !window._getModels) return;
+  try {
+    const allModels = await window._getModels();
+    const rec = allModels.find(m => m.recommended);
+    if (rec) _onbModelId = rec.id;
+
+    const qualityLabels = {
+      1: t('modelQualityBasic'),
+      2: t('modelQualityGood'),
+      3: t('modelQualityGreat'),
+      4: t('modelQualityExcellent'),
+      5: t('modelQualityBest')
+    };
+    container.innerHTML = allModels.map(m => {
+      const selected = m.id === _onbModelId ? ' selected' : '';
+      const recBadge = m.recommended ? ` · <span>${esc(t('onboarding.model_recommended'))}</span>` : '';
+      const ql = qualityLabels[m.quality] || '';
+      return `<div class="onb-model-card${selected}" data-model-id="${esc(m.id)}" tabindex="0" role="button" onclick="onbSelectModel('${esc(m.id)}')">
+        <div class="onb-model-card-name">${esc(m.name)}</div>
+        <div class="onb-model-card-meta">${esc(m.size)}${recBadge}</div>
+        <div class="onb-model-card-desc">${esc(ql)}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    // Fallback: keep container empty, user can still proceed
+  }
 }
 
 async function onbSelectModel(modelId) {
