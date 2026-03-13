@@ -921,7 +921,10 @@ func main() {
 				if started {
 					transition(StateRecording)
 				} else if s == StateRecording || s == StatePaused {
-					transition(StateIdle)
+					if recorder.IsPaused() {
+						recorder.Resume()
+					}
+					transition(StateTranscribing)
 				}
 			},
 			func() AppState { // getState

@@ -551,7 +551,6 @@ func (t *AppTray) onReady() {
 
 	systray.AddSeparator()
 	t.mUpdate = systray.AddMenuItem(T("update.check"), T("update.check"))
-	t.mUpdate.Hide()
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem(T("tray.quit"), T("tray.quit"))
 
