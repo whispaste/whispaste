@@ -197,9 +197,22 @@ function renderHistory() {
 
   // Bind entry click to expand/collapse
   list.querySelectorAll('.entry').forEach(el => {
-    el.addEventListener('click', (ev) => {
+    el.addEventListener('click', async (ev) => {
       if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea') || ev.target.closest('.entry-full-text') || ev.target.closest('.project-badge')) return;
       const id = el.dataset.id;
+      // Pending entries: click triggers re-transcription instead of expand
+      if (el.classList.contains('pending') && !_pendingRetryInFlight) {
+        _pendingRetryInFlight = true;
+        const hasAudio = window.hasAudio ? await window.hasAudio(id).catch(() => false) : false;
+        if (hasAudio) {
+          const hint = el.querySelector('.pending-hint');
+          if (hint) {
+            doReTranscribe(id, hint);
+            return;
+          }
+        }
+        _pendingRetryInFlight = false;
+      }
       _expandedId = _expandedId === id ? null : id;
       renderHistory();
     });
