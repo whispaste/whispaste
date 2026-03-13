@@ -840,12 +840,11 @@ func (fb *FloatingButton) render() {
 		return fb.hovered, fb.opacity
 	}()
 
-	a := uint32(alpha)
 	preset := getFloatPreset(fb.cfg.GetFloatingButtonColor())
 
 	// Outer glow (semi-transparent accent ring behind the circle)
-	glowAlpha := a * 40 / 255 // subtle glow
-	glowColor := (glowAlpha << 24) | (preset.Top & 0x00FFFFFF)
+	// Design alpha: 40/255 ≈ 16% — applied via per-pixel alpha
+	glowColor := (uint32(40) << 24) | (preset.Top & 0x00FFFFFF)
 	var glowBrush uintptr
 	procGdipCreateSolidFill.Call(uintptr(glowColor), uintptr(unsafe.Pointer(&glowBrush)))
 	if glowBrush != 0 {
@@ -854,8 +853,8 @@ func (fb *FloatingButton) render() {
 	}
 
 	// Shadow (offset 2px down-right, drawn within glow area)
-	shadowAlpha := a * 48 / 255
-	shadowColor := shadowAlpha << 24
+	// Design alpha: 48/255 ≈ 19%
+	shadowColor := uint32(48) << 24
 	var shadowBrush uintptr
 	procGdipCreateSolidFill.Call(uintptr(shadowColor), uintptr(unsafe.Pointer(&shadowBrush)))
 	if shadowBrush != 0 {
@@ -864,12 +863,11 @@ func (fb *FloatingButton) render() {
 	}
 
 	// Main circle with 135° gradient (top-left → bottom-right)
+	// Presets already carry alpha 0xFF — use directly for full-opacity pixel data
 	topClr, botClr := preset.Top, preset.Bottom
 	if hovered {
 		topClr, botClr = preset.HoverTop, preset.HoverBot
 	}
-	topClr = (a << 24) | (topClr & 0x00FFFFFF)
-	botClr = (a << 24) | (botClr & 0x00FFFFFF)
 
 	// GdipCreateLineBrushFromRectI uses a rect + LinearGradientMode
 	// For 135° we use ForwardDiagonal (mode=2)
@@ -891,8 +889,7 @@ func (fb *FloatingButton) render() {
 
 	// Optional accent border ring
 	if fb.cfg.GetFloatingButtonBorder() {
-		borderAlpha := uint32(a) * 200 / 255
-		borderColor := (borderAlpha << 24) | 0x00FFFFFF // white ring
+		borderColor := (uint32(200) << 24) | 0x00FFFFFF // white ring, design alpha 200/255
 		var borderPen uintptr
 		procGdipCreatePen1.Call(uintptr(borderColor), f32(2.0), 2, uintptr(unsafe.Pointer(&borderPen)))
 		if borderPen != 0 {
@@ -901,14 +898,16 @@ func (fb *FloatingButton) render() {
 		}
 	}
 
-	// Mic icon
-	fb.drawMicIcon(g, a)
+	// Mic icon (full opacity in pixel data)
+	fb.drawMicIcon(g, 255)
 
-	// UpdateLayeredWindow
+	// UpdateLayeredWindow — SourceConstantAlpha controls the user's opacity setting.
+	// Per-pixel alpha (AC_SRC_ALPHA) handles the circle shape / glow / shadow design.
+	// Both combine: effective alpha = pixel_alpha × SourceConstantAlpha / 255.
 	blend := blendFunction{
-		BlendOp:             0, // AC_SRC_OVER
-		SourceConstantAlpha: 255,
-		AlphaFormat:         1, // AC_SRC_ALPHA
+		BlendOp:             0,     // AC_SRC_OVER
+		SourceConstantAlpha: alpha, // user's configured opacity (0–255)
+		AlphaFormat:         1,     // AC_SRC_ALPHA
 	}
 	ptSrc := pointT{0, 0}
 	ulsz := sizeT{int32(sz), int32(sz)}
