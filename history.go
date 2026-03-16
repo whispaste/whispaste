@@ -51,6 +51,8 @@ type analyticsCache struct {
 // History manages transcription history backed by SQLite.
 type History struct {
 	db            *sql.DB
+	realDb        *sql.DB                // saved real DB when demo mode is active
+	demoMode      bool                   // true when demo mode is active
 	mu            sync.Mutex
 	cache         map[int]*analyticsCache // keyed by periodDays
 	lastAuditTime time.Time
@@ -763,6 +765,12 @@ func (h *History) DuplicateEntry(id string) bool {
 
 // Close closes the underlying database connection.
 func (h *History) Close() {
+	if h.demoMode && h.realDb != nil {
+		h.db.Close()
+		h.db = h.realDb
+		h.realDb = nil
+		h.demoMode = false
+	}
 	if h.db != nil {
 		h.db.Close()
 	}
