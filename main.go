@@ -903,6 +903,16 @@ func main() {
 					settingsSaved()
 				}
 			},
+			func() { // onConfigChanged - push config changes to WebView
+				mainWindowMu.Lock()
+				wv := mainWebview
+				mainWindowMu.Unlock()
+				if wv != nil {
+					wv.Dispatch(func() {
+						wv.Eval("if(typeof window.refreshFromConfig==='function')window.refreshFromConfig()")
+					})
+				}
+			},
 		)
 		floatingBtn.SetMenuCallbacks(
 			func() { // onToggle - start/stop recording
@@ -1067,6 +1077,15 @@ func main() {
 		hkMgr = NewHotkeyManager(cfg, onHotkeyDown, onHotkeyUp)
 		if err := hkMgr.Start(); err != nil {
 			logWarn("Hotkey re-registration failed: %v", err)
+		}
+		// Push config changes to WebView (idempotent — safe even when triggered from WebView)
+		mainWindowMu.Lock()
+		wv := mainWebview
+		mainWindowMu.Unlock()
+		if wv != nil {
+			wv.Dispatch(func() {
+				wv.Eval("if(typeof window.refreshFromConfig==='function')window.refreshFromConfig()")
+			})
 		}
 	}
 	settingsSaved = onSettingsSaved
