@@ -200,10 +200,11 @@ type FloatingButton struct {
 	getHotkeyStr  func() string
 	getLatestText func() string
 
-	hovered        bool
-	hoverCheckTick int // counts timer ticks for safety-net cursor check
-	opacity        byte
-	targetOpacity  byte
+	hovered             bool
+	lastRenderedHovered bool // tracks hover state of the current bitmap content
+	hoverCheckTick      int  // counts timer ticks for safety-net cursor check
+	opacity             byte
+	targetOpacity       byte
 	dragStartX     int32 // window X at start of potential drag
 	dragStartY     int32 // window Y at start of potential drag
 	size           int   // current diameter in pixels (cached from config)
@@ -287,12 +288,20 @@ func (fb *FloatingButton) enterHover(hwnd uintptr, nonclient bool) {
 // leaveHover is called on WM_MOUSELEAVE / WM_NCMOUSELEAVE.
 // It verifies with cursorInWindow() before toggling state because
 // UpdateLayeredWindow triggers spurious leave events on layered windows.
+// During active opacity animation, leave events are deferred to the
+// safety-net cursor check to prevent flicker from rapid state toggling.
 func (fb *FloatingButton) leaveHover() {
 	if fb.cursorInWindow() {
 		return // spurious leave — cursor is still on the button
 	}
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
+	// During active animation, defer leave detection to the safety-net
+	// cursor check. ULW triggers spurious WM_NCMOUSELEAVE on every call,
+	// and processing them mid-animation can cause visible state oscillation.
+	if fb.opacity != fb.targetOpacity {
+		return
+	}
 	fb.hovered = false
 	fb.targetOpacity = fb.idleOpacity()
 }
@@ -390,10 +399,10 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 	case _WM_TIMER:
 		if wParam == _FLOAT_TIMER_ID {
-			target, current := func() (byte, byte) {
+			target, current, needRedraw := func() (byte, byte, bool) {
 				fb.mu.Lock()
 				defer fb.mu.Unlock()
-				return fb.targetOpacity, fb.opacity
+				return fb.targetOpacity, fb.opacity, fb.hovered != fb.lastRenderedHovered
 			}()
 
 			if current != target {
@@ -418,7 +427,13 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 					defer fb.mu.Unlock()
 					fb.opacity = current
 				}()
-				fb.render()
+				if needRedraw {
+					// Hover state changed — full GDI+ redraw for gradient colors
+					fb.render()
+				} else {
+					// Same content, only alpha changed — lightweight ULW update
+					fb.updateAlpha(current)
+				}
 			} else {
 				// Opacity stable — decide whether to keep or kill timer.
 				killTimer, doCheck := func() (bool, bool) {
@@ -588,6 +603,7 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			fb.mu.Lock()
 			defer fb.mu.Unlock()
 			fb.hovered = false
+			fb.lastRenderedHovered = false
 			fb.hoverCheckTick = 0
 			idle := fb.idleOpacity()
 			fb.opacity = idle
@@ -889,6 +905,7 @@ func (fb *FloatingButton) render() {
 	hovered, alpha := func() (bool, byte) {
 		fb.mu.Lock()
 		defer fb.mu.Unlock()
+		fb.lastRenderedHovered = fb.hovered
 		return fb.hovered, fb.opacity
 	}()
 
@@ -968,6 +985,35 @@ func (fb *FloatingButton) render() {
 		fb.hwnd,
 		0,
 		0, // keep position
+		uintptr(unsafe.Pointer(&ulsz)),
+		fb.dibDC,
+		uintptr(unsafe.Pointer(&ptSrc)),
+		0,
+		uintptr(unsafe.Pointer(&blend)),
+		2, // ULW_ALPHA
+	)
+}
+
+// updateAlpha calls UpdateLayeredWindow with the existing bitmap content
+// but a new SourceConstantAlpha. Used during hover animation when only
+// opacity changes — avoids the full GDI+ clear+redraw cycle that can
+// cause visual artifacts on some systems/DWM configurations.
+func (fb *FloatingButton) updateAlpha(alpha byte) {
+	if fb.dibDC == 0 {
+		return
+	}
+	sz := fb.getSize()
+	blend := blendFunction{
+		BlendOp:             0,     // AC_SRC_OVER
+		SourceConstantAlpha: alpha,
+		AlphaFormat:         1,     // AC_SRC_ALPHA
+	}
+	ptSrc := pointT{0, 0}
+	ulsz := sizeT{int32(sz), int32(sz)}
+	procUpdateLayeredWindow.Call(
+		fb.hwnd,
+		0,
+		0,
 		uintptr(unsafe.Pointer(&ulsz)),
 		fb.dibDC,
 		uintptr(unsafe.Pointer(&ptSrc)),
