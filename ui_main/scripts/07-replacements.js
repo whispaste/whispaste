@@ -144,7 +144,7 @@ function updateReplacementsVisibility() {
     `;
     overlay.classList.add('show');
 
-    setTimeout(() => {
+    setTimeout(() => { // DevSkim: ignore DS172411 — constant delay, safe callback
       const inp = document.getElementById('repl-trigger-input');
       if (inp) inp.focus();
     }, 100);

@@ -426,7 +426,7 @@ function _initAnalyticsResize() {
   let resizeTimer = null;
   _analyticsResizeObserver = new ResizeObserver(() => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
+    resizeTimer = setTimeout(() => { // DevSkim: ignore DS172411 — debounce with constant delay
       if (_analyticsData) _fitDailyChart(container, _analyticsData.dailyCounts, _analyticsData.dailyModelCounts);
     }, 150);
   });

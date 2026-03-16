@@ -337,7 +337,7 @@ function testSound() {
 function autoSave() {
   if (!_configLoaded) return;
   clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(() => saveSettings(), DEBOUNCE_MS);
+  _autoSaveTimer = setTimeout(() => saveSettings(), DEBOUNCE_MS); // DevSkim: ignore DS172411 — debounce with constant delay
 }
 
 /* ── Save Settings ────────────────────────────────────── */

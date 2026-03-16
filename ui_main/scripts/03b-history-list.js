@@ -93,7 +93,7 @@ function updateCounts() {
           const bottomBtn = document.getElementById('sidebarAddTag');
           if (bottomBtn) {
             bottomBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            setTimeout(() => bottomBtn.click(), 200);
+            setTimeout(() => bottomBtn.click(), 200); // DevSkim: ignore DS172411 — constant delay, safe callback
           }
         };
       }
