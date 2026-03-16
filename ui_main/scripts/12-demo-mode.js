@@ -6,6 +6,18 @@ let _demoClickCount = 0;
 let _demoClickTimer = null;
 
 function initDemoMode() {
+  // Block in Store package builds
+  if (window.isStorePackage) {
+    window.isStorePackage().then(store => {
+      if (store) return;
+      _setupDemoClickListener();
+    });
+  } else {
+    _setupDemoClickListener();
+  }
+}
+
+function _setupDemoClickListener() {
   const versionEl = document.getElementById('about-version');
   if (!versionEl) return;
 

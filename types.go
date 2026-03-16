@@ -36,7 +36,7 @@ const (
 const AppName = "WhisPaste"
 
 // AppVersion is set via -ldflags "-X main.AppVersion=x.y.z" at build time.
-var AppVersion = "1.2.0"
+var AppVersion = "1.1.1"
 
 // BuildCommit is the git commit hash, injected via -ldflags at build time.
 var BuildCommit = ""
