@@ -77,6 +77,27 @@ func TestBuildSmartPrompt(t *testing.T) {
 	}
 }
 
+func TestStripThinkBlocks(t *testing.T) {
+	tests := []struct {
+		name, input, want string
+	}{
+		{"no think block", "Hello world", "Hello world"},
+		{"single think block", "<think>internal reasoning</think>The answer is 42.", "The answer is 42."},
+		{"multiline think", "<think>\nstep 1\nstep 2\n</think>\nClean result", "Clean result"},
+		{"multiple blocks", "<think>a</think>Middle<think>b</think>End", "MiddleEnd"},
+		{"only think block", "<think>reasoning only</think>", ""},
+		{"nested tags", "<think>some <inner> tags</think>Result", "Result"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := stripThinkBlocks(tt.input)
+			if got != tt.want {
+				t.Errorf("stripThinkBlocks(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPostProcessHTTP(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer test-key" {
@@ -130,5 +151,33 @@ func TestGetBuiltinPresets(t *testing.T) {
 		if _, ok := presets[name]; !ok {
 			t.Errorf("missing builtin preset %q", name)
 		}
+	}
+}
+
+func TestNormalizeTranscription(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"no newlines", "Hello world", "Hello world"},
+		{"single newline", "Hello\nworld", "Hello world"},
+		{"multiple newlines", "Hello\nbeautiful\nworld", "Hello beautiful world"},
+		{"crlf", "Hello\r\nworld", "Hello world"},
+		{"mixed newlines", "Hello\r\nbeautiful\nworld", "Hello beautiful world"},
+		{"leading trailing whitespace", "  Hello world  ", "Hello world"},
+		{"multi spaces collapsed", "Hello   world", "Hello world"},
+		{"newline creates double space", "Hello \n world", "Hello world"},
+		{"empty string", "", ""},
+		{"only newlines", "\n\n\n", ""},
+		{"tabs collapsed", "Hello\t\tworld", "Hello world"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeTranscription(tt.in)
+			if got != tt.want {
+				t.Errorf("normalizeTranscription(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
 	}
 }

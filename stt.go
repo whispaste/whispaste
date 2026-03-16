@@ -100,7 +100,7 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 
 	if s.running {
 		if s.modelPath == modelPath {
-			return fmt.Sprintf("http://127.0.0.1:%d", s.port), nil
+			return fmt.Sprintf("http://%s:%d", loopbackHost, s.port), nil // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 		}
 		logInfo("STT model changed, restarting whisper-server")
 		s.stopLocked()
@@ -117,7 +117,7 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 		return "", err
 	}
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", loopbackHost+":0")
 	if err != nil {
 		return "", fmt.Errorf("find free port: %w", err)
 	}
@@ -127,7 +127,7 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 	threads := sttThreadCount()
 	cmd := exec.Command(serverPath,
 		"--model", modelPath,
-		"--host", "127.0.0.1",
+		"--host", loopbackHost,
 		"--port", fmt.Sprintf("%d", port),
 		"--threads", fmt.Sprintf("%d", threads),
 	)
@@ -153,7 +153,7 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 		waitCh <- cmd.Wait()
 	}(waitCh)
 
-	endpoint := fmt.Sprintf("http://127.0.0.1:%d", port)
+	endpoint := fmt.Sprintf("http://%s:%d", loopbackHost, port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 	if err := s.waitReady(port); err != nil {
 		s.stopLocked()
 		return "", fmt.Errorf("whisper-server not ready: %w", err)
@@ -164,7 +164,7 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 }
 
 func (s *LocalSTT) waitReady(port int) error {
-	healthURL := fmt.Sprintf("http://127.0.0.1:%d/health", port)
+	healthURL := fmt.Sprintf("http://%s:%d/health", loopbackHost, port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 	client := &http.Client{Timeout: 2 * time.Second}
 	lastErr := ""
 	for i := 0; i < 120; i++ {
@@ -339,7 +339,7 @@ func (s *LocalSTT) Endpoint() string {
 	if !s.running {
 		return ""
 	}
-	return fmt.Sprintf("http://127.0.0.1:%d", s.port)
+	return fmt.Sprintf("http://%s:%d", loopbackHost, s.port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 }
 
 // sttThreadCount returns the optimal thread count for whisper-server.
@@ -385,7 +385,7 @@ func (s *LocalSTT) Transcribe(wavData []byte, lang string) (string, error) {
 		return "", fmt.Errorf("close multipart writer: %w", err)
 	}
 
-	url := fmt.Sprintf("http://127.0.0.1:%d/inference", port)
+	url := fmt.Sprintf("http://%s:%d/inference", loopbackHost, port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 	logDebug("STT inference request: port=%d wavBytes=%d lang=%s", port, len(wavData), lang)
 	start := time.Now()
 
@@ -413,5 +413,5 @@ func (s *LocalSTT) Transcribe(wavData []byte, lang string) (string, error) {
 		return "", fmt.Errorf("decode response: %w", err)
 	}
 
-	return strings.TrimSpace(result.Text), nil
+	return normalizeTranscription(result.Text), nil
 }

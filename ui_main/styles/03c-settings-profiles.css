@@ -92,6 +92,23 @@
   color: var(--error);
 }
 
+.model-badge-rec {
+  background: var(--accent-bg, rgba(99, 102, 241, 0.12));
+  color: var(--accent, #818cf8);
+  font-size: 0.7rem;
+}
+
+.model-quality {
+  margin-left: 6px;
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
+  letter-spacing: 1px;
+}
+
+.model-item.recommended {
+  border-color: var(--accent, #818cf8);
+}
+
 .model-warning {
   margin-top: 8px;
   font-size: 0.76rem;
