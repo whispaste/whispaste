@@ -343,7 +343,7 @@ func (u *Updater) Apply(info *UpdateInfo) error {
 	}
 
 	if err := u.replaceBinary(exePath, stagedPath); err != nil {
-		return fmt.Errorf("replace exe (if installed in a protected location, please reinstall from whispaste.com): %w", err)
+		return fmt.Errorf("replace exe (if installed in a protected location, please reinstall from whispaste.de): %w", err)
 	}
 
 	logInfo("Update applied: %s → %s (restart to activate)", u.currentVersion, info.Version)
