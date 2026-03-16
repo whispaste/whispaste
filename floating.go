@@ -195,7 +195,6 @@ type FloatingButton struct {
 	getLatestText func() string
 
 	hovered       bool
-	tracking      bool
 	opacity       byte
 	targetOpacity byte
 	dragStartX    int32 // window X at start of potential drag
@@ -257,19 +256,6 @@ func (fb *FloatingButton) enterHover(hwnd uintptr, nonclient bool) {
 		was := fb.hovered
 		fb.hovered = true
 		fb.targetOpacity = _FLOAT_OPACITY_HOVER
-		if !fb.tracking {
-			fb.tracking = true
-			flags := uintptr(_TME_LEAVE)
-			if nonclient {
-				flags |= _TME_NONCLIENT
-			}
-			tme := trackMouseEventT{
-				CbSize:    uint32(unsafe.Sizeof(trackMouseEventT{})),
-				DwFlags:   uint32(flags),
-				HwndTrack: hwnd,
-			}
-			procTrackMouseEvent.Call(uintptr(unsafe.Pointer(&tme)))
-		}
 		return was
 	}()
 	if !wasHovered {
@@ -277,17 +263,10 @@ func (fb *FloatingButton) enterHover(hwnd uintptr, nonclient bool) {
 	}
 }
 
-// leaveHover clears the hovered state after verifying the cursor is truly outside.
-func (fb *FloatingButton) leaveHover() {
-	if fb.cursorInWindow() {
-		return // spurious leave — cursor is still inside (UpdateLayeredWindow artifact)
-	}
-	fb.mu.Lock()
-	defer fb.mu.Unlock()
-	fb.hovered = false
-	fb.tracking = false
-	fb.targetOpacity = fb.idleOpacity()
-}
+// leaveHover is intentionally a no-op. Hover-leave detection is handled
+// by the timer via cursorInWindow() to avoid flickering caused by spurious
+// WM_MOUSELEAVE events that UpdateLayeredWindow triggers on layered windows.
+func (fb *FloatingButton) leaveHover() {}
 
 func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	fb := globalFloating
@@ -382,9 +361,21 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 	case _WM_TIMER:
 		if wParam == _FLOAT_TIMER_ID {
+			// Authoritative hover detection: check actual cursor position
+			// instead of relying on WM_MOUSELEAVE which fires spuriously
+			// after UpdateLayeredWindow on layered windows.
+			inWindow := fb.cursorInWindow()
+
 			target, current := func() (byte, byte) {
 				fb.mu.Lock()
 				defer fb.mu.Unlock()
+				if inWindow && !fb.hovered {
+					fb.hovered = true
+					fb.targetOpacity = _FLOAT_OPACITY_HOVER
+				} else if !inWindow && fb.hovered {
+					fb.hovered = false
+					fb.targetOpacity = fb.idleOpacity()
+				}
 				return fb.targetOpacity, fb.opacity
 			}()
 
@@ -551,6 +542,14 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	case _WM_FLOAT_HIDE:
 		procShowWindow.Call(hwnd, uintptr(_SW_HIDE))
 		procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
+		func() {
+			fb.mu.Lock()
+			defer fb.mu.Unlock()
+			fb.hovered = false
+			idle := fb.idleOpacity()
+			fb.opacity = idle
+			fb.targetOpacity = idle
+		}()
 		return 0
 
 	case _WM_FLOAT_RERENDER:
