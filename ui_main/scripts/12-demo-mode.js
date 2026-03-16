@@ -56,17 +56,14 @@ async function handleDemoToggle(checked) {
     return;
   }
 
-  // Reload data on the history page
-  if (typeof loadEntries === 'function') await loadEntries();
-  if (typeof loadProjects === 'function') await loadProjects();
-
-  // Show a brief notification
+  // Show toast notification
   const msg = checked
     ? (window._lang === 'de' ? 'Demo-Modus aktiviert' : 'Demo mode enabled')
     : (window._lang === 'de' ? 'Demo-Modus deaktiviert' : 'Demo mode disabled');
-  if (typeof showToast === 'function') {
-    showToast(msg);
-  }
+  if (typeof showToast === 'function') showToast(msg);
+
+  // Switch to history page so user sees demo data immediately
+  if (typeof switchPage === 'function') switchPage('history');
 }
 
 // Initialize on DOMContentLoaded (called from 05-init.js flow)
