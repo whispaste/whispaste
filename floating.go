@@ -66,6 +66,10 @@ const (
 
 	// DPI change
 	_WM_DPICHANGED = 0x02E0
+
+	// Timer for periodic topmost re-assertion
+	_FLOAT_TIMER_ID = 2    // distinct from overlay's _TIMER_ID=1
+	_FLOAT_TIMER_MS = 2000 // re-assert topmost every 2 seconds
 )
 
 // Win32 structs for floating button
@@ -422,10 +426,13 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		const _HWND_TOPMOST = ^uintptr(0)
 		procSetWindowPos.Call(hwnd, _HWND_TOPMOST, 0, 0, 0, 0,
 			_SWP_NOMOVE|_SWP_NOSIZE|_SWP_NOACTIVATE|_SWP_SHOWWINDOW)
+		// Start periodic topmost re-assertion timer
+		procSetTimer.Call(hwnd, _FLOAT_TIMER_ID, _FLOAT_TIMER_MS, 0)
 		fb.render()
 		return 0
 
 	case _WM_FLOAT_HIDE:
+		procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
 		procShowWindow.Call(hwnd, uintptr(_SW_HIDE))
 		func() {
 			fb.mu.Lock()
@@ -451,11 +458,22 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		fb.render()
 		return 0
 
+	case _WM_TIMER:
+		// Periodic topmost re-assertion to prevent z-order loss
+		const _HWND_TOPMOST3 = ^uintptr(0)
+		const _SWP_NOMOVE3 = 0x0002
+		const _SWP_NOSIZE3 = 0x0001
+		const _SWP_NOACTIVATE3 = 0x0010
+		procSetWindowPos.Call(hwnd, _HWND_TOPMOST3, 0, 0, 0, 0,
+			_SWP_NOMOVE3|_SWP_NOSIZE3|_SWP_NOACTIVATE3)
+		return 0
+
 	case _WM_DPICHANGED:
 		fb.handleResize()
 		return 0
 
 	case _WM_DESTROY:
+		procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
 		if fb.dibDC != 0 {
 			procDeleteDC.Call(fb.dibDC)
 		}
