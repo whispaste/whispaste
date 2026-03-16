@@ -90,7 +90,7 @@ async function testRecording() {
         showStatus(res?.error || t('statusTestError'), 'error');
       }
     } else {
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 2000)); // DevSkim: ignore DS172411 — constant delay for UI feedback
       showStatus(t('statusTestDone'), 'success');
     }
   } catch (err) {

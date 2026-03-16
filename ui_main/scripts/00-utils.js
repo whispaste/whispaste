@@ -85,7 +85,7 @@ function showToast(msg, isError, duration) {
   t.onclick = () => { clearTimeout(t._toastTimer); t.classList.remove('show'); };
   const dur = duration !== undefined ? duration : 2200;
   if (dur > 0) {
-    t._toastTimer = setTimeout(() => t.classList.remove('show'), dur);
+    t._toastTimer = setTimeout(() => t.classList.remove('show'), dur); // DevSkim: ignore DS172411 — constant delay, safe callback
   }
   return t;
 }
@@ -98,9 +98,9 @@ function showStatus(msg, type) {
   el.textContent = msg;
   el.className = 'status-msg visible ' + type;
   clearTimeout(_statusTimeout);
-  _statusTimeout = setTimeout(() => {
+  _statusTimeout = setTimeout(() => { // DevSkim: ignore DS172411 — constant delay, safe callback
     el.classList.remove('visible');
-    setTimeout(() => { el.textContent = ''; }, 300);
+    setTimeout(() => { el.textContent = ''; }, 300); // DevSkim: ignore DS172411 — constant delay, safe callback
   }, 3000);
 }
 
@@ -218,9 +218,13 @@ window.refreshFromConfig = async function() {
     const raw = await window.getConfig();
     const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
     updateStatusBar(cfg);
-    // Sync smart mode toggle in settings if visible
-    const toggle = document.getElementById('toggle-smartmode');
-    if (toggle) toggle.checked = !!cfg.smart_mode;
+    // Full settings sync if settings page is loaded
+    if (typeof applyConfig === 'function') {
+      const prev = _configLoaded;
+      _configLoaded = false; // suppress autoSave during refresh
+      applyConfig(cfg);
+      _configLoaded = prev;
+    }
   } catch (e) {}
 };
 
@@ -244,7 +248,7 @@ async function updateConnectivityChip() {
 /** Navigate to settings page and scroll to a specific section */
 function scrollToSettingsSection(sectionId) {
   switchPage('settings');
-  setTimeout(() => {
+  setTimeout(() => { // DevSkim: ignore DS172411 — constant delay, safe callback
     document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 100);
 }

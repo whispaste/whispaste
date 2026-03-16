@@ -9,18 +9,25 @@ import (
 
 // getHitButton returns which button is at position (x, y) in logical overlay
 // coordinates: 1=dashboard, 2=cancel, 3=pause, 4=confirm, 0=none.
-// Cancel is always checked. When allButtons is true, dashboard/pause/confirm
-// are also checked (for recording/paused states).
-func getHitButton(x, y int32, allButtons bool) int {
-	if x >= _BTN_CANCEL_X && x <= _BTN_CANCEL_X+_BTN_SIZE &&
-		y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
-		return 2
-	}
-	if allButtons {
+// dashOnly=true enables only dashboard. dashCancel=true enables dashboard+cancel.
+// allButtons=true enables all four buttons (recording/paused only).
+func getHitButton(x, y int32, state AppState) int {
+	// Dashboard button — available in all non-idle states
+	if state != StateIdle {
 		if x >= _BTN_DASH_X && x <= _BTN_DASH_X+_BTN_SIZE &&
 			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
 			return 1
 		}
+	}
+	// Cancel button — available in recording, paused, transcribing, processing, error
+	if state == StateRecording || state == StatePaused || state == StateTranscribing || state == StateProcessing || state == StateError {
+		if x >= _BTN_CANCEL_X && x <= _BTN_CANCEL_X+_BTN_SIZE &&
+			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
+			return 2
+		}
+	}
+	// Pause and Confirm buttons — only in recording/paused states
+	if state == StateRecording || state == StatePaused {
 		if x >= _BTN_PAUSE_X && x <= _BTN_PAUSE_X+_BTN_SIZE &&
 			y >= _BTN_Y && y <= _BTN_Y+_BTN_SIZE {
 			return 3
@@ -57,7 +64,7 @@ func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		o.mu.Lock()
 		st := o.state
 		o.mu.Unlock()
-		if st == StateRecording || st == StatePaused || st == StateTranscribing || st == StateProcessing {
+		if st != StateIdle {
 			xScreen := int32(lParam & 0xFFFF)
 			yScreen := int32((lParam >> 16) & 0xFFFF)
 			var pt pointT
@@ -67,7 +74,7 @@ func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			// Convert physical client coords to logical for hit testing
 			pt.X = int32(float64(pt.X) / o.scale)
 			pt.Y = int32(float64(pt.Y) / o.scale)
-			if getHitButton(pt.X, pt.Y, true) != 0 {
+			if getHitButton(pt.X, pt.Y, st) != 0 {
 				return 1 // HTCLIENT
 			}
 		}
@@ -77,10 +84,10 @@ func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		o.mu.Lock()
 		st := o.state
 		o.mu.Unlock()
-		if st == StateRecording || st == StatePaused || st == StateTranscribing || st == StateProcessing {
+		if st != StateIdle {
 			x := int32(float64(lParam&0xFFFF) / o.scale)
 			y := int32(float64((lParam>>16)&0xFFFF) / o.scale)
-			btn := getHitButton(x, y, st == StateRecording || st == StatePaused)
+			btn := getHitButton(x, y, st)
 			o.mu.Lock()
 			if !o.tracking {
 				type trackMouseEventT struct {
@@ -133,14 +140,29 @@ func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		pauseCB := o.onPause
 		dashCB := o.onDash
 		o.mu.Unlock()
-		if st == StateRecording || st == StatePaused || st == StateTranscribing || st == StateProcessing {
+		if st != StateIdle {
 			x := int32(float64(lParam&0xFFFF) / o.scale)
 			y := int32(float64((lParam>>16)&0xFFFF) / o.scale)
-			btn := getHitButton(x, y, st == StateRecording || st == StatePaused)
+			btn := getHitButton(x, y, st)
 			if btn != 0 {
 				o.mu.Lock()
 				o.pressBtn = btn
 				o.mu.Unlock()
+				// In Error state, Cancel just hides the overlay (Copied has no Cancel button)
+				if st == StateError && btn == 2 {
+					go o.Hide()
+					return 0
+				}
+				// In Copied state, Dashboard opens dashboard and hides overlay
+				if (st == StateCopied || st == StateError) && btn == 1 {
+					go func() {
+						if dashCB != nil {
+							dashCB()
+						}
+						o.Hide()
+					}()
+					return 0
+				}
 				cbs := map[int]func(){1: dashCB, 2: cancelCB, 3: pauseCB, 4: confirmCB}
 				if cb := cbs[btn]; cb != nil {
 					go cb()

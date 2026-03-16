@@ -8,7 +8,7 @@ let _onbDownloading = false;
 let _onbPreflight = null;
 let _onbPreflightRunning = false;
 let _onbApiKeyValid = false;
-let _onbLlmModel = 'smollm2'; // selected LLM model for smart mode
+let _onbLlmModel = 'qwen3.5-0.8b'; // selected LLM model for smart mode (default: best quality)
 let _onbLlmReady = false;
 let _onbLlmDownloading = false;
 
@@ -25,7 +25,7 @@ function showOnboarding() {
     _onbPreflight = null;
     _onbPreflightRunning = false;
     _onbApiKeyValid = false;
-    _onbLlmModel = 'smollm2';
+    _onbLlmModel = 'qwen3.5-0.8b';
     _onbLlmReady = false;
     _onbLlmDownloading = false;
     onbInitPreferences();
@@ -47,6 +47,10 @@ function updateOnboardingStep() {
     dot.classList.toggle('active', i === _onboardingStep - 1);
   });
   applyTranslations();
+  // Auto-select "local" when entering step 2 for the first time (offline-first)
+  if (_onboardingStep === 2 && _onboardingChoice === null) {
+    selectOnboardingOption('local');
+  }
 }
 
 function nextOnboardingStep() {
@@ -111,9 +115,10 @@ async function selectOnboardingOption(choice) {
     }
     // Auto-validate existing key from config (pre-populated field)
     if (keyInput && keyInput.value.trim()) {
-      setTimeout(() => onbTestApiKey(), 150);
+      setTimeout(() => onbTestApiKey(), 150); // DevSkim: ignore DS172411 — constant delay, safe callback
     }
   } else if (choice === 'local') {
+    await onbRenderModelCards();
     await onbRefreshPreflight();
     await onbCheckModelStatus();
     if (nextBtn) nextBtn.disabled = !!_onbPreflight?.blocking || !_onbModelReady;
@@ -193,10 +198,32 @@ function onbUpdateModelUI() {
     if (nextBtn) nextBtn.disabled = true;
   }
 
-  // Update model card selection
-  document.querySelectorAll('.onb-model-card').forEach(card => {
-    card.classList.toggle('selected', card.dataset.modelId === _onbModelId);
+  // Update model row selection
+  document.querySelectorAll('.onb-model-row').forEach(row => {
+    row.classList.toggle('selected', row.dataset.modelId === _onbModelId);
   });
+}
+
+async function onbRenderModelCards() {
+  const container = document.getElementById('onbModelCards');
+  if (!container || !window._getModels) return;
+  try {
+    const allModels = await window._getModels();
+    const rec = allModels.find(m => m.recommended);
+    if (rec) _onbModelId = rec.id;
+
+    container.innerHTML = allModels.map(m => {
+      const selected = m.id === _onbModelId ? ' selected' : '';
+      const recBadge = m.recommended ? `<span class="onb-badge-rec">${esc(t('onboarding.model_recommended'))}</span>` : '';
+      const q = Math.max(0, Math.min(5, m.quality || 0));
+      const dots = '●'.repeat(q) + '<span class="onb-quality-empty">' + '●'.repeat(5 - q) + '</span>';
+      return `<div class="onb-model-row${selected}" data-model-id="${esc(m.id)}" tabindex="0" role="button" onclick="onbSelectModel('${esc(m.id)}')">
+        <span class="onb-model-row-name">${esc(m.name)}${recBadge}</span>
+        <span class="onb-model-row-quality">${dots}</span>
+        <span class="onb-model-row-size">${esc(m.size)}</span>
+      </div>`;
+    }).join('');
+  } catch (e) {}
 }
 
 async function onbSelectModel(modelId) {

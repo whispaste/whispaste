@@ -173,7 +173,22 @@ func NotifyHistoryChanged() {
 func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStats *stats.UsageStats, onSaved func(), onClose func(), onCapture func(), initialPage string) {
 	mainWindowMu.Lock()
 	if mainWindowOpen {
-		if mainWindowHwnd != 0 {
+		wv := mainWebview
+		hwnd := mainWindowHwnd
+		mainWindowMu.Unlock()
+
+		// Navigate to the requested page if specified
+		if initialPage != "" && wv != nil {
+			page := initialPage
+			if page == "smart-mode" {
+				page = "smartmode"
+			}
+			wv.Dispatch(func() {
+				wv.Eval(fmt.Sprintf(`if(typeof switchPage==='function')switchPage('%s')`, page))
+			})
+		}
+
+		if hwnd != 0 {
 			user32 := windows.NewLazySystemDLL("user32.dll")
 			kernel32 := windows.NewLazySystemDLL("kernel32.dll")
 			setForeground := user32.NewProc("SetForegroundWindow")
@@ -183,7 +198,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStat
 			getWindowThreadProcessId := user32.NewProc("GetWindowThreadProcessId")
 			attachThreadInput := user32.NewProc("AttachThreadInput")
 			getCurrentThreadId := kernel32.NewProc("GetCurrentThreadId")
-			showWin.Call(mainWindowHwnd, 9) // SW_RESTORE
+			showWin.Call(hwnd, 9) // SW_RESTORE
 			// AttachThreadInput trick for reliable foreground
 			fgHwnd, _, _ := getForeground.Call()
 			if fgHwnd != 0 {
@@ -191,18 +206,17 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStat
 				curThread, _, _ := getCurrentThreadId.Call()
 				if fgThread != curThread {
 					attachThreadInput.Call(curThread, fgThread, 1) // attach
-					setForeground.Call(mainWindowHwnd)
-					bringToTop.Call(mainWindowHwnd)
+					setForeground.Call(hwnd)
+					bringToTop.Call(hwnd)
 					attachThreadInput.Call(curThread, fgThread, 0) // detach
 				} else {
-					setForeground.Call(mainWindowHwnd)
-					bringToTop.Call(mainWindowHwnd)
+					setForeground.Call(hwnd)
+					bringToTop.Call(hwnd)
 				}
 			} else {
-				setForeground.Call(mainWindowHwnd)
+				setForeground.Call(hwnd)
 			}
 		}
-		mainWindowMu.Unlock()
 		return
 	}
 	mainWindowOpen = true
