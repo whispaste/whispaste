@@ -181,16 +181,14 @@
         <small class="onb-apikey-hint" data-i18n="onboarding.apikey_hint">Get your key at platform.openai.com · You can add it later in Settings</small>
       </div>
       <div class="onboarding-model-section hidden" id="onbModelSection">
-        <div class="onb-model-cards" id="onbModelCards">
+        <div class="onb-model-list" id="onbModelCards">
           <!-- Populated dynamically by onboarding JS -->
         </div>
-        <div class="onb-model-hint" data-i18n="onboarding.model_performance_hint">Local models run directly on your device. Speed depends on your hardware — on slower machines, processing may take a bit longer than the cloud option.</div>
-        <div class="onb-preflight-inline" id="onbPreflightInline">
-          <span class="preflight-icon" id="onbPreflightIcon"></span>
-          <span class="preflight-text" id="onbPreflightText" data-i18n="preflightChecking">Checking…</span>
-        </div>
-        <div class="onb-model-hint" data-i18n="onboarding.audio_check_hint">If the first result sounds too quiet, open Settings → Check Microphone. WhisPaste will show whether the mic level is too low.</div>
         <div class="onb-model-status-row">
+          <span class="onb-preflight-badge" id="onbPreflightInline">
+            <span class="preflight-icon" id="onbPreflightIcon"></span>
+            <span class="preflight-text" id="onbPreflightText" data-i18n="preflightChecking">Checking…</span>
+          </span>
           <span class="onb-model-status needed" id="onbModelStatus" data-i18n="onboarding.model_needed">Download required</span>
           <button class="btn btn-primary btn-sm" id="onbDownloadBtn" onclick="onbStartDownload()">
             <svg class="icon" style="width:14px;height:14px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
@@ -242,11 +240,15 @@
       <div class="onboarding-llm-models hidden" id="onbLlmModelSection">
         <p class="onb-llm-hint" data-i18n="onboarding.smart_llm_hint">Download a model to use Smart Mode offline</p>
         <div class="onb-llm-cards">
-          <div class="onb-llm-card selected" data-llm-id="smollm2" tabindex="0" role="button" onclick="onbSelectLLMModel('smollm2')">
+          <div class="onb-llm-card" data-llm-id="smollm2" tabindex="0" role="button" onclick="onbSelectLLMModel('smollm2')">
             <div class="onb-llm-card-name" data-i18n="onboarding.smart_llm_smollm2">SmolLM2</div>
             <div class="onb-llm-card-desc" data-i18n="onboarding.smart_llm_smollm2_desc">Compact · 270 MB · 6 Languages</div>
           </div>
-          <div class="onb-llm-card" data-llm-id="qwen3.5-0.8b" tabindex="0" role="button" onclick="onbSelectLLMModel('qwen3.5-0.8b')">
+          <div class="onb-llm-card" data-llm-id="qwen2.5-0.5b" tabindex="0" role="button" onclick="onbSelectLLMModel('qwen2.5-0.5b')">
+            <div class="onb-llm-card-name" data-i18n="onboarding.smart_llm_qwen25">Qwen2.5-0.5B</div>
+            <div class="onb-llm-card-desc" data-i18n="onboarding.smart_llm_qwen25_desc">Fast · 490 MB · 29 Languages</div>
+          </div>
+          <div class="onb-llm-card selected" data-llm-id="qwen3.5-0.8b" tabindex="0" role="button" onclick="onbSelectLLMModel('qwen3.5-0.8b')">
             <div class="onb-llm-card-name" data-i18n="onboarding.smart_llm_qwen3">Qwen3.5-0.8B</div>
             <div class="onb-llm-card-desc" data-i18n="onboarding.smart_llm_qwen3_desc">Powerful · 530 MB · 29 Languages</div>
           </div>
