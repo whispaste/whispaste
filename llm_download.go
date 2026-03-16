@@ -40,6 +40,16 @@ var LLMModels = map[string]LLMModelDef{
 		MinRAMBytes: 4 * _llmGB,
 		RecRAMBytes: 4 * _llmGB,
 	},
+	"qwen2.5-0.5b": {
+		ID:          "qwen2.5-0.5b",
+		Name:        "Qwen2.5-0.5B",
+		URL:         "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+		Size:        491_000_000,
+		Filename:    "qwen2.5-0.5b.gguf",
+		Langs:       29,
+		MinRAMBytes: 2 * _llmGB,
+		RecRAMBytes: 4 * _llmGB,
+	},
 	"qwen3.5-0.8b": {
 		ID:          "qwen3.5-0.8b",
 		Name:        "Qwen3.5-0.8B",
