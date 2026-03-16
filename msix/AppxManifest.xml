@@ -6,7 +6,7 @@
          IgnorableNamespaces="uap desktop rescap">
 
   <Identity Name="12342SilvioLindstedt.WhisPaste"
-            Publisher="CN=F08EEF05-5B70-4208-B156-E597A1AB80B0"
+            Publisher="CN=F08EEF05-5870-4208-B156-E597A1AB80B0"
             Version="1.0.0.0"
             ProcessorArchitecture="x64" />
 
