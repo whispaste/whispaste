@@ -149,7 +149,7 @@ function onHotkeyKeyDown(e) {
     _savedHotkeyMods = mods;
     _savedHotkeyKey = normalized;
     setHotkeyDisplay([..._savedHotkeyMods, _savedHotkeyKey]);
-    setTimeout(() => { cancelHotkeyRecording(); autoSave(); }, 300);
+    setTimeout(() => { cancelHotkeyRecording(); autoSave(); }, 300); // DevSkim: ignore DS172411 — constant delay, safe callback
   }
 }
 
@@ -183,7 +183,7 @@ function copyApiKey() {
       const orig = btn.innerHTML;
       btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
       btn.style.color = 'var(--accent)';
-      setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1500);
+      setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1500); // DevSkim: ignore DS172411 — constant delay, safe callback
     }
   }
   // WebView2 data: URLs don't have navigator.clipboard — use execCommand fallback

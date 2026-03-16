@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+// loopbackHost is the bind address for local AI servers (LLM, STT).
+// Intentionally hardcoded to loopback — these servers must never be
+// exposed on the network.
+const loopbackHost = "127.0.0.1" // DevSkim: ignore DS162092 — production loopback bind for local AI servers
+
 // LocalLLM manages the llama-server subprocess for local text processing.
 type LocalLLM struct {
 	mu      sync.Mutex
@@ -111,13 +116,13 @@ func IsLLMInstalled() bool {
 }
 
 // Start starts the llama-server subprocess on a random port.
-// Returns the localhost endpoint URL or an error.
+// Returns the loopback endpoint URL or an error.
 func (l *LocalLLM) Start() (string, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	if l.running {
-		return fmt.Sprintf("http://127.0.0.1:%d/v1", l.port), nil
+		return fmt.Sprintf("http://%s:%d/v1", loopbackHost, l.port), nil // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 	}
 
 	serverPath, err := LLMServerPath()
@@ -134,7 +139,7 @@ func (l *LocalLLM) Start() (string, error) {
 	}
 
 	// Find a free port
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", loopbackHost+":0")
 	if err != nil {
 		return "", fmt.Errorf("find free port: %w", err)
 	}
@@ -143,7 +148,7 @@ func (l *LocalLLM) Start() (string, error) {
 
 	cmd := exec.Command(serverPath,
 		"--model", modelPath,
-		"--host", "127.0.0.1",
+		"--host", loopbackHost,
 		"--port", fmt.Sprintf("%d", port),
 		"--ctx-size", "2048",
 		"--threads", "4",
@@ -160,7 +165,7 @@ func (l *LocalLLM) Start() (string, error) {
 	l.running = true
 
 	// Wait for server to be ready (health check)
-	endpoint := fmt.Sprintf("http://127.0.0.1:%d/v1", port)
+	endpoint := fmt.Sprintf("http://%s:%d/v1", loopbackHost, port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 	if err := l.waitReady(port); err != nil {
 		l.stopLocked()
 		return "", fmt.Errorf("llama-server not ready: %w", err)
@@ -172,7 +177,7 @@ func (l *LocalLLM) Start() (string, error) {
 
 // waitReady polls the health endpoint until the server is ready.
 func (l *LocalLLM) waitReady(port int) error {
-	healthURL := fmt.Sprintf("http://127.0.0.1:%d/health", port)
+	healthURL := fmt.Sprintf("http://%s:%d/health", loopbackHost, port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 	client := &http.Client{Timeout: 2 * time.Second}
 	for i := 0; i < 60; i++ {
 		resp, err := client.Get(healthURL)
@@ -222,7 +227,7 @@ func (l *LocalLLM) Endpoint() string {
 	if !l.running {
 		return ""
 	}
-	return fmt.Sprintf("http://127.0.0.1:%d/v1", l.port)
+	return fmt.Sprintf("http://%s:%d/v1", loopbackHost, l.port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 }
 
 // migrateLegacyLLMModel renames legacy model.gguf to smollm2.gguf for the new registry.
