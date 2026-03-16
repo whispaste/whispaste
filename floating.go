@@ -185,8 +185,9 @@ type FloatingButton struct {
 	onOpenWindow     func(string)
 	onQuit           func()
 	onSmartToggled   func(bool)
-	onHide           func() // called when user hides via context menu
-	onToggle         func() // start/stop recording toggle
+	onHide           func()           // called when user hides via context menu
+	onToggle         func()           // start/stop recording toggle
+	onConfigChanged  func()           // called after any config change from context menu
 
 	// Menu state providers (called at menu-open time)
 	getState      func() AppState
@@ -520,6 +521,14 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 				fb.cfg.mu.Unlock()
 				fb.cfg.Save()
 				logInfo("Floating button position lock: %v", locked)
+				cb := func() func() {
+					fb.mu.Lock()
+					defer fb.mu.Unlock()
+					return fb.onConfigChanged
+				}()
+				if cb != nil {
+					cb()
+				}
 			}()
 		}
 		return 0
@@ -630,7 +639,7 @@ func NewFloatingButton(c *Config) (*FloatingButton, error) {
 }
 
 // SetCallbacks sets the floating button callbacks (thread-safe).
-func (fb *FloatingButton) SetCallbacks(onStart func(), onOpenWindow func(string), onQuit func(), onSmartToggled func(bool), onHide func()) {
+func (fb *FloatingButton) SetCallbacks(onStart func(), onOpenWindow func(string), onQuit func(), onSmartToggled func(bool), onHide func(), onConfigChanged func()) {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 	fb.onStartRecording = onStart
@@ -638,6 +647,7 @@ func (fb *FloatingButton) SetCallbacks(onStart func(), onOpenWindow func(string)
 	fb.onQuit = onQuit
 	fb.onSmartToggled = onSmartToggled
 	fb.onHide = onHide
+	fb.onConfigChanged = onConfigChanged
 }
 
 // SetMenuCallbacks sets the state-provider callbacks for the context menu.

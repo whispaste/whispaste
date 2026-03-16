@@ -218,9 +218,13 @@ window.refreshFromConfig = async function() {
     const raw = await window.getConfig();
     const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
     updateStatusBar(cfg);
-    // Sync smart mode toggle in settings if visible
-    const toggle = document.getElementById('toggle-smartmode');
-    if (toggle) toggle.checked = !!cfg.smart_mode;
+    // Full settings sync if settings page is loaded
+    if (typeof applyConfig === 'function') {
+      const prev = _configLoaded;
+      _configLoaded = false; // suppress autoSave during refresh
+      applyConfig(cfg);
+      _configLoaded = prev;
+    }
   } catch (e) {}
 };
 

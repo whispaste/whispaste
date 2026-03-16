@@ -94,6 +94,9 @@ Tags: meeting, cooking, travel
 Text: "We discussed the project timeline and assigned tasks for next week"
 Answer: ["meeting"]`, tagList)
 
+	// Suppress thinking mode for local Qwen models
+	systemPrompt += " /no_think"
+
 	// Truncate very long texts — classification only needs the gist
 	classifyText := text
 	if len(classifyText) > 2000 {
