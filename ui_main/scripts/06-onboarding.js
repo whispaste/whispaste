@@ -8,7 +8,7 @@ let _onbDownloading = false;
 let _onbPreflight = null;
 let _onbPreflightRunning = false;
 let _onbApiKeyValid = false;
-let _onbLlmModel = 'smollm2'; // selected LLM model for smart mode
+let _onbLlmModel = 'qwen3.5-0.8b'; // selected LLM model for smart mode (default: best quality)
 let _onbLlmReady = false;
 let _onbLlmDownloading = false;
 
@@ -25,7 +25,7 @@ function showOnboarding() {
     _onbPreflight = null;
     _onbPreflightRunning = false;
     _onbApiKeyValid = false;
-    _onbLlmModel = 'smollm2';
+    _onbLlmModel = 'qwen3.5-0.8b';
     _onbLlmReady = false;
     _onbLlmDownloading = false;
     onbInitPreferences();
@@ -198,9 +198,9 @@ function onbUpdateModelUI() {
     if (nextBtn) nextBtn.disabled = true;
   }
 
-  // Update model card selection
-  document.querySelectorAll('.onb-model-card').forEach(card => {
-    card.classList.toggle('selected', card.dataset.modelId === _onbModelId);
+  // Update model row selection
+  document.querySelectorAll('.onb-model-row').forEach(row => {
+    row.classList.toggle('selected', row.dataset.modelId === _onbModelId);
   });
 }
 
@@ -212,26 +212,18 @@ async function onbRenderModelCards() {
     const rec = allModels.find(m => m.recommended);
     if (rec) _onbModelId = rec.id;
 
-    const qualityLabels = {
-      1: t('modelQualityBasic'),
-      2: t('modelQualityGood'),
-      3: t('modelQualityGreat'),
-      4: t('modelQualityExcellent'),
-      5: t('modelQualityBest')
-    };
     container.innerHTML = allModels.map(m => {
       const selected = m.id === _onbModelId ? ' selected' : '';
-      const recBadge = m.recommended ? ` · <span>${esc(t('onboarding.model_recommended'))}</span>` : '';
-      const ql = qualityLabels[m.quality] || '';
-      return `<div class="onb-model-card${selected}" data-model-id="${esc(m.id)}" tabindex="0" role="button" onclick="onbSelectModel('${esc(m.id)}')">
-        <div class="onb-model-card-name">${esc(m.name)}</div>
-        <div class="onb-model-card-meta">${esc(m.size)}${recBadge}</div>
-        <div class="onb-model-card-desc">${esc(ql)}</div>
+      const recBadge = m.recommended ? `<span class="onb-badge-rec">${esc(t('onboarding.model_recommended'))}</span>` : '';
+      const q = Math.max(0, Math.min(5, m.quality || 0));
+      const dots = '●'.repeat(q) + '<span class="onb-quality-empty">' + '●'.repeat(5 - q) + '</span>';
+      return `<div class="onb-model-row${selected}" data-model-id="${esc(m.id)}" tabindex="0" role="button" onclick="onbSelectModel('${esc(m.id)}')">
+        <span class="onb-model-row-name">${esc(m.name)}${recBadge}</span>
+        <span class="onb-model-row-quality">${dots}</span>
+        <span class="onb-model-row-size">${esc(m.size)}</span>
       </div>`;
     }).join('');
-  } catch (e) {
-    // Fallback: keep container empty, user can still proceed
-  }
+  } catch (e) {}
 }
 
 async function onbSelectModel(modelId) {
