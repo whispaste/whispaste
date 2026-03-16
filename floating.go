@@ -31,6 +31,10 @@ const (
 	_FLOAT_OPACITY_HOVER = 255 // 100%
 	_FLOAT_OPACITY_STEP  = 20  // per-frame change
 
+	// Hover leave debounce: require N consecutive cursor-outside readings
+	// before toggling hover off. Prevents flicker from GetCursorPos jitter.
+	_FLOAT_HOVER_MISS_THRESHOLD = 3 // ~48ms at 16ms/tick
+
 	// Edge snapping threshold
 	_FLOAT_SNAP_PX = 10
 
@@ -194,12 +198,13 @@ type FloatingButton struct {
 	getHotkeyStr  func() string
 	getLatestText func() string
 
-	hovered       bool
-	opacity       byte
-	targetOpacity byte
-	dragStartX    int32 // window X at start of potential drag
-	dragStartY    int32 // window Y at start of potential drag
-	size          int   // current diameter in pixels (cached from config)
+	hovered        bool
+	hoverMissCount int // consecutive cursor-outside readings; debounces leave
+	opacity        byte
+	targetOpacity  byte
+	dragStartX     int32 // window X at start of potential drag
+	dragStartY     int32 // window Y at start of potential drag
+	size           int   // current diameter in pixels (cached from config)
 
 	// Position save debouncing
 	lastMoveSave time.Time
@@ -361,25 +366,15 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 	case _WM_TIMER:
 		if wParam == _FLOAT_TIMER_ID {
-			// Authoritative hover detection: check actual cursor position
-			// instead of relying on WM_MOUSELEAVE which fires spuriously
-			// after UpdateLayeredWindow on layered windows.
-			inWindow := fb.cursorInWindow()
-
 			target, current := func() (byte, byte) {
 				fb.mu.Lock()
 				defer fb.mu.Unlock()
-				if inWindow && !fb.hovered {
-					fb.hovered = true
-					fb.targetOpacity = _FLOAT_OPACITY_HOVER
-				} else if !inWindow && fb.hovered {
-					fb.hovered = false
-					fb.targetOpacity = fb.idleOpacity()
-				}
 				return fb.targetOpacity, fb.opacity
 			}()
 
 			if current != target {
+				// Animate toward target — no cursor check during animation
+				// to avoid flicker from intermittent GetCursorPos/GetWindowRect jitter.
 				if current < target {
 					current += _FLOAT_OPACITY_STEP
 					if current > target {
@@ -402,13 +397,24 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 				}()
 				fb.render()
 			} else {
-				// Stop timer when target reached and not hovered
-				h := func() bool {
+				// Opacity stable — check cursor for leave detection (debounced).
+				inWindow := fb.cursorInWindow()
+				killTimer := func() bool {
 					fb.mu.Lock()
 					defer fb.mu.Unlock()
-					return fb.hovered
+					if !inWindow && fb.hovered {
+						fb.hoverMissCount++
+						if fb.hoverMissCount >= _FLOAT_HOVER_MISS_THRESHOLD {
+							fb.hovered = false
+							fb.targetOpacity = fb.idleOpacity()
+							fb.hoverMissCount = 0
+						}
+						return false
+					}
+					fb.hoverMissCount = 0
+					return !fb.hovered // kill timer only when idle and not hovered
 				}()
-				if !h {
+				if killTimer {
 					procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
 				}
 			}
@@ -546,6 +552,7 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			fb.mu.Lock()
 			defer fb.mu.Unlock()
 			fb.hovered = false
+			fb.hoverMissCount = 0
 			idle := fb.idleOpacity()
 			fb.opacity = idle
 			fb.targetOpacity = idle
