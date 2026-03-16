@@ -1,6 +1,7 @@
 # Binaries
 *.exe
 *.exe~
+*.exe.old
 *.dll
 *.so
 *.dylib
@@ -52,9 +53,15 @@ docs/video-script.md
 .agents/
 .claude/
 
-# Internal dev tools
+# Internal dev tools (local only)
 cmd/
-scripts/review.mjs
+scripts/*
+!scripts/build.ps1
+
+# Internal docs (local only)
+website/design-system/
+website/SEARCH-CONSOLE-SETUP.md
+website/test-results/
 
 # Screenshots (local only)
 screenshots/
