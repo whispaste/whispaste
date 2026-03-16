@@ -83,13 +83,6 @@ const (
 )
 
 // Win32 structs for floating button
-type trackMouseEventT struct {
-	CbSize      uint32
-	DwFlags     uint32
-	HwndTrack   uintptr
-	DwHoverTime uint32
-}
-
 type monitorInfo struct {
 	CbSize    uint32
 	RcMonitor rectT
@@ -256,8 +249,11 @@ func (fb *FloatingButton) cursorInWindow() bool {
 	return pt.X >= rc.Left && pt.X < rc.Right && pt.Y >= rc.Top && pt.Y < rc.Bottom
 }
 
-// enterHover sets the hovered state, starts the animation timer, and
-// registers TrackMouseEvent for leave detection.
+// enterHover sets the hovered state and starts the animation timer.
+// Leave detection is handled exclusively by the timer's safety-net cursor
+// check — we do NOT rely on WM_MOUSELEAVE because UpdateLayeredWindow
+// generates spurious leave events on layered windows, creating a feedback
+// loop (ULW → leave → state change → render → ULW → leave …).
 func (fb *FloatingButton) enterHover(hwnd uintptr, nonclient bool) {
 	wasHovered := func() bool {
 		fb.mu.Lock()
@@ -269,41 +265,19 @@ func (fb *FloatingButton) enterHover(hwnd uintptr, nonclient bool) {
 		return was
 	}()
 	if !wasHovered {
+		logDebug("[float] enterHover: starting hover animation")
 		procSetTimer.Call(hwnd, _FLOAT_TIMER_ID, _FLOAT_TIMER_MS, 0)
 	}
-	// Register for WM_MOUSELEAVE / WM_NCMOUSELEAVE.
-	// Re-register on every move because UpdateLayeredWindow consumes tracking
-	// by triggering a spurious leave event.
-	var tme trackMouseEventT
-	tme.CbSize = uint32(unsafe.Sizeof(tme))
-	if nonclient {
-		tme.DwFlags = 0x12 // TME_NONCLIENT | TME_LEAVE
-	} else {
-		tme.DwFlags = 0x02 // TME_LEAVE
-	}
-	tme.HwndTrack = hwnd
-	procTrackMouseEvent.Call(uintptr(unsafe.Pointer(&tme)))
 }
 
-// leaveHover is called on WM_MOUSELEAVE / WM_NCMOUSELEAVE.
-// It verifies with cursorInWindow() before toggling state because
-// UpdateLayeredWindow triggers spurious leave events on layered windows.
-// During active opacity animation, leave events are deferred to the
-// safety-net cursor check to prevent flicker from rapid state toggling.
+// leaveHover is intentionally a no-op.
+// UpdateLayeredWindow triggers spurious WM_MOUSELEAVE / WM_NCMOUSELEAVE on
+// every call for layered windows. Processing these events — even with
+// cursorInWindow() verification — creates a feedback loop that causes
+// visible blinking. Leave detection is handled solely by the timer's
+// safety-net cursor check (~250ms polling with double-verification).
 func (fb *FloatingButton) leaveHover() {
-	if fb.cursorInWindow() {
-		return // spurious leave — cursor is still on the button
-	}
-	fb.mu.Lock()
-	defer fb.mu.Unlock()
-	// During active animation, defer leave detection to the safety-net
-	// cursor check. ULW triggers spurious WM_NCMOUSELEAVE on every call,
-	// and processing them mid-animation can cause visible state oscillation.
-	if fb.opacity != fb.targetOpacity {
-		return
-	}
-	fb.hovered = false
-	fb.targetOpacity = fb.idleOpacity()
+	// No-op: leave detection via timer safety-net only.
 }
 
 func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
@@ -450,12 +424,13 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 					return false, check
 				}()
 				if killTimer {
+					logDebug("[float] timer: killed (opacity stable, not hovered)")
 					procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
 				} else if doCheck {
-					// Safety-net: catch leave if WM_MOUSELEAVE was consumed
-					// by a spurious event and never re-triggered.
+					// Safety-net: sole leave detection mechanism.
 					// Double-check to avoid reacting to a single transient reading.
 					if !fb.cursorInWindow() && !fb.cursorInWindow() {
+						logDebug("[float] safety-net: cursor left, starting fade-out")
 						func() {
 							fb.mu.Lock()
 							defer fb.mu.Unlock()
