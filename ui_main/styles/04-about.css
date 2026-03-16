@@ -406,3 +406,47 @@
 .sysinfo-copy-btn {
   margin-top: var(--space-4);
 }
+
+/* ── Demo Mode Toggle ────────────────────────────────── */
+.about-demo-toggle {
+  margin-top: var(--space-4);
+}
+
+.about-demo-card {
+  border: 1px dashed var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.about-demo-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-1);
+}
+
+.about-demo-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.about-demo-info .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.about-demo-title {
+  display: block;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.about-demo-desc {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}

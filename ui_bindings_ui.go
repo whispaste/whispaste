@@ -7,7 +7,7 @@ import (
 )
 
 // bindUIHandlers registers theme, language, translation, onboarding, and window control JS bindings.
-func bindUIHandlers(w webview.WebView, cfg *Config, recorder *Recorder) {
+func bindUIHandlers(w webview.WebView, cfg *Config, recorder *Recorder, history *History) {
 
 	w.Bind("completeOnboarding", func() {
 		cfg.SetOnboardingDone(true)
@@ -110,5 +110,22 @@ func bindUIHandlers(w webview.WebView, cfg *Config, recorder *Recorder) {
 
 	w.Bind("isStorePackage", func() bool {
 		return isStorePackage()
+	})
+
+	// Demo mode toggle (hidden on About page for marketing screenshots)
+	w.Bind("isDemoMode", func() bool {
+		return history.IsDemoMode()
+	})
+
+	w.Bind("toggleDemoMode", func() bool {
+		if history.IsDemoMode() {
+			history.DisableDemoMode()
+			return false
+		}
+		if err := history.EnableDemoMode(); err != nil {
+			logError("Enable demo mode: %v", err)
+			return false
+		}
+		return true
 	})
 }
