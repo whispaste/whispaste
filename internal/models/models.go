@@ -21,44 +21,95 @@ func Init(name string) {
 
 // Info describes an available local Whisper model (single GGML file).
 type Info struct {
-	ID        string // e.g. "whisper-base"
-	Name      string // e.g. "Whisper Base"
-	Size      string // human-readable size, e.g. "57MB"
-	SizeBytes int64  // approximate size in bytes (for progress)
-	URL       string // direct download URL for the GGML file
-	Filename  string // e.g. "ggml-base-q5_1.bin"
-	SHA256    string // expected SHA256 hash (lowercase hex) from HuggingFace LFS
+	ID              string // e.g. "whisper-base"
+	Name            string // e.g. "Whisper Base"
+	Size            string // human-readable size, e.g. "57MB"
+	SizeBytes       int64  // approximate size in bytes (for progress)
+	URL             string // direct download URL for the GGML file
+	Filename        string // e.g. "ggml-base-q5_1.bin"
+	SHA256          string // expected SHA256 hash (lowercase hex) from HuggingFace LFS
+	MinRAMBytes     uint64 // minimum RAM for usable performance
+	RecRAMBytes     uint64 // recommended RAM for good performance
+	Quality         int    // 1-5 quality rating (1=lowest, 5=highest)
 }
 
-// Available lists all supported local Whisper models (GGML format).
+const (
+	_GB = 1024 * 1024 * 1024
+)
+
+// Available lists all supported local Whisper models (GGML format), ordered by size.
 var Available = []Info{
 	{
-		ID:        "whisper-base",
-		Name:      "Whisper Base",
-		Size:      "57MB",
-		SizeBytes: 59_700_000,
-		URL:       "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin",
-		Filename:  "ggml-base-q5_1.bin",
-		SHA256:    "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898",
+		ID:          "whisper-tiny",
+		Name:        "Whisper Tiny",
+		Size:        "31MB",
+		SizeBytes:   32_152_673,
+		URL:         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin",
+		Filename:    "ggml-tiny-q5_1.bin",
+		SHA256:      "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7",
+		MinRAMBytes: 2 * _GB,
+		RecRAMBytes: 4 * _GB,
+		Quality:     1,
 	},
 	{
-		ID:        "whisper-small",
-		Name:      "Whisper Small",
-		Size:      "181MB",
-		SizeBytes: 190_085_487,
-		URL:       "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
-		Filename:  "ggml-small-q5_1.bin",
-		SHA256:    "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
+		ID:          "whisper-base",
+		Name:        "Whisper Base",
+		Size:        "57MB",
+		SizeBytes:   59_700_000,
+		URL:         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin",
+		Filename:    "ggml-base-q5_1.bin",
+		SHA256:      "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898",
+		MinRAMBytes: 4 * _GB,
+		RecRAMBytes: 4 * _GB,
+		Quality:     2,
 	},
 	{
-		ID:        "whisper-medium",
-		Name:      "Whisper Medium",
-		Size:      "514MB",
-		SizeBytes: 539_212_467,
-		URL:       "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin",
-		Filename:  "ggml-medium-q5_0.bin",
-		SHA256:    "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f",
+		ID:          "whisper-small",
+		Name:        "Whisper Small",
+		Size:        "181MB",
+		SizeBytes:   190_085_487,
+		URL:         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
+		Filename:    "ggml-small-q5_1.bin",
+		SHA256:      "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
+		MinRAMBytes: 4 * _GB,
+		RecRAMBytes: 8 * _GB,
+		Quality:     3,
 	},
+	{
+		ID:          "whisper-medium",
+		Name:        "Whisper Medium",
+		Size:        "514MB",
+		SizeBytes:   539_212_467,
+		URL:         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin",
+		Filename:    "ggml-medium-q5_0.bin",
+		SHA256:      "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f",
+		MinRAMBytes: 8 * _GB,
+		RecRAMBytes: 16 * _GB,
+		Quality:     4,
+	},
+	{
+		ID:          "whisper-large-v3-turbo",
+		Name:        "Whisper Large v3 Turbo",
+		Size:        "547MB",
+		SizeBytes:   574_041_195,
+		URL:         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
+		Filename:    "ggml-large-v3-turbo-q5_0.bin",
+		SHA256:      "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+		MinRAMBytes: 12 * _GB,
+		RecRAMBytes: 16 * _GB,
+		Quality:     5,
+	},
+}
+
+// Recommend returns the best model ID for the given RAM in bytes.
+func Recommend(ramBytes uint64) string {
+	best := "whisper-base"
+	for _, m := range Available {
+		if ramBytes >= m.RecRAMBytes {
+			best = m.ID
+		}
+	}
+	return best
 }
 
 // Dir returns the directory where local models are stored.

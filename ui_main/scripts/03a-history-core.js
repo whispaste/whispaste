@@ -9,6 +9,7 @@ let _lastCheckedIndex = -1;
 let _acHighlight = -1;
 let _acSeq = 0;
 let _pinnedCollapsed = false;
+let _pendingRetryInFlight = false;
 let _projects = [];
 
 function isToday(ts) {

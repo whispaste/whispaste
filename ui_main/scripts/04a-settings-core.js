@@ -60,11 +60,24 @@ function renderModelCard(m, opts) {
 
   const blockedNote = isBlocked ? `<div class="model-warning">${esc(m.preflight_message || t('preflightBlockedBadge'))}</div>` : '';
 
-  return `<div class="model-item${!m.downloaded && !isDownloading ? ' unavailable' : ''}${isBlocked ? ' preflight-blocked' : ''}" data-model-id="${esc(m.id)}">
+  // HW recommendation badge (STT only)
+  let hwBadge = '';
+  if (type === 'stt' && m.recommended) {
+    hwBadge = `<span class="model-badge model-badge-rec">★ ${esc(t('modelRecommended'))}</span>`;
+  }
+
+  // Quality stars (STT only)
+  let qualityHTML = '';
+  if (type === 'stt' && m.quality) {
+    const stars = '★'.repeat(m.quality) + '☆'.repeat(5 - m.quality);
+    qualityHTML = `<span class="model-quality" title="${esc(t('modelQuality'))}">${stars}</span>`;
+  }
+
+  return `<div class="model-item${!m.downloaded && !isDownloading ? ' unavailable' : ''}${isBlocked ? ' preflight-blocked' : ''}${m.recommended ? ' recommended' : ''}" data-model-id="${esc(m.id)}">
     <div class="model-item-info">
-      <div class="model-item-name">${esc(m.name)}</div>
+      <div class="model-item-name">${esc(m.name)} ${hwBadge}</div>
       ${m.description ? '<div class="model-desc">' + esc(m.description) + '</div>' : ''}
-      <div class="model-item-meta">${esc(m.size)}${statusText}</div>
+      <div class="model-item-meta">${esc(m.size)}${qualityHTML}${statusText}</div>
       ${blockedNote}
     </div>
     <div class="model-item-action">${actionHTML}</div>
@@ -93,6 +106,12 @@ document.addEventListener('change', function(e) {
     if (row) row.classList.toggle('hidden', !e.target.checked);
     const sizeRow = document.getElementById('fab-size-row');
     if (sizeRow) sizeRow.classList.toggle('hidden', !e.target.checked);
+    const opacityRow = document.getElementById('fab-opacity-row');
+    if (opacityRow) opacityRow.classList.toggle('hidden', !e.target.checked);
+    const lockRow = document.getElementById('fab-lock-row');
+    if (lockRow) lockRow.classList.toggle('hidden', !e.target.checked);
+    const borderRow = document.getElementById('fab-border-row');
+    if (borderRow) borderRow.classList.toggle('hidden', !e.target.checked);
     const fab = document.getElementById('captureBtn');
     if (fab) fab.classList.toggle('hidden', e.target.checked);
   }
@@ -153,7 +172,10 @@ function gatherConfig() {
     vad_sensitivity: parseInt(document.getElementById('range-vad-sensitivity')?.value || '50', 10) / 100.0,
     floating_button_enabled: document.getElementById('toggle-floating-btn')?.checked || false,
     floating_button_color: document.querySelector('.fab-color-option.selected')?.dataset?.color || 'cyan',
-    floating_button_size: parseInt(document.getElementById('range-fab-size')?.value || '56', 10)
+    floating_button_size: parseInt(document.getElementById('range-fab-size')?.value || '56', 10),
+    floating_button_opacity: parseInt(document.getElementById('range-fab-opacity')?.value || '70', 10),
+    floating_button_locked: document.getElementById('toggle-floating-lock')?.checked || false,
+    floating_button_border: document.getElementById('toggle-floating-border')?.checked || false
   };
 }
 
@@ -269,6 +291,12 @@ function applyConfig(cfg) {
     if (row) row.classList.toggle('hidden', !cfg.floating_button_enabled);
     const sizeRow = document.getElementById('fab-size-row');
     if (sizeRow) sizeRow.classList.toggle('hidden', !cfg.floating_button_enabled);
+    const opacityRow = document.getElementById('fab-opacity-row');
+    if (opacityRow) opacityRow.classList.toggle('hidden', !cfg.floating_button_enabled);
+    const lockRow = document.getElementById('fab-lock-row');
+    if (lockRow) lockRow.classList.toggle('hidden', !cfg.floating_button_enabled);
+    const borderRow = document.getElementById('fab-border-row');
+    if (borderRow) borderRow.classList.toggle('hidden', !cfg.floating_button_enabled);
   }
   {
     const sz = cfg.floating_button_size || 56;
@@ -278,12 +306,27 @@ function applyConfig(cfg) {
     if (label) label.textContent = sz + ' px';
   }
   {
+    const opacity = cfg.floating_button_opacity || 70;
+    const slider = document.getElementById('range-fab-opacity');
+    const label = document.getElementById('fab-opacity-value');
+    if (slider) slider.value = opacity;
+    if (label) label.textContent = opacity + '%';
+  }
+  { const el = document.getElementById('toggle-floating-lock'); if (el) el.checked = !!cfg.floating_button_locked; }
+  { const el = document.getElementById('toggle-floating-border'); if (el) el.checked = !!cfg.floating_button_border; }
+  {
     const el = document.getElementById('toggle-app-detection');
     if (el) el.checked = !!cfg.app_detection;
     updateAppDetectionState();
   }
 }
 
+
+/* ── FAB slider label helpers ─────────────────────────── */
+function updateFabOpacityLabel(value) {
+  const label = document.getElementById('fab-opacity-value');
+  if (label) label.textContent = value + '%';
+}
 
 /* ── Test Sound ───────────────────────────────────────── */
 function testSound() {
@@ -294,7 +337,7 @@ function testSound() {
 function autoSave() {
   if (!_configLoaded) return;
   clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(() => saveSettings(), DEBOUNCE_MS);
+  _autoSaveTimer = setTimeout(() => saveSettings(), DEBOUNCE_MS); // DevSkim: ignore DS172411 — debounce with constant delay
 }
 
 /* ── Save Settings ────────────────────────────────────── */

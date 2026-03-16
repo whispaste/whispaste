@@ -147,6 +147,31 @@
                   <input type="range" id="range-fab-size" min="36" max="80" value="56" step="2" class="duration-slider" oninput="updateFabSizeLabel(this.value)">
                 </div>
               </div>
+              <div class="fab-size-row" id="fab-opacity-row">
+                <span class="fab-size-label" data-i18n="labelFloatingOpacity">Opacity</span>
+                <div class="fab-size-slider-group">
+                  <span class="fab-size-value" id="fab-opacity-value">70%</span>
+                  <input type="range" id="range-fab-opacity" min="30" max="100" value="70" step="5" class="duration-slider" oninput="updateFabOpacityLabel(this.value)">
+                </div>
+              </div>
+              <div class="fab-size-row" id="fab-lock-row">
+                <div class="toggle-row" style="padding:0;margin:0">
+                  <span class="fab-size-label" data-i18n="labelFloatingLock">Lock Position</span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="toggle-floating-lock">
+                    <label class="toggle-track" for="toggle-floating-lock"></label>
+                  </div>
+                </div>
+              </div>
+              <div class="fab-size-row" id="fab-border-row">
+                <div class="toggle-row" style="padding:0;margin:0">
+                  <span class="fab-size-label" data-i18n="labelFloatingBorder">Border Ring</span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="toggle-floating-border">
+                    <label class="toggle-track" for="toggle-floating-border"></label>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="form-group">
               <div class="toggle-row">
