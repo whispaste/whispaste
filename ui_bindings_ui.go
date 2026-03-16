@@ -113,11 +113,18 @@ func bindUIHandlers(w webview.WebView, cfg *Config, recorder *Recorder, history 
 	})
 
 	// Demo mode toggle (hidden on About page for marketing screenshots)
+	// Blocked in Store package builds — demo data could confuse Store reviewers
 	w.Bind("isDemoMode", func() bool {
+		if isStorePackage() {
+			return false
+		}
 		return history.IsDemoMode()
 	})
 
 	w.Bind("toggleDemoMode", func() bool {
+		if isStorePackage() {
+			return false
+		}
 		if history.IsDemoMode() {
 			history.DisableDemoMode()
 			return false
