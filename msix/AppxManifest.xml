@@ -5,14 +5,14 @@
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
          IgnorableNamespaces="uap desktop rescap">
 
-  <Identity Name="SilvioLindstedt.Whispaste"
-            Publisher="CN=SilvioLindstedt"
+  <Identity Name="12342SilvioLindstedt.WhisPaste"
+            Publisher="CN=F08EEF05-5B70-4208-B156-E597A1AB80B0"
             Version="1.0.0.0"
             ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>WhisPaste</DisplayName>
-    <PublisherDisplayName>Silvio Lindstedt</PublisherDisplayName>
+    <PublisherDisplayName>silvio_lindstedt</PublisherDisplayName>
     <Description>Fast, lightweight speech-to-text tool for Windows. Record speech and paste the transcription anywhere.</Description>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -25,6 +25,7 @@
 
   <Resources>
     <Resource Language="en-us" />
+    <Resource Language="de" />
   </Resources>
 
   <Applications>
