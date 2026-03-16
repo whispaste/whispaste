@@ -16,6 +16,12 @@ import (
 
 var multiSpace = regexp.MustCompile(`\s{2,}`)
 
+// isLocalEndpoint checks if a URL points to a local LLM/STT server.
+// Used to distinguish local model requests from cloud API requests.
+func isLocalEndpoint(url string) bool {
+	return strings.Contains(url, "127.0.0.1") || strings.Contains(url, "localhost") // DevSkim: ignore DS162092 — production loopback detection for local AI servers
+}
+
 // normalizeTranscription removes artificial line breaks that whisper inserts
 // at segment boundaries and collapses resulting multi-spaces.
 func normalizeTranscription(text string) string {
@@ -151,7 +157,7 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLa
 	}
 
 	modelName := "gpt-4o-mini"
-	if strings.Contains(chatURL, "127.0.0.1") {
+	if isLocalEndpoint(chatURL) {
 		modelName = "local"
 		// Suppress thinking mode for local Qwen models to save tokens/latency
 		systemPrompt += " /no_think"
@@ -356,7 +362,7 @@ func queryLLMForReplacements(llmEndpoint, apiKey, text string, replacements []Te
 	chatURL := llmEndpoint + "/chat/completions"
 
 	modelName := "local"
-	if !strings.Contains(chatURL, "127.0.0.1") && !strings.Contains(chatURL, "localhost") {
+	if !isLocalEndpoint(chatURL) {
 		modelName = "gpt-4o-mini"
 	}
 
@@ -381,7 +387,7 @@ INSTRUCTIONS:
 IMPORTANT: Only replace when the meaning clearly matches. When in doubt, do NOT replace.`, rules.String())
 
 	// Suppress thinking mode for local models
-	if strings.Contains(chatURL, "127.0.0.1") || strings.Contains(chatURL, "localhost") {
+	if isLocalEndpoint(chatURL) {
 		systemPrompt += " /no_think"
 	}
 

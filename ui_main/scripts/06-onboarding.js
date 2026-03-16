@@ -115,7 +115,7 @@ async function selectOnboardingOption(choice) {
     }
     // Auto-validate existing key from config (pre-populated field)
     if (keyInput && keyInput.value.trim()) {
-      setTimeout(() => onbTestApiKey(), 150);
+      setTimeout(() => onbTestApiKey(), 150); // DevSkim: ignore DS172411 — constant delay, safe callback
     }
   } else if (choice === 'local') {
     await onbRenderModelCards();

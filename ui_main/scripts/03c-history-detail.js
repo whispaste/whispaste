@@ -295,7 +295,7 @@ function _bindSidebarAddTag() {
     btn.innerHTML = `<input type="text" class="tag-input sidebar-tag-input" placeholder="${t('sidebar_add_tag_placeholder') || 'New tag name…'}" autofocus />`;
     const input = btn.querySelector('input');
     if (!input) return;
-    setTimeout(() => input.focus(), 30);
+    setTimeout(() => input.focus(), 30); // DevSkim: ignore DS172411 — constant delay, safe callback
     const commit = async () => {
       const val = input.value.trim();
       if (!val) { updateCounts(); return; }
