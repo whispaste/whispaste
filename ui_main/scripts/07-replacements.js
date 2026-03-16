@@ -20,6 +20,7 @@ function updateReplacementsVisibility() {
       replacements = [];
     }
     renderList();
+    markExampleCards();
     // Load toggle state
     try {
       const enabled = await window.getTextReplacementsEnabled();
@@ -41,6 +42,7 @@ function updateReplacementsVisibility() {
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:48px;height:48px;opacity:0.3;margin-bottom:12px"><path d="M14 4c0-1.1.9-2 2-2"/><path d="M20 2c1.1 0 2 .9 2 2"/><path d="M22 8c0 1.1-.9 2-2 2"/><path d="M16 10c-1.1 0-2-.9-2-2"/><rect x="2" y="14" width="8" height="8" rx="2"/><path d="m6 6 8 8"/></svg>
         <p data-i18n="replacementsEmpty">${t('replacementsEmpty')}</p>
       </div>`;
+      markExampleCards();
       return;
     }
     container.innerHTML = replacements.map((r, i) => `
@@ -63,6 +65,7 @@ function updateReplacementsVisibility() {
       </div>
     `).join('');
     applyTranslations();
+    markExampleCards();
   }
 
   function escapeHtml(s) {
@@ -77,6 +80,39 @@ function updateReplacementsVisibility() {
     } catch (e) {
       showToast(t('saveError'), true);
     }
+  }
+
+  // Example snippet data keyed by card index
+  const exampleSnippets = {
+    '1': { triggerKey: 'replacementsExample1Trigger', valueKey: 'replacementsExample1Value' },
+    '2': { triggerKey: 'replacementsExample2Trigger', valueKey: 'replacementsExample2Value' },
+    '3': { triggerKey: 'replacementsExample3Trigger', valueKey: 'replacementsExample3Value' },
+  };
+
+  function markExampleCards() {
+    document.querySelectorAll('.snippet-example-card[data-example]').forEach(card => {
+      const idx = card.dataset.example;
+      const ex = exampleSnippets[idx];
+      if (!ex) return;
+      const trigger = t(ex.triggerKey);
+      const exists = replacements.some(r => r.trigger.toLowerCase() === trigger.toLowerCase());
+      card.classList.toggle('added', exists);
+      const btn = card.querySelector('.snippet-example-add');
+      if (btn) btn.title = exists ? t('replacementsExampleAdded') : t('replacementsExampleAdd');
+    });
+  }
+
+  function addExampleSnippet(exampleIndex) {
+    const ex = exampleSnippets[exampleIndex];
+    if (!ex) return;
+    const trigger = t(ex.triggerKey);
+    const replacement = t(ex.valueKey);
+    if (replacements.some(r => r.trigger.toLowerCase() === trigger.toLowerCase())) return;
+    replacements.push({ trigger, replacement, enabled: true });
+    saveReplacements();
+    renderList();
+    markExampleCards();
+    showToast(t('replacementsExampleAdded'));
   }
 
   function showEditDialog(index) {
@@ -108,7 +144,7 @@ function updateReplacementsVisibility() {
     `;
     overlay.classList.add('show');
 
-    setTimeout(() => {
+    setTimeout(() => { // DevSkim: ignore DS172411 — constant delay, safe callback
       const inp = document.getElementById('repl-trigger-input');
       if (inp) inp.focus();
     }, 100);
@@ -136,6 +172,12 @@ function updateReplacementsVisibility() {
 
   // Event delegation
   document.addEventListener('click', async (e) => {
+    // Example card add buttons
+    const exampleAdd = e.target.closest('.snippet-example-add');
+    if (exampleAdd) {
+      addExampleSnippet(exampleAdd.dataset.example);
+      return;
+    }
     const addBtn = e.target.closest('#replacements-add-btn');
     if (addBtn) {
       showEditDialog(-1);
@@ -191,7 +233,7 @@ function updateReplacementsVisibility() {
   });
   document.addEventListener('DOMContentLoaded', () => {
     const page = document.getElementById('page-replacements');
-    if (page) observer.observe(page, { attributes: true, attributeFilter: ['style'] });
+    if (page) observer.observe(page, { attributes: true, attributeFilter: ['class'] });
   });
 
   window.loadReplacements = loadReplacements;

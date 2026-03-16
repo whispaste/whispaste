@@ -155,6 +155,7 @@ func main() {
 		tray             *AppTray           // set after creation, used by transition
 		showDashboard    func()             // opens main window, set after onSettingsSaved is defined
 		showMainPage     func(string)       // opens main window at specific page
+		settingsSaved    func()             // refreshes UI after config changes, set after onSettingsSaved is defined
 	)
 
 	// Snapshot config values under lock to avoid data races
@@ -897,6 +898,64 @@ func main() {
 					})
 				}
 			},
+			func() { // onHide - sync WebView settings after context menu hide
+				if settingsSaved != nil {
+					settingsSaved()
+				}
+			},
+			func() { // onConfigChanged - push config changes to WebView
+				mainWindowMu.Lock()
+				wv := mainWebview
+				mainWindowMu.Unlock()
+				if wv != nil {
+					wv.Dispatch(func() {
+						wv.Eval("if(typeof window.refreshFromConfig==='function')window.refreshFromConfig()")
+					})
+				}
+			},
+		)
+		floatingBtn.SetMenuCallbacks(
+			func() { // onToggle - start/stop recording
+				s, started := func() (AppState, bool) {
+					stateMu.Lock()
+					defer stateMu.Unlock()
+					if state == StateIdle {
+						recordSource = SourceFloating
+						return state, true
+					}
+					if state == StateRecording || state == StatePaused {
+						return state, false
+					}
+					return state, false
+				}()
+				if started {
+					transition(StateRecording)
+				} else if s == StateRecording || s == StatePaused {
+					if recorder.IsPaused() {
+						recorder.Resume()
+					}
+					transition(StateTranscribing)
+				}
+			},
+			func() AppState { // getState
+				stateMu.Lock()
+				defer stateMu.Unlock()
+				return state
+			},
+			func() string { // getHotkeyStr
+				cfg.mu.RLock()
+				mods := cfg.HotkeyMods
+				key := cfg.HotkeyKey
+				cfg.mu.RUnlock()
+				return strings.Join(mods, "+") + "+" + key
+			},
+			func() string { // getLatestText
+				entries := history.Recent(1)
+				if len(entries) == 0 || entries[0].Text == "" {
+					return ""
+				}
+				return entries[0].Text
+			},
 		)
 		// Show the button initially if enabled and onboarding is complete
 		if cfg.GetFloatingButtonEnabled() && cfg.GetOnboardingDone() {
@@ -923,7 +982,7 @@ func main() {
 			if overlay != nil {
 				go func() {
 					overlay.Show(StateError)
-					time.Sleep(2 * time.Second)
+					time.Sleep(3 * time.Second)
 					// Only hide if app is still idle (avoid hiding a recording overlay)
 					cur := func() AppState {
 						stateMu.Lock()
@@ -996,8 +1055,9 @@ func main() {
 		}
 		// Live-toggle floating button based on setting
 		if floatingBtn != nil {
-			floatingBtn.UpdateColor() // pick up any color change
-			floatingBtn.UpdateSize()  // pick up any size change
+			floatingBtn.UpdateColor()   // pick up any color change
+			floatingBtn.UpdateSize()    // pick up any size change
+			floatingBtn.UpdateOpacity() // pick up any opacity/border change
 			s := func() AppState {
 				stateMu.Lock()
 				defer stateMu.Unlock()
@@ -1018,7 +1078,17 @@ func main() {
 		if err := hkMgr.Start(); err != nil {
 			logWarn("Hotkey re-registration failed: %v", err)
 		}
+		// Push config changes to WebView (idempotent — safe even when triggered from WebView)
+		mainWindowMu.Lock()
+		wv := mainWebview
+		mainWindowMu.Unlock()
+		if wv != nil {
+			wv.Dispatch(func() {
+				wv.Eval("if(typeof window.refreshFromConfig==='function')window.refreshFromConfig()")
+			})
+		}
 	}
+	settingsSaved = onSettingsSaved
 
 	// Initialize updater
 	updater := NewUpdater(AppVersion, cfg.GetCheckUpdates, cfg.GetUpdateChannel)

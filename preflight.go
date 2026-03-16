@@ -288,3 +288,9 @@ func emptyDash(v string) string {
 	}
 	return v
 }
+
+// getSystemRAM returns total physical memory in bytes (cached from preflight).
+func getSystemRAM() uint64 {
+	result := runLocalSTTPreflight("", "inspect")
+	return result.Facts.MemoryBytes
+}

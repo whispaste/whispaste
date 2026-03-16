@@ -223,9 +223,9 @@ func (o *Overlay) render() {
 	case StateTranscribing, StateProcessing:
 		o.paintTranscribingULW(g, frame, contentX, hoverBtn, pressBtn, smartMode, transcribeStart, estimatedSec)
 	case StateError:
-		o.paintErrorULW(g, contentX)
+		o.paintErrorULW(g, contentX, hoverBtn, pressBtn)
 	case StateCopied:
-		o.paintCopiedULW(g, contentX)
+		o.paintCopiedULW(g, contentX, hoverBtn, pressBtn)
 	}
 
 	// Call UpdateLayeredWindow
@@ -530,6 +530,10 @@ func (o *Overlay) drawPlayIcon(g uintptr, bx, by int32) {
 func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hoverBtn, pressBtn int, smartMode bool, transcribeStart time.Time, estimatedSec float64) {
 	cy := int32(_OVL_HEIGHT / 2)
 
+	// Dashboard button (dark circle with grid icon) — consistent with recording state
+	gdipFillCircleG(g, btnColor(0xFF1E2A36, 1, hoverBtn, pressBtn), _BTN_DASH_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+	o.drawGridIcon(g, _BTN_DASH_X, int32(cy)-_BTN_SIZE/2)
+
 	// Cancel button (dark circle with ✕)
 	gdipFillCircleG(g, btnColor(0xFF1E2A36, 2, hoverBtn, pressBtn), _BTN_CANCEL_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 	o.drawXIcon(g, _BTN_CANCEL_X, int32(cy)-_BTN_SIZE/2)
@@ -606,24 +610,65 @@ func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hov
 	}
 }
 
-func (o *Overlay) paintErrorULW(g uintptr, contentX int32) {
+func (o *Overlay) paintErrorULW(g uintptr, contentX int32, hoverBtn, pressBtn int) {
+	cy := int32(_OVL_HEIGHT / 2)
+
+	// Dashboard button
+	gdipFillCircleG(g, btnColor(0xFF1E2A36, 1, hoverBtn, pressBtn), _BTN_DASH_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+	o.drawGridIcon(g, _BTN_DASH_X, int32(cy)-_BTN_SIZE/2)
+
+	// Cancel button
+	gdipFillCircleG(g, btnColor(0xFF1E2A36, 2, hoverBtn, pressBtn), _BTN_CANCEL_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+	o.drawXIcon(g, _BTN_CANCEL_X, int32(cy)-_BTN_SIZE/2)
+
 	text := T("error.no_api_key")
-	o.drawGdipText(g, text, float32(contentX), float32(_OVL_HEIGHT/2-10), float32(_OVL_WIDTH-16-contentX), o.gdipFontMain, 0xFFFF3C3C)
+
+	// Warning icon circle + ⚠ symbol, centered with text in content area
+	const circleD int32 = 20
+	const gap int32 = 10
+	textW := o.measureGdipTextWidth(g, text, o.gdipFontMain)
+	if textW < 80 {
+		textW = 80
+	}
+	availW := float32(_OVL_WIDTH) - float32(contentX) - 14
+	groupW := float32(circleD+gap) + textW
+	groupX := float32(contentX) + (availW-groupW)/2
+	if groupX < float32(contentX) {
+		groupX = float32(contentX)
+	}
+	groupX = float32(int32(groupX + 0.5)) // snap to pixel grid
+
+	// Warning circle (subdued red ring)
+	gdipFillCircleG(g, 0xFFE53935, int32(groupX)+circleD/2, cy, circleD/2)
+	o.drawGdipText(g, "!", groupX+6, float32(cy-10), float32(circleD), o.gdipFontMain, 0xFFFFFFFF)
+
+	// Error text
+	o.drawGdipText(g, text, groupX+float32(circleD+gap), float32(cy-10), textW+20, o.gdipFontMain, 0xFFFF6B6B)
 }
 
-func (o *Overlay) paintCopiedULW(g uintptr, contentX int32) {
+func (o *Overlay) paintCopiedULW(g uintptr, contentX int32, hoverBtn, pressBtn int) {
 	cy := int32(_OVL_HEIGHT / 2)
+
+	// Dashboard button — user can jump to dashboard to edit the entry
+	gdipFillCircleG(g, btnColor(0xFF1E2A36, 1, hoverBtn, pressBtn), _BTN_DASH_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
+	o.drawGridIcon(g, _BTN_DASH_X, int32(cy)-_BTN_SIZE/2)
+
 	text := T("overlay.copied")
 
-	// Center checkmark+gap+text group in full overlay width
+	// Center checkmark+gap+text group in content area (right of buttons)
 	const circleD = 16 // checkmark circle diameter
 	const gap = 8
 	textW := o.measureGdipTextWidth(g, text, o.gdipFontMain)
 	if textW < 80 {
 		textW = 80
 	}
+	availW := float32(_OVL_WIDTH) - float32(contentX) - 14
 	groupW := float32(circleD+gap) + textW
-	groupX := (float32(_OVL_WIDTH) - groupW) / 2
+	groupX := float32(contentX) + (availW-groupW)/2
+	if groupX < float32(contentX) {
+		groupX = float32(contentX)
+	}
+	groupX = float32(int32(groupX + 0.5)) // snap to pixel grid
 
 	gdipFillCircleG(g, 0xFF34C759, int32(groupX)+circleD/2, cy, circleD/2)
 	o.drawGdipText(g, "\u2713", groupX+1, float32(cy-10), float32(circleD), o.gdipFontSmall, 0xFFFFFFFF)

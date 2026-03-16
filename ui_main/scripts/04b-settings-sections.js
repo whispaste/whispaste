@@ -149,7 +149,7 @@ function onHotkeyKeyDown(e) {
     _savedHotkeyMods = mods;
     _savedHotkeyKey = normalized;
     setHotkeyDisplay([..._savedHotkeyMods, _savedHotkeyKey]);
-    setTimeout(() => { cancelHotkeyRecording(); autoSave(); }, 300);
+    setTimeout(() => { cancelHotkeyRecording(); autoSave(); }, 300); // DevSkim: ignore DS172411 — constant delay, safe callback
   }
 }
 
@@ -183,7 +183,7 @@ function copyApiKey() {
       const orig = btn.innerHTML;
       btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
       btn.style.color = 'var(--accent)';
-      setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1500);
+      setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1500); // DevSkim: ignore DS172411 — constant delay, safe callback
     }
   }
   // WebView2 data: URLs don't have navigator.clipboard — use execCommand fallback
@@ -309,16 +309,12 @@ function renderSettingsLLMModel(status) {
   const models = status.models || {};
 
   // Model definitions for display order
-  const modelOrder = ['smollm2', 'qwen3.5-0.8b'];
+  const modelOrder = ['smollm2', 'qwen2.5-0.5b', 'qwen3.5-0.8b'];
   const modelTranslations = {
     'smollm2': { name: t('smartLlmModelSmollm2'), desc: t('smartLlmModelSmollm2Desc') },
+    'qwen2.5-0.5b': { name: t('smartLlmModelQwen25'), desc: t('smartLlmModelQwen25Desc') },
     'qwen3.5-0.8b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
   };
-
-  // Backward compat: if status has no models map, build one from legacy fields
-  if (Object.keys(models).length === 0 && status.installed !== undefined) {
-    models['smollm2'] = { name: 'SmolLM2', installed: !!status.installed };
-  }
 
   let html = '';
   for (const id of modelOrder) {
@@ -347,9 +343,10 @@ function renderSettingsLLMModel(status) {
 function updateProviderModelPickers(status) {
   const models = status ? (status.models || {}) : {};
   const selectedModel = status ? (status.selectedModel || 'smollm2') : 'smollm2';
-  const modelOrder = ['smollm2', 'qwen3.5-0.8b'];
+  const modelOrder = ['smollm2', 'qwen2.5-0.5b', 'qwen3.5-0.8b'];
   const modelTranslations = {
     'smollm2': { name: t('smartLlmModelSmollm2'), desc: t('smartLlmModelSmollm2Desc') },
+    'qwen2.5-0.5b': { name: t('smartLlmModelQwen25'), desc: t('smartLlmModelQwen25Desc') },
     'qwen3.5-0.8b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
   };
 

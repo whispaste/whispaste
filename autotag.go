@@ -94,6 +94,9 @@ Tags: meeting, cooking, travel
 Text: "We discussed the project timeline and assigned tasks for next week"
 Answer: ["meeting"]`, tagList)
 
+	// Suppress thinking mode for local Qwen models
+	systemPrompt += " /no_think"
+
 	// Truncate very long texts — classification only needs the gist
 	classifyText := text
 	if len(classifyText) > 2000 {
@@ -152,7 +155,7 @@ Answer: ["meeting"]`, tagList)
 		return nil, fmt.Errorf("empty response from LLM")
 	}
 
-	content := strings.TrimSpace(result.Choices[0].Message.Content)
+	content := stripThinkBlocks(result.Choices[0].Message.Content)
 	return parseTagResponse(content, availableTags)
 }
 

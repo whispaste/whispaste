@@ -159,14 +159,14 @@
 
 .snippet-example-card {
   display: grid;
-  grid-template-columns: minmax(110px, 140px) 20px minmax(0, 1fr);
+  grid-template-columns: minmax(110px, 140px) 20px minmax(0, 1fr) 30px;
   gap: 10px;
   align-items: center;
   padding: 12px 14px;
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
   background: var(--bg-secondary);
-  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition), opacity var(--transition);
 }
 
 .snippet-example-card:hover {
@@ -219,13 +219,71 @@
   height: 16px;
 }
 
+/* Add button on example cards */
+.snippet-example-add {
+  grid-row: 2;
+  grid-column: 4;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-secondary);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition), border-color var(--transition), background var(--transition), transform 0.15s ease;
+}
+
+.snippet-example-add:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  transform: scale(1.1);
+}
+
+.snippet-example-add .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Already-added state */
+.snippet-example-card.added {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.snippet-example-card.added .snippet-example-add {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
 @media (max-width: 720px) {
   .snippet-example-card {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 30px;
+  }
+
+  .snippet-example-label {
+    grid-column: 1 / -1;
+  }
+
+  .snippet-example-trigger,
+  .snippet-example-value {
+    grid-column: 1;
   }
 
   .snippet-example-arrow {
     justify-content: flex-start;
+    grid-column: 1;
+  }
+
+  .snippet-example-add {
+    grid-row: 1 / -1;
+    grid-column: 2;
+    align-self: center;
   }
 }
 

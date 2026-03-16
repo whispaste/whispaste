@@ -21,15 +21,7 @@ const (
 	_WM_FLOAT_HIDE     = _WM_USER + 21
 	_WM_FLOAT_RERENDER = _WM_USER + 22
 	_WM_FLOAT_RESIZE   = _WM_USER + 23
-
-	// Timer for hover/opacity animation
-	_FLOAT_TIMER_ID = 2
-	_FLOAT_TIMER_MS = 16 // ~60 FPS
-
-	// Opacity
-	_FLOAT_OPACITY_IDLE  = 178 // ~70%
-	_FLOAT_OPACITY_HOVER = 255 // 100%
-	_FLOAT_OPACITY_STEP  = 20  // per-frame change
+	_WM_FLOAT_OPACITY  = _WM_USER + 24
 
 	// Edge snapping threshold
 	_FLOAT_SNAP_PX = 10
@@ -43,24 +35,31 @@ const (
 	_FLOAT_MENU_SETTINGS   = 3
 	_FLOAT_MENU_HIDE       = 4
 	_FLOAT_MENU_QUIT       = 5
+	_FLOAT_MENU_RECORD     = 6
+	_FLOAT_MENU_PREVIEW    = 7
+	_FLOAT_MENU_LOCK       = 8
 
 	// Win32 menu constants
 	_MF_STRING       = 0x0000
 	_MF_SEPARATOR    = 0x0800
 	_MF_CHECKED      = 0x0008
+	_MF_GRAYED       = 0x0001
 	_TPM_RIGHTBUTTON = 0x0002
 
 	// Non-client messages (needed because HTCAPTION consumes LBUTTONxx/RBUTTONxx)
 	_WM_NCLBUTTONDOWN = 0x00A1
 	_WM_NCLBUTTONUP   = 0x00A2
 	_WM_NCRBUTTONUP   = 0x00A5
+	_WM_NCMOUSEMOVE   = 0x00A0
+	_WM_NCMOUSELEAVE  = 0x02A2
 
 	// Mouse tracking
-	_TME_LEAVE     = 0x00000002
-	_WM_MOUSEMOVE  = 0x0200
-	_WM_MOUSELEAVE = 0x02A3
-	_WM_MOVE       = 0x0003
-	_WM_COMMAND    = 0x0111
+	_TME_LEAVE      = 0x00000002
+	_TME_NONCLIENT  = 0x00000010
+	_WM_MOUSEMOVE   = 0x0200
+	_WM_MOUSELEAVE  = 0x02A3
+	_WM_MOVE        = 0x0003
+	_WM_COMMAND     = 0x0111
 
 	// Monitor info
 	_MONITOR_DEFAULTTONEAREST = 0x00000002
@@ -70,13 +69,6 @@ const (
 )
 
 // Win32 structs for floating button
-type trackMouseEventT struct {
-	CbSize      uint32
-	DwFlags     uint32
-	HwndTrack   uintptr
-	DwHoverTime uint32
-}
-
 type monitorInfo struct {
 	CbSize    uint32
 	RcMonitor rectT
@@ -178,14 +170,19 @@ type FloatingButton struct {
 	onOpenWindow     func(string)
 	onQuit           func()
 	onSmartToggled   func(bool)
+	onHide           func()           // called when user hides via context menu
+	onToggle         func()           // start/stop recording toggle
+	onConfigChanged  func()           // called after any config change from context menu
 
-	hovered       bool
-	tracking      bool
-	opacity       byte
-	targetOpacity byte
-	dragStartX    int32 // window X at start of potential drag
-	dragStartY    int32 // window Y at start of potential drag
-	size          int   // current diameter in pixels (cached from config)
+	// Menu state providers (called at menu-open time)
+	getState      func() AppState
+	getHotkeyStr  func() string
+	getLatestText func() string
+
+	opacity    byte
+	dragStartX int32 // window X at start of potential drag
+	dragStartY int32 // window Y at start of potential drag
+	size       int   // current diameter in pixels (cached from config)
 
 	// Position save debouncing
 	lastMoveSave time.Time
@@ -219,6 +216,12 @@ func (fb *FloatingButton) getSize() int {
 	return int(float64(s) * fb.dpiScale())
 }
 
+// idleOpacity returns the configured idle opacity as a byte (0–255).
+func (fb *FloatingButton) idleOpacity() byte {
+	pct := fb.cfg.GetFloatingButtonOpacity() // 30–100
+	return byte(pct * 255 / 100)
+}
+
 func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	fb := globalFloating
 	if fb == nil {
@@ -237,7 +240,9 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		return 1
 
 	case _WM_NCHITTEST:
-		// Entire window is draggable
+		if fb.cfg.GetFloatingButtonLocked() {
+			return 1 // HTCLIENT — prevents drag, allows click
+		}
 		return _HTCAPTION
 
 	case _WM_NCLBUTTONDOWN:
@@ -272,89 +277,28 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		// The primary click detection is in NCLBUTTONDOWN above.
 		return 0
 
+	case 0x0201: // WM_LBUTTONDOWN — when position is locked, NCHITTEST returns HTCLIENT
+		cb := func() func() {
+			fb.mu.Lock()
+			defer fb.mu.Unlock()
+			return fb.onStartRecording
+		}()
+		if cb != nil {
+			procPostMessageW.Call(hwnd, _WM_FLOAT_HIDE, 0, 0)
+			go cb()
+		}
+		return 0
+
 	case _WM_NCRBUTTONUP:
 		fb.showContextMenu(hwnd)
 		return 0
 
-	case _WM_MOUSEMOVE:
-		wasHovered := func() bool {
-			fb.mu.Lock()
-			defer fb.mu.Unlock()
-			was := fb.hovered
-			fb.hovered = true
-			fb.targetOpacity = _FLOAT_OPACITY_HOVER
-			if !fb.tracking {
-				fb.tracking = true
-				tme := trackMouseEventT{
-					CbSize:    uint32(unsafe.Sizeof(trackMouseEventT{})),
-					DwFlags:   _TME_LEAVE,
-					HwndTrack: hwnd,
-				}
-				procTrackMouseEvent.Call(uintptr(unsafe.Pointer(&tme)))
-			}
-			return was
-		}()
-		if !wasHovered {
-			procSetTimer.Call(hwnd, _FLOAT_TIMER_ID, _FLOAT_TIMER_MS, 0)
-		}
-		return 0
-
-	case _WM_MOUSELEAVE:
-		func() {
-			fb.mu.Lock()
-			defer fb.mu.Unlock()
-			fb.hovered = false
-			fb.tracking = false
-			fb.targetOpacity = _FLOAT_OPACITY_IDLE
-		}()
+	case 0x0205: // WM_RBUTTONUP — context menu when position is locked
+		fb.showContextMenu(hwnd)
 		return 0
 
 	case _WM_MOVE:
 		fb.onWindowMoved()
-		return 0
-
-	case _WM_TIMER:
-		if wParam == _FLOAT_TIMER_ID {
-			target, current := func() (byte, byte) {
-				fb.mu.Lock()
-				defer fb.mu.Unlock()
-				return fb.targetOpacity, fb.opacity
-			}()
-
-			if current != target {
-				if current < target {
-					current += _FLOAT_OPACITY_STEP
-					if current > target {
-						current = target
-					}
-				} else {
-					if current < _FLOAT_OPACITY_STEP {
-						current = target
-					} else {
-						current -= _FLOAT_OPACITY_STEP
-						if current < target {
-							current = target
-						}
-					}
-				}
-				func() {
-					fb.mu.Lock()
-					defer fb.mu.Unlock()
-					fb.opacity = current
-				}()
-				fb.render()
-			} else {
-				// Stop timer when target reached and not hovered
-				h := func() bool {
-					fb.mu.Lock()
-					defer fb.mu.Unlock()
-					return fb.hovered
-				}()
-				if !h {
-					procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
-				}
-			}
-		}
 		return 0
 
 	case _WM_COMMAND:
@@ -401,6 +345,14 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 				fb.cfg.FloatingButtonEnabled = false
 				fb.cfg.mu.Unlock()
 				fb.cfg.Save()
+				cb := func() func() {
+					fb.mu.Lock()
+					defer fb.mu.Unlock()
+					return fb.onHide
+				}()
+				if cb != nil {
+					cb()
+				}
 			}()
 		case _FLOAT_MENU_QUIT:
 			cb := func() func() {
@@ -411,6 +363,50 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			if cb != nil {
 				go cb()
 			}
+		case _FLOAT_MENU_RECORD:
+			cb := func() func() {
+				fb.mu.Lock()
+				defer fb.mu.Unlock()
+				return fb.onToggle
+			}()
+			if cb != nil {
+				go cb()
+			}
+		case _FLOAT_MENU_PREVIEW:
+			// Copy latest transcription to clipboard
+			cb := func() func() string {
+				fb.mu.Lock()
+				defer fb.mu.Unlock()
+				return fb.getLatestText
+			}()
+			if cb != nil {
+				go func() {
+					if text := cb(); text != "" {
+						if err := writeClipboard(text); err != nil {
+							logWarn("Menu preview copy failed: %v", err)
+						} else {
+							logInfo("Copied last transcription from menu (%d chars)", len(text))
+						}
+					}
+				}()
+			}
+		case _FLOAT_MENU_LOCK:
+			go func() {
+				fb.cfg.mu.Lock()
+				fb.cfg.FloatingButtonLocked = !fb.cfg.FloatingButtonLocked
+				locked := fb.cfg.FloatingButtonLocked
+				fb.cfg.mu.Unlock()
+				fb.cfg.Save()
+				logInfo("Floating button position lock: %v", locked)
+				cb := func() func() {
+					fb.mu.Lock()
+					defer fb.mu.Unlock()
+					return fb.onConfigChanged
+				}()
+				if cb != nil {
+					cb()
+				}
+			}()
 		}
 		return 0
 
@@ -431,7 +427,11 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 	case _WM_FLOAT_HIDE:
 		procShowWindow.Call(hwnd, uintptr(_SW_HIDE))
-		procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
+		func() {
+			fb.mu.Lock()
+			defer fb.mu.Unlock()
+			fb.opacity = fb.idleOpacity()
+		}()
 		return 0
 
 	case _WM_FLOAT_RERENDER:
@@ -442,12 +442,20 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		fb.handleResize()
 		return 0
 
+	case _WM_FLOAT_OPACITY:
+		func() {
+			fb.mu.Lock()
+			defer fb.mu.Unlock()
+			fb.opacity = fb.idleOpacity()
+		}()
+		fb.render()
+		return 0
+
 	case _WM_DPICHANGED:
 		fb.handleResize()
 		return 0
 
 	case _WM_DESTROY:
-		procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
 		if fb.dibDC != 0 {
 			procDeleteDC.Call(fb.dibDC)
 		}
@@ -467,12 +475,11 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 // NewFloatingButton creates the floating record button on a dedicated OS thread.
 func NewFloatingButton(c *Config) (*FloatingButton, error) {
 	fb := &FloatingButton{
-		ready:         make(chan error, 1),
-		done:          make(chan struct{}),
-		cfg:           c,
-		opacity:       _FLOAT_OPACITY_IDLE,
-		targetOpacity: _FLOAT_OPACITY_IDLE,
-		size:          c.GetFloatingButtonSize(),
+		ready:   make(chan error, 1),
+		done:    make(chan struct{}),
+		cfg:     c,
+		opacity: byte(c.GetFloatingButtonOpacity() * 255 / 100),
+		size:    c.GetFloatingButtonSize(),
 	}
 	globalFloating = fb
 
@@ -507,13 +514,25 @@ func NewFloatingButton(c *Config) (*FloatingButton, error) {
 }
 
 // SetCallbacks sets the floating button callbacks (thread-safe).
-func (fb *FloatingButton) SetCallbacks(onStart func(), onOpenWindow func(string), onQuit func(), onSmartToggled func(bool)) {
+func (fb *FloatingButton) SetCallbacks(onStart func(), onOpenWindow func(string), onQuit func(), onSmartToggled func(bool), onHide func(), onConfigChanged func()) {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 	fb.onStartRecording = onStart
 	fb.onOpenWindow = onOpenWindow
 	fb.onQuit = onQuit
 	fb.onSmartToggled = onSmartToggled
+	fb.onHide = onHide
+	fb.onConfigChanged = onConfigChanged
+}
+
+// SetMenuCallbacks sets the state-provider callbacks for the context menu.
+func (fb *FloatingButton) SetMenuCallbacks(onToggle func(), getState func() AppState, getHotkeyStr func() string, getLatestText func() string) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	fb.onToggle = onToggle
+	fb.getState = getState
+	fb.getHotkeyStr = getHotkeyStr
+	fb.getLatestText = getLatestText
 }
 
 // Show displays the floating button.
@@ -542,6 +561,13 @@ func (fb *FloatingButton) Close() {
 func (fb *FloatingButton) UpdateColor() {
 	if fb.hwnd != 0 {
 		procPostMessageW.Call(fb.hwnd, _WM_FLOAT_RERENDER, 0, 0)
+	}
+}
+
+// UpdateOpacity applies the current config opacity immediately.
+func (fb *FloatingButton) UpdateOpacity() {
+	if fb.hwnd != 0 {
+		procPostMessageW.Call(fb.hwnd, _WM_FLOAT_OPACITY, 0, 0)
 	}
 }
 
@@ -693,18 +719,17 @@ func (fb *FloatingButton) render() {
 	// Clear to transparent
 	procGdipGraphicsClear.Call(g, 0x00000000)
 
-	hovered, alpha := func() (bool, byte) {
+	alpha := func() byte {
 		fb.mu.Lock()
 		defer fb.mu.Unlock()
-		return fb.hovered, fb.opacity
+		return fb.opacity
 	}()
 
-	a := uint32(alpha)
 	preset := getFloatPreset(fb.cfg.GetFloatingButtonColor())
 
 	// Outer glow (semi-transparent accent ring behind the circle)
-	glowAlpha := a * 40 / 255 // subtle glow
-	glowColor := (glowAlpha << 24) | (preset.Top & 0x00FFFFFF)
+	// Design alpha: 40/255 ≈ 16% — applied via per-pixel alpha
+	glowColor := (uint32(40) << 24) | (preset.Top & 0x00FFFFFF)
 	var glowBrush uintptr
 	procGdipCreateSolidFill.Call(uintptr(glowColor), uintptr(unsafe.Pointer(&glowBrush)))
 	if glowBrush != 0 {
@@ -713,8 +738,8 @@ func (fb *FloatingButton) render() {
 	}
 
 	// Shadow (offset 2px down-right, drawn within glow area)
-	shadowAlpha := a * 48 / 255
-	shadowColor := shadowAlpha << 24
+	// Design alpha: 48/255 ≈ 19%
+	shadowColor := uint32(48) << 24
 	var shadowBrush uintptr
 	procGdipCreateSolidFill.Call(uintptr(shadowColor), uintptr(unsafe.Pointer(&shadowBrush)))
 	if shadowBrush != 0 {
@@ -724,11 +749,6 @@ func (fb *FloatingButton) render() {
 
 	// Main circle with 135° gradient (top-left → bottom-right)
 	topClr, botClr := preset.Top, preset.Bottom
-	if hovered {
-		topClr, botClr = preset.HoverTop, preset.HoverBot
-	}
-	topClr = (a << 24) | (topClr & 0x00FFFFFF)
-	botClr = (a << 24) | (botClr & 0x00FFFFFF)
 
 	// GdipCreateLineBrushFromRectI uses a rect + LinearGradientMode
 	// For 135° we use ForwardDiagonal (mode=2)
@@ -748,14 +768,27 @@ func (fb *FloatingButton) render() {
 		procGdipDeleteBrush.Call(gradBrush)
 	}
 
-	// Mic icon
-	fb.drawMicIcon(g, a)
+	// Optional accent border ring
+	if fb.cfg.GetFloatingButtonBorder() {
+		borderColor := (uint32(200) << 24) | 0x00FFFFFF // white ring, design alpha 200/255
+		var borderPen uintptr
+		procGdipCreatePen1.Call(uintptr(borderColor), f32(2.0), 2, uintptr(unsafe.Pointer(&borderPen)))
+		if borderPen != 0 {
+			procGdipDrawEllipseI.Call(g, borderPen, 3, 3, uintptr(sz-6), uintptr(sz-6))
+			procGdipDeletePen.Call(borderPen)
+		}
+	}
 
-	// UpdateLayeredWindow
+	// Mic icon (full opacity in pixel data)
+	fb.drawMicIcon(g, 255)
+
+	// UpdateLayeredWindow — SourceConstantAlpha controls the user's opacity setting.
+	// Per-pixel alpha (AC_SRC_ALPHA) handles the circle shape / glow / shadow design.
+	// Both combine: effective alpha = pixel_alpha × SourceConstantAlpha / 255.
 	blend := blendFunction{
-		BlendOp:             0, // AC_SRC_OVER
-		SourceConstantAlpha: 255,
-		AlphaFormat:         1, // AC_SRC_ALPHA
+		BlendOp:             0,     // AC_SRC_OVER
+		SourceConstantAlpha: alpha, // user's configured opacity (0–255)
+		AlphaFormat:         1,     // AC_SRC_ALPHA
 	}
 	ptSrc := pointT{0, 0}
 	ulsz := sizeT{int32(sz), int32(sz)}
@@ -925,7 +958,67 @@ func (fb *FloatingButton) showContextMenu(hwnd uintptr) {
 		return
 	}
 
-	// Smart Mode toggle (checked when active)
+	// Snapshot state providers under lock
+	var getState func() AppState
+	var getHotkeyStr func() string
+	var getLatestText func() string
+	func() {
+		fb.mu.Lock()
+		defer fb.mu.Unlock()
+		getState = fb.getState
+		getHotkeyStr = fb.getHotkeyStr
+		getLatestText = fb.getLatestText
+	}()
+
+	// --- Status line (disabled/grayed, informational) ---
+	statusKey := "floating.status_ready"
+	appState := StateIdle
+	if getState != nil {
+		appState = getState()
+	}
+	switch appState {
+	case StateRecording, StatePaused:
+		statusKey = "floating.status_record"
+	case StateTranscribing, StateProcessing:
+		statusKey = "floating.status_working"
+	}
+	statusText, _ := windows.UTF16PtrFromString("● " + T(statusKey))
+	procAppendMenuW.Call(hMenu, _MF_STRING|_MF_GRAYED, 0, uintptr(unsafe.Pointer(statusText)))
+
+	// --- Last transcription preview (click to copy) ---
+	var previewFull string
+	if getLatestText != nil {
+		previewFull = getLatestText()
+	}
+	if previewFull != "" {
+		preview := truncateRunes(previewFull, 35)
+		previewLabel := fmt.Sprintf(T("floating.last_text"), preview)
+		previewPtr, _ := windows.UTF16PtrFromString(previewLabel)
+		procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_PREVIEW, uintptr(unsafe.Pointer(previewPtr)))
+	}
+
+	procAppendMenuW.Call(hMenu, _MF_SEPARATOR, 0, 0)
+
+	// --- Start/Stop Recording + hotkey shortcut ---
+	isRecording := appState == StateRecording || appState == StatePaused
+	recordKey := "tray.start_record"
+	if isRecording {
+		recordKey = "tray.stop_record"
+	}
+	recordLabel := T(recordKey)
+	if getHotkeyStr != nil {
+		if hk := getHotkeyStr(); hk != "" {
+			recordLabel += "\t" + hk
+		}
+	}
+	recordPtr, _ := windows.UTF16PtrFromString(recordLabel)
+	recordFlags := uintptr(_MF_STRING)
+	if appState == StateTranscribing || appState == StateProcessing {
+		recordFlags |= _MF_GRAYED
+	}
+	procAppendMenuW.Call(hMenu, recordFlags, _FLOAT_MENU_RECORD, uintptr(unsafe.Pointer(recordPtr)))
+
+	// --- Smart Mode toggle ---
 	smartText, _ := windows.UTF16PtrFromString(T("tray.smart_mode"))
 	smartFlags := uintptr(_MF_STRING)
 	if fb.cfg.GetSmartMode() {
@@ -935,21 +1028,29 @@ func (fb *FloatingButton) showContextMenu(hwnd uintptr) {
 
 	procAppendMenuW.Call(hMenu, _MF_SEPARATOR, 0, 0)
 
-	// Dashboard
+	// --- Dashboard ---
 	dashText, _ := windows.UTF16PtrFromString(T("tray.notebook"))
 	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_DASHBOARD, uintptr(unsafe.Pointer(dashText)))
 
-	// Settings
+	// --- Settings ---
 	settingsText, _ := windows.UTF16PtrFromString(T("tray.settings"))
 	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_SETTINGS, uintptr(unsafe.Pointer(settingsText)))
 
 	procAppendMenuW.Call(hMenu, _MF_SEPARATOR, 0, 0)
 
-	// Hide button
+	// --- Lock position toggle ---
+	lockText, _ := windows.UTF16PtrFromString(T("floating.lock"))
+	lockFlags := uintptr(_MF_STRING)
+	if fb.cfg.GetFloatingButtonLocked() {
+		lockFlags |= _MF_CHECKED
+	}
+	procAppendMenuW.Call(hMenu, lockFlags, _FLOAT_MENU_LOCK, uintptr(unsafe.Pointer(lockText)))
+
+	// --- Hide button ---
 	hideText, _ := windows.UTF16PtrFromString(T("floating.hide"))
 	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_HIDE, uintptr(unsafe.Pointer(hideText)))
 
-	// Quit
+	// --- Quit ---
 	quitText, _ := windows.UTF16PtrFromString(T("tray.quit"))
 	procAppendMenuW.Call(hMenu, _MF_STRING, _FLOAT_MENU_QUIT, uintptr(unsafe.Pointer(quitText)))
 
