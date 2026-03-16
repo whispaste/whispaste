@@ -410,20 +410,15 @@
   align-items: center;
   gap: 8px;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .06em;
   color: var(--text-hint);
-  padding: 12px 10px 8px;
+  padding: 14px 10px 6px;
 }
 
 .filter-section-title::before {
-  content: '';
-  width: 3px;
-  height: 14px;
-  border-radius: 2px;
-  background: var(--gradient-accent);
-  flex-shrink: 0;
+  display: none;
 }
 
 .sidebar-add-tag-header { background: none; border: none; cursor: pointer; transition: opacity var(--transition-fast); }
@@ -449,22 +444,11 @@
 }
 .filter-item:hover { background: var(--bg-hover); color: var(--text); }
 .filter-item.active {
-  background: color-mix(in srgb, var(--accent), transparent 92%);
+  background: color-mix(in srgb, var(--accent), transparent 88%);
   color: var(--accent);
   font-weight: 600;
-  position: relative;
 }
-.filter-item.active::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--accent);
-}
-.filter-item .icon { width: 14px; height: 14px; }
+.filter-item .icon { width: 16px; height: 16px; flex-shrink: 0; }
 
 .filter-count {
   margin-left: auto;
