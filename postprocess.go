@@ -153,6 +153,8 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLa
 	modelName := "gpt-4o-mini"
 	if strings.Contains(chatURL, "127.0.0.1") {
 		modelName = "local"
+		// Suppress thinking mode for local Qwen models to save tokens/latency
+		systemPrompt += " /no_think"
 	}
 
 	reqBody := map[string]interface{}{
@@ -377,6 +379,11 @@ INSTRUCTIONS:
 6. Return ONLY the modified text, nothing else — no explanations, no quotes
 
 IMPORTANT: Only replace when the meaning clearly matches. When in doubt, do NOT replace.`, rules.String())
+
+	// Suppress thinking mode for local models
+	if strings.Contains(chatURL, "127.0.0.1") || strings.Contains(chatURL, "localhost") {
+		systemPrompt += " /no_think"
+	}
 
 	reqBody := map[string]interface{}{
 		"model": modelName,

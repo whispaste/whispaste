@@ -309,16 +309,12 @@ function renderSettingsLLMModel(status) {
   const models = status.models || {};
 
   // Model definitions for display order
-  const modelOrder = ['smollm2', 'qwen3.5-0.8b'];
+  const modelOrder = ['smollm2', 'qwen2.5-0.5b', 'qwen3.5-0.8b'];
   const modelTranslations = {
     'smollm2': { name: t('smartLlmModelSmollm2'), desc: t('smartLlmModelSmollm2Desc') },
+    'qwen2.5-0.5b': { name: t('smartLlmModelQwen25'), desc: t('smartLlmModelQwen25Desc') },
     'qwen3.5-0.8b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
   };
-
-  // Backward compat: if status has no models map, build one from legacy fields
-  if (Object.keys(models).length === 0 && status.installed !== undefined) {
-    models['smollm2'] = { name: 'SmolLM2', installed: !!status.installed };
-  }
 
   let html = '';
   for (const id of modelOrder) {
@@ -347,9 +343,10 @@ function renderSettingsLLMModel(status) {
 function updateProviderModelPickers(status) {
   const models = status ? (status.models || {}) : {};
   const selectedModel = status ? (status.selectedModel || 'smollm2') : 'smollm2';
-  const modelOrder = ['smollm2', 'qwen3.5-0.8b'];
+  const modelOrder = ['smollm2', 'qwen2.5-0.5b', 'qwen3.5-0.8b'];
   const modelTranslations = {
     'smollm2': { name: t('smartLlmModelSmollm2'), desc: t('smartLlmModelSmollm2Desc') },
+    'qwen2.5-0.5b': { name: t('smartLlmModelQwen25'), desc: t('smartLlmModelQwen25Desc') },
     'qwen3.5-0.8b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
   };
 
