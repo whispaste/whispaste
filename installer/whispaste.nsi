@@ -8,7 +8,7 @@
 ; --- General ---
 !define PRODUCT_NAME "WhisPaste"
 !define PRODUCT_PUBLISHER "Silvio Lindstedt"
-!define PRODUCT_WEB_SITE "https://whispaste.com"
+!define PRODUCT_WEB_SITE "https://whispaste.de"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_AUTORUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
 
