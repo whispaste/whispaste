@@ -143,7 +143,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'hero.trust.anywhere': 'Open Source',
     'hero.trust.private': 'Privacy-first',
     'hero.trust.nosub': 'Kein Abo',
-    'nav.howitworks': 'Ablauf',
+    'nav.howitworks': 'Wie funktioniert\u2019s',
     'nav.pricing': 'Preis',
     'nav.faq': 'FAQ',
     'nav.download': 'Download',
