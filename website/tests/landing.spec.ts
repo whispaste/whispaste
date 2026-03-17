@@ -43,8 +43,9 @@ test('legal pages load without 404s', async ({ page }) => {
   await expect(page.locator('#pageTitle')).toBeVisible();
 });
 
-test('download page loads and contains SmartScreen guide', async ({ page }) => {
+test('download page has Store and GitHub sections', async ({ page }) => {
   await page.goto('/download/');
-  await expect(page.locator('h1')).toContainText('download');
-  await expect(page.locator('h2')).toContainText('warning');
+  await expect(page.locator('main h1').first()).toContainText('Download');
+  await expect(page.locator('main h2').first()).toContainText('Microsoft Store');
+  await expect(page.locator('[data-i18n="download.github.button"]')).toBeVisible();
 });
