@@ -4,65 +4,143 @@ import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
 ---
 
-<Layout title="Download WhisPaste" description="Download WhisPaste for Windows — free, open-source voice-to-text. Installation guide included.">
+<Layout title="Download WhisPaste" description="Download WhisPaste for Windows — via Microsoft Store or free from GitHub.">
+  <!-- MS Store badge web component -->
+  <script type="module" src="https://get.microsoft.com/badge/ms-store-badge.bundled.js"></script>
+
   <div class="min-h-screen flex flex-col">
     <Nav variant="subpage" />
 
     <main id="main-content" class="flex-1 pt-24 pb-16 px-6">
       <div class="max-w-3xl mx-auto">
 
-        <!-- Download status -->
-        <div class="text-center mb-14">
-          <div class="mb-6">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-cyan/10 border border-brand-cyan/20">
-              <svg id="downloadIcon" class="w-8 h-8 text-brand-cyan animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-            </div>
-          </div>
-          <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3" data-i18n="download.title">Your download is starting…</h1>
-          <p class="text-gray-400 text-lg" data-i18n="download.subtitle">WhisPaste Setup will download automatically.</p>
-          <p class="mt-4 text-sm text-gray-500">
-            <span data-i18n="download.manual">Download didn't start?</span>
-            <a href="https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-Setup.exe" class="text-brand-cyan hover:underline ml-1" data-i18n="download.manualLink">Click here to download manually</a>
-          </p>
+        <!-- Page header -->
+        <div class="text-center mb-12">
+          <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3" data-i18n="download.title">Download WhisPaste</h1>
+          <p class="text-gray-400 text-lg" data-i18n="download.subtitle">Choose your preferred installation method.</p>
         </div>
 
-        <!-- SmartScreen guide -->
-        <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6">
-          <div class="flex items-start gap-3 mb-6">
-            <div class="shrink-0 w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-              <svg class="w-5 h-5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+        <!-- Section 1: Microsoft Store (recommended) -->
+        <div class="download-card rounded-2xl border border-brand-cyan/20 bg-brand-cyan/[0.03] p-6 sm:p-8 mb-6 relative">
+          <div class="absolute -top-3 left-6">
+            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-brand-cyan/20 border border-brand-cyan/30 text-brand-cyan text-xs font-semibold">
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+              <span data-i18n="download.store.recommended">Recommended</span>
+            </span>
+          </div>
+
+          <div class="flex items-start gap-3 mb-5 mt-2">
+            <div class="shrink-0 w-10 h-10 rounded-xl bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-brand-cyan" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 3.5L9.9 2.2v9.4H0zm11.1-1.5L24 0v11.5H11.1zM0 12.6h9.9v9.4L0 20.7zm11.1-.1H24V24l-12.9-1.8z"/></svg>
             </div>
             <div>
-              <h2 class="text-xl font-semibold text-white" data-i18n="download.smartscreen.title">Windows may show a warning</h2>
-              <p class="text-gray-400 text-sm mt-1" data-i18n="download.smartscreen.desc">This is normal for new open-source software. Here's how to proceed:</p>
+              <h2 class="text-xl font-semibold text-white" data-i18n="download.store.title">Microsoft Store</h2>
+              <p class="text-gray-400 text-sm mt-1" data-i18n="download.store.desc">The easiest way to install WhisPaste — and supports the project.</p>
             </div>
           </div>
 
-          <div class="space-y-6">
-            <!-- Step 1 -->
-            <div class="flex gap-4">
-              <div class="shrink-0 w-8 h-8 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-sm">1</div>
+          <!-- Benefits grid -->
+          <div class="grid grid-cols-2 gap-2 mb-6">
+            <div class="flex items-center gap-2 text-sm text-gray-300">
+              <svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+              <span data-i18n="download.store.benefit1">Automatic updates</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm text-gray-300">
+              <svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+              <span data-i18n="download.store.benefit2">No SmartScreen warnings</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm text-gray-300">
+              <svg class="w-4 h-4 text-brand-cyan shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span data-i18n="download.store.benefit3">Verified by Microsoft</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm text-gray-300">
+              <svg class="w-4 h-4 text-pink-400/80 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              <span data-i18n="download.store.benefit4">Supports the developer</span>
+            </div>
+          </div>
+
+          <!-- Store badge -->
+          <div class="flex flex-col items-center gap-3">
+            <ms-store-badge
+              productid="9p22jvkrq2v0"
+              window-mode="full"
+              theme="auto"
+              size="large"
+              language="en"
+              animation="off"
+            >
+              <a
+                href="https://apps.microsoft.com/detail/9p22jvkrq2v0"
+                target="_blank"
+                rel="noopener"
+                class="store-fallback inline-flex items-center justify-center gap-2 px-8 py-3 bg-brand-cyan text-brand-darker font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 3.5L9.9 2.2v9.4H0zm11.1-1.5L24 0v11.5H11.1zM0 12.6h9.9v9.4L0 20.7zm11.1-.1H24V24l-12.9-1.8z"/></svg>
+                <span data-i18n="download.store.fallback">Get it from Microsoft Store</span>
+              </a>
+            </ms-store-badge>
+            <p class="text-xs text-gray-500 flex items-center gap-1">
+              <svg class="w-3 h-3 text-pink-400/60" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              <span data-i18n="download.store.hint">A small purchase that keeps the project alive – thank you!</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Section 2: Free from GitHub -->
+        <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6">
+          <div class="flex items-start gap-3 mb-5">
+            <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            </div>
+            <div>
+              <h2 class="text-xl font-semibold text-white" data-i18n="download.github.title">Free from GitHub</h2>
+              <p class="text-gray-400 text-sm mt-1" data-i18n="download.github.desc">Download the latest release directly. Open source and always free.</p>
+            </div>
+          </div>
+
+          <div class="flex justify-center mb-6">
+            <a
+              href="https://github.com/whispaste/whispaste/releases/latest"
+              target="_blank"
+              rel="noopener"
+              class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-gray-200 font-medium text-sm transition-all hover:bg-white/[0.08] hover:border-white/20"
+            >
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              <span data-i18n="download.github.button">Download from GitHub</span>
+            </a>
+          </div>
+
+          <!-- SmartScreen guide -->
+          <div class="rounded-xl border border-amber-500/10 bg-amber-500/[0.03] p-5">
+            <div class="flex items-start gap-3 mb-4">
+              <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
               <div>
-                <h3 class="font-medium text-white" data-i18n="download.step1.title">Browser blocks the download</h3>
-                <p class="text-gray-400 text-sm mt-1 leading-relaxed" data-i18n="download.step1.desc">Chrome or Edge may show "not commonly downloaded". Click the arrow (↑) or "…" menu next to the download bar, then select "Keep".</p>
+                <h3 class="font-medium text-white text-sm" data-i18n="download.smartscreen.title">Important: SmartScreen warning</h3>
+                <p class="text-gray-400 text-xs mt-1" data-i18n="download.smartscreen.desc">When downloading from GitHub, Windows may show security warnings. This is normal for new open-source software:</p>
               </div>
             </div>
 
-            <!-- Step 2 -->
-            <div class="flex gap-4">
-              <div class="shrink-0 w-8 h-8 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-sm">2</div>
-              <div>
-                <h3 class="font-medium text-white" data-i18n="download.step2.title">SmartScreen warning appears</h3>
-                <p class="text-gray-400 text-sm mt-1 leading-relaxed" data-i18n="download.step2.desc">When you run the installer, Windows may show "Windows protected your PC". Click "More info", then "Run anyway".</p>
+            <div class="space-y-3 ml-8">
+              <div class="flex gap-3">
+                <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">1</div>
+                <div>
+                  <h4 class="font-medium text-white text-sm" data-i18n="download.step1.title">Browser blocks the download</h4>
+                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.step1.desc">Chrome or Edge may show "not commonly downloaded". Click the arrow (↑) or "…" menu next to the download bar, then select "Keep".</p>
+                </div>
               </div>
-            </div>
-
-            <!-- Step 3 -->
-            <div class="flex gap-4">
-              <div class="shrink-0 w-8 h-8 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-sm">3</div>
-              <div>
-                <h3 class="font-medium text-white" data-i18n="download.step3.title">Install and run WhisPaste</h3>
-                <p class="text-gray-400 text-sm mt-1 leading-relaxed" data-i18n="download.step3.desc">Follow the installer steps — WhisPaste will be ready in seconds.</p>
+              <div class="flex gap-3">
+                <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">2</div>
+                <div>
+                  <h4 class="font-medium text-white text-sm" data-i18n="download.step2.title">SmartScreen warning appears</h4>
+                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.step2.desc">When you run the installer, Windows may show "Windows protected your PC". Click "More info", then "Run anyway".</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="shrink-0 w-6 h-6 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-brand-cyan font-semibold text-xs">3</div>
+                <div>
+                  <h4 class="font-medium text-white text-sm" data-i18n="download.step3.title">Install and run WhisPaste</h4>
+                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.step3.desc">Follow the installer steps — WhisPaste will be ready in seconds.</p>
+                </div>
               </div>
             </div>
           </div>
@@ -74,15 +152,15 @@ import Footer from "../components/Footer.astro";
           <p class="text-gray-400 text-sm leading-relaxed mb-5" data-i18n="download.trust.desc">Microsoft SmartScreen warns about any new software that hasn't built download reputation — regardless of whether it's safe. WhisPaste is fully open source and every release is built transparently through GitHub Actions.</p>
           <div class="flex flex-wrap gap-3">
             <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-gray-300">
-              <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+              <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
               <span data-i18n="download.trust.opensource">Open source on GitHub</span>
             </div>
             <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-gray-300">
-              <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               <span data-i18n="download.trust.cicd">Built via GitHub Actions</span>
             </div>
             <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-gray-300">
-              <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+              <svg class="w-4 h-4 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
               <span data-i18n="download.trust.notelemetry">No telemetry or tracking</span>
             </div>
           </div>
@@ -97,23 +175,20 @@ import Footer from "../components/Footer.astro";
     import { applyLang } from '../scripts/i18n';
     import { updateThemeIcon } from '../scripts/theme';
 
-    // Auto-start download after brief delay
-    setTimeout(() => {
-      window.location.href = 'https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-Setup.exe';
-    }, 1500);
-
     applyLang();
     updateThemeIcon();
+
+    // Sync MS Store badge language
+    const badge = document.querySelector('ms-store-badge');
+    if (badge) {
+      const lang = localStorage.getItem('whispaste-lang') || 'en';
+      badge.setAttribute('language', lang);
+    }
   </script>
 </Layout>
 
 <style>
   .download-card {
     background: linear-gradient(135deg, rgba(37, 40, 48, 0.4) 0%, rgba(30, 32, 38, 0.2) 100%);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    #downloadIcon {
-      animation: none !important;
-    }
   }
 </style>
