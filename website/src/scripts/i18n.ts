@@ -4,6 +4,8 @@ export const i18n: Record<string, Record<string, string>> = {
     'hero.title2': 'Done.',
     'hero.desc': 'WhisPaste turns your voice into text — right where your cursor is. In any Windows app, offline or online, without a subscription.',
     'hero.download': 'Download for Windows',
+    'hero.store.hint': 'Supports the project – thank you!',
+    'hero.free.link': 'or download free from GitHub',
     'hero.installer': 'Installer & more options',
     'hero.meta': 'Windows 10/11 · Just download and run · Free & open source',
     'hero.trust.anywhere': 'Open source',
@@ -124,6 +126,8 @@ export const i18n: Record<string, Record<string, string>> = {
     'hero.title2': 'Fertig.',
     'hero.desc': 'WhisPaste macht aus deiner Stimme Text — genau dort, wo dein Cursor steht. In jeder Windows-App, offline oder online, ohne Abo.',
     'hero.download': 'Für Windows herunterladen',
+    'hero.store.hint': 'Unterstützt das Projekt – danke!',
+    'hero.free.link': 'oder kostenlos von GitHub laden',
     'hero.installer': 'Installer & weitere Optionen',
     'hero.meta': 'Windows 10/11 · Einfach herunterladen und starten · Kostenlos & Open Source',
     'hero.trust.anywhere': 'Open Source',
@@ -241,11 +245,22 @@ export const i18n: Record<string, Record<string, string>> = {
   }
 };
 
+function detectBrowserLang(): string {
+  if (typeof navigator === 'undefined') return 'en';
+  const supported = ['de', 'en'];
+  const langs = (navigator.languages ?? [navigator.language]).filter(Boolean);
+  for (const lang of langs) {
+    const prefix = lang.split('-')[0].toLowerCase();
+    if (supported.includes(prefix)) return prefix;
+  }
+  return 'en';
+}
+
 function loadInitialLang(): string {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
     return 'en';
   }
-  return localStorage.getItem('whispaste-lang') || 'en';
+  return localStorage.getItem('whispaste-lang') || detectBrowserLang();
 }
 
 export let currentLang: string = loadInitialLang();
@@ -262,6 +277,10 @@ export function applyLang() {
   document.documentElement.lang = currentLang;
   document.querySelectorAll<HTMLElement>('.lang-toggle-btn').forEach(btn => {
     btn.textContent = currentLang === 'en' ? 'DE' : 'EN';
+  });
+  // Update MS Store badge language
+  document.querySelectorAll('ms-store-badge').forEach(el => {
+    el.setAttribute('language', currentLang);
   });
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n')!;

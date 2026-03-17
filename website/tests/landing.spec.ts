@@ -6,21 +6,24 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('hero CTA points to the latest GitHub release', async ({ page }) => {
+test('hero CTA contains MS Store badge and GitHub link', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByTestId('hero-cta-store')).toHaveAttribute(
+  await expect(page.getByTestId('hero-cta-store')).toBeVisible();
+  await expect(page.getByTestId('hero-cta-store').locator('ms-store-badge')).toHaveCount(1);
+  await expect(page.getByTestId('hero-cta-github')).toHaveAttribute(
     'href',
-    '/download/',
+    'https://github.com/whispaste/whispaste/releases/latest',
   );
 });
 
 test('language toggle switches the landing page from EN to DE', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.locator('h1')).toContainText('Press. Speak.');
+  const heroHeading = page.locator('section h1').first();
+  await expect(heroHeading).toContainText('Press. Speak.');
   await page.getByTestId('lang-toggle').click();
-  await expect(page.locator('h1')).toContainText('Drücken. Sprechen.');
+  await expect(heroHeading).toContainText('Drücken. Sprechen.');
 });
 
 test('FAQ section is visible and has accordion items', async ({ page }) => {
