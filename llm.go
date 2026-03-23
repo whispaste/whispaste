@@ -143,7 +143,12 @@ func (l *LocalLLM) Start() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("find free port: %w", err)
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
+	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		listener.Close()
+		return "", fmt.Errorf("unexpected listener address type: %T", listener.Addr())
+	}
+	port := tcpAddr.Port
 	listener.Close()
 
 	cmd := exec.Command(serverPath,

@@ -253,13 +253,13 @@ func TestHistoryGetAnalytics(t *testing.T) {
 	h.RecordDailyStats(60.0, 1.5, "test2", "whisper-base", true)
 
 	analytics := h.GetAnalytics(0)
-	if analytics["totalEntries"].(int) != 2 {
+	if v, ok := analytics["totalEntries"].(int); !ok || v != 2 {
 		t.Errorf("expected 2 total entries, got %v", analytics["totalEntries"])
 	}
-	if analytics["localEntries"].(int) != 1 {
+	if v, ok := analytics["localEntries"].(int); !ok || v != 1 {
 		t.Errorf("expected 1 local entry, got %v", analytics["localEntries"])
 	}
-	if analytics["apiEntries"].(int) != 1 {
+	if v, ok := analytics["apiEntries"].(int); !ok || v != 1 {
 		t.Errorf("expected 1 API entry, got %v", analytics["apiEntries"])
 	}
 
