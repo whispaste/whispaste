@@ -1,0 +1,223 @@
+# WhisPaste — Architectural Project Plan
+
+> Persistent architectural record for the WhisPaste project.
+> This document captures key design decisions, dependency health, cross-platform roadmap, and technical debt.
+
+---
+
+## 1. Project Overview
+
+WhisPaste is a premium Windows desktop voice-to-text application built entirely in Go. It combines real-time speech transcription with intelligent text processing through its **Smart Mode** pipeline.
+
+### Core Capabilities
+
+- **Local inference**: Ships bundled whisper.cpp and llama.cpp servers for fully offline, privacy-first transcription and text processing.
+- **Cloud providers**: Supports OpenAI, Groq, Deepgram, Anthropic, and Gemini APIs for users who prefer cloud-based accuracy or speed.
+- **Smart Mode**: Post-processes raw transcriptions through LLM pipelines — formatting, punctuation, translation, summarization, and context-aware rewriting.
+- **Seamless UX**: Floating microphone button, system tray integration, global hotkeys, overlay notifications, and direct paste into any application.
+- **History & Analytics**: SQLite-backed history with full-text search, project grouping, and usage analytics.
+
+### Technology Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Language | Go |
+| UI (Settings) | WebView2 + HTML/CSS/JS with Go bindings |
+| UI (Floating/Overlay) | Win32 API (GDI+, layered windows) |
+| Audio Capture | malgo (miniaudio bindings) |
+| Local STT | whisper.cpp server (bundled) |
+| Local LLM | llama.cpp server (bundled) |
+| Database | SQLite via mattn/go-sqlite3 |
+| Distribution | MSIX (Microsoft Store) + Standalone installer |
+
+---
+
+## 2. Architecture Decisions Record
+
+### ADR-1: Provider Abstraction Layer
+
+**Location**: `internal/provider/`
+
+All STT and LLM backends implement unified interfaces, allowing the application to swap between local and cloud providers transparently. Each provider registers itself and exposes a consistent API for transcription or text completion.
+
+### ADR-2: GPU Detection System
+
+**Location**: `internal/gpu/`
+
+A multi-vendor GPU detection system identifies available hardware at startup:
+
+- **NVIDIA**: CUDA detection via `nvidia-smi` and driver APIs.
+- **AMD / Intel**: Vulkan capability detection.
+- **CPU fallback**: Always available as a baseline.
+
+Detection results drive automatic selection of the correct whisper.cpp and llama.cpp binaries (CUDA, Vulkan, or CPU builds).
+
+### ADR-3: Inference Configuration Profiles
+
+**Location**: `internal/inference/`
+
+Pre-defined use-case profiles control LLM behavior:
+
+| Profile | Temperature | Use Case |
+|---------|-------------|----------|
+| `precise` | Low | Code dictation, technical terms |
+| `balanced` | Medium | General dictation |
+| `creative` | High | Brainstorming, free-form writing |
+| `factual` | Very low | Data entry, numbers, addresses |
+
+### ADR-4: WebView2 Settings UI with JavaScript Bridge
+
+The settings interface is built as a single-page HTML/CSS/JS application rendered inside a WebView2 control. Go functions are exposed to JavaScript through explicit bindings (`ui_bindings_*.go`), keeping the UI layer decoupled from application logic.
+
+### ADR-5: Win32 Native UI for Performance-Critical Elements
+
+The floating microphone button, recording overlays, and hotkey registration use direct Win32 API calls for minimal latency and precise window management. These are implemented in dedicated Go files with `//go:build windows` tags.
+
+### ADR-6: SQLite for History Storage
+
+All transcription history is stored in a local SQLite database, providing full-text search, project-based grouping, and analytics without requiring an external database server.
+
+### ADR-7: malgo for Audio Capture
+
+Audio capture uses the malgo library (Go bindings for miniaudio), which provides low-level access to audio devices with minimal overhead. This supports real-time streaming to both local and cloud STT providers.
+
+---
+
+## 3. Dependency Monitoring
+
+The following packages require periodic review for security, maintenance status, and potential replacements.
+
+### Critical Dependencies
+
+| Package | Status | Last Update | Notes |
+|---------|--------|-------------|-------|
+| `gen2brain/malgo` | ✅ Active | Nov 2025 | Healthy, well-maintained. Core audio capture dependency. |
+| `mattn/go-sqlite3` | ✅ Active | Mar 2026 | Healthy. CGo-based SQLite driver. |
+| `golang.org/x/sys` | ✅ Active | Mar 2026 | Healthy. Official Go extended library for system calls. |
+
+### Stale Dependencies (Monitor)
+
+| Package | Status | Last Update | Risk | Notes |
+|---------|--------|-------------|------|-------|
+| `faiface/mainthread` | ⚠️ Stale | — | Low | Thin wrapper ensuring code runs on the OS main thread. Minimal API surface, unlikely to need updates. |
+| `getlantern/systray` | ⚠️ Stale (2.5yr) | Nov 2023 | Medium | 97 open issues upstream. Consider `energye/systray` as a replacement. |
+| `MakeNowJust/hotkey` | ⚠️ Stale (3yr) | Feb 2023 | Low | Minimal API surface, works reliably. No known issues. |
+
+### Indirect / Transitive Dependencies
+
+| Package | Status | Last Update | Notes |
+|---------|--------|-------------|-------|
+| `getlantern/*` (indirect) | 🔴 Ancient | 2019 | Pulled in transitively by `getlantern/systray`. Will be resolved automatically when systray is replaced. |
+
+### Review Cadence
+
+- **Quarterly**: Check all stale dependencies for security advisories.
+- **Before each release**: Run `go list -m -u all` to identify available updates.
+- **Annually**: Re-evaluate replacement candidates for stale packages.
+
+---
+
+## 4. Cross-Platform Roadmap
+
+### Phase 1 — Build Tags ✅ (Completed)
+
+Fourteen pure-Windows source files have been tagged with `//go:build windows` constraints. This prevents compilation errors on non-Windows platforms for all tagged files and establishes a clean separation baseline.
+
+### Phase 2 — Mixed File Splitting (Future)
+
+Several files mix cross-platform business logic with Windows-specific API calls. These need to be split into platform-agnostic and platform-specific pairs:
+
+| Current File | Cross-Platform | Windows-Specific |
+|-------------|----------------|------------------|
+| `main.go` | `main.go` | `main_windows.go` |
+| `tray.go` | `tray.go` | `tray_windows.go` |
+| `update.go` | `update.go` | `update_windows.go` |
+| `llm.go` | — | `proc_windows.go` (extract `hideWindowSysProcAttr()`) |
+| `stt.go` | — | `proc_windows.go` (same helper) |
+| `internal/gpu/detect.go` | `detect.go` | `detect_windows.go` |
+| `internal/export/export.go` | `export.go` | `export_windows.go` |
+| `internal/preflight/preflight.go` | `preflight.go` | `preflight_windows.go` |
+
+**Pattern**: Extract all `syscall.SysProcAttr` and Win32 API usage into `_windows.go` files. Provide no-op stubs or alternative implementations in `_linux.go` / `_darwin.go` files as needed.
+
+### Phase 3 — Linux / macOS Support (Future)
+
+- Replace Win32 APIs with cross-platform alternatives where feasible.
+- Implement platform-specific UI backends (e.g., GTK on Linux, Cocoa on macOS).
+- Adapt audio capture configuration per platform (malgo already supports multiple backends).
+- Test and validate on each target platform.
+- Evaluate alternative system tray libraries with native cross-platform support.
+
+---
+
+## 5. Test Coverage Strategy
+
+### Critical Paths Requiring Coverage
+
+#### Asset Matching
+
+- **`matchSTTAsset`**: Verify correct GPU/CPU binary selection based on detected hardware. Test CUDA, Vulkan, and CPU fallback paths.
+- **`matchLLMAsset`**: Verify the CUDA → Vulkan → CPU fallback chain selects the optimal binary for the detected GPU.
+
+#### Model Management (`internal/models/`)
+
+- **`Find`**: Locate models by name and type.
+- **`Recommend`**: Suggest appropriate models based on hardware capabilities and VRAM thresholds.
+- **SHA256 verification**: Ensure downloaded model files pass integrity checks.
+
+#### GPU Detection (`internal/gpu/`)
+
+- **Vendor detection**: Correctly identify NVIDIA, AMD, and Intel GPUs.
+- **VRAM thresholds**: Apply memory-based constraints when recommending model sizes.
+- **Asset key recommendations**: Map detected hardware to the correct asset key for binary downloads.
+
+#### Provider Connections
+
+- Mock-based integration tests for each cloud provider (OpenAI, Groq, Deepgram, Anthropic, Gemini).
+- Verify request construction, response parsing, and error handling.
+- Test timeout and retry behavior.
+
+### Testing Principles
+
+- Focus on logic-heavy code paths with high defect potential.
+- Use table-driven tests for asset matching and GPU detection (many input combinations).
+- Mock external dependencies (HTTP clients, GPU detection syscalls) at the interface boundary.
+- Keep tests fast — no real network calls or GPU access in unit tests.
+
+---
+
+## 6. Tech Debt Items
+
+### TD-1: systray Replacement
+
+**Priority**: Medium
+**Impact**: Maintenance risk, blocked bug fixes upstream
+
+The `getlantern/systray` package has 97 open issues and has not been updated in over two years. Evaluate `energye/systray` or other actively maintained alternatives. The replacement must support:
+
+- Custom tray icons (including dynamic icon changes)
+- Context menus with submenus
+- Tooltip text
+- Windows 10/11 compatibility
+
+### TD-2: SysProcAttr HideWindow Helper
+
+**Priority**: Medium
+**Impact**: Cross-platform compilation
+
+Both `llm.go` and `stt.go` use `syscall.SysProcAttr{HideWindow: true}` to suppress console windows when launching whisper.cpp and llama.cpp servers. This Windows-only struct field causes compilation failures on other platforms.
+
+**Resolution**: Extract a shared helper function into `proc_windows.go` with a build-tag gate, and provide a no-op stub for non-Windows platforms.
+
+### TD-3: WebView2 User Data Path
+
+**Priority**: Low
+**Impact**: Cosmetic
+
+The WebView2 runtime stores its user data in `%APPDATA%\whispaste.exe\EBWebView` — the `.exe` suffix in the directory name is a cosmetic issue inherited from the upstream `go-webview2` library. This does not affect functionality but looks unprofessional in file explorers.
+
+**Resolution**: Monitor upstream library for a fix, or patch the user data directory path when initializing WebView2.
+
+---
+
+*Last updated: 2025*
