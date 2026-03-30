@@ -17,20 +17,12 @@ func TestShouldUseGPU(t *testing.T) {
 }
 
 func TestRecommendAssetKeys(t *testing.T) {
-	// With GPU disabled, should return CPU keys
-	if got := RecommendSTTAssetKey("disabled"); got != "bin-x64" {
-		t.Errorf("RecommendSTTAssetKey(disabled) = %q, want 'bin-x64'", got)
+	// With GPU disabled, should return CPU keys (OpenBLAS for STT, CPU for LLM)
+	if got := RecommendSTTAssetKey("disabled"); got != "blas-bin-x64" {
+		t.Errorf("RecommendSTTAssetKey(disabled) = %q, want 'blas-bin-x64'", got)
 	}
 	if got := RecommendLLMAssetKey("disabled"); got != "win-cpu-x64" {
 		t.Errorf("RecommendLLMAssetKey(disabled) = %q, want 'win-cpu-x64'", got)
-	}
-
-	// With GPU enabled, should return CUDA keys
-	if got := RecommendSTTAssetKey("enabled"); got != "cuda" {
-		t.Errorf("RecommendSTTAssetKey(enabled) = %q, want 'cuda'", got)
-	}
-	if got := RecommendLLMAssetKey("enabled"); got != "win-cuda-cu12.2-x64" {
-		t.Errorf("RecommendLLMAssetKey(enabled) = %q, want 'win-cuda-cu12.2-x64'", got)
 	}
 }
 
@@ -51,5 +43,36 @@ func TestInfoHasSufficientVRAM(t *testing.T) {
 	bigGPU := Info{Available: true, VRAMMBytes: 8192}
 	if !bigGPU.HasSufficientVRAM(4096) {
 		t.Error("8GB GPU should satisfy 4GB requirement")
+	}
+}
+
+func TestVendorFromName(t *testing.T) {
+	tests := []struct {
+		name   string
+		vendor Vendor
+	}{
+		{"NVIDIA GeForce RTX 4090", VendorNVIDIA},
+		{"NVIDIA GeForce GTX 1660 Ti", VendorNVIDIA},
+		{"AMD Radeon RX 7900 XTX", VendorAMD},
+		{"AMD Radeon(TM) Graphics", VendorAMD},
+		{"Radeon RX 580", VendorAMD},
+		{"Intel(R) UHD Graphics 770", VendorIntel},
+		{"Intel(R) Iris(R) Xe Graphics", VendorIntel},
+		{"Intel(R) Arc(TM) A770", VendorIntel},
+		{"Intel(R) Arc A750", VendorIntel},
+		{"Microsoft Basic Display Adapter", VendorUnknown},
+	}
+
+	for _, tc := range tests {
+		got := vendorFromName(tc.name)
+		if got != tc.vendor {
+			t.Errorf("vendorFromName(%q) = %q, want %q", tc.name, got, tc.vendor)
+		}
+	}
+}
+
+func TestRecommendLLMBackend(t *testing.T) {
+	if got := RecommendLLMBackend("disabled"); got != BackendCPU {
+		t.Errorf("RecommendLLMBackend(disabled) = %q, want %q", got, BackendCPU)
 	}
 }

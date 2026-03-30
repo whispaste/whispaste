@@ -90,7 +90,7 @@ func STTThreads() int {
 
 // LLMThreads returns the optimal thread count for llama.cpp.
 func LLMThreads() int {
-	return OptimalThreads(2, 8)
+	return OptimalThreads(2, 12)
 }
 
 // LLMCtxSize returns the context size for local LLM, using the profile's

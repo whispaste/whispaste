@@ -104,7 +104,10 @@ func DownloadSTT(modelID string, gpuMode string, progressFn func(phase string, p
 }
 
 // resolveSTTServerURL queries the GitHub API for the latest whisper.cpp release
-// and returns the download URL for the appropriate asset (CPU or CUDA).
+// and returns the download URL for the appropriate asset.
+// Asset keys from gpu.RecommendSTTAssetKey:
+//   - "cublas-12" → NVIDIA CUDA 12.x build (whisper-cublas-12.*.0-bin-x64.zip)
+//   - "blas-bin-x64" → OpenBLAS CPU build (whisper-blas-bin-x64.zip)
 func resolveSTTServerURL(gpuMode string) (string, error) {
 	assetKey := sttAssetKey(gpuMode)
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", sttServerRepo)
@@ -135,31 +138,32 @@ func resolveSTTServerURL(gpuMode string) (string, error) {
 		return "", fmt.Errorf("decode response: %w", err)
 	}
 
-	// Look for the asset matching the key (CPU or CUDA)
-	wantCUDA := assetKey == "cuda"
+	// Primary: match exact asset key
 	for _, a := range release.Assets {
 		name := strings.ToLower(a.Name)
-		if wantCUDA {
-			if strings.Contains(name, "cuda") && strings.HasSuffix(name, ".zip") {
-				return a.BrowserDownloadURL, nil
-			}
-		} else {
-			if strings.Contains(name, assetKey) &&
-				strings.HasSuffix(name, ".zip") &&
-				!strings.Contains(name, "cuda") &&
-				!strings.Contains(name, "cublas") {
-				return a.BrowserDownloadURL, nil
-			}
+		if strings.Contains(name, assetKey) &&
+			strings.Contains(name, "x64") &&
+			strings.HasSuffix(name, ".zip") {
+			return a.BrowserDownloadURL, nil
 		}
 	}
 
-	// Fallback: CPU-only Windows x64 zip
+	// Fallback: OpenBLAS CPU build (always good performance)
 	for _, a := range release.Assets {
 		name := strings.ToLower(a.Name)
-		if strings.Contains(name, "win") &&
-			strings.Contains(name, "x64") &&
+		if strings.Contains(name, "blas-bin-x64") &&
 			strings.HasSuffix(name, ".zip") &&
-			!strings.Contains(name, "cuda") {
+			!strings.Contains(name, "cublas") {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+
+	// Last resort: any x64 zip that isn't a CUDA build
+	for _, a := range release.Assets {
+		name := strings.ToLower(a.Name)
+		if strings.Contains(name, "bin-x64") &&
+			strings.HasSuffix(name, ".zip") &&
+			!strings.Contains(name, "cublas") {
 			return a.BrowserDownloadURL, nil
 		}
 	}

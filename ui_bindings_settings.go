@@ -116,6 +116,8 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		return map[string]interface{}{
 			"available":      info.Available,
 			"name":           info.Name,
+			"vendor":         string(info.Vendor),
+			"backend":        string(info.Backend),
 			"vram_mb":        info.VRAMMBytes,
 			"driver_version": info.DriverVersion,
 		}
