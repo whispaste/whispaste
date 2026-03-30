@@ -81,16 +81,16 @@ type Config struct {
 	SidebarWidth            int                      `json:"sidebar_width,omitempty"`
 	DeleteBehavior          string                   `json:"delete_behavior,omitempty"` // "delete" or "archive"
 	LocalLLMModel           string                   `json:"local_llm_model,omitempty"`
-	UpdateChannel           string                   `json:"update_channel,omitempty"` // "stable" or "beta"
-	CloudSTTProvider        string                   `json:"cloud_stt_provider,omitempty"`  // "openai" (default), "groq", "deepgram"
-	CloudLLMProvider        string                   `json:"cloud_llm_provider,omitempty"`  // "openai" (default), "anthropic", "gemini", "groq"
-	CloudLLMModel           string                   `json:"cloud_llm_model,omitempty"`     // provider-specific model ID
+	UpdateChannel           string                   `json:"update_channel,omitempty"`     // "stable" or "beta"
+	CloudSTTProvider        string                   `json:"cloud_stt_provider,omitempty"` // "openai" (default), "groq", "deepgram"
+	CloudLLMProvider        string                   `json:"cloud_llm_provider,omitempty"` // "openai" (default), "anthropic", "gemini", "groq"
+	CloudLLMModel           string                   `json:"cloud_llm_model,omitempty"`    // provider-specific model ID
 	GroqAPIKey              string                   `json:"groq_api_key,omitempty"`
 	DeepgramAPIKey          string                   `json:"deepgram_api_key,omitempty"`
 	AnthropicAPIKey         string                   `json:"anthropic_api_key,omitempty"`
 	GeminiAPIKey            string                   `json:"gemini_api_key,omitempty"`
-	CustomDictionary        []string                 `json:"custom_dictionary,omitempty"`   // terms for STT/LLM context
-	GPUAcceleration         string                   `json:"gpu_acceleration,omitempty"`    // "auto" (default), "enabled", "disabled"
+	CustomDictionary        []string                 `json:"custom_dictionary,omitempty"` // terms for STT/LLM context
+	GPUAcceleration         string                   `json:"gpu_acceleration,omitempty"`  // "auto" (default), "enabled", "disabled"
 	mu                      sync.RWMutex
 }
 
@@ -115,6 +115,8 @@ type ConfigProfile struct {
 	TranscriptionLanguage string `json:"transcription_language,omitempty"`
 }
 
+const defaultSmartModeTargetLanguage = "en"
+
 // DefaultConfig returns a config with sensible defaults.
 func DefaultConfig() *Config {
 	return &Config{
@@ -135,11 +137,19 @@ func DefaultConfig() *Config {
 		NotifyBackground: true,
 		NotifyComplete:   true,
 		NotifyDonate:     true,
+		SmartModeTarget:  defaultSmartModeTargetLanguage,
 		UseLocalSTT:      false,
 		LocalModelID:     "whisper-base",
 		InputGain:        1.0,
 		UpdateChannel:    "stable",
 	}
+}
+
+func normalizeSmartTargetLanguage(lang string) string {
+	if strings.TrimSpace(lang) == "" {
+		return defaultSmartModeTargetLanguage
+	}
+	return lang
 }
 
 // configDir returns the path to %APPDATA%\Whispaste.
@@ -435,7 +445,7 @@ func (c *Config) GetSmartModePrompt() string {
 func (c *Config) GetSmartModeTarget() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.SmartModeTarget
+	return normalizeSmartTargetLanguage(c.SmartModeTarget)
 }
 
 // GetSponsorLastRemindedAt returns the dictation count at which the sponsor balloon was last shown (thread-safe).
@@ -512,6 +522,40 @@ func (c *Config) GetTranscriptionLanguage() string {
 		return c.TranscriptionLanguage
 	}
 	return c.Language
+}
+
+// GetEffectiveLocalTranscriptionLanguage returns the language hint that local
+// STT should actually use. When the configured hint is "auto", local models
+// fall back to the UI language because small local whisper models handle auto
+// detection poorly.
+func (c *Config) GetEffectiveLocalTranscriptionLanguage() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	lang := c.TranscriptionLanguage
+	if lang == "" {
+		lang = c.Language
+	}
+	if lang == "auto" && c.UILanguage != "" && c.UILanguage != "auto" {
+		return c.UILanguage
+	}
+	return lang
+}
+
+// GetLocalTranscriptionMetadataLanguage returns the language metadata that
+// should be persisted for local STT results. Unlike the effective local hint,
+// this does not turn "auto" into the UI language because that would claim a
+// concrete detected language the app does not actually know.
+func (c *Config) GetLocalTranscriptionMetadataLanguage() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	lang := c.TranscriptionLanguage
+	if lang == "" {
+		lang = c.Language
+	}
+	if lang == "auto" {
+		return ""
+	}
+	return lang
 }
 
 // GetInputDevice returns the selected input device ID (thread-safe).

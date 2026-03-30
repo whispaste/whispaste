@@ -211,7 +211,7 @@ async function saveEditText(id) {
   const newText = ta.value.trim();
   if (!newText) return;
   try {
-    if (window.updateEntryText) await window.updateEntryText(id, newText);
+    if (window.updateEntryText) await window.updateEntryText(id, newText, '');
     showToast(t('notebook.saved'));
     await loadEntries();
   } catch (e) { showToast(t('statusError'), true); }

@@ -41,7 +41,8 @@ const historyDBFile = "history.db"
 // 1 = external-content FTS5 (value-matching delete triggers — broken with modernc.org/sqlite)
 // 2 = regular FTS5 (rowid-based triggers)
 // 3 = daily_stats aggregation table
-const currentSchemaVersion = 5
+// 6 = language_hint for persisted local STT hints
+const currentSchemaVersion = 6
 
 // initHistoryDB opens (or creates) the SQLite database and ensures tables exist.
 func initHistoryDB() (*sql.DB, error) {
@@ -237,8 +238,8 @@ func reimportEntries(db *sql.DB, entries []HistoryEntry) {
 
 	stmt, err := tx.Prepare(`INSERT OR IGNORE INTO history_entries
 		(id, text, title, timestamp, duration_sec, processing_duration_sec,
-		 language, tags, pinned, source, model, is_local, cost_usd)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		 language, language_hint, tags, pinned, source, model, is_local, cost_usd)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		logError("reimport prepare: %v", err)
 		return
@@ -255,8 +256,12 @@ func reimportEntries(db *sql.DB, entries []HistoryEntry) {
 		if e.IsLocal {
 			isLocal = 1
 		}
+		langHint := e.LanguageHint
+		if langHint == "" {
+			langHint = e.Language
+		}
 		if _, err := stmt.Exec(e.ID, e.Text, e.Title, e.Timestamp,
-			e.Duration, e.ProcessingDuration, e.Language, marshalTags(e.Tags),
+			e.Duration, e.ProcessingDuration, e.Language, langHint, marshalTags(e.Tags),
 			pinned, e.Source, e.Model, isLocal, e.CostUSD); err != nil {
 			logWarn("reimport entry %s: %v", e.ID, err)
 			continue
@@ -423,6 +428,18 @@ func ensureSchemaVersion(db *sql.DB) error {
 			}
 			version = 5
 
+		case 5:
+			// Migration to v6: persist the language hint used for local STT decisions.
+			if _, err := db.Exec(`ALTER TABLE history_entries ADD COLUMN language_hint TEXT NOT NULL DEFAULT ''`); err != nil {
+				if !strings.Contains(err.Error(), "duplicate column") {
+					return fmt.Errorf("add language_hint column: %w", err)
+				}
+			}
+			if _, err := db.Exec(`UPDATE history_entries SET language_hint = language WHERE language_hint = ''`); err != nil {
+				logWarn("backfill language_hint: %v", err)
+			}
+			version = 6
+
 		default:
 			return fmt.Errorf("unexpected schema version %d, cannot migrate", version)
 		}
@@ -449,6 +466,7 @@ func createHistoryTables(db *sql.DB) error {
 			duration_sec  REAL NOT NULL DEFAULT 0,
 			processing_duration_sec REAL NOT NULL DEFAULT 0,
 			language      TEXT NOT NULL DEFAULT '',
+			language_hint TEXT NOT NULL DEFAULT '',
 			tags          TEXT NOT NULL DEFAULT '[]',
 			pinned        INTEGER NOT NULL DEFAULT 0,
 			source        TEXT NOT NULL DEFAULT 'dictation',
@@ -566,8 +584,8 @@ func migrateFromJSON(db *sql.DB, dir string) error {
 
 	stmt, err := tx.Prepare(`INSERT OR IGNORE INTO history_entries
 		(id, text, title, timestamp, duration_sec, processing_duration_sec,
-		 language, tags, pinned, source, model, is_local, cost_usd)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		 language, language_hint, tags, pinned, source, model, is_local, cost_usd)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("migrateFromJSON: prepare stmt: %w", err)
 	}
@@ -585,6 +603,9 @@ func migrateFromJSON(db *sql.DB, dir string) error {
 		if e.Source == "" {
 			e.Source = "dictation"
 		}
+		if e.LanguageHint == "" {
+			e.LanguageHint = e.Language
+		}
 		if len(e.Tags) == 0 && e.Category != "" {
 			e.Tags = []string{e.Category}
 		}
@@ -600,7 +621,7 @@ func migrateFromJSON(db *sql.DB, dir string) error {
 		}
 
 		if _, err := stmt.Exec(e.ID, e.Text, e.Title, e.Timestamp,
-			e.Duration, e.ProcessingDuration, e.Language, tagsJSON,
+			e.Duration, e.ProcessingDuration, e.Language, e.LanguageHint, tagsJSON,
 			pinned, e.Source, e.Model, isLocal, e.CostUSD); err != nil {
 			return fmt.Errorf("insert entry %s: %w", e.ID, err)
 		}
@@ -652,7 +673,7 @@ func scanEntry(row interface{ Scan(...interface{}) error }) (HistoryEntry, error
 	var tagsJSON string
 	var pinned, isLocal, archived int
 	err := row.Scan(&e.ID, &e.Text, &e.Title, &e.Timestamp,
-		&e.Duration, &e.ProcessingDuration, &e.Language, &tagsJSON,
+		&e.Duration, &e.ProcessingDuration, &e.Language, &e.LanguageHint, &tagsJSON,
 		&pinned, &e.Source, &e.Model, &isLocal, &e.CostUSD, &e.ProjectID, &archived)
 	if err != nil {
 		return e, err
@@ -666,7 +687,7 @@ func scanEntry(row interface{ Scan(...interface{}) error }) (HistoryEntry, error
 
 // allColumns is the column list for SELECT queries on history_entries.
 const allColumns = `id, text, title, timestamp, duration_sec, processing_duration_sec,
-	language, tags, pinned, source, model, is_local, cost_usd, project_id, archived`
+	language, language_hint, tags, pinned, source, model, is_local, cost_usd, project_id, archived`
 
 // RecordDailyStats upserts a row in daily_stats for the current transcription.
 func (h *History) RecordDailyStats(durationSec, processingSec float64, text string, model string, isLocal bool) {
