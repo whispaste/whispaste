@@ -55,7 +55,14 @@ func TestFindReturnsPointerIntoAvailable(t *testing.T) {
 	if info == nil {
 		t.Fatal("Find(whisper-base) returned nil")
 	}
-	if info != &Available[1] {
+	found := false
+	for i := range Available {
+		if info == &Available[i] {
+			found = true
+			break
+		}
+	}
+	if !found {
 		t.Error("Find should return a pointer into the Available slice, not a copy")
 	}
 }

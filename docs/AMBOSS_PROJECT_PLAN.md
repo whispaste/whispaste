@@ -220,4 +220,12 @@ The WebView2 runtime stores its user data in `%APPDATA%\whispaste.exe\EBWebView`
 
 ---
 
-*Last updated: 2025*
+*Last updated: 2026-03-30*
+
+---
+
+## Recent Changes
+
+| Date | Task | Size | Branch | Summary |
+|------|------|------|--------|---------|
+| 2026-03-30 | compliance-remediation | Large | amboss/multi-provider-upgrade | Build tags on 14 Windows files, extracted matchSTTAsset/matchLLMAsset pure functions with tests, models_test.go (22 subtests), expanded GPU detect tests (9 new), fixed CUDA 12 preference bug (cu12 vs cuda-12), project plan doc |
