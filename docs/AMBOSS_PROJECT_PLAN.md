@@ -220,7 +220,7 @@ The WebView2 runtime stores its user data in `%APPDATA%\whispaste.exe\EBWebView`
 
 ---
 
-*Last updated: 2026-03-30*
+*Last updated: 2026-03-30 21:51 UTC*
 
 ---
 
@@ -228,4 +228,19 @@ The WebView2 runtime stores its user data in `%APPDATA%\whispaste.exe\EBWebView`
 
 | Date | Task | Size | Branch | Summary |
 |------|------|------|--------|---------|
+| 2026-03-30 | smartmode-vulkan-completion (app repo) | Large | amboss/smartmode-vulkan-completion | Hardened Smart Mode language behavior, fixed App Rules/runtime targeting, unified translate target handling, and introduced persistent `language_hint` history metadata so local auto-STT keeps a stable prompt hint without faking detected language. |
 | 2026-03-30 | compliance-remediation | Large | amboss/multi-provider-upgrade | Build tags on 14 Windows files, extracted matchSTTAsset/matchLLMAsset pure functions with tests, models_test.go (22 subtests), expanded GPU detect tests (9 new), fixed CUDA 12 preference bug (cu12 vs cuda-12), project plan doc |
+
+---
+
+## Current Focus
+
+- App-repo Smart-Mode hardening is complete and verified.
+- Remaining Vulkan-STT completion is still external work:
+  - publish dedicated whisper.cpp Vulkan/CUDA/CPU artifacts
+  - switch STT downloads to the external release source
+  - run end-to-end validation with a published Vulkan STT binary
+
+## Learned Patterns
+
+- History metadata now distinguishes between `language` (known user-visible language metadata) and `language_hint` (stable processing hint, especially for local auto-STT flows). New history write paths must preserve both consistently.
