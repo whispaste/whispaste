@@ -82,6 +82,15 @@ type Config struct {
 	DeleteBehavior          string                   `json:"delete_behavior,omitempty"` // "delete" or "archive"
 	LocalLLMModel           string                   `json:"local_llm_model,omitempty"`
 	UpdateChannel           string                   `json:"update_channel,omitempty"` // "stable" or "beta"
+	CloudSTTProvider        string                   `json:"cloud_stt_provider,omitempty"`  // "openai" (default), "groq", "deepgram"
+	CloudLLMProvider        string                   `json:"cloud_llm_provider,omitempty"`  // "openai" (default), "anthropic", "gemini", "groq"
+	CloudLLMModel           string                   `json:"cloud_llm_model,omitempty"`     // provider-specific model ID
+	GroqAPIKey              string                   `json:"groq_api_key,omitempty"`
+	DeepgramAPIKey          string                   `json:"deepgram_api_key,omitempty"`
+	AnthropicAPIKey         string                   `json:"anthropic_api_key,omitempty"`
+	GeminiAPIKey            string                   `json:"gemini_api_key,omitempty"`
+	CustomDictionary        []string                 `json:"custom_dictionary,omitempty"`   // terms for STT/LLM context
+	GPUAcceleration         string                   `json:"gpu_acceleration,omitempty"`    // "auto" (default), "enabled", "disabled"
 	mu                      sync.RWMutex
 }
 
@@ -204,6 +213,15 @@ func (c *Config) HasAPIKey() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.APIKey != ""
+}
+
+// HasAnyCloudKey returns true if any cloud provider API key is configured
+// (OpenAI, Groq, Deepgram, Anthropic, or Gemini).
+func (c *Config) HasAnyCloudKey() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.APIKey != "" || c.GroqAPIKey != "" || c.DeepgramAPIKey != "" ||
+		c.AnthropicAPIKey != "" || c.GeminiAPIKey != ""
 }
 
 // TODO: The Get* config field getters below follow a repetitive RLock/RUnlock pattern
@@ -442,9 +460,9 @@ func (c *Config) GetUseLocalSTT() bool {
 }
 
 // HasAnyModel returns whether at least one transcription model is available:
-// either an API key is configured (cloud model) or a local model is downloaded.
+// either any cloud API key is configured or a local model is downloaded.
 func (c *Config) HasAnyModel() bool {
-	if c.HasAPIKey() {
+	if c.HasAnyCloudKey() {
 		return true
 	}
 	return len(models.ListDownloaded()) > 0
@@ -909,4 +927,154 @@ func (c *Config) ApplyTextReplacements(text string) string {
 		text = strings.ReplaceAll(text, r.Trigger, r.Replacement)
 	}
 	return text
+}
+
+// GetCloudSTTProvider returns the selected cloud STT provider (default: "openai").
+func (c *Config) GetCloudSTTProvider() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.CloudSTTProvider == "" {
+		return "openai"
+	}
+	return c.CloudSTTProvider
+}
+
+// GetCloudLLMProvider returns the selected cloud LLM provider (default: "openai").
+func (c *Config) GetCloudLLMProvider() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.CloudLLMProvider == "" {
+		return "openai"
+	}
+	return c.CloudLLMProvider
+}
+
+// GetCloudLLMModel returns the selected cloud LLM model (default: provider-specific).
+func (c *Config) GetCloudLLMModel() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.CloudLLMModel
+}
+
+// GetGroqAPIKey returns the Groq API key.
+func (c *Config) GetGroqAPIKey() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.GroqAPIKey
+}
+
+// GetDeepgramAPIKey returns the Deepgram API key.
+func (c *Config) GetDeepgramAPIKey() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.DeepgramAPIKey
+}
+
+// GetAnthropicAPIKey returns the Anthropic API key.
+func (c *Config) GetAnthropicAPIKey() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AnthropicAPIKey
+}
+
+// GetGeminiAPIKey returns the Google Gemini API key.
+func (c *Config) GetGeminiAPIKey() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.GeminiAPIKey
+}
+
+// GetCustomDictionary returns a copy of the custom dictionary terms.
+func (c *Config) GetCustomDictionary() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	result := make([]string, len(c.CustomDictionary))
+	copy(result, c.CustomDictionary)
+	return result
+}
+
+// SetCustomDictionary replaces the custom dictionary terms.
+func (c *Config) SetCustomDictionary(terms []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.CustomDictionary = terms
+}
+
+// GetGPUAcceleration returns the GPU acceleration mode (default: "auto").
+func (c *Config) GetGPUAcceleration() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.GPUAcceleration == "" {
+		return "auto"
+	}
+	return c.GPUAcceleration
+}
+
+// CloudSTTAPIKey returns the appropriate API key for the selected cloud STT provider.
+func (c *Config) CloudSTTAPIKey() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	switch c.CloudSTTProvider {
+	case "groq":
+		return c.GroqAPIKey
+	case "deepgram":
+		return c.DeepgramAPIKey
+	default:
+		return c.APIKey
+	}
+}
+
+// CloudLLMAPIKey returns the appropriate API key for the selected cloud LLM provider.
+func (c *Config) CloudLLMAPIKey() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	switch c.CloudLLMProvider {
+	case "anthropic":
+		return c.AnthropicAPIKey
+	case "gemini":
+		return c.GeminiAPIKey
+	case "groq":
+		return c.GroqAPIKey
+	default:
+		return c.APIKey
+	}
+}
+
+// DictionaryPrompt returns the custom dictionary as a comma-separated string
+// suitable for Whisper initial_prompt or LLM system prompt injection.
+func (c *Config) DictionaryPrompt() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if len(c.CustomDictionary) == 0 {
+		return ""
+	}
+	return strings.Join(c.CustomDictionary, ", ")
+}
+
+// cloudSTTAPIKeyLocked returns the STT API key for the selected provider.
+// Caller MUST hold c.mu.RLock().
+func cloudSTTAPIKeyLocked(c *Config) string {
+	switch c.CloudSTTProvider {
+	case "groq":
+		return c.GroqAPIKey
+	case "deepgram":
+		return c.DeepgramAPIKey
+	default:
+		return c.APIKey
+	}
+}
+
+// cloudLLMAPIKeyLocked returns the LLM API key for the selected provider.
+// Caller MUST hold c.mu.RLock().
+func cloudLLMAPIKeyLocked(c *Config) string {
+	switch c.CloudLLMProvider {
+	case "anthropic":
+		return c.AnthropicAPIKey
+	case "gemini":
+		return c.GeminiAPIKey
+	case "groq":
+		return c.GroqAPIKey
+	default:
+		return c.APIKey
+	}
 }
