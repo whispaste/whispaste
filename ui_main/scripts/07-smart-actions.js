@@ -27,6 +27,11 @@ function _presetIcon(id) {
     return map[id] || icons.sparkles;
 }
 
+function _smartActionTargetLang(preset) {
+    if (preset !== 'translate') return '';
+    return document.getElementById('select-smarttarget')?.value || 'en';
+}
+
 async function showSmartActionMenu(entryId, anchor) {
     const templates = await getAllSmartTemplates();
     const items = [];
@@ -87,9 +92,10 @@ async function showCustomPromptDialog(entryId) {
 
 async function executeSmartAction(entryId, preset, customPrompt) {
     const processingToast = showToast(t('smart.processing'), false, 0);
+    const targetLang = _smartActionTargetLang(preset);
 
     try {
-        const raw = await window.applySmartAction(entryId, preset, customPrompt);
+        const raw = await window.applySmartAction(entryId, preset, customPrompt, targetLang);
         const result = JSON.parse(raw);
         if (processingToast) processingToast.classList.remove('show');
 
@@ -107,12 +113,12 @@ async function executeSmartAction(entryId, preset, customPrompt) {
 
         if (replace) {
             if (window.updateEntryText) {
-                await window.updateEntryText(entryId, result.text);
+                await window.updateEntryText(entryId, result.text, result.language || '');
                 showToast(t('smart.replaced'), false);
             }
         } else {
             if (window.addSmartEntry) {
-                await window.addSmartEntry(entryId, result.text, preset);
+                await window.addSmartEntry(entryId, result.text, preset, result.language || '');
                 showToast(t('smart.created'), false);
             }
         }
@@ -187,9 +193,10 @@ async function showBulkCustomPromptDialog() {
 async function executeBulkSmartAction(preset, customPrompt) {
     const ids = [..._selectedIds];
     const processingToast = showToast(t('smart.bulkProcessing'), false, 0);
+    const targetLang = _smartActionTargetLang(preset);
 
     try {
-        const raw = await window.applyBulkSmartAction(JSON.stringify(ids), preset, customPrompt);
+        const raw = await window.applyBulkSmartAction(JSON.stringify(ids), preset, customPrompt, targetLang);
         const result = JSON.parse(raw);
         if (processingToast) processingToast.classList.remove('show');
 
