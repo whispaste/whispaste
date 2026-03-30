@@ -154,7 +154,8 @@ func matchLLMAsset(assets []LLMReleaseAsset, assetKey string) (string, error) {
 				strings.HasSuffix(name, ".zip") &&
 				!strings.HasPrefix(name, "cudart-") {
 				// Prefer CUDA 12.x (broadest driver compatibility)
-				if strings.Contains(name, "cuda-12") {
+				// Asset names use "cu12" format (e.g., "win-cuda-cu12.4-x64")
+				if strings.Contains(name, "cu12") {
 					return a.BrowserDownloadURL, nil
 				}
 				bestURL = a.BrowserDownloadURL
