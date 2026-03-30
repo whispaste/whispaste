@@ -479,7 +479,9 @@ async function renderGPUStatus() {
     if (mode === 'disabled') {
       line.innerHTML = '<span style="color:var(--text-secondary)">—</span> ' + t('gpuDisabledStatus');
     } else if (hasGPU) {
-      line.innerHTML = '<span style="color:var(--accent-green)">✓</span> ' + info.name + ' (' + info.vram_mb + ' MB VRAM)';
+      const backendLabel = (info.backend || '').toUpperCase();
+      const vram = info.vram_mb ? ' (' + info.vram_mb + ' MB VRAM)' : '';
+      line.innerHTML = '<span style="color:var(--accent-green)">✓</span> ' + info.name + vram + (backendLabel ? ' · ' + backendLabel : '');
     } else {
       line.innerHTML = '<span style="color:var(--text-secondary)">—</span> ' + t('gpuNotDetected');
     }
