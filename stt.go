@@ -17,6 +17,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/whispaste/whispaste/internal/inference"
 )
 
 type LocalSTT struct {
@@ -348,19 +350,12 @@ func (s *LocalSTT) Endpoint() string {
 }
 
 // sttThreadCount returns the optimal thread count for whisper-server.
-// Uses half of logical CPUs (approximating physical cores), clamped to [2, 8].
+// Delegates to the centralized inference config for consistent CPU utilization.
 func sttThreadCount() int {
-	n := runtime.NumCPU() / 2
-	if n < 2 {
-		n = 2
-	}
-	if n > 8 {
-		n = 8
-	}
-	return n
+	return inference.STTThreads()
 }
 
-func (s *LocalSTT) Transcribe(wavData []byte, lang string) (string, error) {
+func (s *LocalSTT) Transcribe(wavData []byte, lang string, prompt ...string) (string, error) {
 	s.mu.Lock()
 	if !s.running {
 		s.mu.Unlock()
@@ -383,8 +378,11 @@ func (s *LocalSTT) Transcribe(wavData []byte, lang string) (string, error) {
 	if lang != "" {
 		writer.WriteField("language", lang)
 	}
+	if len(prompt) > 0 && prompt[0] != "" {
+		writer.WriteField("prompt", prompt[0])
+	}
 	writer.WriteField("response_format", "json")
-	writer.WriteField("temperature", "0.0")
+	writer.WriteField("temperature", fmt.Sprintf("%.1f", inference.STTTemperature()))
 
 	if err := writer.Close(); err != nil {
 		return "", fmt.Errorf("close multipart writer: %w", err)

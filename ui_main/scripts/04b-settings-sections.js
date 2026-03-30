@@ -383,7 +383,10 @@ function toggleProviderModelPicker(radioName, pickerId) {
 
 function initProviderModelPickerEvents() {
   document.querySelectorAll('[name="smartProvider"]').forEach(r => {
-    r.addEventListener('change', () => toggleProviderModelPicker('smartProvider', 'smartProviderModelPicker'));
+    r.addEventListener('change', () => {
+      toggleProviderModelPicker('smartProvider', 'smartProviderModelPicker');
+      toggleCloudLLMSection();
+    });
   });
   document.querySelectorAll('[name="textReplaceProvider"]').forEach(r => {
     r.addEventListener('change', () => toggleProviderModelPicker('textReplaceProvider', 'textReplaceProviderModelPicker'));
