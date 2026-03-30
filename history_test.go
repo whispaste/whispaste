@@ -55,6 +55,27 @@ func TestHistoryRecent(t *testing.T) {
 	}
 }
 
+func TestNormalizeEntryLanguage(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"empty stays empty", "", ""},
+		{"auto becomes empty", "auto", ""},
+		{"case insensitive auto", "AUTO", ""},
+		{"language kept", "de", "de"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeEntryLanguage(tt.input); got != tt.want {
+				t.Fatalf("normalizeEntryLanguage(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestHistoryDelete(t *testing.T) {
 	h := newTestHistory(t)
 	h.Add("test", 1.0, "en")
@@ -70,6 +91,70 @@ func TestHistoryDelete(t *testing.T) {
 	}
 	if h.Delete("nonexistent") {
 		t.Error("delete of nonexistent should return false")
+	}
+}
+
+func TestUpdateTranscriptionResultPreservesExistingLanguageWhenUnknown(t *testing.T) {
+	h := newTestHistory(t)
+	id := h.AddWithModelHint("hello world", 60, 1.0, "en", "whisper-1", false, "", "de")
+	if id == "" {
+		t.Fatal("expected entry id")
+	}
+
+	if !h.UpdateTranscriptionResultHint(id, "bonjour le monde", "", "whisper-base", true, "") {
+		t.Fatal("UpdateTranscriptionResultHint returned false")
+	}
+
+	entry := h.GetByID(id)
+	if entry == nil {
+		t.Fatal("expected entry after update")
+	}
+	if entry.Language != "en" {
+		t.Fatalf("Language = %q, want en", entry.Language)
+	}
+	if entry.LanguageHint != "de" {
+		t.Fatalf("LanguageHint = %q, want de", entry.LanguageHint)
+	}
+	if entry.Model != "whisper-base" {
+		t.Fatalf("Model = %q, want whisper-base", entry.Model)
+	}
+	if !entry.IsLocal {
+		t.Fatal("expected IsLocal to be true")
+	}
+	if entry.CostUSD != 0 {
+		t.Fatalf("CostUSD = %v, want 0 after local retranscribe", entry.CostUSD)
+	}
+}
+
+func TestCompletePendingEntryPreservesExistingLanguageWhenUnknown(t *testing.T) {
+	h := newTestHistory(t)
+	id := h.AddPendingEntryHint(60, "de", "whisper-1", false, "processing", "fr")
+	if id == "" {
+		t.Fatal("expected entry id")
+	}
+
+	if !h.CompletePendingEntryHint(id, "fertiger text", 2.5, "", "whisper-base", true, "") {
+		t.Fatal("CompletePendingEntryHint returned false")
+	}
+
+	entry := h.GetByID(id)
+	if entry == nil {
+		t.Fatal("expected entry after completion")
+	}
+	if entry.Language != "de" {
+		t.Fatalf("Language = %q, want de", entry.Language)
+	}
+	if entry.LanguageHint != "fr" {
+		t.Fatalf("LanguageHint = %q, want fr", entry.LanguageHint)
+	}
+	if entry.Model != "whisper-base" {
+		t.Fatalf("Model = %q, want whisper-base", entry.Model)
+	}
+	if !entry.IsLocal {
+		t.Fatal("expected IsLocal to be true")
+	}
+	if entry.CostUSD != 0 {
+		t.Fatalf("CostUSD = %v, want 0 after local completion", entry.CostUSD)
 	}
 }
 
@@ -154,8 +239,8 @@ func TestHistoryRenameTag(t *testing.T) {
 
 func TestHistoryMerge(t *testing.T) {
 	h := newTestHistory(t)
-	h.Add("first text", 10.0, "en")
-	h.Add("second text", 5.0, "en")
+	h.AddWithModelHint("first text", 10.0, 0.5, "en", "whisper-base", true, "", "de")
+	h.AddWithModelHint("second text", 5.0, 0.5, "en", "whisper-base", true, "", "de")
 	ids := h.All()
 
 	mergedID := h.Merge([]string{ids[0].ID, ids[1].ID})
@@ -172,6 +257,9 @@ func TestHistoryMerge(t *testing.T) {
 	}
 	if all[0].Source != "merged" {
 		t.Errorf("expected source 'merged', got %q", all[0].Source)
+	}
+	if all[0].LanguageHint != "de" {
+		t.Errorf("expected language hint 'de', got %q", all[0].LanguageHint)
 	}
 }
 
@@ -207,13 +295,16 @@ func TestHistoryDuplicate(t *testing.T) {
 
 func TestHistoryAddSmart(t *testing.T) {
 	h := newTestHistory(t)
-	h.AddSmart("smart result", "en", []string{"auto"})
+	h.AddSmartHint("smart result", "en", "de", []string{"auto"})
 	all := h.All()
 	if len(all) != 1 {
 		t.Fatal("expected 1 entry")
 	}
 	if all[0].Source != "smart" {
 		t.Errorf("expected source 'smart', got %q", all[0].Source)
+	}
+	if all[0].LanguageHint != "de" {
+		t.Errorf("expected language hint 'de', got %q", all[0].LanguageHint)
 	}
 }
 

@@ -36,11 +36,100 @@ func normalizeTranscription(text string) string {
 
 var thinkBlockRe = regexp.MustCompile(`(?s)<think>.*?</think>`)
 
+var promptLanguageNames = map[string]string{
+	"en":         "English",
+	"english":    "English",
+	"de":         "German",
+	"deutsch":    "German",
+	"german":     "German",
+	"es":         "Spanish",
+	"espanol":    "Spanish",
+	"español":    "Spanish",
+	"spanish":    "Spanish",
+	"fr":         "French",
+	"francais":   "French",
+	"français":   "French",
+	"french":     "French",
+	"it":         "Italian",
+	"italiano":   "Italian",
+	"italian":    "Italian",
+	"pt":         "Portuguese",
+	"portugues":  "Portuguese",
+	"português":  "Portuguese",
+	"portuguese": "Portuguese",
+	"ja":         "Japanese",
+	"japanese":   "Japanese",
+	"zh":         "Chinese",
+	"chinese":    "Chinese",
+	"ko":         "Korean",
+	"korean":     "Korean",
+	"ru":         "Russian",
+	"russian":    "Russian",
+}
+
 // stripThinkBlocks removes <think>…</think> blocks that some LLMs (Qwen3+)
 // emit in "thinking mode". The blocks waste tokens and pollute output.
 func stripThinkBlocks(text string) string {
 	text = thinkBlockRe.ReplaceAllString(text, "")
 	return strings.TrimSpace(text)
+}
+
+func promptLanguageName(lang string) string {
+	key := strings.ToLower(strings.TrimSpace(lang))
+	if key == "" || key == "auto" {
+		return ""
+	}
+	if mapped, ok := promptLanguageNames[key]; ok {
+		return mapped
+	}
+	return strings.TrimSpace(lang)
+}
+
+func sameLanguageInstruction(langHint string) string {
+	if languageName := promptLanguageName(langHint); languageName != "" {
+		return fmt.Sprintf("The user's input is in %s. Keep the output in %s unless the instructions explicitly ask for translation.", languageName, languageName)
+	}
+	return "Keep the output in the same language as the user's input unless the instructions explicitly ask for translation."
+}
+
+func wrapSmartTransformPrompt(actionPrompt, langHint string) string {
+	return fmt.Sprintf(`You are refining dictated text for a premium voice dictation app.
+
+NON-NEGOTIABLE RULES:
+1. Preserve the user's meaning, facts, names, numbers, dates, links, and intent.
+2. Do not invent content or silently drop important information unless the instructions explicitly require shortening or summarizing.
+3. %s
+4. Return only the final text. No commentary, no quotes, no explanations.
+
+TRANSFORMATION INSTRUCTIONS:
+%s`, sameLanguageInstruction(langHint), strings.TrimSpace(actionPrompt))
+}
+
+func buildTranslatePrompt(targetLang string) string {
+	target := promptLanguageName(normalizeSmartTargetLanguage(targetLang))
+	return fmt.Sprintf(`Translate the following text into %s.
+
+NON-NEGOTIABLE RULES:
+1. Preserve meaning, facts, names, numbers, formatting cues, and tone as closely as possible.
+2. Do not omit information or add explanations.
+3. Return only the translation. No commentary, no quotes.`, target)
+}
+
+func resolveSmartActionPrompt(preset, customPrompt string, userTemplates map[string]string) string {
+	if preset == "custom" && customPrompt != "" {
+		return customPrompt
+	}
+	p, ok := smartModePresets[preset]
+	if !ok && userTemplates != nil {
+		if ut, found := userTemplates[preset]; found {
+			p = ut
+			ok = true
+		}
+	}
+	if !ok {
+		return ""
+	}
+	return p
 }
 
 // smartModePresets maps preset names to system prompts.
@@ -139,8 +228,8 @@ func MatchTemplate(appName, windowTitle string, metas map[string]TemplateMeta) (
 // endpoint should be the base API URL (e.g. "https://api.openai.com/v1").
 // appLang is the UI language ("en" or "de") for language-aware prompts.
 // userTemplates contains user-defined custom templates from config.
-func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLang string, userTemplates map[string]string) (string, error) {
-	systemPrompt := buildSmartPrompt(preset, customPrompt, targetLang, appLang, userTemplates)
+func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint string, userTemplates map[string]string) (string, error) {
+	systemPrompt := buildSmartPrompt(preset, customPrompt, targetLang, langHint, userTemplates)
 	if systemPrompt == "" {
 		return text, nil
 	}
@@ -223,8 +312,8 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLa
 
 // PostProcessWithProvider uses the provider interface for cloud LLM processing.
 // This supports all providers (OpenAI, Anthropic, Gemini, Groq) via a unified interface.
-func PostProcessWithProvider(text, preset, customPrompt, targetLang, appLang string, userTemplates map[string]string, llm provider.LLMProvider, dictionary string) (string, error) {
-	systemPrompt := buildSmartPrompt(preset, customPrompt, targetLang, appLang, userTemplates)
+func PostProcessWithProvider(text, preset, customPrompt, targetLang, langHint string, userTemplates map[string]string, llm provider.LLMProvider, dictionary string) (string, error) {
+	systemPrompt := buildSmartPrompt(preset, customPrompt, targetLang, langHint, userTemplates)
 	if systemPrompt == "" {
 		return text, nil
 	}
@@ -259,8 +348,8 @@ func PostProcessWithProvider(text, preset, customPrompt, targetLang, appLang str
 
 // ApplySmartAction applies a smart mode preset or custom prompt to existing text.
 // It reuses the same OpenAI Chat API as PostProcess.
-func ApplySmartAction(text, preset, customPrompt, apiKey, endpoint, appLang string, userTemplates map[string]string) (string, error) {
-	return PostProcess(text, preset, customPrompt, "", apiKey, endpoint, appLang, userTemplates)
+func ApplySmartAction(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint string, userTemplates map[string]string) (string, error) {
+	return PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint, userTemplates)
 }
 
 // joinTextsForBulk joins multiple transcription texts with numbered separators.
@@ -277,27 +366,19 @@ func joinTextsForBulk(texts []string) string {
 
 // buildBulkSmartPrompt creates a compound prompt that instructs the LLM to
 // merge multiple transcriptions coherently and then apply the preset transformation.
-func buildBulkSmartPrompt(preset, customPrompt, appLang string, userTemplates map[string]string) string {
+func buildBulkSmartPrompt(preset, customPrompt, targetLang, langHint string, userTemplates map[string]string) string {
 	// Resolve the action prompt
 	var actionPrompt string
 	if preset == "translate" {
-		actionPrompt = "Translate the combined text to English. Return only the translation."
-	} else if preset == "custom" && customPrompt != "" {
-		actionPrompt = customPrompt
+		actionPrompt = buildTranslatePrompt(targetLang)
 	} else {
-		p, ok := smartModePresets[preset]
-		if !ok && userTemplates != nil {
-			p, ok = userTemplates[preset]
-		}
-		if !ok {
+		actionPrompt = resolveSmartActionPrompt(preset, customPrompt, userTemplates)
+		if actionPrompt == "" {
 			return ""
 		}
-		actionPrompt = p
 	}
-
-	langInstruction := ""
-	if appLang == "de" {
-		langInstruction = " Respond in German."
+	if preset != "translate" {
+		actionPrompt = wrapSmartTransformPrompt(actionPrompt, langHint)
 	}
 
 	return fmt.Sprintf(`You receive multiple numbered transcription segments from the same user. Your task has two parts:
@@ -307,38 +388,21 @@ STEP 1 — MERGE: Combine all segments into one coherent, flowing text. Preserve
 STEP 2 — TRANSFORM: Apply the following transformation to the merged text:
 %s
 
-Return only the final transformed result. No explanations, no segment markers, no meta-commentary.%s`, actionPrompt, langInstruction)
+Return only the final transformed result. No explanations, no segment markers, no meta-commentary.`, actionPrompt)
 }
 
-func buildSmartPrompt(preset, customPrompt, targetLang, appLang string, userTemplates map[string]string) string {
-	if preset == "translate" {
-		if targetLang == "" {
-			targetLang = "English"
-		}
-		return fmt.Sprintf("Translate the following text to %s. Return only the translation, no explanations.", targetLang)
-	}
-	if preset == "custom" && customPrompt != "" {
+func buildSmartPrompt(preset, customPrompt, targetLang, langHint string, userTemplates map[string]string) string {
+	if preset == "system" && customPrompt != "" {
 		return customPrompt
 	}
-	p, ok := smartModePresets[preset]
-	if !ok {
-		// Check user-defined custom templates
-		if userTemplates != nil {
-			if ut, found := userTemplates[preset]; found {
-				p = ut
-				ok = true
-			}
-		}
+	if preset == "translate" {
+		return buildTranslatePrompt(targetLang)
 	}
-	if !ok {
+	actionPrompt := resolveSmartActionPrompt(preset, customPrompt, userTemplates)
+	if actionPrompt == "" {
 		return ""
 	}
-	// Prepend strong language instruction for non-English UI languages.
-	// Small local LLMs ignore weak trailing instructions — front-loading works.
-	if appLang == "de" {
-		p = "WICHTIG: Antworte IMMER auf Deutsch. " + p
-	}
-	return p
+	return wrapSmartTransformPrompt(actionPrompt, langHint)
 }
 
 // ApplyTextReplacementsWithAI runs exact replacements first, then uses AI (local or cloud)

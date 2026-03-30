@@ -112,6 +112,8 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 			endpoint := cfg.GetAPIEndpoint()
 			lang := cfg.GetTranscriptionLanguage()
 			useLocal := cfg.GetActiveModelLocal()
+			metadataLang := lang
+			languageHint := lang
 
 			cfg.mu.RLock()
 			model := cfg.Model
@@ -125,7 +127,9 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 					return
 				}
 				pcmData := wavData[44:]
-				localLang := cfg.GetTranscriptionLanguage()
+				localLang := cfg.GetEffectiveLocalTranscriptionLanguage()
+				metadataLang = cfg.GetLocalTranscriptionMetadataLanguage()
+				languageHint = localLang
 				text, txErr = TranscribeLocal(pcmData, 16000, localLang, cfg.GetLocalModelID())
 			} else {
 				if apiKey == "" {
@@ -155,12 +159,12 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 				}
 			}
 			if isPending {
-				if !history.CompletePendingEntry(id, text, processingDur, modelName, useLocal) {
+				if !history.CompletePendingEntryHint(id, text, processingDur, metadataLang, modelName, useLocal, languageHint) {
 					safeEval(`onReTranscribeResult(` + jsStr(id) + `, false, "Failed to complete pending entry")`)
 					return
 				}
 			} else {
-				if !history.UpdateText(id, text) {
+				if !history.UpdateTranscriptionResultHint(id, text, metadataLang, modelName, useLocal, languageHint) {
 					safeEval(`onReTranscribeResult(` + jsStr(id) + `, false, "Failed to update entry")`)
 					return
 				}
@@ -198,7 +202,10 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 		return history.UpdateEntry(id, title, tags)
 	})
 
-	w.Bind("updateEntryText", func(id, newText string) bool {
+	w.Bind("updateEntryText", func(id, newText, newLang string) bool {
+		if newLang != "" {
+			return history.UpdateTextLanguage(id, newText, newLang)
+		}
 		return history.UpdateText(id, newText)
 	})
 

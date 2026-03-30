@@ -51,13 +51,15 @@ func TestBuildSmartPrompt(t *testing.T) {
 		wantContains string
 	}{
 		{"builtin cleanup", "cleanup", "", "", "en", nil, false, "Clean up"},
-		{"translate default", "translate", "", "", "en", nil, false, "Translate the following text to English"},
-		{"translate german", "translate", "", "German", "en", nil, false, "Translate the following text to German"},
-		{"custom prompt", "custom", "Fix spelling", "", "en", nil, false, "Fix spelling"},
+		{"translate default", "translate", "", "", "en", nil, false, "Translate the following text into English"},
+		{"translate german", "translate", "", "German", "en", nil, false, "Translate the following text into German"},
+		{"translate code", "translate", "", "de", "en", nil, false, "Translate the following text into German"},
+		{"custom prompt", "custom", "Fix spelling", "", "en", nil, false, "TRANSFORMATION INSTRUCTIONS:\nFix spelling"},
 		{"custom without prompt", "custom", "", "", "en", nil, true, ""},
 		{"unknown preset", "nonexistent", "", "", "en", nil, true, ""},
-		{"german prefix", "email", "", "", "de", nil, false, "WICHTIG: Antworte IMMER auf Deutsch"},
-		{"user template", "mypreset", "", "", "en", map[string]string{"mypreset": "Do stuff"}, false, "Do stuff"},
+		{"same language guardrail", "email", "", "", "de", nil, false, "The user's input is in German"},
+		{"language hint used", "email", "", "", "fr", nil, false, "The user's input is in French"},
+		{"user template", "mypreset", "", "", "en", map[string]string{"mypreset": "Do stuff"}, false, "TRANSFORMATION INSTRUCTIONS:\nDo stuff"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -75,6 +77,25 @@ func TestBuildSmartPrompt(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildBulkSmartPrompt(t *testing.T) {
+	t.Run("translate uses configured target", func(t *testing.T) {
+		got := buildBulkSmartPrompt("translate", "", "fr", "de", nil)
+		if !strings.Contains(got, "Translate the following text into French") {
+			t.Fatalf("expected French target in bulk prompt, got %q", got)
+		}
+	})
+
+	t.Run("custom prompt keeps same-language guardrail", func(t *testing.T) {
+		got := buildBulkSmartPrompt("custom", "Turn this into release notes.", "", "es", nil)
+		if !strings.Contains(got, "The user's input is in Spanish") {
+			t.Fatalf("expected Spanish language hint in bulk prompt, got %q", got)
+		}
+		if !strings.Contains(got, "Turn this into release notes.") {
+			t.Fatalf("expected custom instruction in bulk prompt, got %q", got)
+		}
+	})
 }
 
 func TestStripThinkBlocks(t *testing.T) {

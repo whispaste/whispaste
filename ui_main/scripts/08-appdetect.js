@@ -129,7 +129,10 @@
   });
   document.addEventListener('DOMContentLoaded', () => {
     const page = document.getElementById('page-smartmode');
-    if (page) observer.observe(page, { attributes: true, attributeFilter: ['style'] });
+    if (page) {
+      observer.observe(page, { attributes: true, attributeFilter: ['class'] });
+      if (!page.classList.contains('hidden')) loadAppPresets();
+    }
   });
 
   window.loadAppPresets = loadAppPresets;
