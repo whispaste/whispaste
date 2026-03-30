@@ -167,9 +167,10 @@ func main() {
 		if endpoint == "" {
 			endpoint = "https://api.openai.com/v1/audio/transcriptions"
 		}
-		// For local STT, fall back to UI language when transcription language is "auto".
-		// Small local whisper models are unreliable at auto-detecting language.
-		localLang = cfg.Language
+		localLang = cfg.TranscriptionLanguage
+		if localLang == "" {
+			localLang = cfg.Language
+		}
 		if localLang == "auto" && cfg.UILanguage != "" && cfg.UILanguage != "auto" {
 			localLang = cfg.UILanguage
 		}
@@ -178,7 +179,7 @@ func main() {
 	snapshotSmart := func() (enabled bool, preset, customPrompt, targetLang string) {
 		cfg.mu.RLock()
 		defer cfg.mu.RUnlock()
-		return cfg.SmartMode, cfg.SmartModePreset, cfg.SmartModePrompt, cfg.SmartModeTarget
+		return cfg.SmartMode, cfg.SmartModePreset, cfg.SmartModePrompt, normalizeSmartTargetLanguage(cfg.SmartModeTarget)
 	}
 
 	// createCloudSTT returns a cloud STT provider based on current config.
@@ -499,14 +500,18 @@ func main() {
 				}()
 				durationSec := time.Since(recordStart).Seconds()
 				modelName := model
+				entryLang := lang
+				entryLangHint := lang
 				if useLocal {
 					modelName = cfg.GetLocalModelID()
+					entryLang = cfg.GetLocalTranscriptionMetadataLanguage()
+					entryLangHint = localLang
 				}
 
 				// Create pending entry BEFORE transcription so audio is preserved if app crashes
 				pendingID := ""
 				if len(pcm) >= 9600 {
-					pendingID = history.AddPendingEntry(durationSec, lang, modelName, useLocal, T("transcribing"))
+					pendingID = history.AddPendingEntryHint(durationSec, entryLang, modelName, useLocal, T("transcribing"), entryLangHint)
 					if pendingID != "" {
 						projID := getSelectedProjectID()
 						if projID != "" {
@@ -615,29 +620,40 @@ func main() {
 
 				// Smart Mode: post-process with AI
 				smartEnabled, smartPreset, smartCustom, smartTarget := snapshotSmart()
-				// Template matching: keyword-based auto-detection
+				smartLangHint := lang
+				if useLocal {
+					smartLangHint = localLang
+				}
+				if smartLangHint == "" || smartLangHint == "auto" {
+					smartLangHint = ""
+				}
 				if cfg.GetAppDetectionEnabled() {
 					appName := GetActiveAppName()
 					winTitle := GetActiveWindowTitle()
-					metas := cfg.GetTemplateMetas()
-					defaults := GetDefaultTemplateMetas()
-					for k, v := range defaults {
-						if _, exists := metas[k]; !exists {
-							metas[k] = v
+					if appPreset, ok := ResolveAppPresetForApp(appName, cfg.GetAppPresets()); ok {
+						smartEnabled = true
+						smartPreset = appPreset
+						logInfo("Using explicit app rule: %s (app: %s)", appPreset, appName)
+					} else {
+						metas := cfg.GetTemplateMetas()
+						defaults := GetDefaultTemplateMetas()
+						for k, v := range defaults {
+							if _, exists := metas[k]; !exists {
+								metas[k] = v
+							}
+						}
+						if matched, ok := MatchTemplate(appName, winTitle, metas); ok {
+							smartEnabled = true
+							smartPreset = matched
+							logInfo("Auto-detected template: %s (app: %s, title: %s)", matched, appName, winTitle)
+						} else if smartEnabled && smartPreset != "" && smartPreset != "off" {
+							logDebug("Using configured smart preset: %s", smartPreset)
+						} else if cfg.GetFallbackPreset() != "" && cfg.GetFallbackPreset() != "off" {
+							smartEnabled = true
+							smartPreset = cfg.GetFallbackPreset()
+							logDebug("Using fallback template: %s", smartPreset)
 						}
 					}
-					if matched, ok := MatchTemplate(appName, winTitle, metas); ok {
-						smartEnabled = true
-						smartPreset = matched
-						logInfo("Auto-detected template: %s (app: %s, title: %s)", matched, appName, winTitle)
-					} else if cfg.GetFallbackPreset() != "" {
-						smartEnabled = true
-						smartPreset = cfg.GetFallbackPreset()
-						logDebug("Using fallback template: %s", smartPreset)
-					}
-				} else if appPreset, ok := ResolveAppPreset(cfg); ok {
-					smartEnabled = true
-					smartPreset = appPreset
 				}
 				if smartEnabled && smartPreset != "" && smartPreset != "off" {
 					if overlay != nil {
@@ -678,17 +694,21 @@ func main() {
 							llmProv, provErr := createCloudLLM()
 							if provErr != nil {
 								logWarn("Cloud LLM provider unavailable: %v — falling back to OpenAI", provErr)
-								processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, cfg.GetUILanguage(), cfg.GetCustomTemplates())
+								processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, smartLangHint, cfg.GetCustomTemplates())
 							} else {
-								processed, ppErr = PostProcessWithProvider(text, smartPreset, smartCustom, smartTarget, cfg.GetUILanguage(), cfg.GetCustomTemplates(), llmProv, dictPrompt)
+								processed, ppErr = PostProcessWithProvider(text, smartPreset, smartCustom, smartTarget, smartLangHint, cfg.GetCustomTemplates(), llmProv, dictPrompt)
 							}
 						} else {
-							processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, cfg.GetUILanguage(), cfg.GetCustomTemplates())
+							processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, smartLangHint, cfg.GetCustomTemplates())
 						}
 						if ppErr != nil {
 							logWarn("Smart mode error (using raw text): %v", ppErr)
 						} else {
 							text = processed
+							if smartPreset == "translate" && smartTarget != "" {
+								entryLang = smartTarget
+								entryLangHint = smartTarget
+							}
 						}
 					}
 				}
@@ -713,15 +733,15 @@ func main() {
 
 				// Complete the pending entry or create a new one
 				if pendingID != "" {
-					if history.CompletePendingEntry(pendingID, text, processingDurationSec, activeModel, activeLocal) {
+					if history.CompletePendingEntryHint(pendingID, text, processingDurationSec, entryLang, activeModel, activeLocal, entryLangHint) {
 						entryID = pendingID
 						logDebug("Completed pending entry %s with transcription", pendingID)
 					} else {
 						logWarn("Failed to complete pending entry %s, creating new entry", pendingID)
-						entryID = history.AddWithModel(text, durationSec, processingDurationSec, lang, activeModel, activeLocal, getSelectedProjectID())
+						entryID = history.AddWithModelHint(text, durationSec, processingDurationSec, entryLang, activeModel, activeLocal, getSelectedProjectID(), entryLangHint)
 					}
 				} else {
-					entryID = history.AddWithModel(text, durationSec, processingDurationSec, lang, activeModel, activeLocal, getSelectedProjectID())
+					entryID = history.AddWithModelHint(text, durationSec, processingDurationSec, entryLang, activeModel, activeLocal, getSelectedProjectID(), entryLangHint)
 				}
 
 				// Auto-tag with local LLM if available
