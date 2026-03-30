@@ -27,7 +27,7 @@ WhisPaste is a premium Windows desktop voice-to-text application built entirely 
 | Audio Capture | malgo (miniaudio bindings) |
 | Local STT | whisper.cpp server (bundled) |
 | Local LLM | llama.cpp server (bundled) |
-| Database | SQLite via mattn/go-sqlite3 |
+| Database | SQLite via modernc.org/sqlite |
 | Distribution | MSIX (Microsoft Store) + Standalone installer |
 
 ---
@@ -228,6 +228,7 @@ The WebView2 runtime stores its user data in `%APPDATA%\whispaste.exe\EBWebView`
 
 | Date | Task | Size | Branch | Summary |
 |------|------|------|--------|---------|
+| 2026-03-30 | integrated-vulkan-stt | Large | amboss/integrated-vulkan-stt | Completed the same-repo whisper-server delivery path: app-side STT release selection now prefers WhisPaste CPU/CUDA/Vulkan assets, added pinned whisper.cpp ref plus local build/package scripts, and introduced a GitHub Actions workflow that builds and uploads whisper-server release assets to this repository's releases. |
 | 2026-03-30 | smartmode-vulkan-completion (app repo) | Large | amboss/smartmode-vulkan-completion | Hardened Smart Mode language behavior, fixed App Rules/runtime targeting, unified translate target handling, and introduced persistent `language_hint` history metadata so local auto-STT keeps a stable prompt hint without faking detected language. |
 | 2026-03-30 | compliance-remediation | Large | amboss/multi-provider-upgrade | Build tags on 14 Windows files, extracted matchSTTAsset/matchLLMAsset pure functions with tests, models_test.go (22 subtests), expanded GPU detect tests (9 new), fixed CUDA 12 preference bug (cu12 vs cuda-12), project plan doc |
 
@@ -236,10 +237,13 @@ The WebView2 runtime stores its user data in `%APPDATA%\whispaste.exe\EBWebView`
 ## Current Focus
 
 - App-repo Smart-Mode hardening is complete and verified.
-- Remaining Vulkan-STT completion is still external work:
-  - publish dedicated whisper.cpp Vulkan/CUDA/CPU artifacts
-  - switch STT downloads to the external release source
-  - run end-to-end validation with a published Vulkan STT binary
+- Vulkan-STT now follows a same-repo release model:
+  - build dedicated whisper-server Vulkan/CUDA/CPU assets from this repository
+  - upload them to the matching GitHub release in this repository
+  - app download logic prefers these WhisPaste-owned assets before upstream fallbacks
+- Remaining validation is operational rather than architectural:
+  - execute the workflow against a real published release
+  - confirm AMD/Intel Vulkan download path end-to-end on target hardware
 
 ## Learned Patterns
 

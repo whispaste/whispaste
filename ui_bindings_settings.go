@@ -111,13 +111,16 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		data, _ := json.Marshal(provider.CloudLLMProviders)
 		return string(data)
 	})
-	w.Bind("getGPUInfo", func() map[string]interface{} {
+	w.Bind("getGPUInfo", func(mode string) map[string]interface{} {
 		info := gpu.Detect()
 		return map[string]interface{}{
 			"available":      info.Available,
 			"name":           info.Name,
 			"vendor":         string(info.Vendor),
 			"backend":        string(info.Backend),
+			"stt_backend":    string(gpu.RecommendSTTBackend(mode)),
+			"llm_backend":    string(gpu.RecommendLLMBackend(mode)),
+			"stt_asset_key":  gpu.RecommendSTTAssetKey(mode),
 			"vram_mb":        info.VRAMMBytes,
 			"driver_version": info.DriverVersion,
 		}
