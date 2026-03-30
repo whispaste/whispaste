@@ -152,7 +152,7 @@ var translations = map[string]map[string]string{
 		"preflight.reason.cores":                  "This device has limited processing power for local transcription.",
 		"preflight.reason.memory":                 "Not enough RAM for reliable local transcription.",
 		"preflight.reason.disk":                   "Not enough free disk space for the selected model.",
-		"preflight.reason.runtime":                "The local transcription engine could not start on this device.",
+		"preflight.reason.runtime":                "The transcription engine could not start. The Visual C++ Runtime may be missing — see aka.ms/vs/17/release/vc_redist.x64.exe",
 		"preflight.reason.unknown":                "Local transcription is blocked until a compatibility check passes.",
 		"preflight.check.os":                      "Operating system",
 		"preflight.check.arch":                    "CPU architecture",
@@ -171,8 +171,8 @@ var translations = map[string]map[string]string{
 		"preflight.detail.memory.warn":            "8 GB RAM or more is recommended for smoother local transcription.",
 		"preflight.detail.disk.fail":              "Free up disk space before using local models (%s).",
 		"preflight.detail.disk.warn":              "Disk space is getting tight for local model downloads.",
-		"preflight.detail.runtime.fail":           "The local transcription engine failed to start: %s",
-		"preflight.detail.runtime.fail_no_output": "The local transcription engine failed before any diagnostic output was available.",
+		"preflight.detail.runtime.fail":           "The local transcription engine failed to start: %s — If this persists, install the Visual C++ Runtime from aka.ms/vs/17/release/vc_redist.x64.exe and restart.",
+		"preflight.detail.runtime.fail_no_output": "The local transcription engine failed before producing output. Install the Visual C++ Runtime from aka.ms/vs/17/release/vc_redist.x64.exe and restart.",
 		"audio.device_unavailable":                "The selected microphone is no longer available. Choose another recording device in Settings.",
 
 		// Updates
@@ -389,7 +389,7 @@ var translations = map[string]map[string]string{
 		"preflight.reason.cores":                  "Dieses Gerät hat begrenzte Rechenleistung für lokale Transkription.",
 		"preflight.reason.memory":                 "Nicht genug RAM für zuverlässige lokale Transkription.",
 		"preflight.reason.disk":                   "Nicht genug freier Speicherplatz für das gewählte Modell.",
-		"preflight.reason.runtime":                "Die lokale Transkriptions-Engine konnte auf diesem Gerät nicht starten.",
+		"preflight.reason.runtime":                "Die Transkriptions-Engine konnte nicht starten. Möglicherweise fehlt die Visual C++ Runtime — siehe aka.ms/vs/17/release/vc_redist.x64.exe",
 		"preflight.reason.unknown":                "Lokale Transkription ist blockiert, bis die Kompatibilitätsprüfung bestanden ist.",
 		"preflight.check.os":                      "Betriebssystem",
 		"preflight.check.arch":                    "CPU-Architektur",
@@ -408,8 +408,8 @@ var translations = map[string]map[string]string{
 		"preflight.detail.memory.warn":            "8 GB RAM oder mehr sind für flüssigere lokale Transkription empfohlen.",
 		"preflight.detail.disk.fail":              "Bitte zuerst Speicherplatz freigeben, bevor lokale Modelle genutzt werden (%s).",
 		"preflight.detail.disk.warn":              "Der freie Speicherplatz wird knapp für lokale Modelldownloads.",
-		"preflight.detail.runtime.fail":           "Die lokale Transkriptions-Engine konnte nicht gestartet werden: %s",
-		"preflight.detail.runtime.fail_no_output": "Die lokale Transkriptions-Engine ist fehlgeschlagen, bevor Diagnosedaten verfügbar waren.",
+		"preflight.detail.runtime.fail":           "Die lokale Transkriptions-Engine konnte nicht gestartet werden: %s — Falls das weiterhin auftritt, installiere die Visual C++ Runtime von aka.ms/vs/17/release/vc_redist.x64.exe und starte neu.",
+		"preflight.detail.runtime.fail_no_output": "Die lokale Transkriptions-Engine ist fehlgeschlagen, bevor Diagnosedaten verfügbar waren. Installiere die Visual C++ Runtime von aka.ms/vs/17/release/vc_redist.x64.exe und starte neu.",
 		"audio.device_unavailable":                "Das gewählte Mikrofon ist nicht mehr verfügbar. Wähle in den Einstellungen ein anderes Aufnahmegerät.",
 
 		// Updates

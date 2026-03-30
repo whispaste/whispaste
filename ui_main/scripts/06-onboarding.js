@@ -178,7 +178,13 @@ function onbUpdateModelUI() {
     if (progressWrap) progressWrap.classList.add('hidden');
     if (nextBtn) nextBtn.disabled = true;
   } else if (_onbPreflight?.blocking) {
-    if (statusEl) { statusEl.textContent = t('preflightBlockedBadge'); statusEl.className = 'onb-model-status blocked'; }
+    if (statusEl) {
+      // Show specific reason (e.g. "engine could not start — install VC++ Runtime")
+      // instead of generic "Not compatible" badge
+      const reason = _onbPreflight?.message || t('preflightBlockedBadge');
+      statusEl.textContent = reason;
+      statusEl.className = 'onb-model-status blocked';
+    }
     if (downloadBtn) downloadBtn.classList.add('hidden');
     if (progressWrap) progressWrap.classList.add('hidden');
     if (nextBtn) nextBtn.disabled = true;
@@ -304,6 +310,9 @@ window.onbDownloadComplete = function(modelId, success, errorMsg) {
   if (!success && errorMsg) {
     const statusEl = document.getElementById('onbModelStatus');
     if (statusEl) { statusEl.textContent = errorMsg; statusEl.className = 'onb-model-status needed'; }
+    // Show retry button after failed download
+    const downloadBtn = document.getElementById('onbDownloadBtn');
+    if (downloadBtn) downloadBtn.classList.remove('hidden');
   } else if (success) {
     onbRefreshPreflight();
   }
