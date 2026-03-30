@@ -42,7 +42,7 @@ config.json
 # AI agent / skill config (local only)
 skills-lock.json
 skills.yaml
-.github/copilot-instructions.md
+
 docs/STORE-SUBMISSION-GUIDE.md
 docs/competitive-gap-analysis.md
 docs/deep-research-report.md
