@@ -133,7 +133,11 @@ func DownloadLLM(modelID string, gpuMode string, progressFn func(phase string, p
 }
 
 // resolveLLMServerURL queries the GitHub API for the latest llama.cpp release
-// and returns the download URL for the appropriate asset (CPU or CUDA).
+// and returns the download URL for the appropriate asset.
+// Asset keys from gpu.RecommendLLMAssetKey:
+//   - "win-cuda" → NVIDIA CUDA build (prefers latest CUDA version)
+//   - "win-vulkan-x64" → Vulkan build (universal GPU: AMD, Intel, NVIDIA)
+//   - "win-cpu-x64" → CPU-only build
 func resolveLLMServerURL(gpuMode string) (string, error) {
 	assetKey := llmAssetKey(gpuMode)
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", llmServerRepo)
@@ -164,18 +168,45 @@ func resolveLLMServerURL(gpuMode string) (string, error) {
 		return "", fmt.Errorf("decode response: %w", err)
 	}
 
+	// For CUDA, find the best available CUDA version (prefer 12.x over 13.x for driver compat)
+	if assetKey == "win-cuda" {
+		var bestURL string
+		for _, a := range release.Assets {
+			name := strings.ToLower(a.Name)
+			if strings.Contains(name, "win-cuda") &&
+				strings.Contains(name, "x64") &&
+				strings.HasSuffix(name, ".zip") &&
+				!strings.HasPrefix(name, "cudart-") {
+				// Prefer CUDA 12.x (broadest driver compatibility)
+				if strings.Contains(name, "cuda-12") {
+					return a.BrowserDownloadURL, nil
+				}
+				bestURL = a.BrowserDownloadURL
+			}
+		}
+		if bestURL != "" {
+			return bestURL, nil
+		}
+		// CUDA not available — try Vulkan as GPU fallback
+		assetKey = "win-vulkan-x64"
+	}
+
+	// Match exact asset key (Vulkan or CPU)
 	for _, a := range release.Assets {
-		if strings.Contains(strings.ToLower(a.Name), assetKey) &&
-			strings.HasSuffix(strings.ToLower(a.Name), ".zip") {
+		name := strings.ToLower(a.Name)
+		if strings.Contains(name, assetKey) &&
+			strings.HasSuffix(name, ".zip") &&
+			!strings.HasPrefix(name, "cudart-") {
 			return a.BrowserDownloadURL, nil
 		}
 	}
 
-	// Fallback to CPU if CUDA asset not found
+	// Fallback to CPU if requested GPU asset not found
 	if assetKey != "win-cpu-x64" {
 		for _, a := range release.Assets {
-			if strings.Contains(strings.ToLower(a.Name), "win-cpu-x64") &&
-				strings.HasSuffix(strings.ToLower(a.Name), ".zip") {
+			name := strings.ToLower(a.Name)
+			if strings.Contains(name, "win-cpu-x64") &&
+				strings.HasSuffix(name, ".zip") {
 				return a.BrowserDownloadURL, nil
 			}
 		}
