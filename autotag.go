@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/whispaste/whispaste/internal/inference"
 )
 
 // AutoTagEntry uses the local LLM to assign existing tags to a history entry.
@@ -103,14 +105,15 @@ Answer: ["meeting"]`, tagList)
 		classifyText = classifyText[:2000]
 	}
 
+	tagProfile := inference.AutoTagProfile()
 	reqBody := map[string]interface{}{
 		"model": "local",
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": "TRANSCRIBED TEXT:\n" + classifyText},
 		},
-		"temperature": 0.2,
-		"max_tokens":  100,
+		"temperature": tagProfile.Temperature,
+		"max_tokens":  tagProfile.MaxTokens,
 	}
 
 	jsonData, err := json.Marshal(reqBody)

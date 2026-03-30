@@ -175,7 +175,16 @@ function gatherConfig() {
     floating_button_size: parseInt(document.getElementById('range-fab-size')?.value || '56', 10),
     floating_button_opacity: parseInt(document.getElementById('range-fab-opacity')?.value || '70', 10),
     floating_button_locked: document.getElementById('toggle-floating-lock')?.checked || false,
-    floating_button_border: document.getElementById('toggle-floating-border')?.checked || false
+    floating_button_border: document.getElementById('toggle-floating-border')?.checked || false,
+    cloud_stt_provider: document.getElementById('select-cloud-stt-provider')?.value || 'openai',
+    cloud_llm_provider: document.getElementById('select-cloud-llm-provider')?.value || 'openai',
+    cloud_llm_model: document.getElementById('input-cloud-llm-model')?.value || '',
+    groq_api_key: document.getElementById('input-groq-apikey')?.value || '',
+    deepgram_api_key: document.getElementById('input-deepgram-apikey')?.value || '',
+    anthropic_api_key: document.getElementById('input-anthropic-apikey')?.value || '',
+    gemini_api_key: document.getElementById('input-gemini-apikey')?.value || '',
+    custom_dictionary: (document.getElementById('input-custom-dictionary')?.value || '').split(/[,\n]/).map(s => s.trim()).filter(Boolean),
+    gpu_acceleration: document.getElementById('select-gpu-mode')?.value || 'auto'
   };
 }
 
@@ -319,6 +328,39 @@ function applyConfig(cfg) {
     if (el) el.checked = !!cfg.app_detection;
     updateAppDetectionState();
   }
+  // Cloud STT Provider
+  {
+    const el = document.getElementById('select-cloud-stt-provider');
+    if (el && cfg.cloud_stt_provider) el.value = cfg.cloud_stt_provider;
+    updateCloudSTTFields(true);
+  }
+  // Cloud LLM Provider
+  {
+    const el = document.getElementById('select-cloud-llm-provider');
+    if (el && cfg.cloud_llm_provider) el.value = cfg.cloud_llm_provider;
+  }
+  if (cfg.cloud_llm_model != null) {
+    const el = document.getElementById('input-cloud-llm-model');
+    if (el) el.value = cfg.cloud_llm_model;
+  }
+  // Provider API keys
+  if (cfg.groq_api_key != null) { const el = document.getElementById('input-groq-apikey'); if (el) el.value = cfg.groq_api_key; }
+  if (cfg.deepgram_api_key != null) { const el = document.getElementById('input-deepgram-apikey'); if (el) el.value = cfg.deepgram_api_key; }
+  if (cfg.anthropic_api_key != null) { const el = document.getElementById('input-anthropic-apikey'); if (el) el.value = cfg.anthropic_api_key; }
+  if (cfg.gemini_api_key != null) { const el = document.getElementById('input-gemini-apikey'); if (el) el.value = cfg.gemini_api_key; }
+  // Custom Dictionary
+  if (cfg.custom_dictionary != null && Array.isArray(cfg.custom_dictionary)) {
+    const el = document.getElementById('input-custom-dictionary');
+    if (el) el.value = cfg.custom_dictionary.join(', ');
+  }
+  // GPU Acceleration
+  if (cfg.gpu_acceleration) {
+    const el = document.getElementById('select-gpu-mode');
+    if (el) el.value = cfg.gpu_acceleration;
+  }
+  renderGPUStatus();
+  toggleCloudLLMSection();
+  updateCloudLLMFields(true);
 }
 
 
@@ -364,5 +406,84 @@ async function saveSettings() {
     }
   } catch (err) {
     showStatus(t('statusError'), 'error');
+  }
+}
+
+/* ── Cloud Provider Helpers ──────────────────────────── */
+function updateCloudSTTFields(silent) {
+  const provider = document.getElementById('select-cloud-stt-provider')?.value || 'openai';
+  const llmProvider = document.getElementById('select-cloud-llm-provider')?.value || 'openai';
+  const groqRow = document.getElementById('cloud-stt-groq-key-row');
+  const deepgramRow = document.getElementById('cloud-stt-deepgram-key-row');
+  const openaiHint = document.getElementById('cloud-stt-openai-hint');
+  // Show Groq key if either STT or LLM uses Groq
+  if (groqRow) groqRow.classList.toggle('hidden', provider !== 'groq' && llmProvider !== 'groq');
+  if (deepgramRow) deepgramRow.classList.toggle('hidden', provider !== 'deepgram');
+  if (openaiHint) openaiHint.classList.toggle('hidden', provider !== 'openai');
+  if (!silent) autoSave();
+}
+
+function updateCloudLLMFields(silent) {
+  const provider = document.getElementById('select-cloud-llm-provider')?.value || 'openai';
+  const anthropicRow = document.getElementById('cloud-llm-anthropic-key-row');
+  const geminiRow = document.getElementById('cloud-llm-gemini-key-row');
+  const groqNote = document.getElementById('cloud-llm-groq-note');
+  const openaiNote = document.getElementById('cloud-llm-openai-note');
+  if (anthropicRow) anthropicRow.classList.toggle('hidden', provider !== 'anthropic');
+  if (geminiRow) geminiRow.classList.toggle('hidden', provider !== 'gemini');
+  if (groqNote) groqNote.classList.toggle('hidden', provider !== 'groq');
+  if (openaiNote) openaiNote.classList.toggle('hidden', provider !== 'openai');
+  const modelInput = document.getElementById('input-cloud-llm-model');
+  const modelHint = document.getElementById('cloud-llm-model-hint');
+  const defaults = {
+    openai: 'gpt-4o-mini',
+    anthropic: 'claude-sonnet-4-20250514',
+    gemini: 'gemini-2.5-flash',
+    groq: 'llama-3.3-70b-versatile'
+  };
+  if (modelInput) modelInput.placeholder = defaults[provider] || '';
+  if (modelHint) modelHint.textContent = t('cloudLLMModelHint').replace('{model}', defaults[provider] || '');
+  // Also re-evaluate Groq key row visibility (shared with STT)
+  updateCloudSTTFields(true);
+  if (!silent) autoSave();
+}
+
+function toggleCloudLLMSection() {
+  const isCloud = document.querySelector('[name="smartProvider"][value="cloud"]')?.checked;
+  const section = document.getElementById('cloud-llm-settings');
+  if (section) section.classList.toggle('hidden', !isCloud);
+}
+
+function toggleKeyVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input || !btn) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.setAttribute('aria-label', t('eyeHide'));
+    btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>';
+  } else {
+    input.type = 'password';
+    btn.setAttribute('aria-label', t('eyeShow'));
+    btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>';
+  }
+}
+
+async function renderGPUStatus() {
+  const line = document.getElementById('gpu-status-line');
+  if (!line || !window.getGPUInfo) return;
+  const mode = document.getElementById('select-gpu-mode')?.value || 'auto';
+  try {
+    const raw = await window.getGPUInfo();
+    const info = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const hasGPU = info && info.available;
+    if (mode === 'disabled') {
+      line.innerHTML = '<span style="color:var(--text-secondary)">—</span> ' + t('gpuDisabledStatus');
+    } else if (hasGPU) {
+      line.innerHTML = '<span style="color:var(--accent-green)">✓</span> ' + info.name + ' (' + info.vram_mb + ' MB VRAM)';
+    } else {
+      line.innerHTML = '<span style="color:var(--text-secondary)">—</span> ' + t('gpuNotDetected');
+    }
+  } catch (e) {
+    line.textContent = t('gpuDetectionFailed');
   }
 }

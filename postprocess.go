@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,8 @@ import (
 	"time"
 
 	"github.com/whispaste/whispaste/internal/i18n"
+	"github.com/whispaste/whispaste/internal/inference"
+	"github.com/whispaste/whispaste/internal/provider"
 )
 
 var multiSpace = regexp.MustCompile(`\s{2,}`)
@@ -156,6 +159,7 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLa
 		}
 	}
 
+	profile := inference.ProfileForPreset(preset)
 	modelName := "gpt-4o-mini"
 	if isLocalEndpoint(chatURL) {
 		modelName = "local"
@@ -169,8 +173,8 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLa
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": text},
 		},
-		"temperature": 0.3,
-		"max_tokens":  2048,
+		"temperature": profile.Temperature,
+		"max_tokens":  profile.MaxTokens,
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -215,6 +219,42 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, appLa
 		return text, fmt.Errorf("%s", i18n.T("error.postprocess_empty"))
 	}
 	return stripThinkBlocks(result.Choices[0].Message.Content), nil
+}
+
+// PostProcessWithProvider uses the provider interface for cloud LLM processing.
+// This supports all providers (OpenAI, Anthropic, Gemini, Groq) via a unified interface.
+func PostProcessWithProvider(text, preset, customPrompt, targetLang, appLang string, userTemplates map[string]string, llm provider.LLMProvider, dictionary string) (string, error) {
+	systemPrompt := buildSmartPrompt(preset, customPrompt, targetLang, appLang, userTemplates)
+	if systemPrompt == "" {
+		return text, nil
+	}
+
+	// Inject custom dictionary into the system prompt
+	if dictionary != "" {
+		systemPrompt += fmt.Sprintf("\n\nIMPORTANT: The following specialized terms must be spelled correctly: %s", dictionary)
+	}
+
+	profile := inference.ProfileForPreset(preset)
+	opts := provider.LLMOptions{
+		Model:       "", // use provider default
+		Temperature: profile.Temperature,
+		MaxTokens:   profile.MaxTokens,
+		TopP:        profile.TopP,
+	}
+
+	messages := []provider.Message{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: text},
+	}
+
+	result, err := llm.ChatCompletion(context.Background(), messages, opts)
+	if err != nil {
+		return text, fmt.Errorf("smart mode (%s): %w", llm.Name(), err)
+	}
+	if result == "" {
+		return text, fmt.Errorf("%s", i18n.T("error.postprocess_empty"))
+	}
+	return stripThinkBlocks(result), nil
 }
 
 // ApplySmartAction applies a smart mode preset or custom prompt to existing text.
@@ -303,7 +343,8 @@ func buildSmartPrompt(preset, customPrompt, targetLang, appLang string, userTemp
 
 // ApplyTextReplacementsWithAI runs exact replacements first, then uses AI (local or cloud)
 // to find semantic matches for remaining trigger phrases.
-func ApplyTextReplacementsWithAI(text string, replacements []TextReplacement, aiEnabled bool, provider, apiKey, cloudEndpoint string) string {
+// cloudLLMCreator is an optional factory that returns a cloud LLM provider for non-OpenAI routing.
+func ApplyTextReplacementsWithAI(text string, replacements []TextReplacement, aiEnabled bool, providerMode string, cloudLLMCreator func() (provider.LLMProvider, error)) string {
 	if len(replacements) == 0 {
 		return text
 	}
@@ -326,36 +367,67 @@ func ApplyTextReplacementsWithAI(text string, replacements []TextReplacement, ai
 		return text
 	}
 
-	var llmEndpoint, llmAPIKey string
-	if provider == "cloud" && apiKey != "" {
-		// Use cloud API for semantic matching
-		base := cloudEndpoint
-		if idx := len(base) - len("/audio/transcriptions"); idx >= 0 && base[idx:] == "/audio/transcriptions" {
-			base = base[:idx]
+	// Try cloud provider first if configured
+	if providerMode == "cloud" && cloudLLMCreator != nil {
+		llm, err := cloudLLMCreator()
+		if err == nil {
+			result, pErr := queryLLMForReplacementsWithProvider(llm, text, remaining)
+			if pErr == nil {
+				return result
+			}
+			logWarn("AI text replacement via cloud provider failed: %v, falling back", pErr)
 		}
-		llmEndpoint = base
-		llmAPIKey = apiKey
-	} else {
-		// Default: use local LLM
-		if !IsLLMInstalled() {
-			return text
-		}
-		ep, err := localLLM.Start()
-		if err != nil {
-			logWarn("AI text replacement: LLM start failed: %v", err)
-			return text
-		}
-		llmEndpoint = ep
-		llmAPIKey = "local"
 	}
 
-	aiResult, err := queryLLMForReplacements(llmEndpoint, llmAPIKey, text, remaining)
+	// Fallback: use local LLM
+	if !IsLLMInstalled() {
+		return text
+	}
+	ep, err := localLLM.Start()
+	if err != nil {
+		logWarn("AI text replacement: LLM start failed: %v", err)
+		return text
+	}
+
+	aiResult, err := queryLLMForReplacements(ep, "local", text, remaining)
 	if err != nil {
 		logWarn("AI text replacement failed: %v", err)
 		return text
 	}
 
 	return aiResult
+}
+
+// queryLLMForReplacementsWithProvider uses the provider abstraction for cloud LLM calls.
+func queryLLMForReplacementsWithProvider(llm provider.LLMProvider, text string, replacements []TextReplacement) (string, error) {
+	var rules strings.Builder
+	for i, r := range replacements {
+		fmt.Fprintf(&rules, "%d. When the text semantically mentions \"%s\" → replace with \"%s\"\n", i+1, r.Trigger, r.Replacement)
+	}
+
+	systemPrompt := fmt.Sprintf(`You are a text replacement assistant. Apply semantic replacements to the user's text.
+
+RULES:
+%s
+INSTRUCTIONS:
+1. Read the user's text carefully
+2. For each rule, check if the text SEMANTICALLY contains the trigger phrase (not just literally — the meaning must match)
+3. If a trigger phrase is semantically present, replace that part of the text with the replacement value
+4. Preserve the rest of the text exactly as-is (formatting, punctuation, capitalization)
+5. If no triggers match semantically, return the text unchanged
+6. Return ONLY the modified text, nothing else — no explanations, no quotes
+
+IMPORTANT: Only replace when the meaning clearly matches. When in doubt, do NOT replace.`, rules.String())
+
+	messages := []provider.Message{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: text},
+	}
+	opts := provider.LLMOptions{
+		Temperature: inference.Factual.Temperature,
+		MaxTokens:   len(text) + 200,
+	}
+	return llm.ChatCompletion(context.Background(), messages, opts)
 }
 
 func queryLLMForReplacements(llmEndpoint, apiKey, text string, replacements []TextReplacement) (string, error) {
@@ -397,7 +469,7 @@ IMPORTANT: Only replace when the meaning clearly matches. When in doubt, do NOT 
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": text},
 		},
-		"temperature": 0.0,
+		"temperature": inference.Factual.Temperature,
 		"max_tokens":  len(text) + 200,
 	}
 
