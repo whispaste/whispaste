@@ -21,7 +21,8 @@ func normalizeLanguage(lang string) string {
 }
 
 // TranscribeLocal performs offline speech-to-text via the local whisper.cpp HTTP server.
-func TranscribeLocal(pcmS16 []byte, sampleRate int, language string, modelID string) (string, error) {
+// An optional prompt parameter can be passed (e.g. custom dictionary terms) to improve recognition.
+func TranscribeLocal(pcmS16 []byte, sampleRate int, language string, modelID string, prompt ...string) (string, error) {
 	if len(pcmS16) < 2 {
 		return "", fmt.Errorf("audio data too short")
 	}
@@ -38,7 +39,11 @@ func TranscribeLocal(pcmS16 []byte, sampleRate int, language string, modelID str
 	wavData := wav.Encode(pcmS16, uint32(sampleRate), 1, 16)
 	lang := normalizeLanguage(language)
 
-	text, err := localSTT.Transcribe(wavData, lang)
+	var promptArg []string
+	if len(prompt) > 0 && prompt[0] != "" {
+		promptArg = prompt
+	}
+	text, err := localSTT.Transcribe(wavData, lang, promptArg...)
 	if err != nil {
 		return "", fmt.Errorf("transcribe: %w", err)
 	}

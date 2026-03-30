@@ -10,6 +10,9 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/whispaste/whispaste/internal/gpu"
+	"github.com/whispaste/whispaste/internal/inference"
 )
 
 // loopbackHost is the bind address for local AI servers (LLM, STT).
@@ -151,14 +154,25 @@ func (l *LocalLLM) Start() (string, error) {
 	port := tcpAddr.Port
 	listener.Close()
 
-	cmd := exec.Command(serverPath,
+	args := []string{
 		"--model", modelPath,
 		"--host", loopbackHost,
 		"--port", fmt.Sprintf("%d", port),
-		"--ctx-size", "2048",
-		"--threads", "4",
+		"--ctx-size", fmt.Sprintf("%d", inference.LLMCtxSize(inference.Balanced)),
+		"--threads", fmt.Sprintf("%d", inference.LLMThreads()),
 		"--log-disable",
-	)
+	}
+
+	// Offload all layers to GPU when CUDA is available
+	gpuMode := "auto"
+	if l.cfg != nil {
+		gpuMode = l.cfg.GetGPUAcceleration()
+	}
+	if gpu.ShouldUseGPU(gpuMode, 2048) {
+		args = append(args, "--n-gpu-layers", "-1")
+	}
+
+	cmd := exec.Command(serverPath, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
 	if err := cmd.Start(); err != nil {
