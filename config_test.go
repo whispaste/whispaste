@@ -46,6 +46,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.GetVADSensitivity() != 0.5 {
 		t.Errorf("GetVADSensitivity() = %f, want 0.5 (default)", cfg.GetVADSensitivity())
 	}
+	if cfg.GetSmartModeTarget() != defaultSmartModeTargetLanguage {
+		t.Errorf("GetSmartModeTarget() = %q, want %q", cfg.GetSmartModeTarget(), defaultSmartModeTargetLanguage)
+	}
 }
 
 func TestConfigSaveLoad(t *testing.T) {
@@ -212,6 +215,101 @@ func TestConfigVADRoundtrip(t *testing.T) {
 	}
 	if decoded.GetVADSensitivity() != 0.7 {
 		t.Errorf("GetVADSensitivity() = %f, want 0.7", decoded.GetVADSensitivity())
+	}
+}
+
+func TestGetEffectiveLocalTranscriptionLanguage(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  *Config
+		want string
+	}{
+		{
+			name: "explicit transcription language wins",
+			cfg: &Config{
+				Language:              "auto",
+				TranscriptionLanguage: "fr",
+				UILanguage:            "de",
+			},
+			want: "fr",
+		},
+		{
+			name: "auto falls back to ui language",
+			cfg: &Config{
+				Language:   "auto",
+				UILanguage: "de",
+			},
+			want: "de",
+		},
+		{
+			name: "non auto language is kept",
+			cfg: &Config{
+				Language:   "es",
+				UILanguage: "de",
+			},
+			want: "es",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.GetEffectiveLocalTranscriptionLanguage(); got != tt.want {
+				t.Fatalf("GetEffectiveLocalTranscriptionLanguage() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetSmartModeTargetDefaultsToEnglish(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.mu.Lock()
+	cfg.SmartModeTarget = ""
+	cfg.mu.Unlock()
+
+	if got := cfg.GetSmartModeTarget(); got != defaultSmartModeTargetLanguage {
+		t.Fatalf("GetSmartModeTarget() = %q, want %q", got, defaultSmartModeTargetLanguage)
+	}
+}
+
+func TestGetLocalTranscriptionMetadataLanguage(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  *Config
+		want string
+	}{
+		{
+			name: "explicit transcription language is preserved",
+			cfg: &Config{
+				Language:              "auto",
+				TranscriptionLanguage: "fr",
+				UILanguage:            "de",
+			},
+			want: "fr",
+		},
+		{
+			name: "auto stays unknown for metadata",
+			cfg: &Config{
+				Language:   "auto",
+				UILanguage: "de",
+			},
+			want: "",
+		},
+		{
+			name: "non auto app language is used",
+			cfg: &Config{
+				Language:   "es",
+				UILanguage: "de",
+			},
+			want: "es",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.GetLocalTranscriptionMetadataLanguage(); got != tt.want {
+				t.Fatalf("GetLocalTranscriptionMetadataLanguage() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
