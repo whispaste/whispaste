@@ -11,6 +11,37 @@ let _onbApiKeyValid = false;
 let _onbLlmModel = 'qwen3.5-0.8b'; // selected LLM model for smart mode (default: best quality)
 let _onbLlmReady = false;
 let _onbLlmDownloading = false;
+let _onbTrackedEvents = new Set();
+
+function onbTrackEvent(name, once) {
+  if (!name || !window.recordOnboardingEvent) return;
+  if (once) {
+    if (_onbTrackedEvents.has(name)) return;
+    _onbTrackedEvents.add(name);
+  }
+  try { window.recordOnboardingEvent(name); } catch (e) {}
+}
+
+function onbFriendlyModeLabel() {
+  if (_onboardingChoice === 'local') return t('onboarding.ready_mode_local').replace('{model}', _onbModelId || 'whisper-small');
+  if (_onboardingChoice === 'api') return t('onboarding.ready_mode_api');
+  return '—';
+}
+
+function onbFriendlySmartLabel() {
+  if (_onboardingSmart === true) return t('onboarding.ready_smart_on').replace('{model}', _onbLlmModel || 'qwen3.5-0.8b');
+  if (_onboardingSmart === false) return t('onboarding.ready_smart_off');
+  return '—';
+}
+
+function onbPopulateReadyState() {
+  const readyMode = document.getElementById('onbReadyMode');
+  const readySmart = document.getElementById('onbReadySmart');
+  const readyNext = document.getElementById('onbReadyNext');
+  if (readyMode) readyMode.textContent = onbFriendlyModeLabel();
+  if (readySmart) readySmart.textContent = onbFriendlySmartLabel();
+  if (readyNext) readyNext.textContent = t('onboarding.ready_next_value');
+}
 
 function showOnboarding() {
   const overlay = document.getElementById('onboardingOverlay');
@@ -28,7 +59,9 @@ function showOnboarding() {
     _onbLlmModel = 'qwen3.5-0.8b';
     _onbLlmReady = false;
     _onbLlmDownloading = false;
+    _onbTrackedEvents = new Set();
     onbInitPreferences();
+    onbTrackEvent('onboarding_start', true);
     updateOnboardingStep();
   }
 }
@@ -51,15 +84,19 @@ function updateOnboardingStep() {
   if (_onboardingStep === 2 && _onboardingChoice === null) {
     selectOnboardingOption('local');
   }
+  if (_onboardingStep === 4) {
+    onbPopulateReadyState();
+  }
 }
 
 function nextOnboardingStep() {
   if (_onboardingStep < 4) {
     // Guard: step 3 requires LLM downloaded when smart mode is on
     if (_onboardingStep === 3 && _onboardingSmart === true && !_onbLlmReady) return;
+    onbTrackEvent('onboarding_step_' + _onboardingStep + '_completed');
     _onboardingStep++;
     if (_onboardingStep === 3 && _onboardingSmart === null) {
-      selectOnboardingSmart(true);
+      selectOnboardingSmart(false, false);
     }
     if (_onboardingStep === 4) {
       const kbd = document.getElementById('onbHotkeyDisplay');
@@ -73,6 +110,7 @@ function nextOnboardingStep() {
           }
         }).catch(() => {});
       }
+      onbPopulateReadyState();
     }
     updateOnboardingStep();
   }
@@ -87,6 +125,7 @@ function prevOnboardingStep() {
 
 async function selectOnboardingOption(choice) {
   _onboardingChoice = choice;
+  onbTrackEvent('onboarding_method_selected_' + choice, true);
   document.querySelectorAll('#onboardingOverlay .onboarding-step[data-step="2"] .onboarding-option').forEach(opt => opt.classList.remove('selected'));
   const el = document.getElementById(choice === 'api' ? 'onb-api' : 'onb-local');
   if (el) el.classList.add('selected');
@@ -242,6 +281,7 @@ async function onbSelectModel(modelId) {
 async function onbStartDownload() {
   if (_onbDownloading || !window._downloadModel) return;
   _onbDownloading = true;
+  onbTrackEvent('onboarding_model_download_started', true);
   onbUpdateModelUI();
 
   try {
@@ -306,6 +346,7 @@ window.onbDownloadComplete = function(modelId, success, errorMsg) {
   if (modelId !== _onbModelId) return;
   _onbDownloading = false;
   _onbModelReady = success;
+  if (success) onbTrackEvent('onboarding_model_download_completed', true);
   onbUpdateModelUI();
   if (!success && errorMsg) {
     const statusEl = document.getElementById('onbModelStatus');
@@ -363,6 +404,7 @@ window.onLLMDownloadComplete = function(modelID) {
   if (overlay && !overlay.classList.contains('hidden') && _onbLlmDownloading) {
     _onbLlmDownloading = false;
     _onbLlmReady = true;
+    onbTrackEvent('onboarding_smart_model_download_completed', true);
     onbUpdateLlmUI();
   }
   if (_origLLMComplete) _origLLMComplete(modelID);
@@ -378,7 +420,7 @@ window.onLLMDownloadError = function(errorMsg, modelID) {
   if (_origLLMError) _origLLMError(errorMsg, modelID);
 };
 
-function selectOnboardingSmart(enabled) {
+function selectOnboardingSmart(enabled, trackChoice = true) {
   _onboardingSmart = enabled;
   document.querySelectorAll('#onboardingOverlay .onboarding-step[data-step="3"] .onboarding-option').forEach(opt => opt.classList.remove('selected'));
   const el = document.getElementById(enabled ? 'onb-smart-on' : 'onb-smart-off');
@@ -387,8 +429,10 @@ function selectOnboardingSmart(enabled) {
   if (llmSection) llmSection.classList.toggle('hidden', !enabled);
   const nextBtn = document.getElementById('onbNextStep3');
   if (enabled) {
+    onbTrackEvent('onboarding_smart_enabled', true);
     onbCheckLLMStatus();
   } else {
+    if (trackChoice) onbTrackEvent('onboarding_smart_skipped', true);
     if (nextBtn) nextBtn.disabled = false;
   }
 }
@@ -443,6 +487,7 @@ function onbUpdateLlmUI() {
 async function onbDownloadLLM() {
   if (_onbLlmDownloading || !window.downloadLLM) return;
   _onbLlmDownloading = true;
+  onbTrackEvent('onboarding_smart_model_download_started', true);
   onbUpdateLlmUI();
   try {
     await window.downloadLLM(_onbLlmModel);
@@ -452,7 +497,7 @@ async function onbDownloadLLM() {
   }
 }
 
-async function finishOnboarding() {
+async function finishOnboarding(nextAction) {
   // Guard: don't proceed if API mode selected without validated key
   if (_onboardingChoice === 'api' && !_onbApiKeyValid) return;
   // Guard: don't proceed if local mode selected without downloaded model
@@ -486,9 +531,18 @@ async function finishOnboarding() {
       } else if (_onboardingSmart === false) {
         cfg.smart_mode = false;
       }
-      await window.saveConfig(JSON.stringify(cfg));
+      const saveResult = await window.saveConfig(JSON.stringify(cfg));
+      if (saveResult && saveResult.success === false) {
+        showToast(saveResult.error || t('saveError'), true);
+        return;
+      }
       if (_onboardingChoice === 'api' && window.switchModel) {
-        await window.switchModel(cfg.model || 'whisper-1', false);
+        const switchResult = await window.switchModel(cfg.model || 'whisper-1', false);
+        const parsed = typeof switchResult === 'string' ? JSON.parse(switchResult) : switchResult;
+        if (parsed && parsed.success === false) {
+          showToast(parsed.error || t('modelSwitcher.error'), true);
+          return;
+        }
       }
       // Persist LLM model selection
       if (_onboardingSmart && window.setLocalLLMModel) {
@@ -500,6 +554,10 @@ async function finishOnboarding() {
   if (window.completeOnboarding) {
     await window.completeOnboarding();
   }
+  if (_onboardingSmart === false) {
+    onbTrackEvent('onboarding_smart_skipped', true);
+  }
+  onbTrackEvent('onboarding_completed', true);
 
   hideOnboarding();
 
@@ -514,10 +572,19 @@ async function finishOnboarding() {
     }
   } catch (e) {}
 
-  if (_onboardingChoice === 'api' && !document.getElementById('onb-apikey')?.value?.trim()) {
+  if (nextAction === 'settings') {
     switchPage('settings');
-  } else {
-    switchPage('history');
+    return;
+  }
+
+  switchPage('history');
+  if (nextAction === 'capture') {
+    onbTrackEvent('onboarding_first_dictation_started', true);
+    onbTrackEvent('activation_reached', true);
+    showToast(t('onboarding.capture_starting'));
+    setTimeout(() => {
+      if (window.startCapture) window.startCapture();
+    }, 150); // DevSkim: ignore DS172411 — allow overlay to close before capture starts
   }
 }
 
