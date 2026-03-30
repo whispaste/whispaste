@@ -71,9 +71,19 @@ func ResolveAppPreset(cfg *Config) (string, bool) {
 		return "", false
 	}
 	mappings := cfg.GetAppPresets()
-	if preset, ok := mappings[appName]; ok {
-		logDebug("App detection: %s → preset %s", appName, preset)
-		return preset, true
+	return ResolveAppPresetForApp(appName, mappings)
+}
+
+// ResolveAppPresetForApp resolves an explicit app rule for a known app name.
+func ResolveAppPresetForApp(appName string, mappings map[string]string) (string, bool) {
+	normalized := strings.ToLower(strings.TrimSpace(appName))
+	if normalized == "" {
+		return "", false
 	}
-	return "", false
+	preset, ok := mappings[normalized]
+	if !ok || preset == "" || preset == "off" {
+		return "", false
+	}
+	logDebug("App detection: %s → preset %s", normalized, preset)
+	return preset, true
 }

@@ -22,6 +22,7 @@ type HistoryEntry struct {
 	Duration           float64  `json:"duration_sec"`
 	ProcessingDuration float64  `json:"processing_duration_sec,omitempty"`
 	Language           string   `json:"language"`
+	LanguageHint       string   `json:"language_hint,omitempty"`
 	Category           string   `json:"category,omitempty"` // deprecated: kept for backward compat with old JSON
 	Tags               []string `json:"tags,omitempty"`
 	Pinned             bool     `json:"pinned,omitempty"`
@@ -51,8 +52,8 @@ type analyticsCache struct {
 // History manages transcription history backed by SQLite.
 type History struct {
 	db            *sql.DB
-	realDb        *sql.DB                // saved real DB when demo mode is active
-	demoMode      bool                   // true when demo mode is active
+	realDb        *sql.DB // saved real DB when demo mode is active
+	demoMode      bool    // true when demo mode is active
 	mu            sync.Mutex
 	cache         map[int]*analyticsCache // keyed by periodDays
 	lastAuditTime time.Time
@@ -98,6 +99,18 @@ func LoadHistory() *History {
 // WhisperCostPerMinute is the current cost of OpenAI Whisper API per audio minute (USD).
 const WhisperCostPerMinute = 0.006
 
+func normalizeEntryLanguage(language string) string {
+	language = strings.TrimSpace(language)
+	if strings.EqualFold(language, "auto") {
+		return ""
+	}
+	return language
+}
+
+func normalizeLanguageHint(language string) string {
+	return normalizeEntryLanguage(language)
+}
+
 // Add appends a new entry and prunes to the limit.
 func (h *History) Add(text string, durationSec float64, language string) {
 	h.AddWithModel(text, durationSec, 0, language, "", false, "")
@@ -106,9 +119,19 @@ func (h *History) Add(text string, durationSec float64, language string) {
 // AddWithModel appends a new entry with model tracking and prunes to the limit.
 // If projectID is non-empty, the entry is assigned to that project.
 func (h *History) AddWithModel(text string, durationSec float64, processingDurationSec float64, language, model string, isLocal bool, projectID string) string {
+	return h.AddWithModelHint(text, durationSec, processingDurationSec, language, model, isLocal, projectID, language)
+}
+
+// AddWithModelHint appends a new entry with a separate persisted language hint.
+func (h *History) AddWithModelHint(text string, durationSec float64, processingDurationSec float64, language, model string, isLocal bool, projectID, languageHint string) string {
 	var cost float64
 	if !isLocal && durationSec > 0 {
 		cost = (durationSec / 60.0) * WhisperCostPerMinute
+	}
+	language = normalizeEntryLanguage(language)
+	languageHint = normalizeLanguageHint(languageHint)
+	if languageHint == "" {
+		languageHint = language
 	}
 	entry := HistoryEntry{
 		ID:                 generateID(),
@@ -118,6 +141,7 @@ func (h *History) AddWithModel(text string, durationSec float64, processingDurat
 		Duration:           durationSec,
 		ProcessingDuration: processingDurationSec,
 		Language:           language,
+		LanguageHint:       languageHint,
 		Source:             "dictation",
 		Model:              model,
 		IsLocal:            isLocal,
@@ -139,18 +163,29 @@ func (h *History) AddWithModel(text string, durationSec float64, processingDurat
 // transcribed yet (cancelled or failed). Tagged with system tag "pending".
 // Returns the entry ID for audio caching.
 func (h *History) AddPendingEntry(durationSec float64, language, model string, isLocal bool, reason string) string {
+	return h.AddPendingEntryHint(durationSec, language, model, isLocal, reason, language)
+}
+
+// AddPendingEntryHint creates a pending entry with separate language metadata and hint.
+func (h *History) AddPendingEntryHint(durationSec float64, language, model string, isLocal bool, reason, languageHint string) string {
 	title := "⏳ " + reason
+	language = normalizeEntryLanguage(language)
+	languageHint = normalizeLanguageHint(languageHint)
+	if languageHint == "" {
+		languageHint = language
+	}
 	entry := HistoryEntry{
-		ID:        generateID(),
-		Text:      "",
-		Title:     title,
-		Timestamp: time.Now().Format(time.RFC3339),
-		Duration:  durationSec,
-		Language:  language,
-		Source:    "dictation",
-		Model:     model,
-		IsLocal:   isLocal,
-		Tags:      []string{"pending"},
+		ID:           generateID(),
+		Text:         "",
+		Title:        title,
+		Timestamp:    time.Now().Format(time.RFC3339),
+		Duration:     durationSec,
+		Language:     language,
+		LanguageHint: languageHint,
+		Source:       "dictation",
+		Model:        model,
+		IsLocal:      isLocal,
+		Tags:         []string{"pending"},
 	}
 
 	h.invalidateCache()
@@ -175,10 +210,10 @@ func (h *History) insertEntry(e HistoryEntry) {
 	}
 	_, err := execWithFTSRepair(h.db, `INSERT INTO history_entries
 		(id, text, title, timestamp, duration_sec, processing_duration_sec,
-		 language, tags, pinned, source, model, is_local, cost_usd, project_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 language, language_hint, tags, pinned, source, model, is_local, cost_usd, project_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		e.ID, e.Text, e.Title, e.Timestamp, e.Duration, e.ProcessingDuration,
-		e.Language, marshalTags(e.Tags), pinned, e.Source, e.Model, isLocal, e.CostUSD, e.ProjectID)
+		e.Language, e.LanguageHint, marshalTags(e.Tags), pinned, e.Source, e.Model, isLocal, e.CostUSD, e.ProjectID)
 	if err != nil {
 		logError("Insert history entry: %v", err)
 	}
@@ -373,23 +408,105 @@ func (h *History) UpdateText(id, newText string) bool {
 	return n > 0
 }
 
+// UpdateTextLanguage updates the text content, title, and language for an entry by ID.
+func (h *History) UpdateTextLanguage(id, newText, language string) bool {
+	if h.db == nil {
+		return false
+	}
+	h.invalidateCache()
+
+	newTitle := autoTitle(newText)
+	language = normalizeEntryLanguage(language)
+	languageHint := normalizeLanguageHint(language)
+	res, err := execWithFTSRepair(h.db, "UPDATE history_entries SET text = ?, title = ?, language = ?, language_hint = ? WHERE id = ?", newText, newTitle, language, languageHint, id)
+	if err != nil {
+		logError("Update text language: %v", err)
+		return false
+	}
+	n, _ := res.RowsAffected()
+	return n > 0
+}
+
+// UpdateTranscriptionResult refreshes text plus transcription metadata for an
+// already completed entry.
+func (h *History) UpdateTranscriptionResult(id, newText, language, model string, isLocal bool) bool {
+	return h.UpdateTranscriptionResultHint(id, newText, language, model, isLocal, language)
+}
+
+// UpdateTranscriptionResultHint refreshes text plus transcription metadata and hint.
+func (h *History) UpdateTranscriptionResultHint(id, newText, language, model string, isLocal bool, languageHint string) bool {
+	if h.db == nil {
+		return false
+	}
+	h.invalidateCache()
+
+	newTitle := autoTitle(newText)
+	language = normalizeEntryLanguage(language)
+	languageHint = normalizeLanguageHint(languageHint)
+	var durationSec float64
+	var existingLang string
+	var existingHint string
+	if err := h.db.QueryRow("SELECT duration_sec, language, language_hint FROM history_entries WHERE id = ?", id).Scan(&durationSec, &existingLang, &existingHint); err != nil {
+		logError("Update transcription result lookup: %v", err)
+		return false
+	}
+	if language == "" {
+		language = normalizeEntryLanguage(existingLang)
+	}
+	if languageHint == "" {
+		languageHint = normalizeLanguageHint(existingHint)
+		if languageHint == "" {
+			languageHint = language
+		}
+	}
+	var cost float64
+	if !isLocal && durationSec > 0 {
+		cost = (durationSec / 60.0) * WhisperCostPerMinute
+	}
+	res, err := execWithFTSRepair(h.db, "UPDATE history_entries SET text = ?, title = ?, language = ?, language_hint = ?, model = ?, is_local = ?, cost_usd = ? WHERE id = ?", newText, newTitle, language, languageHint, model, boolToInt(isLocal), cost, id)
+	if err != nil {
+		logError("Update transcription result: %v", err)
+		return false
+	}
+	n, _ := res.RowsAffected()
+	return n > 0
+}
+
 // CompletePendingEntry updates a pending entry with transcription text,
-// auto-generated title, processing duration, cost, and removes the "pending" tag.
-func (h *History) CompletePendingEntry(id, text string, processingDurationSec float64, model string, isLocal bool) bool {
+// auto-generated title, processing duration, cost, language, and removes the "pending" tag.
+func (h *History) CompletePendingEntry(id, text string, processingDurationSec float64, language, model string, isLocal bool) bool {
+	return h.CompletePendingEntryHint(id, text, processingDurationSec, language, model, isLocal, language)
+}
+
+// CompletePendingEntryHint completes a pending entry and refreshes its stored language hint.
+func (h *History) CompletePendingEntryHint(id, text string, processingDurationSec float64, language, model string, isLocal bool, languageHint string) bool {
 	if h.db == nil {
 		return false
 	}
 	h.invalidateCache()
 
 	title := autoTitle(text)
+	language = normalizeEntryLanguage(language)
+	languageHint = normalizeLanguageHint(languageHint)
 	var cost float64
 	// look up duration for cost calc
 	var durationSec float64
 	var tagsJSON string
-	err := h.db.QueryRow("SELECT duration_sec, tags FROM history_entries WHERE id = ?", id).Scan(&durationSec, &tagsJSON)
+	var existingLang string
+	var existingHint string
+	err := h.db.QueryRow("SELECT duration_sec, tags, language, language_hint FROM history_entries WHERE id = ?", id).Scan(&durationSec, &tagsJSON, &existingLang, &existingHint)
 	if err != nil {
 		logError("CompletePendingEntry lookup: %v", err)
 		return false
+	}
+	if language == "" {
+		language = normalizeEntryLanguage(existingLang)
+	}
+	if languageHint == "" {
+		languageHint = normalizeLanguageHint(existingHint)
+		if languageHint == "" {
+			languageHint = language
+		}
 	}
 	if !isLocal && durationSec > 0 {
 		cost = (durationSec / 60.0) * WhisperCostPerMinute
@@ -404,8 +521,8 @@ func (h *History) CompletePendingEntry(id, text string, processingDurationSec fl
 	}
 	res, err := execWithFTSRepair(h.db,
 		`UPDATE history_entries SET text = ?, title = ?, processing_duration_sec = ?,
-		 model = ?, is_local = ?, cost_usd = ?, tags = ? WHERE id = ?`,
-		text, title, processingDurationSec, model, boolToInt(isLocal), cost,
+		 language = ?, language_hint = ?, model = ?, is_local = ?, cost_usd = ?, tags = ? WHERE id = ?`,
+		text, title, processingDurationSec, language, languageHint, model, boolToInt(isLocal), cost,
 		marshalTags(filtered), id)
 	if err != nil {
 		logError("CompletePendingEntry update: %v", err)
@@ -526,17 +643,22 @@ func (h *History) Merge(ids []string) string {
 	for t := range tagSet {
 		mergedTags = append(mergedTags, t)
 	}
+	mergedHint := matches[0].LanguageHint
+	if mergedHint == "" {
+		mergedHint = matches[0].Language
+	}
 
 	merged := HistoryEntry{
-		ID:        generateID(),
-		Text:      mergedText,
-		Title:     autoTitle(mergedText),
-		Timestamp: newestTime,
-		Duration:  totalDuration,
-		Language:  matches[0].Language,
-		Source:    "merged",
-		Tags:      mergedTags,
-		ProjectID: matches[0].ProjectID,
+		ID:           generateID(),
+		Text:         mergedText,
+		Title:        autoTitle(mergedText),
+		Timestamp:    newestTime,
+		Duration:     totalDuration,
+		Language:     matches[0].Language,
+		LanguageHint: mergedHint,
+		Source:       "merged",
+		Tags:         mergedTags,
+		ProjectID:    matches[0].ProjectID,
 	}
 
 	// Delete originals, insert merged
@@ -550,10 +672,10 @@ func (h *History) Merge(ids []string) string {
 	isLocal := 0
 	if _, err := tx.Exec(`INSERT INTO history_entries
 		(id, text, title, timestamp, duration_sec, processing_duration_sec,
-		 language, tags, pinned, source, model, is_local, cost_usd, project_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 language, language_hint, tags, pinned, source, model, is_local, cost_usd, project_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		merged.ID, merged.Text, merged.Title, merged.Timestamp,
-		merged.Duration, merged.ProcessingDuration, merged.Language,
+		merged.Duration, merged.ProcessingDuration, merged.Language, merged.LanguageHint,
 		marshalTags(merged.Tags), pinned, merged.Source, merged.Model,
 		isLocal, merged.CostUSD, merged.ProjectID); err != nil {
 		logError("Merge insert: %v", err)
@@ -631,19 +753,30 @@ func (h *History) GetByID(id string) *HistoryEntry {
 
 // AddSmart creates a new entry with the given text, language, and tags.
 func (h *History) AddSmart(text, language string, tags []string) {
+	h.AddSmartHint(text, language, language, tags)
+}
+
+// AddSmartHint creates a new entry with separate language metadata and hint.
+func (h *History) AddSmartHint(text, language, languageHint string, tags []string) {
 	h.invalidateCache()
 
 	if h.db == nil {
 		return
 	}
+	language = normalizeEntryLanguage(language)
+	languageHint = normalizeLanguageHint(languageHint)
+	if languageHint == "" {
+		languageHint = language
+	}
 	entry := HistoryEntry{
-		ID:        generateID(),
-		Text:      text,
-		Title:     autoTitle(text),
-		Timestamp: time.Now().Format(time.RFC3339),
-		Language:  language,
-		Source:    "smart",
-		Tags:      tags,
+		ID:           generateID(),
+		Text:         text,
+		Title:        autoTitle(text),
+		Timestamp:    time.Now().Format(time.RFC3339),
+		Language:     language,
+		LanguageHint: languageHint,
+		Source:       "smart",
+		Tags:         tags,
 	}
 	h.insertEntry(entry)
 	h.pruneToLimit(defaultMaxHistory)
