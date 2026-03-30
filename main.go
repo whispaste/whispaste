@@ -15,6 +15,7 @@ import (
 	"github.com/whispaste/whispaste/internal/audiocache"
 	"github.com/whispaste/whispaste/internal/i18n"
 	"github.com/whispaste/whispaste/internal/models"
+	"github.com/whispaste/whispaste/internal/provider"
 	"github.com/whispaste/whispaste/internal/stats"
 	"github.com/whispaste/whispaste/internal/wav"
 )
@@ -178,6 +179,50 @@ func main() {
 		cfg.mu.RLock()
 		defer cfg.mu.RUnlock()
 		return cfg.SmartMode, cfg.SmartModePreset, cfg.SmartModePrompt, cfg.SmartModeTarget
+	}
+
+	// createCloudSTT returns a cloud STT provider based on current config.
+	createCloudSTT := func() (provider.STTProvider, error) {
+		cfg.mu.RLock()
+		providerID := cfg.CloudSTTProvider
+		if providerID == "" {
+			providerID = "openai"
+		}
+		apiKey := cloudSTTAPIKeyLocked(cfg)
+		cfg.mu.RUnlock()
+		if apiKey == "" {
+			return nil, fmt.Errorf("no API key configured for %s STT", providerID)
+		}
+		return provider.NewCloudSTT(providerID, apiKey)
+	}
+
+	// createCloudLLM returns a cloud LLM provider based on current config.
+	createCloudLLM := func() (provider.LLMProvider, error) {
+		cfg.mu.RLock()
+		providerID := cfg.CloudLLMProvider
+		if providerID == "" {
+			providerID = "openai"
+		}
+		apiKey := cloudLLMAPIKeyLocked(cfg)
+		model := cfg.CloudLLMModel
+		cfg.mu.RUnlock()
+		if apiKey == "" {
+			return nil, fmt.Errorf("no API key configured for %s LLM", providerID)
+		}
+		llm, err := provider.NewCloudLLM(providerID, apiKey)
+		if err != nil {
+			return nil, err
+		}
+		// Apply user-selected model if set
+		if model != "" {
+			switch p := llm.(type) {
+			case *provider.OpenAICompatLLM:
+				p.DefaultModel = model
+			case *provider.AnthropicLLM:
+				p.DefaultModel = model
+			}
+		}
+		return llm, nil
 	}
 
 	// State transition handler
@@ -478,14 +523,31 @@ func main() {
 				transcribeStart := time.Now()
 				var text string
 				var err error
+				dictPrompt := cfg.DictionaryPrompt()
 				logInfo("Transcribing with: useLocal=%v model=%s", useLocal, modelName)
 				if useLocal {
 					localModelID := cfg.GetLocalModelID()
 					logDebug("starting local transcription: model=%s lang=%s audioBytes=%d", localModelID, localLang, len(pcm))
-					text, err = TranscribeLocal(pcm, 16000, localLang, localModelID)
+					text, err = TranscribeLocal(pcm, 16000, localLang, localModelID, dictPrompt)
 				} else {
-					wavData := wav.Encode(pcm, 16000, 1, 16)
-					text, err = Transcribe(transcribeCtx, wavData, lang, apiKey, model, endpoint, "")
+					cloudSTTProvider := cfg.GetCloudSTTProvider()
+					if cloudSTTProvider != "openai" && cloudSTTProvider != "" {
+						// Use provider abstraction for non-OpenAI STT
+						sttProv, provErr := createCloudSTT()
+						if provErr != nil {
+							logWarn("Cloud STT provider %s unavailable: %v — falling back to OpenAI", cloudSTTProvider, provErr)
+							wavData := wav.Encode(pcm, 16000, 1, 16)
+							text, err = Transcribe(transcribeCtx, wavData, lang, apiKey, model, endpoint, dictPrompt)
+						} else {
+							wavData := wav.Encode(pcm, 16000, 1, 16)
+							text, err = sttProv.Transcribe(transcribeCtx, wavData, lang, provider.STTOptions{
+								Prompt: dictPrompt,
+							})
+						}
+					} else {
+						wavData := wav.Encode(pcm, 16000, 1, 16)
+						text, err = Transcribe(transcribeCtx, wavData, lang, apiKey, model, endpoint, dictPrompt)
+					}
 				}
 				processingDurationSec := time.Since(transcribeStart).Seconds()
 				if err != nil {
@@ -528,7 +590,7 @@ func main() {
 				if cfg.GetTextReplacementsEnabled() {
 					replacements := cfg.GetTextReplacements()
 					trProvider := cfg.GetTextReplacementProvider()
-					text = ApplyTextReplacementsWithAI(text, replacements, cfg.GetTextReplacementsAI(), trProvider, apiKey, endpoint)
+					text = ApplyTextReplacementsWithAI(text, replacements, cfg.GetTextReplacementsAI(), trProvider, createCloudLLM)
 				}
 
 				// Treat empty/whitespace-only transcription as failed
@@ -584,28 +646,47 @@ func main() {
 					}
 
 					// Determine endpoint based on provider
-					provider := cfg.GetSmartModeProvider()
+					smartProvider := cfg.GetSmartModeProvider()
 					ppEndpoint := endpoint
 					ppAPIKey := apiKey
 					skipPostProcess := false
+					useProviderInterface := false
 
-					if provider == "local" || (provider == "auto" && IsLLMInstalled()) {
+					if smartProvider == "local" || (smartProvider == "auto" && IsLLMInstalled()) {
 						if localEndpoint, llmErr := localLLM.Start(); llmErr == nil {
 							ppEndpoint = localEndpoint + "/chat/completions"
 							ppAPIKey = "local"
 						} else {
 							logWarn("Local LLM start failed: %v", llmErr)
-							if provider == "local" {
+							if smartProvider == "local" {
 								logError("Local LLM required but not available, skipping post-processing")
 								skipPostProcess = true
 							}
 						}
+					} else if smartProvider == "cloud" || smartProvider == "auto" {
+						// Check if a non-OpenAI cloud LLM provider is configured
+						cloudLLMProvider := cfg.GetCloudLLMProvider()
+						if cloudLLMProvider != "openai" && cloudLLMProvider != "" {
+							useProviderInterface = true
+						}
 					}
 
 					if !skipPostProcess {
-						processed, err := PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, cfg.GetUILanguage(), cfg.GetCustomTemplates())
-						if err != nil {
-							logWarn("Smart mode error (using raw text): %v", err)
+						var processed string
+						var ppErr error
+						if useProviderInterface {
+							llmProv, provErr := createCloudLLM()
+							if provErr != nil {
+								logWarn("Cloud LLM provider unavailable: %v — falling back to OpenAI", provErr)
+								processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, cfg.GetUILanguage(), cfg.GetCustomTemplates())
+							} else {
+								processed, ppErr = PostProcessWithProvider(text, smartPreset, smartCustom, smartTarget, cfg.GetUILanguage(), cfg.GetCustomTemplates(), llmProv, dictPrompt)
+							}
+						} else {
+							processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, cfg.GetUILanguage(), cfg.GetCustomTemplates())
+						}
+						if ppErr != nil {
+							logWarn("Smart mode error (using raw text): %v", ppErr)
 						} else {
 							text = processed
 						}

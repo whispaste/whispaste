@@ -10,6 +10,9 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/whispaste/whispaste/internal/gpu"
+	"github.com/whispaste/whispaste/internal/inference"
 )
 
 // loopbackHost is the bind address for local AI servers (LLM, STT).
@@ -23,7 +26,8 @@ type LocalLLM struct {
 	cmd     *exec.Cmd
 	port    int
 	running bool
-	cfg     *Config // set during init, used for model selection
+	waitCh  chan error // receives cmd.Wait() result for safe shutdown
+	cfg     *Config   // set during init, used for model selection
 }
 
 var localLLM LocalLLM
@@ -151,14 +155,26 @@ func (l *LocalLLM) Start() (string, error) {
 	port := tcpAddr.Port
 	listener.Close()
 
-	cmd := exec.Command(serverPath,
+	args := []string{
 		"--model", modelPath,
 		"--host", loopbackHost,
 		"--port", fmt.Sprintf("%d", port),
-		"--ctx-size", "2048",
-		"--threads", "4",
+		"--ctx-size", "4096",
+		"--threads", fmt.Sprintf("%d", inference.LLMThreads()),
 		"--log-disable",
-	)
+	}
+
+	// Offload all layers to GPU when a supported GPU is available.
+	// Works for CUDA (NVIDIA) and Vulkan (AMD/Intel) backends.
+	gpuMode := "auto"
+	if l.cfg != nil {
+		gpuMode = l.cfg.GetGPUAcceleration()
+	}
+	if gpu.ShouldUseGPU(gpuMode, 2048) {
+		args = append(args, "--n-gpu-layers", "-1")
+	}
+
+	cmd := exec.Command(serverPath, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
 	if err := cmd.Start(); err != nil {
@@ -169,9 +185,13 @@ func (l *LocalLLM) Start() (string, error) {
 	l.port = port
 	l.running = true
 
+	// Monitor process exit for early failure detection
+	l.waitCh = make(chan error, 1)
+	go func() { l.waitCh <- cmd.Wait() }()
+
 	// Wait for server to be ready (health check)
 	endpoint := fmt.Sprintf("http://%s:%d/v1", loopbackHost, port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
-	if err := l.waitReady(port); err != nil {
+	if err := l.waitReady(port, l.waitCh); err != nil {
 		l.stopLocked()
 		return "", fmt.Errorf("llama-server not ready: %w", err)
 	}
@@ -181,10 +201,21 @@ func (l *LocalLLM) Start() (string, error) {
 }
 
 // waitReady polls the health endpoint until the server is ready.
-func (l *LocalLLM) waitReady(port int) error {
+// If the process exits early (e.g., wrong GPU binary), it returns immediately.
+func (l *LocalLLM) waitReady(port int, waitCh <-chan error) error {
 	healthURL := fmt.Sprintf("http://%s:%d/health", loopbackHost, port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 	client := &http.Client{Timeout: 2 * time.Second}
 	for i := 0; i < 60; i++ {
+		// Check if process died before becoming ready
+		select {
+		case err := <-waitCh:
+			if err != nil {
+				return fmt.Errorf("llama-server exited: %w", err)
+			}
+			return fmt.Errorf("llama-server exited unexpectedly")
+		default:
+		}
+
 		resp, err := client.Get(healthURL)
 		if err == nil {
 			resp.Body.Close()
@@ -207,12 +238,38 @@ func (l *LocalLLM) Stop() {
 func (l *LocalLLM) stopLocked() {
 	if !l.running || l.cmd == nil || l.cmd.Process == nil {
 		l.running = false
+		l.waitCh = nil
 		return
 	}
-	if err := l.cmd.Process.Kill(); err != nil {
-		logWarn("Failed to kill llama-server: %v", err)
+
+	// Drain the waitCh goroutine — only one place calls cmd.Wait()
+	waitCh := l.waitCh
+	l.waitCh = nil
+
+	// Check if the process already exited
+	exited := false
+	if waitCh != nil {
+		select {
+		case <-waitCh:
+			exited = true
+		default:
+		}
 	}
-	l.cmd.Wait()
+
+	if !exited {
+		if err := l.cmd.Process.Kill(); err != nil {
+			logWarn("Failed to kill llama-server: %v", err)
+		}
+		// Wait for the goroutine to deliver cmd.Wait() result
+		if waitCh != nil {
+			select {
+			case <-waitCh:
+			case <-time.After(5 * time.Second):
+				logWarn("Timed out waiting for llama-server to stop")
+			}
+		}
+	}
+
 	l.running = false
 	l.port = 0
 	logInfo("Local LLM stopped")
