@@ -165,7 +165,10 @@ func downloadAndExtractSTTServer(destDir string, progressFn func(pct int)) error
 
 	var lastPct int = -1
 	if err := models.DownloadFile(serverURL, zipPath, func(downloaded, total int64) {
-		if progressFn != nil && total > 0 {
+		if progressFn != nil {
+			if total <= 0 {
+				total = 30 * 1024 * 1024 // ~30 MB estimated server ZIP size
+			}
 			pct := int(float64(downloaded) / float64(total) * 100)
 			if pct > 100 {
 				pct = 100

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -223,9 +224,24 @@ func Download(modelID string, progressFn func(fileDownloaded, fileTotal int64, f
 	return nil
 }
 
+// downloadIdleTimeout is the maximum time to wait for new data before aborting.
+const downloadIdleTimeout = 60 * time.Second
+
 // DownloadFile downloads a single file from url to dest, reporting progress.
+// It aborts if no data is received for downloadIdleTimeout.
 func DownloadFile(url, dest string, progressFn func(downloaded, total int64)) error {
-	resp, err := modelHTTPClient.Get(url)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	idleTimer := time.AfterFunc(downloadIdleTimeout, cancel)
+	defer idleTimer.Stop()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := modelHTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
@@ -248,6 +264,7 @@ func DownloadFile(url, dest string, progressFn func(downloaded, total int64)) er
 	for {
 		n, readErr := resp.Body.Read(buf)
 		if n > 0 {
+			idleTimer.Reset(downloadIdleTimeout)
 			if _, wErr := f.Write(buf[:n]); wErr != nil {
 				f.Close()
 				os.Remove(tmp)
@@ -264,6 +281,9 @@ func DownloadFile(url, dest string, progressFn func(downloaded, total int64)) er
 		if readErr != nil {
 			f.Close()
 			os.Remove(tmp)
+			if ctx.Err() != nil {
+				return fmt.Errorf("download stalled (no data received for %s)", downloadIdleTimeout)
+			}
 			return fmt.Errorf("failed to read response: %w", readErr)
 		}
 	}
