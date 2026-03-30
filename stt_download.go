@@ -11,20 +11,26 @@ import (
 	"sync"
 	"time"
 
+	"github.com/whispaste/whispaste/internal/gpu"
 	"github.com/whispaste/whispaste/internal/models"
 )
 
 const (
-	sttServerRepo     = "ggml-org/whisper.cpp"
-	sttServerAssetKey = "bin-x64"
+	sttServerRepo = "ggml-org/whisper.cpp"
 )
+
+// sttAssetKey returns the appropriate asset key based on GPU availability.
+func sttAssetKey(gpuMode string) string {
+	return gpu.RecommendSTTAssetKey(gpuMode)
+}
 
 // sttDownloadMu serializes STT downloads to prevent concurrent server binary extraction.
 var sttDownloadMu sync.Mutex
 
 // DownloadSTT downloads the whisper-server binary (if needed) and a GGML model.
+// gpuMode controls asset selection: "auto" (detect), "enabled" (force CUDA), "disabled" (CPU only).
 // progressFn is called with phase ("server" or "model") and percentage (0–100).
-func DownloadSTT(modelID string, progressFn func(phase string, pct int)) error {
+func DownloadSTT(modelID string, gpuMode string, progressFn func(phase string, pct int)) error {
 	sttDownloadMu.Lock()
 	defer sttDownloadMu.Unlock()
 	model := models.Find(modelID)
@@ -42,7 +48,7 @@ func DownloadSTT(modelID string, progressFn func(phase string, pct int)) error {
 		if progressFn != nil {
 			progressFn("server", 0)
 		}
-		if err := downloadAndExtractSTTServer(dir, func(pct int) {
+		if err := downloadAndExtractSTTServer(dir, gpuMode, func(pct int) {
 			if progressFn != nil {
 				progressFn("server", pct)
 			}
@@ -97,9 +103,58 @@ func DownloadSTT(modelID string, progressFn func(phase string, pct int)) error {
 	return nil
 }
 
+// ReleaseAsset represents a GitHub release asset with its name and download URL.
+type ReleaseAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+}
+
+// matchSTTAsset selects the best matching asset URL from a list of GitHub release assets.
+// It uses a 3-tier matching strategy:
+//  1. Exact match for the recommended asset key (must contain key, "x64", end with ".zip")
+//  2. Fallback to blas-bin-x64 (generic CPU, excludes cublas)
+//  3. Last resort: any bin-x64 non-CUDA zip
+func matchSTTAsset(assets []ReleaseAsset, assetKey string) (string, error) {
+	// Primary: match exact asset key
+	for _, a := range assets {
+		name := strings.ToLower(a.Name)
+		if strings.Contains(name, assetKey) &&
+			strings.Contains(name, "x64") &&
+			strings.HasSuffix(name, ".zip") {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+
+	// Fallback: OpenBLAS CPU build (always good performance)
+	for _, a := range assets {
+		name := strings.ToLower(a.Name)
+		if strings.Contains(name, "blas-bin-x64") &&
+			strings.HasSuffix(name, ".zip") &&
+			!strings.Contains(name, "cublas") {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+
+	// Last resort: any x64 zip that isn't a CUDA build
+	for _, a := range assets {
+		name := strings.ToLower(a.Name)
+		if strings.Contains(name, "bin-x64") &&
+			strings.HasSuffix(name, ".zip") &&
+			!strings.Contains(name, "cublas") {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+
+	return "", fmt.Errorf("no matching asset (%s) found in latest release", assetKey)
+}
+
 // resolveSTTServerURL queries the GitHub API for the latest whisper.cpp release
-// and returns the download URL for the Windows x64 CPU asset.
-func resolveSTTServerURL() (string, error) {
+// and returns the download URL for the appropriate asset.
+// Asset keys from gpu.RecommendSTTAssetKey:
+//   - "cublas-12" → NVIDIA CUDA 12.x build (whisper-cublas-12.*.0-bin-x64.zip)
+//   - "blas-bin-x64" → OpenBLAS CPU build (whisper-blas-bin-x64.zip)
+func resolveSTTServerURL(gpuMode string) (string, error) {
+	assetKey := sttAssetKey(gpuMode)
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", sttServerRepo)
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", apiURL, nil)
@@ -119,43 +174,18 @@ func resolveSTTServerURL() (string, error) {
 	}
 
 	var release struct {
-		Assets []struct {
-			Name               string `json:"name"`
-			BrowserDownloadURL string `json:"browser_download_url"`
-		} `json:"assets"`
+		Assets []ReleaseAsset `json:"assets"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return "", fmt.Errorf("decode response: %w", err)
 	}
 
-	// Look for CPU-only Windows x64 ZIP (e.g. "whisper-bin-x64.zip")
-	for _, a := range release.Assets {
-		name := strings.ToLower(a.Name)
-		if strings.Contains(name, sttServerAssetKey) &&
-			strings.HasSuffix(name, ".zip") &&
-			!strings.Contains(name, "cuda") &&
-			!strings.Contains(name, "cublas") {
-			return a.BrowserDownloadURL, nil
-		}
-	}
-
-	// Fallback: look for any windows x64 zip
-	for _, a := range release.Assets {
-		name := strings.ToLower(a.Name)
-		if strings.Contains(name, "win") &&
-			strings.Contains(name, "x64") &&
-			strings.HasSuffix(name, ".zip") &&
-			!strings.Contains(name, "cuda") {
-			return a.BrowserDownloadURL, nil
-		}
-	}
-
-	return "", fmt.Errorf("no matching asset (%s) found in latest release", sttServerAssetKey)
+	return matchSTTAsset(release.Assets, assetKey)
 }
 
 // downloadAndExtractSTTServer downloads the ZIP and extracts whisper-server.exe and DLLs.
-func downloadAndExtractSTTServer(destDir string, progressFn func(pct int)) error {
-	serverURL, err := resolveSTTServerURL()
+func downloadAndExtractSTTServer(destDir string, gpuMode string, progressFn func(pct int)) error {
+	serverURL, err := resolveSTTServerURL(gpuMode)
 	if err != nil {
 		return fmt.Errorf("resolve server URL: %w", err)
 	}

@@ -93,6 +93,9 @@ async function toggleLang() {
     }
   } catch (e) {}
   applyTranslations();
+  // Re-render dynamic UI text that uses template variables
+  if (typeof updateCloudLLMFields === 'function') updateCloudLLMFields(true);
+  if (typeof renderGPUStatus === 'function') renderGPUStatus();
   // Re-render history if on that page
   if (typeof renderHistory === 'function') renderHistory();
   // Update mode badge text for new language
