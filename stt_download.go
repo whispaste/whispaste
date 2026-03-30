@@ -103,6 +103,51 @@ func DownloadSTT(modelID string, gpuMode string, progressFn func(phase string, p
 	return nil
 }
 
+// ReleaseAsset represents a GitHub release asset with its name and download URL.
+type ReleaseAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+}
+
+// matchSTTAsset selects the best matching asset URL from a list of GitHub release assets.
+// It uses a 3-tier matching strategy:
+//  1. Exact match for the recommended asset key (must contain key, "x64", end with ".zip")
+//  2. Fallback to blas-bin-x64 (generic CPU, excludes cublas)
+//  3. Last resort: any bin-x64 non-CUDA zip
+func matchSTTAsset(assets []ReleaseAsset, assetKey string) (string, error) {
+	// Primary: match exact asset key
+	for _, a := range assets {
+		name := strings.ToLower(a.Name)
+		if strings.Contains(name, assetKey) &&
+			strings.Contains(name, "x64") &&
+			strings.HasSuffix(name, ".zip") {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+
+	// Fallback: OpenBLAS CPU build (always good performance)
+	for _, a := range assets {
+		name := strings.ToLower(a.Name)
+		if strings.Contains(name, "blas-bin-x64") &&
+			strings.HasSuffix(name, ".zip") &&
+			!strings.Contains(name, "cublas") {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+
+	// Last resort: any x64 zip that isn't a CUDA build
+	for _, a := range assets {
+		name := strings.ToLower(a.Name)
+		if strings.Contains(name, "bin-x64") &&
+			strings.HasSuffix(name, ".zip") &&
+			!strings.Contains(name, "cublas") {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+
+	return "", fmt.Errorf("no matching asset (%s) found in latest release", assetKey)
+}
+
 // resolveSTTServerURL queries the GitHub API for the latest whisper.cpp release
 // and returns the download URL for the appropriate asset.
 // Asset keys from gpu.RecommendSTTAssetKey:
@@ -129,46 +174,13 @@ func resolveSTTServerURL(gpuMode string) (string, error) {
 	}
 
 	var release struct {
-		Assets []struct {
-			Name               string `json:"name"`
-			BrowserDownloadURL string `json:"browser_download_url"`
-		} `json:"assets"`
+		Assets []ReleaseAsset `json:"assets"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return "", fmt.Errorf("decode response: %w", err)
 	}
 
-	// Primary: match exact asset key
-	for _, a := range release.Assets {
-		name := strings.ToLower(a.Name)
-		if strings.Contains(name, assetKey) &&
-			strings.Contains(name, "x64") &&
-			strings.HasSuffix(name, ".zip") {
-			return a.BrowserDownloadURL, nil
-		}
-	}
-
-	// Fallback: OpenBLAS CPU build (always good performance)
-	for _, a := range release.Assets {
-		name := strings.ToLower(a.Name)
-		if strings.Contains(name, "blas-bin-x64") &&
-			strings.HasSuffix(name, ".zip") &&
-			!strings.Contains(name, "cublas") {
-			return a.BrowserDownloadURL, nil
-		}
-	}
-
-	// Last resort: any x64 zip that isn't a CUDA build
-	for _, a := range release.Assets {
-		name := strings.ToLower(a.Name)
-		if strings.Contains(name, "bin-x64") &&
-			strings.HasSuffix(name, ".zip") &&
-			!strings.Contains(name, "cublas") {
-			return a.BrowserDownloadURL, nil
-		}
-	}
-
-	return "", fmt.Errorf("no matching asset (%s) found in latest release", assetKey)
+	return matchSTTAsset(release.Assets, assetKey)
 }
 
 // downloadAndExtractSTTServer downloads the ZIP and extracts whisper-server.exe and DLLs.
