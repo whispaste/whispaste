@@ -307,7 +307,7 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		}
 		mid := modelID // capture for goroutine
 		go func() {
-			err := DownloadLLM(mid, func(phase string, pct int) {
+			err := DownloadLLM(mid, cfg.GetGPUAcceleration(), func(phase string, pct int) {
 				if mainWebview != nil {
 					js := fmt.Sprintf("if(typeof onLLMDownloadProgress==='function')onLLMDownloadProgress('%s',%d,'%s')", escapeJS(phase), pct, escapeJS(mid))
 					mainWebview.Dispatch(func() { mainWebview.Eval(js) })

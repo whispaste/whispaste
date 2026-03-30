@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/whispaste/whispaste/internal/gpu"
 	"github.com/whispaste/whispaste/internal/models"
 )
 
@@ -63,13 +64,18 @@ var LLMModels = map[string]LLMModelDef{
 }
 
 const (
-	llmServerRepo     = "ggml-org/llama.cpp"
-	llmServerAssetKey = "win-cpu-x64"
+	llmServerRepo = "ggml-org/llama.cpp"
 )
 
+// llmAssetKey returns the appropriate asset key based on GPU availability.
+func llmAssetKey(gpuMode string) string {
+	return gpu.RecommendLLMAssetKey(gpuMode)
+}
+
 // DownloadLLM downloads the llama-server binary (if needed) and a GGUF model.
+// gpuMode controls asset selection: "auto" (detect), "enabled" (force CUDA), "disabled" (CPU only).
 // progressFn is called with phase ("server" or "model") and percentage (0–100).
-func DownloadLLM(modelID string, progressFn func(phase string, pct int)) error {
+func DownloadLLM(modelID string, gpuMode string, progressFn func(phase string, pct int)) error {
 	model, ok := LLMModels[modelID]
 	if !ok {
 		return fmt.Errorf("unknown LLM model: %s", modelID)
@@ -85,7 +91,7 @@ func DownloadLLM(modelID string, progressFn func(phase string, pct int)) error {
 		if progressFn != nil {
 			progressFn("server", 0)
 		}
-		if err := downloadAndExtractLLMServer(dir, func(pct int) {
+		if err := downloadAndExtractLLMServer(dir, gpuMode, func(pct int) {
 			if progressFn != nil {
 				progressFn("server", pct)
 			}
@@ -126,9 +132,74 @@ func DownloadLLM(modelID string, progressFn func(phase string, pct int)) error {
 	return nil
 }
 
+// LLMReleaseAsset represents a single asset from a GitHub release.
+type LLMReleaseAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+}
+
+// matchLLMAsset selects the best matching LLM server asset from a list of GitHub release assets.
+// Priority order:
+//  1. CUDA 12 (preferred over CUDA 13 for broader compatibility)
+//  2. Vulkan (fallback for AMD/Intel GPUs)
+//  3. CPU (universal fallback)
+func matchLLMAsset(assets []LLMReleaseAsset, assetKey string) (string, error) {
+	// For CUDA, find the best available CUDA version (prefer 12.x over 13.x for driver compat)
+	if assetKey == "win-cuda" {
+		var bestURL string
+		for _, a := range assets {
+			name := strings.ToLower(a.Name)
+			if strings.Contains(name, "win-cuda") &&
+				strings.Contains(name, "x64") &&
+				strings.HasSuffix(name, ".zip") &&
+				!strings.HasPrefix(name, "cudart-") {
+				// Prefer CUDA 12.x (broadest driver compatibility)
+				// Asset names use "cu12" format (e.g., "win-cuda-cu12.4-x64")
+				if strings.Contains(name, "cu12") {
+					return a.BrowserDownloadURL, nil
+				}
+				bestURL = a.BrowserDownloadURL
+			}
+		}
+		if bestURL != "" {
+			return bestURL, nil
+		}
+		// CUDA not available — try Vulkan as GPU fallback
+		assetKey = "win-vulkan-x64"
+	}
+
+	// Match exact asset key (Vulkan or CPU)
+	for _, a := range assets {
+		name := strings.ToLower(a.Name)
+		if strings.Contains(name, assetKey) &&
+			strings.HasSuffix(name, ".zip") &&
+			!strings.HasPrefix(name, "cudart-") {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+
+	// Fallback to CPU if requested GPU asset not found
+	if assetKey != "win-cpu-x64" {
+		for _, a := range assets {
+			name := strings.ToLower(a.Name)
+			if strings.Contains(name, "win-cpu-x64") &&
+				strings.HasSuffix(name, ".zip") {
+				return a.BrowserDownloadURL, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no matching asset (%s) found in latest release", assetKey)
+}
+
 // resolveLLMServerURL queries the GitHub API for the latest llama.cpp release
-// and returns the download URL for the Windows CPU x64 asset.
-func resolveLLMServerURL() (string, error) {
+// and returns the download URL for the appropriate asset.
+// Asset keys from gpu.RecommendLLMAssetKey:
+//   - "win-cuda" → NVIDIA CUDA build (prefers latest CUDA version)
+//   - "win-vulkan-x64" → Vulkan build (universal GPU: AMD, Intel, NVIDIA)
+//   - "win-cpu-x64" → CPU-only build
+func resolveLLMServerURL(gpuMode string) (string, error) {
+	assetKey := llmAssetKey(gpuMode)
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", llmServerRepo)
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", apiURL, nil)
@@ -148,27 +219,18 @@ func resolveLLMServerURL() (string, error) {
 	}
 
 	var release struct {
-		Assets []struct {
-			Name               string `json:"name"`
-			BrowserDownloadURL string `json:"browser_download_url"`
-		} `json:"assets"`
+		Assets []LLMReleaseAsset `json:"assets"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return "", fmt.Errorf("decode response: %w", err)
 	}
 
-	for _, a := range release.Assets {
-		if strings.Contains(strings.ToLower(a.Name), llmServerAssetKey) &&
-			strings.HasSuffix(strings.ToLower(a.Name), ".zip") {
-			return a.BrowserDownloadURL, nil
-		}
-	}
-	return "", fmt.Errorf("no matching asset (%s) found in latest release", llmServerAssetKey)
+	return matchLLMAsset(release.Assets, assetKey)
 }
 
 // downloadAndExtractLLMServer downloads the ZIP and extracts llama-server.exe and ggml DLLs.
-func downloadAndExtractLLMServer(destDir string, progressFn func(pct int)) error {
-	serverURL, err := resolveLLMServerURL()
+func downloadAndExtractLLMServer(destDir string, gpuMode string, progressFn func(pct int)) error {
+	serverURL, err := resolveLLMServerURL(gpuMode)
 	if err != nil {
 		return fmt.Errorf("resolve server URL: %w", err)
 	}

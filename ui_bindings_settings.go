@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/whispaste/whispaste/internal/gpu"
 	"github.com/whispaste/whispaste/internal/models"
+	"github.com/whispaste/whispaste/internal/provider"
 	"github.com/whispaste/whispaste/internal/wav"
 
 	webview "github.com/webview/webview_go"
@@ -73,6 +75,15 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		cfg.FloatingButtonLocked = newCfg.FloatingButtonLocked
 		cfg.FloatingButtonBorder = newCfg.FloatingButtonBorder
 		cfg.UpdateChannel = newCfg.UpdateChannel
+		cfg.CloudSTTProvider = newCfg.CloudSTTProvider
+		cfg.CloudLLMProvider = newCfg.CloudLLMProvider
+		cfg.CloudLLMModel = newCfg.CloudLLMModel
+		cfg.GroqAPIKey = newCfg.GroqAPIKey
+		cfg.DeepgramAPIKey = newCfg.DeepgramAPIKey
+		cfg.AnthropicAPIKey = newCfg.AnthropicAPIKey
+		cfg.GeminiAPIKey = newCfg.GeminiAPIKey
+		cfg.CustomDictionary = newCfg.CustomDictionary
+		cfg.GPUAcceleration = newCfg.GPUAcceleration
 		cfg.mu.Unlock()
 		if err := SetAutostart(newCfg.Autostart); err != nil {
 			logWarn("Failed to set autostart: %v", err)
@@ -89,6 +100,27 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 			onSaved()
 		}
 		return map[string]interface{}{"success": true, "error": ""}
+	})
+
+	// Provider metadata for UI dropdowns
+	w.Bind("getCloudSTTProviders", func() string {
+		data, _ := json.Marshal(provider.CloudSTTProviders)
+		return string(data)
+	})
+	w.Bind("getCloudLLMProviders", func() string {
+		data, _ := json.Marshal(provider.CloudLLMProviders)
+		return string(data)
+	})
+	w.Bind("getGPUInfo", func() map[string]interface{} {
+		info := gpu.Detect()
+		return map[string]interface{}{
+			"available":      info.Available,
+			"name":           info.Name,
+			"vendor":         string(info.Vendor),
+			"backend":        string(info.Backend),
+			"vram_mb":        info.VRAMMBytes,
+			"driver_version": info.DriverVersion,
+		}
 	})
 
 	w.Bind("_doTestRecording", func() map[string]interface{} {
@@ -252,7 +284,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 			}
 			needsServer := !IsSTTServerInstalled()
 
-			err := DownloadSTT(modelID, func(phase string, pct int) {
+			err := DownloadSTT(modelID, cfg.GetGPUAcceleration(), func(phase string, pct int) {
 				if phase == "server" && needsServer {
 					safeDispatch(fmt.Sprintf("window.updateModelProgress('%s', %d, 1, 2, 'whisper-server')", escapeJS(modelID), pct))
 				} else if phase == "model" {
@@ -289,7 +321,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 				cfg.mu.Unlock()
 				cfg.Save()
 				logInfo("Active model deleted, fell back to %s", downloaded[0].ID)
-			} else if cfg.HasAPIKey() {
+			} else if cfg.HasAnyCloudKey() {
 				cfg.mu.Lock()
 				cfg.ActiveModelLocal = false
 				cfg.mu.Unlock()
