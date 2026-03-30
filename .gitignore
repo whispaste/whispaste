@@ -57,6 +57,9 @@ docs/video-script.md
 cmd/
 scripts/*
 !scripts/build.ps1
+!scripts/build-whisper-server.ps1
+!scripts/package-whisper-server.ps1
+!scripts/whispercpp-ref.txt
 
 # Internal docs (local only)
 website/design-system/

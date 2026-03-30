@@ -16,12 +16,51 @@ import (
 )
 
 const (
-	sttServerRepo = "ggml-org/whisper.cpp"
+	sttServerRepoUpstream  = "ggml-org/whisper.cpp"
+	sttServerRepoWhisPaste = "whispaste/whispaste"
 )
 
-// sttAssetKey returns the appropriate asset key based on GPU availability.
-func sttAssetKey(gpuMode string) string {
-	return gpu.RecommendSTTAssetKey(gpuMode)
+var fetchSTTReleaseAssets = fetchLatestSTTReleaseAssets
+var gpuDetect = gpu.Detect
+var gpuShouldUse = gpu.ShouldUseGPU
+
+type sttAssetCandidate struct {
+	Repo     string
+	AssetKey string
+	Backend  gpu.Backend
+}
+
+// sttAssetCandidates returns candidate release sources in priority order.
+// The main WhisPaste release is preferred for bundled Vulkan/CUDA/CPU assets,
+// then upstream whisper.cpp CPU/CUDA fallbacks remain as the safety net.
+func sttAssetCandidates(gpuMode string) []sttAssetCandidate {
+	if !gpuShouldUse(gpuMode, 2048) {
+		return []sttAssetCandidate{
+			{Repo: sttServerRepoWhisPaste, AssetKey: "whisper-server-cpu-x64", Backend: gpu.BackendCPU},
+			{Repo: sttServerRepoUpstream, AssetKey: "blas-bin-x64", Backend: gpu.BackendCPU},
+		}
+	}
+
+	switch gpuDetect().Vendor {
+	case gpu.VendorNVIDIA:
+		return []sttAssetCandidate{
+			{Repo: sttServerRepoWhisPaste, AssetKey: "whisper-server-cuda12-x64", Backend: gpu.BackendCUDA},
+			{Repo: sttServerRepoUpstream, AssetKey: "cublas-12", Backend: gpu.BackendCUDA},
+			{Repo: sttServerRepoWhisPaste, AssetKey: "whisper-server-cpu-x64", Backend: gpu.BackendCPU},
+			{Repo: sttServerRepoUpstream, AssetKey: "blas-bin-x64", Backend: gpu.BackendCPU},
+		}
+	case gpu.VendorAMD, gpu.VendorIntel:
+		return []sttAssetCandidate{
+			{Repo: sttServerRepoWhisPaste, AssetKey: "whisper-server-vulkan-x64", Backend: gpu.BackendVulkan},
+			{Repo: sttServerRepoWhisPaste, AssetKey: "whisper-server-cpu-x64", Backend: gpu.BackendCPU},
+			{Repo: sttServerRepoUpstream, AssetKey: "blas-bin-x64", Backend: gpu.BackendCPU},
+		}
+	default:
+		return []sttAssetCandidate{
+			{Repo: sttServerRepoWhisPaste, AssetKey: "whisper-server-cpu-x64", Backend: gpu.BackendCPU},
+			{Repo: sttServerRepoUpstream, AssetKey: "blas-bin-x64", Backend: gpu.BackendCPU},
+		}
+	}
 }
 
 // sttDownloadMu serializes STT downloads to prevent concurrent server binary extraction.
@@ -109,12 +148,25 @@ type ReleaseAsset struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
-// matchSTTAsset selects the best matching asset URL from a list of GitHub release assets.
-// It uses a 3-tier matching strategy:
-//  1. Exact match for the recommended asset key (must contain key, "x64", end with ".zip")
-//  2. Fallback to blas-bin-x64 (generic CPU, excludes cublas)
-//  3. Last resort: any bin-x64 non-CUDA zip
-func matchSTTAsset(assets []ReleaseAsset, assetKey string) (string, error) {
+func matchWhisPasteSTTAsset(assets []ReleaseAsset, assetKey string) (string, error) {
+	for _, a := range assets {
+		name := strings.ToLower(a.Name)
+		if strings.Contains(name, strings.ToLower(assetKey)) &&
+			strings.Contains(name, "x64") &&
+			strings.HasSuffix(name, ".zip") {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+	return "", fmt.Errorf("no matching WhisPaste STT asset (%s) found in latest release", assetKey)
+}
+
+// matchSTTAsset selects the best matching asset URL from a list of release assets.
+// WhisPaste-owned builds use explicit names; upstream whisper.cpp uses a 3-tier fallback strategy.
+func matchSTTAsset(assets []ReleaseAsset, repo string, assetKey string) (string, error) {
+	if repo == sttServerRepoWhisPaste {
+		return matchWhisPasteSTTAsset(assets, assetKey)
+	}
+
 	// Primary: match exact asset key
 	for _, a := range assets {
 		name := strings.ToLower(a.Name)
@@ -148,39 +200,55 @@ func matchSTTAsset(assets []ReleaseAsset, assetKey string) (string, error) {
 	return "", fmt.Errorf("no matching asset (%s) found in latest release", assetKey)
 }
 
-// resolveSTTServerURL queries the GitHub API for the latest whisper.cpp release
-// and returns the download URL for the appropriate asset.
-// Asset keys from gpu.RecommendSTTAssetKey:
-//   - "cublas-12" → NVIDIA CUDA 12.x build (whisper-cublas-12.*.0-bin-x64.zip)
-//   - "blas-bin-x64" → OpenBLAS CPU build (whisper-blas-bin-x64.zip)
-func resolveSTTServerURL(gpuMode string) (string, error) {
-	assetKey := sttAssetKey(gpuMode)
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", sttServerRepo)
+func fetchLatestSTTReleaseAssets(repo string) ([]ReleaseAsset, error) {
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo)
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("GitHub API request: %w", err)
+		return nil, fmt.Errorf("GitHub API request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("GitHub API returned %d", resp.StatusCode)
+		return nil, fmt.Errorf("GitHub API returned %d", resp.StatusCode)
 	}
 
 	var release struct {
 		Assets []ReleaseAsset `json:"assets"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return "", fmt.Errorf("decode response: %w", err)
+		return nil, fmt.Errorf("decode response: %w", err)
 	}
+	return release.Assets, nil
+}
 
-	return matchSTTAsset(release.Assets, assetKey)
+// resolveSTTServerURL tries WhisPaste-owned STT artifacts first where relevant,
+// then falls back to upstream whisper.cpp CPU/CUDA assets.
+func resolveSTTServerURL(gpuMode string) (string, error) {
+	candidates := sttAssetCandidates(gpuMode)
+	var reasons []string
+	for _, candidate := range candidates {
+		assets, err := fetchSTTReleaseAssets(candidate.Repo)
+		if err != nil {
+			logWarn("STT release lookup failed for %s (%s): %v", candidate.Repo, candidate.Backend, err)
+			reasons = append(reasons, fmt.Sprintf("%s: %v", candidate.Repo, err))
+			continue
+		}
+		serverURL, err := matchSTTAsset(assets, candidate.Repo, candidate.AssetKey)
+		if err != nil {
+			logWarn("STT asset match failed for %s (%s): %v", candidate.Repo, candidate.AssetKey, err)
+			reasons = append(reasons, fmt.Sprintf("%s/%s: %v", candidate.Repo, candidate.AssetKey, err))
+			continue
+		}
+		return serverURL, nil
+	}
+	return "", fmt.Errorf("resolve STT server URL: %s", strings.Join(reasons, "; "))
 }
 
 // downloadAndExtractSTTServer downloads the ZIP and extracts whisper-server.exe and DLLs.
