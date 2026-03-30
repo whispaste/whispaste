@@ -26,18 +26,37 @@ func TestMatchLLMAsset_ExactCUDAMatch(t *testing.T) {
 }
 
 func TestMatchLLMAsset_CUDA12PreferredOver13(t *testing.T) {
-	assets := []LLMReleaseAsset{
-		llmAsset("llama-b5678-bin-win-cuda-cu13.0-x64.zip", "https://example.com/cuda13.zip"),
-		llmAsset("llama-b5678-bin-win-cuda-cu12.4-x64.zip", "https://example.com/cuda12.zip"),
-		llmAsset("llama-b5678-bin-win-cpu-x64.zip", "https://example.com/cpu.zip"),
-	}
-	got, err := matchLLMAsset(assets, "win-cuda")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != "https://example.com/cuda12.zip" {
-		t.Errorf("got %q, want cuda12 URL (preferred over cuda13)", got)
-	}
+	// Test with CUDA 13 before CUDA 12 — must still prefer CUDA 12
+	t.Run("cuda13_first", func(t *testing.T) {
+		assets := []LLMReleaseAsset{
+			llmAsset("llama-b5678-bin-win-cuda-cu13.0-x64.zip", "https://example.com/cuda13.zip"),
+			llmAsset("llama-b5678-bin-win-cuda-cu12.4-x64.zip", "https://example.com/cuda12.zip"),
+			llmAsset("llama-b5678-bin-win-cpu-x64.zip", "https://example.com/cpu.zip"),
+		}
+		got, err := matchLLMAsset(assets, "win-cuda")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "https://example.com/cuda12.zip" {
+			t.Errorf("got %q, want cuda12 URL (preferred over cuda13)", got)
+		}
+	})
+
+	// Test with CUDA 12 before CUDA 13 — must still prefer CUDA 12
+	t.Run("cuda12_first", func(t *testing.T) {
+		assets := []LLMReleaseAsset{
+			llmAsset("llama-b5678-bin-win-cuda-cu12.4-x64.zip", "https://example.com/cuda12.zip"),
+			llmAsset("llama-b5678-bin-win-cuda-cu13.0-x64.zip", "https://example.com/cuda13.zip"),
+			llmAsset("llama-b5678-bin-win-cpu-x64.zip", "https://example.com/cpu.zip"),
+		}
+		got, err := matchLLMAsset(assets, "win-cuda")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "https://example.com/cuda12.zip" {
+			t.Errorf("got %q, want cuda12 URL (preferred over cuda13)", got)
+		}
+	})
 }
 
 func TestMatchLLMAsset_VulkanFallback(t *testing.T) {
