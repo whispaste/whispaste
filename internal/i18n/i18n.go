@@ -66,6 +66,7 @@ var translations = map[string]map[string]string{
 		// Floating button
 		"floating.hide":           "Hide Button",
 		"floating.lock":           "Lock Position",
+		"floating.auto_paste":     "Auto-Paste",
 		"floating.tooltip":        "Click to record",
 		"floating.status_ready":   "Ready",
 		"floating.status_record":  "Recording…",
@@ -226,6 +227,7 @@ var translations = map[string]map[string]string{
 		"tray.start_record":     "Start Recording",
 		"tray.stop_record":      "Stop Recording",
 		"tray.smart_mode":       "Smart Mode",
+		"tray.auto_paste":       "Auto-Paste",
 		"tray.history":          "Recent Transcriptions",
 		"tray.history_empty":    "No transcriptions yet",
 		"tray.notebook":         "Dashboard",
@@ -305,6 +307,7 @@ var translations = map[string]map[string]string{
 		// Floating button
 		"floating.hide":           "Button ausblenden",
 		"floating.lock":           "Position sperren",
+		"floating.auto_paste":     "Auto-Einfügen",
 		"floating.tooltip":        "Klicken zum Aufnehmen",
 		"floating.status_ready":   "Bereit",
 		"floating.status_record":  "Aufnahme…",
@@ -465,6 +468,7 @@ var translations = map[string]map[string]string{
 		"tray.start_record":     "Aufnahme starten",
 		"tray.stop_record":      "Aufnahme stoppen",
 		"tray.smart_mode":       "Smart-Modus",
+		"tray.auto_paste":       "Auto-Einfügen",
 		"tray.history":          "Letzte Transkriptionen",
 		"tray.history_empty":    "Noch keine Transkriptionen",
 		"tray.notebook":         "Dashboard",

@@ -443,6 +443,20 @@ func (c *Config) GetMaxRecordSec() int {
 	return c.MaxRecordSec // 0 = unlimited
 }
 
+// GetAutoPaste returns whether auto-paste is enabled (thread-safe).
+func (c *Config) GetAutoPaste() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AutoPaste
+}
+
+// SetAutoPaste sets the auto-paste flag (thread-safe).
+func (c *Config) SetAutoPaste(v bool) {
+	c.mu.Lock()
+	c.AutoPaste = v
+	c.mu.Unlock()
+}
+
 // GetSmartMode returns whether Smart Mode is enabled (thread-safe).
 func (c *Config) GetSmartMode() bool {
 	c.mu.RLock()

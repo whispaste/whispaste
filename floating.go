@@ -40,6 +40,7 @@ const (
 	_FLOAT_MENU_RECORD     = 6
 	_FLOAT_MENU_PREVIEW    = 7
 	_FLOAT_MENU_LOCK       = 8
+	_FLOAT_MENU_AUTO_PASTE = 9
 
 	// Win32 menu constants
 	_MF_STRING       = 0x0000
@@ -404,6 +405,23 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 				fb.cfg.mu.Unlock()
 				fb.cfg.Save()
 				logInfo("Floating button position lock: %v", locked)
+				cb := func() func() {
+					fb.mu.Lock()
+					defer fb.mu.Unlock()
+					return fb.onConfigChanged
+				}()
+				if cb != nil {
+					cb()
+				}
+			}()
+		case _FLOAT_MENU_AUTO_PASTE:
+			go func() {
+				fb.cfg.mu.Lock()
+				fb.cfg.AutoPaste = !fb.cfg.AutoPaste
+				newState := fb.cfg.AutoPaste
+				fb.cfg.mu.Unlock()
+				fb.cfg.Save()
+				logInfo("Floating menu toggled Auto-Paste: %v", newState)
 				cb := func() func() {
 					fb.mu.Lock()
 					defer fb.mu.Unlock()
@@ -1045,6 +1063,14 @@ func (fb *FloatingButton) showContextMenu(hwnd uintptr) {
 		smartFlags |= _MF_CHECKED
 	}
 	procAppendMenuW.Call(hMenu, smartFlags, _FLOAT_MENU_SMART_MODE, uintptr(unsafe.Pointer(smartText)))
+
+	// --- Auto-Paste toggle ---
+	autoPasteText, _ := windows.UTF16PtrFromString(T("floating.auto_paste"))
+	autoPasteFlags := uintptr(_MF_STRING)
+	if fb.cfg.GetAutoPaste() {
+		autoPasteFlags |= _MF_CHECKED
+	}
+	procAppendMenuW.Call(hMenu, autoPasteFlags, _FLOAT_MENU_AUTO_PASTE, uintptr(unsafe.Pointer(autoPasteText)))
 
 	procAppendMenuW.Call(hMenu, _MF_SEPARATOR, 0, 0)
 
