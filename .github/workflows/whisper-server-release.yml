@@ -1,12 +1,10 @@
 name: Whisper Server Assets
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: Git tag to attach assets to (for manual runs)
+        description: Git tag to attach assets to (manual hosted build fallback)
         required: true
         type: string
       whisper_ref:
@@ -29,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
+          ref: ${{ inputs.tag }}
 
       - name: Ensure CMake is available
         shell: pwsh
@@ -57,9 +55,7 @@ jobs:
         shell: pwsh
         run: |
           $ref = ''
-          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
-            $ref = '${{ inputs.whisper_ref }}'
-          }
+          $ref = '${{ inputs.whisper_ref }}'
           if ([string]::IsNullOrWhiteSpace($ref)) {
             $ref = (Get-Content -Path .\scripts\whispercpp-ref.txt -Raw).Trim()
           }
