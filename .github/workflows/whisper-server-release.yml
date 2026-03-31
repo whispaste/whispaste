@@ -68,7 +68,7 @@ jobs:
         id: build
         shell: pwsh
         run: |
-          $buildOutput = "C:\wp\ci-build"
+          $buildOutput = Join-Path $env:RUNNER_TEMP "wp-build"
           if (Test-Path $buildOutput) { Remove-Item -Recurse -Force $buildOutput }
           $result = .\scripts\build-whisper-server.ps1 `
             -Backend '${{ matrix.backend }}' `
@@ -89,7 +89,7 @@ jobs:
         id: package
         shell: pwsh
         run: |
-          $packageOutput = "C:\wp\ci-release"
+          $packageOutput = Join-Path $env:RUNNER_TEMP "wp-release"
           if (Test-Path $packageOutput) { Remove-Item -Recurse -Force $packageOutput }
           $checksumFile = Join-Path $packageOutput "${{ matrix.backend }}.sha256"
           $result = .\scripts\package-whisper-server.ps1 `
@@ -136,10 +136,7 @@ jobs:
         id: tag
         shell: pwsh
         run: |
-          $tag = '${{ github.event.release.tag_name }}'
-          if ([string]::IsNullOrWhiteSpace($tag)) {
-            $tag = '${{ inputs.tag }}'
-          }
+          $tag = '${{ inputs.tag }}'
           if ([string]::IsNullOrWhiteSpace($tag)) {
             throw "No release tag available for publishing"
           }
