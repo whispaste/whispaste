@@ -86,7 +86,7 @@ func assumeFocusedInput(cls, appName string) bool {
 		return true
 	}
 	switch strings.ToLower(appName) {
-	case "outlook.exe":
+	case "outlook.exe", "olk.exe":
 		return true
 	default:
 		return false
@@ -118,7 +118,9 @@ func PasteText(text string) error {
 	}
 
 	if !hasFocusedInput() {
-		logInfo("PasteText: no focused input detected, clipboard set only")
+		cls := getForegroundClass()
+		app := GetActiveAppName()
+		logInfo("PasteText: no focused input detected (class=%q app=%q), clipboard set only", cls, app)
 		return errPasteClipboardOnly
 	}
 
