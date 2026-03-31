@@ -30,12 +30,32 @@
 param(
     [Parameter(Mandatory)][string]$RawChangelog,
     [Parameter(Mandatory)][string]$Version,
-    [Parameter(Mandatory)][string]$OpenAIKey,
+    [string]$OpenAIKey,
     [string]$Model = "gpt-4o-mini",
     [string]$OutputDir = "."
 )
 
 $ErrorActionPreference = "Stop"
+
+# Load .env file if OpenAIKey not provided and env var not set
+if (-not $OpenAIKey -and -not $env:OPENAI_API_KEY) {
+    $envFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".env"
+    if (Test-Path $envFile) {
+        Get-Content $envFile -Encoding UTF8 | ForEach-Object {
+            if ($_ -match '^\s*([^#][^=]+?)\s*=\s*(.+)\s*$') {
+                [System.Environment]::SetEnvironmentVariable($Matches[1].Trim(), $Matches[2].Trim(), "Process")
+            }
+        }
+        Write-Host "Loaded secrets from .env"
+    }
+}
+
+if (-not $OpenAIKey) { $OpenAIKey = $env:OPENAI_API_KEY }
+
+if (-not $OpenAIKey) {
+    Write-Warning "No OpenAI API key found. Set it in .env, `$env:OPENAI_API_KEY, or -OpenAIKey parameter."
+    Write-Warning "Falling back to raw changelog as release notes."
+}
 
 if (-not (Test-Path $RawChangelog)) {
     Write-Error "Raw changelog not found: $RawChangelog"
