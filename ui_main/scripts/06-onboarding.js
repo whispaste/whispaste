@@ -9,6 +9,7 @@ let _onbPreflight = null;
 let _onbPreflightRunning = false;
 let _onbApiKeyValid = false;
 let _onbTrackedEvents = new Set();
+let _onbResumeAfterCapture = false;
 
 function onbTrackEvent(name, once) {
   if (!name || !window.recordOnboardingEvent) return;
@@ -92,7 +93,6 @@ function updateOnboardingStep() {
   }
   if (_onboardingStep === 3) {
     onbPopulateHotkeyDisplay('onbHotkeyDisplay');
-    onbPopulateReadyState();
   }
   if (_onboardingStep === 4) {
     onbPopulateHotkeyDisplay('onbHotkeyDisplayStep4');
@@ -381,6 +381,75 @@ window.updateModelProgress = function(modelId, pct, fileNum, fileCount, fileName
   if (_origUpdateModelProgress) _origUpdateModelProgress(modelId, pct, fileNum, fileCount, fileName);
 };
 
+async function onbSaveTranscriptionConfig() {
+  try {
+    const raw = await window.getConfig();
+    const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!cfg) return false;
+
+    if (_onboardingChoice === 'local' && window.switchModel) {
+      const switchResult = await window.switchModel(_onbModelId, true);
+      const parsed = typeof switchResult === 'string' ? JSON.parse(switchResult) : switchResult;
+      if (parsed && parsed.success === false) {
+        showToast(parsed.error || t('preflightBlockedBadge'), true);
+        return false;
+      }
+    }
+
+    if (_onboardingChoice === 'local') {
+      cfg.local_model_id = _onbModelId;
+      cfg.active_model_local = true;
+    } else if (_onboardingChoice === 'api') {
+      cfg.active_model_local = false;
+      const keyInput = document.getElementById('onb-apikey');
+      if (keyInput && keyInput.value.trim()) {
+        cfg.api_key = keyInput.value.trim();
+      }
+    }
+
+    cfg.smart_mode_target = window._lang || 'en';
+    const saveResult = await window.saveConfig(JSON.stringify(cfg));
+    if (saveResult && saveResult.success === false) {
+      showToast(saveResult.error || t('saveError'), true);
+      return false;
+    }
+
+    if (_onboardingChoice === 'api' && window.switchModel) {
+      const switchResult = await window.switchModel(cfg.model || 'whisper-1', false);
+      const parsed = typeof switchResult === 'string' ? JSON.parse(switchResult) : switchResult;
+      if (parsed && parsed.success === false) {
+        showToast(parsed.error || t('modelSwitcher.error'), true);
+        return false;
+      }
+    }
+
+    return true;
+  } catch (e) {
+    showToast(t('saveError'), true);
+    return false;
+  }
+}
+
+async function onbTryDictation() {
+  if (_onboardingChoice === 'api' && !_onbApiKeyValid) return;
+  if (_onboardingChoice === 'local' && (!_onbModelReady || _onbPreflight?.blocking)) return;
+
+  const saved = await onbSaveTranscriptionConfig();
+  if (!saved) return;
+
+  _onbResumeAfterCapture = true;
+  hideOnboarding();
+  switchPage('history');
+
+  onbTrackEvent('onboarding_first_dictation_started', true);
+  onbTrackEvent('activation_reached', true);
+  showToast(t('onboarding.capture_starting'));
+
+  setTimeout(() => { // DevSkim: ignore DS172411 — allow overlay to close before capture starts
+    if (window.startCapture) window.startCapture();
+  }, 200);
+}
+
 async function finishOnboarding(nextAction) {
   // Guard: don't proceed if API mode selected without validated key
   if (_onboardingChoice === 'api' && !_onbApiKeyValid) return;
@@ -501,3 +570,20 @@ async function onbSetTheme(theme) {
     await window.setTheme(theme);
   }
 }
+
+/* ── Resume onboarding after try-dictation capture ── */
+const _origOnRecordingStateChanged = typeof onRecordingStateChanged === 'function' ? onRecordingStateChanged : null;
+window.onRecordingStateChanged = function(state) {
+  if (_origOnRecordingStateChanged) _origOnRecordingStateChanged(state);
+  if (_onbResumeAfterCapture && state === 'idle') {
+    _onbResumeAfterCapture = false;
+    setTimeout(() => { // DevSkim: ignore DS172411 — wait for history refresh before resuming
+      _onboardingStep = 4;
+      const overlay = document.getElementById('onboardingOverlay');
+      if (overlay) {
+        overlay.classList.remove('hidden');
+        updateOnboardingStep();
+      }
+    }, 1500);
+  }
+};
