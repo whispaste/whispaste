@@ -235,29 +235,22 @@
         </svg>
       </div>
       <h2 class="onboarding-title" data-i18n="onboarding.aha_title">Try It Now!</h2>
-      <p class="onboarding-desc" data-i18n="onboarding.aha_desc">Everything is set up. Start a short recording to see WhisPaste in action — your text will appear in History instantly.</p>
+      <p class="onboarding-desc" data-i18n="onboarding.aha_desc">Everything is set up. Try a quick recording — or skip ahead to customize WhisPaste.</p>
       <div class="onb-aha-section">
         <div class="onb-hotkey-display">
           <kbd id="onbHotkeyDisplay">Ctrl+Shift+D</kbd>
           <p class="onb-hotkey-hint" data-i18n="onboarding.aha_hotkey_hint">This is your global shortcut — it works from any app.</p>
         </div>
-        <div class="onb-aha-summary">
-          <div class="onb-ready-item">
-            <span class="onb-ready-label" data-i18n="onboarding.ready_mode_label">Transcription</span>
-            <strong id="onbReadyMode">—</strong>
-          </div>
-        </div>
       </div>
       <div class="onboarding-actions">
-        <button class="btn btn-primary btn-lg onb-aha-btn" onclick="finishOnboarding('capture')">
+        <button class="btn btn-primary btn-lg onb-aha-btn" onclick="onbTryDictation()">
           <svg class="icon" style="width:20px;height:20px;margin-right:6px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-          <span data-i18n="onboarding.finish_capture">Start First Dictation</span>
+          <span data-i18n="onboarding.finish_capture">Record Something</span>
         </button>
-        <button class="btn btn-secondary btn-lg" onclick="finishOnboarding('history')"><span data-i18n="onboarding.finish_explore">Explore First</span></button>
+        <button class="btn btn-secondary btn-lg" onclick="nextOnboardingStep()"><span data-i18n="onboarding.next">Next</span> →</button>
       </div>
       <div class="onboarding-actions onb-alt-actions">
         <button class="btn btn-secondary" onclick="prevOnboardingStep()"><span data-i18n="onboarding.back">Back</span></button>
-        <button class="btn btn-ghost" onclick="finishOnboarding('settings')"><span data-i18n="onboarding.open_settings">Open Settings Instead</span></button>
       </div>
       <div class="onboarding-dots">
         <span class="dot"></span><span class="dot"></span><span class="dot active"></span><span class="dot"></span>
