@@ -221,17 +221,26 @@ func ShouldUseGPU(mode string, minVRAMMB int) bool {
 	}
 }
 
-// RecommendSTTAssetKey returns the download asset key for the STT server.
-// whisper.cpp releases: "cublas-12" (NVIDIA CUDA) or "blas-bin-x64" (CPU+OpenBLAS).
-// No Vulkan/HIP/SYCL builds exist for whisper.cpp, so non-NVIDIA GPUs get OpenBLAS.
+// RecommendSTTAssetKey returns the current upstream whisper.cpp asset key for the STT server.
+// Published WhisPaste-owned Vulkan/CUDA/CPU delivery is resolved separately in stt_download.go.
 func RecommendSTTAssetKey(gpuMode string) string {
-	info := Detect()
-	useGPU := ShouldUseGPU(gpuMode, 2048)
-
-	if useGPU && info.Vendor == VendorNVIDIA {
+	if RecommendSTTBackend(gpuMode) == BackendCUDA {
 		return "cublas-12" // matches whisper-cublas-12.*.0-bin-x64.zip
 	}
 	return "blas-bin-x64" // OpenBLAS CPU build: faster than plain bin-x64
+}
+
+// RecommendSTTBackend returns the currently shipped STT runtime backend the UI should report honestly.
+// Until WhisPaste-owned Vulkan STT artifacts are published and activated, AMD/Intel still fall back to CPU.
+func RecommendSTTBackend(gpuMode string) Backend {
+	if !ShouldUseGPU(gpuMode, 2048) {
+		return BackendCPU
+	}
+	info := Detect()
+	if info.Vendor == VendorNVIDIA {
+		return BackendCUDA
+	}
+	return BackendCPU
 }
 
 // RecommendLLMAssetKey returns the download asset key for the LLM server.

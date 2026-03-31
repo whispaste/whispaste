@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 
 	webview "github.com/webview/webview_go"
+	"github.com/whispaste/whispaste/internal/stats"
 )
 
 // bindUIHandlers registers theme, language, translation, onboarding, and window control JS bindings.
-func bindUIHandlers(w webview.WebView, cfg *Config, recorder *Recorder, history *History) {
+func bindUIHandlers(w webview.WebView, cfg *Config, recorder *Recorder, history *History, usageStats *stats.UsageStats) {
 
 	w.Bind("completeOnboarding", func() {
 		cfg.SetOnboardingDone(true)
@@ -15,6 +16,13 @@ func bindUIHandlers(w webview.WebView, cfg *Config, recorder *Recorder, history 
 			logError("Save config after onboarding: %v", err)
 		}
 		logInfo("Onboarding completed")
+	})
+
+	w.Bind("recordOnboardingEvent", func(name string) {
+		if usageStats == nil {
+			return
+		}
+		usageStats.RecordEvent(name)
 	})
 
 	w.Bind("getTheme", func() string {

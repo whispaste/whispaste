@@ -321,7 +321,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStat
 		bindSettingsHandlers(w, cfg, recorder, onSaved)
 		bindHistoryHandlers(w, cfg, history, usageStats, onCapture)
 		bindSmartHandlers(w, cfg, history)
-		bindUIHandlers(w, cfg, recorder, history)
+		bindUIHandlers(w, cfg, recorder, history, usageStats)
 		w.SetHtml(mainWindowHTML)
 		w.Run()
 		logDebug("Main window closed — invoking cleanup")
