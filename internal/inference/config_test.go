@@ -45,7 +45,6 @@ func TestProfileForPreset(t *testing.T) {
 		{"bullets", 0.3, 2048},
 		{"social", 0.7, 2048},
 		{"casual", 0.7, 2048},
-		{"technical", 0.0, 2048},
 		{"notes", 0.0, 2048},
 		{"unknown_preset", 0.3, 2048}, // defaults to Balanced
 	}

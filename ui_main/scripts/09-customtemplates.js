@@ -45,6 +45,9 @@
           ${descPreview ? `<span class="custom-template-prompt" title="${esc(meta.description)}">${descPreview}</span>` : `<span class="custom-template-prompt" title="${esc(prompt)}">${esc(prompt.length > 100 ? prompt.slice(0, 100) + '…' : prompt)}</span>`}
         </div>
         <div class="custom-template-actions">
+          <button class="btn-icon custom-template-export" data-name="${esc(name)}" title="${t('templateExport') || 'Export'}">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </button>
           <button class="btn-icon custom-template-edit" data-name="${esc(name)}" title="${t('edit') || 'Edit'}">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           </button>
@@ -289,9 +292,53 @@
     window.dispatchEvent(new Event('smart-templates-changed'));
   }
 
+  async function exportCustomTemplate(name) {
+    if (!window.exportTemplate) return;
+    const json = await window.exportTemplate(name);
+    if (!json) return;
+    try {
+      await navigator.clipboard.writeText(json);
+      showToast(t('templateExported') || 'Template copied to clipboard');
+    } catch (e) {
+      showToast(t('error') || 'Export failed', 'error');
+    }
+  }
+
+  async function importCustomTemplate() {
+    const json = await showPromptDialog(
+      t('templateImportTitle') || 'Import Template',
+      t('templateImportMsg') || 'Paste a template JSON string:',
+      { confirmText: t('templateImportBtn') || 'Import' }
+    );
+    if (!json || !json.trim()) return;
+    if (!window.importTemplate) return;
+    const result = await window.importTemplate(json.trim());
+    try {
+      const parsed = JSON.parse(result);
+      if (parsed.error) {
+        showDialog({ title: t('error') || 'Error', message: parsed.error, variant: 'error' });
+        return;
+      }
+      loadCustomTemplates();
+      window.dispatchEvent(new Event('smart-templates-changed'));
+      showToast(t('templateImported') || 'Template imported');
+    } catch (e) {
+      showDialog({ title: t('error') || 'Error', message: 'Invalid response', variant: 'error' });
+    }
+  }
+
   document.addEventListener('click', (e) => {
     if (e.target.closest('#btn-add-custom-template')) {
       addCustomTemplate();
+      return;
+    }
+    if (e.target.closest('#btn-import-template')) {
+      importCustomTemplate();
+      return;
+    }
+    const exportBtn = e.target.closest('.custom-template-export');
+    if (exportBtn) {
+      exportCustomTemplate(exportBtn.dataset.name);
       return;
     }
     const editBtn = e.target.closest('.custom-template-edit');

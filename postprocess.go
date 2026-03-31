@@ -160,18 +160,17 @@ func resolveSmartActionPrompt(preset, customPrompt string, userTemplates map[str
 
 // smartModePresets maps preset names to system prompts.
 var smartModePresets = map[string]string{
-	"cleanup":   "Clean up the following dictated text. Fix grammar, punctuation, capitalization, and spelling errors. Do not remove words, change meaning, or restructure sentences. Keep the original language. Return only the cleaned text.",
-	"concise":   "Rewrite the following text to be significantly more concise. Aggressively remove filler words, redundancy, and unnecessary verbosity. Combine sentences where possible. The result should be roughly 60–70% of the original length while preserving ALL information and meaning. Maintain the original language and tone. Return only the rewritten text.",
-	"email":     "Rewrite the following dictated text as a complete professional email. You MUST include a suitable greeting at the beginning and a suitable closing at the end. Preserve all factual content, fix grammar and punctuation, and keep the original language. Return only the final email text.",
-	"bullets":   "Rewrite the following dictated text as a structured bullet-point list. Fix grammar and punctuation. Keep the original language. Return only the bullet list.",
-	"formal":    "Rewrite the following dictated text in formal, professional language. Fix grammar and punctuation. Keep the original language. Return only the rewritten text.",
-	"aiprompt":  "Transform the following dictated text into an optimized AI prompt. Identify the user's core intent and desired outcome. Remove filler words, hesitations, and redundancy. Restructure as clear, actionable instructions that an LLM can follow precisely. Use imperative tone. Prioritize token efficiency — every word must serve a purpose. Preserve all specific requirements, constraints, and context. Return only the prompt text.",
-	"summary":   "Summarize the following text in 2–4 sentences maximum, regardless of input length. Extract only the most essential points and core message. This is a summary, not an edit — the output should be dramatically shorter than the input. Fix grammar and punctuation. Keep the original language. Return only the summary.",
-	"notes":     "Rewrite the following dictated text as structured meeting notes or personal notes. Use headings for topics, bullet points for details, and action items where applicable. Fix grammar and punctuation. Keep the original language. Return only the notes.",
-	"meeting":   "Rewrite the following dictated text as structured meeting minutes. Include: Date/Subject header, list of discussed topics, decisions made, and action items with owners if mentioned. Fix grammar and punctuation. Keep the original language. Return only the meeting minutes.",
-	"social":    "Rewrite the following dictated text as a social media post. Make it engaging, concise, and attention-grabbing. Add relevant emoji where appropriate. Keep the original language. Return only the post text.",
-	"technical": "Rewrite the following dictated text as technical documentation. Use clear, precise language. Structure with headings, code references where applicable, and step-by-step instructions if appropriate. Fix grammar and punctuation. Keep the original language. Return only the documentation.",
-	"casual":    "Rewrite the following dictated text in a casual, conversational tone. Make it sound natural and friendly, like a chat message. Remove unnecessary formality. Keep the original language and meaning. Return only the rewritten text.",
+	"cleanup":  "Clean up the following dictated text. Fix grammar, punctuation, capitalization, and spelling errors. Do not remove words, change meaning, or restructure sentences. Keep the original language. Return only the cleaned text.",
+	"concise":  "Rewrite the following text to be more concise. Remove filler words, redundancy, and unnecessary repetition. Combine sentences where possible. Preserve all key information and meaning. Maintain the original language and tone. Return only the rewritten text.",
+	"email":    "Rewrite the following dictated text as a complete professional email. You MUST include a suitable greeting at the beginning and a suitable closing at the end. Preserve all factual content, fix grammar and punctuation, and keep the original language. Return only the final email text.",
+	"bullets":  "Rewrite the following dictated text as a structured bullet-point list. Fix grammar and punctuation. Keep the original language. Return only the bullet list.",
+	"formal":   "Rewrite the following dictated text in formal, professional language. Fix grammar and punctuation. Keep the original language. Return only the rewritten text.",
+	"aiprompt": "Rewrite the following dictated text as a clear instruction for an AI assistant. Remove filler words and hesitation. Keep all specific requirements and constraints. Use direct, imperative tone. Return only the instruction text.",
+	"summary":  "Summarize the following text in 2–4 sentences maximum. Extract only the most essential points and core message. Drop all details. Fix grammar and punctuation. Keep the original language. Return only the summary.",
+	"notes":    "Rewrite the following dictated text as structured notes. Use headings for topics and bullet points for details. Add action items where applicable. Fix grammar and punctuation. Keep the original language. Return only the notes.",
+	"meeting":  "Rewrite the following dictated text as meeting minutes. Include: subject header, discussed topics, decisions made, and action items with owners if mentioned. Fix grammar and punctuation. Keep the original language. Return only the meeting minutes.",
+	"social":   "Rewrite the following dictated text as a social media post. Make it engaging and concise. Add relevant emoji where appropriate. Keep the original language. Return only the post text.",
+	"casual":   "Rewrite the following dictated text in a casual, conversational tone. Make it sound natural and friendly. Remove unnecessary formality. Keep the original language and meaning. Return only the rewritten text.",
 }
 
 // GetBuiltinPresets returns the built-in preset names and their prompts.
@@ -185,18 +184,17 @@ func GetBuiltinPresets() map[string]string {
 
 // defaultTemplateMetas provides default metadata and keywords for builtin presets.
 var defaultTemplateMetas = map[string]TemplateMeta{
-	"cleanup":   {Description: "Fixes grammar, spelling, and punctuation — content and length stay untouched", Keywords: nil},
-	"concise":   {Description: "Cuts redundancy and filler words — same message, fewer words", Keywords: nil},
-	"email":     {Description: "Formats as a professional email with greeting, body, and sign-off", Keywords: []string{"*outlook*", "*thunderbird*", "*mail*", "*gmail*", "*yahoo*", "*proton*"}},
-	"bullets":   {Description: "Flat bullet-point list without headings", Keywords: nil},
-	"formal":    {Description: "Rewrites in formal, professional tone without changing the format", Keywords: nil},
-	"aiprompt":  {Description: "Optimized AI prompt", Keywords: []string{"*copilot*", "*chatgpt*", "*claude*", "*gemini*", "*cursor*"}},
-	"summary":   {Description: "Extracts key points as a brief prose summary — details are dropped", Keywords: nil},
-	"notes":     {Description: "Flexible personal notes with headings and bullet points — quick reference", Keywords: []string{"*notepad*", "*onenote*", "*obsidian*", "*notion*", "*evernote*", "*joplin*", "*typora*"}},
-	"meeting":   {Description: "Formal minutes with date, topics, decisions, and action items", Keywords: []string{"*teams*", "*zoom*", "*webex*", "*meet*", "*skype*"}},
-	"social":    {Description: "Engaging social media post", Keywords: []string{"*twitter*", "*facebook*", "*instagram*", "*linkedin*", "*reddit*", "*tiktok*"}},
-	"technical": {Description: "Technical documentation", Keywords: []string{"*code*", "*visual studio*", "*intellij*", "*vim*", "*neovim*", "*sublime*", "*terminal*", "*powershell*", "*cmd*"}},
-	"casual":    {Description: "Casual chat message", Keywords: []string{"*slack*", "*discord*", "*whatsapp*", "*telegram*", "*signal*", "*element*"}},
+	"cleanup":  {Description: "Fixes grammar, spelling, and punctuation — content and length stay untouched", Keywords: nil},
+	"concise":  {Description: "Cuts redundancy and filler words — same message, fewer words", Keywords: nil},
+	"email":    {Description: "Formats as a professional email with greeting, body, and sign-off", Keywords: []string{"*outlook*", "*thunderbird*", "*mail*", "*gmail*", "*yahoo*", "*proton*"}},
+	"bullets":  {Description: "Flat bullet-point list without headings", Keywords: nil},
+	"formal":   {Description: "Rewrites in formal, professional tone without changing the format", Keywords: nil},
+	"aiprompt": {Description: "Optimized AI prompt", Keywords: []string{"*copilot*", "*chatgpt*", "*claude*", "*gemini*", "*cursor*", "*code*", "*visual studio*", "*intellij*", "*terminal*", "*powershell*"}},
+	"summary":  {Description: "Extracts key points as a brief prose summary — details are dropped", Keywords: nil},
+	"notes":    {Description: "Structured notes with headings, bullet points, and action items", Keywords: []string{"*notepad*", "*onenote*", "*obsidian*", "*notion*", "*evernote*", "*joplin*", "*typora*"}},
+	"meeting":  {Description: "Formal minutes with subject, topics, decisions, and action items", Keywords: []string{"*teams*", "*zoom*", "*webex*", "*meet*", "*skype*"}},
+	"social":   {Description: "Engaging social media post", Keywords: []string{"*twitter*", "*facebook*", "*instagram*", "*linkedin*", "*reddit*", "*tiktok*"}},
+	"casual":   {Description: "Casual chat message", Keywords: []string{"*slack*", "*discord*", "*whatsapp*", "*telegram*", "*signal*", "*element*"}},
 }
 
 // GetDefaultTemplateMetas returns a copy of the default template metadata.

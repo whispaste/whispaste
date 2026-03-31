@@ -51,7 +51,7 @@ func ProfileForPreset(preset string) Profile {
 		return Balanced
 	case "social", "casual":
 		return Creative
-	case "technical", "notes":
+	case "notes":
 		return Factual
 	default:
 		return Balanced
