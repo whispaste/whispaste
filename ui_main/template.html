@@ -221,8 +221,15 @@
           <p class="onb-hotkey-hint" data-i18n="onboarding.aha_hotkey_hint">This is your global shortcut — it works from any app.</p>
         </div>
       </div>
+      <!-- Transcription result (hidden by default, shown after recording) -->
+      <div id="onbResultArea" class="onb-result-area hidden">
+        <div class="onb-result-card">
+          <div class="onb-result-label" data-i18n="onboarding.result_label">Your transcription</div>
+          <div id="onbResultText" class="onb-result-text"></div>
+        </div>
+      </div>
       <div class="onboarding-actions">
-        <button class="btn btn-primary btn-lg onb-aha-btn" onclick="onbTryDictation()">
+        <button id="onbRecordBtn" class="btn btn-primary btn-lg onb-aha-btn" onclick="onbToggleRecording()">
           <svg class="icon" style="width:20px;height:20px;margin-right:6px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
           <span data-i18n="onboarding.finish_capture">Record Something</span>
         </button>

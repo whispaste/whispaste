@@ -706,7 +706,7 @@
 .onb-hotkey-hint {
   font-size: var(--text-sm);
   color: var(--text-secondary);
-  margin-top: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
 }
 
 .onb-aha-summary {
@@ -715,6 +715,52 @@
 
 .onb-aha-btn svg {
   vertical-align: middle;
+}
+
+.onb-aha-btn.recording {
+  background: var(--danger, #ef4444);
+  border-color: var(--danger, #ef4444);
+}
+
+.onb-aha-btn.recording:hover {
+  background: var(--danger-hover, #dc2626);
+  border-color: var(--danger-hover, #dc2626);
+}
+
+.onb-aha-btn.transcribing {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* ── Transcription result card ─────────────────────── */
+
+.onb-result-area {
+  margin: var(--spacing-md) 0;
+}
+
+.onb-result-card {
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+}
+
+.onb-result-label {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--spacing-xs);
+}
+
+.onb-result-text {
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  line-height: 1.5;
+  max-height: 80px;
+  overflow-y: auto;
+  word-break: break-word;
 }
 
 .onb-alt-actions {

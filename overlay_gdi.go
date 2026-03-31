@@ -558,20 +558,6 @@ func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hov
 		text += "."
 	}
 
-	// Append time estimate if available
-	timeText := ""
-	if estimatedSec > 0 && !transcribeStart.IsZero() {
-		elapsed := time.Since(transcribeStart).Seconds()
-		remaining := estimatedSec - elapsed
-		if remaining > 1 {
-			secs := int(remaining + 0.5) // round up
-			timeText = fmt.Sprintf(" ~%ds", secs)
-		} else if remaining > -5 {
-			// Estimate expired but not too long ago — show "almost done"
-			timeText = " ..."
-		}
-	}
-
 	// Spinner geometry
 	const numDots = 8
 	const spinR = 10
@@ -580,8 +566,7 @@ func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hov
 	spinnerW := float32(spinR*2 + 2)
 
 	// Center spinner+gap+text group in full overlay width
-	fullText := text + timeText
-	textW := o.measureGdipTextWidth(g, fullText, o.gdipFontMain)
+	textW := o.measureGdipTextWidth(g, text, o.gdipFontMain)
 	if textW < 80 {
 		textW = 80
 	}
@@ -603,13 +588,6 @@ func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hov
 	// Draw main text
 	textX := groupX + spinnerW + float32(gap)
 	o.drawGdipText(g, text, textX, float32(cy-10), textW+20, o.gdipFontMain, 0xFFFFFFFF)
-
-	// Draw time estimate in subdued color next to main text
-	if timeText != "" {
-		mainTextW := o.measureGdipTextWidth(g, text, o.gdipFontMain)
-		timeX := textX + mainTextW
-		o.drawGdipText(g, timeText, timeX, float32(cy-10), 80, o.gdipFontSmall, 0xAA8899AA)
-	}
 }
 
 func (o *Overlay) paintErrorULW(g uintptr, contentX int32, hoverBtn, pressBtn int) {
