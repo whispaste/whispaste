@@ -224,11 +224,28 @@ func MatchTemplate(appName, windowTitle string, metas map[string]TemplateMeta) (
 	return "", false
 }
 
+// localSmartMaxTokens caps max_tokens for local models to avoid generation
+// timeouts on slower hardware (iGPU, CPU). Cloud models are fast enough that
+// the profile's full MaxTokens is fine; local models generate tokens
+// sequentially and need a tighter budget.
+func localSmartMaxTokens(inputLen int, profile inference.Profile) int {
+	// Rough estimate: 1 token ≈ 4 chars. Allow output ≈ input length + overhead.
+	estimated := inputLen/4 + 128
+	if estimated < 256 {
+		estimated = 256
+	}
+	if estimated > profile.MaxTokens {
+		estimated = profile.MaxTokens
+	}
+	return estimated
+}
+
 // PostProcess sends transcribed text through GPT-4o-mini for formatting/cleanup.
 // endpoint should be the base API URL (e.g. "https://api.openai.com/v1").
 // appLang is the UI language ("en" or "de") for language-aware prompts.
 // userTemplates contains user-defined custom templates from config.
 func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint string, userTemplates map[string]string) (string, error) {
+	start := time.Now()
 	systemPrompt := buildSmartPrompt(preset, customPrompt, targetLang, langHint, userTemplates)
 	if systemPrompt == "" {
 		return text, nil
@@ -248,13 +265,18 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 		}
 	}
 
+	local := isLocalEndpoint(chatURL)
 	profile := inference.ProfileForPreset(preset)
 	modelName := "gpt-4o-mini"
-	if isLocalEndpoint(chatURL) {
+	maxTokens := profile.MaxTokens
+	if local {
 		modelName = "local"
+		maxTokens = localSmartMaxTokens(len(text), profile)
 		// Suppress thinking mode for local Qwen models to save tokens/latency
 		systemPrompt += " /no_think"
 	}
+
+	logDebug("PostProcess: preset=%s local=%v input_len=%d max_tokens=%d", preset, local, len(text), maxTokens)
 
 	reqBody := map[string]interface{}{
 		"model": modelName,
@@ -263,7 +285,7 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 			{"role": "user", "content": text},
 		},
 		"temperature": profile.Temperature,
-		"max_tokens":  profile.MaxTokens,
+		"max_tokens":  maxTokens,
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -272,7 +294,7 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 	}
 
 	timeout := 30 * time.Second
-	if isLocalEndpoint(chatURL) {
+	if local {
 		timeout = 120 * time.Second
 	}
 	client := &http.Client{Timeout: timeout}
@@ -285,6 +307,7 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 
 	resp, err := client.Do(req)
 	if err != nil {
+		logDebug("PostProcess: failed after %s: %v", time.Since(start).Round(time.Millisecond), err)
 		return text, fmt.Errorf("%s: %w", i18n.T("error.postprocess_request"), err)
 	}
 	defer resp.Body.Close()
@@ -295,6 +318,7 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		logDebug("PostProcess: HTTP %d after %s", resp.StatusCode, time.Since(start).Round(time.Millisecond))
 		return text, fmt.Errorf(i18n.T("error.postprocess_api")+" (%s)", resp.StatusCode, string(respBody))
 	}
 
@@ -311,7 +335,13 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 	if len(result.Choices) == 0 || result.Choices[0].Message.Content == "" {
 		return text, fmt.Errorf("%s", i18n.T("error.postprocess_empty"))
 	}
-	return stripThinkBlocks(result.Choices[0].Message.Content), nil
+	cleaned := stripThinkBlocks(result.Choices[0].Message.Content)
+	if cleaned == "" {
+		logWarn("PostProcess: response contained only think blocks, using raw text")
+		return text, fmt.Errorf("response contained only think blocks")
+	}
+	logDebug("PostProcess: done in %s, output_len=%d", time.Since(start).Round(time.Millisecond), len(cleaned))
+	return cleaned, nil
 }
 
 // PostProcessWithProvider uses the provider interface for cloud LLM processing.
@@ -347,7 +377,12 @@ func PostProcessWithProvider(text, preset, customPrompt, targetLang, langHint st
 	if result == "" {
 		return text, fmt.Errorf("%s", i18n.T("error.postprocess_empty"))
 	}
-	return stripThinkBlocks(result), nil
+	cleaned := stripThinkBlocks(result)
+	if cleaned == "" {
+		logWarn("PostProcessWithProvider: response contained only think blocks, using raw text")
+		return text, fmt.Errorf("response contained only think blocks")
+	}
+	return cleaned, nil
 }
 
 // ApplySmartAction applies a smart mode preset or custom prompt to existing text.
