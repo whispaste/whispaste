@@ -271,7 +271,11 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 		return text, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	timeout := 30 * time.Second
+	if isLocalEndpoint(chatURL) {
+		timeout = 120 * time.Second
+	}
+	client := &http.Client{Timeout: timeout}
 	req, err := http.NewRequest("POST", chatURL, bytes.NewReader(jsonData))
 	if err != nil {
 		return text, fmt.Errorf("failed to create request: %w", err)
@@ -542,7 +546,11 @@ IMPORTANT: Only replace when the meaning clearly matches. When in doubt, do NOT 
 		return text, fmt.Errorf("marshal request: %w", err)
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	timeout := 30 * time.Second
+	if isLocalEndpoint(chatURL) {
+		timeout = 120 * time.Second
+	}
+	client := &http.Client{Timeout: timeout}
 	req, err := http.NewRequest("POST", chatURL, bytes.NewReader(jsonData))
 	if err != nil {
 		return text, fmt.Errorf("create request: %w", err)

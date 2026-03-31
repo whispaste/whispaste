@@ -121,7 +121,7 @@ Answer: ["meeting"]`, tagList)
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 120 * time.Second}
 	req, err := http.NewRequest("POST", chatURL, bytes.NewReader(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
