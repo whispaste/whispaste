@@ -3,6 +3,9 @@ package models
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -265,5 +268,66 @@ func TestGetDir(t *testing.T) {
 	}
 	if !strings.HasSuffix(dir, "stt") {
 		t.Errorf("GetDir() = %q, should end with 'stt'", dir)
+	}
+}
+
+func TestDownloadFile(t *testing.T) {
+	payload := strings.Repeat("A", 1<<20) // 1 MB test payload
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(payload)))
+		w.Write([]byte(payload))
+	}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "testfile.bin")
+
+	var reports []int64
+	err := DownloadFile(srv.URL+"/model.bin", dest, func(downloaded, total int64) {
+		reports = append(reports, downloaded)
+	})
+	if err != nil {
+		t.Fatalf("DownloadFile() error: %v", err)
+	}
+
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read dest: %v", err)
+	}
+	if len(data) != len(payload) {
+		t.Errorf("got %d bytes, want %d", len(data), len(payload))
+	}
+	if data[0] != 'A' || data[len(data)-1] != 'A' {
+		t.Error("content mismatch")
+	}
+
+	// Progress should have been reported at least once (final report)
+	if len(reports) == 0 {
+		t.Error("no progress reports received")
+	}
+	// With 256 KB debounce interval, a 1 MB file should produce ~4 reports
+	if len(reports) > 10 {
+		t.Errorf("too many progress reports: got %d, expected ≤10 for 1 MB", len(reports))
+	}
+}
+
+func TestDownloadFileNoProgressCallback(t *testing.T) {
+	payload := "hello"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(payload))
+	}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "small.bin")
+	if err := DownloadFile(srv.URL+"/f", dest, nil); err != nil {
+		t.Fatalf("DownloadFile() error: %v", err)
+	}
+
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(data) != payload {
+		t.Errorf("got %q, want %q", data, payload)
 	}
 }
