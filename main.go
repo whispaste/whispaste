@@ -1259,6 +1259,7 @@ func main() {
 			ShowMainWindow(cfg, recorder, history, usageStats, onSettingsSaved, onWindowClose, onToggle, page)
 		},
 		func() {
+			// Unregister hotkey first (instant, avoids phantom triggers during shutdown)
 			func() {
 				hkMu.Lock()
 				defer hkMu.Unlock()
@@ -1266,8 +1267,15 @@ func main() {
 					hkMgr.Stop()
 				}
 			}()
-			localLLM.Stop()
-			localSTT.Stop()
+
+			// Stop inference subprocesses in parallel (each can take up to 5s)
+			var wg sync.WaitGroup
+			wg.Add(2)
+			go func() { defer wg.Done(); localLLM.Stop() }()
+			go func() { defer wg.Done(); localSTT.Stop() }()
+			wg.Wait()
+
+			// Close remaining resources (all fast)
 			GetVADProcessor().Close()
 			CloseMainWindow()
 			CloseLogViewer()
