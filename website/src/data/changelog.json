@@ -1,0 +1,86 @@
+[
+  {
+    "version": "1.1.2",
+    "date": "2026-03-28",
+    "en": {
+      "highlights": [
+        "Smart Mode now works reliably with all local AI models, including smaller ones",
+        "The app icon displays cleanly in the Windows taskbar — no more blue corners on rounded icons",
+        "Dictation now pastes correctly into the new Outlook app on Windows 11",
+        "Custom templates can be edited and deleted again without issues",
+        "The recording interface is smoother with a clearer result display"
+      ],
+      "improvements": [
+        "The app detects potential problems earlier and reports them before you notice",
+        "Local AI processing is more stable and recovers gracefully from errors",
+        "Stronger privacy protections and security hardening throughout the app"
+      ]
+    },
+    "de": {
+      "highlights": [
+        "Smart Mode funktioniert jetzt zuverlässig mit allen lokalen KI-Modellen, auch kleineren",
+        "Das App-Icon wird sauber in der Windows-Taskleiste angezeigt — keine blauen Ecken mehr",
+        "Diktate werden jetzt korrekt in das neue Outlook unter Windows 11 eingefügt",
+        "Benutzerdefinierte Vorlagen lassen sich wieder problemlos bearbeiten und löschen",
+        "Die Aufnahmeoberfläche läuft flüssiger mit klarerer Ergebnisanzeige"
+      ],
+      "improvements": [
+        "Die App erkennt mögliche Probleme früher und meldet sie, bevor du sie bemerkst",
+        "Lokale KI-Verarbeitung ist stabiler und erholt sich besser von Fehlern",
+        "Stärkerer Datenschutz und Sicherheitshärtung in der gesamten App"
+      ]
+    }
+  },
+  {
+    "version": "1.1.1",
+    "date": "2026-03-15",
+    "en": {
+      "highlights": [
+        "New onboarding wizard guides you through setup in just a few steps",
+        "GPU acceleration support for NVIDIA, AMD, and Intel graphics cards",
+        "Multiple cloud providers now available: choose between local, OpenAI, Groq, or Deepgram for transcription"
+      ],
+      "improvements": [
+        "Faster model downloads with resume support for interrupted connections",
+        "Improved setup experience with automatic hardware detection"
+      ]
+    },
+    "de": {
+      "highlights": [
+        "Neuer Einrichtungsassistent führt dich in wenigen Schritten durch das Setup",
+        "GPU-Beschleunigung für NVIDIA-, AMD- und Intel-Grafikkarten",
+        "Mehrere Cloud-Anbieter verfügbar: wähle zwischen lokal, OpenAI, Groq oder Deepgram für die Transkription"
+      ],
+      "improvements": [
+        "Schnellere Modell-Downloads mit Fortsetzung bei unterbrochenen Verbindungen",
+        "Verbesserte Einrichtung mit automatischer Hardware-Erkennung"
+      ]
+    }
+  },
+  {
+    "version": "1.1.0",
+    "date": "2026-03-01",
+    "en": {
+      "highlights": [
+        "Smart Mode: AI-powered post-processing transforms raw dictation into polished, context-aware text",
+        "Voice Snippets: save and recall frequently used phrases with a single command",
+        "Full history with search: find any past dictation instantly"
+      ],
+      "improvements": [
+        "New design with premium look and feel throughout the app",
+        "Available on the Microsoft Store for easy installation and auto-updates"
+      ]
+    },
+    "de": {
+      "highlights": [
+        "Smart Mode: KI-gestützte Nachbearbeitung verwandelt rohe Diktate in polierten, kontextbewussten Text",
+        "Sprach-Snippets: häufig genutzte Phrasen speichern und mit einem Befehl abrufen",
+        "Vollständiger Verlauf mit Suche: jedes vergangene Diktat sofort finden"
+      ],
+      "improvements": [
+        "Neues Design mit Premium-Look in der gesamten App",
+        "Im Microsoft Store verfügbar für einfache Installation und Auto-Updates"
+      ]
+    }
+  }
+]
