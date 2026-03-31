@@ -31,9 +31,11 @@ https://YOUR-PROJECT-REF.supabase.co
 ## 2. Install and log into the Supabase CLI
 
 ```powershell
-npm install -g supabase
+scoop install supabase
 supabase login
 ```
+
+`npm install -g supabase` is not supported by Supabase. Use Scoop on Windows or another official installer for your platform.
 
 ## 3. Link the local repo to the Supabase project
 
@@ -107,11 +109,15 @@ Expected relay behavior:
 Safe to ship in the app:
 
 - Supabase Edge Function URL
+- Supabase project URL / project ref
+- Supabase publishable (anon) key, if you use it for other public client features
 
 Must stay server-side only:
 
 - `CRASH_DISCORD_WEBHOOK_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+
+For the crash relay itself, the desktop app does **not** need a Supabase publishable key. Only the public relay URL belongs in the client.
 
 ## Microsoft Store / App Review note
 

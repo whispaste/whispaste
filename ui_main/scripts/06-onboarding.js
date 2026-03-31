@@ -612,7 +612,6 @@ window.onRecordingStateChanged = function(state) {
   // When recording finishes, show result then advance
   if (_onbResumeAfterCapture && state === 'idle') {
     _onbResumeAfterCapture = false;
-    if (window.completeOnboarding) window.completeOnboarding();
     // Fetch latest history entry to show the transcription result
     onbShowTranscriptionResult();
   }

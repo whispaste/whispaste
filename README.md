@@ -42,7 +42,7 @@ Works in emails, chat apps, code editors, browsers, terminals — everywhere.
 
 **Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into any app · Voice Activity Detection · Recording overlay with waveform
 
-**Transcription** — OpenAI Whisper API (cloud) or local Whisper models via [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — fully offline, no API key needed · [99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py) · Hardware compatibility preflight
+**Transcription** — Cloud providers or local Whisper models via [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — fully offline, no API key needed for local mode · [99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py) · Hardware compatibility preflight
 
 **Smart Mode** — 13 AI post-processing presets: grammar cleanup, formal email, bullet points, meeting notes, translation, and more · Custom prompts · Runs locally (Qwen3.5) or via OpenAI
 
@@ -55,7 +55,7 @@ Works in emails, chat apps, code editors, browsers, terminals — everywhere.
 ## Quick Start
 
 1. **Download** [WhisPaste-Setup.exe](../../releases/latest/download/WhisPaste-Setup.exe) and run the installer
-2. **Set up transcription** — enter an [OpenAI API key](https://platform.openai.com/api-keys), or enable local models (no key needed)
+2. **Set up transcription** — add a supported cloud provider key, or enable local models (no key needed)
 3. **Press `Ctrl+Shift+D`**, speak, release — text appears at your cursor
 
 > A portable `whispaste.exe` and `.msix` package are also available on the [releases page](../../releases/latest).
@@ -63,7 +63,8 @@ Works in emails, chat apps, code editors, browsers, terminals — everywhere.
 ## Privacy
 
 - **Local mode** — audio never leaves your device
-- **Cloud mode** — audio goes directly to OpenAI, not through WhisPaste servers
+- **Cloud mode** — audio goes directly to your selected provider, not through WhisPaste servers
+- **Crash reporting** — optional reports go to your configured Supabase relay, not to a public webhook baked into the app
 - **No telemetry**, no tracking, no account required
 - **Open source** — audit every line
 
