@@ -5,13 +5,13 @@
     <div class="text-center mb-16 scroll-reveal">
       <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="privacy.label">Trust</p>
       <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="privacy.title">Your voice stays yours</h2>
-      <p class="mt-4 text-gray-400 text-lg max-w-3xl mx-auto" data-i18n="privacy.desc">Local transcription by default. No server in between. No analytics watching you.</p>
+      <p class="mt-4 text-gray-400 text-lg max-w-3xl mx-auto" data-i18n="privacy.desc">Local when you want it. Cloud only when you choose it. No analytics watching you.</p>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 scroll-reveal">
       {[
          { key: 'offline', icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 16V4a2 2 0 0 1 2-2h11"/><path d="M5 14H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2h-5.5"/><path d="M12 13V2"/><path d="m7 8 5 5 5-5"/></svg>`, title: "Works offline", desc: "Whisper runs on your CPU. Audio never leaves your device." },
-         { key: 'telemetry', icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`, title: "No telemetry", desc: "No analytics, no tracking, no phone-home. Open source." },
-         { key: 'directapi', icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>`, title: "Cloud is optional", desc: "If you use OpenAI, your data goes directly there. We never touch it." },
+         { key: 'telemetry', icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`, title: "No telemetry", desc: "No analytics, no tracking. Optional crash reports go through a secured relay and can be turned off." },
+         { key: 'directapi', icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>`, title: "Cloud is optional", desc: "If you use cloud transcription, audio goes straight to the provider you selected. We do not proxy it." },
        ].map(({ key, icon, title, desc }) => (
         <div class="text-center">
           <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-cyan/10 text-brand-cyan mb-4" set:html={icon} />
