@@ -28,6 +28,28 @@ function Ensure-Command {
     }
 }
 
+function Get-LocalWorkRoot {
+    $candidates = @("C:\wp")
+
+    if (![string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
+        $candidates += (Join-Path $env:RUNNER_TEMP "wp")
+    }
+    if (![string]::IsNullOrWhiteSpace($env:TEMP)) {
+        $candidates += (Join-Path $env:TEMP "wp")
+    }
+
+    foreach ($root in $candidates | Select-Object -Unique) {
+        try {
+            New-Item -ItemType Directory -Force -Path $root -ErrorAction Stop | Out-Null
+            return $root
+        } catch {
+            continue
+        }
+    }
+
+    throw "Unable to create a writable local work root."
+}
+
 function Find-WhisperServerExe {
     param([Parameter(Mandatory = $true)][string]$BuildDir)
 
@@ -68,11 +90,12 @@ function Find-ReusableBuildExe {
 Ensure-Command -Name "gh"
 
 $repoRoot = Get-RepoRoot
+$localWorkRoot = Get-LocalWorkRoot
 if ([string]::IsNullOrWhiteSpace($BuildOutputDir)) {
-    $BuildOutputDir = "C:\wp\whisper-build"
+    $BuildOutputDir = Join-Path $localWorkRoot "whisper-build"
 }
 if ([string]::IsNullOrWhiteSpace($PackageOutputDir)) {
-    $PackageOutputDir = "C:\wp\whisper-release-local"
+    $PackageOutputDir = Join-Path $localWorkRoot "whisper-release-local"
 }
 
 if ($Clean -and (Test-Path $PackageOutputDir)) {
@@ -149,9 +172,32 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $filesToUpload = @($assetPaths + $combinedChecksum)
-gh release upload $Tag @filesToUpload --clobber
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to upload whisper-server assets to release '$Tag'"
+$release = gh release view $Tag --json assets | ConvertFrom-Json
+$remoteByName = @{}
+foreach ($asset in $release.assets) {
+    $remoteByName[$asset.name] = $asset
+}
+
+$pendingUploads = @()
+foreach ($filePath in $filesToUpload) {
+    $name = Split-Path -Leaf $filePath
+    $localHash = (Get-FileHash -Algorithm SHA256 $filePath).Hash.ToLowerInvariant()
+    if ($remoteByName.ContainsKey($name)) {
+        $remoteDigest = "$($remoteByName[$name].digest)".ToLowerInvariant()
+        if ($remoteDigest -eq ("sha256:" + $localHash)) {
+            Write-Host "Release asset already present with identical digest, skipping: $name"
+            continue
+        }
+        throw "Release '$Tag' already contains asset '$name' with a different digest. Create a new tag/release for updated assets."
+    }
+    $pendingUploads += $filePath
+}
+
+if ($pendingUploads.Count -gt 0) {
+    gh release upload $Tag @pendingUploads
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to upload whisper-server assets to release '$Tag'"
+    }
 }
 
 [pscustomobject]@{

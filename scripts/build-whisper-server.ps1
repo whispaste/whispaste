@@ -18,13 +18,31 @@ function Get-RepoRoot {
 }
 
 function Get-ShortWorkRoot {
+    $candidates = @()
+
     $drive = $env:SystemDrive
     if ([string]::IsNullOrWhiteSpace($drive)) {
         $drive = "C:"
     }
-    $root = Join-Path $drive "wp"
-    New-Item -ItemType Directory -Force -Path $root | Out-Null
-    return $root
+    $candidates += (Join-Path $drive "wp")
+
+    if (![string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
+        $candidates += (Join-Path $env:RUNNER_TEMP "wp")
+    }
+    if (![string]::IsNullOrWhiteSpace($env:TEMP)) {
+        $candidates += (Join-Path $env:TEMP "wp")
+    }
+
+    foreach ($root in $candidates | Select-Object -Unique) {
+        try {
+            New-Item -ItemType Directory -Force -Path $root -ErrorAction Stop | Out-Null
+            return $root
+        } catch {
+            continue
+        }
+    }
+
+    throw "Unable to create a writable short work root."
 }
 
 function Read-PinnedWhisperRef {
