@@ -87,6 +87,13 @@
   --space-10: 40px;
   --space-12: 48px;
 
+  /* ── Semantic Spacing Aliases ─── */
+  --spacing-xs: var(--space-1);   /* 4px */
+  --spacing-sm: var(--space-2);   /* 8px */
+  --spacing-md: var(--space-4);   /* 16px */
+  --spacing-lg: var(--space-6);   /* 24px */
+  --spacing-xl: var(--space-8);   /* 32px */
+
   /* ── Typography ─── */
   --font-sans: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
