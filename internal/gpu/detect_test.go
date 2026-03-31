@@ -76,6 +76,9 @@ func TestRecommendLLMBackend(t *testing.T) {
 	if got := RecommendLLMBackend("disabled"); got != BackendCPU {
 		t.Errorf("RecommendLLMBackend(disabled) = %q, want %q", got, BackendCPU)
 	}
+	if got := RecommendSTTBackend("disabled"); got != BackendCPU {
+		t.Errorf("RecommendSTTBackend(disabled) = %q, want %q", got, BackendCPU)
+	}
 }
 
 // --- "enabled" mode tests ---
@@ -83,6 +86,7 @@ func TestRecommendLLMBackend(t *testing.T) {
 func TestRecommendSTTAssetKey_Enabled(t *testing.T) {
 	info := Detect()
 	got := RecommendSTTAssetKey("enabled")
+	backend := RecommendSTTBackend("enabled")
 
 	if got == "" {
 		t.Fatal("returned empty string")
@@ -93,9 +97,15 @@ func TestRecommendSTTAssetKey_Enabled(t *testing.T) {
 		if got != "cublas-12" {
 			t.Errorf("NVIDIA detected: got %q, want %q", got, "cublas-12")
 		}
+		if backend != BackendCUDA {
+			t.Errorf("NVIDIA detected: backend = %q, want %q", backend, BackendCUDA)
+		}
 	} else {
 		if got != "blas-bin-x64" {
 			t.Errorf("non-NVIDIA detected: got %q, want %q", got, "blas-bin-x64")
+		}
+		if backend != BackendCPU {
+			t.Errorf("non-NVIDIA detected: backend = %q, want %q", backend, BackendCPU)
 		}
 	}
 }
@@ -146,6 +156,7 @@ func TestRecommendLLMBackend_Enabled(t *testing.T) {
 func TestRecommendSTTAssetKey_Auto(t *testing.T) {
 	info := Detect()
 	got := RecommendSTTAssetKey("auto")
+	backend := RecommendSTTBackend("auto")
 
 	validKeys := map[string]bool{"cublas-12": true, "blas-bin-x64": true}
 	if !validKeys[got] {
@@ -157,11 +168,20 @@ func TestRecommendSTTAssetKey_Auto(t *testing.T) {
 		if got != "cublas-12" {
 			t.Errorf("NVIDIA with sufficient VRAM: got %q, want %q", got, "cublas-12")
 		}
+		if backend != BackendCUDA {
+			t.Errorf("NVIDIA with sufficient VRAM: backend = %q, want %q", backend, BackendCUDA)
+		}
 	}
 	if !hasGPU {
 		if got != "blas-bin-x64" {
 			t.Errorf("no sufficient GPU: got %q, want %q", got, "blas-bin-x64")
 		}
+		if backend != BackendCPU {
+			t.Errorf("no sufficient GPU: backend = %q, want %q", backend, BackendCPU)
+		}
+	}
+	if hasGPU && info.Vendor != VendorNVIDIA && backend != BackendCPU {
+		t.Errorf("non-NVIDIA STT should currently fall back to CPU, got %q", backend)
 	}
 }
 

@@ -75,6 +75,27 @@ cd whispaste
 .\scripts\build.ps1 -Release   # requires Go 1.24+ and GCC (MSYS2 or TDM-GCC)
 ```
 
+### Build integrated whisper-server assets
+
+WhisPaste can also publish its own `whisper-server` release assets from this same repository for:
+
+- `whisper-server-cpu-x64.zip`
+- `whisper-server-cuda12-x64.zip`
+- `whisper-server-vulkan-x64.zip`
+
+The pinned upstream source ref lives in `scripts/whispercpp-ref.txt`.
+
+```powershell
+# CPU
+$cpu = .\scripts\build-whisper-server.ps1 -Backend cpu
+
+# Vulkan (auto-detects latest SDK under C:\VulkanSDK or uses VULKAN_SDK)
+$vulkan = .\scripts\build-whisper-server.ps1 -Backend vulkan -VulkanSDKRoot C:\VulkanSDK
+
+# Package an already-built binary into the release ZIP format
+.\scripts\package-whisper-server.ps1 -Backend vulkan -ExecutablePath $vulkan.ExecutablePath
+```
+
 <details>
 <summary>Manual build</summary>
 

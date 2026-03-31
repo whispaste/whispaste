@@ -300,6 +300,41 @@
   letter-spacing: 1px;
 }
 
+.onb-ready-summary {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.onb-ready-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  text-align: left;
+}
+
+.onb-ready-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.onb-ready-item strong {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.onb-ready-hint {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0 0 20px;
+}
+
 /* ── Onboarding: API Key Section ─────────────────────── */
 .onboarding-apikey-section {
   margin-bottom: 20px;
