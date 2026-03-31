@@ -258,7 +258,25 @@ func TestSTTServerAssetMarkers(t *testing.T) {
 }
 
 func TestSTTServerNeedsRefresh(t *testing.T) {
-	dir := t.TempDir()
+	origDetect := gpuDetect
+	origShouldUse := gpuShouldUseRecommended
+	t.Cleanup(func() {
+		gpuDetect = origDetect
+		gpuShouldUseRecommended = origShouldUse
+	})
+
+	// Mock GPU so sttRequestedAssetKey("auto") returns "whisper-server-vulkan-x64"
+	gpuDetect = func() gpu.Info { return gpu.Info{Available: true, Vendor: gpu.VendorAMD} }
+	gpuShouldUseRecommended = func(mode string) bool { return true }
+
+	// Use APPDATA so IsSTTServerInstalled() checks our temp dir
+	appData := t.TempDir()
+	t.Setenv("APPDATA", appData)
+	dir := filepath.Join(appData, AppName, "models", "stt")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatalf("mkdir stt dir: %v", err)
+	}
+
 	serverPath := filepath.Join(dir, "whisper-server.exe")
 	if err := os.WriteFile(serverPath, []byte("stub"), 0600); err != nil {
 		t.Fatalf("write server: %v", err)
