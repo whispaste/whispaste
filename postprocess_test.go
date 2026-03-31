@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/whispaste/whispaste/internal/inference"
 )
 
 func TestMatchTemplate(t *testing.T) {
@@ -174,6 +176,81 @@ func TestGetBuiltinPresets(t *testing.T) {
 		if _, ok := presets[name]; !ok {
 			t.Errorf("missing builtin preset %q", name)
 		}
+	}
+}
+
+func TestLocalSmartMaxTokens(t *testing.T) {
+	tests := []struct {
+		name      string
+		inputLen  int
+		maxTokens int // profile MaxTokens
+		want      int
+	}{
+		{"short text uses minimum", 100, 1024, 256},
+		{"medium text scales", 1200, 1024, 428}, // 1200/4 + 128 = 428
+		{"long text capped by profile", 8000, 1024, 1024},
+		{"very short text uses minimum", 10, 2048, 256},
+		{"proportional for 2000 chars", 2000, 2048, 628}, // 2000/4 + 128 = 628
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			profile := inference.Profile{MaxTokens: tt.maxTokens}
+			got := localSmartMaxTokens(tt.inputLen, profile)
+			if got != tt.want {
+				t.Errorf("localSmartMaxTokens(%d, {MaxTokens:%d}) = %d, want %d",
+					tt.inputLen, tt.maxTokens, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPostProcessThinkBlockOnly(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{"message": map[string]string{"content": "<think>internal reasoning only</think>"}},
+			},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	result, err := PostProcess("original text", "cleanup", "", "", "key", srv.URL, "en", nil)
+	if err == nil {
+		t.Fatal("expected error when response contains only think blocks")
+	}
+	if result != "original text" {
+		t.Errorf("expected original text on think-block-only response, got %q", result)
+	}
+}
+
+func TestPostProcessLocalMaxTokens(t *testing.T) {
+	var capturedMaxTokens int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&reqBody)
+		if mt, ok := reqBody["max_tokens"].(float64); ok {
+			capturedMaxTokens = int(mt)
+		}
+		resp := map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{"message": map[string]string{"content": "Processed text"}},
+			},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	// httptest.NewServer uses 127.0.0.1, so isLocalEndpoint returns true
+	shortText := strings.Repeat("a", 400)
+	_, err := PostProcess(shortText, "email", "", "", "key", srv.URL, "en", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// For 400 chars, localSmartMaxTokens = max(256, 400/4+128) = max(256, 228) = 256
+	if capturedMaxTokens != 256 {
+		t.Errorf("expected max_tokens=256 for local 400-char input, got %d", capturedMaxTokens)
 	}
 }
 
