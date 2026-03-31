@@ -655,7 +655,7 @@ const translations = {
     // Onboarding wizard
     'onboarding.welcome_title': 'Welcome to WhisPaste',
     'onboarding.welcome_desc': "Let's get you to your first successful dictation fast. Pick how transcription should run, then test it right away.",
-    'onboarding.get_started': 'Set Up First Dictation',
+    'onboarding.get_started': 'Continue',
     'onboarding.pref_language': 'Language',
     'onboarding.pref_theme': 'Theme',
     'onboarding.theme_system': 'System',
@@ -1498,7 +1498,7 @@ const translations = {
     // Onboarding wizard
     'onboarding.welcome_title': 'Willkommen bei WhisPaste',
     'onboarding.welcome_desc': 'Wir bringen dich jetzt schnell zum ersten erfolgreichen Diktat. Wähle den Transkriptionsweg und teste ihn direkt danach.',
-    'onboarding.get_started': 'Erstes Diktat einrichten',
+    'onboarding.get_started': 'Weiter',
     'onboarding.pref_language': 'Sprache',
     'onboarding.pref_theme': 'Design',
     'onboarding.theme_system': 'System',

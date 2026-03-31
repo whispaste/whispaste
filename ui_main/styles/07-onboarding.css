@@ -753,14 +753,8 @@
   border: 1.5px solid var(--border-primary);
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
-  cursor: pointer;
-  transition: all var(--duration-fast) ease;
+  cursor: default;
   text-align: left;
-}
-
-.onb-discovery-card:hover {
-  border-color: var(--accent);
-  background: var(--bg-tertiary);
 }
 
 .onb-discovery-icon {
