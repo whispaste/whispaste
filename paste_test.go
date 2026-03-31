@@ -13,6 +13,9 @@ func TestAssumeFocusedInput(t *testing.T) {
 	}{
 		{name: "terminal class", class: "ConsoleWindowClass", appName: "cmd.exe", want: true},
 		{name: "outlook app", class: "rctrl_renwnd32", appName: "outlook.exe", want: true},
+		{name: "new outlook app", class: "Chrome_WidgetWin_1", appName: "olk.exe", want: true},
+		{name: "new outlook via class", class: "Chrome_WidgetWin_1", appName: "unknown.exe", want: true},
+		{name: "new outlook via name only", class: "SomeClass", appName: "olk.exe", want: true},
 		{name: "unknown app", class: "Notepad", appName: "notepad.exe", want: false},
 	}
 
