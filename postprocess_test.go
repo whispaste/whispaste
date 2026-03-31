@@ -281,3 +281,51 @@ func TestNormalizeTranscription(t *testing.T) {
 		})
 	}
 }
+
+// TestBuildSmartPromptLocal verifies that local prompts pass the preset instructions
+// directly without a contradictory wrapper. Regression test for the bug where the
+// "Refine dictated text" wrapper caused the model to ignore the actual preset.
+func TestBuildSmartPromptLocal(t *testing.T) {
+	tests := []struct {
+		preset       string
+		mustContain  string
+		mustNotStart string
+	}{
+		{"email", "professional email", "Refine"},
+		{"bullets", "bullet-point list", "Refine"},
+		{"formal", "formal, professional language", "Refine"},
+		{"cleanup", "Clean up", "Refine"},
+		{"concise", "concise", "Refine"},
+		{"meeting", "meeting minutes", "Refine"},
+		{"summary", "Summarize", "Refine"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.preset, func(t *testing.T) {
+			prompt := buildSmartPromptLocal(tc.preset, "", "", "en", nil)
+			if prompt == "" {
+				t.Fatalf("buildSmartPromptLocal(%q) returned empty prompt", tc.preset)
+			}
+			if !strings.Contains(prompt, tc.mustContain) {
+				t.Errorf("prompt for %q must contain %q, got: %s", tc.preset, tc.mustContain, prompt)
+			}
+			if strings.HasPrefix(prompt, tc.mustNotStart) {
+				t.Errorf("prompt for %q must NOT start with %q — this would override the preset instructions", tc.preset, tc.mustNotStart)
+			}
+		})
+	}
+}
+
+// TestBuildSmartPromptLocalStartsWithPreset ensures the local prompt starts with
+// the preset's action instructions, not a generic wrapper.
+func TestBuildSmartPromptLocalStartsWithPreset(t *testing.T) {
+	prompt := buildSmartPromptLocal("email", "", "", "de", nil)
+	if !strings.HasPrefix(prompt, "Rewrite") {
+		t.Errorf("email local prompt should start with the preset instruction (Rewrite...), got: %q", truncateForLog(prompt, 80))
+	}
+	if !strings.Contains(prompt, "German") {
+		t.Errorf("email local prompt with langHint=de should mention German, got: %q", prompt)
+	}
+	if !strings.HasSuffix(prompt, "Do not add any commentary or explanation.") {
+		t.Errorf("local prompt should end with the output-only instruction, got: %q", prompt[len(prompt)-60:])
+	}
+}
