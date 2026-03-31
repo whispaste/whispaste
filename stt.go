@@ -184,7 +184,12 @@ func (s *LocalSTT) waitReady(port int) error {
 		select {
 		case waitErr := <-s.waitCh:
 			s.waitCh = nil
-			return errors.New(whisperServerExitMessage(waitErr, s.startupLog.Summary()))
+			exitMsg := whisperServerExitMessage(waitErr, s.startupLog.Summary())
+			exitCode := extractExitCode(waitErr)
+			if crashReporter != nil {
+				crashReporter.captureSubprocessCrash("whisper-server", exitCode, s.startupLog.Summary())
+			}
+			return errors.New(exitMsg)
 		default:
 		}
 

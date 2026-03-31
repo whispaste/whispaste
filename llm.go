@@ -209,6 +209,10 @@ func (l *LocalLLM) waitReady(port int, waitCh <-chan error) error {
 		// Check if process died before becoming ready
 		select {
 		case err := <-waitCh:
+			if crashReporter != nil {
+				exitCode := extractExitCode(err)
+				crashReporter.captureSubprocessCrash("llama-server", exitCode, "")
+			}
 			if err != nil {
 				return fmt.Errorf("llama-server exited: %w", err)
 			}
