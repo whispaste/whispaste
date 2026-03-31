@@ -1,16 +1,13 @@
 /* ── Onboarding Wizard ─────────────────────────────── */
 let _onboardingStep = 1;
 let _onboardingChoice = null; // 'api' or 'local'
-let _onboardingSmart = null;  // true or false
+let _onbPersona = null; // 'content', 'office', 'dev', 'general'
 let _onbModelId = 'whisper-small';
 let _onbModelReady = false;
 let _onbDownloading = false;
 let _onbPreflight = null;
 let _onbPreflightRunning = false;
 let _onbApiKeyValid = false;
-let _onbLlmModel = 'qwen3.5-0.8b'; // selected LLM model for smart mode (default: best quality)
-let _onbLlmReady = false;
-let _onbLlmDownloading = false;
 let _onbTrackedEvents = new Set();
 
 function onbTrackEvent(name, once) {
@@ -28,19 +25,31 @@ function onbFriendlyModeLabel() {
   return '—';
 }
 
-function onbFriendlySmartLabel() {
-  if (_onboardingSmart === true) return t('onboarding.ready_smart_on').replace('{model}', _onbLlmModel || 'qwen3.5-0.8b');
-  if (_onboardingSmart === false) return t('onboarding.ready_smart_off');
-  return '—';
+function onbSelectPersona(persona) {
+  _onbPersona = persona;
+  document.querySelectorAll('.onb-persona-card').forEach(c => {
+    c.classList.toggle('active', c.dataset.persona === persona);
+  });
+  onbTrackEvent('onboarding_persona_' + persona, true);
 }
 
 function onbPopulateReadyState() {
   const readyMode = document.getElementById('onbReadyMode');
-  const readySmart = document.getElementById('onbReadySmart');
-  const readyNext = document.getElementById('onbReadyNext');
   if (readyMode) readyMode.textContent = onbFriendlyModeLabel();
-  if (readySmart) readySmart.textContent = onbFriendlySmartLabel();
-  if (readyNext) readyNext.textContent = t('onboarding.ready_next_value');
+}
+
+function onbPopulateHotkeyDisplay(elementId) {
+  const kbd = document.getElementById(elementId);
+  if (kbd && window.getConfig) {
+    window.getConfig().then(raw => {
+      const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (cfg) {
+        const mods = cfg.hotkey_modifiers || ['Ctrl', 'Shift'];
+        const key = cfg.hotkey_key || 'D';
+        kbd.textContent = formatHotkeyParts([...mods, key]).join('+');
+      }
+    }).catch(() => {});
+  }
 }
 
 function showOnboarding() {
@@ -49,16 +58,13 @@ function showOnboarding() {
     overlay.classList.remove('hidden');
     _onboardingStep = 1;
     _onboardingChoice = null;
-    _onboardingSmart = null;
+    _onbPersona = null;
     _onbModelId = 'whisper-small';
     _onbModelReady = false;
     _onbDownloading = false;
     _onbPreflight = null;
     _onbPreflightRunning = false;
     _onbApiKeyValid = false;
-    _onbLlmModel = 'qwen3.5-0.8b';
-    _onbLlmReady = false;
-    _onbLlmDownloading = false;
     _onbTrackedEvents = new Set();
     onbInitPreferences();
     onbTrackEvent('onboarding_start', true);
@@ -84,34 +90,24 @@ function updateOnboardingStep() {
   if (_onboardingStep === 2 && _onboardingChoice === null) {
     selectOnboardingOption('local');
   }
-  if (_onboardingStep === 4) {
+  if (_onboardingStep === 3) {
+    onbPopulateHotkeyDisplay('onbHotkeyDisplay');
     onbPopulateReadyState();
+  }
+  if (_onboardingStep === 4) {
+    onbPopulateHotkeyDisplay('onbHotkeyDisplayStep4');
+    // Init theme selector state
+    const theme = _currentTheme || 'system';
+    document.querySelectorAll('#onbThemeOptionsStep4 .onb-theme-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
   }
 }
 
 function nextOnboardingStep() {
   if (_onboardingStep < 4) {
-    // Guard: step 3 requires LLM downloaded when smart mode is on
-    if (_onboardingStep === 3 && _onboardingSmart === true && !_onbLlmReady) return;
     onbTrackEvent('onboarding_step_' + _onboardingStep + '_completed');
     _onboardingStep++;
-    if (_onboardingStep === 3 && _onboardingSmart === null) {
-      selectOnboardingSmart(false, false);
-    }
-    if (_onboardingStep === 4) {
-      const kbd = document.getElementById('onbHotkeyDisplay');
-      if (kbd && window.getConfig) {
-        window.getConfig().then(raw => {
-          const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
-          if (cfg) {
-            const mods = cfg.hotkey_modifiers || ['Ctrl', 'Shift'];
-            const key = cfg.hotkey_key || 'D';
-            kbd.textContent = formatHotkeyParts([...mods, key]).join('+');
-          }
-        }).catch(() => {});
-      }
-      onbPopulateReadyState();
-    }
     updateOnboardingStep();
   }
 }
@@ -385,118 +381,6 @@ window.updateModelProgress = function(modelId, pct, fileNum, fileCount, fileName
   if (_origUpdateModelProgress) _origUpdateModelProgress(modelId, pct, fileNum, fileCount, fileName);
 };
 
-// Hook LLM download callbacks for onboarding step 3
-const _origLLMProgress = window.onLLMDownloadProgress;
-window.onLLMDownloadProgress = function(phase, pct, modelID) {
-  const overlay = document.getElementById('onboardingOverlay');
-  if (overlay && !overlay.classList.contains('hidden') && _onbLlmDownloading) {
-    const bar = document.getElementById('onbLlmProgressBar');
-    if (bar) bar.style.width = pct + '%';
-    const label = document.getElementById('onbLlmProgressLabel');
-    if (label) label.textContent = pct + '%';
-  }
-  if (_origLLMProgress) _origLLMProgress(phase, pct, modelID);
-};
-
-const _origLLMComplete = window.onLLMDownloadComplete;
-window.onLLMDownloadComplete = function(modelID) {
-  const overlay = document.getElementById('onboardingOverlay');
-  if (overlay && !overlay.classList.contains('hidden') && _onbLlmDownloading) {
-    _onbLlmDownloading = false;
-    _onbLlmReady = true;
-    onbTrackEvent('onboarding_smart_model_download_completed', true);
-    onbUpdateLlmUI();
-  }
-  if (_origLLMComplete) _origLLMComplete(modelID);
-};
-
-const _origLLMError = window.onLLMDownloadError;
-window.onLLMDownloadError = function(errorMsg, modelID) {
-  const overlay = document.getElementById('onboardingOverlay');
-  if (overlay && !overlay.classList.contains('hidden') && _onbLlmDownloading) {
-    _onbLlmDownloading = false;
-    onbUpdateLlmUI();
-  }
-  if (_origLLMError) _origLLMError(errorMsg, modelID);
-};
-
-function selectOnboardingSmart(enabled, trackChoice = true) {
-  _onboardingSmart = enabled;
-  document.querySelectorAll('#onboardingOverlay .onboarding-step[data-step="3"] .onboarding-option').forEach(opt => opt.classList.remove('selected'));
-  const el = document.getElementById(enabled ? 'onb-smart-on' : 'onb-smart-off');
-  if (el) el.classList.add('selected');
-  const llmSection = document.getElementById('onbLlmModelSection');
-  if (llmSection) llmSection.classList.toggle('hidden', !enabled);
-  const nextBtn = document.getElementById('onbNextStep3');
-  if (enabled) {
-    onbTrackEvent('onboarding_smart_enabled', true);
-    onbCheckLLMStatus();
-  } else {
-    if (trackChoice) onbTrackEvent('onboarding_smart_skipped', true);
-    if (nextBtn) nextBtn.disabled = false;
-  }
-}
-
-async function onbSelectLLMModel(modelId) {
-  if (_onbLlmDownloading) return;
-  _onbLlmModel = modelId;
-  document.querySelectorAll('.onb-llm-card').forEach(card => {
-    card.classList.toggle('selected', card.dataset.llmId === modelId);
-  });
-  await onbCheckLLMStatus();
-}
-
-async function onbCheckLLMStatus() {
-  _onbLlmReady = false;
-  if (window.getLLMStatus) {
-    try {
-      const raw = await window.getLLMStatus();
-      const status = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      const models = status.models || {};
-      const m = models[_onbLlmModel];
-      if (m && m.installed) _onbLlmReady = true;
-    } catch (e) {}
-  }
-  onbUpdateLlmUI();
-}
-
-function onbUpdateLlmUI() {
-  const statusEl = document.getElementById('onbLlmStatus');
-  const downloadBtn = document.getElementById('onbLlmDownloadBtn');
-  const progressWrap = document.getElementById('onbLlmDownloadProgress');
-  const nextBtn = document.getElementById('onbNextStep3');
-
-  if (_onbLlmDownloading) {
-    if (statusEl) { statusEl.textContent = t('onboarding.smart_llm_downloading'); statusEl.className = 'onb-model-status downloading'; }
-    if (downloadBtn) downloadBtn.classList.add('hidden');
-    if (progressWrap) progressWrap.classList.remove('hidden');
-    if (nextBtn) nextBtn.disabled = true;
-  } else if (_onbLlmReady) {
-    if (statusEl) { statusEl.textContent = t('onboarding.smart_llm_ready'); statusEl.className = 'onb-model-status ready'; }
-    if (downloadBtn) downloadBtn.classList.add('hidden');
-    if (progressWrap) progressWrap.classList.add('hidden');
-    if (nextBtn) nextBtn.disabled = false;
-  } else {
-    if (statusEl) { statusEl.textContent = t('onboarding.model_needed'); statusEl.className = 'onb-model-status needed'; }
-    if (downloadBtn) downloadBtn.classList.remove('hidden');
-    if (progressWrap) progressWrap.classList.add('hidden');
-    if (nextBtn) nextBtn.disabled = true;
-  }
-}
-
-async function onbDownloadLLM() {
-  if (_onbLlmDownloading || !window.downloadLLM) return;
-  _onbLlmDownloading = true;
-  onbTrackEvent('onboarding_smart_model_download_started', true);
-  onbUpdateLlmUI();
-  try {
-    await window.downloadLLM(_onbLlmModel);
-  } catch (e) {
-    _onbLlmDownloading = false;
-    onbUpdateLlmUI();
-  }
-}
-
 async function finishOnboarding(nextAction) {
   // Guard: don't proceed if API mode selected without validated key
   if (_onboardingChoice === 'api' && !_onbApiKeyValid) return;
@@ -524,13 +408,8 @@ async function finishOnboarding(nextAction) {
           cfg.api_key = keyInput.value.trim();
         }
       }
-      if (_onboardingSmart === true) {
-        cfg.smart_mode = true;
-        cfg.smart_mode_provider = 'auto';
-        cfg.local_llm_model = _onbLlmModel;
-      } else if (_onboardingSmart === false) {
-        cfg.smart_mode = false;
-      }
+      // Set smart_mode_target from current language
+      cfg.smart_mode_target = window._lang || 'en';
       const saveResult = await window.saveConfig(JSON.stringify(cfg));
       if (saveResult && saveResult.success === false) {
         showToast(saveResult.error || t('saveError'), true);
@@ -544,18 +423,11 @@ async function finishOnboarding(nextAction) {
           return;
         }
       }
-      // Persist LLM model selection
-      if (_onboardingSmart && window.setLocalLLMModel) {
-        try { await window.setLocalLLMModel(_onbLlmModel); } catch (e) {}
-      }
     }
   } catch (e) { showToast(t('saveError'), true); }
 
   if (window.completeOnboarding) {
     await window.completeOnboarding();
-  }
-  if (_onboardingSmart === false) {
-    onbTrackEvent('onboarding_smart_skipped', true);
   }
   onbTrackEvent('onboarding_completed', true);
 
@@ -588,11 +460,12 @@ async function finishOnboarding(nextAction) {
   }
 }
 
-function restartOnboarding() {
+async function restartOnboarding() {
+  if (window.resetOnboarding) await window.resetOnboarding();
   showOnboarding();
 }
 
-/* ── Onboarding Preferences (Language/Theme on Page 1) ── */
+/* ── Onboarding Preferences (Language on Page 1, Theme on Page 4) ── */
 function onbInitPreferences() {
   // Detect system language — default to 'de' if browser reports German, otherwise 'en'
   let lang = window._lang;
@@ -605,10 +478,6 @@ function onbInitPreferences() {
   }
   document.querySelectorAll('#onbLangOptions .onb-lang-card').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === lang);
-  });
-  const theme = _currentTheme || 'system';
-  document.querySelectorAll('#onbThemeOptions .onb-theme-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.theme === theme);
   });
 }
 
@@ -624,7 +493,7 @@ async function onbSetLanguage(lang) {
 }
 
 async function onbSetTheme(theme) {
-  document.querySelectorAll('#onbThemeOptions .onb-theme-btn').forEach(btn => {
+  document.querySelectorAll('#onbThemeOptionsStep4 .onb-theme-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.theme === theme);
   });
   applyTheme(theme);

@@ -3,7 +3,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -76,13 +78,26 @@ type guiThreadInfo struct {
 
 const _GUI_CARETBLINKING = 0x00000001
 
+var errPasteClipboardOnly = errors.New("paste skipped; clipboard only")
+
+func assumeFocusedInput(cls, appName string) bool {
+	switch cls {
+	case "CASCADIA_HOSTING_WINDOW_CLASS", "ConsoleWindowClass", "mintty", "Chrome_WidgetWin_1":
+		return true
+	}
+	switch strings.ToLower(appName) {
+	case "outlook.exe":
+		return true
+	default:
+		return false
+	}
+}
+
 // hasFocusedInput checks whether a text input has focus (caret blinking).
 // Terminals are always considered as having focus (caret detection unreliable).
 func hasFocusedInput() bool {
 	cls := getForegroundClass()
-	switch cls {
-	case "CASCADIA_HOSTING_WINDOW_CLASS", "ConsoleWindowClass", "mintty",
-		"Chrome_WidgetWin_1": // Electron apps (VSCode, etc.) — caret detection unreliable
+	if assumeFocusedInput(cls, GetActiveAppName()) {
 		return true
 	}
 	var gti guiThreadInfo
@@ -96,7 +111,7 @@ func hasFocusedInput() bool {
 
 // PasteText places text on the clipboard and simulates the appropriate paste shortcut.
 // Detects terminal windows and uses Ctrl+Shift+V or Shift+Insert as needed.
-// Skips the paste keystroke if no text input field is focused (clipboard is still set).
+// Returns errPasteClipboardOnly if no text input field is focused (clipboard is still set).
 func PasteText(text string) error {
 	if err := writeClipboard(text); err != nil {
 		return fmt.Errorf(T("error.clipboard"), err)
@@ -104,7 +119,7 @@ func PasteText(text string) error {
 
 	if !hasFocusedInput() {
 		logInfo("PasteText: no focused input detected, clipboard set only")
-		return nil
+		return errPasteClipboardOnly
 	}
 
 	// Release any held modifier keys to avoid interference

@@ -18,6 +18,14 @@ func bindUIHandlers(w webview.WebView, cfg *Config, recorder *Recorder, history 
 		logInfo("Onboarding completed")
 	})
 
+	w.Bind("resetOnboarding", func() {
+		cfg.SetOnboardingDone(false)
+		if err := cfg.Save(); err != nil {
+			logError("Save config after onboarding reset: %v", err)
+		}
+		logInfo("Onboarding reset")
+	})
+
 	w.Bind("recordOnboardingEvent", func(name string) {
 		if usageStats == nil {
 			return

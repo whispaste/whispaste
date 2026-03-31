@@ -27,7 +27,7 @@ type LocalLLM struct {
 	port    int
 	running bool
 	waitCh  chan error // receives cmd.Wait() result for safe shutdown
-	cfg     *Config   // set during init, used for model selection
+	cfg     *Config    // set during init, used for model selection
 }
 
 var localLLM LocalLLM
@@ -170,7 +170,7 @@ func (l *LocalLLM) Start() (string, error) {
 	if l.cfg != nil {
 		gpuMode = l.cfg.GetGPUAcceleration()
 	}
-	if gpu.ShouldUseGPU(gpuMode, 2048) {
+	if gpu.ShouldUseRecommendedGPU(gpuMode) {
 		args = append(args, "--n-gpu-layers", "-1")
 	}
 

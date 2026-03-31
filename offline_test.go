@@ -145,8 +145,8 @@ func TestTranscribeLocal_FailsFastWhenPreflightBlocks(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected preflight error")
 	}
-	if !strings.Contains(err.Error(), "AVX") {
-		t.Fatalf("TranscribeLocal error = %q, want AVX preflight detail", err.Error())
+	if !strings.Contains(err.Error(), "processor") {
+		t.Fatalf("TranscribeLocal error = %q, want processor preflight detail", err.Error())
 	}
 }
 
