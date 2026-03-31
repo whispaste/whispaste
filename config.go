@@ -121,28 +121,28 @@ const defaultSmartModeTargetLanguage = "en"
 // DefaultConfig returns a config with sensible defaults.
 func DefaultConfig() *Config {
 	return &Config{
-		HotkeyMods:       []string{"Ctrl", "Shift"},
-		HotkeyKey:        "D",
-		Mode:             "push_to_talk",
-		Language:         "auto",
-		Model:            "whisper-1",
-		OverlayPos:       "top_center",
-		AutoPaste:        true,
-		PlaySounds:       true,
-		CheckUpdates:     true,
-		UILanguage:       detectSystemLanguage(),
-		Theme:            "system",
-		CloseToTray:      true,
-		SoundVolume:      1.0,
-		MaxRecordSec:     120,
-		NotifyBackground: true,
-		NotifyComplete:   true,
-		NotifyDonate:     true,
-		SmartModeTarget:  defaultSmartModeTargetLanguage,
-		UseLocalSTT:      false,
-		LocalModelID:     "whisper-small",
-		InputGain:        1.0,
-		UpdateChannel:    "stable",
+		HotkeyMods:            []string{"Ctrl", "Shift"},
+		HotkeyKey:             "D",
+		Mode:                  "push_to_talk",
+		Language:              "auto",
+		Model:                 "whisper-1",
+		OverlayPos:            "top_center",
+		AutoPaste:             true,
+		PlaySounds:            true,
+		CheckUpdates:          true,
+		UILanguage:            detectSystemLanguage(),
+		Theme:                 "system",
+		CloseToTray:           true,
+		SoundVolume:           1.0,
+		MaxRecordSec:          120,
+		NotifyBackground:      true,
+		NotifyComplete:        true,
+		NotifyDonate:          true,
+		SmartModeTarget:       defaultSmartModeTargetLanguage,
+		UseLocalSTT:           false,
+		LocalModelID:          "whisper-small",
+		InputGain:             1.0,
+		UpdateChannel:         "stable",
 		ErrorReportingEnabled: true,
 	}
 }
@@ -439,6 +439,27 @@ func (c *Config) GetAPIEndpoint() string {
 	return "https://api.openai.com/v1/audio/transcriptions"
 }
 
+// GetMode returns the recording mode (thread-safe).
+func (c *Config) GetMode() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Mode
+}
+
+// GetLanguage returns the configured language preference (thread-safe).
+func (c *Config) GetLanguage() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Language
+}
+
+// GetModel returns the selected cloud STT model (thread-safe).
+func (c *Config) GetModel() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Model
+}
+
 // GetPrompt returns the Whisper prompt (thread-safe).
 func (c *Config) GetPrompt() string {
 	c.mu.RLock()
@@ -693,6 +714,13 @@ func (c *Config) GetOnboardingDone() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.OnboardingDone
+}
+
+// GetActiveProfile returns the active profile name (thread-safe).
+func (c *Config) GetActiveProfile() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.ActiveProfile
 }
 
 func (c *Config) SetOnboardingDone(done bool) {
