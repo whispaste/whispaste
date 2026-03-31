@@ -97,6 +97,7 @@ func main() {
 	}
 	migrateLegacyLLMModel()
 	localLLM.cfg = cfg
+	localSTT.cfg = cfg
 	SetLanguage(cfg.GetUILanguage())
 	SetSoundVolume(cfg.SoundVolume)
 
@@ -655,6 +656,7 @@ func main() {
 						}
 					}
 				}
+				smartModeFallback := false
 				if smartEnabled && smartPreset != "" && smartPreset != "off" {
 					if overlay != nil {
 						overlay.SetSmartMode(true)
@@ -677,6 +679,7 @@ func main() {
 							if smartProvider == "local" {
 								logError("Local LLM required but not available, skipping post-processing")
 								skipPostProcess = true
+								smartModeFallback = true
 							}
 						}
 					} else if smartProvider == "cloud" || smartProvider == "auto" {
@@ -703,6 +706,7 @@ func main() {
 						}
 						if ppErr != nil {
 							logWarn("Smart mode error (using raw text): %v", ppErr)
+							smartModeFallback = true
 						} else {
 							text = processed
 							if smartPreset == "translate" && smartTarget != "" {
@@ -772,9 +776,19 @@ func main() {
 				if autoPaste && recSrc != SourceAppUI && !postProcCancelled {
 					// PasteText writes to clipboard and simulates Ctrl+V
 					if err := PasteText(text); err != nil {
-						logError("Paste error: %v", err)
-						if playSounds {
-							PlayFeedback(SoundError)
+						if errors.Is(err, errPasteClipboardOnly) {
+							logWarn("Paste fallback: clipboard only (%v)", err)
+							if tray != nil {
+								tray.ShowBalloon(AppName, T("balloon.paste_clipboard_only"))
+							}
+							if playSounds {
+								PlayFeedback(SoundSuccess)
+							}
+						} else {
+							logError("Paste error: %v", err)
+							if playSounds {
+								PlayFeedback(SoundError)
+							}
 						}
 					} else {
 						logInfo("Transcription pasted (%d chars)", len(text))
@@ -792,6 +806,9 @@ func main() {
 					if playSounds {
 						PlayFeedback(SoundSuccess)
 					}
+				}
+				if smartModeFallback && !postProcCancelled && tray != nil {
+					tray.ShowBalloon(AppName, T("balloon.smart_mode_raw"))
 				}
 
 				// Show "Copied" feedback briefly, then auto-hide

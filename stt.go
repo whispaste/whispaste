@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/whispaste/whispaste/internal/gpu"
 	"github.com/whispaste/whispaste/internal/inference"
 )
 
@@ -29,6 +30,7 @@ type LocalSTT struct {
 	modelPath  string
 	waitCh     chan error
 	startupLog *limitedProcessOutput
+	cfg        *Config
 }
 
 var localSTT LocalSTT
@@ -131,14 +133,18 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 	port := tcpAddr.Port
 	listener.Close()
 
-	threads := sttThreadCount()
-	cmd := exec.Command(serverPath,
-		"--model", modelPath,
-		"--host", loopbackHost,
-		"--port", fmt.Sprintf("%d", port),
-		"--threads", fmt.Sprintf("%d", threads),
-	)
-	logInfo("Starting whisper-server with %d threads (logical CPUs: %d)", threads, runtime.NumCPU())
+	gpuMode := "auto"
+	if s.cfg != nil {
+		gpuMode = s.cfg.GetGPUAcceleration()
+	}
+	if err := EnsureSTTServerRuntime(gpuMode); err != nil {
+		logWarn("STT runtime refresh failed, continuing with installed runtime: %v", err)
+	}
+
+	threads := sttThreadCount(gpuMode)
+	backend := gpu.RecommendSTTBackend(gpuMode)
+	cmd := exec.Command(serverPath, sttServerArgs(modelPath, port, threads, gpuMode)...)
+	logInfo("Starting whisper-server with backend=%s and %d threads (logical CPUs: %d)", backend, threads, runtime.NumCPU())
 	logDebug("whisper-server command: %s", strings.Join(cmd.Args, " "))
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	startupLog := &limitedProcessOutput{}
@@ -349,9 +355,28 @@ func (s *LocalSTT) Endpoint() string {
 	return fmt.Sprintf("http://%s:%d", loopbackHost, s.port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 }
 
+func sttServerArgs(modelPath string, port int, threads int, gpuMode string) []string {
+	args := []string{
+		"--model", modelPath,
+		"--host", loopbackHost,
+		"--port", fmt.Sprintf("%d", port),
+		"--threads", fmt.Sprintf("%d", threads),
+	}
+	if gpuMode == "disabled" {
+		return append(args, "--no-gpu")
+	}
+	if gpu.RecommendSTTBackend(gpuMode) != gpu.BackendCPU {
+		return append(args, "--flash-attn")
+	}
+	return args
+}
+
 // sttThreadCount returns the optimal thread count for whisper-server.
-// Delegates to the centralized inference config for consistent CPU utilization.
-func sttThreadCount() int {
+// CPU-only STT keeps one extra core free for capture/UI responsiveness.
+func sttThreadCount(gpuMode string) int {
+	if gpu.RecommendSTTBackend(gpuMode) == gpu.BackendCPU {
+		return inference.STTThreadsCPUOnly()
+	}
 	return inference.STTThreads()
 }
 

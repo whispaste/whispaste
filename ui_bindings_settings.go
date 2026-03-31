@@ -18,6 +18,84 @@ import (
 	webview "github.com/webview/webview_go"
 )
 
+type availableModelInfo struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Meta    string `json:"meta"`
+	IsLocal bool   `json:"isLocal"`
+}
+
+func selectedCloudSTTProviderInfo(providerID string) provider.STTProviderInfo {
+	fallback := provider.STTProviderInfo{ID: "openai", Name: "OpenAI", DefaultModel: "whisper-1"}
+	for _, info := range provider.CloudSTTProviders {
+		if info.ID == "openai" {
+			fallback = info
+		}
+		if info.ID == providerID {
+			return info
+		}
+	}
+	return fallback
+}
+
+func availableModelEntries(cfg *Config, downloaded []models.Info) []availableModelInfo {
+	var modelList []availableModelInfo
+
+	providerInfo := selectedCloudSTTProviderInfo(cfg.GetCloudSTTProvider())
+	if cfg.HasCloudSTTKey() {
+		apiModel := selectedCloudSTTModel(cfg)
+		cloudName := providerInfo.Name
+		if cloudName == "" {
+			cloudName = "Cloud"
+		}
+		modelList = append(modelList, availableModelInfo{
+			ID:      apiModel,
+			Name:    cloudName + " (" + apiModel + ")",
+			Meta:    "Cloud",
+			IsLocal: false,
+		})
+	}
+	for _, m := range downloaded {
+		modelList = append(modelList, availableModelInfo{
+			ID:      m.ID,
+			Name:    m.Name,
+			Meta:    "Local · " + m.Size,
+			IsLocal: true,
+		})
+	}
+	return modelList
+}
+
+func selectedCloudSTTModel(cfg *Config) string {
+	providerInfo := selectedCloudSTTProviderInfo(cfg.GetCloudSTTProvider())
+	cfg.mu.RLock()
+	model := cfg.Model
+	cfg.mu.RUnlock()
+	if model == "" {
+		model = providerInfo.DefaultModel
+	}
+	if model == "" {
+		model = "whisper-1"
+	}
+	return model
+}
+
+func createSelectedCloudSTT(cfg *Config, apiKeyOverride string) (provider.STTProvider, string, error) {
+	providerID := cfg.GetCloudSTTProvider()
+	apiKey := apiKeyOverride
+	if apiKey == "" {
+		apiKey = cfg.CloudSTTAPIKey()
+	}
+	if apiKey == "" {
+		return nil, "", fmt.Errorf("no API key configured for %s STT", providerID)
+	}
+	stt, err := provider.NewCloudSTT(providerID, apiKey)
+	if err != nil {
+		return nil, "", err
+	}
+	return stt, selectedCloudSTTModel(cfg), nil
+}
+
 // bindSettingsHandlers registers settings, config, audio, and model-related JS bindings.
 func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, onSaved func()) {
 
@@ -168,7 +246,16 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 			text, err2 = TranscribeLocal(pcm, 16000, cfg.Language, cfg.GetLocalModelID())
 		} else {
 			wavData := wav.Encode(pcm, 16000, 1, 16)
-			text, err2 = Transcribe(context.Background(), wavData, cfg.Language, cfg.GetAPIKey(), model, cfg.GetAPIEndpoint(), "")
+			stt, cloudModel, err := createSelectedCloudSTT(cfg, "")
+			if err != nil {
+				logWarn("Test transcription cloud setup failed: %v", err)
+				return map[string]interface{}{"success": false, "text": "", "error": err.Error()}
+			}
+			model = cloudModel
+			text, err2 = stt.Transcribe(context.Background(), wavData, cfg.Language, provider.STTOptions{
+				Model:    model,
+				Language: cfg.Language,
+			})
 		}
 		if err2 != nil {
 			logError("Test transcription failed: %v", err2)
@@ -227,7 +314,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 	})
 
 	w.Bind("_testApiKey", func(key string) map[string]interface{} {
-		err := TestAPIKey(key, cfg.GetAPIEndpoint())
+		err := TestCloudSTTKey(cfg.GetCloudSTTProvider(), key)
 		if err != nil {
 			return map[string]interface{}{"success": false, "error": err.Error()}
 		}
@@ -324,7 +411,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 				cfg.mu.Unlock()
 				cfg.Save()
 				logInfo("Active model deleted, fell back to %s", downloaded[0].ID)
-			} else if cfg.HasAnyCloudKey() {
+			} else if cfg.HasCloudSTTKey() {
 				cfg.mu.Lock()
 				cfg.ActiveModelLocal = false
 				cfg.mu.Unlock()
@@ -409,25 +496,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 	})
 
 	w.Bind("getAvailableModels", func() string {
-		type modelInfo struct {
-			ID      string `json:"id"`
-			Name    string `json:"name"`
-			Meta    string `json:"meta"`
-			IsLocal bool   `json:"isLocal"`
-		}
-		var modelList []modelInfo
-		if cfg.GetAPIKey() != "" {
-			cfg.mu.RLock()
-			apiModel := cfg.Model
-			cfg.mu.RUnlock()
-			if apiModel == "" {
-				apiModel = "whisper-1"
-			}
-			modelList = append(modelList, modelInfo{ID: apiModel, Name: "Whisper API (" + apiModel + ")", Meta: "Cloud", IsLocal: false})
-		}
-		for _, m := range models.ListDownloaded() {
-			modelList = append(modelList, modelInfo{ID: m.ID, Name: m.Name, Meta: "Local · " + m.Size, IsLocal: true})
-		}
+		modelList := availableModelEntries(cfg, models.ListDownloaded())
 		data, _ := json.Marshal(modelList)
 		return string(data)
 	})

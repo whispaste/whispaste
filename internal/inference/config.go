@@ -45,7 +45,9 @@ func ProfileForPreset(preset string) Profile {
 	switch preset {
 	case "cleanup", "concise":
 		return Precise
-	case "email", "bullets", "formal", "aiprompt", "summary", "meeting":
+	case "email":
+		return Precise
+	case "bullets", "formal", "aiprompt", "summary", "meeting":
 		return Balanced
 	case "social", "casual":
 		return Creative
@@ -86,6 +88,18 @@ func OptimalThreads(minThreads, maxThreads int) int {
 // STTThreads returns the optimal thread count for whisper.cpp.
 func STTThreads() int {
 	return OptimalThreads(2, 12)
+}
+
+// STTThreadsCPUOnly keeps one extra core free on CPU-only systems for UI/audio responsiveness.
+func STTThreadsCPUOnly() int {
+	n := runtime.NumCPU() - 1
+	if n < 2 {
+		n = 2
+	}
+	if n > 12 {
+		n = 12
+	}
+	return n
 }
 
 // LLMThreads returns the optimal thread count for llama.cpp.

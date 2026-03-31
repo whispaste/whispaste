@@ -59,6 +59,7 @@ func TestBuildSmartPrompt(t *testing.T) {
 		{"unknown preset", "nonexistent", "", "", "en", nil, true, ""},
 		{"same language guardrail", "email", "", "", "de", nil, false, "The user's input is in German"},
 		{"language hint used", "email", "", "", "fr", nil, false, "The user's input is in French"},
+		{"email requires greeting", "email", "", "", "en", nil, false, "MUST include a suitable greeting"},
 		{"user template", "mypreset", "", "", "en", map[string]string{"mypreset": "Do stuff"}, false, "TRANSFORMATION INSTRUCTIONS:\nDo stuff"},
 	}
 	for _, tt := range tests {

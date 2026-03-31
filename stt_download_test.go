@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -137,10 +139,10 @@ func TestMatchSTTAsset(t *testing.T) {
 
 func TestSTTAssetCandidates(t *testing.T) {
 	origDetect := gpuDetect
-	origShouldUse := gpuShouldUse
+	origShouldUse := gpuShouldUseRecommended
 	t.Cleanup(func() {
 		gpuDetect = origDetect
-		gpuShouldUse = origShouldUse
+		gpuShouldUseRecommended = origShouldUse
 	})
 
 	tests := []struct {
@@ -180,7 +182,7 @@ func TestSTTAssetCandidates(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gpuDetect = func() gpu.Info { return tt.detect }
-			gpuShouldUse = func(mode string, minVRAMMB int) bool { return tt.useGPU }
+			gpuShouldUseRecommended = func(mode string) bool { return tt.useGPU }
 
 			got := sttAssetCandidates(tt.mode)
 			if len(got) != len(tt.wantRepos) {
@@ -201,15 +203,15 @@ func TestSTTAssetCandidates(t *testing.T) {
 func TestResolveSTTServerURLFallsBackAcrossRepos(t *testing.T) {
 	origFetch := fetchSTTReleaseAssets
 	origDetect := gpuDetect
-	origShouldUse := gpuShouldUse
+	origShouldUse := gpuShouldUseRecommended
 	t.Cleanup(func() {
 		fetchSTTReleaseAssets = origFetch
 		gpuDetect = origDetect
-		gpuShouldUse = origShouldUse
+		gpuShouldUseRecommended = origShouldUse
 	})
 
 	gpuDetect = func() gpu.Info { return gpu.Info{Available: true, Vendor: gpu.VendorAMD} }
-	gpuShouldUse = func(mode string, minVRAMMB int) bool { return true }
+	gpuShouldUseRecommended = func(mode string) bool { return true }
 
 	fetchSTTReleaseAssets = func(repo string) ([]ReleaseAsset, error) {
 		switch repo {
@@ -223,11 +225,105 @@ func TestResolveSTTServerURLFallsBackAcrossRepos(t *testing.T) {
 		}
 	}
 
-	got, err := resolveSTTServerURL("auto")
+	got, actualKey, err := resolveSTTServerURL("auto")
 	if err != nil {
 		t.Fatalf("resolveSTTServerURL() error = %v", err)
 	}
 	if !strings.Contains(got, "whisper-blas-bin-x64.zip") {
 		t.Errorf("resolveSTTServerURL() = %q, want upstream CPU fallback", got)
+	}
+	if actualKey != "blas-bin-x64" {
+		t.Errorf("resolveSTTServerURL() actualKey = %q, want %q", actualKey, "blas-bin-x64")
+	}
+}
+
+func TestSTTServerAssetMarkers(t *testing.T) {
+	dir := t.TempDir()
+	if got := sttServerAssetKey(dir); got != "" {
+		t.Fatalf("sttServerAssetKey(empty) = %q, want empty", got)
+	}
+	if got := sttServerRequestedKey(dir); got != "" {
+		t.Fatalf("sttServerRequestedKey(empty) = %q, want empty", got)
+	}
+
+	writeSTTServerAssetKey(dir, "whisper-server-cpu-x64")
+	writeSTTServerRequestedKey(dir, "whisper-server-vulkan-x64")
+
+	if got := sttServerAssetKey(dir); got != "whisper-server-cpu-x64" {
+		t.Fatalf("sttServerAssetKey() = %q, want %q", got, "whisper-server-cpu-x64")
+	}
+	if got := sttServerRequestedKey(dir); got != "whisper-server-vulkan-x64" {
+		t.Fatalf("sttServerRequestedKey() = %q, want %q", got, "whisper-server-vulkan-x64")
+	}
+}
+
+func TestSTTServerNeedsRefresh(t *testing.T) {
+	dir := t.TempDir()
+	serverPath := filepath.Join(dir, "whisper-server.exe")
+	if err := os.WriteFile(serverPath, []byte("stub"), 0600); err != nil {
+		t.Fatalf("write server: %v", err)
+	}
+
+	if !sttServerNeedsRefresh(dir, "auto") {
+		t.Fatal("missing markers should trigger runtime refresh")
+	}
+
+	writeSTTServerAssetKey(dir, "whisper-server-vulkan-x64")
+	writeSTTServerRequestedKey(dir, "whisper-server-vulkan-x64")
+
+	if sttServerNeedsRefresh(dir, "auto") {
+		t.Fatal("matching markers should not trigger runtime refresh")
+	}
+}
+
+func TestEnsureSTTServerRuntimeRefreshesAndWritesMarkers(t *testing.T) {
+	origDownload := downloadAndExtractSTTServerFn
+	origShouldUse := gpuShouldUseRecommended
+	origDetect := gpuDetect
+	t.Cleanup(func() {
+		downloadAndExtractSTTServerFn = origDownload
+		gpuShouldUseRecommended = origShouldUse
+		gpuDetect = origDetect
+	})
+
+	appData := t.TempDir()
+	t.Setenv("APPDATA", appData)
+	gpuDetect = func() gpu.Info { return gpu.Info{Available: true, Vendor: gpu.VendorIntel} }
+	gpuShouldUseRecommended = func(mode string) bool { return true }
+
+	dir := filepath.Join(appData, AppName, "models", "stt")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatalf("mkdir stt dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "whisper-server.exe"), []byte("old"), 0600); err != nil {
+		t.Fatalf("write old server: %v", err)
+	}
+
+	called := 0
+	downloadAndExtractSTTServerFn = func(destDir string, gpuMode string, progressFn func(pct int)) (string, error) {
+		called++
+		if destDir != dir {
+			t.Fatalf("destDir = %q, want %q", destDir, dir)
+		}
+		if gpuMode != "auto" {
+			t.Fatalf("gpuMode = %q, want auto", gpuMode)
+		}
+		if err := os.WriteFile(filepath.Join(destDir, "whisper-server.exe"), []byte("new"), 0600); err != nil {
+			t.Fatalf("write refreshed server: %v", err)
+		}
+		return "whisper-server-vulkan-x64", nil
+	}
+
+	if err := EnsureSTTServerRuntime("auto"); err != nil {
+		t.Fatalf("EnsureSTTServerRuntime() error = %v", err)
+	}
+	if called != 1 {
+		t.Fatalf("downloadAndExtractSTTServerFn called %d times, want 1", called)
+	}
+	if got := sttServerAssetKey(dir); got != "whisper-server-vulkan-x64" {
+		t.Fatalf("sttServerAssetKey() = %q, want %q", got, "whisper-server-vulkan-x64")
+	}
+	if got := sttServerRequestedKey(dir); got != "whisper-server-vulkan-x64" {
+		t.Fatalf("sttServerRequestedKey() = %q, want %q", got, "whisper-server-vulkan-x64")
 	}
 }

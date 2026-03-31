@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/whispaste/whispaste/internal/models"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -215,6 +217,60 @@ func TestConfigVADRoundtrip(t *testing.T) {
 	}
 	if decoded.GetVADSensitivity() != 0.7 {
 		t.Errorf("GetVADSensitivity() = %f, want 0.7", decoded.GetVADSensitivity())
+	}
+}
+
+func TestHasCloudSTTKeyUsesSelectedProvider(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.APIKey = "openai-key"
+	cfg.CloudSTTProvider = "deepgram"
+	if cfg.HasCloudSTTKey() {
+		t.Fatal("HasCloudSTTKey should be false when selected provider key is missing")
+	}
+
+	cfg.DeepgramAPIKey = "deepgram-key"
+	if !cfg.HasCloudSTTKey() {
+		t.Fatal("HasCloudSTTKey should be true when selected provider key is configured")
+	}
+}
+
+func TestHasAnyModelUsesSelectedCloudSTTOrLocalModel(t *testing.T) {
+	t.Setenv("APPDATA", t.TempDir())
+	models.Init("whispaste-config-test")
+	t.Cleanup(func() { models.Init(AppName) })
+
+	cfg := DefaultConfig()
+	cfg.APIKey = "openai-key"
+	cfg.CloudSTTProvider = "deepgram"
+	if cfg.HasAnyModel() {
+		t.Fatal("HasAnyModel should be false when only a non-selected STT key is configured")
+	}
+
+	cfg.DeepgramAPIKey = "deepgram-key"
+	if !cfg.HasAnyModel() {
+		t.Fatal("HasAnyModel should be true when the selected STT provider key is configured")
+	}
+
+	cfg.DeepgramAPIKey = ""
+	cfg.APIKey = ""
+	if cfg.HasAnyModel() {
+		t.Fatal("HasAnyModel should be false without selected cloud STT key or local model")
+	}
+
+	modelDir, err := models.Dir()
+	if err != nil {
+		t.Fatalf("models.Dir returned error: %v", err)
+	}
+	sttDir := filepath.Join(modelDir, "stt")
+	if err := os.MkdirAll(sttDir, 0700); err != nil {
+		t.Fatalf("MkdirAll returned error: %v", err)
+	}
+	modelFile := filepath.Join(sttDir, models.Available[0].Filename)
+	if err := os.WriteFile(modelFile, []byte("test"), 0600); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+	if !cfg.HasAnyModel() {
+		t.Fatal("HasAnyModel should be true when a local model is downloaded")
 	}
 }
 

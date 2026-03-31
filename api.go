@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/whispaste/whispaste/internal/provider"
 )
 
 const (
@@ -220,6 +222,50 @@ func TestAPIKey(apiKey, endpoint string) error {
 		return fmt.Errorf("invalid API key")
 	}
 	if resp.StatusCode >= 400 {
+		return fmt.Errorf("API returned status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// TestCloudSTTKey validates the configured cloud STT provider credentials using the provider's auth scheme.
+func TestCloudSTTKey(providerID, apiKey string) error {
+	switch providerID {
+	case "", "openai":
+		return TestAPIKey(apiKey, provider.OpenAISTTEndpoint)
+	case "groq":
+		return TestAPIKey(apiKey, provider.GroqSTTEndpoint)
+	case "deepgram":
+		return testDeepgramAPIKey(apiKey)
+	default:
+		return fmt.Errorf("unknown STT provider: %s", providerID)
+	}
+}
+
+func testDeepgramAPIKey(apiKey string) error {
+	if apiKey == "" {
+		return fmt.Errorf("API key is empty")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.deepgram.com/v1/projects", nil)
+	if err != nil {
+		return fmt.Errorf("request creation failed: %w", err)
+	}
+	req.Header.Set("Authorization", "Token "+apiKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("connection failed: %w", err)
+	}
+	defer resp.Body.Close()
+	io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return fmt.Errorf("invalid API key")
+	}
+	if resp.StatusCode >= http.StatusBadRequest {
 		return fmt.Errorf("API returned status %d", resp.StatusCode)
 	}
 	return nil

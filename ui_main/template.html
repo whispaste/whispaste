@@ -29,7 +29,7 @@
       <div class="nav-item" data-page="smartmode" data-tooltip="Smart Mode" data-i18n-tooltip="navSmartMode">
         <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
       </div>
-      <div class="nav-item" data-page="replacements" data-tooltip="Snippets" data-i18n-tooltip="navReplacements">
+      <div class="nav-item" data-page="replacements" data-tooltip="Text Replacements" data-i18n-tooltip="navReplacements">
         <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4c0-1.1.9-2 2-2"/><path d="M20 2c1.1 0 2 .9 2 2"/><path d="M22 8c0 1.1-.9 2-2 2"/><path d="M16 10c-1.1 0-2-.9-2-2"/><rect x="2" y="14" width="8" height="8" rx="2"/><path d="m6 6 8 8"/></svg>
       </div>
       <div class="nav-item" data-page="analytics" data-tooltip="Analytics" data-i18n-tooltip="navAnalytics">
@@ -134,10 +134,26 @@
             <span class="onb-lang-code">DE</span>
           </button>
         </div>
-        <div class="onb-theme-selector" id="onbThemeOptions">
-          <button class="onb-theme-btn" data-theme="system" onclick="onbSetTheme('system')" data-i18n-title="onboarding.theme_system" title="System"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></button>
-          <button class="onb-theme-btn" data-theme="light" onclick="onbSetTheme('light')" data-i18n-title="onboarding.theme_light" title="Light"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
-          <button class="onb-theme-btn" data-theme="dark" onclick="onbSetTheme('dark')" data-i18n-title="onboarding.theme_dark" title="Dark"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
+      </div>
+      <div class="onb-persona-section" id="onbPersonaSection">
+        <p class="onb-persona-question" data-i18n="onboarding.persona_question">How will you use WhisPaste?</p>
+        <div class="onb-persona-cards">
+          <button class="onb-persona-card" data-persona="content" onclick="onbSelectPersona('content')">
+            <span class="onb-persona-icon">✍️</span>
+            <span class="onb-persona-label" data-i18n="onboarding.persona_content">Content Creation</span>
+          </button>
+          <button class="onb-persona-card" data-persona="office" onclick="onbSelectPersona('office')">
+            <span class="onb-persona-icon">📋</span>
+            <span class="onb-persona-label" data-i18n="onboarding.persona_office">Office & Admin</span>
+          </button>
+          <button class="onb-persona-card" data-persona="dev" onclick="onbSelectPersona('dev')">
+            <span class="onb-persona-icon">💻</span>
+            <span class="onb-persona-label" data-i18n="onboarding.persona_dev">Development</span>
+          </button>
+          <button class="onb-persona-card" data-persona="general" onclick="onbSelectPersona('general')">
+            <span class="onb-persona-icon">🎙️</span>
+            <span class="onb-persona-label" data-i18n="onboarding.persona_general">General Use</span>
+          </button>
         </div>
       </div>
       <div class="onboarding-actions">
@@ -146,6 +162,7 @@
       <div class="onboarding-dots">
         <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
       </div>
+      <a class="onb-skip-link" href="#" onclick="finishOnboarding('history');return false" data-i18n="onboarding.skip">Skip setup</a>
     </div>
 
     <!-- Step 2: Choose transcription method -->
@@ -209,101 +226,85 @@
       </div>
     </div>
 
-    <!-- Step 3: Smart Mode -->
+    <!-- Step 3: First Dictation — Aha Moment -->
     <div class="onboarding-step hidden" data-step="3">
-      <div class="onboarding-icon">
+      <div class="onboarding-icon onboarding-icon-mic">
         <svg class="icon" aria-hidden="true" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-          <path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>
         </svg>
       </div>
-      <h2 class="onboarding-title" data-i18n="onboarding.smart_title">Optional: AI Text Enhancement</h2>
-      <p class="onboarding-desc" data-i18n="onboarding.smart_desc">Start with plain transcription now, or add Smart Mode if you want WhisPaste to clean up and reshape the final text automatically.</p>
-      <div class="onboarding-options">
-        <div class="onboarding-option" id="onb-smart-on" tabindex="0" role="button" onclick="selectOnboardingSmart(true)">
-          <div class="onboarding-option-icon"><svg class="icon" aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-          </div>
-          <div class="onboarding-option-text">
-            <strong data-i18n="onboarding.smart_enable">Enable Smart Mode</strong>
-            <small data-i18n="onboarding.smart_enable_desc">AI refines text before pasting</small>
-          </div>
+      <h2 class="onboarding-title" data-i18n="onboarding.aha_title">Try It Now!</h2>
+      <p class="onboarding-desc" data-i18n="onboarding.aha_desc">Everything is set up. Start a short recording to see WhisPaste in action — your text will appear in History instantly.</p>
+      <div class="onb-aha-section">
+        <div class="onb-hotkey-display">
+          <kbd id="onbHotkeyDisplay">Ctrl+Shift+D</kbd>
+          <p class="onb-hotkey-hint" data-i18n="onboarding.aha_hotkey_hint">This is your global shortcut — it works from any app.</p>
         </div>
-        <div class="onboarding-option" id="onb-smart-off" tabindex="0" role="button" onclick="selectOnboardingSmart(false)">
-          <div class="onboarding-option-icon"><svg class="icon" aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          </div>
-          <div class="onboarding-option-text">
-            <strong data-i18n="onboarding.smart_disable">Plain Text Only</strong>
-            <small data-i18n="onboarding.smart_disable_desc">Your spoken text is pasted exactly as recognized</small>
-          </div>
-        </div>
-      </div>
-      <div class="onboarding-llm-models hidden" id="onbLlmModelSection">
-        <p class="onb-llm-hint" data-i18n="onboarding.smart_llm_hint">Download a model to use Smart Mode offline</p>
-        <div class="onb-llm-cards">
-          <div class="onb-llm-card" data-llm-id="smollm2" tabindex="0" role="button" onclick="onbSelectLLMModel('smollm2')">
-            <div class="onb-llm-card-name" data-i18n="onboarding.smart_llm_smollm2">SmolLM2</div>
-            <div class="onb-llm-card-desc" data-i18n="onboarding.smart_llm_smollm2_desc">Compact · 270 MB · 6 Languages</div>
-          </div>
-          <div class="onb-llm-card" data-llm-id="qwen2.5-0.5b" tabindex="0" role="button" onclick="onbSelectLLMModel('qwen2.5-0.5b')">
-            <div class="onb-llm-card-name" data-i18n="onboarding.smart_llm_qwen25">Qwen2.5-0.5B</div>
-            <div class="onb-llm-card-desc" data-i18n="onboarding.smart_llm_qwen25_desc">Fast · 490 MB · 29 Languages</div>
-          </div>
-          <div class="onb-llm-card selected" data-llm-id="qwen3.5-0.8b" tabindex="0" role="button" onclick="onbSelectLLMModel('qwen3.5-0.8b')">
-            <div class="onb-llm-card-name" data-i18n="onboarding.smart_llm_qwen3">Qwen3.5-0.8B</div>
-            <div class="onb-llm-card-desc" data-i18n="onboarding.smart_llm_qwen3_desc">Powerful · 530 MB · 29 Languages</div>
-          </div>
-        </div>
-        <div class="onb-model-status-row">
-          <span class="onb-model-status needed" id="onbLlmStatus" data-i18n="onboarding.model_needed">Download required</span>
-          <button class="btn btn-primary btn-sm" id="onbLlmDownloadBtn" onclick="onbDownloadLLM()">
-            <svg class="icon" style="width:14px;height:14px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-            <span data-i18n="onboarding.smart_llm_download">Download Model</span>
-          </button>
-          <div class="onb-download-progress hidden" id="onbLlmDownloadProgress">
-            <div class="onb-progress-track"><div class="onb-progress-bar" id="onbLlmProgressBar"></div></div>
-            <span class="onb-progress-label" id="onbLlmProgressLabel">0%</span>
+        <div class="onb-aha-summary">
+          <div class="onb-ready-item">
+            <span class="onb-ready-label" data-i18n="onboarding.ready_mode_label">Transcription</span>
+            <strong id="onbReadyMode">—</strong>
           </div>
         </div>
       </div>
       <div class="onboarding-actions">
+        <button class="btn btn-primary btn-lg onb-aha-btn" onclick="finishOnboarding('capture')">
+          <svg class="icon" style="width:20px;height:20px;margin-right:6px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          <span data-i18n="onboarding.finish_capture">Start First Dictation</span>
+        </button>
+        <button class="btn btn-secondary btn-lg" onclick="finishOnboarding('history')"><span data-i18n="onboarding.finish_explore">Explore First</span></button>
+      </div>
+      <div class="onboarding-actions onb-alt-actions">
         <button class="btn btn-secondary" onclick="prevOnboardingStep()"><span data-i18n="onboarding.back">Back</span></button>
-        <button class="btn btn-primary" id="onbNextStep3" onclick="nextOnboardingStep()" disabled><span data-i18n="onboarding.next">Next</span></button>
+        <button class="btn btn-ghost" onclick="finishOnboarding('settings')"><span data-i18n="onboarding.open_settings">Open Settings Instead</span></button>
       </div>
       <div class="onboarding-dots">
         <span class="dot"></span><span class="dot"></span><span class="dot active"></span><span class="dot"></span>
       </div>
     </div>
 
-    <!-- Step 4: Done -->
+    <!-- Step 4: Make It Yours + Discovery -->
     <div class="onboarding-step hidden" data-step="4">
-      <div class="onboarding-icon onboarding-icon-success">
-        <svg class="icon" aria-hidden="true" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 6 9 17l-5-5"/>
-        </svg>
-      </div>
-      <h2 class="onboarding-title" data-i18n="onboarding.ready_title">Test Your First Dictation</h2>
-      <p class="onboarding-desc" data-i18n="onboarding.ready_desc">Everything important is set. Start one short recording now so you can verify your setup immediately.</p>
-      <div class="onboarding-hotkey-display">
-        <kbd id="onbHotkeyDisplay">Ctrl+Shift+D</kbd>
-      </div>
-      <div class="onb-ready-summary">
-        <div class="onb-ready-item">
-          <span class="onb-ready-label" data-i18n="onboarding.ready_mode_label">Transcription</span>
-          <strong id="onbReadyMode">—</strong>
-        </div>
-        <div class="onb-ready-item">
-          <span class="onb-ready-label" data-i18n="onboarding.ready_smart_label">Text output</span>
-          <strong id="onbReadySmart">—</strong>
-        </div>
-        <div class="onb-ready-item">
-          <span class="onb-ready-label" data-i18n="onboarding.ready_next_label">What happens next</span>
-          <strong id="onbReadyNext">—</strong>
+      <h2 class="onboarding-title" data-i18n="onboarding.discover_title">Make It Yours</h2>
+      <p class="onboarding-desc" data-i18n="onboarding.discover_desc">Customize WhisPaste and discover powerful features you can enable anytime.</p>
+      <div class="onb-theme-section">
+        <p class="onb-section-label" data-i18n="onboarding.theme_label">Appearance</p>
+        <div class="onb-theme-selector" id="onbThemeOptionsStep4">
+          <button class="onb-theme-btn" data-theme="system" onclick="onbSetTheme('system')" data-i18n-title="onboarding.theme_system" title="System"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg><span data-i18n="onboarding.theme_system">System</span></button>
+          <button class="onb-theme-btn" data-theme="light" onclick="onbSetTheme('light')" data-i18n-title="onboarding.theme_light" title="Light"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><span data-i18n="onboarding.theme_light">Light</span></button>
+          <button class="onb-theme-btn" data-theme="dark" onclick="onbSetTheme('dark')" data-i18n-title="onboarding.theme_dark" title="Dark"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span data-i18n="onboarding.theme_dark">Dark</span></button>
         </div>
       </div>
-      <p class="onb-ready-hint" data-i18n="onboarding.ready_hint">After you speak, your text appears in History and can be pasted directly into the app you're using.</p>
+      <div class="onb-discovery-cards">
+        <div class="onb-discovery-card" onclick="finishOnboarding('settings')">
+          <span class="onb-discovery-icon">🧠</span>
+          <div class="onb-discovery-text">
+            <strong data-i18n="onboarding.discover_smart">Smart Mode</strong>
+            <small data-i18n="onboarding.discover_smart_desc">AI cleans up and refines your text before pasting.</small>
+          </div>
+          <span class="onb-discovery-arrow">→</span>
+        </div>
+        <div class="onb-discovery-card" onclick="finishOnboarding('settings')">
+          <span class="onb-discovery-icon">✂️</span>
+          <div class="onb-discovery-text">
+            <strong data-i18n="onboarding.discover_replacements">Text Snippets</strong>
+            <small data-i18n="onboarding.discover_replacements_desc">Auto-replace words or phrases as you dictate.</small>
+          </div>
+          <span class="onb-discovery-arrow">→</span>
+        </div>
+        <div class="onb-discovery-card">
+          <span class="onb-discovery-icon">⚡</span>
+          <div class="onb-discovery-text">
+            <strong data-i18n="onboarding.discover_hotkey">Global Shortcut</strong>
+            <small data-i18n="onboarding.discover_hotkey_desc">Dictate from any app with one key combo.</small>
+          </div>
+          <kbd id="onbHotkeyDisplayStep4" class="onb-discovery-kbd">Ctrl+Shift+D</kbd>
+        </div>
+      </div>
       <div class="onboarding-actions">
-        <button class="btn btn-primary btn-lg" onclick="finishOnboarding('capture')"><span data-i18n="onboarding.finish_capture">Start First Dictation</span></button>
-        <button class="btn btn-secondary btn-lg" onclick="finishOnboarding('history')"><span data-i18n="onboarding.finish_history">Open History First</span></button>
+        <button class="btn btn-secondary" onclick="prevOnboardingStep()"><span data-i18n="onboarding.back">Back</span></button>
+        <button class="btn btn-primary btn-lg" onclick="finishOnboarding('history')"><span data-i18n="onboarding.finish_start">Start WhisPaste</span></button>
       </div>
       <div class="onboarding-dots">
         <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot active"></span>
