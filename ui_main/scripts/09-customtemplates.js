@@ -74,14 +74,23 @@
         <span class="preset-label">${esc(name)}</span>
         <span class="preset-desc">${esc(desc.length > 50 ? desc.slice(0, 50) + '…' : desc)}</span>
         <div class="preset-card-actions">
-          <button class="btn-preset-prompt custom-template-edit" data-name="${esc(name)}" onclick="event.stopPropagation()" title="${t('edit') || 'Edit'}">
+          <button class="btn-preset-prompt" title="${t('edit') || 'Edit'}">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           </button>
-          <button class="btn-preset-prompt custom-template-delete" data-name="${esc(name)}" onclick="event.stopPropagation()" title="${t('replacementsDelete') || 'Delete'}">
+          <button class="btn-preset-prompt" title="${t('replacementsDelete') || 'Delete'}">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
           </button>
         </div>
       `;
+      // Attach handlers directly — delegation doesn't work because
+      // stopPropagation is needed to prevent card selection
+      const [editBtn, delBtn] = card.querySelectorAll('.btn-preset-prompt:last-child').length
+        ? [card.querySelector('.preset-card-actions .btn-preset-prompt:first-child'),
+           card.querySelector('.preset-card-actions .btn-preset-prompt:last-child')]
+        : [null, null];
+      if (editBtn) editBtn.addEventListener('click', (e) => { e.stopPropagation(); editCustomTemplate(name); });
+      if (delBtn) delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteCustomTemplate(name); });
+
       const sel = document.getElementById('select-smartpreset');
       if (sel && sel.value === name) card.classList.add('active');
       if (ghostCard) {
