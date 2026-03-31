@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -197,5 +198,50 @@ func TestBuildEmbedIncludesVersionBuildAndRuntimeConfig(t *testing.T) {
 	}
 	if !strings.Contains(values["Runtime Config"], "provider=openai") {
 		t.Fatalf("Runtime Config field missing snapshot: %q", values["Runtime Config"])
+	}
+}
+
+func TestBuildEmbedSeverityColors(t *testing.T) {
+	cr := &CrashReporter{}
+
+	tests := []struct {
+		severity  string
+		wantColor int
+		wantEmoji string
+	}{
+		{"critical", 0xDC2626, "🔴"},
+		{"error", 0xE97451, "🟠"},
+		{"warning", 0xF59E0B, "🟡"},
+		{"info", 0x3B82F6, "ℹ️"},
+	}
+
+	for _, tc := range tests {
+		report := &crashReport{
+			ID:       newUUID(),
+			Type:     "error",
+			Severity: tc.severity,
+			Message:  "test",
+		}
+		embed := cr.buildEmbed(report)
+
+		color, _ := embed["color"].(int)
+		if color != tc.wantColor {
+			t.Errorf("severity=%q: color=0x%X, want 0x%X", tc.severity, color, tc.wantColor)
+		}
+
+		title, _ := embed["title"].(string)
+		if !strings.Contains(title, tc.wantEmoji) {
+			t.Errorf("severity=%q: title=%q missing emoji %q", tc.severity, title, tc.wantEmoji)
+		}
+	}
+}
+
+func TestExtractExitCode(t *testing.T) {
+	if code := extractExitCode(nil); code != 0 {
+		t.Errorf("nil error: got %d, want 0", code)
+	}
+
+	if code := extractExitCode(fmt.Errorf("some non-exec error")); code != -1 {
+		t.Errorf("generic error: got %d, want -1", code)
 	}
 }

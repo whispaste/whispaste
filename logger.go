@@ -134,10 +134,14 @@ func logInfo(format string, args ...interface{}) {
 	}
 }
 
-// logWarn logs a warning message.
+// logWarn logs a warning message and notifies the crash reporter.
 func logWarn(format string, args ...interface{}) {
 	if logger != nil {
 		logger.log(LogWarn, "WRN", format, args...)
+		if crashReporter != nil && crashReporter.enabled {
+			msg := fmt.Sprintf(format, args...)
+			go crashReporter.captureError(msg, "warning", "warning")
+		}
 	}
 }
 
