@@ -64,6 +64,7 @@ scripts/*
 !scripts/build-whisper-server.ps1
 !scripts/package-whisper-server.ps1
 !scripts/release-whisper-server-assets.ps1
+!scripts/generate-release-notes.ps1
 !scripts/whispercpp-ref.txt
 
 # Internal docs (local only)
