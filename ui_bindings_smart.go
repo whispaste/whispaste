@@ -198,6 +198,62 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		return string(data)
 	})
 
+	w.Bind("exportTemplate", func(name string) string {
+		templates := cfg.GetCustomTemplates()
+		prompt, ok := templates[name]
+		if !ok {
+			return ""
+		}
+		export := TemplateExport{
+			Name:    name,
+			Prompt:  prompt,
+			Version: 1,
+		}
+		data, _ := json.Marshal(export)
+		return string(data)
+	})
+
+	w.Bind("exportAllTemplates", func() string {
+		templates := cfg.GetCustomTemplates()
+		exports := make([]TemplateExport, 0, len(templates))
+		for name, prompt := range templates {
+			exports = append(exports, TemplateExport{
+				Name:    name,
+				Prompt:  prompt,
+				Version: 1,
+			})
+		}
+		data, _ := json.Marshal(exports)
+		return string(data)
+	})
+
+	w.Bind("importTemplate", func(jsonStr string) string {
+		var tmpl TemplateExport
+		if err := json.Unmarshal([]byte(jsonStr), &tmpl); err != nil {
+			return `{"error":"invalid template format"}`
+		}
+		if tmpl.Name == "" || tmpl.Prompt == "" {
+			return `{"error":"name and prompt are required"}`
+		}
+		if len(tmpl.Name) > 50 {
+			return `{"error":"name too long (max 50 characters)"}`
+		}
+		if len(tmpl.Prompt) > 2000 {
+			return `{"error":"prompt too long (max 2000 characters)"}`
+		}
+		// Reject names that collide with builtin presets
+		if _, isBuiltin := smartModePresets[tmpl.Name]; isBuiltin {
+			return `{"error":"cannot overwrite builtin preset"}`
+		}
+		cfg.SaveCustomTemplate(tmpl.Name, tmpl.Prompt)
+		if err := cfg.Save(); err != nil {
+			logError("Import template %q: %v", tmpl.Name, err)
+			return `{"error":"save failed"}`
+		}
+		logInfo("Template imported: %s", tmpl.Name)
+		return `{"ok":true,"name":"` + tmpl.Name + `"}`
+	})
+
 	w.Bind("getTextReplacements", func() string {
 		items := cfg.GetTextReplacements()
 		data, _ := json.Marshal(items)

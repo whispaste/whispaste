@@ -58,6 +58,18 @@ type TemplateMeta struct {
 	Keywords    []string `json:"keywords"`
 }
 
+// TemplateExport is the standardized format for sharing templates.
+// Used for import/export and future community template store.
+type TemplateExport struct {
+	Name        string   `json:"name"`
+	Prompt      string   `json:"prompt"`
+	Description string   `json:"description,omitempty"`
+	Keywords    []string `json:"keywords,omitempty"`
+	Version     int      `json:"version"`
+	Author      string   `json:"author,omitempty"`
+	Language    string   `json:"language,omitempty"`
+}
+
 // debugMode enables WebView2 DevTools and verbose logging.
 // Set via WHISPASTE_DEBUG=1 environment variable.
 var debugMode bool

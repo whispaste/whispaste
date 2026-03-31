@@ -23,7 +23,7 @@ func TestMatchTemplate(t *testing.T) {
 		{"outlook matches email", "OUTLOOK.EXE", "Inbox - Outlook", "email", true},
 		{"new outlook matches email via title", "olk.exe", "Inbox - Outlook (new)", "email", true},
 		{"slack matches casual", "Slack", "general - Slack", "casual", true},
-		{"vscode matches technical", "Code.exe", "main.go - Visual Studio Code", "technical", true},
+		{"vscode matches aiprompt", "Code.exe", "main.go - Visual Studio Code", "aiprompt", true},
 		{"teams matches meeting", "Teams.exe", "Meeting - Microsoft Teams", "meeting", true},
 		{"unknown app no match", "calc.exe", "Calculator", "", false},
 		{"empty input no match", "", "", "", false},
