@@ -40,7 +40,7 @@ website/.astro/
 # Config (contains API keys)
 config.json
 
-# AI agent / skill config (local only)
+# AI agent / skill config (local only — NEVER push to GitHub)
 skills-lock.json
 skills.yaml
 .github/copilot-instructions.md
