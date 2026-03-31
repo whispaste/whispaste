@@ -1,6 +1,7 @@
 package models
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -173,6 +174,10 @@ var modelHTTPClient = &http.Client{
 		DialContext:           (&net.Dialer{Timeout: 30 * time.Second}).DialContext,
 		TLSHandshakeTimeout:   15 * time.Second,
 		ResponseHeaderTimeout: 30 * time.Second,
+		MaxIdleConnsPerHost:    4,
+		IdleConnTimeout:        90 * time.Second,
+		WriteBufferSize:        256 << 10,
+		ReadBufferSize:         256 << 10,
 	},
 }
 
@@ -257,21 +262,28 @@ func DownloadFile(url, dest string, progressFn func(downloaded, total int64)) er
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
 
+	bw := bufio.NewWriterSize(f, 256<<10) // 256 KB write buffer
+
 	var downloaded int64
+	var lastReport int64
 	total := resp.ContentLength
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, 256<<10) // 256 KB read buffer
+
+	const progressInterval int64 = 256 << 10 // report every 256 KB
 
 	for {
 		n, readErr := resp.Body.Read(buf)
 		if n > 0 {
 			idleTimer.Reset(downloadIdleTimeout)
-			if _, wErr := f.Write(buf[:n]); wErr != nil {
+			if _, wErr := bw.Write(buf[:n]); wErr != nil {
+				bw.Flush()
 				f.Close()
 				os.Remove(tmp)
 				return fmt.Errorf("failed to write file: %w", wErr)
 			}
 			downloaded += int64(n)
-			if progressFn != nil {
+			if progressFn != nil && downloaded-lastReport >= progressInterval {
+				lastReport = downloaded
 				progressFn(downloaded, total)
 			}
 		}
@@ -279,6 +291,7 @@ func DownloadFile(url, dest string, progressFn func(downloaded, total int64)) er
 			break
 		}
 		if readErr != nil {
+			bw.Flush()
 			f.Close()
 			os.Remove(tmp)
 			if ctx.Err() != nil {
@@ -286,6 +299,17 @@ func DownloadFile(url, dest string, progressFn func(downloaded, total int64)) er
 			}
 			return fmt.Errorf("failed to read response: %w", readErr)
 		}
+	}
+
+	// Final progress report
+	if progressFn != nil && downloaded != lastReport {
+		progressFn(downloaded, total)
+	}
+
+	if err := bw.Flush(); err != nil {
+		f.Close()
+		os.Remove(tmp)
+		return fmt.Errorf("failed to flush write buffer: %w", err)
 	}
 
 	if err := f.Close(); err != nil {
