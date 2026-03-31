@@ -6,21 +6,27 @@ import (
 )
 
 func TestSanitizeMessage(t *testing.T) {
+	redacted := "[REDACTED — contains sensitive data]"
 	tests := []struct {
 		input string
 		want  string
 	}{
 		{"normal error text", "normal error text"},
-		{"failed with sk-abc123xyz", "[REDACTED — contains sensitive data]"},
-		{"gsk_token_here", "[REDACTED — contains sensitive data]"},
-		{"api_key=SECRET", "[REDACTED — contains sensitive data]"},
-		{"token=bar", "[REDACTED — contains sensitive data]"},
-		{"password=hunter2", "[REDACTED — contains sensitive data]"},
-		{"apiKey=xyz", "[REDACTED — contains sensitive data]"},
+		{"failed with sk-abc123xyz", redacted},
+		{"gsk_token_here", redacted},
+		{"api_key=SECRET", redacted},
+		{"token=bar", redacted},
+		{"password=hunter2", redacted},
+		{"apiKey=xyz", redacted},
+		{"Bearer eyJhbGci...", redacted},
+		{"Authorization: Basic abc", redacted},
+		{"error calling deepgram API", redacted},
+		{"anthropic connection failed", redacted},
+		{"gemini timeout", redacted},
 	}
 	for _, tc := range tests {
 		got := sanitizeMessage(tc.input)
-		if tc.want == "[REDACTED — contains sensitive data]" {
+		if tc.want == redacted {
 			if got != tc.want {
 				t.Errorf("sanitizeMessage(%q) = %q, want %q", tc.input, got, tc.want)
 			}
@@ -33,13 +39,14 @@ func TestSanitizeMessage(t *testing.T) {
 func TestSanitizePaths(t *testing.T) {
 	t.Setenv("USERPROFILE", `C:\Users\testuser`)
 	t.Setenv("USERNAME", "testuser")
-	input := `C:\Users\testuser\Documents\file.go`
+	t.Setenv("APPDATA", `C:\Users\testuser\AppData\Roaming`)
+	input := `C:\Users\testuser\AppData\Roaming\WhisPaste\file.db`
 	got := sanitizePaths(input)
 	if strings.Contains(got, "testuser") {
 		t.Errorf("sanitizePaths did not redact username: %q", got)
 	}
-	if !strings.Contains(got, "<home>") {
-		t.Errorf("sanitizePaths missing <home> placeholder: %q", got)
+	if !strings.Contains(got, "<home>") && !strings.Contains(got, "<appdata>") {
+		t.Errorf("sanitizePaths missing path placeholder: %q", got)
 	}
 }
 

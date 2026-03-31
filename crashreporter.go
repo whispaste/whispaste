@@ -464,8 +464,13 @@ func hashCrash(message, stack string) string {
 
 // sanitizeMessage redacts known sensitive patterns.
 func sanitizeMessage(s string) string {
-	for _, p := range []string{"api_key=", "apiKey=", "token=", "password=", "sk-", "gsk_"} {
-		if strings.Contains(strings.ToLower(s), strings.ToLower(p)) {
+	low := strings.ToLower(s)
+	for _, p := range []string{
+		"api_key=", "apikey=", "token=", "password=",
+		"sk-", "gsk_", "bearer ", "authorization:",
+		"deepgram", "anthropic", "gemini",
+	} {
+		if strings.Contains(low, p) {
 			return "[REDACTED — contains sensitive data]"
 		}
 	}
@@ -481,8 +486,17 @@ func sanitizePaths(s string) string {
 	if home := os.Getenv("USERPROFILE"); home != "" {
 		s = strings.ReplaceAll(s, home, "<home>")
 	}
+	if home := os.Getenv("HOME"); home != "" {
+		s = strings.ReplaceAll(s, home, "<home>")
+	}
 	if user := os.Getenv("USERNAME"); user != "" {
 		s = strings.ReplaceAll(s, user, "<user>")
+	}
+	if user := os.Getenv("USER"); user != "" {
+		s = strings.ReplaceAll(s, user, "<user>")
+	}
+	if appdata := os.Getenv("APPDATA"); appdata != "" {
+		s = strings.ReplaceAll(s, appdata, "<appdata>")
 	}
 	return s
 }
