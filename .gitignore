@@ -36,6 +36,7 @@ node_modules/
 # Astro
 website/dist/
 website/.astro/
+supabase/.temp/
 
 # Config (contains API keys)
 config.json
