@@ -13,6 +13,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -88,6 +90,119 @@ jobs:
           "$hash  whispaste.exe" | Out-File -Encoding ascii -NoNewline whispaste.exe.sha256
           Write-Host "SHA256: $hash"
 
+      - name: Generate changelog (git-cliff)
+        id: changelog
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.TAG }}
+        run: |
+          # Install git-cliff
+          $ProgressPreference = 'SilentlyContinue'
+          $cliffVersion = "2.7.0"
+          $cliffUrl = "https://github.com/orhun/git-cliff/releases/download/v$cliffVersion/git-cliff-$cliffVersion-x86_64-pc-windows-msvc.zip"
+          Invoke-WebRequest -Uri $cliffUrl -OutFile git-cliff.zip
+          Expand-Archive -Path git-cliff.zip -DestinationPath git-cliff-bin -Force
+          $cliffExe = Get-ChildItem -Path git-cliff-bin -Recurse -Filter "git-cliff.exe" | Select-Object -First 1
+
+          # Generate changelog for this release only (since last tag)
+          $prevTag = git describe --tags --abbrev=0 HEAD^ 2>$null
+          if ($prevTag) {
+            & $cliffExe.FullName --config cliff.toml --unreleased --tag $env:RELEASE_TAG > raw-changelog.md
+          } else {
+            & $cliffExe.FullName --config cliff.toml --latest --tag $env:RELEASE_TAG > raw-changelog.md
+          }
+
+          $rawContent = Get-Content raw-changelog.md -Raw -ErrorAction SilentlyContinue
+          if ([string]::IsNullOrWhiteSpace($rawContent)) {
+            "Minor improvements and bug fixes." | Out-File raw-changelog.md -Encoding UTF8
+          }
+          Write-Host "Raw changelog:"
+          Get-Content raw-changelog.md
+
+      - name: Generate AI release notes
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          APP_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          if (-not $env:OPENAI_API_KEY) {
+            Write-Host "::warning::OPENAI_API_KEY not set — skipping AI release notes"
+            exit 0
+          }
+          .\scripts\generate-release-notes.ps1 `
+            -RawChangelog raw-changelog.md `
+            -Version $env:APP_VERSION `
+            -OpenAIKey $env:OPENAI_API_KEY `
+            -OutputDir .
+
+      - name: Prepare release body
+        id: release_body
+        env:
+          APP_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          $enNotes = ""
+          if (Test-Path release-notes-en.md) {
+            $enNotes = Get-Content release-notes-en.md -Raw -Encoding UTF8
+          }
+          if ([string]::IsNullOrWhiteSpace($enNotes)) {
+            # Fallback to raw changelog
+            $enNotes = Get-Content raw-changelog.md -Raw -Encoding UTF8
+          }
+
+          # Build the full release body
+          $body = @"
+## What's New in v$($env:APP_VERSION)
+
+$enNotes
+
+---
+
+## 📦 Installation
+
+### Installer (recommended)
+Download **WhisPaste-Setup.exe** and run it. The installer adds WhisPaste to your Start Menu, optionally creates a desktop shortcut, and supports auto-start with Windows.
+
+### Portable
+1. Download **whispaste.exe**
+2. Double-click it — it will appear in your system tray
+3. Right-click the tray icon → Settings → choose a cloud provider key or enable local models
+
+### MSIX Package
+Download ``whispaste.msix`` for managed Windows installation.
+
+### Checksum
+Verify the binary with: ``certutil -hashfile whispaste.exe SHA256`` and compare with ``whispaste.exe.sha256``.
+"@
+
+          # Write to file (GitHub Actions multiline output)
+          $body | Out-File -FilePath release-body.md -Encoding UTF8 -NoNewline
+
+      - name: Update CHANGELOG.md
+        env:
+          APP_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          $enNotes = ""
+          if (Test-Path release-notes-en.md) {
+            $enNotes = Get-Content release-notes-en.md -Raw -Encoding UTF8
+          }
+          if ([string]::IsNullOrWhiteSpace($enNotes)) {
+            $enNotes = Get-Content raw-changelog.md -Raw -Encoding UTF8
+          }
+
+          $date = Get-Date -Format "yyyy-MM-dd"
+          $newEntry = "## $env:APP_VERSION ($date)`n`n$enNotes"
+
+          $existing = Get-Content CHANGELOG.md -Raw -Encoding UTF8
+          $header = "# Changelog`n`n"
+          $rest = $existing -replace '^# Changelog\s*', ''
+          $updated = "$header$newEntry`n`n---`n`n$rest"
+          $updated | Out-File -FilePath CHANGELOG.md -Encoding UTF8 -NoNewline
+
+          # Commit the updated changelog back to the repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git diff --cached --quiet || git commit -m "docs: update CHANGELOG.md for v$env:APP_VERSION [skip ci]"
+          git push origin HEAD:main || Write-Host "::warning::Could not push CHANGELOG update (tag-triggered, non-critical)"
+
       - name: Build NSIS installer
         run: |
           choco install nsis -y --no-progress
@@ -135,26 +250,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          generate_release_notes: false
           prerelease: false
-          body: |
-            ## 📦 Installation
-
-            ### Installer (recommended)
-            Download **`WhisPaste-Setup.exe`** and run it. The installer adds WhisPaste to your Start Menu, optionally creates a desktop shortcut, and supports auto-start with Windows.
-
-             ### Portable
-             1. Download **`whispaste.exe`**
-             2. Double-click it — it will appear in your system tray
-             3. Right-click the tray icon → Settings → choose a cloud provider key or enable local models
-
-            ### MSIX Package
-            Download `whispaste.msix` for managed Windows installation.
-
-            ### Checksum
-            Verify the binary with: `certutil -hashfile whispaste.exe SHA256` and compare with `whispaste.exe.sha256`.
-
-            ---
+          body_path: release-body.md
           files: |
             WhisPaste-Setup.exe
             whispaste.exe
