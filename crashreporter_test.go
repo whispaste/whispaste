@@ -108,3 +108,93 @@ func TestDeriveDeviceID(t *testing.T) {
 		t.Error("deriveDeviceID should be stable")
 	}
 }
+
+func TestBuildCrashConfigSnapshotIncludesDebugContextWithoutSecrets(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.UseLocalSTT = false
+	cfg.CloudSTTProvider = "deepgram"
+	cfg.Model = "nova-3"
+	cfg.Language = "de"
+	cfg.InputDevice = "Microphone (USB Audio)"
+	cfg.InputGain = 1.25
+	cfg.UseVAD = true
+	cfg.VADSensitivity = 0.7
+	cfg.TrimSilence = true
+	cfg.SmartMode = true
+	cfg.SmartModeProvider = "cloud"
+	cfg.CloudLLMProvider = "anthropic"
+	cfg.CloudLLMModel = "claude-3-7-sonnet"
+	cfg.SmartModePreset = "cleanup"
+	cfg.SmartModeTarget = "en"
+	cfg.ActiveProfile = "team-notes"
+	cfg.UpdateChannel = "beta"
+	cfg.GPUAcceleration = "auto"
+	cfg.APIKey = "sk-secret-123"
+	cfg.DeepgramAPIKey = "dg-secret-456"
+
+	got := buildCrashConfigSnapshot(cfg)
+
+	for _, want := range []string{
+		"profile=team-notes",
+		"provider=deepgram",
+		"model=nova-3",
+		"lang=de",
+		"provider=anthropic",
+		"model=claude-3-7-sonnet",
+		"vad=true(0.70)",
+		"device:Microphone (USB Audio)",
+		"updates=beta",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("snapshot missing %q: %s", want, got)
+		}
+	}
+	for _, secret := range []string{"sk-secret-123", "dg-secret-456"} {
+		if strings.Contains(got, secret) {
+			t.Fatalf("snapshot leaked secret %q: %s", secret, got)
+		}
+	}
+}
+
+func TestBuildEmbedIncludesVersionBuildAndRuntimeConfig(t *testing.T) {
+	cr := &CrashReporter{}
+	report := &crashReport{
+		ID:             "12345678-abcd-ef01-2345-6789abcdef01",
+		Timestamp:      1711893600,
+		Type:           "error",
+		Severity:       "error",
+		Message:        "test failure",
+		StackTrace:     "main.test\n\tfile.go:10",
+		AppVersion:     "1.2.3",
+		BuildCommit:    "abcdef1234567890",
+		GoVersion:      "go1.26.0",
+		OS:             "windows",
+		Arch:           "amd64",
+		DeviceID:       "device123",
+		GPU:            "auto",
+		ConfigSnapshot: "profile=default\nstt=cloud | provider=openai",
+	}
+
+	embed := cr.buildEmbed(report)
+	fields, ok := embed["fields"].([]map[string]interface{})
+	if !ok {
+		t.Fatalf("embed fields has unexpected type: %T", embed["fields"])
+	}
+
+	values := map[string]string{}
+	for _, field := range fields {
+		name, _ := field["name"].(string)
+		value, _ := field["value"].(string)
+		values[name] = value
+	}
+
+	if values["Version"] != "1.2.3" {
+		t.Fatalf("Version field = %q, want 1.2.3", values["Version"])
+	}
+	if values["Build"] != "abcdef123456…" {
+		t.Fatalf("Build field = %q, want truncated commit", values["Build"])
+	}
+	if !strings.Contains(values["Runtime Config"], "provider=openai") {
+		t.Fatalf("Runtime Config field missing snapshot: %q", values["Runtime Config"])
+	}
+}
