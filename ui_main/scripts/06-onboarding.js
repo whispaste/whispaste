@@ -438,14 +438,12 @@ async function onbTryDictation() {
   if (!saved) return;
 
   _onbResumeAfterCapture = true;
-  hideOnboarding();
-  switchPage('history');
 
   onbTrackEvent('onboarding_first_dictation_started', true);
   onbTrackEvent('activation_reached', true);
   showToast(t('onboarding.capture_starting'));
 
-  setTimeout(() => { // DevSkim: ignore DS172411 — allow overlay to close before capture starts
+  setTimeout(() => { // DevSkim: ignore DS172411 — small delay before capture starts
     if (window.startCapture) window.startCapture();
   }, 200);
 }
@@ -580,13 +578,8 @@ window.onRecordingStateChanged = function(state) {
     // Mark onboarding done now — config is saved and user experienced the aha moment.
     // Step 4 is optional polish; if the app closes before it, onboarding won't repeat.
     if (window.completeOnboarding) window.completeOnboarding();
-    setTimeout(() => { // DevSkim: ignore DS172411 — wait for history refresh before resuming
-      _onboardingStep = 4;
-      const overlay = document.getElementById('onboardingOverlay');
-      if (overlay) {
-        overlay.classList.remove('hidden');
-        updateOnboardingStep();
-      }
-    }, 1500);
+    // Advance to step 4 (onboarding overlay stayed visible the whole time)
+    _onboardingStep = 4;
+    updateOnboardingStep();
   }
 };
