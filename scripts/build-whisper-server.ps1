@@ -53,11 +53,11 @@ function Resolve-VersionedSdkDir {
         throw "SDK root not found: $Root"
     }
 
-    $dirs = Get-ChildItem -Path $Root -Directory -ErrorAction SilentlyContinue | Where-Object {
+    $dirs = @(Get-ChildItem -Path $Root -Directory -ErrorAction SilentlyContinue | Where-Object {
         $_.Name -match '^\d+\.\d+\.\d+\.\d+$'
-    } | Sort-Object { [version]$_.Name } -Descending
+    } | Sort-Object { [version]$_.Name } -Descending)
 
-    if ($dirs -and $dirs.Count -gt 0) {
+    if ($dirs.Count -gt 0) {
         return $dirs[0].FullName
     }
 
