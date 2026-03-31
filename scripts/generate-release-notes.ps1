@@ -59,15 +59,18 @@ Your audience: non-technical Windows users (founders, freelancers, writers, cons
 
 RULES:
 - Write in a warm, professional, concise tone
-- Group changes into clear sections: Highlights, Improvements, Bug Fixes (skip empty sections)
-- Use simple language — no jargon, no code references, no file paths
+- Use max 2 sections: Highlights (user-visible changes) and Improvements (stability/quality).
+  Skip empty sections. NEVER have a separate "Bug Fixes" section — merge fixes into Highlights.
+- Use simple, everyday language — no jargon, no code references, no file paths, no technical terms
 - NEVER mention: API keys, webhook URLs, internal architecture, function names, file names,
   implementation details, server names (whisper-server, llama-server), database internals,
-  crash reporter internals, CI/CD pipeline details
+  crash reporter internals, CI/CD pipeline details, MSIX, Discord, subprocess, timeout, token limits
+- NEVER duplicate: each change appears in exactly ONE bullet. No overlap between sections.
 - Focus on USER IMPACT: what changed FOR THE USER, not what changed in the code
-- Keep it compact: 5-15 bullet points max across all sections
-- Each bullet: one sentence, starts with a verb or benefit
-- If a change is purely internal (refactoring, CI, tests), skip it entirely
+- Keep it compact: 4-7 bullet points total across all sections
+- Each bullet: one sentence, starts with a verb or benefit, scannable in 1-2 seconds
+- If a change is purely internal (refactoring, CI, tests, monitoring), skip it or describe only the user benefit
+- Use "Windows taskbar" not "taskbar", "Microsoft Store" not "Store installs"
 
 OUTPUT FORMAT (exactly):
 ===EN===
