@@ -196,10 +196,11 @@ Deno.serve(async (req) => {
   const { error: insertError } = await supabase.from("crash_report_events").insert(eventRow);
   if (insertError) return json({ error: "event_insert_failed" }, 500);
 
-  const discordResp = await fetch(webhookURL, {
+  const discordURL = webhookURL.includes("?") ? `${webhookURL}&wait=true` : `${webhookURL}?wait=true`;
+  const discordResp = await fetch(discordURL, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ embeds: [embed], wait: true }),
+    body: JSON.stringify({ embeds: [embed] }),
   });
   if (!discordResp.ok) {
     const detail = await discordResp.text();
@@ -210,7 +211,15 @@ Deno.serve(async (req) => {
     return json({ error: "discord_post_failed", detail: detail.slice(0, 200) }, 502);
   }
 
-  const discordBody = await discordResp.json().catch(() => null);
+  const discordText = await discordResp.text();
+  let discordBody: { id?: string } | null = null;
+  if (discordText.trim()) {
+    try {
+      discordBody = JSON.parse(discordText) as { id?: string };
+    } catch {
+      discordBody = null;
+    }
+  }
   await supabase
     .from("crash_report_events")
     .update({
