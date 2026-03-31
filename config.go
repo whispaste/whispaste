@@ -173,40 +173,6 @@ func configPath() (string, error) {
 	return filepath.Join(dir, "config.json"), nil
 }
 
-// LoadEnvFile loads KEY=VALUE pairs from a .env file in the working
-// directory (or the config directory) into os environment variables.
-// Existing env vars are NOT overwritten. This keeps secrets out of
-// source control while making them available via os.Getenv().
-func LoadEnvFile() {
-	candidates := []string{".env"}
-	if dir, err := configDir(); err == nil {
-		candidates = append(candidates, filepath.Join(dir, ".env"))
-	}
-	for _, path := range candidates {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		for _, line := range strings.Split(string(data), "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-			k, v, ok := strings.Cut(line, "=")
-			if !ok {
-				continue
-			}
-			k = strings.TrimSpace(k)
-			v = strings.TrimSpace(v)
-			v = strings.Trim(v, `"'`)
-			if k != "" && os.Getenv(k) == "" {
-				os.Setenv(k, v)
-			}
-		}
-		logDebug("Loaded env from %s", path)
-	}
-}
-
 // LoadConfig reads config from disk, or returns defaults if not found.
 func LoadConfig() (*Config, error) {
 	path, err := configPath()

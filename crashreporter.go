@@ -37,7 +37,7 @@ type CrashReporter struct {
 	mu            sync.Mutex
 	db            *sql.DB
 	enabled       bool
-	webhookURL    string
+	relayURL      string
 	deviceID      string
 	stopCh        chan struct{}
 	ticker        *time.Ticker
@@ -50,24 +50,29 @@ type CrashReporter struct {
 
 // crashReport holds a single error report.
 type crashReport struct {
-	ID             string
-	Timestamp      int64
-	Type           string // "error", "panic", "subprocess_crash"
-	Severity       string // "error", "critical", "warning"
-	Message        string
-	StackTrace     string
-	ProcessName    string
-	AppVersion     string
-	BuildCommit    string
-	GoVersion      string
-	OS             string
-	Arch           string
-	DeviceID       string
-	GPU            string
-	LocalSTT       bool
-	SmartMode      bool
-	ConfigSnapshot string
-	Hash           string
+	ID             string `json:"id"`
+	Timestamp      int64  `json:"timestamp"`
+	Type           string `json:"type"` // "error", "panic", "subprocess_crash"
+	Severity       string `json:"severity"`
+	Message        string `json:"message"`
+	StackTrace     string `json:"stack_trace"`
+	ProcessName    string `json:"process_name,omitempty"`
+	AppVersion     string `json:"app_version"`
+	BuildCommit    string `json:"build_commit,omitempty"`
+	GoVersion      string `json:"go_version"`
+	OS             string `json:"os"`
+	Arch           string `json:"arch"`
+	DeviceID       string `json:"device_id"`
+	GPU            string `json:"gpu"`
+	LocalSTT       bool   `json:"local_stt"`
+	SmartMode      bool   `json:"smart_mode"`
+	ConfigSnapshot string `json:"config_snapshot,omitempty"`
+	Hash           string `json:"hash"`
+}
+
+type crashRelayPayload struct {
+	Report crashReport            `json:"report"`
+	Embed  map[string]interface{} `json:"embed"`
 }
 
 var (
@@ -101,18 +106,13 @@ func InitCrashReporter(c *Config) {
 
 		cr.deviceID = deriveDeviceID()
 
-		// Load webhook URL — never embedded in binary.
-		cr.webhookURL = os.Getenv("WHISPASTE_CRASH_WEBHOOK")
-		if cr.webhookURL == "" {
-			cr.webhookURL = loadCrashWebhookFromFile()
-		}
-
-		if cr.webhookURL != "" {
-			logInfo("Crash reporting: enabled (webhook configured)")
+		cr.relayURL = strings.TrimSpace(CrashRelayURL)
+		if cr.relayURL != "" {
+			logInfo("Crash reporting: enabled (relay configured)")
 			cr.ticker = time.NewTicker(crashFlushEvery)
 			go cr.senderLoop()
 		} else {
-			logInfo("Crash reporting: enabled (local queue only, no webhook)")
+			logInfo("Crash reporting: enabled (local queue only, no relay)")
 		}
 	})
 }
@@ -133,7 +133,7 @@ func CloseCrashReporter() {
 		close(cr.stopCh)
 	}
 	if cr.db != nil {
-		if cr.webhookURL != "" {
+		if cr.relayURL != "" {
 			cr.flush()
 		}
 		cr.db.Close()
@@ -325,7 +325,7 @@ func (cr *CrashReporter) senderLoop() {
 }
 
 func (cr *CrashReporter) flush() {
-	if cr.db == nil || cr.webhookURL == "" {
+	if cr.db == nil || cr.relayURL == "" {
 		return
 	}
 	cr.mu.Lock()
@@ -366,8 +366,8 @@ func (cr *CrashReporter) flush() {
 			continue
 		}
 
-		if err := cr.sendToDiscord(&r); err != nil {
-			logDebug("Crash report send failed: %v", err)
+		if err := cr.sendToRelay(&r); err != nil {
+			logDebug("Crash report relay failed: %v", err)
 			continue // retry next cycle
 		}
 
@@ -377,25 +377,36 @@ func (cr *CrashReporter) flush() {
 		cr.dedupMu.Unlock()
 
 		cr.db.Exec("DELETE FROM crash_queue WHERE id = ?", r.ID)
-		logDebug("Crash report sent: type=%s severity=%s", r.Type, r.Severity)
+		logDebug("Crash report relayed: type=%s severity=%s", r.Type, r.Severity)
 		time.Sleep(discordSendDelay)
 	}
 }
 
-func (cr *CrashReporter) sendToDiscord(r *crashReport) error {
-	embed := cr.buildEmbed(r)
-	payload := map[string]interface{}{"embeds": []interface{}{embed}}
+func (cr *CrashReporter) sendToRelay(r *crashReport) error {
+	payload := crashRelayPayload{
+		Report: *r,
+		Embed:  cr.buildEmbed(r),
+	}
 	data, _ := json.Marshal(payload)
 
-	resp, err := http.Post(cr.webhookURL, "application/json", bytes.NewReader(data))
+	req, err := http.NewRequest(http.MethodPost, cr.relayURL, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if AppVersion != "" {
+		req.Header.Set("User-Agent", fmt.Sprintf("WhisPaste/%s crash-reporter", AppVersion))
+	}
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("discord %d: %s", resp.StatusCode, truncStr(string(body), 200))
+		return fmt.Errorf("relay %d: %s", resp.StatusCode, truncStr(string(body), 200))
 	}
 	return nil
 }
@@ -628,20 +639,6 @@ func isNetworkAvailable() bool {
 	}
 	conn.Close()
 	return true
-}
-
-// loadCrashWebhookFromFile reads the webhook URL from a file in the config
-// directory. This keeps the URL out of source control.
-func loadCrashWebhookFromFile() string {
-	dir, err := configDir()
-	if err != nil {
-		return ""
-	}
-	data, err := os.ReadFile(filepath.Join(dir, "crash_webhook.txt"))
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(data))
 }
 
 func truncStr(s string, n int) string {
