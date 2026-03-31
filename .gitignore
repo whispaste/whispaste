@@ -39,6 +39,7 @@ website/.astro/
 
 # Config (contains API keys)
 config.json
+.env
 
 # AI agent / skill config (local only — NEVER push to GitHub)
 skills-lock.json
