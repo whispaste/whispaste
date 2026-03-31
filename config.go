@@ -91,7 +91,7 @@ type Config struct {
 	GeminiAPIKey            string                   `json:"gemini_api_key,omitempty"`
 	CustomDictionary        []string                 `json:"custom_dictionary,omitempty"` // terms for STT/LLM context
 	GPUAcceleration         string                   `json:"gpu_acceleration,omitempty"`  // "auto" (default), "enabled", "disabled"
-	ErrorReportingEnabled   bool                     `json:"error_reporting_enabled,omitempty"`
+	ErrorReportingEnabled   bool                     `json:"error_reporting_enabled"`
 	mu                      sync.RWMutex
 }
 
@@ -143,6 +143,7 @@ func DefaultConfig() *Config {
 		LocalModelID:     "whisper-small",
 		InputGain:        1.0,
 		UpdateChannel:    "stable",
+		ErrorReportingEnabled: true,
 	}
 }
 
