@@ -186,7 +186,7 @@
   font-size: var(--text-md);
   color: var(--text-secondary);
   line-height: var(--leading-relaxed);
-  margin: 0 0 var(--space-8);
+  margin: 0 0 var(--space-6);
 }
 
 .onboarding-options {
@@ -255,6 +255,7 @@
   display: flex;
   justify-content: center;
   gap: var(--space-3);
+  margin-top: var(--space-6);
   margin-bottom: var(--space-6);
 }
 
@@ -602,93 +603,235 @@
   color: var(--text-secondary);
 }
 
-/* Persona cards */
-.onb-persona-section { margin-top: var(--spacing-lg); }
+/* ── Persona cards ──────────────────────────────────── */
+.onb-persona-section {
+  margin-top: var(--space-10);
+}
+
 .onb-persona-question {
-  font-size: 0.9rem; color: var(--text-secondary); margin-bottom: var(--spacing-sm);
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-sm);
   text-align: center;
 }
+
 .onb-persona-cards {
-  display: flex; gap: var(--spacing-sm); justify-content: center; flex-wrap: wrap;
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: center;
+  flex-wrap: wrap;
 }
+
 .onb-persona-card {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1.5px solid var(--border-primary);
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
-  cursor: pointer; transition: all 0.15s ease;
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
   min-width: 90px;
 }
-.onb-persona-card:hover { border-color: var(--accent); background: var(--bg-tertiary); }
+
+.onb-persona-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-tertiary);
+}
+
 .onb-persona-card.active {
-  border-color: var(--accent); background: var(--accent-subtle, rgba(59,130,246,0.08));
+  border-color: var(--accent);
+  background: var(--accent-subtle);
   box-shadow: 0 0 0 1px var(--accent);
 }
-.onb-persona-icon { font-size: 1.5rem; }
-.onb-persona-label { font-size: 0.78rem; font-weight: 500; color: var(--text-primary); }
 
-/* Skip link */
+.onb-persona-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onb-persona-icon .icon {
+  width: 24px;
+  height: 24px;
+}
+
+.onb-persona-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+/* ── Skip link ─────────────────────────────────────── */
 .onb-skip-link {
-  display: block; text-align: center; margin-top: var(--spacing-sm);
-  font-size: 0.78rem; color: var(--text-tertiary);
-  text-decoration: none; opacity: 0.7; transition: opacity 0.15s;
+  display: block;
+  text-align: center;
+  margin-top: var(--spacing-sm);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  text-decoration: none;
+  opacity: 0.7;
+  transition: opacity var(--duration-fast) ease;
 }
-.onb-skip-link:hover { opacity: 1; text-decoration: underline; }
 
-/* Aha moment */
-.onb-aha-section { margin: var(--spacing-lg) 0; text-align: center; }
-.onb-hotkey-display { margin-bottom: var(--spacing-md); }
+.onb-skip-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ── Aha moment ────────────────────────────────────── */
+.onb-aha-section {
+  margin: var(--space-8) 0;
+  text-align: center;
+}
+
+.onb-hotkey-display {
+  margin-bottom: var(--spacing-md);
+}
+
 .onb-hotkey-display kbd {
-  font-size: 1.1rem; padding: var(--spacing-xs) var(--spacing-md);
-  border-radius: var(--radius-sm); border: 1.5px solid var(--border-primary);
-  background: var(--bg-secondary); font-family: inherit;
+  font-size: var(--text-xl);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-primary);
+  background: var(--bg-secondary);
+  font-family: inherit;
 }
-.onb-hotkey-hint { font-size: 0.82rem; color: var(--text-secondary); margin-top: var(--spacing-xs); }
-.onb-aha-summary { margin-top: var(--spacing-sm); }
-.onb-aha-btn svg { vertical-align: middle; }
 
-.onb-alt-actions { margin-top: var(--spacing-xs); }
+.onb-hotkey-hint {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-top: var(--spacing-xs);
+}
+
+.onb-aha-summary {
+  margin-top: var(--spacing-sm);
+}
+
+.onb-aha-btn svg {
+  vertical-align: middle;
+}
+
+.onb-alt-actions {
+  margin-top: var(--spacing-xs);
+}
+
 .btn-ghost {
-  background: none; border: none; color: var(--text-secondary);
-  font-size: 0.82rem; cursor: pointer; padding: var(--spacing-xs) var(--spacing-sm);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  padding: var(--spacing-xs) var(--spacing-sm);
 }
-.btn-ghost:hover { color: var(--text-primary); text-decoration: underline; }
 
-/* Discovery cards */
-.onb-discovery-cards {
-  display: flex; flex-direction: column; gap: var(--spacing-sm);
-  margin: var(--spacing-md) 0; max-width: 380px; margin-inline: auto;
+.btn-ghost:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
 }
+
+/* ── Discovery cards ───────────────────────────────── */
+.onb-discovery-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin: var(--space-6) 0;
+  max-width: 380px;
+  margin-inline: auto;
+}
+
 .onb-discovery-card {
-  display: flex; align-items: center; gap: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1.5px solid var(--border-primary);
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
-  cursor: pointer; transition: all 0.15s ease;
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
   text-align: left;
 }
-.onb-discovery-card:hover { border-color: var(--accent); background: var(--bg-tertiary); }
-.onb-discovery-icon { font-size: 1.3rem; flex-shrink: 0; }
-.onb-discovery-text { flex: 1; }
-.onb-discovery-text strong { display: block; font-size: 0.88rem; color: var(--text-primary); }
-.onb-discovery-text small { font-size: 0.78rem; color: var(--text-secondary); }
-.onb-discovery-arrow { color: var(--text-tertiary); font-size: 1rem; }
+
+.onb-discovery-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-tertiary);
+}
+
+.onb-discovery-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onb-discovery-icon .icon {
+  width: 24px;
+  height: 24px;
+}
+
+.onb-discovery-text {
+  flex: 1;
+}
+
+.onb-discovery-text strong {
+  display: block;
+  font-size: var(--text-md);
+  color: var(--text-primary);
+}
+
+.onb-discovery-text small {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.onb-discovery-arrow {
+  color: var(--text-tertiary);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onb-discovery-arrow .icon {
+  width: 16px;
+  height: 16px;
+}
+
 .onb-discovery-kbd {
-  font-size: 0.72rem; padding: 2px 6px; border-radius: var(--radius-xs);
-  border: 1px solid var(--border-primary); background: var(--bg-primary);
-  font-family: inherit; flex-shrink: 0;
+  font-size: var(--text-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-primary);
+  background: var(--bg-primary);
+  font-family: inherit;
+  flex-shrink: 0;
 }
 
-/* Theme section on step 4 */
-.onb-theme-section { margin-bottom: var(--spacing-md); text-align: center; }
+/* ── Theme section on step 4 ──────────────────────── */
+.onb-theme-section {
+  margin-bottom: var(--spacing-md);
+  text-align: center;
+}
+
 .onb-section-label {
-  font-size: 0.82rem; color: var(--text-secondary); margin-bottom: var(--spacing-xs);
-  font-weight: 500;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-xs);
+  font-weight: var(--weight-medium);
 }
 
-/* Mic icon gradient for aha step */
+/* ── Mic icon gradient for aha step ────────────────── */
 .onboarding-icon-mic {
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent), transparent 60%));
 }
