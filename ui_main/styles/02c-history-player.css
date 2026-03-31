@@ -28,6 +28,14 @@
   line-height: 1.6;
 }
 
+.empty-state-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 20px;
+}
+
 /* ── Selection Bar ───────────────────────────────────── */
 .selection-bar {
   display: flex;

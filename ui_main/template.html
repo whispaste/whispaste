@@ -122,7 +122,7 @@
           alt="WhisPaste" />
       </div>
       <h2 class="onboarding-title" data-i18n="onboarding.welcome_title">Welcome to WhisPaste</h2>
-      <p class="onboarding-desc" data-i18n="onboarding.welcome_desc">Transform your voice into text instantly. Press a hotkey, speak, and your words appear wherever you type.</p>
+      <p class="onboarding-desc" data-i18n="onboarding.welcome_desc">Let's get you to your first successful dictation fast. Pick how transcription should run, then test it right away.</p>
       <div class="onb-preferences">
         <div class="onb-lang-selector" id="onbLangOptions">
           <button class="onb-lang-card" data-lang="en" onclick="onbSetLanguage('en')" title="English" aria-label="English">
@@ -141,7 +141,7 @@
         </div>
       </div>
       <div class="onboarding-actions">
-        <button class="btn btn-primary btn-lg" onclick="nextOnboardingStep()"><span data-i18n="onboarding.get_started">Get Started</span></button>
+        <button class="btn btn-primary btn-lg" onclick="nextOnboardingStep()"><span data-i18n="onboarding.get_started">Set Up First Dictation</span></button>
       </div>
       <div class="onboarding-dots">
         <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
@@ -151,7 +151,7 @@
     <!-- Step 2: Choose transcription method -->
     <div class="onboarding-step hidden" data-step="2">
       <h2 class="onboarding-title" data-i18n="onboarding.choose_title">Choose Your Transcription Method</h2>
-      <p class="onboarding-desc" data-i18n="onboarding.choose_desc">You can use the OpenAI API for best accuracy, or a free local model that works offline.</p>
+      <p class="onboarding-desc" data-i18n="onboarding.choose_desc">Local is the fastest way to start privately on your device. You can switch to cloud transcription anytime in Settings.</p>
       <div class="onboarding-options">
         <div class="onboarding-option" id="onb-api" tabindex="0" role="button" onclick="selectOnboardingOption('api')">
           <div class="onboarding-option-icon"><svg class="icon" aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9m-9 9a9 9 0 0 1 9-9"/></svg>
@@ -217,14 +217,14 @@
           <path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
         </svg>
       </div>
-      <h2 class="onboarding-title" data-i18n="onboarding.smart_title">AI Text Enhancement</h2>
-      <p class="onboarding-desc" data-i18n="onboarding.smart_desc">After recording, AI can automatically improve your text — fix grammar, format emails, create summaries, and more.</p>
+      <h2 class="onboarding-title" data-i18n="onboarding.smart_title">Optional: AI Text Enhancement</h2>
+      <p class="onboarding-desc" data-i18n="onboarding.smart_desc">Start with plain transcription now, or add Smart Mode if you want WhisPaste to clean up and reshape the final text automatically.</p>
       <div class="onboarding-options">
         <div class="onboarding-option" id="onb-smart-on" tabindex="0" role="button" onclick="selectOnboardingSmart(true)">
           <div class="onboarding-option-icon"><svg class="icon" aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
           </div>
           <div class="onboarding-option-text">
-            <strong data-i18n="onboarding.smart_enable">Enable Smart Mode</strong> <span class="onb-badge-recommended" data-i18n="onboarding.model_recommended">Recommended</span>
+            <strong data-i18n="onboarding.smart_enable">Enable Smart Mode</strong>
             <small data-i18n="onboarding.smart_enable_desc">AI refines text before pasting</small>
           </div>
         </div>
@@ -281,13 +281,29 @@
           <path d="M20 6 9 17l-5-5"/>
         </svg>
       </div>
-      <h2 class="onboarding-title" data-i18n="onboarding.ready_title">You're All Set!</h2>
-      <p class="onboarding-desc" data-i18n="onboarding.ready_desc">Press your hotkey to start recording. You can change all settings anytime from the Settings page.</p>
+      <h2 class="onboarding-title" data-i18n="onboarding.ready_title">Test Your First Dictation</h2>
+      <p class="onboarding-desc" data-i18n="onboarding.ready_desc">Everything important is set. Start one short recording now so you can verify your setup immediately.</p>
       <div class="onboarding-hotkey-display">
         <kbd id="onbHotkeyDisplay">Ctrl+Shift+D</kbd>
       </div>
+      <div class="onb-ready-summary">
+        <div class="onb-ready-item">
+          <span class="onb-ready-label" data-i18n="onboarding.ready_mode_label">Transcription</span>
+          <strong id="onbReadyMode">—</strong>
+        </div>
+        <div class="onb-ready-item">
+          <span class="onb-ready-label" data-i18n="onboarding.ready_smart_label">Text output</span>
+          <strong id="onbReadySmart">—</strong>
+        </div>
+        <div class="onb-ready-item">
+          <span class="onb-ready-label" data-i18n="onboarding.ready_next_label">What happens next</span>
+          <strong id="onbReadyNext">—</strong>
+        </div>
+      </div>
+      <p class="onb-ready-hint" data-i18n="onboarding.ready_hint">After you speak, your text appears in History and can be pasted directly into the app you're using.</p>
       <div class="onboarding-actions">
-        <button class="btn btn-primary btn-lg" onclick="finishOnboarding()"><span data-i18n="onboarding.finish">Start Using WhisPaste</span></button>
+        <button class="btn btn-primary btn-lg" onclick="finishOnboarding('capture')"><span data-i18n="onboarding.finish_capture">Start First Dictation</span></button>
+        <button class="btn btn-secondary btn-lg" onclick="finishOnboarding('history')"><span data-i18n="onboarding.finish_history">Open History First</span></button>
       </div>
       <div class="onboarding-dots">
         <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot active"></span>

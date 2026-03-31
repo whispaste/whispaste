@@ -107,6 +107,7 @@ func TestSnapshot(t *testing.T) {
 		TotalDictations: 5,
 		MonthWords:      50,
 		MonthDictations: 3,
+		EventCounts:     map[string]int{"onboarding_start": 2},
 	}
 	snap := s.Snapshot()
 	if snap["total_words"] != 100 {
@@ -114,6 +115,23 @@ func TestSnapshot(t *testing.T) {
 	}
 	if snap["month_dictations"] != 3 {
 		t.Errorf("snapshot month_dictations = %v, want 3", snap["month_dictations"])
+	}
+	events, ok := snap["event_counts"].(map[string]int)
+	if !ok || events["onboarding_start"] != 2 {
+		t.Errorf("snapshot event_counts = %v, want onboarding_start=2", snap["event_counts"])
+	}
+}
+
+func TestRecordEvent(t *testing.T) {
+	s := &UsageStats{dir: t.TempDir()}
+	s.RecordEvent("onboarding_start")
+	s.RecordEvent("onboarding_start")
+	s.RecordEvent("activation_reached")
+	if got := s.EventCounts["onboarding_start"]; got != 2 {
+		t.Fatalf("onboarding_start count = %d, want 2", got)
+	}
+	if got := s.EventCounts["activation_reached"]; got != 1 {
+		t.Fatalf("activation_reached count = %d, want 1", got)
 	}
 }
 

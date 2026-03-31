@@ -149,6 +149,19 @@ function _renderEntryCard(e) {
     </div>`;
 }
 
+function startHistoryFirstDictation() {
+  showToast(t('notebook.empty_recording_start'));
+  if (window.startCapture) window.startCapture();
+}
+
+function openSmartModeFromEmptyState() {
+  switchPage('smartmode');
+}
+
+function openSettingsFromEmptyState() {
+  switchPage('settings');
+}
+
 function renderHistory() {
   const list = document.getElementById('entriesList');
   if (!list) return;
@@ -157,7 +170,7 @@ function renderHistory() {
   const searchEmptyIcon = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`;
 
   if (_entries.length === 0) {
-    list.innerHTML = `<div class="empty-state">${icons.microphone}<div class="empty-state-title">${t('notebook.empty_title')}</div><p class="empty-state-text">${t('notebook.empty')}</p></div>`;
+    list.innerHTML = `<div class="empty-state">${icons.microphone}<div class="empty-state-title">${t('notebook.empty_title')}</div><p class="empty-state-text">${t('notebook.empty')}</p><div class="empty-state-actions"><button class="btn btn-primary" onclick="startHistoryFirstDictation()">${t('notebook.empty_action_record')}</button><button class="btn btn-secondary" onclick="openSmartModeFromEmptyState()">${t('notebook.empty_action_smart')}</button><button class="btn btn-secondary" onclick="openSettingsFromEmptyState()">${t('notebook.empty_action_settings')}</button></div></div>`;
     return;
   }
   if (filtered.length === 0) {

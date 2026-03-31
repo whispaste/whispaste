@@ -11,19 +11,20 @@ import (
 
 // UsageStats tracks dictation usage for the stats dashboard.
 type UsageStats struct {
-	TotalWords           int     `json:"total_words"`
-	TotalDictations      int     `json:"total_dictations"`
-	TotalSeconds         float64 `json:"total_seconds"`
-	LocalDictations      int     `json:"local_dictations"`
-	LocalWords           int     `json:"local_words"`
-	LocalSeconds         float64 `json:"local_seconds"`
-	MonthWords           int     `json:"month_words"`
-	MonthDictations      int     `json:"month_dictations"`
-	MonthSeconds         float64 `json:"month_seconds"`
-	MonthLocalDictations int     `json:"month_local_dictations"`
-	MonthLocalWords      int     `json:"month_local_words"`
-	MonthLocalSeconds    float64 `json:"month_local_seconds"`
-	MonthKey             string  `json:"month_key"`
+	TotalWords           int            `json:"total_words"`
+	TotalDictations      int            `json:"total_dictations"`
+	TotalSeconds         float64        `json:"total_seconds"`
+	LocalDictations      int            `json:"local_dictations"`
+	LocalWords           int            `json:"local_words"`
+	LocalSeconds         float64        `json:"local_seconds"`
+	MonthWords           int            `json:"month_words"`
+	MonthDictations      int            `json:"month_dictations"`
+	MonthSeconds         float64        `json:"month_seconds"`
+	MonthLocalDictations int            `json:"month_local_dictations"`
+	MonthLocalWords      int            `json:"month_local_words"`
+	MonthLocalSeconds    float64        `json:"month_local_seconds"`
+	MonthKey             string         `json:"month_key"`
+	EventCounts          map[string]int `json:"event_counts,omitempty"`
 	mu                   sync.Mutex
 	dir                  string // directory for stats.json persistence
 }
@@ -115,6 +116,10 @@ func (s *UsageStats) EstimatedCost() float64 {
 func (s *UsageStats) Snapshot() map[string]interface{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	eventCounts := map[string]int{}
+	for k, v := range s.EventCounts {
+		eventCounts[k] = v
+	}
 	return map[string]interface{}{
 		"total_words":            s.TotalWords,
 		"total_dictations":       s.TotalDictations,
@@ -127,7 +132,23 @@ func (s *UsageStats) Snapshot() map[string]interface{} {
 		"month_seconds":          s.MonthSeconds,
 		"time_saved_min":         s.timeSavedMinutesLocked(),
 		"estimated_cost":         s.estimatedCostLocked(),
+		"event_counts":           eventCounts,
 	}
+}
+
+// RecordEvent increments a named local analytics counter and persists it.
+func (s *UsageStats) RecordEvent(name string) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return
+	}
+	s.mu.Lock()
+	if s.EventCounts == nil {
+		s.EventCounts = map[string]int{}
+	}
+	s.EventCounts[name]++
+	s.mu.Unlock()
+	s.save()
 }
 
 // timeSavedMinutesLocked is the internal version (caller holds lock).
@@ -166,6 +187,7 @@ func (s *UsageStats) Reset() {
 	s.MonthLocalWords = 0
 	s.MonthLocalSeconds = 0
 	s.MonthKey = time.Now().Format("2006-01")
+	s.EventCounts = nil
 	s.mu.Unlock()
 	s.save()
 }

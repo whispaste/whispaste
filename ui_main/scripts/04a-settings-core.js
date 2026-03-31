@@ -473,15 +473,20 @@ async function renderGPUStatus() {
   if (!line || !window.getGPUInfo) return;
   const mode = document.getElementById('select-gpu-mode')?.value || 'auto';
   try {
-    const raw = await window.getGPUInfo();
+    const raw = await window.getGPUInfo(mode);
     const info = typeof raw === 'string' ? JSON.parse(raw) : raw;
     const hasGPU = info && info.available;
     if (mode === 'disabled') {
       line.innerHTML = '<span style="color:var(--text-secondary)">—</span> ' + t('gpuDisabledStatus');
     } else if (hasGPU) {
-      const backendLabel = (info.backend || '').toUpperCase();
       const vram = info.vram_mb ? ' (' + info.vram_mb + ' MB VRAM)' : '';
-      line.innerHTML = '<span style="color:var(--accent-green)">✓</span> ' + info.name + vram + (backendLabel ? ' · ' + backendLabel : '');
+      const sttBackend = (info.stt_backend || 'cpu').toUpperCase();
+      const llmBackend = (info.llm_backend || 'cpu').toUpperCase();
+      let detail = `${t('gpuStatusStt')}: ${sttBackend} · ${t('gpuStatusSmart')}: ${llmBackend}`;
+      if (sttBackend === 'CPU' && llmBackend !== 'CPU') {
+        detail += ` · ${t('gpuStatusMixedHint')}`;
+      }
+      line.innerHTML = '<span style="color:var(--accent-green)">✓</span> ' + info.name + vram + ' · ' + detail;
     } else {
       line.innerHTML = '<span style="color:var(--text-secondary)">—</span> ' + t('gpuNotDetected');
     }
