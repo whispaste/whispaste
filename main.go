@@ -710,12 +710,12 @@ func main() {
 							llmProv, provErr := createCloudLLM()
 							if provErr != nil {
 								logWarn("Cloud LLM provider unavailable: %v — falling back to OpenAI", provErr)
-								processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, smartLangHint, cfg.GetCustomTemplates())
+								processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, smartLangHint, cfg.GetLocalLLMModel(), cfg.GetCustomTemplates())
 							} else {
 								processed, ppErr = PostProcessWithProvider(text, smartPreset, smartCustom, smartTarget, smartLangHint, cfg.GetCustomTemplates(), llmProv, dictPrompt)
 							}
 						} else {
-							processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, smartLangHint, cfg.GetCustomTemplates())
+							processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, smartLangHint, cfg.GetLocalLLMModel(), cfg.GetCustomTemplates())
 						}
 						if ppErr != nil {
 							logWarn("Smart mode error (using raw text): %v", ppErr)

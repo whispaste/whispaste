@@ -17,7 +17,7 @@ import (
 
 // LLMModelDef describes a downloadable local LLM model.
 type LLMModelDef struct {
-	ID          string // unique identifier (e.g. "smollm2")
+	ID          string // unique identifier (e.g. "qwen2.5-0.5b")
 	Name        string // display name
 	URL         string // GGUF download URL
 	Size        int64  // approximate download size in bytes
@@ -31,16 +31,6 @@ const _llmGB = 1024 * 1024 * 1024
 
 // LLMModels is the registry of available local LLM models.
 var LLMModels = map[string]LLMModelDef{
-	"smollm2": {
-		ID:          "smollm2",
-		Name:        "SmolLM2",
-		URL:         "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/main/SmolLM2-360M-Instruct-Q4_K_M.gguf",
-		Size:        283_000_000,
-		Filename:    "smollm2.gguf",
-		Langs:       6,
-		MinRAMBytes: 4 * _llmGB,
-		RecRAMBytes: 4 * _llmGB,
-	},
 	"qwen2.5-0.5b": {
 		ID:          "qwen2.5-0.5b",
 		Name:        "Qwen2.5-0.5B",

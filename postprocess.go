@@ -105,6 +105,18 @@ TRANSFORMATION INSTRUCTIONS:
 %s`, sameLanguageInstruction(langHint), strings.TrimSpace(actionPrompt))
 }
 
+// wrapSmartTransformPromptLocal creates a simplified prompt for local LLMs (sub-1B params).
+// Smaller models follow shorter, more direct instructions more reliably.
+func wrapSmartTransformPromptLocal(actionPrompt, langHint string) string {
+	langRule := "Keep the same language."
+	if languageName := promptLanguageName(langHint); languageName != "" {
+		langRule = fmt.Sprintf("Keep the output in %s.", languageName)
+	}
+	return fmt.Sprintf(`Refine dictated text. %s Output only the improved text, nothing else.
+
+Task: %s`, langRule, strings.TrimSpace(actionPrompt))
+}
+
 func buildTranslatePrompt(targetLang string) string {
 	target := promptLanguageName(normalizeSmartTargetLanguage(targetLang))
 	return fmt.Sprintf(`Translate the following text into %s.
@@ -244,7 +256,8 @@ func localSmartMaxTokens(inputLen int, profile inference.Profile) int {
 // endpoint should be the base API URL (e.g. "https://api.openai.com/v1").
 // appLang is the UI language ("en" or "de") for language-aware prompts.
 // userTemplates contains user-defined custom templates from config.
-func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint string, userTemplates map[string]string) (string, error) {
+// localModelID is the local LLM model identifier (e.g. "qwen3.5-0.8b") — empty for cloud.
+func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint, localModelID string, userTemplates map[string]string) (string, error) {
 	start := time.Now()
 	systemPrompt := buildSmartPrompt(preset, customPrompt, targetLang, langHint, userTemplates)
 	if systemPrompt == "" {
@@ -272,8 +285,15 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 	if local {
 		modelName = "local"
 		maxTokens = localSmartMaxTokens(len(text), profile)
-		// Suppress thinking mode for local Qwen models to save tokens/latency
-		systemPrompt += " /no_think"
+		// Rebuild prompt with simplified local variant for small models
+		systemPrompt = buildSmartPromptLocal(preset, customPrompt, targetLang, langHint, userTemplates)
+		if systemPrompt == "" {
+			return text, nil
+		}
+		// Only Qwen3+ models support thinking mode — suppress it to save tokens/latency
+		if strings.Contains(localModelID, "qwen3") {
+			systemPrompt += " /no_think"
+		}
 	}
 
 	logDebug("PostProcess: preset=%s local=%v input_len=%d max_tokens=%d", preset, local, len(text), maxTokens)
@@ -388,7 +408,7 @@ func PostProcessWithProvider(text, preset, customPrompt, targetLang, langHint st
 // ApplySmartAction applies a smart mode preset or custom prompt to existing text.
 // It reuses the same OpenAI Chat API as PostProcess.
 func ApplySmartAction(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint string, userTemplates map[string]string) (string, error) {
-	return PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint, userTemplates)
+	return PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint, "", userTemplates)
 }
 
 // joinTextsForBulk joins multiple transcription texts with numbered separators.
@@ -442,6 +462,21 @@ func buildSmartPrompt(preset, customPrompt, targetLang, langHint string, userTem
 		return ""
 	}
 	return wrapSmartTransformPrompt(actionPrompt, langHint)
+}
+
+// buildSmartPromptLocal creates simplified prompts optimized for small local LLMs.
+func buildSmartPromptLocal(preset, customPrompt, targetLang, langHint string, userTemplates map[string]string) string {
+	if preset == "system" && customPrompt != "" {
+		return customPrompt
+	}
+	if preset == "translate" {
+		return buildTranslatePrompt(targetLang)
+	}
+	actionPrompt := resolveSmartActionPrompt(preset, customPrompt, userTemplates)
+	if actionPrompt == "" {
+		return ""
+	}
+	return wrapSmartTransformPromptLocal(actionPrompt, langHint)
 }
 
 // ApplyTextReplacementsWithAI runs exact replacements first, then uses AI (local or cloud)
