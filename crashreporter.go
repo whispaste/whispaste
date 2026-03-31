@@ -1,0 +1,542 @@
+package main
+
+import (
+	"bytes"
+	"crypto/md5"
+	"crypto/rand"
+	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
+	"time"
+)
+
+const (
+	crashQueueDB      = "crash_queue.db"
+	maxCrashQueue     = 500
+	maxReportsPerHour = 20
+	maxQueueAgeDays   = 30
+	crashFlushEvery   = 60 * time.Second
+	discordSendDelay  = 2 * time.Second
+	crashDedupWindow  = 1 * time.Hour
+	maxEmbedFieldLen  = 1024
+)
+
+// CrashReporter queues and sends error reports via a Discord webhook.
+// Reports are persisted in a local SQLite database so nothing is lost
+// when the application is offline or crashes.
+type CrashReporter struct {
+	mu            sync.Mutex
+	db            *sql.DB
+	enabled       bool
+	webhookURL    string
+	deviceID      string
+	stopCh        chan struct{}
+	ticker        *time.Ticker
+	dedupMu       sync.Mutex
+	dedupCache    map[string]time.Time
+	hourCount     int
+	hourResetTime time.Time
+	cfg           *Config
+}
+
+// crashReport holds a single error report.
+type crashReport struct {
+	ID          string
+	Timestamp   int64
+	Type        string // "error", "panic", "subprocess_crash"
+	Severity    string // "error", "critical", "warning"
+	Message     string
+	StackTrace  string
+	ProcessName string
+	AppVersion  string
+	BuildCommit string
+	GoVersion   string
+	OS          string
+	Arch        string
+	DeviceID    string
+	GPU         string
+	LocalSTT    bool
+	SmartMode   bool
+	Hash        string
+}
+
+var (
+	crashReporter     *CrashReporter
+	crashReporterOnce sync.Once
+)
+
+// InitCrashReporter creates and starts the crash reporter singleton.
+// Call after InitLogger and LoadConfig.
+func InitCrashReporter(c *Config) {
+	crashReporterOnce.Do(func() {
+		cr := &CrashReporter{
+			enabled:       c.GetErrorReportingEnabled(),
+			dedupCache:    make(map[string]time.Time),
+			stopCh:        make(chan struct{}),
+			hourResetTime: time.Now().Add(time.Hour),
+			cfg:           c,
+		}
+		crashReporter = cr
+
+		if !cr.enabled {
+			logInfo("Crash reporting: disabled")
+			return
+		}
+
+		if err := cr.initDB(); err != nil {
+			logWarn("Crash reporter DB init failed: %v (disabled)", err)
+			cr.enabled = false
+			return
+		}
+
+		cr.deviceID = deriveDeviceID()
+
+		// Load webhook URL — never embedded in binary.
+		cr.webhookURL = os.Getenv("WHISPASTE_CRASH_WEBHOOK")
+		if cr.webhookURL == "" {
+			cr.webhookURL = loadCrashWebhookFromFile()
+		}
+
+		if cr.webhookURL != "" {
+			logInfo("Crash reporting: enabled (webhook configured)")
+			cr.ticker = time.NewTicker(crashFlushEvery)
+			go cr.senderLoop()
+		} else {
+			logInfo("Crash reporting: enabled (local queue only, no webhook)")
+		}
+	})
+}
+
+// CloseCrashReporter flushes pending reports and shuts down.
+func CloseCrashReporter() {
+	cr := crashReporter
+	if cr == nil {
+		return
+	}
+	if cr.ticker != nil {
+		cr.ticker.Stop()
+	}
+	select {
+	case <-cr.stopCh:
+		// already closed
+	default:
+		close(cr.stopCh)
+	}
+	if cr.db != nil {
+		if cr.webhookURL != "" {
+			cr.flush()
+		}
+		cr.db.Close()
+	}
+}
+
+// SetCrashReportingEnabled toggles reporting at runtime.
+func SetCrashReportingEnabled(enabled bool) {
+	cr := crashReporter
+	if cr == nil {
+		return
+	}
+	cr.mu.Lock()
+	cr.enabled = enabled
+	cr.mu.Unlock()
+}
+
+// ---------- database ----------
+
+func (cr *CrashReporter) initDB() error {
+	dir, err := configDir()
+	if err != nil {
+		return err
+	}
+	dbPath := filepath.Join(dir, crashQueueDB)
+	db, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	if err != nil {
+		return fmt.Errorf("open crash db: %w", err)
+	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS crash_queue (
+			id          TEXT PRIMARY KEY,
+			timestamp   INTEGER,
+			type        TEXT,
+			severity    TEXT,
+			message     TEXT,
+			stack_trace TEXT,
+			process     TEXT,
+			app_version TEXT,
+			build_commit TEXT,
+			go_version  TEXT,
+			os          TEXT,
+			arch        TEXT,
+			device_id   TEXT,
+			gpu         TEXT,
+			local_stt   INTEGER,
+			smart_mode  INTEGER,
+			hash        TEXT,
+			created_at  INTEGER
+		);
+		CREATE INDEX IF NOT EXISTS idx_crash_hash ON crash_queue(hash);
+		CREATE INDEX IF NOT EXISTS idx_crash_created ON crash_queue(created_at);
+	`)
+	if err != nil {
+		db.Close()
+		return fmt.Errorf("create crash schema: %w", err)
+	}
+
+	// Prune old records.
+	cutoff := time.Now().AddDate(0, 0, -maxQueueAgeDays).Unix()
+	db.Exec("DELETE FROM crash_queue WHERE created_at < ?", cutoff)
+
+	cr.db = db
+	return nil
+}
+
+// ---------- capture ----------
+
+// captureError queues an error report. Safe to call from any goroutine.
+func (cr *CrashReporter) captureError(message, errType, severity string) {
+	if cr == nil || !cr.enabled || cr.db == nil {
+		return
+	}
+
+	stack := captureStack(4)
+	message = sanitizeMessage(message)
+	stack = sanitizeStackTrace(stack)
+
+	r := cr.newReport(errType, severity, message, stack, "")
+	cr.enqueue(r)
+}
+
+// capturePanic queues a panic report.
+func (cr *CrashReporter) capturePanic(recovered interface{}) {
+	if cr == nil || !cr.enabled || cr.db == nil {
+		return
+	}
+
+	msg := sanitizeMessage(fmt.Sprintf("%v", recovered))
+	stack := sanitizeStackTrace(captureStack(2))
+
+	r := cr.newReport("panic", "critical", msg, stack, "")
+	cr.enqueue(r)
+}
+
+// captureSubprocessCrash records a subprocess crash.
+func (cr *CrashReporter) captureSubprocessCrash(process string, exitCode int, stderr string) {
+	if cr == nil || !cr.enabled || cr.db == nil {
+		return
+	}
+
+	msg := fmt.Sprintf("%s exited with code %d", process, exitCode)
+	if stderr != "" {
+		if len(stderr) > 200 {
+			stderr = stderr[:200]
+		}
+		msg += ": " + stderr
+	}
+	msg = sanitizeMessage(msg)
+	stderr = sanitizeStackTrace(stderr)
+
+	r := cr.newReport("subprocess_crash", "error", msg, stderr, process)
+	cr.enqueue(r)
+}
+
+func (cr *CrashReporter) newReport(typ, severity, message, stack, process string) *crashReport {
+	gpuStr := ""
+	localSTT := false
+	smartMode := false
+	if cr.cfg != nil {
+		gpuStr = cr.cfg.GetGPUAcceleration()
+		localSTT = cr.cfg.UseLocalSTT
+		smartMode = cr.cfg.SmartMode
+	}
+	return &crashReport{
+		ID:          newUUID(),
+		Timestamp:   time.Now().Unix(),
+		Type:        typ,
+		Severity:    severity,
+		Message:     message,
+		StackTrace:  stack,
+		ProcessName: process,
+		AppVersion:  AppVersion,
+		BuildCommit: BuildCommit,
+		GoVersion:   runtime.Version(),
+		OS:          runtime.GOOS,
+		Arch:        runtime.GOARCH,
+		DeviceID:    cr.deviceID,
+		GPU:         gpuStr,
+		LocalSTT:    localSTT,
+		SmartMode:   smartMode,
+		Hash:        hashCrash(message, stack),
+	}
+}
+
+func (cr *CrashReporter) enqueue(r *crashReport) {
+	var count int
+	cr.db.QueryRow("SELECT COUNT(*) FROM crash_queue").Scan(&count)
+	if count >= maxCrashQueue {
+		cr.db.Exec("DELETE FROM crash_queue WHERE created_at = (SELECT MIN(created_at) FROM crash_queue)")
+	}
+
+	_, err := cr.db.Exec(`INSERT INTO crash_queue
+		(id,timestamp,type,severity,message,stack_trace,process,
+		 app_version,build_commit,go_version,os,arch,device_id,
+		 gpu,local_stt,smart_mode,hash,created_at)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		r.ID, r.Timestamp, r.Type, r.Severity, r.Message, r.StackTrace, r.ProcessName,
+		r.AppVersion, r.BuildCommit, r.GoVersion, r.OS, r.Arch, r.DeviceID,
+		r.GPU, boolInt(r.LocalSTT), boolInt(r.SmartMode), r.Hash, time.Now().Unix(),
+	)
+	if err != nil {
+		logWarn("Crash reporter enqueue failed: %v", err)
+	}
+}
+
+// ---------- sender ----------
+
+func (cr *CrashReporter) senderLoop() {
+	for {
+		select {
+		case <-cr.stopCh:
+			return
+		case <-cr.ticker.C:
+			if isNetworkAvailable() {
+				cr.flush()
+			}
+		}
+	}
+}
+
+func (cr *CrashReporter) flush() {
+	if cr.db == nil || cr.webhookURL == "" {
+		return
+	}
+	cr.mu.Lock()
+	defer cr.mu.Unlock()
+
+	if cr.isRateLimited() {
+		return
+	}
+
+	rows, err := cr.db.Query(`SELECT id,timestamp,type,severity,message,stack_trace,process,
+		app_version,build_commit,go_version,os,arch,device_id,gpu,local_stt,smart_mode,hash
+		FROM crash_queue ORDER BY created_at ASC LIMIT 10`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	var reports []crashReport
+	for rows.Next() {
+		var r crashReport
+		var lstt, sm int
+		if err := rows.Scan(&r.ID, &r.Timestamp, &r.Type, &r.Severity, &r.Message, &r.StackTrace,
+			&r.ProcessName, &r.AppVersion, &r.BuildCommit, &r.GoVersion, &r.OS, &r.Arch,
+			&r.DeviceID, &r.GPU, &lstt, &sm, &r.Hash); err == nil {
+			r.LocalSTT = lstt != 0
+			r.SmartMode = sm != 0
+			reports = append(reports, r)
+		}
+	}
+
+	for _, r := range reports {
+		// Dedup: skip if same hash was sent within the window.
+		cr.dedupMu.Lock()
+		last := cr.dedupCache[r.Hash]
+		cr.dedupMu.Unlock()
+		if !last.IsZero() && time.Since(last) < crashDedupWindow {
+			cr.db.Exec("DELETE FROM crash_queue WHERE id = ?", r.ID)
+			continue
+		}
+
+		if err := cr.sendToDiscord(&r); err != nil {
+			logDebug("Crash report send failed: %v", err)
+			continue // retry next cycle
+		}
+
+		cr.dedupMu.Lock()
+		cr.dedupCache[r.Hash] = time.Now()
+		cr.hourCount++
+		cr.dedupMu.Unlock()
+
+		cr.db.Exec("DELETE FROM crash_queue WHERE id = ?", r.ID)
+		logDebug("Crash report sent: type=%s severity=%s", r.Type, r.Severity)
+		time.Sleep(discordSendDelay)
+	}
+}
+
+func (cr *CrashReporter) sendToDiscord(r *crashReport) error {
+	embed := cr.buildEmbed(r)
+	payload := map[string]interface{}{"embeds": []interface{}{embed}}
+	data, _ := json.Marshal(payload)
+
+	resp, err := http.Post(cr.webhookURL, "application/json", bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("discord %d: %s", resp.StatusCode, truncStr(string(body), 200))
+	}
+	return nil
+}
+
+func (cr *CrashReporter) buildEmbed(r *crashReport) map[string]interface{} {
+	color := 16711680 // red
+	if r.Severity == "warning" {
+		color = 16776960 // yellow
+	}
+
+	title := fmt.Sprintf("[%s] %s", strings.ToUpper(r.Type), r.Severity)
+	msg := truncStr(r.Message, maxEmbedFieldLen)
+	stack := truncStr(r.StackTrace, maxEmbedFieldLen)
+
+	fields := []map[string]interface{}{
+		{"name": "Version", "value": r.AppVersion, "inline": true},
+		{"name": "OS", "value": fmt.Sprintf("%s/%s", r.OS, r.Arch), "inline": true},
+		{"name": "Go", "value": r.GoVersion, "inline": true},
+		{"name": "Device", "value": r.DeviceID, "inline": true},
+		{"name": "GPU", "value": r.GPU, "inline": true},
+		{"name": "Features", "value": fmt.Sprintf("LocalSTT=%v SmartMode=%v", r.LocalSTT, r.SmartMode), "inline": false},
+	}
+	if stack != "" {
+		fields = append(fields, map[string]interface{}{
+			"name": "Stack Trace", "value": "```\n" + stack + "\n```",
+		})
+	}
+	if r.ProcessName != "" {
+		fields = append(fields, map[string]interface{}{
+			"name": "Process", "value": r.ProcessName, "inline": true,
+		})
+	}
+
+	ts := time.Unix(r.Timestamp, 0).UTC().Format("2006-01-02 15:04:05 UTC")
+	return map[string]interface{}{
+		"title":       title,
+		"description": msg,
+		"color":       color,
+		"fields":      fields,
+		"footer":      map[string]interface{}{"text": fmt.Sprintf("ID: %s | %s", r.ID[:8], ts)},
+	}
+}
+
+func (cr *CrashReporter) isRateLimited() bool {
+	cr.dedupMu.Lock()
+	defer cr.dedupMu.Unlock()
+	now := time.Now()
+	if now.After(cr.hourResetTime) {
+		cr.hourCount = 0
+		cr.hourResetTime = now.Add(time.Hour)
+	}
+	return cr.hourCount >= maxReportsPerHour
+}
+
+// ---------- helpers ----------
+
+func captureStack(skip int) string {
+	buf := new(bytes.Buffer)
+	pcs := make([]uintptr, 32)
+	n := runtime.Callers(skip+2, pcs)
+	frames := runtime.CallersFrames(pcs[:n])
+	for {
+		f, more := frames.Next()
+		fmt.Fprintf(buf, "%s\n\t%s:%d\n", f.Function, f.File, f.Line)
+		if !more {
+			break
+		}
+	}
+	return buf.String()
+}
+
+func hashCrash(message, stack string) string {
+	h := md5.Sum([]byte(message + stack))
+	return hex.EncodeToString(h[:])
+}
+
+// sanitizeMessage redacts known sensitive patterns.
+func sanitizeMessage(s string) string {
+	for _, p := range []string{"api_key=", "apiKey=", "token=", "password=", "sk-", "gsk_"} {
+		if strings.Contains(strings.ToLower(s), strings.ToLower(p)) {
+			return "[REDACTED — contains sensitive data]"
+		}
+	}
+	return sanitizePaths(s)
+}
+
+// sanitizeStackTrace removes user-identifying path components.
+func sanitizeStackTrace(s string) string {
+	return sanitizePaths(s)
+}
+
+func sanitizePaths(s string) string {
+	if home := os.Getenv("USERPROFILE"); home != "" {
+		s = strings.ReplaceAll(s, home, "<home>")
+	}
+	if user := os.Getenv("USERNAME"); user != "" {
+		s = strings.ReplaceAll(s, user, "<user>")
+	}
+	return s
+}
+
+// deriveDeviceID generates a stable anonymous device identifier.
+func deriveDeviceID() string {
+	hostname, _ := os.Hostname()
+	h := md5.Sum([]byte(hostname + "_whispaste"))
+	return hex.EncodeToString(h[:])[:12]
+}
+
+func newUUID() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return fmt.Sprintf("%d-%d", time.Now().UnixNano(), os.Getpid())
+	}
+	b[6] = (b[6] & 0x0f) | 0x40 // version 4
+	b[8] = (b[8] & 0x3f) | 0x80 // variant 10
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+func isNetworkAvailable() bool {
+	conn, err := net.DialTimeout("tcp", "discord.com:443", 3*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
+// loadCrashWebhookFromFile reads the webhook URL from a file in the config
+// directory. This keeps the URL out of source control.
+func loadCrashWebhookFromFile() string {
+	dir, err := configDir()
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "crash_webhook.txt"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func truncStr(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}

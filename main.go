@@ -95,6 +95,19 @@ func main() {
 	if err != nil {
 		logWarn("Config load error: %v (using defaults)", err)
 	}
+
+	// Initialize crash reporter (after logger + config)
+	InitCrashReporter(cfg)
+	defer CloseCrashReporter()
+	defer func() {
+		if r := recover(); r != nil {
+			if crashReporter != nil {
+				crashReporter.capturePanic(r)
+			}
+			logError("UNHANDLED PANIC: %v", r)
+		}
+	}()
+
 	migrateLegacyLLMModel()
 	localLLM.cfg = cfg
 	localSTT.cfg = cfg
@@ -1274,6 +1287,9 @@ func main() {
 			go func() { defer wg.Done(); localLLM.Stop() }()
 			go func() { defer wg.Done(); localSTT.Stop() }()
 			wg.Wait()
+
+			// Flush pending crash reports before shutdown
+			CloseCrashReporter()
 
 			// Close remaining resources (all fast)
 			GetVADProcessor().Close()

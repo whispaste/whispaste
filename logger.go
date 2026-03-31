@@ -141,10 +141,15 @@ func logWarn(format string, args ...interface{}) {
 	}
 }
 
-// logError logs an error message.
+// logError logs an error message and notifies the crash reporter.
 func logError(format string, args ...interface{}) {
 	if logger != nil {
 		logger.log(LogError, "ERR", format, args...)
+		// Notify crash reporter asynchronously so logging never blocks.
+		if crashReporter != nil && crashReporter.enabled {
+			msg := fmt.Sprintf(format, args...)
+			go crashReporter.captureError(msg, "error", "error")
+		}
 	}
 }
 
