@@ -47,6 +47,11 @@ var BuildBranch = ""
 // BuildDate is the build timestamp, injected via -ldflags at build time.
 var BuildDate = ""
 
+// CrashRelayURL is the public Supabase Edge Function endpoint used for crash
+// report relay. It is safe to ship in the client and should be injected at
+// build time via -ldflags.
+var CrashRelayURL = ""
+
 // TemplateMeta holds metadata for a smart mode template (builtin or custom).
 type TemplateMeta struct {
 	Description string   `json:"description"`

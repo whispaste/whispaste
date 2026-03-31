@@ -3,7 +3,8 @@
 param(
     [switch]$Release,
     [switch]$Clean,
-    [string]$Version = ""
+    [string]$Version = "",
+    [string]$CrashRelayURL = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -44,6 +45,10 @@ if ($Release) {
 if ($Version -ne "") {
     $ldflags += " -X main.AppVersion=$Version"
     Write-Host "Version: $Version" -ForegroundColor Cyan
+}
+if ($CrashRelayURL -ne "") {
+    $ldflags += " -X main.CrashRelayURL=$CrashRelayURL"
+    Write-Host "Crash relay: $CrashRelayURL" -ForegroundColor Cyan
 }
 
 # Inject build metadata (commit, branch, date) for all builds

@@ -1,0 +1,2 @@
+[functions.crash-relay]
+verify_jwt = false
