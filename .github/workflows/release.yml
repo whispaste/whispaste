@@ -152,30 +152,21 @@ jobs:
             $enNotes = Get-Content raw-changelog.md -Raw -Encoding UTF8
           }
 
-          # Build the full release body
-          $body = @"
-## What's New in v$($env:APP_VERSION)
-
-$enNotes
-
----
-
-## 📦 Installation
-
-### Installer (recommended)
-Download **WhisPaste-Setup.exe** and run it. The installer adds WhisPaste to your Start Menu, optionally creates a desktop shortcut, and supports auto-start with Windows.
-
-### Portable
-1. Download **whispaste.exe**
-2. Double-click it — it will appear in your system tray
-3. Right-click the tray icon → Settings → choose a cloud provider key or enable local models
-
-### MSIX Package
-Download ``whispaste.msix`` for managed Windows installation.
-
-### Checksum
-Verify the binary with: ``certutil -hashfile whispaste.exe SHA256`` and compare with ``whispaste.exe.sha256``.
-"@
+          # Build the full release body (avoid here-string to keep YAML indentation clean)
+          $nl = "`n"
+          $body = "## What's New in v$($env:APP_VERSION)${nl}${nl}${enNotes}${nl}${nl}"
+          $body += "---${nl}${nl}"
+          $body += "## 📦 Installation${nl}${nl}"
+          $body += "### Installer (recommended)${nl}"
+          $body += "Download **WhisPaste-Setup.exe** and run it. The installer adds WhisPaste to your Start Menu, optionally creates a desktop shortcut, and supports auto-start with Windows.${nl}${nl}"
+          $body += "### Portable${nl}"
+          $body += "1. Download **whispaste.exe**${nl}"
+          $body += "2. Double-click it — it will appear in your system tray${nl}"
+          $body += "3. Right-click the tray icon → Settings → choose a cloud provider key or enable local models${nl}${nl}"
+          $body += "### MSIX Package${nl}"
+          $body += "Download ``whispaste.msix`` for managed Windows installation.${nl}${nl}"
+          $body += "### Checksum${nl}"
+          $body += "Verify the binary with: ``certutil -hashfile whispaste.exe SHA256`` and compare with ``whispaste.exe.sha256``."
 
           # Write to file (GitHub Actions multiline output)
           $body | Out-File -FilePath release-body.md -Encoding UTF8 -NoNewline
