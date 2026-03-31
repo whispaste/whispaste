@@ -17,6 +17,16 @@ function Get-RepoRoot {
     return Split-Path -Parent $PSScriptRoot
 }
 
+function Get-ShortWorkRoot {
+    $drive = $env:SystemDrive
+    if ([string]::IsNullOrWhiteSpace($drive)) {
+        $drive = "C:"
+    }
+    $root = Join-Path $drive "wp"
+    New-Item -ItemType Directory -Force -Path $root | Out-Null
+    return $root
+}
+
 function Read-PinnedWhisperRef {
     $refFile = Join-Path $PSScriptRoot "whispercpp-ref.txt"
     if (!(Test-Path $refFile)) {
@@ -108,15 +118,16 @@ function Resolve-WhisperSourceDir {
 Ensure-Command -Name "cmake"
 
 $repoRoot = Get-RepoRoot
+$shortWorkRoot = Get-ShortWorkRoot
 if ([string]::IsNullOrWhiteSpace($WhisperRef)) {
     $WhisperRef = Read-PinnedWhisperRef
 }
 
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
-    $OutputDir = Join-Path $repoRoot ".build\whisper-server"
+    $OutputDir = Join-Path $shortWorkRoot "whisper-build"
 }
 
-$cacheRoot = Join-Path $repoRoot ".build\deps\whisper.cpp"
+$cacheRoot = Join-Path $shortWorkRoot "whisper-src"
 $sourcePath = Resolve-WhisperSourceDir -Ref $WhisperRef -RequestedSourceDir $SourceDir -CacheRoot $cacheRoot
 $buildDir = Join-Path $OutputDir ("build-" + $Backend)
 
