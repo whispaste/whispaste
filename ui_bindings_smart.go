@@ -124,7 +124,7 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 			return string(resp)
 		}
 
-		result, err := PostProcess(combined, "system", bulkPrompt, "", apiKey, endpoint, dominantLang, cfg.GetCustomTemplates())
+		result, err := PostProcess(combined, "system", bulkPrompt, "", apiKey, endpoint, dominantLang, "", cfg.GetCustomTemplates())
 		if err != nil {
 			resp, _ := json.Marshal(map[string]string{"error": err.Error()})
 			return string(resp)
@@ -373,7 +373,7 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 			models[id] = map[string]interface{}{
 				"id":        m.ID,
 				"name":      m.Name,
-				"size":      m.Size,
+				"size":      formatBytes(uint64(m.Size)),
 				"langs":     m.Langs,
 				"filename":  m.Filename,
 				"installed": IsLLMModelInstalled(id),
@@ -404,7 +404,7 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 			result = append(result, map[string]interface{}{
 				"id":        m.ID,
 				"name":      m.Name,
-				"size":      m.Size,
+				"size":      formatBytes(uint64(m.Size)),
 				"langs":     m.Langs,
 				"installed": IsLLMModelInstalled(m.ID),
 			})
@@ -426,7 +426,7 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 			return map[string]interface{}{"success": false, "error": err.Error()}
 		}
 
-		result, err := PostProcess("Hello, this is a test.", "cleanup", "", "", "", endpoint, "en", nil)
+		result, err := PostProcess("Hello, this is a test.", "cleanup", "", "", "", endpoint, "en", cfg.GetLocalLLMModel(), nil)
 		if err != nil {
 			logError("LLM model test failed: %v", err)
 			return map[string]interface{}{"success": false, "error": err.Error()}

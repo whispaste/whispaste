@@ -601,7 +601,7 @@ func buildCrashConfigSnapshot(cfg *Config) string {
 		switch provider := cfg.GetSmartModeProvider(); provider {
 		case "local":
 			smartProvider = "local"
-			smartModel = compactCrashValue(cfg.GetLocalLLMModel(), "smollm2", 32)
+			smartModel = compactCrashValue(cfg.GetLocalLLMModel(), "qwen2.5-0.5b", 32)
 		case "cloud":
 			smartProvider = compactCrashValue(cfg.GetCloudLLMProvider(), "openai", 16)
 			smartModel = compactCrashValue(cfg.GetCloudLLMModel(), "default", 32)
@@ -610,7 +610,7 @@ func buildCrashConfigSnapshot(cfg *Config) string {
 			if cloudModel := compactCrashValue(cfg.GetCloudLLMModel(), "", 32); cloudModel != "" {
 				smartModel = cloudModel
 			} else {
-				smartModel = compactCrashValue(cfg.GetLocalLLMModel(), "smollm2", 32)
+				smartModel = compactCrashValue(cfg.GetLocalLLMModel(), "qwen2.5-0.5b", 32)
 			}
 		default:
 			smartProvider = compactCrashValue(provider, "auto", 24)

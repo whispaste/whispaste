@@ -52,7 +52,7 @@ func LLMServerPath() (string, error) {
 }
 
 // LLMModelPath returns the path to the GGUF model file for the given model ID.
-// Falls back to legacy model.gguf, then default "smollm2".
+// Falls back to legacy model.gguf, then default "qwen2.5-0.5b".
 func LLMModelPath(modelID string) (string, error) {
 	dir, err := LLMDir()
 	if err != nil {
@@ -72,8 +72,8 @@ func LLMModelPath(modelID string) (string, error) {
 	if _, err := os.Stat(legacy); err == nil {
 		return legacy, nil
 	}
-	// Deterministic fallback: check smollm2 first, then qwen3.5
-	for _, id := range []string{"smollm2", "qwen3.5-0.8b"} {
+	// Deterministic fallback: check qwen2.5 first, then qwen3.5
+	for _, id := range []string{"qwen2.5-0.5b", "qwen3.5-0.8b"} {
 		if m, ok := LLMModels[id]; ok {
 			p := filepath.Join(dir, m.Filename)
 			if _, err := os.Stat(p); err == nil {
@@ -296,7 +296,7 @@ func (l *LocalLLM) Endpoint() string {
 	return fmt.Sprintf("http://%s:%d/v1", loopbackHost, l.port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 }
 
-// migrateLegacyLLMModel renames legacy model.gguf to smollm2.gguf for the new registry.
+// migrateLegacyLLMModel renames legacy model.gguf to qwen2.5-0.5b.gguf for the new registry.
 func migrateLegacyLLMModel() {
 	dir, err := LLMDir()
 	if err != nil {
@@ -306,7 +306,7 @@ func migrateLegacyLLMModel() {
 	if _, err := os.Stat(legacy); err != nil {
 		return // no legacy file
 	}
-	target := filepath.Join(dir, LLMModels["smollm2"].Filename)
+	target := filepath.Join(dir, LLMModels["qwen2.5-0.5b"].Filename)
 	if _, err := os.Stat(target); err == nil {
 		os.Remove(legacy) // target already exists, just clean up
 		return
@@ -315,5 +315,5 @@ func migrateLegacyLLMModel() {
 		logWarn("Failed to migrate legacy LLM model: %v", err)
 		return
 	}
-	logInfo("Migrated legacy model.gguf to %s", LLMModels["smollm2"].Filename)
+	logInfo("Migrated legacy model.gguf to %s", LLMModels["qwen2.5-0.5b"].Filename)
 }

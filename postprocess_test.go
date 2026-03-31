@@ -139,7 +139,7 @@ func TestPostProcessHTTP(t *testing.T) {
 	defer srv.Close()
 
 	t.Run("successful postprocess", func(t *testing.T) {
-		result, err := PostProcess("messy text", "cleanup", "", "", "test-key", srv.URL, "en", nil)
+		result, err := PostProcess("messy text", "cleanup", "", "", "test-key", srv.URL, "en", "", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -149,7 +149,7 @@ func TestPostProcessHTTP(t *testing.T) {
 	})
 
 	t.Run("empty preset returns original", func(t *testing.T) {
-		result, err := PostProcess("original text", "nonexistent", "", "", "test-key", srv.URL, "en", nil)
+		result, err := PostProcess("original text", "nonexistent", "", "", "test-key", srv.URL, "en", "", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -159,7 +159,7 @@ func TestPostProcessHTTP(t *testing.T) {
 	})
 
 	t.Run("API error returns original text", func(t *testing.T) {
-		result, err := PostProcess("text", "cleanup", "", "", "wrong-key", srv.URL, "en", nil)
+		result, err := PostProcess("text", "cleanup", "", "", "wrong-key", srv.URL, "en", "", nil)
 		if err == nil {
 			t.Fatal("expected error for wrong API key")
 		}
@@ -215,7 +215,7 @@ func TestPostProcessThinkBlockOnly(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result, err := PostProcess("original text", "cleanup", "", "", "key", srv.URL, "en", nil)
+	result, err := PostProcess("original text", "cleanup", "", "", "key", srv.URL, "en", "", nil)
 	if err == nil {
 		t.Fatal("expected error when response contains only think blocks")
 	}
@@ -243,7 +243,7 @@ func TestPostProcessLocalMaxTokens(t *testing.T) {
 
 	// httptest.NewServer uses 127.0.0.1, so isLocalEndpoint returns true
 	shortText := strings.Repeat("a", 400)
-	_, err := PostProcess(shortText, "email", "", "", "key", srv.URL, "en", nil)
+	_, err := PostProcess(shortText, "email", "", "", "key", srv.URL, "en", "", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
