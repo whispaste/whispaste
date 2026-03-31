@@ -430,7 +430,13 @@ async function onbSaveTranscriptionConfig() {
   }
 }
 
-async function onbTryDictation() {
+async function onbToggleRecording() {
+  // If already recording, just trigger stop via the same toggle binding
+  if (_onbResumeAfterCapture) {
+    if (window.startCapture) window.startCapture();
+    return;
+  }
+
   if (_onboardingChoice === 'api' && !_onbApiKeyValid) return;
   if (_onboardingChoice === 'local' && (!_onbModelReady || _onbPreflight?.blocking)) return;
 
@@ -439,9 +445,12 @@ async function onbTryDictation() {
 
   _onbResumeAfterCapture = true;
 
+  // Hide result area from any previous attempt
+  const resultArea = document.getElementById('onbResultArea');
+  if (resultArea) resultArea.classList.add('hidden');
+
   onbTrackEvent('onboarding_first_dictation_started', true);
   onbTrackEvent('activation_reached', true);
-  showToast(t('onboarding.capture_starting'));
 
   setTimeout(() => { // DevSkim: ignore DS172411 — small delay before capture starts
     if (window.startCapture) window.startCapture();
@@ -570,16 +579,61 @@ async function onbSetTheme(theme) {
 }
 
 /* ── Resume onboarding after try-dictation capture ── */
+const _onbMicIcon = '<svg class="icon" style="width:20px;height:20px;margin-right:6px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>';
+const _onbStopIcon = '<svg class="icon" style="width:20px;height:20px;margin-right:6px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+const _onbSpinnerIcon = '<svg class="icon" style="width:20px;height:20px;margin-right:6px;animation:spin 1s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
 const _origOnRecordingStateChanged = typeof onRecordingStateChanged === 'function' ? onRecordingStateChanged : null;
 window.onRecordingStateChanged = function(state) {
   if (_origOnRecordingStateChanged) _origOnRecordingStateChanged(state);
+
+  // Update onboarding record button to reflect current state
+  if (_onbResumeAfterCapture || _onboardingStep === 3) {
+    const btn = document.getElementById('onbRecordBtn');
+    if (btn) {
+      btn.classList.remove('recording', 'transcribing');
+      if (state === 'recording' || state === 'paused') {
+        btn.classList.add('recording');
+        btn.innerHTML = _onbStopIcon + '<span>' + t('onboarding.stop_recording') + '</span>';
+      } else if (state === 'transcribing' || state === 'processing') {
+        btn.classList.add('transcribing');
+        btn.innerHTML = _onbSpinnerIcon + '<span>' + t('onboarding.transcribing') + '</span>';
+      } else {
+        btn.innerHTML = _onbMicIcon + '<span>' + t('onboarding.finish_capture') + '</span>';
+      }
+    }
+  }
+
+  // When recording finishes, show result then advance
   if (_onbResumeAfterCapture && state === 'idle') {
     _onbResumeAfterCapture = false;
-    // Mark onboarding done now — config is saved and user experienced the aha moment.
-    // Step 4 is optional polish; if the app closes before it, onboarding won't repeat.
     if (window.completeOnboarding) window.completeOnboarding();
-    // Advance to step 4 (onboarding overlay stayed visible the whole time)
-    _onboardingStep = 4;
-    updateOnboardingStep();
+    // Fetch latest history entry to show the transcription result
+    onbShowTranscriptionResult();
   }
 };
+
+async function onbShowTranscriptionResult() {
+  try {
+    const raw = await window.getEntries();
+    const entries = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (entries && entries.length > 0) {
+      const latest = entries[0];
+      const resultArea = document.getElementById('onbResultArea');
+      const resultText = document.getElementById('onbResultText');
+      if (resultArea && resultText && latest.text) {
+        resultText.textContent = latest.text;
+        resultArea.classList.remove('hidden');
+        // Auto-advance to step 4 after showing result briefly
+        setTimeout(() => { // DevSkim: ignore DS172411
+          _onboardingStep = 4;
+          updateOnboardingStep();
+        }, 3000);
+        return;
+      }
+    }
+  } catch (e) {
+    // Fallback: advance immediately if we can't fetch the result
+  }
+  _onboardingStep = 4;
+  updateOnboardingStep();
+}
