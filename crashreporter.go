@@ -50,23 +50,24 @@ type CrashReporter struct {
 
 // crashReport holds a single error report.
 type crashReport struct {
-	ID          string
-	Timestamp   int64
-	Type        string // "error", "panic", "subprocess_crash"
-	Severity    string // "error", "critical", "warning"
-	Message     string
-	StackTrace  string
-	ProcessName string
-	AppVersion  string
-	BuildCommit string
-	GoVersion   string
-	OS          string
-	Arch        string
-	DeviceID    string
-	GPU         string
-	LocalSTT    bool
-	SmartMode   bool
-	Hash        string
+	ID             string
+	Timestamp      int64
+	Type           string // "error", "panic", "subprocess_crash"
+	Severity       string // "error", "critical", "warning"
+	Message        string
+	StackTrace     string
+	ProcessName    string
+	AppVersion     string
+	BuildCommit    string
+	GoVersion      string
+	OS             string
+	Arch           string
+	DeviceID       string
+	GPU            string
+	LocalSTT       bool
+	SmartMode      bool
+	ConfigSnapshot string
+	Hash           string
 }
 
 var (
@@ -180,6 +181,7 @@ func (cr *CrashReporter) initDB() error {
 			gpu         TEXT,
 			local_stt   INTEGER,
 			smart_mode  INTEGER,
+			config_snapshot TEXT,
 			hash        TEXT,
 			created_at  INTEGER
 		);
@@ -189,6 +191,11 @@ func (cr *CrashReporter) initDB() error {
 	if err != nil {
 		db.Close()
 		return fmt.Errorf("create crash schema: %w", err)
+	}
+	if _, err := db.Exec(`ALTER TABLE crash_queue ADD COLUMN config_snapshot TEXT`); err != nil &&
+		!strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		db.Close()
+		return fmt.Errorf("migrate crash schema: %w", err)
 	}
 
 	// Prune old records.
@@ -252,29 +259,32 @@ func (cr *CrashReporter) newReport(typ, severity, message, stack, process string
 	gpuStr := ""
 	localSTT := false
 	smartMode := false
+	configSnapshot := ""
 	if cr.cfg != nil {
 		gpuStr = cr.cfg.GetGPUAcceleration()
-		localSTT = cr.cfg.UseLocalSTT
-		smartMode = cr.cfg.SmartMode
+		localSTT = cr.cfg.GetUseLocalSTT()
+		smartMode = cr.cfg.GetSmartMode()
+		configSnapshot = buildCrashConfigSnapshot(cr.cfg)
 	}
 	return &crashReport{
-		ID:          newUUID(),
-		Timestamp:   time.Now().Unix(),
-		Type:        typ,
-		Severity:    severity,
-		Message:     message,
-		StackTrace:  stack,
-		ProcessName: process,
-		AppVersion:  AppVersion,
-		BuildCommit: BuildCommit,
-		GoVersion:   runtime.Version(),
-		OS:          runtime.GOOS,
-		Arch:        runtime.GOARCH,
-		DeviceID:    cr.deviceID,
-		GPU:         gpuStr,
-		LocalSTT:    localSTT,
-		SmartMode:   smartMode,
-		Hash:        hashCrash(message, stack),
+		ID:             newUUID(),
+		Timestamp:      time.Now().Unix(),
+		Type:           typ,
+		Severity:       severity,
+		Message:        message,
+		StackTrace:     stack,
+		ProcessName:    process,
+		AppVersion:     AppVersion,
+		BuildCommit:    BuildCommit,
+		GoVersion:      runtime.Version(),
+		OS:             runtime.GOOS,
+		Arch:           runtime.GOARCH,
+		DeviceID:       cr.deviceID,
+		GPU:            gpuStr,
+		LocalSTT:       localSTT,
+		SmartMode:      smartMode,
+		ConfigSnapshot: configSnapshot,
+		Hash:           hashCrash(message, stack),
 	}
 }
 
@@ -288,11 +298,11 @@ func (cr *CrashReporter) enqueue(r *crashReport) {
 	_, err := cr.db.Exec(`INSERT INTO crash_queue
 		(id,timestamp,type,severity,message,stack_trace,process,
 		 app_version,build_commit,go_version,os,arch,device_id,
-		 gpu,local_stt,smart_mode,hash,created_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		 gpu,local_stt,smart_mode,config_snapshot,hash,created_at)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		r.ID, r.Timestamp, r.Type, r.Severity, r.Message, r.StackTrace, r.ProcessName,
 		r.AppVersion, r.BuildCommit, r.GoVersion, r.OS, r.Arch, r.DeviceID,
-		r.GPU, boolInt(r.LocalSTT), boolInt(r.SmartMode), r.Hash, time.Now().Unix(),
+		r.GPU, boolInt(r.LocalSTT), boolInt(r.SmartMode), r.ConfigSnapshot, r.Hash, time.Now().Unix(),
 	)
 	if err != nil {
 		logWarn("Crash reporter enqueue failed: %v", err)
@@ -326,7 +336,7 @@ func (cr *CrashReporter) flush() {
 	}
 
 	rows, err := cr.db.Query(`SELECT id,timestamp,type,severity,message,stack_trace,process,
-		app_version,build_commit,go_version,os,arch,device_id,gpu,local_stt,smart_mode,hash
+		app_version,build_commit,go_version,os,arch,device_id,gpu,local_stt,smart_mode,config_snapshot,hash
 		FROM crash_queue ORDER BY created_at ASC LIMIT 10`)
 	if err != nil {
 		return
@@ -339,7 +349,7 @@ func (cr *CrashReporter) flush() {
 		var lstt, sm int
 		if err := rows.Scan(&r.ID, &r.Timestamp, &r.Type, &r.Severity, &r.Message, &r.StackTrace,
 			&r.ProcessName, &r.AppVersion, &r.BuildCommit, &r.GoVersion, &r.OS, &r.Arch,
-			&r.DeviceID, &r.GPU, &lstt, &sm, &r.Hash); err == nil {
+			&r.DeviceID, &r.GPU, &lstt, &sm, &r.ConfigSnapshot, &r.Hash); err == nil {
 			r.LocalSTT = lstt != 0
 			r.SmartMode = sm != 0
 			reports = append(reports, r)
@@ -400,13 +410,30 @@ func (cr *CrashReporter) buildEmbed(r *crashReport) map[string]interface{} {
 	msg := truncStr(r.Message, maxEmbedFieldLen)
 	stack := truncStr(r.StackTrace, maxEmbedFieldLen)
 
+	versionValue := r.AppVersion
+	if versionValue == "" {
+		versionValue = "dev"
+	}
 	fields := []map[string]interface{}{
-		{"name": "Version", "value": r.AppVersion, "inline": true},
+		{"name": "Version", "value": versionValue, "inline": true},
 		{"name": "OS", "value": fmt.Sprintf("%s/%s", r.OS, r.Arch), "inline": true},
 		{"name": "Go", "value": r.GoVersion, "inline": true},
 		{"name": "Device", "value": r.DeviceID, "inline": true},
 		{"name": "GPU", "value": r.GPU, "inline": true},
-		{"name": "Features", "value": fmt.Sprintf("LocalSTT=%v SmartMode=%v", r.LocalSTT, r.SmartMode), "inline": false},
+	}
+	if r.BuildCommit != "" {
+		fields = append(fields, map[string]interface{}{
+			"name": "Build", "value": truncStr(r.BuildCommit, 12), "inline": true,
+		})
+	}
+	if r.ConfigSnapshot != "" {
+		fields = append(fields, map[string]interface{}{
+			"name": "Runtime Config", "value": "```\n" + truncStr(r.ConfigSnapshot, maxEmbedFieldLen-8) + "\n```", "inline": false,
+		})
+	} else {
+		fields = append(fields, map[string]interface{}{
+			"name": "Runtime Config", "value": fmt.Sprintf("LocalSTT=%v SmartMode=%v", r.LocalSTT, r.SmartMode), "inline": false,
+		})
 	}
 	if stack != "" {
 		fields = append(fields, map[string]interface{}{
@@ -499,6 +526,82 @@ func sanitizePaths(s string) string {
 		s = strings.ReplaceAll(s, appdata, "<appdata>")
 	}
 	return s
+}
+
+func buildCrashConfigSnapshot(cfg *Config) string {
+	if cfg == nil {
+		return ""
+	}
+
+	profile := compactCrashValue(cfg.GetActiveProfile(), "default", 32)
+	mode := compactCrashValue(cfg.GetMode(), "push_to_talk", 24)
+	gpu := compactCrashValue(cfg.GetGPUAcceleration(), "auto", 16)
+	updateChannel := compactCrashValue(cfg.GetUpdateChannel(), "stable", 16)
+	inputDevice := compactCrashValue(cfg.GetInputDevice(), "default", 32)
+	language := compactCrashValue(cfg.GetLanguage(), "auto", 16)
+
+	sttMode := "cloud"
+	sttProvider := compactCrashValue(cfg.GetCloudSTTProvider(), "openai", 16)
+	sttModel := compactCrashValue(cfg.GetModel(), "whisper-1", 32)
+	sttLanguage := compactCrashValue(cfg.GetTranscriptionLanguage(), language, 16)
+	if cfg.GetUseLocalSTT() {
+		sttMode = "local"
+		sttProvider = "whisper.cpp"
+		sttModel = compactCrashValue(cfg.GetLocalModelID(), "whisper-base", 32)
+		sttLanguage = compactCrashValue(cfg.GetEffectiveLocalTranscriptionLanguage(), "auto", 16)
+	}
+
+	smartEnabled := cfg.GetSmartMode()
+	smartProvider := "off"
+	smartModel := "-"
+	if smartEnabled {
+		switch provider := cfg.GetSmartModeProvider(); provider {
+		case "local":
+			smartProvider = "local"
+			smartModel = compactCrashValue(cfg.GetLocalLLMModel(), "smollm2", 32)
+		case "cloud":
+			smartProvider = compactCrashValue(cfg.GetCloudLLMProvider(), "openai", 16)
+			smartModel = compactCrashValue(cfg.GetCloudLLMModel(), "default", 32)
+		case "auto":
+			smartProvider = "auto/" + compactCrashValue(cfg.GetCloudLLMProvider(), "openai", 16)
+			if cloudModel := compactCrashValue(cfg.GetCloudLLMModel(), "", 32); cloudModel != "" {
+				smartModel = cloudModel
+			} else {
+				smartModel = compactCrashValue(cfg.GetLocalLLMModel(), "smollm2", 32)
+			}
+		default:
+			smartProvider = compactCrashValue(provider, "auto", 24)
+			smartModel = compactCrashValue(cfg.GetCloudLLMModel(), "default", 32)
+		}
+	}
+
+	lines := []string{
+		fmt.Sprintf("profile=%s | mode=%s | gpu=%s | updates=%s", profile, mode, gpu, updateChannel),
+		fmt.Sprintf("stt=%s | provider=%s | model=%s | lang=%s", sttMode, sttProvider, sttModel, sttLanguage),
+		fmt.Sprintf("smart=%t | provider=%s | model=%s | preset=%s | target=%s",
+			smartEnabled,
+			smartProvider,
+			smartModel,
+			compactCrashValue(cfg.GetSmartModePreset(), "cleanup", 24),
+			compactCrashValue(cfg.GetSmartModeTarget(), "en", 12),
+		),
+		fmt.Sprintf("audio=device:%s | gain=%.2f | vad=%t(%.2f) | trim=%t",
+			inputDevice,
+			cfg.GetInputGain(),
+			cfg.GetUseVAD(),
+			cfg.GetVADSensitivity(),
+			cfg.GetTrimSilence(),
+		),
+	}
+	return sanitizePaths(strings.Join(lines, "\n"))
+}
+
+func compactCrashValue(value, fallback string, maxLen int) string {
+	value = strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(value, "\r", " "), "\n", " "))
+	if value == "" {
+		value = fallback
+	}
+	return truncStr(value, maxLen)
 }
 
 // deriveDeviceID generates a stable anonymous device identifier.

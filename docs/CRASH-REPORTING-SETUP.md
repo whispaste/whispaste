@@ -2,11 +2,13 @@
 
 WhisPaste includes an optional crash reporter that sends anonymous error reports to a Discord channel via webhook. This guide walks you through setting it up.
 
+> **Important:** A raw Discord webhook URL is a secret. Do **not** ship it inside a production desktop app. Use direct webhook access only for local development or self-hosted internal builds. For public releases (including Microsoft Store), route reports through a small HTTPS relay that keeps the real Discord webhook on the server side.
+
 ## Overview
 
 | Feature | Detail |
 |---------|--------|
-| **Transport** | Discord webhook (HTTPS POST) |
+| **Transport** | Discord webhook (HTTPS POST) or production relay |
 | **Storage** | Local SQLite queue (`crash_queue.db`) |
 | **Privacy** | Anonymous — no personal data, transcriptions, or API keys |
 | **Default** | Enabled (opt-out via Settings → About → Error Reporting) |
@@ -38,7 +40,7 @@ WhisPaste includes an optional crash reporter that sends anonymous error reports
 
 You have two options to provide the webhook URL. Choose one:
 
-### Option A: Environment Variable (recommended for development)
+### Option A: `.env` / Environment Variable (recommended for development)
 
 Set the `WHISPASTE_CRASH_WEBHOOK` environment variable:
 
@@ -52,7 +54,14 @@ $env:WHISPASTE_CRASH_WEBHOOK = "https://discord.com/api/webhooks/YOUR_WEBHOOK_UR
 [System.Environment]::SetEnvironmentVariable("WHISPASTE_CRASH_WEBHOOK", "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL", "User")
 ```
 
-### Option B: Config file (recommended for production / end users)
+**Project-local `.env` file:**
+```dotenv
+WHISPASTE_CRASH_WEBHOOK=https://discord.com/api/webhooks/YOUR_WEBHOOK_URL
+```
+
+WhisPaste loads this value automatically at startup in local/dev environments.
+
+### Option B: Config file (self-hosted installs only)
 
 Create a file named `crash_webhook.txt` in the WhisPaste config directory:
 
@@ -67,7 +76,32 @@ The file should contain **only** the webhook URL on a single line:
 Set-Content -Path "$env:APPDATA\WhisPaste\crash_webhook.txt" -Value "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
 ```
 
-> **Security note:** The webhook URL is a secret — anyone with it can post to your channel. Never commit it to source control. The file has user-only read permissions.
+> **Security note:** The webhook URL is a secret — anyone with it can post to your channel. Never commit it to source control. The file has user-only read permissions, but this is still **not** appropriate for mass-distributed public builds.
+
+### Option C: Production relay (recommended for public releases / Microsoft Store)
+
+For public releases, use this flow instead:
+
+```
+WhisPaste app  ->  HTTPS relay endpoint  ->  Discord webhook
+```
+
+The app should only know the relay URL. The relay keeps the real Discord webhook secret server-side and can also enforce:
+
+- payload validation
+- rate limiting
+- request size limits
+- abuse protection
+- IP-based throttling
+- server-side deduplication
+
+Good low-complexity options:
+
+- Cloudflare Worker
+- Supabase Edge Function
+- Vercel Serverless Function
+
+This is the recommended setup for Microsoft Store distribution because secrets are not embedded in the client.
 
 ## Step 4: Verify It Works
 
@@ -92,23 +126,26 @@ Each crash report appears as a Discord embed with:
 | **Title** | Error message (sanitized) |
 | **Type** | `error`, `panic`, or `subprocess_crash` |
 | **Severity** | `error`, `critical`, or `warning` |
-| **App Version** | e.g. `1.2.3` |
+| **Version** | e.g. `1.2.3` |
+| **Build** | Short commit hash for exact build identification |
 | **OS / Arch** | e.g. `windows / amd64` |
 | **Go Version** | e.g. `go1.26` |
 | **Device** | Anonymous 12-char hash (groups crashes from one machine) |
-| **GPU** | Detected GPU name (helps diagnose GPU-related crashes) |
+| **GPU** | Selected GPU acceleration mode |
+| **Runtime Config** | Sanitized snapshot of active profile, STT/LLM provider, model, language, VAD, audio device, update channel |
 | **Stack Trace** | Sanitized call stack (paths anonymized) |
 
 ## How Privacy Is Ensured
 
 The crash reporter applies multiple layers of sanitization before sending:
 
-1. **API key patterns** (`sk-`, `gsk_`, `api_key=`, `token=`, `password=`) → entire message replaced with `[REDACTED]`
+1. **API key patterns** (`sk-`, `gsk_`, `api_key=`, `token=`, `password=`, `Authorization:`) → message replaced with `[REDACTED]`
 2. **User paths** (`C:\Users\YourName\...`) → replaced with `<home>`
-3. **Username** → replaced with `<user>`
-4. **Deduplication** — identical errors within 1 hour are sent only once
-5. **Rate limiting** — max 20 reports per hour
-6. **No transcription content** — audio and text data never enter the crash pipeline
+3. **Username / app-data paths** → replaced with `<user>` / `<appdata>`
+4. **Runtime snapshot is allow-list based** — only selected technical settings are included
+5. **Deduplication** — identical errors within 1 hour are sent only once
+6. **Rate limiting** — max 20 reports per hour
+7. **No transcription content** — audio and text data never enter the crash pipeline
 
 ## Architecture
 
@@ -130,6 +167,19 @@ logError() ──async──▶ captureError()
                      │ Channel │
                      └─────────┘
 ```
+
+### Recommended production architecture
+
+```
+logError() ──async──▶ captureError() ──▶ local SQLite queue
+                                      │
+                                      └──▶ HTTPS relay (public endpoint)
+                                              │ server-side secret
+                                              ▼
+                                           Discord webhook
+```
+
+This keeps the Discord webhook out of the shipped app while preserving the same queueing and privacy behavior on the client.
 
 ## Disabling Crash Reporting
 
