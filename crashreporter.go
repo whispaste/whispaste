@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -30,7 +31,16 @@ const (
 	maxEmbedFieldLen  = 1024
 )
 
-// CrashReporter queues and sends error reports via a Discord webhook.
+var sensitiveMessagePatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)["']?(api[_-]?key|token|password|authorization)["']?\s*[:=]\s*['"]?[^\s'",}]+`),
+	regexp.MustCompile(`(?i)\bbearer\s+[A-Za-z0-9._\-+/=]+\b`),
+	regexp.MustCompile(`\bsk-[A-Za-z0-9][A-Za-z0-9\-_]{5,}\b`),
+	regexp.MustCompile(`\bgsk_[A-Za-z0-9][A-Za-z0-9\-_]{5,}\b`),
+	regexp.MustCompile(`\bsk-ant-[A-Za-z0-9\-_]{8,}\b`),
+	regexp.MustCompile(`\bAIza[0-9A-Za-z\-_]{10,}\b`),
+}
+
+// CrashReporter queues and sends error reports via the configured relay.
 // Reports are persisted in a local SQLite database so nothing is lost
 // when the application is offline or crashes.
 type CrashReporter struct {
@@ -502,13 +512,8 @@ func hashCrash(message, stack string) string {
 
 // sanitizeMessage redacts known sensitive patterns.
 func sanitizeMessage(s string) string {
-	low := strings.ToLower(s)
-	for _, p := range []string{
-		"api_key=", "apikey=", "token=", "password=",
-		"sk-", "gsk_", "bearer ", "authorization:",
-		"deepgram", "anthropic", "gemini",
-	} {
-		if strings.Contains(low, p) {
+	for _, pattern := range sensitiveMessagePatterns {
+		if pattern.MatchString(s) {
 			return "[REDACTED — contains sensitive data]"
 		}
 	}

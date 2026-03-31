@@ -58,14 +58,23 @@ jobs:
           CGO_ENABLED: "1"
         run: go vet ./...
 
+      - name: Validate crash relay config
+        env:
+          CRASH_RELAY_URL: ${{ secrets.CRASH_RELAY_URL }}
+        run: |
+          if (-not $env:CRASH_RELAY_URL) {
+            throw "Missing required secret: CRASH_RELAY_URL"
+          }
+          if ($env:CRASH_RELAY_URL -notmatch '^https://[a-z0-9-]+\.supabase\.co/functions/v1/crash-relay$') {
+            throw "CRASH_RELAY_URL must point to a Supabase crash-relay endpoint"
+          }
+
       - name: Build
         env:
           CGO_ENABLED: "1"
           APP_VERSION: ${{ steps.version.outputs.VERSION }}
-        run: >
-          go build
-          -ldflags="-s -w -H windowsgui -X main.AppVersion=$env:APP_VERSION"
-          -o whispaste.exe .
+          CRASH_RELAY_URL: ${{ secrets.CRASH_RELAY_URL }}
+        run: .\scripts\build.ps1 -Release -Version $env:APP_VERSION -CrashRelayURL $env:CRASH_RELAY_URL
 
       - name: Verify binary
         run: |
@@ -134,10 +143,10 @@ jobs:
             ### Installer (recommended)
             Download **`WhisPaste-Setup.exe`** and run it. The installer adds WhisPaste to your Start Menu, optionally creates a desktop shortcut, and supports auto-start with Windows.
 
-            ### Portable
-            1. Download **`whispaste.exe`**
-            2. Double-click it — it will appear in your system tray
-            3. Right-click the tray icon → Settings → enter your OpenAI API key or enable local models
+             ### Portable
+             1. Download **`whispaste.exe`**
+             2. Double-click it — it will appear in your system tray
+             3. Right-click the tray icon → Settings → choose a cloud provider key or enable local models
 
             ### MSIX Package
             Download `whispaste.msix` for managed Windows installation.

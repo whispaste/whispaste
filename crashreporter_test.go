@@ -20,9 +20,10 @@ func TestSanitizeMessage(t *testing.T) {
 		{"apiKey=xyz", redacted},
 		{"Bearer eyJhbGci...", redacted},
 		{"Authorization: Basic abc", redacted},
-		{"error calling deepgram API", redacted},
-		{"anthropic connection failed", redacted},
-		{"gemini timeout", redacted},
+		{`request failed: {"api_key":"SECRET"}`, redacted},
+		{"error calling deepgram API", "error calling deepgram API"},
+		{"anthropic connection failed", "anthropic connection failed"},
+		{"gemini timeout", "gemini timeout"},
 	}
 	for _, tc := range tests {
 		got := sanitizeMessage(tc.input)
@@ -30,8 +31,8 @@ func TestSanitizeMessage(t *testing.T) {
 			if got != tc.want {
 				t.Errorf("sanitizeMessage(%q) = %q, want %q", tc.input, got, tc.want)
 			}
-		} else if !strings.Contains(got, "normal error text") {
-			t.Errorf("sanitizeMessage(%q) = %q, expected to contain original text", tc.input, got)
+		} else if got != tc.want {
+			t.Errorf("sanitizeMessage(%q) = %q, want %q", tc.input, got, tc.want)
 		}
 	}
 }

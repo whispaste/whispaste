@@ -40,6 +40,12 @@ Use the build script and inject the public relay URL:
 
 The relay URL is public and safe to ship in the app. The real Discord webhook stays server-side as a Supabase secret.
 
+Important for open-source releases:
+
+- the public relay URL may appear in source, CI config, and shipped binaries
+- the Discord webhook and `SUPABASE_SERVICE_ROLE_KEY` must never appear in Git, docs, or client code
+- the crash relay does not require a Supabase publishable key in the desktop client
+
 ## Step 3: Verify It Works
 
 1. Start WhisPaste
