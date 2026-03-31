@@ -19,6 +19,21 @@ import (
 
 var multiSpace = regexp.MustCompile(`\s{2,}`)
 
+// truncateForLog truncates a string to maxLen chars for log readability.
+func truncateForLog(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "…"
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 // isLocalEndpoint checks if a URL points to a local LLM/STT server.
 // Used to distinguish local model requests from cloud API requests.
 func isLocalEndpoint(url string) bool {
@@ -105,16 +120,15 @@ TRANSFORMATION INSTRUCTIONS:
 %s`, sameLanguageInstruction(langHint), strings.TrimSpace(actionPrompt))
 }
 
-// wrapSmartTransformPromptLocal creates a simplified prompt for local LLMs (sub-1B params).
-// Smaller models follow shorter, more direct instructions more reliably.
+// wrapSmartTransformPromptLocal creates a direct prompt for local LLMs (sub-1B params).
+// Small models follow the first clear instruction they see, so we pass the preset's
+// action prompt directly without a "refine" wrapper that could override it.
 func wrapSmartTransformPromptLocal(actionPrompt, langHint string) string {
-	langRule := "Keep the same language."
+	langSuffix := ""
 	if languageName := promptLanguageName(langHint); languageName != "" {
-		langRule = fmt.Sprintf("Keep the output in %s.", languageName)
+		langSuffix = fmt.Sprintf(" Keep the output in %s.", languageName)
 	}
-	return fmt.Sprintf(`Refine dictated text. %s Output only the improved text, nothing else.
-
-Task: %s`, langRule, strings.TrimSpace(actionPrompt))
+	return strings.TrimSpace(actionPrompt) + langSuffix + " Do not add any commentary or explanation."
 }
 
 func buildTranslatePrompt(targetLang string) string {
@@ -296,7 +310,10 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 		}
 	}
 
-	logDebug("PostProcess: preset=%s local=%v input_len=%d max_tokens=%d", preset, local, len(text), maxTokens)
+	logDebug("PostProcess: preset=%s local=%v input_len=%d max_tokens=%d prompt_len=%d", preset, local, len(text), maxTokens, len(systemPrompt))
+	if local {
+		logDebug("PostProcess: system_prompt=%q", truncateForLog(systemPrompt, 200))
+	}
 
 	reqBody := map[string]interface{}{
 		"model": modelName,
@@ -360,7 +377,12 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 		logWarn("PostProcess: response contained only think blocks, using raw text")
 		return text, fmt.Errorf("response contained only think blocks")
 	}
-	logDebug("PostProcess: done in %s, output_len=%d", time.Since(start).Round(time.Millisecond), len(cleaned))
+	elapsed := time.Since(start).Round(time.Millisecond)
+	logDebug("PostProcess: done in %s, output_len=%d output_preview=%q", elapsed, len(cleaned), truncateForLog(cleaned, 120))
+	// Warn if local LLM returned text nearly identical to input (likely ignored the preset)
+	if local && len(cleaned) > 0 && abs(len(cleaned)-len(text)) < len(text)/10 {
+		logWarn("PostProcess: local LLM output length (%d) is very close to input (%d) — model may not have applied preset %q", len(cleaned), len(text), preset)
+	}
 	return cleaned, nil
 }
 
