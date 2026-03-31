@@ -135,29 +135,8 @@
           </button>
         </div>
       </div>
-      <div class="onb-persona-section" id="onbPersonaSection">
-        <p class="onb-persona-question" data-i18n="onboarding.persona_question">How will you use WhisPaste?</p>
-        <div class="onb-persona-cards">
-          <button class="onb-persona-card" data-persona="content" onclick="onbSelectPersona('content')">
-            <span class="onb-persona-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.6 2.7a2.41 2.41 0 0 1 3.4 0l2.3 2.3a2.41 2.41 0 0 1 0 3.4L9.1 20.6a2 2 0 0 1-1 .5L3 22l.9-5.1a2 2 0 0 1 .5-1z"/></svg></span>
-            <span class="onb-persona-label" data-i18n="onboarding.persona_content">Content Creation</span>
-          </button>
-          <button class="onb-persona-card" data-persona="office" onclick="onbSelectPersona('office')">
-            <span class="onb-persona-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></span>
-            <span class="onb-persona-label" data-i18n="onboarding.persona_office">Office & Admin</span>
-          </button>
-          <button class="onb-persona-card" data-persona="dev" onclick="onbSelectPersona('dev')">
-            <span class="onb-persona-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg></span>
-            <span class="onb-persona-label" data-i18n="onboarding.persona_dev">Development</span>
-          </button>
-          <button class="onb-persona-card" data-persona="general" onclick="onbSelectPersona('general')">
-            <span class="onb-persona-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
-            <span class="onb-persona-label" data-i18n="onboarding.persona_general">General Use</span>
-          </button>
-        </div>
-      </div>
       <div class="onboarding-actions">
-        <button class="btn btn-primary btn-lg" onclick="nextOnboardingStep()"><span data-i18n="onboarding.get_started">Set Up First Dictation</span></button>
+        <button class="btn btn-primary btn-lg" onclick="nextOnboardingStep()"><span data-i18n="onboarding.get_started">Continue</span></button>
       </div>
       <div class="onboarding-dots">
         <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
@@ -264,27 +243,25 @@
       <div class="onb-theme-section">
         <p class="onb-section-label" data-i18n="onboarding.theme_label">Appearance</p>
         <div class="onb-theme-selector" id="onbThemeOptionsStep4">
-          <button class="onb-theme-btn" data-theme="system" onclick="onbSetTheme('system')" data-i18n-title="onboarding.theme_system" title="System"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg><span data-i18n="onboarding.theme_system">System</span></button>
-          <button class="onb-theme-btn" data-theme="light" onclick="onbSetTheme('light')" data-i18n-title="onboarding.theme_light" title="Light"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><span data-i18n="onboarding.theme_light">Light</span></button>
-          <button class="onb-theme-btn" data-theme="dark" onclick="onbSetTheme('dark')" data-i18n-title="onboarding.theme_dark" title="Dark"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span data-i18n="onboarding.theme_dark">Dark</span></button>
+          <button class="onb-theme-btn" data-theme="system" onclick="onbSetTheme('system')" data-i18n-title="onboarding.theme_system" title="System"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></button>
+          <button class="onb-theme-btn" data-theme="light" onclick="onbSetTheme('light')" data-i18n-title="onboarding.theme_light" title="Light"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
+          <button class="onb-theme-btn" data-theme="dark" onclick="onbSetTheme('dark')" data-i18n-title="onboarding.theme_dark" title="Dark"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
         </div>
       </div>
       <div class="onb-discovery-cards">
-        <div class="onb-discovery-card" onclick="finishOnboarding('settings')">
+        <div class="onb-discovery-card">
           <span class="onb-discovery-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg></span>
           <div class="onb-discovery-text">
             <strong data-i18n="onboarding.discover_smart">Smart Mode</strong>
             <small data-i18n="onboarding.discover_smart_desc">AI cleans up and refines your text before pasting.</small>
           </div>
-          <span class="onb-discovery-arrow"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
         </div>
-        <div class="onb-discovery-card" onclick="finishOnboarding('settings')">
+        <div class="onb-discovery-card">
           <span class="onb-discovery-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span>
           <div class="onb-discovery-text">
             <strong data-i18n="onboarding.discover_replacements">Text Snippets</strong>
             <small data-i18n="onboarding.discover_replacements_desc">Auto-replace words or phrases as you dictate.</small>
           </div>
-          <span class="onb-discovery-arrow"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
         </div>
         <div class="onb-discovery-card">
           <span class="onb-discovery-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg></span>
