@@ -577,6 +577,9 @@ window.onRecordingStateChanged = function(state) {
   if (_origOnRecordingStateChanged) _origOnRecordingStateChanged(state);
   if (_onbResumeAfterCapture && state === 'idle') {
     _onbResumeAfterCapture = false;
+    // Mark onboarding done now — config is saved and user experienced the aha moment.
+    // Step 4 is optional polish; if the app closes before it, onboarding won't repeat.
+    if (window.completeOnboarding) window.completeOnboarding();
     setTimeout(() => { // DevSkim: ignore DS172411 — wait for history refresh before resuming
       _onboardingStep = 4;
       const overlay = document.getElementById('onboardingOverlay');
