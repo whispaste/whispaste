@@ -425,3 +425,43 @@ func TestConfigFloatingButtonRoundtrip(t *testing.T) {
 		t.Errorf("GetFloatingButtonColor() = %q, want rose", cfg2.GetFloatingButtonColor())
 	}
 }
+
+func TestLoadEnvFile(t *testing.T) {
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, ".env")
+	content := "# comment\nTEST_WP_FOO=bar\nTEST_WP_QUOTED=\"hello world\"\n\nTEST_WP_EMPTY=\n"
+	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	// Ensure vars are unset before test
+	t.Setenv("TEST_WP_FOO", "")
+	os.Unsetenv("TEST_WP_FOO")
+	os.Unsetenv("TEST_WP_QUOTED")
+
+	// Change to temp dir so .env is found
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	t.Cleanup(func() { os.Chdir(orig) })
+
+	LoadEnvFile()
+
+	if got := os.Getenv("TEST_WP_FOO"); got != "bar" {
+		t.Errorf("TEST_WP_FOO = %q, want bar", got)
+	}
+	if got := os.Getenv("TEST_WP_QUOTED"); got != "hello world" {
+		t.Errorf("TEST_WP_QUOTED = %q, want 'hello world'", got)
+	}
+
+	// Existing env vars must NOT be overwritten
+	os.Setenv("TEST_WP_FOO", "original")
+	LoadEnvFile()
+	if got := os.Getenv("TEST_WP_FOO"); got != "original" {
+		t.Errorf("LoadEnvFile overwrote existing var: TEST_WP_FOO = %q, want original", got)
+	}
+
+	// Clean up
+	os.Unsetenv("TEST_WP_FOO")
+	os.Unsetenv("TEST_WP_QUOTED")
+	os.Unsetenv("TEST_WP_EMPTY")
+}

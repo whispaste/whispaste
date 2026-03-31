@@ -91,6 +91,9 @@ func main() {
 	// Detect system language on Windows via GetUserDefaultUILanguage
 	detectAndSetLanguage()
 
+	// Load .env file (before config, so env vars are available)
+	LoadEnvFile()
+
 	cfg, err := LoadConfig()
 	if err != nil {
 		logWarn("Config load error: %v (using defaults)", err)
