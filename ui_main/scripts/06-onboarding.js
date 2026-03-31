@@ -502,6 +502,12 @@ async function finishOnboarding(nextAction) {
     }
   } catch (e) { showToast(t('saveError'), true); }
 
+  // Save crash reporting opt-out choice from onboarding
+  const crashToggle = document.getElementById('onb-toggle-crash-reporting');
+  if (crashToggle && window.setErrorReportingEnabled) {
+    window.setErrorReportingEnabled(crashToggle.checked);
+  }
+
   if (window.completeOnboarding) {
     await window.completeOnboarding();
   }

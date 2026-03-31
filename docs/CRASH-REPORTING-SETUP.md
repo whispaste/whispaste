@@ -1,0 +1,151 @@
+# Crash Reporting Setup Guide
+
+WhisPaste includes an optional crash reporter that sends anonymous error reports to a Discord channel via webhook. This guide walks you through setting it up.
+
+## Overview
+
+| Feature | Detail |
+|---------|--------|
+| **Transport** | Discord webhook (HTTPS POST) |
+| **Storage** | Local SQLite queue (`crash_queue.db`) |
+| **Privacy** | Anonymous — no personal data, transcriptions, or API keys |
+| **Default** | Enabled (opt-out via Settings → About → Error Reporting) |
+| **Rate limit** | Max 20 reports/hour |
+| **Retention** | Queued reports auto-deleted after 30 days |
+| **Offline** | Reports queued locally and sent when connectivity returns |
+
+## Step 1: Create a Discord Server (or use an existing one)
+
+1. Open Discord (desktop or web)
+2. Click the **+** button in the server sidebar → **Create My Own**
+3. Choose **For me and my friends** → name it e.g. `WhisPaste Ops`
+4. Create a channel named `#crash-reports`
+
+## Step 2: Create a Webhook
+
+1. Right-click the `#crash-reports` channel → **Edit Channel**
+2. Go to **Integrations** → **Webhooks**
+3. Click **New Webhook**
+4. Name it `WhisPaste Crash Reporter`
+5. (Optional) Upload the WhisPaste icon as the webhook avatar
+6. Click **Copy Webhook URL** — it looks like:
+   ```
+   https://discord.com/api/webhooks/1234567890/ABCDefgh...
+   ```
+7. Click **Save Changes**
+
+## Step 3: Configure WhisPaste
+
+You have two options to provide the webhook URL. Choose one:
+
+### Option A: Environment Variable (recommended for development)
+
+Set the `WHISPASTE_CRASH_WEBHOOK` environment variable:
+
+**PowerShell (current session):**
+```powershell
+$env:WHISPASTE_CRASH_WEBHOOK = "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+```
+
+**Permanently (user-level):**
+```powershell
+[System.Environment]::SetEnvironmentVariable("WHISPASTE_CRASH_WEBHOOK", "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL", "User")
+```
+
+### Option B: Config file (recommended for production / end users)
+
+Create a file named `crash_webhook.txt` in the WhisPaste config directory:
+
+```
+%APPDATA%\WhisPaste\crash_webhook.txt
+```
+
+The file should contain **only** the webhook URL on a single line:
+
+```powershell
+# Create the file:
+Set-Content -Path "$env:APPDATA\WhisPaste\crash_webhook.txt" -Value "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+```
+
+> **Security note:** The webhook URL is a secret — anyone with it can post to your channel. Never commit it to source control. The file has user-only read permissions.
+
+## Step 4: Verify It Works
+
+1. Start WhisPaste
+2. Check the log file (`%APPDATA%\WhisPaste\whispaste.log`) for:
+   ```
+   Crash reporting: enabled (webhook configured)
+   ```
+3. If the webhook is missing or unreachable, you'll see:
+   ```
+   Crash reporting: enabled (local queue only, no webhook)
+   ```
+
+To trigger a test report, you can temporarily add a `logError()` call, or simply wait for a real error to occur. Reports are batched and sent every 60 seconds.
+
+## Step 5: Reading Crash Reports in Discord
+
+Each crash report appears as a Discord embed with:
+
+| Field | Description |
+|-------|-------------|
+| **Title** | Error message (sanitized) |
+| **Type** | `error`, `panic`, or `subprocess_crash` |
+| **Severity** | `error`, `critical`, or `warning` |
+| **App Version** | e.g. `1.2.3` |
+| **OS / Arch** | e.g. `windows / amd64` |
+| **Go Version** | e.g. `go1.26` |
+| **Device** | Anonymous 12-char hash (groups crashes from one machine) |
+| **GPU** | Detected GPU name (helps diagnose GPU-related crashes) |
+| **Stack Trace** | Sanitized call stack (paths anonymized) |
+
+## How Privacy Is Ensured
+
+The crash reporter applies multiple layers of sanitization before sending:
+
+1. **API key patterns** (`sk-`, `gsk_`, `api_key=`, `token=`, `password=`) → entire message replaced with `[REDACTED]`
+2. **User paths** (`C:\Users\YourName\...`) → replaced with `<home>`
+3. **Username** → replaced with `<user>`
+4. **Deduplication** — identical errors within 1 hour are sent only once
+5. **Rate limiting** — max 20 reports per hour
+6. **No transcription content** — audio and text data never enter the crash pipeline
+
+## Architecture
+
+```
+logError() ──async──▶ captureError()
+                          │
+                     ┌────▼────┐
+                     │ SQLite  │  crash_queue.db (offline buffer)
+                     │  Queue  │  max 500 items, 30-day TTL
+                     └────┬────┘
+                          │ every 60s
+                     ┌────▼────┐
+                     │ Sender  │  checks network, rate limit, dedup
+                     │  Loop   │  2s delay between Discord POSTs
+                     └────┬────┘
+                          │
+                     ┌────▼────┐
+                     │ Discord │  webhook POST with embed
+                     │ Channel │
+                     └─────────┘
+```
+
+## Disabling Crash Reporting
+
+Users can disable crash reporting at any time:
+
+- **In the app:** Settings → About → toggle "Anonymous error reporting" off
+- **During onboarding:** Uncheck "Help improve WhisPaste" on the final setup page
+- **In config.json:** Set `"error_reporting_enabled": false`
+
+When disabled, no reports are queued or sent. Existing queued reports are not sent until re-enabled.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| "local queue only, no webhook" in log | Webhook URL not found | Check `crash_webhook.txt` path or env var |
+| Reports not appearing in Discord | Rate limited or network issue | Wait 60s, check network. Max 20/hour. |
+| Reports stop after a while | Queue full (500 max) | Old reports auto-pruned after 30 days |
+| `Crash reporter DB init failed` | SQLite issue | Check disk space / permissions in `%APPDATA%\WhisPaste\` |
