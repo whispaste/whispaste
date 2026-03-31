@@ -42,8 +42,11 @@ if (-not $OpenAIKey -and -not $env:OPENAI_API_KEY) {
     $envFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".env"
     if (Test-Path $envFile) {
         Get-Content $envFile -Encoding UTF8 | ForEach-Object {
-            if ($_ -match '^\s*([^#][^=]+?)\s*=\s*(.+)\s*$') {
-                [System.Environment]::SetEnvironmentVariable($Matches[1].Trim(), $Matches[2].Trim(), "Process")
+            if ($_ -match '^\s*([^#][^=]+?)\s*=\s*(.*)\s*$') {
+                $val = $Matches[2].Trim()
+                if ($val) {
+                    [System.Environment]::SetEnvironmentVariable($Matches[1].Trim(), $val, "Process")
+                }
             }
         }
         Write-Host "Loaded secrets from .env"
@@ -78,19 +81,23 @@ You are a release notes writer for WhisPaste, a premium Windows desktop dictatio
 Your audience: non-technical Windows users (founders, freelancers, writers, consultants).
 
 RULES:
-- Write in a warm, professional, concise tone
+- Write in a warm, professional, concise tone — past tense, declarative ("Smart Mode now works...")
+- NEVER use imperative mood ("Enhance your...", "Introduce...", "Improve...") — these are announcements, not instructions
 - Use max 2 sections: Highlights (user-visible changes) and Improvements (stability/quality).
   Skip empty sections. NEVER have a separate "Bug Fixes" section — merge fixes into Highlights.
+- Section headers in German must be translated: "Highlights" stays "Highlights", but use "Verbesserungen" not "Improvements"
 - Use simple, everyday language — no jargon, no code references, no file paths, no technical terms
 - NEVER mention: API keys, webhook URLs, internal architecture, function names, file names,
   implementation details, server names (whisper-server, llama-server), database internals,
-  crash reporter internals, CI/CD pipeline details, MSIX, Discord, subprocess, timeout, token limits
+  crash reporter internals, CI/CD pipeline details, MSIX, Discord, subprocess, timeout, token limits,
+  GPU detection, multi-vendor, binary selection, onboarding wizard internals, demo mode
 - NEVER duplicate: each change appears in exactly ONE bullet. No overlap between sections.
 - Focus on USER IMPACT: what changed FOR THE USER, not what changed in the code
-- Keep it compact: 4-7 bullet points total across all sections
-- Each bullet: one sentence, starts with a verb or benefit, scannable in 1-2 seconds
-- If a change is purely internal (refactoring, CI, tests, monitoring), skip it or describe only the user benefit
+- Keep it compact: 3-6 bullet points total across all sections
+- Each bullet: one sentence, past tense or "now" phrasing, scannable in 1-2 seconds
+- If a change is purely internal (refactoring, CI, tests, monitoring, onboarding restructure), skip it entirely
 - Use "Windows taskbar" not "taskbar", "Microsoft Store" not "Store installs"
+- German must use du-Form and feel natural, not like a machine translation
 
 OUTPUT FORMAT (exactly):
 ===EN===
@@ -131,6 +138,9 @@ try {
         -Body $body `
         -TimeoutSec 60
 
+    if (-not $response.choices -or $response.choices.Count -eq 0 -or -not $response.choices[0].message) {
+        throw "API returned unexpected response format: $($response | ConvertTo-Json -Depth 2 -Compress)"
+    }
     $content = $response.choices[0].message.content
     Write-Host "AI response received ($($content.Length) chars)"
 } catch {
