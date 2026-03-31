@@ -177,6 +177,7 @@ type AppTray struct {
 	balloonShown          bool // tracks whether minimize-to-tray balloon was shown this session
 	cfg                   *Config
 	smartItem             *systray.MenuItem  // single smart mode toggle
+	autoPasteItem         *systray.MenuItem  // auto-paste toggle
 	mStatus              *systray.MenuItem  // disabled status line
 	mPreview             *systray.MenuItem  // last transcription preview
 	onSaved               func()
@@ -552,6 +553,27 @@ func (t *AppTray) onReady() {
 		}
 	}()
 
+	// Auto-Paste — quick toggle for automatic text insertion
+	mAutoPaste := systray.AddMenuItem(T("tray.auto_paste"), T("tray.auto_paste"))
+	t.autoPasteItem = mAutoPaste
+	t.updateAutoPasteCheck()
+
+	go func() {
+		for range mAutoPaste.ClickedCh {
+			t.cfg.mu.Lock()
+			t.cfg.AutoPaste = !t.cfg.AutoPaste
+			t.cfg.mu.Unlock()
+			if err := t.cfg.Save(); err != nil {
+				logWarn("Failed to save auto-paste: %v", err)
+			}
+			t.updateAutoPasteCheck()
+			logInfo("Tray toggled Auto-Paste: %v", t.cfg.GetAutoPaste())
+			if t.onSaved != nil {
+				t.onSaved()
+			}
+		}
+	}()
+
 	systray.AddSeparator()
 	mDashboard := systray.AddMenuItem(T("tray.notebook"), T("tray.notebook"))
 	mSettings := systray.AddMenuItem(T("tray.settings"), T("tray.settings"))
@@ -826,6 +848,18 @@ func (t *AppTray) updateSmartCheck() {
 		t.smartItem.Check()
 	} else {
 		t.smartItem.Uncheck()
+	}
+}
+
+// updateAutoPasteCheck updates the tray Auto-Paste item check state.
+func (t *AppTray) updateAutoPasteCheck() {
+	if t.autoPasteItem == nil {
+		return
+	}
+	if t.cfg.GetAutoPaste() {
+		t.autoPasteItem.Check()
+	} else {
+		t.autoPasteItem.Uncheck()
 	}
 }
 

@@ -108,6 +108,17 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		}
 		return string(data), nil
 	})
+	w.Bind("toggleAutoPaste", func() {
+		cfg.mu.Lock()
+		cfg.AutoPaste = !cfg.AutoPaste
+		newState := cfg.AutoPaste
+		cfg.mu.Unlock()
+		cfg.Save()
+		logInfo("Status bar toggled Auto-Paste: %v", newState)
+		if onSaved != nil {
+			onSaved()
+		}
+	})
 	w.Bind("saveConfig", func(configJSON string) map[string]interface{} {
 		var newCfg Config
 		if err := json.Unmarshal([]byte(configJSON), &newCfg); err != nil {
