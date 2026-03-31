@@ -7,11 +7,13 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -23,7 +25,7 @@ import (
 const (
 	crashQueueDB      = "crash_queue.db"
 	maxCrashQueue     = 500
-	maxReportsPerHour = 20
+	maxReportsPerHour = 50
 	maxQueueAgeDays   = 30
 	crashFlushEvery   = 60 * time.Second
 	discordSendDelay  = 2 * time.Second
@@ -245,6 +247,18 @@ func (cr *CrashReporter) capturePanic(recovered interface{}) {
 	cr.enqueue(r)
 }
 
+// extractExitCode extracts the process exit code from a cmd.Wait() error.
+func extractExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode()
+	}
+	return -1
+}
+
 // captureSubprocessCrash records a subprocess crash.
 func (cr *CrashReporter) captureSubprocessCrash(process string, exitCode int, stderr string) {
 	if cr == nil || !cr.enabled || cr.db == nil {
@@ -422,12 +436,25 @@ func (cr *CrashReporter) sendToRelay(r *crashReport) error {
 }
 
 func (cr *CrashReporter) buildEmbed(r *crashReport) map[string]interface{} {
-	color := 16711680 // red
-	if r.Severity == "warning" {
-		color = 16776960 // yellow
+	// Severity-based Discord embed styling
+	var color int
+	var emoji string
+	switch r.Severity {
+	case "critical":
+		color = 0xDC2626 // bright red
+		emoji = "🔴"
+	case "error":
+		color = 0xE97451 // orange-red
+		emoji = "🟠"
+	case "warning":
+		color = 0xF59E0B // amber
+		emoji = "🟡"
+	default:
+		color = 0x3B82F6 // blue (info)
+		emoji = "ℹ️"
 	}
 
-	title := fmt.Sprintf("[%s] %s", strings.ToUpper(r.Type), r.Severity)
+	title := fmt.Sprintf("%s [%s] %s", emoji, strings.ToUpper(r.Type), r.Severity)
 	msg := truncStr(r.Message, maxEmbedFieldLen)
 	stack := truncStr(r.StackTrace, maxEmbedFieldLen)
 
