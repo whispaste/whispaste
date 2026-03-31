@@ -189,6 +189,33 @@ function updateStatusBar(cfg) {
     }
   }
 
+  // Auto-Paste chip — clickable toggle
+  const autoPasteLabel = document.getElementById('statusAutoPasteLabel');
+  const autoPasteChip = document.getElementById('statusAutoPaste');
+  if (autoPasteLabel) {
+    autoPasteLabel.textContent = cfg.auto_paste ? t('statusbar.on') : t('statusbar.off');
+  }
+  if (autoPasteChip) {
+    autoPasteChip.title = t('statusbar.auto_paste_tip');
+    autoPasteChip.classList.toggle('accent', !!cfg.auto_paste);
+    if (!autoPasteChip._bound) {
+      autoPasteChip.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          await window.toggleAutoPaste();
+          const raw2 = await window.getConfig();
+          const newCfg = typeof raw2 === 'string' ? JSON.parse(raw2) : raw2;
+          updateStatusBar(newCfg);
+          // Sync settings form checkbox
+          const toggle = document.getElementById('toggle-autopaste');
+          if (toggle) toggle.checked = !!newCfg.auto_paste;
+          showToast(newCfg.auto_paste ? t('autoPaste.enabled') : t('autoPaste.disabled'), false);
+        } catch (err) {}
+      });
+      autoPasteChip._bound = true;
+    }
+  }
+
   // Command palette chip — update label with localized modifier
   const paletteLabel = document.getElementById('statusPaletteLabel');
   const paletteChip = document.getElementById('statusPalette');
