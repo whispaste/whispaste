@@ -79,11 +79,11 @@ function Resolve-CudaRoot {
 function Resolve-WhisperSourceDir {
     param(
         [Parameter(Mandatory = $true)][string]$Ref,
-        [Parameter(Mandatory = $true)][string]$RequestedSourceDir,
+        [string]$RequestedSourceDir = "",
         [Parameter(Mandatory = $true)][string]$CacheRoot
     )
 
-    if ($RequestedSourceDir) {
+    if (![string]::IsNullOrWhiteSpace($RequestedSourceDir)) {
         if (!(Test-Path $RequestedSourceDir)) {
             throw "Provided whisper.cpp source directory not found: $RequestedSourceDir"
         }
