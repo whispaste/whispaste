@@ -540,4 +540,17 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		data, _ := json.Marshal(info)
 		return string(data)
 	})
+
+	// Error reporting toggle
+	w.Bind("getErrorReportingEnabled", func() bool {
+		return cfg.GetErrorReportingEnabled()
+	})
+	w.Bind("setErrorReportingEnabled", func(enabled bool) {
+		cfg.SetErrorReportingEnabled(enabled)
+		SetCrashReportingEnabled(enabled)
+		if err := cfg.Save(); err != nil {
+			logError("Save config after error reporting toggle: %v", err)
+		}
+		logInfo("Error reporting: enabled=%v", enabled)
+	})
 }

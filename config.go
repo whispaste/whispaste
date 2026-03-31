@@ -91,6 +91,7 @@ type Config struct {
 	GeminiAPIKey            string                   `json:"gemini_api_key,omitempty"`
 	CustomDictionary        []string                 `json:"custom_dictionary,omitempty"` // terms for STT/LLM context
 	GPUAcceleration         string                   `json:"gpu_acceleration,omitempty"`  // "auto" (default), "enabled", "disabled"
+	ErrorReportingEnabled   bool                     `json:"error_reporting_enabled,omitempty"`
 	mu                      sync.RWMutex
 }
 
@@ -1126,4 +1127,18 @@ func cloudLLMAPIKeyLocked(c *Config) string {
 	default:
 		return c.APIKey
 	}
+}
+
+// GetErrorReportingEnabled returns whether anonymous error reporting is on (thread-safe).
+func (c *Config) GetErrorReportingEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.ErrorReportingEnabled
+}
+
+// SetErrorReportingEnabled toggles anonymous error reporting (thread-safe).
+func (c *Config) SetErrorReportingEnabled(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.ErrorReportingEnabled = v
 }
