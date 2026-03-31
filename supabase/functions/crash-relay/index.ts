@@ -199,7 +199,11 @@ Deno.serve(async (req) => {
   const discordURL = webhookURL.includes("?") ? `${webhookURL}&wait=true` : `${webhookURL}?wait=true`;
   const discordResp = await fetch(discordURL, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "accept-encoding": "identity",
+    },
     body: JSON.stringify({ embeds: [embed] }),
   });
   if (!discordResp.ok) {
