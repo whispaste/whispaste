@@ -139,7 +139,7 @@ func DefaultConfig() *Config {
 		NotifyDonate:     true,
 		SmartModeTarget:  defaultSmartModeTargetLanguage,
 		UseLocalSTT:      false,
-		LocalModelID:     "whisper-base",
+		LocalModelID:     "whisper-small",
 		InputGain:        1.0,
 		UpdateChannel:    "stable",
 	}
@@ -470,12 +470,17 @@ func (c *Config) GetUseLocalSTT() bool {
 }
 
 // HasAnyModel returns whether at least one transcription model is available:
-// either any cloud API key is configured or a local model is downloaded.
+// either the selected cloud STT provider is configured or a local model is downloaded.
 func (c *Config) HasAnyModel() bool {
-	if c.HasAnyCloudKey() {
+	if c.HasCloudSTTKey() {
 		return true
 	}
 	return len(models.ListDownloaded()) > 0
+}
+
+// HasCloudSTTKey returns true if the selected cloud STT provider has an API key configured.
+func (c *Config) HasCloudSTTKey() bool {
+	return c.CloudSTTAPIKey() != ""
 }
 
 // GetActiveModelLocal returns whether the currently selected model is local (thread-safe).

@@ -32,6 +32,11 @@ const (
 	BackendCPU    Backend = "cpu"
 )
 
+const (
+	autoMinVRAMCUDA   = 2048
+	autoMinVRAMVulkan = 1024
+)
+
 // Info describes the detected GPU capabilities.
 type Info struct {
 	Available     bool    // true if a usable GPU was detected
@@ -221,6 +226,32 @@ func ShouldUseGPU(mode string, minVRAMMB int) bool {
 	}
 }
 
+func autoMinVRAMForVendor(v Vendor) int {
+	switch v {
+	case VendorAMD, VendorIntel:
+		return autoMinVRAMVulkan
+	default:
+		return autoMinVRAMCUDA
+	}
+}
+
+func shouldUseRecommendedGPUForInfo(mode string, info Info) bool {
+	switch mode {
+	case "disabled":
+		return false
+	case "enabled":
+		return true
+	default:
+		return info.HasSufficientVRAM(autoMinVRAMForVendor(info.Vendor))
+	}
+}
+
+// ShouldUseRecommendedGPU returns whether the detected GPU should be used for
+// the currently shipped backend path in auto/enabled/disabled mode.
+func ShouldUseRecommendedGPU(mode string) bool {
+	return shouldUseRecommendedGPUForInfo(mode, Detect())
+}
+
 // RecommendSTTAssetKey returns the current upstream whisper.cpp asset key for the STT server.
 // Published WhisPaste-owned Vulkan/CUDA/CPU delivery is resolved separately in stt_download.go.
 func RecommendSTTAssetKey(gpuMode string) string {
@@ -231,23 +262,31 @@ func RecommendSTTAssetKey(gpuMode string) string {
 }
 
 // RecommendSTTBackend returns the currently shipped STT runtime backend the UI should report honestly.
-// Until WhisPaste-owned Vulkan STT artifacts are published and activated, AMD/Intel still fall back to CPU.
+// NVIDIA prefers CUDA, AMD/Intel prefer Vulkan, and unsupported/unknown setups fall back to CPU.
 func RecommendSTTBackend(gpuMode string) Backend {
-	if !ShouldUseGPU(gpuMode, 2048) {
+	info := Detect()
+	return recommendSTTBackendForInfo(info, shouldUseRecommendedGPUForInfo(gpuMode, info))
+}
+
+func recommendSTTBackendForInfo(info Info, useGPU bool) Backend {
+	if !useGPU {
 		return BackendCPU
 	}
-	info := Detect()
-	if info.Vendor == VendorNVIDIA {
+	switch info.Vendor {
+	case VendorNVIDIA:
 		return BackendCUDA
+	case VendorAMD, VendorIntel:
+		return BackendVulkan
+	default:
+		return BackendCPU
 	}
-	return BackendCPU
 }
 
 // RecommendLLMAssetKey returns the download asset key for the LLM server.
 // llama.cpp releases: CUDA (NVIDIA), Vulkan (AMD/Intel/universal), or CPU.
 func RecommendLLMAssetKey(gpuMode string) string {
 	info := Detect()
-	useGPU := ShouldUseGPU(gpuMode, 2048)
+	useGPU := shouldUseRecommendedGPUForInfo(gpuMode, info)
 
 	if !useGPU {
 		return "win-cpu-x64"
@@ -264,10 +303,10 @@ func RecommendLLMAssetKey(gpuMode string) string {
 
 // RecommendLLMBackend returns the compute backend to use for the LLM server.
 func RecommendLLMBackend(gpuMode string) Backend {
-	if !ShouldUseGPU(gpuMode, 2048) {
+	info := Detect()
+	if !shouldUseRecommendedGPUForInfo(gpuMode, info) {
 		return BackendCPU
 	}
-	info := Detect()
 	switch info.Vendor {
 	case VendorNVIDIA:
 		return BackendCUDA

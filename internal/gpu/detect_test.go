@@ -92,7 +92,6 @@ func TestRecommendSTTAssetKey_Enabled(t *testing.T) {
 		t.Fatal("returned empty string")
 	}
 
-	// "enabled" forces GPU on; only NVIDIA gets CUDA (whisper.cpp has no Vulkan builds)
 	if info.Vendor == VendorNVIDIA {
 		if got != "cublas-12" {
 			t.Errorf("NVIDIA detected: got %q, want %q", got, "cublas-12")
@@ -100,12 +99,19 @@ func TestRecommendSTTAssetKey_Enabled(t *testing.T) {
 		if backend != BackendCUDA {
 			t.Errorf("NVIDIA detected: backend = %q, want %q", backend, BackendCUDA)
 		}
-	} else {
+	} else if info.Vendor == VendorAMD || info.Vendor == VendorIntel {
 		if got != "blas-bin-x64" {
 			t.Errorf("non-NVIDIA detected: got %q, want %q", got, "blas-bin-x64")
 		}
+		if backend != BackendVulkan {
+			t.Errorf("AMD/Intel detected: backend = %q, want %q", backend, BackendVulkan)
+		}
+	} else {
+		if got != "blas-bin-x64" {
+			t.Errorf("unknown vendor detected: got %q, want %q", got, "blas-bin-x64")
+		}
 		if backend != BackendCPU {
-			t.Errorf("non-NVIDIA detected: backend = %q, want %q", backend, BackendCPU)
+			t.Errorf("unknown vendor detected: backend = %q, want %q", backend, BackendCPU)
 		}
 	}
 }
@@ -163,7 +169,7 @@ func TestRecommendSTTAssetKey_Auto(t *testing.T) {
 		t.Fatalf("got %q, want one of cublas-12 or blas-bin-x64", got)
 	}
 
-	hasGPU := info.Available && info.HasSufficientVRAM(2048)
+	hasGPU := shouldUseRecommendedGPUForInfo("auto", info)
 	if hasGPU && info.Vendor == VendorNVIDIA {
 		if got != "cublas-12" {
 			t.Errorf("NVIDIA with sufficient VRAM: got %q, want %q", got, "cublas-12")
@@ -180,8 +186,34 @@ func TestRecommendSTTAssetKey_Auto(t *testing.T) {
 			t.Errorf("no sufficient GPU: backend = %q, want %q", backend, BackendCPU)
 		}
 	}
-	if hasGPU && info.Vendor != VendorNVIDIA && backend != BackendCPU {
-		t.Errorf("non-NVIDIA STT should currently fall back to CPU, got %q", backend)
+	if hasGPU && (info.Vendor == VendorAMD || info.Vendor == VendorIntel) && backend != BackendVulkan {
+		t.Errorf("AMD/Intel STT should prefer Vulkan, got %q", backend)
+	}
+	if hasGPU && info.Vendor == VendorUnknown && backend != BackendCPU {
+		t.Errorf("unknown-vendor STT should fall back to CPU, got %q", backend)
+	}
+}
+
+func TestRecommendSTTBackendForInfo(t *testing.T) {
+	tests := []struct {
+		name   string
+		info   Info
+		useGPU bool
+		want   Backend
+	}{
+		{name: "gpu disabled", info: Info{Available: true, Vendor: VendorNVIDIA}, useGPU: false, want: BackendCPU},
+		{name: "nvidia", info: Info{Available: true, Vendor: VendorNVIDIA}, useGPU: true, want: BackendCUDA},
+		{name: "amd", info: Info{Available: true, Vendor: VendorAMD}, useGPU: true, want: BackendVulkan},
+		{name: "intel", info: Info{Available: true, Vendor: VendorIntel}, useGPU: true, want: BackendVulkan},
+		{name: "unknown", info: Info{Available: true, Vendor: VendorUnknown}, useGPU: true, want: BackendCPU},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := recommendSTTBackendForInfo(tc.info, tc.useGPU); got != tc.want {
+				t.Fatalf("recommendSTTBackendForInfo(%q) = %q, want %q", tc.name, got, tc.want)
+			}
+		})
 	}
 }
 
@@ -194,7 +226,7 @@ func TestRecommendLLMAssetKey_Auto(t *testing.T) {
 		t.Fatalf("got %q, want one of win-cuda, win-vulkan-x64, win-cpu-x64", got)
 	}
 
-	hasGPU := info.Available && info.HasSufficientVRAM(2048)
+	hasGPU := shouldUseRecommendedGPUForInfo("auto", info)
 	if !hasGPU {
 		if got != "win-cpu-x64" {
 			t.Errorf("no sufficient GPU: got %q, want %q", got, "win-cpu-x64")
@@ -216,7 +248,7 @@ func TestRecommendLLMBackend_Auto(t *testing.T) {
 		t.Fatalf("got %q, want one of cuda, vulkan, cpu", got)
 	}
 
-	hasGPU := info.Available && info.HasSufficientVRAM(2048)
+	hasGPU := shouldUseRecommendedGPUForInfo("auto", info)
 	if !hasGPU {
 		if got != BackendCPU {
 			t.Errorf("no sufficient GPU: got %q, want %q", got, BackendCPU)
@@ -226,6 +258,48 @@ func TestRecommendLLMBackend_Auto(t *testing.T) {
 		if got != BackendCUDA {
 			t.Errorf("NVIDIA with sufficient VRAM: got %q, want %q", got, BackendCUDA)
 		}
+	}
+}
+
+func TestShouldUseRecommendedGPUForInfo(t *testing.T) {
+	tests := []struct {
+		name string
+		mode string
+		info Info
+		want bool
+	}{
+		{
+			name: "intel auto accepts 2047MB",
+			mode: "auto",
+			info: Info{Available: true, Vendor: VendorIntel, VRAMMBytes: 2047},
+			want: true,
+		},
+		{
+			name: "nvidia auto still needs 2GB",
+			mode: "auto",
+			info: Info{Available: true, Vendor: VendorNVIDIA, VRAMMBytes: 1024},
+			want: false,
+		},
+		{
+			name: "disabled always off",
+			mode: "disabled",
+			info: Info{Available: true, Vendor: VendorIntel, VRAMMBytes: 8192},
+			want: false,
+		},
+		{
+			name: "enabled always on",
+			mode: "enabled",
+			info: Info{Available: true, Vendor: VendorUnknown, VRAMMBytes: 0},
+			want: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := shouldUseRecommendedGPUForInfo(tc.mode, tc.info); got != tc.want {
+				t.Fatalf("shouldUseRecommendedGPUForInfo(%q) = %v, want %v", tc.name, got, tc.want)
+			}
+		})
 	}
 }
 

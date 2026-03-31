@@ -35,13 +35,13 @@ func TestLLMThreads(t *testing.T) {
 
 func TestProfileForPreset(t *testing.T) {
 	tests := []struct {
-		preset      string
-		wantTemp    float64
-		wantTokens  int
+		preset     string
+		wantTemp   float64
+		wantTokens int
 	}{
 		{"cleanup", 0.1, 1024},
 		{"concise", 0.1, 1024},
-		{"email", 0.3, 2048},
+		{"email", 0.1, 1024},
 		{"bullets", 0.3, 2048},
 		{"social", 0.7, 2048},
 		{"casual", 0.7, 2048},
@@ -102,5 +102,19 @@ func TestThreadsScaleWithCPU(t *testing.T) {
 	}
 	if got := STTThreads(); got != expected {
 		t.Errorf("STTThreads() = %d, want %d (for %d CPUs)", got, expected, cpus)
+	}
+}
+
+func TestSTTThreadsCPUOnly(t *testing.T) {
+	got := STTThreadsCPUOnly()
+	want := runtime.NumCPU() - 1
+	if want < 2 {
+		want = 2
+	}
+	if want > 12 {
+		want = 12
+	}
+	if got != want {
+		t.Errorf("STTThreadsCPUOnly() = %d, want %d", got, want)
 	}
 }

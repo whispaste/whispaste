@@ -22,7 +22,8 @@ const (
 
 var fetchSTTReleaseAssets = fetchLatestSTTReleaseAssets
 var gpuDetect = gpu.Detect
-var gpuShouldUse = gpu.ShouldUseGPU
+var gpuShouldUseRecommended = gpu.ShouldUseRecommendedGPU
+var downloadAndExtractSTTServerFn = downloadAndExtractSTTServer
 
 type sttAssetCandidate struct {
 	Repo     string
@@ -34,7 +35,7 @@ type sttAssetCandidate struct {
 // The main WhisPaste release is preferred for bundled Vulkan/CUDA/CPU assets,
 // then upstream whisper.cpp CPU/CUDA fallbacks remain as the safety net.
 func sttAssetCandidates(gpuMode string) []sttAssetCandidate {
-	if !gpuShouldUse(gpuMode, 2048) {
+	if !gpuShouldUseRecommended(gpuMode) {
 		return []sttAssetCandidate{
 			{Repo: sttServerRepoWhisPaste, AssetKey: "whisper-server-cpu-x64", Backend: gpu.BackendCPU},
 			{Repo: sttServerRepoUpstream, AssetKey: "blas-bin-x64", Backend: gpu.BackendCPU},
@@ -82,18 +83,22 @@ func DownloadSTT(modelID string, gpuMode string, progressFn func(phase string, p
 		return fmt.Errorf("stt dir: %w", err)
 	}
 
-	// Phase 1: Download and extract whisper-server ZIP (skip if already installed)
-	if !IsSTTServerInstalled() {
+	// Phase 1: Download and extract whisper-server ZIP (or refresh when backend type changed)
+	needsServer := sttServerNeedsRefresh(dir, gpuMode)
+	if needsServer {
 		if progressFn != nil {
 			progressFn("server", 0)
 		}
-		if err := downloadAndExtractSTTServer(dir, gpuMode, func(pct int) {
+		actualKey, err := downloadAndExtractSTTServerFn(dir, gpuMode, func(pct int) {
 			if progressFn != nil {
 				progressFn("server", pct)
 			}
-		}); err != nil {
+		})
+		if err != nil {
 			return fmt.Errorf("download whisper-server: %w", err)
 		}
+		writeSTTServerAssetKey(dir, actualKey)
+		writeSTTServerRequestedKey(dir, sttRequestedAssetKey(gpuMode))
 	} else {
 		if progressFn != nil {
 			progressFn("server", 100)
@@ -228,9 +233,52 @@ func fetchLatestSTTReleaseAssets(repo string) ([]ReleaseAsset, error) {
 	return release.Assets, nil
 }
 
+func sttRequestedAssetKey(gpuMode string) string {
+	candidates := sttAssetCandidates(gpuMode)
+	if len(candidates) == 0 {
+		return ""
+	}
+	return candidates[0].AssetKey
+}
+
+func sttServerNeedsRefresh(dir string, gpuMode string) bool {
+	wantRequestedKey := sttRequestedAssetKey(gpuMode)
+	return !IsSTTServerInstalled() ||
+		sttServerRequestedKey(dir) != wantRequestedKey ||
+		sttServerAssetKey(dir) == ""
+}
+
+func sttServerAssetKey(dir string) string {
+	data, err := os.ReadFile(filepath.Join(dir, ".stt-asset-key"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func writeSTTServerAssetKey(dir string, key string) {
+	if err := os.WriteFile(filepath.Join(dir, ".stt-asset-key"), []byte(key), 0600); err != nil {
+		logWarn("Failed to write STT asset key marker: %v", err)
+	}
+}
+
+func sttServerRequestedKey(dir string) string {
+	data, err := os.ReadFile(filepath.Join(dir, ".stt-requested-key"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func writeSTTServerRequestedKey(dir string, key string) {
+	if err := os.WriteFile(filepath.Join(dir, ".stt-requested-key"), []byte(key), 0600); err != nil {
+		logWarn("Failed to write STT requested key marker: %v", err)
+	}
+}
+
 // resolveSTTServerURL tries WhisPaste-owned STT artifacts first where relevant,
 // then falls back to upstream whisper.cpp CPU/CUDA assets.
-func resolveSTTServerURL(gpuMode string) (string, error) {
+func resolveSTTServerURL(gpuMode string) (string, string, error) {
 	candidates := sttAssetCandidates(gpuMode)
 	var reasons []string
 	for _, candidate := range candidates {
@@ -246,16 +294,34 @@ func resolveSTTServerURL(gpuMode string) (string, error) {
 			reasons = append(reasons, fmt.Sprintf("%s/%s: %v", candidate.Repo, candidate.AssetKey, err))
 			continue
 		}
-		return serverURL, nil
+		return serverURL, candidate.AssetKey, nil
 	}
-	return "", fmt.Errorf("resolve STT server URL: %s", strings.Join(reasons, "; "))
+	return "", "", fmt.Errorf("resolve STT server URL: %s", strings.Join(reasons, "; "))
+}
+
+func EnsureSTTServerRuntime(gpuMode string) error {
+	dir, err := STTDir()
+	if err != nil {
+		return fmt.Errorf("stt dir: %w", err)
+	}
+	if !sttServerNeedsRefresh(dir, gpuMode) {
+		return nil
+	}
+	actualKey, err := downloadAndExtractSTTServerFn(dir, gpuMode, nil)
+	if err != nil {
+		return fmt.Errorf("refresh stt runtime: %w", err)
+	}
+	writeSTTServerAssetKey(dir, actualKey)
+	writeSTTServerRequestedKey(dir, sttRequestedAssetKey(gpuMode))
+	logInfo("STT runtime refreshed: requested=%s actual=%s", sttRequestedAssetKey(gpuMode), actualKey)
+	return nil
 }
 
 // downloadAndExtractSTTServer downloads the ZIP and extracts whisper-server.exe and DLLs.
-func downloadAndExtractSTTServer(destDir string, gpuMode string, progressFn func(pct int)) error {
-	serverURL, err := resolveSTTServerURL(gpuMode)
+func downloadAndExtractSTTServer(destDir string, gpuMode string, progressFn func(pct int)) (string, error) {
+	serverURL, actualKey, err := resolveSTTServerURL(gpuMode)
 	if err != nil {
-		return fmt.Errorf("resolve server URL: %w", err)
+		return "", fmt.Errorf("resolve server URL: %w", err)
 	}
 	logInfo("STT server download URL: %s", serverURL)
 
@@ -277,15 +343,19 @@ func downloadAndExtractSTTServer(destDir string, gpuMode string, progressFn func
 			}
 		}
 	}); err != nil {
-		return fmt.Errorf("download stt server: %w", err)
+		return "", fmt.Errorf("download stt server: %w", err)
 	}
 	defer os.Remove(zipPath)
 
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return fmt.Errorf("open zip: %w", err)
+		return "", fmt.Errorf("open zip: %w", err)
 	}
 	defer r.Close()
+
+	if err := cleanupSTTServerRuntimeFiles(destDir); err != nil {
+		return "", fmt.Errorf("cleanup old STT runtime: %w", err)
+	}
 
 	for _, f := range r.File {
 		baseName := filepath.Base(f.Name)
@@ -310,10 +380,29 @@ func downloadAndExtractSTTServer(destDir string, gpuMode string, progressFn func
 			continue
 		}
 		if err := extractZipFile(f, destPath); err != nil {
-			return fmt.Errorf("extract %s: %w", baseName, err)
+			return "", fmt.Errorf("extract %s: %w", baseName, err)
 		}
 	}
 
+	return actualKey, nil
+}
+
+func cleanupSTTServerRuntimeFiles(destDir string) error {
+	entries, err := os.ReadDir(destDir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := strings.ToLower(entry.Name())
+		if name == "whisper-server.exe" || name == "server.exe" || strings.HasSuffix(name, ".dll") {
+			if err := os.Remove(filepath.Join(destDir, entry.Name())); err != nil && !os.IsNotExist(err) {
+				return err
+			}
+		}
+	}
 	return nil
 }
 

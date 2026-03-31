@@ -131,8 +131,15 @@ async function initUpdateChannelVisibility() {
 
 /* ── Gather Config from Form ──────────────────────────── */
 function gatherConfig() {
+  const sharedFieldValue = (...ids) => {
+    for (const id of ids) {
+      const value = document.getElementById(id)?.value;
+      if (value) return value;
+    }
+    return '';
+  };
   return {
-    api_key: document.getElementById('input-apikey')?.value || '',
+    api_key: sharedFieldValue('input-apikey', 'input-cloud-llm-openai-apikey'),
     api_endpoint: _savedAPIEndpoint,
     hotkey_modifiers: _savedHotkeyMods,
     hotkey_key: _savedHotkeyKey,
@@ -179,7 +186,7 @@ function gatherConfig() {
     cloud_stt_provider: document.getElementById('select-cloud-stt-provider')?.value || 'openai',
     cloud_llm_provider: document.getElementById('select-cloud-llm-provider')?.value || 'openai',
     cloud_llm_model: document.getElementById('input-cloud-llm-model')?.value || '',
-    groq_api_key: document.getElementById('input-groq-apikey')?.value || '',
+    groq_api_key: sharedFieldValue('input-groq-apikey', 'input-cloud-llm-groq-apikey'),
     deepgram_api_key: document.getElementById('input-deepgram-apikey')?.value || '',
     anthropic_api_key: document.getElementById('input-anthropic-apikey')?.value || '',
     gemini_api_key: document.getElementById('input-gemini-apikey')?.value || '',
@@ -191,7 +198,12 @@ function gatherConfig() {
 /* ── Apply Config to Form ─────────────────────────────── */
 function applyConfig(cfg) {
   if (!cfg) return;
-  if (cfg.api_key != null) { const el = document.getElementById('input-apikey'); if (el) el.value = cfg.api_key; }
+  if (cfg.api_key != null) {
+    const el = document.getElementById('input-apikey');
+    if (el) el.value = cfg.api_key;
+    const llmEl = document.getElementById('input-cloud-llm-openai-apikey');
+    if (llmEl) llmEl.value = cfg.api_key;
+  }
   if (cfg.mode) selectMode(cfg.mode);
   if (cfg.language) { const el = document.getElementById('select-language'); if (el) el.value = cfg.language; }
   if (cfg.overlay_position) selectOverlay(cfg.overlay_position);
@@ -344,7 +356,12 @@ function applyConfig(cfg) {
     if (el) el.value = cfg.cloud_llm_model;
   }
   // Provider API keys
-  if (cfg.groq_api_key != null) { const el = document.getElementById('input-groq-apikey'); if (el) el.value = cfg.groq_api_key; }
+  if (cfg.groq_api_key != null) {
+    const el = document.getElementById('input-groq-apikey');
+    if (el) el.value = cfg.groq_api_key;
+    const llmEl = document.getElementById('input-cloud-llm-groq-apikey');
+    if (llmEl) llmEl.value = cfg.groq_api_key;
+  }
   if (cfg.deepgram_api_key != null) { const el = document.getElementById('input-deepgram-apikey'); if (el) el.value = cfg.deepgram_api_key; }
   if (cfg.anthropic_api_key != null) { const el = document.getElementById('input-anthropic-apikey'); if (el) el.value = cfg.anthropic_api_key; }
   if (cfg.gemini_api_key != null) { const el = document.getElementById('input-gemini-apikey'); if (el) el.value = cfg.gemini_api_key; }
@@ -412,27 +429,25 @@ async function saveSettings() {
 /* ── Cloud Provider Helpers ──────────────────────────── */
 function updateCloudSTTFields(silent) {
   const provider = document.getElementById('select-cloud-stt-provider')?.value || 'openai';
-  const llmProvider = document.getElementById('select-cloud-llm-provider')?.value || 'openai';
+  const openaiRow = document.getElementById('cloud-stt-openai-key-row');
   const groqRow = document.getElementById('cloud-stt-groq-key-row');
   const deepgramRow = document.getElementById('cloud-stt-deepgram-key-row');
-  const openaiHint = document.getElementById('cloud-stt-openai-hint');
-  // Show Groq key if either STT or LLM uses Groq
-  if (groqRow) groqRow.classList.toggle('hidden', provider !== 'groq' && llmProvider !== 'groq');
+  if (openaiRow) openaiRow.classList.toggle('hidden', provider !== 'openai');
+  if (groqRow) groqRow.classList.toggle('hidden', provider !== 'groq');
   if (deepgramRow) deepgramRow.classList.toggle('hidden', provider !== 'deepgram');
-  if (openaiHint) openaiHint.classList.toggle('hidden', provider !== 'openai');
   if (!silent) autoSave();
 }
 
 function updateCloudLLMFields(silent) {
   const provider = document.getElementById('select-cloud-llm-provider')?.value || 'openai';
+  const openaiRow = document.getElementById('cloud-llm-openai-key-row');
+  const groqRow = document.getElementById('cloud-llm-groq-key-row');
   const anthropicRow = document.getElementById('cloud-llm-anthropic-key-row');
   const geminiRow = document.getElementById('cloud-llm-gemini-key-row');
-  const groqNote = document.getElementById('cloud-llm-groq-note');
-  const openaiNote = document.getElementById('cloud-llm-openai-note');
+  if (openaiRow) openaiRow.classList.toggle('hidden', provider !== 'openai');
+  if (groqRow) groqRow.classList.toggle('hidden', provider !== 'groq');
   if (anthropicRow) anthropicRow.classList.toggle('hidden', provider !== 'anthropic');
   if (geminiRow) geminiRow.classList.toggle('hidden', provider !== 'gemini');
-  if (groqNote) groqNote.classList.toggle('hidden', provider !== 'groq');
-  if (openaiNote) openaiNote.classList.toggle('hidden', provider !== 'openai');
   const modelInput = document.getElementById('input-cloud-llm-model');
   const modelHint = document.getElementById('cloud-llm-model-hint');
   const defaults = {
@@ -443,9 +458,14 @@ function updateCloudLLMFields(silent) {
   };
   if (modelInput) modelInput.placeholder = defaults[provider] || '';
   if (modelHint) modelHint.textContent = t('cloudLLMModelHint').replace('{model}', defaults[provider] || '');
-  // Also re-evaluate Groq key row visibility (shared with STT)
-  updateCloudSTTFields(true);
   if (!silent) autoSave();
+}
+
+function syncSharedAPIKeys(sourceId, targetId) {
+  const source = document.getElementById(sourceId);
+  const target = document.getElementById(targetId);
+  if (!source || !target || target.value === source.value) return;
+  target.value = source.value;
 }
 
 function toggleCloudLLMSection() {
@@ -486,7 +506,7 @@ async function renderGPUStatus() {
       if (sttBackend === 'CPU' && llmBackend !== 'CPU') {
         detail += ` · ${t('gpuStatusMixedHint')}`;
       }
-      line.innerHTML = '<span style="color:var(--accent-green)">✓</span> ' + info.name + vram + ' · ' + detail;
+      line.innerHTML = '<span style="color:var(--accent-green)">✓</span> ' + t('gpuDetectedHardware') + ': ' + info.name + vram + ' · ' + detail;
     } else {
       line.innerHTML = '<span style="color:var(--text-secondary)">—</span> ' + t('gpuNotDetected');
     }

@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -82,5 +84,61 @@ func TestAPIErrorMalformedJSON(t *testing.T) {
 	// Should fall back to raw body
 	if !strings.Contains(err.Error(), "this is not json") {
 		t.Errorf("error = %q, should contain raw body", err.Error())
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func TestTestCloudSTTKeyDeepgram(t *testing.T) {
+	oldClient := http.DefaultClient
+	t.Cleanup(func() { http.DefaultClient = oldClient })
+
+	http.DefaultClient = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.URL.String() != "https://api.deepgram.com/v1/projects" {
+				t.Fatalf("URL = %q, want Deepgram projects endpoint", req.URL.String())
+			}
+			if got := req.Header.Get("Authorization"); got != "Token dg-key" {
+				t.Fatalf("Authorization = %q, want %q", got, "Token dg-key")
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{}`)),
+				Header:     make(http.Header),
+			}, nil
+		}),
+	}
+
+	if err := TestCloudSTTKey("deepgram", "dg-key"); err != nil {
+		t.Fatalf("TestCloudSTTKey returned error: %v", err)
+	}
+}
+
+func TestTestCloudSTTKeyGroqUsesOpenAICompatProbe(t *testing.T) {
+	oldClient := http.DefaultClient
+	t.Cleanup(func() { http.DefaultClient = oldClient })
+
+	http.DefaultClient = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.URL.String() != "https://api.groq.com/openai/v1/models" {
+				t.Fatalf("URL = %q, want Groq models endpoint", req.URL.String())
+			}
+			if got := req.Header.Get("Authorization"); got != "Bearer groq-key" {
+				t.Fatalf("Authorization = %q, want %q", got, "Bearer groq-key")
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{}`)),
+				Header:     make(http.Header),
+			}, nil
+		}),
+	}
+
+	if err := TestCloudSTTKey("groq", "groq-key"); err != nil {
+		t.Fatalf("TestCloudSTTKey returned error: %v", err)
 	}
 }

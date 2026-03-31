@@ -125,3 +125,22 @@ func TestHTMLTemplateValid(t *testing.T) {
 		t.Error("Missing </html> closing tag")
 	}
 }
+
+func TestSettingsCloudTranscriptionLayout(t *testing.T) {
+	html := assembleMainHTML()
+	if !strings.Contains(html, `id="select-cloud-stt-provider"`) {
+		t.Fatal("missing cloud transcription provider selector")
+	}
+	if !strings.Contains(html, `id="cloud-stt-openai-key-row"`) {
+		t.Fatal("missing OpenAI transcription key row")
+	}
+	if !strings.Contains(html, `id="cloud-llm-openai-key-row"`) {
+		t.Fatal("missing OpenAI Smart Mode key row")
+	}
+	if !strings.Contains(html, `id="cloud-llm-groq-key-row"`) {
+		t.Fatal("missing Groq Smart Mode key row")
+	}
+	if strings.Contains(html, `id="cloud-stt-openai-hint"`) {
+		t.Fatal("stale separate OpenAI hint block should not remain in settings layout")
+	}
+}
