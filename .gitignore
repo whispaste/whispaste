@@ -69,6 +69,7 @@ scripts/*
 website/design-system/
 website/SEARCH-CONSOLE-SETUP.md
 website/test-results/
+wack-report.xml
 
 # Screenshots (local only)
 screenshots/
