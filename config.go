@@ -532,11 +532,14 @@ func (c *Config) GetLocalLLMModel() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.LocalLLMModel == "" {
-		return "smollm2"
+		return "qwen2.5-0.5b"
 	}
-	// Migrate legacy model ID
-	if c.LocalLLMModel == "qwen3-0.6b" {
+	// Migrate legacy model IDs
+	switch c.LocalLLMModel {
+	case "qwen3-0.6b":
 		return "qwen3.5-0.8b"
+	case "smollm2":
+		return "qwen2.5-0.5b"
 	}
 	return c.LocalLLMModel
 }
