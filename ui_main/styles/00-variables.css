@@ -167,6 +167,17 @@
   --sidebar-inset: inset 0 0 24px rgba(0, 0, 0, 0.02);
   --nav-active-glow: 0 0 16px var(--accent-glow), 0 2px 8px rgba(8, 145, 178, 0.18);
 
+  /* ── Surface Hierarchy ─── */
+  --surface-sunken: var(--gray-100);
+  --surface-default: var(--bg-primary);
+  --surface-elevated: #FFFFFF;
+  --surface-overlay: var(--glass-bg-strong);
+
+  /* ── Layout ─── */
+  --content-max-width: 860px;
+  --page-gutter: 24px;
+  --sidebar-width: 70px;
+
   /* ── Backward Compatibility Aliases ─── */
   --bg: var(--bg-app);
   --bg-card: var(--bg-primary);
@@ -239,6 +250,12 @@
   --glass-bg-strong: rgba(26, 29, 39, 0.85);
   --glass-border: rgba(255, 255, 255, 0.06);
 
+  /* Surface hierarchy (dark) */
+  --surface-sunken: #151825;
+  --surface-default: var(--bg-primary);
+  --surface-elevated: var(--bg-secondary);
+  --surface-overlay: var(--glass-bg-strong);
+
   /* Backward compatibility aliases */
   --bg: var(--bg-app);
   --bg-card: var(--bg-primary);
@@ -279,7 +296,7 @@ html, body {
 body {
   margin: 0;
   opacity: 0;
-  transition: opacity 250ms ease;
+  transition: opacity var(--transition-normal);
 }
 body.ready { opacity: 1; }
 
@@ -320,3 +337,5 @@ body.ready { opacity: 1; }
   0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow), var(--shadow-lg); }
   50% { box-shadow: 0 0 0 8px transparent, var(--shadow-lg); }
 }
+
+/* Reduced motion override: see 01-layout.css @media (prefers-reduced-motion) */

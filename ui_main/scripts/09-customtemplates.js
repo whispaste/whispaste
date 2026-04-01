@@ -60,7 +60,7 @@
   }
 
   function renderCustomPresetCards() {
-    const grid = document.getElementById('preset-grid');
+    const grid = document.getElementById('custom-templates-grid') || document.getElementById('preset-grid');
     if (!grid) return;
     grid.querySelectorAll('.preset-card[data-custom-template]').forEach(c => c.remove());
     const ghostCard = document.getElementById('preset-ghost-add');

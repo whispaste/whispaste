@@ -121,7 +121,7 @@
   color: var(--text-hint);
   background: var(--bg-secondary);
   border: 1px dashed var(--border-primary);
-  border-radius: 3px;
+  border-radius: var(--radius-xs, 4px);
   cursor: pointer;
   transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
 }
