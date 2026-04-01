@@ -142,27 +142,6 @@
   }
 }
 
-/* ── Quick Stats Row ─────────────────────────────────── */
-.history-stats-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 0 var(--page-gutter, 24px) 10px;
-  flex-shrink: 0;
-}
-.history-stat {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-.history-stat .icon {
-  color: var(--text-tertiary);
-  opacity: 0.7;
-}
-
 /* ── History Layout (filter sidebar + entries) ────────── */
 .history-layout {
   display: flex;
