@@ -9,6 +9,11 @@ function onRecordingStateChanged(state) {
   fab.classList.toggle('recording', isActive);
   fab.innerHTML = isActive ? _fabStopIcon : _fabMicIcon;
   fab.title = isActive ? t('fab.stop') : t('fab.record');
+  fab.setAttribute('aria-label', isActive ? t('fab.stop') : t('fab.record'));
+
+  // Recording indicator bar
+  const indicator = document.getElementById('recordingIndicator');
+  if (indicator) indicator.classList.toggle('active', isActive);
 }
 
 /* ── System Info (About page) ──────────────────────────── */
@@ -69,14 +74,24 @@ function copySysInfoValue(el) {
 
 /* ── Page Switching (animated) ─────────────────────────── */
 let _switchTimer = null;
+let _pageHistory = [];
 
 function switchPage(pageId) {
   // Cancel any in-flight animation to prevent race conditions
   if (_switchTimer) { clearTimeout(_switchTimer); _switchTimer = null; }
 
+  // Track page history (avoid consecutive duplicates)
+  if (_pageHistory[_pageHistory.length - 1] !== pageId) {
+    _pageHistory.push(pageId);
+    if (_pageHistory.length > 10) _pageHistory.shift();
+  }
+
   // Update nav immediately
   document.querySelectorAll('.nav-item').forEach(item => {
-    item.classList.toggle('active', item.dataset.page === pageId);
+    const isActive = item.dataset.page === pageId;
+    item.classList.toggle('active', isActive);
+    item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    item.setAttribute('tabindex', isActive ? '0' : '-1');
   });
 
   // Stop analytics refresh when leaving analytics
@@ -114,6 +129,9 @@ function switchPage(pageId) {
     });
     target.classList.remove('hidden');
     onPageVisible();
+
+    // Trigger feature discovery tooltip on first visit
+    if (typeof showDiscoveryForPage === 'function') showDiscoveryForPage(pageId);
   };
 
   // No animation: same page, no visible page, or first load
@@ -137,6 +155,9 @@ function switchPage(pageId) {
     requestAnimationFrame(() => { target.classList.remove('page-enter'); });
 
     onPageVisible();
+
+    // Trigger feature discovery tooltip on first visit
+    if (typeof showDiscoveryForPage === 'function') showDiscoveryForPage(pageId);
   }, 180);
 }
 
@@ -309,8 +330,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (bulkSmart) bulkSmart.addEventListener('click', () => showBulkSmartActionMenu(bulkSmart));
 
   // --- Navigation ---
-  document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+  const navItems = document.querySelectorAll('.nav-item[data-page]');
+  navItems.forEach(item => {
     item.addEventListener('click', () => switchPage(item.dataset.page));
+    item.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        switchPage(item.dataset.page);
+      }
+      // Arrow key navigation within tablist
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        const items = [...navItems];
+        const idx = items.indexOf(item);
+        const next = ev.key === 'ArrowDown' ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length;
+        items[next].focus();
+        switchPage(items[next].dataset.page);
+      }
+    });
   });
 
   // --- Keyboard shortcuts ---
@@ -330,6 +367,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       ev.preventDefault();
       const search = document.getElementById('searchInput');
       if (search) search.focus();
+    }
+    // Ctrl+Tab: switch to previous page
+    if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Tab') {
+      ev.preventDefault();
+      if (_pageHistory.length >= 2) {
+        switchPage(_pageHistory[_pageHistory.length - 2]);
+      }
     }
     // Allow Enter/Space to trigger click on [role="button"] elements
     if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.getAttribute('role') === 'button') {

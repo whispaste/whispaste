@@ -1,0 +1,137 @@
+/* ── Motion Design System ──────────────────────────────── */
+/* Purposeful animations: every motion communicates a state change. */
+/* Speed: fast enough to not delay, slow enough to notice. */
+
+/* ── Page Transitions ─── */
+.page-transition-enter {
+  animation: pageEnter var(--motion-normal) var(--ease-out-smooth) both;
+}
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Card Entrance Stagger ─── */
+.stagger-enter > * {
+  opacity: 0;
+  animation: cardEnter var(--motion-normal) var(--ease-out-smooth) both;
+}
+.stagger-enter > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-enter > *:nth-child(2) { animation-delay: 30ms; }
+.stagger-enter > *:nth-child(3) { animation-delay: 60ms; }
+.stagger-enter > *:nth-child(4) { animation-delay: 90ms; }
+.stagger-enter > *:nth-child(5) { animation-delay: 120ms; }
+.stagger-enter > *:nth-child(6) { animation-delay: 150ms; }
+.stagger-enter > *:nth-child(n+7) { animation-delay: 180ms; }
+
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Skeleton Loading ─── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    var(--bg-tertiary) 50%,
+    var(--bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-line {
+  height: 14px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-xs);
+}
+.skeleton-line:last-child { width: 60%; }
+
+.skeleton-card {
+  height: 72px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-md);
+}
+
+/* ── Recording State Transition ─── */
+.fab-transition {
+  transition: background var(--motion-normal) var(--ease-out-smooth),
+              box-shadow var(--motion-normal) var(--ease-out-smooth);
+}
+
+/* ── Recording Indicator Bar ─── */
+.recording-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--error);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: opacity var(--motion-micro) ease,
+              transform var(--motion-normal) var(--ease-out-smooth);
+  z-index: 10;
+}
+.recording-indicator.active {
+  opacity: 1;
+  transform: scaleX(1);
+  animation: recordingPulse 2s ease-in-out infinite;
+}
+@keyframes recordingPulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+/* ── Toast Choreography ─── */
+.toast-enter {
+  animation: toastSlideIn var(--motion-normal) var(--ease-spring) both;
+}
+.toast-exit {
+  animation: toastSlideOut var(--duration-fast) var(--ease-default) both;
+}
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@keyframes toastSlideOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+}
+
+/* ── Micro-celebration ─── */
+.celebrate {
+  animation: celebrate var(--motion-emphasis) var(--ease-spring) both;
+}
+@keyframes celebrate {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Reduced Motion: disable all custom motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  .page-transition-enter,
+  .stagger-enter > *,
+  .skeleton,
+  .recording-indicator.active,
+  .toast-enter,
+  .toast-exit,
+  .celebrate {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .recording-indicator.active {
+    opacity: 1 !important;
+    transform: scaleX(1) !important;
+  }
+}
