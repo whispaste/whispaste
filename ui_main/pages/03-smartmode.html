@@ -218,15 +218,10 @@
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
             </div>
-            <div class="preset-card preset-card-ghost" tabindex="0" role="button" onclick="document.getElementById('btn-add-custom-template')?.click()" id="preset-ghost-add">
-              <svg class="icon preset-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-              <span class="preset-label" data-i18n="customTemplateAdd">Add Template</span>
-              <span class="preset-desc" data-i18n="smartGhostDesc">Create your own reusable preset with a custom prompt</span>
-            </div>
           </div>
 
           <!-- Custom Templates Section -->
-          <div class="section-title-row" id="customTemplatesHeader" style="display:none">
+          <div class="section-title-row" id="customTemplatesHeader">
             <h3 class="section-title" data-i18n="smartCustomTemplates">Your Templates</h3>
             <div class="section-title-actions">
               <button class="btn btn-ghost btn-sm" id="btn-import-template" title="Import">
@@ -239,7 +234,13 @@
               </button>
             </div>
           </div>
-          <div class="preset-grid" id="custom-templates-grid" style="display:none"></div>
+          <div class="preset-grid" id="custom-templates-grid">
+            <div class="preset-card preset-card-ghost" tabindex="0" role="button" onclick="document.getElementById('btn-add-custom-template')?.click()" id="preset-ghost-add">
+              <svg class="icon preset-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              <span class="preset-label" data-i18n="customTemplateAdd">Add Template</span>
+              <span class="preset-desc" data-i18n="smartGhostDesc">Create your own reusable preset with a custom prompt</span>
+            </div>
+          </div>
           <div class="card" id="smart-target-row" style="display:none;margin-top:16px">
             <div class="card-title" data-i18n="labelSmartTarget">Target Language</div>
             <div class="form-group">
