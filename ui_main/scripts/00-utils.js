@@ -28,6 +28,14 @@ function formatHotkeyParts(parts) {
 
 /* ── Utility Functions ─────────────────────────────────── */
 
+/** Safe localStorage access — returns null on SecurityError (about:blank) */
+function safeStorageGet(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+function safeStorageSet(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) { /* ignore */ }
+}
+
 const SYSTEM_TAGS = ['merged', 'duplicated', 'pending'];
 
 function isSystemTag(name) {
