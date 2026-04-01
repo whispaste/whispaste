@@ -13,13 +13,18 @@
               <button class="search-clear-btn hidden" id="searchClear" title="Clear" data-i18n-title="clear">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
               </button>
-              <button class="search-help-btn" id="searchHelp" title="Search syntax help" data-i18n-title="notebook.search_help">
+              <button class="search-help-btn" id="searchHelp" title="Search tips" data-i18n-title="historySearchTips">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
               </button>
+            </div>
+            <div class="search-hints" id="searchHints">
+              <span class="search-hint-label" data-i18n="historySearchTry">Try:</span>
+              <button class="search-hint-chip" data-filter="today" data-i18n="searchChipToday">today</button>
             </div>
           </div>
         </div>
       </div>
+      <!-- Stats are shown via filter sidebar count badges -->
       <!-- Selection Bar (shown when items selected) -->
       <div class="selection-bar hidden" id="selectionBar">
         <div class="selection-info">
@@ -130,7 +135,7 @@
               </div>
             </div>
           </div>
-          <div id="categoriesSection" class="hidden">
+          <div id="categoriesSection">
             <div class="filter-section-title" style="display:flex;align-items:center;justify-content:space-between">
               <span data-i18n="notebook.tags">Tags</span>
               <button class="btn-icon sidebar-add-tag-header" id="sidebarAddTagHeader" title="Add tag" data-i18n-title="sidebar_add_tag" style="width:16px;height:16px;padding:0;opacity:0.5">

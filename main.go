@@ -470,11 +470,11 @@ func main() {
 				}
 			}
 
-			// Strip long internal silence (>1s) to reduce duration and API cost.
+			// Strip long internal silence (>600ms) to reduce duration and API cost.
 			// Skipped only when VAD actually succeeded (it removes silence itself).
 			if !vadApplied {
 				before := len(pcm)
-				stripped := StripInternalSilence(pcm, 0.01, 1000)
+				stripped := StripInternalSilence(pcm, 0.01, 600)
 				if len(stripped) >= 2 && len(stripped) < before {
 					logDebug("Stripped internal silence: %d → %d bytes", before, len(stripped))
 					pcm = stripped

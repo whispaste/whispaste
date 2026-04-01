@@ -219,7 +219,7 @@
   font-size: 11px;
   background: var(--bg-secondary);
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs, 4px);
   color: var(--accent);
 }
 

@@ -109,14 +109,19 @@ func TestParseGeneratedTags(t *testing.T) {
 		wantEmpty bool
 	}{
 		{
-			name:     "valid JSON array",
+			name:     "valid JSON array normalized to Title Case",
 			content:  `["work", "email"]`,
-			wantTags: []string{"work", "email"},
+			wantTags: []string{"Work", "Email"},
 		},
 		{
-			name:     "uppercased tags normalized to lowercase",
-			content:  `["Work", "EMAIL"]`,
-			wantTags: []string{"work", "email"},
+			name:     "uppercased tags normalized to Title Case",
+			content:  `["WORK", "EMAIL"]`,
+			wantTags: []string{"Work", "Email"},
+		},
+		{
+			name:     "mixed case normalized to Title Case",
+			content:  `["Meeting", "pLANNING"]`,
+			wantTags: []string{"Meeting", "Planning"},
 		},
 		{
 			name:      "empty array",
@@ -126,29 +131,29 @@ func TestParseGeneratedTags(t *testing.T) {
 		{
 			name:     "comma-separated fallback",
 			content:  `work, planning`,
-			wantTags: []string{"work", "planning"},
+			wantTags: []string{"Work", "Planning"},
 		},
 		{
 			name:      "too short tag filtered",
 			content:   `["a", "ok"]`,
-			wantTags:  []string{"ok"},
+			wantTags:  []string{"Ok"},
 			wantEmpty: false,
 		},
 		{
 			name:      "tag with spaces rejected",
 			content:   `["my tag", "work"]`,
-			wantTags:  []string{"work"},
+			wantTags:  []string{"Work"},
 			wantEmpty: false,
 		},
 		{
 			name:     "caps at 3 tags",
 			content:  `["alpha", "beta", "gamma", "delta", "epsilon"]`,
-			wantTags: []string{"alpha", "beta", "gamma"},
+			wantTags: []string{"Alpha", "Beta", "Gamma"},
 		},
 		{
-			name:     "deduplicates",
+			name:     "deduplicates case-insensitively",
 			content:  `["work", "Work", "WORK"]`,
-			wantTags: []string{"work"},
+			wantTags: []string{"Work"},
 		},
 		{
 			name:      "empty string",
@@ -158,23 +163,41 @@ func TestParseGeneratedTags(t *testing.T) {
 		{
 			name:     "markdown fenced",
 			content:  "```json\n[\"meeting\", \"notes\"]\n```",
-			wantTags: []string{"meeting", "notes"},
+			wantTags: []string{"Meeting", "Notes"},
 		},
 		{
 			name:     "hyphenated tags allowed",
 			content:  `["to-do", "follow-up"]`,
-			wantTags: []string{"to-do", "follow-up"},
+			wantTags: []string{"To-do", "Follow-up"},
 		},
 		{
 			name:      "special chars rejected",
 			content:   `["tag!", "hello@world", "ok"]`,
-			wantTags:  []string{"ok"},
+			wantTags:  []string{"Ok"},
 			wantEmpty: false,
 		},
 		{
 			name:      "too long tag rejected",
 			content:   `["thistagiswaytoolongtobevalid", "ok"]`,
-			wantTags:  []string{"ok"},
+			wantTags:  []string{"Ok"},
+			wantEmpty: false,
+		},
+		{
+			name:      "system tag pending filtered",
+			content:   `["pending", "work", "meeting"]`,
+			wantTags:  []string{"Work", "Meeting"},
+			wantEmpty: false,
+		},
+		{
+			name:      "system tag duplicated filtered",
+			content:   `["duplicated", "email"]`,
+			wantTags:  []string{"Email"},
+			wantEmpty: false,
+		},
+		{
+			name:      "system tags case-insensitive filter",
+			content:   `["PENDING", "Duplicated", "notes"]`,
+			wantTags:  []string{"Notes"},
 			wantEmpty: false,
 		},
 	}
