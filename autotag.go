@@ -7,10 +7,32 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
+	"unicode"
 
 	"github.com/whispaste/whispaste/internal/inference"
 )
+
+// systemTags are internal tags managed by the application.
+// They must never be auto-assigned or suggested by the LLM.
+var systemTags = map[string]bool{
+	"pending":    true,
+	"duplicated": true,
+}
+
+// autoTagClient is a reusable HTTP client for LLM tagging requests.
+var (
+	autoTagClient     *http.Client
+	autoTagClientOnce sync.Once
+)
+
+func getAutoTagClient() *http.Client {
+	autoTagClientOnce.Do(func() {
+		autoTagClient = &http.Client{Timeout: 120 * time.Second}
+	})
+	return autoTagClient
+}
 
 // AutoTagEntry uses the local LLM to assign tags to a history entry.
 // It first tries to match from existing tags (history + custom). If no existing
@@ -36,12 +58,17 @@ func AutoTagEntry(history *History, entryID, text string, customTags []string) {
 	existingTags := history.Tags()
 
 	// Merge custom tags (tags the user created but may not yet be assigned)
+	// Exclude system tags that must never be auto-assigned.
 	tagSet := make(map[string]bool, len(existingTags)+len(customTags))
 	for _, t := range existingTags {
-		tagSet[t] = true
+		if !systemTags[strings.ToLower(t)] {
+			tagSet[t] = true
+		}
 	}
 	for _, t := range customTags {
-		tagSet[t] = true
+		if !systemTags[strings.ToLower(t)] {
+			tagSet[t] = true
+		}
 	}
 	allTags := make([]string, 0, len(tagSet))
 	for t := range tagSet {
@@ -99,15 +126,16 @@ TAGS: %s
 Rules:
 - Return a JSON array of matching tags, e.g. ["tag1", "tag2"]
 - Only use tags from the list above
-- A tag matches if the text is about that topic
+- A tag matches if the text is clearly about that topic
+- Prefer specific tags over generic ones
 - Return at most 3 tags
-- If no tag fits, return []
+- If no tag fits well, return []
 - Return ONLY the JSON array
 
 Example:
-Tags: meeting, cooking, travel
+Tags: Meeting, Cooking, Travel
 Text: "We discussed the project timeline and assigned tasks for next week"
-Answer: ["meeting"]`, tagList)
+Answer: ["Meeting"]`, tagList)
 
 	// Suppress thinking mode for local Qwen models
 	systemPrompt += " /no_think"
@@ -134,7 +162,7 @@ Answer: ["meeting"]`, tagList)
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	client := &http.Client{Timeout: 120 * time.Second}
+	client := getAutoTagClient()
 	req, err := http.NewRequest("POST", chatURL, bytes.NewReader(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -244,15 +272,16 @@ func queryLLMForNewTags(llmEndpoint, text string) ([]string, error) {
 	systemPrompt := `You are a tag generator. Read the text and create 1-3 short tags that describe the topic.
 
 Rules:
-- Return a JSON array, e.g. ["work", "email"]
-- Each tag must be a single lowercase word, 2-15 characters
+- Return a JSON array, e.g. ["Meeting", "Email"]
+- Each tag must be a single Title Case word, 2-15 characters
 - Tags describe WHAT the text is about (topic, not format)
+- Be specific: prefer "Invoice", "Recipe", "Meeting" over generic words like "Text" or "Message"
 - Return 1-3 tags maximum
 - Return ONLY the JSON array
 
 Example:
 Text: "We need to order new office supplies and schedule a team lunch for Friday"
-Answer: ["office", "planning"] /no_think`
+Answer: ["Office", "Planning"] /no_think`
 
 	classifyText := text
 	if len(classifyText) > 2000 {
@@ -275,7 +304,7 @@ Answer: ["office", "planning"] /no_think`
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	client := &http.Client{Timeout: 120 * time.Second}
+	client := getAutoTagClient()
 	req, err := http.NewRequest("POST", chatURL, bytes.NewReader(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -317,7 +346,8 @@ Answer: ["office", "planning"] /no_think`
 }
 
 // parseGeneratedTags extracts and validates LLM-generated tags.
-// Tags must be single lowercase words, 2-15 characters, no special chars.
+// Tags are normalized to Title Case, 2-15 characters, letters/digits/hyphens only.
+// System tags (pending, duplicated) are filtered out.
 func parseGeneratedTags(content string) ([]string, error) {
 	content = strings.TrimSpace(content)
 
@@ -353,17 +383,22 @@ func parseGeneratedTags(content string) ([]string, error) {
 	valid := make([]string, 0, len(tags))
 	seen := make(map[string]bool)
 	for _, t := range tags {
-		t = strings.ToLower(strings.TrimSpace(t))
+		t = strings.TrimSpace(t)
+		lower := strings.ToLower(t)
 		if len(t) < 2 || len(t) > 15 {
 			continue
 		}
-		if seen[t] {
+		if seen[lower] {
+			continue
+		}
+		// Skip system tags
+		if systemTags[lower] {
 			continue
 		}
 		// Single word only: no spaces, only letters/digits/hyphens
 		isValid := true
 		for _, r := range t {
-			if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-') {
+			if !(unicode.IsLetter(r) || (r >= '0' && r <= '9') || r == '-') {
 				isValid = false
 				break
 			}
@@ -371,8 +406,9 @@ func parseGeneratedTags(content string) ([]string, error) {
 		if !isValid {
 			continue
 		}
-		valid = append(valid, t)
-		seen[t] = true
+		// Normalize to Title Case: uppercase first letter, lowercase rest
+		valid = append(valid, toTitleCase(t))
+		seen[lower] = true
 	}
 
 	if len(valid) > 3 {
@@ -380,4 +416,14 @@ func parseGeneratedTags(content string) ([]string, error) {
 	}
 
 	return valid, nil
+}
+
+// toTitleCase converts a tag to Title Case (first letter uppercase, rest lowercase).
+func toTitleCase(s string) string {
+	if s == "" {
+		return s
+	}
+	runes := []rune(strings.ToLower(s))
+	runes[0] = unicode.ToUpper(runes[0])
+	return string(runes)
 }

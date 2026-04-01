@@ -468,8 +468,8 @@ func TrimSilence(data []byte, threshold float32, windowMs int) []byte {
 			n = totalSamples - off/2
 		}
 		if rmsWindow(off, n) >= threshold {
-			// Keep 50ms margin before voice
-			margin := sampleRate * 50 / 1000 * 2
+			// Keep 250ms margin before voice (industry best practice: 200-300ms)
+			margin := sampleRate * 250 / 1000 * 2
 			startByte = off - margin
 			if startByte < 0 {
 				startByte = 0
@@ -491,8 +491,8 @@ func TrimSilence(data []byte, threshold float32, windowMs int) []byte {
 			n = totalSamples - off/2
 		}
 		if n > 0 && rmsWindow(off, n) >= threshold {
-			// Keep 50ms margin after voice
-			margin := sampleRate * 50 / 1000 * 2
+			// Keep 350ms margin after voice (industry best practice: 300-500ms)
+			margin := sampleRate * 350 / 1000 * 2
 			endByte = off + bytesPerWindow + margin
 			if endByte > len(data) {
 				endByte = len(data)
