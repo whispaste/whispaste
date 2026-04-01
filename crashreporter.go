@@ -80,6 +80,14 @@ type crashReport struct {
 	SmartMode      bool   `json:"smart_mode"`
 	ConfigSnapshot string `json:"config_snapshot,omitempty"`
 	Hash           string `json:"hash"`
+	// Enrichment fields for better debugging
+	AppState       string `json:"app_state,omitempty"`
+	AppUptimeSec   int64  `json:"app_uptime_sec,omitempty"`
+	GoroutineCount int    `json:"goroutine_count,omitempty"`
+	HeapAllocMB    int    `json:"heap_alloc_mb,omitempty"`
+	HeapSysMB      int    `json:"heap_sys_mb,omitempty"`
+	NumGC          uint32 `json:"num_gc,omitempty"`
+	RecentLogs     string `json:"recent_logs,omitempty"`
 }
 
 type crashRelayPayload struct {
@@ -290,6 +298,16 @@ func (cr *CrashReporter) newReport(typ, severity, message, stack, process string
 		smartMode = cr.cfg.GetSmartMode()
 		configSnapshot = buildCrashConfigSnapshot(cr.cfg)
 	}
+
+	// Capture runtime diagnostics
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
+	recentLogs := ""
+	if crashLogBuffer != nil {
+		recentLogs = sanitizePaths(truncStr(crashLogBuffer.GetRecent(), 1500))
+	}
+
 	return &crashReport{
 		ID:             newUUID(),
 		Timestamp:      time.Now().Unix(),
@@ -309,6 +327,13 @@ func (cr *CrashReporter) newReport(typ, severity, message, stack, process string
 		SmartMode:      smartMode,
 		ConfigSnapshot: configSnapshot,
 		Hash:           hashCrash(message, stack),
+		AppState:       getCrashAppState(),
+		AppUptimeSec:   int64(time.Since(crashAppStartTime).Seconds()),
+		GoroutineCount: runtime.NumGoroutine(),
+		HeapAllocMB:    int(memStats.Alloc / (1024 * 1024)),
+		HeapSysMB:      int(memStats.Sys / (1024 * 1024)),
+		NumGC:          memStats.NumGC,
+		RecentLogs:     recentLogs,
 	}
 }
 
@@ -462,6 +487,8 @@ func (cr *CrashReporter) buildEmbed(r *crashReport) map[string]interface{} {
 	if versionValue == "" {
 		versionValue = "dev"
 	}
+
+	// App context fields
 	fields := []map[string]interface{}{
 		{"name": "Version", "value": versionValue, "inline": true},
 		{"name": "OS", "value": fmt.Sprintf("%s/%s", r.OS, r.Arch), "inline": true},
@@ -474,6 +501,24 @@ func (cr *CrashReporter) buildEmbed(r *crashReport) map[string]interface{} {
 			"name": "Build", "value": truncStr(r.BuildCommit, 12), "inline": true,
 		})
 	}
+
+	// Runtime diagnostics
+	if r.AppState != "" || r.AppUptimeSec > 0 {
+		uptimeStr := formatCrashUptime(r.AppUptimeSec)
+		fields = append(fields, map[string]interface{}{
+			"name":   "Runtime",
+			"value":  fmt.Sprintf("State: **%s** | Uptime: %s | Goroutines: %d", r.AppState, uptimeStr, r.GoroutineCount),
+			"inline": false,
+		})
+	}
+	if r.HeapAllocMB > 0 {
+		fields = append(fields, map[string]interface{}{
+			"name":   "Memory",
+			"value":  fmt.Sprintf("Heap: %d MB / %d MB | GC cycles: %d", r.HeapAllocMB, r.HeapSysMB, r.NumGC),
+			"inline": false,
+		})
+	}
+
 	if r.ConfigSnapshot != "" {
 		fields = append(fields, map[string]interface{}{
 			"name": "Runtime Config", "value": "```\n" + truncStr(r.ConfigSnapshot, maxEmbedFieldLen-8) + "\n```", "inline": false,
@@ -493,6 +538,21 @@ func (cr *CrashReporter) buildEmbed(r *crashReport) map[string]interface{} {
 			"name": "Process", "value": r.ProcessName, "inline": true,
 		})
 	}
+	if r.RecentLogs != "" {
+		// Show last ~5 lines to stay within embed limits
+		logLines := strings.Split(strings.TrimSpace(r.RecentLogs), "\n")
+		start := 0
+		if len(logLines) > 5 {
+			start = len(logLines) - 5
+		}
+		recentStr := strings.Join(logLines[start:], "\n")
+		if len(recentStr) > 600 {
+			recentStr = recentStr[len(recentStr)-600:]
+		}
+		fields = append(fields, map[string]interface{}{
+			"name": "Recent Logs", "value": "```\n" + recentStr + "\n```",
+		})
+	}
 
 	ts := time.Unix(r.Timestamp, 0).UTC().Format("2006-01-02 15:04:05 UTC")
 	return map[string]interface{}{
@@ -502,6 +562,16 @@ func (cr *CrashReporter) buildEmbed(r *crashReport) map[string]interface{} {
 		"fields":      fields,
 		"footer":      map[string]interface{}{"text": fmt.Sprintf("ID: %s | %s", r.ID[:8], ts)},
 	}
+}
+
+func formatCrashUptime(sec int64) string {
+	if sec < 60 {
+		return fmt.Sprintf("%ds", sec)
+	}
+	if sec < 3600 {
+		return fmt.Sprintf("%dm %ds", sec/60, sec%60)
+	}
+	return fmt.Sprintf("%dh %dm", sec/3600, (sec%3600)/60)
 }
 
 func (cr *CrashReporter) isRateLimited() bool {
@@ -678,6 +748,62 @@ func truncStr(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+// ── App state & uptime tracking for crash enrichment ──
+
+var (
+	crashAppStartTime = time.Now()
+
+	crashAppStateMu sync.RWMutex
+	crashAppState   = "idle"
+)
+
+// SetCrashAppState updates the app state visible to the crash reporter.
+func SetCrashAppState(state string) {
+	crashAppStateMu.Lock()
+	crashAppState = state
+	crashAppStateMu.Unlock()
+}
+
+func getCrashAppState() string {
+	crashAppStateMu.RLock()
+	defer crashAppStateMu.RUnlock()
+	return crashAppState
+}
+
+// ── Log ring buffer for crash breadcrumbs ──
+
+type logRingBuffer struct {
+	mu    sync.Mutex
+	lines []string
+	pos   int
+	size  int
+}
+
+var crashLogBuffer = &logRingBuffer{
+	lines: make([]string, 20),
+	size:  20,
+}
+
+func (rb *logRingBuffer) Add(line string) {
+	rb.mu.Lock()
+	rb.lines[rb.pos] = line
+	rb.pos = (rb.pos + 1) % rb.size
+	rb.mu.Unlock()
+}
+
+func (rb *logRingBuffer) GetRecent() string {
+	rb.mu.Lock()
+	defer rb.mu.Unlock()
+	var sb strings.Builder
+	for i := 0; i < rb.size; i++ {
+		idx := (rb.pos + i) % rb.size
+		if rb.lines[idx] != "" {
+			sb.WriteString(rb.lines[idx])
+		}
+	}
+	return sb.String()
 }
 
 func boolInt(b bool) int {

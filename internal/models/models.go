@@ -232,18 +232,99 @@ func Download(modelID string, progressFn func(fileDownloaded, fileTotal int64, f
 // downloadIdleTimeout is the maximum time to wait for new data before aborting.
 const downloadIdleTimeout = 60 * time.Second
 
+// downloadMaxRetries is the number of retry attempts after a failed download.
+const downloadMaxRetries = 3
+
 // DownloadFile downloads a single file from url to dest, reporting progress.
-// It aborts if no data is received for downloadIdleTimeout.
+// It retries up to downloadMaxRetries times on transient failures, attempting
+// HTTP Range resume when the server supports it.
 func DownloadFile(url, dest string, progressFn func(downloaded, total int64)) error {
+	tmp := dest + ".tmp"
+	var lastErr error
+
+	for attempt := 0; attempt <= downloadMaxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(attempt*attempt) * 5 * time.Second
+			time.Sleep(backoff)
+		}
+		lastErr = downloadFileAttempt(url, tmp, progressFn)
+		if lastErr == nil {
+			break
+		}
+		// Only retry on network/stall errors, not on HTTP 4xx or disk errors
+		if !isRetryableDownloadError(lastErr) {
+			return lastErr
+		}
+	}
+	if lastErr != nil {
+		os.Remove(tmp)
+		return lastErr
+	}
+
+	if err := os.Rename(tmp, dest); err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+	return nil
+}
+
+func isRetryableDownloadError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	for _, substr := range []string{"stalled", "failed to read response", "connection", "timeout", "reset", "EOF"} {
+		if containsCI(msg, substr) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsCI(s, sub string) bool {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		match := true
+		for j := 0; j < len(sub); j++ {
+			a, b := s[i+j], sub[j]
+			if a >= 'A' && a <= 'Z' {
+				a += 'a' - 'A'
+			}
+			if b >= 'A' && b <= 'Z' {
+				b += 'a' - 'A'
+			}
+			if a != b {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
+}
+
+// downloadFileAttempt performs a single download attempt, resuming from existing
+// tmp file if the server supports HTTP Range requests.
+func downloadFileAttempt(url, tmp string, progressFn func(downloaded, total int64)) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	idleTimer := time.AfterFunc(downloadIdleTimeout, cancel)
 	defer idleTimer.Stop()
 
+	// Check for existing partial download to resume
+	var resumeOffset int64
+	if fi, err := os.Stat(tmp); err == nil && fi.Size() > 0 {
+		resumeOffset = fi.Size()
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
+	}
+	if resumeOffset > 0 {
+		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", resumeOffset))
 	}
 
 	resp, err := modelHTTPClient.Do(req)
@@ -252,21 +333,37 @@ func DownloadFile(url, dest string, progressFn func(downloaded, total int64)) er
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	var downloaded int64
+	var total int64
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// Server doesn't support Range or sent full file — start from scratch
+		resumeOffset = 0
+		total = resp.ContentLength
+	case http.StatusPartialContent:
+		// Resume successful
+		downloaded = resumeOffset
+		if resp.ContentLength > 0 {
+			total = resumeOffset + resp.ContentLength
+		}
+	default:
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
 	}
 
-	tmp := dest + ".tmp"
-	f, err := os.Create(tmp)
+	var f *os.File
+	if resumeOffset > 0 && resp.StatusCode == http.StatusPartialContent {
+		f, err = os.OpenFile(tmp, os.O_WRONLY|os.O_APPEND, 0o666)
+	} else {
+		f, err = os.Create(tmp)
+	}
 	if err != nil {
-		return fmt.Errorf("failed to create temp file: %w", err)
+		return fmt.Errorf("failed to open temp file: %w", err)
 	}
 
 	bw := bufio.NewWriterSize(f, 256<<10) // 256 KB write buffer
 
-	var downloaded int64
 	var lastReport int64
-	total := resp.ContentLength
 	buf := make([]byte, 256<<10) // 256 KB read buffer
 
 	const progressInterval int64 = 256 << 10 // report every 256 KB
@@ -278,7 +375,6 @@ func DownloadFile(url, dest string, progressFn func(downloaded, total int64)) er
 			if _, wErr := bw.Write(buf[:n]); wErr != nil {
 				bw.Flush()
 				f.Close()
-				os.Remove(tmp)
 				return fmt.Errorf("failed to write file: %w", wErr)
 			}
 			downloaded += int64(n)
@@ -293,7 +389,6 @@ func DownloadFile(url, dest string, progressFn func(downloaded, total int64)) er
 		if readErr != nil {
 			bw.Flush()
 			f.Close()
-			os.Remove(tmp)
 			if ctx.Err() != nil {
 				return fmt.Errorf("download stalled (no data received for %s)", downloadIdleTimeout)
 			}
@@ -308,18 +403,11 @@ func DownloadFile(url, dest string, progressFn func(downloaded, total int64)) er
 
 	if err := bw.Flush(); err != nil {
 		f.Close()
-		os.Remove(tmp)
 		return fmt.Errorf("failed to flush write buffer: %w", err)
 	}
 
 	if err := f.Close(); err != nil {
-		os.Remove(tmp)
 		return fmt.Errorf("failed to close temp file: %w", err)
-	}
-
-	if err := os.Rename(tmp, dest); err != nil {
-		os.Remove(tmp)
-		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
 	return nil

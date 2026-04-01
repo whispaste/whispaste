@@ -13,6 +13,27 @@ const (
 	StatePaused // recording is paused
 )
 
+func appStateName(s AppState) string {
+	switch s {
+	case StateIdle:
+		return "idle"
+	case StateRecording:
+		return "recording"
+	case StateTranscribing:
+		return "transcribing"
+	case StateProcessing:
+		return "processing"
+	case StateError:
+		return "error"
+	case StateCopied:
+		return "copied"
+	case StatePaused:
+		return "paused"
+	default:
+		return "unknown"
+	}
+}
+
 // SoundType identifies audio feedback sounds.
 type SoundType int
 
