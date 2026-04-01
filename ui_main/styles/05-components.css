@@ -46,7 +46,7 @@
 
 .confirm-dialog {
   width: fit-content;
-  min-width: 320px;
+  min-width: 360px;
   max-width: min(440px, 90vw);
   background: var(--glass-bg-strong);
   border: 1px solid var(--border-primary);
@@ -72,8 +72,8 @@
 }
 .confirm-icon .icon { width: 22px; height: 22px; }
 
-.confirm-title { font-size: 17px; font-weight: 700; text-align: center; margin-bottom: 8px; color: var(--text); }
-.confirm-msg { font-size: 13px; text-align: center; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px; }
+.confirm-title { font-size: var(--text-xl); font-weight: var(--weight-semibold); text-align: center; margin-bottom: 8px; color: var(--text); }
+.confirm-msg { font-size: var(--text-base); text-align: center; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px; }
 
 .confirm-btns { display: flex; gap: var(--spacing-sm); flex-wrap: wrap; }
 .confirm-btns .btn { min-width: 100px; white-space: nowrap; }
@@ -140,8 +140,8 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 9px 20px;
-  font-size: 13px;
+  padding: 10px 20px;
+  font-size: var(--text-base);
   font-weight: 600;
   font-family: var(--font);
   border-radius: var(--radius-sm);
@@ -149,6 +149,7 @@
   cursor: pointer;
   transition: all var(--transition);
   white-space: nowrap;
+  min-height: 40px;
 }
 .btn:active { transform: scale(.97); }
 .btn .icon { width: 16px; height: 16px; }
@@ -189,8 +190,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
@@ -247,7 +248,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-primary);
   background: var(--bg-input);
@@ -259,8 +260,7 @@
 .prompt-card:hover {
   border-color: var(--border-accent);
   background: var(--bg-hover);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 .prompt-card.active {
   border-color: var(--accent);
@@ -341,8 +341,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   border: none;
   background: transparent;
   color: var(--text-secondary);
