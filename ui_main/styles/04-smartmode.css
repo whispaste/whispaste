@@ -17,6 +17,11 @@
 /* ── Smart Mode State Bar ──────────────────────────────── */
 #smart-state-bar {
   margin-bottom: 14px;
+  opacity: 0.5;
+  transition: opacity var(--motion-normal, 200ms) var(--ease-out-smooth, ease);
+}
+#smart-state-bar.active {
+  opacity: 1;
 }
 
 .section-title-row {
@@ -47,7 +52,7 @@
 }
 .section-title {
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: var(--weight-semibold);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -130,7 +135,7 @@
 /* ── Preset Grid ─────────────────────────────────────── */
 .preset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: var(--spacing-sm);
 }
 .preset-card {
@@ -163,9 +168,10 @@
   opacity: 0.03;
 }
 .preset-card.active {
-  border-color: var(--accent);
-  background: var(--accent-subtle);
-  box-shadow: 0 0 0 1px var(--accent), var(--shadow-glow);
+  border-color: var(--accent-primary, var(--accent));
+  border-width: 2px;
+  background: color-mix(in srgb, var(--accent-primary, var(--accent)) 6%, var(--bg-secondary, var(--bg-primary)));
+  box-shadow: var(--shadow-glow), 0 0 0 1px color-mix(in srgb, var(--accent-primary, var(--accent)) 20%, transparent);
 }
 .preset-card.active::before {
   opacity: 0.06;
@@ -356,4 +362,46 @@
 .keyword-chip-remove:hover {
   opacity: 1;
   color: var(--error);
+}
+
+/* ── Workflow Step Animation ─────────────────────────── */
+#smart-state-bar.active .page-context-bar-step {
+  transition: color var(--motion-normal, 200ms), transform var(--motion-micro, 100ms);
+}
+#smart-state-bar.active .page-context-bar-step:hover {
+  color: var(--accent-primary, var(--accent));
+  transform: scale(1.05);
+}
+
+/* ── Workspace Hint ──────────────────────────────────── */
+.smart-workspace-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: var(--spacing-md, 16px);
+  padding: var(--spacing-sm, 8px) var(--spacing-md, 16px);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+.smart-workspace-hint .icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--accent-primary, var(--accent));
+  opacity: 0.7;
+}
+
+/* ── Prompt Editor Enhancement ───────────────────────── */
+#input-smartprompt {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.85rem;
+  min-height: 120px;
+  line-height: 1.6;
+  resize: vertical;
+}
+#input-smartprompt:focus {
+  border-color: var(--accent-primary, var(--accent));
+  box-shadow: 0 0 0 2px var(--accent-glow, color-mix(in srgb, var(--accent) 15%, transparent));
 }

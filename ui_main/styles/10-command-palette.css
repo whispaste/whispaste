@@ -179,3 +179,17 @@
   font-size: var(--text-sm);
   color: var(--text-tertiary);
 }
+
+/* ── Category icon (recent) ─────────────────────────── */
+
+.cp-category-icon {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-right: 2px;
+}
+
+.cp-category-icon .icon {
+  width: 12px;
+  height: 12px;
+  color: var(--text-tertiary);
+}

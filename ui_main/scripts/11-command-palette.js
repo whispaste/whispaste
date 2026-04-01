@@ -5,6 +5,35 @@
   let _activeIndex = 0;
   let _filteredCmds = [];
   let _palettePreviousFocus = null;
+  let _recentCommandIds = [];
+
+  const _RECENT_STORAGE_KEY = 'palette_recent';
+  const _RECENT_MAX = 5;
+
+  function _loadRecent() {
+    try {
+      const raw = localStorage.getItem(_RECENT_STORAGE_KEY);
+      _recentCommandIds = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(_recentCommandIds)) _recentCommandIds = [];
+    } catch (e) { _recentCommandIds = []; }
+  }
+
+  function _saveRecent(cmdId) {
+    _recentCommandIds = _recentCommandIds.filter(id => id !== cmdId);
+    _recentCommandIds.unshift(cmdId);
+    if (_recentCommandIds.length > _RECENT_MAX) _recentCommandIds.length = _RECENT_MAX;
+    try { localStorage.setItem(_RECENT_STORAGE_KEY, JSON.stringify(_recentCommandIds)); } catch (e) { /* ignore */ }
+  }
+
+  function _getRecentCommands(allCmds) {
+    const cmdMap = {};
+    for (const c of allCmds) cmdMap[c.id] = c;
+    const recent = [];
+    for (const id of _recentCommandIds) {
+      if (cmdMap[id]) recent.push(cmdMap[id]);
+    }
+    return recent;
+  }
 
   const paletteIcons = {
     command: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></svg>',
@@ -166,16 +195,38 @@
       return;
     }
 
+    // Prepend recent commands when query is empty
+    const recentCmds = !query ? _getRecentCommands(commands) : [];
+
+    let html = '';
+    let globalIdx = 0;
+
+    if (recentCmds.length > 0) {
+      html += '<div class="cp-category"><span class="cp-category-icon">' + paletteIcons.clock + '</span> ' + esc(t('palette.cat.recent')) + '</div>';
+      for (const cmd of recentCmds) {
+        const activeClass = globalIdx === _activeIndex ? ' cp-item-active' : '';
+        html += '<div class="cp-item' + activeClass + '" data-idx="' + globalIdx + '">';
+        html += '<span class="cp-item-icon">' + cmd.icon + '</span>';
+        html += '<span class="cp-item-label">' + esc(cmd.label) + '</span>';
+        if (cmd.shortcut) {
+          const localized = cmd.shortcut.split('+').map(k => formatModKey(k)).join('+');
+          html += '<span class="cp-item-shortcut">' + esc(localized) + '</span>';
+        }
+        html += '</div>';
+        globalIdx++;
+      }
+      // Update _filteredCmds to include recent at the front
+      _filteredCmds = recentCmds.concat(_filteredCmds);
+    }
+
     // Group by category
     const groups = {};
-    for (const cmd of _filteredCmds) {
+    for (const cmd of (recentCmds.length > 0 ? commands : _filteredCmds)) {
       const cat = cmd.category;
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(cmd);
     }
 
-    let html = '';
-    let globalIdx = 0;
     for (const [cat, cmds] of Object.entries(groups)) {
       html += '<div class="cp-category">' + esc(t(cat)) + '</div>';
       for (const cmd of cmds) {
@@ -189,6 +240,14 @@
         }
         html += '</div>';
         globalIdx++;
+      }
+    }
+
+    // When recent was prepended, rebuild _filteredCmds to match the full rendered list
+    if (recentCmds.length > 0) {
+      _filteredCmds = [...recentCmds];
+      for (const [, cmds] of Object.entries(groups)) {
+        _filteredCmds.push(...cmds);
       }
     }
 
@@ -220,6 +279,7 @@
   function executeCommand(idx) {
     const cmd = _filteredCmds[idx];
     if (cmd) {
+      _saveRecent(cmd.id);
       closePalette();
       cmd.action();
     }
@@ -236,6 +296,7 @@
     if (typeof hidePopovers === 'function') hidePopovers();
 
     _activeIndex = 0;
+    _loadRecent();
 
     // Load custom templates for palette commands
     await loadCustomTemplateNames();
