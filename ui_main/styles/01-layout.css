@@ -162,7 +162,21 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slide-in-right var(--duration-slow) var(--ease-out);
+  transition: opacity var(--duration-normal) var(--ease-out),
+              transform var(--duration-normal) var(--ease-out);
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page.page-exit {
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+}
+
+.page.page-enter {
+  opacity: 0;
+  transform: translateY(4px);
 }
 
 .page-header {
@@ -529,3 +543,28 @@
 .status-msg.visible { opacity: 1; }
 .status-msg.success { color: var(--success); }
 .status-msg.error { color: var(--error); }
+
+/* ── Collapsible Sections (settings conditional rows) ── */
+.settings-collapsible {
+  overflow: hidden;
+  transition: max-height var(--duration-normal) var(--ease-out),
+              opacity var(--duration-fast) var(--ease-out);
+  max-height: 500px;
+  opacity: 1;
+}
+
+.settings-collapsible.collapsed {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Reduced Motion ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -337,3 +337,5 @@ body.ready { opacity: 1; }
   0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow), var(--shadow-lg); }
   50% { box-shadow: 0 0 0 8px transparent, var(--shadow-lg); }
 }
+
+/* Reduced motion override: see 01-layout.css @media (prefers-reduced-motion) */
