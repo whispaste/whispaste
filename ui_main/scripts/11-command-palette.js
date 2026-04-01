@@ -219,9 +219,11 @@
       _filteredCmds = recentCmds.concat(_filteredCmds);
     }
 
-    // Group by category
+    // Group by category (exclude recent commands to avoid duplicates)
+    const recentIds = new Set(recentCmds.map(c => c.id));
     const groups = {};
     for (const cmd of (recentCmds.length > 0 ? commands : _filteredCmds)) {
+      if (recentIds.has(cmd.id)) continue;
       const cat = cmd.category;
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(cmd);

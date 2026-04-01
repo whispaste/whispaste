@@ -20,6 +20,10 @@ const _discoveryConfig = {
   }
 };
 
+let _discoveryShowTimer = null;
+let _discoveryDismissTimer = null;
+let _discoveryCurrentPage = null;
+
 function _discoveryKey(pageId) {
   return 'discovery_' + pageId + '_seen';
 }
@@ -30,31 +34,47 @@ function _isDiscoverySeen(pageId) {
 
 function _markDiscoverySeen(pageId) {
   try { localStorage.setItem(_discoveryKey(pageId), '1'); } catch {}
-  // Remove nav dot
   const dot = document.querySelector(`.nav-item[data-page="${pageId}"] .discovery-dot`);
   if (dot) dot.remove();
 }
 
 function _dismissDiscovery(pageId) {
   _markDiscoverySeen(pageId);
+  if (_discoveryDismissTimer) { clearTimeout(_discoveryDismissTimer); _discoveryDismissTimer = null; }
   const tooltip = document.getElementById('discoveryTooltip');
   if (tooltip) tooltip.remove();
+  _discoveryCurrentPage = null;
+}
+
+function _cancelDiscoveryTimers() {
+  if (_discoveryShowTimer) { clearTimeout(_discoveryShowTimer); _discoveryShowTimer = null; }
+  if (_discoveryDismissTimer) { clearTimeout(_discoveryDismissTimer); _discoveryDismissTimer = null; }
 }
 
 /** Show discovery tooltip for a page (first visit only). */
 function showDiscoveryForPage(pageId) {
+  // Cancel any pending timers from previous page navigation
+  _cancelDiscoveryTimers();
+
   const config = _discoveryConfig[pageId];
   if (!config || _isDiscoverySeen(pageId)) return;
 
   // Remove any existing tooltip
   const existing = document.getElementById('discoveryTooltip');
   if (existing) existing.remove();
+  _discoveryCurrentPage = pageId;
 
   // Delay slightly so page content is rendered
-  setTimeout(() => {
+  _discoveryShowTimer = setTimeout(() => {
+    _discoveryShowTimer = null;
+    // Guard: page might have changed during the delay
+    if (_discoveryCurrentPage !== pageId) return;
+
     const tooltip = document.createElement('div');
     tooltip.id = 'discoveryTooltip';
     tooltip.className = `discovery-tooltip arrow-${config.arrow}`;
+    tooltip.setAttribute('role', 'status');
+    tooltip.setAttribute('aria-live', 'polite');
     tooltip.innerHTML = `
       <div class="discovery-tooltip-title">${config.title()}</div>
       <div class="discovery-tooltip-desc">${config.desc()}</div>
@@ -62,6 +82,18 @@ function showDiscoveryForPage(pageId) {
         <button class="discovery-tooltip-dismiss" onclick="_dismissDiscovery('${pageId}')">${t('discovery.gotIt') || 'Got it'}</button>
       </div>
     `;
+
+    // Pause auto-dismiss on hover/focus
+    tooltip.addEventListener('mouseenter', () => {
+      if (_discoveryDismissTimer) { clearTimeout(_discoveryDismissTimer); _discoveryDismissTimer = null; }
+    });
+    tooltip.addEventListener('mouseleave', () => {
+      if (document.body.contains(tooltip)) {
+        _discoveryDismissTimer = setTimeout(() => {
+          if (document.body.contains(tooltip)) _dismissDiscovery(pageId);
+        }, 4000);
+      }
+    });
 
     document.body.appendChild(tooltip);
 
@@ -73,8 +105,10 @@ function showDiscoveryForPage(pageId) {
       tooltip.style.left = (rect.left + 24) + 'px';
     }
 
-    // Auto-dismiss after 8 seconds
-    setTimeout(() => _dismissDiscovery(pageId), 8000);
+    // Auto-dismiss after 8 seconds (paused on hover)
+    _discoveryDismissTimer = setTimeout(() => {
+      if (document.body.contains(tooltip)) _dismissDiscovery(pageId);
+    }, 8000);
   }, 400);
 }
 
