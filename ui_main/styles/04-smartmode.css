@@ -24,6 +24,22 @@
   align-items: center;
   justify-content: space-between;
 }
+.section-title-collapsible {
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  margin: 0 -6px;
+  transition: background var(--transition-fast);
+}
+.section-title-collapsible:hover {
+  background: var(--bg-hover);
+}
+.section-title-chevron {
+  color: var(--text-tertiary);
+  transition: transform var(--transition-fast);
+  flex-shrink: 0;
+}
 .section-title-actions {
   display: flex;
   gap: 4px;
@@ -63,7 +79,7 @@
   background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
-  padding: 18px 22px;
+  padding: var(--spacing-md) var(--spacing-lg);
   position: relative;
   overflow: hidden;
 }
@@ -119,7 +135,7 @@
 }
 .preset-card {
   display: flex; flex-direction: column; align-items: center;
-  gap: 6px; padding: 18px 12px 14px;
+  gap: 6px; padding: var(--spacing-md) var(--spacing-sm) var(--spacing-sm);
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
