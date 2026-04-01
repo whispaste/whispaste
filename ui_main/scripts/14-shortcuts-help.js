@@ -2,6 +2,7 @@
 
 (function () {
   let _helpEl = null;
+  let _previousFocus = null;
 
   const closeIcon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
 
@@ -45,15 +46,14 @@
 
   function renderKeys(keys) {
     if (keys.length === 1 && keys[0] === 'hotkey') {
-      // Show configured hotkey if available
       let hotkeyLabel = '';
       try {
-        const hkEl = document.getElementById('currentHotkey');
+        const hkEl = document.getElementById('statusHotkeyLabel');
         if (hkEl && hkEl.textContent && hkEl.textContent.trim()) {
           hotkeyLabel = hkEl.textContent.trim();
         }
       } catch (e) { /* ignore */ }
-      if (!hotkeyLabel) hotkeyLabel = 'Ctrl+Shift+R';
+      if (!hotkeyLabel) hotkeyLabel = 'Ctrl+Shift+D';
       const parts = hotkeyLabel.split('+').map(k => k.trim()).filter(Boolean);
       return parts.map(k => '<span class="sh-kbd">' + esc(k) + '</span>').join('<span class="sh-separator">+</span>');
     }
@@ -62,6 +62,7 @@
 
   function showShortcutsHelp() {
     if (_helpEl) return;
+    _previousFocus = document.activeElement;
 
     const backdrop = document.createElement('div');
     backdrop.className = 'sh-backdrop';
@@ -71,14 +72,18 @@
 
     const modal = document.createElement('div');
     modal.className = 'sh-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'sh-dialog-title');
 
     // Header
     const header = document.createElement('div');
     header.className = 'sh-header';
     header.innerHTML =
-      '<span class="sh-title">' + esc(t('shortcuts.title')) + '</span>' +
+      '<span class="sh-title" id="sh-dialog-title">' + esc(t('shortcuts.title')) + '</span>' +
       '<button class="sh-close" aria-label="Close">' + closeIcon + '</button>';
-    header.querySelector('.sh-close').addEventListener('click', hideShortcutsHelp);
+    const closeBtn = header.querySelector('.sh-close');
+    closeBtn.addEventListener('click', hideShortcutsHelp);
 
     // Content
     const content = document.createElement('div');
@@ -102,12 +107,20 @@
     backdrop.appendChild(modal);
     document.body.appendChild(backdrop);
     _helpEl = backdrop;
+
+    // Focus the close button for keyboard accessibility
+    closeBtn.focus();
   }
 
   function hideShortcutsHelp() {
     if (_helpEl) {
       _helpEl.remove();
       _helpEl = null;
+      // Restore focus to previous element
+      if (_previousFocus && _previousFocus.focus) {
+        try { _previousFocus.focus(); } catch (e) { /* ignore */ }
+      }
+      _previousFocus = null;
     }
   }
 
