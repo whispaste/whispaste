@@ -36,7 +36,7 @@
                           Description="Fast, lightweight speech-to-text tool for Windows. Record speech and paste the transcription anywhere."
                           Square150x150Logo="Assets\Square150x150Logo.png"
                           Square44x44Logo="Assets\Square44x44Logo.png"
-                          BackgroundColor="transparent">
+                          BackgroundColor="#0D1B2D">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"
                          Square310x310Logo="Assets\Square310x310Logo.png" />
       </uap:VisualElements>
