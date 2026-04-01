@@ -19,9 +19,7 @@
             </div>
             <div class="search-hints" id="searchHints">
               <span class="search-hint-label" data-i18n="historySearchTry">Try:</span>
-              <button class="search-hint-chip" data-i18n="searchChipToday" data-search-value="today" onclick="document.getElementById('searchInput').value=this.dataset.searchValue;document.getElementById('searchInput').dispatchEvent(new Event('input'))">today</button>
-              <button class="search-hint-chip" data-search-value="#meeting" onclick="document.getElementById('searchInput').value=this.dataset.searchValue;document.getElementById('searchInput').dispatchEvent(new Event('input'))">#meeting</button>
-              <button class="search-hint-chip" data-i18n="searchChipEmail" data-search-value="email" onclick="document.getElementById('searchInput').value=this.dataset.searchValue;document.getElementById('searchInput').dispatchEvent(new Event('input'))">email</button>
+              <button class="search-hint-chip" data-filter="today" data-i18n="searchChipToday">today</button>
             </div>
           </div>
         </div>

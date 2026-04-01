@@ -254,7 +254,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: var(--spacing-sm);
   text-align: center;
   padding: 52px 24px;
   color: var(--text-hint);

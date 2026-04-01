@@ -175,8 +175,60 @@ async function loadEntries() {
   }
   updateSelectionBar();
   renderHistory();
+  _updateSearchHintChips();
 }
 
+function _updateSearchHintChips() {
+  const hints = document.getElementById('searchHints');
+  if (!hints) return;
+
+  // Collect top tags from current entries (max 3)
+  const tagCounts = {};
+  for (const e of _entries) {
+    for (const tag of (e.tags || [])) {
+      if (tag === 'pending') continue;
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    }
+  }
+  const topTags = Object.entries(tagCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([name]) => name);
+
+  // Keep the "today" chip, add dynamic tag chips
+  const todayBtn = hints.querySelector('[data-filter="today"]');
+  hints.querySelectorAll('.search-hint-chip[data-tag-chip]').forEach(el => el.remove());
+
+  for (const tag of topTags) {
+    const btn = document.createElement('button');
+    btn.className = 'search-hint-chip';
+    btn.dataset.tagChip = tag;
+    btn.textContent = '#' + tag;
+    hints.appendChild(btn);
+  }
+
+  // Hide hints entirely when no entries
+  if (_entries.length === 0 && todayBtn) todayBtn.style.display = 'none';
+  else if (todayBtn) todayBtn.style.display = '';
+}
+
+function _onSearchHintClick(e) {
+  const chip = e.target.closest('.search-hint-chip');
+  if (!chip) return;
+
+  if (chip.dataset.filter === 'today') {
+    _activeFilters.time = _activeFilters.time === 'today' ? null : 'today';
+    _updateFilterUI();
+    renderHistory();
+  } else if (chip.dataset.tagChip) {
+    const tag = chip.dataset.tagChip;
+    const idx = _activeFilters.tags.indexOf(tag);
+    if (idx >= 0) _activeFilters.tags.splice(idx, 1);
+    else _activeFilters.tags.push(tag);
+    _updateFilterUI();
+    renderHistory();
+  }
+}
 function changeSort(val) {
   _currentSort = val;
   renderHistory();

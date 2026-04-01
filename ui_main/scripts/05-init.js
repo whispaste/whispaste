@@ -229,6 +229,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderHistory();
     });
   }
+  const searchHints = document.getElementById('searchHints');
+  if (searchHints) searchHints.addEventListener('click', _onSearchHintClick);
   const helpBtn = document.getElementById('searchHelp');
   if (helpBtn) {
     helpBtn.addEventListener('click', (ev) => {
