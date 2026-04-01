@@ -268,6 +268,7 @@
   display: flex;
   justify-content: center;
   gap: var(--space-2);
+  align-items: center;
 }
 
 .onboarding-dots .dot {
@@ -275,13 +276,43 @@
   height: 8px;
   border-radius: 50%;
   background: var(--border-primary);
-  transition: background var(--transition-fast);
+  transition: all var(--motion-normal) var(--ease-out-smooth);
 }
 
 .onboarding-dots .dot.active {
   background: var(--accent);
-  width: 20px;
+  width: 24px;
   border-radius: 4px;
+}
+
+.onboarding-dots .dot.completed {
+  background: var(--accent);
+}
+
+/* ── Step progress bar (alternative to dots) ──────── */
+.onb-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+.onb-progress-step {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-weight: var(--weight-medium);
+}
+.onb-progress-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.onb-progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  transition: width var(--motion-emphasis) var(--ease-out-smooth);
 }
 
 .onboarding-hotkey-display {
@@ -896,4 +927,29 @@
 /* ── Mic icon gradient for aha step ────────────────── */
 .onboarding-icon-mic {
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent), transparent 60%));
+}
+
+/* ── Micro-celebration (completion step) ──────────── */
+.onb-celebration {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--success), color-mix(in srgb, var(--success), transparent 50%));
+  color: white;
+  margin: 0 auto var(--space-6);
+}
+.onb-celebration.animate {
+  animation: celebrate var(--motion-emphasis) var(--ease-spring) both;
+}
+.onb-celebration .icon {
+  width: 40px;
+  height: 40px;
+}
+
+/* ── Onboarding step transitions ──────────────────── */
+.onboarding-step {
+  animation: pageEnter var(--motion-normal) var(--ease-out-smooth) both;
 }
