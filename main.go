@@ -256,6 +256,9 @@ func main() {
 			return
 		}
 
+		// Update crash reporter state for diagnostics
+		SetCrashAppState(appStateName(newState))
+
 		// Update tray tooltip
 		if tray != nil {
 			tray.SetTooltipState(newState)
@@ -406,7 +409,7 @@ func main() {
 			}
 			pcm, err := recorder.Stop()
 			if err != nil || len(pcm) == 0 {
-				logWarn("No audio data captured")
+				logInfo("No audio data captured")
 				if playSounds {
 					PlayFeedback(SoundError)
 				}
@@ -790,7 +793,7 @@ func main() {
 					// PasteText writes to clipboard and simulates Ctrl+V
 					if err := PasteText(text); err != nil {
 						if errors.Is(err, errPasteClipboardOnly) {
-							logWarn("Paste fallback: clipboard only (%v)", err)
+							logInfo("Paste fallback: clipboard only (%v)", err)
 							if tray != nil {
 								tray.ShowBalloon(AppName, T("balloon.paste_clipboard_only"))
 							}

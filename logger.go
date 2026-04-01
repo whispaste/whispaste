@@ -111,6 +111,11 @@ func (l *appLogger) log(level LogLevel, tag string, format string, args ...inter
 	ts := time.Now().Format("2006-01-02 15:04:05.000")
 	line := fmt.Sprintf("%s [%s] %s\n", ts, tag, msg)
 
+	// Feed the crash reporter's breadcrumb ring buffer
+	if crashLogBuffer != nil {
+		crashLogBuffer.Add(line)
+	}
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.file != nil {

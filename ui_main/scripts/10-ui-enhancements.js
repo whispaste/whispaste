@@ -98,14 +98,14 @@
   const specGrid = document.getElementById('preset-grid-specialized');
   if (specHeader && specGrid) {
     const KEY = 'wp_specialized_expanded';
-    const isExpanded = () => localStorage.getItem(KEY) === '1';
+    const isExpanded = () => safeStorageGet(KEY) === '1';
 
     function toggleSpecialized(expand) {
       specGrid.style.display = expand ? '' : 'none';
       specHeader.classList.toggle('collapsed', !expand);
       const chevron = specHeader.querySelector('.section-title-chevron');
       if (chevron) chevron.style.transform = expand ? 'rotate(90deg)' : '';
-      localStorage.setItem(KEY, expand ? '1' : '0');
+      safeStorageSet(KEY, expand ? '1' : '0');
     }
 
     // Default: collapsed
@@ -118,7 +118,7 @@
 
   function showFeatureTip(pageId, tipKey, message) {
     const storageKey = 'wp_tip_dismissed_' + tipKey;
-    if (localStorage.getItem(storageKey)) return;
+    if (safeStorageGet(storageKey)) return;
 
     const page = document.getElementById(pageId);
     if (!page) return;
@@ -133,7 +133,7 @@
       </button>`;
     tip.querySelector('.feature-tip-close').addEventListener('click', () => {
       tip.remove();
-      localStorage.setItem(storageKey, '1');
+      safeStorageSet(storageKey, '1');
     });
 
     // Insert after page-header

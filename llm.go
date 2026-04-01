@@ -262,15 +262,29 @@ func (l *LocalLLM) stopLocked() {
 
 	if !exited {
 		if err := l.cmd.Process.Kill(); err != nil {
-			logWarn("Failed to kill llama-server: %v", err)
-		}
-		// Wait for the goroutine to deliver cmd.Wait() result
-		if waitCh != nil {
-			select {
-			case <-waitCh:
-			case <-time.After(5 * time.Second):
-				logWarn("Timed out waiting for llama-server to stop")
+			// Process may have exited between the check and kill (TOCTOU race)
+			if waitCh != nil {
+				select {
+				case <-waitCh:
+					exited = true
+				case <-time.After(250 * time.Millisecond):
+				}
 			}
+			if !exited && isAlreadyExitedProcessKillError(err) {
+				exited = true
+				logDebug("llama-server already exited before kill: %v", err)
+			}
+			if !exited {
+				logWarn("Failed to kill llama-server: %v", err)
+			}
+		}
+	}
+
+	if !exited && waitCh != nil {
+		select {
+		case <-waitCh:
+		case <-time.After(5 * time.Second):
+			logWarn("Timed out waiting for llama-server to stop")
 		}
 	}
 

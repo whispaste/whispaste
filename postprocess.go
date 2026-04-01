@@ -378,8 +378,8 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 	elapsed := time.Since(start).Round(time.Millisecond)
 	logDebug("PostProcess: done in %s, output_len=%d output_preview=%q", elapsed, len(cleaned), truncateForLog(cleaned, 120))
 	// Warn if local LLM returned text nearly identical to input (likely ignored the preset)
-	if local && len(cleaned) > 0 && abs(len(cleaned)-len(text)) < len(text)/10 {
-		logWarn("PostProcess: local LLM output length (%d) is very close to input (%d) — model may not have applied preset %q", len(cleaned), len(text), preset)
+	if local && len(cleaned) > 0 && abs(len(cleaned)-len(text)) < len(text)/20 {
+		logInfo("PostProcess: local LLM output length (%d) is very close to input (%d) — model may not have applied preset %q", len(cleaned), len(text), preset)
 	}
 	return cleaned, nil
 }
