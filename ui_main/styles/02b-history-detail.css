@@ -24,9 +24,8 @@
   box-shadow: var(--shadow-xs);
 }
 .entry:hover {
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--border-accent);
+  box-shadow: var(--shadow-md);
   border-color: var(--border-accent);
-  transform: translateY(-1px);
 }
 .entry.pinned {
   border-left: 3px solid var(--accent);
@@ -70,7 +69,7 @@
   flex-wrap: wrap;
   gap: 4px 10px;
   margin-top: 3px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--text-hint);
   align-items: center;
 }
@@ -235,11 +234,11 @@
   gap: 4px;
 }
 .entry-preview {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.6;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   flex: 1;
@@ -266,9 +265,9 @@
 .entry.expanded .entry-full { display: block; }
 
 .entry-full-text {
-  font-size: 13px;
+  font-size: var(--text-lg);
   color: var(--text);
-  line-height: 1.6;
+  line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
   cursor: pointer;

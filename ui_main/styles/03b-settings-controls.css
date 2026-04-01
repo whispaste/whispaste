@@ -34,8 +34,8 @@
 
 .form-input {
   width: 100%;
-  padding: 10px 14px;
-  font-size: 14px;
+  padding: 12px 16px;
+  font-size: var(--text-base);
   font-family: var(--font);
   color: var(--text);
   background: var(--bg-input);
@@ -46,7 +46,7 @@
 .form-input:hover { border-color: var(--text-tertiary); }
 .form-input:focus {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--accent-glow), var(--shadow-inset);
+  box-shadow: 0 0 0 2px var(--accent-glow);
   outline: none;
 }
 .form-input::placeholder { color: var(--text-hint); }
@@ -174,7 +174,7 @@
   transition: transform var(--duration-normal) cubic-bezier(.4, 0, .2, 1);
 }
 .toggle-switch input:checked + .toggle-track {
-  background: var(--gradient-accent);
+  background: var(--accent);
   box-shadow: var(--shadow-glow);
 }
 .toggle-switch input:checked + .toggle-track::after { transform: translateX(22px); }
