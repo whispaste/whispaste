@@ -110,16 +110,16 @@
   }
 
   // ── Custom Templates Header Visibility ─────────────────
-  // Shows the "Your Templates" header when custom templates exist.
+  // Hides the import/export actions when no custom templates exist.
 
   function updateCustomTemplatesHeader() {
     const grid = document.getElementById('custom-templates-grid');
     const header = document.getElementById('customTemplatesHeader');
     if (!grid || !header) return;
 
-    const hasCards = grid.querySelectorAll('.preset-card').length > 0;
-    header.style.display = hasCards ? '' : 'none';
-    grid.style.display = hasCards ? '' : 'none';
+    const hasCustom = grid.querySelectorAll('.preset-card[data-custom-template]').length > 0;
+    const actions = header.querySelector('.section-title-actions');
+    if (actions) actions.style.display = hasCustom ? '' : 'none';
   }
 
   const customGrid = document.getElementById('custom-templates-grid');
