@@ -75,13 +75,26 @@ function showDiscoveryForPage(pageId) {
     tooltip.className = `discovery-tooltip arrow-${config.arrow}`;
     tooltip.setAttribute('role', 'status');
     tooltip.setAttribute('aria-live', 'polite');
-    tooltip.innerHTML = `
-      <div class="discovery-tooltip-title">${config.title()}</div>
-      <div class="discovery-tooltip-desc">${config.desc()}</div>
-      <div class="discovery-tooltip-actions">
-        <button class="discovery-tooltip-dismiss" onclick="_dismissDiscovery('${pageId}')">${t('discovery.gotIt') || 'Got it'}</button>
-      </div>
-    `;
+
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'discovery-tooltip-title';
+    titleDiv.textContent = config.title();
+
+    const descDiv = document.createElement('div');
+    descDiv.className = 'discovery-tooltip-desc';
+    descDiv.textContent = config.desc();
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'discovery-tooltip-actions';
+    const dismissBtn = document.createElement('button');
+    dismissBtn.className = 'discovery-tooltip-dismiss';
+    dismissBtn.textContent = t('discovery.gotIt') || 'Got it';
+    dismissBtn.addEventListener('click', () => _dismissDiscovery(pageId));
+    actionsDiv.appendChild(dismissBtn);
+
+    tooltip.appendChild(titleDiv);
+    tooltip.appendChild(descDiv);
+    tooltip.appendChild(actionsDiv);
 
     // Pause auto-dismiss on hover/focus
     tooltip.addEventListener('mouseenter', () => {
