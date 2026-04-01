@@ -75,7 +75,7 @@
 .confirm-title { font-size: 17px; font-weight: 700; text-align: center; margin-bottom: 8px; color: var(--text); }
 .confirm-msg { font-size: 13px; text-align: center; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px; }
 
-.confirm-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.confirm-btns { display: flex; gap: var(--spacing-sm); flex-wrap: wrap; }
 .confirm-btns .btn { min-width: 100px; white-space: nowrap; }
 
 .prompt-input {
@@ -110,7 +110,7 @@
 .confirm-list-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-sm);
   padding: 10px 14px;
   font-size: 13px;
   color: var(--text-secondary);
@@ -240,7 +240,7 @@
 .prompt-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: var(--spacing-sm);
 }
 
 .prompt-card {

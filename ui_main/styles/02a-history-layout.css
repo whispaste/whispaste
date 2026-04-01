@@ -426,7 +426,7 @@
 }
 .dialog-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--spacing-sm);
   margin-top: 20px;
   justify-content: flex-end;
   flex-wrap: wrap;

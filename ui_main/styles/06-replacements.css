@@ -41,7 +41,7 @@
 .replacement-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-sm);
   padding: 10px 14px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
@@ -169,13 +169,13 @@
 
 .replacements-examples-grid {
   display: grid;
-  gap: 10px;
+  gap: var(--spacing-sm);
 }
 
 .snippet-example-card {
   display: grid;
   grid-template-columns: minmax(110px, 140px) 20px minmax(0, 1fr) 30px;
-  gap: 10px;
+  gap: var(--spacing-sm);
   align-items: center;
   padding: 12px 14px;
   border: 1px solid var(--border-primary);
@@ -249,7 +249,7 @@
   color: var(--text-tertiary);
   cursor: pointer;
   padding: 0;
-  transition: color var(--transition), border-color var(--transition), background var(--transition), transform 0.15s ease;
+  transition: color var(--transition), border-color var(--transition), background var(--transition), transform var(--transition-fast);
 }
 
 .snippet-example-add:hover {

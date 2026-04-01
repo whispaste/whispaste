@@ -224,11 +224,13 @@ function updateSmartModeVisibility() {
   const howto = document.getElementById('smart-howto');
   const appDetRow = document.getElementById('smart-app-detection-row');
   const appNotice = document.getElementById('smart-app-active-notice');
+  const stateBar = document.getElementById('smart-state-bar');
 
   const on = toggle ? toggle.checked : false;
   if (options) options.classList.toggle('hidden', !on);
   if (howto) howto.classList.toggle('hidden', !on);
   if (appDetRow) appDetRow.classList.toggle('hidden', !on);
+  if (stateBar) stateBar.classList.toggle('hidden', !on);
   if (!on && appNotice) appNotice.classList.add('hidden');
   if (on) {
     updateSmartPresetVisibility();
