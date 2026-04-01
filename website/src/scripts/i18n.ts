@@ -346,6 +346,13 @@ function loadInitialLang(): string {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
     return 'en';
   }
+  // Allow deep-linking with ?lang=en or ?lang=de (e.g. from the desktop app)
+  const params = new URLSearchParams(window.location.search);
+  const paramLang = params.get('lang');
+  if (paramLang && ['en', 'de'].includes(paramLang)) {
+    localStorage.setItem('whispaste-lang', paramLang);
+    return paramLang;
+  }
   return localStorage.getItem('whispaste-lang') || detectBrowserLang();
 }
 
