@@ -80,6 +80,10 @@ function switchPage(pageId) {
   // Cancel any in-flight animation to prevent race conditions
   if (_switchTimer) { clearTimeout(_switchTimer); _switchTimer = null; }
 
+  // Validate target page exists before mutating state
+  const target = document.getElementById('page-' + pageId);
+  if (!target) return;
+
   // Track page history (avoid consecutive duplicates)
   if (_pageHistory[_pageHistory.length - 1] !== pageId) {
     _pageHistory.push(pageId);
@@ -98,8 +102,6 @@ function switchPage(pageId) {
   if (pageId !== 'analytics') stopAnalyticsAutoRefresh();
 
   const pages = document.querySelectorAll('.page');
-  const target = document.getElementById('page-' + pageId);
-  if (!target) return;
 
   const current = document.querySelector('.page:not(.hidden)');
 
