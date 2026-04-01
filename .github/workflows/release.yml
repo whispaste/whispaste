@@ -295,6 +295,19 @@ jobs:
           $manifest.Package.Identity.Version = "${{ steps.version.outputs.MSIX_VERSION }}"
           $manifest.Save("$staging\AppxManifest.xml")
 
+          # Generate resources.pri so Windows can resolve qualified assets
+          # (targetsize, altform-unplated, scale variants)
+          $makePri = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\MakePri.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+          if ($makePri) {
+            $mp = $makePri.FullName
+            & $mp createconfig /cf "$staging\priconfig.xml" /dq en-US /pv 10.0.0 /o
+            & $mp new /pr $staging /cf "$staging\priconfig.xml" /of "$staging\resources.pri" /o
+            Remove-Item "$staging\priconfig.xml" -Force -ErrorAction SilentlyContinue
+            Write-Host "resources.pri generated"
+          } else {
+            Write-Host "::warning::MakePri.exe not found, resources.pri not generated"
+          }
+
           # Create MSIX package
           & $makeAppx pack /d $staging /p whispaste.msix /o /nv
           if ($LASTEXITCODE -ne 0) { Write-Host "::warning::MSIX packaging failed"; exit 0 }
