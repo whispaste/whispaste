@@ -162,18 +162,158 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slide-in-right var(--duration-slow) var(--ease-out);
+  transition: opacity var(--duration-normal) var(--ease-out),
+              transform var(--duration-normal) var(--ease-out);
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page.page-exit {
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+}
+
+.page.page-enter {
+  opacity: 0;
+  transform: translateY(4px);
 }
 
 .page-header {
-  padding: 20px 24px 12px;
+  padding: 20px var(--page-gutter, 24px) 12px;
   flex-shrink: 0;
+}
+.page-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 .page-title {
   font-size: var(--text-2xl);
   font-weight: var(--weight-bold);
   letter-spacing: -.03em;
   color: var(--text-primary);
+}
+
+/* ── Page Context Bar (replaces marketing heroes) ──── */
+.page-context-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin: 0 0 var(--spacing-sm);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.page-context-bar .icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.page-context-bar-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+.page-context-bar-arrow {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+.page-context-bar-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+/* ── Empty State (shared across pages) ─────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  gap: 12px;
+}
+.empty-state-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--text-tertiary);
+  opacity: 0.5;
+}
+.empty-state-title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+.empty-state-desc {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  max-width: 340px;
+  line-height: 1.5;
+}
+.empty-state-action {
+  margin-top: 8px;
+}
+
+/* ── Feature Discovery Tips ───────────────────────────── */
+.feature-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin: 0 var(--page-gutter, 24px) var(--spacing-sm);
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  line-height: 1.5;
+  animation: tipSlideIn var(--duration-normal) var(--ease-out);
+}
+@keyframes tipSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.feature-tip-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.feature-tip-text {
+  flex: 1;
+}
+.feature-tip-close {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.feature-tip-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.feature-tip-close .icon {
+  width: 14px;
+  height: 14px;
 }
 
 /* ── FAB (Floating Action Button) ─────────────────────── */
@@ -221,7 +361,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--spacing-sm);
   padding: 6px 16px;
   background: var(--glass-bg-strong);
   backdrop-filter: var(--glass-blur);
@@ -351,8 +491,8 @@
   flex-shrink: 0;
   background: var(--text-muted, #888);
 }
-.status-dot.online { background: #22c55e; }
-.status-dot.offline { background: #ef4444; }
+.status-dot.online { background: var(--success); }
+.status-dot.offline { background: var(--error); }
 
 .status-right {
   display: flex;
@@ -403,3 +543,28 @@
 .status-msg.visible { opacity: 1; }
 .status-msg.success { color: var(--success); }
 .status-msg.error { color: var(--error); }
+
+/* ── Collapsible Sections (settings conditional rows) ── */
+.settings-collapsible {
+  overflow: hidden;
+  transition: max-height var(--duration-normal) var(--ease-out),
+              opacity var(--duration-fast) var(--ease-out);
+  max-height: 500px;
+  opacity: 1;
+}
+
+.settings-collapsible.collapsed {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Reduced Motion ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

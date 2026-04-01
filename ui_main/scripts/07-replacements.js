@@ -1,10 +1,11 @@
-// Snippets visibility toggle
+// Snippets visibility toggle — matches Smart Mode pattern
 function updateReplacementsVisibility() {
   const toggle = document.getElementById('replacements-toggle');
+  const options = document.getElementById('replacements-options');
   const hint = document.getElementById('replacements-disabled-hint');
-  if (!hint) return;
   const on = toggle ? toggle.checked : false;
-  hint.classList.toggle('hidden', on);
+  if (options) options.classList.toggle('hidden', !on);
+  if (hint) hint.classList.toggle('hidden', on);
 }
 
 // Snippets page logic

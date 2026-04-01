@@ -67,35 +67,77 @@ function copySysInfoValue(el) {
   });
 }
 
-/* ── Page Switching ────────────────────────────────────── */
+/* ── Page Switching (animated) ─────────────────────────── */
+let _switchTimer = null;
+
 function switchPage(pageId) {
-  // Update nav
+  // Cancel any in-flight animation to prevent race conditions
+  if (_switchTimer) { clearTimeout(_switchTimer); _switchTimer = null; }
+
+  // Update nav immediately
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.toggle('active', item.dataset.page === pageId);
   });
-  // Show/hide pages
-  document.querySelectorAll('.page').forEach(page => {
-    page.classList.toggle('hidden', page.id !== 'page-' + pageId);
-  });
-  // Load history entries when switching to history page
-  if (pageId === 'history') loadEntries();
-  // Load analytics when switching to analytics page
-  if (pageId === 'analytics') { loadAnalytics(); startAnalyticsAutoRefresh(); } else { stopAnalyticsAutoRefresh(); }
-  // Auto-select first settings nav item when switching to settings
-  if (pageId === 'settings') {
-    const firstNav = document.querySelector('.filter-item[data-settings-section]');
-    if (firstNav) {
-      document.querySelectorAll('.filter-item[data-settings-section]').forEach(i => i.classList.remove('active'));
-      firstNav.classList.add('active');
-      const sectionId = firstNav.dataset.settingsSection;
-      const target = document.getElementById(sectionId);
-      if (target) target.scrollIntoView({ block: 'start' });
+
+  // Stop analytics refresh when leaving analytics
+  if (pageId !== 'analytics') stopAnalyticsAutoRefresh();
+
+  const pages = document.querySelectorAll('.page');
+  const target = document.getElementById('page-' + pageId);
+  if (!target) return;
+
+  const current = document.querySelector('.page:not(.hidden)');
+
+  // Page-specific loads (called after target is visible)
+  const onPageVisible = () => {
+    if (pageId === 'history') loadEntries();
+    if (pageId === 'analytics') { loadAnalytics(); startAnalyticsAutoRefresh(); }
+    if (pageId === 'settings') {
+      const firstNav = document.querySelector('.filter-item[data-settings-section]');
+      if (firstNav) {
+        document.querySelectorAll('.filter-item[data-settings-section]').forEach(i => i.classList.remove('active'));
+        firstNav.classList.add('active');
+        const sectionId = firstNav.dataset.settingsSection;
+        const sec = document.getElementById(sectionId);
+        if (sec) sec.scrollIntoView({ block: 'start' });
+      }
     }
-  }
-  // Load system info when switching to about page
-  if (pageId === 'about') loadSystemInfo();
-  // Load custom templates when switching to smart mode page
-  if (pageId === 'smartmode' && typeof loadCustomTemplates === 'function') loadCustomTemplates();
+    if (pageId === 'about') loadSystemInfo();
+    if (pageId === 'smartmode' && typeof loadCustomTemplates === 'function') loadCustomTemplates();
+  };
+
+  // Immediate swap helper (no animation)
+  const swapNow = () => {
+    pages.forEach(p => {
+      p.classList.remove('page-exit', 'page-enter');
+      if (p !== target) p.classList.add('hidden');
+    });
+    target.classList.remove('hidden');
+    onPageVisible();
+  };
+
+  // No animation: same page, no visible page, or first load
+  if (!current || current === target) { swapNow(); return; }
+
+  // Skip animation when user prefers reduced motion
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { swapNow(); return; }
+
+  // Animate: fade-out current → swap → fade-in target
+  current.classList.add('page-exit');
+
+  _switchTimer = setTimeout(() => {
+    _switchTimer = null;
+    pages.forEach(p => { if (p !== target) p.classList.add('hidden'); });
+    current.classList.remove('page-exit');
+
+    target.classList.add('page-enter');
+    target.classList.remove('hidden');
+
+    void target.offsetHeight;
+    requestAnimationFrame(() => { target.classList.remove('page-enter'); });
+
+    onPageVisible();
+  }, 180);
 }
 
 /* ── Init ──────────────────────────────────────────────── */
@@ -229,6 +271,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderHistory();
     });
   }
+  const searchHints = document.getElementById('searchHints');
+  if (searchHints) searchHints.addEventListener('click', _onSearchHintClick);
   const helpBtn = document.getElementById('searchHelp');
   if (helpBtn) {
     helpBtn.addEventListener('click', (ev) => {

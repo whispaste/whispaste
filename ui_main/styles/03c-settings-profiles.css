@@ -10,7 +10,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   transition: border-color var(--transition-fast);
@@ -142,7 +142,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   margin-bottom: 12px;
   font-size: 0.84rem;
   line-height: 1.4;
@@ -233,7 +233,7 @@
 .duration-slider-group {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-sm);
   flex-shrink: 0;
 }
 
@@ -250,7 +250,7 @@
   appearance: none;
   width: 120px;
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs, 4px);
   background: var(--border);
   outline: none;
   cursor: pointer;
@@ -281,7 +281,7 @@
 .range-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-sm);
 }
 
 /* ── Audio Level Meter ──────────────────────────────── */

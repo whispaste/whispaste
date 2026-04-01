@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"encoding/binary"
+	"math"
+	"testing"
+)
 
 func TestClassifyAudioInputHealth(t *testing.T) {
 	tests := []struct {
@@ -22,4 +26,148 @@ func TestClassifyAudioInputHealth(t *testing.T) {
 			t.Errorf("%s: classifyAudioInputHealth(%0.3f, %0.3f, %d) = %q, want %q", tt.name, tt.peak, tt.average, tt.reads, got, tt.want)
 		}
 	}
+}
+
+// generatePCM creates 16-bit LE PCM data at 16 kHz mono with a given amplitude and duration.
+func generatePCM(amplitude float64, durationMs int) []byte {
+	sampleRate := 16000
+	numSamples := sampleRate * durationMs / 1000
+	data := make([]byte, numSamples*2)
+	for i := 0; i < numSamples; i++ {
+		// Generate a sine wave at 440 Hz
+		sample := amplitude * math.Sin(2*math.Pi*440*float64(i)/float64(sampleRate))
+		s := int16(sample * 32767)
+		binary.LittleEndian.PutUint16(data[i*2:], uint16(s))
+	}
+	return data
+}
+
+// generateSilence creates silent PCM data (all zeros) for a given duration.
+func generateSilence(durationMs int) []byte {
+	sampleRate := 16000
+	numSamples := sampleRate * durationMs / 1000
+	return make([]byte, numSamples*2)
+}
+
+func TestTrimSilence(t *testing.T) {
+	t.Run("empty data returns as-is", func(t *testing.T) {
+		got := TrimSilence(nil, 0.01, 30)
+		if got != nil {
+			t.Errorf("expected nil, got %d bytes", len(got))
+		}
+	})
+
+	t.Run("all-silence returns original", func(t *testing.T) {
+		silence := generateSilence(500)
+		got := TrimSilence(silence, 0.01, 30)
+		if len(got) != len(silence) {
+			t.Errorf("all-silence should return original: got %d, want %d", len(got), len(silence))
+		}
+	})
+
+	t.Run("trims leading silence", func(t *testing.T) {
+		leading := generateSilence(1000)
+		speech := generatePCM(0.5, 500)
+		pcm := append(leading, speech...)
+		got := TrimSilence(pcm, 0.01, 30)
+		// Result should be shorter than input (leading silence removed minus margin)
+		if len(got) >= len(pcm) {
+			t.Errorf("expected trimmed result, got same or larger: %d >= %d", len(got), len(pcm))
+		}
+		// But should still contain the speech portion
+		if len(got) < len(speech) {
+			t.Errorf("result too short — speech may be clipped: %d < %d", len(got), len(speech))
+		}
+	})
+
+	t.Run("trims trailing silence", func(t *testing.T) {
+		speech := generatePCM(0.5, 500)
+		trailing := generateSilence(1000)
+		pcm := append(speech, trailing...)
+		got := TrimSilence(pcm, 0.01, 30)
+		if len(got) >= len(pcm) {
+			t.Errorf("expected trimmed result, got same or larger: %d >= %d", len(got), len(pcm))
+		}
+		if len(got) < len(speech) {
+			t.Errorf("result too short — speech may be clipped: %d < %d", len(got), len(speech))
+		}
+	})
+
+	t.Run("preserves speech with margins", func(t *testing.T) {
+		leading := generateSilence(2000)
+		speech := generatePCM(0.5, 300)
+		trailing := generateSilence(2000)
+		pcm := append(leading, speech...)
+		pcm = append(pcm, trailing...)
+		got := TrimSilence(pcm, 0.01, 30)
+		// Should be significantly shorter than 4300ms total
+		if len(got) >= len(pcm)/2 {
+			t.Errorf("expected significant trimming: got %d bytes from %d", len(got), len(pcm))
+		}
+		// 250ms pre + 300ms speech + 350ms post = ~900ms minimum expected
+		minExpected := 16000 * 800 / 1000 * 2 // ~800ms worth
+		if len(got) < minExpected {
+			t.Errorf("result too short (margins may be missing): %d < %d", len(got), minExpected)
+		}
+	})
+
+	t.Run("zero threshold returns original", func(t *testing.T) {
+		pcm := generatePCM(0.1, 500)
+		got := TrimSilence(pcm, 0, 30)
+		if len(got) != len(pcm) {
+			t.Errorf("zero threshold should return original: got %d, want %d", len(got), len(pcm))
+		}
+	})
+}
+
+func TestStripInternalSilence(t *testing.T) {
+	t.Run("empty data returns as-is", func(t *testing.T) {
+		got := StripInternalSilence(nil, 0.01, 600)
+		if got != nil {
+			t.Errorf("expected nil, got %d bytes", len(got))
+		}
+	})
+
+	t.Run("no internal silence preserved", func(t *testing.T) {
+		speech := generatePCM(0.5, 2000)
+		got := StripInternalSilence(speech, 0.01, 600)
+		// Continuous speech should remain roughly the same length
+		if len(got) < len(speech)*90/100 {
+			t.Errorf("continuous speech should not be stripped: got %d, want ~%d", len(got), len(speech))
+		}
+	})
+
+	t.Run("strips long internal silence", func(t *testing.T) {
+		part1 := generatePCM(0.5, 500)
+		gap := generateSilence(2000) // 2s silence (above 600ms threshold)
+		part2 := generatePCM(0.5, 500)
+		pcm := append(part1, gap...)
+		pcm = append(pcm, part2...)
+		got := StripInternalSilence(pcm, 0.01, 600)
+		// Should be shorter than original (2s gap removed)
+		if len(got) >= len(pcm)*80/100 {
+			t.Errorf("expected internal silence stripped: got %d from %d", len(got), len(pcm))
+		}
+	})
+
+	t.Run("preserves short internal pauses", func(t *testing.T) {
+		part1 := generatePCM(0.5, 500)
+		gap := generateSilence(400) // 400ms (below 600ms threshold)
+		part2 := generatePCM(0.5, 500)
+		pcm := append(part1, gap...)
+		pcm = append(pcm, part2...)
+		got := StripInternalSilence(pcm, 0.01, 600)
+		// Should preserve the short gap
+		if len(got) < len(pcm)*90/100 {
+			t.Errorf("short pause should be preserved: got %d from %d", len(got), len(pcm))
+		}
+	})
+
+	t.Run("zero threshold returns original", func(t *testing.T) {
+		pcm := generatePCM(0.1, 500)
+		got := StripInternalSilence(pcm, 0, 600)
+		if len(got) != len(pcm) {
+			t.Errorf("zero threshold should return original: got %d, want %d", len(got), len(pcm))
+		}
+	})
 }

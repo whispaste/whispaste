@@ -76,7 +76,7 @@
   border: 2px solid var(--border-primary);
   background: var(--bg-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .onb-lang-card:hover {
@@ -133,7 +133,7 @@
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .onb-theme-btn:hover {
@@ -542,14 +542,14 @@
   flex: 1;
   height: 6px;
   background: var(--bg-secondary);
-  border-radius: 3px;
+  border-radius: var(--radius-xs, 4px);
   overflow: hidden;
 }
 .onb-progress-bar {
   height: 100%;
   width: 0%;
   background: var(--accent);
-  border-radius: 3px;
+  border-radius: var(--radius-xs, 4px);
   transition: width var(--transition-normal) ease;
 }
 .onb-progress-label {

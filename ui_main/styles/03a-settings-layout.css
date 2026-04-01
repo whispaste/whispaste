@@ -12,6 +12,37 @@
   padding: 12px;
   overflow-y: auto;
   border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+.settings-search-box:focus-within {
+  border-color: var(--border-focus);
+}
+.settings-search-box .icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.settings-search-box input {
+  border: none;
+  background: transparent;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  outline: none;
+  width: 100%;
+}
+.settings-search-box input::placeholder {
+  color: var(--text-tertiary);
 }
 .settings-nav::-webkit-scrollbar { width: 4px; }
 .settings-nav::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 4px; }
