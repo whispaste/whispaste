@@ -159,7 +159,7 @@
   position: absolute;
   inset: 0;
   background: rgba(120,120,128,.2);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition: background var(--duration-normal) cubic-bezier(.4, 0, .2, 1);
 }
@@ -189,7 +189,7 @@
 .volume-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-sm);
   padding: 8px 0 0 0;
   margin-top: 4px;
 }
@@ -269,7 +269,7 @@
 .hotkey-recorder {
   margin-top: 10px;
   padding: 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--bg-card);
   border: 2px solid var(--accent);
   animation: hotkeyPulse 1.5s ease infinite;
