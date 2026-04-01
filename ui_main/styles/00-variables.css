@@ -31,16 +31,16 @@
   --accent-hover: var(--cyan-700);
   --accent-active: var(--cyan-800);
   --accent-subtle: var(--cyan-50);
-  --accent-glow: rgba(8, 145, 178, 0.15);
+  --accent-glow: rgba(8, 145, 178, 0.10);
 
   /* ── Semantic: Backgrounds ─── */
   --bg-app: var(--gray-50);
-  --bg-primary: #FFFFFF;
+  --bg-primary: #FEFEFE;
   --bg-secondary: var(--gray-100);
   --bg-tertiary: var(--gray-200);
   --bg-hover: var(--gray-100);
   --bg-active: var(--gray-200);
-  --bg-input: #FFFFFF;
+  --bg-input: #FEFEFE;
   --bg-overlay: rgba(15, 23, 42, 0.4);
 
   /* ── Semantic: Text ─── */
@@ -104,8 +104,9 @@
   --text-md: 14px;
   --text-lg: 16px;
   --text-xl: 18px;
-  --text-2xl: 22px;
+  --text-2xl: 24px;
   --text-3xl: 28px;
+  --text-hero: 32px;
 
   --leading-tight: 1.2;
   --leading-normal: 1.5;
@@ -150,8 +151,8 @@
   --transition-spring: var(--duration-normal) var(--ease-spring);
 
   /* ── Glassmorphism (Light) ─── */
-  --glass-bg: rgba(255, 255, 255, 0.6);
-  --glass-bg-strong: rgba(255, 255, 255, 0.8);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-bg-strong: rgba(255, 255, 255, 0.85);
   --glass-border: rgba(255, 255, 255, 0.2);
   --glass-blur: blur(20px) saturate(180%);
 
@@ -170,13 +171,21 @@
   /* ── Surface Hierarchy ─── */
   --surface-sunken: var(--gray-100);
   --surface-default: var(--bg-primary);
-  --surface-elevated: #FFFFFF;
+  --surface-elevated: #FEFEFE;
   --surface-overlay: var(--glass-bg-strong);
+  --surface-warm: #FFFBF5;
 
   /* ── Layout ─── */
   --content-max-width: 860px;
   --page-gutter: 24px;
   --sidebar-width: 70px;
+  --touch-target: 44px;
+
+  /* ── Motion (Stream 9) ─── */
+  --motion-micro: 100ms;
+  --motion-normal: 200ms;
+  --motion-emphasis: 400ms;
+  --ease-out-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
   /* ── Backward Compatibility Aliases ─── */
   --bg: var(--bg-app);
@@ -196,7 +205,7 @@
   --accent-hover: var(--cyan-300);
   --accent-active: var(--cyan-500);
   --accent-subtle: rgba(34, 211, 238, 0.08);
-  --accent-glow: rgba(34, 211, 238, 0.2);
+  --accent-glow: rgba(34, 211, 238, 0.12);
 
   --bg-app: #0F1117;
   --bg-primary: #1A1D27;
@@ -246,8 +255,8 @@
   --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.3);
 
   /* Dark glassmorphism */
-  --glass-bg: rgba(26, 29, 39, 0.6);
-  --glass-bg-strong: rgba(26, 29, 39, 0.85);
+  --glass-bg: rgba(26, 29, 39, 0.7);
+  --glass-bg-strong: rgba(26, 29, 39, 0.9);
   --glass-border: rgba(255, 255, 255, 0.06);
 
   /* Surface hierarchy (dark) */
@@ -255,6 +264,7 @@
   --surface-default: var(--bg-primary);
   --surface-elevated: var(--bg-secondary);
   --surface-overlay: var(--glass-bg-strong);
+  --surface-warm: rgba(255, 251, 245, 0.04);
 
   /* Backward compatibility aliases */
   --bg: var(--bg-app);

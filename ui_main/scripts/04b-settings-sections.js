@@ -230,7 +230,7 @@ function updateSmartModeVisibility() {
   if (options) options.classList.toggle('hidden', !on);
   if (howto) howto.classList.toggle('hidden', !on);
   if (appDetRow) appDetRow.classList.toggle('hidden', !on);
-  if (stateBar) stateBar.classList.toggle('hidden', !on);
+  if (stateBar) stateBar.classList.toggle('active', on);
   if (!on && appNotice) appNotice.classList.add('hidden');
   if (on) {
     updateSmartPresetVisibility();
