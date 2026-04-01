@@ -15,8 +15,8 @@
     const list = document.getElementById('entriesList');
     if (!list) return;
 
-    const cards = list.querySelectorAll('.entry-card');
-    const pinned = list.querySelectorAll('.entry-card[data-pinned="true"]').length;
+    const cards = list.querySelectorAll('.entry[data-id]');
+    const pinned = list.querySelectorAll('.entry[data-id].pinned').length;
     const total = cards.length;
 
     const totalEl = document.getElementById('statTotalEntries');
@@ -40,6 +40,8 @@
   const entriesList = document.getElementById('entriesList');
   if (entriesList) {
     new MutationObserver(updateHistoryStats).observe(entriesList, { childList: true, subtree: true });
+    // Run once immediately in case entries were already loaded
+    updateHistoryStats();
   }
 
   // ── Replacements Count Badge ───────────────────────────
