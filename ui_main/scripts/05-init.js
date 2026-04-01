@@ -68,7 +68,12 @@ function copySysInfoValue(el) {
 }
 
 /* ── Page Switching (animated) ─────────────────────────── */
+let _switchTimer = null;
+
 function switchPage(pageId) {
+  // Cancel any in-flight animation to prevent race conditions
+  if (_switchTimer) { clearTimeout(_switchTimer); _switchTimer = null; }
+
   // Update nav immediately
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.toggle('active', item.dataset.page === pageId);
@@ -101,37 +106,35 @@ function switchPage(pageId) {
     if (pageId === 'smartmode' && typeof loadCustomTemplates === 'function') loadCustomTemplates();
   };
 
-  // No animation: same page, no visible page, or first load
-  if (!current || current === target) {
-    pages.forEach(p => { if (p !== target) p.classList.add('hidden'); });
-    target.classList.remove('hidden', 'page-exit', 'page-enter');
-    onPageVisible();
-    return;
-  }
-
-  // Skip animation when user prefers reduced motion
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    pages.forEach(p => { if (p !== target) p.classList.add('hidden'); });
+  // Immediate swap helper (no animation)
+  const swapNow = () => {
+    pages.forEach(p => {
+      p.classList.remove('page-exit', 'page-enter');
+      if (p !== target) p.classList.add('hidden');
+    });
     target.classList.remove('hidden');
     onPageVisible();
-    return;
-  }
+  };
+
+  // No animation: same page, no visible page, or first load
+  if (!current || current === target) { swapNow(); return; }
+
+  // Skip animation when user prefers reduced motion
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { swapNow(); return; }
 
   // Animate: fade-out current → swap → fade-in target
   current.classList.add('page-exit');
 
-  setTimeout(() => {
+  _switchTimer = setTimeout(() => {
+    _switchTimer = null;
     pages.forEach(p => { if (p !== target) p.classList.add('hidden'); });
     current.classList.remove('page-exit');
 
     target.classList.add('page-enter');
     target.classList.remove('hidden');
 
-    // Force reflow then animate in
     void target.offsetHeight;
-    requestAnimationFrame(() => {
-      target.classList.remove('page-enter');
-    });
+    requestAnimationFrame(() => { target.classList.remove('page-enter'); });
 
     onPageVisible();
   }, 180);
