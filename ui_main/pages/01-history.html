@@ -13,12 +13,33 @@
               <button class="search-clear-btn hidden" id="searchClear" title="Clear" data-i18n-title="clear">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
               </button>
-              <button class="search-help-btn" id="searchHelp" title="Search syntax help" data-i18n-title="notebook.search_help">
+              <button class="search-help-btn" id="searchHelp" title="Search tips" data-i18n-title="historySearchTips">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
               </button>
             </div>
+            <div class="search-hints" id="searchHints">
+              <span class="search-hint-label" data-i18n="historySearchTry">Try:</span>
+              <button class="search-hint-chip" onclick="document.getElementById('searchInput').value='today';document.getElementById('searchInput').dispatchEvent(new Event('input'))">today</button>
+              <button class="search-hint-chip" onclick="document.getElementById('searchInput').value='#meeting';document.getElementById('searchInput').dispatchEvent(new Event('input'))">#meeting</button>
+              <button class="search-hint-chip" onclick="document.getElementById('searchInput').value='email';document.getElementById('searchInput').dispatchEvent(new Event('input'))">email</button>
+            </div>
           </div>
         </div>
+      </div>
+      <!-- Quick Stats Row -->
+      <div class="history-stats-row" id="historyStatsRow">
+        <span class="history-stat" id="statTotalEntries">
+          <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          <span data-i18n="historyStatEntries">dictations</span>
+        </span>
+        <span class="history-stat" id="statPinnedCount">
+          <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
+          <span data-i18n="historyStatPinned">pinned</span>
+        </span>
+        <span class="history-stat" id="statActiveProject">
+          <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+          <span></span>
+        </span>
       </div>
       <!-- Selection Bar (shown when items selected) -->
       <div class="selection-bar hidden" id="selectionBar">
@@ -130,7 +151,7 @@
               </div>
             </div>
           </div>
-          <div id="categoriesSection" class="hidden">
+          <div id="categoriesSection">
             <div class="filter-section-title" style="display:flex;align-items:center;justify-content:space-between">
               <span data-i18n="notebook.tags">Tags</span>
               <button class="btn-icon sidebar-add-tag-header" id="sidebarAddTagHeader" title="Add tag" data-i18n-title="sidebar_add_tag" style="width:16px;height:16px;padding:0;opacity:0.5">
@@ -142,6 +163,11 @@
         </div>
         <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
         <div class="entries-area">
+          <div class="empty-state hidden" id="historyEmptyState">
+            <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            <h3 class="empty-state-title" data-i18n="historyEmptyTitle">No dictations yet</h3>
+            <p class="empty-state-desc" data-i18n="historyEmptyDesc">Press your hotkey or tap the record button to create your first dictation.</p>
+          </div>
           <div class="entries" id="entriesList"></div>
         </div>
       </div>
