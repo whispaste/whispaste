@@ -34,13 +34,13 @@
   --accent-glow: rgba(8, 145, 178, 0.18);
 
   /* ── Semantic: Backgrounds ─── */
-  --bg-app: var(--gray-50);
-  --bg-primary: #FEFEFE;
+  --bg-app: var(--gray-100);
+  --bg-primary: #FFFFFF;
   --bg-secondary: var(--gray-100);
   --bg-tertiary: var(--gray-200);
   --bg-hover: var(--gray-100);
   --bg-active: var(--gray-200);
-  --bg-input: #FEFEFE;
+  --bg-input: #FFFFFF;
   --bg-overlay: rgba(15, 23, 42, 0.4);
 
   /* ── Semantic: Text ─── */
@@ -51,9 +51,9 @@
   --text-accent: var(--cyan-600);
 
   /* ── Semantic: Borders ─── */
-  --border-primary: var(--gray-200);
+  --border-primary: var(--gray-300);
   --border-secondary: var(--gray-300);
-  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border-subtle: rgba(0, 0, 0, 0.10);
   --border-accent: var(--cyan-200);
   --border-focus: var(--cyan-400);
 
@@ -209,11 +209,11 @@
   --accent-glow: rgba(34, 211, 238, 0.18);
 
   --bg-app: #0F1117;
-  --bg-primary: #1A1D27;
-  --bg-secondary: #222636;
-  --bg-tertiary: #2A2E3E;
-  --bg-hover: #252A3A;
-  --bg-active: #2E3348;
+  --bg-primary: #1E2130;
+  --bg-secondary: #252A3A;
+  --bg-tertiary: #2E3348;
+  --bg-hover: #2A2E3E;
+  --bg-active: #333852;
   --bg-input: #181B24;
   --bg-overlay: rgba(0, 0, 0, 0.6);
 
@@ -223,9 +223,9 @@
   --text-inverse: #0F172A;
   --text-accent: var(--cyan-400);
 
-  --border-primary: rgba(255, 255, 255, 0.08);
-  --border-secondary: rgba(255, 255, 255, 0.12);
-  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-primary: rgba(255, 255, 255, 0.14);
+  --border-secondary: rgba(255, 255, 255, 0.18);
+  --border-subtle: rgba(255, 255, 255, 0.08);
   --border-accent: rgba(34, 211, 238, 0.3);
   --border-focus: var(--cyan-400);
 

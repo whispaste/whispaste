@@ -11,7 +11,7 @@
   color: var(--text-inverse);
   background: var(--gradient-accent);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: var(--shadow-lg), var(--shadow-glow-lg);
+  box-shadow: var(--shadow-lg);
   z-index: 1000;
   transition: top var(--duration-slow) var(--ease-spring);
   pointer-events: none;
@@ -46,13 +46,13 @@
 
 .confirm-dialog {
   width: fit-content;
-  min-width: 360px;
+  min-width: 400px;
   max-width: min(440px, 90vw);
   background: var(--glass-bg-strong);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: 24px;
-  box-shadow: var(--shadow-xl), var(--shadow-glow);
+  box-shadow: var(--shadow-xl);
   animation: dialogIn 280ms cubic-bezier(.34, 1.56, .64, 1);
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
@@ -75,8 +75,8 @@
 .confirm-title { font-size: var(--text-xl); font-weight: var(--weight-semibold); text-align: center; margin-bottom: 8px; color: var(--text); }
 .confirm-msg { font-size: var(--text-base); text-align: center; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px; }
 
-.confirm-btns { display: flex; gap: var(--spacing-sm); flex-wrap: wrap; }
-.confirm-btns .btn { min-width: 100px; white-space: nowrap; }
+.confirm-btns { display: flex; gap: var(--spacing-md); flex-wrap: wrap; }
+.confirm-btns .btn { min-width: 100px; white-space: nowrap; padding: 10px 28px; }
 
 .prompt-input {
   width: 100%;
@@ -140,7 +140,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 10px 20px;
+  padding: 10px 24px;
   font-size: var(--text-base);
   font-weight: 600;
   font-family: var(--font);
@@ -157,11 +157,11 @@
 .btn-primary {
   background: var(--gradient-accent);
   color: var(--text-inverse);
-  box-shadow: var(--shadow-sm), var(--shadow-glow), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 .btn-primary:hover {
   background: var(--gradient-accent-hover);
-  box-shadow: var(--shadow-md), var(--shadow-glow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   filter: brightness(1.05);
 }
 
@@ -173,7 +173,6 @@
 .btn-secondary:hover {
   background: var(--bg-hover);
   border-color: var(--border-accent);
-  box-shadow: var(--shadow-glow);
 }
 
 .btn-danger {
@@ -210,7 +209,6 @@
 .btn-outline:hover {
   background: var(--accent-subtle);
   border-color: var(--accent);
-  box-shadow: var(--shadow-glow);
 }
 .btn:disabled {
   opacity: 0.4;
@@ -266,7 +264,6 @@
 .prompt-card.active {
   border-color: var(--accent);
   background: var(--accent-subtle);
-  box-shadow: var(--shadow-glow), 0 0 12px rgba(8, 145, 178, 0.15);
 }
 [data-theme="dark"] .prompt-card.active { background: var(--accent-subtle); }
 .prompt-card-name { font-size: 12px; font-weight: 600; color: var(--text); }

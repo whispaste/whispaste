@@ -414,7 +414,7 @@
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-xl);
   padding: 28px;
-  box-shadow: var(--shadow-xl), var(--shadow-glow);
+  box-shadow: var(--shadow-xl);
   animation: dialogIn 280ms cubic-bezier(.34, 1.56, .64, 1);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);

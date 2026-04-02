@@ -11,9 +11,13 @@ function onRecordingStateChanged(state) {
   fab.title = isActive ? t('fab.stop') : t('fab.record');
   fab.setAttribute('aria-label', isActive ? t('fab.stop') : t('fab.record'));
 
-  // Recording indicator bar
+  // Recording indicator bar with label
   const indicator = document.getElementById('recordingIndicator');
-  if (indicator) indicator.classList.toggle('active', isActive);
+  if (indicator) {
+    indicator.classList.toggle('active', isActive);
+    const label = document.getElementById('recordingLabel');
+    if (label) label.textContent = isActive ? t('recording.indicator') : '';
+  }
 }
 
 /* ── System Info (About page) ──────────────────────────── */

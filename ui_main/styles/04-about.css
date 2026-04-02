@@ -27,18 +27,7 @@
   padding: var(--space-8) 0 var(--space-5);
 }
 
-.about-hero-glow {
-  position: absolute;
-  top: 10%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-  border-radius: 50%;
-  pointer-events: none;
-  animation: glow-pulse 4s ease-in-out infinite;
-}
+/* Hero glow removed — clean, professional look */
 
 .about-icon {
   position: relative;
@@ -117,7 +106,6 @@
 .about-license-pill:hover {
   border-color: var(--accent);
   color: var(--accent);
-  box-shadow: var(--shadow-glow);
 }
 .about-license-pill:focus-visible {
   outline: none;
@@ -158,7 +146,6 @@
 .about-action-btn:hover {
   background: var(--accent-subtle);
   border-color: var(--accent);
-  box-shadow: var(--shadow-glow);
   transform: translateY(-1px);
 }
 .about-action-btn:focus-visible {
