@@ -107,6 +107,9 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+.about-license-pill:active {
+  transform: scale(0.97);
+}
 .about-license-pill:focus-visible {
   outline: none;
   border-color: var(--border-focus);
@@ -148,6 +151,9 @@
   border-color: var(--accent);
   transform: translateY(-1px);
 }
+.about-action-btn:active {
+  transform: translateY(0) scale(0.97);
+}
 .about-action-btn:focus-visible {
   outline: none;
   border-color: var(--border-focus);
@@ -185,6 +191,9 @@
 .about-sponsor-card:hover {
   border-color: var(--sponsor);
   box-shadow: var(--shadow-md), 0 0 20px var(--sponsor-bg);
+}
+.about-sponsor-card:active {
+  transform: scale(0.98);
 }
 
 .about-sponsor-icon {

@@ -2,19 +2,26 @@
 .model-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .model-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
+  gap: var(--space-3);
+  padding: var(--space-3);
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
   cursor: pointer;
+}
+.model-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-tertiary);
+}
+.model-item:active {
+  transform: scale(0.99);
 }
 
 .model-item.unavailable {
@@ -69,15 +76,15 @@
 .model-item-action {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
 .model-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2-5);
   border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 500;
@@ -99,7 +106,7 @@
 }
 
 .model-quality {
-  margin-left: 6px;
+  margin-left: var(--space-1-5);
   font-size: 0.65rem;
   color: var(--text-tertiary);
   letter-spacing: 1px;
@@ -110,7 +117,7 @@
 }
 
 .model-warning {
-  margin-top: 8px;
+  margin-top: var(--space-2);
   font-size: 0.76rem;
   line-height: 1.45;
   color: var(--error);
@@ -121,7 +128,7 @@
   border: none;
   color: var(--text-tertiary);
   cursor: pointer;
-  padding: 4px;
+  padding: var(--space-1);
   border-radius: var(--radius-sm);
   transition: color var(--transition-fast), background var(--transition-fast);
 }
@@ -129,21 +136,24 @@
   color: var(--error);
   background: var(--error-bg);
 }
+.btn-ghost:active {
+  transform: scale(0.95);
+}
 
 .model-item-action .btn {
   min-width: 90px;
   font-size: 0.8rem;
-  padding: 6px 12px;
+  padding: var(--space-1-5) var(--space-3);
 }
 
 /* ── Preflight Inline Status ───────────────────── */
 .preflight-inline {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
+  gap: var(--space-2);
+  padding: var(--space-2-5) var(--space-3-5);
   border-radius: var(--radius-md);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
   font-size: 0.84rem;
   line-height: 1.4;
   color: var(--text-secondary);
@@ -183,16 +193,16 @@
 .model-progress {
   width: 100%;
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-2);
   background: var(--bg-tertiary);
-  margin-top: 8px;
+  margin-top: var(--space-2);
   overflow: hidden;
 }
 
 .model-progress-bar {
   height: 100%;
   background: var(--gradient-accent);
-  border-radius: 2px;
+  border-radius: var(--radius-2);
   transition: width var(--transition-normal);
   width: 0%;
 }
@@ -201,9 +211,9 @@
 .btn-test {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  font-size: 13px;
+  gap: var(--space-1-5);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-base);
   font-weight: 600;
   font-family: var(--font);
   color: var(--text);
@@ -214,6 +224,7 @@
   transition: all var(--transition);
 }
 .btn-test:hover { border-color: var(--text-tertiary); background: var(--bg-hover); }
+.btn-test:active { transform: scale(0.97); }
 .btn-test .icon { width: 16px; height: 16px; }
 .btn-test.recording {
   border-color: var(--error);
@@ -238,7 +249,7 @@
 }
 
 .duration-value {
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--accent);
   min-width: 48px;
@@ -287,24 +298,24 @@
 /* ── Audio Level Meter ──────────────────────────────── */
 .audio-level-meter {
   height: 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   overflow: hidden;
   background: var(--bg-input);
-  margin-top: 10px;
+  margin-top: var(--space-2-5);
 }
 
 .audio-level-bar {
   height: 100%;
   width: 0%;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--success);
   transition: width 0.08s ease-out;
 }
 
 .audio-health {
-  margin-top: 12px;
-  padding: 12px 14px;
-  border-radius: 12px;
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-3-5);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--bg-secondary);
   transition: border-color var(--transition-fast), background var(--transition-fast);
@@ -313,7 +324,7 @@
 .audio-health-top {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: center;
 }
 
@@ -321,7 +332,7 @@
   display: inline-flex;
   align-items: center;
   min-height: 26px;
-  padding: 0 10px;
+  padding: 0 var(--space-2-5);
   border-radius: var(--radius-full);
   font-size: 0.76rem;
   font-weight: 700;
@@ -338,14 +349,14 @@
 }
 
 .audio-health-message {
-  margin-top: 10px;
+  margin-top: var(--space-2-5);
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .audio-health-tip {
-  margin-top: 6px;
+  margin-top: var(--space-1-5);
   font-size: 0.8rem;
   line-height: 1.5;
   color: var(--text-secondary);
@@ -386,17 +397,17 @@
 .fab-color-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 0 0 0;
+  gap: var(--space-3);
+  padding: var(--space-2) 0 0 0;
 }
 .fab-color-label {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--text-secondary);
   white-space: nowrap;
 }
 .fab-color-grid {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 .fab-color-option {
@@ -405,7 +416,7 @@
   border-radius: 50%;
   border: 2px solid transparent;
   background: none;
-  padding: 2px;
+  padding: var(--space-0-5);
   cursor: pointer;
   transition: all var(--transition-fast);
   display: flex;
@@ -415,6 +426,9 @@
 .fab-color-option:hover {
   transform: scale(1.15);
   border-color: var(--border-primary);
+}
+.fab-color-option:active {
+  transform: scale(0.90);
 }
 .fab-color-option.selected {
   border-color: var(--accent);
@@ -430,22 +444,22 @@
 .fab-size-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 0 0 0;
+  gap: var(--space-3);
+  padding: var(--space-2) 0 0 0;
 }
 .fab-size-label {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--text-secondary);
   white-space: nowrap;
 }
 .fab-size-slider-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex: 1;
 }
 .fab-size-value {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--text-secondary);
   min-width: 42px;
   text-align: right;

@@ -35,6 +35,9 @@
   transform: scale(1.15);
   box-shadow: 0 0 8px rgba(0,0,0,0.15);
 }
+.tcp-swatch:active {
+  transform: scale(0.95);
+}
 .tcp-swatch.active {
   border-color: var(--text-primary);
   box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--text-secondary);
@@ -56,4 +59,7 @@
 .tcp-reset:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+.tcp-reset:active {
+  transform: scale(0.97);
 }
