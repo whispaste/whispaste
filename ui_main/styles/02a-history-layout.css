@@ -213,6 +213,7 @@
 .sort-trigger:hover { color: var(--text-primary); background: var(--bg-hover); }
 .sort-trigger:active { transform: scale(0.97); }
 .sort-trigger .icon-xs { width: 14px; height: 14px; transition: transform var(--transition-fast); }
+.sort-arrow { color: var(--text-tertiary); font-size: var(--text-xs); margin-left: 2px; }
 /* Sort dropdown now uses the central popover component (10-popover.js) */
 
 /* --- Project Selector --- */
@@ -472,6 +473,51 @@
   display: none;
 }
 
+/* ── Collapsible Sidebar Sections ──────────────────────── */
+.sidebar-section-header {
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+.sidebar-section-header:hover { background: var(--bg-hover); }
+
+.section-chevron {
+  display: inline-block;
+  font-size: 10px;
+  line-height: 1;
+  transition: transform var(--duration-fast, 150ms) ease;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.sidebar-section:not(.collapsed) .section-chevron {
+  transform: rotate(90deg);
+}
+
+.sidebar-section-content {
+  overflow: hidden;
+  max-height: 500px;
+  opacity: 1;
+  transition: max-height var(--duration-normal, 250ms) ease-out,
+              opacity var(--duration-normal, 250ms) ease-out;
+}
+.sidebar-section.collapsed .sidebar-section-content {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.section-count {
+  font-size: var(--text-xs);
+  color: var(--text-hint);
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity var(--duration-fast, 150ms) ease;
+}
+.sidebar-section.collapsed .section-count {
+  opacity: 1;
+}
+
 .sidebar-add-tag-header { background: none; border: none; cursor: pointer; transition: opacity var(--transition-fast); }
 .sidebar-add-tag-header:hover { opacity: 1 !important; }
 
@@ -560,6 +606,40 @@
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Active Filter Pills ─────────────────────────────── */
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: 0 var(--space-2-5) var(--space-2);
+}
+.active-filters:empty { display: none; }
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 8px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  animation: filterExpand var(--duration-fast) ease-out;
+  white-space: nowrap;
+}
+.filter-pill-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.6;
+  font-family: var(--font);
+}
+.filter-pill-remove:hover { opacity: 1; }
 
 /* ── Responsive ──────────────────────────────────────── */
 @media (max-width: 700px) {

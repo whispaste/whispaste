@@ -252,6 +252,19 @@ var translations = map[string]map[string]string{
 		"transcription_cancelled": "Cancelled",
 		"transcription_failed":    "Failed",
 
+		// Relative time
+		"time_just_now":  "just now",
+		"time_min_ago":   "%d min ago",
+		"time_hours_ago": "%dh ago",
+		"time_yesterday": "Yesterday",
+		"time_day_mon":   "Mon",
+		"time_day_tue":   "Tue",
+		"time_day_wed":   "Wed",
+		"time_day_thu":   "Thu",
+		"time_day_fri":   "Fri",
+		"time_day_sat":   "Sat",
+		"time_day_sun":   "Sun",
+
 		// Stats
 		"stats.title":      "Usage This Month",
 		"stats.dictations": "Dictations",
@@ -516,6 +529,19 @@ var translations = map[string]map[string]string{
 		"transcribing":            "Wird transkribiert…",
 		"transcription_cancelled": "Abgebrochen",
 		"transcription_failed":    "Fehlgeschlagen",
+
+		// Relative time
+		"time_just_now":  "gerade eben",
+		"time_min_ago":   "vor %d Min.",
+		"time_hours_ago": "vor %d Std.",
+		"time_yesterday": "Gestern",
+		"time_day_mon":   "Mo",
+		"time_day_tue":   "Di",
+		"time_day_wed":   "Mi",
+		"time_day_thu":   "Do",
+		"time_day_fri":   "Fr",
+		"time_day_sat":   "Sa",
+		"time_day_sun":   "So",
 
 		// Stats
 		"stats.title":      "Nutzung diesen Monat",

@@ -87,62 +87,77 @@
           <div id="clearFiltersBar" class="clear-filters-bar hidden">
             <button class="clear-filters-btn" id="clearFiltersBtn" type="button"></button>
           </div>
+          <div class="active-filters" id="activeFilters"></div>
           <!-- Filters -->
-          <div class="filter-section-title" data-i18n="notebook.filter">Filter</div>
-          <div class="filter-items">
-            <div class="filter-item active" data-filter="all">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              <span data-i18n="notebook.all">All</span>
-              <span class="filter-count" id="countAll">0</span>
+          <div class="sidebar-section" id="sidebarSectionFilters" data-section="filters">
+            <div class="filter-section-title sidebar-section-header" role="button" tabindex="0" aria-expanded="true">
+              <span class="section-chevron">▸</span>
+              <span data-i18n="notebook.filter">Filter</span>
+              <span class="section-count" id="filterSectionCount"></span>
             </div>
-            <div class="filter-item" data-filter="pinned">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
-              <span data-i18n="notebook.pinned">Pinned</span>
-              <span class="filter-count" id="countPinned">0</span>
-            </div>
-            <div class="filter-item" data-filter="archived">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
-              <span data-i18n="notebook.archived">Archived</span>
-              <span class="filter-count" id="countArchived">0</span>
-            </div>
-            <div class="filter-item" data-filter="today">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
-              <span data-i18n="notebook.today">Today</span>
-              <span class="filter-count" id="countToday">0</span>
-            </div>
-            <div class="filter-item" data-filter="week">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span data-i18n="notebook.this_week">This Week</span>
-              <span class="filter-count" id="countWeek">0</span>
-            </div>
-            <div class="filter-item" data-filter="older">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
-              <span data-i18n="notebook.older">Older</span>
-              <span class="filter-count" id="countOlder">0</span>
-            </div>
-            <div class="filter-item" data-filter="custom">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
-              <span data-i18n="notebook.custom_range">Custom Range</span>
-            </div>
-            <div class="date-range-picker hidden" id="dateRangePicker">
-              <div class="form-group">
-                <label for="dateFrom" data-i18n="notebook.date_from">From</label>
-                <input type="date" id="dateFrom">
-              </div>
-              <div class="form-group">
-                <label for="dateTo" data-i18n="notebook.date_to">To</label>
-                <input type="date" id="dateTo">
+            <div class="sidebar-section-content">
+              <div class="filter-items">
+                <div class="filter-item active" data-filter="all">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  <span data-i18n="notebook.all">All</span>
+                  <span class="filter-count" id="countAll">0</span>
+                </div>
+                <div class="filter-item" data-filter="pinned">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+                  <span data-i18n="notebook.pinned">Pinned</span>
+                  <span class="filter-count" id="countPinned">0</span>
+                </div>
+                <div class="filter-item" data-filter="archived">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+                  <span data-i18n="notebook.archived">Archived</span>
+                  <span class="filter-count" id="countArchived">0</span>
+                </div>
+                <div class="filter-item" data-filter="today">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+                  <span data-i18n="notebook.today">Today</span>
+                  <span class="filter-count" id="countToday">0</span>
+                </div>
+                <div class="filter-item" data-filter="week">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <span data-i18n="notebook.this_week">This Week</span>
+                  <span class="filter-count" id="countWeek">0</span>
+                </div>
+                <div class="filter-item" data-filter="older">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+                  <span data-i18n="notebook.older">Older</span>
+                  <span class="filter-count" id="countOlder">0</span>
+                </div>
+                <div class="filter-item" data-filter="custom">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
+                  <span data-i18n="notebook.custom_range">Custom Range</span>
+                </div>
+                <div class="date-range-picker hidden" id="dateRangePicker">
+                  <div class="form-group">
+                    <label for="dateFrom" data-i18n="notebook.date_from">From</label>
+                    <input type="date" id="dateFrom">
+                  </div>
+                  <div class="form-group">
+                    <label for="dateTo" data-i18n="notebook.date_to">To</label>
+                    <input type="date" id="dateTo">
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-          <div id="categoriesSection">
-            <div class="filter-section-title" style="display:flex;align-items:center;justify-content:space-between">
-              <span data-i18n="notebook.tags">Tags</span>
-              <button class="btn-icon sidebar-add-tag-header" id="sidebarAddTagHeader" title="Add tag" data-i18n-title="sidebar_add_tag" style="width:16px;height:16px;padding:0;opacity:0.5">
-                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-              </button>
+          <div class="sidebar-section" id="sidebarSectionTags" data-section="tags">
+            <div id="categoriesSection">
+              <div class="filter-section-title sidebar-section-header" role="button" tabindex="0" aria-expanded="true" style="display:flex;align-items:center;justify-content:space-between">
+                <span class="section-chevron">▸</span>
+                <span data-i18n="notebook.tags">Tags</span>
+                <span class="section-count" id="tagsSectionCount"></span>
+                <button class="btn-icon sidebar-add-tag-header" id="sidebarAddTagHeader" title="Add tag" data-i18n-title="sidebar_add_tag" style="width:16px;height:16px;padding:0;opacity:0.5" onclick="event.stopPropagation()">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                </button>
+              </div>
+              <div class="sidebar-section-content">
+                <div id="categoryList" class="filter-items nav-tags"></div>
+              </div>
             </div>
-            <div id="categoryList" class="filter-items nav-tags"></div>
           </div>
         </div>
         <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>

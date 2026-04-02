@@ -1,10 +1,87 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"math"
 	"testing"
 )
+
+func TestApplyGain(t *testing.T) {
+	t.Run("gain 1.0 is no-op", func(t *testing.T) {
+		orig := generatePCM(0.5, 50)
+		data := make([]byte, len(orig))
+		copy(data, orig)
+		applyGain(data, 1.0)
+		if !bytes.Equal(data, orig) {
+			t.Error("gain 1.0 should not modify samples")
+		}
+	})
+
+	t.Run("gain 2.0 doubles amplitude", func(t *testing.T) {
+		data := make([]byte, 4)
+		neg := int16(-1000)
+		binary.LittleEndian.PutUint16(data[0:2], uint16(int16(1000)))
+		binary.LittleEndian.PutUint16(data[2:4], uint16(neg))
+		applyGain(data, 2.0)
+		s0 := int16(binary.LittleEndian.Uint16(data[0:2]))
+		s1 := int16(binary.LittleEndian.Uint16(data[2:4]))
+		if s0 != 2000 {
+			t.Errorf("sample 0: got %d, want 2000", s0)
+		}
+		if s1 != -2000 {
+			t.Errorf("sample 1: got %d, want -2000", s1)
+		}
+	})
+
+	t.Run("clipping at positive max", func(t *testing.T) {
+		data := make([]byte, 2)
+		binary.LittleEndian.PutUint16(data, uint16(int16(20000)))
+		applyGain(data, 2.0)
+		s := int16(binary.LittleEndian.Uint16(data))
+		if s != 32767 {
+			t.Errorf("positive clip: got %d, want 32767", s)
+		}
+	})
+
+	t.Run("clipping at negative max", func(t *testing.T) {
+		data := make([]byte, 2)
+		neg := int16(-20000)
+		binary.LittleEndian.PutUint16(data, uint16(neg))
+		applyGain(data, 2.0)
+		s := int16(binary.LittleEndian.Uint16(data))
+		if s != -32768 {
+			t.Errorf("negative clip: got %d, want -32768", s)
+		}
+	})
+
+	t.Run("gain 0.5 halves amplitude", func(t *testing.T) {
+		data := make([]byte, 2)
+		binary.LittleEndian.PutUint16(data, uint16(int16(1000)))
+		applyGain(data, 0.5)
+		s := int16(binary.LittleEndian.Uint16(data))
+		if s != 500 {
+			t.Errorf("half gain: got %d, want 500", s)
+		}
+	})
+
+	t.Run("empty data is safe", func(t *testing.T) {
+		applyGain(nil, 2.0)
+		applyGain([]byte{}, 2.0)
+	})
+
+	t.Run("odd byte count ignores trailing byte", func(t *testing.T) {
+		data := []byte{0xE8, 0x03, 0xFF} // 1000 + trailing byte
+		applyGain(data, 2.0)
+		s := int16(binary.LittleEndian.Uint16(data[0:2]))
+		if s != 2000 {
+			t.Errorf("odd-length: got %d, want 2000", s)
+		}
+		if data[2] != 0xFF {
+			t.Error("trailing byte was modified")
+		}
+	})
+}
 
 func TestClassifyAudioInputHealth(t *testing.T) {
 	tests := []struct {
