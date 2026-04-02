@@ -284,13 +284,13 @@ func resolveSTTServerURL(gpuMode string) (string, string, error) {
 	for _, candidate := range candidates {
 		assets, err := fetchSTTReleaseAssets(candidate.Repo)
 		if err != nil {
-			logWarn("STT release lookup failed for %s (%s): %v", candidate.Repo, candidate.Backend, err)
+			logInfo("STT release lookup failed for %s (%s): %v", candidate.Repo, candidate.Backend, err)
 			reasons = append(reasons, fmt.Sprintf("%s: %v", candidate.Repo, err))
 			continue
 		}
 		serverURL, err := matchSTTAsset(assets, candidate.Repo, candidate.AssetKey)
 		if err != nil {
-			logWarn("STT asset match failed for %s (%s): %v", candidate.Repo, candidate.AssetKey, err)
+			logInfo("STT asset match failed for %s (%s): %v", candidate.Repo, candidate.AssetKey, err)
 			reasons = append(reasons, fmt.Sprintf("%s/%s: %v", candidate.Repo, candidate.AssetKey, err))
 			continue
 		}
