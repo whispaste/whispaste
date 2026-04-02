@@ -11,6 +11,15 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Page content fade-in on tab switch (replays when hidden class is removed) */
+.page:not(.hidden):not(.page-enter):not(.page-exit) {
+  animation: pageContentFadeIn var(--motion-normal) ease-out;
+}
+@keyframes pageContentFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ── Card Entrance Stagger ─── */
 .stagger-enter > * {
   opacity: 0;
@@ -133,6 +142,7 @@
 /* ── Reduced Motion: disable all custom motion ─── */
 @media (prefers-reduced-motion: reduce) {
   .page-transition-enter,
+  .page:not(.hidden),
   .stagger-enter > *,
   .skeleton,
   .recording-indicator.active,

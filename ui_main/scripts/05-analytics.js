@@ -3,6 +3,7 @@ let _analyticsPeriod = 30;
 let _analyticsData = null;
 let _analyticsInterval = null;
 let _analyticsResizeObserver = null;
+let _modelColorMap = {};
 
 function startAnalyticsAutoRefresh() {
   stopAnalyticsAutoRefresh();
@@ -123,12 +124,49 @@ async function loadAnalytics(periodDays) {
     </button>
   </div>`;
   _analyticsData = data;
+  buildGlobalModelColorMap(data);
   container.innerHTML = html;
   _fitDailyChart(container, data.dailyCounts, data.dailyModelCounts);
 }
 
 function _localDateKey(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function buildGlobalModelColorMap(data) {
+  const localPalette = ['#22D3EE', '#10B981', '#F59E0B', '#F97316', '#06B6D4'];
+  const apiPalette = ['#818CF8', '#A78BFA', '#8B5CF6', '#7C3AED', '#6D28D9'];
+  _modelColorMap = {};
+
+  const allModels = new Set();
+  if (data.dailyModelCounts) {
+    for (const entries of Object.values(data.dailyModelCounts)) {
+      for (const m of entries) allModels.add(m.model + '|' + (m.isLocal ? '1' : '0'));
+    }
+  }
+  if (data.modelCounts) {
+    for (const model of Object.keys(data.modelCounts)) {
+      const key1 = model + '|1', key0 = model + '|0';
+      if (!allModels.has(key1) && !allModels.has(key0)) allModels.add(key0);
+    }
+  }
+  if (data.modelBenchmarks) {
+    for (const model of Object.keys(data.modelBenchmarks)) {
+      const key1 = model + '|1', key0 = model + '|0';
+      if (!allModels.has(key1) && !allModels.has(key0)) allModels.add(key0);
+    }
+  }
+
+  let localIdx = 0, apiIdx = 0;
+  for (const key of [...allModels].sort()) {
+    const isLocal = key.endsWith('|1');
+    const modelName = key.slice(0, key.lastIndexOf('|'));
+    const color = isLocal
+      ? localPalette[localIdx++ % localPalette.length]
+      : apiPalette[apiIdx++ % apiPalette.length];
+    _modelColorMap[key] = color;
+    if (!_modelColorMap[modelName]) _modelColorMap[modelName] = color;
+  }
 }
 
 function renderDailyChart(dailyCounts, dailyModelCounts, svgWidth) {
@@ -138,27 +176,7 @@ function renderDailyChart(dailyCounts, dailyModelCounts, svgWidth) {
 
   const hasModelData = dailyModelCounts && Object.keys(dailyModelCounts).length > 0;
 
-  // Build a stable color map: local models → cyan shades, API models → purple/indigo
-  const localColors = ['#22D3EE', '#10B981', '#F59E0B', '#F97316', '#06B6D4'];
-  const apiColors = ['#818CF8', '#A78BFA', '#8B5CF6', '#7C3AED', '#6D28D9'];
-  const modelColorMap = {};
-  let localIdx = 0, apiIdx = 0;
-  if (hasModelData) {
-    const allModels = new Set();
-    for (const entries of Object.values(dailyModelCounts)) {
-      for (const m of entries) allModels.add(m.model + '|' + (m.isLocal ? '1' : '0'));
-    }
-    for (const key of [...allModels].sort()) {
-      const [model, isLocal] = [key.slice(0, key.lastIndexOf('|')), key.slice(key.lastIndexOf('|') + 1)];
-      if (isLocal === '1') {
-        modelColorMap[key] = localColors[localIdx % localColors.length];
-        localIdx++;
-      } else {
-        modelColorMap[key] = apiColors[apiIdx % apiColors.length];
-        apiIdx++;
-      }
-    }
-  }
+  const modelColorMap = _modelColorMap;
 
   // Fill ALL days in the selected period
   const allDays = [];
@@ -265,24 +283,12 @@ function renderDailyChart(dailyCounts, dailyModelCounts, svgWidth) {
   </svg>`;
 }
 
-function getChartColors() {
-  const style = getComputedStyle(document.documentElement);
-  return [
-    style.getPropertyValue('--accent').trim()  || '#22D3EE',
-    style.getPropertyValue('--warning').trim() || '#F59E0B',
-    '#8B5CF6',
-    style.getPropertyValue('--error').trim()   || '#EF4444',
-    style.getPropertyValue('--success').trim() || '#22C55E',
-    '#EC4899'
-  ];
-}
-
 function renderModelDonut(modelCounts) {
   if (!modelCounts || Object.keys(modelCounts).length === 0) {
     return `<p style="color:var(--text-hint);font-size:12px">${t('analytics.no_data')}</p>`;
   }
 
-  const colors = getChartColors();
+  const fallbackColors = ['#22D3EE', '#818CF8', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
   const entries = Object.entries(modelCounts).sort((a, b) => b[1] - a[1]);
   const total = entries.reduce((s, e) => s + e[1], 0);
 
@@ -293,7 +299,7 @@ function renderModelDonut(modelCounts) {
   // Single model: render full circle instead of degenerate arc
   if (entries.length === 1) {
     const [model, count] = entries[0];
-    const color = colors[0];
+    const color = _modelColorMap[model] || fallbackColors[0];
     paths = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>
              <circle cx="${cx}" cy="${cy}" r="${innerR}" fill="var(--bg-card)"/>`;
     legend.push(`<span class="donut-legend-item"><span class="donut-legend-dot" style="background:${color}"></span>${model} (${count})</span>`);
@@ -307,7 +313,7 @@ function renderModelDonut(modelCounts) {
       const x2 = cx + r * Math.cos(endAngle), y2 = cy + r * Math.sin(endAngle);
       const ix1 = cx + innerR * Math.cos(endAngle), iy1 = cy + innerR * Math.sin(endAngle);
       const ix2 = cx + innerR * Math.cos(startAngle), iy2 = cy + innerR * Math.sin(startAngle);
-      const color = colors[i % colors.length];
+      const color = _modelColorMap[model] || fallbackColors[i % fallbackColors.length];
       paths += `<path d="M${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} L${ix1},${iy1} A${innerR},${innerR} 0 ${largeArc} 0 ${ix2},${iy2} Z" fill="${color}"/>`;
       legend.push(`<span class="donut-legend-item"><span class="donut-legend-dot" style="background:${color}"></span>${model} (${count})</span>`);
       startAngle = endAngle;
@@ -351,8 +357,9 @@ function renderBenchmarkTable(benchmarks) {
     const factor = s.speedRatio > 0 ? 1 / s.speedRatio : 0;
     const speed = factor > 0 ? `${factor.toFixed(1)}x` : '—';
     const speedClass = factor >= 2 ? 'fast' : factor >= 1 ? 'medium' : 'slow';
+    const color = _modelColorMap[model] || '#888';
     return `<tr>
-      <td class="bench-model">${model}</td>
+      <td class="bench-model"><span class="model-color-dot" style="background:${color}"></span>${model}</td>
       <td class="bench-count">${s.count}</td>
       <td class="bench-speed ${speedClass}">${speed}</td>
       <td>${s.wordsPerMin > 0 ? Math.round(s.wordsPerMin) : '—'}</td>
