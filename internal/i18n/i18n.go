@@ -185,6 +185,8 @@ var translations = map[string]map[string]string{
 		"update.up_to_date":         "Up to date ✓",
 		"update.notify_downloading": "Downloading update v%s…",
 		"update.notify_ready":       "Update installed — click to restart WhisPaste",
+		"update.permission_failed":  "Update cannot be installed",
+		"update.permission_hint":    "Please reinstall WhisPaste from whispaste.de to fix auto-updates.",
 
 		// Smart Mode
 		"settings.smart_mode":             "Smart Mode (AI Post-Processing)",
@@ -448,6 +450,8 @@ var translations = map[string]map[string]string{
 		"update.up_to_date":         "Aktuell ✓",
 		"update.notify_downloading": "Update v%s wird heruntergeladen…",
 		"update.notify_ready":       "Update installiert — zum Neustarten klicken",
+		"update.permission_failed":  "Update kann nicht installiert werden",
+		"update.permission_hint":    "Bitte installiere WhisPaste neu von whispaste.de, um Auto-Updates zu reparieren.",
 
 		// Smart Mode
 		"settings.smart_mode":             "Smart-Modus (KI-Nachbearbeitung)",

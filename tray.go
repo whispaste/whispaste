@@ -267,9 +267,13 @@ func (t *AppTray) autoApplyUpdate(info UpdateInfo) {
 		}
 		if strings.Contains(err.Error(), "protected location") {
 			logInfo("Auto-update failed (permission): %v", err)
-		} else {
-			logWarn("Auto-update failed: %v", err)
+			if t.mUpdate != nil {
+				t.mUpdate.SetTitle(T("update.permission_failed"))
+			}
+			t.ShowBalloon(AppName, T("update.permission_hint"))
+			return
 		}
+		logWarn("Auto-update failed: %v", err)
 		if t.mUpdate != nil {
 			t.mUpdate.SetTitle(fmt.Sprintf(T("update.failed"), err))
 		}
