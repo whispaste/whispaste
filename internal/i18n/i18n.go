@@ -74,6 +74,8 @@ var translations = map[string]map[string]string{
 		"floating.last_text":      "Last: \"%s\"",
 
 		// States
+		"chars": "chars",
+
 		"state.idle":         "Ready",
 		"state.recording":    "Recording…",
 		"state.transcribing": "Transcribing…",
@@ -327,6 +329,8 @@ var translations = map[string]map[string]string{
 		"shortcuts.this_help":      "This Help",
 		"shortcuts.previous_page":  "Previous Page",
 		"shortcuts.command_palette": "Command Palette",
+
+		"show_more": "Show more",
 	},
 	"de": {
 		// App
@@ -352,6 +356,8 @@ var translations = map[string]map[string]string{
 		"floating.last_text":      "Zuletzt: \"%s\"",
 
 		// States
+		"chars": "Zeichen",
+
 		"state.idle":         "Bereit",
 		"state.recording":    "Aufnahme…",
 		"state.transcribing": "Transkribiere…",
@@ -605,5 +611,7 @@ var translations = map[string]map[string]string{
 		"shortcuts.this_help":      "Diese Hilfe",
 		"shortcuts.previous_page":  "Vorherige Seite",
 		"shortcuts.command_palette": "Befehlspalette",
+
+		"show_more": "Mehr anzeigen",
 	},
 }

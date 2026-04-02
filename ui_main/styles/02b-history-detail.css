@@ -262,7 +262,35 @@
   overflow: hidden;
   flex: 1;
   min-width: 0;
+  position: relative;
 }
+.entry-preview.truncated::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(transparent, var(--bg-primary));
+  pointer-events: none;
+}
+.entry.pinned .entry-preview.truncated::after {
+  background: linear-gradient(transparent, var(--bg-primary));
+}
+
+.entry-show-more {
+  display: block;
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  padding: var(--space-1) 0;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+.entry-show-more:hover {
+  color: var(--accent-primary, var(--accent));
+}
+.entry.expanded .entry-show-more { display: none; }
 .entry-preview-chevron {
   display: flex;
   align-items: center;
@@ -434,4 +462,29 @@
 .tag-autocomplete-item.active {
   background: var(--accent-subtle);
   color: var(--accent);
+}
+
+/* ── Copy Feedback Pill ──────────────────────────────── */
+.copy-feedback {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent-primary);
+  color: white;
+  font-size: var(--text-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+  z-index: 10;
+}
+.copy-feedback.show {
+  opacity: 1;
+}
+.copy-feedback.fade-out {
+  opacity: 0;
+  transition: opacity 300ms ease;
 }

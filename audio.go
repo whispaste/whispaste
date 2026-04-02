@@ -110,10 +110,9 @@ func (r *Recorder) Start() error {
 			active := r.recording && !r.paused
 			g := r.gain
 			r.mu.Unlock()
+			applyGain(pInputSamples, g)
 			r.computeLevel(pInputSamples)
 			if active {
-				// Keep diagnostics based on raw mic input while still boosting recorded audio.
-				applyGain(pInputSamples, g)
 				r.mu.Lock()
 				r.buf.Write(pInputSamples)
 				r.mu.Unlock()
@@ -244,6 +243,10 @@ func (r *Recorder) StartMonitor() error {
 
 	callbacks := malgo.DeviceCallbacks{
 		Data: func(_, pInputSamples []byte, framecount uint32) {
+			r.mu.Lock()
+			g := r.gain
+			r.mu.Unlock()
+			applyGain(pInputSamples, g)
 			r.computeLevel(pInputSamples)
 		},
 	}

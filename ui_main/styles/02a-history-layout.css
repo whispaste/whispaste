@@ -157,6 +157,7 @@
 
 /* ── Filter Sidebar ───────────────────────────────────── */
 .filter-sidebar {
+  position: relative;
   width: var(--sidebar-width, 180px);
   min-width: 140px;
   max-width: 360px;
@@ -166,8 +167,66 @@
   border-right: 1px solid var(--border-subtle);
   transition: width var(--motion-normal) var(--ease-out-smooth),
               min-width var(--motion-normal) var(--ease-out-smooth),
-              padding var(--motion-normal) var(--ease-out-smooth);
+              padding var(--motion-normal) var(--ease-out-smooth),
+              opacity 200ms ease;
 }
+.filter-sidebar.sidebar-hidden {
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border-right: none !important;
+  opacity: 0;
+}
+.filter-sidebar.sidebar-hidden + .sidebar-resize-handle {
+  display: none;
+}
+
+/* ── Sidebar Collapse / Expand Buttons ────────────────── */
+.sidebar-collapse-btn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  z-index: 2;
+}
+.sidebar-collapse-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.sidebar-expand-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+.sidebar-expand-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border-color: var(--border-primary);
+}
+.sidebar-expand-btn.hidden { display: none; }
 .filter-sidebar.collapsed {
   width: 0;
   min-width: 0;
@@ -480,13 +539,19 @@
   border-radius: var(--radius-sm);
   transition: background var(--transition-fast);
 }
-.sidebar-section-header:hover { background: var(--bg-hover); }
+.sidebar-section-header:hover .section-chevron {
+  color: var(--text-primary);
+}
 
 .section-chevron {
-  display: inline-block;
-  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 14px;
   line-height: 1;
-  transition: transform var(--duration-fast, 150ms) ease;
+  transition: transform var(--duration-fast, 150ms) ease, color var(--duration-fast, 150ms) ease;
   color: var(--text-tertiary);
   flex-shrink: 0;
 }
