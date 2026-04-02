@@ -9,22 +9,25 @@
 .settings-nav {
   width: 200px;
   flex-shrink: 0;
-  padding: 12px;
+  padding: var(--space-3);
   overflow-y: auto;
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .settings-search-box {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
+  gap: var(--space-1-5);
+  padding: var(--space-2) var(--space-2-5);
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
   transition: border-color var(--transition-fast);
+}
+.settings-search-box:hover {
+  border-color: var(--text-tertiary);
 }
 .settings-search-box:focus-within {
   border-color: var(--border-focus);
@@ -45,8 +48,8 @@
   color: var(--text-tertiary);
 }
 .settings-nav::-webkit-scrollbar { width: 4px; }
-.settings-nav::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 4px; }
-.settings-nav .filter-items { gap: 2px; }
+.settings-nav::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: var(--radius-xs); }
+.settings-nav .filter-items { gap: var(--space-0-5); }
 .settings-nav .filter-item .icon {
   width: 16px;
   height: 16px;
@@ -57,7 +60,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 4px 24px 20px;
+  padding: var(--space-1) var(--space-6) var(--space-5);
 }
 
 .settings-page-header .page-subtitle {
@@ -67,23 +70,23 @@
 .settings-section-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 10px;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .06em;
   color: var(--text-hint);
-  margin: 24px 0 12px;
-  padding-bottom: 8px;
+  margin: var(--space-6) 0 var(--space-3);
+  padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border-subtle);
   position: relative;
 }
-.settings-section-header:first-child { margin-top: 8px; }
+.settings-section-header:first-child { margin-top: var(--space-2); }
 .settings-section-header::before {
   content: '';
   width: 3px;
   height: 14px;
-  border-radius: 2px;
+  border-radius: var(--radius-2);
   background: var(--gradient-accent);
   flex-shrink: 0;
 }
@@ -94,7 +97,7 @@
 }
 
 .settings-section-intro {
-  margin: -2px 0 14px;
+  margin: -2px 0 var(--space-3-5);
   color: var(--text-secondary);
   font-size: var(--text-sm);
   line-height: 1.6;
@@ -106,7 +109,7 @@
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: var(--space-5);
   margin-bottom: var(--space-4);
   box-shadow: var(--shadow-sm);
   transition: box-shadow var(--transition-normal), transform var(--transition-normal);
@@ -130,6 +133,10 @@
   transform: translateY(-1px);
   border-color: var(--border-accent);
 }
+.card:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
 [data-theme="dark"] .card {
   background: var(--bg-primary);
   border-color: var(--border-primary);
@@ -140,22 +147,45 @@
 }
 
 .card-title {
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .05em;
   color: var(--text-hint);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
 }
 .card-desc {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--text-secondary);
   line-height: 1.5;
-  margin: 0 0 16px 0;
+  margin: 0 0 var(--space-4) 0;
 }
 .card-title + .form-group {
-  margin-top: 16px;
+  margin-top: var(--space-4);
+}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 800px) {
+  .settings-layout { flex-direction: column; }
+  .settings-nav {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-1);
+  }
+  .settings-nav .filter-items { flex-direction: row; flex-wrap: nowrap; gap: var(--space-1); }
+  .settings-search-box { display: none; }
+  .settings-content { padding: var(--space-4); }
+}
+
+@media (max-width: 600px) {
+  .card { padding: var(--space-3-5); }
+  .card-title { font-size: var(--text-sm); }
 }

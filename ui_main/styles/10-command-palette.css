@@ -26,16 +26,20 @@
   width: 480px;
   max-width: 90vw;
   max-height: 440px;
-  background: var(--glass-bg-strong);
+  background: color-mix(in srgb, var(--bg-primary) 92%, transparent);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: cp-slide-in var(--duration-normal) var(--ease-spring) both;
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+[data-theme="dark"] .cp-modal {
+  background: color-mix(in srgb, var(--bg-primary) 95%, transparent);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 /* ── Search ──────────────────────────────────────────── */
@@ -119,6 +123,9 @@
 
 .cp-item:hover {
   background: var(--bg-hover);
+}
+.cp-item:active {
+  background: var(--bg-active);
 }
 
 .cp-item-active {

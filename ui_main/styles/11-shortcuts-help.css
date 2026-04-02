@@ -70,6 +70,9 @@
   background: var(--bg-hover);
   color: var(--text-primary);
 }
+.sh-close:active {
+  transform: scale(0.90);
+}
 
 .sh-close .icon {
   width: 16px;

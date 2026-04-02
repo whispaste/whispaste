@@ -132,6 +132,7 @@
   color: var(--bg-primary);
 }
 .wp-popover-toggle:hover { opacity: 0.85; }
+.wp-popover-toggle:active { transform: scale(0.95); }
 
 /* ── Checked item ────────────────────────────────────── */
 .wp-popover-item.checked {
