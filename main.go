@@ -323,6 +323,9 @@ func main() {
 			}
 			if err := recorder.Start(); err != nil {
 				logError("Recording error: %v", err)
+				if tray != nil {
+					tray.ShowBalloon(AppName, fmt.Sprintf(T("error.recording"), err))
+				}
 				if playSounds {
 					PlayFeedback(SoundError)
 				}

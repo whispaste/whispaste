@@ -1,12 +1,30 @@
 package main
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/whispaste/whispaste/internal/models"
 	"github.com/whispaste/whispaste/internal/provider"
 )
+
+func TestSaveConfigCopiesNotificationFields(t *testing.T) {
+	configJSON := `{"notify_background":false,"notify_complete":false,"notify_donate":false}`
+	var newCfg Config
+	if err := json.Unmarshal([]byte(configJSON), &newCfg); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if newCfg.NotifyBackground != false {
+		t.Errorf("NotifyBackground = %v, want false", newCfg.NotifyBackground)
+	}
+	if newCfg.NotifyComplete != false {
+		t.Errorf("NotifyComplete = %v, want false", newCfg.NotifyComplete)
+	}
+	if newCfg.NotifyDonate != false {
+		t.Errorf("NotifyDonate = %v, want false", newCfg.NotifyDonate)
+	}
+}
 
 func TestAvailableModelEntriesUsesSelectedCloudProviderKey(t *testing.T) {
 	cfg := &Config{

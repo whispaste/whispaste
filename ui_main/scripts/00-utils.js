@@ -79,6 +79,34 @@ function formatTime(ts) {
     d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+/** Format a timestamp as relative time (e.g. "5 min ago", "Yesterday 14:45") */
+function formatRelativeTime(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMs / 3600000);
+  const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  if (diffMin < 1) return t('time_just_now');
+  if (diffMin < 60) return t('time_min_ago').replace('%d', diffMin);
+  if (diffHr < 24) return t('time_hours_ago').replace('%d', diffHr);
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) {
+    return t('time_yesterday') + ' ' + timeStr;
+  }
+
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays < 7) {
+    const dayKeys = ['time_day_sun', 'time_day_mon', 'time_day_tue', 'time_day_wed', 'time_day_thu', 'time_day_fri', 'time_day_sat'];
+    return t(dayKeys[d.getDay()]) + ' ' + timeStr;
+  }
+
+  return formatTime(ts);
+}
+
 /** Format seconds into human-readable duration */
 function formatDuration(sec) {
   if (!sec || sec < 1) return '';

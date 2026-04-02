@@ -201,6 +201,10 @@ func LoadConfig() (*Config, error) {
 		cfg.UseLocalSTT = true
 		cfg.ActiveModelLocal = true
 	}
+	// Normalize InputGain to valid range (matches Recorder.SetGain clamp).
+	if cfg.InputGain < 0.1 || cfg.InputGain > 3.0 {
+		cfg.InputGain = 1.0
+	}
 	return cfg, nil
 }
 
