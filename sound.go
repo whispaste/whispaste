@@ -31,6 +31,7 @@ var (
 )
 
 const (
+	sndAsync     = 0x00000001
 	sndMemory    = 0x00000004
 	sndNoDefault = 0x00000002
 )
@@ -40,18 +41,21 @@ var soundVolumeBits uint64 = math.Float64bits(1.0)
 
 // soundChan serializes all sound playback to avoid PlaySoundW cancellation issues.
 // PlaySoundW can only play one sound at a time; concurrent calls cancel the previous.
-var soundChan = make(chan []byte, 8)
+var soundChan = make(chan []byte, 16)
 
 func init() {
 	go func() {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 		for data := range soundChan {
-			procPlaySound.Call(
+			ret, _, _ := procPlaySound.Call(
 				uintptr(unsafe.Pointer(&data[0])),
 				0,
-				uintptr(sndMemory|sndNoDefault),
+				uintptr(sndMemory|sndNoDefault|sndAsync),
 			)
+			if ret == 0 {
+				logWarn("PlaySoundW failed for queued sound")
+			}
 			runtime.KeepAlive(data)
 		}
 	}()
@@ -107,6 +111,7 @@ func PlayFeedback(soundType SoundType) {
 	select {
 	case soundChan <- playData:
 	default:
+		logWarn("Sound queue full, dropping %v sound", soundType)
 	}
 }
 

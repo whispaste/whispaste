@@ -131,11 +131,31 @@ function _selectAutocompleteHighlight(input) {
 }
 
 
-async function doCopy(id) {
+async function doCopy(id, triggerBtn) {
   try {
     if (window.copyEntry) await window.copyEntry(id);
-    showToast(t('notebook.copied'));
+    if (triggerBtn) showCopyFeedback(triggerBtn);
+    else showToast(t('notebook.copied'));
   } catch (e) { showToast('Error', true); }
+}
+
+function showCopyFeedback(button) {
+  const parent = button.parentElement;
+  const existing = parent.querySelector('.copy-feedback');
+  if (existing) existing.remove();
+
+  const feedback = document.createElement('span');
+  feedback.className = 'copy-feedback';
+  feedback.textContent = '\u2713 ' + t('notebook.copied');
+  parent.style.position = 'relative';
+  parent.appendChild(feedback);
+
+  requestAnimationFrame(() => feedback.classList.add('show'));
+
+  setTimeout(() => {
+    feedback.classList.add('fade-out');
+    setTimeout(() => feedback.remove(), 300);
+  }, 1500);
 }
 
 async function doDuplicate(id) {

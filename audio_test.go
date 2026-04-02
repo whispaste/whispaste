@@ -83,6 +83,64 @@ func TestApplyGain(t *testing.T) {
 	})
 }
 
+func TestComputeLevelWithGain(t *testing.T) {
+	r := &Recorder{}
+	samples := generatePCM(0.10, 50) // quiet sine ~10% amplitude
+
+	// Raw level.
+	r.computeLevel(samples)
+	rawLevel := r.GetLevel()
+
+	// Apply gain 2.0 to a copy and recompute.
+	amplified := make([]byte, len(samples))
+	copy(amplified, samples)
+	applyGain(amplified, 2.0)
+	r.computeLevel(amplified)
+	amplifiedLevel := r.GetLevel()
+
+	if amplifiedLevel <= rawLevel {
+		t.Errorf("amplified level (%f) should be greater than raw level (%f)", amplifiedLevel, rawLevel)
+	}
+	// RMS scales linearly with gain; allow 5% tolerance for int16 rounding.
+	ratio := float64(amplifiedLevel) / float64(rawLevel)
+	if ratio < 1.90 || ratio > 2.10 {
+		t.Errorf("expected ~2.0x ratio, got %.3f (raw=%f, amplified=%f)", ratio, rawLevel, amplifiedLevel)
+	}
+}
+
+func TestComputeLevelWithHighGain(t *testing.T) {
+	r := &Recorder{}
+	// Loud signal at 80% amplitude + gain 3.0 → heavy clipping.
+	loud := generatePCM(0.80, 50)
+	applyGain(loud, 3.0)
+	r.computeLevel(loud)
+	level := r.GetLevel()
+
+	if level < 0.90 {
+		t.Errorf("clipped signal level should be near 1.0, got %f", level)
+	}
+	if level > 1.0 {
+		t.Errorf("level must not exceed 1.0, got %f", level)
+	}
+}
+
+func TestGainDoesNotAffectLevelWhenOne(t *testing.T) {
+	r := &Recorder{}
+	samples := generatePCM(0.40, 50)
+
+	r.computeLevel(samples)
+	before := r.GetLevel()
+
+	// Gain 1.0 is documented as a no-op — level must stay identical.
+	applyGain(samples, 1.0)
+	r.computeLevel(samples)
+	after := r.GetLevel()
+
+	if before != after {
+		t.Errorf("gain 1.0 changed level: before=%f, after=%f", before, after)
+	}
+}
+
 func TestClassifyAudioInputHealth(t *testing.T) {
 	tests := []struct {
 		name    string

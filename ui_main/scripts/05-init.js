@@ -124,7 +124,12 @@ function switchPage(pageId) {
       }
     }
     if (pageId === 'about') loadSystemInfo();
-    if (pageId === 'smartmode' && typeof loadCustomTemplates === 'function') loadCustomTemplates();
+    if (pageId === 'smartmode' && typeof loadCustomTemplates === 'function') {
+      loadCustomTemplates();
+      if (typeof updateSmartModeVisibility === 'function') {
+        updateSmartModeVisibility();
+      }
+    }
   };
 
   // Immediate swap helper (no animation)
@@ -401,6 +406,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // --- Initialize collapsible sidebar sections ---
   if (typeof _initSidebarCollapse === 'function') _initSidebarCollapse();
+  if (typeof _initSidebarToggle === 'function') _initSidebarToggle();
 
   // --- Start on correct page ---
   const initialPage = window._initialPage || 'history';

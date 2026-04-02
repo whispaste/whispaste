@@ -515,3 +515,33 @@ function _initSidebarCollapse() {
       .observe(catList, { childList: true });
   }
 }
+
+/* ── Sidebar Hide/Show Toggle ──────────────────────────── */
+const _SIDEBAR_HIDDEN_KEY = 'whispaste_sidebar_hidden';
+
+function _initSidebarToggle() {
+  const sidebar = document.querySelector('.filter-sidebar');
+  const collapseBtn = document.getElementById('sidebarCollapseBtn');
+  const expandBtn = document.getElementById('sidebarExpandBtn');
+  if (!sidebar || !collapseBtn || !expandBtn) return;
+
+  const hidden = localStorage.getItem(_SIDEBAR_HIDDEN_KEY) === 'true';
+  if (hidden) {
+    sidebar.classList.add('sidebar-hidden');
+    expandBtn.classList.remove('hidden');
+  }
+
+  collapseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    sidebar.classList.add('sidebar-hidden');
+    expandBtn.classList.remove('hidden');
+    localStorage.setItem(_SIDEBAR_HIDDEN_KEY, 'true');
+  });
+
+  expandBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    sidebar.classList.remove('sidebar-hidden');
+    expandBtn.classList.add('hidden');
+    localStorage.setItem(_SIDEBAR_HIDDEN_KEY, 'false');
+  });
+}
