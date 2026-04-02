@@ -119,6 +119,7 @@
   border: 1px solid var(--border-subtle);
   cursor: pointer;
   transition: background var(--transition-fast), color var(--transition-fast);
+  min-height: 28px;
 }
 .search-hint-chip:hover {
   background: var(--accent-subtle);
@@ -491,6 +492,7 @@
   font-size: var(--text-sm);
   font-weight: 500;
   transition: all var(--transition);
+  min-height: 32px;
 }
 .filter-item:hover { background: var(--bg-hover); color: var(--text); }
 .filter-item:active { transform: scale(0.98); }

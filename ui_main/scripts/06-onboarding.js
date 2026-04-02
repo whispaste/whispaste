@@ -457,6 +457,17 @@ async function onbToggleRecording() {
   }, 200);
 }
 
+async function skipOnboarding() {
+  try {
+    if (window.completeOnboarding) await window.completeOnboarding();
+  } catch (e) {
+    console.error('skipOnboarding completeOnboarding:', e);
+  }
+  onbTrackEvent('onboarding_skipped', true);
+  hideOnboarding();
+  switchPage('history');
+}
+
 async function finishOnboarding(nextAction) {
   // Guard: don't proceed if API mode selected without validated key
   if (_onboardingChoice === 'api' && !_onbApiKeyValid) return;

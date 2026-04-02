@@ -45,6 +45,7 @@
   height: 160px;
   background: none;
   border-radius: 0;
+  box-shadow: none;
 }
 
 .onboarding-icon-logo img {

@@ -299,6 +299,14 @@
 }
 .benchmark-table tr:last-child td { border-bottom: none; }
 .bench-model { font-weight: 500; }
+.model-color-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
 .bench-speed.fast { color: var(--success); font-weight: 600; }
 .bench-speed.medium { color: var(--warning); font-weight: 600; }
 .bench-speed.slow { color: var(--error); font-weight: 600; }

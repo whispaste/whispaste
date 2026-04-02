@@ -127,6 +127,22 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 	savings := (localDuration / 60.0) * WhisperCostPerMinute
 	avgDuration := safeDiv(totalDuration, float64(totalEntries))
 
+	// Get real min/max duration from history_entries
+	var minDuration, maxDuration float64
+	minMaxQuery := `SELECT COALESCE(MIN(duration_sec), 0), COALESCE(MAX(duration_sec), 0) FROM history_entries`
+	if periodDays > 0 {
+		cutoff := time.Now().AddDate(0, 0, -periodDays).Format("2006-01-02")
+		minMaxQuery += ` WHERE substr(timestamp, 1, 10) >= ?`
+		err = h.db.QueryRow(minMaxQuery, cutoff).Scan(&minDuration, &maxDuration)
+	} else {
+		err = h.db.QueryRow(minMaxQuery).Scan(&minDuration, &maxDuration)
+	}
+	if err != nil {
+		logDebug("Analytics min/max duration: %v", err)
+		minDuration = avgDuration
+		maxDuration = avgDuration
+	}
+
 	benchmarks := map[string]map[string]interface{}{}
 	for m, s := range modelBenchmarks {
 		benchmarks[m] = map[string]interface{}{
@@ -151,8 +167,8 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		"modelCounts":           modelCounts,
 		"durationBuckets":       durationBuckets,
 		"avgDuration":           avgDuration,
-		"minDuration":           avgDuration, // approximation from aggregates
-		"maxDuration":           avgDuration, // approximation from aggregates
+		"minDuration":           minDuration,
+		"maxDuration":           maxDuration,
 		"avgProcessingDuration": safeDiv(totalProcessingDuration, float64(totalEntries)),
 		"totalProcessingTime":   totalProcessingDuration,
 		"modelBenchmarks":       benchmarks,

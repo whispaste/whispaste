@@ -17,6 +17,7 @@
   pointer-events: none;
   white-space: nowrap;
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 [data-theme="dark"] .toast {
   box-shadow: var(--shadow-lg), 0 4px 24px rgba(0, 0, 0, 0.3);
@@ -380,6 +381,8 @@
   justify-content: center;
   width: var(--touch-target);
   height: var(--touch-target);
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
   border: none;
   background: transparent;
   color: var(--text-secondary);
