@@ -73,6 +73,7 @@
   right: 0;
   height: 3px;
   background: var(--error);
+  display: none;
   opacity: 0;
   transform: scaleX(0);
   transform-origin: left;
@@ -81,6 +82,7 @@
   z-index: 10;
 }
 .recording-indicator.active {
+  display: block;
   opacity: 1;
   transform: scaleX(1);
   animation: recordingPulse 2s ease-in-out infinite;
