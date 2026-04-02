@@ -7,12 +7,14 @@
   z-index: 800;
   max-width: 280px;
   padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--bg-primary);
+  background: var(--glass-bg-strong);
   border: 1px solid var(--border-accent);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg), 0 0 0 1px var(--accent-glow);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
   animation: discoveryEnter var(--motion-normal) var(--ease-out-smooth) both;
   pointer-events: auto;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 .discovery-tooltip::before {
@@ -20,7 +22,7 @@
   position: absolute;
   width: 10px;
   height: 10px;
-  background: var(--bg-primary);
+  background: var(--glass-bg-strong);
   border: 1px solid var(--border-accent);
   border-right: none;
   border-bottom: none;

@@ -18,6 +18,18 @@
   position: relative;
   box-shadow: var(--sidebar-inset);
 }
+/* Accent glow at the top of the sidebar */
+.sidebar-nav::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: radial-gradient(ellipse at 50% -20px, var(--accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
 /* Accent edge — subtle gradient border on the right */
 .sidebar-nav::after {
   content: '';
@@ -79,7 +91,7 @@
 .nav-item.active {
   background: var(--accent-subtle);
   color: var(--accent);
-  box-shadow: none;
+  box-shadow: var(--nav-active-glow);
 }
 .nav-item.active::before {
   content: '';
@@ -89,13 +101,14 @@
   transform: translateY(-50%);
   width: 3px;
   height: 24px;
-  background: var(--accent);
+  background: var(--gradient-accent);
   border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 [data-theme="dark"] .nav-item.active {
   background: var(--accent-subtle);
   color: var(--accent);
-  box-shadow: none;
+  box-shadow: var(--nav-active-glow);
 }
 .nav-item.active .icon { color: var(--accent); filter: none; }
 .nav-item .icon { width: 20px; height: 20px; }
@@ -207,9 +220,21 @@
 }
 .page-title {
   font-size: var(--text-2xl);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-bold);
   letter-spacing: -.03em;
   color: var(--text-primary);
+  position: relative;
+  display: inline-block;
+}
+.page-title::after {
+  content: '';
+  display: block;
+  width: 32px;
+  height: 3px;
+  background: var(--gradient-accent);
+  border-radius: 2px;
+  margin-top: 6px;
+  opacity: 0.8;
 }
 
 /* ── Page Context Bar (replaces marketing heroes) ──── */
@@ -221,6 +246,7 @@
   margin: 0 0 var(--spacing-sm);
   background: var(--surface-sunken);
   border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent);
   border-radius: var(--radius-lg);
   font-size: var(--text-sm);
   color: var(--text-secondary);
@@ -291,8 +317,8 @@
   position: fixed;
   bottom: 64px;
   right: 24px;
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: var(--radius-full);
   border: none;
   background: var(--gradient-accent);
@@ -301,7 +327,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  box-shadow: var(--shadow-lg), var(--shadow-glow), 0 0 0 3px rgba(34, 211, 238, 0.08);
   transition: background-color var(--transition-spring), transform var(--transition-spring), box-shadow var(--transition-spring);
   z-index: 100;
 }
@@ -336,7 +362,7 @@
   background: var(--glass-bg-strong);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--glass-border);
   flex-shrink: 0;
   min-height: 36px;
 }

@@ -40,7 +40,7 @@
   color: var(--text);
   background: var(--bg-input);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 .form-input:hover { border-color: var(--text-tertiary); }
@@ -130,7 +130,7 @@
 .radio-card[aria-checked="true"] {
   border-color: var(--accent);
   background: var(--accent-subtle);
-  box-shadow: 0 0 0 1px var(--accent), var(--shadow-glow);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-glow), 0 0 16px rgba(8, 145, 178, 0.12);
 }
 [data-theme="dark"] .radio-card[aria-checked="true"] {
   background: var(--accent-subtle);
@@ -175,7 +175,7 @@
 }
 .toggle-switch input:checked + .toggle-track {
   background: var(--accent);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-glow), 0 0 12px rgba(8, 145, 178, 0.3);
 }
 .toggle-switch input:checked + .toggle-track::after { transform: translateX(22px); }
 .toggle-switch input:focus-visible + .toggle-track {

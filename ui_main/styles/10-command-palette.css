@@ -23,17 +23,19 @@
 }
 
 .cp-modal {
-  width: 460px;
+  width: 480px;
   max-width: 90vw;
   max-height: 440px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl), var(--shadow-glow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: cp-slide-in var(--duration-normal) var(--ease-spring) both;
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
 }
 
 /* ── Search ──────────────────────────────────────────── */

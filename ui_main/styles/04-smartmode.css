@@ -170,11 +170,11 @@
 .preset-card.active {
   border-color: var(--accent-primary, var(--accent));
   border-width: 2px;
-  background: color-mix(in srgb, var(--accent-primary, var(--accent)) 6%, var(--bg-secondary, var(--bg-primary)));
-  box-shadow: var(--shadow-glow), 0 0 0 1px color-mix(in srgb, var(--accent-primary, var(--accent)) 20%, transparent);
+  background: color-mix(in srgb, var(--accent-primary, var(--accent)) 10%, var(--bg-secondary, var(--bg-primary)));
+  box-shadow: var(--shadow-glow), 0 0 0 1px color-mix(in srgb, var(--accent-primary, var(--accent)) 25%, transparent);
 }
 .preset-card.active::before {
-  opacity: 0.06;
+  opacity: 0.08;
 }
 .preset-icon {
   width: 26px; height: 26px;
