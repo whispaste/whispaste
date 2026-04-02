@@ -26,6 +26,11 @@
 .entry:hover {
   box-shadow: var(--shadow-md);
   border-color: var(--border-accent);
+  transform: translateY(-1px);
+}
+.entry:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
 }
 .entry.pinned {
   border-left: 3px solid var(--accent);

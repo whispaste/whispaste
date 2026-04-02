@@ -10,13 +10,13 @@
   font-weight: var(--weight-semibold);
   color: var(--text-inverse);
   background: var(--gradient-accent);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-lg), var(--shadow-glow-lg);
   z-index: 1000;
   transition: top var(--duration-slow) var(--ease-spring);
   pointer-events: none;
   white-space: nowrap;
-  backdrop-filter: var(--glass-blur);
+  backdrop-filter: blur(24px);
 }
 .toast.show {
   top: 12px;
@@ -49,13 +49,13 @@
   min-width: 360px;
   max-width: min(440px, 90vw);
   background: var(--glass-bg-strong);
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: 24px;
   box-shadow: var(--shadow-xl), var(--shadow-glow);
   animation: dialogIn 280ms cubic-bezier(.34, 1.56, .64, 1);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
 }
 @keyframes dialogIn { from { transform: scale(.92); opacity: 0; } }
 
@@ -144,7 +144,7 @@
   font-size: var(--text-base);
   font-weight: 600;
   font-family: var(--font);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: none;
   cursor: pointer;
   transition: all var(--transition);
@@ -157,11 +157,11 @@
 .btn-primary {
   background: var(--gradient-accent);
   color: var(--text-inverse);
-  box-shadow: var(--shadow-sm), var(--shadow-glow);
+  box-shadow: var(--shadow-sm), var(--shadow-glow), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 .btn-primary:hover {
   background: var(--gradient-accent-hover);
-  box-shadow: var(--shadow-md), var(--shadow-glow-lg);
+  box-shadow: var(--shadow-md), var(--shadow-glow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   filter: brightness(1.05);
 }
 
@@ -261,11 +261,12 @@
   border-color: var(--border-accent);
   background: var(--bg-hover);
   box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 .prompt-card.active {
   border-color: var(--accent);
   background: var(--accent-subtle);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-glow), 0 0 12px rgba(8, 145, 178, 0.15);
 }
 [data-theme="dark"] .prompt-card.active { background: var(--accent-subtle); }
 .prompt-card-name { font-size: 12px; font-weight: 600; color: var(--text); }

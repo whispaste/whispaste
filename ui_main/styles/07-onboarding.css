@@ -9,6 +9,20 @@
   justify-content: center;
   animation: fadeIn var(--duration-normal) ease;
 }
+/* Subtle radial glow behind the onboarding card */
+.onboarding-overlay::before {
+  content: '';
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.onboarding-card { position: relative; z-index: 1; }
 
 .onboarding-card {
   max-width: 520px;
@@ -31,6 +45,7 @@
   align-items: center;
   justify-content: center;
   color: var(--bg-primary);
+  box-shadow: var(--shadow-glow-lg), var(--shadow-md);
 }
 
 .onboarding-icon .icon {
