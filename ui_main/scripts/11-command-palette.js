@@ -390,7 +390,7 @@
 
     // Navigation shortcuts: Ctrl+1..6
     if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key >= '1' && e.key <= '6') {
-      const pages = ['history', 'analytics', 'settings', 'smartmode', 'replacements', 'about'];
+      const pages = ['history', 'smartmode', 'replacements', 'analytics', 'settings', 'about'];
       const idx = parseInt(e.key) - 1;
       if (idx >= 0 && idx < pages.length) {
         e.preventDefault();
