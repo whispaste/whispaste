@@ -71,25 +71,37 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
+  height: 28px;
   background: var(--error);
   display: none;
   opacity: 0;
-  transform: scaleX(0);
-  transform-origin: left;
+  transform: translateY(-100%);
   transition: opacity var(--motion-micro) ease,
               transform var(--motion-normal) var(--ease-out-smooth);
   z-index: 10;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .recording-indicator.active {
-  display: block;
+  display: flex;
   opacity: 1;
-  transform: scaleX(1);
-  animation: recordingPulse 2s ease-in-out infinite;
+  transform: translateY(0);
 }
-@keyframes recordingPulse {
-  0%, 100% { opacity: 0.8; }
-  50% { opacity: 1; }
+.recording-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  animation: recDotPulse 1.2s ease-in-out infinite;
+}
+@keyframes recDotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 /* ── Toast Choreography ─── */

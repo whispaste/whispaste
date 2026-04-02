@@ -129,7 +129,7 @@
   font-size: 0.7rem;
   font-weight: 700;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px var(--accent-glow);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ── Preset Grid ─────────────────────────────────────── */
@@ -171,7 +171,6 @@
   border-color: var(--accent-primary, var(--accent));
   border-width: 2px;
   background: color-mix(in srgb, var(--accent-primary, var(--accent)) 10%, var(--bg-secondary, var(--bg-primary)));
-  box-shadow: var(--shadow-glow), 0 0 0 1px color-mix(in srgb, var(--accent-primary, var(--accent)) 25%, transparent);
 }
 .preset-card.active::before {
   opacity: 0.08;
