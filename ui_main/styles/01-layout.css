@@ -286,53 +286,6 @@
   margin-top: 8px;
 }
 
-/* ── Feature Discovery Tips ───────────────────────────── */
-.feature-tip {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  margin: 0 var(--page-gutter, 24px) var(--spacing-sm);
-  background: var(--accent-subtle);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-lg);
-  font-size: var(--text-sm);
-  color: var(--text-primary);
-  line-height: 1.5;
-  animation: tipSlideIn var(--duration-normal) var(--ease-out);
-}
-@keyframes tipSlideIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.feature-tip-icon {
-  width: 16px;
-  height: 16px;
-  color: var(--accent);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.feature-tip-text {
-  flex: 1;
-}
-.feature-tip-close {
-  background: none;
-  border: none;
-  padding: 2px;
-  cursor: pointer;
-  color: var(--text-tertiary);
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-fast), background var(--transition-fast);
-}
-.feature-tip-close:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-.feature-tip-close .icon {
-  width: 14px;
-  height: 14px;
-}
-
 /* ── FAB (Floating Action Button) ─────────────────────── */
 .fab {
   position: fixed;

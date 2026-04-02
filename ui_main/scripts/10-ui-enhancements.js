@@ -114,57 +114,7 @@
   }
 
   // ── Contextual Feature Discovery ───────────────────────
-  // Shows a dismissible tip the first time a user visits a page.
-
-  function showFeatureTip(pageId, tipKey, message) {
-    const storageKey = 'wp_tip_dismissed_' + tipKey;
-    if (safeStorageGet(storageKey)) return;
-
-    const page = document.getElementById(pageId);
-    if (!page) return;
-
-    const tip = document.createElement('div');
-    tip.className = 'feature-tip';
-    tip.innerHTML = `
-      <svg class="icon feature-tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-      <span class="feature-tip-text">${message}</span>
-      <button class="feature-tip-close" aria-label="Dismiss">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-      </button>`;
-    tip.querySelector('.feature-tip-close').addEventListener('click', () => {
-      tip.remove();
-      safeStorageSet(storageKey, '1');
-    });
-
-    // Insert after page-header
-    const header = page.querySelector('.page-header');
-    if (header && header.nextSibling) {
-      header.parentNode.insertBefore(tip, header.nextSibling);
-    } else {
-      page.prepend(tip);
-    }
-  }
-
-  // Observe page visibility to trigger tips on first visit
-  const pageTips = {
-    'page-smartmode': ['smartmode', () => t ? t('tipSmartMode') : 'Start with Cleanup — it fixes grammar and removes filler words automatically.'],
-    'page-replacements': ['shortcuts', () => t ? t('tipShortcuts') : 'Use voice shortcuts for addresses, signatures, or canned responses you dictate often.'],
-    'page-analytics': ['analytics', () => t ? t('tipAnalytics') : 'Track how voice input fits your workflow and where you save the most time.']
-  };
-
-  const observer = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      if (m.type === 'attributes' && m.attributeName === 'class') {
-        const el = m.target;
-        if (el.classList.contains('page') && !el.classList.contains('hidden')) {
-          const cfg = pageTips[el.id];
-          if (cfg) showFeatureTip(el.id, cfg[0], cfg[1]());
-        }
-      }
-    }
-  });
-  document.querySelectorAll('.page').forEach(p => {
-    observer.observe(p, { attributes: true, attributeFilter: ['class'] });
-  });
+  // Legacy tip system removed — replaced by 13-discovery.js
+  // which uses proper deduplication and single-instance tooltips.
 
 })();
