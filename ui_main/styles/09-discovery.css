@@ -82,6 +82,9 @@
 .discovery-tooltip-dismiss:hover {
   color: var(--text-primary);
 }
+.discovery-tooltip-dismiss:active {
+  transform: scale(0.95);
+}
 
 .discovery-tooltip-cta {
   background: var(--accent);
@@ -97,6 +100,9 @@
 }
 .discovery-tooltip-cta:hover {
   background: var(--accent-hover);
+}
+.discovery-tooltip-cta:active {
+  transform: scale(0.95);
 }
 
 @keyframes discoveryEnter {
@@ -164,6 +170,9 @@
 }
 .discovery-hint-close:hover {
   color: var(--text-primary);
+}
+.discovery-hint-close:active {
+  transform: scale(0.90);
 }
 .discovery-hint-close .icon {
   width: 14px;

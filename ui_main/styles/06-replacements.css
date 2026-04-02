@@ -5,27 +5,27 @@
   justify-content: center;
   min-width: 22px;
   height: 22px;
-  padding: 0 7px;
-  border-radius: 11px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-lg);
   background: var(--bg-tertiary);
   color: var(--text-secondary);
   font-size: 0.72rem;
   font-weight: 700;
-  margin-left: 8px;
+  margin-left: var(--space-2);
   vertical-align: middle;
 }
 .replacements-scroll {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 4px 24px 24px;
+  padding: var(--space-1) var(--space-6) var(--space-6);
 }
 
 .replacements-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
+  gap: var(--space-1-5);
+  margin-bottom: var(--space-4);
 }
 
 .replacements-empty {
@@ -33,7 +33,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px 16px;
+  padding: var(--space-12) var(--space-4);
   color: var(--text-tertiary);
   text-align: center;
 }
@@ -42,7 +42,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: 10px 14px;
+  padding: var(--space-2-5) var(--space-3-5);
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
@@ -66,9 +66,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-family: var(--font-mono, 'Cascadia Code', 'Consolas', monospace);
-  font-size: 13px;
+  font-size: var(--text-base);
   background: var(--bg-primary);
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-secondary);
 }
@@ -88,29 +88,29 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-family: var(--font-mono, 'Cascadia Code', 'Consolas', monospace);
-  font-size: 13px;
+  font-size: var(--text-base);
   background: var(--bg-primary);
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-secondary);
 }
 
 .replacement-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
 .replacements-add-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
   background: transparent;
   border: 1px dashed var(--border-secondary);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
-  padding: 10px 16px;
-  font-size: 13px;
+  padding: var(--space-2-5) var(--space-4);
+  font-size: var(--text-base);
   cursor: pointer;
   transition: color var(--transition), border-color var(--transition), background var(--transition);
   width: 100%;
@@ -122,6 +122,9 @@
   border-color: var(--accent);
   background: var(--accent-subtle);
 }
+.replacements-add-btn:active {
+  transform: scale(0.98);
+}
 
 .replacements-add-btn .icon {
   width: 16px;
@@ -131,10 +134,10 @@
 .replacements-disabled-hint {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 10px 14px;
-  margin-bottom: 12px;
-  font-size: 12px;
+  gap: var(--space-2);
+  padding: var(--space-2-5) var(--space-3-5);
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--text-hint);
 }
@@ -146,23 +149,23 @@
 }
 
 .replacements-examples-card {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .replacements-examples-header {
-  margin-bottom: 14px;
+  margin-bottom: var(--space-3-5);
 }
 
 .replacements-examples-title {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .replacements-examples-desc {
-  margin: 6px 0 0;
-  font-size: 12px;
+  margin: var(--space-1-5) 0 0;
+  font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--text-secondary);
 }
@@ -177,7 +180,7 @@
   grid-template-columns: minmax(110px, 140px) 20px minmax(0, 1fr) 30px;
   gap: var(--spacing-sm);
   align-items: center;
-  padding: 12px 14px;
+  padding: var(--space-3) var(--space-3-5);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
   background: var(--bg-secondary);
@@ -192,7 +195,7 @@
 
 .snippet-example-label {
   grid-column: 1 / -1;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -202,12 +205,12 @@
 .snippet-example-trigger,
 .snippet-example-value {
   min-width: 0;
-  padding: 6px 10px;
+  padding: var(--space-1-5) var(--space-2-5);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-secondary);
   background: var(--bg-primary);
   font-family: var(--font-mono, 'Cascadia Code', 'Consolas', monospace);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .snippet-example-trigger {
@@ -258,6 +261,9 @@
   background: var(--accent-subtle);
   transform: scale(1.1);
 }
+.snippet-example-add:active {
+  transform: scale(0.90);
+}
 
 .snippet-example-add .icon {
   width: 14px;
@@ -304,15 +310,15 @@
 
 .page-description {
   color: var(--text-secondary);
-  font-size: 13px;
-  margin: -8px 0 16px 0;
+  font-size: var(--text-base);
+  margin: -8px 0 var(--space-4) 0;
   line-height: 1.5;
 }
 
 .page-header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 /* Toggle small variant */
@@ -334,23 +340,23 @@
 .repl-dialog-form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .repl-dialog-label {
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--text-secondary);
 }
 
 .repl-dialog-input {
   width: 100%;
-  padding: 10px 14px;
+  padding: var(--space-2-5) var(--space-3-5);
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-family: var(--font-mono, 'Cascadia Code', 'Consolas', monospace);
   outline: none;
   transition: border-color var(--transition), box-shadow var(--transition);
@@ -361,4 +367,7 @@
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px var(--accent-glow);
   outline: none;
+}
+.repl-dialog-input:hover {
+  border-color: var(--text-tertiary);
 }

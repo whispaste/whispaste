@@ -3,7 +3,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 4px var(--page-gutter, 24px) 24px;
+  padding: var(--space-1) var(--page-gutter, 24px) var(--space-6);
 }
 .smartmode-content {
   max-width: var(--content-max-width, 100%);
@@ -11,12 +11,12 @@
 .page-subtitle {
   font-size: 0.9rem;
   color: var(--text-secondary);
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 
 /* ── Smart Mode State Bar ──────────────────────────────── */
 #smart-state-bar {
-  margin-bottom: 14px;
+  margin-bottom: var(--space-3-5);
   opacity: 0.5;
   transition: opacity var(--motion-normal, 200ms) var(--ease-out-smooth, ease);
 }
@@ -33,12 +33,15 @@
   cursor: pointer;
   user-select: none;
   border-radius: var(--radius-sm);
-  padding: 4px 6px;
+  padding: var(--space-1) var(--space-1-5);
   margin: 0 -6px;
   transition: background var(--transition-fast);
 }
 .section-title-collapsible:hover {
   background: var(--bg-hover);
+}
+.section-title-collapsible:active {
+  background: var(--bg-active);
 }
 .section-title-chevron {
   color: var(--text-tertiary);
@@ -47,7 +50,7 @@
 }
 .section-title-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
   align-items: center;
 }
 .section-title {
@@ -56,22 +59,22 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  margin: 24px 0 14px;
+  margin: var(--space-6) 0 var(--space-3-5);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .section-title::before {
   content: '';
   display: inline-block;
   width: 3px;
   height: 14px;
-  border-radius: 2px;
+  border-radius: var(--radius-2);
   background: var(--gradient-accent);
   flex-shrink: 0;
 }
 .section-supporting-text {
-  margin: -4px 0 14px;
+  margin: -4px 0 var(--space-3-5);
   color: var(--text-secondary);
   font-size: var(--text-sm);
   line-height: 1.6;
@@ -80,8 +83,8 @@
 
 /* ── How-to Card ─────────────────────────────────────── */
 .smart-howto {
-  margin-top: 14px;
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+  margin-top: var(--space-3-5);
+  background:linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
   padding: var(--spacing-md) var(--spacing-lg);
@@ -102,17 +105,17 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  margin-bottom: 14px;
+  margin-bottom: var(--space-3-5);
 }
 .smart-howto-steps {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 .smart-howto-step {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-3-5);
   font-size: 0.85rem;
   color: var(--text-primary);
   line-height: 1.4;
@@ -140,7 +143,7 @@
 }
 .preset-card {
   display: flex; flex-direction: column; align-items: center;
-  gap: 6px; padding: var(--spacing-md) var(--spacing-sm) var(--spacing-sm);
+  gap: var(--space-1-5); padding: var(--spacing-md) var(--spacing-sm) var(--spacing-sm);
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
@@ -163,6 +166,10 @@
   background: var(--bg-hover);
   border-color: var(--border-secondary);
   box-shadow: var(--shadow-md);
+}
+.preset-card:active {
+  transform: scale(0.98);
+  box-shadow: var(--shadow-sm);
 }
 .preset-card:hover::before {
   opacity: 0.03;
@@ -221,15 +228,15 @@
 /* ── Provider Segmented Control ──────────────────────── */
 .provider-control {
   display: flex;
-  gap: 2px;
+  gap: var(--space-0-5);
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
-  padding: 3px;
+  padding: var(--space-1);
   border: 1px solid var(--border-primary);
 }
 .provider-option {
   flex: 1;
-  padding: 10px 12px 8px;
+  padding: var(--space-2-5) var(--space-3) var(--space-2);
   border: none;
   background: transparent;
   color: var(--text-secondary);
@@ -244,7 +251,7 @@
 .provider-option-label {
   font-weight: var(--weight-semibold);
   font-size: var(--text-sm);
-  margin-bottom: 2px;
+  margin-bottom: var(--space-0-5);
 }
 .provider-option-desc {
   font-size: var(--text-xs);
@@ -262,6 +269,9 @@
 .provider-option:hover:not(.active) {
   background: var(--bg-tertiary);
 }
+.provider-option:active {
+  transform: scale(0.97);
+}
 
 @media (max-width: 980px) {
   .smart-overview-grid {
@@ -273,10 +283,10 @@
 .provider-warning {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 8px 12px;
-  font-size: 12px;
+  gap: var(--space-2);
+  margin-top: var(--space-2-5);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
   color: var(--warning, #f59e0b);
   background: color-mix(in srgb, var(--warning, #f59e0b), transparent 90%);
   border-radius: var(--radius);
@@ -287,10 +297,10 @@
 .connectivity-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  margin-top: 8px;
+  margin-top: var(--space-2);
 }
 .connectivity-dot {
   width: 8px;
@@ -314,38 +324,38 @@
   50% { opacity: 0.4; }
 }
 .llm-progress {
-  margin-top: 12px;
+  margin-top: var(--space-3);
 }
 .llm-progress-bar {
   height: 4px;
   background: var(--bg-tertiary);
-  border-radius: 2px;
+  border-radius: var(--radius-2);
   overflow: hidden;
 }
 .llm-progress-fill {
   height: 100%;
   background: var(--accent);
-  border-radius: 2px;
+  border-radius: var(--radius-2);
   transition: width var(--transition-normal) ease;
 }
 .llm-progress-text {
   font-size: var(--text-sm);
   color: var(--text-secondary);
-  margin-top: 6px;
+  margin-top: var(--space-1-5);
 }
 
 /* ── Keyword Chips──────────────────────────────────── */
 .keyword-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: var(--space-1-5);
+  margin-top: var(--space-1-5);
 }
 .keyword-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2-5);
   background: var(--bg-tertiary);
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
@@ -377,7 +387,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-2);
   margin-top: var(--spacing-md, 16px);
   padding: var(--spacing-sm, 8px) var(--spacing-md, 16px);
   font-size: var(--text-sm);

@@ -45,7 +45,7 @@
 
   /* ── Semantic: Text ─── */
   --text-primary: var(--gray-900);
-  --text-secondary: var(--gray-500);
+  --text-secondary: #5B6A7D;
   --text-tertiary: var(--gray-400);
   --text-inverse: #FFFFFF;
   --text-accent: var(--cyan-600);
@@ -77,17 +77,24 @@
 
   /* ── Spacing Scale (4px base) ─── */
   --space-0: 0;
+  --space-px: 1px;
+  --space-0-5: 2px;
   --space-1: 4px;
+  --space-1-5: 6px;
   --space-2: 8px;
+  --space-2-5: 10px;
   --space-3: 12px;
+  --space-3-5: 14px;
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
+  --space-7: 28px;
   --space-8: 32px;
   --space-10: 40px;
   --space-12: 48px;
 
   /* ── Semantic Spacing Aliases ─── */
+  --spacing-xxs: var(--space-0-5); /* 2px */
   --spacing-xs: var(--space-1);   /* 4px */
   --spacing-sm: var(--space-2);   /* 8px */
   --spacing-md: var(--space-4);   /* 16px */
@@ -118,6 +125,7 @@
   --weight-bold: 700;
 
   /* ── Border Radius ─── */
+  --radius-2: 2px;
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -279,6 +287,18 @@
   --sidebar-border: linear-gradient(180deg, rgba(34, 211, 238, 0.18) 0%, transparent 60%);
   --sidebar-inset: inset 0 0 24px rgba(0, 0, 0, 0.15);
   --nav-active-glow: 0 0 24px var(--accent-glow), 0 2px 12px rgba(34, 211, 238, 0.25);
+}
+
+/* ── Smooth Theme Transition ───────────────────────────── */
+:root,
+[data-theme] {
+  transition: background-color 0.3s ease, color 0.2s ease, border-color 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  [data-theme] {
+    transition: none;
+  }
 }
 
 /* ── Reset & Base ──────────────────────────────────────── */
