@@ -6,7 +6,7 @@
   padding: var(--space-1) var(--page-gutter, 24px) var(--space-6);
 }
 .smartmode-content {
-  max-width: var(--content-max-width, 100%);
+  max-width: 100%;
 }
 .page-subtitle {
   font-size: 0.9rem;

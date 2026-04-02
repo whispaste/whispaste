@@ -399,6 +399,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // --- Initialize collapsible sidebar sections ---
+  if (typeof _initSidebarCollapse === 'function') _initSidebarCollapse();
+
   // --- Start on correct page ---
   const initialPage = window._initialPage || 'history';
   switchPage(initialPage);

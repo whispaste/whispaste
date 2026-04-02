@@ -173,6 +173,9 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		cfg.GeminiAPIKey = newCfg.GeminiAPIKey
 		cfg.CustomDictionary = newCfg.CustomDictionary
 		cfg.GPUAcceleration = newCfg.GPUAcceleration
+		cfg.NotifyBackground = newCfg.NotifyBackground
+		cfg.NotifyComplete = newCfg.NotifyComplete
+		cfg.NotifyDonate = newCfg.NotifyDonate
 		cfg.mu.Unlock()
 		if err := SetAutostart(newCfg.Autostart); err != nil {
 			logWarn("Failed to set autostart: %v", err)
@@ -474,7 +477,8 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		recorder.SetInputDevice(cfg.GetInputDevice())
 		if err := recorder.StartMonitor(); err != nil {
 			logWarn("StartMonitor failed: %v", err)
-			return fmt.Sprintf(`{"success":false,"error":"%s"}`, err.Error())
+			errJSON, _ := json.Marshal(err.Error())
+			return fmt.Sprintf(`{"success":false,"error":%s}`, errJSON)
 		}
 		return `{"success":true}`
 	})

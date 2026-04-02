@@ -265,19 +265,37 @@ function changeSort(val) {
   renderHistory();
 }
 
+function _sortArrow(value) {
+  return value === 'oldest' ? ' ↑' : ' ↓';
+}
+
+function _updateSortLabel(label, i18nKey, value) {
+  if (!label) return;
+  label.innerHTML = '';
+  label.appendChild(document.createTextNode(t(i18nKey)));
+  const arrow = document.createElement('span');
+  arrow.className = 'sort-arrow';
+  arrow.textContent = _sortArrow(value);
+  label.appendChild(arrow);
+}
+
 function initSortDropdown() {
   const trigger = document.getElementById('sortTrigger');
   const label = document.getElementById('sortLabel');
   if (!trigger) return;
 
-  trigger.addEventListener('click', () => {
-    const sortOptions = [
-      { value: 'newest', i18n: 'notebook.sort_newest' },
-      { value: 'oldest', i18n: 'notebook.sort_oldest' },
-      { value: 'alpha',  i18n: 'notebook.sort_alpha' },
-      { value: 'duration', i18n: 'notebook.sort_duration' },
-    ];
+  const sortOptions = [
+    { value: 'newest', i18n: 'notebook.sort_newest' },
+    { value: 'oldest', i18n: 'notebook.sort_oldest' },
+    { value: 'alpha',  i18n: 'notebook.sort_alpha' },
+    { value: 'duration', i18n: 'notebook.sort_duration' },
+  ];
 
+  // Set initial arrow on the default sort
+  const initial = sortOptions.find(o => o.value === _currentSort);
+  if (initial) _updateSortLabel(label, initial.i18n, initial.value);
+
+  trigger.addEventListener('click', () => {
     const items = [];
     for (const opt of sortOptions) {
       items.push({
@@ -285,7 +303,7 @@ function initSortDropdown() {
         checked: _currentSort === opt.value,
         action: () => {
           _currentSort = opt.value;
-          if (label) label.textContent = t(opt.i18n);
+          _updateSortLabel(label, opt.i18n, opt.value);
           renderHistory();
         },
       });
@@ -381,5 +399,119 @@ function _updateFilterUI() {
     } else {
       bar.classList.add('hidden');
     }
+  }
+  _renderActiveFilters();
+}
+
+function _renderActiveFilters() {
+  const container = document.getElementById('activeFilters');
+  if (!container) return;
+
+  const pills = [];
+  const timeLabels = {
+    today: 'notebook.today',
+    week: 'notebook.week',
+    older: 'notebook.older',
+    custom: 'notebook.custom_range',
+  };
+
+  if (_activeFilters.pinned) {
+    pills.push({ label: t('notebook.pinned'), remove: () => setFilter('pinned') });
+  }
+  if (_activeFilters.archived) {
+    pills.push({ label: t('notebook.archived'), remove: () => setFilter('archived') });
+  }
+  if (_activeFilters.time && timeLabels[_activeFilters.time]) {
+    const timeKey = _activeFilters.time;
+    pills.push({ label: t(timeLabels[timeKey]), remove: () => setFilter(timeKey) });
+  }
+  for (const tag of _activeFilters.tags) {
+    pills.push({ label: '#' + tag, remove: () => setFilter('cat:' + tag) });
+  }
+
+  container.innerHTML = '';
+  for (const pill of pills) {
+    const span = document.createElement('span');
+    span.className = 'filter-pill';
+    span.textContent = pill.label + ' ';
+    const btn = document.createElement('button');
+    btn.className = 'filter-pill-remove';
+    btn.type = 'button';
+    btn.innerHTML = '&times;';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pill.remove();
+    });
+    span.appendChild(btn);
+    container.appendChild(span);
+  }
+}
+
+/* ── Collapsible Sidebar Sections ──────────────────────── */
+const _COLLAPSE_KEY = 'whispaste_sidebar_collapsed';
+
+function _getSidebarCollapseState() {
+  try { return JSON.parse(localStorage.getItem(_COLLAPSE_KEY) || '{}'); } catch { return {}; }
+}
+
+function _setSidebarCollapseState(section, collapsed) {
+  const state = _getSidebarCollapseState();
+  state[section] = collapsed;
+  localStorage.setItem(_COLLAPSE_KEY, JSON.stringify(state));
+}
+
+function _toggleSidebarSection(sectionEl) {
+  const key = sectionEl.dataset.section;
+  if (!key) return;
+  const isCollapsed = sectionEl.classList.toggle('collapsed');
+  const header = sectionEl.querySelector('.sidebar-section-header');
+  if (header) header.setAttribute('aria-expanded', String(!isCollapsed));
+  _setSidebarCollapseState(key, isCollapsed);
+  _updateSidebarSectionCounts();
+}
+
+function _updateSidebarSectionCounts() {
+  // Filter section count: number of filter items (excluding "All" and custom range)
+  const filterSection = document.getElementById('sidebarSectionFilters');
+  const filterCountEl = document.getElementById('filterSectionCount');
+  if (filterSection && filterCountEl) {
+    const items = filterSection.querySelectorAll('.filter-item');
+    filterCountEl.textContent = items.length;
+  }
+  // Tags section count: number of tag items
+  const tagsSection = document.getElementById('sidebarSectionTags');
+  const tagsCountEl = document.getElementById('tagsSectionCount');
+  if (tagsSection && tagsCountEl) {
+    const items = tagsSection.querySelectorAll('#categoryList .filter-item');
+    tagsCountEl.textContent = items.length || '';
+  }
+}
+
+function _initSidebarCollapse() {
+  const state = _getSidebarCollapseState();
+  document.querySelectorAll('.sidebar-section[data-section]').forEach(section => {
+    const key = section.dataset.section;
+    if (state[key]) {
+      section.classList.add('collapsed');
+      const header = section.querySelector('.sidebar-section-header');
+      if (header) header.setAttribute('aria-expanded', 'false');
+    }
+    const header = section.querySelector('.sidebar-section-header');
+    if (header) {
+      header.addEventListener('click', () => _toggleSidebarSection(section));
+      header.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          _toggleSidebarSection(section);
+        }
+      });
+    }
+  });
+  _updateSidebarSectionCounts();
+  // Re-count tags when the category list changes
+  const catList = document.getElementById('categoryList');
+  if (catList) {
+    new MutationObserver(() => _updateSidebarSectionCounts())
+      .observe(catList, { childList: true });
   }
 }

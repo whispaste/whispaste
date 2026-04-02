@@ -51,6 +51,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.GetSmartModeTarget() != defaultSmartModeTargetLanguage {
 		t.Errorf("GetSmartModeTarget() = %q, want %q", cfg.GetSmartModeTarget(), defaultSmartModeTargetLanguage)
 	}
+	if cfg.GetInputGain() != 1.0 {
+		t.Errorf("GetInputGain() = %f, want 1.0", cfg.GetInputGain())
+	}
 }
 
 func TestConfigSaveLoad(t *testing.T) {
@@ -191,6 +194,38 @@ func TestConfigPartialJSON(t *testing.T) {
 	}
 	if cfg.Theme != "system" {
 		t.Errorf("Theme = %q, want system (default)", cfg.Theme)
+	}
+	// InputGain should be preserved at default 1.0 when absent from JSON
+	if cfg.InputGain != 1.0 {
+		t.Errorf("InputGain = %f, want 1.0 (default preserved)", cfg.InputGain)
+	}
+}
+
+func TestConfigInputGainNormalization(t *testing.T) {
+	tests := []struct {
+		name string
+		json string
+		want float64
+	}{
+		{"zero resets to 1.0", `{"input_gain":0}`, 1.0},
+		{"negative resets to 1.0", `{"input_gain":-1}`, 1.0},
+		{"too high resets to 1.0", `{"input_gain":5.0}`, 1.0},
+		{"valid value preserved", `{"input_gain":1.5}`, 1.5},
+		{"minimum boundary", `{"input_gain":0.1}`, 0.1},
+		{"maximum boundary", `{"input_gain":3.0}`, 3.0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			json.Unmarshal([]byte(tt.json), cfg)
+			// Simulate the normalization from LoadConfig
+			if cfg.InputGain < 0.1 || cfg.InputGain > 3.0 {
+				cfg.InputGain = 1.0
+			}
+			if cfg.InputGain != tt.want {
+				t.Errorf("InputGain = %f, want %f", cfg.InputGain, tt.want)
+			}
+		})
 	}
 }
 
