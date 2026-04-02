@@ -10,7 +10,7 @@
   background: var(--glass-bg-strong);
   border: 1px solid var(--border-accent);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  box-shadow: var(--shadow-lg);
   animation: discoveryEnter var(--motion-normal) var(--ease-out-smooth) both;
   pointer-events: auto;
   backdrop-filter: blur(24px);

@@ -549,15 +549,10 @@ async function restartOnboarding() {
 
 /* ── Onboarding Preferences (Language on Page 1, Theme on Page 4) ── */
 function onbInitPreferences() {
-  // Detect system language — default to 'de' if browser reports German, otherwise 'en'
-  let lang = window._lang;
-  if (!lang) {
-    const sysLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
-    lang = sysLang.startsWith('de') ? 'de' : 'en';
-    // Apply detected language so the onboarding UI is localized
-    window._lang = lang;
-    setLang(lang);
-  }
+  // Trust the configured UI language injected by Go (window._lang)
+  let lang = window._lang || 'en';
+  // Ensure the UI text matches the configured language
+  setLang(lang);
   document.querySelectorAll('#onbLangOptions .onb-lang-card').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === lang);
   });

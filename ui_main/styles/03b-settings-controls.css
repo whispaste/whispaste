@@ -130,11 +130,11 @@
 .radio-card[aria-checked="true"] {
   border-color: var(--accent);
   background: var(--accent-subtle);
-  box-shadow: 0 0 0 1px var(--accent), var(--shadow-glow), 0 0 16px rgba(8, 145, 178, 0.12);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 [data-theme="dark"] .radio-card[aria-checked="true"] {
   background: var(--accent-subtle);
-  box-shadow: 0 0 0 1px var(--accent), var(--shadow-glow);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 .radio-card input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
 .radio-card-icon { font-size: 24px; line-height: 1; }
@@ -159,7 +159,7 @@
   position: absolute;
   inset: 0;
   background: rgba(120,120,128,.2);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-full);
   cursor: pointer;
   transition: background var(--duration-normal) cubic-bezier(.4, 0, .2, 1);
 }
@@ -175,7 +175,6 @@
 }
 .toggle-switch input:checked + .toggle-track {
   background: var(--accent);
-  box-shadow: var(--shadow-glow), 0 0 12px rgba(8, 145, 178, 0.3);
 }
 .toggle-switch input:checked + .toggle-track::after { transform: translateX(22px); }
 .toggle-switch input:focus-visible + .toggle-track {

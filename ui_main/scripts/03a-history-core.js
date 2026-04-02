@@ -65,29 +65,57 @@ function matchesSearch(e) {
 
   const title = (e.title || '').toLowerCase();
   const text = (e.text || '').toLowerCase();
+  const tags = (e.tags || []).map(t => t.toLowerCase());
   const content = title + ' ' + text;
 
   const tokens = parseSearchTokens(q);
-  return evaluateSearch(tokens, content);
+
+  // Split tokens into text tokens and tag tokens
+  const textTokens = tokens.filter(t => !t.isTag);
+  const tagTokens = tokens.filter(t => t.isTag);
+
+  // Evaluate text tokens against content
+  const textMatch = evaluateSearch(textTokens, content);
+
+  // Evaluate tag tokens: each #tag must partially match at least one tag (AND logic)
+  let tagMatch = true;
+  for (const tok of tagTokens) {
+    const found = tags.some(t => t.includes(tok.term));
+    const matches = tok.negate ? !found : found;
+    if (!matches) { tagMatch = false; break; }
+  }
+
+  return textMatch && tagMatch;
 }
 
 function parseSearchTokens(query) {
   const tokens = [];
-  const regex = /"([^"]+)"|(\S+)/g;
+  const regex = /"([^"]+)"|(#\S+)|(\S+)/g;
   let match;
   let expectOp = null;
 
   while ((match = regex.exec(query)) !== null) {
-    const term = (match[1] || match[2]).toLowerCase();
+    const raw = match[1] || match[2] || match[3];
+    const term = raw.toLowerCase();
 
     if (term === 'and' || term === '&') { expectOp = 'AND'; continue; }
     if (term === 'or' || term === '|') { expectOp = 'OR'; continue; }
 
     let negate = false;
     let actualTerm = term;
-    if (term.startsWith('-') || term.startsWith('!')) {
+    let isTag = false;
+
+    // Detect #tag syntax (supports -#tag for negation)
+    if (actualTerm.startsWith('-#') || actualTerm.startsWith('!#')) {
       negate = true;
-      actualTerm = term.slice(1);
+      actualTerm = actualTerm.slice(2);
+      isTag = true;
+    } else if (actualTerm.startsWith('#')) {
+      actualTerm = actualTerm.slice(1);
+      isTag = true;
+    } else if (actualTerm.startsWith('-') || actualTerm.startsWith('!')) {
+      negate = true;
+      actualTerm = actualTerm.slice(1);
     } else if (term === 'not') {
       expectOp = 'NOT';
       continue;
@@ -98,11 +126,14 @@ function parseSearchTokens(query) {
       expectOp = null;
     }
 
+    if (!actualTerm) continue;
+
     tokens.push({
       term: actualTerm,
       negate,
       op: expectOp || 'AND',
-      isWildcard: actualTerm.includes('*'),
+      isWildcard: !isTag && actualTerm.includes('*'),
+      isTag,
     });
     expectOp = null;
   }
