@@ -341,6 +341,7 @@
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
   white-space: nowrap;
+  min-height: 28px;
 }
 
 .tag-chip-remove {
