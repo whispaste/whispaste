@@ -1,5 +1,8 @@
 /* ── Global Error Handlers ─────────────────────────────── */
 window.onerror = function(msg, src, line, col, err) {
+  if (typeof msg === 'string' && msg.indexOf('SecurityError') !== -1 &&
+      msg.indexOf('localStorage') !== -1 &&
+      (!src || src === 'about:blank')) return true;
   const detail = `${msg} at ${src}:${line}:${col}`;
   if (window._logJS) window._logJS('error', detail);
   else console.error('JS ERROR:', detail);

@@ -265,7 +265,11 @@ func (t *AppTray) autoApplyUpdate(info UpdateInfo) {
 			logDebug("Auto-update: another apply already running, skipping")
 			return
 		}
-		logError("Auto-update failed: %v", err)
+		if strings.Contains(err.Error(), "protected location") {
+			logInfo("Auto-update failed (permission): %v", err)
+		} else {
+			logWarn("Auto-update failed: %v", err)
+		}
 		if t.mUpdate != nil {
 			t.mUpdate.SetTitle(fmt.Sprintf(T("update.failed"), err))
 		}
