@@ -35,11 +35,9 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 			resp, _ := json.Marshal(map[string]string{"error": "Entry not found"})
 			return string(resp)
 		}
-		endpoint, apiKey, modelType, err := resolveSmartEndpoint()
-		if err != nil {
-			resp, _ := json.Marshal(map[string]string{"error": err.Error()})
-			return string(resp)
-		}
+		// Capture values for goroutine (avoid data race on entry pointer)
+		entryText := entry.Text
+		entryLang := entry.Language
 		langHint := entry.Language
 		if langHint == "" {
 			langHint = entry.LanguageHint
@@ -47,18 +45,39 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		if (langHint == "" || langHint == "auto") && entry.IsLocal {
 			langHint = cfg.GetEffectiveLocalTranscriptionLanguage()
 		}
-		result, err := ApplySmartAction(entry.Text, preset, customPrompt, targetLang, apiKey, endpoint, langHint, cfg.GetCustomTemplates())
-		if err != nil {
-			resp, _ := json.Marshal(map[string]string{"error": err.Error()})
-			return string(resp)
-		}
-		resultLang := ""
-		if preset == "translate" && targetLang != "" {
-			resultLang = targetLang
-		} else if entry.Language != "" && entry.Language != "auto" {
-			resultLang = entry.Language
-		}
-		resp, _ := json.Marshal(map[string]string{"text": result, "model": modelType, "language": resultLang})
+		customTemplates := cfg.GetCustomTemplates()
+
+		go func() {
+			endpoint, apiKey, modelType, err := resolveSmartEndpoint()
+			if err != nil {
+				if mainWebview != nil {
+					js := fmt.Sprintf("if(typeof onSmartActionComplete==='function')onSmartActionComplete(%s,'','%s')", jsStr(entryID), escapeJS(err.Error()))
+					mainWebview.Dispatch(func() { mainWebview.Eval(js) })
+				}
+				return
+			}
+			result, err := ApplySmartAction(entryText, preset, customPrompt, targetLang, apiKey, endpoint, langHint, customTemplates)
+			if err != nil {
+				if mainWebview != nil {
+					js := fmt.Sprintf("if(typeof onSmartActionComplete==='function')onSmartActionComplete(%s,'','%s')", jsStr(entryID), escapeJS(err.Error()))
+					mainWebview.Dispatch(func() { mainWebview.Eval(js) })
+				}
+				return
+			}
+			resultLang := ""
+			if preset == "translate" && targetLang != "" {
+				resultLang = targetLang
+			} else if entryLang != "" && entryLang != "auto" {
+				resultLang = entryLang
+			}
+			respJSON, _ := json.Marshal(map[string]string{"text": result, "model": modelType, "language": resultLang})
+			if mainWebview != nil {
+				js := fmt.Sprintf("if(typeof onSmartActionComplete==='function')onSmartActionComplete(%s,%s,'')", jsStr(entryID), jsStr(string(respJSON)))
+				mainWebview.Dispatch(func() { mainWebview.Eval(js) })
+			}
+		}()
+
+		resp, _ := json.Marshal(map[string]string{"status": "processing"})
 		return string(resp)
 	})
 
@@ -73,7 +92,7 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 			return string(resp)
 		}
 
-		// Collect texts and languages from all selected entries
+		// Collect texts and languages synchronously (fast, no I/O)
 		var texts []string
 		langCount := map[string]int{}
 		allLocal := true
@@ -98,15 +117,7 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 			return string(resp)
 		}
 
-		// Join texts with separator for the LLM
 		combined := joinTextsForBulk(texts)
-
-		endpoint, apiKey, modelType, err := resolveSmartEndpoint()
-		if err != nil {
-			resp, _ := json.Marshal(map[string]string{"error": err.Error()})
-			return string(resp)
-		}
-		// Use a compound prompt: merge coherently, then apply the preset
 		dominantLang := ""
 		maxCount := 0
 		for lang, count := range langCount {
@@ -118,23 +129,47 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		if dominantLang == "" && allLocal {
 			dominantLang = cfg.GetEffectiveLocalTranscriptionLanguage()
 		}
-		bulkPrompt := buildBulkSmartPrompt(preset, customPrompt, targetLang, dominantLang, cfg.GetCustomTemplates())
-		if bulkPrompt == "" {
-			resp, _ := json.Marshal(map[string]string{"error": "unknown preset"})
-			return string(resp)
-		}
+		customTemplates := cfg.GetCustomTemplates()
 
-		result, err := PostProcess(combined, "system", bulkPrompt, "", apiKey, endpoint, dominantLang, "", cfg.GetCustomTemplates())
-		if err != nil {
-			resp, _ := json.Marshal(map[string]string{"error": err.Error()})
-			return string(resp)
-		}
-		if preset == "translate" && targetLang != "" {
-			dominantLang = targetLang
-		} else if dominantLang == "auto" {
-			dominantLang = ""
-		}
-		resp, _ := json.Marshal(map[string]string{"text": result, "language": dominantLang, "model": modelType})
+		go func() {
+			endpoint, apiKey, modelType, err := resolveSmartEndpoint()
+			if err != nil {
+				if mainWebview != nil {
+					js := fmt.Sprintf("if(typeof onBulkSmartActionComplete==='function')onBulkSmartActionComplete('','%s')", escapeJS(err.Error()))
+					mainWebview.Dispatch(func() { mainWebview.Eval(js) })
+				}
+				return
+			}
+			bulkPrompt := buildBulkSmartPrompt(preset, customPrompt, targetLang, dominantLang, customTemplates)
+			if bulkPrompt == "" {
+				if mainWebview != nil {
+					js := "if(typeof onBulkSmartActionComplete==='function')onBulkSmartActionComplete('','unknown preset')"
+					mainWebview.Dispatch(func() { mainWebview.Eval(js) })
+				}
+				return
+			}
+			result, err := PostProcess(combined, "system", bulkPrompt, "", apiKey, endpoint, dominantLang, "", customTemplates)
+			if err != nil {
+				if mainWebview != nil {
+					js := fmt.Sprintf("if(typeof onBulkSmartActionComplete==='function')onBulkSmartActionComplete('','%s')", escapeJS(err.Error()))
+					mainWebview.Dispatch(func() { mainWebview.Eval(js) })
+				}
+				return
+			}
+			finalLang := dominantLang
+			if preset == "translate" && targetLang != "" {
+				finalLang = targetLang
+			} else if finalLang == "auto" {
+				finalLang = ""
+			}
+			respJSON, _ := json.Marshal(map[string]string{"text": result, "language": finalLang, "model": modelType})
+			if mainWebview != nil {
+				js := fmt.Sprintf("if(typeof onBulkSmartActionComplete==='function')onBulkSmartActionComplete(%s,'')", jsStr(string(respJSON)))
+				mainWebview.Dispatch(func() { mainWebview.Eval(js) })
+			}
+		}()
+
+		resp, _ := json.Marshal(map[string]string{"status": "processing"})
 		return string(resp)
 	})
 

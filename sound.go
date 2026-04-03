@@ -8,7 +8,6 @@ import (
 	"math"
 	"runtime"
 	"sync/atomic"
-	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -32,7 +31,6 @@ var (
 )
 
 const (
-	sndAsync     = 0x00000001
 	sndMemory    = 0x00000004
 	sndNoDefault = 0x00000002
 )
@@ -52,14 +50,13 @@ func init() {
 			ret, _, _ := procPlaySound.Call(
 				uintptr(unsafe.Pointer(&data[0])),
 				0,
-				uintptr(sndMemory|sndNoDefault|sndAsync),
+				uintptr(sndMemory|sndNoDefault),
 			)
 			if ret == 0 {
 				logWarn("PlaySoundW failed for queued sound (%d bytes)", len(data))
 			} else {
 				logDebug("PlaySoundW OK (%d bytes)", len(data))
 			}
-			time.Sleep(100 * time.Millisecond)
 			runtime.KeepAlive(data)
 		}
 	}()
@@ -94,12 +91,6 @@ func PlayFeedback(soundType SoundType) {
 		data = sndError
 	case SoundWarning:
 		data = sndWarning
-	case SoundButtonClick:
-		data = sndBtnClick
-	case SoundButtonPop:
-		data = sndBtnPop
-	case SoundButtonChime:
-		data = sndBtnChime
 	default:
 		return
 	}
@@ -126,69 +117,9 @@ func PlayFeedback(soundType SoundType) {
 }
 
 var sndWarning []byte
-var sndBtnClick []byte
-var sndBtnPop []byte
-var sndBtnChime []byte
 
 func init() {
 	sndWarning = generateBeepWAV(880, 200, 0.5)
-	sndBtnClick = generateClickWAV()
-	sndBtnPop = generatePopWAV()
-	sndBtnChime = generateChimeWAV()
-}
-
-// generateClickWAV creates a short percussive click sound.
-func generateClickWAV() []byte {
-	sampleRate := 16000
-	durationMs := 30
-	numSamples := sampleRate * durationMs / 1000
-	dataSize := numSamples * 2
-	wav := makeWAVHeader(dataSize, sampleRate)
-	for i := 0; i < numSamples; i++ {
-		t := float64(i) / float64(sampleRate)
-		decay := math.Exp(-t * 200)
-		sample := int16(0.6 * 32767 * decay * math.Sin(2*math.Pi*2500*t))
-		binary.LittleEndian.PutUint16(wav[44+i*2:44+i*2+2], uint16(sample))
-	}
-	return wav
-}
-
-// generatePopWAV creates a bubbly pop sound with pitch sweep.
-func generatePopWAV() []byte {
-	sampleRate := 16000
-	durationMs := 80
-	numSamples := sampleRate * durationMs / 1000
-	dataSize := numSamples * 2
-	wav := makeWAVHeader(dataSize, sampleRate)
-	for i := 0; i < numSamples; i++ {
-		t := float64(i) / float64(sampleRate)
-		decay := math.Exp(-t * 40)
-		freq := 600 + 800*math.Exp(-t*30)
-		sample := int16(0.5 * 32767 * decay * math.Sin(2*math.Pi*freq*t))
-		binary.LittleEndian.PutUint16(wav[44+i*2:44+i*2+2], uint16(sample))
-	}
-	return wav
-}
-
-// generateChimeWAV creates a pleasant two-tone chime.
-func generateChimeWAV() []byte {
-	sampleRate := 16000
-	durationMs := 200
-	numSamples := sampleRate * durationMs / 1000
-	dataSize := numSamples * 2
-	wav := makeWAVHeader(dataSize, sampleRate)
-	for i := 0; i < numSamples; i++ {
-		t := float64(i) / float64(sampleRate)
-		decay1 := math.Exp(-t * 10)
-		decay2 := math.Exp(-(t - 0.08) * 10)
-		if t < 0.08 {
-			decay2 = 0
-		}
-		s := 0.4*decay1*math.Sin(2*math.Pi*1047*t) + 0.3*decay2*math.Sin(2*math.Pi*1319*t)
-		sample := int16(s * 32767)
-		binary.LittleEndian.PutUint16(wav[44+i*2:44+i*2+2], uint16(sample))
-	}
-	return wav
 }
 
 // makeWAVHeader creates a standard 44-byte WAV header for mono 16-bit PCM.

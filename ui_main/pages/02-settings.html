@@ -171,12 +171,6 @@
                       <button type="button" class="fab-content-option" data-content="waveform" data-i18n-title="contentWaveform" title="Waveform">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="8" x2="4" y2="16"/><line x1="8" y1="5" x2="8" y2="19"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="16" y1="6" x2="16" y2="18"/><line x1="20" y1="9" x2="20" y2="15"/></svg>
                       </button>
-                      <button type="button" class="fab-content-option" data-content="headphones" data-i18n-title="contentHeadphones" title="Headphones">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
-                      </button>
-                      <button type="button" class="fab-content-option" data-content="pen" data-i18n-title="contentPen" title="Pen">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                      </button>
                     </div>
                   </div>
                   <div class="fab-size-row" id="fab-shape-row">
@@ -211,29 +205,6 @@
                     <div class="fab-size-slider-group">
                       <span class="fab-size-value" id="fab-opacity-value">70%</span>
                       <input type="range" id="range-fab-opacity" min="30" max="100" value="70" step="5" class="duration-slider" oninput="updateFabOpacityLabel(this.value)">
-                    </div>
-                  </div>
-                  <div class="fab-size-row" id="fab-animation-row">
-                    <span class="fab-size-label" data-i18n="labelFloatingAnimation">Idle Animation</span>
-                    <select id="select-fab-animation" class="dropdown-select">
-                      <option value="none" data-i18n-opt="animNone">None</option>
-                      <option value="pulse" data-i18n-opt="animPulse">Pulse</option>
-                      <option value="breathe" data-i18n-opt="animBreathe">Breathe</option>
-                      <option value="glow" data-i18n-opt="animGlow">Glow</option>
-                    </select>
-                  </div>
-                  <div class="fab-size-row" id="fab-sound-row">
-                    <span class="fab-size-label" data-i18n="labelFloatingSound">Click Sound</span>
-                    <div class="fab-sound-group">
-                      <select id="select-fab-sound" class="dropdown-select">
-                        <option value="none" data-i18n-opt="soundNone">None</option>
-                        <option value="click" data-i18n-opt="soundClick">Click</option>
-                        <option value="pop" data-i18n-opt="soundPop">Pop</option>
-                        <option value="chime" data-i18n-opt="soundChime">Chime</option>
-                      </select>
-                      <button type="button" id="btn-fab-sound-preview" class="btn-icon-small" data-i18n-title="soundPreview" title="Preview">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                      </button>
                     </div>
                   </div>
                   <div class="fab-size-row" id="fab-autohide-row">

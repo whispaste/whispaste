@@ -14,16 +14,6 @@
   margin-top: var(--space-1);
 }
 
-/* ── Smart Mode State Bar ──────────────────────────────── */
-#smart-state-bar {
-  margin-bottom: var(--space-3-5);
-  opacity: 0.5;
-  transition: opacity var(--motion-normal, 200ms) var(--ease-out-smooth, ease);
-}
-#smart-state-bar.active {
-  opacity: 1;
-}
-
 .section-title-row {
   display: flex;
   align-items: center;
@@ -371,15 +361,6 @@
 .keyword-chip-remove:hover {
   opacity: 1;
   color: var(--error);
-}
-
-/* ── Workflow Step Animation ─────────────────────────── */
-#smart-state-bar.active .page-context-bar-step {
-  transition: color var(--motion-normal, 200ms), transform var(--motion-micro, 100ms);
-}
-#smart-state-bar.active .page-context-bar-step:hover {
-  color: var(--accent-primary, var(--accent));
-  transform: scale(1.05);
 }
 
 /* ── Workspace Hint ──────────────────────────────────── */

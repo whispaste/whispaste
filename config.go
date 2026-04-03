@@ -77,9 +77,7 @@ type Config struct {
 	FloatingButtonLocked    bool                     `json:"floating_button_locked,omitempty"`
 	FloatingButtonBorder    bool                     `json:"floating_button_border,omitempty"`
 	FloatingButtonShape     string                   `json:"floating_button_shape,omitempty"`     // "circle", "rounded", "squircle", "hexagon", "diamond", "star"
-	FloatingButtonContent   string                   `json:"floating_button_content,omitempty"`   // "microphone", "applogo", "waveform", "headphones", "pen"
-	FloatingButtonAnimation string                   `json:"floating_button_animation,omitempty"` // "none", "pulse", "breathe", "glow"
-	FloatingButtonSound     string                   `json:"floating_button_sound,omitempty"`     // "none", "click", "pop", "chime"
+	FloatingButtonContent   string                   `json:"floating_button_content,omitempty"`   // "microphone", "applogo", "waveform"
 	FloatingButtonAutoHide  string                   `json:"floating_button_auto_hide,omitempty"` // "never", "edge", "timeout"
 	FloatingButtonAutoHideTimeout int                `json:"floating_button_auto_hide_timeout,omitempty"`
 	UseVAD                  bool                     `json:"use_vad,omitempty"`
@@ -425,12 +423,12 @@ func (c *Config) SetFloatingButtonCustomColor(v string) {
 }
 
 // GetFloatingButtonContent returns the button icon content type (thread-safe).
-// Defaults to "microphone". Valid: "microphone", "applogo", "waveform", "headphones", "pen".
+// Defaults to "microphone". Valid: "microphone", "applogo", "waveform".
 func (c *Config) GetFloatingButtonContent() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	switch c.FloatingButtonContent {
-	case "microphone", "applogo", "waveform", "headphones", "pen":
+	case "microphone", "applogo", "waveform":
 		return c.FloatingButtonContent
 	default:
 		return "microphone"
@@ -442,62 +440,28 @@ func (c *Config) SetFloatingButtonContent(v string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	switch v {
-	case "microphone", "applogo", "waveform", "headphones", "pen":
+	case "microphone", "applogo", "waveform":
 		c.FloatingButtonContent = v
 	default:
 		c.FloatingButtonContent = "microphone"
 	}
 }
 
-// GetFloatingButtonAnimation returns the idle animation type (thread-safe).
-// Defaults to "none". Valid: "none", "pulse", "breathe", "glow".
+// GetFloatingButtonAnimation returns "none" (idle animations have been removed).
 func (c *Config) GetFloatingButtonAnimation() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	switch c.FloatingButtonAnimation {
-	case "none", "pulse", "breathe", "glow":
-		return c.FloatingButtonAnimation
-	default:
-		return "none"
-	}
+	return "none"
 }
 
-// SetFloatingButtonAnimation sets the idle animation type (thread-safe).
-func (c *Config) SetFloatingButtonAnimation(v string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	switch v {
-	case "none", "pulse", "breathe", "glow":
-		c.FloatingButtonAnimation = v
-	default:
-		c.FloatingButtonAnimation = "none"
-	}
-}
+// SetFloatingButtonAnimation is a no-op (idle animations have been removed).
+func (c *Config) SetFloatingButtonAnimation(_ string) {}
 
-// GetFloatingButtonSound returns the click sound type (thread-safe).
-// Defaults to "none". Valid: "none", "click", "pop", "chime".
+// GetFloatingButtonSound returns "none" (button sounds have been removed).
 func (c *Config) GetFloatingButtonSound() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	switch c.FloatingButtonSound {
-	case "none", "click", "pop", "chime":
-		return c.FloatingButtonSound
-	default:
-		return "none"
-	}
+	return "none"
 }
 
-// SetFloatingButtonSound sets the click sound type (thread-safe).
-func (c *Config) SetFloatingButtonSound(v string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	switch v {
-	case "none", "click", "pop", "chime":
-		c.FloatingButtonSound = v
-	default:
-		c.FloatingButtonSound = "none"
-	}
-}
+// SetFloatingButtonSound is a no-op (button sounds have been removed).
+func (c *Config) SetFloatingButtonSound(_ string) {}
 
 // GetFloatingButtonAutoHide returns the auto-hide behavior (thread-safe).
 // Defaults to "never". Valid: "never", "edge", "timeout".
