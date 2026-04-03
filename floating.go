@@ -4,7 +4,10 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -73,6 +76,31 @@ const (
 	// Timer for periodic topmost re-assertion
 	_FLOAT_TIMER_ID = 2    // distinct from overlay's _TIMER_ID=1
 	_FLOAT_TIMER_MS = 2000 // re-assert topmost every 2 seconds
+
+	// Timer for double-click detection (delays single-click action)
+	_FLOAT_DBLCLK_TIMER_ID = 3
+
+	// Timer for animation (gradient rotation, state icons)
+	_FLOAT_ANIM_TIMER_ID = 4
+	_FLOAT_ANIM_TIMER_MS = 50 // ~20 FPS for smooth gradient rotation
+
+	// Tooltip constants
+	_TTS_ALWAYSTIP      = 0x01
+	_TTS_NOPREFIX       = 0x02
+	_TTM_ADDTOOLW       = 0x0432
+	_TTM_UPDATETIPTEXTW = 0x0439
+	_TTF_IDISHWND       = 0x0001
+	_TTF_SUBCLASS       = 0x0010
+
+	// Double-click class style
+	_CS_DBLCLKS = 0x0008
+
+	// Non-client double-click
+	_WM_NCLBUTTONDBLCLK = 0x00A6
+	_WM_LBUTTONDBLCLK   = 0x0203
+
+	// Recording countdown arc color (cyan, 80% opacity)
+	_FLOAT_ARC_COLOR = 0xCC00E5FF
 )
 
 // Win32 structs for floating button
@@ -96,6 +124,8 @@ var (
 	procGetWindowRect       = ovlUser32.NewProc("GetWindowRect")
 	procMoveWindow          = ovlUser32.NewProc("MoveWindow")
 	procGetDpiForWindow     = ovlUser32.NewProc("GetDpiForWindow")
+	procSendMessageW        = ovlUser32.NewProc("SendMessageW")
+	procGetDoubleClickTime  = ovlUser32.NewProc("GetDoubleClickTime")
 
 	// GDI+ string alignment (used in drawMicIcon)
 	procGdipSetStringFormatAlign     = ovlGdiplus.NewProc("GdipSetStringFormatAlign")
@@ -105,6 +135,27 @@ var (
 	procGdipScaleWorldTransform     = ovlGdiplus.NewProc("GdipScaleWorldTransform")
 	procGdipTranslateWorldTransform = ovlGdiplus.NewProc("GdipTranslateWorldTransform")
 	procGdipResetWorldTransform     = ovlGdiplus.NewProc("GdipResetWorldTransform")
+
+	// GDI+ arc drawing (used for recording countdown ring)
+	procGdipDrawArc = ovlGdiplus.NewProc("GdipDrawArc")
+
+	// GDI+ path flattening (used for shape-aware countdown arc)
+	procGdipFlattenPath   = ovlGdiplus.NewProc("GdipFlattenPath")
+	procGdipGetPointCount = ovlGdiplus.NewProc("GdipGetPointCount")
+	procGdipGetPathPoints = ovlGdiplus.NewProc("GdipGetPathPoints")
+
+	// GDI+ gradient from two points (arbitrary angle)
+	procGdipCreateLineBrush = ovlGdiplus.NewProc("GdipCreateLineBrush")
+
+	// GDI+ float-based ellipse fill (used for processing icon dots)
+	procGdipFillEllipse = ovlGdiplus.NewProc("GdipFillEllipse")
+
+	// GDI+ clipping (used to clip gradient to shape path)
+	procGdipSetClipPath    = ovlGdiplus.NewProc("GdipSetClipPath")
+	procGdipResetClip      = ovlGdiplus.NewProc("GdipResetClip")
+
+	// GDI+ path figure start (used for polygon shapes)
+	procGdipStartPathFigure = ovlGdiplus.NewProc("GdipStartPathFigure")
 )
 
 // floatColorPreset defines a gradient color theme for the floating button.
@@ -160,18 +211,62 @@ func getFloatPreset(name string) floatColorPreset {
 	return floatColorPresets["cyan"]
 }
 
+// parseHexToARGB converts a "#RRGGBB" hex string to a 0xAARRGGBB uint32 (fully opaque).
+func parseHexToARGB(hex string) uint32 {
+	hex = strings.TrimPrefix(hex, "#")
+	if len(hex) == 6 {
+		r, _ := strconv.ParseUint(hex[0:2], 16, 8)
+		g, _ := strconv.ParseUint(hex[2:4], 16, 8)
+		b, _ := strconv.ParseUint(hex[4:6], 16, 8)
+		return 0xFF000000 | (uint32(r) << 16) | (uint32(g) << 8) | uint32(b)
+	}
+	return 0xFF22D3EE // fallback cyan
+}
+
+// darkenColor multiplies RGB channels by factor, preserving alpha.
+func darkenColor(argb uint32, factor float64) uint32 {
+	a := argb & 0xFF000000
+	r := uint32(float64((argb>>16)&0xFF) * factor)
+	g := uint32(float64((argb>>8)&0xFF) * factor)
+	b := uint32(float64(argb&0xFF) * factor)
+	if r > 0xFF {
+		r = 0xFF
+	}
+	if g > 0xFF {
+		g = 0xFF
+	}
+	if b > 0xFF {
+		b = 0xFF
+	}
+	return a | (r << 16) | (g << 8) | b
+}
+
 // ───────────────────── FloatingButton ─────────────────────
 
 var globalFloating *FloatingButton
 
+// toolInfoW is the Win32 TOOLINFOW struct for tooltip management.
+type toolInfoW struct {
+	CbSize   uint32
+	UFlags   uint32
+	Hwnd     uintptr
+	UID      uintptr
+	Rect     rectT
+	HInst    uintptr
+	LpszText *uint16
+	LParam   uintptr
+	LpReserved uintptr
+}
+
 // FloatingButton is a small always-on-top circle that starts recording on click.
 type FloatingButton struct {
-	hwnd   uintptr
-	dibDC  uintptr
-	dibBmp uintptr
-	ready  chan error
-	done   chan struct{}
-	cfg    *Config
+	hwnd       uintptr
+	dibDC      uintptr
+	dibBmp     uintptr
+	tooltipHwnd uintptr
+	ready      chan error
+	done       chan struct{}
+	cfg        *Config
 
 	onStartRecording func()
 	onOpenWindow     func(string)
@@ -190,6 +285,12 @@ type FloatingButton struct {
 	dragStartX int32 // window X at start of potential drag
 	dragStartY int32 // window Y at start of potential drag
 	size       int   // current diameter in pixels (cached from config)
+
+	// Double-click detection: defers single-click to distinguish from double-click
+	dblClickPending bool
+
+	// Recording countdown: tracks when recording started for progress arc
+	recordingStart time.Time
 
 	// Position save debouncing
 	lastMoveSave time.Time
@@ -268,14 +369,23 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		ret, _, _ := procDefWindowProcW.Call(hwnd, msg, wParam, lParam)
 		var rc2 rectT
 		procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&rc2)))
-		wasDrag, cb := func() (bool, func()) {
+		wasDrag := func() bool {
 			fb.mu.Lock()
 			defer fb.mu.Unlock()
-			return rc2.Left != fb.dragStartX || rc2.Top != fb.dragStartY, fb.onStartRecording
+			return rc2.Left != fb.dragStartX || rc2.Top != fb.dragStartY
 		}()
-		if !wasDrag && cb != nil {
-			procPostMessageW.Call(hwnd, _WM_FLOAT_HIDE, 0, 0)
-			go cb()
+		if !wasDrag {
+			// Defer click action to allow double-click detection
+			func() {
+				fb.mu.Lock()
+				defer fb.mu.Unlock()
+				fb.dblClickPending = true
+			}()
+			dblClickMs, _, _ := procGetDoubleClickTime.Call()
+			if dblClickMs == 0 {
+				dblClickMs = 250
+			}
+			procSetTimer.Call(hwnd, _FLOAT_DBLCLK_TIMER_ID, dblClickMs, 0)
 		}
 		return ret
 
@@ -284,15 +394,45 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		// The primary click detection is in NCLBUTTONDOWN above.
 		return 0
 
-	case 0x0201: // WM_LBUTTONDOWN — when position is locked, NCHITTEST returns HTCLIENT
-		cb := func() func() {
+	case _WM_NCLBUTTONDBLCLK:
+		// Cancel the pending single-click timer and open main window
+		procKillTimer.Call(hwnd, _FLOAT_DBLCLK_TIMER_ID)
+		cb := func() func(string) {
 			fb.mu.Lock()
 			defer fb.mu.Unlock()
-			return fb.onStartRecording
+			fb.dblClickPending = false
+			return fb.onOpenWindow
 		}()
 		if cb != nil {
-			procPostMessageW.Call(hwnd, _WM_FLOAT_HIDE, 0, 0)
-			go cb()
+			go cb("")
+		}
+		return 0
+
+	case 0x0201: // WM_LBUTTONDOWN — when position is locked, NCHITTEST returns HTCLIENT
+		// Defer click to allow double-click detection
+		func() {
+			fb.mu.Lock()
+			defer fb.mu.Unlock()
+			fb.dblClickPending = true
+		}()
+		dblClickMs, _, _ := procGetDoubleClickTime.Call()
+		if dblClickMs == 0 {
+			dblClickMs = 250
+		}
+		procSetTimer.Call(hwnd, _FLOAT_DBLCLK_TIMER_ID, dblClickMs, 0)
+		return 0
+
+	case _WM_LBUTTONDBLCLK:
+		// Cancel pending single-click and open main window (locked mode)
+		procKillTimer.Call(hwnd, _FLOAT_DBLCLK_TIMER_ID)
+		cb := func() func(string) {
+			fb.mu.Lock()
+			defer fb.mu.Unlock()
+			fb.dblClickPending = false
+			return fb.onOpenWindow
+		}()
+		if cb != nil {
+			go cb("")
 		}
 		return 0
 
@@ -448,11 +588,14 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			_SWP_NOMOVE|_SWP_NOSIZE|_SWP_NOACTIVATE|_SWP_SHOWWINDOW)
 		// Start periodic topmost re-assertion timer
 		procSetTimer.Call(hwnd, _FLOAT_TIMER_ID, _FLOAT_TIMER_MS, 0)
+		// Start animation timer for gradient rotation and state icons
+		procSetTimer.Call(hwnd, _FLOAT_ANIM_TIMER_ID, _FLOAT_ANIM_TIMER_MS, 0)
 		fb.render()
 		return 0
 
 	case _WM_FLOAT_HIDE:
 		procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
+		procKillTimer.Call(hwnd, _FLOAT_ANIM_TIMER_ID)
 		procShowWindow.Call(hwnd, uintptr(_SW_HIDE))
 		func() {
 			fb.mu.Lock()
@@ -479,6 +622,27 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		return 0
 
 	case _WM_TIMER:
+		timerID := wParam
+		if timerID == _FLOAT_DBLCLK_TIMER_ID {
+			// Double-click timer expired — treat as single click (record toggle)
+			procKillTimer.Call(hwnd, _FLOAT_DBLCLK_TIMER_ID)
+			pending, cb := func() (bool, func()) {
+				fb.mu.Lock()
+				defer fb.mu.Unlock()
+				p := fb.dblClickPending
+				fb.dblClickPending = false
+				return p, fb.onStartRecording
+			}()
+			if pending && cb != nil {
+				procPostMessageW.Call(hwnd, _WM_FLOAT_HIDE, 0, 0)
+				go cb()
+			}
+			return 0
+		}
+		if timerID == _FLOAT_ANIM_TIMER_ID {
+			fb.render()
+			return 0
+		}
 		// Periodic topmost re-assertion to prevent z-order loss
 		const _HWND_TOPMOST3 = ^uintptr(0)
 		const _SWP_NOMOVE3 = 0x0002
@@ -494,6 +658,11 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 	case _WM_DESTROY:
 		procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
+		procKillTimer.Call(hwnd, _FLOAT_DBLCLK_TIMER_ID)
+		procKillTimer.Call(hwnd, _FLOAT_ANIM_TIMER_ID)
+		if fb.tooltipHwnd != 0 {
+			procDestroyWindow.Call(fb.tooltipHwnd)
+		}
 		if fb.dibDC != 0 {
 			procDeleteDC.Call(fb.dibDC)
 		}
@@ -665,7 +834,7 @@ func (fb *FloatingButton) initWindow() error {
 
 	var wc wndClassExW
 	wc.CbSize = uint32(unsafe.Sizeof(wc))
-	wc.Style = _CS_HREDRAW | _CS_VREDRAW
+	wc.Style = _CS_HREDRAW | _CS_VREDRAW | _CS_DBLCLKS
 	wc.LpfnWndProc = floatingWndProcCB
 	wc.HInstance = hInst
 	// Hand cursor for the button
@@ -705,6 +874,9 @@ func (fb *FloatingButton) initWindow() error {
 	}
 	fb.hwnd = hwnd
 
+	// Create tooltip control
+	fb.createTooltip(hInst)
+
 	// Create DIB section for per-pixel alpha rendering
 	fb.createDIB()
 	fb.render()
@@ -713,6 +885,206 @@ func (fb *FloatingButton) initWindow() error {
 }
 
 // ───────────────────── DIB + Rendering ─────────────────────
+
+// buildShapePath creates a GDI+ path for the configured shape (rounded/squircle).
+// Returns 0 for "circle" (caller should use ellipse calls instead).
+// Caller MUST call procGdipDeletePath when done with a non-zero result.
+func (fb *FloatingButton) buildShapePath(x, y, w, h int) uintptr {
+	shape := fb.cfg.GetFloatingButtonShape()
+	switch shape {
+	case "rounded":
+		return fb.buildRoundedPath(x, y, w, h, float32(w)/4.0)
+	case "squircle":
+		return fb.buildRoundedPath(x, y, w, h, float32(w)/3.0)
+	case "hexagon":
+		return fb.buildHexPath(x, y, w, h)
+	case "diamond":
+		return fb.buildDiamondPath(x, y, w, h)
+	default:
+		return 0
+	}
+}
+
+// buildRoundedPath creates a rounded rectangle path with the given corner radius.
+func (fb *FloatingButton) buildRoundedPath(x, y, w, h int, r float32) uintptr {
+	var path uintptr
+	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&path)))
+	if path == 0 {
+		return 0
+	}
+	procGdipAddPathArc.Call(path, f32(float32(x)), f32(float32(y)), f32(r*2), f32(r*2), f32(180), f32(90))
+	procGdipAddPathArc.Call(path, f32(float32(x+w)-r*2), f32(float32(y)), f32(r*2), f32(r*2), f32(270), f32(90))
+	procGdipAddPathArc.Call(path, f32(float32(x+w)-r*2), f32(float32(y+h)-r*2), f32(r*2), f32(r*2), f32(0), f32(90))
+	procGdipAddPathArc.Call(path, f32(float32(x)), f32(float32(y+h)-r*2), f32(r*2), f32(r*2), f32(90), f32(90))
+	procGdipClosePathFigure.Call(path)
+	return path
+}
+
+// buildHexPath creates a flat-top hexagonal path.
+func (fb *FloatingButton) buildHexPath(x, y, w, h int) uintptr {
+	var path uintptr
+	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&path)))
+	if path == 0 {
+		return 0
+	}
+	cx, cy := float32(x)+float32(w)/2, float32(y)+float32(h)/2
+	r := float32(w) / 2
+	for i := 0; i < 6; i++ {
+		angle := float64(-30+60*i) * math.Pi / 180
+		px := cx + r*float32(math.Cos(angle))
+		py := cy + r*float32(math.Sin(angle))
+		if i > 0 {
+			prevAngle := float64(-30+60*(i-1)) * math.Pi / 180
+			prevX := cx + r*float32(math.Cos(prevAngle))
+			prevY := cy + r*float32(math.Sin(prevAngle))
+			procGdipAddPathLine.Call(path, uintptr(int32(prevX)), uintptr(int32(prevY)), uintptr(int32(px)), uintptr(int32(py)))
+		}
+	}
+	procGdipClosePathFigure.Call(path)
+	return path
+}
+
+// buildDiamondPath creates a diamond (rotated square) path.
+func (fb *FloatingButton) buildDiamondPath(x, y, w, h int) uintptr {
+	var path uintptr
+	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&path)))
+	if path == 0 {
+		return 0
+	}
+	cx, cy := float32(x)+float32(w)/2, float32(y)+float32(h)/2
+	rx, ry := float32(w)/2, float32(h)/2
+	procGdipAddPathLine.Call(path, uintptr(int32(cx)), uintptr(int32(cy-ry)), uintptr(int32(cx+rx)), uintptr(int32(cy)))
+	procGdipAddPathLine.Call(path, uintptr(int32(cx+rx)), uintptr(int32(cy)), uintptr(int32(cx)), uintptr(int32(cy+ry)))
+	procGdipAddPathLine.Call(path, uintptr(int32(cx)), uintptr(int32(cy+ry)), uintptr(int32(cx-rx)), uintptr(int32(cy)))
+	procGdipClosePathFigure.Call(path)
+	return path
+}
+
+// fillShape fills the configured shape (circle, rounded, squircle) with the given brush.
+func (fb *FloatingButton) fillShape(g, brush uintptr, x, y, w, h int) {
+	path := fb.buildShapePath(x, y, w, h)
+	if path == 0 {
+		procGdipFillEllipseI.Call(g, brush, uintptr(x), uintptr(y), uintptr(w), uintptr(h))
+		return
+	}
+	defer procGdipDeletePath.Call(path)
+	procGdipFillPath.Call(g, brush, path)
+}
+
+// setShapeClip sets a GDI+ clipping region to the button shape so all
+// subsequent drawing is confined to the shape bounds (no gradient bleed).
+func (fb *FloatingButton) setShapeClip(g uintptr, x, y, w, h int) {
+	path := fb.buildShapePath(x, y, w, h)
+	if path == 0 {
+		// Circle: clip to ellipse via a temporary path
+		var epath uintptr
+		procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&epath)))
+		if epath == 0 {
+			return
+		}
+		procGdipAddPathEllipseI.Call(epath, uintptr(x), uintptr(y), uintptr(w), uintptr(h))
+		procGdipSetClipPath.Call(g, epath, 0) // CombineModeReplace
+		procGdipDeletePath.Call(epath)
+		return
+	}
+	procGdipSetClipPath.Call(g, path, 0) // CombineModeReplace
+	procGdipDeletePath.Call(path)
+}
+
+// drawShapeOutline strokes the configured shape with the given pen.
+func (fb *FloatingButton) drawShapeOutline(g, pen uintptr, x, y, w, h int) {
+	path := fb.buildShapePath(x, y, w, h)
+	if path == 0 {
+		procGdipDrawEllipseI.Call(g, pen, uintptr(x), uintptr(y), uintptr(w), uintptr(h))
+		return
+	}
+	defer procGdipDeletePath.Call(path)
+	procGdipDrawPath.Call(g, pen, path)
+}
+
+// drawShapeProgress draws a progress stroke along the button shape outline.
+// For circles, it uses GdipDrawArc. For other shapes, it traces the flattened outline.
+func (fb *FloatingButton) drawShapeProgress(g, pen uintptr, x, y, w, h int, progress float32) {
+	shape := fb.cfg.GetFloatingButtonShape()
+	if shape == "" || shape == "circle" {
+		sweepAngle := progress * 360.0
+		procGdipDrawArc.Call(g, pen,
+			f32(float32(x)), f32(float32(y)), f32(float32(w)), f32(float32(h)),
+			f32(-90), f32(sweepAngle))
+		return
+	}
+
+	path := fb.buildShapePath(x, y, w, h)
+	if path == 0 {
+		sweepAngle := progress * 360.0
+		procGdipDrawArc.Call(g, pen,
+			f32(float32(x)), f32(float32(y)), f32(float32(w)), f32(float32(h)),
+			f32(-90), f32(sweepAngle))
+		return
+	}
+	defer procGdipDeletePath.Call(path)
+
+	// Flatten curves to line segments
+	procGdipFlattenPath.Call(path, 0, f32(1.0))
+
+	var count int32
+	procGdipGetPointCount.Call(path, uintptr(unsafe.Pointer(&count)))
+	if count < 2 {
+		return
+	}
+
+	type pointF struct{ X, Y float32 }
+	points := make([]pointF, count)
+	procGdipGetPathPoints.Call(path, uintptr(unsafe.Pointer(&points[0])), uintptr(count))
+
+	// Compute total closed-path length
+	n := int(count)
+	totalLen := float32(0)
+	for i := 1; i <= n; i++ {
+		prev := points[i-1]
+		curr := points[i%n]
+		dx := curr.X - prev.X
+		dy := curr.Y - prev.Y
+		totalLen += float32(math.Sqrt(float64(dx*dx + dy*dy)))
+	}
+
+	// Find the topmost point as the starting vertex (closest to -90°, matching GdipDrawArc)
+	startIdx := 0
+	minY := points[0].Y
+	for i := 1; i < n; i++ {
+		if points[i].Y < minY || (points[i].Y == minY && math.Abs(float64(points[i].X-float32(x+w/2))) < math.Abs(float64(points[startIdx].X-float32(x+w/2)))) {
+			minY = points[i].Y
+			startIdx = i
+		}
+	}
+
+	// Draw segments starting from the top vertex up to progress fraction
+	targetLen := progress * totalLen
+	drawn := float32(0)
+	for step := 0; step < n; step++ {
+		i := (startIdx + step) % n
+		j := (startIdx + step + 1) % n
+		prev := points[i]
+		curr := points[j]
+		dx := curr.X - prev.X
+		dy := curr.Y - prev.Y
+		segLen := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+
+		if drawn+segLen <= targetLen {
+			procGdipDrawLine.Call(g, pen,
+				f32(prev.X), f32(prev.Y), f32(curr.X), f32(curr.Y))
+			drawn += segLen
+		} else {
+			remain := targetLen - drawn
+			frac := remain / segLen
+			endX := prev.X + dx*frac
+			endY := prev.Y + dy*frac
+			procGdipDrawLine.Call(g, pen,
+				f32(prev.X), f32(prev.Y), f32(endX), f32(endY))
+			break
+		}
+	}
+}
 
 func (fb *FloatingButton) createDIB() {
 	sz := int32(fb.getSize())
@@ -757,6 +1129,9 @@ func (fb *FloatingButton) render() {
 	// Clear to transparent
 	procGdipGraphicsClear.Call(g, 0x00000000)
 
+	// Clip all drawing to the button shape so gradients don't bleed at corners
+	fb.setShapeClip(g, 0, 0, sz, sz)
+
 	alpha := func() byte {
 		fb.mu.Lock()
 		defer fb.mu.Unlock()
@@ -764,14 +1139,39 @@ func (fb *FloatingButton) render() {
 	}()
 
 	preset := getFloatPreset(fb.cfg.GetFloatingButtonColor())
+	if fb.cfg.GetFloatingButtonColor() == "custom" {
+		base := parseHexToARGB(fb.cfg.GetFloatingButtonCustomColor())
+		darker := darkenColor(base, 0.7)
+		lighter := darkenColor(base, 1.15) // slightly brighter for hover
+		preset = floatColorPreset{Top: base, Bottom: darker, HoverTop: lighter, HoverBot: base}
+	}
 
-	// Outer glow (semi-transparent accent ring behind the circle)
-	// Design alpha: 40/255 ≈ 16% — applied via per-pixel alpha
-	glowColor := (uint32(40) << 24) | (preset.Top & 0x00FFFFFF)
+	// State-based glow color for the outer ring
+	var glowColor uint32
+	appState := StateIdle
+	if fn := func() func() AppState {
+		fb.mu.Lock()
+		defer fb.mu.Unlock()
+		return fb.getState
+	}(); fn != nil {
+		appState = fn()
+	}
+	switch appState {
+	case StateRecording, StatePaused:
+		// Pulsing red glow during recording
+		pulse := float64(time.Now().UnixMilli()%1000) / 1000.0
+		glowAlpha := uint32(80 + 60*math.Sin(pulse*2*math.Pi))
+		glowColor = (glowAlpha << 24) | 0xFF3333
+	case StateTranscribing, StateProcessing:
+		glowColor = 0x60FFAB00 // amber
+	default:
+		// Default: subtle accent glow
+		glowColor = (uint32(40) << 24) | (preset.Top & 0x00FFFFFF)
+	}
 	var glowBrush uintptr
 	procGdipCreateSolidFill.Call(uintptr(glowColor), uintptr(unsafe.Pointer(&glowBrush)))
 	if glowBrush != 0 {
-		procGdipFillEllipseI.Call(g, glowBrush, 0, 0, uintptr(sz), uintptr(sz))
+		fb.fillShape(g, glowBrush, 0, 0, sz, sz)
 		procGdipDeleteBrush.Call(glowBrush)
 	}
 
@@ -781,28 +1181,33 @@ func (fb *FloatingButton) render() {
 	var shadowBrush uintptr
 	procGdipCreateSolidFill.Call(uintptr(shadowColor), uintptr(unsafe.Pointer(&shadowBrush)))
 	if shadowBrush != 0 {
-		procGdipFillEllipseI.Call(g, shadowBrush, 4, 4, uintptr(sz-4), uintptr(sz-4))
+		fb.fillShape(g, shadowBrush, 4, 4, sz-4, sz-4)
 		procGdipDeleteBrush.Call(shadowBrush)
 	}
 
-	// Main circle with 135° gradient (top-left → bottom-right)
+	// Main shape with animated gradient (slow rotating color shift)
 	topClr, botClr := preset.Top, preset.Bottom
 
-	// GdipCreateLineBrushFromRectI uses a rect + LinearGradientMode
-	// For 135° we use ForwardDiagonal (mode=2)
-	type gpRectI struct{ X, Y, W, H int32 }
-	circleRect := gpRectI{2, 2, int32(sz - 4), int32(sz - 4)}
+	// Animate gradient angle: one full rotation every ~8 seconds
+	angle := float32(math.Mod(float64(time.Now().UnixMilli())/8000.0*360.0, 360.0))
+	cxf, cyf := float32(sz)/2.0, float32(sz)/2.0
+	rad := float64(angle) * math.Pi / 180.0
+	gdx, gdy := float32(math.Cos(rad)), float32(math.Sin(rad))
+	halfSz := float32(sz) / 2.0
+	pt1 := [2]float32{cxf - gdx*halfSz, cyf - gdy*halfSz}
+	pt2 := [2]float32{cxf + gdx*halfSz, cyf + gdy*halfSz}
+
 	var gradBrush uintptr
-	procGdipCreateLineBrushFromRectI.Call(
-		uintptr(unsafe.Pointer(&circleRect)),
+	procGdipCreateLineBrush.Call(
+		uintptr(unsafe.Pointer(&pt1)),
+		uintptr(unsafe.Pointer(&pt2)),
 		uintptr(topClr),
 		uintptr(botClr),
-		2, // LinearGradientModeForwardDiagonal (135°)
 		0, // WrapModeTile
 		uintptr(unsafe.Pointer(&gradBrush)),
 	)
 	if gradBrush != 0 {
-		procGdipFillEllipseI.Call(g, gradBrush, 2, 2, uintptr(sz-4), uintptr(sz-4))
+		fb.fillShape(g, gradBrush, 2, 2, sz-4, sz-4)
 		procGdipDeleteBrush.Call(gradBrush)
 	}
 
@@ -812,12 +1217,39 @@ func (fb *FloatingButton) render() {
 		var borderPen uintptr
 		procGdipCreatePen1.Call(uintptr(borderColor), f32(2.0), 2, uintptr(unsafe.Pointer(&borderPen)))
 		if borderPen != 0 {
-			procGdipDrawEllipseI.Call(g, borderPen, 3, 3, uintptr(sz-6), uintptr(sz-6))
+			fb.drawShapeOutline(g, borderPen, 3, 3, sz-6, sz-6)
 			procGdipDeletePen.Call(borderPen)
 		}
 	}
 
-	// Mic icon (full opacity in pixel data)
+	// Recording countdown arc — shows progress toward max recording duration
+	if appState == StateRecording || appState == StatePaused {
+		maxDur := fb.cfg.GetMaxRecordSec()
+		if maxDur > 0 {
+			recStart := func() time.Time {
+				fb.mu.Lock()
+				defer fb.mu.Unlock()
+				return fb.recordingStart
+			}()
+			if !recStart.IsZero() {
+				elapsed := time.Since(recStart).Seconds()
+				progress := float32(elapsed) / float32(maxDur)
+				if progress > 1 {
+					progress = 1
+				}
+				var arcPen uintptr
+				procGdipCreatePen1.Call(uintptr(_FLOAT_ARC_COLOR), f32(2.5), 2, uintptr(unsafe.Pointer(&arcPen)))
+				if arcPen != 0 {
+					inset := 2
+					arcSize := sz - 2*inset
+					fb.drawShapeProgress(g, arcPen, inset, inset, arcSize, arcSize, progress)
+					procGdipDeletePen.Call(arcPen)
+				}
+			}
+		}
+	}
+
+	// Always show mic icon — button is hidden during recording/transcribing/processing
 	fb.drawMicIcon(g, 255)
 
 	// UpdateLayeredWindow — SourceConstantAlpha controls the user's opacity setting.
@@ -842,6 +1274,9 @@ func (fb *FloatingButton) render() {
 		uintptr(unsafe.Pointer(&blend)),
 		2, // ULW_ALPHA
 	)
+
+	// Update tooltip to reflect current state
+	fb.updateTooltip()
 }
 
 func (fb *FloatingButton) drawMicIcon(g uintptr, alpha uint32) {
@@ -894,6 +1329,90 @@ func (fb *FloatingButton) drawMicIcon(g uintptr, alpha uint32) {
 
 	// ── Stem ──
 	procGdipDrawLineI.Call(g, pen, uintptr(12+o), uintptr(19+o), uintptr(12+o), uintptr(22+o))
+}
+
+// ───────────────────── Tooltip ─────────────────────
+
+// createTooltip creates a Win32 tooltip control attached to the floating button window.
+func (fb *FloatingButton) createTooltip(hInst uintptr) {
+	ttClass, _ := windows.UTF16PtrFromString("tooltips_class32")
+	hwndTip, _, _ := procCreateWindowExW.Call(
+		0,
+		uintptr(unsafe.Pointer(ttClass)),
+		0,
+		uintptr(_TTS_ALWAYSTIP|_TTS_NOPREFIX),
+		0, 0, 0, 0,
+		fb.hwnd, 0, hInst, 0,
+	)
+	if hwndTip == 0 {
+		logWarn("Failed to create floating button tooltip")
+		return
+	}
+	fb.tooltipHwnd = hwndTip
+
+	tipText, _ := windows.UTF16PtrFromString("WhisPaste — " + T("floating.status_ready"))
+	var ti toolInfoW
+	ti.CbSize = uint32(unsafe.Sizeof(ti))
+	ti.UFlags = _TTF_IDISHWND | _TTF_SUBCLASS
+	ti.Hwnd = fb.hwnd
+	ti.UID = fb.hwnd
+	ti.LpszText = tipText
+	procSendMessageW.Call(hwndTip, _TTM_ADDTOOLW, 0, uintptr(unsafe.Pointer(&ti)))
+}
+
+// updateTooltip updates the tooltip text based on the current app state.
+// Must be called on the window thread (via PostMessage).
+func (fb *FloatingButton) updateTooltip() {
+	if fb.tooltipHwnd == 0 {
+		return
+	}
+	appState := StateIdle
+	if fn := func() func() AppState {
+		fb.mu.Lock()
+		defer fb.mu.Unlock()
+		return fb.getState
+	}(); fn != nil {
+		appState = fn()
+	}
+
+	var statusKey string
+	switch appState {
+	case StateRecording:
+		statusKey = "floating.tip_recording"
+	case StatePaused:
+		statusKey = "floating.tip_paused"
+	case StateTranscribing:
+		statusKey = "floating.tip_transcribing"
+	case StateProcessing:
+		statusKey = "floating.tip_processing"
+	default:
+		statusKey = "floating.tip_ready"
+	}
+
+	tipText, _ := windows.UTF16PtrFromString(T(statusKey))
+	var ti toolInfoW
+	ti.CbSize = uint32(unsafe.Sizeof(ti))
+	ti.UFlags = _TTF_IDISHWND | _TTF_SUBCLASS
+	ti.Hwnd = fb.hwnd
+	ti.UID = fb.hwnd
+	ti.LpszText = tipText
+	procSendMessageW.Call(fb.tooltipHwnd, _TTM_UPDATETIPTEXTW, 0, uintptr(unsafe.Pointer(&ti)))
+}
+
+// ───────────────────── Recording State ─────────────────────
+
+// SetRecordingStart records when a recording session began (for countdown arc).
+func (fb *FloatingButton) SetRecordingStart(t time.Time) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	fb.recordingStart = t
+}
+
+// NotifyStateChanged triggers a re-render and tooltip update to reflect the current state.
+func (fb *FloatingButton) NotifyStateChanged() {
+	if fb.hwnd != 0 {
+		procPostMessageW.Call(fb.hwnd, _WM_FLOAT_RERENDER, 0, 0)
+	}
 }
 
 // ───────────────────── Position Management ─────────────────────

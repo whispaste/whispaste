@@ -48,6 +48,9 @@ func main() {
 
 	InitLogger(LogDebug)
 	defer CloseLogger()
+
+	recoverUpdateState()
+
 	i18n.Init(AppVersion)
 	models.Init(AppName)
 
@@ -284,6 +287,10 @@ func main() {
 			if tray != nil {
 				tray.SetTooltipState(StateIdle)
 			}
+			if floatingBtn != nil {
+				floatingBtn.SetRecordingStart(time.Time{})
+				floatingBtn.NotifyStateChanged()
+			}
 		}
 
 		switch newState {
@@ -301,7 +308,7 @@ func main() {
 				return
 			}
 			if !useLocal && apiKey == "" {
-				logWarn("Recording aborted: API mode but no API key configured")
+				logInfo("Recording aborted: API mode but no API key configured")
 				if tray != nil {
 					tray.ShowBalloon(AppName, T("error.no_api_key"))
 				}
@@ -311,16 +318,11 @@ func main() {
 				resetToIdle()
 				return
 			}
-			if playSounds {
-				PlayFeedback(SoundRecordStart)
-			}
-			if overlay != nil {
-				overlay.Show(StateRecording)
-			}
 			// Hide floating button during recording
 			if floatingBtn != nil {
 				floatingBtn.Hide()
 			}
+			// Start audio device BEFORE feedback — only confirm success with sound
 			if err := recorder.Start(); err != nil {
 				logError("Recording error: %v", err)
 				if tray != nil {
@@ -329,16 +331,24 @@ func main() {
 				if playSounds {
 					PlayFeedback(SoundError)
 				}
-				if overlay != nil {
-					overlay.Hide()
-				}
 				if floatingBtn != nil && cfg.GetFloatingButtonEnabled() {
 					floatingBtn.Show()
 				}
 				resetToIdle()
 				return
 			}
+			// Device confirmed started — now show UI feedback
+			if playSounds {
+				PlayFeedback(SoundRecordStart)
+			}
+			if overlay != nil {
+				overlay.Show(StateRecording)
+			}
 			recordStart = time.Now()
+			// Pass recording start time to floating button for countdown arc
+			if floatingBtn != nil {
+				floatingBtn.SetRecordingStart(recordStart)
+			}
 			// Max recording duration (read early for overlay warning colors)
 			maxSec := cfg.GetMaxRecordSec()
 			if overlay != nil {
@@ -485,12 +495,6 @@ func main() {
 					logDebug("Stripped internal silence: %d → %d bytes", before, len(stripped))
 					pcm = stripped
 				}
-			}
-
-			// Set transcription time estimate on overlay (16-bit mono = 2 bytes/sample at 16kHz)
-			if overlay != nil {
-				audioDurSec := float64(len(pcm)) / (16000.0 * 2.0)
-				overlay.SetTranscribeEstimate(audioDurSec, useLocal)
 			}
 
 			// Transcribe in background
@@ -770,7 +774,8 @@ func main() {
 				// Auto-tag with local LLM if available
 				if entryID != "" && IsLLMInstalled() {
 					tagEntryID, tagText, tagCustom := entryID, text, cfg.GetCustomTags()
-					go AutoTagEntry(history, tagEntryID, tagText, tagCustom)
+					tagLang := cfg.GetUILanguage()
+					go AutoTagEntry(history, tagEntryID, tagText, tagCustom, tagLang)
 				}
 
 				// Audio already cached for pending entries; cache for new entries
@@ -793,6 +798,9 @@ func main() {
 				}
 
 				if autoPaste && recSrc != SourceAppUI && !postProcCancelled {
+					if delay := cfg.GetAutoPasteDelay(); delay > 0 {
+						time.Sleep(time.Duration(delay) * time.Millisecond)
+					}
 					// PasteText writes to clipboard and simulates Ctrl+V
 					if err := PasteText(text); err != nil {
 						if errors.Is(err, errPasteClipboardOnly) {
@@ -831,12 +839,11 @@ func main() {
 				}
 
 				// Show "Copied" feedback briefly, then auto-hide
-				gen := func() uint64 {
+				func() {
 					stateMu.Lock()
 					defer stateMu.Unlock()
 					state = StateIdle
 					stateGen++
-					return stateGen
 				}()
 				NotifyRecordingState(StateIdle)
 				// Re-show floating button now that we're idle
@@ -848,18 +855,26 @@ func main() {
 				}
 
 				if overlay != nil {
-					overlay.Show(StateCopied)
-					go func(expectedGen uint64) {
-						time.Sleep(2 * time.Second)
-						match := func() bool {
-							stateMu.Lock()
-							defer stateMu.Unlock()
-							return stateGen == expectedGen
-						}()
-						if match {
-							overlay.Hide()
+					overlay.ShowCompletion()
+				}
+
+				// Auto-trigger feedback prompt after 50 successful recordings
+				if FeedbackRelayURL != "" && !cfg.GetFeedbackPromptShown() && getInstallSource() != "msix" {
+					analytics := history.GetAnalytics(0)
+					if totalVal, ok := analytics["totalEntries"]; ok {
+						if total, ok := totalVal.(int); ok && total >= 50 {
+							cfg.SetFeedbackPromptShown(true)
+							cfg.Save()
+							mainWindowMu.Lock()
+							wv := mainWebview
+							mainWindowMu.Unlock()
+							if wv != nil {
+								wv.Dispatch(func() {
+									wv.Eval(`if(typeof switchPage==='function')switchPage('feedback')`)
+								})
+							}
 						}
-					}(gen)
+					}
 				}
 			}()
 
@@ -1228,7 +1243,7 @@ func main() {
 	settingsSaved = onSettingsSaved
 
 	// Initialize updater
-	updater := NewUpdater(AppVersion, cfg.GetCheckUpdates, cfg.GetUpdateChannel)
+	updater := NewUpdater(AppVersion, cfg.GetCheckUpdates)
 
 	// System tray (this blocks on the main thread)
 	onToggle := func() {
