@@ -505,6 +505,22 @@
 .fab-content-option:hover { border-color: var(--border-primary); color: var(--text-primary); }
 .fab-content-option.selected { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent), transparent 90%); }
 
+/* Custom image picker row */
+.fab-custom-image-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+}
+.fab-custom-image-path {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
 /* Sound preview group */
 .fab-sound-group {
   display: flex;

@@ -160,6 +160,11 @@ var (
 
 	// GDI+ path figure start (used for polygon shapes)
 	procGdipStartPathFigure = ovlGdiplus.NewProc("GdipStartPathFigure")
+
+	// GDI+ image loading (used for custom button icon)
+	procGdipLoadImageFromFile    = ovlGdiplus.NewProc("GdipLoadImageFromFile")
+	procGdipGetImageWidth        = ovlGdiplus.NewProc("GdipGetImageWidth")
+	procGdipGetImageHeight       = ovlGdiplus.NewProc("GdipGetImageHeight")
 )
 
 // floatColorPreset defines a gradient color theme for the floating button.
@@ -290,6 +295,8 @@ type FloatingButton struct {
 	dragStartY int32 // window Y at start of potential drag
 	size       int   // current diameter in pixels (cached from config)
 	content    string // icon content type (cached from config)
+	customImage     uintptr // cached GDI+ image for custom icon
+	customImagePath string  // path of the cached image
 
 	// Double-click detection: defers single-click to distinguish from double-click
 	dblClickPending bool
@@ -696,6 +703,12 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		if fb.dibBmp != 0 {
 			procDeleteObject.Call(fb.dibBmp)
 		}
+		fb.mu.Lock()
+		if fb.customImage != 0 {
+			procGdipDisposeImage.Call(fb.customImage)
+			fb.customImage = 0
+		}
+		fb.mu.Unlock()
 		procPostQuitMessage.Call(0)
 		return 0
 	}
@@ -803,8 +816,18 @@ func (fb *FloatingButton) UpdateColor() {
 // UpdateContent updates the cached icon content and triggers a re-render.
 func (fb *FloatingButton) UpdateContent() {
 	newContent := fb.cfg.GetFloatingButtonContent()
+	newImagePath := fb.cfg.GetFloatingButtonCustomImage()
 	fb.mu.Lock()
 	fb.content = newContent
+	// Reload custom image if path changed
+	if newContent == "custom" && newImagePath != fb.customImagePath {
+		if fb.customImage != 0 {
+			procGdipDisposeImage.Call(fb.customImage)
+			fb.customImage = 0
+		}
+		fb.customImagePath = newImagePath
+		fb.loadCustomImageLocked()
+	}
 	fb.mu.Unlock()
 	if fb.hwnd != 0 {
 		procPostMessageW.Call(fb.hwnd, _WM_FLOAT_RERENDER, 0, 0)
@@ -1378,6 +1401,8 @@ func (fb *FloatingButton) drawButtonIcon(g uintptr, alpha uint32) {
 		fb.drawAppLogoIcon(g, alpha)
 	case "waveform":
 		fb.drawWaveformIcon(g, alpha)
+	case "custom":
+		fb.drawCustomImageIcon(g, alpha)
 	default:
 		fb.drawMicIcon(g, alpha)
 	}
@@ -1504,6 +1529,50 @@ func (fb *FloatingButton) drawWaveformIcon(g uintptr, alpha uint32) {
 	procGdipDrawLineI.Call(g, pen, uintptr(12+o), uintptr(2+o), uintptr(12+o), uintptr(22+o))
 	procGdipDrawLineI.Call(g, pen, uintptr(16+o), uintptr(6+o), uintptr(16+o), uintptr(18+o))
 	procGdipDrawLineI.Call(g, pen, uintptr(20+o), uintptr(9+o), uintptr(20+o), uintptr(15+o))
+}
+
+// loadCustomImageLocked loads the custom button image via GDI+. Caller must hold fb.mu.
+func (fb *FloatingButton) loadCustomImageLocked() {
+	if fb.customImagePath == "" {
+		return
+	}
+	pathUTF16, err := windows.UTF16PtrFromString(fb.customImagePath)
+	if err != nil {
+		logWarn("loadCustomImage: invalid path: %v", err)
+		return
+	}
+	var img uintptr
+	ret, _, _ := procGdipLoadImageFromFile.Call(uintptr(unsafe.Pointer(pathUTF16)), uintptr(unsafe.Pointer(&img)))
+	if ret != 0 || img == 0 {
+		logWarn("loadCustomImage: GdipLoadImageFromFile failed (status %d)", ret)
+		return
+	}
+	fb.customImage = img
+}
+
+// drawCustomImageIcon draws the user's custom image scaled to fit inside the button.
+func (fb *FloatingButton) drawCustomImageIcon(g uintptr, alpha uint32) {
+	fb.mu.Lock()
+	img := fb.customImage
+	fb.mu.Unlock()
+
+	if img == 0 {
+		// Fallback to microphone if image not loaded
+		fb.drawMicIcon(g, alpha)
+		return
+	}
+
+	sz := fb.getSize()
+	// Inset the image by ~25% on each side so it fits inside the button shape
+	margin := sz / 4
+	x := margin
+	y := margin
+	w := sz - 2*margin
+	h := sz - 2*margin
+
+	// Set interpolation mode to high quality bicubic (7)
+	procGdipSetInterpolationMode.Call(g, 7)
+	procGdipDrawImageRectI.Call(g, img, uintptr(x), uintptr(y), uintptr(w), uintptr(h))
 }
 
 // ───────────────────── Tooltip ─────────────────────

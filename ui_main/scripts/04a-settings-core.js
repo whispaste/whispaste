@@ -108,7 +108,27 @@ document.addEventListener('click', function(e) {
   if (!opt) return;
   document.querySelectorAll('.fab-content-option').forEach(el => el.classList.remove('selected'));
   opt.classList.add('selected');
+  const customRow = document.getElementById('fab-custom-image-row');
+  if (customRow) customRow.classList.toggle('hidden', opt.dataset.content !== 'custom');
+  if (opt.dataset.content === 'custom' && !document.getElementById('fab-custom-image-path')?.dataset?.filepath) {
+    document.getElementById('fab-pick-image-btn')?.click();
+  }
   if (typeof autoSave === 'function') autoSave();
+});
+// Custom image file picker
+document.addEventListener('click', function(e) {
+  if (e.target.id !== 'fab-pick-image-btn' && !e.target.closest('#fab-pick-image-btn')) return;
+  if (typeof pickFloatingButtonImage === 'function') {
+    pickFloatingButtonImage().then(function(path) {
+      if (!path) return;
+      const el = document.getElementById('fab-custom-image-path');
+      if (el) {
+        el.textContent = path.split('\\').pop().split('/').pop();
+        el.dataset.filepath = path;
+      }
+      if (typeof autoSave === 'function') autoSave();
+    });
+  }
 });
 // Auto-hide dropdown — show/hide timeout slider
 document.addEventListener('change', function(e) {
@@ -138,6 +158,15 @@ document.addEventListener('change', function(e) {
   if (e.target.id === 'toggle-use-vad') {
     const row = document.getElementById('vad-sensitivity-row');
     if (row) row.classList.toggle('hidden', !e.target.checked);
+    // Set sensible default when enabling VAD for the first time
+    if (e.target.checked) {
+      const slider = document.getElementById('range-vad-sensitivity');
+      const label = document.getElementById('vad-sensitivity-value');
+      if (slider && parseInt(slider.value, 10) === 0) {
+        slider.value = 50;
+        if (label) label.textContent = '50%';
+      }
+    }
   }
 });
 // Show/hide color picker and advanced settings when floating toggle changes
@@ -208,6 +237,7 @@ function gatherConfig() {
     floating_button_border: document.getElementById('toggle-floating-border')?.checked || false,
     floating_button_shape: document.querySelector('.fab-shape-option.selected')?.dataset?.shape || 'circle',
     floating_button_content: document.querySelector('.fab-content-option.selected')?.dataset?.content || 'microphone',
+    floating_button_custom_image: document.getElementById('fab-custom-image-path')?.dataset?.filepath || '',
     floating_button_auto_hide: document.getElementById('select-fab-autohide')?.value || 'never',
     floating_button_auto_hide_timeout: parseInt(document.getElementById('range-fab-autohide-timeout')?.value || '10', 10),
     cloud_stt_provider: document.getElementById('select-cloud-stt-provider')?.value || 'openai',
@@ -381,6 +411,15 @@ function applyConfig(cfg) {
     });
     const contentRow = document.getElementById('fab-content-row');
     if (contentRow) contentRow.classList.toggle('hidden', !cfg.floating_button_enabled);
+    const customRow = document.getElementById('fab-custom-image-row');
+    if (customRow) customRow.classList.toggle('hidden', content !== 'custom');
+    if (cfg.floating_button_custom_image) {
+      const pathEl = document.getElementById('fab-custom-image-path');
+      if (pathEl) {
+        pathEl.textContent = cfg.floating_button_custom_image.split('\\').pop().split('/').pop();
+        pathEl.dataset.filepath = cfg.floating_button_custom_image;
+      }
+    }
   }
   {
     const el = document.getElementById('select-fab-autohide');
@@ -542,10 +581,7 @@ function syncSharedAPIKeys(sourceId, targetId) {
 }
 
 function toggleCloudLLMSection() {
-  const smartCloud = document.querySelector('[name="smartProvider"][value="cloud"]')?.checked;
-  const replaceCloud = document.querySelector('[name="textReplaceProvider"][value="cloud"]')?.checked;
-  const card = document.getElementById('cloud-llm-card');
-  if (card) card.classList.toggle('hidden', !smartCloud && !replaceCloud);
+  // Cloud LLM config is always visible in AI & Models section
 }
 
 function toggleKeyVisibility(inputId, btn) {

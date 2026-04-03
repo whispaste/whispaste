@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/whispaste/whispaste/internal/gpu"
 	"github.com/whispaste/whispaste/internal/models"
@@ -16,6 +18,7 @@ import (
 	"github.com/whispaste/whispaste/internal/wav"
 
 	webview "github.com/webview/webview_go"
+	"golang.org/x/sys/windows"
 )
 
 type availableModelInfo struct {
@@ -165,6 +168,10 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		cfg.FloatingButtonLocked = newCfg.FloatingButtonLocked
 		cfg.FloatingButtonBorder = newCfg.FloatingButtonBorder
 		cfg.FloatingButtonShape = newCfg.FloatingButtonShape
+		cfg.FloatingButtonContent = newCfg.FloatingButtonContent
+		cfg.FloatingButtonCustomImage = newCfg.FloatingButtonCustomImage
+		cfg.FloatingButtonAutoHide = newCfg.FloatingButtonAutoHide
+		cfg.FloatingButtonAutoHideTimeout = newCfg.FloatingButtonAutoHideTimeout
 		cfg.CloudSTTProvider = newCfg.CloudSTTProvider
 		cfg.CloudLLMProvider = newCfg.CloudLLMProvider
 		cfg.CloudLLMModel = newCfg.CloudLLMModel
@@ -328,6 +335,98 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 
 	w.Bind("previewButtonSound", func(soundType string) {
 		// Button sounds have been removed — no-op for backward compatibility
+	})
+
+	// pickFloatingButtonImage opens a file dialog for image selection (PNG/JPG).
+	w.Bind("pickFloatingButtonImage", func() string {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+
+		comdlg32 := windows.NewLazySystemDLL("comdlg32.dll")
+		getOpen := comdlg32.NewProc("GetOpenFileNameW")
+
+		filter := "Images (*.png;*.jpg;*.jpeg;*.bmp)\x00*.png;*.jpg;*.jpeg;*.bmp\x00All Files (*.*)\x00*.*\x00\x00"
+		filterUTF16, _ := windows.UTF16PtrFromString(filter[:len(filter)-1])
+		title := T("pickImageTitle")
+		if title == "" || title == "pickImageTitle" {
+			title = "Select Image"
+		}
+		titleUTF16, _ := windows.UTF16PtrFromString(title)
+
+		fileBuf := make([]uint16, 260)
+
+		type openFileNameW struct {
+			StructSize      uint32
+			Owner           uintptr
+			Instance        uintptr
+			Filter          *uint16
+			CustomFilter    *uint16
+			MaxCustomFilter uint32
+			FilterIndex     uint32
+			File            *uint16
+			MaxFile         uint32
+			FileTitle       *uint16
+			MaxFileTitle    uint32
+			InitialDir      *uint16
+			Title           *uint16
+			Flags           uint32
+			FileOffset      uint16
+			FileExtension   uint16
+			DefExt          *uint16
+			CustData        uintptr
+			FnHook          uintptr
+			TemplateName    *uint16
+			PvReserved      uintptr
+			DwReserved      uint32
+			FlagsEx         uint32
+		}
+
+		ofn := openFileNameW{
+			StructSize: uint32(unsafe.Sizeof(openFileNameW{})),
+			Filter:     filterUTF16,
+			File:       &fileBuf[0],
+			MaxFile:    uint32(len(fileBuf)),
+			Title:      titleUTF16,
+			Flags:      0x00001000 | 0x00000008 | 0x00080000, // FileMustExist | NoChangeDir | Explorer
+		}
+
+		ret, _, _ := getOpen.Call(uintptr(unsafe.Pointer(&ofn)))
+		if ret == 0 {
+			return ""
+		}
+		path := windows.UTF16ToString(fileBuf)
+
+		// Validate file exists and is reasonable size (< 10 MB)
+		info, err := os.Stat(path)
+		if err != nil || info.Size() > 10*1024*1024 {
+			return ""
+		}
+
+		// Copy to app data dir for persistence
+		appDir, err := configDir()
+		if err != nil {
+			logWarn("pickFloatingButtonImage: configDir failed: %v", err)
+			return ""
+		}
+		destName := "floating_button_image" + filepath.Ext(path)
+		destPath := filepath.Join(appDir, destName)
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			logWarn("pickFloatingButtonImage: read failed: %v", err)
+			return ""
+		}
+		if err := os.WriteFile(destPath, data, 0600); err != nil {
+			logWarn("pickFloatingButtonImage: write failed: %v", err)
+			return ""
+		}
+
+		cfg.SetFloatingButtonCustomImage(destPath)
+		cfg.SetFloatingButtonContent("custom")
+		if err := cfg.Save(); err != nil {
+			logWarn("pickFloatingButtonImage: save config failed: %v", err)
+		}
+		return destPath
 	})
 
 	w.Bind("testNotification", func() {
