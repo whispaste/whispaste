@@ -262,7 +262,7 @@ function renderHistory() {
   // Bind entry click to expand/collapse
   list.querySelectorAll('.entry').forEach(el => {
     el.addEventListener('click', async (ev) => {
-      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea') || ev.target.closest('.entry-full-text') || ev.target.closest('.project-badge') || ev.target.closest('.entry-detail-title')) return;
+      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea') || ev.target.closest('.entry-full-text') || ev.target.closest('.project-badge') || ev.target.closest('.entry-detail-title') || ev.target.closest('.note-input') || ev.target.closest('.note-content') || ev.target.closest('.note-add-row') || ev.target.closest('.attachment-add-row') || ev.target.closest('.section-body')) return;
       const id = el.dataset.id;
       // Pending entries: click triggers re-transcription instead of expand
       if (el.classList.contains('pending') && !_pendingRetryInFlight) {

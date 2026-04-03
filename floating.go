@@ -1185,14 +1185,14 @@ func (fb *FloatingButton) render() {
 	// Main shape with animated gradient (slow rotating color shift)
 	topClr, botClr := preset.Top, preset.Bottom
 
-	// Static diagonal gradient
+	// Static diagonal gradient — extend to sqrt(2) × halfSz to cover all corners
 	angle := float32(135.0)
 	cxf, cyf := float32(sz)/2.0, float32(sz)/2.0
 	rad := float64(angle) * math.Pi / 180.0
 	gdx, gdy := float32(math.Cos(rad)), float32(math.Sin(rad))
-	halfSz := float32(sz) / 2.0
-	pt1 := [2]float32{cxf - gdx*halfSz, cyf - gdy*halfSz}
-	pt2 := [2]float32{cxf + gdx*halfSz, cyf + gdy*halfSz}
+	halfDiag := float32(sz) / 2.0 * float32(math.Sqrt2)
+	pt1 := [2]float32{cxf - gdx*halfDiag, cyf - gdy*halfDiag}
+	pt2 := [2]float32{cxf + gdx*halfDiag, cyf + gdy*halfDiag}
 
 	var gradBrush uintptr
 	procGdipCreateLineBrush.Call(
