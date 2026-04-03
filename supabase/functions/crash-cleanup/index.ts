@@ -118,5 +118,102 @@ Deno.serve(async (req) => {
     }), { headers: { "content-type": "application/json" } });
   }
 
-  return new Response(JSON.stringify({ error: "unknown action", actions: ["info", "list", "delete", "fix"] }), { status: 400 });
+  // ── Automated Discord cleanup: delete messages for dismissed/fixed crashes ──
+  // action=cleanup — Removes Discord messages for dismissed/old crash reports
+  //                  and marks them as cleaned. Respects Discord rate limits.
+  // Optional: retention_days (default 30) — also clean feedback messages older than this
+  if (action === "cleanup") {
+    const apiKey = req.headers.get("x-api-key") || url.searchParams.get("apiKey");
+    const adminKey = Deno.env.get("ADMIN_API_KEY");
+    if (!adminKey || !apiKey || apiKey !== adminKey) {
+      return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { "content-type": "application/json" } });
+    }
+
+    const supabaseURL = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseURL || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: "not configured" }), { status: 500 });
+    }
+    const { createClient: cc } = await import("https://esm.sh/@supabase/supabase-js@2");
+    const sb = cc(supabaseURL, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const retentionDays = parseInt(url.searchParams.get("retention_days") || "30");
+    const retentionDate = new Date(Date.now() - retentionDays * 86400000).toISOString();
+    const batchLimit = 50; // Discord rate limit safety
+
+    let crashesCleaned = 0;
+    let feedbackCleaned = 0;
+    let errors: string[] = [];
+
+    // 1) Clean dismissed/fixed crash reports that still have Discord messages
+    const { data: crashesToClean } = await sb
+      .from("crash_report_events")
+      .select("id, discord_message_id")
+      .eq("dismissed", true)
+      .not("discord_message_id", "is", null)
+      .is("discord_cleaned_at", null)
+      .limit(batchLimit);
+
+    for (const row of (crashesToClean || [])) {
+      const del = await fetch(
+        "https://discord.com/api/v10/webhooks/" + whId + "/" + whToken + "/messages/" + row.discord_message_id,
+        { method: "DELETE" }
+      );
+      if (del.ok || del.status === 404) {
+        await sb.from("crash_report_events")
+          .update({ discord_cleaned_at: new Date().toISOString() })
+          .eq("id", row.id);
+        crashesCleaned++;
+      } else {
+        errors.push("crash:" + row.id + ":" + del.status);
+      }
+      // Respect Discord rate limits (~1 req/sec)
+      await new Promise(r => setTimeout(r, 1100));
+    }
+
+    // 2) Clean old feedback Discord messages (beyond retention period)
+    const feedbackWebhookURL = Deno.env.get("FEEDBACK_DISCORD_WEBHOOK_URL");
+    if (feedbackWebhookURL) {
+      const fbMatch = feedbackWebhookURL.match(/\/webhooks\/(\d+)\/([A-Za-z0-9_-]+)/);
+      if (fbMatch) {
+        const [, fbWhId, fbWhToken] = fbMatch;
+
+        const { data: feedbackToClean } = await sb
+          .from("user_feedback")
+          .select("id, discord_message_id")
+          .lt("received_at", retentionDate)
+          .not("discord_message_id", "is", null)
+          .is("discord_cleaned_at", null)
+          .limit(batchLimit);
+
+        for (const row of (feedbackToClean || [])) {
+          const del = await fetch(
+            "https://discord.com/api/v10/webhooks/" + fbWhId + "/" + fbWhToken + "/messages/" + row.discord_message_id,
+            { method: "DELETE" }
+          );
+          if (del.ok || del.status === 404) {
+            await sb.from("user_feedback")
+              .update({ discord_cleaned_at: new Date().toISOString() })
+              .eq("id", row.id);
+            feedbackCleaned++;
+          } else {
+            errors.push("feedback:" + row.id + ":" + del.status);
+          }
+          await new Promise(r => setTimeout(r, 1100));
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({
+      action: "cleanup",
+      crashes_cleaned: crashesCleaned,
+      feedback_cleaned: feedbackCleaned,
+      errors: errors.length > 0 ? errors : undefined,
+      retention_days: retentionDays,
+    }), { headers: { "content-type": "application/json" } });
+  }
+
+  return new Response(JSON.stringify({ error: "unknown action", actions: ["info", "list", "delete", "fix", "cleanup"] }), { status: 400 });
 });
