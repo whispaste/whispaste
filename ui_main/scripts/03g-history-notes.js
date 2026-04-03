@@ -49,6 +49,17 @@ async function loadNotes(entryId) {
     container.innerHTML = notes.map(n => renderNote(n, entryId)).join('');
     loadNoteCount(entryId);
 
+    // Bind action buttons (delete) on dynamically rendered notes
+    container.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const action = btn.dataset.action;
+        if (action === 'delete-note') {
+          deleteNote(btn.dataset.noteId, btn.dataset.id);
+        }
+      });
+    });
+
     // Bind note edit blur
     container.querySelectorAll('.note-content').forEach(el => {
       el.addEventListener('blur', () => {
@@ -107,6 +118,19 @@ async function loadAttachments(entryId) {
     const atts = JSON.parse(json);
     container.innerHTML = atts.map(a => renderAttachment(a, entryId)).join('');
     loadAttachmentCount(entryId);
+
+    // Bind action buttons (open, delete) on dynamically rendered attachments
+    container.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const action = btn.dataset.action;
+        if (action === 'open-attachment') {
+          openAttachment(btn.dataset.attId);
+        } else if (action === 'delete-attachment') {
+          deleteAttachment(btn.dataset.attId, btn.dataset.id);
+        }
+      });
+    });
   } catch(e) {
     container.innerHTML = '<div class="note-error">' + t('error.generic') + '</div>';
   }

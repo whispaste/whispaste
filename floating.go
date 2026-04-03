@@ -604,8 +604,8 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		procSetTimer.Call(hwnd, _FLOAT_TIMER_ID, _FLOAT_TIMER_MS, 0)
 		// Start animation timer for gradient rotation and state icons
 		procSetTimer.Call(hwnd, _FLOAT_ANIM_TIMER_ID, _FLOAT_ANIM_TIMER_MS, 0)
-		// Start idle animation timer if animation or auto-hide is configured
-		if fb.cfg.GetFloatingButtonAnimation() != "none" || fb.cfg.GetFloatingButtonAutoHide() != "never" {
+		// Start idle timer for auto-hide if configured
+		if fb.cfg.GetFloatingButtonAutoHide() != "never" {
 			procSetTimer.Call(hwnd, _FLOAT_IDLE_ANIM_TIMER_ID, _FLOAT_IDLE_ANIM_TIMER_MS, 0)
 		}
 		fb.render()
@@ -811,17 +811,8 @@ func (fb *FloatingButton) UpdateContent() {
 	}
 }
 
-// playButtonSound plays the configured click sound for the floating button.
-func (fb *FloatingButton) playButtonSound() {
-	switch fb.cfg.GetFloatingButtonSound() {
-	case "click":
-		PlayFeedback(SoundButtonClick)
-	case "pop":
-		PlayFeedback(SoundButtonPop)
-	case "chime":
-		PlayFeedback(SoundButtonChime)
-	}
-}
+// playButtonSound is a no-op; button click sounds have been removed.
+func (fb *FloatingButton) playButtonSound() {}
 
 // touchActivity resets the auto-hide inactivity timer and restores
 // the button to full opacity if it was auto-hidden.
@@ -1338,48 +1329,6 @@ func (fb *FloatingButton) render() {
 	// Draw the configured icon — button is hidden during recording/transcribing/processing
 	fb.drawButtonIcon(g, 255)
 
-	// Idle animation effects (only when not recording)
-	animType := fb.cfg.GetFloatingButtonAnimation()
-	if animType != "none" && appState == StateIdle {
-		phase := math.Sin(float64(time.Now().UnixMilli()%3000) / 3000.0 * 2 * math.Pi)
-		switch animType {
-		case "breathe":
-			// Modulate opacity: oscillate ±15% around configured opacity
-			mod := int(phase * 15)
-			newAlpha := int(alpha) + mod
-			if newAlpha < 30 {
-				newAlpha = 30
-			}
-			if newAlpha > 255 {
-				newAlpha = 255
-			}
-			alpha = byte(newAlpha)
-		case "glow":
-			// Draw a soft outer glow ring that pulses
-			glowAlpha := uint32(60 + int(phase*40))
-			glowColor := (glowAlpha << 24) | (preset.Top & 0x00FFFFFF)
-			var glowPen uintptr
-			procGdipCreatePen1.Call(uintptr(glowColor), f32(3.0), 2, uintptr(unsafe.Pointer(&glowPen)))
-			if glowPen != 0 {
-				inset := -2
-				glowSize := sz - 2*inset
-				fb.drawShapeProgress(g, glowPen, inset, inset, glowSize, glowSize, 1.0)
-				procGdipDeletePen.Call(glowPen)
-			}
-		case "pulse":
-			// Subtle opacity pulse (simulates size pulse without window resize)
-			mod := int(phase * 20)
-			newAlpha := int(alpha) + mod
-			if newAlpha < 30 {
-				newAlpha = 30
-			}
-			if newAlpha > 255 {
-				newAlpha = 255
-			}
-			alpha = byte(newAlpha)
-		}
-	}
-
 	// Auto-hide: reduce alpha to near-invisible when idle too long
 	isHidden := func() bool {
 		fb.mu.Lock()
@@ -1429,10 +1378,6 @@ func (fb *FloatingButton) drawButtonIcon(g uintptr, alpha uint32) {
 		fb.drawAppLogoIcon(g, alpha)
 	case "waveform":
 		fb.drawWaveformIcon(g, alpha)
-	case "headphones":
-		fb.drawHeadphonesIcon(g, alpha)
-	case "pen":
-		fb.drawPenIcon(g, alpha)
 	default:
 		fb.drawMicIcon(g, alpha)
 	}
@@ -1559,82 +1504,6 @@ func (fb *FloatingButton) drawWaveformIcon(g uintptr, alpha uint32) {
 	procGdipDrawLineI.Call(g, pen, uintptr(12+o), uintptr(2+o), uintptr(12+o), uintptr(22+o))
 	procGdipDrawLineI.Call(g, pen, uintptr(16+o), uintptr(6+o), uintptr(16+o), uintptr(18+o))
 	procGdipDrawLineI.Call(g, pen, uintptr(20+o), uintptr(9+o), uintptr(20+o), uintptr(15+o))
-}
-
-// drawHeadphonesIcon draws a headphones icon.
-func (fb *FloatingButton) drawHeadphonesIcon(g uintptr, alpha uint32) {
-	pen, cleanup := fb.iconPenSetup(g, alpha)
-	if pen == 0 {
-		cleanup()
-		return
-	}
-	defer cleanup()
-	const o = 16
-
-	// Headband arc
-	var band uintptr
-	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&band)))
-	if band == 0 {
-		return
-	}
-	defer procGdipDeletePath.Call(band)
-	procGdipAddPathArc.Call(band, f32(3+o), f32(3+o), f32(18), f32(18), f32(180), f32(180))
-	procGdipDrawPath.Call(g, pen, band)
-
-	// Left earpiece
-	var leftEar uintptr
-	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&leftEar)))
-	if leftEar == 0 {
-		return
-	}
-	defer procGdipDeletePath.Call(leftEar)
-	procGdipAddPathArc.Call(leftEar, f32(2+o), f32(14+o), f32(4), f32(4), f32(180), f32(180))
-	procGdipAddPathLine.Call(leftEar, uintptr(6+o), uintptr(16+o), uintptr(6+o), uintptr(20+o))
-	procGdipAddPathArc.Call(leftEar, f32(2+o), f32(18+o), f32(4), f32(4), f32(0), f32(180))
-	procGdipClosePathFigure.Call(leftEar)
-	procGdipDrawPath.Call(g, pen, leftEar)
-
-	// Right earpiece
-	var rightEar uintptr
-	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&rightEar)))
-	if rightEar == 0 {
-		return
-	}
-	defer procGdipDeletePath.Call(rightEar)
-	procGdipAddPathArc.Call(rightEar, f32(18+o), f32(14+o), f32(4), f32(4), f32(180), f32(180))
-	procGdipAddPathLine.Call(rightEar, uintptr(22+o), uintptr(16+o), uintptr(22+o), uintptr(20+o))
-	procGdipAddPathArc.Call(rightEar, f32(18+o), f32(18+o), f32(4), f32(4), f32(0), f32(180))
-	procGdipClosePathFigure.Call(rightEar)
-	procGdipDrawPath.Call(g, pen, rightEar)
-}
-
-// drawPenIcon draws a pen/edit icon (Lucide pencil).
-func (fb *FloatingButton) drawPenIcon(g uintptr, alpha uint32) {
-	pen, cleanup := fb.iconPenSetup(g, alpha)
-	if pen == 0 {
-		cleanup()
-		return
-	}
-	defer cleanup()
-	const o = 16
-
-	// Pen body (angled line with tip)
-	var body uintptr
-	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&body)))
-	if body == 0 {
-		return
-	}
-	defer procGdipDeletePath.Call(body)
-	// Pencil shape: top-right to bottom-left with angled cap
-	procGdipAddPathLine.Call(body, uintptr(17+o), uintptr(3+o), uintptr(21+o), uintptr(7+o))
-	procGdipAddPathLine.Call(body, uintptr(21+o), uintptr(7+o), uintptr(8+o), uintptr(20+o))
-	procGdipAddPathLine.Call(body, uintptr(8+o), uintptr(20+o), uintptr(2+o), uintptr(22+o))
-	procGdipAddPathLine.Call(body, uintptr(2+o), uintptr(22+o), uintptr(4+o), uintptr(16+o))
-	procGdipClosePathFigure.Call(body)
-	procGdipDrawPath.Call(g, pen, body)
-
-	// Cross-line for eraser/cap separator
-	procGdipDrawLineI.Call(g, pen, uintptr(15+o), uintptr(5+o), uintptr(19+o), uintptr(9+o))
 }
 
 // ───────────────────── Tooltip ─────────────────────
