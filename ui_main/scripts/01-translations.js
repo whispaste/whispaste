@@ -562,6 +562,12 @@ const translations = {
     'notebook.remove_from_project': 'Remove from project',
     'notebook.sorting': 'Sorting',
     'notebook.filter': 'Filter',
+    'notebook.notes': 'Notes',
+    'notebook.attachments': 'Attachments',
+    'notebook.add_note': 'Add Note',
+    'notebook.add_note_placeholder': 'Write a note…',
+    'notebook.add_file': 'Add File',
+    'notebook.open_file': 'Open File',
 
     // Analytics
     'tabAnalytics': 'Analytics',
@@ -1564,6 +1570,12 @@ const translations = {
     'notebook.remove_from_project': 'Aus Projekt entfernen',
     'notebook.sorting': 'Sortierung',
     'notebook.filter': 'Filter',
+    'notebook.notes': 'Notizen',
+    'notebook.attachments': 'Anhänge',
+    'notebook.add_note': 'Notiz hinzufügen',
+    'notebook.add_note_placeholder': 'Notiz schreiben…',
+    'notebook.add_file': 'Datei hinzufügen',
+    'notebook.open_file': 'Datei öffnen',
 
     // Analytics
     'tabAnalytics': 'Statistiken',
