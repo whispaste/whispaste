@@ -1,2 +1,14 @@
 [functions.crash-relay]
 verify_jwt = false
+
+[functions.feedback-relay]
+verify_jwt = false
+
+[functions.crash-cleanup]
+verify_jwt = false
+
+[functions.analytics]
+verify_jwt = false
+
+[functions.testimonials]
+verify_jwt = false

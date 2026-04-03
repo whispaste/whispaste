@@ -1,0 +1,120 @@
+---
+// Testimonials.astro — Displays approved user testimonials from the public API.
+// Fetches at client-side (static site) from the testimonials Edge Function.
+// Falls back gracefully if the API is unavailable or returns no results.
+---
+
+<section id="testimonials" class="py-24 sm:py-32 relative scroll-mt-20">
+  <div class="max-w-5xl mx-auto px-6">
+    <div class="text-center mb-12 scroll-reveal">
+      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="testimonials.label">Testimonials</p>
+      <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="testimonials.title">What our users say</h2>
+      <p class="mt-4 text-gray-400 max-w-xl mx-auto" data-i18n="testimonials.subtitle">Real feedback from real people — no names, no tracking, just honest opinions.</p>
+    </div>
+
+    <!-- Loading state -->
+    <div id="testimonials-loading" class="text-center py-12 scroll-reveal">
+      <div class="inline-block w-6 h-6 border-2 border-brand-cyan/30 border-t-brand-cyan rounded-full animate-spin"></div>
+    </div>
+
+    <!-- Testimonial grid (populated by JS) -->
+    <div id="testimonials-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 scroll-reveal" style="display:none;"></div>
+
+    <!-- Empty / error state -->
+    <div id="testimonials-empty" class="text-center py-12 text-gray-500" style="display:none;">
+      <p data-i18n="testimonials.empty">No testimonials available yet — be the first to share your experience!</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .testimonial-card {
+    background: linear-gradient(135deg, rgba(37, 40, 48, 0.5) 0%, rgba(30, 32, 38, 0.25) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .testimonial-card:hover {
+    border-color: rgba(34, 211, 238, 0.2);
+    transform: translateY(-2px);
+  }
+  .testimonial-stars {
+    color: #FBBF24;
+    font-size: 0.875rem;
+    letter-spacing: 0.1em;
+  }
+  .testimonial-text {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    margin-top: 0.75rem;
+  }
+
+  /* Light theme overrides */
+  :root.light .testimonial-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(248, 250, 252, 0.5) 100%);
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+  :root.light .testimonial-card:hover {
+    border-color: rgba(8, 145, 178, 0.3);
+  }
+  :root.light .testimonial-text {
+    color: rgba(0, 0, 0, 0.6);
+  }
+</style>
+
+<script>
+  const API_URL = 'https://cnyniyflnefxrwafuqig.supabase.co/functions/v1/testimonials';
+
+  async function loadTestimonials() {
+    const loading = document.getElementById('testimonials-loading');
+    const grid = document.getElementById('testimonials-grid');
+    const empty = document.getElementById('testimonials-empty');
+    if (!loading || !grid || !empty) return;
+
+    try {
+      const res = await fetch(API_URL + '?limit=6');
+      if (!res.ok) throw new Error('API ' + res.status);
+      const { testimonials } = await res.json();
+
+      loading.style.display = 'none';
+
+      if (!testimonials || testimonials.length === 0) {
+        empty.style.display = 'block';
+        return;
+      }
+
+      grid.innerHTML = testimonials.map((t: { rating: number; text: string }) => `
+        <div class="testimonial-card">
+          <div class="testimonial-stars">${'★'.repeat(t.rating)}${'☆'.repeat(5 - t.rating)}</div>
+          <p class="testimonial-text">"${escapeHtml(t.text)}"</p>
+        </div>
+      `).join('');
+
+      grid.style.display = '';
+    } catch {
+      loading.style.display = 'none';
+      empty.style.display = 'block';
+    }
+  }
+
+  function escapeHtml(s: string): string {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // Load when section becomes visible (lazy)
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        observer.disconnect();
+        loadTestimonials();
+      }
+    }
+  }, { rootMargin: '200px' });
+
+  const section = document.getElementById('testimonials');
+  if (section) observer.observe(section);
+</script>
