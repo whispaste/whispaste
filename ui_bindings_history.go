@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/whispaste/whispaste/internal/audiocache"
 	"github.com/whispaste/whispaste/internal/export"
@@ -395,6 +397,18 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 		return ""
 	})
 
+	w.Bind("copyEntryMarkdown", func(id string) string {
+		entries := history.All()
+		for _, e := range entries {
+			if e.ID == id {
+				md := formatEntryMarkdown(e)
+				writeClipboard(md)
+				return md
+			}
+		}
+		return ""
+	})
+
 	w.Bind("openLogFile", func() { ShowLogViewer() })
 
 	w.Bind("startCapture", func() {
@@ -448,4 +462,129 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 		}
 		return path
 	})
+
+	// --- Notes bindings ---
+
+	w.Bind("getNotes", func(entryID string) (string, error) {
+		notes := history.GetNotes(entryID)
+		if notes == nil {
+			notes = []EntryNote{}
+		}
+		data, err := json.Marshal(notes)
+		if err != nil {
+			return "[]", err
+		}
+		return string(data), nil
+	})
+
+	w.Bind("addNote", func(entryID, content string) (string, error) {
+		note, err := history.AddNote(entryID, content)
+		if err != nil {
+			return "", err
+		}
+		data, err := json.Marshal(note)
+		if err != nil {
+			return "", err
+		}
+		return string(data), nil
+	})
+
+	w.Bind("updateNote", func(noteID, content string) error {
+		return history.UpdateNote(noteID, content)
+	})
+
+	w.Bind("deleteNote", func(noteID string) error {
+		return history.DeleteNote(noteID)
+	})
+
+	w.Bind("getNoteCount", func(entryID string) int {
+		return history.NoteCount(entryID)
+	})
+
+	// --- Attachments bindings ---
+
+	w.Bind("getAttachments", func(entryID string) (string, error) {
+		atts := history.GetAttachments(entryID)
+		if atts == nil {
+			atts = []EntryAttachment{}
+		}
+		data, err := json.Marshal(atts)
+		if err != nil {
+			return "[]", err
+		}
+		return string(data), nil
+	})
+
+	w.Bind("addAttachment", func(entryID string) (string, error) {
+		paths := export.ShowOpenDialog(T("notebook.add_file"))
+		if len(paths) == 0 {
+			return "[]", nil // cancelled
+		}
+		var added []EntryAttachment
+		for _, srcPath := range paths {
+			att, err := history.AddAttachment(entryID, srcPath)
+			if err != nil {
+				logError("addAttachment: %v", err)
+				continue
+			}
+			added = append(added, att)
+		}
+		data, err := json.Marshal(added)
+		if err != nil {
+			return "[]", err
+		}
+		return string(data), nil
+	})
+
+	w.Bind("deleteAttachment", func(attachmentID string) error {
+		return history.DeleteAttachment(attachmentID)
+	})
+
+	w.Bind("openAttachment", func(attachmentID string) error {
+		return history.OpenAttachment(attachmentID)
+	})
+
+	w.Bind("getAttachmentCount", func(entryID string) int {
+		return history.AttachmentCount(entryID)
+	})
+}
+
+// formatEntryMarkdown formats a history entry as a rich Markdown string
+// suitable for pasting into notes apps, docs, or chat.
+func formatEntryMarkdown(e HistoryEntry) string {
+	var b strings.Builder
+	title := e.Title
+	if title == "" {
+		title = truncate(e.Text, 60)
+	}
+	b.WriteString("# ")
+	b.WriteString(title)
+	b.WriteString("\n\n")
+	b.WriteString(e.Text)
+	b.WriteString("\n")
+
+	// Metadata footer
+	var meta []string
+	if t, err := time.Parse(time.RFC3339, e.Timestamp); err == nil {
+		meta = append(meta, fmt.Sprintf("**%s:** %s", T("notebook.date"), t.Format("2006-01-02 15:04")))
+	}
+	if len(e.Tags) > 0 {
+		meta = append(meta, fmt.Sprintf("**Tags:** %s", strings.Join(e.Tags, ", ")))
+	}
+	if e.Language != "" {
+		meta = append(meta, fmt.Sprintf("**%s:** %s", T("notebook.language"), strings.ToUpper(e.Language)))
+	}
+	if len(meta) > 0 {
+		b.WriteString("\n---\n")
+		b.WriteString(strings.Join(meta, " · "))
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "…"
 }

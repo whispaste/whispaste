@@ -1,5 +1,34 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+function compareVersions(a: string, b: string): number {
+  // Handle "dev" as always-lowest
+  const aIsDev = a.toLowerCase() === "dev";
+  const bIsDev = b.toLowerCase() === "dev";
+  if (aIsDev && bIsDev) return 0;
+  if (aIsDev) return -1;
+  if (bIsDev) return 1;
+
+  // Strip 'v' prefix and split off pre-release
+  const aCore = a.replace(/^v/, '').split(/[-+]/)[0];
+  const bCore = b.replace(/^v/, '').split(/[-+]/)[0];
+  const aParts = aCore.split('.').map(Number);
+  const bParts = bCore.split('.').map(Number);
+
+  const len = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < len; i++) {
+    const av = aParts[i] || 0;
+    const bv = bParts[i] || 0;
+    if (av !== bv) return av > bv ? 1 : -1;
+  }
+
+  // Same numeric version — pre-release is lower than release
+  const aHasPre = a.includes('-');
+  const bHasPre = b.includes('-');
+  if (aHasPre && !bHasPre) return -1;
+  if (!aHasPre && bHasPre) return 1;
+  return 0;
+}
+
 const MAX_BODY_BYTES = 32_000;
 const MAX_REPORTS_PER_HOUR = 20;
 const DEDUP_WINDOW_MS = 60 * 60 * 1000;
@@ -174,6 +203,37 @@ Deno.serve(async (req) => {
     return json({ status: "duplicate" }, 202);
   }
 
+  // Check if this crash hash has been fixed in a newer version
+  const { data: fixedRows } = await supabase
+    .from("crash_report_events")
+    .select("fixed_in_version")
+    .eq("message_hash", report.hash)
+    .not("fixed_in_version", "is", null)
+    .limit(1);
+
+  if (fixedRows && fixedRows.length > 0) {
+    const fixedIn = fixedRows[0].fixed_in_version;
+    // Compare versions: if report version <= fixed version, auto-dismiss
+    if (compareVersions(report.app_version, fixedIn) <= 0) {
+      // Still store the event for analytics but mark as dismissed, don't post to Discord
+      const dismissedRow = {
+        id: report.id,
+        received_at: now.toISOString(),
+        message_hash: report.hash,
+        device_id: report.device_id,
+        ip_hash: ipHash,
+        app_version: report.app_version,
+        build_commit: report.build_commit || null,
+        status: "auto_dismissed",
+        dismissed: true,
+        fixed_in_version: fixedIn,
+        payload: { report, embed },
+      };
+      await supabase.from("crash_report_events").insert(dismissedRow);
+      return json({ status: "auto_dismissed", fixed_in: fixedIn }, 202);
+    }
+  }
+
   const { count, error: rateError } = await supabase
     .from("crash_report_events")
     .select("*", { count: "exact", head: true })
@@ -191,6 +251,7 @@ Deno.serve(async (req) => {
     device_id: report.device_id,
     ip_hash: ipHash,
     app_version: report.app_version,
+    build_commit: report.build_commit || null,
     status: "pending",
     payload: { report, embed },
   };

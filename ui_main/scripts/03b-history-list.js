@@ -121,13 +121,16 @@ function _renderEntryCard(e) {
       <div class="entry-header">
         <div class="entry-checkbox${_selectedIds.has(e.id) ? ' checked' : ''}" data-select-id="${e.id}"></div>
         <div style="flex:1;min-width:0">
-          <div class="entry-title">${highlightSearch(e.title || e.text.substring(0, 60), _searchQuery)}</div>
+          <div class="entry-title-wrapper">
+            <div class="entry-title">${highlightSearch(e.title || e.text.substring(0, 60), _searchQuery)}</div>
+            <button class="btn-icon title-edit-btn" title="${t('title.edit')}" data-action="edit-title-card" data-id="${e.id}">${icons.pencil}</button>
+          </div>
           <div class="entry-meta">
             <span class="meta-item" title="${formatTime(e.timestamp)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg> ${formatRelativeTime(e.timestamp)}</span>
             ${e.duration_sec ? '<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l4 0"/><path d="M7 3l0 3"/><circle cx="7" cy="14" r="7"/><path d="M7 11v3h3"/></svg> ' + formatDuration(e.duration_sec) + '</span>' : ''}
             ${e.language ? '<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/></svg> ' + e.language.toUpperCase() + '</span>' : ''}
             ${e.model ? '<span class="meta-item meta-model" title="' + esc(e.model) + (e.is_local ? ' (local)' : '') + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg> ' + esc(e.model) + '</span>' : ''}
-            ${(e.text || '').length > 0 ? (() => { const wc = (e.text || '').split(/\s+/).filter(Boolean).length; const cc = (e.text || '').length; return '<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg> ' + wc + ' ' + (wc === 1 ? t('meta_word') : t('meta_words')) + '</span><span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> ' + formatCharCount(cc) + ' ' + t('meta_chars') + '</span>'; })() : ''}
+            ${(e.text || '').length > 0 ? (() => { const wc = (e.text || '').split(/\s+/).filter(Boolean).length; const cc = (e.text || '').length; return '<span class="meta-item meta-words"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg> ' + wc + ' ' + (wc === 1 ? t('meta_word') : t('meta_words')) + '</span><span class="meta-item meta-chars"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> ' + formatCharCount(cc) + ' ' + t('meta_chars') + '</span>'; })() : ''}
           </div>
         </div>
         <div class="entry-actions">
@@ -139,19 +142,53 @@ function _renderEntryCard(e) {
       ${isTruncated ? '<div class="entry-show-more">' + t('show_more') + '</div>' : ''}
       <div class="entry-tags-row">
         ${(e.project_id && e.project_name) ? `<span class="project-badge" data-entry-id="${e.id}" title="${t('notebook.assign_project')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>${esc(e.project_name)}</span>` : `<span class="project-badge project-badge-empty" data-entry-id="${e.id}" title="${t('notebook.assign_project')}"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>${t('notebook.project')}</span>`}
-        ${(e.tags || []).map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = systemTagLabel(tag); return `<span class="tag${sys ? ' system-tag' : ''}" data-tag="${esc(tag)}" data-id="${e.id}" style="background:${c.bg};color:${c.text};border-color:${c.border}">${sys ? systemTagIcon(tag) : ''}${esc(lbl)}${sys ? '' : '<span class="tag-remove" data-remove-tag="' + esc(tag) + '" data-id="' + e.id + '">&times;</span>'}</span>`; }).join('')}
+        ${(() => { const allTags = e.tags || []; const maxVisible = 5; const visible = allTags.slice(0, maxVisible); const hidden = allTags.length - visible.length; return visible.map(tag => { const c = getTagColor(tag); const sys = isSystemTag(tag); const lbl = systemTagLabel(tag); return `<span class="tag${sys ? ' system-tag' : ''}" data-tag="${esc(tag)}" data-id="${e.id}" style="background:${c.bg};color:${c.text};border-color:${c.border}">${sys ? systemTagIcon(tag) : ''}${esc(lbl)}${sys ? '' : '<span class="tag-remove" data-remove-tag="' + esc(tag) + '" data-id="' + e.id + '">&times;</span>'}</span>`; }).join('') + (hidden > 0 ? `<span class="tag-overflow">+${hidden}</span>` : ''); })()}
         <div class="tag-input-row tag-input-expanded" data-id="${e.id}">
           ${icons.tag}
           <input type="text" class="tag-input" placeholder="${t('notebook.add_tag')}" data-id="${e.id}" />
         </div>
       </div>
       <div class="entry-full">
+        <div class="entry-detail-title-row">
+          <h3 class="entry-detail-title" contenteditable="true" spellcheck="false" title="${t('title.edit')}" data-entry-id="${e.id}">${esc(e.title || e.text.substring(0, 60))}</h3>
+          <button class="btn-icon entry-detail-title-edit" title="${t('title.edit')}" data-action="focus-title" data-id="${e.id}">${icons.pencil}</button>
+        </div>
         <div class="entry-full-text" id="text-${e.id}">${highlightSearch(e.text, _searchQuery)}</div>
         <div class="entry-text-actions">
           <button class="btn-icon" title="${t('notebook.edit_text')}" data-action="edit-text" data-id="${e.id}">${icons.pencil}</button>
         </div>
 
-      </div>
+        <div class="entry-notes-section" data-entry-id="${e.id}">
+          <div class="section-toggle" data-action="toggle-notes" data-id="${e.id}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.855z"/></svg>
+            <span>${t('notebook.notes')} <span class="section-count" id="note-count-${e.id}"></span></span>
+            <svg class="section-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+          <div class="section-body" id="notes-body-${e.id}" style="display:none">
+            <div class="notes-list" id="notes-list-${e.id}"></div>
+            <div class="note-add-row">
+              <textarea class="note-input" id="note-input-${e.id}" placeholder="${t('notebook.add_note_placeholder')}" rows="2"></textarea>
+              <button class="btn-sm btn-accent" data-action="save-note" data-id="${e.id}">${t('notebook.add_note')}</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="entry-attachments-section" data-entry-id="${e.id}">
+          <div class="section-toggle" data-action="toggle-attachments" data-id="${e.id}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            <span>${t('notebook.attachments')} <span class="section-count" id="att-count-${e.id}"></span></span>
+            <svg class="section-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+          <div class="section-body" id="atts-body-${e.id}" style="display:none">
+            <div class="attachments-grid" id="atts-list-${e.id}"></div>
+            <div class="attachment-add-row">
+              <button class="btn-sm btn-outline" data-action="add-attachment" data-id="${e.id}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                ${t('notebook.add_file')}
+              </button>
+            </div>
+          </div>
+        </div>
     </div>`;
 }
 
@@ -176,33 +213,42 @@ function renderHistory() {
   const searchEmptyIcon = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`;
 
   if (_entries.length === 0) {
-    list.innerHTML = `<div class="empty-state">${icons.microphone}<div class="empty-state-title">${t('notebook.empty_title')}</div><p class="empty-state-text">${t('notebook.empty')}</p><div class="empty-state-actions"><button class="btn btn-primary" onclick="startHistoryFirstDictation()">${t('notebook.empty_action_record')}</button><button class="btn btn-secondary" onclick="openSmartModeFromEmptyState()">${t('notebook.empty_action_smart')}</button><button class="btn btn-secondary" onclick="openSettingsFromEmptyState()">${t('notebook.empty_action_settings')}</button></div></div>`;
+    list.innerHTML = '';
+    toggleEmptyState();
     return;
   }
   if (filtered.length === 0) {
     list.innerHTML = `<div class="empty-state">${searchEmptyIcon}<div class="empty-state-title">${t('notebook.no_results_title')}</div><p class="empty-state-text">${t('notebook.no_results')}</p></div>`;
+    toggleEmptyState();
     return;
   }
 
-  // Split into pinned and unpinned groups
-  const pinnedItems = filtered.filter(e => e.pinned);
-  const unpinnedItems = filtered.filter(e => !e.pinned);
+  // Render entries: grouped or default (pinned/unpinned)
   let html = '';
+  const groupBy = (typeof _currentGrouping !== 'undefined') ? _currentGrouping : 'none';
 
-  if (pinnedItems.length > 0) {
-    const chevronIcon = _pinnedCollapsed
-      ? '<svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>'
-      : '<svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
-    html += `<div class="pinned-section-header${_pinnedCollapsed ? ' collapsed' : ''}" id="pinnedSectionHeader">
-      ${chevronIcon}
-      ${icons.pin}
-      <span>${t('notebook.pinned_section').replace('{n}', pinnedItems.length)}</span>
-    </div>`;
-    if (!_pinnedCollapsed) {
-      html += pinnedItems.map(e => _renderEntryCard(e)).join('');
+  if (groupBy && groupBy !== 'none' && typeof _renderGroupedEntries === 'function') {
+    html = _renderGroupedEntries(filtered, groupBy);
+  } else {
+    // Split into pinned and unpinned groups
+    const pinnedItems = filtered.filter(e => e.pinned);
+    const unpinnedItems = filtered.filter(e => !e.pinned);
+
+    if (pinnedItems.length > 0) {
+      const chevronIcon = _pinnedCollapsed
+        ? '<svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>'
+        : '<svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+      html += `<div class="pinned-section-header${_pinnedCollapsed ? ' collapsed' : ''}" id="pinnedSectionHeader">
+        ${chevronIcon}
+        ${icons.pin}
+        <span>${t('notebook.pinned_section').replace('{n}', pinnedItems.length)}</span>
+      </div>`;
+      if (!_pinnedCollapsed) {
+        html += pinnedItems.map(e => _renderEntryCard(e)).join('');
+      }
     }
+    html += unpinnedItems.map(e => _renderEntryCard(e)).join('');
   }
-  html += unpinnedItems.map(e => _renderEntryCard(e)).join('');
   list.innerHTML = html;
 
   // Bind pinned section header
@@ -217,7 +263,7 @@ function renderHistory() {
   // Bind entry click to expand/collapse
   list.querySelectorAll('.entry').forEach(el => {
     el.addEventListener('click', async (ev) => {
-      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea') || ev.target.closest('.entry-full-text') || ev.target.closest('.project-badge')) return;
+      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea') || ev.target.closest('.entry-full-text') || ev.target.closest('.project-badge') || ev.target.closest('.entry-detail-title')) return;
       const id = el.dataset.id;
       // Pending entries: click triggers re-transcription instead of expand
       if (el.classList.contains('pending') && !_pendingRetryInFlight) {
@@ -273,11 +319,20 @@ function renderHistory() {
       else if (action === 'pin') doPin(id);
       else if (action === 'delete') confirmDelete(id);
       else if (action === 'edit-text') startEditText(id);
+      else if (action === 'focus-title') focusDetailTitle(id);
+      else if (action === 'edit-title-card') startEditTitleCard(id, btn);
       else if (action === 'smart') showSmartActionMenu(id, btn);
       else if (action === 'save-text') saveEditText(id);
       else if (action === 'cancel-text') cancelEditText(id);
       else if (action === 'play-audio') doPlayAudio(id);
       else if (action === 'retranscribe') doReTranscribe(id, btn);
+      else if (action === 'toggle-notes') toggleNotesSection(id);
+      else if (action === 'toggle-attachments') toggleAttachmentsSection(id);
+      else if (action === 'save-note') saveNewNote(id);
+      else if (action === 'add-attachment') triggerAttachmentPicker(id);
+      else if (action === 'delete-note') deleteNote(btn.dataset.noteId, id);
+      else if (action === 'delete-attachment') deleteAttachment(btn.dataset.attId, id);
+      else if (action === 'open-attachment') openAttachment(btn.dataset.attId);
     });
   });
 
@@ -306,6 +361,13 @@ function renderHistory() {
     });
   });
 
+  // Load note/attachment counts for expanded entries
+  list.querySelectorAll('.entry.expanded').forEach(el => {
+    const id = el.dataset.id;
+    loadNoteCount(id);
+    loadAttachmentCount(id);
+  });
+
   // Bind tag remove buttons
   list.querySelectorAll('.tag-remove').forEach(btn => {
     btn.addEventListener('click', (ev) => {
@@ -321,6 +383,33 @@ function renderHistory() {
       const entryId = badge.dataset.entryId;
       if (entryId) showProjectAssignDialog(entryId);
     });
+  });
+
+  // Bind inline title editing in detail view (contenteditable)
+  list.querySelectorAll('.entry-detail-title[contenteditable]').forEach(titleEl => {
+    const entryId = titleEl.dataset.entryId;
+    const entry = _entries.find(e => e.id === entryId);
+    if (!entry) return;
+    const originalTitle = entry.title || entry.text.substring(0, 60);
+
+    titleEl.addEventListener('blur', async () => {
+      const newTitle = titleEl.textContent.trim();
+      if (newTitle && newTitle !== originalTitle) {
+        const ok = await window.updateEntry(entryId, newTitle, JSON.stringify(entry.tags || []));
+        if (ok) {
+          entry.title = newTitle;
+          showToast(t('notebook.saved'));
+          await loadEntries();
+        }
+      } else {
+        titleEl.textContent = originalTitle;
+      }
+    });
+    titleEl.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { ev.preventDefault(); titleEl.blur(); }
+      if (ev.key === 'Escape') { titleEl.textContent = originalTitle; titleEl.blur(); }
+    });
+    titleEl.addEventListener('click', (ev) => ev.stopPropagation());
   });
 
   // Bind entry drag-to-tag
@@ -343,6 +432,22 @@ function renderHistory() {
 
   // Async: check which entries have cached audio and show play/retranscribe buttons
   _updateAudioButtons(list);
+
+  // Stagger card entrance animation
+  applyCardStagger(list);
+  toggleEmptyState();
+}
+
+function applyCardStagger(container) {
+  if (!container) return;
+  const entries = container.querySelectorAll('.entry');
+  const maxAnimate = 8;
+  entries.forEach((entry, i) => {
+    if (i < maxAnimate) {
+      entry.style.opacity = '0';
+      entry.style.animation = `cardEnter 0.25s ease ${i * 50}ms forwards`;
+    }
+  });
 }
 
 async function _updateAudioButtons(container) {

@@ -16,6 +16,16 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const action = url.searchParams.get("action") || "info";
 
+  // Authenticate admin actions (fix, delete) via API key
+  const requiresAuth = action === "fix" || action === "delete";
+  if (requiresAuth) {
+    const apiKey = req.headers.get("x-api-key") || url.searchParams.get("apiKey");
+    const adminKey = Deno.env.get("ADMIN_API_KEY");
+    if (!adminKey || !apiKey || apiKey !== adminKey) {
+      return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { "content-type": "application/json" } });
+    }
+  }
+
   if (action === "info") {
     return new Response(JSON.stringify({
       webhook_id: whId,
@@ -71,5 +81,42 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ deleted: del.ok, status: del.status, message_id: msgId }), { headers: { "content-type": "application/json" } });
   }
 
-  return new Response(JSON.stringify({ error: "unknown action", actions: ["info", "list", "delete"] }), { status: 400 });
+  if (action === "fix") {
+    const hash = url.searchParams.get("hash");
+    const version = url.searchParams.get("version");
+    if (!hash || !version) {
+      return new Response(JSON.stringify({ error: "missing hash or version" }), { status: 400, headers: { "content-type": "application/json" } });
+    }
+
+    const supabaseURL = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseURL || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: "not configured" }), { status: 500 });
+    }
+
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    const supabase = createClient(supabaseURL, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    // Mark all reports with this hash as fixed
+    const { data, error } = await supabase
+      .from("crash_report_events")
+      .update({ fixed_in_version: version, dismissed: true })
+      .eq("message_hash", hash)
+      .select("id");
+
+    if (error) {
+      return new Response(JSON.stringify({ error: "update_failed", detail: error.message }), { status: 500, headers: { "content-type": "application/json" } });
+    }
+
+    return new Response(JSON.stringify({
+      action: "fixed",
+      hash,
+      version,
+      updated_count: data?.length || 0
+    }), { headers: { "content-type": "application/json" } });
+  }
+
+  return new Response(JSON.stringify({ error: "unknown action", actions: ["info", "list", "delete", "fix"] }), { status: 400 });
 });

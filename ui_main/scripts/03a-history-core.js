@@ -11,6 +11,7 @@ let _acSeq = 0;
 let _pinnedCollapsed = false;
 let _pendingRetryInFlight = false;
 let _projects = [];
+let _currentGrouping = 'date';
 
 function isToday(ts) {
   const d = new Date(ts), now = new Date();
@@ -207,6 +208,8 @@ async function loadEntries() {
   updateSelectionBar();
   renderHistory();
   _updateSearchHintChips();
+  updateDashboardGreeting();
+  checkMilestone(_entries.length);
 }
 
 function _updateSearchHintChips() {
@@ -457,7 +460,7 @@ function _getSidebarCollapseState() {
 function _setSidebarCollapseState(section, collapsed) {
   const state = _getSidebarCollapseState();
   state[section] = collapsed;
-  localStorage.setItem(_COLLAPSE_KEY, JSON.stringify(state));
+  safeStorageSet(_COLLAPSE_KEY, JSON.stringify(state));
 }
 
 function _toggleSidebarSection(sectionEl) {
@@ -525,7 +528,7 @@ function _initSidebarToggle() {
   const expandBtn = document.getElementById('sidebarExpandBtn');
   if (!sidebar || !collapseBtn || !expandBtn) return;
 
-  const hidden = localStorage.getItem(_SIDEBAR_HIDDEN_KEY) === 'true';
+  const hidden = safeStorageGet(_SIDEBAR_HIDDEN_KEY) === 'true';
   if (hidden) {
     sidebar.classList.add('sidebar-hidden');
     expandBtn.classList.remove('hidden');
@@ -535,13 +538,60 @@ function _initSidebarToggle() {
     e.stopPropagation();
     sidebar.classList.add('sidebar-hidden');
     expandBtn.classList.remove('hidden');
-    localStorage.setItem(_SIDEBAR_HIDDEN_KEY, 'true');
+    safeStorageSet(_SIDEBAR_HIDDEN_KEY, 'true');
   });
 
   expandBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     sidebar.classList.remove('sidebar-hidden');
     expandBtn.classList.add('hidden');
-    localStorage.setItem(_SIDEBAR_HIDDEN_KEY, 'false');
+    safeStorageSet(_SIDEBAR_HIDDEN_KEY, 'false');
   });
+}
+
+/* ── Dashboard Greeting ────────────────────────────────── */
+function updateDashboardGreeting() {
+  const el = document.getElementById('dashboardGreeting');
+  if (!el) return;
+
+  const hour = new Date().getHours();
+  const day = new Date().getDay();
+  const isWeekend = day === 0 || day === 6;
+  const todayCount = _entries.filter(e => isToday(e.timestamp)).length;
+
+  let greetKey;
+  if (hour < 12) greetKey = 'greeting.morning';
+  else if (hour < 17) greetKey = 'greeting.afternoon';
+  else greetKey = 'greeting.evening';
+
+  let greetText = t(greetKey);
+
+  let suffix = '';
+  if (todayCount === 0) {
+    if (isWeekend) {
+      suffix = t('greeting.weekend');
+    } else if (hour < 9) {
+      suffix = t('greeting.earlybird');
+    } else {
+      suffix = t('greeting.ready');
+    }
+  } else if (todayCount === 1) {
+    suffix = todayCount + ' ' + t('greeting.recording') + ' ' + t('greeting.today_suffix');
+  } else if (todayCount < 10) {
+    suffix = todayCount + ' ' + t('greeting.recordings') + ' ' + t('greeting.today_suffix');
+  } else {
+    suffix = t('greeting.productive').replace('{count}', todayCount);
+  }
+
+  el.textContent = suffix ? (greetText + ' — ' + suffix) : greetText;
+}
+
+/* ── Empty State Toggle ───────────────────────────────── */
+function toggleEmptyState() {
+  const el = document.getElementById('emptyState');
+  const entriesList = document.getElementById('entriesList');
+  if (!el) return;
+  const hasEntries = _entries.length > 0;
+  el.classList.toggle('hidden', hasEntries);
+  if (entriesList) entriesList.classList.toggle('hidden', !hasEntries);
 }

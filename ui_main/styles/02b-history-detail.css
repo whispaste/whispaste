@@ -57,7 +57,7 @@
 
 .entry-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .entry-title {
@@ -71,7 +71,8 @@
 
 .entry-meta {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
   gap: var(--space-1) var(--space-2-5);
   margin-top: var(--space-1);
   font-size: var(--text-xs);
@@ -89,6 +90,10 @@
   color: var(--text-secondary);
   white-space: nowrap;
   line-height: 1.4;
+  min-width: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .entry-meta .meta-item.meta-model {
   overflow: hidden;
@@ -116,6 +121,15 @@
   border-radius: var(--radius-full);
   font-weight: var(--weight-medium);
   border: 1px solid var(--border-accent);
+}
+/* Fix 3: "+N" overflow indicator for tags */
+.tag-overflow {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  padding: 2px 6px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
 }
 [data-theme="dark"] .entry-tags-row .tag,
 [data-theme="dark"] .entry-meta .tag {
@@ -187,7 +201,7 @@
   color: var(--text-secondary);
   border-color: var(--border-primary);
 }
-.sidebar-add-tag .icon { width: 12px; height: 12px; }
+.sidebar-add-tag .icon { width: 16px; height: 16px; }
 .sidebar-tag-input {
   width: 100%;
   font-size: var(--text-sm);
@@ -487,4 +501,103 @@
 .copy-feedback.fade-out {
   opacity: 0;
   transition: opacity 300ms ease;
+}
+
+/* ── Inline Title Editing ────────────────────────────── */
+
+/* Detail view (expanded) title row */
+.entry-detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.entry-detail-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-xl, 1.25rem);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.4;
+  outline: none;
+  border-bottom: 2px solid transparent;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+  cursor: text;
+  padding: var(--space-0-5) var(--space-1);
+  border-radius: var(--radius-sm);
+  word-break: break-word;
+}
+.entry-detail-title:hover {
+  border-bottom-color: var(--border-primary);
+}
+.entry-detail-title:focus {
+  border-bottom-color: var(--accent, var(--accent-primary));
+  background: var(--bg-tertiary);
+}
+.entry-detail-title-edit {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  padding: 2px;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.entry-detail-title-row:hover .entry-detail-title-edit {
+  opacity: 0.7;
+}
+.entry-detail-title-edit:hover {
+  opacity: 1 !important;
+  color: var(--accent, var(--accent-primary));
+}
+
+/* Card view title wrapper with hover edit button */
+.entry-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.entry-title-wrapper .entry-title {
+  flex: 1;
+  min-width: 0;
+}
+.title-edit-btn {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  padding: 2px;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.title-edit-btn .icon { width: 12px; height: 12px; }
+.entry:not(.expanded):hover .title-edit-btn {
+  opacity: 0.6;
+}
+.title-edit-btn:hover {
+  opacity: 1 !important;
+  color: var(--accent, var(--accent-primary));
+}
+.entry.expanded .title-edit-btn { display: none; }
+
+/* Card view inline edit input */
+.edit-title-input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--border-focus, var(--accent));
+  border-radius: var(--radius-sm);
+  padding: var(--space-0-5) var(--space-1-5);
+  outline: none;
 }

@@ -251,7 +251,7 @@ func logLocalSTTPreflight(result preflightpkg.Result, purpose, modelID string) {
 		switch check.Status {
 		case preflightpkg.StatusFail:
 			if check.Blocking {
-				logWarn("Local STT preflight blocking failure: code=%s value=%s detail=%s", check.Code, check.Value, check.Detail)
+				logInfo("Local STT preflight blocking failure: code=%s value=%s detail=%s", check.Code, check.Value, check.Detail)
 			} else {
 				logInfo("Local STT preflight warning-as-failure: code=%s value=%s detail=%s", check.Code, check.Value, check.Detail)
 			}

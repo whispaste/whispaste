@@ -1,6 +1,9 @@
 /* ── Translations ──────────────────────────────────────── */
 const translations = {
   en: {
+    // App
+    'app.notebook': 'Notebook',
+
     // Navigation
     navHistory: 'History',
     navSettings: 'Settings',
@@ -66,12 +69,10 @@ const translations = {
     labelVolume: 'Volume',
     labelAutoPaste: 'Paste automatically after recording',
     descAutoPaste: 'Your transcription lands right where you need it',
+    labelAutoPasteDelay: 'Auto-Paste Delay',
+    descAutoPasteDelay: 'Wait before pasting to give the target app time to accept input',
     labelCheckUpdates: 'Stay up to date',
     descCheckUpdates: 'Get notified when a new version is available',
-    labelUpdateChannel: 'Update channel',
-    descUpdateChannel: 'Choose which versions you receive',
-    updateChannelStable: 'Stable',
-    updateChannelBeta: 'Beta',
     labelAutostart: 'Start with Windows',
     descAutostart: 'Launch WhisPaste automatically when you sign in',
     labelCloseToTray: 'Minimize to tray on close',
@@ -85,6 +86,14 @@ const translations = {
     labelFloatingOpacity: 'Opacity',
     labelFloatingLock: 'Lock Position',
     labelFloatingBorder: 'Border Ring',
+    labelFloatingShape: 'Button Shape',
+    shapeCircle: 'Circle',
+    shapeSquircle: 'Squircle',
+    shapeRounded: 'Rounded Square',
+    shapeHexagon: 'Hexagon',
+    shapeDiamond: 'Diamond',
+    shapeStar: 'Star',
+    colorCustom: 'Custom Color',
     cardNotifications: 'Notifications',
     labelNotifyBg: 'Background notification',
     descNotifyBg: 'Show notification when the window is closed and the app continues in the system tray',
@@ -297,7 +306,7 @@ const translations = {
     audioHealthSilentTip: 'Check mute, the selected microphone, and the Windows input volume.',
     audioHealthQuietBadge: 'Too quiet',
     audioHealthQuietMessage: 'Your microphone level is very low.',
-    audioHealthQuietTip: 'Raise the Windows microphone input volume first. Use Microphone boost only for a light lift.',
+    audioHealthQuietTip: 'Try increasing the microphone boost above, or raise the Windows microphone input volume. If transcription works well, you can safely ignore this.',
     audioHealthGoodBadge: 'Looks good',
     audioHealthGoodMessage: 'Your microphone level looks healthy.',
     audioHealthGoodTip: 'You are ready to dictate.',
@@ -604,6 +613,20 @@ const translations = {
     'analytics.reset_confirm': 'This will permanently delete all statistics data. This action cannot be undone.',
     'analytics.reset_cancel': 'Cancel',
     'analytics.reset_confirm_btn': 'Reset Statistics',
+    'analytics.time_saved': 'Time Saved',
+    'analytics.time_saved_hint': 'vs typing at 40 WPM',
+    'analytics.avg_speed': 'Avg Speed',
+    'analytics.local_cloud': 'Local vs Cloud',
+    'analytics.local_label': 'Local',
+    'analytics.cloud_label': 'Cloud',
+    'analytics.tip.total_entries': 'Total voice recordings transcribed in the selected time period',
+    'analytics.tip.total_duration': 'Combined recording time of all transcriptions',
+    'analytics.tip.total_words': 'Total word count across all transcriptions',
+    'analytics.tip.time_saved': 'Estimated time saved vs. manual typing (based on 40 words/minute)',
+    'analytics.tip.avg_speed': 'Average processing speed relative to recording duration (higher = faster)',
+    'analytics.tip.local_cloud': 'Ratio of local (on-device) vs. cloud API transcriptions',
+    'analytics.tip.model_perf': 'Speed: how fast each model processes audio. Words/Min: transcription output rate',
+    'analytics.tip.daily_activity': 'Daily transcription count, colored by speech recognition model',
 
     // Status bar
     'statusbar.model_tip': 'Active model — click to change',
@@ -861,7 +884,15 @@ const translations = {
     'palette.cat.smartMode': 'Smart Mode',
     'palette.cat.recording': 'Recording Mode',
     'palette.cat.export': 'Export',
-    'palette.cat.navigation': 'Navigation',
+    'palette.cat.quickActions': 'Quick Actions',
+    'palette.cat.templates': 'Custom Templates',
+    'palette.cat.historyResults': 'History Results',
+    'palette.cmd.startRecording': 'Start Recording',
+    'palette.cmd.copyLast': 'Copy Last Transcription',
+    'palette.cmd.openLast': 'Open Last Transcription',
+    'palette.cmd.toggleAutoPaste': 'Toggle Auto-Paste',
+    'palette.cmd.searchHistory': 'Search History',
+    'palette.cmd.giveFeedback': 'Give Feedback',
     'palette.cmd.smartToggle': 'Toggle Smart Mode',
     'palette.cmd.presetCleanup': 'Preset: Clean Up',
     'palette.cmd.presetConcise': 'Preset: Condense',
@@ -882,12 +913,12 @@ const translations = {
     'palette.cmd.exportMD': 'Export as Markdown',
     'palette.cmd.exportCSV': 'Export as CSV',
     'palette.cmd.exportJSON': 'Export as JSON',
-    'palette.cmd.navHistory': 'Go to History',
-    'palette.cmd.navAnalytics': 'Go to Analytics',
-    'palette.cmd.navSettings': 'Go to Settings',
-    'palette.cmd.navSmartMode': 'Go to Smart Mode',
-    'palette.cmd.navReplacements': 'Go to Voice Shortcuts',
-    'palette.cmd.navAbout': 'Go to About',
+    'palette.toast.copied': 'Copied to clipboard',
+    'palette.toast.noEntries': 'No transcriptions yet',
+    'palette.toast.autoPasteOn': 'Auto-Paste enabled',
+    'palette.toast.autoPasteOff': 'Auto-Paste disabled',
+    'palette.noResultsHint': 'No commands found. Keep typing to search history…',
+    'palette.historyEntry': 'Transcription',
 
     // Modifier keys
     'key.ctrl': 'Ctrl',
@@ -915,8 +946,66 @@ const translations = {
 
     // Recent commands
     'palette.cat.recent': 'Recent',
+
+    // Feedback
+    'feedback.title': 'How do you like WhisPaste?',
+    'feedback.subtitle': 'Your feedback helps us improve the app.',
+    'feedback.placeholder': 'Tell us what you think... (optional)',
+    'feedback.privacy': 'Only your rating, feedback text, and app version are transmitted. No personal data is collected.',
+    'feedback.cancel': 'Cancel',
+    'feedback.submit': 'Submit Feedback',
+    'feedback.thanks': 'Thank you for your feedback!',
+
+    // History Groups
+    'group.none': 'No grouping',
+    'group.by_date': 'By date',
+    'group.by_project': 'By project',
+    'group.by_language': 'By language',
+    'group.today': 'Today',
+    'group.yesterday': 'Yesterday',
+    'group.this_week': 'This week',
+    'group.this_month': 'This month',
+    'group.older': 'Older',
+    'group.no_project': 'No project',
+    'group.unknown': 'Unknown',
+    'group.entry': 'entry',
+    'group.entries': 'entries',
+    'group.of': 'of',
+
+    // View modes
+    'view.card': 'Card view',
+    'view.list': 'List view',
+    'view.tile': 'Tile view',
+
+    // Dashboard greeting
+    'greeting.morning': 'Good morning',
+    'greeting.afternoon': 'Good afternoon',
+    'greeting.evening': 'Good evening',
+    'greeting.recording': 'recording',
+    'greeting.recordings': 'recordings',
+    'greeting.today_suffix': 'today',
+    'greeting.weekend': 'Enjoy your weekend!',
+    'greeting.earlybird': 'Early start today!',
+    'greeting.ready': 'Ready when you are.',
+    'greeting.productive': 'Wow, {count} recordings today! \u{1F525}',
+
+    // Milestone celebrations
+    'milestone.10': '\u{1F389} 10 dictations! You\'re getting started!',
+    'milestone.50': '\u{1F525} 50 dictations! You\'re on a roll!',
+    'milestone.100': '\u{1F3C6} 100 dictations! Power user status!',
+    'milestone.250': '\u26A1 250 dictations! Impressive dedication!',
+    'milestone.500': '\u{1F31F} 500 dictations! You\'re a WhisPaste pro!',
+    'milestone.1000': '\u{1F48E} 1000 dictations! Legendary!',
+    'milestone.dictations': 'dictations',
+
+    // Empty state
+    'emptyState.title': 'Your voice, your words',
+    'emptyState.desc': 'Press the hotkey or click the floating button to start your first dictation.',
   },
   de: {
+    // App
+    'app.notebook': 'Notizbuch',
+
     // Navigation
     navHistory: 'Verlauf',
     navSettings: 'Einstellungen',
@@ -982,12 +1071,10 @@ const translations = {
     labelVolume: 'Lautstärke',
     labelAutoPaste: 'Nach Aufnahme automatisch einfügen',
     descAutoPaste: 'Dein Text landet direkt dort, wo du ihn brauchst',
+    labelAutoPasteDelay: 'Auto-Einfüge-Verzögerung',
+    descAutoPasteDelay: 'Wartezeit vor dem Einfügen, damit die Ziel-App die Eingabe verarbeiten kann',
     labelCheckUpdates: 'Immer aktuell bleiben',
     descCheckUpdates: 'Erhalte eine Benachrichtigung bei neuen Versionen',
-    labelUpdateChannel: 'Update-Kanal',
-    descUpdateChannel: 'Wähle, welche Versionen du erhältst',
-    updateChannelStable: 'Stabil',
-    updateChannelBeta: 'Beta',
     labelAutostart: 'Mit Windows starten',
     descAutostart: 'WhisPaste beim Anmelden automatisch starten',
     labelCloseToTray: 'Beim Schließen in den Tray minimieren',
@@ -1001,6 +1088,14 @@ const translations = {
     labelFloatingOpacity: 'Deckkraft',
     labelFloatingLock: 'Position sperren',
     labelFloatingBorder: 'Rahmen',
+    labelFloatingShape: 'Button-Form',
+    shapeCircle: 'Kreis',
+    shapeSquircle: 'Squircle',
+    shapeRounded: 'Abgerundetes Quadrat',
+    shapeHexagon: 'Sechseck',
+    shapeDiamond: 'Raute',
+    shapeStar: 'Stern',
+    colorCustom: 'Eigene Farbe',
     cardNotifications: 'Benachrichtigungen',
     labelNotifyBg: 'Hintergrund-Benachrichtigung',
     descNotifyBg: 'Benachrichtigung anzeigen, wenn das Fenster geschlossen wird und die App im Infobereich weiterläuft',
@@ -1213,7 +1308,7 @@ const translations = {
     audioHealthSilentTip: 'Prüfe Stummschaltung, das gewählte Mikrofon und die Windows-Eingangslautstärke.',
     audioHealthQuietBadge: 'Zu leise',
     audioHealthQuietMessage: 'Dein Mikrofonpegel ist sehr niedrig.',
-    audioHealthQuietTip: 'Erhöhe zuerst die Windows-Mikrofonlautstärke. Nutze die Mikrofon-Verstärkung nur für einen leichten Ausgleich.',
+    audioHealthQuietTip: 'Versuche die Mikrofonverstärkung oben zu erhöhen oder die Windows-Mikrofon-Eingangslautstärke anzuheben. Wenn die Transkription gut funktioniert, kannst du dies ignorieren.',
     audioHealthGoodBadge: 'Sieht gut aus',
     audioHealthGoodMessage: 'Dein Mikrofonpegel sieht gesund aus.',
     audioHealthGoodTip: 'Du kannst jetzt diktieren.',
@@ -1520,6 +1615,20 @@ const translations = {
     'analytics.reset_confirm': 'Alle Statistikdaten werden unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.',
     'analytics.reset_cancel': 'Abbrechen',
     'analytics.reset_confirm_btn': 'Statistik zurücksetzen',
+    'analytics.time_saved': 'Zeitersparnis',
+    'analytics.time_saved_hint': 'ggü. Tippen mit 40 WPM',
+    'analytics.avg_speed': 'Ø Geschwindigkeit',
+    'analytics.local_cloud': 'Lokal vs Cloud',
+    'analytics.local_label': 'Lokal',
+    'analytics.cloud_label': 'Cloud',
+    'analytics.tip.total_entries': 'Gesamtzahl der Sprachaufnahmen im gewählten Zeitraum',
+    'analytics.tip.total_duration': 'Gesamte Aufnahmedauer aller Transkriptionen',
+    'analytics.tip.total_words': 'Gesamtanzahl der Wörter aller Transkriptionen',
+    'analytics.tip.time_saved': 'Geschätzte Zeitersparnis gegenüber manuellem Tippen (basierend auf 40 Wörtern/Minute)',
+    'analytics.tip.avg_speed': 'Durchschnittliche Verarbeitungsgeschwindigkeit im Verhältnis zur Aufnahmedauer (höher = schneller)',
+    'analytics.tip.local_cloud': 'Verhältnis lokaler (auf dem Gerät) zu Cloud-API-Transkriptionen',
+    'analytics.tip.model_perf': 'Geschwindigkeit: wie schnell jedes Modell Audio verarbeitet. Wörter/Min: Transkriptionsrate',
+    'analytics.tip.daily_activity': 'Tägliche Transkriptionsanzahl, farblich nach Spracherkennungsmodell',
 
     // Status bar
     'statusbar.model_tip': 'Aktives Modell — klicken zum Ändern',
@@ -1777,7 +1886,15 @@ const translations = {
     'palette.cat.smartMode': 'Smart-Modus',
     'palette.cat.recording': 'Aufnahmemodus',
     'palette.cat.export': 'Export',
-    'palette.cat.navigation': 'Navigation',
+    'palette.cat.quickActions': 'Schnellaktionen',
+    'palette.cat.templates': 'Eigene Vorlagen',
+    'palette.cat.historyResults': 'Verlauf-Ergebnisse',
+    'palette.cmd.startRecording': 'Aufnahme starten',
+    'palette.cmd.copyLast': 'Letzte Transkription kopieren',
+    'palette.cmd.openLast': 'Letzte Transkription öffnen',
+    'palette.cmd.toggleAutoPaste': 'Auto-Einfügen umschalten',
+    'palette.cmd.searchHistory': 'Verlauf durchsuchen',
+    'palette.cmd.giveFeedback': 'Feedback geben',
     'palette.cmd.smartToggle': 'Smart-Modus umschalten',
     'palette.cmd.presetCleanup': 'Preset: Bereinigen',
     'palette.cmd.presetConcise': 'Preset: Straffen',
@@ -1798,12 +1915,12 @@ const translations = {
     'palette.cmd.exportMD': 'Als Markdown exportieren',
     'palette.cmd.exportCSV': 'Als CSV exportieren',
     'palette.cmd.exportJSON': 'Als JSON exportieren',
-    'palette.cmd.navHistory': 'Zum Verlauf',
-    'palette.cmd.navAnalytics': 'Zu Statistiken',
-    'palette.cmd.navSettings': 'Zu Einstellungen',
-    'palette.cmd.navSmartMode': 'Zum Smart-Modus',
-    'palette.cmd.navReplacements': 'Zu Sprach-Shortcuts',
-    'palette.cmd.navAbout': 'Zu Info',
+    'palette.toast.copied': 'In Zwischenablage kopiert',
+    'palette.toast.noEntries': 'Noch keine Transkriptionen',
+    'palette.toast.autoPasteOn': 'Auto-Einfügen aktiviert',
+    'palette.toast.autoPasteOff': 'Auto-Einfügen deaktiviert',
+    'palette.noResultsHint': 'Keine Befehle gefunden. Weitertippen, um im Verlauf zu suchen…',
+    'palette.historyEntry': 'Transkription',
 
     // Modifier keys
     'key.ctrl': 'Strg',
@@ -1831,6 +1948,61 @@ const translations = {
 
     // Recent commands
     'palette.cat.recent': 'Zuletzt verwendet',
+
+    // Feedback
+    'feedback.title': 'Wie gefällt dir WhisPaste?',
+    'feedback.subtitle': 'Dein Feedback hilft uns, die App zu verbessern.',
+    'feedback.placeholder': 'Erzähl uns, was du denkst... (optional)',
+    'feedback.privacy': 'Nur deine Bewertung, dein Feedbacktext und die App-Version werden übermittelt. Es werden keine persönlichen Daten erfasst.',
+    'feedback.cancel': 'Abbrechen',
+    'feedback.submit': 'Feedback senden',
+    'feedback.thanks': 'Vielen Dank für dein Feedback!',
+
+    // History Groups
+    'group.none': 'Keine Gruppierung',
+    'group.by_date': 'Nach Datum',
+    'group.by_project': 'Nach Projekt',
+    'group.by_language': 'Nach Sprache',
+    'group.today': 'Heute',
+    'group.yesterday': 'Gestern',
+    'group.this_week': 'Diese Woche',
+    'group.this_month': 'Diesen Monat',
+    'group.older': 'Älter',
+    'group.no_project': 'Kein Projekt',
+    'group.unknown': 'Unbekannt',
+    'group.entry': 'Eintrag',
+    'group.entries': 'Einträge',
+    'group.of': 'von',
+
+    // View modes
+    'view.card': 'Kartenansicht',
+    'view.list': 'Listenansicht',
+    'view.tile': 'Kachelansicht',
+
+    // Dashboard greeting
+    'greeting.morning': 'Guten Morgen',
+    'greeting.afternoon': 'Guten Nachmittag',
+    'greeting.evening': 'Guten Abend',
+    'greeting.recording': 'Aufnahme',
+    'greeting.recordings': 'Aufnahmen',
+    'greeting.today_suffix': 'heute',
+    'greeting.weekend': 'Schönes Wochenende!',
+    'greeting.earlybird': 'Früh dran heute!',
+    'greeting.ready': 'Bereit, wenn du es bist.',
+    'greeting.productive': 'Wow, {count} Aufnahmen heute! \u{1F525}',
+
+    // Milestone celebrations
+    'milestone.10': '\u{1F389} 10 Diktate! Du bist gestartet!',
+    'milestone.50': '\u{1F525} 50 Diktate! Du bist richtig dabei!',
+    'milestone.100': '\u{1F3C6} 100 Diktate! Power-User-Status!',
+    'milestone.250': '\u26A1 250 Diktate! Beeindruckendes Engagement!',
+    'milestone.500': '\u{1F31F} 500 Diktate! Du bist ein WhisPaste-Profi!',
+    'milestone.1000': '\u{1F48E} 1000 Diktate! Legendär!',
+    'milestone.dictations': 'Diktate',
+
+    // Empty state
+    'emptyState.title': 'Deine Stimme, deine Worte',
+    'emptyState.desc': 'Drücke die Tastenkombination oder klicke den Aufnahme-Button, um dein erstes Diktat zu starten.',
   }
 };
 
@@ -1846,6 +2018,8 @@ function applyTranslations() {
     const key = el.getAttribute('data-i18n');
     if (t[key] != null) el.textContent = t[key];
   });
+  // Restore dynamic connectivity label after translation sweep
+  if (typeof updateConnectivityChip === 'function') updateConnectivityChip();
   document.querySelectorAll('[data-i18n-opt]').forEach(el => {
     const key = el.getAttribute('data-i18n-opt');
     if (t[key] != null) el.textContent = t[key];

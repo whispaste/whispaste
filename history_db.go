@@ -42,7 +42,9 @@ const historyDBFile = "history.db"
 // 2 = regular FTS5 (rowid-based triggers)
 // 3 = daily_stats aggregation table
 // 6 = language_hint for persisted local STT hints
-const currentSchemaVersion = 6
+// 7 = title_edited flag for AI-generated vs manually edited titles
+// 8 = notes and file attachments per entry
+const currentSchemaVersion = 8
 
 // initHistoryDB opens (or creates) the SQLite database and ensures tables exist.
 func initHistoryDB() (*sql.DB, error) {
@@ -440,6 +442,42 @@ func ensureSchemaVersion(db *sql.DB) error {
 			}
 			version = 6
 
+		case 6:
+			// Migration to v7: track whether titles were manually edited.
+			if _, err := db.Exec(`ALTER TABLE history_entries ADD COLUMN title_edited INTEGER NOT NULL DEFAULT 0`); err != nil {
+				if !strings.Contains(err.Error(), "duplicate column") {
+					return fmt.Errorf("add title_edited column: %w", err)
+				}
+			}
+			version = 7
+
+		case 7:
+			// Migration to v8: notes and file attachments per entry.
+			if _, err := db.Exec(`
+				CREATE TABLE IF NOT EXISTS entry_notes (
+					id         TEXT PRIMARY KEY,
+					entry_id   TEXT NOT NULL,
+					content    TEXT NOT NULL DEFAULT '',
+					created_at TEXT NOT NULL,
+					updated_at TEXT NOT NULL
+				);
+				CREATE INDEX IF NOT EXISTS idx_notes_entry ON entry_notes(entry_id);
+
+				CREATE TABLE IF NOT EXISTS entry_attachments (
+					id         TEXT PRIMARY KEY,
+					entry_id   TEXT NOT NULL,
+					filename   TEXT NOT NULL,
+					filepath   TEXT NOT NULL,
+					mime_type  TEXT NOT NULL DEFAULT '',
+					size_bytes INTEGER NOT NULL DEFAULT 0,
+					created_at TEXT NOT NULL
+				);
+				CREATE INDEX IF NOT EXISTS idx_attachments_entry ON entry_attachments(entry_id);
+			`); err != nil {
+				return fmt.Errorf("create notes/attachments tables: %w", err)
+			}
+			version = 8
+
 		default:
 			return fmt.Errorf("unexpected schema version %d, cannot migrate", version)
 		}
@@ -474,7 +512,8 @@ func createHistoryTables(db *sql.DB) error {
 			is_local      INTEGER NOT NULL DEFAULT 0,
 			cost_usd      REAL NOT NULL DEFAULT 0,
 			project_id    TEXT NOT NULL DEFAULT '',
-			archived      INTEGER NOT NULL DEFAULT 0
+			archived      INTEGER NOT NULL DEFAULT 0,
+			title_edited  INTEGER NOT NULL DEFAULT 0
 		);
 
 		CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history_entries(timestamp);
@@ -496,6 +535,26 @@ func createHistoryTables(db *sql.DB) error {
 			dur_15_30s INTEGER NOT NULL DEFAULT 0, dur_30_60s INTEGER NOT NULL DEFAULT 0,
 			dur_1_3m INTEGER NOT NULL DEFAULT 0, dur_over_3m INTEGER NOT NULL DEFAULT 0,
 			PRIMARY KEY (date, model, is_local));
+
+		CREATE TABLE IF NOT EXISTS entry_notes (
+			id         TEXT PRIMARY KEY,
+			entry_id   TEXT NOT NULL,
+			content    TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_notes_entry ON entry_notes(entry_id);
+
+		CREATE TABLE IF NOT EXISTS entry_attachments (
+			id         TEXT PRIMARY KEY,
+			entry_id   TEXT NOT NULL,
+			filename   TEXT NOT NULL,
+			filepath   TEXT NOT NULL,
+			mime_type  TEXT NOT NULL DEFAULT '',
+			size_bytes INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_attachments_entry ON entry_attachments(entry_id);
 	`)
 	if err != nil {
 		return fmt.Errorf("createHistoryTables: %w", err)
@@ -710,6 +769,7 @@ func (h *History) RecordDailyStats(durationSec, processingSec float64, text stri
 	if model == "" {
 		model = "whisper-1"
 	}
+	model = normalizeModelName(model)
 
 	_, err := h.db.Exec(`
 		INSERT INTO daily_stats (date, model, is_local, count, total_duration_sec, total_processing_sec, total_words, total_cost_usd, dur_under_15s, dur_15_30s, dur_30_60s, dur_1_3m, dur_over_3m)
@@ -734,6 +794,70 @@ func (h *History) RecordDailyStats(durationSec, processingSec float64, text stri
 	)
 	if err != nil {
 		logWarn("RecordDailyStats error: %v", err)
+	}
+}
+
+// cleanupDailyStatsModels merges rows whose raw model name differs from the
+// normalised display name. This fixes historical data where truncated or
+// variant model IDs were stored (e.g. "whisper-smal" instead of "Whisper Small").
+func (h *History) cleanupDailyStatsModels() {
+	if h.db == nil {
+		return
+	}
+
+	rows, err := h.db.Query("SELECT DISTINCT model FROM daily_stats")
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	renames := map[string]string{}
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			continue
+		}
+		norm := normalizeModelName(raw)
+		if norm != raw {
+			renames[raw] = norm
+		}
+	}
+
+	for raw, norm := range renames {
+		tx, err := h.db.Begin()
+		if err != nil {
+			logWarn("cleanupDailyStatsModels begin tx: %v", err)
+			continue
+		}
+		// Merge raw rows into normalised name, summing aggregates on PK conflict.
+		_, err = tx.Exec(`
+			INSERT INTO daily_stats (date, model, is_local, count, total_duration_sec, total_processing_sec, total_words, total_cost_usd, dur_under_15s, dur_15_30s, dur_30_60s, dur_1_3m, dur_over_3m)
+			SELECT date, ?, is_local, count, total_duration_sec, total_processing_sec, total_words, total_cost_usd, dur_under_15s, dur_15_30s, dur_30_60s, dur_1_3m, dur_over_3m
+			FROM daily_stats WHERE model = ?
+			ON CONFLICT(date, model, is_local) DO UPDATE SET
+				count = count + excluded.count,
+				total_duration_sec = total_duration_sec + excluded.total_duration_sec,
+				total_processing_sec = total_processing_sec + excluded.total_processing_sec,
+				total_words = total_words + excluded.total_words,
+				total_cost_usd = total_cost_usd + excluded.total_cost_usd,
+				dur_under_15s = dur_under_15s + excluded.dur_under_15s,
+				dur_15_30s = dur_15_30s + excluded.dur_15_30s,
+				dur_30_60s = dur_30_60s + excluded.dur_30_60s,
+				dur_1_3m = dur_1_3m + excluded.dur_1_3m,
+				dur_over_3m = dur_over_3m + excluded.dur_over_3m`, norm, raw)
+		if err != nil {
+			tx.Rollback()
+			logWarn("cleanupDailyStatsModels merge %q → %q: %v", raw, norm, err)
+			continue
+		}
+		_, err = tx.Exec("DELETE FROM daily_stats WHERE model = ?", raw)
+		if err != nil {
+			tx.Rollback()
+			logWarn("cleanupDailyStatsModels delete %q: %v", raw, err)
+			continue
+		}
+		tx.Commit()
+		logInfo("Cleaned up daily_stats model: %q → %q", raw, norm)
 	}
 }
 

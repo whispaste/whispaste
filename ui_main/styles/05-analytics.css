@@ -249,6 +249,54 @@
 .savings-text { font-size: var(--text-md); color: var(--text); }
 .savings-amount { font-weight: 700; color: var(--success); }
 
+/* Local vs Cloud ratio bar */
+.local-cloud-bar {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.local-cloud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+.local-cloud-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+.local-cloud-counts {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+.local-cloud-track {
+  display: flex;
+  height: 8px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+.local-cloud-fill {
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+.local-cloud-fill.local-fill {
+  background: var(--accent);
+}
+.local-cloud-fill.cloud-fill {
+  background: var(--text-hint);
+}
+.local-cloud-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-1-5);
+  font-size: var(--text-xs);
+  color: var(--text-hint);
+}
+
 /* Empty state */
 .analytics-empty {
   display: flex;
@@ -310,6 +358,20 @@
 .bench-speed.fast { color: var(--success); font-weight: 600; }
 .bench-speed.medium { color: var(--warning); font-weight: 600; }
 .bench-speed.slow { color: var(--error); font-weight: 600; }
+
+/* Sortable column headers */
+.benchmark-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--transition);
+}
+.benchmark-table th.sortable:hover { color: var(--text-primary); }
+.benchmark-table th.sortable.active { color: var(--text-primary); }
+.benchmark-table th .sort-arrow {
+  font-size: var(--text-xs);
+  margin-left: var(--space-1);
+}
+.benchmark-table th.active .sort-arrow { color: var(--accent); }
 
 /* Monthly costs table */
 .monthly-costs-table {
@@ -422,6 +484,11 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
+
+/* Info tooltips on stat cards */
+.info-tip { cursor: help; display: inline; }
+.info-tip svg { transition: opacity 0.15s; }
+.info-tip:hover svg { opacity: 1 !important; }
 
 @media (max-width: 600px) {
   .analytics-charts { grid-template-columns: 1fr; }

@@ -129,6 +129,23 @@ function showToast(msg, isError, duration) {
   return t;
 }
 
+/** Milestone celebrations — show a toast at dictation milestones */
+const _milestones = [10, 50, 100, 250, 500, 1000];
+const _celebratedKey = 'whispaste_celebrated';
+
+function checkMilestone(totalCount) {
+  const celebrated = JSON.parse(localStorage.getItem(_celebratedKey) || '[]');
+  for (const m of _milestones) {
+    if (totalCount >= m && !celebrated.includes(m)) {
+      celebrated.push(m);
+      localStorage.setItem(_celebratedKey, JSON.stringify(celebrated));
+      const msg = t('milestone.' + m) || ('\u{1F389} ' + m + ' ' + t('milestone.dictations') + '!');
+      showToast(msg, false, 4000);
+      return;
+    }
+  }
+}
+
 /** Show an inline status message */
 let _statusTimeout = null;
 function showStatus(msg, type) {

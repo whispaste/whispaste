@@ -73,6 +73,10 @@ var BuildDate = ""
 // build time via -ldflags.
 var CrashRelayURL = ""
 
+// FeedbackRelayURL is the public Supabase Edge Function endpoint used for
+// user feedback relay. Injected at build time via -ldflags.
+var FeedbackRelayURL string
+
 // TemplateMeta holds metadata for a smart mode template (builtin or custom).
 type TemplateMeta struct {
 	Description string   `json:"description"`

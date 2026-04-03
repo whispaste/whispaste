@@ -150,8 +150,8 @@ func TestClassifyAudioInputHealth(t *testing.T) {
 		want    string
 	}{
 		{name: "checking until enough samples", peak: 0.20, average: 0.08, reads: 2, want: "checking"},
-		{name: "silent signal", peak: 0.01, average: 0.005, reads: 12, want: "silent"},
-		{name: "quiet signal", peak: 0.08, average: 0.03, reads: 12, want: "quiet"},
+		{name: "silent signal", peak: 0.01, average: 0.003, reads: 12, want: "silent"},
+		{name: "quiet signal", peak: 0.04, average: 0.015, reads: 12, want: "quiet"},
 		{name: "healthy signal", peak: 0.34, average: 0.14, reads: 12, want: "good"},
 		{name: "too hot", peak: 0.96, average: 0.40, reads: 12, want: "hot"},
 	}

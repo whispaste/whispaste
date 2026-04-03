@@ -129,7 +129,6 @@ func TestBuildCrashConfigSnapshotIncludesDebugContextWithoutSecrets(t *testing.T
 	cfg.SmartModePreset = "cleanup"
 	cfg.SmartModeTarget = "en"
 	cfg.ActiveProfile = "team-notes"
-	cfg.UpdateChannel = "beta"
 	cfg.GPUAcceleration = "auto"
 	cfg.APIKey = "sk-secret-123"
 	cfg.DeepgramAPIKey = "dg-secret-456"
@@ -145,7 +144,6 @@ func TestBuildCrashConfigSnapshotIncludesDebugContextWithoutSecrets(t *testing.T
 		"model=claude-3-7-sonnet",
 		"vad=true(0.70)",
 		"device:Microphone (USB Audio)",
-		"updates=beta",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("snapshot missing %q: %s", want, got)
@@ -175,6 +173,7 @@ func TestBuildEmbedIncludesVersionBuildAndRuntimeConfig(t *testing.T) {
 		DeviceID:       "device123",
 		GPU:            "auto",
 		ConfigSnapshot: "profile=default\nstt=cloud | provider=openai",
+		InstallSource:  "standalone",
 	}
 
 	embed := cr.buildEmbed(report)
@@ -195,6 +194,9 @@ func TestBuildEmbedIncludesVersionBuildAndRuntimeConfig(t *testing.T) {
 	}
 	if values["Build"] != "abcdef123456…" {
 		t.Fatalf("Build field = %q, want truncated commit", values["Build"])
+	}
+	if values["Install"] == "" {
+		t.Fatal("Install field missing from embed")
 	}
 	if !strings.Contains(values["Runtime Config"], "provider=openai") {
 		t.Fatalf("Runtime Config field missing snapshot: %q", values["Runtime Config"])

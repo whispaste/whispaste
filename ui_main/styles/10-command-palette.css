@@ -23,9 +23,9 @@
 }
 
 .cp-modal {
-  width: 480px;
-  max-width: 90vw;
-  max-height: 440px;
+  width: 600px;
+  max-width: min(90vw, 50vw);
+  max-height: 480px;
   background: color-mix(in srgb, var(--bg-primary) 92%, transparent);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
@@ -40,6 +40,10 @@
 [data-theme="dark"] .cp-modal {
   background: color-mix(in srgb, var(--bg-primary) 95%, transparent);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 720px) {
+  .cp-modal { width: 95vw; max-width: 95vw; }
 }
 
 /* ── Search ──────────────────────────────────────────── */
@@ -100,6 +104,9 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .cp-category:not(:first-child) {
@@ -114,11 +121,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+  padding: 6px var(--space-4);
   cursor: pointer;
   user-select: none;
   transition: background var(--duration-fast) var(--ease-default);
   border-radius: 0;
+  min-height: 32px;
 }
 
 .cp-item:hover {
@@ -161,22 +169,50 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+/* ── Sublabel (timestamp for history items) ─────────── */
+
+.cp-item-sublabel {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  font-weight: normal;
+  flex-shrink: 0;
+}
+
+/* ── History result items ────────────────────────────── */
+
+.cp-item-history .cp-item-label {
+  font-style: italic;
+}
+
+.cp-item-history .cp-item-icon .icon {
+  color: var(--text-tertiary);
 }
 
 /* ── Shortcut badge ──────────────────────────────────── */
 
 .cp-item-shortcut {
   margin-left: auto;
-  padding-left: 16px;
-  font-size: 0.72rem;
+  padding: 1px 6px;
+  font-size: 0.68rem;
   color: var(--text-tertiary);
   font-family: 'Segoe UI', system-ui, sans-serif;
   white-space: nowrap;
   opacity: 0.7;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
 }
 
 .cp-item-active .cp-item-shortcut {
-  color: var(--accent);
+  color: var(--text-accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
   opacity: 1;
 }
 
@@ -189,7 +225,7 @@
   color: var(--text-tertiary);
 }
 
-/* ── Category icon (recent) ─────────────────────────── */
+/* ── Category icon ───────────────────────────────────── */
 
 .cp-category-icon {
   display: inline-flex;

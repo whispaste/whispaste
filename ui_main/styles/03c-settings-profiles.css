@@ -398,7 +398,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) 0 0 0;
+  padding-top: var(--space-2);
 }
 .fab-color-label {
   font-size: var(--text-base);
@@ -445,7 +445,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) 0 0 0;
+  padding-top: var(--space-2);
 }
 .fab-size-label {
   font-size: var(--text-base);
@@ -463,4 +463,55 @@
   color: var(--text-secondary);
   min-width: 42px;
   text-align: right;
+}
+
+/* ── Floating Button Shape Picker ─────────────────────── */
+.fab-shape-grid {
+  display: flex;
+  gap: var(--space-2);
+}
+.fab-shape-option {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  padding: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fab-shape-option:hover { border-color: var(--border-primary); color: var(--text-primary); }
+.fab-shape-option.selected { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent), transparent 90%); }
+
+/* ── Custom Color Picker ─────────────────────────────── */
+.fab-color-option.custom-color {
+  position: relative;
+  cursor: pointer;
+}
+.fab-custom-color-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  border: none;
+}
+.fab-custom-swatch {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+  background: conic-gradient(from 0deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  border-radius: 50%;
+}
+.fab-color-option.custom-color.selected .fab-custom-swatch {
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent);
 }

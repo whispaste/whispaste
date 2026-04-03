@@ -1,0 +1,17 @@
+/* ── Settings: Progressive Disclosure ──────────────────── */
+.settings-advanced {
+  margin-top: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+}
+.settings-advanced summary {
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-secondary);
+  user-select: none;
+}
+.settings-advanced-content {
+  padding: var(--spacing-md);
+}

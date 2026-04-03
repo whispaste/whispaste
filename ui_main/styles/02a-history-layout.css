@@ -64,28 +64,37 @@
 }
 
 .history-page-header {
-  padding-bottom: var(--space-5);
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-2);
+}
+
+.history-page-header .page-title::after {
+  display: none;
 }
 
 .history-page-header-main {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-5);
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.history-page-copy {
+.history-page-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
   min-width: 0;
 }
 
-.history-page-header .page-subtitle {
-  max-width: 680px;
+.dashboard-greeting-inline {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .history-header-actions {
-  flex-shrink: 0;
-  min-width: min(100%, 460px);
-  justify-content: flex-end;
+  width: 100%;
 }
 
 .history-search-box {
@@ -207,24 +216,24 @@
 }
 
 .sidebar-expand-btn {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border-subtle);
+  width: 24px;
+  align-self: stretch;
+  border: none;
+  border-right: 1px solid var(--border-subtle);
   background: var(--bg-secondary);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   cursor: pointer;
-  border-radius: var(--radius-sm);
-  font-size: 16px;
+  border-radius: 0;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast);
   flex-shrink: 0;
 }
 .sidebar-expand-btn:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
-  border-color: var(--border-primary);
 }
 .sidebar-expand-btn.hidden { display: none; }
 .filter-sidebar.collapsed {
@@ -549,7 +558,7 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1;
   transition: transform var(--duration-fast, 150ms) ease, color var(--duration-fast, 150ms) ease;
   color: var(--text-tertiary);
@@ -707,15 +716,92 @@
 .filter-pill-remove:hover { opacity: 1; }
 
 /* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 900px) {
+  /* Fix 1: Hide search hint chips at narrow widths */
+  .search-hints { display: none !important; }
+
+  /* Fix 2: Hide greeting at narrow widths */
+  .dashboard-greeting-inline { display: none; }
+}
+
 @media (max-width: 700px) {
   .filter-sidebar { display: none; }
   .sidebar-resize-handle { display: none; }
   .history-entry { padding: var(--space-2-5) var(--space-3); }
   .entry-title { font-size: var(--text-sm); }
+
+  /* Fix 6: Hide low-priority metadata at narrow widths */
+  .entry-meta .meta-model,
+  .entry-meta .meta-chars { display: none; }
 }
 
 @media (max-width: 600px) {
   .history-page-header { padding: var(--space-3); }
   .entry-actions { gap: var(--space-1); }
   .entry-tags { flex-wrap: nowrap; overflow: hidden; }
+}
+
+
+
+/* ── Card Hover Lift ─────────────────────────────────── */
+.entry {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.entry:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Empty State ─────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+  margin-top: var(--space-8);
+  opacity: 0;
+  animation: emptyFadeIn 0.6s ease 0.2s forwards;
+}
+.empty-state.hidden { display: none; }
+
+@keyframes emptyFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.empty-state-icon {
+  margin-bottom: var(--space-4);
+  color: var(--text-tertiary);
+  animation: emptyFloat 3s ease-in-out infinite;
+}
+
+@keyframes emptyFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.empty-state-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.empty-state-desc {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  max-width: 320px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.empty-state-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  flex-wrap: wrap;
+  justify-content: center;
 }
