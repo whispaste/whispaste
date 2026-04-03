@@ -80,9 +80,9 @@ const (
 	// Timer for double-click detection (delays single-click action)
 	_FLOAT_DBLCLK_TIMER_ID = 3
 
-	// Timer for animation (gradient rotation, state icons)
+	// Timer for re-rendering (countdown arc updates during recording)
 	_FLOAT_ANIM_TIMER_ID = 4
-	_FLOAT_ANIM_TIMER_MS = 50 // ~20 FPS for smooth gradient rotation
+	_FLOAT_ANIM_TIMER_MS = 500 // ~2 FPS for countdown arc during recording
 
 	// Tooltip constants
 	_TTS_ALWAYSTIP      = 0x01
@@ -1158,10 +1158,7 @@ func (fb *FloatingButton) render() {
 	}
 	switch appState {
 	case StateRecording, StatePaused:
-		// Pulsing red glow during recording
-		pulse := float64(time.Now().UnixMilli()%1000) / 1000.0
-		glowAlpha := uint32(80 + 60*math.Sin(pulse*2*math.Pi))
-		glowColor = (glowAlpha << 24) | 0xFF3333
+		glowColor = (uint32(100) << 24) | 0xFF3333
 	case StateTranscribing, StateProcessing:
 		glowColor = 0x60FFAB00 // amber
 	default:
@@ -1188,8 +1185,8 @@ func (fb *FloatingButton) render() {
 	// Main shape with animated gradient (slow rotating color shift)
 	topClr, botClr := preset.Top, preset.Bottom
 
-	// Animate gradient angle: one full rotation every ~8 seconds
-	angle := float32(math.Mod(float64(time.Now().UnixMilli())/8000.0*360.0, 360.0))
+	// Static diagonal gradient
+	angle := float32(135.0)
 	cxf, cyf := float32(sz)/2.0, float32(sz)/2.0
 	rad := float64(angle) * math.Pi / 180.0
 	gdx, gdy := float32(math.Cos(rad)), float32(math.Sin(rad))

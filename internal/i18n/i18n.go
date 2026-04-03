@@ -439,6 +439,7 @@ var translations = map[string]map[string]string{
 		"group.entry":      "entry",
 		"group.entries":    "entries",
 		"group.of":         "of",
+		"group.select_all": "Select all in group",
 
 		// View modes
 		"view.card": "Card view",
@@ -834,6 +835,7 @@ var translations = map[string]map[string]string{
 		"group.entry":      "Eintrag",
 		"group.entries":    "Einträge",
 		"group.of":         "von",
+		"group.select_all": "Alle in Gruppe auswählen",
 
 		// View modes
 		"view.card": "Kartenansicht",
