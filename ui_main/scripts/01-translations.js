@@ -131,6 +131,11 @@ const translations = {
     aiTextReplaceProviderLocal: 'Your device',
     aiTextReplaceProviderCloud: 'Cloud service',
     aiLocalModelLabel: 'Active model',
+    labelAutoTag: 'Auto-Tag',
+    descAutoTag: 'Automatically assign tags to new recordings using AI',
+    labelAutoTitle: 'Auto-Title',
+    descAutoTitle: 'Automatically generate a title for new recordings using AI',
+    cardAutoTagTitle: 'AI Automation',
 
     // Settings — Cloud Providers & Dictionary & GPU
     cardCloudSTT: 'Online Voice Recognition',
@@ -1139,6 +1144,11 @@ const translations = {
     aiTextReplaceProviderLocal: 'Dein Gerät',
     aiTextReplaceProviderCloud: 'Cloud-Dienst',
     aiLocalModelLabel: 'Aktives Modell',
+    labelAutoTag: 'Auto-Tag',
+    descAutoTag: 'Neue Aufnahmen automatisch mit KI-generierten Tags versehen',
+    labelAutoTitle: 'Auto-Titel',
+    descAutoTitle: 'Neue Aufnahmen automatisch mit einem KI-generierten Titel versehen',
+    cardAutoTagTitle: 'KI-Automatisierung',
 
     // Settings — Cloud Providers & Dictionary & GPU
     cardCloudSTT: 'Online-Spracherkennung',
