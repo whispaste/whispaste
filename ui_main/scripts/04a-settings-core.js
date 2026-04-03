@@ -117,15 +117,6 @@ document.addEventListener('change', function(e) {
     if (timeoutRow) timeoutRow.style.display = e.target.value === 'timeout' ? '' : 'none';
   }
 });
-// Sound preview button
-document.addEventListener('click', function(e) {
-  const btn = e.target.closest('#btn-fab-sound-preview');
-  if (!btn) return;
-  const sel = document.getElementById('select-fab-sound');
-  if (sel && sel.value !== 'none' && typeof window.previewButtonSound === 'function') {
-    window.previewButtonSound(sel.value);
-  }
-});
 // Custom color real-time preview (fires continuously while picking)
 document.addEventListener('input', function(e) {
   if (e.target.classList.contains('fab-custom-color-input')) {
@@ -149,18 +140,14 @@ document.addEventListener('change', function(e) {
     if (row) row.classList.toggle('hidden', !e.target.checked);
   }
 });
-// Show/hide color picker when floating toggle changes
+// Show/hide color picker and advanced settings when floating toggle changes
 document.addEventListener('change', function(e) {
   if (e.target.id === 'toggle-floating-btn') {
     const enabled = e.target.checked;
-    const ids = ['fab-color-row', 'fab-size-row', 'fab-opacity-row', 'fab-lock-row',
-      'fab-border-row', 'fab-shape-row', 'fab-content-row', 'fab-animation-row',
-      'fab-sound-row', 'fab-autohide-row'];
-    ids.forEach(id => { const r = document.getElementById(id); if (r) r.classList.toggle('hidden', !enabled); });
-    const timeoutRow = document.getElementById('fab-autohide-timeout-row');
-    if (timeoutRow) timeoutRow.style.display = (enabled && document.getElementById('select-fab-autohide')?.value === 'timeout') ? '' : 'none';
-    const fab = document.getElementById('captureBtn');
-    if (fab) fab.classList.toggle('hidden', enabled);
+    const colorRow = document.getElementById('fab-color-row');
+    if (colorRow) colorRow.classList.toggle('hidden', !enabled);
+    const advanced = document.querySelector('.settings-advanced');
+    if (advanced) advanced.classList.toggle('hidden', !enabled);
   }
 });
 
@@ -221,8 +208,6 @@ function gatherConfig() {
     floating_button_border: document.getElementById('toggle-floating-border')?.checked || false,
     floating_button_shape: document.querySelector('.fab-shape-option.selected')?.dataset?.shape || 'circle',
     floating_button_content: document.querySelector('.fab-content-option.selected')?.dataset?.content || 'microphone',
-    floating_button_animation: document.getElementById('select-fab-animation')?.value || 'none',
-    floating_button_sound: document.getElementById('select-fab-sound')?.value || 'none',
     floating_button_auto_hide: document.getElementById('select-fab-autohide')?.value || 'never',
     floating_button_auto_hide_timeout: parseInt(document.getElementById('range-fab-autohide-timeout')?.value || '10', 10),
     cloud_stt_provider: document.getElementById('select-cloud-stt-provider')?.value || 'openai',
@@ -398,22 +383,8 @@ function applyConfig(cfg) {
     if (contentRow) contentRow.classList.toggle('hidden', !cfg.floating_button_enabled);
   }
   {
-    const el = document.getElementById('select-fab-animation');
-    if (el) el.value = cfg.floating_button_animation || 'none';
-    const row = document.getElementById('fab-animation-row');
-    if (row) row.classList.toggle('hidden', !cfg.floating_button_enabled);
-  }
-  {
-    const el = document.getElementById('select-fab-sound');
-    if (el) el.value = cfg.floating_button_sound || 'none';
-    const row = document.getElementById('fab-sound-row');
-    if (row) row.classList.toggle('hidden', !cfg.floating_button_enabled);
-  }
-  {
     const el = document.getElementById('select-fab-autohide');
     if (el) el.value = cfg.floating_button_auto_hide || 'never';
-    const row = document.getElementById('fab-autohide-row');
-    if (row) row.classList.toggle('hidden', !cfg.floating_button_enabled);
     const timeoutRow = document.getElementById('fab-autohide-timeout-row');
     if (timeoutRow) timeoutRow.style.display = (cfg.floating_button_auto_hide === 'timeout' && cfg.floating_button_enabled) ? '' : 'none';
     const timeout = cfg.floating_button_auto_hide_timeout || 10;
@@ -421,6 +392,13 @@ function applyConfig(cfg) {
     const label = document.getElementById('fab-autohide-timeout-value');
     if (slider) slider.value = timeout;
     if (label) label.textContent = timeout + 's';
+  }
+  // Hide advanced settings if floating button is disabled
+  {
+    const colorRow = document.getElementById('fab-color-row');
+    if (colorRow) colorRow.classList.toggle('hidden', !cfg.floating_button_enabled);
+    const advanced = document.querySelector('.settings-advanced');
+    if (advanced) advanced.classList.toggle('hidden', !cfg.floating_button_enabled);
   }
   {
     const el = document.getElementById('toggle-app-detection');

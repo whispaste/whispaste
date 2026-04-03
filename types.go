@@ -43,9 +43,6 @@ const (
 	SoundSuccess
 	SoundError
 	SoundWarning
-	SoundButtonClick
-	SoundButtonPop
-	SoundButtonChime
 )
 
 // RecordSource identifies what triggered the current recording.

@@ -108,8 +108,8 @@
       safeStorageSet(KEY, expand ? '1' : '0');
     }
 
-    // Default: collapsed
-    toggleSpecialized(isExpanded());
+    // Default: expanded (collapsed only if user explicitly collapsed)
+    toggleSpecialized(safeStorageGet(KEY) !== '0');
     specHeader.addEventListener('click', () => toggleSpecialized(!isExpanded()));
   }
 

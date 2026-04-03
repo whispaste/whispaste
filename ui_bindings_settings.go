@@ -327,15 +327,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 	})
 
 	w.Bind("previewButtonSound", func(soundType string) {
-		SetSoundVolume(cfg.GetSoundVolume())
-		switch soundType {
-		case "click":
-			PlayFeedback(SoundButtonClick)
-		case "pop":
-			PlayFeedback(SoundButtonPop)
-		case "chime":
-			PlayFeedback(SoundButtonChime)
-		}
+		// Button sounds have been removed — no-op for backward compatibility
 	})
 
 	w.Bind("testNotification", func() {

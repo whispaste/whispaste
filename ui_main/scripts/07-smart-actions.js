@@ -90,20 +90,52 @@ async function showCustomPromptDialog(entryId) {
     }
 }
 
+// Pending smart action contexts for async Go→JS callbacks
+const _smartPending = new Map();
+
 async function executeSmartAction(entryId, preset, customPrompt) {
     const processingToast = showToast(t('smart.processing'), false, 0);
     const targetLang = _smartActionTargetLang(preset);
 
-    // Visual processing state on the entry card
     const entryEl = document.querySelector(`.entry[data-id="${entryId}"]`);
     if (entryEl) entryEl.classList.add('processing');
+
+    _smartPending.set(entryId, { preset, processingToast, entryEl });
 
     try {
         const raw = await window.applySmartAction(entryId, preset, customPrompt, targetLang);
         const result = JSON.parse(raw);
+        // Immediate validation error — clean up now
+        if (result.error) {
+            _smartPending.delete(entryId);
+            if (processingToast) processingToast.classList.remove('show');
+            if (entryEl) entryEl.classList.remove('processing');
+            showToast(result.error, true);
+        }
+        // If status === "processing", result comes via onSmartActionComplete
+    } catch (e) {
+        _smartPending.delete(entryId);
         if (processingToast) processingToast.classList.remove('show');
         if (entryEl) entryEl.classList.remove('processing');
+        showToast(t('smart.error'), true);
+    }
+}
 
+// Called from Go via mainWebview.Dispatch when async smart action completes
+window.onSmartActionComplete = async function(entryId, resultJSON, error) {
+    const ctx = _smartPending.get(entryId);
+    _smartPending.delete(entryId);
+
+    if (ctx?.processingToast) ctx.processingToast.classList.remove('show');
+    if (ctx?.entryEl) ctx.entryEl.classList.remove('processing');
+
+    if (error) {
+        showToast(error, true);
+        return;
+    }
+
+    try {
+        const result = JSON.parse(resultJSON);
         if (result.error) {
             showToast(result.error, true);
             return;
@@ -123,18 +155,16 @@ async function executeSmartAction(entryId, preset, customPrompt) {
             }
         } else {
             if (window.addSmartEntry) {
-                await window.addSmartEntry(entryId, result.text, preset, result.language || '');
+                await window.addSmartEntry(entryId, result.text, ctx?.preset || '', result.language || '');
                 showToast(t('smart.created'), false);
             }
         }
 
         loadEntries();
     } catch (e) {
-        if (processingToast) processingToast.classList.remove('show');
-        if (entryEl) entryEl.classList.remove('processing');
         showToast(t('smart.error'), true);
     }
-}
+};
 
 /* ── Bulk Smart Actions (multi-select) ─────────────────── */
 
@@ -196,30 +226,54 @@ async function showBulkCustomPromptDialog() {
     }
 }
 
+let _bulkProcessingToast = null;
+
 async function executeBulkSmartAction(preset, customPrompt) {
     const ids = [..._selectedIds];
-    const processingToast = showToast(t('smart.bulkProcessing'), false, 0);
+    _bulkProcessingToast = showToast(t('smart.bulkProcessing'), false, 0);
     const targetLang = _smartActionTargetLang(preset);
 
     try {
         const raw = await window.applyBulkSmartAction(JSON.stringify(ids), preset, customPrompt, targetLang);
         const result = JSON.parse(raw);
-        if (processingToast) processingToast.classList.remove('show');
+        if (result.error) {
+            if (_bulkProcessingToast) _bulkProcessingToast.classList.remove('show');
+            _bulkProcessingToast = null;
+            showToast(result.error, true);
+        }
+        // If status === "processing", result comes via onBulkSmartActionComplete
+    } catch (e) {
+        if (_bulkProcessingToast) _bulkProcessingToast.classList.remove('show');
+        _bulkProcessingToast = null;
+        showToast(t('smart.error'), true);
+    }
+}
 
+// Called from Go via mainWebview.Dispatch when async bulk action completes
+window.onBulkSmartActionComplete = async function(resultJSON, error) {
+    if (_bulkProcessingToast) _bulkProcessingToast.classList.remove('show');
+    _bulkProcessingToast = null;
+
+    if (error) {
+        showToast(error, true);
+        return;
+    }
+
+    try {
+        const result = JSON.parse(resultJSON);
         if (result.error) {
             showToast(result.error, true);
             return;
         }
 
         if (window.addBulkSmartEntry) {
-            await window.addBulkSmartEntry(result.text, preset || 'custom', result.language || '');
+            await window.addBulkSmartEntry(result.text, result.model || 'custom', result.language || '');
             showToast(t('smart.bulkCreated'), false);
         }
 
         clearSelection();
         loadEntries();
     } catch (e) {
-        if (processingToast) processingToast.classList.remove('show');
         showToast(t('smart.error'), true);
     }
-}
+};
