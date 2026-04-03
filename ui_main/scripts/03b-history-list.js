@@ -121,8 +121,8 @@ function _renderEntryCard(e) {
       <div class="entry-header">
         <div class="entry-checkbox${_selectedIds.has(e.id) ? ' checked' : ''}" data-select-id="${e.id}"></div>
         <div class="entry-title-wrapper" style="flex:1;min-width:0">
-          <div class="entry-title">${highlightSearch(e.title || e.text.substring(0, 60), _searchQuery)}</div>
-          <button class="btn-icon title-edit-btn" title="${t('title.edit')}" data-action="edit-title-card" data-id="${e.id}">${icons.pencil}</button>
+          <div class="entry-title" ${_expandedId === e.id ? 'contenteditable="true" spellcheck="false"' : ''} data-entry-id="${e.id}">${_expandedId === e.id ? esc(e.title || e.text.substring(0, 60)) : highlightSearch(e.title || e.text.substring(0, 60), _searchQuery)}</div>
+          <button class="btn-icon title-edit-btn" title="${t('title.edit')}" data-action="${_expandedId === e.id ? 'focus-title' : 'edit-title-card'}" data-id="${e.id}">${icons.pencil}</button>
         </div>
         <div class="entry-actions">
           <button class="btn-icon copy" title="${t('notebook.copy')}" data-action="copy" data-id="${e.id}">${icons.copy}</button>
@@ -147,11 +147,7 @@ function _renderEntryCard(e) {
         </div>
       </div>
       <div class="entry-full">
-        <div class="entry-detail-title-row">
-          <h3 class="entry-detail-title" contenteditable="true" spellcheck="false" title="${t('title.edit')}" data-entry-id="${e.id}">${esc(e.title || e.text.substring(0, 60))}</h3>
-          <button class="btn-icon entry-detail-title-edit" title="${t('title.edit')}" data-action="focus-title" data-id="${e.id}">${icons.pencil}</button>
-        </div>
-        <div class="entry-full-text" id="text-${e.id}">${highlightSearch(e.text, _searchQuery)}</div>
+        <div class="entry-full-text"id="text-${e.id}">${highlightSearch(e.text, _searchQuery)}</div>
         <div class="entry-text-actions">
           <button class="btn-icon" title="${t('notebook.edit_text')}" data-action="edit-text" data-id="${e.id}">${icons.pencil}</button>
         </div>
@@ -262,7 +258,7 @@ function renderHistory() {
   // Bind entry click to expand/collapse
   list.querySelectorAll('.entry').forEach(el => {
     el.addEventListener('click', async (ev) => {
-      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea') || ev.target.closest('.entry-full-text') || ev.target.closest('.project-badge') || ev.target.closest('.entry-detail-title') || ev.target.closest('.note-input') || ev.target.closest('.note-content') || ev.target.closest('.note-add-row') || ev.target.closest('.attachment-add-row') || ev.target.closest('.section-body')) return;
+      if (ev.target.closest('[data-action]') || ev.target.closest('.tag-input') || ev.target.closest('.tag-chip-remove') || ev.target.closest('.entry-checkbox') || ev.target.closest('.edit-textarea') || ev.target.closest('.entry-full-text') || ev.target.closest('.project-badge') || ev.target.closest('.entry-title[contenteditable]') || ev.target.closest('.note-input') || ev.target.closest('.note-content') || ev.target.closest('.note-add-row') || ev.target.closest('.attachment-add-row') || ev.target.closest('.section-body')) return;
       const id = el.dataset.id;
       // Pending entries: click triggers re-transcription instead of expand
       if (el.classList.contains('pending') && !_pendingRetryInFlight) {
@@ -400,8 +396,8 @@ function renderHistory() {
     });
   });
 
-  // Bind inline title editing in detail view (contenteditable)
-  list.querySelectorAll('.entry-detail-title[contenteditable]').forEach(titleEl => {
+  // Bind inline title editing in header (contenteditable when expanded)
+  list.querySelectorAll('.entry-title[contenteditable]').forEach(titleEl => {
     const entryId = titleEl.dataset.entryId;
     const entry = _entries.find(e => e.id === entryId);
     if (!entry) return;

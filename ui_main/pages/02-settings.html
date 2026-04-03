@@ -471,6 +471,10 @@
                 <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-groq-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
               </div>
               <p class="form-hint" data-i18n="descApiKeyGroq">Needed when cloud transcription uses Groq.</p>
+              <p class="form-hint">
+                <span data-i18n="hintApiKey">Need a key?</span>
+                <a href="#" onclick="openExternal('https://console.groq.com/keys'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
+              </p>
             </div>
             <div class="form-group hidden" id="cloud-stt-deepgram-key-row">
               <label class="form-label" for="input-deepgram-apikey" data-i18n="labelDeepgramApiKey">Deepgram API Key</label>
@@ -479,6 +483,10 @@
                 <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-deepgram-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
               </div>
               <p class="form-hint" data-i18n="descApiKeyDeepgram">Needed when cloud transcription uses Deepgram.</p>
+              <p class="form-hint">
+                <span data-i18n="hintApiKey">Need a key?</span>
+                <a href="#" onclick="openExternal('https://console.deepgram.com/'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
+              </p>
             </div>
             <div class="form-group">
               <button class="btn btn-test" id="btn-test" aria-label="Test transcription" onclick="testRecording()">
@@ -628,10 +636,16 @@
               <label class="form-label" data-i18n="aiLocalModelLabel">Local Model</label>
               <select class="form-select" id="smartProviderModelSelect"></select>
             </div>
-            <!-- Cloud LLM Provider (shown when cloud selected) -->
-            <div class="form-group hidden" id="cloud-llm-settings" style="margin-top:8px">
-              <label class="form-label" data-i18n="cardCloudLLM">Cloud AI Service</label>
-              <p class="form-hint" style="margin-bottom:8px" data-i18n="descCloudLLM">Choose which cloud service processes your text in Smart Mode.</p>
+          </div>
+
+          <!-- Cloud AI Service (shared by Smart Mode + Voice Shortcuts) -->
+          <div class="card hidden" id="cloud-llm-card">
+            <div class="card-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+              <span data-i18n="cardCloudLLM">Cloud AI Service</span>
+            </div>
+            <p class="card-desc" data-i18n="descCloudLLM">Choose which cloud service processes your text in Smart Mode and Voice Shortcuts.</p>
+            <div class="form-group" id="cloud-llm-settings">
               <select class="form-select" id="select-cloud-llm-provider" onchange="updateCloudLLMFields()">
                 <option value="openai" data-i18n-opt="cloudLLMOpenAI">OpenAI (Default)</option>
                 <option value="anthropic" data-i18n-opt="cloudLLMAnthropic">Anthropic Claude</option>
@@ -644,6 +658,10 @@
                   <input class="form-input input-with-actions" type="password" id="input-cloud-llm-openai-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false" oninput="syncSharedAPIKeys('input-cloud-llm-openai-apikey', 'input-apikey'); autoSave()">
                   <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-cloud-llm-openai-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
                 </div>
+                <p class="form-hint">
+                  <span data-i18n="hintApiKey">Need a key?</span>
+                  <a href="#" onclick="openExternal('https://platform.openai.com/api-keys'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
+                </p>
               </div>
               <div class="form-group hidden" id="cloud-llm-groq-key-row">
                 <label class="form-label" for="input-cloud-llm-groq-apikey" data-i18n="labelGroqApiKey">Groq Access Key</label>
@@ -651,6 +669,10 @@
                   <input class="form-input input-with-actions" type="password" id="input-cloud-llm-groq-apikey" placeholder="gsk_..." autocomplete="off" spellcheck="false" oninput="syncSharedAPIKeys('input-cloud-llm-groq-apikey', 'input-groq-apikey'); autoSave()">
                   <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-cloud-llm-groq-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
                 </div>
+                <p class="form-hint">
+                  <span data-i18n="hintApiKey">Need a key?</span>
+                  <a href="#" onclick="openExternal('https://console.groq.com/keys'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
+                </p>
               </div>
               <div class="form-group hidden" id="cloud-llm-anthropic-key-row">
                 <label class="form-label" for="input-anthropic-apikey" data-i18n="labelAnthropicApiKey">Anthropic Access Key</label>
@@ -658,6 +680,10 @@
                   <input class="form-input input-with-actions" type="password" id="input-anthropic-apikey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" oninput="autoSave()">
                   <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-anthropic-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
                 </div>
+                <p class="form-hint">
+                  <span data-i18n="hintApiKey">Need a key?</span>
+                  <a href="#" onclick="openExternal('https://console.anthropic.com/settings/keys'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
+                </p>
               </div>
               <div class="form-group hidden" id="cloud-llm-gemini-key-row">
                 <label class="form-label" for="input-gemini-apikey" data-i18n="labelGeminiApiKey">Gemini Access Key</label>
@@ -665,6 +691,10 @@
                   <input class="form-input input-with-actions" type="password" id="input-gemini-apikey" placeholder="AI..." autocomplete="off" spellcheck="false" oninput="autoSave()">
                   <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-gemini-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
                 </div>
+                <p class="form-hint">
+                  <span data-i18n="hintApiKey">Need a key?</span>
+                  <a href="#" onclick="openExternal('https://aistudio.google.com/apikey'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
+                </p>
               </div>
               <div class="form-group" id="cloud-llm-model-row">
                 <label class="form-label" for="input-cloud-llm-model" data-i18n="labelCloudLLMModel">Model Override</label>
