@@ -322,6 +322,9 @@
 .entry.pinned .entry-preview.truncated::after {
   background: linear-gradient(transparent, var(--bg-primary));
 }
+.entry.selected .entry-preview.truncated::after {
+  background: linear-gradient(transparent, var(--accent-subtle));
+}
 
 .entry-show-more {
   display: block;
