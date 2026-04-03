@@ -1,0 +1,14 @@
+# CodeQL configuration for WhisPaste (JavaScript/TypeScript analysis)
+# Uses the default security suite for Edge Functions and UI scripts.
+
+queries:
+  - uses: security-and-quality
+
+paths:
+  - supabase/functions
+  - ui_main/scripts
+
+paths-ignore:
+  - node_modules
+  - website/node_modules
+  - "**/*.test.*"

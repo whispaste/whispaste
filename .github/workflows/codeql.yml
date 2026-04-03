@@ -48,6 +48,7 @@ jobs:
         with:
           languages: go
           build-mode: manual
+          config-file: .github/codeql/codeql-config.yml
 
       - name: Build for CodeQL
         env:
@@ -71,6 +72,7 @@ jobs:
         with:
           languages: javascript-typescript
           build-mode: none
+          config-file: .github/codeql/codeql-config-js.yml
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
