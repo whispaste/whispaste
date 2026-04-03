@@ -46,47 +46,63 @@ async function loadNotes(entryId) {
   try {
     const json = await window.getNotes(entryId);
     const notes = JSON.parse(json);
-    container.innerHTML = notes.map(n => renderNote(n, entryId)).join('');
+    if (notes.length === 0) {
+      container.innerHTML = `<div class="notes-empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.855z"/></svg>
+        <span>${t('notebook.notes_empty')}</span>
+      </div>`;
+    } else {
+      container.innerHTML = notes.map(n => renderNote(n, entryId)).join('');
+    }
     loadNoteCount(entryId);
-
-    // Bind action buttons (delete) on dynamically rendered notes
-    container.querySelectorAll('[data-action]').forEach(btn => {
-      btn.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        const action = btn.dataset.action;
-        if (action === 'delete-note') {
-          deleteNote(btn.dataset.noteId, btn.dataset.id);
-        }
-      });
-    });
-
-    // Bind note edit blur
-    container.querySelectorAll('.note-content').forEach(el => {
-      el.addEventListener('blur', () => {
-        const noteId = el.dataset.noteId;
-        if (window.updateNote && noteId) {
-          window.updateNote(noteId, el.textContent.trim()).catch(() => {});
-        }
-      });
-      el.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Escape') { el.blur(); ev.stopPropagation(); }
-      });
-    });
+    _bindNoteListeners(container, entryId);
   } catch(e) {
     container.innerHTML = '<div class="note-error">' + t('error.generic') + '</div>';
   }
 }
 
+function _bindNoteListeners(container, entryId) {
+  container.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (btn.dataset.action === 'delete-note') {
+        deleteNote(btn.dataset.noteId, btn.dataset.id);
+      }
+    });
+  });
+  container.querySelectorAll('.note-content').forEach(el => {
+    el.addEventListener('blur', () => {
+      const noteId = el.dataset.noteId;
+      if (window.updateNote && noteId) {
+        window.updateNote(noteId, el.textContent.trim()).catch(() => {});
+      }
+    });
+    el.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') { el.blur(); ev.stopPropagation(); }
+    });
+  });
+}
+
 function renderNote(note, entryId) {
   const date = formatRelativeTime ? formatRelativeTime(note.created_at) : note.created_at;
+  const isVoice = note.content && note.content.startsWith('[voice]');
+  const content = isVoice ? note.content.replace(/^\[voice\]\s*/, '') : note.content;
+  const typeBadge = isVoice
+    ? `<span class="note-type-badge voice"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>${t('notebook.voice')}</span>`
+    : `<span class="note-type-badge text"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.855z"/></svg>${t('notebook.text')}</span>`;
   return `<div class="note-card">
     <div class="note-card-header">
-      <span class="note-date">${esc(date)}</span>
-      <button class="btn-icon btn-xs" data-action="delete-note" data-note-id="${note.id}" data-id="${entryId}" title="${t('notebook.delete')}">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-      </button>
+      <div class="note-meta">
+        ${typeBadge}
+        <span class="note-date">${esc(date)}</span>
+      </div>
+      <div class="note-card-actions">
+        <button class="btn-icon btn-xs" data-action="delete-note" data-note-id="${note.id}" data-id="${entryId}" title="${t('notebook.delete')}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        </button>
+      </div>
     </div>
-    <div class="note-content" contenteditable="true" spellcheck="true" data-note-id="${note.id}">${esc(note.content)}</div>
+    <div class="note-content" contenteditable="true" spellcheck="true" data-note-id="${note.id}" data-placeholder="${t('notebook.note_placeholder')}">${esc(content)}</div>
   </div>`;
 }
 
@@ -108,6 +124,16 @@ async function deleteNote(noteId, entryId) {
   } catch(e) { showToast(t('error.generic'), true); }
 }
 
+// Keyboard shortcut: Ctrl+Enter to save note
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    const textarea = e.target.closest('.note-input');
+    if (!textarea) return;
+    const entryId = textarea.id.replace('note-input-', '');
+    if (entryId) { e.preventDefault(); saveNewNote(entryId); }
+  }
+});
+
 // ── Attachments ──────────────────────────────────────
 
 async function loadAttachments(entryId) {
@@ -116,24 +142,37 @@ async function loadAttachments(entryId) {
   try {
     const json = await window.getAttachments(entryId);
     const atts = JSON.parse(json);
-    container.innerHTML = atts.map(a => renderAttachment(a, entryId)).join('');
+    if (atts.length === 0) {
+      container.innerHTML = `<div class="attachments-empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        <span>${t('notebook.attachments_empty')}</span>
+      </div>`;
+    } else {
+      container.innerHTML = atts.map(a => renderAttachment(a, entryId)).join('');
+    }
     loadAttachmentCount(entryId);
-
-    // Bind action buttons (open, delete) on dynamically rendered attachments
-    container.querySelectorAll('[data-action]').forEach(btn => {
-      btn.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        const action = btn.dataset.action;
-        if (action === 'open-attachment') {
-          openAttachment(btn.dataset.attId);
-        } else if (action === 'delete-attachment') {
-          deleteAttachment(btn.dataset.attId, btn.dataset.id);
-        }
-      });
-    });
+    _bindAttachmentListeners(container);
   } catch(e) {
     container.innerHTML = '<div class="note-error">' + t('error.generic') + '</div>';
   }
+}
+
+function _bindAttachmentListeners(container) {
+  container.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const action = btn.dataset.action;
+      if (action === 'open-attachment') openAttachment(btn.dataset.attId);
+      else if (action === 'delete-attachment') deleteAttachment(btn.dataset.attId, btn.dataset.id);
+    });
+  });
+  // Click on card to open
+  container.querySelectorAll('.attachment-card').forEach(card => {
+    card.addEventListener('dblclick', () => {
+      const attId = card.dataset.attId;
+      if (attId) openAttachment(attId);
+    });
+  });
 }
 
 function renderAttachment(att, entryId) {
@@ -147,10 +186,10 @@ function renderAttachment(att, entryId) {
     </div>
     <div class="attachment-actions">
       <button class="btn-icon btn-xs" data-action="open-attachment" data-att-id="${att.id}" data-id="${entryId}" title="${t('notebook.open_file')}">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/><path d="m21 3-9 9"/><path d="M15 3h6v6"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/><path d="m21 3-9 9"/><path d="M15 3h6v6"/></svg>
       </button>
       <button class="btn-icon btn-xs" data-action="delete-attachment" data-att-id="${att.id}" data-id="${entryId}" title="${t('notebook.delete')}">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
       </button>
     </div>
   </div>`;
@@ -190,6 +229,12 @@ function getFileIcon(mimeType, filename) {
   }
   if (['mp3', 'wav', 'ogg', 'flac', 'm4a'].includes(ext)) {
     return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+  }
+  if (['doc', 'docx', 'txt', 'md', 'rtf'].includes(ext)) {
+    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>';
+  }
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 12h1v1h-1z"/><path d="M10 15h1v1h-1z"/></svg>';
   }
   return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>';
 }
