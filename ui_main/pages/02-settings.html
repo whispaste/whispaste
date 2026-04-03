@@ -31,6 +31,10 @@
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
               <span data-i18n="settingsNavAI">AI & Models</span>
             </div>
+            <div class="filter-item" data-settings-section="section-textprocessing">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+              <span data-i18n="settingsNavTextProcessing">Text Processing</span>
+            </div>
             <div class="filter-item" data-settings-section="section-cleanup">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
               <span data-i18n="settingsNavCleanup">Cleanup</span>
@@ -563,7 +567,56 @@
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
             <span data-i18n="settingsNavAI">AI & Models</span>
           </div>
-          <p class="settings-section-intro" data-i18n="settingsSectionAIIntro">Choose where refinement happens, which local models are installed, and how much privacy or convenience you want by default.</p>
+          <p class="settings-section-intro" data-i18n="settingsSectionAIIntro">Manage local AI models for speech recognition and text processing, and configure GPU acceleration.</p>
+
+          <!-- GPU Acceleration -->
+          <div class="card">
+            <div class="card-title" data-i18n="cardGPU">GPU Acceleration</div>
+            <p class="card-desc" data-i18n="descGPU">Use your graphics card (NVIDIA CUDA) for faster local speech recognition and text processing</p>
+            <div class="form-group">
+              <select class="form-select" id="select-gpu-mode" onchange="renderGPUStatus(); autoSave()">
+                <option value="auto" data-i18n-opt="gpuAuto">Auto-detect (Recommended)</option>
+                <option value="enabled" data-i18n-opt="gpuEnabled">Always enabled</option>
+                <option value="disabled" data-i18n-opt="gpuDisabled">Disabled (CPU only)</option>
+              </select>
+              <p class="form-hint" id="gpu-status-line"></p>
+            </div>
+          </div>
+
+          <!-- Speech Recognition Models -->
+          <div class="card" data-section="local-stt">
+            <div class="card-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+              <span data-i18n="aiSttTitle">Speech Recognition Models</span>
+            </div>
+            <p class="card-desc" data-i18n="aiSttDesc">Local models for offline transcription — no internet or API key required.</p>
+            <div class="preflight-inline" id="localSttPreflightCard">
+              <span class="preflight-inline-icon" id="localSttPreflightIcon"></span>
+              <span class="preflight-inline-text" id="localSttPreflightSummary"></span>
+            </div>
+            <div class="form-group">
+              <div id="model-list" class="model-list"></div>
+            </div>
+          </div>
+
+          <!-- LLM — AI Text Processing -->
+          <div class="card" id="settings-llm-card">
+            <div class="card-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+              <span data-i18n="aiLlmTitle">AI Text Processing</span>
+            </div>
+            <p class="card-desc" data-i18n="aiLlmDesc">Local AI model for Smart Mode and text processing — runs entirely on your device, no data leaves your computer.</p>
+            <div class="form-group">
+              <div id="settings-llm-model-list" class="model-list"></div>
+            </div>
+          </div>
+
+          <!-- Section: Text Processing -->
+          <div class="settings-section-header" id="section-textprocessing">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+            <span data-i18n="settingsNavTextProcessing">Text Processing</span>
+          </div>
+          <p class="settings-section-intro" data-i18n="settingsSectionTextProcessingIntro">Configure how your text is refined after transcription — Smart Mode presets, Voice Shortcuts, and AI automation.</p>
 
           <!-- Smart Mode AI Provider -->
           <div class="card">
@@ -688,7 +741,7 @@
                 <label class="form-label" for="input-cloud-llm-model" data-i18n="labelCloudLLMModel">Model Override</label>
                 <p class="form-hint" style="margin-bottom:4px" data-i18n="descCloudLLMModel">Optional: use a specific model instead of the default.</p>
                 <input class="form-input" type="text" id="input-cloud-llm-model" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false" oninput="autoSave()">
-                <p class="form-hint" id="cloud-llm-model-hint">Leave empty to use default: gpt-4o-mini</p>
+                <p class="form-hint" id="cloud-llm-model-hint" data-i18n="cloudLLMModelHint"></p>
               </div>
             </div>
           </div>
@@ -722,48 +775,6 @@
                   <label class="toggle-track" for="toggle-auto-title"></label>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <!-- Speech Recognition Models -->
-          <div class="card" data-section="local-stt">
-            <div class="card-title">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-              <span data-i18n="aiSttTitle">Speech Recognition Models</span>
-            </div>
-            <p class="card-desc" data-i18n="aiSttDesc">Local models for offline transcription — no internet or API key required.</p>
-            <div class="preflight-inline" id="localSttPreflightCard">
-              <span class="preflight-inline-icon" id="localSttPreflightIcon"></span>
-              <span class="preflight-inline-text" id="localSttPreflightSummary"></span>
-            </div>
-            <div class="form-group">
-              <div id="model-list" class="model-list"></div>
-            </div>
-          </div>
-
-          <!-- LLM — AI Text Processing -->
-          <div class="card" id="settings-llm-card">
-            <div class="card-title">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-              <span data-i18n="aiLlmTitle">AI Text Processing</span>
-            </div>
-            <p class="card-desc" data-i18n="aiLlmDesc">Local AI model for Smart Mode and text processing — runs entirely on your device, no data leaves your computer.</p>
-            <div class="form-group">
-              <div id="settings-llm-model-list" class="model-list"></div>
-            </div>
-          </div>
-
-          <!-- GPU Acceleration -->
-          <div class="card">
-            <div class="card-title" data-i18n="cardGPU">GPU Acceleration</div>
-            <p class="card-desc" data-i18n="descGPU">Use your graphics card (NVIDIA CUDA) for faster local speech recognition and text processing</p>
-            <div class="form-group">
-              <select class="form-select" id="select-gpu-mode" onchange="renderGPUStatus(); autoSave()">
-                <option value="auto" data-i18n-opt="gpuAuto">Auto-detect (Recommended)</option>
-                <option value="enabled" data-i18n-opt="gpuEnabled">Always enabled</option>
-                <option value="disabled" data-i18n-opt="gpuDisabled">Disabled (CPU only)</option>
-              </select>
-              <p class="form-hint" id="gpu-status-line"></p>
             </div>
           </div>
 

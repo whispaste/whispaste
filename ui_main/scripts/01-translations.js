@@ -21,7 +21,8 @@ const translations = {
     settingsSectionNotificationsIntro: 'Choose which notifications you see — and which stay quiet.',
     settingsSectionAudioIntro: 'Set up your microphone, recording sounds, and how recordings start.',
     settingsSectionTranscriptionIntro: 'Set up how your voice is turned into text — choose a service and language.',
-    settingsSectionAIIntro: 'Choose where text refinement runs — on your device for privacy, or online for speed.',
+    settingsSectionAIIntro: 'Manage local AI models for speech recognition and text processing, and configure GPU acceleration.',
+    settingsSectionTextProcessingIntro: 'Configure how your text is refined after transcription — Smart Mode presets, Voice Shortcuts, and AI automation.',
     settingsSectionCleanupIntro: 'Control how long recordings are kept and when old entries are cleaned up.',
     cardApiKey: 'Access Key',
     labelApiKey: 'OpenAI Access Key',
@@ -117,8 +118,9 @@ const translations = {
 
     // Settings — Nav & Section Headers
     settingsNavAudio: 'Audio & Recording',
-    settingsNavTranscription: 'Voice Recognition',
-    settingsNavAI: 'AI & Privacy',
+    settingsNavTranscription: 'Speech Recognition',
+    settingsNavAI: 'AI & Models',
+    settingsNavTextProcessing: 'Text Processing',
     settingsNavSmart: 'Smart Mode',
     settingsNavGeneral: 'General',
     settingsNavNotifications: 'Notifications',
@@ -676,8 +678,11 @@ const translations = {
     searchHelpWild: 'Wildcard match',
 
     // Model descriptions
+    'model.desc.whisper-tiny': 'Fastest option with smallest footprint. Best for quick notes in quiet environments.',
     'model.desc.whisper-base': 'Fast, suitable for clear speech in one language. May struggle with mixed-language content.',
     'model.desc.whisper-small': 'Good balance of speed and quality. Better with mixed languages and accents.',
+    'model.desc.whisper-medium': 'High accuracy for longer recordings. Handles accents and background noise well.',
+    'model.desc.whisper-large-v3-turbo': 'Best quality available. Excellent with mixed languages, accents, and noisy environments.',
     preflightChecking: 'Checking compatibility…',
     preflightBlockedBadge: 'Not compatible',
 
@@ -1044,7 +1049,8 @@ const translations = {
     settingsSectionNotificationsIntro: 'Wähle, welche Benachrichtigungen du siehst — und welche still bleiben.',
     settingsSectionAudioIntro: 'Richte Mikrofon, Aufnahmetöne und den Start deiner Aufnahmen ein.',
     settingsSectionTranscriptionIntro: 'Lege fest, wie deine Stimme zu Text wird — wähle einen Dienst und eine Sprache.',
-    settingsSectionAIIntro: 'Wähle, wo die Textverbesserung läuft — auf deinem Gerät für Datenschutz oder online für Geschwindigkeit.',
+    settingsSectionAIIntro: 'Verwalte lokale KI-Modelle für Spracherkennung und Textverarbeitung und konfiguriere die GPU-Beschleunigung.',
+    settingsSectionTextProcessingIntro: 'Bestimme, wie dein Text nach der Transkription verfeinert wird — Smart-Modus-Presets, Sprachkürzel und KI-Automatisierung.',
     settingsSectionCleanupIntro: 'Bestimme, wie lange Aufnahmen aufbewahrt werden und wann alte Einträge aufgeräumt werden.',
     cardApiKey: 'Zugangsschlüssel',
     labelApiKey: 'OpenAI-Zugangsschlüssel',
@@ -1141,7 +1147,8 @@ const translations = {
     // Settings — Nav & Section Headers
     settingsNavAudio: 'Audio & Aufnahme',
     settingsNavTranscription: 'Spracherkennung',
-    settingsNavAI: 'KI & Datenschutz',
+    settingsNavAI: 'KI & Modelle',
+    settingsNavTextProcessing: 'Textverarbeitung',
     settingsNavSmart: 'Smart-Modus',
     settingsNavGeneral: 'Allgemein',
     settingsNavNotifications: 'Benachrichtigungen',
@@ -1699,8 +1706,11 @@ const translations = {
     searchHelpWild: 'Platzhaltersuche',
 
     // Model descriptions
+    'model.desc.whisper-tiny': 'Schnellste Option mit kleinstem Speicherbedarf. Ideal für kurze Notizen in ruhiger Umgebung.',
     'model.desc.whisper-base': 'Schnell, geeignet für klare Sprache in einer Sprache. Bei gemischten Sprachen weniger genau.',
     'model.desc.whisper-small': 'Gute Balance aus Geschwindigkeit und Qualität. Besser bei gemischten Sprachen und Akzenten.',
+    'model.desc.whisper-medium': 'Hohe Genauigkeit für längere Aufnahmen. Kommt gut mit Akzenten und Hintergrundgeräuschen zurecht.',
+    'model.desc.whisper-large-v3-turbo': 'Beste verfügbare Qualität. Exzellent bei gemischten Sprachen, Akzenten und lauter Umgebung.',
     preflightChecking: 'Kompatibilität wird geprüft…',
     preflightBlockedBadge: 'Nicht kompatibel',
 
