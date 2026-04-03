@@ -417,9 +417,9 @@ func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pause
 	}
 	o.drawGdipText(g, timer, timerX, float32(cy)-10, 60, o.gdipFontMain, timerColor)
 
-	// Mic icon that pulses with audio level
-	vuX := int32(timerX) + 62
-	const vuIconW = 12
+	// Mic icon that pulses with audio level (matches floating button mic)
+	vuX := int32(timerX) + 58
+	const vuIconW = 20
 	micAlpha := uint32(0x40) // dim when silent
 	if audioLevel > 0.02 {
 		// sqrt amplifies low levels (typical speech 0.01-0.15) for visible pulsing
@@ -432,20 +432,20 @@ func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pause
 	micColor := (micAlpha << 24) | 0x00E5FF // cyan with varying alpha
 
 	var micPen uintptr
-	procGdipCreatePen1.Call(uintptr(micColor), f32(1.5), 2, uintptr(unsafe.Pointer(&micPen)))
+	procGdipCreatePen1.Call(uintptr(micColor), f32(2.5), 2, uintptr(unsafe.Pointer(&micPen)))
 	if micPen != 0 {
 		procGdipSetPenLineCap197819.Call(micPen, 2, 2, 0) // round caps
 		procGdipSetPenLineJoin.Call(micPen, 2)
 
-		// Mic capsule (6px wide, 8px tall)
+		// Mic capsule (14px wide, ~18px tall)
 		mx := float32(vuX)
-		my := float32(cy) - 8
+		my := float32(cy) - 12
 		var capsule uintptr
 		procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&capsule)))
 		if capsule != 0 {
-			procGdipAddPathArc.Call(capsule, f32(mx), f32(my), f32(6), f32(6), f32(180), f32(180))
-			procGdipAddPathLine.Call(capsule, uintptr(int32(mx+6)), uintptr(int32(my+3)), uintptr(int32(mx+6)), uintptr(int32(my+6)))
-			procGdipAddPathArc.Call(capsule, f32(mx), f32(my+3), f32(6), f32(6), f32(0), f32(180))
+			procGdipAddPathArc.Call(capsule, f32(mx), f32(my), f32(14), f32(14), f32(180), f32(180))
+			procGdipAddPathLine.Call(capsule, uintptr(int32(mx+14)), uintptr(int32(my+7)), uintptr(int32(mx+14)), uintptr(int32(my+13)))
+			procGdipAddPathArc.Call(capsule, f32(mx), f32(my+6), f32(14), f32(14), f32(0), f32(180))
 			procGdipClosePathFigure.Call(capsule)
 			procGdipDrawPath.Call(g, micPen, capsule)
 			procGdipDeletePath.Call(capsule)
@@ -454,12 +454,12 @@ func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pause
 		var uarc uintptr
 		procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&uarc)))
 		if uarc != 0 {
-			procGdipAddPathArc.Call(uarc, f32(mx-2), f32(my+1), f32(10), f32(10), f32(0), f32(180))
+			procGdipAddPathArc.Call(uarc, f32(mx-4), f32(my+2), f32(22), f32(22), f32(0), f32(180))
 			procGdipDrawPath.Call(g, micPen, uarc)
 			procGdipDeletePath.Call(uarc)
 		}
 		// Stem
-		procGdipDrawLine.Call(g, micPen, f32(mx+3), f32(my+11), f32(mx+3), f32(my+14))
+		procGdipDrawLine.Call(g, micPen, f32(mx+7), f32(my+24), f32(mx+7), f32(my+28))
 
 		procGdipDeletePen.Call(micPen)
 	}

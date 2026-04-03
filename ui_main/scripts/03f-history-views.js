@@ -115,7 +115,11 @@ function _renderGroupedEntries(entries, groupBy) {
     const countLabel = group.entries.length === 1
       ? (t('group.entry') || 'entry')
       : (t('group.entries') || 'entries');
-    html += `<div class="group-header"><span class="group-title">${esc(group.key)}</span><span class="group-count">${group.entries.length} ${countLabel}</span></div>`;
+    const groupIds = group.entries.map(e => e.id);
+    const allSelected = groupIds.every(id => _selectedIds.has(id));
+    const someSelected = !allSelected && groupIds.some(id => _selectedIds.has(id));
+    const cbClass = allSelected ? ' checked' : (someSelected ? ' partial' : '');
+    html += `<div class="group-header"><span class="group-title">${esc(group.key)}</span><span class="group-count">${group.entries.length} ${countLabel}</span><div class="group-select-all${cbClass}" data-group-ids="${groupIds.join(',')}" title="${t('group.select_all') || 'Select all'}"></div></div>`;
     html += group.entries.map(e => _renderEntryCard(e)).join('');
   }
   return html;
