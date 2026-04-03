@@ -162,7 +162,10 @@ function _renderEntryCard(e) {
             <div class="notes-list" id="notes-list-${e.id}"></div>
             <div class="note-add-row">
               <textarea class="note-input" id="note-input-${e.id}" placeholder="${t('notebook.add_note_placeholder')}" rows="2"></textarea>
-              <button class="btn-sm btn-accent" data-action="save-note" data-id="${e.id}">${t('notebook.add_note')}</button>
+              <div class="note-add-actions">
+                <span class="note-shortcut-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd></span>
+                <button class="btn-sm btn-accent" data-action="save-note" data-id="${e.id}">${t('notebook.add_note')}</button>
+              </div>
             </div>
           </div>
         </div>

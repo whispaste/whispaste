@@ -45,7 +45,7 @@
   padding-top: var(--space-2);
 }
 
-/* ── Note Cards ──────────────────────────────────── */
+/* ── Note Cards — Premium Notion-inspired ────────── */
 
 .notes-list {
   display: flex;
@@ -53,15 +53,30 @@
   gap: var(--space-2);
 }
 
+.notes-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4) var(--space-2);
+  color: var(--text-tertiary);
+  gap: var(--space-1);
+}
+.notes-empty-state svg { opacity: 0.4; }
+.notes-empty-state span { font-size: var(--text-sm); }
+
 .note-card {
+  position: relative;
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  padding: var(--space-2);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  padding: 0;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  overflow: hidden;
 }
 .note-card:hover {
   border-color: var(--border-primary);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 .note-card:focus-within {
   border-color: var(--accent, var(--accent-primary));
@@ -72,7 +87,33 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-1);
+  padding: var(--space-1-5) var(--space-2) 0;
+}
+
+.note-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.note-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.note-type-badge.text {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+.note-type-badge.voice {
+  background: color-mix(in srgb, #10B981 12%, transparent);
+  color: #10B981;
 }
 
 .note-date {
@@ -80,67 +121,172 @@
   color: var(--text-tertiary);
 }
 
+.note-card-actions {
+  display: flex;
+  gap: var(--space-0-5);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+.note-card:hover .note-card-actions {
+  opacity: 1;
+}
+
 .note-content {
   font-size: var(--text-sm);
-  line-height: 1.6;
+  line-height: 1.7;
   color: var(--text);
   outline: none;
   white-space: pre-wrap;
   word-break: break-word;
   min-height: 1.6em;
-  border-radius: var(--radius-xs);
-  padding: var(--space-0-5);
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  border-radius: 0;
   transition: background var(--transition-fast);
 }
 .note-content:hover {
-  background: var(--bg-hover);
+  background: color-mix(in srgb, var(--bg-hover) 50%, transparent);
 }
 .note-content:focus {
   background: var(--bg-tertiary);
 }
+.note-content:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-tertiary);
+  font-style: italic;
+  pointer-events: none;
+}
 
-/* ── Note Add Row ────────────────────────────────── */
+/* ── Voice Note Audio Player ─────────────────────── */
+
+.note-audio-player {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  margin: 0 var(--space-2) var(--space-1-5);
+  padding: var(--space-1) var(--space-1-5);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+.note-audio-player audio {
+  flex: 1;
+  height: 28px;
+  min-width: 0;
+}
+.note-audio-player .audio-duration {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* ── Note Add Row — Enhanced ─────────────────────── */
 
 .note-add-row {
   margin-top: var(--space-2);
   display: flex;
   flex-direction: column;
   gap: var(--space-1-5);
+  position: relative;
+}
+
+.note-input-container {
+  position: relative;
 }
 
 .note-input {
   width: 100%;
   resize: vertical;
   min-height: 60px;
-  padding: var(--space-1-5);
+  padding: var(--space-1-5) var(--space-2);
+  padding-bottom: var(--space-4);
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   color: var(--text);
   font-family: inherit;
   font-size: var(--text-sm);
-  line-height: 1.5;
-  transition: border-color var(--transition-fast);
+  line-height: 1.6;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .note-input:focus {
   outline: none;
   border-color: var(--accent, var(--accent-primary));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, var(--accent-primary)) 12%, transparent);
 }
 .note-input::placeholder {
   color: var(--text-tertiary);
 }
 
-.note-add-row .btn-sm {
-  align-self: flex-end;
+.note-add-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  justify-content: flex-end;
 }
 
-/* ── Attachment Grid ─────────────────────────────── */
+.note-add-actions .note-shortcut-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-right: auto;
+}
+.note-add-actions .note-shortcut-hint kbd {
+  display: inline-block;
+  padding: 1px 4px;
+  font-size: 0.65rem;
+  font-family: inherit;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  color: var(--text-secondary);
+}
+
+/* Voice note record button */
+.btn-voice-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: var(--space-1) var(--space-1-5);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 1px solid var(--border-primary);
+  background: transparent;
+  color: var(--text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.btn-voice-note:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.btn-voice-note.recording {
+  border-color: #EF4444;
+  color: #EF4444;
+  animation: voiceNotePulse 1.5s ease-in-out infinite;
+}
+@keyframes voiceNotePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+
+/* ── Attachment Grid — Premium ───────────────────── */
 
 .attachments-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--space-2);
 }
+
+.attachments-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3) var(--space-2);
+  color: var(--text-tertiary);
+  gap: var(--space-1);
+}
+.attachments-empty-state svg { opacity: 0.4; }
+.attachments-empty-state span { font-size: var(--text-sm); }
 
 .attachment-card {
   display: flex;
@@ -150,18 +296,25 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  transition: border-color var(--transition-fast), background var(--transition-fast);
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+  cursor: pointer;
 }
 .attachment-card:hover {
   border-color: var(--border-primary);
   background: var(--bg-hover);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
 }
 
 .attachment-icon {
   flex-shrink: 0;
-  color: var(--text-secondary);
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
 }
 
 .attachment-info {
@@ -233,15 +386,33 @@
   color: var(--text);
 }
 
-.btn-xs {
-  width: 20px;
-  height: 20px;
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-xs);
   padding: 2px;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.btn-icon:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.btn-xs {
+  width: 22px;
+  height: 22px;
+  padding: 3px;
 }
 
 .note-error {
   font-size: var(--text-sm);
   color: var(--text-tertiary);
   font-style: italic;
-  padding: var(--space-1);
+  padding: var(--space-2);
+  text-align: center;
 }
