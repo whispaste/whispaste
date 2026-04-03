@@ -497,14 +497,14 @@ func (cr *CrashReporter) buildEmbed(r *crashReport) map[string]interface{} {
 		versionValue = "dev"
 	}
 
-	// App context fields
+	// App context fields — ensure no empty values (relay rejects them)
 	fields := []map[string]interface{}{
 		{"name": "Version", "value": versionValue, "inline": true},
 		{"name": "OS", "value": fmt.Sprintf("%s/%s", r.OS, r.Arch), "inline": true},
-		{"name": "Go", "value": r.GoVersion, "inline": true},
-		{"name": "Device", "value": r.DeviceID, "inline": true},
-		{"name": "GPU", "value": r.GPU, "inline": true},
-		{"name": "Install", "value": r.InstallSource, "inline": true},
+		{"name": "Go", "value": fallbackStr(r.GoVersion, "unknown"), "inline": true},
+		{"name": "Device", "value": fallbackStr(r.DeviceID, "unknown"), "inline": true},
+		{"name": "GPU", "value": fallbackStr(r.GPU, "none"), "inline": true},
+		{"name": "Install", "value": fallbackStr(r.InstallSource, "standalone"), "inline": true},
 	}
 	if r.BuildCommit != "" {
 		fields = append(fields, map[string]interface{}{
@@ -567,7 +567,7 @@ func (cr *CrashReporter) buildEmbed(r *crashReport) map[string]interface{} {
 	ts := time.Unix(r.Timestamp, 0).UTC().Format("2006-01-02 15:04:05 UTC")
 	return map[string]interface{}{
 		"title":       title,
-		"description": msg,
+		"description": fallbackStr(msg, "(no message)"),
 		"color":       color,
 		"fields":      fields,
 		"footer":      map[string]interface{}{"text": fmt.Sprintf("ID: %s | %s", r.ID[:8], ts)},
@@ -724,6 +724,13 @@ func compactCrashValue(value, fallback string, maxLen int) string {
 		value = fallback
 	}
 	return truncStr(value, maxLen)
+}
+
+func fallbackStr(s, fb string) string {
+	if s == "" {
+		return fb
+	}
+	return s
 }
 
 // deriveDeviceID generates a stable anonymous device identifier.

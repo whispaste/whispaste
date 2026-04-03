@@ -189,27 +189,31 @@ function getFiltered() {
 
 async function loadEntries() {
   try {
-    if (_activeFilters.archived && window.getArchivedEntries) {
-      const json = await window.getArchivedEntries();
-      _entries = JSON.parse(json);
-      if (!_entries) _entries = [];
-    } else if (window.getEntries) {
-      const json = await window.getEntries();
-      _entries = JSON.parse(json);
-      if (!_entries) _entries = [];
+    try {
+      if (_activeFilters.archived && window.getArchivedEntries) {
+        const json = await window.getArchivedEntries();
+        _entries = JSON.parse(json);
+        if (!_entries) _entries = [];
+      } else if (window.getEntries) {
+        const json = await window.getEntries();
+        _entries = JSON.parse(json);
+        if (!_entries) _entries = [];
+      }
+    } catch (e) { _entries = []; }
+    await _refreshCustomTags();
+    // Prune stale selections
+    const entryIds = new Set(_entries.map(e => e.id));
+    for (const id of _selectedIds) {
+      if (!entryIds.has(id)) _selectedIds.delete(id);
     }
-  } catch (e) { _entries = []; }
-  await _refreshCustomTags();
-  // Prune stale selections
-  const entryIds = new Set(_entries.map(e => e.id));
-  for (const id of _selectedIds) {
-    if (!entryIds.has(id)) _selectedIds.delete(id);
+    updateSelectionBar();
+    renderHistory();
+    _updateSearchHintChips();
+    updateDashboardGreeting();
+    checkMilestone(_entries.length);
+  } catch (outerErr) {
+    console.warn('loadEntries error:', outerErr);
   }
-  updateSelectionBar();
-  renderHistory();
-  _updateSearchHintChips();
-  updateDashboardGreeting();
-  checkMilestone(_entries.length);
 }
 
 function _updateSearchHintChips() {
