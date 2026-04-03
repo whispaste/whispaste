@@ -611,6 +611,11 @@ const translations = {
     'notebook.add_note_placeholder': 'Write a note…',
     'notebook.add_file': 'Add File',
     'notebook.open_file': 'Open File',
+    'notebook.notes_empty': 'No notes yet — add one below',
+    'notebook.attachments_empty': 'No attachments yet',
+    'notebook.voice': 'Voice',
+    'notebook.text': 'Text',
+    'notebook.note_placeholder': 'Click to edit…',
 
     // Analytics
     'tabAnalytics': 'Analytics',
@@ -1665,6 +1670,11 @@ const translations = {
     'notebook.add_note_placeholder': 'Notiz schreiben…',
     'notebook.add_file': 'Datei hinzufügen',
     'notebook.open_file': 'Datei öffnen',
+    'notebook.notes_empty': 'Noch keine Notizen — füge eine hinzu',
+    'notebook.attachments_empty': 'Noch keine Anhänge',
+    'notebook.voice': 'Sprache',
+    'notebook.text': 'Text',
+    'notebook.note_placeholder': 'Klicken zum Bearbeiten…',
 
     // Analytics
     'tabAnalytics': 'Statistiken',
