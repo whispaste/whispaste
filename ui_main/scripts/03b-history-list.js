@@ -147,7 +147,7 @@ function _renderEntryCard(e) {
         </div>
       </div>
       <div class="entry-full">
-        <div class="entry-full-text"id="text-${e.id}">${highlightSearch(e.text, _searchQuery)}</div>
+        <div class="entry-full-text" id="text-${e.id}">${highlightSearch(e.text, _searchQuery)}</div>
         <div class="entry-text-actions">
           <button class="btn-icon" title="${t('notebook.edit_text')}" data-action="edit-text" data-id="${e.id}">${icons.pencil}</button>
         </div>
