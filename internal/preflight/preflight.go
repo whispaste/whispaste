@@ -395,7 +395,7 @@ func checkServerRuntime(serverPath string) (Check, Probe) {
 		return Check{
 			Code:     checkProbe,
 			Status:   StatusFail,
-			Blocking: true,
+			Blocking: false,
 			Detail:   "whisper-server did not respond to a lightweight runtime probe.",
 			Value:    summary,
 		}, probe
@@ -414,7 +414,7 @@ func checkServerRuntime(serverPath string) (Check, Probe) {
 	return Check{
 		Code:     checkProbe,
 		Status:   StatusFail,
-		Blocking: true,
+		Blocking: false,
 		Detail:   "whisper-server could not start in a lightweight runtime probe.",
 		Value:    summary,
 	}, probe

@@ -90,7 +90,33 @@ document.addEventListener('click', function(e) {
   if (!opt) return;
   document.querySelectorAll('.fab-color-option').forEach(el => el.classList.remove('selected'));
   opt.classList.add('selected');
+  // Skip autoSave for custom — the color picker input/change events handle it
+  if (opt.dataset.color === 'custom') return;
   if (typeof autoSave === 'function') autoSave();
+});
+// Floating button shape picker — delegated click handler
+document.addEventListener('click', function(e) {
+  const opt = e.target.closest('.fab-shape-option');
+  if (!opt) return;
+  document.querySelectorAll('.fab-shape-option').forEach(el => el.classList.remove('selected'));
+  opt.classList.add('selected');
+  if (typeof autoSave === 'function') autoSave();
+});
+// Custom color real-time preview (fires continuously while picking)
+document.addEventListener('input', function(e) {
+  if (e.target.classList.contains('fab-custom-color-input')) {
+    document.querySelectorAll('.fab-color-option').forEach(o => o.classList.remove('selected'));
+    e.target.closest('.fab-color-option').classList.add('selected');
+    if (typeof autoSave === 'function') autoSave();
+  }
+});
+// Custom color final confirmation (fires when picker closes)
+document.addEventListener('change', function(e) {
+  if (e.target.classList.contains('fab-custom-color-input')) {
+    document.querySelectorAll('.fab-color-option').forEach(o => o.classList.remove('selected'));
+    e.target.closest('.fab-color-option').classList.add('selected');
+    if (typeof autoSave === 'function') autoSave();
+  }
 });
 // Show/hide VAD sensitivity slider when VAD toggle changes
 document.addEventListener('change', function(e) {
@@ -112,22 +138,12 @@ document.addEventListener('change', function(e) {
     if (lockRow) lockRow.classList.toggle('hidden', !e.target.checked);
     const borderRow = document.getElementById('fab-border-row');
     if (borderRow) borderRow.classList.toggle('hidden', !e.target.checked);
+    const shapeRow = document.getElementById('fab-shape-row');
+    if (shapeRow) shapeRow.classList.toggle('hidden', !e.target.checked);
     const fab = document.getElementById('captureBtn');
     if (fab) fab.classList.toggle('hidden', e.target.checked);
   }
 });
-
-/* ── Update Channel Visibility ────────────────────────── */
-async function initUpdateChannelVisibility() {
-  const group = document.getElementById('update-channel-group');
-  if (!group) return;
-  try {
-    const store = await window.isStorePackage();
-    group.style.display = store ? 'none' : '';
-  } catch (_) {
-    group.style.display = '';
-  }
-}
 
 /* ── Gather Config from Form ──────────────────────────── */
 function gatherConfig() {
@@ -150,8 +166,8 @@ function gatherConfig() {
     play_sounds: document.getElementById('toggle-sound')?.checked || false,
     sound_volume: parseInt(document.getElementById('volume-slider')?.value || '80', 10) / 100.0,
     auto_paste: document.getElementById('toggle-autopaste')?.checked || false,
+    auto_paste_delay: parseInt(document.getElementById('range-auto-paste-delay')?.value || '0', 10),
     check_updates: document.getElementById('toggle-updates')?.checked || false,
-    update_channel: document.getElementById('select-update-channel')?.value || 'stable',
     autostart: document.getElementById('toggle-autostart')?.checked || false,
     close_to_tray: document.getElementById('toggle-close-to-tray')?.checked ?? true,
     delete_behavior: document.getElementById('toggle-archive-instead')?.checked ? 'archive' : 'delete',
@@ -179,10 +195,12 @@ function gatherConfig() {
     vad_sensitivity: parseInt(document.getElementById('range-vad-sensitivity')?.value || '50', 10) / 100.0,
     floating_button_enabled: document.getElementById('toggle-floating-btn')?.checked || false,
     floating_button_color: document.querySelector('.fab-color-option.selected')?.dataset?.color || 'cyan',
+    floating_button_custom_color: document.querySelector('.fab-custom-color-input')?.value || '#22D3EE',
     floating_button_size: parseInt(document.getElementById('range-fab-size')?.value || '56', 10),
     floating_button_opacity: parseInt(document.getElementById('range-fab-opacity')?.value || '70', 10),
     floating_button_locked: document.getElementById('toggle-floating-lock')?.checked || false,
     floating_button_border: document.getElementById('toggle-floating-border')?.checked || false,
+    floating_button_shape: document.querySelector('.fab-shape-option.selected')?.dataset?.shape || 'circle',
     cloud_stt_provider: document.getElementById('select-cloud-stt-provider')?.value || 'openai',
     cloud_llm_provider: document.getElementById('select-cloud-llm-provider')?.value || 'openai',
     cloud_llm_model: document.getElementById('input-cloud-llm-model')?.value || '',
@@ -216,9 +234,8 @@ function applyConfig(cfg) {
     if (label) label.textContent = pct + '%';
   }
   if (cfg.auto_paste != null) { const el = document.getElementById('toggle-autopaste'); if (el) el.checked = cfg.auto_paste; }
+  { const apDelay = document.getElementById('range-auto-paste-delay'); if (apDelay) { apDelay.value = cfg.auto_paste_delay || 0; updateAutoPasteDelayLabel(apDelay.value); } }
   if (cfg.check_updates != null) { const el = document.getElementById('toggle-updates'); if (el) el.checked = cfg.check_updates; }
-  if (cfg.update_channel) { const el = document.getElementById('select-update-channel'); if (el) el.value = cfg.update_channel; }
-  initUpdateChannelVisibility();
   if (cfg.autostart != null) { const el = document.getElementById('toggle-autostart'); if (el) el.checked = cfg.autostart; }
   { const el = document.getElementById('toggle-close-to-tray'); if (el) el.checked = cfg.close_to_tray !== false; }
   { const el = document.getElementById('toggle-archive-instead'); if (el) el.checked = cfg.delete_behavior === 'archive'; }
@@ -307,6 +324,10 @@ function applyConfig(cfg) {
     document.querySelectorAll('.fab-color-option').forEach(el => {
       el.classList.toggle('selected', el.dataset.color === color);
     });
+    const customInput = document.querySelector('.fab-custom-color-input');
+    if (customInput && cfg.floating_button_custom_color) {
+      customInput.value = cfg.floating_button_custom_color;
+    }
     const row = document.getElementById('fab-color-row');
     if (row) row.classList.toggle('hidden', !cfg.floating_button_enabled);
     const sizeRow = document.getElementById('fab-size-row');
@@ -317,6 +338,8 @@ function applyConfig(cfg) {
     if (lockRow) lockRow.classList.toggle('hidden', !cfg.floating_button_enabled);
     const borderRow = document.getElementById('fab-border-row');
     if (borderRow) borderRow.classList.toggle('hidden', !cfg.floating_button_enabled);
+    const shapeRow = document.getElementById('fab-shape-row');
+    if (shapeRow) shapeRow.classList.toggle('hidden', !cfg.floating_button_enabled);
   }
   {
     const sz = cfg.floating_button_size || 56;
@@ -334,6 +357,12 @@ function applyConfig(cfg) {
   }
   { const el = document.getElementById('toggle-floating-lock'); if (el) el.checked = !!cfg.floating_button_locked; }
   { const el = document.getElementById('toggle-floating-border'); if (el) el.checked = !!cfg.floating_button_border; }
+  {
+    const shape = cfg.floating_button_shape || 'circle';
+    document.querySelectorAll('.fab-shape-option').forEach(el => {
+      el.classList.toggle('selected', el.dataset.shape === shape);
+    });
+  }
   {
     const el = document.getElementById('toggle-app-detection');
     if (el) el.checked = !!cfg.app_detection;
