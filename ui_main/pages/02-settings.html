@@ -120,9 +120,6 @@
                 </div>
               </div>
               <div class="fab-color-row" id="fab-color-row">
-                <details class="settings-advanced">
-                  <summary data-i18n="settings.advanced">Advanced Settings</summary>
-                  <div class="settings-advanced-content">
                 <span class="fab-color-label" data-i18n="labelFloatingColor">Button Color</span>
                 <div class="fab-color-grid">
                   <button type="button" class="fab-color-option selected" data-color="cyan" data-i18n-title="colorCyan" title="Cyan">
@@ -154,61 +151,64 @@
                     <div class="fab-custom-swatch">✦</div>
                   </label>
                 </div>
-              <div class="fab-size-row" id="fab-shape-row">
-                <span class="fab-size-label" data-i18n="labelFloatingShape">Button Shape</span>
-                <div class="fab-shape-grid">
-                  <button type="button" class="fab-shape-option selected" data-shape="circle" data-i18n-title="shapeCircle" title="Circle">
-                    <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-                  </button>
-                  <button type="button" class="fab-shape-option" data-shape="squircle" data-i18n-title="shapeSquircle" title="Squircle">
-                    <svg width="24" height="24" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-                  </button>
-                  <button type="button" class="fab-shape-option" data-shape="rounded" data-i18n-title="shapeRounded" title="Rounded Square">
-                    <svg width="24" height="24" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-                  </button>
-                  <button type="button" class="fab-shape-option" data-shape="hexagon" data-i18n-title="shapeHexagon" title="Hexagon">
-                    <svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 22,7 22,17 12,22 2,17 2,7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-                  </button>
-                  <button type="button" class="fab-shape-option" data-shape="diamond" data-i18n-title="shapeDiamond" title="Diamond">
-                    <svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 22,12 12,22 2,12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-                  </button>
-                </div>
               </div>
-              <div class="fab-size-row" id="fab-size-row">
-                <span class="fab-size-label" data-i18n="labelFloatingSize">Button Size</span>
-                <div class="fab-size-slider-group">
-                  <span class="fab-size-value" id="fab-size-value">56 px</span>
-                  <input type="range" id="range-fab-size" min="36" max="80" value="56" step="2" class="duration-slider" oninput="updateFabSizeLabel(this.value)">
-                </div>
-              </div>
-              <div class="fab-size-row" id="fab-opacity-row">
-                <span class="fab-size-label" data-i18n="labelFloatingOpacity">Opacity</span>
-                <div class="fab-size-slider-group">
-                  <span class="fab-size-value" id="fab-opacity-value">70%</span>
-                  <input type="range" id="range-fab-opacity" min="30" max="100" value="70" step="5" class="duration-slider" oninput="updateFabOpacityLabel(this.value)">
-                </div>
-              </div>
-              <div class="fab-size-row" id="fab-lock-row">
-                <div class="toggle-row" style="padding:0;margin:0">
-                  <span class="fab-size-label" data-i18n="labelFloatingLock">Lock Position</span>
-                  <div class="toggle-switch">
-                    <input type="checkbox" id="toggle-floating-lock">
-                    <label class="toggle-track" for="toggle-floating-lock"></label>
+              <details class="settings-advanced">
+                <summary data-i18n="settings.advanced">Advanced Settings</summary>
+                <div class="settings-advanced-content">
+                  <div class="fab-size-row" id="fab-shape-row">
+                    <span class="fab-size-label" data-i18n="labelFloatingShape">Button Shape</span>
+                    <div class="fab-shape-grid">
+                      <button type="button" class="fab-shape-option selected" data-shape="circle" data-i18n-title="shapeCircle" title="Circle">
+                        <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                      </button>
+                      <button type="button" class="fab-shape-option" data-shape="squircle" data-i18n-title="shapeSquircle" title="Squircle">
+                        <svg width="24" height="24" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                      </button>
+                      <button type="button" class="fab-shape-option" data-shape="rounded" data-i18n-title="shapeRounded" title="Rounded Square">
+                        <svg width="24" height="24" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                      </button>
+                      <button type="button" class="fab-shape-option" data-shape="hexagon" data-i18n-title="shapeHexagon" title="Hexagon">
+                        <svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 22,7 22,17 12,22 2,17 2,7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                      </button>
+                      <button type="button" class="fab-shape-option" data-shape="diamond" data-i18n-title="shapeDiamond" title="Diamond">
+                        <svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 22,12 12,22 2,12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="fab-size-row" id="fab-size-row">
+                    <span class="fab-size-label" data-i18n="labelFloatingSize">Button Size</span>
+                    <div class="fab-size-slider-group">
+                      <span class="fab-size-value" id="fab-size-value">56 px</span>
+                      <input type="range" id="range-fab-size" min="36" max="80" value="56" step="2" class="duration-slider" oninput="updateFabSizeLabel(this.value)">
+                    </div>
+                  </div>
+                  <div class="fab-size-row" id="fab-opacity-row">
+                    <span class="fab-size-label" data-i18n="labelFloatingOpacity">Opacity</span>
+                    <div class="fab-size-slider-group">
+                      <span class="fab-size-value" id="fab-opacity-value">70%</span>
+                      <input type="range" id="range-fab-opacity" min="30" max="100" value="70" step="5" class="duration-slider" oninput="updateFabOpacityLabel(this.value)">
+                    </div>
+                  </div>
+                  <div class="fab-size-row" id="fab-lock-row">
+                    <div class="toggle-row" style="padding:0;margin:0">
+                      <span class="fab-size-label" data-i18n="labelFloatingLock">Lock Position</span>
+                      <div class="toggle-switch">
+                        <input type="checkbox" id="toggle-floating-lock">
+                        <label class="toggle-track" for="toggle-floating-lock"></label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="fab-size-row" id="fab-border-row">
+                    <div class="toggle-row" style="padding:0;margin:0">
+                      <span class="fab-size-label" data-i18n="labelFloatingBorder">Border Ring</span>
+                      <div class="toggle-switch">
+                        <input type="checkbox" id="toggle-floating-border">
+                        <label class="toggle-track" for="toggle-floating-border"></label>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="fab-size-row" id="fab-border-row">
-                <div class="toggle-row" style="padding:0;margin:0">
-                  <span class="fab-size-label" data-i18n="labelFloatingBorder">Border Ring</span>
-                  <div class="toggle-switch">
-                    <input type="checkbox" id="toggle-floating-border">
-                    <label class="toggle-track" for="toggle-floating-border"></label>
-                  </div>
-                </div>
-              </div>
-                  </div>
-                </details>
-            </div>
+              </details>
             </div>
             <div class="form-group">
               <div class="toggle-row">
@@ -675,7 +675,37 @@
             </div>
           </div>
 
-          <!-- Voice Shortcuts AI Provider -->
+          <!-- Auto-Tag & Auto-Title -->
+          <div class="card">
+            <div class="card-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
+              <span data-i18n="cardAutoTagTitle">AI Automation</span>
+            </div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-auto-tag" data-i18n="labelAutoTag">Auto-Tag</label>
+                  <p class="toggle-desc" data-i18n="descAutoTag">Automatically assign tags to new recordings using AI</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-auto-tag" checked>
+                  <label class="toggle-track" for="toggle-auto-tag"></label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-auto-title" data-i18n="labelAutoTitle">Auto-Title</label>
+                  <p class="toggle-desc" data-i18n="descAutoTitle">Automatically generate a title for new recordings using AI</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-auto-title" checked>
+                  <label class="toggle-track" for="toggle-auto-title"></label>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="card">
             <div class="card-title">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/><path d="m21 12-4 4-4-4"/><path d="M17 20V4"/></svg>
@@ -728,9 +758,6 @@
               </div>
               <p class="form-hint cleanup-auto-hint" id="cleanup-hint" data-i18n="cleanupHint">Cleanup runs automatically after each new transcription.</p>
             </div>
-            <details class="settings-advanced">
-              <summary data-i18n="settings.advanced">Advanced Settings</summary>
-              <div class="settings-advanced-content">
             <div class="form-group" id="cleanupMaxEntriesRow">
               <label class="form-label" data-i18n="labelCleanupMaxEntries">Maximum entries</label>
               <p class="form-hint" data-i18n="descCleanupMaxEntries">Keep at most this many entries (0 = unlimited)</p>
@@ -765,8 +792,6 @@
                 </div>
               </div>
             </div>
-              </div>
-            </details>
             <div class="form-group" id="cleanupNowRow">
               <button class="btn btn-secondary" id="btn-cleanup-now" disabled>
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>

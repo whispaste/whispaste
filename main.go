@@ -775,7 +775,8 @@ func main() {
 				if entryID != "" && IsLLMInstalled() {
 					tagEntryID, tagText, tagCustom := entryID, text, cfg.GetCustomTags()
 					tagLang := cfg.GetUILanguage()
-					go AutoTagEntry(history, tagEntryID, tagText, tagCustom, tagLang)
+					tagEnabled, titleEnabled := cfg.GetAutoTagEnabled(), cfg.GetAutoTitleEnabled()
+					go AutoTagEntry(history, tagEntryID, tagText, tagCustom, tagLang, tagEnabled, titleEnabled)
 				}
 
 				// Audio already cached for pending entries; cache for new entries

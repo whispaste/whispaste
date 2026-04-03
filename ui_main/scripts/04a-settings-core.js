@@ -209,7 +209,9 @@ function gatherConfig() {
     anthropic_api_key: document.getElementById('input-anthropic-apikey')?.value || '',
     gemini_api_key: document.getElementById('input-gemini-apikey')?.value || '',
     custom_dictionary: (document.getElementById('input-custom-dictionary')?.value || '').split(/[,\n]/).map(s => s.trim()).filter(Boolean),
-    gpu_acceleration: document.getElementById('select-gpu-mode')?.value || 'auto'
+    gpu_acceleration: document.getElementById('select-gpu-mode')?.value || 'auto',
+    auto_tag_enabled: document.getElementById('toggle-auto-tag')?.checked ?? true,
+    auto_title_enabled: document.getElementById('toggle-auto-title')?.checked ?? true
   };
 }
 
@@ -406,6 +408,10 @@ function applyConfig(cfg) {
   renderGPUStatus();
   toggleCloudLLMSection();
   updateCloudLLMFields(true);
+
+  // Auto-Tag & Auto-Title
+  { const el = document.getElementById('toggle-auto-tag'); if (el) el.checked = cfg.auto_tag_enabled !== false; }
+  { const el = document.getElementById('toggle-auto-title'); if (el) el.checked = cfg.auto_title_enabled !== false; }
 }
 
 
