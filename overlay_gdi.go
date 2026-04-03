@@ -417,12 +417,11 @@ func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pause
 	}
 	o.drawGdipText(g, timer, timerX, float32(cy)-10, 60, o.gdipFontMain, timerColor)
 
-	// Mic icon that pulses with audio level (matches floating button mic)
+	// Mic icon that pulses with audio level (uses floating button's exact proportions)
 	vuX := int32(timerX) + 58
-	const vuIconW = 20
+	const vuIconW = 16
 	micAlpha := uint32(0x40) // dim when silent
 	if audioLevel > 0.02 {
-		// sqrt amplifies low levels (typical speech 0.01-0.15) for visible pulsing
 		boosted := float32(math.Sqrt(float64(audioLevel)))
 		micAlpha = uint32(0x40 + float32(0xBF)*boosted)
 		if micAlpha > 0xFF {
@@ -432,34 +431,38 @@ func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pause
 	micColor := (micAlpha << 24) | 0x00E5FF // cyan with varying alpha
 
 	var micPen uintptr
-	procGdipCreatePen1.Call(uintptr(micColor), f32(2.5), 2, uintptr(unsafe.Pointer(&micPen)))
+	procGdipCreatePen1.Call(uintptr(micColor), f32(2.0), 2, uintptr(unsafe.Pointer(&micPen)))
 	if micPen != 0 {
 		procGdipSetPenLineCap197819.Call(micPen, 2, 2, 0) // round caps
 		procGdipSetPenLineJoin.Call(micPen, 2)
 
-		// Mic capsule (14px wide, ~18px tall)
-		mx := float32(vuX)
-		my := float32(cy) - 12
+		// Position: 24px icon space, icon spans x 5..19, y 2..22
+		ox := int(vuX) - 5 // icon left edge at vuX
+		oy := int(cy) - 12 // icon center at cy
+
+		// Mic body capsule (6px wide — same as floating button)
 		var capsule uintptr
 		procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&capsule)))
 		if capsule != 0 {
-			procGdipAddPathArc.Call(capsule, f32(mx), f32(my), f32(14), f32(14), f32(180), f32(180))
-			procGdipAddPathLine.Call(capsule, uintptr(int32(mx+14)), uintptr(int32(my+7)), uintptr(int32(mx+14)), uintptr(int32(my+13)))
-			procGdipAddPathArc.Call(capsule, f32(mx), f32(my+6), f32(14), f32(14), f32(0), f32(180))
+			procGdipAddPathArc.Call(capsule, f32(float32(9+ox)), f32(float32(2+oy)), f32(6), f32(6), f32(180), f32(180))
+			procGdipAddPathLine.Call(capsule, uintptr(15+ox), uintptr(5+oy), uintptr(15+ox), uintptr(12+oy))
+			procGdipAddPathArc.Call(capsule, f32(float32(9+ox)), f32(float32(9+oy)), f32(6), f32(6), f32(0), f32(180))
 			procGdipClosePathFigure.Call(capsule)
 			procGdipDrawPath.Call(g, micPen, capsule)
 			procGdipDeletePath.Call(capsule)
 		}
-		// U-arc below capsule
+		// U-shaped arc (14px wide — same as floating button)
 		var uarc uintptr
 		procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&uarc)))
 		if uarc != 0 {
-			procGdipAddPathArc.Call(uarc, f32(mx-4), f32(my+2), f32(22), f32(22), f32(0), f32(180))
+			procGdipAddPathLine.Call(uarc, uintptr(19+ox), uintptr(10+oy), uintptr(19+ox), uintptr(12+oy))
+			procGdipAddPathArc.Call(uarc, f32(float32(5+ox)), f32(float32(5+oy)), f32(14), f32(14), f32(0), f32(180))
+			procGdipAddPathLine.Call(uarc, uintptr(5+ox), uintptr(12+oy), uintptr(5+ox), uintptr(10+oy))
 			procGdipDrawPath.Call(g, micPen, uarc)
 			procGdipDeletePath.Call(uarc)
 		}
 		// Stem
-		procGdipDrawLine.Call(g, micPen, f32(mx+7), f32(my+24), f32(mx+7), f32(my+28))
+		procGdipDrawLine.Call(g, micPen, f32(float32(12+ox)), f32(float32(19+oy)), f32(float32(12+ox)), f32(float32(22+oy)))
 
 		procGdipDeletePen.Call(micPen)
 	}
