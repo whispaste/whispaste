@@ -171,6 +171,16 @@
                       <button type="button" class="fab-content-option" data-content="waveform" data-i18n-title="contentWaveform" title="Waveform">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="8" x2="4" y2="16"/><line x1="8" y1="5" x2="8" y2="19"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="16" y1="6" x2="16" y2="18"/><line x1="20" y1="9" x2="20" y2="15"/></svg>
                       </button>
+                      <button type="button" class="fab-content-option" data-content="custom" data-i18n-title="contentCustomImage" title="Custom Image">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                      </button>
+                    </div>
+                    <div id="fab-custom-image-row" class="fab-size-row hidden">
+                      <span class="fab-size-label" data-i18n="labelCustomImage">Image File</span>
+                      <div class="fab-custom-image-picker">
+                        <span id="fab-custom-image-path" class="fab-custom-image-path" data-i18n="noImageSelected">No image selected</span>
+                        <button type="button" class="btn-secondary btn-sm" id="fab-pick-image-btn" data-i18n="pickImage">Choose Image…</button>
+                      </div>
                     </div>
                   </div>
                   <div class="fab-size-row" id="fab-shape-row">
@@ -470,7 +480,7 @@
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
             <span data-i18n="settingsNavTranscription">Transcription</span>
           </div>
-          <p class="settings-section-intro" data-i18n="settingsSectionTranscriptionIntro">Set up the speech-to-text path itself — API access, language behavior, and cleanup before words become text.</p>
+          <p class="settings-section-intro" data-i18n="settingsSectionTranscriptionIntro">Configure your transcription language, custom dictionary, and voice detection settings.</p>
 
           <!-- Transcription Language (applies to all models) -->
           <div class="card">
@@ -493,6 +503,80 @@
                 <option value="ar" data-i18n-opt="langAr">Arabic</option>
                 <option value="hi" data-i18n-opt="langHi">Hindi</option>
               </select>
+            </div>
+          </div>
+
+          <!-- Custom Dictionary -->
+          <div class="card">
+            <div class="card-title" data-i18n="cardCustomDictionary">Custom Dictionary</div>
+            <p class="card-desc" data-i18n="descCustomDictionary">Add specialized terms, names, or jargon to improve transcription accuracy. These words are used as context hints for both speech recognition and AI processing.</p>
+            <div class="form-group">
+              <textarea class="form-input" id="input-custom-dictionary" rows="3" placeholder="e.g. Kubernetes, JIRA, WhisPaste — one per line or comma-separated" data-i18n-placeholder="placeholderDictionary" oninput="autoSave()"></textarea>
+              <p class="form-hint" data-i18n="hintDictionary">Separate terms with commas or new lines</p>
+            </div>
+          </div>
+
+          <!-- Silence Removal -->
+          <div class="card">
+            <div class="card-title" data-i18n="cardSilenceRemoval">Silence Removal</div>
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-use-vad" data-i18n="labelUseVAD">Enable VAD</label>
+                  <p class="toggle-desc" data-i18n="descUseVAD">Use AI-based voice detection to remove silence — more accurate than simple threshold trimming</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-use-vad">
+                  <label class="toggle-track" for="toggle-use-vad"></label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group hidden" id="vad-sensitivity-row">
+              <label class="form-label" data-i18n="labelVADSensitivity">Sensitivity</label>
+              <p class="form-hint" data-i18n="descVADSensitivity">Higher values detect quieter speech but may include more background noise</p>
+              <div class="range-row">
+                <span style="font-size:12px;color:var(--text-secondary)" data-i18n="vadSensitivityLow">Low</span>
+                <input type="range" id="range-vad-sensitivity" min="0" max="100" value="50" step="5" class="volume-slider" oninput="document.getElementById('vad-sensitivity-value').textContent = (this.value/100).toFixed(2)">
+                <span style="font-size:12px;color:var(--text-secondary)" data-i18n="vadSensitivityHigh">High</span>
+                <span class="volume-value" id="vad-sensitivity-value">0.50</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section: AI & Models -->
+          <div class="settings-section-header" id="section-ai">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+            <span data-i18n="settingsNavAI">AI & Models</span>
+          </div>
+          <p class="settings-section-intro" data-i18n="settingsSectionAIIntro">Manage all AI models and services — GPU acceleration, local models, and cloud providers for speech and text.</p>
+
+          <!-- GPU Acceleration -->
+          <div class="card">
+            <div class="card-title" data-i18n="cardGPU">GPU Acceleration</div>
+            <p class="card-desc" data-i18n="descGPU">Use your graphics card (NVIDIA CUDA) for faster local speech recognition and text processing</p>
+            <div class="form-group">
+              <select class="form-select" id="select-gpu-mode" onchange="renderGPUStatus(); autoSave()">
+                <option value="auto" data-i18n-opt="gpuAuto">Auto-detect (Recommended)</option>
+                <option value="enabled" data-i18n-opt="gpuEnabled">Always enabled</option>
+                <option value="disabled" data-i18n-opt="gpuDisabled">Disabled (CPU only)</option>
+              </select>
+              <p class="form-hint" id="gpu-status-line"></p>
+            </div>
+          </div>
+
+          <!-- Speech Recognition Models -->
+          <div class="card" data-section="local-stt">
+            <div class="card-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+              <span data-i18n="aiSttTitle">Speech Recognition Models</span>
+            </div>
+            <p class="card-desc" data-i18n="aiSttDesc">Local models for offline transcription — no internet or API key required.</p>
+            <div class="preflight-inline" id="localSttPreflightCard">
+              <span class="preflight-inline-icon" id="localSttPreflightIcon"></span>
+              <span class="preflight-inline-text" id="localSttPreflightSummary"></span>
+            </div>
+            <div class="form-group">
+              <div id="model-list" class="model-list"></div>
             </div>
           </div>
 
@@ -554,80 +638,6 @@
             </div>
           </div>
 
-          <!-- Custom Dictionary -->
-          <div class="card">
-            <div class="card-title" data-i18n="cardCustomDictionary">Custom Dictionary</div>
-            <p class="card-desc" data-i18n="descCustomDictionary">Add specialized terms, names, or jargon to improve transcription accuracy. These words are used as context hints for both speech recognition and AI processing.</p>
-            <div class="form-group">
-              <textarea class="form-input" id="input-custom-dictionary" rows="3" placeholder="e.g. Kubernetes, JIRA, WhisPaste — one per line or comma-separated" data-i18n-placeholder="placeholderDictionary" oninput="autoSave()"></textarea>
-              <p class="form-hint" data-i18n="hintDictionary">Separate terms with commas or new lines</p>
-            </div>
-          </div>
-
-          <!-- Silence Removal -->
-          <div class="card">
-            <div class="card-title" data-i18n="cardSilenceRemoval">Silence Removal</div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <label class="toggle-label" for="toggle-use-vad" data-i18n="labelUseVAD">Enable VAD</label>
-                  <p class="toggle-desc" data-i18n="descUseVAD">Use AI-based voice detection to remove silence — more accurate than simple threshold trimming</p>
-                </div>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="toggle-use-vad">
-                  <label class="toggle-track" for="toggle-use-vad"></label>
-                </div>
-              </div>
-            </div>
-            <div class="form-group hidden" id="vad-sensitivity-row">
-              <label class="form-label" data-i18n="labelVADSensitivity">Sensitivity</label>
-              <p class="form-hint" data-i18n="descVADSensitivity">Higher values detect quieter speech but may include more background noise</p>
-              <div class="range-row">
-                <span style="font-size:12px;color:var(--text-secondary)" data-i18n="vadSensitivityLow">Low</span>
-                <input type="range" id="range-vad-sensitivity" min="0" max="100" value="50" step="5" class="volume-slider" oninput="document.getElementById('vad-sensitivity-value').textContent = (this.value/100).toFixed(2)">
-                <span style="font-size:12px;color:var(--text-secondary)" data-i18n="vadSensitivityHigh">High</span>
-                <span class="volume-value" id="vad-sensitivity-value">0.50</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Section: AI & Models -->
-          <div class="settings-section-header" id="section-ai">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-            <span data-i18n="settingsNavAI">AI & Models</span>
-          </div>
-          <p class="settings-section-intro" data-i18n="settingsSectionAIIntro">Manage local AI models for speech recognition and text processing, and configure GPU acceleration.</p>
-
-          <!-- GPU Acceleration -->
-          <div class="card">
-            <div class="card-title" data-i18n="cardGPU">GPU Acceleration</div>
-            <p class="card-desc" data-i18n="descGPU">Use your graphics card (NVIDIA CUDA) for faster local speech recognition and text processing</p>
-            <div class="form-group">
-              <select class="form-select" id="select-gpu-mode" onchange="renderGPUStatus(); autoSave()">
-                <option value="auto" data-i18n-opt="gpuAuto">Auto-detect (Recommended)</option>
-                <option value="enabled" data-i18n-opt="gpuEnabled">Always enabled</option>
-                <option value="disabled" data-i18n-opt="gpuDisabled">Disabled (CPU only)</option>
-              </select>
-              <p class="form-hint" id="gpu-status-line"></p>
-            </div>
-          </div>
-
-          <!-- Speech Recognition Models -->
-          <div class="card" data-section="local-stt">
-            <div class="card-title">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-              <span data-i18n="aiSttTitle">Speech Recognition Models</span>
-            </div>
-            <p class="card-desc" data-i18n="aiSttDesc">Local models for offline transcription — no internet or API key required.</p>
-            <div class="preflight-inline" id="localSttPreflightCard">
-              <span class="preflight-inline-icon" id="localSttPreflightIcon"></span>
-              <span class="preflight-inline-text" id="localSttPreflightSummary"></span>
-            </div>
-            <div class="form-group">
-              <div id="model-list" class="model-list"></div>
-            </div>
-          </div>
-
           <!-- LLM — AI Text Processing -->
           <div class="card" id="settings-llm-card">
             <div class="card-title">
@@ -637,6 +647,73 @@
             <p class="card-desc" data-i18n="aiLlmDesc">Local AI model for Smart Mode and text processing — runs entirely on your device, no data leaves your computer.</p>
             <div class="form-group">
               <div id="settings-llm-model-list" class="model-list"></div>
+            </div>
+          </div>
+
+          <!-- Cloud AI Service (shared by Smart Mode + Voice Shortcuts) -->
+          <div class="card" id="cloud-llm-card">
+            <div class="card-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+              <span data-i18n="cardCloudLLM">Cloud AI Service</span>
+            </div>
+            <p class="card-desc" data-i18n="descCloudLLM">Choose which cloud service processes your text in Smart Mode and Voice Shortcuts.</p>
+            <div class="form-group" id="cloud-llm-settings">
+              <select class="form-select" id="select-cloud-llm-provider" onchange="updateCloudLLMFields()">
+                <option value="openai" data-i18n-opt="cloudLLMOpenAI">OpenAI (Default)</option>
+                <option value="anthropic" data-i18n-opt="cloudLLMAnthropic">Anthropic Claude</option>
+                <option value="gemini" data-i18n-opt="cloudLLMGemini">Google Gemini</option>
+                <option value="groq" data-i18n-opt="cloudLLMGroq">Groq (Llama)</option>
+              </select>
+              <div class="form-group hidden" id="cloud-llm-openai-key-row">
+                <label class="form-label" for="input-cloud-llm-openai-apikey" data-i18n="labelApiKey">OpenAI Access Key</label>
+                <div class="input-wrapper">
+                  <input class="form-input input-with-actions" type="password" id="input-cloud-llm-openai-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false" oninput="syncSharedAPIKeys('input-cloud-llm-openai-apikey', 'input-apikey'); autoSave()">
+                  <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-cloud-llm-openai-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
+                <p class="form-hint">
+                  <span data-i18n="hintApiKey">Need a key?</span>
+                  <a href="#" onclick="openExternal('https://platform.openai.com/api-keys'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
+                </p>
+              </div>
+              <div class="form-group hidden" id="cloud-llm-groq-key-row">
+                <label class="form-label" for="input-cloud-llm-groq-apikey" data-i18n="labelGroqApiKey">Groq Access Key</label>
+                <div class="input-wrapper">
+                  <input class="form-input input-with-actions" type="password" id="input-cloud-llm-groq-apikey" placeholder="gsk_..." autocomplete="off" spellcheck="false" oninput="syncSharedAPIKeys('input-cloud-llm-groq-apikey', 'input-groq-apikey'); autoSave()">
+                  <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-cloud-llm-groq-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
+                <p class="form-hint">
+                  <span data-i18n="hintApiKey">Need a key?</span>
+                  <a href="#" onclick="openExternal('https://console.groq.com/keys'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
+                </p>
+              </div>
+              <div class="form-group hidden" id="cloud-llm-anthropic-key-row">
+                <label class="form-label" for="input-anthropic-apikey" data-i18n="labelAnthropicApiKey">Anthropic Access Key</label>
+                <div class="input-wrapper">
+                  <input class="form-input input-with-actions" type="password" id="input-anthropic-apikey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" oninput="autoSave()">
+                  <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-anthropic-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
+                <p class="form-hint">
+                  <span data-i18n="hintApiKey">Need a key?</span>
+                  <a href="#" onclick="openExternal('https://console.anthropic.com/settings/keys'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
+                </p>
+              </div>
+              <div class="form-group hidden" id="cloud-llm-gemini-key-row">
+                <label class="form-label" for="input-gemini-apikey" data-i18n="labelGeminiApiKey">Gemini Access Key</label>
+                <div class="input-wrapper">
+                  <input class="form-input input-with-actions" type="password" id="input-gemini-apikey" placeholder="AI..." autocomplete="off" spellcheck="false" oninput="autoSave()">
+                  <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-gemini-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
+                <p class="form-hint">
+                  <span data-i18n="hintApiKey">Need a key?</span>
+                  <a href="#" onclick="openExternal('https://aistudio.google.com/apikey'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
+                </p>
+              </div>
+              <div class="form-group" id="cloud-llm-model-row">
+                <label class="form-label" for="input-cloud-llm-model" data-i18n="labelCloudLLMModel">Model Override</label>
+                <p class="form-hint" style="margin-bottom:4px" data-i18n="descCloudLLMModel">Optional: use a specific model instead of the default.</p>
+                <input class="form-input" type="text" id="input-cloud-llm-model" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false" oninput="autoSave()">
+                <p class="form-hint" id="cloud-llm-model-hint" data-i18n="cloudLLMModelHint"></p>
+              </div>
             </div>
           </div>
 
@@ -705,73 +782,6 @@
             <div class="form-group llm-model-picker hidden" id="textReplaceProviderModelPicker" style="margin-top:6px">
               <label class="form-label" data-i18n="aiLocalModelLabel">Local Model</label>
               <select class="form-select" id="textReplaceProviderModelSelect"></select>
-            </div>
-          </div>
-
-          <!-- Cloud AI Service (shared by Smart Mode + Voice Shortcuts) -->
-          <div class="card hidden" id="cloud-llm-card">
-            <div class="card-title">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
-              <span data-i18n="cardCloudLLM">Cloud AI Service</span>
-            </div>
-            <p class="card-desc" data-i18n="descCloudLLM">Choose which cloud service processes your text in Smart Mode and Voice Shortcuts.</p>
-            <div class="form-group" id="cloud-llm-settings">
-              <select class="form-select" id="select-cloud-llm-provider" onchange="updateCloudLLMFields()">
-                <option value="openai" data-i18n-opt="cloudLLMOpenAI">OpenAI (Default)</option>
-                <option value="anthropic" data-i18n-opt="cloudLLMAnthropic">Anthropic Claude</option>
-                <option value="gemini" data-i18n-opt="cloudLLMGemini">Google Gemini</option>
-                <option value="groq" data-i18n-opt="cloudLLMGroq">Groq (Llama)</option>
-              </select>
-              <div class="form-group hidden" id="cloud-llm-openai-key-row">
-                <label class="form-label" for="input-cloud-llm-openai-apikey" data-i18n="labelApiKey">OpenAI Access Key</label>
-                <div class="input-wrapper">
-                  <input class="form-input input-with-actions" type="password" id="input-cloud-llm-openai-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false" oninput="syncSharedAPIKeys('input-cloud-llm-openai-apikey', 'input-apikey'); autoSave()">
-                  <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-cloud-llm-openai-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
-                </div>
-                <p class="form-hint">
-                  <span data-i18n="hintApiKey">Need a key?</span>
-                  <a href="#" onclick="openExternal('https://platform.openai.com/api-keys'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
-                </p>
-              </div>
-              <div class="form-group hidden" id="cloud-llm-groq-key-row">
-                <label class="form-label" for="input-cloud-llm-groq-apikey" data-i18n="labelGroqApiKey">Groq Access Key</label>
-                <div class="input-wrapper">
-                  <input class="form-input input-with-actions" type="password" id="input-cloud-llm-groq-apikey" placeholder="gsk_..." autocomplete="off" spellcheck="false" oninput="syncSharedAPIKeys('input-cloud-llm-groq-apikey', 'input-groq-apikey'); autoSave()">
-                  <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-cloud-llm-groq-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
-                </div>
-                <p class="form-hint">
-                  <span data-i18n="hintApiKey">Need a key?</span>
-                  <a href="#" onclick="openExternal('https://console.groq.com/keys'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
-                </p>
-              </div>
-              <div class="form-group hidden" id="cloud-llm-anthropic-key-row">
-                <label class="form-label" for="input-anthropic-apikey" data-i18n="labelAnthropicApiKey">Anthropic Access Key</label>
-                <div class="input-wrapper">
-                  <input class="form-input input-with-actions" type="password" id="input-anthropic-apikey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" oninput="autoSave()">
-                  <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-anthropic-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
-                </div>
-                <p class="form-hint">
-                  <span data-i18n="hintApiKey">Need a key?</span>
-                  <a href="#" onclick="openExternal('https://console.anthropic.com/settings/keys'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
-                </p>
-              </div>
-              <div class="form-group hidden" id="cloud-llm-gemini-key-row">
-                <label class="form-label" for="input-gemini-apikey" data-i18n="labelGeminiApiKey">Gemini Access Key</label>
-                <div class="input-wrapper">
-                  <input class="form-input input-with-actions" type="password" id="input-gemini-apikey" placeholder="AI..." autocomplete="off" spellcheck="false" oninput="autoSave()">
-                  <button class="input-action-btn" type="button" aria-label="Show API key" onclick="toggleKeyVisibility('input-gemini-apikey', this)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></button>
-                </div>
-                <p class="form-hint">
-                  <span data-i18n="hintApiKey">Need a key?</span>
-                  <a href="#" onclick="openExternal('https://aistudio.google.com/apikey'); return false;" data-i18n="hintApiKeyLink">Get your API key →</a>
-                </p>
-              </div>
-              <div class="form-group" id="cloud-llm-model-row">
-                <label class="form-label" for="input-cloud-llm-model" data-i18n="labelCloudLLMModel">Model Override</label>
-                <p class="form-hint" style="margin-bottom:4px" data-i18n="descCloudLLMModel">Optional: use a specific model instead of the default.</p>
-                <input class="form-input" type="text" id="input-cloud-llm-model" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false" oninput="autoSave()">
-                <p class="form-hint" id="cloud-llm-model-hint" data-i18n="cloudLLMModelHint"></p>
-              </div>
             </div>
           </div>
 
