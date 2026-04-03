@@ -394,7 +394,10 @@ function initProviderModelPickerEvents() {
     });
   });
   document.querySelectorAll('[name="textReplaceProvider"]').forEach(r => {
-    r.addEventListener('change', () => toggleProviderModelPicker('textReplaceProvider', 'textReplaceProviderModelPicker'));
+    r.addEventListener('change', () => {
+      toggleProviderModelPicker('textReplaceProvider', 'textReplaceProviderModelPicker');
+      toggleCloudLLMSection();
+    });
   });
   const smartSel = document.getElementById('smartProviderModelSelect');
   if (smartSel) smartSel.addEventListener('change', () => {

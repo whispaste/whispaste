@@ -64,12 +64,8 @@
 }
 
 .history-page-header {
-  padding-top: var(--space-3);
+  padding-top: var(--space-5);
   padding-bottom: var(--space-2);
-}
-
-.history-page-header .page-title::after {
-  display: none;
 }
 
 .history-page-header-main {

@@ -273,7 +273,7 @@ async function doExport(id, format) {
       const result = await window.exportEntry(id, format);
       if (result) showToast(t('notebook.exported'));
     }
-  } catch (e) { showToast('Export error', true); }
+  } catch (e) { showToast(t('statusError'), true); }
 }
 
 async function exportSelected() {
@@ -287,7 +287,7 @@ async function exportSelected() {
       const result = await window.exportSelected(ids, format);
       if (result) showToast(t('notebook.exported'));
     }
-  } catch (e) { showToast('Export error', true); }
+  } catch (e) { showToast(t('statusError'), true); }
 }
 
 function showExportFormatDialog() {

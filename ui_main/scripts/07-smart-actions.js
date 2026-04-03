@@ -94,10 +94,15 @@ async function executeSmartAction(entryId, preset, customPrompt) {
     const processingToast = showToast(t('smart.processing'), false, 0);
     const targetLang = _smartActionTargetLang(preset);
 
+    // Visual processing state on the entry card
+    const entryEl = document.querySelector(`.entry[data-id="${entryId}"]`);
+    if (entryEl) entryEl.classList.add('processing');
+
     try {
         const raw = await window.applySmartAction(entryId, preset, customPrompt, targetLang);
         const result = JSON.parse(raw);
         if (processingToast) processingToast.classList.remove('show');
+        if (entryEl) entryEl.classList.remove('processing');
 
         if (result.error) {
             showToast(result.error, true);
@@ -126,6 +131,7 @@ async function executeSmartAction(entryId, preset, customPrompt) {
         loadEntries();
     } catch (e) {
         if (processingToast) processingToast.classList.remove('show');
+        if (entryEl) entryEl.classList.remove('processing');
         showToast(t('smart.error'), true);
     }
 }

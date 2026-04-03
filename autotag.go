@@ -120,7 +120,15 @@ func AutoTagEntry(history *History, entryID, text string, customTags []string, u
 	// Generate an AI title after tagging
 	if autoTitle {
 		if title := generateTitle(endpoint, text, uiLang); title != "" {
-			if history.UpdateEntry(entryID, title, finalTags) {
+			// When auto-tag is disabled, preserve existing tags
+			tagsForUpdate := finalTags
+			if !autoTag {
+				entry := history.GetByID(entryID)
+				if entry != nil {
+					tagsForUpdate = entry.Tags
+				}
+			}
+			if history.UpdateEntry(entryID, title, tagsForUpdate) {
 				logInfo("AutoTag: generated title for entry %s: %q", entryID, title)
 				NotifyHistoryChanged()
 			}
