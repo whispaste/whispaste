@@ -209,7 +209,7 @@ async function loadEntries() {
     updateSelectionBar();
     renderHistory();
     _updateSearchHintChips();
-    updateDashboardGreeting();
+    await updateDashboardGreeting();
     checkMilestone(_entries.length);
   } catch (outerErr) {
     console.warn('loadEntries error:', outerErr);
@@ -554,14 +554,31 @@ function _initSidebarToggle() {
 }
 
 /* ── Dashboard Greeting ────────────────────────────────── */
-function updateDashboardGreeting() {
+async function updateDashboardGreeting() {
   const el = document.getElementById('dashboardGreeting');
   if (!el) return;
 
   const hour = new Date().getHours();
   const day = new Date().getDay();
   const isWeekend = day === 0 || day === 6;
-  const todayCount = _entries.filter(e => isToday(e.timestamp)).length;
+
+  // Use real statistics from daily_stats table, not loaded UI items
+  let todayCount = 0;
+  try {
+    if (window.getAnalytics) {
+      const raw = await window.getAnalytics(1);
+      const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (data && data.dailyCounts) {
+        const now = new Date();
+        const todayStr = now.getFullYear() + '-' +
+          String(now.getMonth() + 1).padStart(2, '0') + '-' +
+          String(now.getDate()).padStart(2, '0');
+        todayCount = data.dailyCounts[todayStr] || 0;
+      }
+    }
+  } catch (_) {
+    todayCount = _entries.filter(e => isToday(e.timestamp)).length;
+  }
 
   let greetKey;
   if (hour < 12) greetKey = 'greeting.morning';
