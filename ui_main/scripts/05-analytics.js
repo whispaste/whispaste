@@ -4,6 +4,16 @@ let _analyticsData = null;
 let _analyticsInterval = null;
 let _analyticsResizeObserver = null;
 let _modelColorMap = {};
+let _benchmarkSort = { column: 'speed', ascending: false };
+
+function infoTip(tipKey) {
+  return `<span class="info-tip" title="${t(tipKey)}">
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" style="vertical-align:-2px;opacity:0.5;margin-left:4px">
+      <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <text x="8" y="12" text-anchor="middle" font-size="11" font-weight="bold">i</text>
+    </svg>
+  </span>`;
+}
 
 function startAnalyticsAutoRefresh() {
   stopAnalyticsAutoRefresh();
@@ -53,6 +63,13 @@ async function loadAnalytics(periodDays) {
   const avgProc = data.avgProcessingDuration || 0;
   const fmtCost = v => '$' + (v || 0).toFixed(4);
   const fmtDur = s => s < 60 ? Math.round(s) + 's' : (s / 60).toFixed(1) + 'm';
+  const fmtTimeSaved = min => {
+    if (min < 1) return '<1 min';
+    if (min < 60) return Math.round(min) + ' min';
+    const h = Math.floor(min / 60);
+    const m = Math.round(min % 60);
+    return m > 0 ? `${h} h ${m} min` : `${h} h`;
+  };
 
   let html = '';
 
@@ -64,25 +81,54 @@ async function loadAnalytics(periodDays) {
     </div>`;
   }
 
-  // Summary cards — avg with min/max range
+  // Summary cards
   const durationDetail = data.totalEntries > 0 ? `<div class="stat-range">${fmtDur(minDur)} – ${fmtDur(maxDur)}</div>` : '';
   const processingDetail = avgProc > 0 ? `<div class="stat-range">${fmtDur(data.totalProcessingTime || 0)} ${t('analytics.processing_total')}</div>` : '';
+  const timeSaved = data.timeSaved || 0;
+  const timeSavedHint = timeSaved > 0 ? `<div class="stat-range">${t('analytics.time_saved_hint')}</div>` : '';
+  const avgSpeed = data.avgSpeedRatio || 0;
+  const avgSpeedStr = avgSpeed > 0 ? `${avgSpeed.toFixed(1)}×` : '—';
+
   html += `<div class="analytics-summary">
-    <div class="stat-card"><div class="stat-value">${data.totalEntries}</div><div class="stat-label">${t('analytics.total')}</div></div>
-    <div class="stat-card"><div class="stat-value accent">${fmtDur(avgDur)}</div><div class="stat-label">${t('analytics.avg_duration')}</div>${durationDetail}</div>
-    <div class="stat-card"><div class="stat-value">${avgProc > 0 ? fmtDur(avgProc) : '—'}</div><div class="stat-label">${t('analytics.avg_processing')}</div>${processingDetail}</div>
-    <div class="stat-card"><div class="stat-value">${data.localEntries || 0}</div><div class="stat-label">${t('analytics.local')}</div></div>
-    <div class="stat-card"><div class="stat-value">${fmtCost(data.totalCost)}</div><div class="stat-label">${t('analytics.cost')}</div></div>
-    <div class="stat-card"><div class="stat-value">${Math.round(data.totalWords || 0).toLocaleString()}</div><div class="stat-label">${t('analytics.total_words')}</div></div>
+    <div class="stat-card"><div class="stat-value">${data.totalEntries}</div><div class="stat-label">${t('analytics.total')}${infoTip('analytics.tip.total_entries')}</div></div>
+    <div class="stat-card"><div class="stat-value">${Math.round(data.totalWords || 0).toLocaleString()}</div><div class="stat-label">${t('analytics.total_words')}${infoTip('analytics.tip.total_words')}</div></div>
     <div class="stat-card"><div class="stat-value">${Math.round(data.avgWordsPerEntry || 0)}</div><div class="stat-label">${t('analytics.avg_words')}</div></div>
+    <div class="stat-card"><div class="stat-value green">${timeSaved > 0 ? fmtTimeSaved(timeSaved) : '—'}</div><div class="stat-label">${t('analytics.time_saved')}${infoTip('analytics.tip.time_saved')}</div>${timeSavedHint}</div>
+    <div class="stat-card"><div class="stat-value accent">${fmtDur(avgDur)}</div><div class="stat-label">${t('analytics.avg_duration')}${infoTip('analytics.tip.total_duration')}</div>${durationDetail}</div>
+    <div class="stat-card"><div class="stat-value">${avgProc > 0 ? fmtDur(avgProc) : '—'}</div><div class="stat-label">${t('analytics.avg_processing')}</div>${processingDetail}</div>
+    <div class="stat-card"><div class="stat-value accent">${avgSpeedStr}</div><div class="stat-label">${t('analytics.avg_speed')}${infoTip('analytics.tip.avg_speed')}</div></div>
+    <div class="stat-card"><div class="stat-value">${fmtCost(data.totalCost)}</div><div class="stat-label">${t('analytics.cost')}</div></div>
   </div>`;
+
+  // Local vs Cloud ratio bar
+  const localCount = data.localEntries || 0;
+  const cloudCount = data.apiEntries || 0;
+  const totalLc = localCount + cloudCount;
+  if (totalLc > 0) {
+    const localPct = Math.round((localCount / totalLc) * 100);
+    const cloudPct = 100 - localPct;
+    html += `<div class="local-cloud-bar">
+      <div class="local-cloud-header">
+        <span class="local-cloud-title">${t('analytics.local_cloud')}${infoTip('analytics.tip.local_cloud')}</span>
+        <span class="local-cloud-counts">${localCount} ${t('analytics.local_label')} · ${cloudCount} ${t('analytics.cloud_label')}</span>
+      </div>
+      <div class="local-cloud-track">
+        <div class="local-cloud-fill local-fill" style="width:${localPct}%" title="${t('analytics.local_label')} ${localPct}%"></div>
+        <div class="local-cloud-fill cloud-fill" style="width:${cloudPct}%" title="${t('analytics.cloud_label')} ${cloudPct}%"></div>
+      </div>
+      <div class="local-cloud-labels">
+        <span>${t('analytics.local_label')} ${localPct}%</span>
+        <span>${t('analytics.cloud_label')} ${cloudPct}%</span>
+      </div>
+    </div>`;
+  }
 
   // Charts
   html += '<div class="analytics-charts">';
 
   // Daily bar chart
   html += `<div class="chart-card full-width">
-    <div class="chart-title">${t('analytics.daily_chart')}</div>
+    <div class="chart-title">${t('analytics.daily_chart')}${infoTip('analytics.tip.daily_activity')}</div>
     <div class="chart-container">${renderDailyChart(data.dailyCounts, data.dailyModelCounts)}</div>
   </div>`;
 
@@ -101,7 +147,7 @@ async function loadAnalytics(periodDays) {
   // Model benchmarks table
   if (data.modelBenchmarks && Object.keys(data.modelBenchmarks).length > 0) {
     html += `<div class="chart-card full-width">
-      <div class="chart-title">${t('analytics.benchmark_title')}</div>
+      <div class="chart-title">${t('analytics.benchmark_title')}${infoTip('analytics.tip.model_perf')}</div>
       <div class="chart-container">${renderBenchmarkTable(data.modelBenchmarks)}</div>
     </div>`;
   }
@@ -263,9 +309,9 @@ function renderDailyChart(dailyCounts, dailyModelCounts, svgWidth) {
   if (hasModelData) {
     const legendItems = [];
     for (const [key, color] of Object.entries(modelColorMap)) {
-      const [model, isLocal] = [key.slice(0, key.lastIndexOf('|')), key.slice(key.lastIndexOf('|') + 1)];
-      const label = model;
-      legendItems.push({ label, color });
+      if (!key.includes('|')) continue; // skip naked model name keys
+      const model = key.slice(0, key.lastIndexOf('|'));
+      legendItems.push({ label: model, color });
     }
     let lx = padding.left;
     for (const item of legendItems) {
@@ -350,10 +396,31 @@ function _fitDailyChart(root, dailyCounts, dailyModelCounts) {
 }
 
 function renderBenchmarkTable(benchmarks) {
-  const models = Object.entries(benchmarks).sort((a, b) => b[1].count - a[1].count);
+  const models = Object.entries(benchmarks);
+
+  // Sort by current column (_benchmarkSort defaults to speed descending)
+  models.sort((a, b) => {
+    let va, vb;
+    switch (_benchmarkSort.column) {
+      case 'model':
+        return _benchmarkSort.ascending
+          ? a[0].toLowerCase().localeCompare(b[0].toLowerCase())
+          : b[0].toLowerCase().localeCompare(a[0].toLowerCase());
+      case 'count':
+        va = a[1].count; vb = b[1].count; break;
+      case 'speed':
+        va = a[1].speedRatio > 0 ? 1 / a[1].speedRatio : 0;
+        vb = b[1].speedRatio > 0 ? 1 / b[1].speedRatio : 0;
+        break;
+      case 'wpm':
+        va = a[1].wordsPerMin || 0; vb = b[1].wordsPerMin || 0; break;
+      default:
+        va = 0; vb = 0;
+    }
+    return _benchmarkSort.ascending ? va - vb : vb - va;
+  });
+
   let rows = models.map(([model, s]) => {
-    // speedRatio = processing/duration — lower is faster
-    // Display as realtime factor: 1/speedRatio (higher = faster)
     const factor = s.speedRatio > 0 ? 1 / s.speedRatio : 0;
     const speed = factor > 0 ? `${factor.toFixed(1)}x` : '—';
     const speedClass = factor >= 2 ? 'fast' : factor >= 1 ? 'medium' : 'slow';
@@ -366,15 +433,35 @@ function renderBenchmarkTable(benchmarks) {
     </tr>`;
   }).join('');
 
+  const hdr = (col, label) => {
+    const active = _benchmarkSort.column === col ? ' active' : '';
+    const arrow = _benchmarkSort.column === col
+      ? `<span class="sort-arrow">${_benchmarkSort.ascending ? '▲' : '▼'}</span>`
+      : '';
+    return `<th class="sortable${active}" onclick="sortBenchmarkTable('${col}')">${label}${arrow}</th>`;
+  };
+
   return `<table class="benchmark-table">
     <thead><tr>
-      <th>${t('analytics.bench_model')}</th>
-      <th>${t('analytics.bench_count')}</th>
-      <th>${t('analytics.bench_speed')}</th>
-      <th>${t('analytics.bench_wpm')}</th>
+      ${hdr('model', t('analytics.bench_model'))}
+      ${hdr('count', t('analytics.bench_count'))}
+      ${hdr('speed', t('analytics.bench_speed'))}
+      ${hdr('wpm', t('analytics.bench_wpm'))}
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+}
+
+function sortBenchmarkTable(column) {
+  if (_benchmarkSort.column === column) {
+    _benchmarkSort.ascending = !_benchmarkSort.ascending;
+  } else {
+    _benchmarkSort.column = column;
+    _benchmarkSort.ascending = false;
+  }
+  if (!_analyticsData || !_analyticsData.modelBenchmarks) return;
+  const container = document.querySelector('.benchmark-table')?.closest('.chart-container');
+  if (container) container.innerHTML = renderBenchmarkTable(_analyticsData.modelBenchmarks);
 }
 
 function renderMonthlyCosts(monthlyCosts) {

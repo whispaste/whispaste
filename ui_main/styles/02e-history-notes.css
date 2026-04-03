@@ -1,0 +1,247 @@
+/* ── Notes & Attachments Sections ─────────────────── */
+
+.entry-notes-section,
+.entry-attachments-section {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+}
+
+/* ── Section Toggle Header ───────────────────────── */
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: var(--space-1) var(--space-1-5);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  user-select: none;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.section-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.section-toggle .section-chevron {
+  margin-left: auto;
+  transition: transform var(--transition-fast);
+}
+.section-toggle.open .section-chevron {
+  transform: rotate(180deg);
+}
+.section-count {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+/* ── Section Body ────────────────────────────────── */
+
+.section-body {
+  animation: fadeIn var(--duration-fast) ease;
+  padding-top: var(--space-2);
+}
+
+/* ── Note Cards ──────────────────────────────────── */
+
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.note-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.note-card:hover {
+  border-color: var(--border-primary);
+}
+.note-card:focus-within {
+  border-color: var(--accent, var(--accent-primary));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, var(--accent-primary)) 20%, transparent);
+}
+
+.note-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-1);
+}
+
+.note-date {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.note-content {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text);
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 1.6em;
+  border-radius: var(--radius-xs);
+  padding: var(--space-0-5);
+  transition: background var(--transition-fast);
+}
+.note-content:hover {
+  background: var(--bg-hover);
+}
+.note-content:focus {
+  background: var(--bg-tertiary);
+}
+
+/* ── Note Add Row ────────────────────────────────── */
+
+.note-add-row {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+
+.note-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 60px;
+  padding: var(--space-1-5);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  transition: border-color var(--transition-fast);
+}
+.note-input:focus {
+  outline: none;
+  border-color: var(--accent, var(--accent-primary));
+}
+.note-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.note-add-row .btn-sm {
+  align-self: flex-end;
+}
+
+/* ── Attachment Grid ─────────────────────────────── */
+
+.attachments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-2);
+}
+
+.attachment-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-2);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.attachment-card:hover {
+  border-color: var(--border-primary);
+  background: var(--bg-hover);
+}
+
+.attachment-icon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.attachment-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attachment-name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-size {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.attachment-actions {
+  display: flex;
+  gap: var(--space-0-5);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+.attachment-card:hover .attachment-actions {
+  opacity: 1;
+}
+
+/* ── Attachment Add Row ──────────────────────────── */
+
+.attachment-add-row {
+  margin-top: var(--space-2);
+}
+
+/* ── Shared Button Styles ────────────────────────── */
+
+.btn-sm {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: none;
+  transition: background var(--transition-fast), opacity var(--transition-fast);
+}
+.btn-accent {
+  background: var(--accent, var(--accent-primary));
+  color: white;
+}
+.btn-accent:hover {
+  opacity: 0.9;
+}
+.btn-outline {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.btn-outline:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.btn-xs {
+  width: 20px;
+  height: 20px;
+  padding: 2px;
+}
+
+.note-error {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  font-style: italic;
+  padding: var(--space-1);
+}

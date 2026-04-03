@@ -25,7 +25,7 @@ const (
 	releasesAPI         = "https://api.github.com/repos/" + githubRepo + "/releases?per_page=10"
 	updateCheckInterval = 6 * time.Hour
 	minCheckInterval    = 1 * time.Hour
-	downloadTimeout     = 60 * time.Second
+	downloadTimeout     = 300 * time.Second
 )
 
 // parsedVersion represents a parsed semantic version with pre-release info.
@@ -73,28 +73,28 @@ type UpdateInfo struct {
 
 // Updater checks for new releases on GitHub and applies updates.
 type Updater struct {
-	currentVersion string
-	releasesURL    string // overridable for testing; defaults to releasesAPI
-	checkEnabled   func() bool
-	channelFunc    func() string // returns "stable" or "beta"
-	onAvailable    func(UpdateInfo)
-	lastCheck      time.Time
-	mu             sync.Mutex
-	cancel         context.CancelFunc
-	done           chan struct{}
-	applying       atomic.Bool
-	applyWg        sync.WaitGroup
-	resolveExePath func() (string, error)
-	replaceBinary  func(exePath, stagedPath string) error
+	currentVersion  string
+	releasesURL     string // overridable for testing; defaults to releasesAPI
+	checkEnabled    func() bool
+	onAvailable     func(UpdateInfo)
+	onCheckFailed   func() // called when a periodic check fails
+	lastCheck       time.Time
+	lastCheckFailed bool // true if the most recent check returned an error
+	mu              sync.Mutex
+	cancel          context.CancelFunc
+	done            chan struct{}
+	applying        atomic.Bool
+	applyWg         sync.WaitGroup
+	resolveExePath  func() (string, error)
+	replaceBinary   func(exePath, stagedPath string) error
 }
 
 // NewUpdater creates an updater that checks GitHub releases.
-func NewUpdater(currentVersion string, checkEnabled func() bool, channelFunc func() string) *Updater {
+func NewUpdater(currentVersion string, checkEnabled func() bool) *Updater {
 	return &Updater{
 		currentVersion: currentVersion,
 		releasesURL:    releasesAPI,
 		checkEnabled:   checkEnabled,
-		channelFunc:    channelFunc,
 		done:           make(chan struct{}),
 		resolveExePath: currentExecutablePath,
 		replaceBinary:  replaceBinaryInPlace,
@@ -106,6 +106,20 @@ func (u *Updater) OnUpdateAvailable(fn func(UpdateInfo)) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	u.onAvailable = fn
+}
+
+// OnCheckFailed registers a callback invoked when a periodic update check fails.
+func (u *Updater) OnCheckFailed(fn func()) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.onCheckFailed = fn
+}
+
+// LastCheckFailed reports whether the most recent update check returned an error.
+func (u *Updater) LastCheckFailed() bool {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return u.lastCheckFailed
 }
 
 // Start begins periodic update checks in the background.
@@ -155,8 +169,18 @@ func (u *Updater) checkAndNotify(ctx context.Context) {
 	info, err := u.CheckNow(ctx)
 	if err != nil {
 		logWarn("Update check failed: %v", err)
+		u.mu.Lock()
+		u.lastCheckFailed = true
+		fn := u.onCheckFailed
+		u.mu.Unlock()
+		if fn != nil {
+			fn()
+		}
 		return
 	}
+	u.mu.Lock()
+	u.lastCheckFailed = false
+	u.mu.Unlock()
 	if info.Available {
 		logInfo("Update available: %s → %s", u.currentVersion, info.Version)
 		u.mu.Lock()
@@ -225,14 +249,7 @@ func (u *Updater) CheckNow(ctx context.Context, force ...bool) (*UpdateInfo, err
 		return nil, fmt.Errorf("parse response: %w", err)
 	}
 
-	// Determine update channel
-	channel := "stable"
-	if u.channelFunc != nil {
-		channel = u.channelFunc()
-	}
-
-	// Find the release with the highest version number (skip drafts).
-	// On the "stable" channel, also skip pre-release versions.
+	// Find the release with the highest version number (skip drafts and pre-releases).
 	var best *githubRelease
 	var bestVer parsedVersion
 	for i := range releases {
@@ -241,8 +258,8 @@ func (u *Updater) CheckNow(ctx context.Context, force ...bool) (*UpdateInfo, err
 			continue
 		}
 		ver := parseVersion(r.TagName)
-		if channel == "stable" && ver.PreRelease < 4 {
-			continue // skip alpha/beta/rc on stable channel
+		if ver.PreRelease < 4 {
+			continue // skip alpha/beta/rc
 		}
 		if best == nil || compareVersions(ver, bestVer) > 0 {
 			best = r
@@ -350,7 +367,7 @@ func (u *Updater) Apply(info *UpdateInfo) error {
 	return nil
 }
 
-func currentExecutablePath() (string, error) {
+var currentExecutablePath = func() (string, error) {
 	exePath, err := os.Executable()
 	if err != nil {
 		return "", fmt.Errorf("get exe path: %w", err)
@@ -554,4 +571,54 @@ func fileSHA256(path string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// recoverUpdateState checks for incomplete update operations from a previous
+// run and recovers to a consistent state. Must be called early at startup.
+func recoverUpdateState() {
+	exePath, err := currentExecutablePath()
+	if err != nil {
+		logWarn("Update recovery: cannot resolve exe path: %v", err)
+		return
+	}
+
+	dir := filepath.Dir(exePath)
+	oldPath := filepath.Join(dir, "whispaste.exe.old")
+	newPath := filepath.Join(dir, "whispaste.exe.new")
+
+	_, oldExists := statExists(oldPath)
+	_, newExists := statExists(newPath)
+
+	if oldExists && !fileExists(exePath) {
+		// Crash between step 1 (rename exe→old) and step 2 (rename new→exe): rollback
+		if err := os.Rename(oldPath, exePath); err != nil {
+			logError("Update recovery: rollback .old → exe failed: %v", err)
+		} else {
+			logInfo("Update recovery: rolled back .old to restore whispaste.exe")
+		}
+		os.Remove(newPath)
+		return
+	}
+
+	if newExists && fileExists(exePath) {
+		// Leftover .new from interrupted download or completed update
+		os.Remove(newPath)
+		logInfo("Update recovery: removed orphaned .new file")
+	}
+
+	if oldExists && fileExists(exePath) {
+		// Previous update succeeded but .old wasn't cleaned up
+		os.Remove(oldPath)
+		logInfo("Update recovery: removed leftover .old file")
+	}
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func statExists(path string) (os.FileInfo, bool) {
+	fi, err := os.Stat(path)
+	return fi, err == nil
 }

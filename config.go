@@ -71,17 +71,18 @@ type Config struct {
 	FloatingButtonX         int                      `json:"floating_button_x,omitempty"`
 	FloatingButtonY         int                      `json:"floating_button_y,omitempty"`
 	FloatingButtonColor     string                   `json:"floating_button_color,omitempty"`
+	FloatingButtonCustomColor string                 `json:"floating_button_custom_color,omitempty"`
 	FloatingButtonSize      int                      `json:"floating_button_size,omitempty"`
 	FloatingButtonOpacity   int                      `json:"floating_button_opacity,omitempty"`
 	FloatingButtonLocked    bool                     `json:"floating_button_locked,omitempty"`
 	FloatingButtonBorder    bool                     `json:"floating_button_border,omitempty"`
+	FloatingButtonShape     string                   `json:"floating_button_shape,omitempty"` // "circle", "rounded", "squircle", "hexagon", "diamond", "star"
 	UseVAD                  bool                     `json:"use_vad,omitempty"`
 	VADSensitivity          float32                  `json:"vad_sensitivity"`
 	LastProjectID           string                   `json:"last_project_id,omitempty"`
 	SidebarWidth            int                      `json:"sidebar_width,omitempty"`
 	DeleteBehavior          string                   `json:"delete_behavior,omitempty"` // "delete" or "archive"
 	LocalLLMModel           string                   `json:"local_llm_model,omitempty"`
-	UpdateChannel           string                   `json:"update_channel,omitempty"`     // "stable" or "beta"
 	CloudSTTProvider        string                   `json:"cloud_stt_provider,omitempty"` // "openai" (default), "groq", "deepgram"
 	CloudLLMProvider        string                   `json:"cloud_llm_provider,omitempty"` // "openai" (default), "anthropic", "gemini", "groq"
 	CloudLLMModel           string                   `json:"cloud_llm_model,omitempty"`    // provider-specific model ID
@@ -92,6 +93,8 @@ type Config struct {
 	CustomDictionary        []string                 `json:"custom_dictionary,omitempty"` // terms for STT/LLM context
 	GPUAcceleration         string                   `json:"gpu_acceleration,omitempty"`  // "auto" (default), "enabled", "disabled"
 	ErrorReportingEnabled   bool                     `json:"error_reporting_enabled"`
+	FeedbackPromptShown     bool                     `json:"feedback_prompt_shown,omitempty"`
+	AutoPasteDelay          int                      `json:"auto_paste_delay"` // milliseconds, 0-2000
 	mu                      sync.RWMutex
 }
 
@@ -142,7 +145,6 @@ func DefaultConfig() *Config {
 		UseLocalSTT:           false,
 		LocalModelID:          "whisper-small",
 		InputGain:             1.0,
-		UpdateChannel:         "stable",
 		ErrorReportingEnabled: true,
 	}
 }
@@ -286,17 +288,6 @@ func (c *Config) GetCloseToTray() bool {
 	return c.CloseToTray
 }
 
-// GetUpdateChannel returns the update channel ("stable" or "beta"). Thread-safe.
-func (c *Config) GetUpdateChannel() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	ch := c.UpdateChannel
-	if ch != "beta" {
-		return "stable"
-	}
-	return ch
-}
-
 // GetOverlayPos returns the overlay position preference (thread-safe).
 func (c *Config) GetOverlayPos() string {
 	c.mu.RLock()
@@ -385,6 +376,47 @@ func (c *Config) GetFloatingButtonBorder() bool {
 	return c.FloatingButtonBorder
 }
 
+// GetFloatingButtonShape returns the floating button shape (thread-safe).
+// Defaults to "circle". Valid values: "circle", "rounded", "squircle".
+func (c *Config) GetFloatingButtonShape() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.FloatingButtonShape == "" {
+		return "circle"
+	}
+	return c.FloatingButtonShape
+}
+
+// SetFloatingButtonShape sets the floating button shape (thread-safe).
+func (c *Config) SetFloatingButtonShape(v string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	switch v {
+	case "circle", "rounded", "squircle", "hexagon", "diamond", "star":
+		c.FloatingButtonShape = v
+	default:
+		c.FloatingButtonShape = "circle"
+	}
+}
+
+// GetFloatingButtonCustomColor returns the custom hex color (thread-safe).
+// Returns "#22D3EE" (cyan) as default if not set.
+func (c *Config) GetFloatingButtonCustomColor() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.FloatingButtonCustomColor == "" {
+		return "#22D3EE"
+	}
+	return c.FloatingButtonCustomColor
+}
+
+// SetFloatingButtonCustomColor sets the custom hex color (thread-safe).
+func (c *Config) SetFloatingButtonCustomColor(v string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.FloatingButtonCustomColor = v
+}
+
 // detectSystemLanguage returns "de" for German systems, "en" otherwise.
 func detectSystemLanguage() string {
 	// Check common environment variables
@@ -459,6 +491,26 @@ func (c *Config) SetAutoPaste(v bool) {
 	c.mu.Lock()
 	c.AutoPaste = v
 	c.mu.Unlock()
+}
+
+// GetAutoPasteDelay returns the auto-paste delay in milliseconds (thread-safe).
+func (c *Config) GetAutoPasteDelay() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AutoPasteDelay
+}
+
+// SetAutoPasteDelay sets the auto-paste delay in milliseconds, clamped to 0-2000 (thread-safe).
+func (c *Config) SetAutoPasteDelay(v int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if v < 0 {
+		v = 0
+	}
+	if v > 2000 {
+		v = 2000
+	}
+	c.AutoPasteDelay = v
 }
 
 // GetSmartMode returns whether Smart Mode is enabled (thread-safe).
@@ -633,6 +685,13 @@ func (c *Config) GetNotifyComplete() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.NotifyComplete
+}
+
+// GetSoundVolume returns the sound volume level (thread-safe).
+func (c *Config) GetSoundVolume() float64 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.SoundVolume
 }
 
 // GetNotifyDonate returns whether the donation reminder notification is enabled (thread-safe).
@@ -1191,4 +1250,18 @@ func (c *Config) SetErrorReportingEnabled(v bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.ErrorReportingEnabled = v
+}
+
+// GetFeedbackPromptShown returns whether the feedback prompt has been shown (thread-safe).
+func (c *Config) GetFeedbackPromptShown() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.FeedbackPromptShown
+}
+
+// SetFeedbackPromptShown sets whether the feedback prompt has been shown (thread-safe).
+func (c *Config) SetFeedbackPromptShown(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.FeedbackPromptShown = v
 }

@@ -1,10 +1,15 @@
 # WhisPaste Build Script
 # Requires: Go 1.21+, GCC (MinGW-w64)
+#
+# The canonical version lives in types.go (AppVersion).
+# Local builds ALWAYS use that version automatically.
+# The -Version flag is reserved for CI/release workflows only.
 param(
     [switch]$Release,
     [switch]$Clean,
     [string]$Version = "",
-    [string]$CrashRelayURL = ""
+    [string]$CrashRelayURL = "",
+    [string]$FeedbackRelayURL = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,6 +37,36 @@ if ($Clean) {
     exit 0
 }
 
+# Read canonical version from types.go (single source of truth)
+$typesFile = Join-Path $PSScriptRoot "..\types.go"
+$canonicalVersion = ""
+if (Test-Path $typesFile) {
+    $match = Select-String -Path $typesFile -Pattern 'var AppVersion\s*=\s*"([^"]+)"'
+    if ($match) {
+        $canonicalVersion = $match.Matches[0].Groups[1].Value
+    }
+}
+if ($canonicalVersion -eq "") {
+    Write-Host "ERROR: Could not read AppVersion from types.go" -ForegroundColor Red
+    exit 1
+}
+
+# Version safety: -Version parameter must match types.go (or be omitted)
+if ($Version -ne "" -and $Version -ne $canonicalVersion) {
+    Write-Host ""
+    Write-Host "ERROR: Version mismatch!" -ForegroundColor Red
+    Write-Host "  -Version parameter: $Version" -ForegroundColor Red
+    Write-Host "  types.go AppVersion: $canonicalVersion" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "The canonical version is defined in types.go." -ForegroundColor Yellow
+    Write-Host "To change the version, update types.go first." -ForegroundColor Yellow
+    Write-Host "Then rebuild without -Version (it's read automatically)." -ForegroundColor Yellow
+    exit 1
+}
+
+# Always use the canonical version
+$Version = $canonicalVersion
+
 Write-Host "`n=== Building WhisPaste ===" -ForegroundColor Cyan
 
 $ldflags = "-s -w -H windowsgui"
@@ -42,13 +77,16 @@ if ($Release) {
     $ldflags = "-H windowsgui"
 }
 
-if ($Version -ne "") {
-    $ldflags += " -X main.AppVersion=$Version"
-    Write-Host "Version: $Version" -ForegroundColor Cyan
-}
+$ldflags += " -X main.AppVersion=$Version"
+Write-Host "Version: $Version (from types.go)" -ForegroundColor Cyan
+
 if ($CrashRelayURL -ne "") {
     $ldflags += " -X main.CrashRelayURL=$CrashRelayURL"
     Write-Host "Crash relay: $CrashRelayURL" -ForegroundColor Cyan
+}
+if ($FeedbackRelayURL -ne "") {
+    $ldflags += " -X main.FeedbackRelayURL=$FeedbackRelayURL"
+    Write-Host "Feedback relay: $FeedbackRelayURL" -ForegroundColor Cyan
 }
 
 # Inject build metadata (commit, branch, date) for all builds

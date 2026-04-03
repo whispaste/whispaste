@@ -112,6 +112,9 @@ func (r *Recorder) Start() error {
 			r.mu.Unlock()
 			applyGain(pInputSamples, g)
 			r.computeLevel(pInputSamples)
+			if o := globalOverlay.Load(); o != nil {
+				o.SetAudioLevel(r.GetLevel())
+			}
 			if active {
 				r.mu.Lock()
 				r.buf.Write(pInputSamples)
@@ -424,13 +427,13 @@ func classifyAudioInputHealth(peak, average float32, reads uint32) string {
 	if reads < 6 {
 		return "checking"
 	}
-	if peak < 0.03 && average < 0.01 {
+	if peak < 0.02 && average < 0.005 {
 		return "silent"
 	}
 	if peak > 0.92 || average > 0.55 {
 		return "hot"
 	}
-	if peak < 0.12 && average < 0.045 {
+	if peak < 0.06 && average < 0.02 {
 		return "quiet"
 	}
 	return "good"

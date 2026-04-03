@@ -8,6 +8,7 @@ import (
 	"math"
 	"runtime"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -54,8 +55,11 @@ func init() {
 				uintptr(sndMemory|sndNoDefault|sndAsync),
 			)
 			if ret == 0 {
-				logWarn("PlaySoundW failed for queued sound")
+				logWarn("PlaySoundW failed for queued sound (%d bytes)", len(data))
+			} else {
+				logDebug("PlaySoundW OK (%d bytes)", len(data))
 			}
+			time.Sleep(100 * time.Millisecond)
 			runtime.KeepAlive(data)
 		}
 	}()

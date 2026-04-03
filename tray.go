@@ -254,6 +254,14 @@ func (t *AppTray) ShowUpdateAvailable(info UpdateInfo) {
 	go t.autoApplyUpdate(info)
 }
 
+// showUpdateCheckFailed updates the tray menu item to indicate that
+// the last automatic update check could not reach GitHub.
+func (t *AppTray) showUpdateCheckFailed() {
+	if t.mUpdate != nil {
+		t.mUpdate.SetTitle(T("update.check_failed"))
+	}
+}
+
 // autoApplyUpdate downloads and installs an update in the background,
 // then shows a toast notification prompting the user to restart.
 func (t *AppTray) autoApplyUpdate(info UpdateInfo) {
@@ -583,8 +591,7 @@ func (t *AppTray) onReady() {
 	}()
 
 	systray.AddSeparator()
-	mDashboard := systray.AddMenuItem(T("tray.notebook"), T("tray.notebook"))
-	mSettings := systray.AddMenuItem(T("tray.settings"), T("tray.settings"))
+	mOpen := systray.AddMenuItem(T("tray.open"), T("tray.open_desc"))
 
 	// History submenu
 	mHistory := systray.AddMenuItem(T("tray.history"), T("tray.history"))
@@ -605,6 +612,7 @@ func (t *AppTray) onReady() {
 	}
 
 	systray.AddSeparator()
+	mFeedback := systray.AddMenuItem(T("tray.feedback"), T("tray.feedback_desc"))
 	t.mUpdate = systray.AddMenuItem(T("update.check"), T("update.check"))
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem(T("tray.quit"), T("tray.quit"))
@@ -613,6 +621,9 @@ func (t *AppTray) onReady() {
 	if t.updater != nil {
 		t.updater.OnUpdateAvailable(func(info UpdateInfo) {
 			t.ShowUpdateAvailable(info)
+		})
+		t.updater.OnCheckFailed(func() {
+			t.showUpdateCheckFailed()
 		})
 		t.updater.Start(context.Background())
 	}
@@ -624,13 +635,13 @@ func (t *AppTray) onReady() {
 				if t.onToggle != nil {
 					t.onToggle()
 				}
-			case <-mDashboard.ClickedCh:
+			case <-mOpen.ClickedCh:
 				if t.onOpenWindow != nil {
-					t.onOpenWindow("history")
+					t.onOpenWindow("")
 				}
-			case <-mSettings.ClickedCh:
+			case <-mFeedback.ClickedCh:
 				if t.onOpenWindow != nil {
-					t.onOpenWindow("settings")
+					t.onOpenWindow("feedback")
 				}
 			case <-t.mUpdate.ClickedCh:
 				t.handleUpdateClick()
@@ -662,6 +673,7 @@ func (t *AppTray) handleUpdateClick() {
 				result, err := t.updater.CheckNow(context.Background(), true)
 				if err != nil {
 					logWarn("Manual update check failed: %v", err)
+					t.mUpdate.SetTitle(T("update.check_failed"))
 					return
 				}
 				if result.Available {

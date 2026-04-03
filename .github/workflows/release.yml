@@ -51,6 +51,20 @@ jobs:
           $tag = $env:REF_NAME
           $ver = $tag -replace '^v', ''
           $msixVer = ($ver -replace '-.*$', '') + '.0'
+          # Validate: git tag must match AppVersion in types.go
+          $match = Select-String -Path types.go -Pattern 'var AppVersion\s*=\s*"([^"]+)"'
+          if ($match) {
+            $srcVer = $match.Matches[0].Groups[1].Value
+            if ($srcVer -ne $ver) {
+              Write-Host "::error::Version mismatch! Git tag=$ver but types.go AppVersion=$srcVer"
+              Write-Host "Update types.go to match the release tag before pushing."
+              exit 1
+            }
+            Write-Host "Version validated: tag=$ver matches types.go=$srcVer"
+          } else {
+            Write-Host "::error::Could not read AppVersion from types.go"
+            exit 1
+          }
           echo "TAG=$tag" >> $env:GITHUB_OUTPUT
           echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
           echo "MSIX_VERSION=$msixVer" >> $env:GITHUB_OUTPUT

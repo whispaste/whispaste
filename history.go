@@ -93,6 +93,7 @@ func LoadHistory() *History {
 		return h
 	}
 	h.db = db
+	h.cleanupDailyStatsModels()
 	return h
 }
 
@@ -332,6 +333,8 @@ func (h *History) Delete(id string) bool {
 	n, _ := res.RowsAffected()
 	if n > 0 {
 		audiocache.Delete(id)
+		h.DeleteNotesForEntry(id)
+		h.DeleteAttachmentsForEntry(id)
 	}
 	return n > 0
 }
@@ -379,7 +382,7 @@ func (h *History) UpdateEntry(id, title string, tags []string) bool {
 	tagsJSON := marshalTags(tags)
 	logDebug("UpdateEntry id=%s title=%q tagCount=%d tags=%s", id, title, len(tags), tagsJSON)
 	if title != "" {
-		res, err = execWithFTSRepair(h.db, "UPDATE history_entries SET title = ?, tags = ? WHERE id = ?", title, tagsJSON, id)
+		res, err = execWithFTSRepair(h.db, "UPDATE history_entries SET title = ?, tags = ?, title_edited = 1 WHERE id = ?", title, tagsJSON, id)
 	} else {
 		res, err = execWithFTSRepair(h.db, "UPDATE history_entries SET tags = ? WHERE id = ?", tagsJSON, id)
 	}
@@ -392,14 +395,26 @@ func (h *History) UpdateEntry(id, title string, tags []string) bool {
 }
 
 // UpdateText updates the text content (and auto-title) for an entry by ID.
+// If the title was manually edited, the title is preserved.
 func (h *History) UpdateText(id, newText string) bool {
 	if h.db == nil {
 		return false
 	}
 	h.invalidateCache()
 
-	newTitle := autoTitle(newText)
-	res, err := execWithFTSRepair(h.db, "UPDATE history_entries SET text = ?, title = ? WHERE id = ?", newText, newTitle, id)
+	var titleEdited int
+	if err := h.db.QueryRow("SELECT title_edited FROM history_entries WHERE id = ?", id).Scan(&titleEdited); err != nil {
+		logWarn("Check title_edited flag: %v", err)
+	}
+
+	var res sql.Result
+	var err error
+	if titleEdited == 1 {
+		res, err = execWithFTSRepair(h.db, "UPDATE history_entries SET text = ? WHERE id = ?", newText, id)
+	} else {
+		newTitle := autoTitle(newText)
+		res, err = execWithFTSRepair(h.db, "UPDATE history_entries SET text = ?, title = ? WHERE id = ?", newText, newTitle, id)
+	}
 	if err != nil {
 		logError("Update text: %v", err)
 		return false

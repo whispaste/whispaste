@@ -148,7 +148,8 @@
   .recording-indicator.active,
   .toast-enter,
   .toast-exit,
-  .celebrate {
+  .celebrate,
+  .entry {
     animation: none !important;
     transition: none !important;
     opacity: 1 !important;
@@ -157,5 +158,10 @@
   .recording-indicator.active {
     opacity: 1 !important;
     transform: scaleX(1) !important;
+  }
+  .empty-state,
+  .empty-state-icon {
+    animation: none !important;
+    opacity: 1 !important;
   }
 }

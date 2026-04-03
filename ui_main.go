@@ -247,7 +247,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStat
 		mainWebview = w
 		mainWindowMu.Unlock()
 
-		w.SetTitle("WhisPaste")
+		w.SetTitle("WhisPaste — " + T("app.notebook"))
 		w.SetSize(1000, 700, webview.HintNone)
 		w.SetSize(800, 550, webview.HintMin)
 

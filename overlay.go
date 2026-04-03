@@ -7,6 +7,7 @@ import (
 	"math"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -266,8 +267,9 @@ var (
 	// GDI+ path
 	procGdipCreatePath      = ovlGdiplus.NewProc("GdipCreatePath")
 	procGdipDeletePath      = ovlGdiplus.NewProc("GdipDeletePath")
-	procGdipAddPathArc      = ovlGdiplus.NewProc("GdipAddPathArc")
-	procGdipAddPathLine     = ovlGdiplus.NewProc("GdipAddPathLineI")
+	procGdipAddPathArc        = ovlGdiplus.NewProc("GdipAddPathArc")
+	procGdipAddPathEllipseI   = ovlGdiplus.NewProc("GdipAddPathEllipseI")
+	procGdipAddPathLine       = ovlGdiplus.NewProc("GdipAddPathLineI")
 	procGdipClosePathFigure = ovlGdiplus.NewProc("GdipClosePathFigure")
 	procGdipFillPath        = ovlGdiplus.NewProc("GdipFillPath")
 
@@ -293,11 +295,15 @@ var (
 	procGdipDeletePen           = ovlGdiplus.NewProc("GdipDeletePen")
 	procGdipDrawPath            = ovlGdiplus.NewProc("GdipDrawPath")
 	procGdipDrawLineI           = ovlGdiplus.NewProc("GdipDrawLineI")
+	procGdipDrawLine            = ovlGdiplus.NewProc("GdipDrawLine")
 	procGdipSetPenLineCap197819 = ovlGdiplus.NewProc("GdipSetPenLineCap197819")
 	procGdipSetPenLineJoin      = ovlGdiplus.NewProc("GdipSetPenLineJoin")
 
 	// GDI+ graphics
-	procGdipGraphicsClear = ovlGdiplus.NewProc("GdipGraphicsClear")
+	procGdipGraphicsClear        = ovlGdiplus.NewProc("GdipGraphicsClear")
+	procGdipSaveGraphics         = ovlGdiplus.NewProc("GdipSaveGraphics")
+	procGdipRestoreGraphics      = ovlGdiplus.NewProc("GdipRestoreGraphics")
+	procGdipSetClipPathCombine   = ovlGdiplus.NewProc("GdipSetClipPath")
 
 	// GDI+ gradient
 	procGdipCreateLineBrushFromRectI = ovlGdiplus.NewProc("GdipCreateLineBrushFromRectI")
@@ -324,7 +330,7 @@ func shutdownGDIPlus() {
 
 // ───────────────────── Overlay ─────────────────────
 
-var globalOverlay *Overlay
+var globalOverlay atomic.Pointer[Overlay]
 
 // Overlay displays a premium recording/transcribing indicator.
 type Overlay struct {
@@ -360,13 +366,18 @@ type Overlay struct {
 	pauseAccum      time.Duration // accumulated pause time
 	maxRecordSec    int           // max recording duration in seconds (0 = unlimited)
 	transcribeStart time.Time     // when transcription began
-	estimatedSec    float64       // estimated transcription duration in seconds
+	audioLevel      float32       // current audio input level for VU meter
+	pauseFadeAlpha  float32       // waveform fade alpha (1.0=opaque, 0.5=paused)
 	hoverBtn        int           // 0=none, 1=dash, 2=cancel, 3=pause, 4=stop
 	pressBtn        int           // 0=none, same mapping
 	tracking        bool          // whether TrackMouseEvent is active
 	scale           float64       // DPI scale factor (1.0 = 96 DPI)
 	isSmartMode     bool          // whether Smart Mode post-processing is active
-	mu              sync.Mutex
+	animating       bool          // fade animation in progress
+	animAlpha       byte          // current alpha during fade (0–255)
+	animFadeIn      bool          // true=fading in, false=fading out
+	mu            sync.Mutex
+	completionSeq atomic.Int64
 }
 
 // dpiScale returns the DPI scale factor for the overlay window.
@@ -438,12 +449,13 @@ func (o *Overlay) overlayPosition(pos string) (int, int) {
 // NewOverlay creates the overlay window on a dedicated OS thread.
 func NewOverlay() (*Overlay, error) {
 	o := &Overlay{
-		ready:    make(chan error, 1),
-		done:     make(chan struct{}),
-		position: "top_center",
-		scale:    1.0,
+		ready:          make(chan error, 1),
+		done:           make(chan struct{}),
+		position:       "top_center",
+		scale:          1.0,
+		pauseFadeAlpha: 1.0,
 	}
-	globalOverlay = o
+	globalOverlay.Store(o)
 
 	go func() {
 		runtime.LockOSThread()
@@ -647,20 +659,35 @@ func (o *Overlay) Show(state AppState) {
 	}
 }
 
-// SetTranscribeEstimate sets the estimated transcription duration based on
-// audio length and transcription method. Call before Show(StateTranscribing).
-// Uses pessimistic speed ratios: cloud ≈ 0.5× real-time, local ≈ 1.5× real-time.
-func (o *Overlay) SetTranscribeEstimate(audioDurationSec float64, isLocal bool) {
+// SetAudioLevel sets the current audio input level for the VU meter.
+// Uses exponential moving average for smooth bar movement.
+func (o *Overlay) SetAudioLevel(level float32) {
 	o.mu.Lock()
-	defer o.mu.Unlock()
-	ratio := 0.5 // cloud: typically fast
-	if isLocal {
-		ratio = 1.5 // local: pessimistic estimate
+	const smoothUp = 0.4   // fast attack
+	const smoothDown = 0.15 // slow decay
+	if level > o.audioLevel {
+		o.audioLevel += (level - o.audioLevel) * smoothUp
+	} else {
+		o.audioLevel += (level - o.audioLevel) * smoothDown
 	}
-	o.estimatedSec = audioDurationSec * ratio
-	if o.estimatedSec < 3 {
-		o.estimatedSec = 3 // minimum 3 seconds to avoid flicker
-	}
+	o.mu.Unlock()
+}
+
+// ShowCompletion shows the "Copied" confirmation state and auto-hides after 1.5 seconds.
+func (o *Overlay) ShowCompletion() {
+	o.Show(StateCopied)
+	seq := o.completionSeq.Add(1)
+	go func() {
+		time.Sleep(1500 * time.Millisecond)
+		if o.completionSeq.Load() == seq {
+			o.mu.Lock()
+			st := o.state
+			o.mu.Unlock()
+			if st == StateCopied {
+				o.Hide()
+			}
+		}
+	}()
 }
 
 // Hide hides the overlay window.

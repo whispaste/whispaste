@@ -73,8 +73,13 @@ Each crash report appears as a Discord embed with:
 | **Go Version** | e.g. `go1.26` |
 | **Device** | Anonymous 12-char hash (groups crashes from one machine) |
 | **GPU** | Selected GPU acceleration mode |
+| **Install** | `msix` (Microsoft Store) or `standalone` (direct download) |
 | **Runtime Config** | Sanitized snapshot of active profile, STT/LLM provider, model, language, VAD, audio device, update channel |
 | **Stack Trace** | Sanitized call stack (paths anonymized) |
+
+## Version Tracking and Auto-Dismiss
+
+The crash relay automatically tracks fixed versions. When you mark a crash as fixed via the crash-cleanup endpoint, future reports of the same error from newer app versions are auto-dismissed and not forwarded to Discord. This prevents old, already-fixed crashes from cluttering the channel.
 
 ## How Privacy Is Ensured
 

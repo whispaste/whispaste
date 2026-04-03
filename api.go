@@ -70,7 +70,7 @@ func Transcribe(ctx context.Context, audioWAV []byte, language string, apiKey st
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
 			wait := retryBaseWait * (1 << (attempt - 1)) // 2s, 4s, 8s
-			logWarn("API retry %d/%d after %v (previous: %v)", attempt, maxRetries, wait, lastErr)
+			logInfo("API retry %d/%d after %v (previous: %v)", attempt, maxRetries, wait, lastErr)
 			select {
 			case <-ctx.Done():
 				return "", fmt.Errorf("transcription cancelled: %w", ctx.Err())

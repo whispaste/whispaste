@@ -217,6 +217,11 @@ function updateFabSizeLabel(val) {
   if (typeof autoSave === 'function') autoSave();
 }
 
+function updateAutoPasteDelayLabel(val) {
+  const el = document.getElementById('auto-paste-delay-value');
+  if (el) el.textContent = val + ' ms';
+}
+
 /* ── Smart Mode Visibility ────────────────────────────── */
 function updateSmartModeVisibility() {
   const toggle = document.getElementById('toggle-smartmode');
