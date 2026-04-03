@@ -94,6 +94,12 @@ func PlayFeedback(soundType SoundType) {
 		data = sndError
 	case SoundWarning:
 		data = sndWarning
+	case SoundButtonClick:
+		data = sndBtnClick
+	case SoundButtonPop:
+		data = sndBtnPop
+	case SoundButtonChime:
+		data = sndBtnChime
 	default:
 		return
 	}
@@ -120,30 +126,96 @@ func PlayFeedback(soundType SoundType) {
 }
 
 var sndWarning []byte
+var sndBtnClick []byte
+var sndBtnPop []byte
+var sndBtnChime []byte
 
 func init() {
 	sndWarning = generateBeepWAV(880, 200, 0.5)
+	sndBtnClick = generateClickWAV()
+	sndBtnPop = generatePopWAV()
+	sndBtnChime = generateChimeWAV()
 }
 
-// generateBeepWAV creates a sine wave PCM WAV in memory.
-func generateBeepWAV(freqHz, durationMs int, amplitude float64) []byte {
+// generateClickWAV creates a short percussive click sound.
+func generateClickWAV() []byte {
 	sampleRate := 16000
+	durationMs := 30
 	numSamples := sampleRate * durationMs / 1000
-	dataSize := numSamples * 2 // 16-bit mono
+	dataSize := numSamples * 2
+	wav := makeWAVHeader(dataSize, sampleRate)
+	for i := 0; i < numSamples; i++ {
+		t := float64(i) / float64(sampleRate)
+		decay := math.Exp(-t * 200)
+		sample := int16(0.6 * 32767 * decay * math.Sin(2*math.Pi*2500*t))
+		binary.LittleEndian.PutUint16(wav[44+i*2:44+i*2+2], uint16(sample))
+	}
+	return wav
+}
+
+// generatePopWAV creates a bubbly pop sound with pitch sweep.
+func generatePopWAV() []byte {
+	sampleRate := 16000
+	durationMs := 80
+	numSamples := sampleRate * durationMs / 1000
+	dataSize := numSamples * 2
+	wav := makeWAVHeader(dataSize, sampleRate)
+	for i := 0; i < numSamples; i++ {
+		t := float64(i) / float64(sampleRate)
+		decay := math.Exp(-t * 40)
+		freq := 600 + 800*math.Exp(-t*30)
+		sample := int16(0.5 * 32767 * decay * math.Sin(2*math.Pi*freq*t))
+		binary.LittleEndian.PutUint16(wav[44+i*2:44+i*2+2], uint16(sample))
+	}
+	return wav
+}
+
+// generateChimeWAV creates a pleasant two-tone chime.
+func generateChimeWAV() []byte {
+	sampleRate := 16000
+	durationMs := 200
+	numSamples := sampleRate * durationMs / 1000
+	dataSize := numSamples * 2
+	wav := makeWAVHeader(dataSize, sampleRate)
+	for i := 0; i < numSamples; i++ {
+		t := float64(i) / float64(sampleRate)
+		decay1 := math.Exp(-t * 10)
+		decay2 := math.Exp(-(t - 0.08) * 10)
+		if t < 0.08 {
+			decay2 = 0
+		}
+		s := 0.4*decay1*math.Sin(2*math.Pi*1047*t) + 0.3*decay2*math.Sin(2*math.Pi*1319*t)
+		sample := int16(s * 32767)
+		binary.LittleEndian.PutUint16(wav[44+i*2:44+i*2+2], uint16(sample))
+	}
+	return wav
+}
+
+// makeWAVHeader creates a standard 44-byte WAV header for mono 16-bit PCM.
+func makeWAVHeader(dataSize, sampleRate int) []byte {
 	wav := make([]byte, 44+dataSize)
 	copy(wav[0:4], "RIFF")
 	binary.LittleEndian.PutUint32(wav[4:8], uint32(36+dataSize))
 	copy(wav[8:12], "WAVE")
 	copy(wav[12:16], "fmt ")
 	binary.LittleEndian.PutUint32(wav[16:20], 16)
-	binary.LittleEndian.PutUint16(wav[20:22], 1) // PCM
-	binary.LittleEndian.PutUint16(wav[22:24], 1) // mono
+	binary.LittleEndian.PutUint16(wav[20:22], 1)
+	binary.LittleEndian.PutUint16(wav[22:24], 1)
 	binary.LittleEndian.PutUint32(wav[24:28], uint32(sampleRate))
 	binary.LittleEndian.PutUint32(wav[28:32], uint32(sampleRate*2))
-	binary.LittleEndian.PutUint16(wav[32:34], 2)  // block align
-	binary.LittleEndian.PutUint16(wav[34:36], 16) // bits per sample
+	binary.LittleEndian.PutUint16(wav[32:34], 2)
+	binary.LittleEndian.PutUint16(wav[34:36], 16)
 	copy(wav[36:40], "data")
 	binary.LittleEndian.PutUint32(wav[40:44], uint32(dataSize))
+	return wav
+}
+
+// generateBeepWAV creates a sine wave PCM WAV in memory.
+func generateBeepWAV(freqHz, durationMs int, amplitude float64) []byte {
+	sampleRate := 16000
+	numSamples := sampleRate * durationMs / 1000
+	dataSize := numSamples * 2
+	wav := makeWAVHeader(dataSize, sampleRate)
 	for i := 0; i < numSamples; i++ {
 		t := float64(i) / float64(sampleRate)
 		sample := int16(amplitude * 32767 * math.Sin(2*math.Pi*float64(freqHz)*t))
