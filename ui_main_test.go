@@ -193,7 +193,7 @@ func countHTMLTags(content string) map[string][2]int {
 // This prevents the exact bug where an unclosed <div> in one page causes
 // all subsequent pages to be nested inside it, making them invisible.
 func TestHTMLPageTagBalance(t *testing.T) {
-	criticalTags := []string{"div", "section", "main", "aside", "nav", "header", "footer", "article", "ul", "ol", "table", "thead", "tbody", "tr"}
+	criticalTags := []string{"div", "section", "main", "aside", "nav", "header", "footer", "article", "ul", "ol", "table", "thead", "tbody", "tr", "span", "button", "form", "select", "label", "li", "td", "th", "textarea", "p"}
 
 	err := fs.WalkDir(uiMainFS, "ui_main/pages", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".html") {
@@ -472,19 +472,19 @@ func TestLintSummary(t *testing.T) {
 	}
 }
 
-// TestJSTemplateDivBalance checks that HTML template literals in JS files
-// have balanced <div> opening and closing tags. This catches bugs where
-// dynamically rendered HTML (e.g., _renderEntryCard) has unclosed divs
-// that would cause entries to merge or pages to nest incorrectly.
-func TestJSTemplateDivBalance(t *testing.T) {
+// TestJSTemplateTagBalance checks that HTML template literals in JS files
+// have balanced opening and closing tags for ALL container elements.
+// This catches bugs where dynamically rendered HTML (e.g., _renderEntryCard)
+// has unclosed tags that would cause entries to merge or layout to break.
+func TestJSTemplateTagBalance(t *testing.T) {
 	entries, err := fs.ReadDir(uiMainFS, "ui_main/scripts")
 	if err != nil {
 		t.Fatalf("Failed to read JS scripts: %v", err)
 	}
 
 	templateRe := regexp.MustCompile("(?s)`([^`]*)`")
-	divOpenRe := regexp.MustCompile(`<div[\s>]`)
-	divCloseRe := regexp.MustCompile(`</div>`)
+	// Check all container tags that could cause nesting issues if unclosed
+	containerTags := []string{"div", "span", "button", "table", "thead", "tbody", "tr", "td", "th", "ul", "ol", "li", "form", "select", "textarea", "label", "section", "nav", "p", "h1", "h2", "h3", "h4", "details", "summary"}
 
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".js") {
@@ -497,17 +497,151 @@ func TestJSTemplateDivBalance(t *testing.T) {
 			}
 			content := string(data)
 			matches := templateRe.FindAllString(content, -1)
-			totalOpens := 0
-			totalCloses := 0
-			for _, m := range matches {
-				opens := len(divOpenRe.FindAllString(m, -1))
-				closes := len(divCloseRe.FindAllString(m, -1))
-				totalOpens += opens
-				totalCloses += closes
+			for _, tag := range containerTags {
+				openRe := regexp.MustCompile(`<` + tag + `[\s>]`)
+				closeRe := regexp.MustCompile(`</` + tag + `\s*>`)
+				totalOpens := 0
+				totalCloses := 0
+				for _, m := range matches {
+					totalOpens += len(openRe.FindAllString(m, -1))
+					totalCloses += len(closeRe.FindAllString(m, -1))
+				}
+				if totalOpens != totalCloses {
+					t.Errorf("<%s> tag imbalance in template literals: %d opens vs %d closes (diff: %+d)",
+						tag, totalOpens, totalCloses, totalOpens-totalCloses)
+				}
 			}
-			if totalOpens != totalCloses {
-				t.Errorf("%s: JS template literals have %d <div> opens vs %d </div> closes (diff: %d)",
-					e.Name(), totalOpens, totalCloses, totalOpens-totalCloses)
+		})
+	}
+}
+
+// TestGoEmbeddedHTMLBalance validates that Go source files containing embedded
+// HTML (like ui_log.go's logViewerHTML) have balanced tags. This catches bugs
+// in self-contained HTML documents returned as Go string literals.
+func TestGoEmbeddedHTMLBalance(t *testing.T) {
+	// Scan Go files for functions that return embedded HTML
+	goFiles := []struct {
+		file string
+		desc string
+	}{
+		{"ui_log.go", "log viewer HTML"},
+	}
+
+	containerTags := []string{"div", "span", "button", "table", "thead", "tbody", "tr", "td", "th", "ul", "ol", "li", "form", "select", "textarea", "label", "section", "nav", "p", "h1", "h2", "h3", "h4"}
+
+	for _, gf := range goFiles {
+		t.Run(gf.file, func(t *testing.T) {
+			data, err := os.ReadFile(gf.file)
+			if err != nil {
+				t.Fatalf("Failed to read %s: %v", gf.file, err)
+			}
+			content := string(data)
+
+			// Extract HTML from backtick strings that contain <!DOCTYPE or <html
+			templateRe := regexp.MustCompile("(?s)`([^`]*)`")
+			matches := templateRe.FindAllString(content, -1)
+			var htmlBlocks []string
+			for _, m := range matches {
+				if strings.Contains(m, "<!DOCTYPE") || strings.Contains(m, "<html") || strings.Contains(m, "<body") {
+					htmlBlocks = append(htmlBlocks, m)
+				}
+			}
+			if len(htmlBlocks) == 0 {
+				t.Skipf("No embedded HTML found in %s", gf.file)
+			}
+
+			for _, block := range htmlBlocks {
+				// Strip <script> blocks to avoid counting HTML in JS
+				reScript := regexp.MustCompile(`(?s)<script[^>]*>.*?</script>`)
+				cleaned := reScript.ReplaceAllString(block, "")
+
+				tags := countHTMLTags(cleaned)
+				for _, tag := range containerTags {
+					counts, ok := tags[tag]
+					if !ok {
+						continue
+					}
+					if counts[0] != counts[1] {
+						t.Errorf("<%s> tag imbalance: %d opens, %d closes (diff: %+d)",
+							tag, counts[0], counts[1], counts[0]-counts[1])
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestGoEmbeddedCSSBalance validates CSS embedded in Go source files
+// has balanced braces, parentheses, and comments.
+func TestGoEmbeddedCSSBalance(t *testing.T) {
+	data, err := os.ReadFile("ui_log.go")
+	if err != nil {
+		t.Fatalf("Failed to read ui_log.go: %v", err)
+	}
+	content := string(data)
+
+	// Extract <style> blocks from Go string literals
+	styleRe := regexp.MustCompile(`(?s)<style[^>]*>(.*?)</style>`)
+	matches := styleRe.FindAllStringSubmatch(content, -1)
+	if len(matches) == 0 {
+		t.Skip("No embedded <style> blocks found")
+	}
+
+	for i, m := range matches {
+		css := m[1]
+		t.Run(fmt.Sprintf("style_block_%d", i), func(t *testing.T) {
+			// Check brace balance
+			opens := strings.Count(css, "{")
+			closes := strings.Count(css, "}")
+			if opens != closes {
+				t.Errorf("CSS brace imbalance: %d '{' vs %d '}' (diff: %+d)", opens, closes, opens-closes)
+			}
+			// Check paren balance
+			openP := strings.Count(css, "(")
+			closeP := strings.Count(css, ")")
+			if openP != closeP {
+				t.Errorf("CSS paren imbalance: %d '(' vs %d ')' (diff: %+d)", openP, closeP, openP-closeP)
+			}
+			// Check comment balance
+			openC := strings.Count(css, "/*")
+			closeC := strings.Count(css, "*/")
+			if openC != closeC {
+				t.Errorf("CSS comment imbalance: %d '/*' vs %d '*/' (diff: %+d)", openC, closeC, openC-closeC)
+			}
+		})
+	}
+}
+
+// TestGoEmbeddedJSSyntax validates JS embedded in Go source files via node.
+func TestGoEmbeddedJSSyntax(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node not in PATH")
+	}
+
+	data, err := os.ReadFile("ui_log.go")
+	if err != nil {
+		t.Fatalf("Failed to read ui_log.go: %v", err)
+	}
+	content := string(data)
+
+	// Extract <script> blocks from Go string literals
+	scriptRe := regexp.MustCompile(`(?s)<script[^>]*>(.*?)</script>`)
+	matches := scriptRe.FindAllStringSubmatch(content, -1)
+	if len(matches) == 0 {
+		t.Skip("No embedded <script> blocks found")
+	}
+
+	for i, m := range matches {
+		js := m[1]
+		t.Run(fmt.Sprintf("script_block_%d", i), func(t *testing.T) {
+			tmpFile := filepath.Join(t.TempDir(), "check.js")
+			if err := os.WriteFile(tmpFile, []byte(js), 0644); err != nil {
+				t.Fatalf("Failed to write temp JS: %v", err)
+			}
+			cmd := exec.Command("node", "--check", tmpFile)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Errorf("JS syntax error in embedded script: %s\n%s", err, string(out))
 			}
 		})
 	}
