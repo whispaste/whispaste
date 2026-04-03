@@ -137,7 +137,7 @@ async function doCopy(id, triggerBtn) {
     try {
       if (window.copyEntry) await window.copyEntry(id);
       showToast(t('notebook.copied'));
-    } catch (e) { showToast('Error', true); }
+    } catch (e) { showToast(t('statusError'), true); }
     return;
   }
   showPopover(triggerBtn, {
@@ -146,13 +146,13 @@ async function doCopy(id, triggerBtn) {
         try {
           if (window.copyEntry) await window.copyEntry(id);
           showCopyFeedback(triggerBtn);
-        } catch (e) { showToast('Error', true); }
+        } catch (e) { showToast(t('statusError'), true); }
       }},
       { icon: icons.files, label: t('notebook.copy_markdown'), action: async () => {
         try {
           if (window.copyEntryMarkdown) await window.copyEntryMarkdown(id);
           showCopyFeedback(triggerBtn);
-        } catch (e) { showToast('Error', true); }
+        } catch (e) { showToast(t('statusError'), true); }
       }},
     ],
   });
@@ -260,9 +260,9 @@ function cancelEditText(id) {
   loadEntries();
 }
 
-// Focus the contenteditable title in the detail view
+// Focus the contenteditable title in the header
 function focusDetailTitle(id) {
-  const titleEl = document.querySelector('.entry-detail-title[data-entry-id="' + id + '"]');
+  const titleEl = document.querySelector('.entry-title[data-entry-id="' + id + '"]');
   if (titleEl) {
     titleEl.focus();
     const range = document.createRange();

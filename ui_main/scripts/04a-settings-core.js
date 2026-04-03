@@ -503,9 +503,10 @@ function syncSharedAPIKeys(sourceId, targetId) {
 }
 
 function toggleCloudLLMSection() {
-  const isCloud = document.querySelector('[name="smartProvider"][value="cloud"]')?.checked;
-  const section = document.getElementById('cloud-llm-settings');
-  if (section) section.classList.toggle('hidden', !isCloud);
+  const smartCloud = document.querySelector('[name="smartProvider"][value="cloud"]')?.checked;
+  const replaceCloud = document.querySelector('[name="textReplaceProvider"][value="cloud"]')?.checked;
+  const card = document.getElementById('cloud-llm-card');
+  if (card) card.classList.toggle('hidden', !smartCloud && !replaceCloud);
 }
 
 function toggleKeyVisibility(inputId, btn) {
