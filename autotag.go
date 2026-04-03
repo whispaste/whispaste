@@ -38,11 +38,17 @@ func getAutoTagClient() *http.Client {
 // It first tries to match from existing tags (history + custom). If no existing
 // tags are available or none match, it asks the LLM to generate new tags from
 // the content — solving the cold-start problem for new users.
-func AutoTagEntry(history *History, entryID, text string, customTags []string, uiLang string) {
+func AutoTagEntry(history *History, entryID, text string, customTags []string, uiLang string, autoTag, autoTitle bool) {
 	if history == nil || entryID == "" || text == "" {
 		return
 	}
-	logDebug("AutoTag: entry=%s, text_len=%d", entryID, len(text))
+
+	if !autoTag && !autoTitle {
+		logDebug("AutoTag: both auto-tag and auto-title disabled, skipping")
+		return
+	}
+
+	logDebug("AutoTag: entry=%s, text_len=%d, tag=%v, title=%v", entryID, len(text), autoTag, autoTitle)
 
 	if !IsLLMInstalled() {
 		logDebug("AutoTag: local LLM not installed, skipping")
@@ -55,67 +61,69 @@ func AutoTagEntry(history *History, entryID, text string, customTags []string, u
 		return
 	}
 
-	existingTags := history.Tags()
-
-	// Merge custom tags (tags the user created but may not yet be assigned)
-	// Exclude system tags that must never be auto-assigned.
-	tagSet := make(map[string]bool, len(existingTags)+len(customTags))
-	for _, t := range existingTags {
-		if !systemTags[strings.ToLower(t)] {
-			tagSet[t] = true
-		}
-	}
-	for _, t := range customTags {
-		if !systemTags[strings.ToLower(t)] {
-			tagSet[t] = true
-		}
-	}
-	allTags := make([]string, 0, len(tagSet))
-	for t := range tagSet {
-		allTags = append(allTags, t)
-	}
-	logDebug("AutoTag: %d candidate tags (from entries: %d, from custom: %d)", len(allTags), len(existingTags), len(customTags))
-
 	var finalTags []string
 
-	if len(allTags) > 0 {
-		// Try matching from existing tags first
-		matchedTags, matchErr := queryLLMForTags(endpoint, text, allTags)
-		if matchErr != nil {
-			logWarn("AutoTag: matching failed for entry %s: %v", entryID, matchErr)
-		} else {
-			finalTags = matchedTags
+	if autoTag {
+		existingTags := history.Tags()
+
+		// Merge custom tags (tags the user created but may not yet be assigned)
+		// Exclude system tags that must never be auto-assigned.
+		tagSet := make(map[string]bool, len(existingTags)+len(customTags))
+		for _, t := range existingTags {
+			if !systemTags[strings.ToLower(t)] {
+				tagSet[t] = true
+			}
 		}
-	}
-
-	// Fallback: generate new tags if no existing tags matched (or none exist)
-	if len(finalTags) == 0 {
-		logDebug("AutoTag: no existing tags matched, generating new tags for entry %s", entryID)
-		generatedTags, genErr := queryLLMForNewTags(endpoint, text)
-		if genErr != nil {
-			logWarn("AutoTag: generation failed for entry %s: %v", entryID, genErr)
-		} else {
-			finalTags = generatedTags
+		for _, t := range customTags {
+			if !systemTags[strings.ToLower(t)] {
+				tagSet[t] = true
+			}
 		}
-	}
+		allTags := make([]string, 0, len(tagSet))
+		for t := range tagSet {
+			allTags = append(allTags, t)
+		}
+		logDebug("AutoTag: %d candidate tags (from entries: %d, from custom: %d)", len(allTags), len(existingTags), len(customTags))
 
-	if len(finalTags) == 0 {
-		logDebug("AutoTag: no tags found for entry %s", entryID)
-		return
-	}
+		if len(allTags) > 0 {
+			// Try matching from existing tags first
+			matchedTags, matchErr := queryLLMForTags(endpoint, text, allTags)
+			if matchErr != nil {
+				logWarn("AutoTag: matching failed for entry %s: %v", entryID, matchErr)
+			} else {
+				finalTags = matchedTags
+			}
+		}
 
-	logDebug("AutoTag: LLM returned %d tags for entry %s", len(finalTags), entryID)
+		// Fallback: generate new tags if no existing tags matched (or none exist)
+		if len(finalTags) == 0 {
+			logDebug("AutoTag: no existing tags matched, generating new tags for entry %s", entryID)
+			generatedTags, genErr := queryLLMForNewTags(endpoint, text)
+			if genErr != nil {
+				logWarn("AutoTag: generation failed for entry %s: %v", entryID, genErr)
+			} else {
+				finalTags = generatedTags
+			}
+		}
 
-	if history.UpdateEntry(entryID, "", finalTags) {
-		logInfo("AutoTag: assigned %d tags to entry %s: %v", len(finalTags), entryID, finalTags)
-		NotifyHistoryChanged()
+		if len(finalTags) == 0 {
+			logDebug("AutoTag: no tags found for entry %s", entryID)
+		} else {
+			logDebug("AutoTag: LLM returned %d tags for entry %s", len(finalTags), entryID)
+			if history.UpdateEntry(entryID, "", finalTags) {
+				logInfo("AutoTag: assigned %d tags to entry %s: %v", len(finalTags), entryID, finalTags)
+				NotifyHistoryChanged()
+			}
+		}
 	}
 
 	// Generate an AI title after tagging
-	if title := generateTitle(endpoint, text, uiLang); title != "" {
-		if history.UpdateEntry(entryID, title, finalTags) {
-			logInfo("AutoTag: generated title for entry %s: %q", entryID, title)
-			NotifyHistoryChanged()
+	if autoTitle {
+		if title := generateTitle(endpoint, text, uiLang); title != "" {
+			if history.UpdateEntry(entryID, title, finalTags) {
+				logInfo("AutoTag: generated title for entry %s: %q", entryID, title)
+				NotifyHistoryChanged()
+			}
 		}
 	}
 }

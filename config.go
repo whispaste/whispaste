@@ -95,6 +95,8 @@ type Config struct {
 	ErrorReportingEnabled   bool                     `json:"error_reporting_enabled"`
 	FeedbackPromptShown     bool                     `json:"feedback_prompt_shown,omitempty"`
 	AutoPasteDelay          int                      `json:"auto_paste_delay"` // milliseconds, 0-2000
+	AutoTagEnabled          *bool                    `json:"auto_tag_enabled,omitempty"`
+	AutoTitleEnabled        *bool                    `json:"auto_title_enabled,omitempty"`
 	mu                      sync.RWMutex
 }
 
@@ -1264,4 +1266,38 @@ func (c *Config) SetFeedbackPromptShown(v bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.FeedbackPromptShown = v
+}
+
+// GetAutoTagEnabled returns whether auto-tagging is enabled (thread-safe). Defaults to true.
+func (c *Config) GetAutoTagEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.AutoTagEnabled == nil {
+		return true
+	}
+	return *c.AutoTagEnabled
+}
+
+// SetAutoTagEnabled sets whether auto-tagging is enabled (thread-safe).
+func (c *Config) SetAutoTagEnabled(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.AutoTagEnabled = &v
+}
+
+// GetAutoTitleEnabled returns whether auto-title generation is enabled (thread-safe). Defaults to true.
+func (c *Config) GetAutoTitleEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.AutoTitleEnabled == nil {
+		return true
+	}
+	return *c.AutoTitleEnabled
+}
+
+// SetAutoTitleEnabled sets whether auto-title generation is enabled (thread-safe).
+func (c *Config) SetAutoTitleEnabled(v bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.AutoTitleEnabled = &v
 }
