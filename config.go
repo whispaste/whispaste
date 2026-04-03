@@ -77,7 +77,8 @@ type Config struct {
 	FloatingButtonLocked    bool                     `json:"floating_button_locked,omitempty"`
 	FloatingButtonBorder    bool                     `json:"floating_button_border,omitempty"`
 	FloatingButtonShape     string                   `json:"floating_button_shape,omitempty"`     // "circle", "rounded", "squircle", "hexagon", "diamond", "star"
-	FloatingButtonContent   string                   `json:"floating_button_content,omitempty"`   // "microphone", "applogo", "waveform"
+	FloatingButtonContent   string                   `json:"floating_button_content,omitempty"`   // "microphone", "applogo", "waveform", "custom"
+	FloatingButtonCustomImage string                 `json:"floating_button_custom_image,omitempty"` // absolute path to user-selected PNG/JPG
 	FloatingButtonAutoHide  string                   `json:"floating_button_auto_hide,omitempty"` // "never", "edge", "timeout"
 	FloatingButtonAutoHideTimeout int                `json:"floating_button_auto_hide_timeout,omitempty"`
 	UseVAD                  bool                     `json:"use_vad,omitempty"`
@@ -428,7 +429,7 @@ func (c *Config) GetFloatingButtonContent() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	switch c.FloatingButtonContent {
-	case "microphone", "applogo", "waveform":
+	case "microphone", "applogo", "waveform", "custom":
 		return c.FloatingButtonContent
 	default:
 		return "microphone"
@@ -440,11 +441,25 @@ func (c *Config) SetFloatingButtonContent(v string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	switch v {
-	case "microphone", "applogo", "waveform":
+	case "microphone", "applogo", "waveform", "custom":
 		c.FloatingButtonContent = v
 	default:
 		c.FloatingButtonContent = "microphone"
 	}
+}
+
+// GetFloatingButtonCustomImage returns the path to the user-selected button image (thread-safe).
+func (c *Config) GetFloatingButtonCustomImage() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.FloatingButtonCustomImage
+}
+
+// SetFloatingButtonCustomImage sets the path to the user-selected button image (thread-safe).
+func (c *Config) SetFloatingButtonCustomImage(v string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.FloatingButtonCustomImage = v
 }
 
 // GetFloatingButtonAnimation returns "none" (idle animations have been removed).
