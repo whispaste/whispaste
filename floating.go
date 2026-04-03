@@ -84,6 +84,10 @@ const (
 	_FLOAT_ANIM_TIMER_ID = 4
 	_FLOAT_ANIM_TIMER_MS = 500 // ~2 FPS for countdown arc during recording
 
+	// Timer for idle animation effects (pulse, breathe, glow)
+	_FLOAT_IDLE_ANIM_TIMER_ID = 5
+	_FLOAT_IDLE_ANIM_TIMER_MS = 100 // 10 FPS for smooth idle animations
+
 	// Tooltip constants
 	_TTS_ALWAYSTIP      = 0x01
 	_TTS_NOPREFIX       = 0x02
@@ -285,6 +289,7 @@ type FloatingButton struct {
 	dragStartX int32 // window X at start of potential drag
 	dragStartY int32 // window Y at start of potential drag
 	size       int   // current diameter in pixels (cached from config)
+	content    string // icon content type (cached from config)
 
 	// Double-click detection: defers single-click to distinguish from double-click
 	dblClickPending bool
@@ -294,6 +299,10 @@ type FloatingButton struct {
 
 	// Position save debouncing
 	lastMoveSave time.Time
+
+	// Auto-hide: tracks when mouse was last near the button
+	lastActivityTime time.Time
+	autoHidden       bool
 
 	mu sync.Mutex
 }
@@ -448,6 +457,11 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		fb.onWindowMoved()
 		return 0
 
+	case _WM_NCMOUSEMOVE:
+		fb.touchActivity()
+		r, _, _ := procDefWindowProcW.Call(hwnd, msg, wParam, lParam)
+		return r
+
 	case _WM_COMMAND:
 		switch int(wParam & 0xFFFF) {
 		case _FLOAT_MENU_SMART_MODE:
@@ -590,12 +604,17 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		procSetTimer.Call(hwnd, _FLOAT_TIMER_ID, _FLOAT_TIMER_MS, 0)
 		// Start animation timer for gradient rotation and state icons
 		procSetTimer.Call(hwnd, _FLOAT_ANIM_TIMER_ID, _FLOAT_ANIM_TIMER_MS, 0)
+		// Start idle animation timer if animation or auto-hide is configured
+		if fb.cfg.GetFloatingButtonAnimation() != "none" || fb.cfg.GetFloatingButtonAutoHide() != "never" {
+			procSetTimer.Call(hwnd, _FLOAT_IDLE_ANIM_TIMER_ID, _FLOAT_IDLE_ANIM_TIMER_MS, 0)
+		}
 		fb.render()
 		return 0
 
 	case _WM_FLOAT_HIDE:
 		procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
 		procKillTimer.Call(hwnd, _FLOAT_ANIM_TIMER_ID)
+		procKillTimer.Call(hwnd, _FLOAT_IDLE_ANIM_TIMER_ID)
 		procShowWindow.Call(hwnd, uintptr(_SW_HIDE))
 		func() {
 			fb.mu.Lock()
@@ -634,12 +653,19 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 				return p, fb.onStartRecording
 			}()
 			if pending && cb != nil {
+				// Play configured button click sound
+				go fb.playButtonSound()
 				procPostMessageW.Call(hwnd, _WM_FLOAT_HIDE, 0, 0)
 				go cb()
 			}
 			return 0
 		}
 		if timerID == _FLOAT_ANIM_TIMER_ID {
+			fb.render()
+			return 0
+		}
+		if timerID == _FLOAT_IDLE_ANIM_TIMER_ID {
+			fb.checkAutoHide()
 			fb.render()
 			return 0
 		}
@@ -660,6 +686,7 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		procKillTimer.Call(hwnd, _FLOAT_TIMER_ID)
 		procKillTimer.Call(hwnd, _FLOAT_DBLCLK_TIMER_ID)
 		procKillTimer.Call(hwnd, _FLOAT_ANIM_TIMER_ID)
+		procKillTimer.Call(hwnd, _FLOAT_IDLE_ANIM_TIMER_ID)
 		if fb.tooltipHwnd != 0 {
 			procDestroyWindow.Call(fb.tooltipHwnd)
 		}
@@ -682,11 +709,13 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 // NewFloatingButton creates the floating record button on a dedicated OS thread.
 func NewFloatingButton(c *Config) (*FloatingButton, error) {
 	fb := &FloatingButton{
-		ready:   make(chan error, 1),
-		done:    make(chan struct{}),
-		cfg:     c,
-		opacity: byte(c.GetFloatingButtonOpacity() * 255 / 100),
-		size:    c.GetFloatingButtonSize(),
+		ready:            make(chan error, 1),
+		done:             make(chan struct{}),
+		cfg:              c,
+		opacity:          byte(c.GetFloatingButtonOpacity() * 255 / 100),
+		size:             c.GetFloatingButtonSize(),
+		content:          c.GetFloatingButtonContent(),
+		lastActivityTime: time.Now(),
 	}
 	globalFloating = fb
 
@@ -769,6 +798,66 @@ func (fb *FloatingButton) UpdateColor() {
 	if fb.hwnd != 0 {
 		procPostMessageW.Call(fb.hwnd, _WM_FLOAT_RERENDER, 0, 0)
 	}
+}
+
+// UpdateContent updates the cached icon content and triggers a re-render.
+func (fb *FloatingButton) UpdateContent() {
+	newContent := fb.cfg.GetFloatingButtonContent()
+	fb.mu.Lock()
+	fb.content = newContent
+	fb.mu.Unlock()
+	if fb.hwnd != 0 {
+		procPostMessageW.Call(fb.hwnd, _WM_FLOAT_RERENDER, 0, 0)
+	}
+}
+
+// playButtonSound plays the configured click sound for the floating button.
+func (fb *FloatingButton) playButtonSound() {
+	switch fb.cfg.GetFloatingButtonSound() {
+	case "click":
+		PlayFeedback(SoundButtonClick)
+	case "pop":
+		PlayFeedback(SoundButtonPop)
+	case "chime":
+		PlayFeedback(SoundButtonChime)
+	}
+}
+
+// touchActivity resets the auto-hide inactivity timer and restores
+// the button to full opacity if it was auto-hidden.
+func (fb *FloatingButton) touchActivity() {
+	fb.mu.Lock()
+	fb.lastActivityTime = time.Now()
+	wasHidden := fb.autoHidden
+	fb.autoHidden = false
+	fb.mu.Unlock()
+	if wasHidden {
+		fb.render()
+	}
+}
+
+// checkAutoHide fades the button when the auto-hide timeout expires.
+func (fb *FloatingButton) checkAutoHide() {
+	mode := fb.cfg.GetFloatingButtonAutoHide()
+	if mode != "timeout" {
+		return
+	}
+	timeout := fb.cfg.GetFloatingButtonAutoHideTimeout()
+	if timeout <= 0 {
+		return
+	}
+	fb.mu.Lock()
+	if fb.autoHidden {
+		fb.mu.Unlock()
+		return
+	}
+	if fb.lastActivityTime.IsZero() || time.Since(fb.lastActivityTime) < time.Duration(timeout)*time.Second {
+		fb.mu.Unlock()
+		return
+	}
+	fb.autoHidden = true
+	fb.mu.Unlock()
+	fb.render()
 }
 
 // UpdateOpacity applies the current config opacity immediately.
@@ -1246,8 +1335,60 @@ func (fb *FloatingButton) render() {
 		}
 	}
 
-	// Always show mic icon — button is hidden during recording/transcribing/processing
-	fb.drawMicIcon(g, 255)
+	// Draw the configured icon — button is hidden during recording/transcribing/processing
+	fb.drawButtonIcon(g, 255)
+
+	// Idle animation effects (only when not recording)
+	animType := fb.cfg.GetFloatingButtonAnimation()
+	if animType != "none" && appState == StateIdle {
+		phase := math.Sin(float64(time.Now().UnixMilli()%3000) / 3000.0 * 2 * math.Pi)
+		switch animType {
+		case "breathe":
+			// Modulate opacity: oscillate ±15% around configured opacity
+			mod := int(phase * 15)
+			newAlpha := int(alpha) + mod
+			if newAlpha < 30 {
+				newAlpha = 30
+			}
+			if newAlpha > 255 {
+				newAlpha = 255
+			}
+			alpha = byte(newAlpha)
+		case "glow":
+			// Draw a soft outer glow ring that pulses
+			glowAlpha := uint32(60 + int(phase*40))
+			glowColor := (glowAlpha << 24) | (preset.Top & 0x00FFFFFF)
+			var glowPen uintptr
+			procGdipCreatePen1.Call(uintptr(glowColor), f32(3.0), 2, uintptr(unsafe.Pointer(&glowPen)))
+			if glowPen != 0 {
+				inset := -2
+				glowSize := sz - 2*inset
+				fb.drawShapeProgress(g, glowPen, inset, inset, glowSize, glowSize, 1.0)
+				procGdipDeletePen.Call(glowPen)
+			}
+		case "pulse":
+			// Subtle opacity pulse (simulates size pulse without window resize)
+			mod := int(phase * 20)
+			newAlpha := int(alpha) + mod
+			if newAlpha < 30 {
+				newAlpha = 30
+			}
+			if newAlpha > 255 {
+				newAlpha = 255
+			}
+			alpha = byte(newAlpha)
+		}
+	}
+
+	// Auto-hide: reduce alpha to near-invisible when idle too long
+	isHidden := func() bool {
+		fb.mu.Lock()
+		defer fb.mu.Unlock()
+		return fb.autoHidden
+	}()
+	if isHidden {
+		alpha = 15 // ~6% — barely visible, still hoverable
+	}
 
 	// UpdateLayeredWindow — SourceConstantAlpha controls the user's opacity setting.
 	// Per-pixel alpha (AC_SRC_ALPHA) handles the circle shape / glow / shadow design.
@@ -1274,6 +1415,27 @@ func (fb *FloatingButton) render() {
 
 	// Update tooltip to reflect current state
 	fb.updateTooltip()
+}
+
+// drawButtonIcon dispatches to the correct icon drawing function based on config.
+func (fb *FloatingButton) drawButtonIcon(g uintptr, alpha uint32) {
+	content := func() string {
+		fb.mu.Lock()
+		defer fb.mu.Unlock()
+		return fb.content
+	}()
+	switch content {
+	case "applogo":
+		fb.drawAppLogoIcon(g, alpha)
+	case "waveform":
+		fb.drawWaveformIcon(g, alpha)
+	case "headphones":
+		fb.drawHeadphonesIcon(g, alpha)
+	case "pen":
+		fb.drawPenIcon(g, alpha)
+	default:
+		fb.drawMicIcon(g, alpha)
+	}
 }
 
 func (fb *FloatingButton) drawMicIcon(g uintptr, alpha uint32) {
@@ -1326,6 +1488,153 @@ func (fb *FloatingButton) drawMicIcon(g uintptr, alpha uint32) {
 
 	// ── Stem ──
 	procGdipDrawLineI.Call(g, pen, uintptr(12+o), uintptr(19+o), uintptr(12+o), uintptr(22+o))
+}
+
+// iconPenSetup creates a scaled GDI+ pen for icon drawing at the current button size.
+// Returns the pen handle and a cleanup function. Caller must call cleanup().
+func (fb *FloatingButton) iconPenSetup(g uintptr, alpha uint32) (uintptr, func()) {
+	sz := fb.getSize()
+	scale := float32(sz) / 56.0
+	procGdipScaleWorldTransform.Call(g, f32(scale), f32(scale), 0)
+	penColor := (alpha << 24) | (_FLOAT_CLR_ICON & 0x00FFFFFF)
+	var pen uintptr
+	procGdipCreatePen1.Call(uintptr(penColor), f32(2.0), 2, uintptr(unsafe.Pointer(&pen)))
+	if pen != 0 {
+		procGdipSetPenLineCap197819.Call(pen, 2, 2, 0)
+		procGdipSetPenLineJoin.Call(pen, 2)
+	}
+	return pen, func() {
+		if pen != 0 {
+			procGdipDeletePen.Call(pen)
+		}
+		procGdipResetWorldTransform.Call(g)
+	}
+}
+
+// drawAppLogoIcon draws a simplified WhisPaste logo (speech bubble with waveform).
+func (fb *FloatingButton) drawAppLogoIcon(g uintptr, alpha uint32) {
+	pen, cleanup := fb.iconPenSetup(g, alpha)
+	if pen == 0 {
+		cleanup()
+		return
+	}
+	defer cleanup()
+	const o = 16
+
+	// Speech bubble outline
+	var bubble uintptr
+	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&bubble)))
+	if bubble == 0 {
+		return
+	}
+	defer procGdipDeletePath.Call(bubble)
+	procGdipAddPathArc.Call(bubble, f32(2+o), f32(1+o), f32(6), f32(6), f32(180), f32(90))
+	procGdipAddPathArc.Call(bubble, f32(16+o), f32(1+o), f32(6), f32(6), f32(270), f32(90))
+	procGdipAddPathLine.Call(bubble, uintptr(22+o), uintptr(4+o), uintptr(22+o), uintptr(14+o))
+	procGdipAddPathArc.Call(bubble, f32(16+o), f32(11+o), f32(6), f32(6), f32(0), f32(90))
+	procGdipAddPathLine.Call(bubble, uintptr(10+o), uintptr(17+o), uintptr(6+o), uintptr(22+o))
+	procGdipAddPathLine.Call(bubble, uintptr(7+o), uintptr(17+o), uintptr(5+o), uintptr(17+o))
+	procGdipAddPathArc.Call(bubble, f32(2+o), f32(11+o), f32(6), f32(6), f32(90), f32(90))
+	procGdipClosePathFigure.Call(bubble)
+	procGdipDrawPath.Call(g, pen, bubble)
+
+	// Mini waveform inside bubble
+	procGdipDrawLineI.Call(g, pen, uintptr(8+o), uintptr(8+o), uintptr(8+o), uintptr(12+o))
+	procGdipDrawLineI.Call(g, pen, uintptr(11+o), uintptr(6+o), uintptr(11+o), uintptr(14+o))
+	procGdipDrawLineI.Call(g, pen, uintptr(14+o), uintptr(7+o), uintptr(14+o), uintptr(13+o))
+	procGdipDrawLineI.Call(g, pen, uintptr(17+o), uintptr(9+o), uintptr(17+o), uintptr(11+o))
+}
+
+// drawWaveformIcon draws an audio waveform (5 vertical bars).
+func (fb *FloatingButton) drawWaveformIcon(g uintptr, alpha uint32) {
+	pen, cleanup := fb.iconPenSetup(g, alpha)
+	if pen == 0 {
+		cleanup()
+		return
+	}
+	defer cleanup()
+	const o = 16
+	procGdipDrawLineI.Call(g, pen, uintptr(4+o), uintptr(8+o), uintptr(4+o), uintptr(16+o))
+	procGdipDrawLineI.Call(g, pen, uintptr(8+o), uintptr(5+o), uintptr(8+o), uintptr(19+o))
+	procGdipDrawLineI.Call(g, pen, uintptr(12+o), uintptr(2+o), uintptr(12+o), uintptr(22+o))
+	procGdipDrawLineI.Call(g, pen, uintptr(16+o), uintptr(6+o), uintptr(16+o), uintptr(18+o))
+	procGdipDrawLineI.Call(g, pen, uintptr(20+o), uintptr(9+o), uintptr(20+o), uintptr(15+o))
+}
+
+// drawHeadphonesIcon draws a headphones icon.
+func (fb *FloatingButton) drawHeadphonesIcon(g uintptr, alpha uint32) {
+	pen, cleanup := fb.iconPenSetup(g, alpha)
+	if pen == 0 {
+		cleanup()
+		return
+	}
+	defer cleanup()
+	const o = 16
+
+	// Headband arc
+	var band uintptr
+	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&band)))
+	if band == 0 {
+		return
+	}
+	defer procGdipDeletePath.Call(band)
+	procGdipAddPathArc.Call(band, f32(3+o), f32(3+o), f32(18), f32(18), f32(180), f32(180))
+	procGdipDrawPath.Call(g, pen, band)
+
+	// Left earpiece
+	var leftEar uintptr
+	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&leftEar)))
+	if leftEar == 0 {
+		return
+	}
+	defer procGdipDeletePath.Call(leftEar)
+	procGdipAddPathArc.Call(leftEar, f32(2+o), f32(14+o), f32(4), f32(4), f32(180), f32(180))
+	procGdipAddPathLine.Call(leftEar, uintptr(6+o), uintptr(16+o), uintptr(6+o), uintptr(20+o))
+	procGdipAddPathArc.Call(leftEar, f32(2+o), f32(18+o), f32(4), f32(4), f32(0), f32(180))
+	procGdipClosePathFigure.Call(leftEar)
+	procGdipDrawPath.Call(g, pen, leftEar)
+
+	// Right earpiece
+	var rightEar uintptr
+	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&rightEar)))
+	if rightEar == 0 {
+		return
+	}
+	defer procGdipDeletePath.Call(rightEar)
+	procGdipAddPathArc.Call(rightEar, f32(18+o), f32(14+o), f32(4), f32(4), f32(180), f32(180))
+	procGdipAddPathLine.Call(rightEar, uintptr(22+o), uintptr(16+o), uintptr(22+o), uintptr(20+o))
+	procGdipAddPathArc.Call(rightEar, f32(18+o), f32(18+o), f32(4), f32(4), f32(0), f32(180))
+	procGdipClosePathFigure.Call(rightEar)
+	procGdipDrawPath.Call(g, pen, rightEar)
+}
+
+// drawPenIcon draws a pen/edit icon (Lucide pencil).
+func (fb *FloatingButton) drawPenIcon(g uintptr, alpha uint32) {
+	pen, cleanup := fb.iconPenSetup(g, alpha)
+	if pen == 0 {
+		cleanup()
+		return
+	}
+	defer cleanup()
+	const o = 16
+
+	// Pen body (angled line with tip)
+	var body uintptr
+	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&body)))
+	if body == 0 {
+		return
+	}
+	defer procGdipDeletePath.Call(body)
+	// Pencil shape: top-right to bottom-left with angled cap
+	procGdipAddPathLine.Call(body, uintptr(17+o), uintptr(3+o), uintptr(21+o), uintptr(7+o))
+	procGdipAddPathLine.Call(body, uintptr(21+o), uintptr(7+o), uintptr(8+o), uintptr(20+o))
+	procGdipAddPathLine.Call(body, uintptr(8+o), uintptr(20+o), uintptr(2+o), uintptr(22+o))
+	procGdipAddPathLine.Call(body, uintptr(2+o), uintptr(22+o), uintptr(4+o), uintptr(16+o))
+	procGdipClosePathFigure.Call(body)
+	procGdipDrawPath.Call(g, pen, body)
+
+	// Cross-line for eraser/cap separator
+	procGdipDrawLineI.Call(g, pen, uintptr(15+o), uintptr(5+o), uintptr(19+o), uintptr(9+o))
 }
 
 // ───────────────────── Tooltip ─────────────────────

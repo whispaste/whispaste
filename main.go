@@ -1211,6 +1211,7 @@ func main() {
 			floatingBtn.UpdateColor()   // pick up any color change
 			floatingBtn.UpdateSize()    // pick up any size change
 			floatingBtn.UpdateOpacity() // pick up any opacity/border change
+			floatingBtn.UpdateContent() // pick up any icon content change
 			s := func() AppState {
 				stateMu.Lock()
 				defer stateMu.Unlock()

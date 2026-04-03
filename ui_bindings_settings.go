@@ -326,6 +326,18 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		PlayFeedback(SoundSuccess)
 	})
 
+	w.Bind("previewButtonSound", func(soundType string) {
+		SetSoundVolume(cfg.GetSoundVolume())
+		switch soundType {
+		case "click":
+			PlayFeedback(SoundButtonClick)
+		case "pop":
+			PlayFeedback(SoundButtonPop)
+		case "chime":
+			PlayFeedback(SoundButtonChime)
+		}
+	})
+
 	w.Bind("testNotification", func() {
 		if t := globalTrayRef; t != nil {
 			t.ShowBalloon("WhisPaste", T("balloon.test"))

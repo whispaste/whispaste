@@ -487,6 +487,48 @@
 .fab-shape-option:hover { border-color: var(--border-primary); color: var(--text-primary); }
 .fab-shape-option.selected { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent), transparent 90%); }
 
+/* Floating button icon/content picker — reuses shape grid styles */
+.fab-content-option {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  padding: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fab-content-option:hover { border-color: var(--border-primary); color: var(--text-primary); }
+.fab-content-option.selected { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent), transparent 90%); }
+
+/* Sound preview group */
+.fab-sound-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+}
+.fab-sound-group .dropdown-select { flex: 1; }
+.btn-icon-small {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+.btn-icon-small:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ── Custom Color Picker ─────────────────────────────── */
 .fab-color-option.custom-color {
   position: relative;

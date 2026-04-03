@@ -76,7 +76,12 @@ type Config struct {
 	FloatingButtonOpacity   int                      `json:"floating_button_opacity,omitempty"`
 	FloatingButtonLocked    bool                     `json:"floating_button_locked,omitempty"`
 	FloatingButtonBorder    bool                     `json:"floating_button_border,omitempty"`
-	FloatingButtonShape     string                   `json:"floating_button_shape,omitempty"` // "circle", "rounded", "squircle", "hexagon", "diamond", "star"
+	FloatingButtonShape     string                   `json:"floating_button_shape,omitempty"`     // "circle", "rounded", "squircle", "hexagon", "diamond", "star"
+	FloatingButtonContent   string                   `json:"floating_button_content,omitempty"`   // "microphone", "applogo", "waveform", "headphones", "pen"
+	FloatingButtonAnimation string                   `json:"floating_button_animation,omitempty"` // "none", "pulse", "breathe", "glow"
+	FloatingButtonSound     string                   `json:"floating_button_sound,omitempty"`     // "none", "click", "pop", "chime"
+	FloatingButtonAutoHide  string                   `json:"floating_button_auto_hide,omitempty"` // "never", "edge", "timeout"
+	FloatingButtonAutoHideTimeout int                `json:"floating_button_auto_hide_timeout,omitempty"`
 	UseVAD                  bool                     `json:"use_vad,omitempty"`
 	VADSensitivity          float32                  `json:"vad_sensitivity"`
 	LastProjectID           string                   `json:"last_project_id,omitempty"`
@@ -330,7 +335,7 @@ func (c *Config) GetFloatingButtonColor() string {
 }
 
 // GetFloatingButtonSize returns the floating button diameter in pixels (thread-safe).
-// Returns 56 as default. Clamped to [36, 80].
+// Returns 56 as default. Clamped to [36, 120].
 func (c *Config) GetFloatingButtonSize() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -341,8 +346,8 @@ func (c *Config) GetFloatingButtonSize() int {
 	if s < 36 {
 		return 36
 	}
-	if s > 80 {
-		return 80
+	if s > 120 {
+		return 120
 	}
 	return s
 }
@@ -417,6 +422,124 @@ func (c *Config) SetFloatingButtonCustomColor(v string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.FloatingButtonCustomColor = v
+}
+
+// GetFloatingButtonContent returns the button icon content type (thread-safe).
+// Defaults to "microphone". Valid: "microphone", "applogo", "waveform", "headphones", "pen".
+func (c *Config) GetFloatingButtonContent() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	switch c.FloatingButtonContent {
+	case "microphone", "applogo", "waveform", "headphones", "pen":
+		return c.FloatingButtonContent
+	default:
+		return "microphone"
+	}
+}
+
+// SetFloatingButtonContent sets the button icon content type (thread-safe).
+func (c *Config) SetFloatingButtonContent(v string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	switch v {
+	case "microphone", "applogo", "waveform", "headphones", "pen":
+		c.FloatingButtonContent = v
+	default:
+		c.FloatingButtonContent = "microphone"
+	}
+}
+
+// GetFloatingButtonAnimation returns the idle animation type (thread-safe).
+// Defaults to "none". Valid: "none", "pulse", "breathe", "glow".
+func (c *Config) GetFloatingButtonAnimation() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	switch c.FloatingButtonAnimation {
+	case "none", "pulse", "breathe", "glow":
+		return c.FloatingButtonAnimation
+	default:
+		return "none"
+	}
+}
+
+// SetFloatingButtonAnimation sets the idle animation type (thread-safe).
+func (c *Config) SetFloatingButtonAnimation(v string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	switch v {
+	case "none", "pulse", "breathe", "glow":
+		c.FloatingButtonAnimation = v
+	default:
+		c.FloatingButtonAnimation = "none"
+	}
+}
+
+// GetFloatingButtonSound returns the click sound type (thread-safe).
+// Defaults to "none". Valid: "none", "click", "pop", "chime".
+func (c *Config) GetFloatingButtonSound() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	switch c.FloatingButtonSound {
+	case "none", "click", "pop", "chime":
+		return c.FloatingButtonSound
+	default:
+		return "none"
+	}
+}
+
+// SetFloatingButtonSound sets the click sound type (thread-safe).
+func (c *Config) SetFloatingButtonSound(v string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	switch v {
+	case "none", "click", "pop", "chime":
+		c.FloatingButtonSound = v
+	default:
+		c.FloatingButtonSound = "none"
+	}
+}
+
+// GetFloatingButtonAutoHide returns the auto-hide behavior (thread-safe).
+// Defaults to "never". Valid: "never", "edge", "timeout".
+func (c *Config) GetFloatingButtonAutoHide() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	switch c.FloatingButtonAutoHide {
+	case "never", "edge", "timeout":
+		return c.FloatingButtonAutoHide
+	default:
+		return "never"
+	}
+}
+
+// SetFloatingButtonAutoHide sets the auto-hide behavior (thread-safe).
+func (c *Config) SetFloatingButtonAutoHide(v string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	switch v {
+	case "never", "edge", "timeout":
+		c.FloatingButtonAutoHide = v
+	default:
+		c.FloatingButtonAutoHide = "never"
+	}
+}
+
+// GetFloatingButtonAutoHideTimeout returns the auto-hide timeout in seconds (thread-safe).
+// Defaults to 10. Clamped to [3, 60].
+func (c *Config) GetFloatingButtonAutoHideTimeout() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	t := c.FloatingButtonAutoHideTimeout
+	if t <= 0 {
+		return 10
+	}
+	if t < 3 {
+		return 3
+	}
+	if t > 60 {
+		return 60
+	}
+	return t
 }
 
 // detectSystemLanguage returns "de" for German systems, "en" otherwise.
