@@ -472,5 +472,46 @@ func TestLintSummary(t *testing.T) {
 	}
 }
 
+// TestJSTemplateDivBalance checks that HTML template literals in JS files
+// have balanced <div> opening and closing tags. This catches bugs where
+// dynamically rendered HTML (e.g., _renderEntryCard) has unclosed divs
+// that would cause entries to merge or pages to nest incorrectly.
+func TestJSTemplateDivBalance(t *testing.T) {
+	entries, err := fs.ReadDir(uiMainFS, "ui_main/scripts")
+	if err != nil {
+		t.Fatalf("Failed to read JS scripts: %v", err)
+	}
+
+	templateRe := regexp.MustCompile("(?s)`([^`]*)`")
+	divOpenRe := regexp.MustCompile(`<div[\s>]`)
+	divCloseRe := regexp.MustCompile(`</div>`)
+
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".js") {
+			continue
+		}
+		t.Run(e.Name(), func(t *testing.T) {
+			data, err := fs.ReadFile(uiMainFS, "ui_main/scripts/"+e.Name())
+			if err != nil {
+				t.Fatalf("Read error: %v", err)
+			}
+			content := string(data)
+			matches := templateRe.FindAllString(content, -1)
+			totalOpens := 0
+			totalCloses := 0
+			for _, m := range matches {
+				opens := len(divOpenRe.FindAllString(m, -1))
+				closes := len(divCloseRe.FindAllString(m, -1))
+				totalOpens += opens
+				totalCloses += closes
+			}
+			if totalOpens != totalCloses {
+				t.Errorf("%s: JS template literals have %d <div> opens vs %d </div> closes (diff: %d)",
+					e.Name(), totalOpens, totalCloses, totalOpens-totalCloses)
+			}
+		})
+	}
+}
+
 // Ensure fmt import is used
 var _ = fmt.Sprintf

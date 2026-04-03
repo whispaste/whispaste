@@ -120,23 +120,21 @@ function _renderEntryCard(e) {
     <div class="entry${e.pinned ? ' pinned' : ''}${isPending ? ' pending' : ''}${_expandedId === e.id ? ' expanded' : ''}${_selectedIds.has(e.id) ? ' selected' : ''}" data-id="${e.id}" draggable="true">
       <div class="entry-header">
         <div class="entry-checkbox${_selectedIds.has(e.id) ? ' checked' : ''}" data-select-id="${e.id}"></div>
-        <div style="flex:1;min-width:0">
-          <div class="entry-title-wrapper">
-            <div class="entry-title">${highlightSearch(e.title || e.text.substring(0, 60), _searchQuery)}</div>
-            <button class="btn-icon title-edit-btn" title="${t('title.edit')}" data-action="edit-title-card" data-id="${e.id}">${icons.pencil}</button>
-          </div>
-          <div class="entry-meta">
-            <span class="meta-item" title="${formatTime(e.timestamp)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg> ${formatRelativeTime(e.timestamp)}</span>
-            ${e.duration_sec ? '<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l4 0"/><path d="M7 3l0 3"/><circle cx="7" cy="14" r="7"/><path d="M7 11v3h3"/></svg> ' + formatDuration(e.duration_sec) + '</span>' : ''}
-            ${e.language ? '<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/></svg> ' + e.language.toUpperCase() + '</span>' : ''}
-            ${e.model ? '<span class="meta-item meta-model" title="' + esc(e.model) + (e.is_local ? ' (local)' : '') + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg> ' + esc(e.model) + '</span>' : ''}
-            ${(e.text || '').length > 0 ? (() => { const wc = (e.text || '').split(/\s+/).filter(Boolean).length; const cc = (e.text || '').length; return '<span class="meta-item meta-words"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg> ' + wc + ' ' + (wc === 1 ? t('meta_word') : t('meta_words')) + '</span><span class="meta-item meta-chars"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> ' + formatCharCount(cc) + ' ' + t('meta_chars') + '</span>'; })() : ''}
-          </div>
+        <div class="entry-title-wrapper" style="flex:1;min-width:0">
+          <div class="entry-title">${highlightSearch(e.title || e.text.substring(0, 60), _searchQuery)}</div>
+          <button class="btn-icon title-edit-btn" title="${t('title.edit')}" data-action="edit-title-card" data-id="${e.id}">${icons.pencil}</button>
         </div>
         <div class="entry-actions">
           <button class="btn-icon copy" title="${t('notebook.copy')}" data-action="copy" data-id="${e.id}">${icons.copy}</button>
           <button class="btn-icon entry-more" title="${t('notebook.more_actions')}" data-action="entry-menu" data-id="${e.id}">${icons.moreVertical}</button>
         </div>
+      </div>
+      <div class="entry-meta">
+            <span class="meta-item" title="${formatTime(e.timestamp)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg> ${formatRelativeTime(e.timestamp)}</span>
+            ${e.duration_sec ? '<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l4 0"/><path d="M7 3l0 3"/><circle cx="7" cy="14" r="7"/><path d="M7 11v3h3"/></svg> ' + formatDuration(e.duration_sec) + '</span>' : ''}
+            ${e.language ? '<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/></svg> ' + e.language.toUpperCase() + '</span>' : ''}
+            ${e.model ? '<span class="meta-item meta-model" title="' + esc(e.model) + (e.is_local ? ' (local)' : '') + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg> ' + esc(e.model) + '</span>' : ''}
+            ${(e.text || '').length > 0 ? (() => { const wc = (e.text || '').split(/\s+/).filter(Boolean).length; const cc = (e.text || '').length; return '<span class="meta-item meta-words"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg> ' + wc + ' ' + (wc === 1 ? t('meta_word') : t('meta_words')) + '</span><span class="meta-item meta-chars"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> ' + formatCharCount(cc) + ' ' + t('meta_chars') + '</span>'; })() : ''}
       </div>
       <div class="entry-preview-row"><div class="entry-preview${isTruncated ? ' truncated' : ''}">${isPending && !e.text ? '<span class="pending-hint">' + icons.refreshCw + ' ' + t('pending_transcription') + '</span>' : highlightSearch(e.text, _searchQuery)}</div><span class="entry-preview-chevron">${icons.chevronDown}</span></div>
       ${isTruncated ? '<div class="entry-show-more">' + t('show_more') + '</div>' : ''}
@@ -189,6 +187,7 @@ function _renderEntryCard(e) {
             </div>
           </div>
         </div>
+      </div>
     </div>`;
 }
 
@@ -301,6 +300,22 @@ function renderHistory() {
       }
 
       if (currentIndex >= 0) _lastCheckedIndex = currentIndex;
+      updateSelectionBar();
+      renderHistory();
+    });
+  });
+
+  // Bind group select-all checkboxes
+  list.querySelectorAll('.group-select-all').forEach(cb => {
+    cb.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const ids = (cb.dataset.groupIds || '').split(',').filter(Boolean);
+      const allSelected = ids.every(id => _selectedIds.has(id));
+      if (allSelected) {
+        ids.forEach(id => _selectedIds.delete(id));
+      } else {
+        ids.forEach(id => _selectedIds.add(id));
+      }
       updateSelectionBar();
       renderHistory();
     });

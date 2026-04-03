@@ -74,7 +74,8 @@
   flex-wrap: nowrap;
   overflow: hidden;
   gap: var(--space-1) var(--space-2-5);
-  margin-top: var(--space-1);
+  margin-top: var(--space-0-5);
+  padding-left: var(--space-1);
   font-size: var(--text-xs);
   color: var(--text-hint);
   align-items: center;
