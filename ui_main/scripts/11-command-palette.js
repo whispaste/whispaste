@@ -6,23 +6,28 @@
   let _filteredCmds = [];
   let _palettePreviousFocus = null;
   let _recentCommandIds = [];
+  let _historyResults = [];
+  let _historySearchTimer = null;
 
   const _RECENT_STORAGE_KEY = 'palette_recent';
   const _RECENT_MAX = 5;
+  const _HISTORY_SEARCH_DEBOUNCE = 200;
+  const _HISTORY_MAX_RESULTS = 5;
 
   function _loadRecent() {
     try {
-      const raw = localStorage.getItem(_RECENT_STORAGE_KEY);
+      const raw = safeStorageGet(_RECENT_STORAGE_KEY);
       _recentCommandIds = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(_recentCommandIds)) _recentCommandIds = [];
     } catch (e) { _recentCommandIds = []; }
   }
 
   function _saveRecent(cmdId) {
+    if (cmdId.startsWith('history-')) return;
     _recentCommandIds = _recentCommandIds.filter(id => id !== cmdId);
     _recentCommandIds.unshift(cmdId);
     if (_recentCommandIds.length > _RECENT_MAX) _recentCommandIds.length = _RECENT_MAX;
-    try { localStorage.setItem(_RECENT_STORAGE_KEY, JSON.stringify(_recentCommandIds)); } catch (e) { /* ignore */ }
+    try { safeStorageSet(_RECENT_STORAGE_KEY, JSON.stringify(_recentCommandIds)); } catch (e) { /* ignore */ }
   }
 
   function _getRecentCommands(allCmds) {
@@ -45,6 +50,20 @@
     info: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
     hash: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></svg>',
     braces: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></svg>',
+    search: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+    zap: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
+    msgSquare: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  };
+
+  // Category icons for visual grouping
+  const categoryIcons = {
+    'palette.cat.quickActions': paletteIcons.zap,
+    'palette.cat.recording':   icons.microphone,
+    'palette.cat.smartMode':   icons.sparkles,
+    'palette.cat.templates':   icons.fileText,
+    'palette.cat.export':      icons.files || icons.fileText,
+    'palette.cat.recent':      paletteIcons.clock,
+    'palette.cat.historyResults': paletteIcons.clock,
   };
 
   // Cache for custom templates in the palette
@@ -60,9 +79,30 @@
     }
   }
 
+  // ── Category ordering ─────────────────────────────────
+  const _categoryOrder = [
+    'palette.cat.quickActions',
+    'palette.cat.recording',
+    'palette.cat.smartMode',
+    'palette.cat.templates',
+    'palette.cat.export',
+  ];
+
   function buildCommands() {
     const cmds = [
-      // Smart Mode
+      // ── Quick Actions (highest value) ───────────────────
+      { id: 'start-recording',   label: t('palette.cmd.startRecording'),  icon: icons.microphone,         category: 'palette.cat.quickActions', action: startRecordingAction },
+      { id: 'copy-last',         label: t('palette.cmd.copyLast'),        icon: icons.copy,               category: 'palette.cat.quickActions', action: copyLastResultAction },
+      { id: 'open-last',         label: t('palette.cmd.openLast'),        icon: paletteIcons.clock,       category: 'palette.cat.quickActions', action: openLastEntryAction },
+      { id: 'toggle-autopaste',  label: t('palette.cmd.toggleAutoPaste'), icon: icons.clipboard,          category: 'palette.cat.quickActions', action: toggleAutoPasteAction },
+      { id: 'search-history',    label: t('palette.cmd.searchHistory'),   icon: paletteIcons.search,      category: 'palette.cat.quickActions', action: searchHistoryAction, shortcut: 'Ctrl+F' },
+      { id: 'give-feedback',     label: t('palette.cmd.giveFeedback'),    icon: paletteIcons.msgSquare,   category: 'palette.cat.quickActions', action: () => switchPage('feedback') },
+
+      // ── Recording ───────────────────────────────────────
+      { id: 'mode-ptt',    label: t('palette.cmd.modePTT'),    icon: icons.microphone,    category: 'palette.cat.recording', action: () => switchRecordMode('push_to_talk') },
+      { id: 'mode-toggle', label: t('palette.cmd.modeToggle'), icon: paletteIcons.micOff,  category: 'palette.cat.recording', action: () => switchRecordMode('toggle') },
+
+      // ── Smart Mode ──────────────────────────────────────
       { id: 'smart-toggle',      label: t('palette.cmd.smartToggle'),      icon: paletteIcons.toggleRight, category: 'palette.cat.smartMode', action: smartToggleAction, shortcut: 'Ctrl+Shift+S' },
       { id: 'preset-cleanup',    label: t('palette.cmd.presetCleanup'),    icon: icons.sparkles,           category: 'palette.cat.smartMode', action: () => setPreset('cleanup') },
       { id: 'preset-concise',    label: t('palette.cmd.presetConcise'),    icon: icons.minimize,           category: 'palette.cat.smartMode', action: () => setPreset('concise') },
@@ -79,41 +119,96 @@
       { id: 'preset-translate',  label: t('palette.cmd.presetTranslate'),  icon: icons.globe,              category: 'palette.cat.smartMode', action: () => setPreset('translate') },
     ];
 
-    // Append custom templates
+    // Append custom templates under a separate category
     for (const name of _customTemplateNames) {
       cmds.push({
         id: 'preset-custom-' + name,
         label: name,
         icon: icons.fileText,
-        category: 'palette.cat.smartMode',
+        category: 'palette.cat.templates',
         action: () => setPreset(name),
       });
     }
 
     cmds.push(
-      // Recording Mode
-      { id: 'mode-ptt',    label: t('palette.cmd.modePTT'),    icon: icons.microphone,    category: 'palette.cat.recording', action: () => switchRecordMode('push_to_talk') },
-      { id: 'mode-toggle', label: t('palette.cmd.modeToggle'), icon: paletteIcons.micOff,  category: 'palette.cat.recording', action: () => switchRecordMode('toggle') },
-
-      // Export
+      // ── Export ─────────────────────────────────────────
       { id: 'export-txt',  label: t('palette.cmd.exportTXT'),  icon: icons.fileText,       category: 'palette.cat.export', action: () => exportSelected('txt') },
       { id: 'export-md',   label: t('palette.cmd.exportMD'),   icon: paletteIcons.hash,    category: 'palette.cat.export', action: () => exportSelected('md') },
       { id: 'export-csv',  label: t('palette.cmd.exportCSV'),  icon: icons.fileText,       category: 'palette.cat.export', action: () => exportSelected('csv') },
       { id: 'export-json', label: t('palette.cmd.exportJSON'), icon: paletteIcons.braces,  category: 'palette.cat.export', action: () => exportSelected('json') },
-
-      // Navigation
-      { id: 'nav-history',      label: t('palette.cmd.navHistory'),      icon: paletteIcons.clock,    category: 'palette.cat.navigation', action: () => switchPage('history'),      shortcut: 'Ctrl+1' },
-      { id: 'nav-analytics',    label: t('palette.cmd.navAnalytics'),    icon: paletteIcons.barChart, category: 'palette.cat.navigation', action: () => switchPage('analytics'),    shortcut: 'Ctrl+2' },
-      { id: 'nav-settings',     label: t('palette.cmd.navSettings'),     icon: paletteIcons.settings, category: 'palette.cat.navigation', action: () => switchPage('settings'),     shortcut: 'Ctrl+3' },
-      { id: 'nav-smartmode',    label: t('palette.cmd.navSmartMode'),    icon: icons.sparkles,        category: 'palette.cat.navigation', action: () => switchPage('smartmode'),    shortcut: 'Ctrl+4' },
-      { id: 'nav-replacements', label: t('palette.cmd.navReplacements'), icon: icons.replace,         category: 'palette.cat.navigation', action: () => switchPage('replacements'), shortcut: 'Ctrl+5' },
-      { id: 'nav-about',        label: t('palette.cmd.navAbout'),        icon: paletteIcons.info,     category: 'palette.cat.navigation', action: () => switchPage('about'),        shortcut: 'Ctrl+6' },
     );
 
     return cmds;
   }
 
   // ── Actions ────────────────────────────────────────────
+
+  function startRecordingAction() {
+    if (window.startCapture) {
+      window.startCapture();
+    }
+  }
+
+  async function copyLastResultAction() {
+    try {
+      const entries = typeof _entries !== 'undefined' ? _entries : [];
+      if (entries.length > 0) {
+        const sorted = [...entries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const last = sorted[0];
+        if (window.copyEntry) {
+          await window.copyEntry(last.id);
+          showToast(t('palette.toast.copied'), false);
+        }
+      } else {
+        showToast(t('palette.toast.noEntries'), true);
+      }
+    } catch (e) {
+      showToast(t('palette.toast.noEntries'), true);
+    }
+  }
+
+  async function openLastEntryAction() {
+    try {
+      const entries = typeof _entries !== 'undefined' ? _entries : [];
+      if (entries.length > 0) {
+        const sorted = [...entries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const last = sorted[0];
+        switchPage('history');
+        setTimeout(() => {
+          if (typeof _expandedId !== 'undefined') {
+            _expandedId = last.id;
+            if (typeof renderEntries === 'function') renderEntries();
+            const el = document.querySelector('.entry[data-id="' + last.id + '"]');
+            if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+        }, 150);
+      } else {
+        showToast(t('palette.toast.noEntries'), true);
+      }
+    } catch (e) {
+      showToast(t('palette.toast.noEntries'), true);
+    }
+  }
+
+  async function toggleAutoPasteAction() {
+    try {
+      if (window.toggleAutoPaste) {
+        await window.toggleAutoPaste();
+        const raw = await window.getConfig();
+        const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        updateStatusBar(cfg);
+        showToast(cfg.auto_paste ? t('palette.toast.autoPasteOn') : t('palette.toast.autoPasteOff'), false);
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function searchHistoryAction() {
+    switchPage('history');
+    setTimeout(() => {
+      const input = document.getElementById('searchInput');
+      if (input) { input.focus(); input.select(); }
+    }, 150);
+  }
 
   async function smartToggleAction() {
     try {
@@ -146,7 +241,6 @@
       if (window.switchRecordingMode) {
         await window.switchRecordingMode(mode);
       } else {
-        // Fallback: update via config
         const raw = await window.getConfig();
         const cfg = typeof raw === 'string' ? JSON.parse(raw) : raw;
         cfg.mode = mode;
@@ -157,7 +251,6 @@
   }
 
   function exportSelected(format) {
-    // Export currently selected history entries, or all visible
     if (typeof _selectedIds !== 'undefined' && _selectedIds.size > 0) {
       const ids = JSON.stringify(Array.from(_selectedIds));
       if (window.exportSelected) window.exportSelected(ids, format);
@@ -166,96 +259,182 @@
     }
   }
 
-  // ── Fuzzy filter ───────────────────────────────────────
+  // ── History search integration ────────────────────────
+
+  async function _searchHistoryEntries(query) {
+    if (!query || query.length < 3 || !window.searchEntries) return [];
+    try {
+      const raw = await window.searchEntries(query);
+      const results = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!Array.isArray(results)) return [];
+      return results.slice(0, _HISTORY_MAX_RESULTS);
+    } catch (e) { return []; }
+  }
+
+  function _historyEntryToCommand(entry) {
+    const preview = (entry.text || '').substring(0, 60).replace(/\n/g, ' ');
+    const ts = typeof formatRelativeTime === 'function' ? formatRelativeTime(entry.timestamp) : '';
+    return {
+      id: 'history-' + entry.id,
+      label: preview || t('palette.historyEntry'),
+      sublabel: ts,
+      icon: paletteIcons.clock,
+      category: 'palette.cat.historyResults',
+      isHistory: true,
+      action: () => {
+        switchPage('history');
+        setTimeout(() => {
+          if (typeof _expandedId !== 'undefined') {
+            _expandedId = entry.id;
+            if (typeof renderEntries === 'function') renderEntries();
+            const el = document.querySelector('.entry[data-id="' + entry.id + '"]');
+            if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+        }, 150);
+      },
+    };
+  }
+
+  // ── Fuzzy filter with scoring ─────────────────────────
+
+  function fuzzyScore(query, text) {
+    const q = query.toLowerCase();
+    const txt = text.toLowerCase();
+    if (txt === q) return 100;
+    if (txt.startsWith(q)) return 90;
+    if (txt.includes(q)) return 80;
+    // Subsequence match
+    let qi = 0;
+    for (let i = 0; i < txt.length && qi < q.length; i++) {
+      if (txt[i] === q[qi]) qi++;
+    }
+    return qi === q.length ? 60 : 0;
+  }
 
   function fuzzyMatch(query, text) {
-    const q = query.toLowerCase();
-    const t = text.toLowerCase();
-    if (t.includes(q)) return true;
-    let qi = 0;
-    for (let i = 0; i < t.length && qi < q.length; i++) {
-      if (t[i] === q[qi]) qi++;
-    }
-    return qi === q.length;
+    return fuzzyScore(query, text) > 0;
   }
 
   // ── Render ─────────────────────────────────────────────
 
-  function renderPalette(query) {
-    const commands = buildCommands();
-    _filteredCmds = query
-      ? commands.filter(c => fuzzyMatch(query, c.label) || fuzzyMatch(query, t(c.category)))
-      : commands;
+  function _renderItem(cmd, globalIdx) {
+    const activeClass = globalIdx === _activeIndex ? ' cp-item-active' : '';
+    const historyClass = cmd.isHistory ? ' cp-item-history' : '';
+    let html = '<div class="cp-item' + activeClass + historyClass + '" data-idx="' + globalIdx + '">';
+    html += '<span class="cp-item-icon">' + (cmd.icon || '') + '</span>';
+    html += '<span class="cp-item-label">' + esc(cmd.label);
+    if (cmd.sublabel) {
+      html += '<span class="cp-item-sublabel">' + esc(cmd.sublabel) + '</span>';
+    }
+    html += '</span>';
+    if (cmd.shortcut) {
+      const localized = cmd.shortcut.split('+').map(k => formatModKey(k)).join(' + ');
+      html += '<kbd class="cp-item-shortcut">' + esc(localized) + '</kbd>';
+    }
+    html += '</div>';
+    return html;
+  }
 
-    const listEl = _paletteEl.querySelector('.cp-list');
+  function _renderCategoryHeader(catKey) {
+    const icon = categoryIcons[catKey] || '';
+    const iconHtml = icon ? '<span class="cp-category-icon">' + icon + '</span> ' : '';
+    return '<div class="cp-category">' + iconHtml + esc(t(catKey)) + '</div>';
+  }
+
+  function renderPalette(query, historyHits) {
+    const commands = buildCommands();
+    const listEl = _paletteEl ? _paletteEl.querySelector('.cp-list') : null;
     if (!listEl) return;
 
-    if (_filteredCmds.length === 0) {
-      listEl.innerHTML = '<div class="cp-empty">' + esc(t('palette.noResults')) + '</div>';
+    // Filter commands
+    let filtered;
+    if (query) {
+      filtered = commands
+        .map(c => ({ cmd: c, score: Math.max(fuzzyScore(query, c.label), fuzzyScore(query, t(c.category))) }))
+        .filter(x => x.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map(x => x.cmd);
+    } else {
+      filtered = commands;
+    }
+
+    // Combine history results
+    const histItems = (historyHits || []).map(e => _historyEntryToCommand(e));
+
+    // No results at all?
+    if (filtered.length === 0 && histItems.length === 0) {
+      const emptyMsg = query && query.length > 2
+        ? t('palette.noResultsHint')
+        : t('palette.noResults');
+      listEl.innerHTML = '<div class="cp-empty">' + esc(emptyMsg) + '</div>';
+      _filteredCmds = [];
       return;
     }
 
-    // Prepend recent commands when query is empty
+    // Build display list
     const recentCmds = !query ? _getRecentCommands(commands) : [];
-
     let html = '';
     let globalIdx = 0;
+    _filteredCmds = [];
 
+    // ── Recent section (only when no query) ─────────────
     if (recentCmds.length > 0) {
-      html += '<div class="cp-category"><span class="cp-category-icon">' + paletteIcons.clock + '</span> ' + esc(t('palette.cat.recent')) + '</div>';
+      html += _renderCategoryHeader('palette.cat.recent');
       for (const cmd of recentCmds) {
-        const activeClass = globalIdx === _activeIndex ? ' cp-item-active' : '';
-        html += '<div class="cp-item' + activeClass + '" data-idx="' + globalIdx + '">';
-        html += '<span class="cp-item-icon">' + cmd.icon + '</span>';
-        html += '<span class="cp-item-label">' + esc(cmd.label) + '</span>';
-        if (cmd.shortcut) {
-          const localized = cmd.shortcut.split('+').map(k => formatModKey(k)).join('+');
-          html += '<span class="cp-item-shortcut">' + esc(localized) + '</span>';
-        }
-        html += '</div>';
+        html += _renderItem(cmd, globalIdx);
+        _filteredCmds.push(cmd);
         globalIdx++;
       }
-      // Update _filteredCmds to include recent at the front
-      _filteredCmds = recentCmds.concat(_filteredCmds);
     }
 
-    // Group by category (exclude recent commands to avoid duplicates)
+    // ── Command sections grouped by category ────────────
     const recentIds = new Set(recentCmds.map(c => c.id));
-    const groups = {};
-    for (const cmd of (recentCmds.length > 0 ? commands : _filteredCmds)) {
+    const grouped = {};
+    const cmdsToGroup = query ? filtered : commands;
+    for (const cmd of cmdsToGroup) {
       if (recentIds.has(cmd.id)) continue;
       const cat = cmd.category;
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(cmd);
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(cmd);
     }
 
-    for (const [cat, cmds] of Object.entries(groups)) {
-      html += '<div class="cp-category">' + esc(t(cat)) + '</div>';
+    // Render in defined order, then any remaining
+    const renderedCats = new Set();
+    for (const cat of _categoryOrder) {
+      if (!grouped[cat]) continue;
+      renderedCats.add(cat);
+      html += _renderCategoryHeader(cat);
+      for (const cmd of grouped[cat]) {
+        html += _renderItem(cmd, globalIdx);
+        _filteredCmds.push(cmd);
+        globalIdx++;
+      }
+    }
+    for (const [cat, cmds] of Object.entries(grouped)) {
+      if (renderedCats.has(cat)) continue;
+      html += _renderCategoryHeader(cat);
       for (const cmd of cmds) {
-        const activeClass = globalIdx === _activeIndex ? ' cp-item-active' : '';
-        html += '<div class="cp-item' + activeClass + '" data-idx="' + globalIdx + '">';
-        html += '<span class="cp-item-icon">' + cmd.icon + '</span>';
-        html += '<span class="cp-item-label">' + esc(cmd.label) + '</span>';
-        if (cmd.shortcut) {
-          const localized = cmd.shortcut.split('+').map(k => formatModKey(k)).join('+');
-          html += '<span class="cp-item-shortcut">' + esc(localized) + '</span>';
-        }
-        html += '</div>';
+        html += _renderItem(cmd, globalIdx);
+        _filteredCmds.push(cmd);
         globalIdx++;
       }
     }
 
-    // When recent was prepended, rebuild _filteredCmds to match the full rendered list
-    if (recentCmds.length > 0) {
-      _filteredCmds = [...recentCmds];
-      for (const [, cmds] of Object.entries(groups)) {
-        _filteredCmds.push(...cmds);
+    // ── History results section ──────────────────────────
+    if (histItems.length > 0) {
+      html += _renderCategoryHeader('palette.cat.historyResults');
+      for (const cmd of histItems) {
+        html += _renderItem(cmd, globalIdx);
+        _filteredCmds.push(cmd);
+        globalIdx++;
       }
     }
 
     listEl.innerHTML = html;
+    _bindListEvents(listEl);
+  }
 
-    // Click handlers
+  function _bindListEvents(listEl) {
     listEl.querySelectorAll('.cp-item').forEach(el => {
       el.addEventListener('mousedown', (e) => {
         e.preventDefault();
@@ -273,7 +452,6 @@
     listEl.querySelectorAll('.cp-item').forEach(el => {
       el.classList.toggle('cp-item-active', parseInt(el.dataset.idx, 10) === _activeIndex);
     });
-    // Scroll active into view
     const active = listEl.querySelector('.cp-item-active');
     if (active) active.scrollIntoView({ block: 'nearest' });
   }
@@ -287,20 +465,37 @@
     }
   }
 
+  // ── Debounced history search ──────────────────────────
+
+  function _scheduleHistorySearch(query) {
+    if (_historySearchTimer) clearTimeout(_historySearchTimer);
+    if (!query || query.length < 3) {
+      _historyResults = [];
+      return;
+    }
+    _historySearchTimer = setTimeout(async () => {
+      const results = await _searchHistoryEntries(query);
+      _historyResults = results;
+      if (_paletteEl) {
+        const input = _paletteEl.querySelector('.cp-search');
+        if (input && input.value === query) {
+          renderPalette(query, results);
+        }
+      }
+    }, _HISTORY_SEARCH_DEBOUNCE);
+  }
+
   // ── Open / Close ───────────────────────────────────────
 
   async function openPalette() {
     if (_paletteEl) return;
 
     _palettePreviousFocus = document.activeElement;
-
-    // Close any open popovers
     if (typeof hidePopovers === 'function') hidePopovers();
 
     _activeIndex = 0;
+    _historyResults = [];
     _loadRecent();
-
-    // Load custom templates for palette commands
     await loadCustomTemplateNames();
 
     const backdrop = document.createElement('div');
@@ -331,13 +526,13 @@
     if (input) input.focus();
     renderPalette('');
 
-    // Input handler
     input.addEventListener('input', () => {
       _activeIndex = 0;
-      renderPalette(input.value);
+      const q = input.value.trim();
+      renderPalette(q, _historyResults);
+      _scheduleHistorySearch(q);
     });
 
-    // Keyboard navigation
     input.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -358,10 +553,12 @@
   }
 
   function closePalette() {
+    if (_historySearchTimer) { clearTimeout(_historySearchTimer); _historySearchTimer = null; }
     if (_paletteEl) {
       _paletteEl.remove();
       _paletteEl = null;
       _filteredCmds = [];
+      _historyResults = [];
     }
     if (_palettePreviousFocus && typeof _palettePreviousFocus.focus === 'function') {
       _palettePreviousFocus.focus();

@@ -1,4 +1,4 @@
-package i18n
+﻿package i18n
 
 import "sync"
 
@@ -53,6 +53,7 @@ var translations = map[string]map[string]string{
 	"en": {
 		// App
 		"app.name":        "WhisPaste",
+		"app.notebook":    "Notebook",
 		"app.description": "Voice to text, pasted anywhere",
 		"app.version":     "",
 
@@ -62,6 +63,21 @@ var translations = map[string]map[string]string{
 		"tray.about":    "About",
 		"tray.support":  "Support WhisPaste",
 		"tray.quit":     "Quit",
+		"tray.feedback":      "Give Feedback",
+		"tray.feedback_desc": "Rate and review WhisPaste",
+
+		// Feedback dialog
+		"feedback.title":       "How do you like WhisPaste?",
+		"feedback.subtitle":    "Your feedback helps us improve the app.",
+		"feedback.placeholder": "Tell us what you think... (optional)",
+		"feedback.privacy":     "Only your rating, feedback text, and app version are transmitted. No personal data is collected.",
+		"feedback.cancel":      "Cancel",
+		"feedback.submit":      "Submit Feedback",
+		"feedback.thanks":      "Thank you for your feedback!",
+
+		// About – feedback prompt
+		"about.feedback_prompt": "Enjoying WhisPaste?",
+		"about.rate_us":         "★ Rate WhisPaste",
 
 		// Floating button
 		"floating.hide":           "Hide Button",
@@ -72,6 +88,54 @@ var translations = map[string]map[string]string{
 		"floating.status_record":  "Recording…",
 		"floating.status_working": "Processing…",
 		"floating.last_text":      "Last: \"%s\"",
+		"floating.name":           "Quick Record",
+		"floating.tip_ready":       "WhisPaste — Ready",
+		"floating.tip_recording":   "WhisPaste — Recording…",
+		"floating.tip_paused":      "WhisPaste — Paused",
+		"floating.tip_transcribing":"WhisPaste — Transcribing…",
+		"floating.tip_processing":  "WhisPaste — Processing…",
+
+		// Floating button shapes & colors
+		"shapeCircle":   "Circle",
+		"shapeSquircle": "Squircle",
+		"shapeRounded":  "Rounded Square",
+		"shapeHexagon":  "Hexagon",
+		"shapeDiamond":  "Diamond",
+		"shapeStar":     "Star",
+		"colorCyan":     "Cyan",
+		"colorBlue":     "Blue",
+		"colorPurple":   "Purple",
+		"colorRose":     "Rose",
+		"colorOrange":   "Orange",
+		"colorAmber":    "Amber",
+		"colorEmerald":  "Emerald",
+		"colorSlate":    "Slate",
+		"colorCustom":   "Custom Color",
+
+		// Dashboard greeting
+		"greeting.morning":       "Good morning",
+		"greeting.afternoon":     "Good afternoon",
+		"greeting.evening":       "Good evening",
+		"greeting.recording":     "recording",
+		"greeting.recordings":    "recordings",
+		"greeting.today_suffix":  "today",
+		"greeting.weekend":       "Enjoy your weekend!",
+		"greeting.earlybird":     "Early start today!",
+		"greeting.ready":         "Ready when you are.",
+		"greeting.productive":    "Wow, {count} recordings today! 🔥",
+
+		// Milestone celebrations
+		"milestone.10":           "🎉 10 dictations! You're getting started!",
+		"milestone.50":           "🔥 50 dictations! You're on a roll!",
+		"milestone.100":          "🏆 100 dictations! Power user status!",
+		"milestone.250":          "⚡ 250 dictations! Impressive dedication!",
+		"milestone.500":          "🌟 500 dictations! You're a WhisPaste pro!",
+		"milestone.1000":         "💎 1000 dictations! Legendary!",
+		"milestone.dictations":   "dictations",
+
+		// Empty state
+		"emptyState.title":       "Your voice, your words",
+		"emptyState.desc":        "Press the hotkey or click the floating button to start your first dictation.",
 
 		// States
 		"chars": "chars",
@@ -184,6 +248,7 @@ var translations = map[string]map[string]string{
 		"update.ready":              "Restart to update",
 		"update.failed":             "Update failed: %s",
 		"update.check":              "Check for updates",
+		"update.check_failed":       "Check for updates (⚠ last check failed)",
 		"update.up_to_date":         "Up to date ✓",
 		"update.notify_downloading": "Downloading update v%s…",
 		"update.notify_ready":       "Update installed — click to restart WhisPaste",
@@ -286,6 +351,10 @@ var translations = map[string]map[string]string{
 		"notebook.empty":           "No entries yet. Press your hotkey to start dictating.",
 		"notebook.no_results":      "No matching entries found.",
 		"notebook.copy":            "Copy to Clipboard",
+		"notebook.copy_text":       "Copy Text",
+		"notebook.copy_markdown":   "Copy as Markdown",
+		"notebook.date":            "Date",
+		"notebook.language":        "Language",
 		"notebook.delete":          "Delete",
 		"notebook.pin":             "Pin",
 		"notebook.unpin":           "Unpin",
@@ -306,6 +375,14 @@ var translations = map[string]map[string]string{
 		"notebook.tag_updated":     "Tag updated",
 		"notebook.project_created": "Project created",
 		"notebook.project_deleted": "Project deleted",
+
+		// Notes & Attachments
+		"notebook.notes":              "Notes",
+		"notebook.attachments":        "Attachments",
+		"notebook.add_note":           "Add Note",
+		"notebook.add_note_placeholder": "Write a note…",
+		"notebook.add_file":           "Add File",
+		"notebook.open_file":          "Open File",
 
 		// Feature Discovery
 		"discovery.smartmode.title": "AI-powered refinement",
@@ -331,10 +408,47 @@ var translations = map[string]map[string]string{
 		"shortcuts.command_palette": "Command Palette",
 
 		"show_more": "Show more",
+
+		// Title
+		"title.edit":       "Edit title",
+		"title.generating": "Generating title…",
+
+		// Config Warnings
+		"warn.no_api_key":           "Cloud API mode is active but no API key is configured. Recording will fail.",
+		"warn.model_not_downloaded": "Local STT model is selected but not downloaded. Please download it in settings.",
+
+		// Settings: Progressive Disclosure
+		"settings.advanced": "Advanced Settings",
+
+		// Tray
+		"tray.open":      "Open WhisPaste",
+		"tray.open_desc": "Open the main window",
+
+		// History Groups
+		"group.none":       "No grouping",
+		"group.by_date":    "By date",
+		"group.by_project": "By project",
+		"group.by_language":"By language",
+		"group.today":      "Today",
+		"group.yesterday":  "Yesterday",
+		"group.this_week":  "This week",
+		"group.this_month": "This month",
+		"group.older":      "Older",
+		"group.no_project": "No project",
+		"group.unknown":    "Unknown",
+		"group.entry":      "entry",
+		"group.entries":    "entries",
+		"group.of":         "of",
+
+		// View modes
+		"view.card": "Card view",
+		"view.list": "List view",
+		"view.tile": "Tile view",
 	},
 	"de": {
 		// App
 		"app.name":        "WhisPaste",
+		"app.notebook":    "Notizbuch",
 		"app.description": "Sprache zu Text, überall eingefügt",
 		"app.version":     "",
 
@@ -344,6 +458,21 @@ var translations = map[string]map[string]string{
 		"tray.about":    "Über",
 		"tray.support":  "WhisPaste unterstützen",
 		"tray.quit":     "Beenden",
+		"tray.feedback":      "Feedback geben",
+		"tray.feedback_desc": "WhisPaste bewerten",
+
+		// Feedback-Dialog
+		"feedback.title":       "Wie gefällt dir WhisPaste?",
+		"feedback.subtitle":    "Dein Feedback hilft uns, die App zu verbessern.",
+		"feedback.placeholder": "Erzähl uns, was du denkst... (optional)",
+		"feedback.privacy":     "Nur deine Bewertung, dein Feedbacktext und die App-Version werden übermittelt. Es werden keine persönlichen Daten erfasst.",
+		"feedback.cancel":      "Abbrechen",
+		"feedback.submit":      "Feedback senden",
+		"feedback.thanks":      "Vielen Dank für dein Feedback!",
+
+		// About – feedback prompt
+		"about.feedback_prompt": "Gefällt dir WhisPaste?",
+		"about.rate_us":         "★ WhisPaste bewerten",
 
 		// Floating button
 		"floating.hide":           "Button ausblenden",
@@ -354,6 +483,54 @@ var translations = map[string]map[string]string{
 		"floating.status_record":  "Aufnahme…",
 		"floating.status_working": "Verarbeitung…",
 		"floating.last_text":      "Zuletzt: \"%s\"",
+		"floating.name":           "Aufnahme-Button",
+		"floating.tip_ready":       "WhisPaste — Bereit",
+		"floating.tip_recording":   "WhisPaste — Aufnahme…",
+		"floating.tip_paused":      "WhisPaste — Pausiert",
+		"floating.tip_transcribing":"WhisPaste — Transkribiere…",
+		"floating.tip_processing":  "WhisPaste — Verarbeite…",
+
+		// Floating button shapes & colors
+		"shapeCircle":   "Kreis",
+		"shapeSquircle": "Abgerundetes Quadrat",
+		"shapeRounded":  "Abgerundetes Rechteck",
+		"shapeHexagon":  "Sechseck",
+		"shapeDiamond":  "Raute",
+		"shapeStar":     "Stern",
+		"colorCyan":     "Cyan",
+		"colorBlue":     "Blau",
+		"colorPurple":   "Lila",
+		"colorRose":     "Rosa",
+		"colorOrange":   "Orange",
+		"colorAmber":    "Bernstein",
+		"colorEmerald":  "Smaragd",
+		"colorSlate":    "Schiefer",
+		"colorCustom":   "Eigene Farbe",
+
+		// Dashboard greeting
+		"greeting.morning":       "Guten Morgen",
+		"greeting.afternoon":     "Guten Nachmittag",
+		"greeting.evening":       "Guten Abend",
+		"greeting.recording":     "Aufnahme",
+		"greeting.recordings":    "Aufnahmen",
+		"greeting.today_suffix":  "heute",
+		"greeting.weekend":       "Schönes Wochenende!",
+		"greeting.earlybird":     "Früh dran heute!",
+		"greeting.ready":         "Bereit, wenn du es bist.",
+		"greeting.productive":    "Wow, {count} Aufnahmen heute! 🔥",
+
+		// Milestone celebrations
+		"milestone.10":           "🎉 10 Diktate! Du bist gestartet!",
+		"milestone.50":           "🔥 50 Diktate! Du bist richtig dabei!",
+		"milestone.100":          "🏆 100 Diktate! Power-User-Status!",
+		"milestone.250":          "⚡ 250 Diktate! Beeindruckendes Engagement!",
+		"milestone.500":          "🌟 500 Diktate! Du bist ein WhisPaste-Profi!",
+		"milestone.1000":         "💎 1000 Diktate! Legendär!",
+		"milestone.dictations":   "Diktate",
+
+		// Empty state
+		"emptyState.title":       "Deine Stimme, deine Worte",
+		"emptyState.desc":        "Drücke die Tastenkombination oder klicke den Aufnahme-Button, um dein erstes Diktat zu starten.",
 
 		// States
 		"chars": "Zeichen",
@@ -466,6 +643,7 @@ var translations = map[string]map[string]string{
 		"update.ready":              "Neustart für Update",
 		"update.failed":             "Update fehlgeschlagen: %s",
 		"update.check":              "Nach Updates suchen",
+		"update.check_failed":       "Nach Updates suchen (⚠ letzte Prüfung fehlgeschlagen)",
 		"update.up_to_date":         "Aktuell ✓",
 		"update.notify_downloading": "Update v%s wird heruntergeladen…",
 		"update.notify_ready":       "Update installiert — zum Neustarten klicken",
@@ -568,6 +746,10 @@ var translations = map[string]map[string]string{
 		"notebook.empty":           "Noch keine Einträge. Drück die Hotkey-Taste, um mit dem Diktieren zu beginnen.",
 		"notebook.no_results":      "Keine passenden Einträge gefunden.",
 		"notebook.copy":            "In Zwischenablage kopieren",
+		"notebook.copy_text":       "Text kopieren",
+		"notebook.copy_markdown":   "Als Markdown kopieren",
+		"notebook.date":            "Datum",
+		"notebook.language":        "Sprache",
 		"notebook.delete":          "Löschen",
 		"notebook.pin":             "Anpinnen",
 		"notebook.unpin":           "Lösen",
@@ -588,6 +770,14 @@ var translations = map[string]map[string]string{
 		"notebook.tag_updated":     "Tag aktualisiert",
 		"notebook.project_created": "Projekt erstellt",
 		"notebook.project_deleted": "Projekt gelöscht",
+
+		// Notes & Attachments
+		"notebook.notes":              "Notizen",
+		"notebook.attachments":        "Anhänge",
+		"notebook.add_note":           "Notiz hinzufügen",
+		"notebook.add_note_placeholder": "Notiz schreiben…",
+		"notebook.add_file":           "Datei hinzufügen",
+		"notebook.open_file":          "Datei öffnen",
 
 		// Feature Discovery
 		"discovery.smartmode.title": "KI-gestützte Verfeinerung",
@@ -613,5 +803,41 @@ var translations = map[string]map[string]string{
 		"shortcuts.command_palette": "Befehlspalette",
 
 		"show_more": "Mehr anzeigen",
+
+		// Title
+		"title.edit":       "Titel bearbeiten",
+		"title.generating": "Titel wird erstellt…",
+
+		// Config Warnings
+		"warn.no_api_key":           "Cloud-API-Modus ist aktiv, aber kein API-Key konfiguriert. Aufnahmen werden fehlschlagen.",
+		"warn.model_not_downloaded": "Lokales STT-Modell ist ausgewählt, aber nicht heruntergeladen. Bitte in den Einstellungen herunterladen.",
+
+		// Settings: Progressive Disclosure
+		"settings.advanced": "Erweiterte Einstellungen",
+
+		// Tray
+		"tray.open":      "WhisPaste öffnen",
+		"tray.open_desc": "Hauptfenster öffnen",
+
+		// History Groups
+		"group.none":       "Keine Gruppierung",
+		"group.by_date":    "Nach Datum",
+		"group.by_project": "Nach Projekt",
+		"group.by_language":"Nach Sprache",
+		"group.today":      "Heute",
+		"group.yesterday":  "Gestern",
+		"group.this_week":  "Diese Woche",
+		"group.this_month": "Diesen Monat",
+		"group.older":      "Älter",
+		"group.no_project": "Kein Projekt",
+		"group.unknown":    "Unbekannt",
+		"group.entry":      "Eintrag",
+		"group.entries":    "Einträge",
+		"group.of":         "von",
+
+		// View modes
+		"view.card": "Kartenansicht",
+		"view.list": "Listenansicht",
+		"view.tile": "Kachelansicht",
 	},
 }

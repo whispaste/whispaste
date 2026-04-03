@@ -3,7 +3,10 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/whispaste/whispaste/internal/models"
 )
 
 type dailyModelCount struct {
@@ -90,9 +93,7 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 
 		dailyCounts[date] += count
 
-		if model == "" {
-			model = "unknown"
-		}
+		model = normalizeModelName(model)
 		dailyModelCounts[date] = append(dailyModelCounts[date], dailyModelCount{
 			Model:   model,
 			IsLocal: isLocal == 1,
@@ -155,6 +156,17 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		}
 	}
 
+	// Time saved vs typing at 40 WPM
+	typingMin := totalWords / 40.0
+	dictationMin := totalDuration / 60.0
+	timeSaved := typingMin - dictationMin
+	if timeSaved < 0 {
+		timeSaved = 0
+	}
+
+	// Overall average speed ratio (audio duration / processing time = realtime factor)
+	avgSpeedRatio := safeDiv(totalDuration, totalProcessingDuration)
+
 	result := map[string]interface{}{
 		"totalEntries":          totalEntries,
 		"localEntries":          localEntries,
@@ -175,6 +187,8 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 		"monthlyCosts":          monthlyCosts,
 		"totalWords":            totalWords,
 		"avgWordsPerEntry":      safeDiv(totalWords, float64(totalEntries)),
+		"timeSaved":             timeSaved,
+		"avgSpeedRatio":         avgSpeedRatio,
 	}
 
 	// Data audit: compare daily_stats totals against history_entries (rate-limited)
@@ -205,6 +219,28 @@ func (h *History) ResetStatistics() error {
 	h.invalidateCache()
 	logInfo("Statistics reset: daily_stats cleared")
 	return nil
+}
+
+// normalizeModelName maps raw model IDs (e.g. "whisper-small") to their
+// display names (e.g. "Whisper Small") using the model registry. Cloud
+// provider models and other unrecognised strings are returned as-is.
+func normalizeModelName(raw string) string {
+	if raw == "" || strings.EqualFold(raw, "unknown") {
+		return "Unknown"
+	}
+	if info := models.Find(raw); info != nil {
+		return info.Name
+	}
+	// Fuzzy: check if raw is a truncated version of a known model ID.
+	// Only match if raw is ≥80% of the ID length (prevents false positives).
+	lower := strings.ToLower(raw)
+	for _, m := range models.Available {
+		id := strings.ToLower(m.ID)
+		if len(lower) >= len(id)*8/10 && strings.HasPrefix(id, lower) {
+			return m.Name
+		}
+	}
+	return raw
 }
 
 func safeDiv(a, b float64) float64 {

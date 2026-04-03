@@ -66,6 +66,12 @@ const (
 	ofnOverwritePrompt = 0x00000002
 	ofnNoChangeDir     = 0x00000008
 	ofnExplorer        = 0x00080000
+	ofnAllowMultiSelect = 0x00000200
+	ofnFileMustExist   = 0x00001000
+)
+
+var (
+	procGetOpenFileNameW = comdlg32.NewProc("GetOpenFileNameW")
 )
 
 // ShowSaveDialog opens a Windows Save File dialog and returns the chosen path.
@@ -92,6 +98,60 @@ func ShowSaveDialog(title string, defaultName string, filter string) string {
 		return "" // cancelled
 	}
 	return windows.UTF16ToString(fileBuf)
+}
+
+// ShowOpenDialog opens a Windows Open File dialog and returns the chosen file paths.
+// Returns nil if the user cancels.
+func ShowOpenDialog(title string) []string {
+	allFilesFilter := "All Files (*.*)\x00*.*\x00\x00"
+	filterUTF16, _ := windows.UTF16PtrFromString(allFilesFilter[:len(allFilesFilter)-1])
+	titleUTF16, _ := windows.UTF16PtrFromString(title)
+
+	// Large buffer for multi-select: dir + null + file1 + null + file2 + null + null
+	fileBuf := make([]uint16, 32768)
+
+	ofn := openFileNameW{
+		StructSize: uint32(unsafe.Sizeof(openFileNameW{})),
+		Filter:     filterUTF16,
+		File:       &fileBuf[0],
+		MaxFile:    uint32(len(fileBuf)),
+		Title:      titleUTF16,
+		Flags:      ofnFileMustExist | ofnNoChangeDir | ofnExplorer | ofnAllowMultiSelect,
+	}
+
+	ret, _, _ := procGetOpenFileNameW.Call(uintptr(unsafe.Pointer(&ofn)))
+	if ret == 0 {
+		return nil // cancelled
+	}
+
+	// Parse multi-select result: directory\0file1\0file2\0\0
+	// Or single-select: fullpath\0\0
+	var parts []string
+	start := 0
+	for i := 0; i < len(fileBuf)-1; i++ {
+		if fileBuf[i] == 0 {
+			if i == start {
+				break // double null = end
+			}
+			parts = append(parts, windows.UTF16ToString(fileBuf[start:i]))
+			start = i + 1
+		}
+	}
+
+	if len(parts) == 0 {
+		return nil
+	}
+	if len(parts) == 1 {
+		return parts // single file selected
+	}
+
+	// Multi-select: first part is directory, rest are filenames
+	dir := parts[0]
+	var paths []string
+	for _, name := range parts[1:] {
+		paths = append(paths, dir + `\` + name)
+	}
+	return paths
 }
 
 // FormatEntryTXT formats a single entry as plain text.

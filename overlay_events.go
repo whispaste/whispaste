@@ -45,7 +45,7 @@ func getHitButton(x, y int32, state AppState) int {
 var overlayWndProcCB = syscall.NewCallback(overlayWndProc)
 
 func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
-	o := globalOverlay
+	o := globalOverlay.Load()
 	if o == nil {
 		ret, _, _ := procDefWindowProcW.Call(hwnd, msg, wParam, lParam)
 		return ret
@@ -123,6 +123,49 @@ func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		o.frame++
 		frame := o.frame
 		vis := o.visible
+
+		// Drive pause fade animation
+		if o.paused {
+			if o.pauseFadeAlpha > 0.5 {
+				o.pauseFadeAlpha -= 0.05
+				if o.pauseFadeAlpha < 0.5 {
+					o.pauseFadeAlpha = 0.5
+				}
+			}
+		} else {
+			if o.pauseFadeAlpha < 1.0 {
+				o.pauseFadeAlpha += 0.05
+				if o.pauseFadeAlpha > 1.0 {
+					o.pauseFadeAlpha = 1.0
+				}
+			}
+		}
+
+		// Drive fade animation
+		if o.animating {
+			if o.animFadeIn {
+				// Fade in: ~200ms at 60fps → alpha +20 per tick
+				if int(o.animAlpha)+20 >= 255 {
+					o.animAlpha = 255
+					o.animating = false
+				} else {
+					o.animAlpha += 20
+				}
+			} else {
+				// Fade out: ~150ms at 60fps → alpha -28 per tick
+				if int(o.animAlpha)-28 <= 0 {
+					o.animAlpha = 0
+					o.animating = false
+					o.visible = false
+					o.mu.Unlock()
+					procKillTimer.Call(hwnd, _TIMER_ID)
+					procShowWindow.Call(hwnd, _SW_HIDE)
+					return 0
+				} else {
+					o.animAlpha -= 28
+				}
+			}
+		}
 		o.mu.Unlock()
 		if vis && frame%_TOPMOST_INTERVAL == 0 {
 			const _HWND_TOPMOST2 = ^uintptr(0)
@@ -185,11 +228,16 @@ func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		o.mu.Lock()
 		o.state = AppState(wParam)
 		o.frame = 0
+		o.animating = true
+		o.animAlpha = 0
+		o.animFadeIn = true
 		if o.state == StateRecording {
 			o.startTime = time.Now()
 			o.pauseAccum = 0
 			o.paused = false
 			o.isSmartMode = false
+			o.pauseFadeAlpha = 1.0
+			o.audioLevel = 0
 			for i := range o.levels {
 				o.levels[i] = 0
 			}
@@ -197,7 +245,6 @@ func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		}
 		if o.state == StateTranscribing {
 			o.transcribeStart = time.Now()
-			o.estimatedSec = 0
 		}
 		pos := o.position
 		o.visible = true
@@ -247,13 +294,18 @@ func overlayWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 
 	case _WM_OVL_HIDE:
 		o.mu.Lock()
-		o.visible = false
+		if o.animating && !o.animFadeIn {
+			// Already fading out, ignore duplicate
+			o.mu.Unlock()
+			return 0
+		}
+		o.animating = true
+		o.animAlpha = 255
+		o.animFadeIn = false
 		o.hoverBtn = 0
 		o.pressBtn = 0
 		o.tracking = false
 		o.mu.Unlock()
-		procKillTimer.Call(hwnd, _TIMER_ID)
-		procShowWindow.Call(hwnd, _SW_HIDE)
 		return 0
 
 	case _WM_OVL_PAUSE:

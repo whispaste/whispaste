@@ -110,7 +110,7 @@ func TestFileSHA256NotFound(t *testing.T) {
 }
 
 func TestNewUpdater(t *testing.T) {
-	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
+	u := NewUpdater("1.0.0", func() bool { return true })
 	if u == nil {
 		t.Fatal("NewUpdater returned nil")
 	}
@@ -133,7 +133,7 @@ func TestUpdaterRateLimit(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
+	u := NewUpdater("1.0.0", func() bool { return true })
 
 	// Override lastCheck to simulate a recent check
 	u.mu.Lock()
@@ -151,7 +151,7 @@ func TestUpdaterRateLimit(t *testing.T) {
 }
 
 func TestUpdaterApplyNilInfo(t *testing.T) {
-	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
+	u := NewUpdater("1.0.0", func() bool { return true })
 	err := u.Apply(nil)
 	if err == nil {
 		t.Error("Apply(nil) should return error")
@@ -159,7 +159,7 @@ func TestUpdaterApplyNilInfo(t *testing.T) {
 }
 
 func TestUpdaterApplyNotAvailable(t *testing.T) {
-	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
+	u := NewUpdater("1.0.0", func() bool { return true })
 	err := u.Apply(&UpdateInfo{Available: false})
 	if err == nil {
 		t.Error("Apply with Available=false should return error")
@@ -218,7 +218,7 @@ func TestUpdaterApplyReturnsPermissionError(t *testing.T) {
 		t.Fatalf("WriteFile exe: %v", err)
 	}
 
-	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
+	u := NewUpdater("1.0.0", func() bool { return true })
 	u.resolveExePath = func() (string, error) { return exePath, nil }
 	u.replaceBinary = func(exePath, stagedPath string) error { return os.ErrPermission }
 
@@ -297,7 +297,7 @@ func TestDownloadChecksumHTTPSValidation(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
+	u := NewUpdater("1.0.0", func() bool { return true })
 	u.releasesURL = srv.URL
 
 	_, err := u.CheckNow(context.Background(), true)
@@ -391,7 +391,7 @@ func TestUpdateCheckWithMockServer(t *testing.T) {
 	defer srv.Close()
 
 	// Part 1: Verify the updater detects a newer version
-	u := NewUpdater("1.0.0", func() bool { return true }, func() string { return "beta" })
+	u := NewUpdater("1.0.0", func() bool { return true })
 	u.releasesURL = srv.URL + "/api/releases"
 
 	info, err := u.CheckNow(context.Background(), true)
@@ -499,7 +499,7 @@ func TestUpdateSkipWhenDisabled(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := NewUpdater("1.0.0", func() bool { return false }, func() string { return "beta" })
+	u := NewUpdater("1.0.0", func() bool { return false })
 	u.releasesURL = srv.URL
 
 	// checkAndNotify should bail out before hitting the server
@@ -510,13 +510,11 @@ func TestUpdateSkipWhenDisabled(t *testing.T) {
 	}
 }
 
-// TestUpdatePrereleaseDetection verifies that the updater correctly finds
-// pre-release versions (beta, rc) among multiple releases, and picks the
-// highest version regardless of ordering in the API response.
-func TestUpdatePrereleaseDetection(t *testing.T) {
+// TestUpdatePrereleasesSkipped verifies that the updater always skips
+// pre-release versions (alpha, beta, rc) and only offers stable versions.
+func TestUpdatePrereleasesSkipped(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]map[string]interface{}{
-			// Newest by creation date but lower version
 			{
 				"tag_name": "v0.4.1-alpha",
 				"html_url": "https://github.com/test/releases/v0.4.1-alpha",
@@ -532,7 +530,6 @@ func TestUpdatePrereleaseDetection(t *testing.T) {
 					},
 				},
 			},
-			// Highest version — beta prerelease
 			{
 				"tag_name": "v1.0.0-beta",
 				"html_url": "https://github.com/test/releases/v1.0.0-beta",
@@ -548,7 +545,6 @@ func TestUpdatePrereleaseDetection(t *testing.T) {
 					},
 				},
 			},
-			// Older version
 			{
 				"tag_name": "v0.4.0-alpha",
 				"html_url": "https://github.com/test/releases/v0.4.0-alpha",
@@ -566,22 +562,15 @@ func TestUpdatePrereleaseDetection(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := NewUpdater("0.4.0-alpha", func() bool { return true }, func() string { return "beta" })
+	u := NewUpdater("0.4.0-alpha", func() bool { return true })
 	u.releasesURL = srv.URL
 
 	info, err := u.CheckNow(context.Background(), true)
 	if err != nil {
 		t.Fatalf("CheckNow: %v", err)
 	}
-	if !info.Available {
-		t.Fatal("expected update to be available")
-	}
-	if info.Version != "1.0.0-beta" {
-		t.Errorf("version = %q, want %q", info.Version, "1.0.0-beta")
-	}
-	// Should have picked the beta's download URL, not the alpha's
-	if !strings.Contains(info.DownloadURL, "v1-beta") {
-		t.Errorf("download URL = %q, want URL containing 'v1-beta'", info.DownloadURL)
+	if info.Available {
+		t.Errorf("expected no update (all non-draft releases are pre-release), got version %q", info.Version)
 	}
 }
 
@@ -623,7 +612,7 @@ func TestUpdateDraftSkipping(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	u := NewUpdater("0.5.0", func() bool { return true }, func() string { return "beta" })
+	u := NewUpdater("0.5.0", func() bool { return true })
 	u.releasesURL = srv.URL
 
 	info, err := u.CheckNow(context.Background(), true)
@@ -638,90 +627,94 @@ func TestUpdateDraftSkipping(t *testing.T) {
 	}
 }
 
-// TestUpdateChannelStableSkipsBeta verifies that the "stable" channel ignores
-// beta/alpha/rc releases and only offers stable versions.
-func TestUpdateChannelStableSkipsBeta(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]interface{}{
-			{
-				"tag_name":   "v2.0.0-beta",
-				"html_url":   "https://github.com/test/releases/v2.0.0-beta",
-				"draft":      false,
-				"prerelease": true,
-				"assets": []interface{}{
-					map[string]interface{}{"name": "whispaste.exe", "browser_download_url": "https://github.com/test/download/v2-beta/whispaste.exe"},
-					map[string]interface{}{"name": "whispaste.exe.sha256", "browser_download_url": "https://github.com/test/download/v2-beta/whispaste.exe.sha256"},
-				},
-			},
-			{
-				"tag_name":   "v1.0.0",
-				"html_url":   "https://github.com/test/releases/v1.0.0",
-				"draft":      false,
-				"prerelease": false,
-				"assets": []interface{}{
-					map[string]interface{}{"name": "whispaste.exe", "browser_download_url": "https://github.com/test/download/v1/whispaste.exe"},
-					map[string]interface{}{"name": "whispaste.exe.sha256", "browser_download_url": "https://github.com/test/download/v1/whispaste.exe.sha256"},
-				},
-			},
-		})
-	}))
-	defer srv.Close()
+func TestRecoverUpdateState_RollbackOld(t *testing.T) {
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "whispaste.exe")
+	oldPath := filepath.Join(dir, "whispaste.exe.old")
+	newPath := filepath.Join(dir, "whispaste.exe.new")
 
-	// On stable channel: should skip v2.0.0-beta and offer v1.0.0
-	u := NewUpdater("0.5.0", func() bool { return true }, func() string { return "stable" })
-	u.releasesURL = srv.URL
-	info, err := u.CheckNow(context.Background(), true)
-	if err != nil {
-		t.Fatalf("CheckNow: %v", err)
-	}
-	if !info.Available {
-		t.Fatal("expected v1.0.0 to be available on stable channel")
-	}
-	if info.Version != "1.0.0" {
-		t.Errorf("version = %q, want %q", info.Version, "1.0.0")
-	}
+	// Simulate crash between step 1 and 2: .old exists, exe does not
+	os.WriteFile(oldPath, []byte("original-binary"), 0644)
+	os.WriteFile(newPath, []byte("new-binary"), 0644)
 
-	// On beta channel: should offer v2.0.0-beta (higher)
-	u2 := NewUpdater("0.5.0", func() bool { return true }, func() string { return "beta" })
-	u2.releasesURL = srv.URL
-	info2, err := u2.CheckNow(context.Background(), true)
-	if err != nil {
-		t.Fatalf("CheckNow beta: %v", err)
+	// Patch currentExecutablePath to return our test path
+	origResolve := currentExecutablePath
+	currentExecutablePath = func() (string, error) { return exePath, nil }
+	defer func() { currentExecutablePath = origResolve }()
+
+	recoverUpdateState()
+
+	if !fileExists(exePath) {
+		t.Fatal("expected whispaste.exe to be restored from .old")
 	}
-	if !info2.Available {
-		t.Fatal("expected v2.0.0-beta to be available on beta channel")
+	got, _ := os.ReadFile(exePath)
+	if string(got) != "original-binary" {
+		t.Fatalf("restored exe = %q, want %q", got, "original-binary")
 	}
-	if info2.Version != "2.0.0-beta" {
-		t.Errorf("version = %q, want %q", info2.Version, "2.0.0-beta")
+	if fileExists(newPath) {
+		t.Fatal("expected .new to be cleaned up after rollback")
+	}
+	if fileExists(oldPath) {
+		t.Fatal("expected .old to be gone after rollback rename")
 	}
 }
 
-// TestUpdateChannelStableNoStableRelease verifies that stable channel returns
-// no update when only pre-release versions are available.
-func TestUpdateChannelStableNoStableRelease(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]map[string]interface{}{
-			{
-				"tag_name":   "v3.0.0-beta",
-				"html_url":   "https://github.com/test/releases/v3.0.0-beta",
-				"draft":      false,
-				"prerelease": true,
-				"assets": []interface{}{
-					map[string]interface{}{"name": "whispaste.exe", "browser_download_url": "https://github.com/test/download/v3-beta/whispaste.exe"},
-					map[string]interface{}{"name": "whispaste.exe.sha256", "browser_download_url": "https://github.com/test/download/v3-beta/whispaste.exe.sha256"},
-				},
-			},
-		})
-	}))
-	defer srv.Close()
+func TestRecoverUpdateState_CleanupNew(t *testing.T) {
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "whispaste.exe")
+	newPath := filepath.Join(dir, "whispaste.exe.new")
 
-	u := NewUpdater("0.5.0", func() bool { return true }, func() string { return "stable" })
-	u.releasesURL = srv.URL
-	info, err := u.CheckNow(context.Background(), true)
-	if err != nil {
-		t.Fatalf("CheckNow: %v", err)
+	os.WriteFile(exePath, []byte("current-binary"), 0644)
+	os.WriteFile(newPath, []byte("orphaned-new"), 0644)
+
+	origResolve := currentExecutablePath
+	currentExecutablePath = func() (string, error) { return exePath, nil }
+	defer func() { currentExecutablePath = origResolve }()
+
+	recoverUpdateState()
+
+	if fileExists(newPath) {
+		t.Fatal("expected orphaned .new to be removed")
 	}
-	if info.Available {
-		t.Errorf("stable channel should not offer beta-only release, got version %q", info.Version)
+	got, _ := os.ReadFile(exePath)
+	if string(got) != "current-binary" {
+		t.Fatalf("exe should be unchanged, got %q", got)
+	}
+}
+
+func TestRecoverUpdateState_CleanupOld(t *testing.T) {
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "whispaste.exe")
+	oldPath := filepath.Join(dir, "whispaste.exe.old")
+
+	os.WriteFile(exePath, []byte("new-binary"), 0644)
+	os.WriteFile(oldPath, []byte("old-binary"), 0644)
+
+	origResolve := currentExecutablePath
+	currentExecutablePath = func() (string, error) { return exePath, nil }
+	defer func() { currentExecutablePath = origResolve }()
+
+	recoverUpdateState()
+
+	if fileExists(oldPath) {
+		t.Fatal("expected leftover .old to be removed after successful update")
+	}
+}
+
+func TestRecoverUpdateState_NothingToDo(t *testing.T) {
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "whispaste.exe")
+	os.WriteFile(exePath, []byte("binary"), 0644)
+
+	origResolve := currentExecutablePath
+	currentExecutablePath = func() (string, error) { return exePath, nil }
+	defer func() { currentExecutablePath = origResolve }()
+
+	// Should not panic or error
+	recoverUpdateState()
+
+	got, _ := os.ReadFile(exePath)
+	if string(got) != "binary" {
+		t.Fatalf("exe should be unchanged, got %q", got)
 	}
 }

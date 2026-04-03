@@ -112,7 +112,7 @@
 .selecting .entry-checkbox {
   opacity: 1;
   width: 20px;
-  margin-right: var(--space-1);
+  margin-right: var(--space-2);
   border-color: var(--border-secondary);
 }
 .entry-checkbox.checked {

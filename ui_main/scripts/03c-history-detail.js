@@ -132,11 +132,30 @@ function _selectAutocompleteHighlight(input) {
 
 
 async function doCopy(id, triggerBtn) {
-  try {
-    if (window.copyEntry) await window.copyEntry(id);
-    if (triggerBtn) showCopyFeedback(triggerBtn);
-    else showToast(t('notebook.copied'));
-  } catch (e) { showToast('Error', true); }
+  if (!triggerBtn) {
+    // Fallback: direct copy when no anchor for menu
+    try {
+      if (window.copyEntry) await window.copyEntry(id);
+      showToast(t('notebook.copied'));
+    } catch (e) { showToast('Error', true); }
+    return;
+  }
+  showPopover(triggerBtn, {
+    items: [
+      { icon: icons.copy, label: t('notebook.copy_text'), action: async () => {
+        try {
+          if (window.copyEntry) await window.copyEntry(id);
+          showCopyFeedback(triggerBtn);
+        } catch (e) { showToast('Error', true); }
+      }},
+      { icon: icons.files, label: t('notebook.copy_markdown'), action: async () => {
+        try {
+          if (window.copyEntryMarkdown) await window.copyEntryMarkdown(id);
+          showCopyFeedback(triggerBtn);
+        } catch (e) { showToast('Error', true); }
+      }},
+    ],
+  });
 }
 
 function showCopyFeedback(button) {
@@ -239,6 +258,63 @@ async function saveEditText(id) {
 
 function cancelEditText(id) {
   loadEntries();
+}
+
+// Focus the contenteditable title in the detail view
+function focusDetailTitle(id) {
+  const titleEl = document.querySelector('.entry-detail-title[data-entry-id="' + id + '"]');
+  if (titleEl) {
+    titleEl.focus();
+    const range = document.createRange();
+    range.selectNodeContents(titleEl);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+
+// Inline title editing on card view (non-expanded)
+function startEditTitleCard(id, btn) {
+  const entry = _entries.find(e => e.id === id);
+  if (!entry) return;
+  const wrapper = btn.closest('.entry-title-wrapper');
+  if (!wrapper) return;
+  const titleSpan = wrapper.querySelector('.entry-title');
+  if (!titleSpan) return;
+
+  const original = entry.title || entry.text.substring(0, 60);
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'edit-title-input';
+  input.value = original;
+
+  titleSpan.replaceWith(input);
+  btn.style.display = 'none';
+  input.focus();
+  input.select();
+
+  let saved = false;
+  const save = async () => {
+    if (saved) return;
+    saved = true;
+    const newTitle = input.value.trim();
+    if (newTitle && newTitle !== original) {
+      const ok = await window.updateEntry(id, newTitle, JSON.stringify(entry.tags || []));
+      if (ok) {
+        entry.title = newTitle;
+        showToast(t('notebook.saved'));
+      }
+    }
+    await loadEntries();
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+    if (ev.key === 'Escape') { input.value = original; input.blur(); }
+  });
+  input.addEventListener('click', (ev) => ev.stopPropagation());
 }
 
 

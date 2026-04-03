@@ -138,7 +138,7 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 		gpuMode = s.cfg.GetGPUAcceleration()
 	}
 	if err := EnsureSTTServerRuntime(gpuMode); err != nil {
-		logWarn("STT runtime refresh failed, continuing with installed runtime: %v", err)
+		logInfo("STT runtime refresh failed, continuing with installed runtime: %v", err)
 	}
 
 	threads := sttThreadCount(gpuMode)

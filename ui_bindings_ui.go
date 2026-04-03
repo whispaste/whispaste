@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	webview "github.com/webview/webview_go"
+	"github.com/whispaste/whispaste/internal/models"
 	"github.com/whispaste/whispaste/internal/stats"
 )
 
@@ -150,5 +151,27 @@ func bindUIHandlers(w webview.WebView, cfg *Config, recorder *Recorder, history 
 			return false
 		}
 		return true
+	})
+
+	w.Bind("_getInstallSource", func() string {
+		return getInstallSource()
+	})
+
+	w.Bind("_submitFeedback", func(rating int, text string) string {
+		if err := submitFeedback(rating, text); err != nil {
+			return err.Error()
+		}
+		return ""
+	})
+
+	w.Bind("_getConfigWarnings", func() []string {
+		var warnings []string
+		if !cfg.GetActiveModelLocal() && cfg.GetAPIKey() == "" {
+			warnings = append(warnings, T("warn.no_api_key"))
+		}
+		if cfg.GetActiveModelLocal() && !models.IsDownloaded(cfg.GetLocalModelID()) {
+			warnings = append(warnings, T("warn.model_not_downloaded"))
+		}
+		return warnings
 	})
 }

@@ -1,43 +1,51 @@
-# Supabase Crash Relay Setup
+# Supabase Setup Guide
 
-This guide configures WhisPaste crash reporting through a Supabase Edge Function relay.
+This guide configures all Supabase Edge Function relays for WhisPaste:
 
-## Goal
+- **Crash Relay** — anonymous crash reports → Discord
+- **Feedback Relay** — user feedback (star ratings) → Discord
+- **Crash Cleanup** — admin endpoint to manage crash reports
 
-Use this production-safe flow:
+## Architecture
 
 ```text
-WhisPaste app -> Supabase Edge Function -> Discord webhook
+WhisPaste app ──HTTPS──▶ Supabase Edge Functions ──secret──▶ Discord webhooks
+                              │
+                         Supabase DB
+                     (crash_report_events,
+                      user_feedback)
 ```
 
-The app ships only the public relay URL. The Discord webhook stays server-side as a Supabase secret.
+The app ships only the public relay URLs. Discord webhook secrets stay server-side.
 
 ## What gets deployed
 
-- `supabase/functions/crash-relay/index.ts`
-- `supabase/migrations/20260331_create_crash_report_events.sql`
-- `supabase/config.toml`
+| File | Purpose |
+|------|---------|
+| `supabase/functions/crash-relay/index.ts` | Crash report relay with dedup + rate limiting |
+| `supabase/functions/feedback-relay/index.ts` | User feedback relay with IP-based rate limiting |
+| `supabase/functions/crash-cleanup/index.ts` | Admin endpoint to manage/delete crash reports |
+| `supabase/migrations/20260331_create_crash_report_events.sql` | Crash reports table |
+| `supabase/migrations/20260403_create_user_feedback.sql` | User feedback table |
+| `supabase/config.toml` | Project configuration |
 
-## 1. Create or open your Supabase project
+---
 
-1. Open Supabase.
-2. Create a project or use an existing one.
-3. Copy the project URL, e.g.:
+## Initial Setup (one-time)
 
-```text
-https://YOUR-PROJECT-REF.supabase.co
-```
+### Step 1: Create or open your Supabase project
 
-## 2. Install and log into the Supabase CLI
+1. Open [supabase.com](https://supabase.com) and create a project (or use an existing one).
+2. Copy the project ref from Settings → General, e.g. `cnyniyflnefxrwafuqig`.
+
+### Step 2: Install and log into the Supabase CLI
 
 ```powershell
 scoop install supabase
 supabase login
 ```
 
-`npm install -g supabase` is not supported by Supabase. Use Scoop on Windows or another official installer for your platform.
-
-## 3. Link the local repo to the Supabase project
+### Step 3: Link the local repo to the Supabase project
 
 From the repository root:
 
@@ -45,91 +53,159 @@ From the repository root:
 supabase link --project-ref YOUR-PROJECT-REF
 ```
 
-## 4. Set the Discord webhook as a Supabase secret
-
-```powershell
-supabase secrets set CRASH_DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
-```
-
-The webhook URL never belongs in the app, in `.env`, or in source control.
-
-## 5. Deploy the database migration
+### Step 4: Deploy database migrations
 
 ```powershell
 supabase db push
 ```
 
-This creates `public.crash_report_events`, which the relay uses for:
+This creates the `crash_report_events` and `user_feedback` tables.
 
-- deduplication
-- rate limiting
-- audit / delivery status
+---
 
-## 6. Deploy the Edge Function
+## Crash Reporting Setup
+
+### Step 5a: Create a Discord webhook for crash reports
+
+1. In your Discord server, go to the channel for crash reports.
+2. Channel Settings → Integrations → Webhooks → New Webhook.
+3. Name it `WhisPaste Crash Reporter` and copy the webhook URL.
+
+### Step 5b: Set the crash webhook secret
+
+```powershell
+supabase secrets set CRASH_DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/XXXXX/YYYYY"
+```
+
+### Step 5c: Set the admin API key (for crash management)
+
+Generate a random key (e.g. `openssl rand -hex 32`) and set it:
+
+```powershell
+supabase secrets set ADMIN_API_KEY="your-random-admin-key-here"
+```
+
+This key protects the crash-cleanup `fix` and `delete` endpoints.
+
+### Step 5d: Deploy crash functions
 
 ```powershell
 supabase functions deploy crash-relay --no-verify-jwt
+supabase functions deploy crash-cleanup --no-verify-jwt
 ```
 
-Public endpoint:
+---
 
-```text
-https://YOUR-PROJECT-REF.supabase.co/functions/v1/crash-relay
-```
+## User Feedback Setup
 
-## 7. Build WhisPaste with the public relay URL
+### Step 6a: Create a Discord webhook for feedback
 
-Use the existing PowerShell build script:
+1. In your Discord server, create a **separate** channel for user feedback (e.g. `#user-feedback`).
+2. Channel Settings → Integrations → Webhooks → New Webhook.
+3. Name it `WhisPaste Feedback` and copy the webhook URL.
+
+### Step 6b: Set the feedback webhook secret
 
 ```powershell
-.\scripts\build.ps1 -Release -Version "1.2.3" -CrashRelayURL "https://YOUR-PROJECT-REF.supabase.co/functions/v1/crash-relay"
+supabase secrets set FEEDBACK_DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/XXXXX/YYYYY"
 ```
 
-This injects the public relay URL into the binary via `-ldflags`.
+### Step 6c: Deploy the feedback function
 
-## 8. Verify the relay
+```powershell
+supabase functions deploy feedback-relay --no-verify-jwt
+```
 
-Expected app log message:
+---
+
+## Build WhisPaste with Relay URLs
+
+Use the build script to inject both relay URLs into the binary:
+
+```powershell
+# All on one line:
+.\scripts\build.ps1 -Release -Version "1.2.3" -CrashRelayURL "https://YOUR-PROJECT-REF.supabase.co/functions/v1/crash-relay" -FeedbackRelayURL "https://YOUR-PROJECT-REF.supabase.co/functions/v1/feedback-relay"
+
+# Or with line continuation (backtick ` at end of line, NO space after it):
+.\scripts\build.ps1 -Release -Version "1.2.3" `
+    -CrashRelayURL "https://YOUR-PROJECT-REF.supabase.co/functions/v1/crash-relay" `
+    -FeedbackRelayURL "https://YOUR-PROJECT-REF.supabase.co/functions/v1/feedback-relay"
+```
+
+Both URLs are public and safe to ship. The Discord webhooks stay server-side.
+
+For a concrete example with the current project ref:
+
+```powershell
+.\scripts\build.ps1 -Release -Version "1.2.3" -CrashRelayURL "https://cnyniyflnefxrwafuqig.supabase.co/functions/v1/crash-relay" -FeedbackRelayURL "https://cnyniyflnefxrwafuqig.supabase.co/functions/v1/feedback-relay"
+```
+
+---
+
+## Verify Everything Works
+
+### Crash reporting
+
+Expected app log:
 
 ```text
 Crash reporting: enabled (relay configured)
 ```
 
-Expected relay behavior:
+Without `-CrashRelayURL`:
 
-- accepts JSON crash payloads from the app
-- validates payload size and required fields
-- rate-limits by device/IP window
-- deduplicates repeated crashes within one hour
-- stores delivery metadata in Supabase
-- posts the final embed to Discord
+```text
+Crash reporting: enabled (local queue only, no relay)
+```
 
-## Secrets vs public values
+### Feedback
 
-Safe to ship in the app:
+The feedback feature appears:
+- In the tray menu → "Give Feedback"
+- On the About page → "Rate WhisPaste" button
+- Auto-prompt after 50 transcriptions (one-time)
 
-- Supabase Edge Function URL
+Without `-FeedbackRelayURL`, feedback shows "not configured" and is hidden.
+
+---
+
+## Secrets Reference
+
+| Secret | Required for | How to generate |
+|--------|-------------|-----------------|
+| `CRASH_DISCORD_WEBHOOK_URL` | crash-relay, crash-cleanup | Discord channel webhook URL |
+| `FEEDBACK_DISCORD_WEBHOOK_URL` | feedback-relay | Discord channel webhook URL |
+| `ADMIN_API_KEY` | crash-cleanup (fix/delete) | `openssl rand -hex 32` |
+
+**Safe to ship in the app** (public):
+- Supabase Edge Function URLs (crash-relay, feedback-relay)
 - Supabase project URL / project ref
-- Supabase publishable (anon) key, if you use it for other public client features
 
-Must stay server-side only:
-
+**Must stay server-side only** (never in code or binary):
 - `CRASH_DISCORD_WEBHOOK_URL`
+- `FEEDBACK_DISCORD_WEBHOOK_URL`
+- `ADMIN_API_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-For the crash relay itself, the desktop app does **not** need a Supabase publishable key. Only the public relay URL belongs in the client.
+---
 
-## Microsoft Store / App Review note
+## Quick Reference: Deploy All Functions
 
-This setup is much safer and more review-friendly than embedding a Discord webhook in the app because:
+After making changes, redeploy all functions at once:
 
-- no private webhook secret is shipped in the client
-- all outgoing crash reports go to a single HTTPS relay you control
-- payload validation and abuse protection happen server-side
-- privacy disclosures can accurately point to your own relay endpoint
+```powershell
+supabase functions deploy crash-relay --no-verify-jwt
+supabase functions deploy crash-cleanup --no-verify-jwt
+supabase functions deploy feedback-relay --no-verify-jwt
+```
 
-## Recommended next hardening
+---
 
-- add a short Privacy Policy section that names Supabase as the relay processor
-- add a relay health check in CI or release validation
-- add alerting on repeated `discord_failed` rows in `crash_report_events`
+## Microsoft Store / App Review Note
+
+This architecture is review-friendly:
+
+- No private webhook secrets are shipped in the client
+- All outgoing data goes to HTTPS relay endpoints you control
+- Payload validation and abuse protection happen server-side
+- Privacy disclosures can accurately point to your own relay endpoint

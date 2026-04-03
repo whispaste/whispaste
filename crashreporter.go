@@ -19,6 +19,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -49,6 +50,7 @@ type CrashReporter struct {
 	mu            sync.Mutex
 	db            *sql.DB
 	enabled       bool
+	closed        atomic.Bool
 	relayURL      string
 	deviceID      string
 	stopCh        chan struct{}
@@ -88,6 +90,7 @@ type crashReport struct {
 	HeapSysMB      int    `json:"heap_sys_mb,omitempty"`
 	NumGC          uint32 `json:"num_gc,omitempty"`
 	RecentLogs     string `json:"recent_logs,omitempty"`
+	InstallSource  string `json:"install_source,omitempty"`
 }
 
 type crashRelayPayload struct {
@@ -143,6 +146,7 @@ func CloseCrashReporter() {
 	if cr == nil {
 		return
 	}
+	cr.closed.Store(true)
 	if cr.ticker != nil {
 		cr.ticker.Stop()
 	}
@@ -230,7 +234,7 @@ func (cr *CrashReporter) initDB() error {
 
 // captureError queues an error report. Safe to call from any goroutine.
 func (cr *CrashReporter) captureError(message, errType, severity string) {
-	if cr == nil || !cr.enabled || cr.db == nil {
+	if cr == nil || cr.closed.Load() || !cr.enabled || cr.db == nil {
 		return
 	}
 
@@ -244,7 +248,7 @@ func (cr *CrashReporter) captureError(message, errType, severity string) {
 
 // capturePanic queues a panic report.
 func (cr *CrashReporter) capturePanic(recovered interface{}) {
-	if cr == nil || !cr.enabled || cr.db == nil {
+	if cr == nil || cr.closed.Load() || !cr.enabled || cr.db == nil {
 		return
 	}
 
@@ -269,7 +273,7 @@ func extractExitCode(err error) int {
 
 // captureSubprocessCrash records a subprocess crash.
 func (cr *CrashReporter) captureSubprocessCrash(process string, exitCode int, stderr string) {
-	if cr == nil || !cr.enabled || cr.db == nil {
+	if cr == nil || cr.closed.Load() || !cr.enabled || cr.db == nil {
 		return
 	}
 
@@ -334,10 +338,15 @@ func (cr *CrashReporter) newReport(typ, severity, message, stack, process string
 		HeapSysMB:      int(memStats.Sys / (1024 * 1024)),
 		NumGC:          memStats.NumGC,
 		RecentLogs:     recentLogs,
+		InstallSource:  getInstallSource(),
 	}
 }
 
 func (cr *CrashReporter) enqueue(r *crashReport) {
+	if cr.closed.Load() {
+		return
+	}
+
 	var count int
 	cr.db.QueryRow("SELECT COUNT(*) FROM crash_queue").Scan(&count)
 	if count >= maxCrashQueue {
@@ -495,6 +504,7 @@ func (cr *CrashReporter) buildEmbed(r *crashReport) map[string]interface{} {
 		{"name": "Go", "value": r.GoVersion, "inline": true},
 		{"name": "Device", "value": r.DeviceID, "inline": true},
 		{"name": "GPU", "value": r.GPU, "inline": true},
+		{"name": "Install", "value": r.InstallSource, "inline": true},
 	}
 	if r.BuildCommit != "" {
 		fields = append(fields, map[string]interface{}{
@@ -649,7 +659,6 @@ func buildCrashConfigSnapshot(cfg *Config) string {
 	profile := compactCrashValue(cfg.GetActiveProfile(), "default", 32)
 	mode := compactCrashValue(cfg.GetMode(), "push_to_talk", 24)
 	gpu := compactCrashValue(cfg.GetGPUAcceleration(), "auto", 16)
-	updateChannel := compactCrashValue(cfg.GetUpdateChannel(), "stable", 16)
 	inputDevice := compactCrashValue(cfg.GetInputDevice(), "default", 32)
 	language := compactCrashValue(cfg.GetLanguage(), "auto", 16)
 
@@ -689,7 +698,7 @@ func buildCrashConfigSnapshot(cfg *Config) string {
 	}
 
 	lines := []string{
-		fmt.Sprintf("profile=%s | mode=%s | gpu=%s | updates=%s", profile, mode, gpu, updateChannel),
+		fmt.Sprintf("profile=%s | mode=%s | gpu=%s", profile, mode, gpu),
 		fmt.Sprintf("stt=%s | provider=%s | model=%s | lang=%s", sttMode, sttProvider, sttModel, sttLanguage),
 		fmt.Sprintf("smart=%t | provider=%s | model=%s | preset=%s | target=%s",
 			smartEnabled,
@@ -811,4 +820,12 @@ func boolInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// getInstallSource returns "msix" for Store/MSIX installs, "standalone" otherwise.
+func getInstallSource() string {
+	if isStorePackage() {
+		return "msix"
+	}
+	return "standalone"
 }

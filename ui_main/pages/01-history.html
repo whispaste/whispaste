@@ -2,9 +2,9 @@
     <div class="page" id="page-history" role="tabpanel" aria-labelledby="nav-history">
       <div class="page-header history-page-header">
         <div class="history-page-header-main">
-          <div class="history-page-copy">
+          <div class="history-page-title-row">
             <h2 class="page-title" data-i18n="notebook.title">History</h2>
-            <p class="page-subtitle" data-i18n="historyDesc">Search, organize, and revisit every dictation from one place.</p>
+            <span class="dashboard-greeting-inline" id="dashboardGreeting"></span>
           </div>
           <div class="page-header-actions history-header-actions">
             <div class="search-box history-search-box">
@@ -21,9 +21,26 @@
               <span class="search-hint-label" data-i18n="historySearchTry">Try:</span>
               <button class="search-hint-chip" data-filter="today" data-i18n="searchChipToday">today</button>
             </div>
-            <button class="sidebar-expand-btn hidden" id="sidebarExpandBtn" title="Show sidebar" aria-label="Show sidebar">
-              <span class="sidebar-expand-icon">»</span>
-            </button>
+            <div class="history-toolbar">
+              <select class="group-select" id="groupSelect" title="Group entries">
+                <option value="none" data-i18n="group.none">No grouping</option>
+                <option value="date" data-i18n="group.by_date">By Date</option>
+                <option value="project" data-i18n="group.by_project">By Project</option>
+                <option value="language" data-i18n="group.by_language">By Language</option>
+              </select>
+              <div class="view-mode-toggle">
+                <button class="view-btn active" data-view="card" title="Card view" data-i18n-title="view.card" aria-label="Card view">
+                  <svg width="16" height="16" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="6" rx="1" fill="currentColor" opacity="0.7"/><rect x="1" y="9" width="14" height="6" rx="1" fill="currentColor" opacity="0.7"/></svg>
+                </button>
+                <button class="view-btn" data-view="list" title="List view" data-i18n-title="view.list" aria-label="List view">
+                  <svg width="16" height="16" viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="3" rx="0.5" fill="currentColor" opacity="0.7"/><rect x="1" y="6" width="14" height="3" rx="0.5" fill="currentColor" opacity="0.7"/><rect x="1" y="11" width="14" height="3" rx="0.5" fill="currentColor" opacity="0.7"/></svg>
+                </button>
+                <button class="view-btn" data-view="tile" title="Tile view" data-i18n-title="view.tile" aria-label="Tile view">
+                  <svg width="16" height="16" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" opacity="0.7"/><rect x="9" y="1" width="6" height="6" rx="1" fill="currentColor" opacity="0.7"/><rect x="1" y="9" width="6" height="6" rx="1" fill="currentColor" opacity="0.7"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" opacity="0.7"/></svg>
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -34,7 +51,7 @@
           <button class="btn-icon" id="selectionClose" data-i18n-title="cancel">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
-          <span id="selectionCount">0</span> <span data-i18n="notebook.selected">selected</span>
+          <span id="selectionCount">0</span><span id="selectionTotal"></span> <span data-i18n="notebook.selected">selected</span>
           <span class="selection-divider"></span>
           <a class="selection-link" href="#" onclick="event.preventDefault();selectAllVisible()" data-i18n="notebook.select_all">All</a>
           <a class="selection-link" href="#" onclick="event.preventDefault();clearSelection()" data-i18n="notebook.select_none">None</a>
@@ -156,8 +173,8 @@
                 <span class="section-chevron">▸</span>
                 <span data-i18n="notebook.tags">Tags</span>
                 <span class="section-count" id="tagsSectionCount"></span>
-                <button class="btn-icon sidebar-add-tag-header" id="sidebarAddTagHeader" title="Add tag" data-i18n-title="sidebar_add_tag" style="width:16px;height:16px;padding:0;opacity:0.5" onclick="event.stopPropagation()">
-                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                <button class="btn-icon sidebar-add-tag-header" id="sidebarAddTagHeader" title="Add tag" data-i18n-title="sidebar_add_tag" style="width:18px;height:18px;padding:0;opacity:0.5" onclick="event.stopPropagation()">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
                 </button>
               </div>
               <div class="sidebar-section-content">
@@ -167,7 +184,26 @@
           </div>
         </div>
         <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
+        <button class="sidebar-expand-btn hidden" id="sidebarExpandBtn" title="Show sidebar" aria-label="Show sidebar">
+          <span class="sidebar-expand-icon">▶</span>
+        </button>
         <div class="entries-area">
+          <div id="emptyState" class="empty-state hidden">
+            <div class="empty-state-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-mic-icon">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" x2="12" y1="19" y2="22"/>
+              </svg>
+            </div>
+            <h3 class="empty-state-title" data-i18n="emptyState.title">Your voice, your words</h3>
+            <p class="empty-state-desc" data-i18n="emptyState.desc">Press the hotkey or click the floating button to start your first dictation.</p>
+            <div class="empty-state-actions">
+              <button class="btn btn-primary" onclick="startHistoryFirstDictation()" data-i18n="notebook.empty_action_record">Start recording</button>
+              <button class="btn btn-secondary" onclick="openSmartModeFromEmptyState()" data-i18n="notebook.empty_action_smart">Smart Mode</button>
+              <button class="btn btn-secondary" onclick="openSettingsFromEmptyState()" data-i18n="notebook.empty_action_settings">Settings</button>
+            </div>
+          </div>
           <div class="entries" id="entriesList"></div>
         </div>
       </div>

@@ -93,6 +93,12 @@ async function toggleLang() {
     }
   } catch (e) {}
   applyTranslations();
+  // Update status bar labels (On/Off) for new language
+  if (typeof updateStatusBar === 'function') {
+    window._getSettings && window._getSettings().then(cfg => {
+      if (cfg) updateStatusBar(typeof cfg === 'string' ? JSON.parse(cfg) : cfg);
+    }).catch(() => {});
+  }
   // Re-render dynamic UI text that uses template variables
   if (typeof updateCloudLLMFields === 'function') updateCloudLLMFields(true);
   if (typeof renderGPUStatus === 'function') renderGPUStatus();

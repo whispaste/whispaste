@@ -159,11 +159,12 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		cfg.TextReplacementProvider = newCfg.TextReplacementProvider
 		cfg.FloatingButtonEnabled = newCfg.FloatingButtonEnabled
 		cfg.FloatingButtonColor = newCfg.FloatingButtonColor
+		cfg.FloatingButtonCustomColor = newCfg.FloatingButtonCustomColor
 		cfg.FloatingButtonSize = newCfg.FloatingButtonSize
 		cfg.FloatingButtonOpacity = newCfg.FloatingButtonOpacity
 		cfg.FloatingButtonLocked = newCfg.FloatingButtonLocked
 		cfg.FloatingButtonBorder = newCfg.FloatingButtonBorder
-		cfg.UpdateChannel = newCfg.UpdateChannel
+		cfg.FloatingButtonShape = newCfg.FloatingButtonShape
 		cfg.CloudSTTProvider = newCfg.CloudSTTProvider
 		cfg.CloudLLMProvider = newCfg.CloudLLMProvider
 		cfg.CloudLLMModel = newCfg.CloudLLMModel
@@ -317,7 +318,11 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		return map[string]interface{}{"started": true}
 	})
 
-	w.Bind("_testSound", func() { PlayFeedback(SoundSuccess) })
+	w.Bind("_testSound", func() {
+		SetSoundVolume(cfg.GetSoundVolume())
+		logDebug("Test sound: volume=%.2f", cfg.GetSoundVolume())
+		PlayFeedback(SoundSuccess)
+	})
 
 	w.Bind("testNotification", func() {
 		if t := globalTrayRef; t != nil {

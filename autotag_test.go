@@ -226,3 +226,96 @@ func TestParseGeneratedTags(t *testing.T) {
 		})
 	}
 }
+
+func TestCleanTitleResponse(t *testing.T) {
+	tests := []struct {
+		name string
+		content string
+		want string
+	}{
+		{
+			name:    "plain title",
+			content: "Weekly Project Planning Update",
+			want:    "Weekly Project Planning Update",
+		},
+		{
+			name:    "title with surrounding quotes",
+			content: `"Weekly Project Planning"`,
+			want:    "Weekly Project Planning",
+		},
+		{
+			name:    "title with single quotes",
+			content: `'Meeting Notes'`,
+			want:    "Meeting Notes",
+		},
+		{
+			name:    "title with markdown code fence",
+			content: "```\nProject Update\n```",
+			want:    "Project Update",
+		},
+		{
+			name:    "title with markdown json fence",
+			content: "```json\nProject Update\n```",
+			want:    "Project Update",
+		},
+		{
+			name:    "multiline takes first line only",
+			content: "Main Title\nSome extra explanation",
+			want:    "Main Title",
+		},
+		{
+			name:    "empty string",
+			content: "",
+			want:    "",
+		},
+		{
+			name:    "whitespace only",
+			content: "   ",
+			want:    "",
+		},
+		{
+			name:    "truncated to 100 chars",
+			content: "This is a very long title that exceeds the one hundred character limit and should be truncated by the cleaning function here",
+			want:    "This is a very long title that exceeds the one hundred character limit and should be truncated by th",
+		},
+		{
+			name:    "title with backtick quotes",
+			content: "`Quick Summary`",
+			want:    "Quick Summary",
+		},
+		{
+			name:    "title with leading/trailing whitespace",
+			content: "  Trimmed Title  ",
+			want:    "Trimmed Title",
+		},
+		{
+			name:    "title with /no_think",
+			content: "Weekly Update /no_think",
+			want:    "Weekly Update",
+		},
+		{
+			name:    "title with /no_feedback",
+			content: "Projektplanung /no_feedback",
+			want:    "Projektplanung",
+		},
+		{
+			name:    "title with multiple slashes",
+			content: "My Title /no_think /no_feedback",
+			want:    "My Title /no_think",
+		},
+		{
+			name:    "title with URL-like slash",
+			content: "Check http://example.com",
+			want:    "Check http://example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := cleanTitleResponse(tt.content)
+			if got != tt.want {
+				t.Errorf("cleanTitleResponse(%q) = %q, want %q", tt.content, got, tt.want)
+			}
+		})
+	}
+}
