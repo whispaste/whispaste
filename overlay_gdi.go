@@ -210,7 +210,10 @@ func (o *Overlay) render() {
 	maxRecordSec := o.maxRecordSec
 	smartMode := o.isSmartMode
 	transcribeStart := o.transcribeStart
-	estimatedSec := o.estimatedSec
+	audioLevel := o.audioLevel
+	pauseFadeAlpha := o.pauseFadeAlpha
+	animAlpha := o.animAlpha
+	animating := o.animating
 	if isPaused {
 		pauseAccum += time.Since(o.pauseStart)
 	}
@@ -221,9 +224,9 @@ func (o *Overlay) render() {
 
 	switch state {
 	case StateRecording, StatePaused:
-		o.paintRecordingULW(g, frame, startTime, pauseAccum, isPaused, levels, levelIdx, contentX, hoverBtn, pressBtn, maxRecordSec)
+		o.paintRecordingULW(g, frame, startTime, pauseAccum, isPaused, levels, levelIdx, contentX, hoverBtn, pressBtn, maxRecordSec, audioLevel, pauseFadeAlpha)
 	case StateTranscribing, StateProcessing:
-		o.paintTranscribingULW(g, frame, contentX, hoverBtn, pressBtn, smartMode, transcribeStart, estimatedSec)
+		o.paintTranscribingULW(g, frame, contentX, hoverBtn, pressBtn, smartMode, transcribeStart)
 	case StateError:
 		o.paintErrorULW(g, contentX, hoverBtn, pressBtn)
 	case StateCopied:
@@ -231,9 +234,13 @@ func (o *Overlay) render() {
 	}
 
 	// Call UpdateLayeredWindow
+	alpha := byte(255)
+	if animating {
+		alpha = animAlpha
+	}
 	blend := blendFunction{
 		BlendOp:             0, // AC_SRC_OVER
-		SourceConstantAlpha: 255,
+		SourceConstantAlpha: alpha,
 		AlphaFormat:         1, // AC_SRC_ALPHA
 	}
 	ptSrc := pointT{0, 0}
@@ -364,7 +371,7 @@ func (o *Overlay) measureGdipTextWidth(g uintptr, text string, font uintptr) flo
 	return bbox.Width
 }
 
-func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pauseAccum time.Duration, isPaused bool, levels [_WAVE_BARS]float32, levelIdx int, contentX int32, hoverBtn, pressBtn int, maxRecordSec int) {
+func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pauseAccum time.Duration, isPaused bool, levels [_WAVE_BARS]float32, levelIdx int, contentX int32, hoverBtn, pressBtn int, maxRecordSec int, audioLevel float32, pauseFadeAlpha float32) {
 	cy := int32(_OVL_HEIGHT / 2)
 
 	// Dashboard button (dark circle with grid icon) — far left
@@ -410,8 +417,55 @@ func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pause
 	}
 	o.drawGdipText(g, timer, timerX, float32(cy)-10, 60, o.gdipFontMain, timerColor)
 
-	// Scrolling waveform bars — centered between timer and pause button
-	waveStart := int32(timerX + 56)
+	// Mic icon that pulses with audio level
+	vuX := int32(timerX) + 62
+	const vuIconW = 12
+	micAlpha := uint32(0x40) // dim when silent
+	if audioLevel > 0.02 {
+		// sqrt amplifies low levels (typical speech 0.01-0.15) for visible pulsing
+		boosted := float32(math.Sqrt(float64(audioLevel)))
+		micAlpha = uint32(0x40 + float32(0xBF)*boosted)
+		if micAlpha > 0xFF {
+			micAlpha = 0xFF
+		}
+	}
+	micColor := (micAlpha << 24) | 0x00E5FF // cyan with varying alpha
+
+	var micPen uintptr
+	procGdipCreatePen1.Call(uintptr(micColor), f32(1.5), 2, uintptr(unsafe.Pointer(&micPen)))
+	if micPen != 0 {
+		procGdipSetPenLineCap197819.Call(micPen, 2, 2, 0) // round caps
+		procGdipSetPenLineJoin.Call(micPen, 2)
+
+		// Mic capsule (6px wide, 8px tall)
+		mx := float32(vuX)
+		my := float32(cy) - 8
+		var capsule uintptr
+		procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&capsule)))
+		if capsule != 0 {
+			procGdipAddPathArc.Call(capsule, f32(mx), f32(my), f32(6), f32(6), f32(180), f32(180))
+			procGdipAddPathLine.Call(capsule, uintptr(int32(mx+6)), uintptr(int32(my+3)), uintptr(int32(mx+6)), uintptr(int32(my+6)))
+			procGdipAddPathArc.Call(capsule, f32(mx), f32(my+3), f32(6), f32(6), f32(0), f32(180))
+			procGdipClosePathFigure.Call(capsule)
+			procGdipDrawPath.Call(g, micPen, capsule)
+			procGdipDeletePath.Call(capsule)
+		}
+		// U-arc below capsule
+		var uarc uintptr
+		procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&uarc)))
+		if uarc != 0 {
+			procGdipAddPathArc.Call(uarc, f32(mx-2), f32(my+1), f32(10), f32(10), f32(0), f32(180))
+			procGdipDrawPath.Call(g, micPen, uarc)
+			procGdipDeletePath.Call(uarc)
+		}
+		// Stem
+		procGdipDrawLine.Call(g, micPen, f32(mx+3), f32(my+11), f32(mx+3), f32(my+14))
+
+		procGdipDeletePen.Call(micPen)
+	}
+
+	// Scrolling waveform bars — centered between mic icon and pause button
+	waveStart := vuX + int32(vuIconW) + 8
 	waveEnd := int32(_BTN_PAUSE_X - 12)
 	waveTotal := int32(_WAVE_BARS) * (_WAVE_BAR_W + _WAVE_GAP)
 	waveX := waveStart + (waveEnd-waveStart-waveTotal)/2
@@ -436,10 +490,13 @@ func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pause
 		x := waveX + int32(i)*(_WAVE_BAR_W+_WAVE_GAP)
 		y1 := cy - h/2
 		y2 := cy + h/2
+		// Apply pause fade to waveform bar alpha
 		if h > 6 {
-			gdipFillRoundedBar(g, 0xE022D3EE, x, y1, _WAVE_BAR_W, y2-y1)
+			a := byte(float32(0xE0) * pauseFadeAlpha)
+			gdipFillRoundedBar(g, uint32(a)<<24|0x0022D3EE, x, y1, _WAVE_BAR_W, y2-y1)
 		} else {
-			gdipFillRoundedBar(g, 0x80226688, x, y1, _WAVE_BAR_W, y2-y1)
+			a := byte(float32(0x80) * pauseFadeAlpha)
+			gdipFillRoundedBar(g, uint32(a)<<24|0x00226688, x, y1, _WAVE_BAR_W, y2-y1)
 		}
 	}
 
@@ -455,6 +512,66 @@ func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pause
 	gdipFillCircleG(g, btnColor(0xFFE53935, 4, hoverBtn, pressBtn), _BTN_CONFIRM_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 	o.drawStopIcon(g, _BTN_CONFIRM_X, int32(cy)-_BTN_SIZE/2)
 
+	// Progress bar at bottom of pill (only if max duration set)
+	if maxRecordSec > 0 {
+		elapsed := time.Since(start) - pauseAccum
+		if elapsed < 0 {
+			elapsed = 0
+		}
+		ratio := float64(elapsed) / float64(time.Duration(maxRecordSec)*time.Second)
+		if ratio > 1.0 {
+			ratio = 1.0
+		}
+		o.drawProgressBar(g, ratio)
+	}
+}
+
+// drawProgressBar renders a thin progress bar along the bottom of the pill.
+// ratio is 0.0–1.0. Color transitions: cyan → orange at 75% → red at 90%.
+func (o *Overlay) drawProgressBar(g uintptr, ratio float64) {
+	const barH = 4
+	x := float32(1)
+	y := float32(_OVL_HEIGHT - 2 - barH)
+	w := float32(_OVL_WIDTH - 2)
+	r := float32(_OVL_RADIUS)
+	d := r * 2
+
+	// Create pill clip path to constrain the bar inside the rounded shape
+	var clipPath uintptr
+	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&clipPath)))
+	if clipPath == 0 {
+		return
+	}
+	defer procGdipDeletePath.Call(clipPath)
+
+	h := float32(_OVL_HEIGHT - 2)
+	procGdipAddPathArc.Call(clipPath, f32(x), f32(float32(1)), f32(d), f32(d), f32(180), f32(90))
+	procGdipAddPathArc.Call(clipPath, f32(x+w-d), f32(float32(1)), f32(d), f32(d), f32(270), f32(90))
+	procGdipAddPathArc.Call(clipPath, f32(x+w-d), f32(float32(1)+h-d), f32(d), f32(d), f32(0), f32(90))
+	procGdipAddPathArc.Call(clipPath, f32(x), f32(float32(1)+h-d), f32(d), f32(d), f32(90), f32(90))
+	procGdipClosePathFigure.Call(clipPath)
+
+	// Save graphics state, set clip, draw bar, restore
+	var savedState uint32
+	procGdipSaveGraphics.Call(g, uintptr(unsafe.Pointer(&savedState)))
+	procGdipSetClipPathCombine.Call(g, clipPath, 0) // CombineModeReplace=0
+
+	// Choose color based on progress ratio
+	barColor := uint32(0xCC22D3EE) // cyan (accent)
+	switch {
+	case ratio >= 0.90:
+		barColor = 0xCCEF4444 // red
+	case ratio >= 0.75:
+		barColor = 0xCCF97316 // orange
+	}
+
+	barW := int32(float64(w) * ratio)
+	if barW < 1 && ratio > 0 {
+		barW = 1
+	}
+	gdipFillRectG(g, barColor, int32(x), int32(y), barW, barH)
+
+	procGdipRestoreGraphics.Call(g, uintptr(savedState))
 }
 
 // drawXIcon draws an ✕ icon using GDI+ lines with round caps.
@@ -529,7 +646,7 @@ func (o *Overlay) drawPlayIcon(g uintptr, bx, by int32) {
 	}
 }
 
-func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hoverBtn, pressBtn int, smartMode bool, transcribeStart time.Time, estimatedSec float64) {
+func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hoverBtn, pressBtn int, smartMode bool, transcribeStart time.Time) {
 	cy := int32(_OVL_HEIGHT / 2)
 
 	// Dashboard button (dark circle with grid icon) — consistent with recording state

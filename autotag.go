@@ -38,7 +38,7 @@ func getAutoTagClient() *http.Client {
 // It first tries to match from existing tags (history + custom). If no existing
 // tags are available or none match, it asks the LLM to generate new tags from
 // the content — solving the cold-start problem for new users.
-func AutoTagEntry(history *History, entryID, text string, customTags []string) {
+func AutoTagEntry(history *History, entryID, text string, customTags []string, uiLang string) {
 	if history == nil || entryID == "" || text == "" {
 		return
 	}
@@ -109,6 +109,14 @@ func AutoTagEntry(history *History, entryID, text string, customTags []string) {
 	if history.UpdateEntry(entryID, "", finalTags) {
 		logInfo("AutoTag: assigned %d tags to entry %s: %v", len(finalTags), entryID, finalTags)
 		NotifyHistoryChanged()
+	}
+
+	// Generate an AI title after tagging
+	if title := generateTitle(endpoint, text, uiLang); title != "" {
+		if history.UpdateEntry(entryID, title, finalTags) {
+			logInfo("AutoTag: generated title for entry %s: %q", entryID, title)
+			NotifyHistoryChanged()
+		}
 	}
 }
 
@@ -281,7 +289,10 @@ Rules:
 
 Example:
 Text: "We need to order new office supplies and schedule a team lunch for Friday"
-Answer: ["Office", "Planning"] /no_think`
+Answer: ["Office", "Planning"]`
+
+	// Suppress thinking mode for local models
+	systemPrompt += " /no_think"
 
 	classifyText := text
 	if len(classifyText) > 2000 {
@@ -426,4 +437,165 @@ func toTitleCase(s string) string {
 	runes := []rune(strings.ToLower(s))
 	runes[0] = unicode.ToUpper(runes[0])
 	return string(runes)
+}
+
+// generateTitle asks the local LLM to create a short descriptive title for the text.
+// Returns an empty string if generation fails or produces no usable result.
+func generateTitle(llmEndpoint, text, lang string) string {
+	title, err := queryLLMForTitle(llmEndpoint, text, lang)
+	if err != nil {
+		logWarn("AutoTag: title generation failed: %v", err)
+		return ""
+	}
+	return title
+}
+
+// queryLLMForTitle sends text to the local LLM and asks for a short descriptive title.
+func queryLLMForTitle(llmEndpoint, text, lang string) (string, error) {
+	chatURL := llmEndpoint + "/chat/completions"
+
+	// Truncate input to save tokens
+	input := text
+	if len([]rune(input)) > 500 {
+		input = string([]rune(input)[:500])
+	}
+
+	// Resolve language name for the prompt
+	langName := "English"
+	switch strings.ToLower(lang) {
+	case "de":
+		langName = "German"
+	case "en":
+		langName = "English"
+	}
+
+	systemPrompt := fmt.Sprintf(`You generate descriptive titles for voice recordings. Rules:
+1. LANGUAGE: You MUST write the title in %s. This is mandatory — no exceptions.
+2. LENGTH: 5-10 words, descriptive and specific to the content.
+3. OUTPUT: Return ONLY the title text. No quotes, no labels, no explanation, no commands.
+
+German title examples:
+Text: "Wir haben den Projektzeitplan besprochen und Aufgaben für nächste Woche verteilt"
+Projektplanung und Aufgabenverteilung für nächste Woche
+
+Text: "Das Dashboard sieht optisch nicht gut aus, die Titel sind zu kurz"
+Feedback zum Dashboard-Design und Titeldarstellung
+
+English title examples:
+Text: "We discussed the project timeline and assigned tasks for next week"
+Weekly Project Planning and Task Assignment
+
+Text: "The overlay has a green blinking bar that looks confusing"
+Overlay Visual Feedback and Green Bar Issue`, langName)
+
+	// Suppress thinking mode for local models
+	systemPrompt += " /no_think"
+
+	tagProfile := inference.AutoTagProfile()
+	reqBody := map[string]interface{}{
+		"model": "local",
+		"messages": []map[string]string{
+			{"role": "system", "content": systemPrompt},
+			{"role": "user", "content": "Text: " + input},
+		},
+		"temperature": tagProfile.Temperature,
+		"max_tokens":  tagProfile.MaxTokens,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("marshal request: %w", err)
+	}
+
+	client := getAutoTagClient()
+	req, err := http.NewRequest("POST", chatURL, bytes.NewReader(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer local")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("LLM request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("LLM returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("parse response: %w", err)
+	}
+	if len(result.Choices) == 0 {
+		return "", fmt.Errorf("empty response from LLM")
+	}
+
+	content := stripThinkBlocks(result.Choices[0].Message.Content)
+	return cleanTitleResponse(content), nil
+}
+
+// cleanTitleResponse sanitizes the LLM title output.
+func cleanTitleResponse(content string) string {
+	content = strings.TrimSpace(content)
+
+	// Strip slash commands like /no_think, /no_feedback that models may echo
+	slashIdx := strings.LastIndex(content, " /")
+	if slashIdx > 0 {
+		after := content[slashIdx+2:]
+		// Only strip if it looks like a command (single word, letters/underscore only)
+		isCmd := true
+		for _, r := range after {
+			if r != '_' && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
+				isCmd = false
+				break
+			}
+		}
+		if isCmd && len(after) > 0 {
+			content = strings.TrimSpace(content[:slashIdx])
+		}
+	}
+
+	// Strip markdown code fences
+	if idx := strings.LastIndex(content, "```"); idx > 0 {
+		before := content[:idx]
+		if open := strings.LastIndex(before, "```"); open >= 0 {
+			inner := before[open+3:]
+			if nl := strings.IndexByte(inner, '\n'); nl >= 0 {
+				inner = inner[nl+1:]
+			} else {
+				inner = strings.TrimSpace(inner)
+			}
+			content = strings.TrimSpace(inner)
+		}
+	}
+
+	// Remove surrounding quotes
+	content = strings.Trim(content, "\"'`")
+	content = strings.TrimSpace(content)
+
+	// Take only the first line
+	if nl := strings.IndexByte(content, '\n'); nl >= 0 {
+		content = strings.TrimSpace(content[:nl])
+	}
+
+	// Enforce max length
+	if len([]rune(content)) > 100 {
+		content = string([]rune(content)[:100])
+	}
+
+	return content
 }

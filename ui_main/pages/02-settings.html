@@ -60,6 +60,18 @@
                 </div>
               </div>
             </div>
+            <div class="form-group" id="autoPasteDelayGroup">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" data-i18n="labelAutoPasteDelay">Auto-Paste Delay</label>
+                  <div class="toggle-desc" data-i18n="descAutoPasteDelay">Wait before pasting to give the target app time to accept input</div>
+                </div>
+                <div class="duration-slider-group">
+                  <span class="duration-value" id="auto-paste-delay-value">0 ms</span>
+                  <input type="range" id="range-auto-paste-delay" min="0" max="2000" value="0" step="100" class="duration-slider" oninput="updateAutoPasteDelayLabel(this.value)">
+                </div>
+              </div>
+            </div>
             <div class="form-group">
               <div class="toggle-row">
                 <div class="toggle-info">
@@ -71,14 +83,6 @@
                   <label class="toggle-track" for="toggle-updates"></label>
                 </div>
               </div>
-            </div>
-            <div class="form-group" id="update-channel-group" style="display:none">
-              <label class="form-label" for="select-update-channel" data-i18n="labelUpdateChannel">Update channel</label>
-              <p class="toggle-desc" data-i18n="descUpdateChannel" style="margin-bottom:6px">Choose which versions you receive</p>
-              <select class="form-select" id="select-update-channel">
-                <option value="stable" data-i18n-opt="updateChannelStable">Stable</option>
-                <option value="beta" data-i18n-opt="updateChannelBeta">Beta</option>
-              </select>
             </div>
             <div class="form-group">
               <div class="toggle-row">
@@ -116,6 +120,9 @@
                 </div>
               </div>
               <div class="fab-color-row" id="fab-color-row">
+                <details class="settings-advanced">
+                  <summary data-i18n="settings.advanced">Advanced Settings</summary>
+                  <div class="settings-advanced-content">
                 <span class="fab-color-label" data-i18n="labelFloatingColor">Button Color</span>
                 <div class="fab-color-grid">
                   <button type="button" class="fab-color-option selected" data-color="cyan" title="Cyan">
@@ -141,6 +148,29 @@
                   </button>
                   <button type="button" class="fab-color-option" data-color="slate" title="Slate">
                     <span class="fab-color-swatch" style="background:linear-gradient(135deg,#94A3B8,#475569)"></span>
+                  </button>
+                  <label class="fab-color-option custom-color" data-color="custom" title="Custom">
+                    <input type="color" class="fab-custom-color-input" value="#22D3EE">
+                    <div class="fab-custom-swatch">✦</div>
+                  </label>
+                </div>
+              <div class="fab-size-row" id="fab-shape-row">
+                <span class="fab-size-label" data-i18n="labelFloatingShape">Button Shape</span>
+                <div class="fab-shape-grid">
+                  <button type="button" class="fab-shape-option selected" data-shape="circle" data-i18n-title="shapeCircle" title="Circle">
+                    <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                  </button>
+                  <button type="button" class="fab-shape-option" data-shape="squircle" data-i18n-title="shapeSquircle" title="Squircle">
+                    <svg width="24" height="24" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                  </button>
+                  <button type="button" class="fab-shape-option" data-shape="rounded" data-i18n-title="shapeRounded" title="Rounded Square">
+                    <svg width="24" height="24" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                  </button>
+                  <button type="button" class="fab-shape-option" data-shape="hexagon" data-i18n-title="shapeHexagon" title="Hexagon">
+                    <svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 22,7 22,17 12,22 2,17 2,7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                  </button>
+                  <button type="button" class="fab-shape-option" data-shape="diamond" data-i18n-title="shapeDiamond" title="Diamond">
+                    <svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 22,12 12,22 2,12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
                   </button>
                 </div>
               </div>
@@ -176,6 +206,8 @@
                   </div>
                 </div>
               </div>
+                  </div>
+                </details>
             </div>
             <div class="form-group">
               <div class="toggle-row">
@@ -375,7 +407,7 @@
               <label class="form-label" data-i18n="labelInputGain">Microphone boost</label>
               <p class="form-hint" style="margin-bottom:8px" data-i18n="descInputGain">Makes quiet recordings a little louder after recording (1.0 = unchanged)</p>
               <div class="range-row">
-                <input type="range" id="range-input-gain" min="50" max="200" value="100" step="10" class="volume-slider" oninput="document.getElementById('input-gain-value').textContent = (this.value/100).toFixed(1) + 'x'">
+                <input type="range" id="range-input-gain" min="50" max="300" value="100" step="10" class="volume-slider" oninput="document.getElementById('input-gain-value').textContent = (this.value/100).toFixed(1) + 'x'">
                 <span class="volume-value" id="input-gain-value">1.0x</span>
               </div>
               <p class="form-hint" style="margin-top:8px" data-i18n="audioBoostNote">This does not change the Windows microphone volume.</p>
@@ -695,6 +727,9 @@
               </div>
               <p class="form-hint cleanup-auto-hint" id="cleanup-hint" data-i18n="cleanupHint">Cleanup runs automatically after each new transcription.</p>
             </div>
+            <details class="settings-advanced">
+              <summary data-i18n="settings.advanced">Advanced Settings</summary>
+              <div class="settings-advanced-content">
             <div class="form-group" id="cleanupMaxEntriesRow">
               <label class="form-label" data-i18n="labelCleanupMaxEntries">Maximum entries</label>
               <p class="form-hint" data-i18n="descCleanupMaxEntries">Keep at most this many entries (0 = unlimited)</p>
@@ -729,6 +764,8 @@
                 </div>
               </div>
             </div>
+              </div>
+            </details>
             <div class="form-group" id="cleanupNowRow">
               <button class="btn btn-secondary" id="btn-cleanup-now" disabled>
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
