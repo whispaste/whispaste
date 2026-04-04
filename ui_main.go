@@ -319,7 +319,7 @@ func ShowMainWindow(cfg *Config, recorder *Recorder, history *History, usageStat
 
 		// Register domain-specific bindings
 		bindSettingsHandlers(w, cfg, recorder, onSaved)
-		bindHistoryHandlers(w, cfg, history, usageStats, onCapture)
+		bindHistoryHandlers(w, cfg, history, usageStats, recorder, onCapture)
 		bindSmartHandlers(w, cfg, history)
 		bindUIHandlers(w, cfg, recorder, history, usageStats)
 		w.SetHtml(mainWindowHTML)

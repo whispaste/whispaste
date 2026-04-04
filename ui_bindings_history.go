@@ -5,17 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/whispaste/whispaste/internal/audiocache"
 	"github.com/whispaste/whispaste/internal/export"
 	"github.com/whispaste/whispaste/internal/stats"
+	"github.com/whispaste/whispaste/internal/wav"
 
 	webview "github.com/webview/webview_go"
 )
 
 // bindHistoryHandlers registers history, entry CRUD, tag, project, export, and analytics JS bindings.
-func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usageStats *stats.UsageStats, onCapture func()) {
+func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usageStats *stats.UsageStats, recorder *Recorder, onCapture func()) {
 
 	w.Bind("getEntries", func() (string, error) {
 		entries := history.All()
@@ -546,6 +548,122 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 
 	w.Bind("getAttachmentCount", func(entryID string) int {
 		return history.AttachmentCount(entryID)
+	})
+
+	// --- Voice note recording ---
+	var vnMu sync.Mutex
+	var vnEntryID string
+	var vnRecording bool
+
+	w.Bind("startVoiceNote", func(entryID string) map[string]interface{} {
+		vnMu.Lock()
+		defer vnMu.Unlock()
+
+		if vnRecording {
+			return map[string]interface{}{"ok": false, "error": T("voice_note.already_recording")}
+		}
+		if recorder == nil {
+			return map[string]interface{}{"ok": false, "error": "No recorder available"}
+		}
+		if recorder.IsRecording() {
+			return map[string]interface{}{"ok": false, "error": T("voice_note.main_recording_active")}
+		}
+
+		if err := recorder.Start(); err != nil {
+			return map[string]interface{}{"ok": false, "error": fmt.Sprintf("Recorder start: %v", err)}
+		}
+		vnEntryID = entryID
+		vnRecording = true
+		return map[string]interface{}{"ok": true}
+	})
+
+	w.Bind("stopVoiceNote", func() map[string]interface{} {
+		vnMu.Lock()
+		if !vnRecording {
+			vnMu.Unlock()
+			return map[string]interface{}{"ok": false, "error": "Not recording"}
+		}
+		entryID := vnEntryID
+		vnRecording = false
+		vnEntryID = ""
+		vnMu.Unlock()
+
+		pcm, err := recorder.Stop()
+		if err != nil {
+			return map[string]interface{}{"ok": false, "error": fmt.Sprintf("Recorder stop: %v", err)}
+		}
+		if len(pcm) == 0 {
+			return map[string]interface{}{"ok": false, "error": T("voice_note.no_audio")}
+		}
+
+		pcm = TrimSilence(pcm, 0.02, 250)
+		wavData := wav.Encode(pcm, 16000, 1, 16)
+
+		// Save WAV as attachment
+		att, err := history.AddAttachmentFromBytes(entryID, wavData, "voice-note.wav", "audio/wav")
+		if err != nil {
+			logWarn("Voice note attachment save: %v", err)
+		}
+
+		// Transcribe async
+		go func() {
+			safeEval := func(js string) {
+				mainWindowMu.Lock()
+				open := mainWindowOpen
+				mainWindowMu.Unlock()
+				if open {
+					w.Dispatch(func() { w.Eval(js) })
+				}
+			}
+
+			apiKey := cfg.GetAPIKey()
+			endpoint := cfg.GetAPIEndpoint()
+			lang := cfg.GetTranscriptionLanguage()
+			useLocal := cfg.GetActiveModelLocal()
+
+			cfg.mu.RLock()
+			model := cfg.Model
+			cfg.mu.RUnlock()
+
+			var text string
+			var txErr error
+			if useLocal {
+				localLang := cfg.GetEffectiveLocalTranscriptionLanguage()
+				text, txErr = TranscribeLocal(pcm, 16000, localLang, cfg.GetLocalModelID())
+			} else {
+				if apiKey != "" {
+					text, txErr = Transcribe(context.Background(), wavData, lang, apiKey, model, endpoint, "")
+				} else {
+					txErr = fmt.Errorf("no API key configured")
+				}
+			}
+
+			noteContent := "[voice]"
+			if txErr == nil && strings.TrimSpace(text) != "" {
+				text = cfg.ApplyTextReplacements(text)
+				noteContent = "[voice] " + strings.TrimSpace(text)
+			} else if txErr != nil {
+				logWarn("Voice note transcription: %v", txErr)
+			}
+
+			_, addErr := history.AddNote(entryID, noteContent)
+			if addErr != nil {
+				logWarn("Voice note add note: %v", addErr)
+				safeEval(`onVoiceNoteResult(` + jsStr(entryID) + `, false, ` + jsStr(addErr.Error()) + `)`)
+				return
+			}
+
+			_ = att // attachment already saved
+			safeEval(`onVoiceNoteResult(` + jsStr(entryID) + `, true, "")`)
+		}()
+
+		return map[string]interface{}{"ok": true, "async": true}
+	})
+
+	w.Bind("isVoiceNoteRecording", func() bool {
+		vnMu.Lock()
+		defer vnMu.Unlock()
+		return vnRecording
 	})
 }
 

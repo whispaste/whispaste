@@ -175,6 +175,13 @@ func (r *Recorder) GetLevel() float32 {
 	return r.level
 }
 
+// IsRecording returns whether the recorder is actively capturing audio.
+func (r *Recorder) IsRecording() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.recording
+}
+
 type AudioMonitorSnapshot struct {
 	Level   float32 `json:"level"`
 	Peak    float32 `json:"peak"`

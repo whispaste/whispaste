@@ -116,7 +116,56 @@ func (h *History) AddAttachment(entryID, srcPath string) (EntryAttachment, error
 	return att, nil
 }
 
-// DeleteAttachment removes an attachment record and its file.
+// AddAttachmentFromBytes saves raw bytes as an attachment file and records it in the database.
+func (h *History) AddAttachmentFromBytes(entryID string, data []byte, filename, mimeType string) (EntryAttachment, error) {
+	if h.db == nil {
+		return EntryAttachment{}, errNoDatabase
+	}
+
+	aDir, err := attachmentsDir()
+	if err != nil {
+		return EntryAttachment{}, fmt.Errorf("AddAttachmentFromBytes dir: %w", err)
+	}
+
+	entryDir := filepath.Join(aDir, entryID)
+	if err := os.MkdirAll(entryDir, 0700); err != nil {
+		return EntryAttachment{}, fmt.Errorf("AddAttachmentFromBytes mkdir: %w", err)
+	}
+
+	id := generateID()
+	ext := filepath.Ext(filename)
+	storedName := id + ext
+	destPath := filepath.Join(entryDir, storedName)
+
+	if err := os.WriteFile(destPath, data, 0600); err != nil {
+		return EntryAttachment{}, fmt.Errorf("AddAttachmentFromBytes write: %w", err)
+	}
+
+	if mimeType == "" {
+		mimeType = mime.TypeByExtension(ext)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	att := EntryAttachment{
+		ID:        id,
+		EntryID:   entryID,
+		Filename:  filename,
+		Filepath:  destPath,
+		MimeType:  mimeType,
+		SizeBytes: int64(len(data)),
+		CreatedAt: now,
+	}
+
+	_, err = h.db.Exec(
+		`INSERT INTO entry_attachments (id, entry_id, filename, filepath, mime_type, size_bytes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		att.ID, att.EntryID, att.Filename, att.Filepath, att.MimeType, att.SizeBytes, att.CreatedAt,
+	)
+	if err != nil {
+		os.Remove(destPath)
+		return EntryAttachment{}, fmt.Errorf("AddAttachmentFromBytes insert: %w", err)
+	}
+	return att, nil
+}
 func (h *History) DeleteAttachment(attachmentID string) error {
 	if h.db == nil {
 		return errNoDatabase
