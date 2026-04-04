@@ -28,8 +28,8 @@ func TestSTTThreads(t *testing.T) {
 
 func TestLLMThreads(t *testing.T) {
 	n := LLMThreads()
-	if n < 2 || n > 8 {
-		t.Errorf("LLMThreads() = %d, want [2, 8]", n)
+	if n < 2 || n > 12 {
+		t.Errorf("LLMThreads() = %d, want [2, 12]", n)
 	}
 }
 

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -142,5 +144,59 @@ func TestMatchLLMAsset_CPUKeySelectsCPU(t *testing.T) {
 	}
 	if got != "https://example.com/cpu.zip" {
 		t.Errorf("got %q, want cpu URL when explicitly requesting CPU", got)
+	}
+}
+
+func TestLLMServerAssetMarkers(t *testing.T) {
+	dir := t.TempDir()
+	if got := llmServerAssetKey(dir); got != "" {
+		t.Fatalf("llmServerAssetKey(empty) = %q, want empty", got)
+	}
+	if got := llmServerRequestedKey(dir); got != "" {
+		t.Fatalf("llmServerRequestedKey(empty) = %q, want empty", got)
+	}
+
+	writeLLMServerAssetKey(dir, "win-vulkan-x64")
+	writeLLMServerRequestedKey(dir, "win-cuda")
+
+	if got := llmServerAssetKey(dir); got != "win-vulkan-x64" {
+		t.Fatalf("llmServerAssetKey() = %q, want %q", got, "win-vulkan-x64")
+	}
+	if got := llmServerRequestedKey(dir); got != "win-cuda" {
+		t.Fatalf("llmServerRequestedKey() = %q, want %q", got, "win-cuda")
+	}
+}
+
+func TestLLMServerNeedsRefresh(t *testing.T) {
+	appData := t.TempDir()
+	t.Setenv("APPDATA", appData)
+	dir := filepath.Join(appData, AppName, "models", "llm")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatalf("mkdir llm dir: %v", err)
+	}
+
+	serverPath := filepath.Join(dir, "llama-server.exe")
+	if err := os.WriteFile(serverPath, []byte("stub"), 0600); err != nil {
+		t.Fatalf("write server: %v", err)
+	}
+
+	// No markers → needs refresh
+	if !llmServerNeedsRefresh(dir, "disabled") {
+		t.Fatal("missing markers should trigger refresh")
+	}
+
+	// Write matching markers
+	wantKey := llmAssetKey("disabled")
+	writeLLMServerAssetKey(dir, wantKey)
+	writeLLMServerRequestedKey(dir, wantKey)
+
+	if llmServerNeedsRefresh(dir, "disabled") {
+		t.Fatal("matching markers should not trigger refresh")
+	}
+
+	// Change GPU mode → mismatched requested key → needs refresh
+	writeLLMServerRequestedKey(dir, "win-cuda")
+	if !llmServerNeedsRefresh(dir, "disabled") {
+		t.Fatal("mismatched requested key should trigger refresh")
 	}
 }
