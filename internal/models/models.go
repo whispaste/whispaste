@@ -101,14 +101,34 @@ var Available = []Info{
 		RecRAMBytes: 16 * _GB,
 		Quality:     5,
 	},
+	{
+		ID:          "whisper-large-v3",
+		Name:        "Whisper Large v3",
+		Size:        "1.0GB",
+		SizeBytes:   1_081_140_203,
+		URL:         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin",
+		Filename:    "ggml-large-v3-q5_0.bin",
+		SHA256:      "d75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1",
+		MinRAMBytes: 12 * _GB,
+		RecRAMBytes: 16 * _GB,
+		Quality:     5,
+	},
 }
 
 // Recommend returns the best model ID for the given RAM in bytes.
+// Picks the model with the highest Quality that fits within RAM,
+// preferring a smaller download when two models share the same Quality.
 func Recommend(ramBytes uint64) string {
 	best := "whisper-base"
+	bestQ := 0
+	bestSize := int64(0)
 	for _, m := range Available {
 		if ramBytes >= m.RecRAMBytes {
-			best = m.ID
+			if m.Quality > bestQ || (m.Quality == bestQ && m.SizeBytes < bestSize) {
+				best = m.ID
+				bestQ = m.Quality
+				bestSize = m.SizeBytes
+			}
 		}
 	}
 	return best

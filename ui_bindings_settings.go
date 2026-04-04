@@ -186,6 +186,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		cfg.NotifyDonate = newCfg.NotifyDonate
 		cfg.AutoTagEnabled = newCfg.AutoTagEnabled
 		cfg.AutoTitleEnabled = newCfg.AutoTitleEnabled
+		cfg.StreamingPreview = newCfg.StreamingPreview
 		cfg.mu.Unlock()
 		if err := SetAutostart(newCfg.Autostart); err != nil {
 			logWarn("Failed to set autostart: %v", err)
