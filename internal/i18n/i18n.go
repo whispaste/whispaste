@@ -689,20 +689,6 @@ var translations = map[string]map[string]string{
 		"model.desc.whisper-large-v3":       "Highest accuracy, slower — best quality for critical work",
 		"model.desc.whisper-large-v3-turbo": "Near-best accuracy with faster speed — optimal balance",
 
-		// Streaming transcription
-		"settings.streaming_preview":          "Live Preview",
-		"settings.streaming_preview_hint":     "Show real-time transcription while recording (local STT only)",
-		"streaming.draft":                     "Draft…",
-		"labelStreamingPreview":               "Live Transcription Preview",
-		"descStreamingPreview":                "Show a real-time draft of your transcription while recording (local STT only)",
-		"cardStreamingPreview":                "Live Preview",
-		"streamingPreviewModelTitle":          "Download preview model?",
-		"streamingPreviewModelMessage":        "For a fast live preview, WhisPaste uses {model} ({size}) only for the on-screen draft. Your final transcription still uses your selected main model.",
-		"streamingPreviewModelDownload":       "Download preview model",
-		"streamingPreviewModelPreparing":      "Downloading preview model…",
-		"streamingPreviewModelReady":          "Live preview is ready.",
-		"streaming_preview.model_missing":     "Live preview is enabled but the required model is not downloaded. Open Settings → Transcription to download it, or disable Live Preview.",
-
 		// Mic retry
 		"error.mic_retrying": "Microphone not ready, retrying…",
 
@@ -1570,20 +1556,6 @@ var translations = map[string]map[string]string{
 		"model.desc.whisper-medium":         "Hohe Genauigkeit, mittlere Geschwindigkeit — ideal für wichtige Inhalte",
 		"model.desc.whisper-large-v3":       "Höchste Genauigkeit, langsamer — beste Qualität für wichtige Aufgaben",
 		"model.desc.whisper-large-v3-turbo": "Nahezu beste Genauigkeit bei höherer Geschwindigkeit — optimale Balance",
-
-		// Streaming transcription
-		"settings.streaming_preview":          "Live-Vorschau",
-		"settings.streaming_preview_hint":     "Echtzeit-Transkription während der Aufnahme anzeigen (nur lokale STT)",
-		"streaming.draft":                     "Entwurf…",
-		"labelStreamingPreview":               "Live-Transkriptionsvorschau",
-		"descStreamingPreview":                "Zeige einen Echtzeit-Entwurf deiner Transkription während der Aufnahme (nur lokale STT)",
-		"cardStreamingPreview":                "Live-Vorschau",
-		"streamingPreviewModelTitle":          "Vorschau-Modell herunterladen?",
-		"streamingPreviewModelMessage":        "Für eine schnelle Live-Vorschau nutzt WhisPaste {model} ({size}) nur für den Bildschirm-Entwurf. Deine finale Transkription verwendet weiterhin dein ausgewähltes Hauptmodell.",
-		"streamingPreviewModelDownload":       "Vorschau-Modell herunterladen",
-		"streamingPreviewModelPreparing":      "Vorschau-Modell wird heruntergeladen…",
-		"streamingPreviewModelReady":          "Live-Vorschau ist bereit.",
-		"streaming_preview.model_missing":     "Live-Vorschau ist aktiviert, aber das benötigte Modell fehlt. Öffne Einstellungen → Transkription zum Herunterladen oder deaktiviere die Live-Vorschau.",
 
 		// Mic retry
 		"error.mic_retrying": "Mikrofon nicht bereit, neuer Versuch…",

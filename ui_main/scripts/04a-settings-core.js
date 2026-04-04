@@ -7,7 +7,6 @@ let _savedModel = 'whisper-1';
 let _savedUILang = '';
 let _savedAPIEndpoint = '';
 let _downloadingModel = null;
-let _pendingStreamingPreviewEnable = null;
 let _configLoaded = false;
 let _autoSaveTimer = null;
 const DEBOUNCE_MS = 500;
@@ -162,10 +161,6 @@ document.addEventListener('change', function(e) {
   }
 });
 
-document.addEventListener('change', function(e) {
-  if (e.target.id !== 'toggle-streaming-preview') return;
-  void handleStreamingPreviewToggleChange(e.target);
-});
 // Show/hide color picker and advanced settings when floating toggle changes
 document.addEventListener('change', function(e) {
   if (e.target.id === 'toggle-floating-btn') {
@@ -244,8 +239,7 @@ function gatherConfig() {
     custom_dictionary: (document.getElementById('input-custom-dictionary')?.value || '').split(/[,\n]/).map(s => s.trim()).filter(Boolean),
     gpu_acceleration: document.getElementById('select-gpu-mode')?.value || 'auto',
     auto_tag_enabled: document.getElementById('toggle-auto-tag')?.checked ?? true,
-    auto_title_enabled: document.getElementById('toggle-auto-title')?.checked ?? true,
-    streaming_preview: document.getElementById('toggle-streaming-preview')?.checked ?? false
+    auto_title_enabled: document.getElementById('toggle-auto-title')?.checked ?? true
   };
 }
 
@@ -469,9 +463,6 @@ function applyConfig(cfg) {
   // Auto-Tag & Auto-Title
   { const el = document.getElementById('toggle-auto-tag'); if (el) el.checked = cfg.auto_tag_enabled !== false; }
   { const el = document.getElementById('toggle-auto-title'); if (el) el.checked = cfg.auto_title_enabled !== false; }
-
-  // Streaming Preview
-  { const el = document.getElementById('toggle-streaming-preview'); if (el) el.checked = !!cfg.streaming_preview; }
 }
 
 
@@ -491,70 +482,6 @@ function autoSave() {
   if (!_configLoaded) return;
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(() => saveSettings(), DEBOUNCE_MS); // DevSkim: ignore DS172411 — debounce with constant delay
-}
-
-async function fetchStreamingPreviewModelState() {
-  if (!window.getStreamingPreviewModelState) {
-    return { ready: false, download_required: true };
-  }
-  const raw = await window.getStreamingPreviewModelState();
-  return typeof raw === 'string' ? JSON.parse(raw) : raw;
-}
-
-async function handleStreamingPreviewToggleChange(toggle) {
-  if (!toggle) return;
-  if (!toggle.checked) {
-    _pendingStreamingPreviewEnable = null;
-    autoSave();
-    return;
-  }
-
-  let state;
-  try {
-    state = await fetchStreamingPreviewModelState();
-  } catch (e) {
-    toggle.checked = false;
-    showStatus(t('error.generic'), 'error');
-    return;
-  }
-
-  if (!state?.download_required) {
-    autoSave();
-    return;
-  }
-
-  const modelName = state.model_name || 'Whisper Base';
-  const modelSize = state.model_size || '';
-  const message = t('streamingPreviewModelMessage')
-    .replace('{model}', modelName)
-    .replace('{size}', modelSize);
-  const ok = await showConfirmDialog(
-    t('streamingPreviewModelTitle'),
-    message,
-    { variant: 'info', confirmText: t('streamingPreviewModelDownload') }
-  );
-  if (!ok) {
-    toggle.checked = false;
-    return;
-  }
-
-  _pendingStreamingPreviewEnable = {
-    modelId: state.download_model_id || state.runtime_model_id || 'whisper-base'
-  };
-  toggle.checked = false;
-  showStatus(t('streamingPreviewModelPreparing'), 'success');
-
-  try {
-    if (typeof downloadModel === 'function') {
-      await downloadModel(_pendingStreamingPreviewEnable.modelId);
-    }
-    if (_downloadingModel !== _pendingStreamingPreviewEnable.modelId) {
-      _pendingStreamingPreviewEnable = null;
-    }
-  } catch (e) {
-    _pendingStreamingPreviewEnable = null;
-    showStatus(t('modelDownloadError'), 'error');
-  }
 }
 
 /* ── Save Settings ────────────────────────────────────── */
