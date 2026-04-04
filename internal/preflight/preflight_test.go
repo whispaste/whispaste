@@ -31,3 +31,30 @@ func TestResolveReasonCode(t *testing.T) {
 		}
 	})
 }
+
+func TestCheckMemoryBytes(t *testing.T) {
+	t.Run("fails below 8 gib", func(t *testing.T) {
+		facts := &Facts{}
+		got := checkMemoryBytes((8<<30)-1, facts)
+		if got.Status != StatusFail {
+			t.Fatalf("checkMemoryBytes() status = %q, want %q", got.Status, StatusFail)
+		}
+		if !got.Blocking {
+			t.Fatal("checkMemoryBytes() should block below 8 GiB")
+		}
+		if facts.MemoryBytes != (8<<30)-1 {
+			t.Fatalf("facts.MemoryBytes = %d, want %d", facts.MemoryBytes, (8<<30)-1)
+		}
+	})
+
+	t.Run("passes at 8 gib", func(t *testing.T) {
+		facts := &Facts{}
+		got := checkMemoryBytes(8<<30, facts)
+		if got.Status != StatusPass {
+			t.Fatalf("checkMemoryBytes() status = %q, want %q", got.Status, StatusPass)
+		}
+		if got.Blocking {
+			t.Fatal("checkMemoryBytes() should not block at 8 GiB")
+		}
+	})
+}
