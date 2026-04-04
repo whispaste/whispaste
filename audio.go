@@ -168,19 +168,6 @@ func (r *Recorder) Stop() ([]byte, error) {
 	return data, nil
 }
 
-// SnapshotBuffer returns a copy of the current recording buffer without stopping.
-// Returns nil if not currently recording. Thread-safe.
-func (r *Recorder) SnapshotBuffer() []byte {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if !r.recording || r.buf.Len() == 0 {
-		return nil
-	}
-	data := make([]byte, r.buf.Len())
-	copy(data, r.buf.Bytes())
-	return data
-}
-
 // GetLevel returns the current RMS audio level (0.0–1.0).
 func (r *Recorder) GetLevel() float32 {
 	r.levelMu.RLock()
