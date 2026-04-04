@@ -267,9 +267,9 @@ var (
 	// GDI+ path
 	procGdipCreatePath      = ovlGdiplus.NewProc("GdipCreatePath")
 	procGdipDeletePath      = ovlGdiplus.NewProc("GdipDeletePath")
-	procGdipAddPathArc        = ovlGdiplus.NewProc("GdipAddPathArc")
-	procGdipAddPathEllipseI   = ovlGdiplus.NewProc("GdipAddPathEllipseI")
-	procGdipAddPathLine       = ovlGdiplus.NewProc("GdipAddPathLineI")
+	procGdipAddPathArc      = ovlGdiplus.NewProc("GdipAddPathArc")
+	procGdipAddPathEllipseI = ovlGdiplus.NewProc("GdipAddPathEllipseI")
+	procGdipAddPathLine     = ovlGdiplus.NewProc("GdipAddPathLineI")
 	procGdipClosePathFigure = ovlGdiplus.NewProc("GdipClosePathFigure")
 	procGdipFillPath        = ovlGdiplus.NewProc("GdipFillPath")
 
@@ -300,10 +300,10 @@ var (
 	procGdipSetPenLineJoin      = ovlGdiplus.NewProc("GdipSetPenLineJoin")
 
 	// GDI+ graphics
-	procGdipGraphicsClear        = ovlGdiplus.NewProc("GdipGraphicsClear")
-	procGdipSaveGraphics         = ovlGdiplus.NewProc("GdipSaveGraphics")
-	procGdipRestoreGraphics      = ovlGdiplus.NewProc("GdipRestoreGraphics")
-	procGdipSetClipPathCombine   = ovlGdiplus.NewProc("GdipSetClipPath")
+	procGdipGraphicsClear      = ovlGdiplus.NewProc("GdipGraphicsClear")
+	procGdipSaveGraphics       = ovlGdiplus.NewProc("GdipSaveGraphics")
+	procGdipRestoreGraphics    = ovlGdiplus.NewProc("GdipRestoreGraphics")
+	procGdipSetClipPathCombine = ovlGdiplus.NewProc("GdipSetClipPath")
 
 	// GDI+ gradient
 	procGdipCreateLineBrushFromRectI = ovlGdiplus.NewProc("GdipCreateLineBrushFromRectI")
@@ -379,8 +379,8 @@ type Overlay struct {
 	animating       bool          // fade animation in progress
 	animAlpha       byte          // current alpha during fade (0–255)
 	animFadeIn      bool          // true=fading in, false=fading out
-	mu            sync.Mutex
-	completionSeq atomic.Int64
+	mu              sync.Mutex
+	completionSeq   atomic.Int64
 }
 
 // dpiScale returns the DPI scale factor for the overlay window.
@@ -447,6 +447,28 @@ func (o *Overlay) overlayPosition(pos string) (int, int) {
 	// Default: top center of primary monitor
 	screenW, _, _ := procGetSystemMetrics.Call(_SM_CXSCREEN)
 	return (int(screenW) - w) / 2, m
+}
+
+func (o *Overlay) bounds() (int, int, int, int) {
+	if o == nil {
+		return 0, 0, 0, 0
+	}
+	o.mu.Lock()
+	pos := o.position
+	w := int(o.sc(_OVL_WIDTH))
+	h := int(o.sc(_OVL_HEIGHT))
+	o.mu.Unlock()
+	x, y := o.overlayPosition(pos)
+	return x, y, w, h
+}
+
+func currentOverlayBounds() (int, int, int, int, bool) {
+	o := globalOverlay.Load()
+	if o == nil {
+		return 0, 0, 0, 0, false
+	}
+	x, y, w, h := o.bounds()
+	return x, y, w, h, true
 }
 
 // NewOverlay creates the overlay window on a dedicated OS thread.
@@ -666,7 +688,7 @@ func (o *Overlay) Show(state AppState) {
 // Uses exponential moving average for smooth bar movement.
 func (o *Overlay) SetAudioLevel(level float32) {
 	o.mu.Lock()
-	const smoothUp = 0.4   // fast attack
+	const smoothUp = 0.4    // fast attack
 	const smoothDown = 0.15 // slow decay
 	if level > o.audioLevel {
 		o.audioLevel += (level - o.audioLevel) * smoothUp

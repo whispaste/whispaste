@@ -408,6 +408,7 @@ async function onbSaveTranscriptionConfig() {
     }
 
     cfg.smart_mode_target = window._lang || 'en';
+    cfg.transcription_language = window._lang || 'en';
     const saveResult = await window.saveConfig(JSON.stringify(cfg));
     if (saveResult && saveResult.success === false) {
       showToast(saveResult.error || t('saveError'), true);
@@ -495,8 +496,9 @@ async function finishOnboarding(nextAction) {
           cfg.api_key = keyInput.value.trim();
         }
       }
-      // Set smart_mode_target from current language
+      // Set smart_mode_target and transcription language from current language
       cfg.smart_mode_target = window._lang || 'en';
+      cfg.transcription_language = window._lang || 'en';
       const saveResult = await window.saveConfig(JSON.stringify(cfg));
       if (saveResult && saveResult.success === false) {
         showToast(saveResult.error || t('saveError'), true);

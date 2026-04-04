@@ -743,6 +743,13 @@
   margin-top: var(--spacing-sm);
 }
 
+.onb-hotkey-mode-hint {
+  font-size: var(--text-xs, 0.75rem);
+  color: var(--text-tertiary, var(--text-secondary));
+  margin-top: var(--spacing-xs, 4px);
+  opacity: 0.8;
+}
+
 .onb-aha-summary {
   margin-top: var(--spacing-sm);
 }
