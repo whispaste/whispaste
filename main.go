@@ -453,10 +453,10 @@ func main() {
 				previewModel := getStreamingPreviewModelState(cfg.GetLocalModelID())
 				if previewModel.Ready {
 					go func(previewModelID string) {
-						const interval = 700 * time.Millisecond
-						const minSnapshotDur = 1      // seconds of recent audio required before preview
-						const maxSnapshotDur = 2      // seconds of recent audio to transcribe
-						const bytesPerSec = 16000 * 2 // 16kHz × 16bit mono
+						const interval = 500 * time.Millisecond
+						const minSnapshotBytes = 16000 // 0.5s at 16kHz×16bit mono
+						const maxSnapshotDur = 3       // seconds of recent audio to transcribe
+						const bytesPerSec = 16000 * 2  // 16kHz × 16bit mono
 						const maxWords = 8
 
 						var previewBusy atomic.Bool
@@ -478,6 +478,7 @@ func main() {
 							previewClosed.Store(true)
 							stw.Hide()
 							stw.Close()
+							previewSTT.Stop()
 						}()
 
 						dictPrompt := cfg.DictionaryPrompt()
@@ -487,7 +488,7 @@ func main() {
 								return
 							}
 							raw := recorder.SnapshotBuffer()
-							if len(raw) < minSnapshotDur*bytesPerSec {
+							if len(raw) < minSnapshotBytes {
 								previewBusy.Store(false)
 								return
 							}
