@@ -155,6 +155,14 @@ func (l *LocalLLM) Start() (string, error) {
 	port := tcpAddr.Port
 	listener.Close()
 
+	gpuMode := "auto"
+	if l.cfg != nil {
+		gpuMode = l.cfg.GetGPUAcceleration()
+	}
+	if err := EnsureLLMServerRuntime(gpuMode); err != nil {
+		logInfo("LLM runtime refresh failed, continuing with installed runtime: %v", err)
+	}
+
 	args := []string{
 		"--model", modelPath,
 		"--host", loopbackHost,
@@ -168,10 +176,6 @@ func (l *LocalLLM) Start() (string, error) {
 
 	// Offload all layers to GPU when a supported GPU is available.
 	// Works for CUDA (NVIDIA) and Vulkan (AMD/Intel) backends.
-	gpuMode := "auto"
-	if l.cfg != nil {
-		gpuMode = l.cfg.GetGPUAcceleration()
-	}
 	if gpu.ShouldUseRecommendedGPU(gpuMode) {
 		args = append(args, "--n-gpu-layers", "-1", "--flash-attn")
 	}
