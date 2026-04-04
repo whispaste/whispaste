@@ -62,6 +62,61 @@ func llmAssetKey(gpuMode string) string {
 	return gpu.RecommendLLMAssetKey(gpuMode)
 }
 
+func llmServerAssetKey(dir string) string {
+	data, err := os.ReadFile(filepath.Join(dir, ".llm-asset-key"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func writeLLMServerAssetKey(dir string, key string) {
+	if err := os.WriteFile(filepath.Join(dir, ".llm-asset-key"), []byte(key), 0600); err != nil {
+		logWarn("Failed to write LLM asset key marker: %v", err)
+	}
+}
+
+func llmServerRequestedKey(dir string) string {
+	data, err := os.ReadFile(filepath.Join(dir, ".llm-requested-key"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func writeLLMServerRequestedKey(dir string, key string) {
+	if err := os.WriteFile(filepath.Join(dir, ".llm-requested-key"), []byte(key), 0600); err != nil {
+		logWarn("Failed to write LLM requested key marker: %v", err)
+	}
+}
+
+func llmServerNeedsRefresh(dir string, gpuMode string) bool {
+	wantKey := llmAssetKey(gpuMode)
+	return !IsLLMServerInstalled() ||
+		llmServerRequestedKey(dir) != wantKey ||
+		llmServerAssetKey(dir) == ""
+}
+
+// EnsureLLMServerRuntime checks whether the installed LLM server binary
+// matches the current GPU mode and re-downloads if the backend changed.
+func EnsureLLMServerRuntime(gpuMode string) error {
+	dir, err := LLMDir()
+	if err != nil {
+		return fmt.Errorf("llm dir: %w", err)
+	}
+	if !llmServerNeedsRefresh(dir, gpuMode) {
+		return nil
+	}
+	if err := downloadAndExtractLLMServer(dir, gpuMode, nil); err != nil {
+		return fmt.Errorf("refresh llm runtime: %w", err)
+	}
+	actualKey := llmAssetKey(gpuMode)
+	writeLLMServerAssetKey(dir, actualKey)
+	writeLLMServerRequestedKey(dir, actualKey)
+	logInfo("LLM runtime refreshed: key=%s", actualKey)
+	return nil
+}
+
 // DownloadLLM downloads the llama-server binary (if needed) and a GGUF model.
 // gpuMode controls asset selection: "auto" (detect), "enabled" (force CUDA), "disabled" (CPU only).
 // progressFn is called with phase ("server" or "model") and percentage (0–100).
@@ -76,8 +131,9 @@ func DownloadLLM(modelID string, gpuMode string, progressFn func(phase string, p
 		return fmt.Errorf("llm dir: %w", err)
 	}
 
-	// Phase 1: Download and extract llama-server ZIP (skip if already installed)
-	if !IsLLMServerInstalled() {
+	// Phase 1: Download and extract llama-server ZIP (or refresh when backend type changed)
+	needsServer := llmServerNeedsRefresh(dir, gpuMode)
+	if needsServer {
 		if progressFn != nil {
 			progressFn("server", 0)
 		}
@@ -88,6 +144,9 @@ func DownloadLLM(modelID string, gpuMode string, progressFn func(phase string, p
 		}); err != nil {
 			return fmt.Errorf("download llama-server: %w", err)
 		}
+		actualKey := llmAssetKey(gpuMode)
+		writeLLMServerAssetKey(dir, actualKey)
+		writeLLMServerRequestedKey(dir, actualKey)
 	} else {
 		if progressFn != nil {
 			progressFn("server", 100)
