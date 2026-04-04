@@ -220,7 +220,7 @@ The WebView2 runtime stores its user data in `%APPDATA%\whispaste.exe\EBWebView`
 
 ---
 
-*Last updated: 2026-04-01 20:00 UTC*
+*Last updated: 2026-04-04 00:00 UTC*
 
 ---
 
@@ -228,28 +228,30 @@ The WebView2 runtime stores its user data in `%APPDATA%\whispaste.exe\EBWebView`
 
 | Date | Task | Size | Branch | Summary |
 |------|------|------|--------|---------|
+| 2026-04-04 | multi-workstream-phase1-5 | Large | main | 5-phase implementation: (1) Fixed Smart Mode UI blocking with async goroutine pattern, (2) Fixed notes/attachments click handlers with event rebinding after innerHTML, (3) Fixed sound reliability with SND_SYNC on dedicated goroutine, (4) Settings reorganized — Cloud STT/LLM moved to AI & Models, (5) Floating button custom image support via GDI+ + Win32 file dialog, (6) VAD sensitivity default 50%, (7) Premium Notion-inspired notes with type badges, empty states, Ctrl+Enter shortcut, (8) Removed context bars, idle animations, extra icons per user request |
 | 2026-04-03 | fix-7-bugs | Large | main | Fixed 7 bugs: floating button Advanced Settings padding (HTML nesting), removed star shape (unsuitable for mic), shape-aware countdown arc (GdipFlattenPath), custom color live preview (input event), overlay mic alpha pulsing (sqrt amplification), preflight false blocking (probe→warning), autotag title language (explicit lang in LLM prompt). Also fixed darkenColor channel overflow found in adversarial review. |
 | 2026-04-02 | fix-crash-report-noise | Large | amboss/fix-crash-report-noise → main | Analyzed 22 crash reports (6 patterns), reduced noise by downgrading non-actionable logWarn→logInfo (preflight non-blocking, STT asset fallback, update permissions), filtered WebView2 about:blank localStorage SecurityError in JS, improved update permission error UX with clear toast notification (EN+DE i18n). 3-reviewer adversarial review (Opus, Sonnet, GPT-5.4) found and fixed over-broad error suppression. |
 | 2026-04-01 | crash-report-analysis | Medium | main | Analyzed 23 Discord crash reports, fixed 5 root causes (noise reduction, localStorage SecurityError, llama-server lifecycle race, download resilience with retry+resume, postprocess false positive), enriched crash diagnostics (app state, uptime, memory, goroutine count, log breadcrumbs), cleaned up all Discord messages and Supabase records. |
 | 2026-03-30 | integrated-vulkan-stt | Large | amboss/integrated-vulkan-stt | Completed the same-repo whisper-server delivery path: app-side STT release selection now prefers WhisPaste CPU/CUDA/Vulkan assets, added pinned whisper.cpp ref plus local build/package scripts, and introduced a GitHub Actions workflow that builds and uploads whisper-server release assets to this repository's releases. |
 | 2026-03-30 | smartmode-vulkan-completion (app repo) | Large | amboss/smartmode-vulkan-completion | Hardened Smart Mode language behavior, fixed App Rules/runtime targeting, unified translate target handling, and introduced persistent `language_hint` history metadata so local auto-STT keeps a stable prompt hint without faking detected language. |
-| 2026-03-30 | compliance-remediation | Large | amboss/multi-provider-upgrade | Build tags on 14 Windows files, extracted matchSTTAsset/matchLLMAsset pure functions with tests, models_test.go (22 subtests), expanded GPU detect tests (9 new), fixed CUDA 12 preference bug (cu12 vs cuda-12), project plan doc |
 
 ---
 
 ## Current Focus
 
-- Crash report pipeline hardened: 5 root causes fixed, diagnostics enriched with runtime state/memory/breadcrumbs.
-- Discord crash report channel cleaned (0 remaining reports).
-- App-repo Smart-Mode hardening is complete and verified.
-- Vulkan-STT now follows a same-repo release model:
-  - build dedicated whisper-server Vulkan/CUDA/CPU assets from this repository
-  - upload them to the matching GitHub release in this repository
-  - app download logic prefers these WhisPaste-owned assets before upstream fallbacks
-- Remaining validation is operational rather than architectural:
-  - execute the workflow against a real published release
-  - confirm AMD/Intel Vulkan download path end-to-end on target hardware
+- Multi-workstream implementation complete: all 15 todos across 5 phases done.
+- Supabase analytics, testimonials, and crash-cleanup Edge Functions deployed.
+- RLS deny-all policies in place for service-role-only tables.
+- Project-specific CodeQL Go queries created for security scanning.
+- Notes system overhauled with premium Notion-inspired design.
+- Floating button now supports custom user images (GDI+ rendering).
+- Settings logically reorganized: all AI/model config under unified section.
 
 ## Learned Patterns
 
 - History metadata now distinguishes between `language` (known user-visible language metadata) and `language_hint` (stable processing hint, especially for local auto-STT flows). New history write paths must preserve both consistently.
+- Smart Mode must run async (goroutine + Dispatch callback) to avoid blocking WebView2 UI thread.
+- Notes/attachments action buttons require event rebinding after innerHTML replacement — querySelectorAll binds at render time only.
+- Sound playback on Windows: SND_ASYNC cancels previous sound; use SND_SYNC on a dedicated goroutine with channel serialization for reliability.
+- GDI+ custom image: use GdipLoadImageFromFile + GdipDrawImageRectI with InterpolationMode 7 (HighQualityBicubic) for quality scaling.
+- Config save handler must explicitly copy ALL config fields — missing fields silently reset to defaults on next save cycle.
