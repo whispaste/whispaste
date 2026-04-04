@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -73,6 +74,16 @@ func TestParseTagResponse(t *testing.T) {
 			name:     "markdown multiple fenced blocks",
 			content:  "Example:\n```\nfoo\n```\n\nAnswer:\n```json\n[\"Work\"]\n```",
 			wantTags: []string{"Work"},
+		},
+		{
+			name:     "labeled json array",
+			content:  `Tags: ["Work", "Meeting"]`,
+			wantTags: []string{"Work", "Meeting"},
+		},
+		{
+			name:     "takes last valid json array",
+			content:  `Example: ["Personal"] Answer: ["Work", "Meeting"]`,
+			wantTags: []string{"Work", "Meeting"},
 		},
 	}
 
@@ -200,6 +211,16 @@ func TestParseGeneratedTags(t *testing.T) {
 			wantTags:  []string{"Notes"},
 			wantEmpty: false,
 		},
+		{
+			name:     "labeled json array",
+			content:  `Suggested tags: ["work", "email"]`,
+			wantTags: []string{"Work", "Email"},
+		},
+		{
+			name:     "takes last valid json array",
+			content:  `Example: ["personal"] Answer: ["work", "email"]`,
+			wantTags: []string{"Work", "Email"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -229,9 +250,9 @@ func TestParseGeneratedTags(t *testing.T) {
 
 func TestCleanTitleResponse(t *testing.T) {
 	tests := []struct {
-		name string
+		name    string
 		content string
-		want string
+		want    string
 	}{
 		{
 			name:    "plain title",
@@ -308,6 +329,36 @@ func TestCleanTitleResponse(t *testing.T) {
 			content: "Check http://example.com",
 			want:    "Check http://example.com",
 		},
+		{
+			name:    "greeting line skipped",
+			content: "Hello!\nWeekly Project Planning Update",
+			want:    "Weekly Project Planning Update",
+		},
+		{
+			name:    "title label stripped",
+			content: "Title: Weekly Project Planning Update",
+			want:    "Weekly Project Planning Update",
+		},
+		{
+			name:    "meta preface line skipped",
+			content: "Suggested title:\nWeekly Project Planning Update",
+			want:    "Weekly Project Planning Update",
+		},
+		{
+			name:    "bullet prefix stripped",
+			content: "- Weekly Project Planning Update",
+			want:    "Weekly Project Planning Update",
+		},
+		{
+			name:    "year-like title preserved",
+			content: "2025. Product Roadmap Review",
+			want:    "2025. Product Roadmap Review",
+		},
+		{
+			name:    "numbered title preserved",
+			content: "12. Angry Men Notes",
+			want:    "12. Angry Men Notes",
+		},
 	}
 
 	for _, tt := range tests {
@@ -317,5 +368,82 @@ func TestCleanTitleResponse(t *testing.T) {
 				t.Errorf("cleanTitleResponse(%q) = %q, want %q", tt.content, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildTitleSystemPrompt(t *testing.T) {
+	prevLang := GetLanguage()
+	SetLanguage("en")
+	defer SetLanguage(prevLang)
+
+	prompt := buildTitleSystemPrompt("de")
+	if !strings.HasPrefix(prompt, "Task: Create a short, descriptive title") {
+		t.Fatalf("title prompt should start with the direct task, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Write the title in German.") {
+		t.Errorf("title prompt should enforce German for langHint=de, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Return only the title text. No quotes, labels, or commentary.") {
+		t.Errorf("title prompt should require title-only output, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Do not start with greetings, filler, or meta-commentary.") {
+		t.Errorf("title prompt should forbid greetings and meta-commentary, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Do not format the answer as a list item or add labels like \"Title:\".") {
+		t.Errorf("title prompt should forbid list-style titles and labels, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Do not invent people, dates, places, or facts that are not stated in the note.") {
+		t.Errorf("title prompt should forbid invented specifics, got: %q", prompt)
+	}
+}
+
+func TestBuildTitleSystemPromptFallsBackToCurrentUILanguage(t *testing.T) {
+	prevLang := GetLanguage()
+	SetLanguage("de")
+	defer SetLanguage(prevLang)
+
+	prompt := buildTitleSystemPrompt("")
+	if !strings.Contains(prompt, "Write the title in German.") {
+		t.Errorf("title prompt should fall back to the current UI language when no explicit UI hint is provided, got: %q", prompt)
+	}
+}
+
+func TestBuildNewTagsSystemPromptUsesUILanguage(t *testing.T) {
+	prevLang := GetLanguage()
+	SetLanguage("en")
+	defer SetLanguage(prevLang)
+
+	prompt := buildNewTagsSystemPrompt("de")
+	if !strings.Contains(prompt, "Write all tags in German") {
+		t.Errorf("new-tag prompt should enforce the UI language, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Keep every tag in that UI language, even if the source text mixes languages") {
+		t.Errorf("new-tag prompt should keep all tags in the UI language, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Prefer 2-3 complementary topical tags") {
+		t.Errorf("new-tag prompt should prefer complementary topical tags, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Favor reusable grouping tags") {
+		t.Errorf("new-tag prompt should encourage reusable grouping tags, got: %q", prompt)
+	}
+}
+
+func TestBuildTagClassifierSystemPromptUsesUILanguagePreference(t *testing.T) {
+	prevLang := GetLanguage()
+	SetLanguage("en")
+	defer SetLanguage(prevLang)
+
+	prompt := buildTagClassifierSystemPrompt([]string{"Meeting", "Email"}, "de")
+	if !strings.Contains(prompt, "Prefer tags written in German") {
+		t.Errorf("tag-classifier prompt should prefer tags in the UI language, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Never translate, rewrite, or explain tags; use the exact tag text from the list") {
+		t.Errorf("tag-classifier prompt should preserve stable tag text from the available list, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Prefer 2-3 complementary tags") {
+		t.Errorf("tag-classifier prompt should prefer complementary tags when warranted, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Prefer reusable grouping tags over one-off details") {
+		t.Errorf("tag-classifier prompt should encourage reusable grouping tags, got: %q", prompt)
 	}
 }
