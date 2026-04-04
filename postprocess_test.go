@@ -62,7 +62,7 @@ func TestBuildSmartPrompt(t *testing.T) {
 		{"unknown preset", "nonexistent", "", "", "en", nil, true, ""},
 		{"same language guardrail", "email", "", "", "de", nil, false, "The user's input is in German"},
 		{"language hint used", "email", "", "", "fr", nil, false, "The user's input is in French"},
-		{"email requires greeting", "email", "", "", "en", nil, false, "MUST include a suitable greeting"},
+		{"email omits missing details", "email", "", "", "en", nil, false, "omit it rather than guessing"},
 		{"user template", "mypreset", "", "", "en", map[string]string{"mypreset": "Do stuff"}, false, "TRANSFORMATION INSTRUCTIONS:\nDo stuff"},
 	}
 	for _, tt := range tests {
@@ -100,6 +100,73 @@ func TestBuildBulkSmartPrompt(t *testing.T) {
 			t.Fatalf("expected custom instruction in bulk prompt, got %q", got)
 		}
 	})
+
+	t.Run("local prompt stays compact", func(t *testing.T) {
+		got := buildBulkSmartPromptLocal("email", "", "", "de", nil)
+		if !strings.Contains(got, "Task: Merge the numbered transcription segments") {
+			t.Fatalf("expected compact local bulk merge instruction, got %q", got)
+		}
+		if !strings.Contains(got, "Language: Keep the output in German") {
+			t.Fatalf("expected German language guardrail in local bulk prompt, got %q", got)
+		}
+		if !strings.Contains(got, "Do not invent facts, names, dates, owners, commitments, placeholders, or requirements.") {
+			t.Fatalf("expected local bulk prompt to include no-invention guardrail, got %q", got)
+		}
+		if strings.Contains(got, "You receive multiple numbered transcription segments from the same user") {
+			t.Fatalf("local bulk prompt must not use the verbose cloud wrapper, got %q", got)
+		}
+	})
+}
+
+func TestBuildSmartPromptPresetGuardrails(t *testing.T) {
+	tests := []struct {
+		name         string
+		preset       string
+		langHint     string
+		wantContains []string
+	}{
+		{
+			name:     "email avoids invention",
+			preset:   "email",
+			langHint: "en",
+			wantContains: []string{
+				"using this order when the source supports it: greeting, body, closing",
+				"Do not invent names, dates, placeholders, attachments, availability, or promises.",
+				"omit it rather than guessing",
+			},
+		},
+		{
+			name:     "meeting owners explicit only",
+			preset:   "meeting",
+			langHint: "de",
+			wantContains: []string{
+				"using this structure: Subject, Topics, Decisions, Action Items",
+				"Include owners only when they are explicitly stated.",
+				"Keep the source language unless translation is explicitly requested.",
+			},
+		},
+		{
+			name:     "ai prompt is imperative",
+			preset:   "aiprompt",
+			langHint: "en",
+			wantContains: []string{
+				"Start with the main instruction in direct imperative form.",
+				"Keep every explicit requirement, constraint, input, context, and requested output format.",
+				"Do not invent examples, steps, or facts.",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prompt := buildSmartPrompt(tt.preset, "", "", tt.langHint, nil)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(prompt, want) {
+					t.Fatalf("prompt for %q must contain %q, got %q", tt.preset, want, prompt)
+				}
+			}
+		})
+	}
 }
 
 func TestStripThinkBlocks(t *testing.T) {
@@ -224,6 +291,36 @@ func TestPostProcessThinkBlockOnly(t *testing.T) {
 	}
 }
 
+func TestPostProcessLocalReasoningOnlyResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{
+					"finish_reason": "length",
+					"message": map[string]string{
+						"content":           "",
+						"reasoning_content": "internal reasoning only",
+					},
+				},
+			},
+			"timings": map[string]float64{
+				"prompt_ms":    123,
+				"predicted_ms": 456,
+			},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	result, err := PostProcess("original text", "email", "", "", "key", srv.URL, "de", "qwen3.5-0.8b", nil)
+	if err == nil {
+		t.Fatal("expected error when response contains only reasoning content")
+	}
+	if result != "original text" {
+		t.Errorf("expected original text on reasoning-only response, got %q", result)
+	}
+}
+
 func TestPostProcessLocalMaxTokens(t *testing.T) {
 	var capturedMaxTokens int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -287,17 +384,20 @@ func TestNormalizeTranscription(t *testing.T) {
 // "Refine dictated text" wrapper caused the model to ignore the actual preset.
 func TestBuildSmartPromptLocal(t *testing.T) {
 	tests := []struct {
-		preset       string
-		mustContain  string
-		mustNotStart string
+		preset      string
+		mustContain string
 	}{
-		{"email", "professional email", "Refine"},
-		{"bullets", "bullet-point list", "Refine"},
-		{"formal", "formal, professional language", "Refine"},
-		{"cleanup", "Clean up", "Refine"},
-		{"concise", "concise", "Refine"},
-		{"meeting", "meeting minutes", "Refine"},
-		{"summary", "Summarize", "Refine"},
+		{"email", "professional email"},
+		{"bullets", "bullet list"},
+		{"formal", "formal, professional language"},
+		{"cleanup", "Clean up dictated text"},
+		{"concise", "more concisely"},
+		{"meeting", "meeting minutes"},
+		{"summary", "Summarize the text"},
+		{"notes", "structured notes"},
+		{"social", "social media post"},
+		{"casual", "natural casual tone"},
+		{"aiprompt", "prompt for an AI assistant"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.preset, func(t *testing.T) {
@@ -305,27 +405,90 @@ func TestBuildSmartPromptLocal(t *testing.T) {
 			if prompt == "" {
 				t.Fatalf("buildSmartPromptLocal(%q) returned empty prompt", tc.preset)
 			}
+			if !strings.HasPrefix(prompt, "Task:") {
+				t.Errorf("prompt for %q should start with Task:, got: %s", tc.preset, truncateForLog(prompt, 80))
+			}
 			if !strings.Contains(prompt, tc.mustContain) {
 				t.Errorf("prompt for %q must contain %q, got: %s", tc.preset, tc.mustContain, prompt)
 			}
-			if strings.HasPrefix(prompt, tc.mustNotStart) {
-				t.Errorf("prompt for %q must NOT start with %q — this would override the preset instructions", tc.preset, tc.mustNotStart)
+			if strings.Contains(prompt, "You are refining dictated text") {
+				t.Errorf("prompt for %q must not contain the generic cloud wrapper, got: %s", tc.preset, prompt)
 			}
 		})
 	}
 }
 
-// TestBuildSmartPromptLocalStartsWithPreset ensures the local prompt starts with
-// the preset's action instructions, not a generic wrapper.
-func TestBuildSmartPromptLocalStartsWithPreset(t *testing.T) {
+// TestBuildSmartPromptLocalSections ensures the local prompt keeps the compact
+// task/language/output structure that works reliably on small local models.
+func TestBuildSmartPromptLocalSections(t *testing.T) {
 	prompt := buildSmartPromptLocal("email", "", "", "de", nil)
-	if !strings.HasPrefix(prompt, "Rewrite") {
-		t.Errorf("email local prompt should start with the preset instruction (Rewrite...), got: %q", truncateForLog(prompt, 80))
+	if !strings.HasPrefix(prompt, "Task:") {
+		t.Errorf("email local prompt should start with Task:, got: %q", truncateForLog(prompt, 80))
 	}
-	if !strings.Contains(prompt, "German") {
+	if !strings.Contains(prompt, "Language: Keep the output in German unless the instructions explicitly ask for translation.") {
 		t.Errorf("email local prompt with langHint=de should mention German, got: %q", prompt)
 	}
-	if !strings.HasSuffix(prompt, "Do not add any commentary or explanation.") {
-		t.Errorf("local prompt should end with the output-only instruction, got: %q", prompt[len(prompt)-60:])
+	if !strings.Contains(prompt, "Do not invent facts, names, dates, owners, commitments, placeholders, or requirements.") {
+		t.Errorf("local prompt should include the no-invention instruction, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "If a detail is missing from the source, omit it instead of guessing.") {
+		t.Errorf("local prompt should prefer omission over guessing, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Return only the transformed output. No commentary, no labels, no quotes.") {
+		t.Errorf("local prompt should include the output-only instruction, got: %q", prompt)
+	}
+}
+
+func TestBuildSmartPromptLocalPresetGuardrails(t *testing.T) {
+	tests := []struct {
+		name         string
+		preset       string
+		wantContains []string
+	}{
+		{
+			name:   "email stays structured without placeholders",
+			preset: "email",
+			wantContains: []string{
+				"professional email with this order when the source supports it: greeting, body, closing",
+				"Do not invent names, dates, placeholders, attachments, availability, or promises.",
+			},
+		},
+		{
+			name:   "meeting owners only when explicit",
+			preset: "meeting",
+			wantContains: []string{
+				"meeting minutes with this structure: Subject, Topics, Decisions, Action Items",
+				"Include owners only when they are explicitly stated.",
+			},
+		},
+		{
+			name:   "ai prompt starts imperative",
+			preset: "aiprompt",
+			wantContains: []string{
+				"Start with the main instruction in imperative form.",
+				"Do not invent requirements, examples, or facts.",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prompt := buildSmartPromptLocal(tt.preset, "", "", "en", nil)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(prompt, want) {
+					t.Fatalf("local prompt for %q must contain %q, got %q", tt.preset, want, prompt)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildSmartPromptLocalTranslate(t *testing.T) {
+	prompt := buildSmartPromptLocal("translate", "", "de", "en", nil)
+	if !strings.HasPrefix(prompt, "Task: Translate the text into German.") {
+		t.Errorf("local translate prompt should start with the direct translation task, got: %q", truncateForLog(prompt, 80))
+	}
+	if !strings.Contains(prompt, "Return only the translation.") {
+		t.Errorf("local translate prompt should return translation only, got: %q", prompt)
 	}
 }
