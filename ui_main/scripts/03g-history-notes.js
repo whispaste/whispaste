@@ -247,3 +247,77 @@ function formatFileSize(bytes) {
   while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
   return (i === 0 ? size : size.toFixed(1)) + ' ' + units[i];
 }
+
+// ── Voice Notes ──────────────────────────────────────
+
+let _voiceNoteEntryId = null;
+
+async function startVoiceNoteUI(entryId) {
+  if (_voiceNoteEntryId) {
+    showToast(t('voice_note.already_recording'), true);
+    return;
+  }
+  try {
+    const result = await window.startVoiceNote(entryId);
+    if (!result || !result.ok) {
+      showToast(result && result.error ? result.error : t('voice_note.error'), true);
+      return;
+    }
+    _voiceNoteEntryId = entryId;
+    const noteInput = document.getElementById('note-input-' + entryId);
+    const addRow = noteInput ? noteInput.closest('.note-add-row') : null;
+    const recRow = document.getElementById('voice-note-recording-' + entryId);
+    if (addRow) addRow.style.display = 'none';
+    if (recRow) recRow.style.display = 'flex';
+  } catch(e) {
+    showToast(t('voice_note.error'), true);
+  }
+}
+
+async function stopVoiceNoteUI(entryId) {
+  const recRow = document.getElementById('voice-note-recording-' + entryId);
+  if (recRow) {
+    const label = recRow.querySelector('.voice-note-label');
+    if (label) label.textContent = t('voice_note.transcribing');
+    const stopBtn = recRow.querySelector('.voice-note-stop-btn');
+    if (stopBtn) stopBtn.disabled = true;
+  }
+  try {
+    const result = await window.stopVoiceNote();
+    if (!result || !result.ok) {
+      showToast(result && result.error ? result.error : t('voice_note.error'), true);
+      _resetVoiceNoteUI(entryId);
+    }
+    // Async result comes via onVoiceNoteResult callback
+  } catch(e) {
+    showToast(t('voice_note.error'), true);
+    _resetVoiceNoteUI(entryId);
+  }
+}
+
+function _resetVoiceNoteUI(entryId) {
+  _voiceNoteEntryId = null;
+  const noteInput = document.getElementById('note-input-' + entryId);
+  const addRow = noteInput ? noteInput.closest('.note-add-row') : null;
+  const recRow = document.getElementById('voice-note-recording-' + entryId);
+  if (addRow) addRow.style.display = '';
+  if (recRow) {
+    recRow.style.display = 'none';
+    const label = recRow.querySelector('.voice-note-label');
+    if (label) label.textContent = t('voice_note.recording');
+    const stopBtn = recRow.querySelector('.voice-note-stop-btn');
+    if (stopBtn) stopBtn.disabled = false;
+  }
+}
+
+// Called from Go when voice note transcription finishes
+function onVoiceNoteResult(entryId, ok, errorMsg) {
+  _resetVoiceNoteUI(entryId);
+  if (ok) {
+    showToast(t('voice_note.saved'));
+    loadNotes(entryId);
+    loadAttachments(entryId);
+  } else {
+    showToast(errorMsg || t('voice_note.error'), true);
+  }
+}

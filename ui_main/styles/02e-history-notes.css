@@ -268,6 +268,56 @@
   50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
 }
 
+/* Voice note recording indicator */
+.voice-note-recording {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2);
+  margin-top: var(--space-2);
+  background: color-mix(in srgb, #EF4444 8%, var(--bg-secondary));
+  border: 1px solid color-mix(in srgb, #EF4444 25%, var(--border-subtle));
+  border-radius: var(--radius-md);
+  animation: fadeIn var(--duration-fast) ease;
+}
+.voice-note-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+.voice-note-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #EF4444;
+  animation: voiceNoteDotPulse 1s ease-in-out infinite;
+}
+@keyframes voiceNoteDotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+.voice-note-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: #EF4444;
+}
+.btn-danger {
+  background: #EF4444;
+  color: white;
+}
+.btn-danger:hover { opacity: 0.9; }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Mic button in note-add-actions */
+.voice-note-btn {
+  color: var(--text-tertiary);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.voice-note-btn:hover {
+  color: #10B981;
+  background: color-mix(in srgb, #10B981 10%, transparent);
+}
+
 /* ── Attachment Grid — Premium ───────────────────── */
 
 .attachments-grid {
