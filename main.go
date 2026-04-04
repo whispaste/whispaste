@@ -431,6 +431,7 @@ func main() {
 					const interval = 3 * time.Second
 					const maxSnapshotDur = 30 // seconds of audio to send (sliding window)
 					const bytesPerSec = 16000 * 2 // 16kHz × 16bit mono
+					const maxWords = 15          // show only last N words
 					// Create streaming text window (separate from overlay)
 					stw, err := NewStreamingTextWindow()
 					if err != nil {
@@ -442,6 +443,9 @@ func main() {
 						stw.Hide()
 						stw.Close()
 					}()
+
+					sModelID := cfg.GetLocalModelID()
+					dictPrompt := cfg.DictionaryPrompt()
 
 					tick := time.NewTicker(interval)
 					defer tick.Stop()
@@ -459,21 +463,20 @@ func main() {
 							if len(raw) > maxBytes {
 								raw = raw[len(raw)-maxBytes:]
 							}
-							wavData := wav.Encode(raw, 16000, 1, 16)
-							// Use same language fallback logic as main transcription
-							sLang := normalizeLanguage(cfg.GetTranscriptionLanguage())
-							if sLang == "" || sLang == "auto" {
-								sLang = localLang // from snapshotConfig
-							}
-							dictPrompt := cfg.DictionaryPrompt()
-							text, err := localSTT.Transcribe(wavData, sLang, dictPrompt)
+							// TranscribeLocal starts the STT server if needed
+							text, err := TranscribeLocal(raw, 16000, localLang, sModelID, dictPrompt)
 							if err != nil {
-								logDebug("Streaming preview inference failed: %v", err)
+								logDebug("Streaming preview failed: %v", err)
 								continue
 							}
 							text = strings.TrimSpace(text)
 							if text != "" {
-								stw.SetText(text)
+								// Show only the last N words
+								words := strings.Fields(text)
+								if len(words) > maxWords {
+									words = words[len(words)-maxWords:]
+								}
+								stw.SetText(strings.Join(words, " "))
 							}
 						}
 					}
