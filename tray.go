@@ -919,8 +919,10 @@ func (t *AppTray) copyLatestTranscription() {
 
 func (t *AppTray) onExit() {
 	logInfo("System tray exiting")
+	exitStart := time.Now()
 	if t.updater != nil {
 		t.updater.Stop()
+		logDebug("Shutdown: updater stopped (%dms)", time.Since(exitStart).Milliseconds())
 	}
 	if t.onQuit != nil {
 		t.onQuit()
@@ -929,6 +931,6 @@ func (t *AppTray) onExit() {
 		procDestroyIcon := trayUser32.NewProc("DestroyIcon")
 		procDestroyIcon.Call(t.balloonIcon)
 	}
-	logInfo("Cleanup complete, exiting process")
+	logInfo("Cleanup complete (%dms), exiting process", time.Since(exitStart).Milliseconds())
 	os.Exit(0)
 }
