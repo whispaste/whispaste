@@ -351,6 +351,31 @@ func TestGetEffectiveLocalTranscriptionLanguage(t *testing.T) {
 	}
 }
 
+func TestGetLocalLLMModel(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "default blank", value: "", want: supportedLocalLLMModelID},
+		{name: "current supported", value: supportedLocalLLMModelID, want: supportedLocalLLMModelID},
+		{name: "legacy qwen25", value: "qwen2.5-0.5b", want: supportedLocalLLMModelID},
+		{name: "legacy qwen3", value: "qwen3-0.6b", want: supportedLocalLLMModelID},
+		{name: "legacy smollm2", value: "smollm2", want: supportedLocalLLMModelID},
+		{name: "unknown custom", value: "custom-model", want: supportedLocalLLMModelID},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.LocalLLMModel = tt.value
+			if got := cfg.GetLocalLLMModel(); got != tt.want {
+				t.Fatalf("GetLocalLLMModel() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGetSmartModeTargetDefaultsToEnglish(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.mu.Lock()

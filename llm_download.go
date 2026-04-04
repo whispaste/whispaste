@@ -17,7 +17,7 @@ import (
 
 // LLMModelDef describes a downloadable local LLM model.
 type LLMModelDef struct {
-	ID          string // unique identifier (e.g. "qwen2.5-0.5b")
+	ID          string // unique identifier (e.g. "qwen3.5-0.8b")
 	Name        string // display name
 	URL         string // GGUF download URL
 	Size        int64  // approximate download size in bytes
@@ -29,26 +29,18 @@ type LLMModelDef struct {
 
 const _llmGB = 1024 * 1024 * 1024
 
+const supportedLocalLLMModelID = "qwen3.5-0.8b"
+
 // LLMModels is the registry of available local LLM models.
 var LLMModels = map[string]LLMModelDef{
-	"qwen2.5-0.5b": {
-		ID:          "qwen2.5-0.5b",
-		Name:        "Qwen2.5-0.5B",
-		URL:         "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
-		Size:        491_000_000,
-		Filename:    "qwen2.5-0.5b.gguf",
-		Langs:       29,
-		MinRAMBytes: 2 * _llmGB,
-		RecRAMBytes: 4 * _llmGB,
-	},
-	"qwen3.5-0.8b": {
+	supportedLocalLLMModelID: {
 		ID:          "qwen3.5-0.8b",
 		Name:        "Qwen3.5-0.8B",
 		URL:         "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf",
 		Size:        532_517_120,
 		Filename:    "qwen3.5-0.8b.gguf",
 		Langs:       29,
-		MinRAMBytes: 4 * _llmGB,
+		MinRAMBytes: 8 * _llmGB,
 		RecRAMBytes: 8 * _llmGB,
 	},
 }

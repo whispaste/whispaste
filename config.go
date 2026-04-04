@@ -15,93 +15,93 @@ import (
 
 // Config holds all application settings.
 type Config struct {
-	APIKey                  string                   `json:"api_key"`
-	APIEndpoint             string                   `json:"api_endpoint"`
-	HotkeyMods              []string                 `json:"hotkey_modifiers"`
-	HotkeyKey               string                   `json:"hotkey_key"`
-	Mode                    string                   `json:"mode"`
-	Language                string                   `json:"language"`
-	Model                   string                   `json:"model"`
-	Prompt                  string                   `json:"prompt"`
-	OverlayPos              string                   `json:"overlay_position"`
-	AutoPaste               bool                     `json:"auto_paste"`
-	PlaySounds              bool                     `json:"play_sounds"`
-	CheckUpdates            bool                     `json:"check_updates"`
-	UILanguage              string                   `json:"ui_language"`
-	Theme                   string                   `json:"theme"`
-	Autostart               bool                     `json:"autostart"`
-	CloseToTray             bool                     `json:"close_to_tray"`
-	SoundVolume             float64                  `json:"sound_volume"`
-	MaxRecordSec            int                      `json:"max_record_sec"`
-	SmartMode               bool                     `json:"smart_mode"`
-	SmartModePreset         string                   `json:"smart_mode_preset"`
-	SmartModePrompt         string                   `json:"smart_mode_prompt"`
-	SmartModeTarget         string                   `json:"smart_mode_target"`
-	SponsorLastRemindedAt   int                      `json:"sponsor_last_reminded_at"`
-	NotifyBackground        bool                     `json:"notify_background"`
-	NotifyComplete          bool                     `json:"notify_complete"`
-	NotifyDonate            bool                     `json:"notify_donate"`
-	UseLocalSTT             bool                     `json:"use_local_stt"`
-	ActiveModelLocal        bool                     `json:"active_model_local"`
-	LocalModelID            string                   `json:"local_model_id"`
-	TranscriptionLanguage   string                   `json:"transcription_language"`
-	InputDevice             string                   `json:"input_device,omitempty"`
-	InputGain               float64                  `json:"input_gain"`
-	TagColors               map[string]int           `json:"tag_colors,omitempty"`
-	CleanupEnabled          bool                     `json:"cleanup_enabled,omitempty"`
-	CleanupMaxEntries       int                      `json:"cleanup_max_entries,omitempty"`
-	CleanupMaxAgeDays       int                      `json:"cleanup_max_age_days,omitempty"`
-	CleanupIncludePinned    bool                     `json:"cleanup_include_pinned,omitempty"`
-	OnboardingDone          bool                     `json:"onboarding_done,omitempty"`
-	ActiveProfile           string                   `json:"active_profile,omitempty"`
-	Profiles                map[string]ConfigProfile `json:"profiles,omitempty"`
-	CustomTemplates         map[string]string        `json:"custom_templates,omitempty"`
-	TextReplacementsEnabled bool                     `json:"text_replacements_enabled,omitempty"`
-	TextReplacements        []TextReplacement        `json:"text_replacements,omitempty"`
-	TextReplacementsAI      bool                     `json:"text_replacements_ai,omitempty"`
-	TextReplacementProvider string                   `json:"text_replacement_provider,omitempty"`
-	TrimSilence             bool                     `json:"trim_silence,omitempty"`
-	AppDetection            bool                     `json:"app_detection,omitempty"`
-	AppPresets              map[string]string        `json:"app_presets,omitempty"`
-	SmartModeProvider       string                   `json:"smart_mode_provider,omitempty"`
-	TemplateMetas           map[string]TemplateMeta  `json:"template_metas,omitempty"`
-	FallbackPreset          string                   `json:"fallback_preset,omitempty"`
-	CustomTags              []string                 `json:"customTags,omitempty"`
-	FloatingButtonEnabled   bool                     `json:"floating_button_enabled,omitempty"`
-	FloatingButtonX         int                      `json:"floating_button_x,omitempty"`
-	FloatingButtonY         int                      `json:"floating_button_y,omitempty"`
-	FloatingButtonColor     string                   `json:"floating_button_color,omitempty"`
-	FloatingButtonCustomColor string                 `json:"floating_button_custom_color,omitempty"`
-	FloatingButtonSize      int                      `json:"floating_button_size,omitempty"`
-	FloatingButtonOpacity   int                      `json:"floating_button_opacity,omitempty"`
-	FloatingButtonLocked    bool                     `json:"floating_button_locked,omitempty"`
-	FloatingButtonBorder    bool                     `json:"floating_button_border,omitempty"`
-	FloatingButtonShape     string                   `json:"floating_button_shape,omitempty"`     // "circle", "rounded", "squircle", "hexagon", "diamond", "star"
-	FloatingButtonContent   string                   `json:"floating_button_content,omitempty"`   // "microphone", "applogo", "waveform", "custom"
-	FloatingButtonCustomImage string                 `json:"floating_button_custom_image,omitempty"` // absolute path to user-selected PNG/JPG
-	FloatingButtonAutoHide  string                   `json:"floating_button_auto_hide,omitempty"` // "never", "edge", "timeout"
-	FloatingButtonAutoHideTimeout int                `json:"floating_button_auto_hide_timeout,omitempty"`
-	UseVAD                  bool                     `json:"use_vad,omitempty"`
-	VADSensitivity          float32                  `json:"vad_sensitivity"`
-	LastProjectID           string                   `json:"last_project_id,omitempty"`
-	SidebarWidth            int                      `json:"sidebar_width,omitempty"`
-	DeleteBehavior          string                   `json:"delete_behavior,omitempty"` // "delete" or "archive"
-	LocalLLMModel           string                   `json:"local_llm_model,omitempty"`
-	CloudSTTProvider        string                   `json:"cloud_stt_provider,omitempty"` // "openai" (default), "groq", "deepgram"
-	CloudLLMProvider        string                   `json:"cloud_llm_provider,omitempty"` // "openai" (default), "anthropic", "gemini", "groq"
-	CloudLLMModel           string                   `json:"cloud_llm_model,omitempty"`    // provider-specific model ID
-	GroqAPIKey              string                   `json:"groq_api_key,omitempty"`
-	DeepgramAPIKey          string                   `json:"deepgram_api_key,omitempty"`
-	AnthropicAPIKey         string                   `json:"anthropic_api_key,omitempty"`
-	GeminiAPIKey            string                   `json:"gemini_api_key,omitempty"`
-	CustomDictionary        []string                 `json:"custom_dictionary,omitempty"` // terms for STT/LLM context
-	GPUAcceleration         string                   `json:"gpu_acceleration,omitempty"`  // "auto" (default), "enabled", "disabled"
-	ErrorReportingEnabled   bool                     `json:"error_reporting_enabled"`
-	FeedbackPromptShown     bool                     `json:"feedback_prompt_shown,omitempty"`
-	AutoPasteDelay          int                      `json:"auto_paste_delay"` // milliseconds, 0-2000
-	AutoTagEnabled          *bool                    `json:"auto_tag_enabled,omitempty"`
-	AutoTitleEnabled        *bool                    `json:"auto_title_enabled,omitempty"`
-	mu sync.RWMutex
+	APIKey                        string                   `json:"api_key"`
+	APIEndpoint                   string                   `json:"api_endpoint"`
+	HotkeyMods                    []string                 `json:"hotkey_modifiers"`
+	HotkeyKey                     string                   `json:"hotkey_key"`
+	Mode                          string                   `json:"mode"`
+	Language                      string                   `json:"language"`
+	Model                         string                   `json:"model"`
+	Prompt                        string                   `json:"prompt"`
+	OverlayPos                    string                   `json:"overlay_position"`
+	AutoPaste                     bool                     `json:"auto_paste"`
+	PlaySounds                    bool                     `json:"play_sounds"`
+	CheckUpdates                  bool                     `json:"check_updates"`
+	UILanguage                    string                   `json:"ui_language"`
+	Theme                         string                   `json:"theme"`
+	Autostart                     bool                     `json:"autostart"`
+	CloseToTray                   bool                     `json:"close_to_tray"`
+	SoundVolume                   float64                  `json:"sound_volume"`
+	MaxRecordSec                  int                      `json:"max_record_sec"`
+	SmartMode                     bool                     `json:"smart_mode"`
+	SmartModePreset               string                   `json:"smart_mode_preset"`
+	SmartModePrompt               string                   `json:"smart_mode_prompt"`
+	SmartModeTarget               string                   `json:"smart_mode_target"`
+	SponsorLastRemindedAt         int                      `json:"sponsor_last_reminded_at"`
+	NotifyBackground              bool                     `json:"notify_background"`
+	NotifyComplete                bool                     `json:"notify_complete"`
+	NotifyDonate                  bool                     `json:"notify_donate"`
+	UseLocalSTT                   bool                     `json:"use_local_stt"`
+	ActiveModelLocal              bool                     `json:"active_model_local"`
+	LocalModelID                  string                   `json:"local_model_id"`
+	TranscriptionLanguage         string                   `json:"transcription_language"`
+	InputDevice                   string                   `json:"input_device,omitempty"`
+	InputGain                     float64                  `json:"input_gain"`
+	TagColors                     map[string]int           `json:"tag_colors,omitempty"`
+	CleanupEnabled                bool                     `json:"cleanup_enabled,omitempty"`
+	CleanupMaxEntries             int                      `json:"cleanup_max_entries,omitempty"`
+	CleanupMaxAgeDays             int                      `json:"cleanup_max_age_days,omitempty"`
+	CleanupIncludePinned          bool                     `json:"cleanup_include_pinned,omitempty"`
+	OnboardingDone                bool                     `json:"onboarding_done,omitempty"`
+	ActiveProfile                 string                   `json:"active_profile,omitempty"`
+	Profiles                      map[string]ConfigProfile `json:"profiles,omitempty"`
+	CustomTemplates               map[string]string        `json:"custom_templates,omitempty"`
+	TextReplacementsEnabled       bool                     `json:"text_replacements_enabled,omitempty"`
+	TextReplacements              []TextReplacement        `json:"text_replacements,omitempty"`
+	TextReplacementsAI            bool                     `json:"text_replacements_ai,omitempty"`
+	TextReplacementProvider       string                   `json:"text_replacement_provider,omitempty"`
+	TrimSilence                   bool                     `json:"trim_silence,omitempty"`
+	AppDetection                  bool                     `json:"app_detection,omitempty"`
+	AppPresets                    map[string]string        `json:"app_presets,omitempty"`
+	SmartModeProvider             string                   `json:"smart_mode_provider,omitempty"`
+	TemplateMetas                 map[string]TemplateMeta  `json:"template_metas,omitempty"`
+	FallbackPreset                string                   `json:"fallback_preset,omitempty"`
+	CustomTags                    []string                 `json:"customTags,omitempty"`
+	FloatingButtonEnabled         bool                     `json:"floating_button_enabled,omitempty"`
+	FloatingButtonX               int                      `json:"floating_button_x,omitempty"`
+	FloatingButtonY               int                      `json:"floating_button_y,omitempty"`
+	FloatingButtonColor           string                   `json:"floating_button_color,omitempty"`
+	FloatingButtonCustomColor     string                   `json:"floating_button_custom_color,omitempty"`
+	FloatingButtonSize            int                      `json:"floating_button_size,omitempty"`
+	FloatingButtonOpacity         int                      `json:"floating_button_opacity,omitempty"`
+	FloatingButtonLocked          bool                     `json:"floating_button_locked,omitempty"`
+	FloatingButtonBorder          bool                     `json:"floating_button_border,omitempty"`
+	FloatingButtonShape           string                   `json:"floating_button_shape,omitempty"`        // "circle", "rounded", "squircle", "hexagon", "diamond", "star"
+	FloatingButtonContent         string                   `json:"floating_button_content,omitempty"`      // "microphone", "applogo", "waveform", "custom"
+	FloatingButtonCustomImage     string                   `json:"floating_button_custom_image,omitempty"` // absolute path to user-selected PNG/JPG
+	FloatingButtonAutoHide        string                   `json:"floating_button_auto_hide,omitempty"`    // "never", "edge", "timeout"
+	FloatingButtonAutoHideTimeout int                      `json:"floating_button_auto_hide_timeout,omitempty"`
+	UseVAD                        bool                     `json:"use_vad,omitempty"`
+	VADSensitivity                float32                  `json:"vad_sensitivity"`
+	LastProjectID                 string                   `json:"last_project_id,omitempty"`
+	SidebarWidth                  int                      `json:"sidebar_width,omitempty"`
+	DeleteBehavior                string                   `json:"delete_behavior,omitempty"` // "delete" or "archive"
+	LocalLLMModel                 string                   `json:"local_llm_model,omitempty"`
+	CloudSTTProvider              string                   `json:"cloud_stt_provider,omitempty"` // "openai" (default), "groq", "deepgram"
+	CloudLLMProvider              string                   `json:"cloud_llm_provider,omitempty"` // "openai" (default), "anthropic", "gemini", "groq"
+	CloudLLMModel                 string                   `json:"cloud_llm_model,omitempty"`    // provider-specific model ID
+	GroqAPIKey                    string                   `json:"groq_api_key,omitempty"`
+	DeepgramAPIKey                string                   `json:"deepgram_api_key,omitempty"`
+	AnthropicAPIKey               string                   `json:"anthropic_api_key,omitempty"`
+	GeminiAPIKey                  string                   `json:"gemini_api_key,omitempty"`
+	CustomDictionary              []string                 `json:"custom_dictionary,omitempty"` // terms for STT/LLM context
+	GPUAcceleration               string                   `json:"gpu_acceleration,omitempty"`  // "auto" (default), "enabled", "disabled"
+	ErrorReportingEnabled         bool                     `json:"error_reporting_enabled"`
+	FeedbackPromptShown           bool                     `json:"feedback_prompt_shown,omitempty"`
+	AutoPasteDelay                int                      `json:"auto_paste_delay"` // milliseconds, 0-2000
+	AutoTagEnabled                *bool                    `json:"auto_tag_enabled,omitempty"`
+	AutoTitleEnabled              *bool                    `json:"auto_title_enabled,omitempty"`
+	mu                            sync.RWMutex
 }
 
 // TextReplacement defines a trigger→replacement mapping applied to transcriptions.
@@ -703,19 +703,7 @@ func (c *Config) GetLocalModelID() string {
 
 // GetLocalLLMModel returns the selected local LLM model ID (thread-safe).
 func (c *Config) GetLocalLLMModel() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if c.LocalLLMModel == "" {
-		return "qwen2.5-0.5b"
-	}
-	// Migrate legacy model IDs
-	switch c.LocalLLMModel {
-	case "qwen3-0.6b":
-		return "qwen3.5-0.8b"
-	case "smollm2":
-		return "qwen2.5-0.5b"
-	}
-	return c.LocalLLMModel
+	return supportedLocalLLMModelID
 }
 
 // GetTranscriptionLanguage returns the local STT language hint (thread-safe).
