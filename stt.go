@@ -32,10 +32,13 @@ type LocalSTT struct {
 	startupLog      *limitedProcessOutput
 	cfg             *Config
 	gpuModeOverride string
+	httpClient      *http.Client // per-instance override; nil = use sttInferenceClient
 }
 
 var localSTT LocalSTT
-var previewSTT = LocalSTT{gpuModeOverride: "disabled"}
+var previewSTT = LocalSTT{
+	httpClient: &http.Client{Timeout: 10 * time.Second},
+}
 
 const maxWhisperStartupOutput = 8 * 1024
 
@@ -427,7 +430,11 @@ func (s *LocalSTT) Transcribe(wavData []byte, lang string, prompt ...string) (st
 	logDebug("STT inference request: port=%d wavBytes=%d lang=%s", port, len(wavData), lang)
 	start := time.Now()
 
-	resp, err := sttInferenceClient.Post(url, writer.FormDataContentType(), &body)
+	client := sttInferenceClient
+	if s.httpClient != nil {
+		client = s.httpClient
+	}
+	resp, err := client.Post(url, writer.FormDataContentType(), &body)
 	if err != nil {
 		return "", fmt.Errorf("inference request (after %v): %w", time.Since(start), err)
 	}
