@@ -497,9 +497,9 @@ func (h *History) UpdateEntry(id, title string, tags []string) bool {
 	tagsJSON := marshalTags(tags)
 	logDebug("UpdateEntry id=%s title=%q tagCount=%d tags=%s", id, title, len(tags), tagsJSON)
 	if title != "" {
-		res, err = execWithFTSRepair(h.db, "UPDATE history_entries SET title = ?, tags = ?, title_edited = 1 WHERE id = ?", title, tagsJSON, id)
+		res, err = execWithFTSRepair(h.db, "UPDATE history_entries SET title = ?, tags = ?, title_edited = 1 WHERE id = ? AND deleted_at IS NULL", title, tagsJSON, id)
 	} else {
-		res, err = execWithFTSRepair(h.db, "UPDATE history_entries SET tags = ? WHERE id = ?", tagsJSON, id)
+		res, err = execWithFTSRepair(h.db, "UPDATE history_entries SET tags = ? WHERE id = ? AND deleted_at IS NULL", tagsJSON, id)
 	}
 	if err != nil {
 		logError("Update entry id=%s: %v", id, err)

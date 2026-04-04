@@ -239,77 +239,6 @@
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); }
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.28); }
 
-/* ── Smart Mode Specific ──────────────────────────────── */
-.smart-mode-section {
-  overflow: hidden;
-  max-height: 0;
-  opacity: 0;
-  transition: max-height 400ms cubic-bezier(.4, 0, .2, 1), opacity var(--duration-normal) ease;
-}
-.smart-mode-section.visible {
-  max-height: 600px;
-  opacity: 1;
-}
-
-.prompt-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-sm);
-}
-
-.prompt-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-0-5);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-primary);
-  background: var(--bg-input);
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  position: relative;
-  overflow: hidden;
-}
-.prompt-card:hover {
-  border-color: var(--border-accent);
-  background: var(--bg-hover);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-.prompt-card:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-sm);
-}
-.prompt-card.active {
-  border-color: var(--accent);
-  background: var(--accent-subtle);
-}
-[data-theme="dark"] .prompt-card.active { background: var(--accent-subtle); }
-.prompt-card-name { font-size: var(--text-sm); font-weight: 600; color: var(--text); }
-.prompt-card-desc { font-size: var(--text-xs); color: var(--text-hint); line-height: 1.3; }
-
-.custom-prompt-area {
-  width: 100%;
-  min-height: 80px;
-  padding: var(--space-2-5) var(--space-3-5);
-  font-size: var(--text-base);
-  font-family: var(--font);
-  color: var(--text);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  resize: vertical;
-  transition: border-color var(--transition), box-shadow var(--transition);
-}
-.custom-prompt-area:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--accent-glow);
-  outline: none;
-}
-.custom-prompt-area:hover {
-  border-color: var(--text-tertiary);
-}
-
 /* ── Skeleton Loading ─────────────────────────────────── */
 .skeleton {
   background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
@@ -458,7 +387,6 @@
 .form-input:focus-visible,
 .form-select:focus-visible,
 .edit-textarea:focus-visible,
-.custom-prompt-area:focus-visible,
 .smart-custom-textarea:focus-visible,
 .repl-dialog-input:focus-visible,
 .prompt-input:focus-visible,
@@ -476,7 +404,6 @@
 }
 
 .preset-card:focus-visible,
-.prompt-card:focus-visible,
 .confirm-list-item:focus-visible,
 .snippet-example-card:focus-visible,
 .card:focus-visible {

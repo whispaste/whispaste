@@ -10,64 +10,26 @@ import (
 	"github.com/whispaste/whispaste/internal/inference"
 )
 
-func TestMatchTemplate(t *testing.T) {
-	metas := GetDefaultTemplateMetas()
-
-	tests := []struct {
-		name        string
-		appName     string
-		windowTitle string
-		wantPreset  string
-		wantFound   bool
-	}{
-		{"outlook matches email", "OUTLOOK.EXE", "Inbox - Outlook", "email", true},
-		{"new outlook matches email via title", "olk.exe", "Inbox - Outlook (new)", "email", true},
-		{"slack matches casual", "Slack", "general - Slack", "casual", true},
-		{"vscode matches aiprompt", "Code.exe", "main.go - Visual Studio Code", "aiprompt", true},
-		{"teams matches meeting", "Teams.exe", "Meeting - Microsoft Teams", "meeting", true},
-		{"unknown app no match", "calc.exe", "Calculator", "", false},
-		{"empty input no match", "", "", "", false},
-		{"case insensitive", "outlook.exe", "inbox", "email", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			preset, found := MatchTemplate(tt.appName, tt.windowTitle, metas)
-			if found != tt.wantFound {
-				t.Errorf("MatchTemplate(%q, %q) found=%v, want %v", tt.appName, tt.windowTitle, found, tt.wantFound)
-			}
-			if found && preset != tt.wantPreset {
-				t.Errorf("MatchTemplate(%q, %q) = %q, want %q", tt.appName, tt.windowTitle, preset, tt.wantPreset)
-			}
-		})
-	}
-}
-
 func TestBuildSmartPrompt(t *testing.T) {
 	tests := []struct {
 		name         string
 		preset       string
-		customPrompt string
 		targetLang   string
 		appLang      string
-		userTempl    map[string]string
 		wantEmpty    bool
 		wantContains string
 	}{
-		{"builtin cleanup", "cleanup", "", "", "en", nil, false, "Clean up"},
-		{"translate default", "translate", "", "", "en", nil, false, "Translate the following text into English"},
-		{"translate german", "translate", "", "German", "en", nil, false, "Translate the following text into German"},
-		{"translate code", "translate", "", "de", "en", nil, false, "Translate the following text into German"},
-		{"custom prompt", "custom", "Fix spelling", "", "en", nil, false, "TRANSFORMATION INSTRUCTIONS:\nFix spelling"},
-		{"custom without prompt", "custom", "", "", "en", nil, true, ""},
-		{"unknown preset", "nonexistent", "", "", "en", nil, true, ""},
-		{"same language guardrail", "email", "", "", "de", nil, false, "The user's input is in German"},
-		{"language hint used", "email", "", "", "fr", nil, false, "The user's input is in French"},
-		{"email omits missing details", "email", "", "", "en", nil, false, "omit it rather than guessing"},
-		{"user template", "mypreset", "", "", "en", map[string]string{"mypreset": "Do stuff"}, false, "TRANSFORMATION INSTRUCTIONS:\nDo stuff"},
+		{"builtin cleanup", "cleanup", "", "en", false, "Clean up"},
+		{"translate default", "translate", "", "en", false, "Translate the following text into English"},
+		{"translate german", "translate", "German", "en", false, "Translate the following text into German"},
+		{"translate code", "translate", "de", "en", false, "Translate the following text into German"},
+		{"unknown preset", "nonexistent", "", "en", true, ""},
+		{"concise preset", "concise", "", "en", false, "more concise"},
+		{"system returns empty", "system", "", "en", true, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildSmartPrompt(tt.preset, tt.customPrompt, tt.targetLang, tt.appLang, tt.userTempl)
+			got := buildSmartPrompt(tt.preset, tt.targetLang, tt.appLang)
 			if tt.wantEmpty && got != "" {
 				t.Errorf("expected empty prompt, got %q", got)
 			}
@@ -91,82 +53,28 @@ func TestBuildBulkSmartPrompt(t *testing.T) {
 		}
 	})
 
-	t.Run("custom prompt keeps same-language guardrail", func(t *testing.T) {
-		got := buildBulkSmartPrompt("custom", "Turn this into release notes.", "", "es", nil)
-		if !strings.Contains(got, "The user's input is in Spanish") {
-			t.Fatalf("expected Spanish language hint in bulk prompt, got %q", got)
+	t.Run("cleanup includes merge instruction", func(t *testing.T) {
+		got := buildBulkSmartPrompt("cleanup", "", "", "en", nil)
+		if !strings.Contains(got, "STEP 1") || !strings.Contains(got, "MERGE") {
+			t.Fatalf("expected merge instruction in bulk prompt, got %q", got)
 		}
-		if !strings.Contains(got, "Turn this into release notes.") {
-			t.Fatalf("expected custom instruction in bulk prompt, got %q", got)
+		if !strings.Contains(got, "Clean up") {
+			t.Fatalf("expected cleanup instruction in bulk prompt, got %q", got)
 		}
 	})
 
 	t.Run("local prompt stays compact", func(t *testing.T) {
-		got := buildBulkSmartPromptLocal("email", "", "", "de", nil)
+		got := buildBulkSmartPromptLocal("cleanup", "", "", "de", nil)
 		if !strings.Contains(got, "Task: Merge the numbered transcription segments") {
 			t.Fatalf("expected compact local bulk merge instruction, got %q", got)
 		}
 		if !strings.Contains(got, "Language: Keep the output in German") {
 			t.Fatalf("expected German language guardrail in local bulk prompt, got %q", got)
 		}
-		if !strings.Contains(got, "Do not invent facts, names, dates, owners, commitments, placeholders, or requirements.") {
-			t.Fatalf("expected local bulk prompt to include no-invention guardrail, got %q", got)
-		}
 		if strings.Contains(got, "You receive multiple numbered transcription segments from the same user") {
 			t.Fatalf("local bulk prompt must not use the verbose cloud wrapper, got %q", got)
 		}
 	})
-}
-
-func TestBuildSmartPromptPresetGuardrails(t *testing.T) {
-	tests := []struct {
-		name         string
-		preset       string
-		langHint     string
-		wantContains []string
-	}{
-		{
-			name:     "email avoids invention",
-			preset:   "email",
-			langHint: "en",
-			wantContains: []string{
-				"using this order when the source supports it: greeting, body, closing",
-				"Do not invent names, dates, placeholders, attachments, availability, or promises.",
-				"omit it rather than guessing",
-			},
-		},
-		{
-			name:     "meeting owners explicit only",
-			preset:   "meeting",
-			langHint: "de",
-			wantContains: []string{
-				"using this structure: Subject, Topics, Decisions, Action Items",
-				"Include owners only when they are explicitly stated.",
-				"Keep the source language unless translation is explicitly requested.",
-			},
-		},
-		{
-			name:     "ai prompt is imperative",
-			preset:   "aiprompt",
-			langHint: "en",
-			wantContains: []string{
-				"Start with the main instruction in direct imperative form.",
-				"Keep every explicit requirement, constraint, input, context, and requested output format.",
-				"Do not invent examples, steps, or facts.",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			prompt := buildSmartPrompt(tt.preset, "", "", tt.langHint, nil)
-			for _, want := range tt.wantContains {
-				if !strings.Contains(prompt, want) {
-					t.Fatalf("prompt for %q must contain %q, got %q", tt.preset, want, prompt)
-				}
-			}
-		})
-	}
 }
 
 func TestStripThinkBlocks(t *testing.T) {
@@ -238,10 +146,17 @@ func TestPostProcessHTTP(t *testing.T) {
 
 func TestGetBuiltinPresets(t *testing.T) {
 	presets := GetBuiltinPresets()
-	required := []string{"cleanup", "email", "bullets", "formal", "concise", "aiprompt"}
+	required := []string{"cleanup", "concise"}
 	for _, name := range required {
 		if _, ok := presets[name]; !ok {
 			t.Errorf("missing builtin preset %q", name)
+		}
+	}
+	// Verify removed presets are gone
+	removed := []string{"email", "bullets", "formal", "aiprompt", "meeting", "summary", "notes", "social", "casual"}
+	for _, name := range removed {
+		if _, ok := presets[name]; ok {
+			t.Errorf("preset %q should have been removed", name)
 		}
 	}
 }
@@ -312,7 +227,7 @@ func TestPostProcessLocalReasoningOnlyResponse(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result, err := PostProcess("original text", "email", "", "", "key", srv.URL, "de", "qwen3.5-0.8b", nil)
+	result, err := PostProcess("original text", "cleanup", "", "", "key", srv.URL, "de", "qwen3-1.7b", nil)
 	if err == nil {
 		t.Fatal("expected error when response contains only reasoning content")
 	}
@@ -340,7 +255,7 @@ func TestPostProcessLocalMaxTokens(t *testing.T) {
 
 	// httptest.NewServer uses 127.0.0.1, so isLocalEndpoint returns true
 	shortText := strings.Repeat("a", 400)
-	_, err := PostProcess(shortText, "email", "", "", "key", srv.URL, "en", "", nil)
+	_, err := PostProcess(shortText, "cleanup", "", "", "key", srv.URL, "en", "", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -387,21 +302,12 @@ func TestBuildSmartPromptLocal(t *testing.T) {
 		preset      string
 		mustContain string
 	}{
-		{"email", "professional email"},
-		{"bullets", "bullet list"},
-		{"formal", "formal, professional language"},
 		{"cleanup", "Clean up dictated text"},
 		{"concise", "more concisely"},
-		{"meeting", "meeting minutes"},
-		{"summary", "Summarize the text"},
-		{"notes", "structured notes"},
-		{"social", "social media post"},
-		{"casual", "natural casual tone"},
-		{"aiprompt", "prompt for an AI assistant"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.preset, func(t *testing.T) {
-			prompt := buildSmartPromptLocal(tc.preset, "", "", "en", nil)
+			prompt := buildSmartPromptLocal(tc.preset, "", "en")
 			if prompt == "" {
 				t.Fatalf("buildSmartPromptLocal(%q) returned empty prompt", tc.preset)
 			}
@@ -411,80 +317,12 @@ func TestBuildSmartPromptLocal(t *testing.T) {
 			if !strings.Contains(prompt, tc.mustContain) {
 				t.Errorf("prompt for %q must contain %q, got: %s", tc.preset, tc.mustContain, prompt)
 			}
-			if strings.Contains(prompt, "You are refining dictated text") {
-				t.Errorf("prompt for %q must not contain the generic cloud wrapper, got: %s", tc.preset, prompt)
-			}
-		})
-	}
-}
-
-// TestBuildSmartPromptLocalSections ensures the local prompt keeps the compact
-// task/language/output structure that works reliably on small local models.
-func TestBuildSmartPromptLocalSections(t *testing.T) {
-	prompt := buildSmartPromptLocal("email", "", "", "de", nil)
-	if !strings.HasPrefix(prompt, "Task:") {
-		t.Errorf("email local prompt should start with Task:, got: %q", truncateForLog(prompt, 80))
-	}
-	if !strings.Contains(prompt, "Language: Keep the output in German unless the instructions explicitly ask for translation.") {
-		t.Errorf("email local prompt with langHint=de should mention German, got: %q", prompt)
-	}
-	if !strings.Contains(prompt, "Do not invent facts, names, dates, owners, commitments, placeholders, or requirements.") {
-		t.Errorf("local prompt should include the no-invention instruction, got: %q", prompt)
-	}
-	if !strings.Contains(prompt, "If a detail is missing from the source, omit it instead of guessing.") {
-		t.Errorf("local prompt should prefer omission over guessing, got: %q", prompt)
-	}
-	if !strings.Contains(prompt, "Return only the transformed output. No commentary, no labels, no quotes.") {
-		t.Errorf("local prompt should include the output-only instruction, got: %q", prompt)
-	}
-}
-
-func TestBuildSmartPromptLocalPresetGuardrails(t *testing.T) {
-	tests := []struct {
-		name         string
-		preset       string
-		wantContains []string
-	}{
-		{
-			name:   "email stays structured without placeholders",
-			preset: "email",
-			wantContains: []string{
-				"professional email with this order when the source supports it: greeting, body, closing",
-				"Do not invent names, dates, placeholders, attachments, availability, or promises.",
-			},
-		},
-		{
-			name:   "meeting owners only when explicit",
-			preset: "meeting",
-			wantContains: []string{
-				"meeting minutes with this structure: Subject, Topics, Decisions, Action Items",
-				"Include owners only when they are explicitly stated.",
-			},
-		},
-		{
-			name:   "ai prompt starts imperative",
-			preset: "aiprompt",
-			wantContains: []string{
-				"Start with the main instruction in imperative form.",
-				"Do not invent requirements, examples, or facts.",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			prompt := buildSmartPromptLocal(tt.preset, "", "", "en", nil)
-			for _, want := range tt.wantContains {
-				if !strings.Contains(prompt, want) {
-					t.Fatalf("local prompt for %q must contain %q, got %q", tt.preset, want, prompt)
-				}
-			}
 		})
 	}
 }
 
 func TestBuildSmartPromptLocalTranslate(t *testing.T) {
-	prompt := buildSmartPromptLocal("translate", "", "de", "en", nil)
+	prompt := buildSmartPromptLocal("translate", "de", "en")
 	if !strings.HasPrefix(prompt, "Task: Translate the text into German.") {
 		t.Errorf("local translate prompt should start with the direct translation task, got: %q", truncateForLog(prompt, 80))
 	}

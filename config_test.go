@@ -485,3 +485,78 @@ func TestConfigFloatingButtonRoundtrip(t *testing.T) {
 		t.Errorf("GetFloatingButtonColor() = %q, want rose", cfg2.GetFloatingButtonColor())
 	}
 }
+
+func TestLoadConfigMigratesRemovedPresets(t *testing.T) {
+	t.Setenv("APPDATA", t.TempDir())
+	models.Init("whispaste-config-test")
+	t.Cleanup(func() { models.Init(AppName) })
+
+	// Write a config with a removed preset and deprecated fields
+	old := DefaultConfig()
+	old.SmartModePreset = "email"
+	old.SmartModePrompt = "Write me an email"
+	old.CustomTemplates = map[string]string{"custom1": "do stuff"}
+	old.AppDetection = true
+	old.AppPresets = map[string]string{"outlook.exe": "email"}
+	old.FallbackPreset = "formal"
+
+	dir, _ := configPath()
+	if err := os.MkdirAll(filepath.Dir(dir), 0700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	data, _ := json.MarshalIndent(old, "", "  ")
+	if err := os.WriteFile(dir, data, 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	if cfg.SmartModePreset != "cleanup" {
+		t.Errorf("SmartModePreset = %q, want cleanup (migrated from email)", cfg.SmartModePreset)
+	}
+	if cfg.SmartModePrompt != "" {
+		t.Errorf("SmartModePrompt = %q, want empty (cleared)", cfg.SmartModePrompt)
+	}
+	if cfg.CustomTemplates != nil {
+		t.Errorf("CustomTemplates = %v, want nil (cleared)", cfg.CustomTemplates)
+	}
+	if cfg.AppDetection {
+		t.Error("AppDetection should be false (cleared)")
+	}
+	if cfg.AppPresets != nil {
+		t.Errorf("AppPresets = %v, want nil (cleared)", cfg.AppPresets)
+	}
+	if cfg.FallbackPreset != "" {
+		t.Errorf("FallbackPreset = %q, want empty (cleared)", cfg.FallbackPreset)
+	}
+}
+
+func TestSetSmartModePresetValidatesPresets(t *testing.T) {
+	cfg := DefaultConfig()
+
+	// Valid presets
+	for _, p := range []string{"cleanup", "concise", "translate"} {
+		cfg.SetSmartModePreset(p)
+		if cfg.SmartModePreset != p {
+			t.Errorf("SetSmartModePreset(%q) → SmartModePreset = %q", p, cfg.SmartModePreset)
+		}
+		if !cfg.SmartMode {
+			t.Errorf("SetSmartModePreset(%q) should enable SmartMode", p)
+		}
+	}
+
+	// Invalid preset should be migrated to cleanup
+	cfg.SetSmartModePreset("email")
+	if cfg.SmartModePreset != "cleanup" {
+		t.Errorf("SetSmartModePreset('email') → SmartModePreset = %q, want cleanup", cfg.SmartModePreset)
+	}
+
+	// "off" disables
+	cfg.SetSmartModePreset("off")
+	if cfg.SmartMode {
+		t.Error("SetSmartModePreset('off') should disable SmartMode")
+	}
+}

@@ -45,7 +45,6 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		if (langHint == "" || langHint == "auto") && entry.IsLocal {
 			langHint = cfg.GetEffectiveLocalTranscriptionLanguage()
 		}
-		customTemplates := cfg.GetCustomTemplates()
 
 		go func() {
 			endpoint, apiKey, modelType, err := resolveSmartEndpoint()
@@ -56,7 +55,11 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 				}
 				return
 			}
-			result, err := ApplySmartAction(entryText, preset, customPrompt, targetLang, apiKey, endpoint, langHint, customTemplates)
+			localModelID := ""
+			if modelType == "local" {
+				localModelID = cfg.GetLocalLLMModel()
+			}
+			result, err := ApplySmartAction(entryText, preset, customPrompt, targetLang, apiKey, endpoint, langHint, localModelID, nil)
 			if err != nil {
 				if mainWebview != nil {
 					js := fmt.Sprintf("if(typeof onSmartActionComplete==='function')onSmartActionComplete(%s,'','%s')", jsStr(entryID), escapeJS(err.Error()))
@@ -129,7 +132,6 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		if dominantLang == "" && allLocal {
 			dominantLang = cfg.GetEffectiveLocalTranscriptionLanguage()
 		}
-		customTemplates := cfg.GetCustomTemplates()
 
 		go func() {
 			endpoint, apiKey, modelType, err := resolveSmartEndpoint()
@@ -140,7 +142,14 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 				}
 				return
 			}
-			bulkPrompt := buildBulkSmartPrompt(preset, customPrompt, targetLang, dominantLang, customTemplates)
+			localModelID := ""
+			if modelType == "local" {
+				localModelID = cfg.GetLocalLLMModel()
+			}
+			bulkPrompt := buildBulkSmartPrompt(preset, customPrompt, targetLang, dominantLang, nil)
+			if modelType == "local" {
+				bulkPrompt = buildBulkSmartPromptLocal(preset, customPrompt, targetLang, dominantLang, nil)
+			}
 			if bulkPrompt == "" {
 				if mainWebview != nil {
 					js := "if(typeof onBulkSmartActionComplete==='function')onBulkSmartActionComplete('','unknown preset')"
@@ -148,7 +157,7 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 				}
 				return
 			}
-			result, err := PostProcess(combined, "system", bulkPrompt, "", apiKey, endpoint, dominantLang, "", customTemplates)
+			result, err := PostProcess(combined, "system", bulkPrompt, "", apiKey, endpoint, dominantLang, localModelID, nil)
 			if err != nil {
 				if mainWebview != nil {
 					js := fmt.Sprintf("if(typeof onBulkSmartActionComplete==='function')onBulkSmartActionComplete('','%s')", escapeJS(err.Error()))
@@ -205,88 +214,10 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		logInfo("Smart mode preset switched to: %s (enabled=%v)", preset, cfg.GetSmartMode())
 	})
 
-	w.Bind("saveCustomTemplate", func(name, prompt string) {
-		cfg.SaveCustomTemplate(name, prompt)
-		if err := cfg.Save(); err != nil {
-			logError("Save custom template %q: %v", name, err)
-		}
-		logInfo("Custom template saved: %s", name)
-	})
-
-	w.Bind("deleteCustomTemplate", func(name string) {
-		cfg.DeleteCustomTemplate(name)
-		if err := cfg.Save(); err != nil {
-			logError("Delete custom template %q: %v", name, err)
-		}
-		logInfo("Custom template deleted: %s", name)
-	})
-
-	w.Bind("getCustomTemplates", func() string {
-		templates := cfg.GetCustomTemplates()
-		data, _ := json.Marshal(templates)
-		return string(data)
-	})
-
 	w.Bind("getBuiltinPresets", func() string {
 		presets := GetBuiltinPresets()
 		data, _ := json.Marshal(presets)
 		return string(data)
-	})
-
-	w.Bind("exportTemplate", func(name string) string {
-		templates := cfg.GetCustomTemplates()
-		prompt, ok := templates[name]
-		if !ok {
-			return ""
-		}
-		export := TemplateExport{
-			Name:    name,
-			Prompt:  prompt,
-			Version: 1,
-		}
-		data, _ := json.Marshal(export)
-		return string(data)
-	})
-
-	w.Bind("exportAllTemplates", func() string {
-		templates := cfg.GetCustomTemplates()
-		exports := make([]TemplateExport, 0, len(templates))
-		for name, prompt := range templates {
-			exports = append(exports, TemplateExport{
-				Name:    name,
-				Prompt:  prompt,
-				Version: 1,
-			})
-		}
-		data, _ := json.Marshal(exports)
-		return string(data)
-	})
-
-	w.Bind("importTemplate", func(jsonStr string) string {
-		var tmpl TemplateExport
-		if err := json.Unmarshal([]byte(jsonStr), &tmpl); err != nil {
-			return `{"error":"invalid template format"}`
-		}
-		if tmpl.Name == "" || tmpl.Prompt == "" {
-			return `{"error":"name and prompt are required"}`
-		}
-		if len(tmpl.Name) > 50 {
-			return `{"error":"name too long (max 50 characters)"}`
-		}
-		if len(tmpl.Prompt) > 2000 {
-			return `{"error":"prompt too long (max 2000 characters)"}`
-		}
-		// Reject names that collide with builtin presets
-		if _, isBuiltin := smartModePresets[tmpl.Name]; isBuiltin {
-			return `{"error":"cannot overwrite builtin preset"}`
-		}
-		cfg.SaveCustomTemplate(tmpl.Name, tmpl.Prompt)
-		if err := cfg.Save(); err != nil {
-			logError("Import template %q: %v", tmpl.Name, err)
-			return `{"error":"save failed"}`
-		}
-		logInfo("Template imported: %s", tmpl.Name)
-		return `{"ok":true,"name":"` + tmpl.Name + `"}`
 	})
 
 	w.Bind("getTextReplacements", func() string {
@@ -338,76 +269,11 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		}
 	})
 
-	w.Bind("getAppPresets", func() string {
-		m := cfg.GetAppPresets()
-		data, _ := json.Marshal(m)
-		return string(data)
-	})
-
-	w.Bind("setAppPresets", func(jsonStr string) {
-		var m map[string]string
-		if err := json.Unmarshal([]byte(jsonStr), &m); err != nil {
-			logError("Parse app presets: %v", err)
-			return
-		}
-		cfg.SetAppPresets(m)
-		if err := cfg.Save(); err != nil {
-			logError("Save app presets: %v", err)
-		}
-	})
-
-	w.Bind("setAppDetectionEnabled", func(enabled bool) {
-		cfg.mu.Lock()
-		cfg.AppDetection = enabled
-		cfg.mu.Unlock()
-		if err := cfg.Save(); err != nil {
-			logError("Save app detection: %v", err)
-		}
-	})
-
-	w.Bind("getAppDetectionEnabled", func() bool { return cfg.GetAppDetectionEnabled() })
-	w.Bind("getActiveAppName", func() string { return GetActiveAppName() })
 	w.Bind("getSmartModeProvider", func() string { return cfg.GetSmartModeProvider() })
 
 	w.Bind("setSmartModeProvider", func(provider string) {
 		cfg.mu.Lock()
 		cfg.SmartModeProvider = provider
-		cfg.mu.Unlock()
-		cfg.Save()
-	})
-
-	w.Bind("getFallbackPreset", func() string { return cfg.GetFallbackPreset() })
-
-	w.Bind("setFallbackPreset", func(preset string) {
-		cfg.mu.Lock()
-		cfg.FallbackPreset = preset
-		cfg.mu.Unlock()
-		cfg.Save()
-	})
-
-	w.Bind("getTemplateMetas", func() string {
-		metas := cfg.GetTemplateMetas()
-		defaults := GetDefaultTemplateMetas()
-		for k, v := range defaults {
-			if _, exists := metas[k]; !exists {
-				metas[k] = v
-			}
-		}
-		data, _ := json.Marshal(metas)
-		return string(data)
-	})
-
-	w.Bind("setTemplateMeta", func(name, metaJSON string) {
-		var meta TemplateMeta
-		if err := json.Unmarshal([]byte(metaJSON), &meta); err != nil {
-			logWarn("Invalid template meta JSON: %v", err)
-			return
-		}
-		cfg.mu.Lock()
-		if cfg.TemplateMetas == nil {
-			cfg.TemplateMetas = make(map[string]TemplateMeta)
-		}
-		cfg.TemplateMetas[name] = meta
 		cfg.mu.Unlock()
 		cfg.Save()
 	})

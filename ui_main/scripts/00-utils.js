@@ -380,30 +380,14 @@ function getTagColor(tagName) {
 }
 
 /** Unified smart template list — single source of truth for all menus */
-async function getAllSmartTemplates() {
-  const builtIn = (typeof SMART_PRESETS !== 'undefined' ? SMART_PRESETS : []).map(p => ({
+function getAllSmartTemplates() {
+  return (typeof SMART_PRESETS !== 'undefined' ? SMART_PRESETS : []).map(p => ({
     id: p.id,
     label: t('smart.preset.' + p.id) || p.id,
     prompt: p.prompt || '',
     icon: p.icon,
     isCustom: false,
   }));
-
-  let custom = [];
-  try {
-    const raw = await window.getCustomTemplates();
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (parsed && typeof parsed === 'object') {
-      custom = Object.entries(parsed).map(([name, prompt]) => ({
-        id: name,
-        label: name,
-        prompt: typeof prompt === 'string' ? prompt : '',
-        isCustom: true,
-      }));
-    }
-  } catch (e) {}
-
-  return [...builtIn, ...custom];
 }
 
 const icons = {

@@ -225,66 +225,28 @@ function updateAutoPasteDelayLabel(val) {
 /* ── Smart Mode Visibility ────────────────────────────── */
 function updateSmartModeVisibility() {
   const toggle = document.getElementById('toggle-smartmode');
-  const options = document.getElementById('smart-mode-options');
-  const howto = document.getElementById('smart-howto');
-  const appDetRow = document.getElementById('smart-app-detection-row');
-  const appNotice = document.getElementById('smart-app-active-notice');
-
   const on = toggle ? toggle.checked : false;
-  if (options) options.classList.toggle('hidden', !on);
-  if (howto) howto.classList.toggle('hidden', !on);
-  if (appDetRow) appDetRow.classList.toggle('hidden', !on);
-  if (!on && appNotice) appNotice.classList.add('hidden');
+  const targetRow = document.getElementById('smart-target-row');
+  const presetSel = document.getElementById('select-smartpreset');
+  if (targetRow && presetSel) {
+    targetRow.classList.toggle('hidden', presetSel.value !== 'translate');
+  }
   if (on) {
-    updateSmartPresetVisibility();
-    updateAppDetectionState();
     initSmartProvider();
   }
-}
-
-function updateAppDetectionState() {
-  const appDetOn = document.getElementById('toggle-app-detection')?.checked;
-  const presetGrid = document.getElementById('preset-grid');
-  const presetTitle = document.querySelector('#smart-mode-options .section-title');
-  const appNotice = document.getElementById('smart-app-active-notice');
-  const appRules = document.getElementById('smart-app-rules-section');
-  if (presetGrid) {
-    presetGrid.classList.toggle('disabled-overlay', !!appDetOn);
-    presetGrid.style.pointerEvents = appDetOn ? 'none' : '';
-    presetGrid.style.opacity = appDetOn ? '0.45' : '';
-  }
-  if (presetTitle) presetTitle.style.opacity = appDetOn ? '0.45' : '';
-  if (appNotice) appNotice.classList.toggle('hidden', !appDetOn);
-  if (appRules) appRules.classList.toggle('hidden', !appDetOn);
-}
-
-function onAppDetectionToggle() {
-  const on = document.getElementById('toggle-app-detection')?.checked;
-  if (window.setAppDetectionEnabled) window.setAppDetectionEnabled(on);
-  updateAppDetectionState();
-  if (on && window.loadAppPresets) window.loadAppPresets();
-  const explainer = document.getElementById('appDetectionExplainer');
-  if (explainer) explainer.classList.toggle('hidden', !on);
 }
 
 function updateSmartPresetVisibility() {
   const preset = document.getElementById('select-smartpreset')?.value;
   const targetRow = document.getElementById('smart-target-row');
-  const promptRow = document.getElementById('smart-prompt-row');
   if (targetRow) targetRow.classList.toggle('hidden', preset !== 'translate');
-  if (promptRow) promptRow.classList.toggle('hidden', preset !== 'custom');
 }
 
 function selectSmartPreset(preset) {
-  document.querySelectorAll('.preset-card').forEach(c => {
-    c.classList.toggle('active', c.dataset.preset === preset);
-  });
   const sel = document.getElementById('select-smartpreset');
   if (sel) sel.value = preset;
   const targetRow = document.getElementById('smart-target-row');
-  const promptRow = document.getElementById('smart-prompt-row');
   if (targetRow) targetRow.classList.toggle('hidden', preset !== 'translate');
-  if (promptRow) promptRow.classList.toggle('hidden', preset !== 'custom');
   autoSave();
 }
 
@@ -314,9 +276,9 @@ function renderSettingsLLMModel(status) {
   const models = status.models || {};
 
   // Model definitions for display order
-  const modelOrder = ['qwen3.5-0.8b'];
+  const modelOrder = ['qwen3-1.7b'];
   const modelTranslations = {
-    'qwen3.5-0.8b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
+    'qwen3-1.7b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
   };
 
   let html = '';
@@ -345,10 +307,10 @@ function renderSettingsLLMModel(status) {
 
 function updateProviderModelPickers(status) {
   const models = status ? (status.models || {}) : {};
-  const selectedModel = status ? (status.selectedModel || 'qwen3.5-0.8b') : 'qwen3.5-0.8b';
-  const modelOrder = ['qwen3.5-0.8b'];
+  const selectedModel = status ? (status.selectedModel || 'qwen3-1.7b') : 'qwen3-1.7b';
+  const modelOrder = ['qwen3-1.7b'];
   const modelTranslations = {
-    'qwen3.5-0.8b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
+    'qwen3-1.7b': { name: t('smartLlmModelQwen3'), desc: t('smartLlmModelQwen3Desc') }
   };
 
   ['smartProviderModelSelect', 'textReplaceProviderModelSelect'].forEach(selId => {

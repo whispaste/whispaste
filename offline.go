@@ -31,8 +31,10 @@ func startLocalSTTModel(s *LocalSTT, modelID string) error {
 	return nil
 }
 
-func transcribeLocalWithSTT(s *LocalSTT, pcmS16 []byte, sampleRate int, language string, modelID string, prompt ...string) (string, error) {
-	if len(pcmS16) < 2 {
+// transcribeLocalWithSTT handles local transcription using pre-encoded WAV data.
+// pcmLen is the raw PCM byte count used for audio-duration logging.
+func transcribeLocalWithSTT(s *LocalSTT, wavData []byte, pcmLen int, sampleRate int, language string, modelID string, prompt ...string) (string, error) {
+	if len(wavData) <= 44 {
 		return "", fmt.Errorf("audio data too short")
 	}
 
@@ -42,7 +44,6 @@ func transcribeLocalWithSTT(s *LocalSTT, pcmS16 []byte, sampleRate int, language
 	}
 	serverDur := time.Since(serverStart)
 
-	wavData := wav.Encode(pcmS16, uint32(sampleRate), 1, 16)
 	lang := normalizeLanguage(language)
 
 	var promptArg []string
@@ -52,7 +53,7 @@ func transcribeLocalWithSTT(s *LocalSTT, pcmS16 []byte, sampleRate int, language
 	inferStart := time.Now()
 	text, err := s.Transcribe(wavData, lang, promptArg...)
 	inferDur := time.Since(inferStart)
-	audioDur := float64(len(pcmS16)) / float64(sampleRate*2) // 16-bit mono
+	audioDur := float64(pcmLen) / float64(sampleRate*2) // 16-bit mono
 	logInfo("Local STT timing: serverStart=%v inference=%v audioDur=%.1fs model=%s textLen=%d", serverDur, inferDur, audioDur, modelID, len(text))
 	if err != nil {
 		return "", fmt.Errorf("transcribe: %w", err)
@@ -64,7 +65,18 @@ func transcribeLocalWithSTT(s *LocalSTT, pcmS16 []byte, sampleRate int, language
 // TranscribeLocal performs offline speech-to-text via the local whisper.cpp HTTP server.
 // An optional prompt parameter can be passed (e.g. custom dictionary terms) to improve recognition.
 func TranscribeLocal(pcmS16 []byte, sampleRate int, language string, modelID string, prompt ...string) (string, error) {
-	return transcribeLocalWithSTT(&localSTT, pcmS16, sampleRate, language, modelID, prompt...)
+	if len(pcmS16) < 2 {
+		return "", fmt.Errorf("audio data too short")
+	}
+	wavData := wav.Encode(pcmS16, uint32(sampleRate), 1, 16)
+	return transcribeLocalWithSTT(&localSTT, wavData, len(pcmS16), sampleRate, language, modelID, prompt...)
+}
+
+// TranscribeLocalWAV performs offline speech-to-text using pre-encoded WAV data,
+// avoiding redundant WAV encoding when the caller already has encoded audio.
+// An optional prompt parameter can be passed (e.g. custom dictionary terms) to improve recognition.
+func TranscribeLocalWAV(wavData []byte, sampleRate int, language string, modelID string, prompt ...string) (string, error) {
+	return transcribeLocalWithSTT(&localSTT, wavData, len(wavData)-44, sampleRate, language, modelID, prompt...)
 }
 
 // LocalRecognizer is a thread-safe singleton wrapper around the whisper.cpp HTTP server.

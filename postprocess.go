@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -164,17 +163,8 @@ Rules:
 - Return only the translation.`, target)
 }
 
-func resolveSmartActionPrompt(preset, customPrompt string, userTemplates map[string]string) string {
-	if preset == "custom" && customPrompt != "" {
-		return customPrompt
-	}
+func resolveSmartActionPrompt(preset string) string {
 	p, ok := smartModePresets[preset]
-	if !ok && userTemplates != nil {
-		if ut, found := userTemplates[preset]; found {
-			p = ut
-			ok = true
-		}
-	}
 	if !ok {
 		return ""
 	}
@@ -183,31 +173,13 @@ func resolveSmartActionPrompt(preset, customPrompt string, userTemplates map[str
 
 // smartModePresets maps preset names to system prompts.
 var smartModePresets = map[string]string{
-	"cleanup":  "Clean up the following dictated text. Fix grammar, punctuation, capitalization, and spelling errors. Do not remove words, change meaning, or restructure sentences. Keep the original language. Return only the cleaned text.",
-	"concise":  "Rewrite the following text to be more concise. Remove filler words, redundancy, and unnecessary repetition. Combine sentences where possible. Preserve all key information and meaning. Maintain the original language and tone. Return only the rewritten text.",
-	"email":    "Rewrite the following dictated text as a professional email using this order when the source supports it: greeting, body, closing. Fix grammar and punctuation. Preserve every explicit fact, request, name, number, date, and commitment. Do not invent names, dates, placeholders, attachments, availability, or promises. If a detail is missing, omit it rather than guessing. Keep the original language unless translation is explicitly requested. Return only the final email text.",
-	"bullets":  "Rewrite the following dictated text as a structured bullet-point list. Fix grammar and punctuation. Keep the original language. Return only the bullet list.",
-	"formal":   "Rewrite the following dictated text in formal, professional language. Fix grammar and punctuation. Keep the original language. Return only the rewritten text.",
-	"aiprompt": "Rewrite the following dictated text as a concise prompt for an AI assistant. Start with the main instruction in direct imperative form. Keep every explicit requirement, constraint, input, context, and requested output format. Remove filler words and hesitation. Do not invent examples, steps, or facts. Return only the final prompt text.",
-	"summary":  "Summarize the following text in 2–4 sentences maximum. Extract only the most essential points and core message. Drop all details. Fix grammar and punctuation. Keep the original language. Return only the summary.",
-	"notes":    "Rewrite the following dictated text as structured notes. Use headings for topics and bullet points for details. Add action items where applicable. Fix grammar and punctuation. Keep the original language. Return only the notes.",
-	"meeting":  "Rewrite the following dictated text as meeting minutes using this structure: Subject, Topics, Decisions, Action Items. Fix grammar and punctuation. Keep the source language unless translation is explicitly requested. Do not invent attendees, owners, deadlines, decisions, or action items. Include owners only when they are explicitly stated. Omit unknown details instead of guessing. Return only the meeting minutes.",
-	"social":   "Rewrite the following dictated text as a social media post. Make it engaging and concise. Add relevant emoji where appropriate. Keep the original language. Return only the post text.",
-	"casual":   "Rewrite the following dictated text in a casual, conversational tone. Make it sound natural and friendly. Remove unnecessary formality. Keep the original language and meaning. Return only the rewritten text.",
+	"cleanup": "Clean up the following dictated text. Fix grammar, punctuation, capitalization, and spelling errors. Do not remove words, change meaning, or restructure sentences. Keep the original language. Return only the cleaned text.",
+	"concise": "Rewrite the following text to be more concise. Remove filler words, redundancy, and unnecessary repetition. Combine sentences where possible. Preserve all key information and meaning. Maintain the original language and tone. Return only the rewritten text.",
 }
 
 var smartModeLocalPresets = map[string]string{
-	"cleanup":  "Task: Clean up dictated text. Fix grammar, spelling, punctuation, and capitalization. Keep the wording, facts, and sentence order as close as possible.",
-	"concise":  "Task: Rewrite the text more concisely. Remove filler, repetition, and redundancy. Keep every important fact, request, and constraint.",
-	"email":    "Task: Turn the text into a professional email with this order when the source supports it: greeting, body, closing. Fix grammar and punctuation. Keep every explicit fact, request, name, number, date, and commitment. Do not invent names, dates, placeholders, attachments, availability, or promises.",
-	"bullets":  "Task: Turn the text into a clear bullet list. Group related points and keep all important facts.",
-	"formal":   "Task: Rewrite the text in formal, professional language. Preserve all facts and intent.",
-	"aiprompt": "Task: Turn the text into a concise prompt for an AI assistant. Start with the main instruction in imperative form. Then keep explicit context, constraints, inputs, and required output format. Remove filler and hesitation. Do not invent requirements, examples, or facts.",
-	"summary":  "Task: Summarize the text in 2-4 sentences. Keep only the most important points and do not invent details.",
-	"notes":    "Task: Turn the text into structured notes. Use short headings and bullet points. Include action items only when they are clearly implied by the text.",
-	"meeting":  "Task: Turn the text into meeting minutes with this structure: Subject, Topics, Decisions, Action Items. Keep only facts stated in the source. Include owners only when they are explicitly stated. Do not invent attendees, owners, deadlines, decisions, or action items.",
-	"social":   "Task: Turn the text into a concise social media post. Make it engaging. Use emoji only when they fit naturally.",
-	"casual":   "Task: Rewrite the text in a natural casual tone. Keep the meaning and key details.",
+	"cleanup": "Task: Clean up dictated text. Fix grammar, spelling, punctuation, and capitalization. Keep the wording, facts, and sentence order as close as possible.",
+	"concise": "Task: Rewrite the text more concisely. Remove filler, repetition, and redundancy. Keep every important fact, request, and constraint.",
 }
 
 // GetBuiltinPresets returns the built-in preset names and their prompts.
@@ -217,72 +189,6 @@ func GetBuiltinPresets() map[string]string {
 		result[k] = v
 	}
 	return result
-}
-
-// defaultTemplateMetas provides default metadata and keywords for builtin presets.
-var defaultTemplateMetas = map[string]TemplateMeta{
-	"cleanup":  {Description: "Fixes grammar, spelling, and punctuation — content and length stay untouched", Keywords: nil},
-	"concise":  {Description: "Cuts redundancy and filler words — same message, fewer words", Keywords: nil},
-	"email":    {Description: "Formats as a professional email with greeting, body, and sign-off", Keywords: []string{"*outlook*", "*thunderbird*", "*mail*", "*gmail*", "*yahoo*", "*proton*"}},
-	"bullets":  {Description: "Flat bullet-point list without headings", Keywords: nil},
-	"formal":   {Description: "Rewrites in formal, professional tone without changing the format", Keywords: nil},
-	"aiprompt": {Description: "Optimized AI prompt", Keywords: []string{"*copilot*", "*chatgpt*", "*claude*", "*gemini*", "*cursor*", "*code*", "*visual studio*", "*intellij*", "*terminal*", "*powershell*"}},
-	"summary":  {Description: "Extracts key points as a brief prose summary — details are dropped", Keywords: nil},
-	"notes":    {Description: "Structured notes with headings, bullet points, and action items", Keywords: []string{"*notepad*", "*onenote*", "*obsidian*", "*notion*", "*evernote*", "*joplin*", "*typora*"}},
-	"meeting":  {Description: "Formal minutes with subject, topics, decisions, and action items", Keywords: []string{"*teams*", "*zoom*", "*webex*", "*meet*", "*skype*"}},
-	"social":   {Description: "Engaging social media post", Keywords: []string{"*twitter*", "*facebook*", "*instagram*", "*linkedin*", "*reddit*", "*tiktok*"}},
-	"casual":   {Description: "Casual chat message", Keywords: []string{"*slack*", "*discord*", "*whatsapp*", "*telegram*", "*signal*", "*element*"}},
-}
-
-// GetDefaultTemplateMetas returns a copy of the default template metadata.
-func GetDefaultTemplateMetas() map[string]TemplateMeta {
-	result := make(map[string]TemplateMeta, len(defaultTemplateMetas))
-	for k, v := range defaultTemplateMetas {
-		result[k] = v
-	}
-	return result
-}
-
-// MatchTemplate finds the best template for the active application using keyword matching.
-// Returns the preset name and true if a match was found.
-func MatchTemplate(appName, windowTitle string, metas map[string]TemplateMeta) (string, bool) {
-	if appName == "" && windowTitle == "" {
-		return "", false
-	}
-	context := strings.ToLower(appName + " " + windowTitle)
-
-	bestPreset := ""
-	bestScore := 0
-
-	for presetName, meta := range metas {
-		if len(meta.Keywords) == 0 {
-			continue
-		}
-		score := 0
-		for _, kw := range meta.Keywords {
-			pattern := strings.ToLower(kw)
-			if matched, _ := filepath.Match(pattern, strings.ToLower(appName)); matched {
-				score += 2
-			}
-			// Check substring for patterns like *outlook*
-			if len(pattern) > 2 && pattern[0] == '*' && pattern[len(pattern)-1] == '*' {
-				inner := pattern[1 : len(pattern)-1]
-				if strings.Contains(context, inner) {
-					score++
-				}
-			}
-		}
-		if score > bestScore {
-			bestScore = score
-			bestPreset = presetName
-		}
-	}
-
-	if bestPreset != "" {
-		logDebug("Template match: %s/%s → %s (score %d)", appName, windowTitle, bestPreset, bestScore)
-		return bestPreset, true
-	}
-	return "", false
 }
 
 // localSmartMaxTokens caps max_tokens for local models to avoid generation
@@ -303,12 +209,14 @@ func localSmartMaxTokens(inputLen int, profile inference.Profile) int {
 
 // PostProcess sends transcribed text through GPT-4o-mini for formatting/cleanup.
 // endpoint should be the base API URL (e.g. "https://api.openai.com/v1").
-// appLang is the UI language ("en" or "de") for language-aware prompts.
-// userTemplates contains user-defined custom templates from config.
-// localModelID is the local LLM model identifier (e.g. "qwen3.5-0.8b") — empty for cloud.
+// localModelID is the local LLM model identifier (e.g. "qwen3-1.7b") — empty for cloud.
 func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint, localModelID string, userTemplates map[string]string) (string, error) {
 	start := time.Now()
-	systemPrompt := buildSmartPrompt(preset, customPrompt, targetLang, langHint, userTemplates)
+	systemPrompt := buildSmartPrompt(preset, targetLang, langHint)
+	// Support legacy "system" preset for bulk actions with custom prompt
+	if preset == "system" && customPrompt != "" {
+		systemPrompt = customPrompt
+	}
 	if systemPrompt == "" {
 		return text, nil
 	}
@@ -335,7 +243,10 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 		modelName = "local"
 		maxTokens = localSmartMaxTokens(len(text), profile)
 		// Rebuild prompt with simplified local variant for small models
-		systemPrompt = buildSmartPromptLocal(preset, customPrompt, targetLang, langHint, userTemplates)
+		systemPrompt = buildSmartPromptLocal(preset, targetLang, langHint)
+		if preset == "system" && customPrompt != "" {
+			systemPrompt = customPrompt
+		}
 		if systemPrompt == "" {
 			return text, nil
 		}
@@ -465,7 +376,10 @@ func PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langH
 // PostProcessWithProvider uses the provider interface for cloud LLM processing.
 // This supports all providers (OpenAI, Anthropic, Gemini, Groq) via a unified interface.
 func PostProcessWithProvider(text, preset, customPrompt, targetLang, langHint string, userTemplates map[string]string, llm provider.LLMProvider, dictionary string) (string, error) {
-	systemPrompt := buildSmartPrompt(preset, customPrompt, targetLang, langHint, userTemplates)
+	systemPrompt := buildSmartPrompt(preset, targetLang, langHint)
+	if preset == "system" && customPrompt != "" {
+		systemPrompt = customPrompt
+	}
 	if systemPrompt == "" {
 		return text, nil
 	}
@@ -509,17 +423,11 @@ func ApplySmartAction(text, preset, customPrompt, targetLang, apiKey, endpoint, 
 	return PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint, localModelID, userTemplates)
 }
 
-func resolveSmartActionPromptLocal(preset, customPrompt string, userTemplates map[string]string) string {
-	if preset == "custom" && customPrompt != "" {
-		return customPrompt
-	}
-	if preset == "custom" {
-		return ""
-	}
+func resolveSmartActionPromptLocal(preset string) string {
 	if p, ok := smartModeLocalPresets[preset]; ok {
 		return p
 	}
-	return resolveSmartActionPrompt(preset, customPrompt, userTemplates)
+	return resolveSmartActionPrompt(preset)
 }
 
 // joinTextsForBulk joins multiple transcription texts with numbered separators.
@@ -537,12 +445,11 @@ func joinTextsForBulk(texts []string) string {
 // buildBulkSmartPrompt creates a compound prompt that instructs the LLM to
 // merge multiple transcriptions coherently and then apply the preset transformation.
 func buildBulkSmartPrompt(preset, customPrompt, targetLang, langHint string, userTemplates map[string]string) string {
-	// Resolve the action prompt
 	var actionPrompt string
 	if preset == "translate" {
 		actionPrompt = buildTranslatePrompt(targetLang)
 	} else {
-		actionPrompt = resolveSmartActionPrompt(preset, customPrompt, userTemplates)
+		actionPrompt = resolveSmartActionPrompt(preset)
 		if actionPrompt == "" {
 			return ""
 		}
@@ -566,7 +473,7 @@ func buildBulkSmartPromptLocal(preset, customPrompt, targetLang, langHint string
 	if preset == "translate" {
 		actionPrompt = buildTranslatePromptLocal(targetLang)
 	} else {
-		actionPrompt = resolveSmartActionPromptLocal(preset, customPrompt, userTemplates)
+		actionPrompt = resolveSmartActionPromptLocal(preset)
 		if actionPrompt == "" {
 			return ""
 		}
@@ -580,14 +487,14 @@ Then apply this transformation:
 Output: Return only the final transformed result. No segment markers, no commentary, no explanations.`, actionPrompt)
 }
 
-func buildSmartPrompt(preset, customPrompt, targetLang, langHint string, userTemplates map[string]string) string {
-	if preset == "system" && customPrompt != "" {
-		return customPrompt
+func buildSmartPrompt(preset, targetLang, langHint string) string {
+	if preset == "system" {
+		return ""
 	}
 	if preset == "translate" {
 		return buildTranslatePrompt(targetLang)
 	}
-	actionPrompt := resolveSmartActionPrompt(preset, customPrompt, userTemplates)
+	actionPrompt := resolveSmartActionPrompt(preset)
 	if actionPrompt == "" {
 		return ""
 	}
@@ -595,14 +502,14 @@ func buildSmartPrompt(preset, customPrompt, targetLang, langHint string, userTem
 }
 
 // buildSmartPromptLocal creates simplified prompts optimized for small local LLMs.
-func buildSmartPromptLocal(preset, customPrompt, targetLang, langHint string, userTemplates map[string]string) string {
-	if preset == "system" && customPrompt != "" {
-		return customPrompt
+func buildSmartPromptLocal(preset, targetLang, langHint string) string {
+	if preset == "system" {
+		return ""
 	}
 	if preset == "translate" {
 		return buildTranslatePromptLocal(targetLang)
 	}
-	actionPrompt := resolveSmartActionPromptLocal(preset, customPrompt, userTemplates)
+	actionPrompt := resolveSmartActionPromptLocal(preset)
 	if actionPrompt == "" {
 		return ""
 	}

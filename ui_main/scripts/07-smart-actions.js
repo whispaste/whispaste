@@ -3,25 +3,12 @@
 const SMART_PRESETS = [
     { id: 'cleanup' },
     { id: 'concise' },
-    { id: 'email' },
-    { id: 'formal' },
-    { id: 'bullets' },
-    { id: 'aiprompt' },
-    { id: 'summary' },
-    { id: 'notes' },
-    { id: 'meeting' },
-    { id: 'social' },
-    { id: 'technical' },
-    { id: 'casual' },
     { id: 'translate' },
 ];
 
 function _presetIcon(id) {
     const map = {
-        cleanup: icons.sparkles, concise: icons.minimize, email: icons.mail,
-        formal: icons.fileText, bullets: icons.list, aiprompt: icons.bot,
-        summary: icons.fileText, notes: icons.clipboard, meeting: icons.users,
-        social: icons.share, technical: icons.code, casual: icons.messageCircle,
+        cleanup: icons.sparkles, concise: icons.minimize,
         translate: icons.globe,
     };
     return map[id] || icons.sparkles;
@@ -33,61 +20,18 @@ function _smartActionTargetLang(preset) {
 }
 
 async function showSmartActionMenu(entryId, anchor) {
-    const templates = await getAllSmartTemplates();
     const items = [];
     items.push({ header: t('smart.title') });
 
-    // Built-in presets
-    const builtIn = templates.filter(tpl => !tpl.isCustom);
-    for (const tpl of builtIn) {
+    for (const p of SMART_PRESETS) {
         items.push({
-            icon: _presetIcon(tpl.id),
-            label: tpl.label,
-            action: () => executeSmartAction(entryId, tpl.id, ''),
+            icon: _presetIcon(p.id),
+            label: t('smart.preset.' + p.id) || p.id,
+            action: () => executeSmartAction(entryId, p.id, ''),
         });
     }
 
-    // Custom templates
-    const custom = templates.filter(tpl => tpl.isCustom);
-    if (custom.length > 0) {
-        items.push({ divider: true });
-        items.push({ header: t('smart.customSection') });
-        for (const tpl of custom) {
-            items.push({
-                icon: icons.fileText,
-                label: esc(tpl.label),
-                action: () => executeSmartAction(entryId, tpl.id, ''),
-            });
-        }
-    }
-
-    // Custom prompt option
-    items.push({ divider: true });
-    items.push({
-        icon: icons.pencil,
-        label: t('smart.custom'),
-        action: () => showCustomPromptDialog(entryId),
-    });
-
     showPopover(anchor, { items });
-}
-
-async function showCustomPromptDialog(entryId) {
-    const result = await showDialog({
-        title: t('smart.customTitle'),
-        message: '<textarea id="smartCustomPrompt" class="smart-custom-textarea" rows="4" placeholder="' + esc(t('smart.customPlaceholder')) + '"></textarea>',
-        htmlMessage: true,
-        confirmText: t('smart.apply'),
-        cancelText: t('cancel'),
-    });
-
-    if (result) {
-        const textarea = document.getElementById('smartCustomPrompt');
-        const prompt = textarea ? textarea.value.trim() : '';
-        if (prompt) {
-            await executeSmartAction(entryId, 'custom', prompt);
-        }
-    }
 }
 
 // Pending smart action contexts for async Go→JS callbacks
@@ -103,16 +47,14 @@ async function executeSmartAction(entryId, preset, customPrompt) {
     _smartPending.set(entryId, { preset, processingToast, entryEl });
 
     try {
-        const raw = await window.applySmartAction(entryId, preset, customPrompt, targetLang);
+        const raw = await window.applySmartAction(entryId, preset, customPrompt || '', targetLang);
         const result = JSON.parse(raw);
-        // Immediate validation error — clean up now
         if (result.error) {
             _smartPending.delete(entryId);
             if (processingToast) processingToast.classList.remove('show');
             if (entryEl) entryEl.classList.remove('processing');
             showToast(result.error, true);
         }
-        // If status === "processing", result comes via onSmartActionComplete
     } catch (e) {
         _smartPending.delete(entryId);
         if (processingToast) processingToast.classList.remove('show');
@@ -173,57 +115,18 @@ async function showBulkSmartActionMenu(anchor) {
         showToast(t('smart.bulkTooFew'), false);
         return;
     }
-    const templates = await getAllSmartTemplates();
     const items = [];
     items.push({ header: t('smart.bulkTitle') });
 
-    for (const tpl of templates.filter(x => !x.isCustom)) {
+    for (const p of SMART_PRESETS) {
         items.push({
-            icon: _presetIcon(tpl.id),
-            label: tpl.label,
-            action: () => executeBulkSmartAction(tpl.id, ''),
+            icon: _presetIcon(p.id),
+            label: t('smart.preset.' + p.id) || p.id,
+            action: () => executeBulkSmartAction(p.id, ''),
         });
     }
 
-    const custom = templates.filter(x => x.isCustom);
-    if (custom.length > 0) {
-        items.push({ divider: true });
-        items.push({ header: t('smart.customSection') });
-        for (const tpl of custom) {
-            items.push({
-                icon: icons.fileText,
-                label: esc(tpl.label),
-                action: () => executeBulkSmartAction(tpl.id, ''),
-            });
-        }
-    }
-
-    items.push({ divider: true });
-    items.push({
-        icon: icons.pencil,
-        label: t('smart.custom'),
-        action: () => showBulkCustomPromptDialog(),
-    });
-
     showPopover(anchor, { items });
-}
-
-async function showBulkCustomPromptDialog() {
-    const result = await showDialog({
-        title: t('smart.customTitle'),
-        message: '<textarea id="smartBulkPrompt" class="smart-custom-textarea" rows="4" placeholder="' + esc(t('smart.customPlaceholder')) + '"></textarea>',
-        htmlMessage: true,
-        confirmText: t('smart.apply'),
-        cancelText: t('cancel'),
-    });
-
-    if (result) {
-        const textarea = document.getElementById('smartBulkPrompt');
-        const prompt = textarea ? textarea.value.trim() : '';
-        if (prompt) {
-            await executeBulkSmartAction('custom', prompt);
-        }
-    }
 }
 
 let _bulkProcessingToast = null;

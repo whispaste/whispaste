@@ -89,9 +89,6 @@ async function confirmDeleteSelected() {
   if (deleted.length > 0) {
     showToast(t('notebook.trash_moved'), false);
   }
-  if (deleted.length < count) {
-    showToast(t('statusError'), true);
-  }
   setLoading(btn, false);
   updateSelectionBar();
   await loadEntries();
