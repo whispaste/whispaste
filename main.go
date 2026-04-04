@@ -460,8 +460,13 @@ func main() {
 								raw = raw[len(raw)-maxBytes:]
 							}
 							wavData := wav.Encode(raw, 16000, 1, 16)
-							lang := normalizeLanguage(cfg.GetTranscriptionLanguage())
-							text, err := localSTT.Transcribe(wavData, lang)
+							// Use same language fallback logic as main transcription
+							sLang := normalizeLanguage(cfg.GetTranscriptionLanguage())
+							if sLang == "" || sLang == "auto" {
+								sLang = localLang // from snapshotConfig
+							}
+							dictPrompt := cfg.DictionaryPrompt()
+							text, err := localSTT.Transcribe(wavData, sLang, dictPrompt)
 							if err != nil {
 								logDebug("Streaming preview inference failed: %v", err)
 								continue
