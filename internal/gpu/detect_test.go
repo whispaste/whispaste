@@ -269,9 +269,15 @@ func TestShouldUseRecommendedGPUForInfo(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "intel auto accepts 2047MB",
+			name: "intel auto accepts zero dedicated VRAM",
 			mode: "auto",
-			info: Info{Available: true, Vendor: VendorIntel, VRAMMBytes: 2047},
+			info: Info{Available: true, Vendor: VendorIntel, VRAMMBytes: 0},
+			want: true,
+		},
+		{
+			name: "amd auto accepts low dedicated VRAM",
+			mode: "auto",
+			info: Info{Available: true, Vendor: VendorAMD, VRAMMBytes: 128},
 			want: true,
 		},
 		{
