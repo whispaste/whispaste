@@ -62,12 +62,23 @@ func Detect() Info {
 }
 
 // detect probes for GPUs: NVIDIA first (via nvidia-smi for detailed info),
-// then falls back to Windows registry for AMD/Intel detection.
+// then Windows registry for AMD/Intel. If NVIDIA has insufficient VRAM for
+// CUDA, also checks registry — a strong AMD/Intel GPU (more VRAM) is
+// preferred over falling back to CPU with a weak NVIDIA card.
 func detect() Info {
-	if info := detectNVIDIA(); info.Available {
-		return info
+	nv := detectNVIDIA()
+	if nv.Available && nv.VRAMMBytes >= autoMinVRAMCUDA {
+		return nv // NVIDIA with enough VRAM for CUDA — best path
 	}
-	return detectViaRegistry()
+
+	reg := detectViaRegistry()
+	if reg.Available && (!nv.Available || reg.VRAMMBytes > nv.VRAMMBytes) {
+		return reg // Registry GPU is better (more VRAM or NVIDIA absent)
+	}
+	if nv.Available {
+		return nv // Weak NVIDIA, no better alternative — will fall to CPU via threshold
+	}
+	return reg
 }
 
 // detectNVIDIA probes for NVIDIA GPU via nvidia-smi.
@@ -313,6 +324,6 @@ func RecommendLLMBackend(gpuMode string) Backend {
 	case VendorAMD, VendorIntel:
 		return BackendVulkan
 	default:
-		return BackendVulkan
+		return BackendCPU
 	}
 }
