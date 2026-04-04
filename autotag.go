@@ -48,7 +48,8 @@ func AutoTagEntry(history *History, entryID, text string, customTags []string, u
 		return
 	}
 
-	logDebug("AutoTag: entry=%s, text_len=%d, tag=%v, title=%v", entryID, len(text), autoTag, autoTitle)
+	resolvedUILang := resolveAutoTagUILanguage(uiLang)
+	logDebug("AutoTag: entry=%s, text_len=%d, ui_lang=%s, tag=%v, title=%v", entryID, len(text), resolvedUILang, autoTag, autoTitle)
 
 	if !IsLLMInstalled() {
 		logDebug("AutoTag: local LLM not installed, skipping")
@@ -87,7 +88,7 @@ func AutoTagEntry(history *History, entryID, text string, customTags []string, u
 
 		if len(allTags) > 0 {
 			// Try matching from existing tags first
-			matchedTags, matchErr := queryLLMForTags(endpoint, text, allTags)
+			matchedTags, matchErr := queryLLMForTags(endpoint, text, allTags, resolvedUILang)
 			if matchErr != nil {
 				logWarn("AutoTag: matching failed for entry %s: %v", entryID, matchErr)
 			} else {
@@ -98,7 +99,7 @@ func AutoTagEntry(history *History, entryID, text string, customTags []string, u
 		// Fallback: generate new tags if no existing tags matched (or none exist)
 		if len(finalTags) == 0 {
 			logDebug("AutoTag: no existing tags matched, generating new tags for entry %s", entryID)
-			generatedTags, genErr := queryLLMForNewTags(endpoint, text)
+			generatedTags, genErr := queryLLMForNewTags(endpoint, text, resolvedUILang)
 			if genErr != nil {
 				logWarn("AutoTag: generation failed for entry %s: %v", entryID, genErr)
 			} else {
@@ -119,7 +120,7 @@ func AutoTagEntry(history *History, entryID, text string, customTags []string, u
 
 	// Generate an AI title after tagging
 	if autoTitle {
-		if title := generateTitle(endpoint, text, uiLang); title != "" {
+		if title := generateTitle(endpoint, text, resolvedUILang); title != "" {
 			// When auto-tag is disabled, preserve existing tags
 			tagsForUpdate := finalTags
 			if !autoTag {
@@ -136,13 +137,41 @@ func AutoTagEntry(history *History, entryID, text string, customTags []string, u
 	}
 }
 
-// queryLLMForTags sends the text and available tags to the local LLM,
-// asking it to return only those tags that match the content.
-func queryLLMForTags(llmEndpoint, text string, availableTags []string) ([]string, error) {
-	chatURL := llmEndpoint + "/chat/completions"
-	tagList := strings.Join(availableTags, ", ")
+func autoTagPromptLanguageName(uiLang string) string {
+	if languageName := promptLanguageName(uiLang); languageName != "" {
+		return languageName
+	}
+	if languageName := promptLanguageName(GetLanguage()); languageName != "" {
+		return languageName
+	}
+	return "English"
+}
 
-	systemPrompt := fmt.Sprintf(
+func resolveAutoTagUILanguage(uiLang string) string {
+	if strings.TrimSpace(uiLang) != "" {
+		return strings.TrimSpace(uiLang)
+	}
+	return strings.TrimSpace(GetLanguage())
+}
+
+func buildTitleSystemPrompt(uiLang string) string {
+	languageRule := fmt.Sprintf("Write the title in %s.", autoTagPromptLanguageName(uiLang))
+	return fmt.Sprintf(`Task: Create a short, descriptive title for a dictated note.
+
+Rules:
+- %s
+- Keep the same UI language even if the note mixes languages.
+- Use 4-9 words.
+- Focus on the main topic, outcome, or request.
+- Keep it concrete and professional.
+- Do not start with greetings, filler, or meta-commentary.
+- Do not format the answer as a list item or add labels like "Title:".
+- Do not invent people, dates, places, or facts that are not stated in the note.
+- Return only the title text. No quotes, labels, or commentary.`, languageRule)
+}
+
+func buildTagClassifierSystemPrompt(availableTags []string, uiLang string) string {
+	return fmt.Sprintf(
 		`You are a tag classifier. Given a text and a list of tags, return which tags match the text.
 
 TAGS: %s
@@ -151,7 +180,11 @@ Rules:
 - Return a JSON array of matching tags, e.g. ["tag1", "tag2"]
 - Only use tags from the list above
 - A tag matches if the text is clearly about that topic
+- Never translate, rewrite, or explain tags; use the exact tag text from the list
+- Prefer 2-3 complementary tags when they capture distinct durable topics in the text
+- Prefer reusable grouping tags over one-off details like names, greetings, or dates
 - Prefer specific tags over generic ones
+- Prefer tags written in %s when several tags are equally good matches
 - Return at most 3 tags
 - If no tag fits well, return []
 - Return ONLY the JSON array
@@ -159,7 +192,35 @@ Rules:
 Example:
 Tags: Meeting, Cooking, Travel
 Text: "We discussed the project timeline and assigned tasks for next week"
-Answer: ["Meeting"]`, tagList)
+Answer: ["Meeting"]`, strings.Join(availableTags, ", "), autoTagPromptLanguageName(uiLang))
+}
+
+func buildNewTagsSystemPrompt(uiLang string) string {
+	return fmt.Sprintf(`You are a tag generator. Read the text and create 1-3 short tags that describe the topic.
+
+Rules:
+- Return a JSON array, e.g. ["Meeting", "Email"]
+- Write all tags in %s
+- Keep every tag in that UI language, even if the source text mixes languages
+- Each tag must be a single Title Case word, 2-15 characters
+- Tags describe WHAT the text is about (topic, not format)
+- Prefer 2-3 complementary topical tags when the note clearly covers multiple themes; use 1 tag only for a single clear topic
+- Favor reusable grouping tags that can organize many related notes later
+- Be specific: prefer "Invoice", "Recipe", "Meeting" over generic words like "Text" or "Message"
+- Avoid greetings, meta words, workflow status words, and invented specifics
+- Return 1-3 tags maximum
+- Return ONLY the JSON array
+
+Example:
+Text: "We need to order new office supplies and schedule a team lunch for Friday"
+Answer: ["Office", "Planning"]`, autoTagPromptLanguageName(uiLang))
+}
+
+// queryLLMForTags sends the text and available tags to the local LLM,
+// asking it to return only those tags that match the content.
+func queryLLMForTags(llmEndpoint, text string, availableTags []string, uiLang string) ([]string, error) {
+	chatURL := llmEndpoint + "/chat/completions"
+	systemPrompt := buildTagClassifierSystemPrompt(availableTags, uiLang)
 
 	// Suppress thinking mode for local Qwen models
 	systemPrompt += " /no_think"
@@ -236,23 +297,7 @@ func parseTagResponse(content string, availableTags []string) ([]string, error) 
 		validTags[strings.ToLower(strings.TrimSpace(t))] = t
 	}
 
-	// Strip markdown code fences that small models often emit.
-	// Extract the LAST fenced block (most likely the actual answer).
-	content = strings.TrimSpace(content)
-	if idx := strings.LastIndex(content, "```"); idx > 0 {
-		// Find the opening fence that pairs with this closing fence
-		before := content[:idx]
-		if open := strings.LastIndex(before, "```"); open >= 0 {
-			inner := before[open+3:]
-			// Skip optional language tag on opening fence
-			if nl := strings.IndexByte(inner, '\n'); nl >= 0 {
-				inner = inner[nl+1:]
-			} else {
-				inner = strings.TrimSpace(inner)
-			}
-			content = strings.TrimSpace(inner)
-		}
-	}
+	content = cleanTagArrayResponse(content)
 
 	// Try JSON array parse first
 	var tags []string
@@ -290,22 +335,10 @@ func parseTagResponse(content string, availableTags []string) ([]string, error) 
 
 // queryLLMForNewTags asks the LLM to generate new tags from content.
 // Used as fallback when no existing tags match or none exist yet.
-func queryLLMForNewTags(llmEndpoint, text string) ([]string, error) {
+func queryLLMForNewTags(llmEndpoint, text, uiLang string) ([]string, error) {
 	chatURL := llmEndpoint + "/chat/completions"
 
-	systemPrompt := `You are a tag generator. Read the text and create 1-3 short tags that describe the topic.
-
-Rules:
-- Return a JSON array, e.g. ["Meeting", "Email"]
-- Each tag must be a single Title Case word, 2-15 characters
-- Tags describe WHAT the text is about (topic, not format)
-- Be specific: prefer "Invoice", "Recipe", "Meeting" over generic words like "Text" or "Message"
-- Return 1-3 tags maximum
-- Return ONLY the JSON array
-
-Example:
-Text: "We need to order new office supplies and schedule a team lunch for Friday"
-Answer: ["Office", "Planning"]`
+	systemPrompt := buildNewTagsSystemPrompt(uiLang)
 
 	// Suppress thinking mode for local models
 	systemPrompt += " /no_think"
@@ -376,21 +409,7 @@ Answer: ["Office", "Planning"]`
 // Tags are normalized to Title Case, 2-15 characters, letters/digits/hyphens only.
 // System tags (pending, duplicated) are filtered out.
 func parseGeneratedTags(content string) ([]string, error) {
-	content = strings.TrimSpace(content)
-
-	// Strip markdown code fences
-	if idx := strings.LastIndex(content, "```"); idx > 0 {
-		before := content[:idx]
-		if open := strings.LastIndex(before, "```"); open >= 0 {
-			inner := before[open+3:]
-			if nl := strings.IndexByte(inner, '\n'); nl >= 0 {
-				inner = inner[nl+1:]
-			} else {
-				inner = strings.TrimSpace(inner)
-			}
-			content = strings.TrimSpace(inner)
-		}
-	}
+	content = cleanTagArrayResponse(content)
 
 	// Parse JSON array or fall back to comma-separated
 	var tags []string
@@ -476,33 +495,7 @@ func queryLLMForTitle(llmEndpoint, text, lang string) (string, error) {
 		input = string([]rune(input)[:500])
 	}
 
-	// Resolve language name for the prompt
-	langName := "English"
-	switch strings.ToLower(lang) {
-	case "de":
-		langName = "German"
-	case "en":
-		langName = "English"
-	}
-
-	systemPrompt := fmt.Sprintf(`You generate descriptive titles for voice recordings. Rules:
-1. LANGUAGE: You MUST write the title in %s. This is mandatory — no exceptions.
-2. LENGTH: 5-10 words, descriptive and specific to the content.
-3. OUTPUT: Return ONLY the title text. No quotes, no labels, no explanation, no commands.
-
-German title examples:
-Text: "Wir haben den Projektzeitplan besprochen und Aufgaben für nächste Woche verteilt"
-Projektplanung und Aufgabenverteilung für nächste Woche
-
-Text: "Das Dashboard sieht optisch nicht gut aus, die Titel sind zu kurz"
-Feedback zum Dashboard-Design und Titeldarstellung
-
-English title examples:
-Text: "We discussed the project timeline and assigned tasks for next week"
-Weekly Project Planning and Task Assignment
-
-Text: "The overlay has a green blinking bar that looks confusing"
-Overlay Visual Feedback and Green Bar Issue`, langName)
+	systemPrompt := buildTitleSystemPrompt(lang)
 
 	// Suppress thinking mode for local models
 	systemPrompt += " /no_think"
@@ -585,7 +578,34 @@ func cleanTitleResponse(content string) string {
 		}
 	}
 
-	// Strip markdown code fences
+	content = extractLastCodeFence(content)
+
+	// Remove surrounding quotes
+	content = strings.Trim(content, "\"'`")
+	content = strings.TrimSpace(content)
+
+	content = pickLikelyTitleLine(content)
+	content = strings.Trim(content, "\"'`")
+	content = strings.TrimSpace(content)
+
+	// Enforce max length
+	if len([]rune(content)) > 100 {
+		content = string([]rune(content)[:100])
+	}
+
+	return content
+}
+
+func cleanTagArrayResponse(content string) string {
+	content = extractLastCodeFence(strings.TrimSpace(content))
+	if candidate := extractLastJSONArray(content); candidate != "" {
+		content = candidate
+	}
+	return strings.TrimSpace(content)
+}
+
+func extractLastCodeFence(content string) string {
+	content = strings.TrimSpace(content)
 	if idx := strings.LastIndex(content, "```"); idx > 0 {
 		before := content[:idx]
 		if open := strings.LastIndex(before, "```"); open >= 0 {
@@ -598,20 +618,99 @@ func cleanTitleResponse(content string) string {
 			content = strings.TrimSpace(inner)
 		}
 	}
+	return strings.TrimSpace(content)
+}
 
-	// Remove surrounding quotes
-	content = strings.Trim(content, "\"'`")
-	content = strings.TrimSpace(content)
-
-	// Take only the first line
-	if nl := strings.IndexByte(content, '\n'); nl >= 0 {
-		content = strings.TrimSpace(content[:nl])
+func pickLikelyTitleLine(content string) string {
+	lines := strings.Split(content, "\n")
+	for idx, line := range lines {
+		line = strings.TrimSpace(strings.Trim(line, "\"'`"))
+		if line == "" {
+			continue
+		}
+		if cleaned, ok := stripTitleMetaPrefix(line); ok {
+			line = cleaned
+		}
+		line = stripListMarker(line)
+		if line == "" {
+			continue
+		}
+		if idx < len(lines)-1 && isTitlePrefaceLine(line) {
+			continue
+		}
+		return line
 	}
+	return ""
+}
 
-	// Enforce max length
-	if len([]rune(content)) > 100 {
-		content = string([]rune(content)[:100])
+func stripTitleMetaPrefix(line string) (string, bool) {
+	colon := strings.IndexByte(line, ':')
+	if colon <= 0 {
+		return line, false
 	}
+	prefix := strings.ToLower(strings.TrimSpace(line[:colon]))
+	if !isTitleMetaPrefix(prefix) {
+		return line, false
+	}
+	return strings.TrimSpace(line[colon+1:]), true
+}
 
-	return content
+func isTitlePrefaceLine(line string) bool {
+	lower := strings.ToLower(strings.TrimSpace(line))
+	switch lower {
+	case "hi", "hi!", "hello", "hello!", "hey", "hey!", "hallo", "hallo!":
+		return true
+	}
+	if strings.HasSuffix(lower, ":") {
+		return isTitleMetaPrefix(strings.TrimSuffix(lower, ":"))
+	}
+	return false
+}
+
+func isTitleMetaPrefix(prefix string) bool {
+	prefix = strings.TrimSpace(prefix)
+	switch prefix {
+	case "title", "suggested title", "possible title", "short title", "concise title", "titel", "vorgeschlagener titel", "kurzer titel", "subject", "betreff", "headline", "überschrift":
+		return true
+	}
+	for _, candidate := range []string{"here is the title", "here's the title", "here is a title", "here's a title", "hier ist der titel"} {
+		if prefix == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func stripListMarker(line string) string {
+	line = strings.TrimSpace(line)
+	for _, prefix := range []string{"- ", "* ", "• "} {
+		if strings.HasPrefix(line, prefix) {
+			return strings.TrimSpace(strings.TrimPrefix(line, prefix))
+		}
+	}
+	return line
+}
+
+func extractLastJSONArray(content string) string {
+	for start := strings.LastIndexByte(content, '['); start >= 0; {
+		rest := content[start:]
+		offset := strings.IndexByte(rest, ']')
+		for offset >= 0 {
+			candidate := strings.TrimSpace(rest[:offset+1])
+			var tags []string
+			if err := json.Unmarshal([]byte(candidate), &tags); err == nil {
+				return candidate
+			}
+			next := strings.IndexByte(rest[offset+1:], ']')
+			if next < 0 {
+				break
+			}
+			offset += next + 1
+		}
+		if start == 0 {
+			break
+		}
+		start = strings.LastIndexByte(content[:start], '[')
+	}
+	return ""
 }
