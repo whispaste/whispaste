@@ -6,9 +6,8 @@ import (
 
 // VADProcessor provides RMS-based silence detection using the pure-Go
 // TrimSilence and StripInternalSilence helpers from audio.go.
-type VADProcessor struct {
-	mu sync.Mutex
-}
+// Stateless — no mutex needed since callers serialize at the state-machine level.
+type VADProcessor struct{}
 
 var (
 	vadInstance *VADProcessor
@@ -27,9 +26,6 @@ func GetVADProcessor() *VADProcessor {
 // RMS energy, and returns the trimmed audio. sensitivity (0.0–1.0) controls
 // how aggressively silence is detected: 0 = strict, 1 = very sensitive.
 func (v *VADProcessor) ProcessPCM(pcm []byte, sensitivity float32) ([]byte, error) {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-
 	if len(pcm) < 2 {
 		return pcm, nil
 	}
@@ -55,7 +51,5 @@ func (v *VADProcessor) ProcessPCM(pcm []byte, sensitivity float32) ([]byte, erro
 
 // Close releases VAD resources (no-op for RMS-based detection).
 func (v *VADProcessor) Close() {
-	v.mu.Lock()
-	defer v.mu.Unlock()
 	logInfo("VAD processor closed")
 }

@@ -71,7 +71,18 @@ func (b *limitedProcessOutput) Summary() string {
 }
 
 // sttInferenceClient is reused for all STT inference requests (connection pooling).
-var sttInferenceClient = &http.Client{Timeout: 120 * time.Second}
+// Custom transport: keep-alive for warm connections, no compression (localhost),
+// generous idle pool so back-to-back dictations reuse the TCP connection.
+var sttInferenceClient = &http.Client{
+	Timeout: 120 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        2,
+		MaxIdleConnsPerHost: 2,
+		IdleConnTimeout:     300 * time.Second,
+		DisableCompression:  true, // localhost — compression wastes CPU
+		ForceAttemptHTTP2:   false,
+	},
+}
 
 func STTDir() (string, error) {
 	appData := os.Getenv("APPDATA")
@@ -186,8 +197,19 @@ func (s *LocalSTT) waitReady(port int) error {
 	healthURL := fmt.Sprintf("http://%s:%d/health", loopbackHost, port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 	client := &http.Client{Timeout: 2 * time.Second}
 	lastErr := ""
-	for i := 0; i < 120; i++ {
+	deadline := time.After(120 * time.Second)
+	// Progressive backoff: check quickly at first (100ms), then slow down.
+	// This shaves ~900ms off cold start compared to fixed 1s polling.
+	interval := 100 * time.Millisecond
+	maxInterval := 1 * time.Second
+	iteration := 0
+	for {
 		select {
+		case <-deadline:
+			if lastErr != "" {
+				return fmt.Errorf("timeout waiting for whisper-server (120s): %s", lastErr)
+			}
+			return fmt.Errorf("timeout waiting for whisper-server (120s)")
 		case waitErr := <-s.waitCh:
 			s.waitCh = nil
 			exitMsg := whisperServerExitMessage(waitErr, s.startupLog.Summary())
@@ -207,22 +229,24 @@ func (s *LocalSTT) waitReady(port int) error {
 				return nil
 			}
 			lastErr = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-			// 503 = model still loading — log periodically
-			if i%10 == 9 {
-				logInfo("STT server loading model... (%ds, status=%d, body=%s)", i+1, resp.StatusCode, string(body))
+			if iteration%10 == 9 {
+				logInfo("STT server loading model... (%ds, status=%d, body=%s)", iteration+1, resp.StatusCode, string(body))
 			}
 		} else {
 			lastErr = err.Error()
-			if i%10 == 9 {
-				logInfo("STT server not reachable yet (%ds): %v", i+1, err)
+			if iteration%10 == 9 {
+				logInfo("STT server not reachable yet (%ds): %v", iteration+1, err)
 			}
 		}
-		time.Sleep(1 * time.Second)
+		iteration++
+		time.Sleep(interval)
+		if interval < maxInterval {
+			interval = interval * 3 / 2
+			if interval > maxInterval {
+				interval = maxInterval
+			}
+		}
 	}
-	if lastErr != "" {
-		return fmt.Errorf("timeout waiting for whisper-server (120s): %s", lastErr)
-	}
-	return fmt.Errorf("timeout waiting for whisper-server (120s)")
 }
 
 func (s *LocalSTT) Stop() {
@@ -400,7 +424,9 @@ func (s *LocalSTT) Transcribe(wavData []byte, lang string, prompt ...string) (st
 	port := s.port
 	s.mu.Unlock()
 
+	// Pre-size buffer: WAV data + ~512 bytes for multipart headers/fields
 	var body bytes.Buffer
+	body.Grow(len(wavData) + 512)
 	writer := multipart.NewWriter(&body)
 
 	part, err := writer.CreateFormFile("file", "audio.wav")
