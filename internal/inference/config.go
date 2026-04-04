@@ -85,9 +85,16 @@ func OptimalThreads(minThreads, maxThreads int) int {
 	return n
 }
 
-// STTThreads returns the optimal thread count for whisper.cpp.
+// STTThreads returns the optimal thread count for whisper.cpp (general).
 func STTThreads() int {
 	return OptimalThreads(2, 12)
+}
+
+// STTThreadsGPU returns the thread count for GPU-accelerated whisper.cpp.
+// GPU handles the heavy encoder work; CPU threads only assist with token
+// decoding and pre/post-processing — fewer threads avoids contention.
+func STTThreadsGPU() int {
+	return OptimalThreads(2, 8)
 }
 
 // STTThreadsCPUOnly keeps one extra core free on CPU-only systems for UI/audio responsiveness.
