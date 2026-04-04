@@ -417,7 +417,7 @@ func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pause
 	}
 	o.drawGdipText(g, timer, timerX, float32(cy)-10, 60, o.gdipFontMain, timerColor)
 
-	// Mic icon that pulses with audio level (uses floating button's exact proportions)
+	// Mic icon that pulses with audio level (matches floating button proportions, scaled up)
 	vuX := int32(timerX) + 58
 	const vuIconW = 16
 	micAlpha := uint32(0x40) // dim when silent
@@ -431,16 +431,25 @@ func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pause
 	micColor := (micAlpha << 24) | 0x00E5FF // cyan with varying alpha
 
 	var micPen uintptr
-	procGdipCreatePen1.Call(uintptr(micColor), f32(2.0), 2, uintptr(unsafe.Pointer(&micPen)))
+	procGdipCreatePen1.Call(uintptr(micColor), f32(2.5), 2, uintptr(unsafe.Pointer(&micPen)))
 	if micPen != 0 {
 		procGdipSetPenLineCap197819.Call(micPen, 2, 2, 0) // round caps
 		procGdipSetPenLineJoin.Call(micPen, 2)
+
+		// Scale up 1.25× for bolder appearance, narrower body
+		const micScale float32 = 1.25
+		// Center point for scaling
+		mcx := float32(vuX) + 7  // icon center x
+		mcy := float32(cy)       // icon center y
+		procGdipTranslateWorldTransform.Call(g, f32(mcx), f32(mcy), 0)
+		procGdipScaleWorldTransform.Call(g, f32(micScale), f32(micScale), 0)
+		procGdipTranslateWorldTransform.Call(g, f32(-mcx), f32(-mcy), 0)
 
 		// Position: 24px icon space, icon spans x 5..19, y 2..22
 		ox := int(vuX) - 5 // icon left edge at vuX
 		oy := int(cy) - 12 // icon center at cy
 
-		// Mic body capsule (6px wide — same as floating button)
+		// Mic body capsule
 		var capsule uintptr
 		procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&capsule)))
 		if capsule != 0 {
@@ -451,7 +460,7 @@ func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pause
 			procGdipDrawPath.Call(g, micPen, capsule)
 			procGdipDeletePath.Call(capsule)
 		}
-		// U-shaped arc (14px wide — same as floating button)
+		// U-shaped arc
 		var uarc uintptr
 		procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&uarc)))
 		if uarc != 0 {
@@ -464,6 +473,7 @@ func (o *Overlay) paintRecordingULW(g uintptr, frame int, start time.Time, pause
 		// Stem
 		procGdipDrawLine.Call(g, micPen, f32(float32(12+ox)), f32(float32(19+oy)), f32(float32(12+ox)), f32(float32(22+oy)))
 
+		procGdipResetWorldTransform.Call(g)
 		procGdipDeletePen.Call(micPen)
 	}
 
