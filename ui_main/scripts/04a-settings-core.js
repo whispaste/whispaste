@@ -90,8 +90,6 @@ document.addEventListener('click', function(e) {
   if (!opt) return;
   document.querySelectorAll('.fab-color-option').forEach(el => el.classList.remove('selected'));
   opt.classList.add('selected');
-  // Skip autoSave for custom — the color picker input/change events handle it
-  if (opt.dataset.color === 'custom') return;
   if (typeof autoSave === 'function') autoSave();
 });
 // Floating button shape picker — delegated click handler
@@ -128,13 +126,6 @@ document.addEventListener('click', function(e) {
       }
       if (typeof autoSave === 'function') autoSave();
     });
-  }
-});
-// Auto-hide dropdown — show/hide timeout slider
-document.addEventListener('change', function(e) {
-  if (e.target.id === 'select-fab-autohide') {
-    const timeoutRow = document.getElementById('fab-autohide-timeout-row');
-    if (timeoutRow) timeoutRow.style.display = e.target.value === 'timeout' ? '' : 'none';
   }
 });
 // Custom color real-time preview (fires continuously while picking)
@@ -238,8 +229,6 @@ function gatherConfig() {
     floating_button_shape: document.querySelector('.fab-shape-option.selected')?.dataset?.shape || 'circle',
     floating_button_content: document.querySelector('.fab-content-option.selected')?.dataset?.content || 'microphone',
     floating_button_custom_image: document.getElementById('fab-custom-image-path')?.dataset?.filepath || '',
-    floating_button_auto_hide: document.getElementById('select-fab-autohide')?.value || 'never',
-    floating_button_auto_hide_timeout: parseInt(document.getElementById('range-fab-autohide-timeout')?.value || '10', 10),
     cloud_stt_provider: document.getElementById('select-cloud-stt-provider')?.value || 'openai',
     cloud_llm_provider: document.getElementById('select-cloud-llm-provider')?.value || 'openai',
     cloud_llm_model: document.getElementById('input-cloud-llm-model')?.value || '',
@@ -421,17 +410,6 @@ function applyConfig(cfg) {
       }
     }
   }
-  {
-    const el = document.getElementById('select-fab-autohide');
-    if (el) el.value = cfg.floating_button_auto_hide || 'never';
-    const timeoutRow = document.getElementById('fab-autohide-timeout-row');
-    if (timeoutRow) timeoutRow.style.display = (cfg.floating_button_auto_hide === 'timeout' && cfg.floating_button_enabled) ? '' : 'none';
-    const timeout = cfg.floating_button_auto_hide_timeout || 10;
-    const slider = document.getElementById('range-fab-autohide-timeout');
-    const label = document.getElementById('fab-autohide-timeout-value');
-    if (slider) slider.value = timeout;
-    if (label) label.textContent = timeout + 's';
-  }
   // Hide advanced settings if floating button is disabled
   {
     const colorRow = document.getElementById('fab-color-row');
@@ -493,10 +471,6 @@ function applyConfig(cfg) {
 function updateFabOpacityLabel(value) {
   const label = document.getElementById('fab-opacity-value');
   if (label) label.textContent = value + '%';
-}
-function updateFabAutoHideTimeoutLabel(value) {
-  const label = document.getElementById('fab-autohide-timeout-value');
-  if (label) label.textContent = value + 's';
 }
 
 /* ── Test Sound ───────────────────────────────────────── */
