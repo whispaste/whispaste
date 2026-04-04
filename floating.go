@@ -3,6 +3,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"math"
 	"runtime"
@@ -15,6 +16,12 @@ import (
 
 	"golang.org/x/sys/windows"
 )
+
+//go:embed "resources/app-icon ohne bg for light.png"
+var appLogoForLight []byte
+
+//go:embed "resources/app-icon ohne bg for dark.png"
+var appLogoForDark []byte
 
 // ───────────────────── Floating Button Constants ─────────────────────
 
@@ -165,6 +172,11 @@ var (
 	procGdipLoadImageFromFile    = ovlGdiplus.NewProc("GdipLoadImageFromFile")
 	procGdipGetImageWidth        = ovlGdiplus.NewProc("GdipGetImageWidth")
 	procGdipGetImageHeight       = ovlGdiplus.NewProc("GdipGetImageHeight")
+	procGdipCreateBitmapFromStream = ovlGdiplus.NewProc("GdipCreateBitmapFromStream")
+
+	// shlwapi (IStream from memory)
+	ovlShlwapi           = windows.NewLazySystemDLL("shlwapi.dll")
+	procSHCreateMemStream = ovlShlwapi.NewProc("SHCreateMemStream")
 )
 
 // floatColorPreset defines a gradient color theme for the floating button.
@@ -297,6 +309,8 @@ type FloatingButton struct {
 	content    string // icon content type (cached from config)
 	customImage     uintptr // cached GDI+ image for custom icon
 	customImagePath string  // path of the cached image
+	appLogoLight    uintptr // cached GDI+ image for app logo (light bg variant)
+	appLogoDark     uintptr // cached GDI+ image for app logo (dark bg variant)
 
 	// Double-click detection: defers single-click to distinguish from double-click
 	dblClickPending bool
@@ -740,6 +754,7 @@ func NewFloatingButton(c *Config) (*FloatingButton, error) {
 			fb.ready <- err
 			return
 		}
+		fb.loadAppLogos()
 		fb.ready <- nil
 
 		var msg msgT
@@ -1481,39 +1496,52 @@ func (fb *FloatingButton) iconPenSetup(g uintptr, alpha uint32) (uintptr, func()
 	}
 }
 
-// drawAppLogoIcon draws a simplified WhisPaste logo (speech bubble with waveform).
+// drawAppLogoIcon draws the embedded WhisPaste app icon PNG, choosing
+// the light- or dark-background variant based on button color luminance.
 func (fb *FloatingButton) drawAppLogoIcon(g uintptr, alpha uint32) {
-	pen, cleanup := fb.iconPenSetup(g, alpha)
-	if pen == 0 {
-		cleanup()
+	// Determine button top color luminance to pick the right logo variant
+	preset := getFloatPreset(fb.cfg.GetFloatingButtonColor())
+	if fb.cfg.GetFloatingButtonColor() == "custom" {
+		base := parseHexToARGB(fb.cfg.GetFloatingButtonCustomColor())
+		preset = floatColorPreset{Top: base}
+	}
+	top := preset.Top
+	r := float64((top >> 16) & 0xFF)
+	gv := float64((top >> 8) & 0xFF)
+	b := float64(top & 0xFF)
+	lum := 0.299*r + 0.587*gv + 0.114*b // perceived brightness 0–255
+
+	fb.mu.Lock()
+	var img uintptr
+	if lum < 140 {
+		img = fb.appLogoForDark() // dark button → use light/white icon
+	} else {
+		img = fb.appLogoForLight() // light button → use dark icon
+	}
+	fb.mu.Unlock()
+
+	if img == 0 {
+		// Fallback to mic icon if PNG failed to load
+		fb.drawMicIcon(g, alpha)
 		return
 	}
-	defer cleanup()
-	const o = 16
 
-	// Speech bubble outline
-	var bubble uintptr
-	procGdipCreatePath.Call(0, uintptr(unsafe.Pointer(&bubble)))
-	if bubble == 0 {
-		return
-	}
-	defer procGdipDeletePath.Call(bubble)
-	procGdipAddPathArc.Call(bubble, f32(2+o), f32(1+o), f32(6), f32(6), f32(180), f32(90))
-	procGdipAddPathArc.Call(bubble, f32(16+o), f32(1+o), f32(6), f32(6), f32(270), f32(90))
-	procGdipAddPathLine.Call(bubble, uintptr(22+o), uintptr(4+o), uintptr(22+o), uintptr(14+o))
-	procGdipAddPathArc.Call(bubble, f32(16+o), f32(11+o), f32(6), f32(6), f32(0), f32(90))
-	procGdipAddPathLine.Call(bubble, uintptr(10+o), uintptr(17+o), uintptr(6+o), uintptr(22+o))
-	procGdipAddPathLine.Call(bubble, uintptr(7+o), uintptr(17+o), uintptr(5+o), uintptr(17+o))
-	procGdipAddPathArc.Call(bubble, f32(2+o), f32(11+o), f32(6), f32(6), f32(90), f32(90))
-	procGdipClosePathFigure.Call(bubble)
-	procGdipDrawPath.Call(g, pen, bubble)
+	sz := fb.getSize()
+	margin := sz / 4
+	x := margin
+	y := margin
+	w := sz - 2*margin
+	h := sz - 2*margin
 
-	// Mini waveform inside bubble
-	procGdipDrawLineI.Call(g, pen, uintptr(8+o), uintptr(8+o), uintptr(8+o), uintptr(12+o))
-	procGdipDrawLineI.Call(g, pen, uintptr(11+o), uintptr(6+o), uintptr(11+o), uintptr(14+o))
-	procGdipDrawLineI.Call(g, pen, uintptr(14+o), uintptr(7+o), uintptr(14+o), uintptr(13+o))
-	procGdipDrawLineI.Call(g, pen, uintptr(17+o), uintptr(9+o), uintptr(17+o), uintptr(11+o))
+	procGdipSetInterpolationMode.Call(g, 7) // HighQualityBicubic
+	procGdipDrawImageRectI.Call(g, img, uintptr(x), uintptr(y), uintptr(w), uintptr(h))
 }
+
+// appLogoForDark returns the GDI+ image for dark backgrounds. Caller must hold fb.mu.
+func (fb *FloatingButton) appLogoForDark() uintptr { return fb.appLogoDark }
+
+// appLogoForLight returns the GDI+ image for light backgrounds. Caller must hold fb.mu.
+func (fb *FloatingButton) appLogoForLight() uintptr { return fb.appLogoLight }
 
 // drawWaveformIcon draws an audio waveform (5 vertical bars).
 func (fb *FloatingButton) drawWaveformIcon(g uintptr, alpha uint32) {
@@ -1548,6 +1576,37 @@ func (fb *FloatingButton) loadCustomImageLocked() {
 		return
 	}
 	fb.customImage = img
+}
+
+// loadImageFromMemory creates a GDI+ image from an in-memory byte slice using
+// SHCreateMemStream → GdipCreateBitmapFromStream. The IStream is intentionally
+// not released because GDI+ keeps a reference to it for the image's lifetime.
+func loadImageFromMemory(data []byte) uintptr {
+	if len(data) == 0 {
+		return 0
+	}
+	stream, _, _ := procSHCreateMemStream.Call(uintptr(unsafe.Pointer(&data[0])), uintptr(len(data)))
+	if stream == 0 {
+		return 0
+	}
+	var img uintptr
+	ret, _, _ := procGdipCreateBitmapFromStream.Call(stream, uintptr(unsafe.Pointer(&img)))
+	if ret != 0 || img == 0 {
+		return 0
+	}
+	return img
+}
+
+// loadAppLogos loads the embedded app icon PNGs into GDI+ images. Called once during init.
+func (fb *FloatingButton) loadAppLogos() {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	if fb.appLogoLight == 0 {
+		fb.appLogoLight = loadImageFromMemory(appLogoForLight)
+	}
+	if fb.appLogoDark == 0 {
+		fb.appLogoDark = loadImageFromMemory(appLogoForDark)
+	}
 }
 
 // drawCustomImageIcon draws the user's custom image scaled to fit inside the button.
