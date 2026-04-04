@@ -283,7 +283,7 @@ func (l *LocalLLM) stopLocked() {
 	if !exited && waitCh != nil {
 		select {
 		case <-waitCh:
-		case <-time.After(5 * time.Second):
+		case <-time.After(2 * time.Second):
 			logWarn("Timed out waiting for llama-server to stop")
 		}
 	}

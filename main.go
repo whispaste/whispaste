@@ -1295,6 +1295,15 @@ func main() {
 			ShowMainWindow(cfg, recorder, history, usageStats, onSettingsSaved, onWindowClose, onToggle, page)
 		},
 		func() {
+			shutdownStart := time.Now()
+
+			// Hard deadline: if cleanup takes too long, force exit
+			go func() {
+				time.Sleep(4 * time.Second)
+				logWarn("Shutdown deadline exceeded (4s), forcing exit")
+				os.Exit(0)
+			}()
+
 			// Unregister hotkey first (instant, avoids phantom triggers during shutdown)
 			func() {
 				hkMu.Lock()
@@ -1303,6 +1312,7 @@ func main() {
 					hkMgr.Stop()
 				}
 			}()
+			logDebug("Shutdown: hotkey stopped (%dms)", time.Since(shutdownStart).Milliseconds())
 
 			// Stop inference subprocesses in parallel (each can take up to 5s)
 			var wg sync.WaitGroup
@@ -1310,8 +1320,9 @@ func main() {
 			go func() { defer wg.Done(); localLLM.Stop() }()
 			go func() { defer wg.Done(); localSTT.Stop() }()
 			wg.Wait()
+			logDebug("Shutdown: inference stopped (%dms)", time.Since(shutdownStart).Milliseconds())
 
-			// Flush pending crash reports before shutdown
+			// Close crash reporter (no network flush — reports persist for next launch)
 			CloseCrashReporter()
 
 			// Close remaining resources (all fast)
@@ -1325,6 +1336,7 @@ func main() {
 				floatingBtn.Close()
 			}
 			recorder.Close()
+			logDebug("Shutdown: all resources closed (%dms)", time.Since(shutdownStart).Milliseconds())
 		},
 		updater,
 		history,
