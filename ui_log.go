@@ -147,7 +147,7 @@ func ShowLogViewer() {
 			logViewerWindow = w
 		}()
 
-		w.SetTitle("WhisPaste — Log Viewer")
+		w.SetTitle(T("log.window_title"))
 		w.SetSize(900, 600, webview.HintNone)
 		w.SetSize(600, 400, webview.HintMin)
 
