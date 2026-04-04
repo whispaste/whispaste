@@ -23,17 +23,19 @@ import (
 )
 
 type LocalSTT struct {
-	mu         sync.Mutex
-	cmd        *exec.Cmd
-	port       int
-	running    bool
-	modelPath  string
-	waitCh     chan error
-	startupLog *limitedProcessOutput
-	cfg        *Config
+	mu              sync.Mutex
+	cmd             *exec.Cmd
+	port            int
+	running         bool
+	modelPath       string
+	waitCh          chan error
+	startupLog      *limitedProcessOutput
+	cfg             *Config
+	gpuModeOverride string
 }
 
 var localSTT LocalSTT
+var previewSTT = LocalSTT{gpuModeOverride: "disabled"}
 
 const maxWhisperStartupOutput = 8 * 1024
 
@@ -133,9 +135,12 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 	port := tcpAddr.Port
 	listener.Close()
 
-	gpuMode := "auto"
-	if s.cfg != nil {
-		gpuMode = s.cfg.GetGPUAcceleration()
+	gpuMode := s.gpuModeOverride
+	if gpuMode == "" {
+		gpuMode = "auto"
+		if s.cfg != nil {
+			gpuMode = s.cfg.GetGPUAcceleration()
+		}
 	}
 	if err := EnsureSTTServerRuntime(gpuMode); err != nil {
 		logInfo("STT runtime refresh failed, continuing with installed runtime: %v", err)

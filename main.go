@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -114,6 +115,7 @@ func main() {
 	migrateLegacyLLMModel()
 	localLLM.cfg = cfg
 	localSTT.cfg = cfg
+	previewSTT.cfg = cfg
 	SetLanguage(cfg.GetUILanguage())
 	SetSoundVolume(cfg.SoundVolume)
 
@@ -133,6 +135,11 @@ func main() {
 	audiocache.Init(cfgDir)
 	history := LoadHistory()
 	defer history.Close()
+
+	// Purge trash on startup (session-scoped trash)
+	if n := history.EmptyTrash(); n > 0 {
+		logInfo("Startup: purged %d trashed entries", n)
+	}
 
 	// Clean up orphaned audio files and stale pending entries on startup
 	go func() {
@@ -174,6 +181,7 @@ func main() {
 		showDashboard    func()             // opens main window, set after onSettingsSaved is defined
 		showMainPage     func(string)       // opens main window at specific page
 		settingsSaved    func()             // refreshes UI after config changes, set after onSettingsSaved is defined
+		// previewModelWarned removed: streaming preview now aborts recording if model missing
 	)
 
 	// Snapshot config values under lock to avoid data races
@@ -318,6 +326,20 @@ func main() {
 				resetToIdle()
 				return
 			}
+			if useLocal && cfg.GetStreamingPreview() {
+				pm := getStreamingPreviewModelState(cfg.GetLocalModelID())
+				if !pm.Ready {
+					logInfo("Recording aborted: streaming preview enabled but model unavailable (selected=%s required=%s)", pm.SelectedModelID, pm.DownloadModelID)
+					if tray != nil {
+						tray.ShowBalloon(AppName, T("streaming_preview.model_missing"))
+					}
+					if playSounds {
+						PlayFeedback(SoundError)
+					}
+					resetToIdle()
+					return
+				}
+			}
 			// Hide floating button during recording
 			if floatingBtn != nil {
 				floatingBtn.Hide()
@@ -426,64 +448,90 @@ func main() {
 			}
 
 			// Streaming transcription preview (local STT only)
+			// Model availability was already validated above; start preview directly.
 			if useLocal && cfg.GetStreamingPreview() {
-				go func() {
-					const interval = 1500 * time.Millisecond
-					const maxSnapshotDur = 5 // seconds of recent audio to transcribe
-					const bytesPerSec = 16000 * 2 // 16kHz × 16bit mono
-					const maxWords = 10
-					stw, err := NewStreamingTextWindow()
-					if err != nil {
-						logWarn("Failed to create streaming text window: %v", err)
-						return
-					}
-					stw.Show()
-					defer func() {
-						stw.Hide()
-						stw.Close()
-					}()
+				previewModel := getStreamingPreviewModelState(cfg.GetLocalModelID())
+				if previewModel.Ready {
+					go func(previewModelID string) {
+						const interval = 700 * time.Millisecond
+						const minSnapshotDur = 1      // seconds of recent audio required before preview
+						const maxSnapshotDur = 2      // seconds of recent audio to transcribe
+						const bytesPerSec = 16000 * 2 // 16kHz × 16bit mono
+						const maxWords = 8
 
-					sModelID := cfg.GetLocalModelID()
-					dictPrompt := cfg.DictionaryPrompt()
+						var previewBusy atomic.Bool
+						var previewClosed atomic.Bool
 
-					transcribe := func() {
-						raw := recorder.SnapshotBuffer()
-						if len(raw) < bytesPerSec { // need at least 1s
-							return
-						}
-						maxBytes := maxSnapshotDur * bytesPerSec
-						if len(raw) > maxBytes {
-							raw = raw[len(raw)-maxBytes:]
-						}
-						text, err := TranscribeLocal(raw, 16000, localLang, sModelID, dictPrompt)
-						if err != nil {
-							logDebug("Streaming preview failed: %v", err)
-							return
-						}
-						text = strings.TrimSpace(text)
-						if text != "" {
-							words := strings.Fields(text)
-							if len(words) > maxWords {
-								words = words[len(words)-maxWords:]
+						go func() {
+							if err := StartStreamingPreviewRuntime(previewModelID); err != nil {
+								logDebug("Streaming preview warm-up failed: %v", err)
 							}
-							stw.SetText(strings.Join(words, " "))
-						}
-					}
+						}()
 
-					// First attempt immediately (don't wait for first tick)
-					transcribe()
-
-					tick := time.NewTicker(interval)
-					defer tick.Stop()
-					for {
-						select {
-						case <-ld:
+						stw, err := NewStreamingTextWindow()
+						if err != nil {
+							logWarn("Failed to create streaming text window: %v", err)
 							return
-						case <-tick.C:
-							transcribe()
 						}
-					}
-				}()
+						stw.Show()
+						defer func() {
+							previewClosed.Store(true)
+							stw.Hide()
+							stw.Close()
+						}()
+
+						dictPrompt := cfg.DictionaryPrompt()
+
+						transcribe := func() {
+							if previewClosed.Load() || !previewBusy.CompareAndSwap(false, true) {
+								return
+							}
+							raw := recorder.SnapshotBuffer()
+							if len(raw) < minSnapshotDur*bytesPerSec {
+								previewBusy.Store(false)
+								return
+							}
+							maxBytes := maxSnapshotDur * bytesPerSec
+							if len(raw) > maxBytes {
+								raw = raw[len(raw)-maxBytes:]
+							}
+							snapshot := append([]byte(nil), raw...)
+							go func() {
+								defer previewBusy.Store(false)
+								text, err := TranscribeLocalPreview(snapshot, 16000, localLang, previewModelID, dictPrompt)
+								if err != nil {
+									logDebug("Streaming preview failed: %v", err)
+									return
+								}
+								if previewClosed.Load() {
+									return
+								}
+								text = strings.TrimSpace(text)
+								if text == "" {
+									return
+								}
+								words := strings.Fields(text)
+								if len(words) > maxWords {
+									words = words[len(words)-maxWords:]
+								}
+								stw.SetText(strings.Join(words, " "))
+							}()
+						}
+
+						transcribe()
+
+						tick := time.NewTicker(interval)
+						defer tick.Stop()
+						for {
+							select {
+							case <-ld:
+								return
+							case <-tick.C:
+								transcribe()
+							}
+						}
+					}(previewModel.RuntimeModelID)
+				}
 			}
 
 		case StateTranscribing:
