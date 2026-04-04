@@ -44,7 +44,8 @@ const historyDBFile = "history.db"
 // 6 = language_hint for persisted local STT hints
 // 7 = title_edited flag for AI-generated vs manually edited titles
 // 8 = notes and file attachments per entry
-const currentSchemaVersion = 8
+// 9 = soft-delete trash (deleted_at column)
+const currentSchemaVersion = 9
 
 // initHistoryDB opens (or creates) the SQLite database and ensures tables exist.
 func initHistoryDB() (*sql.DB, error) {
@@ -478,6 +479,36 @@ func ensureSchemaVersion(db *sql.DB) error {
 			}
 			version = 8
 
+		case 8:
+			// v8→v9: Add soft-delete trash column
+			var colExists bool
+			rows, err := db.Query("PRAGMA table_info(history_entries)")
+			if err == nil {
+				defer rows.Close()
+				for rows.Next() {
+					var cid int
+					var name, ctype string
+					var notnull int
+					var dfltValue sql.NullString
+					var pk int
+					if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err == nil {
+						if name == "deleted_at" {
+							colExists = true
+						}
+					}
+				}
+				rows.Close()
+			}
+			if !colExists {
+				if _, err := db.Exec(`ALTER TABLE history_entries ADD COLUMN deleted_at TEXT`); err != nil {
+					return fmt.Errorf("add deleted_at column: %w", err)
+				}
+			}
+			if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_history_deleted ON history_entries(deleted_at)`); err != nil {
+				return fmt.Errorf("create deleted_at index: %w", err)
+			}
+			version = 9
+
 		default:
 			return fmt.Errorf("unexpected schema version %d, cannot migrate", version)
 		}
@@ -513,13 +544,15 @@ func createHistoryTables(db *sql.DB) error {
 			cost_usd      REAL NOT NULL DEFAULT 0,
 			project_id    TEXT NOT NULL DEFAULT '',
 			archived      INTEGER NOT NULL DEFAULT 0,
-			title_edited  INTEGER NOT NULL DEFAULT 0
+			title_edited  INTEGER NOT NULL DEFAULT 0,
+			deleted_at    TEXT
 		);
 
 		CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history_entries(timestamp);
 		CREATE INDEX IF NOT EXISTS idx_history_pinned ON history_entries(pinned);
 		CREATE INDEX IF NOT EXISTS idx_history_project ON history_entries(project_id);
 		CREATE INDEX IF NOT EXISTS idx_history_archived ON history_entries(archived);
+		CREATE INDEX IF NOT EXISTS idx_history_deleted ON history_entries(deleted_at);
 
 		CREATE TABLE IF NOT EXISTS projects (
 			id         TEXT PRIMARY KEY,
@@ -731,9 +764,10 @@ func scanEntry(row interface{ Scan(...interface{}) error }) (HistoryEntry, error
 	var e HistoryEntry
 	var tagsJSON string
 	var pinned, isLocal, archived int
+	var deletedAt sql.NullString
 	err := row.Scan(&e.ID, &e.Text, &e.Title, &e.Timestamp,
 		&e.Duration, &e.ProcessingDuration, &e.Language, &e.LanguageHint, &tagsJSON,
-		&pinned, &e.Source, &e.Model, &isLocal, &e.CostUSD, &e.ProjectID, &archived)
+		&pinned, &e.Source, &e.Model, &isLocal, &e.CostUSD, &e.ProjectID, &archived, &deletedAt)
 	if err != nil {
 		return e, err
 	}
@@ -741,12 +775,15 @@ func scanEntry(row interface{ Scan(...interface{}) error }) (HistoryEntry, error
 	e.Pinned = pinned != 0
 	e.IsLocal = isLocal != 0
 	e.Archived = archived != 0
+	if deletedAt.Valid {
+		e.DeletedAt = deletedAt.String
+	}
 	return e, nil
 }
 
 // allColumns is the column list for SELECT queries on history_entries.
 const allColumns = `id, text, title, timestamp, duration_sec, processing_duration_sec,
-	language, language_hint, tags, pinned, source, model, is_local, cost_usd, project_id, archived`
+	language, language_hint, tags, pinned, source, model, is_local, cost_usd, project_id, archived, deleted_at`
 
 // RecordDailyStats upserts a row in daily_stats for the current transcription.
 func (h *History) RecordDailyStats(durationSec, processingSec float64, text string, model string, isLocal bool) {

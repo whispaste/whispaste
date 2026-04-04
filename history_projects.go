@@ -115,7 +115,7 @@ func (h *History) ListProjects() []Project {
 	rows, err := h.db.Query(`
 		SELECT p.id, p.name, p.created_at, COUNT(e.id) as entry_count
 		FROM projects p
-		LEFT JOIN history_entries e ON e.project_id = p.id
+		LEFT JOIN history_entries e ON e.project_id = p.id AND e.deleted_at IS NULL
 		GROUP BY p.id, p.name, p.created_at
 		ORDER BY p.name COLLATE NOCASE`)
 	if err != nil {

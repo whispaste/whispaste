@@ -1,6 +1,6 @@
 /* ── History Page Logic ────────────────────────────────── */
 let _entries = [];
-let _activeFilters = { project: null, time: null, pinned: false, archived: false, tags: [] };
+let _activeFilters = { project: null, time: null, pinned: false, archived: false, trash: false, tags: [] };
 let _searchQuery = '';
 let _currentSort = 'newest';
 let _expandedId = null;
@@ -190,7 +190,11 @@ function getFiltered() {
 async function loadEntries() {
   try {
     try {
-      if (_activeFilters.archived && window.getArchivedEntries) {
+      if (_activeFilters.trash && window.getTrashedEntries) {
+        const json = await window.getTrashedEntries();
+        _entries = JSON.parse(json);
+        if (!_entries) _entries = [];
+      } else if (_activeFilters.archived && window.getArchivedEntries) {
         const json = await window.getArchivedEntries();
         _entries = JSON.parse(json);
         if (!_entries) _entries = [];
@@ -323,21 +327,29 @@ function initSortDropdown() {
 async function setFilter(f) {
   const timeFilters = ['today', 'week', 'older', 'custom'];
   if (f === 'all') {
-    const wasArchived = _activeFilters.archived;
-    _activeFilters = { project: _activeFilters.project, time: null, pinned: false, archived: false, tags: [] };
-    if (wasArchived) { _updateFilterUI(); await loadEntries(); return; }
+    const wasSpecial = _activeFilters.archived || _activeFilters.trash;
+    _activeFilters = { project: _activeFilters.project, time: null, pinned: false, archived: false, trash: false, tags: [] };
+    if (wasSpecial) { _updateFilterUI(); await loadEntries(); return; }
   } else if (f === 'pinned') {
     _activeFilters.pinned = !_activeFilters.pinned;
-    if (_activeFilters.pinned && _activeFilters.archived) {
+    if (_activeFilters.pinned && (_activeFilters.archived || _activeFilters.trash)) {
       _activeFilters.archived = false;
+      _activeFilters.trash = false;
       _updateFilterUI();
       await loadEntries();
       return;
     }
   } else if (f === 'archived') {
     _activeFilters.archived = !_activeFilters.archived;
-    if (_activeFilters.archived) _activeFilters.pinned = false;
+    if (_activeFilters.archived) { _activeFilters.pinned = false; _activeFilters.trash = false; }
     _updateFilterUI();
+    await loadEntries();
+    return;
+  } else if (f === 'trash') {
+    _activeFilters.trash = !_activeFilters.trash;
+    if (_activeFilters.trash) { _activeFilters.pinned = false; _activeFilters.archived = false; }
+    _updateFilterUI();
+    _updateTrashUI();
     await loadEntries();
     return;
   } else if (timeFilters.includes(f)) {
@@ -360,6 +372,7 @@ function _getActiveFilterCount() {
   if (_activeFilters.time) n++;
   if (_activeFilters.pinned) n++;
   if (_activeFilters.archived) n++;
+  if (_activeFilters.trash) n++;
   n += _activeFilters.tags.length;
   return n;
 }
@@ -369,13 +382,14 @@ function _hasActiveFilters() {
 }
 
 async function clearAllFilters() {
-  const wasArchived = _activeFilters.archived;
-  _activeFilters = { project: _activeFilters.project, time: null, pinned: false, archived: false, tags: [] };
+  const wasSpecial = _activeFilters.archived || _activeFilters.trash;
+  _activeFilters = { project: _activeFilters.project, time: null, pinned: false, archived: false, trash: false, tags: [] };
   const picker = document.getElementById('dateRangePicker');
   if (picker) picker.classList.add('hidden');
   _updateFilterUI();
+  _updateTrashUI();
   renderHistory();
-  if (wasArchived) await loadEntries();
+  if (wasSpecial) await loadEntries();
 }
 
 function _updateFilterUI() {
@@ -388,6 +402,8 @@ function _updateFilterUI() {
       el.classList.toggle('active', _activeFilters.pinned);
     } else if (f === 'archived') {
       el.classList.toggle('active', _activeFilters.archived);
+    } else if (f === 'trash') {
+      el.classList.toggle('active', _activeFilters.trash);
     } else if (['today', 'week', 'older', 'custom'].includes(f)) {
       el.classList.toggle('active', _activeFilters.time === f);
     } else if (f.startsWith('cat:')) {
@@ -408,6 +424,7 @@ function _updateFilterUI() {
     }
   }
   _renderActiveFilters();
+  _updateTrashUI();
 }
 
 function _renderActiveFilters() {
@@ -427,6 +444,9 @@ function _renderActiveFilters() {
   }
   if (_activeFilters.archived) {
     pills.push({ label: t('notebook.archived'), remove: () => setFilter('archived') });
+  }
+  if (_activeFilters.trash) {
+    pills.push({ label: t('notebook.trash'), remove: () => setFilter('trash') });
   }
   if (_activeFilters.time && timeLabels[_activeFilters.time]) {
     const timeKey = _activeFilters.time;
@@ -491,6 +511,49 @@ function _updateSidebarSectionCounts() {
   if (tagsSection && tagsCountEl) {
     const items = tagsSection.querySelectorAll('#categoryList .filter-item');
     tagsCountEl.textContent = items.length || '';
+  }
+}
+
+/* ── Trash UI State ──────────────────────────────────── */
+function _updateTrashUI() {
+  // Show/hide "Empty Trash" button in the selection area header
+  let emptyBtn = document.getElementById('emptyTrashBtn');
+  const headerArea = document.querySelector('.history-layout');
+  if (_activeFilters.trash) {
+    if (!emptyBtn && headerArea) {
+      emptyBtn = document.createElement('button');
+      emptyBtn.id = 'emptyTrashBtn';
+      emptyBtn.className = 'btn btn-sm btn-danger empty-trash-btn';
+      emptyBtn.textContent = t('notebook.empty_trash');
+      emptyBtn.addEventListener('click', () => doEmptyTrash());
+      // Insert before history list
+      const histList = document.getElementById('historyList');
+      if (histList) histList.parentNode.insertBefore(emptyBtn, histList);
+    }
+    if (emptyBtn) emptyBtn.classList.remove('hidden');
+  } else {
+    if (emptyBtn) emptyBtn.classList.add('hidden');
+  }
+
+  // Update selection bar buttons for trash mode
+  const archiveBtn = document.getElementById('archiveSelectedBtn');
+  const deleteBtn = document.getElementById('deleteSelectedBtn');
+  if (_activeFilters.trash) {
+    if (archiveBtn) archiveBtn.style.display = 'none';
+    if (deleteBtn) {
+      deleteBtn.setAttribute('data-i18n-title', 'notebook.restore_selected');
+      deleteBtn.title = t('notebook.restore_selected');
+      deleteBtn.onclick = () => doRestoreSelected();
+      deleteBtn.classList.remove('selection-delete');
+    }
+  } else {
+    if (archiveBtn) archiveBtn.style.display = '';
+    if (deleteBtn) {
+      deleteBtn.setAttribute('data-i18n-title', 'notebook.delete_selected');
+      deleteBtn.title = t('notebook.delete_selected');
+      deleteBtn.onclick = () => confirmDeleteSelected();
+      deleteBtn.classList.add('selection-delete');
+    }
   }
 }
 
