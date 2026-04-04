@@ -111,11 +111,17 @@ func main() {
 		}
 	}()
 
-	migrateLegacyLLMModel()
+	migrateLegacyLLMModel(cfg)
 	localLLM.cfg = cfg
 	localSTT.cfg = cfg
 	SetLanguage(cfg.GetUILanguage())
 	SetSoundVolume(cfg.SoundVolume)
+	if msg := startupMemoryGateMessage(); msg != "" {
+		ramBytes := getSystemRAM()
+		logError("Startup compatibility gate failed: memory=%s required=%s", formatBytes(ramBytes), formatBytes(8<<30))
+		showError(msg)
+		return
+	}
 
 	// Initialize audio recorder
 	recorder, err := NewRecorder()
@@ -429,7 +435,6 @@ func main() {
 					}
 				}(currentGen)
 			}
-
 
 		case StateTranscribing:
 			if playSounds {
@@ -795,9 +800,9 @@ func main() {
 				// Auto-tag with local LLM if available
 				if entryID != "" && IsLLMInstalled() {
 					tagEntryID, tagText, tagCustom := entryID, text, cfg.GetCustomTags()
-					tagLang := cfg.GetUILanguage()
+					tagUILang := cfg.GetUILanguage()
 					tagEnabled, titleEnabled := cfg.GetAutoTagEnabled(), cfg.GetAutoTitleEnabled()
-					go AutoTagEntry(history, tagEntryID, tagText, tagCustom, tagLang, tagEnabled, titleEnabled)
+					go AutoTagEntry(history, tagEntryID, tagText, tagCustom, tagUILang, tagEnabled, titleEnabled)
 				}
 
 				// Audio already cached for pending entries; cache for new entries

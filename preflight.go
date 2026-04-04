@@ -294,3 +294,13 @@ func getSystemRAM() uint64 {
 	result := runLocalSTTPreflight("", "inspect")
 	return result.Facts.MemoryBytes
 }
+
+func startupMemoryGateMessage() string {
+	result := runLocalSTTPreflight("", "inspect")
+	for _, check := range result.Checks {
+		if check.Code == "memory" && check.Status == preflightpkg.StatusFail {
+			return localizeLocalSTTPreflightCheckDetail(check)
+		}
+	}
+	return ""
+}

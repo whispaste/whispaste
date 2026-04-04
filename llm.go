@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -51,37 +53,16 @@ func LLMServerPath() (string, error) {
 	return filepath.Join(dir, "llama-server.exe"), nil
 }
 
-// LLMModelPath returns the path to the GGUF model file for the given model ID.
-// Falls back to legacy model.gguf, then default "qwen2.5-0.5b".
-func LLMModelPath(modelID string) (string, error) {
+// LLMModelPath returns the path to the supported GGUF model file.
+func LLMModelPath(_ string) (string, error) {
 	dir, err := LLMDir()
 	if err != nil {
 		return "", err
 	}
-	// If a specific model is requested, use its filename
-	if modelID != "" {
-		if m, ok := LLMModels[modelID]; ok {
-			p := filepath.Join(dir, m.Filename)
-			if _, err := os.Stat(p); err == nil {
-				return p, nil
-			}
-		}
+	if m, ok := LLMModels[supportedLocalLLMModelID]; ok {
+		return filepath.Join(dir, m.Filename), nil
 	}
-	// Legacy: if model.gguf exists, use it (pre-registry installs)
-	legacy := filepath.Join(dir, "model.gguf")
-	if _, err := os.Stat(legacy); err == nil {
-		return legacy, nil
-	}
-	// Deterministic fallback: check qwen2.5 first, then qwen3.5
-	for _, id := range []string{"qwen2.5-0.5b", "qwen3.5-0.8b"} {
-		if m, ok := LLMModels[id]; ok {
-			p := filepath.Join(dir, m.Filename)
-			if _, err := os.Stat(p); err == nil {
-				return p, nil
-			}
-		}
-	}
-	return filepath.Join(dir, "model.gguf"), nil
+	return "", fmt.Errorf("unknown LLM model: %s", supportedLocalLLMModelID)
 }
 
 // LLMModelPathForID returns the model path for a specific model ID.
@@ -97,26 +78,12 @@ func LLMModelPathForID(modelID string) (string, error) {
 	return filepath.Join(dir, model.Filename), nil
 }
 
-// IsLLMInstalled checks if llama-server.exe and at least one model exist.
+// IsLLMInstalled checks if llama-server.exe and the supported model exist.
 func IsLLMInstalled() bool {
 	if !IsLLMServerInstalled() {
 		return false
 	}
-	dir, err := LLMDir()
-	if err != nil {
-		return false
-	}
-	// Check legacy model.gguf
-	if _, err := os.Stat(filepath.Join(dir, "model.gguf")); err == nil {
-		return true
-	}
-	// Check any registered model
-	for _, m := range LLMModels {
-		if _, err := os.Stat(filepath.Join(dir, m.Filename)); err == nil {
-			return true
-		}
-	}
-	return false
+	return IsLLMModelInstalled(supportedLocalLLMModelID)
 }
 
 // Start starts the llama-server subprocess on a random port.
@@ -163,24 +130,8 @@ func (l *LocalLLM) Start() (string, error) {
 		logInfo("LLM runtime refresh failed, continuing with installed runtime: %v", err)
 	}
 
-	args := []string{
-		"--model", modelPath,
-		"--host", loopbackHost,
-		"--port", fmt.Sprintf("%d", port),
-		"--ctx-size", "4096",
-		"--threads", fmt.Sprintf("%d", inference.LLMThreads()),
-		"--log-disable",
-		"--parallel", "1",
-		"--no-webui",
-	}
-
-	// Offload all layers to GPU when a supported GPU is available.
-	// Works for CUDA (NVIDIA) and Vulkan (AMD/Intel) backends.
-	if gpu.ShouldUseRecommendedGPU(gpuMode) {
-		args = append(args, "--n-gpu-layers", "-1", "--flash-attn")
-	}
-
-	cmd := exec.Command(serverPath, args...)
+	// #nosec G204 -- server path and args are constrained to app-managed binaries on loopback only.
+	cmd := exec.CommandContext(context.Background(), serverPath, llmServerArgs(modelPath, port, gpuMode, selectedModel)...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
 	if err := cmd.Start(); err != nil {
@@ -204,6 +155,41 @@ func (l *LocalLLM) Start() (string, error) {
 
 	logInfo("Local LLM started on port %d", port)
 	return endpoint, nil
+}
+
+func llmServerArgs(modelPath string, port int, gpuMode string, selectedModel string) []string {
+	args := []string{
+		"--model", modelPath,
+		"--host", loopbackHost,
+		"--port", fmt.Sprintf("%d", port),
+		"--ctx-size", "4096",
+		"--threads", fmt.Sprintf("%d", inference.LLMThreads()),
+		"--log-disable",
+		"--parallel", "1",
+		"--no-webui",
+	}
+
+	// Qwen3-family models can emit reasoning-only responses on the current
+	// llama-server runtime unless reasoning is explicitly constrained.
+	if llmNeedsReasoningBudgetZero(selectedModel, modelPath) {
+		args = append(args, "--reasoning-budget", "0")
+	}
+
+	// Newer llama-server builds require an explicit value for flash attention.
+	// "auto" still enables it on supported GPUs while keeping startup compatible.
+	if gpu.ShouldUseRecommendedGPU(gpuMode) {
+		args = append(args, "--n-gpu-layers", "-1", "--flash-attn", "auto")
+	}
+
+	return args
+}
+
+func llmNeedsReasoningBudgetZero(modelID string, modelPath string) bool {
+	name := strings.ToLower(strings.TrimSpace(modelID))
+	if name == "" {
+		name = strings.ToLower(filepath.Base(modelPath))
+	}
+	return strings.Contains(name, "qwen3")
 }
 
 // waitReady polls the health endpoint until the server is ready.
@@ -316,24 +302,35 @@ func (l *LocalLLM) Endpoint() string {
 	return fmt.Sprintf("http://%s:%d/v1", loopbackHost, l.port) // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 }
 
-// migrateLegacyLLMModel renames legacy model.gguf to qwen2.5-0.5b.gguf for the new registry.
-func migrateLegacyLLMModel() {
+// migrateLegacyLLMModel migrates known config IDs to the supported model and
+// refuses to relabel unknown legacy GGUF files as the current model.
+func migrateLegacyLLMModel(cfg *Config) {
+	if cfg != nil {
+		cfg.mu.Lock()
+		legacyID := strings.TrimSpace(cfg.LocalLLMModel)
+		switch legacyID {
+		case "qwen2.5-0.5b", "qwen3-0.6b", "smollm2":
+			cfg.LocalLLMModel = supportedLocalLLMModelID
+		}
+		changed := cfg.LocalLLMModel == supportedLocalLLMModelID && legacyID != "" && legacyID != supportedLocalLLMModelID
+		cfg.mu.Unlock()
+		if changed {
+			if err := cfg.Save(); err != nil {
+				logWarn("Failed to persist local LLM model migration from %s to %s: %v", legacyID, supportedLocalLLMModelID, err)
+			} else {
+				logInfo("Migrated local LLM model config from %s to %s", legacyID, supportedLocalLLMModelID)
+			}
+		}
+	}
+
 	dir, err := LLMDir()
 	if err != nil {
 		return
 	}
-	legacy := filepath.Join(dir, "model.gguf")
-	if _, err := os.Stat(legacy); err != nil {
-		return // no legacy file
+	for _, legacyName := range []string{"model.gguf", "qwen2.5-0.5b.gguf"} {
+		legacyPath := filepath.Join(dir, legacyName)
+		if _, err := os.Stat(legacyPath); err == nil && !IsLLMModelInstalled(supportedLocalLLMModelID) {
+			logInfo("Detected unsupported legacy local LLM file %s; fresh download of %s is required", legacyName, supportedLocalLLMModelID)
+		}
 	}
-	target := filepath.Join(dir, LLMModels["qwen2.5-0.5b"].Filename)
-	if _, err := os.Stat(target); err == nil {
-		os.Remove(legacy) // target already exists, just clean up
-		return
-	}
-	if err := os.Rename(legacy, target); err != nil {
-		logWarn("Failed to migrate legacy LLM model: %v", err)
-		return
-	}
-	logInfo("Migrated legacy model.gguf to %s", LLMModels["qwen2.5-0.5b"].Filename)
 }

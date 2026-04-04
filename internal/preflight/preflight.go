@@ -42,8 +42,7 @@ const (
 )
 
 const (
-	minRuntimeRAMBytes     = 4 << 30
-	recommendedRAMBytes    = 8 << 30
+	minRuntimeRAMBytes     = 8 << 30
 	minRecommendedCores    = 4
 	runtimeProbeTimeout    = 5 * time.Second
 	defaultServerBudget    = 220 << 20
@@ -305,13 +304,14 @@ func checkMemory(facts *Facts) Check {
 		}
 		return Check{Code: checkRAM, Status: StatusWarn, Blocking: false, Detail: fmt.Sprintf("Memory scan failed: %v", callErr)}
 	}
-	facts.MemoryBytes = mem.TotalPhys
-	value := formatBytes(mem.TotalPhys)
-	if mem.TotalPhys < minRuntimeRAMBytes {
-		return Check{Code: checkRAM, Status: StatusFail, Blocking: true, Value: value, Detail: "At least 4 GB RAM is required for reliable local STT startup."}
-	}
-	if mem.TotalPhys < recommendedRAMBytes {
-		return Check{Code: checkRAM, Status: StatusWarn, Blocking: false, Value: value, Detail: "8 GB RAM or more is recommended for smoother local STT usage."}
+	return checkMemoryBytes(mem.TotalPhys, facts)
+}
+
+func checkMemoryBytes(totalPhys uint64, facts *Facts) Check {
+	facts.MemoryBytes = totalPhys
+	value := formatBytes(totalPhys)
+	if totalPhys < minRuntimeRAMBytes {
+		return Check{Code: checkRAM, Status: StatusFail, Blocking: true, Value: value, Detail: "At least 8 GB RAM is required for local transcription."}
 	}
 	return Check{Code: checkRAM, Status: StatusPass, Blocking: false, Value: value}
 }
