@@ -681,6 +681,24 @@ var translations = map[string]map[string]string{
 		"modelSwitcher.switched": "Model switched",
 		"modelSwitcher.title":    "Speech Recognition",
 
+		// Model descriptions
+		"model.desc.whisper-tiny":           "Fastest, lowest accuracy — ideal for quick drafts",
+		"model.desc.whisper-base":           "Fast with decent accuracy — good everyday choice",
+		"model.desc.whisper-small":          "Balanced speed and accuracy — recommended for most users",
+		"model.desc.whisper-medium":         "High accuracy, moderate speed — great for important content",
+		"model.desc.whisper-large-v3":       "Highest accuracy, slower — best quality for critical work",
+		"model.desc.whisper-large-v3-turbo": "Near-best accuracy with faster speed — optimal balance",
+
+		// Streaming transcription
+		"settings.streaming_preview":          "Live Preview",
+		"settings.streaming_preview_hint":     "Show real-time transcription while recording (local STT only)",
+		"streaming.draft":                     "Draft…",
+		"labelStreamingPreview":               "Live Transcription Preview",
+		"descStreamingPreview":                "Show a real-time draft of your transcription while recording (local STT only)",
+
+		// Mic retry
+		"error.mic_retrying": "Microphone not ready, retrying…",
+
 		// Recording modes
 		"modeApi":       "Cloud",
 		"modeApiTip":    "Transcription via cloud API",
@@ -1537,6 +1555,24 @@ var translations = map[string]map[string]string{
 		"modelSwitcher.settings": "Einstellungen",
 		"modelSwitcher.switched": "Modell gewechselt",
 		"modelSwitcher.title":    "Spracherkennung",
+
+		// Model descriptions
+		"model.desc.whisper-tiny":           "Am schnellsten, geringste Genauigkeit — ideal für schnelle Entwürfe",
+		"model.desc.whisper-base":           "Schnell mit guter Genauigkeit — gute Alltagswahl",
+		"model.desc.whisper-small":          "Ausgewogene Geschwindigkeit und Genauigkeit — empfohlen für die meisten Nutzer",
+		"model.desc.whisper-medium":         "Hohe Genauigkeit, mittlere Geschwindigkeit — ideal für wichtige Inhalte",
+		"model.desc.whisper-large-v3":       "Höchste Genauigkeit, langsamer — beste Qualität für wichtige Aufgaben",
+		"model.desc.whisper-large-v3-turbo": "Nahezu beste Genauigkeit bei höherer Geschwindigkeit — optimale Balance",
+
+		// Streaming transcription
+		"settings.streaming_preview":          "Live-Vorschau",
+		"settings.streaming_preview_hint":     "Echtzeit-Transkription während der Aufnahme anzeigen (nur lokale STT)",
+		"streaming.draft":                     "Entwurf…",
+		"labelStreamingPreview":               "Live-Transkriptionsvorschau",
+		"descStreamingPreview":                "Zeige einen Echtzeit-Entwurf deiner Transkription während der Aufnahme (nur lokale STT)",
+
+		// Mic retry
+		"error.mic_retrying": "Mikrofon nicht bereit, neuer Versuch…",
 
 		// Recording modes
 		"modeApi":       "Cloud",

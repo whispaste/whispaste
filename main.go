@@ -323,10 +323,22 @@ func main() {
 				floatingBtn.Hide()
 			}
 			// Start audio device BEFORE feedback — only confirm success with sound
-			if err := recorder.Start(); err != nil {
-				logError("Recording error: %v", err)
+			// Auto-retry once on failure (mic may need a moment to initialize)
+			var recErr error
+			for attempt := 0; attempt < 2; attempt++ {
+				recErr = recorder.Start()
+				if recErr == nil {
+					break
+				}
+				if attempt == 0 {
+					logWarn("Mic init failed (attempt 1), retrying: %v", recErr)
+					time.Sleep(500 * time.Millisecond)
+				}
+			}
+			if recErr != nil {
+				logError("Recording error: %v", recErr)
 				if tray != nil {
-					tray.ShowBalloon(AppName, fmt.Sprintf(T("error.recording"), err))
+					tray.ShowBalloon(AppName, fmt.Sprintf(T("error.recording"), recErr))
 				}
 				if playSounds {
 					PlayFeedback(SoundError)
@@ -411,6 +423,56 @@ func main() {
 						}
 					}
 				}(currentGen)
+			}
+
+			// Streaming transcription preview (local STT only)
+			if useLocal && cfg.GetStreamingPreview() {
+				go func() {
+					const interval = 3 * time.Second
+					const maxSnapshotDur = 30 // seconds of audio to send (sliding window)
+					const bytesPerSec = 16000 * 2 // 16kHz × 16bit mono
+					// Create streaming text window (separate from overlay)
+					stw, err := NewStreamingTextWindow()
+					if err != nil {
+						logWarn("Failed to create streaming text window: %v", err)
+						return
+					}
+					stw.Show()
+					defer func() {
+						stw.Hide()
+						stw.Close()
+					}()
+
+					tick := time.NewTicker(interval)
+					defer tick.Stop()
+					for {
+						select {
+						case <-ld:
+							return
+						case <-tick.C:
+							raw := recorder.SnapshotBuffer()
+							if len(raw) < bytesPerSec { // need at least 1s
+								continue
+							}
+							// Sliding window: keep last maxSnapshotDur seconds
+							maxBytes := maxSnapshotDur * bytesPerSec
+							if len(raw) > maxBytes {
+								raw = raw[len(raw)-maxBytes:]
+							}
+							wavData := wav.Encode(raw, 16000, 1, 16)
+							lang := normalizeLanguage(cfg.GetTranscriptionLanguage())
+							text, err := localSTT.Transcribe(wavData, lang)
+							if err != nil {
+								logDebug("Streaming preview inference failed: %v", err)
+								continue
+							}
+							text = strings.TrimSpace(text)
+							if text != "" {
+								stw.SetText(text)
+							}
+						}
+					}
+				}()
 			}
 
 		case StateTranscribing:

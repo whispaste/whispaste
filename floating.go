@@ -141,6 +141,7 @@ var (
 	// GDI+ string alignment (used in drawMicIcon)
 	procGdipSetStringFormatAlign     = ovlGdiplus.NewProc("GdipSetStringFormatAlign")
 	procGdipSetStringFormatLineAlign = ovlGdiplus.NewProc("GdipSetStringFormatLineAlign")
+	procGdipSetStringFormatTrimming  = ovlGdiplus.NewProc("GdipSetStringFormatTrimming")
 
 	// GDI+ world transform (used for scaling the mic icon)
 	procGdipScaleWorldTransform     = ovlGdiplus.NewProc("GdipScaleWorldTransform")
@@ -173,6 +174,12 @@ var (
 	procGdipGetImageWidth        = ovlGdiplus.NewProc("GdipGetImageWidth")
 	procGdipGetImageHeight       = ovlGdiplus.NewProc("GdipGetImageHeight")
 	procGdipCreateBitmapFromStream = ovlGdiplus.NewProc("GdipCreateBitmapFromStream")
+
+	// GDI+ ImageAttributes for alpha-blended PNG drawing
+	procGdipCreateImageAttributes          = ovlGdiplus.NewProc("GdipCreateImageAttributes")
+	procGdipSetImageAttributesColorMatrix  = ovlGdiplus.NewProc("GdipSetImageAttributesColorMatrix")
+	procGdipDisposeImageAttributes         = ovlGdiplus.NewProc("GdipDisposeImageAttributes")
+	procGdipDrawImageRectRectI             = ovlGdiplus.NewProc("GdipDrawImageRectRectI")
 
 	// shlwapi (IStream from memory)
 	ovlShlwapi           = windows.NewLazySystemDLL("shlwapi.dll")
@@ -1534,7 +1541,7 @@ func (fb *FloatingButton) drawAppLogoIcon(g uintptr, alpha uint32) {
 	h := sz - 2*margin
 
 	procGdipSetInterpolationMode.Call(g, 7) // HighQualityBicubic
-	procGdipDrawImageRectI.Call(g, img, uintptr(x), uintptr(y), uintptr(w), uintptr(h))
+	drawImageWithAlpha(g, img, x, y, w, h, alpha)
 }
 
 // appLogoForDark returns the GDI+ image for dark backgrounds. Caller must hold fb.mu.
@@ -1542,6 +1549,65 @@ func (fb *FloatingButton) appLogoForDark() uintptr { return fb.appLogoDark }
 
 // appLogoForLight returns the GDI+ image for light backgrounds. Caller must hold fb.mu.
 func (fb *FloatingButton) appLogoForLight() uintptr { return fb.appLogoLight }
+
+// colorMatrix5x5 represents a GDI+ ColorMatrix (5×5 float32 array, row-major).
+type colorMatrix5x5 [5][5]float32
+
+// drawImageWithAlpha draws a GDI+ image at the given rect with alpha scaling.
+// Uses ImageAttributes ColorMatrix to apply the alpha value to PNG images.
+func drawImageWithAlpha(g, img uintptr, x, y, w, h int, alpha uint32) {
+	procGdipSetInterpolationMode.Call(g, 7) // HighQualityBicubic
+
+	if alpha >= 255 {
+		// Full opacity — no need for ImageAttributes overhead
+		procGdipDrawImageRectI.Call(g, img, uintptr(x), uintptr(y), uintptr(w), uintptr(h))
+		return
+	}
+
+	a := float32(alpha) / 255.0
+	// Identity matrix with alpha scaling in [3][3]
+	cm := colorMatrix5x5{
+		{1, 0, 0, 0, 0},
+		{0, 1, 0, 0, 0},
+		{0, 0, 1, 0, 0},
+		{0, 0, 0, a, 0},
+		{0, 0, 0, 0, 1},
+	}
+
+	var imgAttr uintptr
+	procGdipCreateImageAttributes.Call(uintptr(unsafe.Pointer(&imgAttr)))
+	if imgAttr == 0 {
+		// Fallback to non-alpha draw
+		procGdipDrawImageRectI.Call(g, img, uintptr(x), uintptr(y), uintptr(w), uintptr(h))
+		return
+	}
+	defer procGdipDisposeImageAttributes.Call(imgAttr)
+
+	// ColorAdjustTypeBitmap = 1, ColorMatrixFlagsDefault = 0
+	procGdipSetImageAttributesColorMatrix.Call(
+		imgAttr,
+		1,     // ColorAdjustTypeBitmap
+		1,     // enableFlag = TRUE
+		uintptr(unsafe.Pointer(&cm)),
+		0,     // grayMatrix = NULL
+		0,     // flags = ColorMatrixFlagsDefault
+	)
+
+	// Get source image dimensions for src rect
+	var srcW, srcH uint32
+	procGdipGetImageWidth.Call(img, uintptr(unsafe.Pointer(&srcW)))
+	procGdipGetImageHeight.Call(img, uintptr(unsafe.Pointer(&srcH)))
+
+	// GdipDrawImageRectRectI(graphics, image, dstX, dstY, dstW, dstH, srcX, srcY, srcW, srcH, unit, imageAttributes)
+	procGdipDrawImageRectRectI.Call(
+		g, img,
+		uintptr(x), uintptr(y), uintptr(w), uintptr(h),
+		0, 0, uintptr(srcW), uintptr(srcH),
+		2, // UnitPixel
+		imgAttr,
+		0, 0, // callback, callbackData
+	)
+}
 
 // drawWaveformIcon draws an audio waveform (5 vertical bars).
 func (fb *FloatingButton) drawWaveformIcon(g uintptr, alpha uint32) {
@@ -1631,7 +1697,7 @@ func (fb *FloatingButton) drawCustomImageIcon(g uintptr, alpha uint32) {
 
 	// Set interpolation mode to high quality bicubic (7)
 	procGdipSetInterpolationMode.Call(g, 7)
-	procGdipDrawImageRectI.Call(g, img, uintptr(x), uintptr(y), uintptr(w), uintptr(h))
+	drawImageWithAlpha(g, img, x, y, w, h, alpha)
 }
 
 // ───────────────────── Tooltip ─────────────────────
