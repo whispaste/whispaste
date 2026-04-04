@@ -33,10 +33,10 @@ type StreamingTextWindow struct {
 }
 
 const (
-	_STW_WIDTH   = 600
-	_STW_HEIGHT  = 36
-	_STW_GAP     = 8 // gap between overlay and this window
-	_STW_RADIUS  = 12
+	_STW_WIDTH   = 500
+	_STW_HEIGHT  = 42
+	_STW_GAP     = 10 // gap between overlay and this window
+	_STW_RADIUS  = 14
 	_STW_TIMER   = 2
 	_STW_TIMEMS  = 100 // repaint interval (10 FPS)
 	_WM_STW_TEXT = _WM_USER + 10
@@ -170,7 +170,7 @@ func (stw *StreamingTextWindow) run() {
 	stw.createDIB(scaledW, scaledH)
 
 	// Create GDI+ font (DPI-scaled)
-	fontSize := float32(12.0 * stw.scale)
+	fontSize := float32(14.0 * stw.scale)
 	fontName, _ := windows.UTF16PtrFromString("Segoe UI")
 	procGdipCreateFontFamilyFromName.Call(uintptr(unsafe.Pointer(fontName)), 0, uintptr(unsafe.Pointer(&stw.gdipFF)))
 	if stw.gdipFF != 0 {
@@ -331,9 +331,9 @@ func (stw *StreamingTextWindow) paint() {
 	procGdipAddPathArc.Call(bgPath, f32(1), f32(fh-d+1), f32(d), f32(d), f32(90), f32(90))
 	procGdipClosePathFigure.Call(bgPath)
 
-	// Semi-transparent dark background (matches overlay style)
+	// Semi-transparent dark background (clearly visible below overlay)
 	var bgBrush uintptr
-	procGdipCreateSolidFill.Call(0xCC0A1A29, uintptr(unsafe.Pointer(&bgBrush)))
+	procGdipCreateSolidFill.Call(0xDD0A1A29, uintptr(unsafe.Pointer(&bgBrush)))
 	if bgBrush != 0 {
 		procGdipFillPath.Call(g, bgBrush, bgPath)
 		procGdipDeleteBrush.Call(bgBrush)
@@ -350,7 +350,7 @@ func (stw *StreamingTextWindow) paint() {
 		rect := [4]float32{float32(r), 0, float32(w) - 2*float32(r), float32(h)}
 
 		var textBrush uintptr
-		procGdipCreateSolidFill.Call(0xDDFFFFFF, uintptr(unsafe.Pointer(&textBrush)))
+		procGdipCreateSolidFill.Call(0xF0FFFFFF, uintptr(unsafe.Pointer(&textBrush)))
 		if textBrush != 0 {
 			procGdipDrawString.Call(
 				g,
