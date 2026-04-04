@@ -70,7 +70,7 @@
     try {
       await window.setAppPresets(JSON.stringify(appPresets));
     } catch (e) {
-      showToast(t('saveError') || 'Failed to save', true);
+      showToast(t('saveError'), true);
     }
   }
 
@@ -100,8 +100,8 @@
     if (del) {
       const appName = del.dataset.app;
       showConfirmDialog(
-        t('appPresetDeleteTitle') || 'Delete Preset',
-        (t('appPresetDeleteMsg') || 'Remove the preset for "{app}"?').replace('{app}', appName)
+        t('appPresetDeleteTitle'),
+        t('appPresetDeleteMsg').replace('{app}', appName)
       ).then(ok => {
         if (!ok) return;
         delete appPresets[appName];

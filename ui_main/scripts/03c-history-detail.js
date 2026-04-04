@@ -335,7 +335,7 @@ async function addTag(input) {
       await loadEntries();
       showToast(t('notebook.tag_updated'));
     } else {
-      showToast(t('notebook.error_update') || 'Update failed', true);
+      showToast(t('notebook.error_update'), true);
     }
   }
 }
@@ -351,16 +351,16 @@ async function removeTag(id, tagToRemove) {
       await loadEntries();
       showToast(t('notebook.tag_updated'));
     } else {
-      showToast(t('notebook.error_update') || 'Update failed', true);
+      showToast(t('notebook.error_update'), true);
     }
   }
 }
 
 /* ── Delete Tag from All Entries───────────────────────── */
 async function deleteTagFromAll(tagName) {
-  const msg = (t('tag_delete_confirm') || 'Remove tag "{tag}" from all entries?').replace('{tag}', tagName);
+  const msg = t('tag_delete_confirm').replace('{tag}', tagName);
   const confirmed = await showConfirmDialog(
-    t('tag_delete') || 'Delete Tag',
+    t('tag_delete'),
     msg,
     { variant: 'danger', confirmText: t('notebook.confirm_delete') }
   );
@@ -388,19 +388,19 @@ function _bindSidebarAddTag() {
   btn.addEventListener('click', (ev) => {
     ev.stopPropagation();
     // Replace button with an inline input
-    btn.innerHTML = `<input type="text" class="tag-input sidebar-tag-input" placeholder="${t('sidebar_add_tag_placeholder') || 'New tag name…'}" autofocus />`;
+    btn.innerHTML = `<input type="text" class="tag-input sidebar-tag-input" placeholder="${t('sidebar_add_tag_placeholder')}" autofocus />`;
     const input = btn.querySelector('input');
     if (!input) return;
     setTimeout(() => input.focus(), 30); // DevSkim: ignore DS172411 — constant delay, safe callback
     const commit = async () => {
       const val = input.value.trim();
       if (!val) { updateCounts(); return; }
-      if (!/\w/.test(val)) { showToast(t('tag_name_invalid') || 'Invalid tag name', true); updateCounts(); return; }
-      if (isSystemTag(val)) { showToast(t('tag_system') || 'System tag', true); updateCounts(); return; }
+      if (!/\w/.test(val)) { showToast(t('tag_name_invalid'), true); updateCounts(); return; }
+      if (isSystemTag(val)) { showToast(t('tag_system'), true); updateCounts(); return; }
       const tags = window._cachedCustomTags || [];
-      if (tags.includes(val)) { showToast(t('tag_exists') || 'Tag already exists', true); updateCounts(); return; }
+      if (tags.includes(val)) { showToast(t('tag_exists'), true); updateCounts(); return; }
       await _persistCustomTag(val);
-      showToast(t('tag_added') || 'Tag added');
+      showToast(t('tag_added'));
       updateCounts();
     };
     input.addEventListener('keydown', (ev2) => {
@@ -506,7 +506,7 @@ async function _assignTagToEntry(entryId, tagName) {
   if (!entry) return;
   const tags = entry.tags ? [...entry.tags] : [];
   if (tags.includes(tagName)) {
-    showToast(t('notebook.tag_already_assigned') || 'Tag already assigned');
+    showToast(t('notebook.tag_already_assigned'));
     return;
   }
   tags.push(tagName);
@@ -517,7 +517,7 @@ async function _assignTagToEntry(entryId, tagName) {
       await loadEntries();
       showToast(t('notebook.tag_updated'));
     } else {
-      showToast(t('notebook.error_update') || 'Update failed', true);
+      showToast(t('notebook.error_update'), true);
     }
   }
 }

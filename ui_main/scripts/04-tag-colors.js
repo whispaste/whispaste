@@ -58,7 +58,7 @@ document.addEventListener('contextmenu', (ev) => {
     if (!tagName) return;
     if (isSystemTag(tagName)) {
       showPopoverAt(ev.clientX, ev.clientY, {
-        items: [{ header: tagName }, { label: t('tag_system') || 'System tag — cannot modify', disabled: true }],
+        items: [{ header: tagName }, { label: t('tag_system'), disabled: true }],
       });
       return;
     }
@@ -75,7 +75,7 @@ document.addEventListener('contextmenu', (ev) => {
     if (!tagName) return;
     if (isSystemTag(tagName)) {
       showPopoverAt(ev.clientX, ev.clientY, {
-        items: [{ header: tagName }, { label: t('tag_system') || 'System tag — cannot modify', disabled: true }],
+        items: [{ header: tagName }, { label: t('tag_system'), disabled: true }],
       });
       return;
     }
@@ -94,18 +94,18 @@ function showTagContextMenu(x, y, tagName) {
   showPopoverAt(x, y, {
     items: [
       { header: tagName },
-      { icon: icons.pencil, label: t('tag_rename') || 'Rename', action: () => promptRenameTag(tagName) },
-      { icon: icons.tag, label: t('tag_color') || 'Change Color', action: () => showTagColorPickerAt(x, y, tagName, null) },
+      { icon: icons.pencil, label: t('tag_rename'), action: () => promptRenameTag(tagName) },
+      { icon: icons.tag, label: t('tag_color'), action: () => showTagColorPickerAt(x, y, tagName, null) },
       { divider: true },
-      { icon: icons.trash, label: t('tag_delete') || 'Delete Tag', danger: true, action: () => deleteTagFromAll(tagName) },
+      { icon: icons.trash, label: t('tag_delete'), danger: true, action: () => deleteTagFromAll(tagName) },
     ],
   });
 }
 
 async function promptRenameTag(oldName) {
   const newName = await showPromptDialog(
-    t('tag_rename') || 'Rename Tag',
-    t('tag_rename_prompt') || 'Enter new name:',
+    t('tag_rename'),
+    t('tag_rename_prompt'),
     { defaultValue: oldName }
   );
   if (newName && newName.trim() && newName.trim() !== oldName) {

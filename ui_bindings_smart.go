@@ -32,7 +32,7 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 	w.Bind("applySmartAction", func(entryID, preset, customPrompt, targetLang string) string {
 		entry := history.GetByID(entryID)
 		if entry == nil {
-			resp, _ := json.Marshal(map[string]string{"error": "Entry not found"})
+			resp, _ := json.Marshal(map[string]string{"error": T("error.entry_not_found")})
 			return string(resp)
 		}
 		// Capture values for goroutine (avoid data race on entry pointer)
@@ -508,7 +508,7 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 	w.Bind("_testLLMModel", func() map[string]interface{} {
 		logInfo("LLM model test started")
 		if !IsLLMInstalled() {
-			return map[string]interface{}{"success": false, "error": "LLM not installed"}
+			return map[string]interface{}{"success": false, "error": T("error.llm_not_installed")}
 		}
 
 		endpoint, err := localLLM.Start()

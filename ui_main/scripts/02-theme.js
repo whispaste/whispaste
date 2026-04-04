@@ -50,6 +50,13 @@ function applyTheme(theme) {
       ? onbLogo.dataset.darkSrc
       : onbLogo.dataset.lightSrc;
   }
+  // Update floating button settings logo preview
+  const fabLogo = document.getElementById('fabLogoPreview');
+  if (fabLogo && brandIcon) {
+    fabLogo.src = eff === 'dark'
+      ? brandIcon.dataset.darkSrc
+      : brandIcon.dataset.lightSrc;
+  }
 }
 
 /** Cycle theme: system → dark → light → system */

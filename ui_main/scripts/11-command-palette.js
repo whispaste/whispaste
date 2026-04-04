@@ -255,7 +255,7 @@
       const ids = JSON.stringify(Array.from(_selectedIds));
       if (window.exportSelected) window.exportSelected(ids, format);
     } else {
-      showToast(t('notebook.noSelection') || 'Select entries to export', true);
+      showToast(t('notebook.noSelection'), true);
     }
   }
 

@@ -125,7 +125,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 	w.Bind("saveConfig", func(configJSON string) map[string]interface{} {
 		var newCfg Config
 		if err := json.Unmarshal([]byte(configJSON), &newCfg); err != nil {
-			return map[string]interface{}{"success": false, "error": fmt.Sprintf("Invalid config: %v", err)}
+			return map[string]interface{}{"success": false, "error": fmt.Sprintf(T("error.invalid_config"), err)}
 		}
 		cfg.mu.Lock()
 		cfg.APIKey = newCfg.APIKey
@@ -196,7 +196,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 			recorder.SetInputDevice(newCfg.InputDevice)
 		}
 		if err := cfg.Save(); err != nil {
-			return map[string]interface{}{"success": false, "error": fmt.Sprintf("Save failed: %v", err)}
+			return map[string]interface{}{"success": false, "error": fmt.Sprintf(T("error.save_failed"), err)}
 		}
 		if onSaved != nil {
 			onSaved()
@@ -236,7 +236,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		}
 		if recorder == nil {
 			logError("Test recording: recorder not available")
-			return map[string]interface{}{"success": false, "text": "", "error": "Recorder not available"}
+			return map[string]interface{}{"success": false, "text": "", "error": T("error.no_recorder")}
 		}
 		recorder.StopMonitor()
 		recorder.SetGain(cfg.GetInputGain())
@@ -248,7 +248,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		time.Sleep(3 * time.Second)
 		pcm, err := recorder.Stop()
 		if err != nil || len(pcm) == 0 {
-			errMsg := "no audio captured"
+			errMsg := T("error.no_audio_captured")
 			if err != nil {
 				errMsg = err.Error()
 			}
@@ -347,10 +347,7 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 
 		filter := "Images (*.png;*.jpg;*.jpeg;*.bmp)\x00*.png;*.jpg;*.jpeg;*.bmp\x00All Files (*.*)\x00*.*\x00\x00"
 		filterUTF16, _ := windows.UTF16PtrFromString(filter[:len(filter)-1])
-		title := T("pickImageTitle")
-		if title == "" || title == "pickImageTitle" {
-			title = "Select Image"
-		}
+		title := T("settings.select_image")
 		titleUTF16, _ := windows.UTF16PtrFromString(title)
 
 		fileBuf := make([]uint16, 260)
@@ -581,7 +578,8 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 
 	w.Bind("_startAudioMonitor", func() string {
 		if recorder == nil {
-			return `{"success":false,"error":"no recorder"}`
+			errJSON, _ := json.Marshal(T("error.no_recorder"))
+			return fmt.Sprintf(`{"success":false,"error":%s}`, errJSON)
 		}
 		recorder.SetGain(cfg.GetInputGain())
 		recorder.SetInputDevice(cfg.GetInputDevice())
