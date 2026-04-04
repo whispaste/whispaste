@@ -239,7 +239,8 @@ function gatherConfig() {
     custom_dictionary: (document.getElementById('input-custom-dictionary')?.value || '').split(/[,\n]/).map(s => s.trim()).filter(Boolean),
     gpu_acceleration: document.getElementById('select-gpu-mode')?.value || 'auto',
     auto_tag_enabled: document.getElementById('toggle-auto-tag')?.checked ?? true,
-    auto_title_enabled: document.getElementById('toggle-auto-title')?.checked ?? true
+    auto_title_enabled: document.getElementById('toggle-auto-title')?.checked ?? true,
+    streaming_preview: document.getElementById('toggle-streaming-preview')?.checked ?? false
   };
 }
 
@@ -464,6 +465,9 @@ function applyConfig(cfg) {
   // Auto-Tag & Auto-Title
   { const el = document.getElementById('toggle-auto-tag'); if (el) el.checked = cfg.auto_tag_enabled !== false; }
   { const el = document.getElementById('toggle-auto-title'); if (el) el.checked = cfg.auto_title_enabled !== false; }
+
+  // Streaming Preview
+  { const el = document.getElementById('toggle-streaming-preview'); if (el) el.checked = !!cfg.streaming_preview; }
 }
 
 

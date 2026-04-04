@@ -251,6 +251,18 @@
               </div>
             </div>
             <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <label class="toggle-label" for="toggle-streaming-preview" data-i18n="labelStreamingPreview">Live Transcription Preview</label>
+                  <p class="toggle-desc" data-i18n="descStreamingPreview">Show a real-time draft of your transcription while recording (local STT only)</p>
+                </div>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="toggle-streaming-preview">
+                  <label class="toggle-track" for="toggle-streaming-preview"></label>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
               <label class="form-label" for="select-theme" data-i18n="labelTheme">Theme</label>
               <select class="form-select" id="select-theme" onchange="applyTheme(this.value)">
                 <option value="system" data-i18n-opt="themeSystem">System</option>
