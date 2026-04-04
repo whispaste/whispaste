@@ -66,7 +66,7 @@ function _bindNoteListeners(container, entryId) {
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       if (btn.dataset.action === 'delete-note') {
-        deleteNote(btn.dataset.noteId, btn.dataset.id);
+        handleDeleteNote(btn.dataset.noteId, btn.dataset.id);
       }
     });
   });
@@ -116,7 +116,7 @@ async function saveNewNote(entryId) {
   } catch(e) { showToast(t('error.generic'), true); }
 }
 
-async function deleteNote(noteId, entryId) {
+async function handleDeleteNote(noteId, entryId) {
   if (!noteId) return;
   try {
     if (window.deleteNote) await window.deleteNote(noteId);
@@ -162,15 +162,15 @@ function _bindAttachmentListeners(container) {
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       const action = btn.dataset.action;
-      if (action === 'open-attachment') openAttachment(btn.dataset.attId);
-      else if (action === 'delete-attachment') deleteAttachment(btn.dataset.attId, btn.dataset.id);
+      if (action === 'open-attachment') handleOpenAttachment(btn.dataset.attId);
+      else if (action === 'delete-attachment') handleDeleteAttachment(btn.dataset.attId, btn.dataset.id);
     });
   });
   // Click on card to open
   container.querySelectorAll('.attachment-card').forEach(card => {
     card.addEventListener('dblclick', () => {
       const attId = card.dataset.attId;
-      if (attId) openAttachment(attId);
+      if (attId) handleOpenAttachment(attId);
     });
   });
 }
@@ -204,7 +204,7 @@ async function triggerAttachmentPicker(entryId) {
   } catch(e) { showToast(t('error.generic'), true); }
 }
 
-async function deleteAttachment(attId, entryId) {
+async function handleDeleteAttachment(attId, entryId) {
   if (!attId) return;
   try {
     if (window.deleteAttachment) await window.deleteAttachment(attId);
@@ -212,7 +212,7 @@ async function deleteAttachment(attId, entryId) {
   } catch(e) { showToast(t('error.generic'), true); }
 }
 
-async function openAttachment(attId) {
+async function handleOpenAttachment(attId) {
   if (!attId) return;
   try {
     if (window.openAttachment) await window.openAttachment(attId);
