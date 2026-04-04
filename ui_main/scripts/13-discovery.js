@@ -4,18 +4,18 @@
 
 const _discoveryConfig = {
   smartmode: {
-    title: () => t('discovery.smartmode.title') || 'AI-powered refinement',
-    desc: () => t('discovery.smartmode.desc') || 'Smart Mode refines your dictations with AI — try enabling it!',
+    title: () => t('discovery.smartmode.title'),
+    desc: () => t('discovery.smartmode.desc'),
     arrow: 'left'
   },
   analytics: {
-    title: () => t('discovery.analytics.title') || 'Your dictation insights',
-    desc: () => t('discovery.analytics.desc') || 'See your dictation patterns and productivity trends.',
+    title: () => t('discovery.analytics.title'),
+    desc: () => t('discovery.analytics.desc'),
     arrow: 'left'
   },
   replacements: {
-    title: () => t('discovery.replacements.title') || 'Auto-correct your words',
-    desc: () => t('discovery.replacements.desc') || 'Auto-correct words and phrases in every dictation.',
+    title: () => t('discovery.replacements.title'),
+    desc: () => t('discovery.replacements.desc'),
     arrow: 'left'
   }
 };
@@ -88,7 +88,7 @@ function showDiscoveryForPage(pageId) {
     actionsDiv.className = 'discovery-tooltip-actions';
     const dismissBtn = document.createElement('button');
     dismissBtn.className = 'discovery-tooltip-dismiss';
-    dismissBtn.textContent = t('discovery.gotIt') || 'Got it';
+    dismissBtn.textContent = t('discovery.gotIt');
     dismissBtn.addEventListener('click', () => _dismissDiscovery(pageId));
     actionsDiv.appendChild(dismissBtn);
 

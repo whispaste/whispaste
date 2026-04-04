@@ -605,15 +605,15 @@ async function viewPresetPrompt(key) {
       if (prompt) isCustom = true;
     } catch (e) {}
   }
-  if (!prompt) prompt = t('smartNoPrompt') || 'No prompt defined for this preset.';
+  if (!prompt) prompt = t('smartNoPrompt');
   // Add language note to show what actually gets sent
-  const langNote = t('smartPromptLangNote') || 'Note: Your UI language setting is automatically appended to this prompt at runtime.';
+  const langNote = t('smartPromptLangNote');
   const fullMessage = esc(prompt) + '<div class="prompt-lang-note">' + esc(langNote) + '</div>';
   showDialog({
-    title: (t('smartViewPromptTitle') || 'Preset Prompt') + (isCustom ? ' — ' + key : ''),
+    title: t('smartViewPromptTitle') + (isCustom ? ' — ' + key : ''),
     message: fullMessage,
     htmlMessage: true,
     variant: 'info',
-    confirmText: t('ok') || 'OK'
+    confirmText: t('ok')
   });
 }

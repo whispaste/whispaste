@@ -45,10 +45,10 @@
           ${descPreview ? `<span class="custom-template-prompt" title="${esc(meta.description)}">${descPreview}</span>` : `<span class="custom-template-prompt" title="${esc(prompt)}">${esc(prompt.length > 100 ? prompt.slice(0, 100) + '…' : prompt)}</span>`}
         </div>
         <div class="custom-template-actions">
-          <button class="btn-icon custom-template-export" data-name="${esc(name)}" title="${t('templateExport') || 'Export'}">
+          <button class="btn-icon custom-template-export" data-name="${esc(name)}" title="${t('templateExport')}">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </button>
-          <button class="btn-icon custom-template-edit" data-name="${esc(name)}" title="${t('edit') || 'Edit'}">
+          <button class="btn-icon custom-template-edit" data-name="${esc(name)}" title="${t('edit')}">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           </button>
           <button class="btn-icon custom-template-delete" data-name="${esc(name)}" title="${t('replacementsDelete')}">
@@ -77,10 +77,10 @@
         <span class="preset-label">${esc(name)}</span>
         <span class="preset-desc">${esc(desc.length > 50 ? desc.slice(0, 50) + '…' : desc)}</span>
         <div class="preset-card-actions">
-          <button class="btn-preset-prompt" title="${t('edit') || 'Edit'}">
+          <button class="btn-preset-prompt" title="${t('edit')}">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           </button>
-          <button class="btn-preset-prompt" title="${t('replacementsDelete') || 'Delete'}">
+          <button class="btn-preset-prompt" title="${t('replacementsDelete')}">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
           </button>
         </div>
@@ -229,12 +229,12 @@
     const name = await showPromptDialog(
       t('customTemplateAddTitle'),
       t('customTemplateAddNameMsg'),
-      { confirmText: t('next') || 'Next' }
+      { confirmText: t('next') }
     );
     if (!name || !name.trim()) return;
     const key = name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
     if (customTemplates[key]) {
-      showDialog({ title: t('error') || 'Error', message: t('customTemplateExists'), variant: 'error' });
+      showDialog({ title: t('error'), message: t('customTemplateExists'), variant: 'error' });
       return;
     }
 
@@ -298,17 +298,17 @@
     if (!json) return;
     try {
       await navigator.clipboard.writeText(json);
-      showToast(t('templateExported') || 'Template copied to clipboard');
+      showToast(t('templateExported'));
     } catch (e) {
-      showToast(t('error') || 'Export failed', 'error');
+      showToast(t('error'), 'error');
     }
   }
 
   async function importCustomTemplate() {
     const json = await showPromptDialog(
-      t('templateImportTitle') || 'Import Template',
-      t('templateImportMsg') || 'Paste a template JSON string:',
-      { confirmText: t('templateImportBtn') || 'Import' }
+      t('templateImportTitle'),
+      t('templateImportMsg'),
+      { confirmText: t('templateImportBtn') }
     );
     if (!json || !json.trim()) return;
     if (!window.importTemplate) return;
@@ -316,14 +316,14 @@
     try {
       const parsed = JSON.parse(result);
       if (parsed.error) {
-        showDialog({ title: t('error') || 'Error', message: parsed.error, variant: 'error' });
+        showDialog({ title: t('error'), message: parsed.error, variant: 'error' });
         return;
       }
       loadCustomTemplates();
       window.dispatchEvent(new Event('smart-templates-changed'));
-      showToast(t('templateImported') || 'Template imported');
+      showToast(t('templateImported'));
     } catch (e) {
-      showDialog({ title: t('error') || 'Error', message: 'Invalid response', variant: 'error' });
+      showDialog({ title: t('error'), message: t('error.invalid_response'), variant: 'error' });
     }
   }
 

@@ -504,6 +504,7 @@
 }
 .fab-content-option:hover { border-color: var(--border-primary); color: var(--text-primary); }
 .fab-content-option.selected { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent), transparent 90%); }
+.fab-logo-preview { width: 24px; height: 24px; object-fit: contain; pointer-events: none; }
 
 /* Custom image picker row */
 .fab-custom-image-picker {

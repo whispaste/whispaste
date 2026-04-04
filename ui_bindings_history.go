@@ -94,11 +94,11 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 	w.Bind("reTranscribe", func(id string) map[string]interface{} {
 		entry := history.GetByID(id)
 		if entry == nil {
-			return map[string]interface{}{"ok": false, "error": "Entry not found"}
+			return map[string]interface{}{"ok": false, "error": T("error.entry_not_found")}
 		}
 		wavData, err := audiocache.Load(id)
 		if err != nil {
-			return map[string]interface{}{"ok": false, "error": "No cached audio"}
+			return map[string]interface{}{"ok": false, "error": T("error.no_cached_audio")}
 		}
 
 		// Run transcription async to avoid blocking UI
@@ -563,7 +563,7 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 			return map[string]interface{}{"ok": false, "error": T("voice_note.already_recording")}
 		}
 		if recorder == nil {
-			return map[string]interface{}{"ok": false, "error": "No recorder available"}
+			return map[string]interface{}{"ok": false, "error": T("error.no_recorder")}
 		}
 		if recorder.IsRecording() {
 			return map[string]interface{}{"ok": false, "error": T("voice_note.main_recording_active")}
@@ -581,7 +581,7 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 		vnMu.Lock()
 		if !vnRecording {
 			vnMu.Unlock()
-			return map[string]interface{}{"ok": false, "error": "Not recording"}
+			return map[string]interface{}{"ok": false, "error": T("error.not_recording")}
 		}
 		entryID := vnEntryID
 		vnRecording = false

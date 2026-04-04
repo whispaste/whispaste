@@ -217,6 +217,17 @@ var translations = map[string]map[string]string{
 		"error.postprocess_api":                   "Smart Mode ran into an issue (error %d)",
 		"error.postprocess_empty":                 "Smart Mode returned nothing — try again",
 		"error.postprocess_parse":                 "Couldn't read Smart Mode's response",
+		"error.entry_not_found":                   "Entry not found",
+		"error.no_cached_audio":                   "No cached audio available",
+		"error.no_recorder":                       "Recorder not available",
+		"error.not_recording":                     "Not recording",
+		"error.invalid_config":                    "Invalid configuration: %v",
+		"error.save_failed":                       "Save failed: %v",
+		"error.no_audio_captured":                 "No audio captured",
+		"error.llm_not_installed":                 "LLM not installed",
+		"settings.select_image":                   "Select Image",
+		"log.window_title":                        "WhisPaste — Log Viewer",
+		"error.invalid_response":                  "Invalid response",
 		"preflight.summary.pass":                  "Your device is ready for local transcription.",
 		"preflight.summary.pass_download":         "Your device is ready — just download the model to get started.",
 		"preflight.summary.warn":                  "Local transcription will work, but may be slower on this device.",
@@ -381,7 +392,8 @@ var translations = map[string]map[string]string{
 		"notebook.sort_duration":   "Duration",
 		"notebook.sort":            "Sort",
 		"notebook.add_tag":         "Add tag…",
-		"notebook.tag_updated":     "Tag updated",
+		"notebook.tag_updated":         "Tag updated",
+		"notebook.tag_already_assigned":"Tag already assigned",
 		"notebook.project_created": "Project created",
 		"notebook.project_deleted": "Project deleted",
 
@@ -512,6 +524,18 @@ var translations = map[string]map[string]string{
 		"view.card": "Card view",
 		"view.list": "List view",
 		"view.tile": "Tile view",
+
+		// UI tooltips
+		"tooltip.toggle_theme":    "Toggle Theme",
+		"tooltip.language":        "Language",
+		"tooltip.support":         "Support WhisPaste",
+		"tooltip.group_entries":   "Group entries",
+		"tooltip.hide_sidebar":    "Hide sidebar",
+		"tooltip.show_sidebar":    "Show sidebar",
+		"tooltip.test_sound":      "Test sound",
+		"tooltip.view_prompt":     "View prompt",
+		"tooltip.import":          "Import",
+		"tooltip.export_all":      "Export all",
 
 		// Analytics
 		"analytics.avg_duration":       "Avg. Duration",
@@ -925,8 +949,8 @@ var translations = map[string]map[string]string{
 		"floating.tip_ready":       "WhisPaste — Bereit",
 		"floating.tip_recording":   "WhisPaste — Aufnahme…",
 		"floating.tip_paused":      "WhisPaste — Pausiert",
-		"floating.tip_transcribing":"WhisPaste — Transkribiere…",
-		"floating.tip_processing":  "WhisPaste — Verarbeite…",
+		"floating.tip_transcribing":"WhisPaste — Transkription läuft…",
+		"floating.tip_processing":  "WhisPaste — Verarbeitung…",
 
 		// Floating button shapes & colors
 		"shapeCircle":   "Kreis",
@@ -984,14 +1008,14 @@ var translations = map[string]map[string]string{
 
 		"state.idle":         "Bereit",
 		"state.recording":    "Aufnahme…",
-		"state.transcribing": "Transkribiere…",
+		"state.transcribing": "Transkription läuft…",
 		"state.success":      "Fertig!",
 		"state.error":        "Fehler",
 
 		// Overlay
 		"overlay.recording":    "Aufnahme",
 		"overlay.paused":       "Pausiert",
-		"overlay.transcribing": "Transkribiere…",
+		"overlay.transcribing": "Transkription läuft…",
 		"overlay.done":         "Eingefügt!",
 		"overlay.copied":       "In Zwischenablage kopiert ✓",
 		"overlay.error":        "Fehler: %s",
@@ -1050,6 +1074,17 @@ var translations = map[string]map[string]string{
 		"error.postprocess_api":                   "Smart Mode hat ein Problem (Fehler %d)",
 		"error.postprocess_empty":                 "Smart Mode hat nichts zurückgegeben — versuch es nochmal",
 		"error.postprocess_parse":                 "Konnte die Smart-Mode-Antwort nicht lesen",
+		"error.entry_not_found":                   "Eintrag nicht gefunden",
+		"error.no_cached_audio":                   "Kein zwischengespeichertes Audio verfügbar",
+		"error.no_recorder":                       "Aufnahmegerät nicht verfügbar",
+		"error.not_recording":                     "Keine Aufnahme aktiv",
+		"error.invalid_config":                    "Ungültige Konfiguration: %v",
+		"error.save_failed":                       "Speichern fehlgeschlagen: %v",
+		"error.no_audio_captured":                 "Kein Audio aufgenommen",
+		"error.llm_not_installed":                 "LLM nicht installiert",
+		"settings.select_image":                   "Bild auswählen",
+		"log.window_title":                        "WhisPaste — Protokoll",
+		"error.invalid_response":                  "Ungültige Antwort",
 		"preflight.summary.pass":                  "Dein Gerät ist bereit für lokale Transkription.",
 		"preflight.summary.pass_download":         "Dein Gerät ist bereit — lade einfach das Modell herunter.",
 		"preflight.summary.warn":                  "Lokale Transkription funktioniert, kann aber auf diesem Gerät langsamer sein.",
@@ -1110,7 +1145,7 @@ var translations = map[string]map[string]string{
 		"settings.smart_preset_summary":   "Zusammenfassung",
 		"settings.smart_preset_notes":     "Notizen",
 		"settings.smart_preset_meeting":   "Protokoll",
-		"settings.smart_preset_social":    "Social Media",
+		"settings.smart_preset_social":    "Soziale Medien",
 		"settings.smart_preset_casual":    "Locker",
 		"settings.smart_preset_translate": "Übersetzen",
 		"settings.smart_preset_custom":    "Benutzerdefiniert",
@@ -1214,7 +1249,8 @@ var translations = map[string]map[string]string{
 		"notebook.sort_duration":   "Dauer",
 		"notebook.sort":            "Sortierung",
 		"notebook.add_tag":         "Tag hinzufügen…",
-		"notebook.tag_updated":     "Tag aktualisiert",
+		"notebook.tag_updated":         "Tag aktualisiert",
+		"notebook.tag_already_assigned":"Tag bereits zugewiesen",
 		"notebook.project_created": "Projekt erstellt",
 		"notebook.project_deleted": "Projekt gelöscht",
 
@@ -1256,7 +1292,7 @@ var translations = map[string]map[string]string{
 		"notebook.no_audio":           "Kein Audio verfügbar",
 		"notebook.retranscribe":       "Neu transkribieren",
 		"notebook.retranscribed":      "Neu transkribiert!",
-		"notebook.retranscribing":     "Transkribiere…",
+		"notebook.retranscribing":     "Transkription läuft…",
 		"notebook.noSelection":        "Keine Einträge ausgewählt",
 		"notebook.project":            "Projekt",
 		"notebook.no_project":         "Kein Projekt",
@@ -1297,10 +1333,10 @@ var translations = map[string]map[string]string{
 		"shortcuts.title":          "Tastenkürzel",
 		"shortcuts.nav":            "Navigation",
 		"shortcuts.recording":      "Aufnahme",
-		"shortcuts.smartmode":      "Smart Mode",
+		"shortcuts.smartmode":      "Smart-Modus",
 		"shortcuts.other":          "Sonstiges",
 		"shortcuts.record_stop":    "Aufnahme / Stopp",
-		"shortcuts.toggle_smartmode": "Smart Mode umschalten",
+		"shortcuts.toggle_smartmode": "Smart-Modus umschalten",
 		"shortcuts.search_history": "Verlauf durchsuchen",
 		"shortcuts.close_dialog":   "Schließen / Aufheben",
 		"shortcuts.this_help":      "Diese Hilfe",
@@ -1345,6 +1381,18 @@ var translations = map[string]map[string]string{
 		"view.card": "Kartenansicht",
 		"view.list": "Listenansicht",
 		"view.tile": "Kachelansicht",
+
+		// UI tooltips
+		"tooltip.toggle_theme":    "Design wechseln",
+		"tooltip.language":        "Sprache",
+		"tooltip.support":         "WhisPaste unterstützen",
+		"tooltip.group_entries":   "Einträge gruppieren",
+		"tooltip.hide_sidebar":    "Seitenleiste ausblenden",
+		"tooltip.show_sidebar":    "Seitenleiste einblenden",
+		"tooltip.test_sound":      "Sound testen",
+		"tooltip.view_prompt":     "Prompt anzeigen",
+		"tooltip.import":          "Importieren",
+		"tooltip.export_all":      "Alle exportieren",
 
 		// Analytics
 		"analytics.avg_duration":       "Ø Dauer",
@@ -1392,7 +1440,7 @@ var translations = map[string]map[string]string{
 		"statusbar.hotkey_tip":     "Aufnahme-Hotkey",
 		"statusbar.off":            "Aus",
 		"statusbar.on":             "An",
-		"statusbar.smart_tip":      "Smart Mode",
+		"statusbar.smart_tip":      "Smart-Modus",
 
 		// Status messages
 		"status.offline":     "Offline",
@@ -1418,13 +1466,13 @@ var translations = map[string]map[string]string{
 		"smart.customPlaceholder": "Gib deinen KI-Prompt ein…",
 		"smart.customSection":   "Benutzerdefiniert",
 		"smart.customTitle":     "Eigene Vorlage",
-		"smart.error":           "Smart Mode Fehler",
-		"smart.processing":      "Verarbeite…",
+		"smart.error":           "Smart-Modus-Fehler",
+		"smart.processing":      "Verarbeitung läuft…",
 		"smart.replace":         "Text ersetzen",
 		"smart.replaced":        "Text ersetzt",
 		"smart.resultMessage":   "Ergebnis:",
-		"smart.resultTitle":     "Smart Mode Ergebnis",
-		"smart.title":           "Smart Mode",
+		"smart.resultTitle":     "Smart-Modus-Ergebnis",
+		"smart.title":           "Smart-Modus",
 		"smartNoPrompt":         "Kein Prompt ausgewählt",
 		"smartPromptLangNote":   "Prompts funktionieren am besten in der Diktatsprache",
 		"smartViewPromptTitle":  "Prompt anzeigen",
@@ -1448,7 +1496,7 @@ var translations = map[string]map[string]string{
 		"smartSwitcher.enabled":   "Aktiviert",
 		"smartSwitcher.settings":  "Einstellungen",
 		"smartSwitcher.switched":  "Gewechselt",
-		"smartSwitcher.title":     "Smart Mode",
+		"smartSwitcher.title":     "Smart-Modus",
 
 		// Onboarding
 		"onboarding.api_key_empty":     "Bitte gib einen API-Schlüssel ein",
@@ -1465,7 +1513,7 @@ var translations = map[string]map[string]string{
 		"onboarding.ready_mode_local":  "Lokale Transkription bereit",
 		"onboarding.stop_recording":    "Aufnahme stoppen",
 		"onboarding.test_key":          "Schlüssel testen",
-		"onboarding.transcribing":      "Transkribiere…",
+		"onboarding.transcribing":      "Transkription läuft…",
 
 		// Models
 		"modelDelete":         "Löschen",
@@ -1524,7 +1572,7 @@ var translations = map[string]map[string]string{
 		"gpuDisabledStatus":    "GPU-Beschleunigung deaktiviert",
 		"gpuNotDetected":       "Keine GPU erkannt",
 		"gpuStatusMixedHint":   "Gemischte GPU-Konfiguration erkannt",
-		"gpuStatusSmart":       "Smart Mode GPU",
+		"gpuStatusSmart":       "Smart-Modus-GPU",
 		"gpuStatusStt":         "Spracherkennung GPU",
 
 		// Connectivity
@@ -1544,7 +1592,7 @@ var translations = map[string]map[string]string{
 
 		// Recording
 		"recording.indicator": "Aufnahme…",
-		"pending_transcription": "Transkribiere…",
+		"pending_transcription": "Transkription läuft…",
 
 		// Smart mode presets
 		"cleanup":    "Bereinigen",
@@ -1554,7 +1602,7 @@ var translations = map[string]map[string]string{
 		"bullets":    "Stichpunkte",
 		"email":      "E-Mail",
 		"meeting":    "Besprechungsnotizen",
-		"social":     "Social Media",
+		"social":     "Soziale Medien",
 		"summary":    "Zusammenfassung",
 		"technical":  "Technisch",
 		"translate":  "Übersetzen",
@@ -1664,7 +1712,7 @@ var translations = map[string]map[string]string{
 		"navHistory":      "Dashboard",
 		"navReplacements": "Ersetzungen",
 		"navSettings":     "Einstellungen",
-		"navSmartMode":    "Smart Mode",
+		"navSmartMode":    "Smart-Modus",
 
 		// Command Palette
 		"palette.cmd.copyLast":       "Letzte Transkription kopieren",
@@ -1685,12 +1733,12 @@ var translations = map[string]map[string]string{
 		"palette.cmd.presetFormal":   "Formell",
 		"palette.cmd.presetMeeting":  "Besprechungsnotizen",
 		"palette.cmd.presetNotes":    "Notizen",
-		"palette.cmd.presetSocial":   "Social Media",
+		"palette.cmd.presetSocial":   "Soziale Medien",
 		"palette.cmd.presetSummary":  "Zusammenfassung",
 		"palette.cmd.presetTechnical":"Technisch",
 		"palette.cmd.presetTranslate":"Übersetzen",
 		"palette.cmd.searchHistory":  "Verlauf durchsuchen",
-		"palette.cmd.smartToggle":    "Smart Mode umschalten",
+		"palette.cmd.smartToggle":    "Smart-Modus umschalten",
 		"palette.cmd.startRecording": "Aufnahme starten",
 		"palette.cmd.toggleAutoPaste":"Auto-Einfügen umschalten",
 		"palette.hint":               "Befehl eingeben…",

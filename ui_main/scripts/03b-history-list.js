@@ -80,7 +80,7 @@ function updateCounts() {
       tagListHTML += `
         <div class="sidebar-add-tag" id="sidebarAddTag">
           <svg class="icon" style="width:12px;height:12px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-          <span class="filter-label">${t('sidebar_add_tag') || 'Add tag'}</span>
+          <span class="filter-label">${t('sidebar_add_tag')}</span>
         </div>
       `;
       catList.innerHTML = tagListHTML;
@@ -528,14 +528,14 @@ function toggleSearchHelp(anchor) {
 
   const pop = showPopover(anchor, { className: 'search-help-popover' });
   pop.innerHTML = `
-    <div class="shp-title">${t('searchHelpTitle') || 'Search Syntax'}</div>
+    <div class="shp-title">${t('searchHelpTitle')}</div>
     <table class="shp-table">
-      <tr><td><code>word</code></td><td>${t('searchHelpBasic') || 'Basic search'}</td></tr>
-      <tr><td><code>"exact phrase"</code></td><td>${t('searchHelpExact') || 'Exact match'}</td></tr>
-      <tr><td><code>a AND b</code></td><td>${t('searchHelpAnd') || 'Both terms'}</td></tr>
-      <tr><td><code>a OR b</code></td><td>${t('searchHelpOr') || 'Either term'}</td></tr>
-      <tr><td><code>-word</code></td><td>${t('searchHelpNot') || 'Exclude term'}</td></tr>
-      <tr><td><code>hel*</code></td><td>${t('searchHelpWild') || 'Wildcard'}</td></tr>
+      <tr><td><code>word</code></td><td>${t('searchHelpBasic')}</td></tr>
+      <tr><td><code>"exact phrase"</code></td><td>${t('searchHelpExact')}</td></tr>
+      <tr><td><code>a AND b</code></td><td>${t('searchHelpAnd')}</td></tr>
+      <tr><td><code>a OR b</code></td><td>${t('searchHelpOr')}</td></tr>
+      <tr><td><code>-word</code></td><td>${t('searchHelpNot')}</td></tr>
+      <tr><td><code>hel*</code></td><td>${t('searchHelpWild')}</td></tr>
     </table>
   `;
 }

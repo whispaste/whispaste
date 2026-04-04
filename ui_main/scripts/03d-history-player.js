@@ -27,9 +27,9 @@ function showStatusbarAudio(label) {
   const lbl = document.getElementById('statusAudioLabel');
   if (chip) {
     chip.classList.remove('hidden');
-    chip.title = t('statusbar.audio_stop') || 'Stop playback';
+    chip.title = t('statusbar.audio_stop');
   }
-  if (lbl) lbl.textContent = label || (t('statusbar.audio_playing') || 'Playing…');
+  if (lbl) lbl.textContent = label || t('statusbar.audio_playing');
 }
 
 function hideStatusbarAudio() {
@@ -140,7 +140,7 @@ async function doReTranscribe(id, btn) {
   btn.disabled = true;
   btn.innerHTML = '<svg class="icon spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
 
-  showStatus(t('notebook.retranscribing') || 'Re-transcribing...', 'info');
+  showStatus(t('notebook.retranscribing'), 'info');
 
   try {
     const result = await window.reTranscribe(id);
@@ -171,7 +171,7 @@ window.onReTranscribeResult = async function(id, success, errorMsg) {
   const origHTML = window._reTranscribeBtnHTML;
 
   if (success) {
-    showStatus(t('notebook.retranscribed') || 'Re-transcribed', 'success');
+    showStatus(t('notebook.retranscribed'), 'success');
     await loadEntries();
   } else {
     showStatus(errorMsg || t('notebook.no_audio'), 'error');

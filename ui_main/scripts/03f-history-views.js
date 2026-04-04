@@ -113,13 +113,13 @@ function _renderGroupedEntries(entries, groupBy) {
   let html = '';
   for (const group of groups) {
     const countLabel = group.entries.length === 1
-      ? (t('group.entry') || 'entry')
-      : (t('group.entries') || 'entries');
+      ? t('group.entry')
+      : t('group.entries');
     const groupIds = group.entries.map(e => e.id);
     const allSelected = groupIds.every(id => _selectedIds.has(id));
     const someSelected = !allSelected && groupIds.some(id => _selectedIds.has(id));
     const cbClass = allSelected ? ' checked' : (someSelected ? ' partial' : '');
-    html += `<div class="group-header"><span class="group-title">${esc(group.key)}</span><span class="group-count">${group.entries.length} ${countLabel}</span><div class="group-select-all${cbClass}" data-group-ids="${groupIds.join(',')}" title="${t('group.select_all') || 'Select all'}"></div></div>`;
+    html += `<div class="group-header"><span class="group-title">${esc(group.key)}</span><span class="group-count">${group.entries.length} ${countLabel}</span><div class="group-select-all${cbClass}" data-group-ids="${groupIds.join(',')}" title="${t('group.select_all')}"></div></div>`;
     html += group.entries.map(e => _renderEntryCard(e)).join('');
   }
   return html;
@@ -136,10 +136,10 @@ function _applyGrouping(entries, groupBy) {
         key = _formatGroupDate(e.timestamp);
         break;
       case 'project':
-        key = e.project_name || (t('group.no_project') || 'No Project');
+        key = e.project_name || t('group.no_project');
         break;
       case 'language':
-        key = e.language ? e.language.toUpperCase() : (t('group.unknown') || 'Unknown');
+        key = e.language ? e.language.toUpperCase() : t('group.unknown');
         break;
       default:
         key = '';
@@ -159,10 +159,10 @@ function _formatGroupDate(timestamp) {
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const diff = Math.floor((startOfToday - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
-  if (diff === 0) return t('group.today') || 'Today';
-  if (diff === 1) return t('group.yesterday') || 'Yesterday';
-  if (diff < 7) return t('group.this_week') || 'This Week';
-  if (diff < 30) return t('group.this_month') || 'This Month';
+  if (diff === 0) return t('group.today');
+  if (diff === 1) return t('group.yesterday');
+  if (diff < 7) return t('group.this_week');
+  if (diff < 30) return t('group.this_month');
   return d.toLocaleDateString();
 }
 
@@ -172,7 +172,7 @@ function _patchSelectionTotal() {
   if (!totalEl) return;
   if (_selectedIds.size > 0) {
     const total = getFiltered().length;
-    totalEl.textContent = ' ' + (t('group.of') || 'of') + ' ' + total;
+    totalEl.textContent = ' ' + t('group.of') + ' ' + total;
   } else {
     totalEl.textContent = '';
   }

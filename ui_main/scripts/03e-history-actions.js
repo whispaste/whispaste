@@ -305,7 +305,7 @@ function showExportFormatDialog() {
           <button class="btn btn-secondary" data-fmt="docx">Word</button>
         </div>
         <div class="dialog-actions">
-          <button class="btn btn-secondary dialog-cancel">${t('dialog.cancel') || 'Cancel'}</button>
+          <button class="btn btn-secondary dialog-cancel">${t('dialog.cancel')}</button>
         </div>
       </div>
     `;
