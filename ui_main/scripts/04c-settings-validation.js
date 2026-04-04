@@ -395,20 +395,10 @@ window.downloadComplete = function(modelId, success, errorMsg) {
     showStatus(t('modelDownloadDone'), 'success');
     _downloadingModel = null;
     refreshLocalSTTPreflight(modelId).finally(() => renderModelList());
-    if (_pendingStreamingPreviewEnable && _pendingStreamingPreviewEnable.modelId === modelId) {
-      _pendingStreamingPreviewEnable = null;
-      const toggle = document.getElementById('toggle-streaming-preview');
-      if (toggle) toggle.checked = true;
-      autoSave();
-      showStatus(t('streamingPreviewModelReady'), 'success');
-    }
   } else {
     showStatus(errorMsg || t('modelDownloadError'), 'error');
     _downloadingModel = null;
     refreshLocalSTTPreflight(modelId).finally(() => renderModelList());
-    if (_pendingStreamingPreviewEnable && _pendingStreamingPreviewEnable.modelId === modelId) {
-      _pendingStreamingPreviewEnable = null;
-    }
   }
 };
 
