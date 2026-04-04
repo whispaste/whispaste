@@ -428,11 +428,10 @@ func main() {
 			// Streaming transcription preview (local STT only)
 			if useLocal && cfg.GetStreamingPreview() {
 				go func() {
-					const interval = 3 * time.Second
-					const maxSnapshotDur = 30 // seconds of audio to send (sliding window)
+					const interval = 1500 * time.Millisecond
+					const maxSnapshotDur = 5 // seconds of recent audio to transcribe
 					const bytesPerSec = 16000 * 2 // 16kHz × 16bit mono
-					const maxWords = 15          // show only last N words
-					// Create streaming text window (separate from overlay)
+					const maxWords = 10
 					stw, err := NewStreamingTextWindow()
 					if err != nil {
 						logWarn("Failed to create streaming text window: %v", err)
@@ -447,6 +446,33 @@ func main() {
 					sModelID := cfg.GetLocalModelID()
 					dictPrompt := cfg.DictionaryPrompt()
 
+					transcribe := func() {
+						raw := recorder.SnapshotBuffer()
+						if len(raw) < bytesPerSec { // need at least 1s
+							return
+						}
+						maxBytes := maxSnapshotDur * bytesPerSec
+						if len(raw) > maxBytes {
+							raw = raw[len(raw)-maxBytes:]
+						}
+						text, err := TranscribeLocal(raw, 16000, localLang, sModelID, dictPrompt)
+						if err != nil {
+							logDebug("Streaming preview failed: %v", err)
+							return
+						}
+						text = strings.TrimSpace(text)
+						if text != "" {
+							words := strings.Fields(text)
+							if len(words) > maxWords {
+								words = words[len(words)-maxWords:]
+							}
+							stw.SetText(strings.Join(words, " "))
+						}
+					}
+
+					// First attempt immediately (don't wait for first tick)
+					transcribe()
+
 					tick := time.NewTicker(interval)
 					defer tick.Stop()
 					for {
@@ -454,30 +480,7 @@ func main() {
 						case <-ld:
 							return
 						case <-tick.C:
-							raw := recorder.SnapshotBuffer()
-							if len(raw) < bytesPerSec { // need at least 1s
-								continue
-							}
-							// Sliding window: keep last maxSnapshotDur seconds
-							maxBytes := maxSnapshotDur * bytesPerSec
-							if len(raw) > maxBytes {
-								raw = raw[len(raw)-maxBytes:]
-							}
-							// TranscribeLocal starts the STT server if needed
-							text, err := TranscribeLocal(raw, 16000, localLang, sModelID, dictPrompt)
-							if err != nil {
-								logDebug("Streaming preview failed: %v", err)
-								continue
-							}
-							text = strings.TrimSpace(text)
-							if text != "" {
-								// Show only the last N words
-								words := strings.Fields(text)
-								if len(words) > maxWords {
-									words = words[len(words)-maxWords:]
-								}
-								stw.SetText(strings.Join(words, " "))
-							}
+							transcribe()
 						}
 					}
 				}()

@@ -380,6 +380,10 @@ func (stw *StreamingTextWindow) paint() {
 		2, // ULW_ALPHA
 	)
 
+	// Ensure window stays on top of all other windows
+	const _HWND_TOPMOST_STW = ^uintptr(0)
+	procSetWindowPos.Call(stw.hwnd, _HWND_TOPMOST_STW, 0, 0, 0, 0,
+		0x0001|0x0002|0x0010) // SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
 	procShowWindow.Call(stw.hwnd, _SW_SHOWNA) // show without activating
 }
 
