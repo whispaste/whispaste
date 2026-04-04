@@ -124,12 +124,6 @@ function switchPage(pageId) {
       }
     }
     if (pageId === 'about') loadSystemInfo();
-    if (pageId === 'smartmode' && typeof loadCustomTemplates === 'function') {
-      loadCustomTemplates();
-      if (typeof updateSmartModeVisibility === 'function') {
-        updateSmartModeVisibility();
-      }
-    }
   };
 
   // Immediate swap helper (no animation)
@@ -415,20 +409,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Show onboarding wizard on first run
   if (window._showOnboarding) {
     showOnboarding();
-  }
-
-  // Handle smart-mode deep link
-  if (window._initialSection === 'smart-mode') {
-    switchPage('smartmode');
-  }
-
-  // Auto-save for Smart Mode page
-  const smartContent = document.querySelector('.smartmode-content');
-  if (smartContent) {
-    smartContent.addEventListener('change', () => autoSave());
-    smartContent.addEventListener('input', (e) => {
-      if (e.target.matches('textarea')) autoSave();
-    });
   }
 
   // Reveal UI and signal Go

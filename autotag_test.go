@@ -359,6 +359,11 @@ func TestCleanTitleResponse(t *testing.T) {
 			content: "12. Angry Men Notes",
 			want:    "12. Angry Men Notes",
 		},
+		{
+			name:    "title preface with sentence reduced to payload",
+			content: "Fragen: Release coordination for Friday launch",
+			want:    "Fragen: Release coordination for Friday launch",
+		},
 	}
 
 	for _, tt := range tests {
@@ -383,6 +388,9 @@ func TestBuildTitleSystemPrompt(t *testing.T) {
 	if !strings.Contains(prompt, "Write the title in German.") {
 		t.Errorf("title prompt should enforce German for langHint=de, got: %q", prompt)
 	}
+	if !strings.Contains(prompt, "Use 3-7 words.") {
+		t.Errorf("title prompt should enforce a shorter title length, got: %q", prompt)
+	}
 	if !strings.Contains(prompt, "Return only the title text. No quotes, labels, or commentary.") {
 		t.Errorf("title prompt should require title-only output, got: %q", prompt)
 	}
@@ -395,6 +403,12 @@ func TestBuildTitleSystemPrompt(t *testing.T) {
 	if !strings.Contains(prompt, "Do not invent people, dates, places, or facts that are not stated in the note.") {
 		t.Errorf("title prompt should forbid invented specifics, got: %q", prompt)
 	}
+	if !strings.Contains(prompt, "Do not write a full sentence, question, or request.") {
+		t.Errorf("title prompt should forbid sentence-like titles, got: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Do not copy imperative wording from the note.") {
+		t.Errorf("title prompt should forbid imperative note wording, got: %q", prompt)
+	}
 }
 
 func TestBuildTitleSystemPromptFallsBackToCurrentUILanguage(t *testing.T) {
@@ -405,6 +419,43 @@ func TestBuildTitleSystemPromptFallsBackToCurrentUILanguage(t *testing.T) {
 	prompt := buildTitleSystemPrompt("")
 	if !strings.Contains(prompt, "Write the title in German.") {
 		t.Errorf("title prompt should fall back to the current UI language when no explicit UI hint is provided, got: %q", prompt)
+	}
+}
+
+func TestTitleNeedsRetry(t *testing.T) {
+	tests := []struct {
+		name  string
+		title string
+		want  bool
+	}{
+		{name: "good short title", title: "Release Coordination Friday", want: false},
+		{name: "greeting style", title: "Hallo Frau Becker", want: true},
+		{name: "imperative sentence", title: "Bitte senden Sie mir die Agenda", want: true},
+		{name: "question style", title: "Fragen: Für den Release am Freitag müssen wir heute noch koordinieren", want: true},
+		{name: "time only title", title: "Mittwoch um 14 Uhr", want: true},
+		{name: "weekday led action title", title: "Freitag: Release-Plan koordinieren", want: true},
+		{name: "german am not false positive", title: "Fehler am 5. Tag", want: false},
+		{name: "english am time", title: "Meeting 10 am", want: true},
+		{name: "too many words", title: "This is far too long to be a good generated note title", want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := titleNeedsRetry(tt.title); got != tt.want {
+				t.Fatalf("titleNeedsRetry(%q) = %v, want %v", tt.title, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFallbackTitleFromTags(t *testing.T) {
+	if got := fallbackTitleFromTags(nil); got != "" {
+		t.Fatalf("fallbackTitleFromTags(nil) = %q, want empty", got)
+	}
+	if got := fallbackTitleFromTags([]string{"Release"}); got != "Release" {
+		t.Fatalf("fallbackTitleFromTags(single) = %q", got)
+	}
+	if got := fallbackTitleFromTags([]string{"Release", "Changelog", "Ui-texte"}); got != "Release & Changelog" {
+		t.Fatalf("fallbackTitleFromTags(multi) = %q", got)
 	}
 }
 

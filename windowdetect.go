@@ -59,31 +59,3 @@ func GetActiveWindowTitle() string {
 	}
 	return windows.UTF16ToString(buf[:n])
 }
-
-// ResolveAppPreset checks if there's an app-specific smart mode preset
-// for the currently active window. Returns the preset name and true if found.
-func ResolveAppPreset(cfg *Config) (string, bool) {
-	if !cfg.GetAppDetectionEnabled() {
-		return "", false
-	}
-	appName := GetActiveAppName()
-	if appName == "" {
-		return "", false
-	}
-	mappings := cfg.GetAppPresets()
-	return ResolveAppPresetForApp(appName, mappings)
-}
-
-// ResolveAppPresetForApp resolves an explicit app rule for a known app name.
-func ResolveAppPresetForApp(appName string, mappings map[string]string) (string, bool) {
-	normalized := strings.ToLower(strings.TrimSpace(appName))
-	if normalized == "" {
-		return "", false
-	}
-	preset, ok := mappings[normalized]
-	if !ok || preset == "" || preset == "off" {
-		return "", false
-	}
-	logDebug("App detection: %s → preset %s", normalized, preset)
-	return preset, true
-}

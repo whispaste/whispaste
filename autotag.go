@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +14,10 @@ import (
 
 	"github.com/whispaste/whispaste/internal/inference"
 )
+
+// timeAdjacentRe matches am/pm after a digit (e.g. "10 am", "3pm").
+// Only digit→am/pm direction to avoid German "am 5." (ordinal) false positives.
+var timeAdjacentRe = regexp.MustCompile(`\d\s*(?:am|pm)\b`)
 
 // systemTags are internal tags managed by the application.
 // They must never be auto-assigned or suggested by the LLM.
@@ -59,6 +64,12 @@ func AutoTagEntry(history *History, entryID, text string, customTags []string, u
 	endpoint, err := localLLM.Start()
 	if err != nil {
 		logWarn("AutoTag: failed for entry %s: %v", entryID, err)
+		return
+	}
+
+	// Guard: skip if entry was deleted while LLM was starting
+	if entry := history.GetByID(entryID); entry == nil || entry.DeletedAt != "" {
+		logDebug("AutoTag: entry %s was deleted, skipping", entryID)
 		return
 	}
 
@@ -120,7 +131,7 @@ func AutoTagEntry(history *History, entryID, text string, customTags []string, u
 
 	// Generate an AI title after tagging
 	if autoTitle {
-		if title := generateTitle(endpoint, text, resolvedUILang); title != "" {
+		if title := generateTitle(endpoint, text, resolvedUILang, finalTags); title != "" {
 			// When auto-tag is disabled, preserve existing tags
 			tagsForUpdate := finalTags
 			if !autoTag {
@@ -161,11 +172,13 @@ func buildTitleSystemPrompt(uiLang string) string {
 Rules:
 - %s
 - Keep the same UI language even if the note mixes languages.
-- Use 4-9 words.
+- Use 3-7 words.
 - Focus on the main topic, outcome, or request.
-- Keep it concrete and professional.
+- Keep it concrete, professional, and noun-phrase-like.
 - Do not start with greetings, filler, or meta-commentary.
 - Do not format the answer as a list item or add labels like "Title:".
+- Do not write a full sentence, question, or request.
+- Do not copy imperative wording from the note.
 - Do not invent people, dates, places, or facts that are not stated in the note.
 - Return only the title text. No quotes, labels, or commentary.`, languageRule)
 }
@@ -476,13 +489,33 @@ func toTitleCase(s string) string {
 
 // generateTitle asks the local LLM to create a short descriptive title for the text.
 // Returns an empty string if generation fails or produces no usable result.
-func generateTitle(llmEndpoint, text, lang string) string {
+func generateTitle(llmEndpoint, text, lang string, topicalTags []string) string {
 	title, err := queryLLMForTitle(llmEndpoint, text, lang)
 	if err != nil {
 		logWarn("AutoTag: title generation failed: %v", err)
-		return ""
+		title = ""
 	}
-	return title
+	if !titleNeedsRetry(title) {
+		return title
+	}
+	// Single retry with tag guidance (if tags available)
+	chatURL := llmEndpoint + "/chat/completions"
+	input := text
+	if len([]rune(input)) > 500 {
+		input = string([]rune(input)[:500])
+	}
+	retryPrompt := buildTitleSystemPrompt(lang) + "\n- Retry rule: if your first idea is a sentence, shorten it to a compact noun-phrase title with 3-6 words."
+	if len(topicalTags) > 0 {
+		retryPrompt += fmt.Sprintf("\n- Main topics: %s.\n- Use these topics as guidance and return a compact title, not a sentence or request.", strings.Join(topicalTags, ", "))
+	}
+	retryTitle, retryErr := queryLLMForTitleWithPrompt(chatURL, input, retryPrompt)
+	if retryErr == nil && !titleNeedsRetry(retryTitle) {
+		return retryTitle
+	}
+	if fallback := fallbackTitleFromTags(topicalTags); fallback != "" {
+		return fallback
+	}
+	return ""
 }
 
 // queryLLMForTitle sends text to the local LLM and asks for a short descriptive title.
@@ -495,12 +528,18 @@ func queryLLMForTitle(llmEndpoint, text, lang string) (string, error) {
 		input = string([]rune(input)[:500])
 	}
 
-	systemPrompt := buildTitleSystemPrompt(lang)
+	return queryLLMForTitleWithPrompt(chatURL, input, buildTitleSystemPrompt(lang))
+}
 
+func queryLLMForTitleWithPrompt(chatURL, input, systemPrompt string) (string, error) {
 	// Suppress thinking mode for local models
 	systemPrompt += " /no_think"
 
 	tagProfile := inference.AutoTagProfile()
+	maxTokens := tagProfile.MaxTokens
+	if maxTokens <= 0 || maxTokens > 24 {
+		maxTokens = 24
+	}
 	reqBody := map[string]interface{}{
 		"model": "local",
 		"messages": []map[string]string{
@@ -508,7 +547,7 @@ func queryLLMForTitle(llmEndpoint, text, lang string) (string, error) {
 			{"role": "user", "content": "Text: " + input},
 		},
 		"temperature": tagProfile.Temperature,
-		"max_tokens":  tagProfile.MaxTokens,
+		"max_tokens":  maxTokens,
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -594,6 +633,123 @@ func cleanTitleResponse(content string) string {
 	}
 
 	return content
+}
+
+func titleNeedsRetry(title string) bool {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return true
+	}
+	if len(strings.Fields(title)) > 8 {
+		return true
+	}
+	lower := strings.ToLower(title)
+	for _, prefix := range []string{
+		"hello", "hi", "hey", "hallo", "dear", "liebe", "lieber",
+		"please", "bitte", "send", "sende", "schick", "schicke", "fragen", "frage",
+		"ich ", "wir ",
+	} {
+		if lower == prefix || strings.HasPrefix(lower, prefix+" ") || strings.HasPrefix(lower, prefix+":") {
+			return true
+		}
+	}
+	if strings.HasSuffix(title, ".") || strings.HasSuffix(title, "!") || strings.HasSuffix(title, "?") {
+		return true
+	}
+	if strings.Contains(title, ",") {
+		return true
+	}
+	if looksLikeDayLedActionTitle(lower) {
+		return true
+	}
+	if looksLikeTimeOnlyTitle(lower) {
+		return true
+	}
+	return false
+}
+
+func fallbackTitleFromTags(tags []string) string {
+	cleaned := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			continue
+		}
+		cleaned = append(cleaned, tag)
+		if len(cleaned) == 2 {
+			break
+		}
+	}
+	switch len(cleaned) {
+	case 0:
+		return ""
+	case 1:
+		return cleaned[0]
+	default:
+		return cleaned[0] + " & " + cleaned[1]
+	}
+}
+
+func looksLikeTimeOnlyTitle(lower string) bool {
+	words := strings.Fields(lower)
+	if len(words) == 0 || len(words) > 5 {
+		return false
+	}
+	hasDigit := false
+	for _, r := range lower {
+		if r >= '0' && r <= '9' {
+			hasDigit = true
+			break
+		}
+	}
+	if !hasDigit {
+		return false
+	}
+	for _, marker := range []string{
+		"montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag", "sonntag",
+		"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+		"uhr",
+	} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	// "am"/"pm" only count when adjacent to a digit (avoid false positive on German "am")
+	if timeAdjacentRe.MatchString(lower) {
+		return true
+	}
+	return false
+}
+
+func looksLikeDayLedActionTitle(lower string) bool {
+	parts := strings.SplitN(lower, ":", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	prefix := strings.TrimSpace(parts[0])
+	suffix := strings.TrimSpace(parts[1])
+	if prefix == "" || suffix == "" {
+		return false
+	}
+	isDay := false
+	for _, day := range []string{
+		"montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag", "sonntag",
+		"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+	} {
+		if prefix == day {
+			isDay = true
+			break
+		}
+	}
+	if !isDay {
+		return false
+	}
+	for _, marker := range []string{" koordinier", " prüfen", " pruefen", " senden", " schick", " vorbereit", " planen", " finalis"} {
+		if strings.Contains(" "+suffix, marker) {
+			return true
+		}
+	}
+	return len(strings.Fields(suffix)) >= 2
 }
 
 func cleanTagArrayResponse(content string) string {

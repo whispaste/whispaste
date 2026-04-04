@@ -213,6 +213,18 @@ func LoadConfig() (*Config, error) {
 	if cfg.InputGain < 0.1 || cfg.InputGain > 3.0 {
 		cfg.InputGain = 1.0
 	}
+	// Migration: removed presets → fallback to "cleanup"
+	validPresets := map[string]bool{"cleanup": true, "concise": true, "translate": true, "": true, "off": true}
+	if !validPresets[cfg.SmartModePreset] {
+		cfg.SmartModePreset = "cleanup"
+	}
+	// Migration: clear deprecated fields
+	cfg.CustomTemplates = nil
+	cfg.AppDetection = false
+	cfg.AppPresets = nil
+	cfg.TemplateMetas = nil
+	cfg.FallbackPreset = ""
+	cfg.SmartModePrompt = ""
 	return cfg, nil
 }
 
@@ -815,6 +827,10 @@ func (c *Config) SetSmartModePreset(preset string) {
 	if preset == "" || preset == "off" {
 		c.SmartMode = false
 	} else {
+		validPresets := map[string]bool{"cleanup": true, "concise": true, "translate": true}
+		if !validPresets[preset] {
+			preset = "cleanup"
+		}
 		c.SmartMode = true
 		c.SmartModePreset = preset
 	}
@@ -933,34 +949,6 @@ func (c *Config) ListProfiles() []string {
 	return names
 }
 
-// SaveCustomTemplate stores a user-defined smart mode template.
-func (c *Config) SaveCustomTemplate(name, prompt string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.CustomTemplates == nil {
-		c.CustomTemplates = make(map[string]string)
-	}
-	c.CustomTemplates[name] = prompt
-}
-
-// DeleteCustomTemplate removes a user-defined template.
-func (c *Config) DeleteCustomTemplate(name string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	delete(c.CustomTemplates, name)
-}
-
-// GetCustomTemplates returns all user-defined templates as a copy.
-func (c *Config) GetCustomTemplates() map[string]string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	result := make(map[string]string, len(c.CustomTemplates))
-	for k, v := range c.CustomTemplates {
-		result[k] = v
-	}
-	return result
-}
-
 // GetTextReplacementsEnabled returns whether text replacements are active (thread-safe).
 func (c *Config) GetTextReplacementsEnabled() bool {
 	c.mu.RLock()
@@ -1009,24 +997,6 @@ func (c *Config) GetVADSensitivity() float32 {
 	return c.VADSensitivity
 }
 
-// GetAppDetectionEnabled returns whether app-based preset detection is on.
-func (c *Config) GetAppDetectionEnabled() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.AppDetection
-}
-
-// GetAppPresets returns a copy of app→preset mappings (thread-safe).
-func (c *Config) GetAppPresets() map[string]string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	result := make(map[string]string, len(c.AppPresets))
-	for k, v := range c.AppPresets {
-		result[k] = v
-	}
-	return result
-}
-
 // GetSmartModeProvider returns the smart mode provider preference (thread-safe).
 func (c *Config) GetSmartModeProvider() string {
 	c.mu.RLock()
@@ -1035,29 +1005,6 @@ func (c *Config) GetSmartModeProvider() string {
 		return "auto"
 	}
 	return c.SmartModeProvider
-}
-
-// GetFallbackPreset returns the fallback preset for app detection (thread-safe).
-func (c *Config) GetFallbackPreset() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if c.FallbackPreset == "" {
-		return "cleanup"
-	}
-	return c.FallbackPreset
-}
-
-// GetTemplateMetas returns a deep copy of template metadata (thread-safe).
-func (c *Config) GetTemplateMetas() map[string]TemplateMeta {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	result := make(map[string]TemplateMeta, len(c.TemplateMetas))
-	for k, v := range c.TemplateMetas {
-		kw := make([]string, len(v.Keywords))
-		copy(kw, v.Keywords)
-		result[k] = TemplateMeta{Description: v.Description, Keywords: kw}
-	}
-	return result
 }
 
 // GetCustomTags returns a copy of custom tags (thread-safe).
@@ -1118,13 +1065,6 @@ func (c *Config) GetDeleteBehavior() string {
 		return "delete"
 	}
 	return c.DeleteBehavior
-}
-
-// SetAppPresets replaces the app→preset mappings (thread-safe).
-func (c *Config) SetAppPresets(m map[string]string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.AppPresets = m
 }
 
 // SetTextReplacementsEnabled sets the text replacements toggle (thread-safe).

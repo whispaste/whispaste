@@ -28,7 +28,7 @@
         ],
       },
       {
-        title: t('shortcuts.smartmode'),
+        title: t('shortcuts.textRefinement'),
         items: [
           { label: t('shortcuts.toggle_smartmode'), keys: ['Ctrl', 'Shift', 'S'] },
         ],

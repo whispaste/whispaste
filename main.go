@@ -579,10 +579,11 @@ func main() {
 				var err error
 				dictPrompt := cfg.DictionaryPrompt()
 				logInfo("Transcribing with: useLocal=%v model=%s", useLocal, modelName)
+				wavData := wav.Encode(pcm, 16000, 1, 16)
 				if useLocal {
 					localModelID := cfg.GetLocalModelID()
 					logDebug("starting local transcription: model=%s lang=%s audioBytes=%d", localModelID, localLang, len(pcm))
-					text, err = TranscribeLocal(pcm, 16000, localLang, localModelID, dictPrompt)
+					text, err = TranscribeLocalWAV(wavData, 16000, localLang, localModelID, dictPrompt)
 				} else {
 					cloudSTTProvider := cfg.GetCloudSTTProvider()
 					if cloudSTTProvider != "openai" && cloudSTTProvider != "" {
@@ -590,16 +591,13 @@ func main() {
 						sttProv, provErr := createCloudSTT()
 						if provErr != nil {
 							logWarn("Cloud STT provider %s unavailable: %v — falling back to OpenAI", cloudSTTProvider, provErr)
-							wavData := wav.Encode(pcm, 16000, 1, 16)
 							text, err = Transcribe(transcribeCtx, wavData, lang, apiKey, model, endpoint, dictPrompt)
 						} else {
-							wavData := wav.Encode(pcm, 16000, 1, 16)
 							text, err = sttProv.Transcribe(transcribeCtx, wavData, lang, provider.STTOptions{
 								Prompt: dictPrompt,
 							})
 						}
 					} else {
-						wavData := wav.Encode(pcm, 16000, 1, 16)
 						text, err = Transcribe(transcribeCtx, wavData, lang, apiKey, model, endpoint, dictPrompt)
 					}
 				}
@@ -677,34 +675,6 @@ func main() {
 				if smartLangHint == "" || smartLangHint == "auto" {
 					smartLangHint = ""
 				}
-				if cfg.GetAppDetectionEnabled() {
-					appName := GetActiveAppName()
-					winTitle := GetActiveWindowTitle()
-					if appPreset, ok := ResolveAppPresetForApp(appName, cfg.GetAppPresets()); ok {
-						smartEnabled = true
-						smartPreset = appPreset
-						logInfo("Using explicit app rule: %s (app: %s)", appPreset, appName)
-					} else {
-						metas := cfg.GetTemplateMetas()
-						defaults := GetDefaultTemplateMetas()
-						for k, v := range defaults {
-							if _, exists := metas[k]; !exists {
-								metas[k] = v
-							}
-						}
-						if matched, ok := MatchTemplate(appName, winTitle, metas); ok {
-							smartEnabled = true
-							smartPreset = matched
-							logInfo("Auto-detected template: %s (app: %s, title: %s)", matched, appName, winTitle)
-						} else if smartEnabled && smartPreset != "" && smartPreset != "off" {
-							logDebug("Using configured smart preset: %s", smartPreset)
-						} else if cfg.GetFallbackPreset() != "" && cfg.GetFallbackPreset() != "off" {
-							smartEnabled = true
-							smartPreset = cfg.GetFallbackPreset()
-							logDebug("Using fallback template: %s", smartPreset)
-						}
-					}
-				}
 				smartModeFallback := false
 				if smartEnabled && smartPreset != "" && smartPreset != "off" {
 					if overlay != nil {
@@ -746,12 +716,12 @@ func main() {
 							llmProv, provErr := createCloudLLM()
 							if provErr != nil {
 								logWarn("Cloud LLM provider unavailable: %v — falling back to OpenAI", provErr)
-								processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, smartLangHint, cfg.GetLocalLLMModel(), cfg.GetCustomTemplates())
+								processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, smartLangHint, cfg.GetLocalLLMModel(), nil)
 							} else {
-								processed, ppErr = PostProcessWithProvider(text, smartPreset, smartCustom, smartTarget, smartLangHint, cfg.GetCustomTemplates(), llmProv, dictPrompt)
+								processed, ppErr = PostProcessWithProvider(text, smartPreset, smartCustom, smartTarget, smartLangHint, nil, llmProv, dictPrompt)
 							}
 						} else {
-							processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, smartLangHint, cfg.GetLocalLLMModel(), cfg.GetCustomTemplates())
+							processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, smartLangHint, cfg.GetLocalLLMModel(), nil)
 						}
 						if ppErr != nil {
 							logWarn("Smart mode error (using raw text): %v", ppErr)
