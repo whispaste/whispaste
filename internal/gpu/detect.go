@@ -33,8 +33,11 @@ const (
 )
 
 const (
-	autoMinVRAMCUDA   = 2048
-	autoMinVRAMVulkan = 1024
+	autoMinVRAMCUDA = 2048
+	// Windows registry typically reports only dedicated VRAM for AMD/Intel GPUs.
+	// On iGPUs this can be tiny or zero even when Vulkan acceleration works well
+	// via shared memory, so auto mode must not block Vulkan on that value.
+	autoMinVRAMVulkan = 0
 )
 
 // Info describes the detected GPU capabilities.
