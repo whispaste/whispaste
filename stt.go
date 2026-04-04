@@ -278,7 +278,7 @@ func (s *LocalSTT) stopLocked() {
 			if waitErr != nil {
 				logDebug("whisper-server wait after stop: %v", waitErr)
 			}
-		case <-time.After(5 * time.Second):
+		case <-time.After(2 * time.Second):
 			logWarn("Timed out waiting for whisper-server to stop")
 		}
 	}

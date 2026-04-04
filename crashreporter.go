@@ -156,10 +156,10 @@ func CloseCrashReporter() {
 	default:
 		close(cr.stopCh)
 	}
+	// Skip network flush during shutdown — queued reports persist in SQLite
+	// and will be sent on next app launch. This avoids blocking shutdown for
+	// up to 10 × (15s HTTP timeout + 2s delay) = 170s.
 	if cr.db != nil {
-		if cr.relayURL != "" {
-			cr.flush()
-		}
 		cr.db.Close()
 	}
 }
