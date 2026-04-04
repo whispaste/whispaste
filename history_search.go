@@ -14,7 +14,7 @@ func (h *History) Search(query string) []HistoryEntry {
 		return nil
 	}
 	rows, err := h.db.Query(`SELECT `+allColumns+` FROM history_entries
-		WHERE archived = 0 AND rowid IN (
+		WHERE archived = 0 AND deleted_at IS NULL AND rowid IN (
 			SELECT rowid FROM history_fts WHERE history_fts MATCH ?
 			ORDER BY rank
 		) ORDER BY timestamp DESC, rowid DESC`, query)
@@ -33,7 +33,7 @@ func (h *History) Tags() []string {
 	if h.db == nil {
 		return nil
 	}
-	rows, err := h.db.Query("SELECT tags FROM history_entries WHERE tags != '[]' AND tags != ''")
+	rows, err := h.db.Query("SELECT tags FROM history_entries WHERE tags != '[]' AND tags != '' AND deleted_at IS NULL")
 	if err != nil {
 		logError("Tags query: %v", err)
 		return nil

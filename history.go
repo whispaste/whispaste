@@ -33,6 +33,7 @@ type HistoryEntry struct {
 	ProjectID          string   `json:"project_id"`
 	ProjectName        string   `json:"project_name,omitempty"` // computed, not stored
 	Archived           bool     `json:"archived,omitempty"`
+	DeletedAt          string   `json:"deleted_at,omitempty"`
 }
 
 // Project represents a named project that groups transcriptions.
@@ -225,12 +226,12 @@ func (h *History) pruneToLimit(limit int) {
 	if h.db == nil {
 		return
 	}
-	// Delete oldest non-pinned, non-archived entries beyond the limit
-	// Count only non-archived entries (pinned still count against limit but aren't deletable)
+	// Delete oldest non-pinned, non-archived, non-trashed entries beyond the limit
+	// Count only active entries (pinned still count against limit but aren't deletable)
 	_, err := execWithFTSRepair(h.db, `DELETE FROM history_entries WHERE id IN (
-		SELECT id FROM history_entries WHERE pinned = 0 AND archived = 0
+		SELECT id FROM history_entries WHERE pinned = 0 AND archived = 0 AND deleted_at IS NULL
 		ORDER BY timestamp ASC
-		LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries WHERE archived = 0) - ?)
+		LIMIT MAX(0, (SELECT COUNT(*) FROM history_entries WHERE archived = 0 AND deleted_at IS NULL) - ?)
 	)`, limit)
 	if err != nil {
 		logError("Prune history: %v", err)
@@ -243,7 +244,7 @@ func (h *History) Recent(n int) []HistoryEntry {
 		return nil
 	}
 	rows, err := h.db.Query(`SELECT `+allColumns+` FROM history_entries
-		WHERE archived = 0
+		WHERE archived = 0 AND deleted_at IS NULL
 		ORDER BY timestamp DESC, rowid DESC LIMIT ?`, n)
 	if err != nil {
 		logError("Recent query: %v", err)
@@ -260,7 +261,7 @@ func (h *History) All() []HistoryEntry {
 	if h.db == nil {
 		return nil
 	}
-	rows, err := h.db.Query(`SELECT ` + allColumns + ` FROM history_entries WHERE archived = 0 ORDER BY timestamp DESC, rowid DESC`)
+	rows, err := h.db.Query(`SELECT ` + allColumns + ` FROM history_entries WHERE archived = 0 AND deleted_at IS NULL ORDER BY timestamp DESC, rowid DESC`)
 	if err != nil {
 		logError("All query: %v", err)
 		return nil
@@ -276,7 +277,7 @@ func (h *History) AllArchived() []HistoryEntry {
 	if h.db == nil {
 		return []HistoryEntry{}
 	}
-	rows, err := h.db.Query(`SELECT ` + allColumns + ` FROM history_entries WHERE archived = 1 ORDER BY timestamp DESC, rowid DESC`)
+	rows, err := h.db.Query(`SELECT ` + allColumns + ` FROM history_entries WHERE archived = 1 AND deleted_at IS NULL ORDER BY timestamp DESC, rowid DESC`)
 	if err != nil {
 		logError("AllArchived query: %v", err)
 		return []HistoryEntry{}
@@ -296,7 +297,7 @@ func (h *History) ArchivedCount() int {
 		return 0
 	}
 	var count int
-	err := h.db.QueryRow("SELECT COUNT(*) FROM history_entries WHERE archived = 1").Scan(&count)
+	err := h.db.QueryRow("SELECT COUNT(*) FROM history_entries WHERE archived = 1 AND deleted_at IS NULL").Scan(&count)
 	if err != nil {
 		logError("ArchivedCount: %v", err)
 		return 0
@@ -318,7 +319,7 @@ func scanEntries(rows *sql.Rows) []HistoryEntry {
 	return entries
 }
 
-// Delete removes an entry by ID and its cached audio file.
+// Delete permanently removes an entry by ID and its cached audio, notes, and attachments.
 func (h *History) Delete(id string) bool {
 	if h.db == nil {
 		return false
@@ -337,6 +338,120 @@ func (h *History) Delete(id string) bool {
 		h.DeleteAttachmentsForEntry(id)
 	}
 	return n > 0
+}
+
+// SoftDelete moves an entry to the trash by setting deleted_at.
+// Notes, attachments, and audio cache are preserved for restore.
+func (h *History) SoftDelete(id string) bool {
+	if h.db == nil {
+		return false
+	}
+	h.invalidateCache()
+
+	now := time.Now().Format(time.RFC3339)
+	res, err := execWithFTSRepair(h.db, `UPDATE history_entries SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`, now, id)
+	if err != nil {
+		logError("Soft-delete entry: %v", err)
+		return false
+	}
+	n, _ := res.RowsAffected()
+	return n > 0
+}
+
+// Restore moves an entry out of the trash by clearing deleted_at.
+func (h *History) Restore(id string) bool {
+	if h.db == nil {
+		return false
+	}
+	h.invalidateCache()
+
+	res, err := execWithFTSRepair(h.db, `UPDATE history_entries SET deleted_at = NULL WHERE id = ?`, id)
+	if err != nil {
+		logError("Restore entry: %v", err)
+		return false
+	}
+	n, _ := res.RowsAffected()
+	return n > 0
+}
+
+// AllTrashed returns all soft-deleted entries (newest deletion first).
+func (h *History) AllTrashed() []HistoryEntry {
+	if h.db == nil {
+		return []HistoryEntry{}
+	}
+	rows, err := h.db.Query(`SELECT ` + allColumns + ` FROM history_entries WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC, rowid DESC`)
+	if err != nil {
+		logError("AllTrashed query: %v", err)
+		return []HistoryEntry{}
+	}
+	defer rows.Close()
+	entries := scanEntries(rows)
+	if entries == nil {
+		return []HistoryEntry{}
+	}
+	h.fillProjectNames(entries)
+	return entries
+}
+
+// TrashedCount returns the number of soft-deleted entries.
+func (h *History) TrashedCount() int {
+	if h.db == nil {
+		return 0
+	}
+	var count int
+	err := h.db.QueryRow("SELECT COUNT(*) FROM history_entries WHERE deleted_at IS NOT NULL").Scan(&count)
+	if err != nil {
+		logError("TrashedCount: %v", err)
+		return 0
+	}
+	return count
+}
+
+// EmptyTrash permanently deletes all trashed entries and their associated data.
+// Returns the number of entries removed.
+func (h *History) EmptyTrash() int {
+	if h.db == nil {
+		return 0
+	}
+	// Collect IDs for cascade cleanup
+	rows, err := h.db.Query("SELECT id FROM history_entries WHERE deleted_at IS NOT NULL")
+	if err != nil {
+		logError("EmptyTrash list: %v", err)
+		return 0
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	rows.Close()
+
+	if len(ids) == 0 {
+		return 0
+	}
+
+	h.invalidateCache()
+
+	// Cascade: delete notes, attachments, audio cache for each trashed entry
+	for _, id := range ids {
+		audiocache.Delete(id)
+		h.DeleteNotesForEntry(id)
+		h.DeleteAttachmentsForEntry(id)
+	}
+
+	// Bulk-delete the entries
+	res, err := execWithFTSRepair(h.db, "DELETE FROM history_entries WHERE deleted_at IS NOT NULL")
+	if err != nil {
+		logError("EmptyTrash delete: %v", err)
+		return 0
+	}
+	n, _ := res.RowsAffected()
+	if n > 0 {
+		logInfo("Trash emptied: %d entries permanently deleted", n)
+	}
+	return int(n)
 }
 
 // TogglePin toggles the pinned state of an entry by ID.

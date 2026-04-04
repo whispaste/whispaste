@@ -50,6 +50,10 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 	})
 
 	w.Bind("deleteEntry", func(id string) bool {
+		return history.SoftDelete(id)
+	})
+
+	w.Bind("permanentlyDeleteEntry", func(id string) bool {
 		return history.Delete(id)
 	})
 
@@ -194,6 +198,22 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 	})
 
 	w.Bind("getArchivedCount", func() int { return history.ArchivedCount() })
+
+	// Trash (soft-delete) bindings
+	w.Bind("restoreEntry", func(id string) bool { return history.Restore(id) })
+
+	w.Bind("getTrashedEntries", func() (string, error) {
+		entries := history.AllTrashed()
+		data, err := json.Marshal(entries)
+		if err != nil {
+			return "[]", err
+		}
+		return string(data), nil
+	})
+
+	w.Bind("getTrashedCount", func() int { return history.TrashedCount() })
+
+	w.Bind("emptyTrash", func() int { return history.EmptyTrash() })
 
 	w.Bind("updateEntry", func(id, title, tagsJSON string) bool {
 		var tags []string
