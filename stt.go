@@ -392,6 +392,7 @@ func sttServerArgs(modelPath string, port int, threads int, gpuMode string) []st
 		"--host", loopbackHost,
 		"--port", fmt.Sprintf("%d", port),
 		"--threads", fmt.Sprintf("%d", threads),
+		"--no-timestamps",
 	}
 	backend := gpu.RecommendSTTBackend(gpuMode)
 	if gpuMode == "disabled" || backend == gpu.BackendCPU {
@@ -401,12 +402,13 @@ func sttServerArgs(modelPath string, port int, threads int, gpuMode string) []st
 }
 
 // sttThreadCount returns the optimal thread count for whisper-server.
-// CPU-only STT keeps one extra core free for capture/UI responsiveness.
+// GPU mode uses fewer threads since the encoder runs on GPU.
+// CPU-only mode uses more threads for maximum throughput.
 func sttThreadCount(gpuMode string) int {
 	if gpu.RecommendSTTBackend(gpuMode) == gpu.BackendCPU {
 		return inference.STTThreadsCPUOnly()
 	}
-	return inference.STTThreads()
+	return inference.STTThreadsGPU()
 }
 
 func (s *LocalSTT) Transcribe(wavData []byte, lang string, prompt ...string) (string, error) {

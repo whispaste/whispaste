@@ -162,6 +162,8 @@ func (l *LocalLLM) Start() (string, error) {
 		"--ctx-size", "4096",
 		"--threads", fmt.Sprintf("%d", inference.LLMThreads()),
 		"--log-disable",
+		"--parallel", "1",
+		"--no-webui",
 	}
 
 	// Offload all layers to GPU when a supported GPU is available.
@@ -171,7 +173,7 @@ func (l *LocalLLM) Start() (string, error) {
 		gpuMode = l.cfg.GetGPUAcceleration()
 	}
 	if gpu.ShouldUseRecommendedGPU(gpuMode) {
-		args = append(args, "--n-gpu-layers", "-1")
+		args = append(args, "--n-gpu-layers", "-1", "--flash-attn")
 	}
 
 	cmd := exec.Command(serverPath, args...)
