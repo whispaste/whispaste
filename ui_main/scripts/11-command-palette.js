@@ -66,19 +66,6 @@
     'palette.cat.historyResults': paletteIcons.clock,
   };
 
-  // Cache for custom templates in the palette
-  let _customTemplateNames = [];
-
-  async function loadCustomTemplateNames() {
-    try {
-      const raw = await window.getCustomTemplates();
-      const ct = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      _customTemplateNames = (ct && typeof ct === 'object') ? Object.keys(ct) : [];
-    } catch (e) {
-      _customTemplateNames = [];
-    }
-  }
-
   // ── Category ordering ─────────────────────────────────
   const _categoryOrder = [
     'palette.cat.quickActions',
@@ -106,29 +93,8 @@
       { id: 'smart-toggle',      label: t('palette.cmd.smartToggle'),      icon: paletteIcons.toggleRight, category: 'palette.cat.smartMode', action: smartToggleAction, shortcut: 'Ctrl+Shift+S' },
       { id: 'preset-cleanup',    label: t('palette.cmd.presetCleanup'),    icon: icons.sparkles,           category: 'palette.cat.smartMode', action: () => setPreset('cleanup') },
       { id: 'preset-concise',    label: t('palette.cmd.presetConcise'),    icon: icons.minimize,           category: 'palette.cat.smartMode', action: () => setPreset('concise') },
-      { id: 'preset-email',      label: t('palette.cmd.presetEmail'),      icon: icons.mail,               category: 'palette.cat.smartMode', action: () => setPreset('email') },
-      { id: 'preset-formal',     label: t('palette.cmd.presetFormal'),     icon: icons.fileText,           category: 'palette.cat.smartMode', action: () => setPreset('formal') },
-      { id: 'preset-bullets',    label: t('palette.cmd.presetBullets'),    icon: icons.list,               category: 'palette.cat.smartMode', action: () => setPreset('bullets') },
-      { id: 'preset-aiprompt',   label: t('palette.cmd.presetAiPrompt'),   icon: icons.bot,                category: 'palette.cat.smartMode', action: () => setPreset('aiprompt') },
-      { id: 'preset-summary',    label: t('palette.cmd.presetSummary'),    icon: icons.fileText,           category: 'palette.cat.smartMode', action: () => setPreset('summary') },
-      { id: 'preset-notes',      label: t('palette.cmd.presetNotes'),      icon: icons.clipboard,          category: 'palette.cat.smartMode', action: () => setPreset('notes') },
-      { id: 'preset-meeting',    label: t('palette.cmd.presetMeeting'),    icon: icons.users,              category: 'palette.cat.smartMode', action: () => setPreset('meeting') },
-      { id: 'preset-social',     label: t('palette.cmd.presetSocial'),     icon: icons.share,              category: 'palette.cat.smartMode', action: () => setPreset('social') },
-      { id: 'preset-technical',  label: t('palette.cmd.presetTechnical'),  icon: icons.code,               category: 'palette.cat.smartMode', action: () => setPreset('technical') },
-      { id: 'preset-casual',     label: t('palette.cmd.presetCasual'),     icon: icons.messageCircle,      category: 'palette.cat.smartMode', action: () => setPreset('casual') },
       { id: 'preset-translate',  label: t('palette.cmd.presetTranslate'),  icon: icons.globe,              category: 'palette.cat.smartMode', action: () => setPreset('translate') },
     ];
-
-    // Append custom templates under a separate category
-    for (const name of _customTemplateNames) {
-      cmds.push({
-        id: 'preset-custom-' + name,
-        label: name,
-        icon: icons.fileText,
-        category: 'palette.cat.templates',
-        action: () => setPreset(name),
-      });
-    }
 
     cmds.push(
       // ── Export ─────────────────────────────────────────
@@ -496,7 +462,6 @@
     _activeIndex = 0;
     _historyResults = [];
     _loadRecent();
-    await loadCustomTemplateNames();
 
     const backdrop = document.createElement('div');
     backdrop.className = 'cp-backdrop';
@@ -587,7 +552,7 @@
 
     // Navigation shortcuts: Ctrl+1..6
     if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key >= '1' && e.key <= '6') {
-      const pages = ['history', 'smartmode', 'replacements', 'analytics', 'settings', 'about'];
+      const pages = ['history', 'replacements', 'analytics', 'settings', 'about'];
       const idx = parseInt(e.key) - 1;
       if (idx >= 0 && idx < pages.length) {
         e.preventDefault();

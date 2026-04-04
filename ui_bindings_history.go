@@ -16,6 +16,17 @@ import (
 	webview "github.com/webview/webview_go"
 )
 
+func mergedEntryAutoTitleContext(cfg *Config, history *History, entryID string) (text, uiLang string, ok bool) {
+	if cfg == nil || history == nil || entryID == "" {
+		return "", "", false
+	}
+	entry := history.GetByID(entryID)
+	if entry == nil || strings.TrimSpace(entry.Text) == "" {
+		return "", "", false
+	}
+	return entry.Text, cfg.GetUILanguage(), true
+}
+
 // bindHistoryHandlers registers history, entry CRUD, tag, project, export, and analytics JS bindings.
 func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usageStats *stats.UsageStats, recorder *Recorder, onCapture func()) {
 
@@ -404,6 +415,12 @@ func bindHistoryHandlers(w webview.WebView, cfg *Config, history *History, usage
 		newID := history.Merge(ids)
 		if newID == "" {
 			return `{"success":false,"error":"need at least 2 entries"}`
+		}
+		if IsLLMInstalled() {
+			if mergedText, uiLang, ok := mergedEntryAutoTitleContext(cfg, history, newID); ok {
+				logDebug("Merge: scheduling AI title refresh for entry %s (ui_lang=%s)", newID, uiLang)
+				go AutoTagEntry(history, newID, mergedText, nil, uiLang, false, true)
+			}
 		}
 		return fmt.Sprintf(`{"success":true,"id":"%s"}`, newID)
 	})

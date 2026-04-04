@@ -3,11 +3,6 @@
 /* State stored in localStorage (UI-only, no config.json). */
 
 const _discoveryConfig = {
-  smartmode: {
-    title: () => t('discovery.smartmode.title'),
-    desc: () => t('discovery.smartmode.desc'),
-    arrow: 'left'
-  },
   analytics: {
     title: () => t('discovery.analytics.title'),
     desc: () => t('discovery.analytics.desc'),

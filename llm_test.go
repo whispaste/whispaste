@@ -38,7 +38,7 @@ func TestLLMServerArgs_CPUOmitsGPUFlags(t *testing.T) {
 }
 
 func TestLLMServerArgs_Qwen3AddsReasoningBudgetZero(t *testing.T) {
-	args := llmServerArgs("qwen3.5-0.8b.gguf", 12345, "enabled", "qwen3.5-0.8b")
+	args := llmServerArgs("qwen3-1.7b.gguf", 12345, "enabled", "qwen3-1.7b")
 
 	budgetIdx := -1
 	for i, arg := range args {
@@ -114,6 +114,6 @@ func TestIsLLMInstalledRequiresSupportedModel(t *testing.T) {
 		t.Fatalf("write supported model: %v", err)
 	}
 	if !IsLLMInstalled() {
-		t.Fatal("IsLLMInstalled() should accept the supported qwen3.5 model")
+		t.Fatal("IsLLMInstalled() should accept the supported qwen3 model")
 	}
 }

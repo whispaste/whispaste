@@ -211,7 +211,7 @@ function startHistoryFirstDictation() {
 }
 
 function openSmartModeFromEmptyState() {
-  switchPage('smartmode');
+  switchPage('settings');
 }
 
 function openSettingsFromEmptyState() {
