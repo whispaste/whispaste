@@ -27,19 +27,24 @@ type StreamingTextWindow struct {
 	text    string
 	visible bool
 	scale   float64
+	width   int
+	height  int
 	ready   chan struct{}
 	done    chan struct{}
 	mu      sync.Mutex
 }
 
 const (
-	_STW_WIDTH   = 500
-	_STW_HEIGHT  = 42
-	_STW_GAP     = 10 // gap between overlay and this window
-	_STW_RADIUS  = 14
-	_STW_TIMER   = 2
-	_STW_TIMEMS  = 100 // repaint interval (10 FPS)
-	_WM_STW_TEXT = _WM_USER + 10
+	_STW_MIN_WIDTH  = 120
+	_STW_MAX_WIDTH  = 520
+	_STW_MIN_HEIGHT = 34
+	_STW_GAP        = 8
+	_STW_RADIUS     = 12
+	_STW_HPAD       = 14
+	_STW_VPAD       = 8
+	_STW_TIMER      = 2
+	_STW_TIMEMS     = 100 // repaint interval (10 FPS)
+	_WM_STW_TEXT    = _WM_USER + 10
 )
 
 var (
@@ -50,6 +55,50 @@ var (
 )
 
 var stwWndProcCB = syscall.NewCallback(streamTextWndProc)
+
+func clampInt(v, min, max int) int {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
+}
+
+func virtualScreenBounds() (int, int, int, int) {
+	vsX, _, _ := procGetSystemMetrics.Call(_SM_XVIRTUALSCREEN)
+	vsY, _, _ := procGetSystemMetrics.Call(_SM_YVIRTUALSCREEN)
+	vsW, _, _ := procGetSystemMetrics.Call(_SM_CXVIRTUALSCREEN)
+	vsH, _, _ := procGetSystemMetrics.Call(_SM_CYVIRTUALSCREEN)
+	minX := int(vsX)
+	minY := int(vsY)
+	return minX, minY, minX + int(vsW), minY + int(vsH)
+}
+
+func calculateStreamingPreviewPosition(overlayX, overlayY, overlayW, overlayH, previewW, previewH, minX, minY, maxX, maxY int) (int, int) {
+	const edgeMargin = 8
+
+	x := overlayX + (overlayW-previewW)/2
+	x = clampInt(x, minX+edgeMargin, maxX-previewW-edgeMargin)
+
+	belowY := overlayY + overlayH + _STW_GAP
+	aboveY := overlayY - previewH - _STW_GAP
+	spaceAbove := overlayY - minY
+	spaceBelow := maxY - (overlayY + overlayH)
+
+	if spaceBelow >= spaceAbove && belowY+previewH <= maxY-edgeMargin {
+		return x, belowY
+	}
+	if aboveY >= minY+edgeMargin {
+		return x, aboveY
+	}
+	if belowY+previewH <= maxY-edgeMargin {
+		return x, belowY
+	}
+	y := clampInt(belowY, minY+edgeMargin, maxY-previewH-edgeMargin)
+	return x, y
+}
 
 func streamTextWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 	stw := globalSTW.Load()
@@ -100,6 +149,7 @@ func NewStreamingTextWindow() (*StreamingTextWindow, error) {
 
 func (stw *StreamingTextWindow) run() {
 	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	defer close(stw.done)
 
 	initGDIPlus() // ensure GDI+ is initialized (safe to call multiple times via sync.Once)
@@ -129,18 +179,20 @@ func (stw *StreamingTextWindow) run() {
 
 	hInst, _, _ := procGetModuleHandleW.Call(0)
 	screenW, _, _ := procGetSystemMetrics.Call(_SM_CXSCREEN)
-	x := (int(screenW) - _STW_WIDTH) / 2
-	y := _OVL_MARGIN + _OVL_HEIGHT + _STW_GAP
 
 	// WS_EX_TRANSPARENT (0x20) makes the window click-through
 	exStyle := uintptr(_WS_EX_TOPMOST | _WS_EX_LAYERED | _WS_EX_TOOLWINDOW | _WS_EX_NOACTIVATE | 0x20)
+
+	stw.scale = 1.0
+	x := (int(screenW) - _STW_MIN_WIDTH) / 2
+	y := _OVL_MARGIN + _OVL_HEIGHT + _STW_GAP
 
 	hwnd, _, _ := procCreateWindowExW.Call(
 		exStyle,
 		uintptr(unsafe.Pointer(stwClass)),
 		0,
 		uintptr(_WS_POPUP),
-		uintptr(x), uintptr(y), _STW_WIDTH, _STW_HEIGHT,
+		uintptr(x), uintptr(y), uintptr(_STW_MIN_WIDTH), uintptr(_STW_MIN_HEIGHT),
 		0, 0, hInst, 0,
 	)
 	if hwnd == 0 {
@@ -149,25 +201,16 @@ func (stw *StreamingTextWindow) run() {
 	}
 	stw.hwnd = hwnd
 
-	// DPI scale
 	dpi, _, _ := procGetDpiForWindow.Call(hwnd)
 	if dpi > 0 {
 		stw.scale = float64(dpi) / 96.0
-	} else {
-		stw.scale = 1.0
 	}
-
-	scaledW := int(float64(_STW_WIDTH) * stw.scale)
-	scaledH := int(float64(_STW_HEIGHT) * stw.scale)
-
-	// Resize window to DPI-scaled dimensions
-	procSetWindowPos.Call(hwnd, 0,
-		uintptr((int(screenW)-scaledW)/2), uintptr(_OVL_MARGIN+_OVL_HEIGHT+_STW_GAP),
-		uintptr(scaledW), uintptr(scaledH),
-		0x0010|0x0004) // SWP_NOACTIVATE | SWP_NOZORDER
+	stw.width = int(math.Round(float64(_STW_MIN_WIDTH) * stw.scale))
+	stw.height = int(math.Round(float64(_STW_MIN_HEIGHT) * stw.scale))
+	procSetWindowPos.Call(hwnd, 0, uintptr((int(screenW)-stw.width)/2), uintptr(y), uintptr(stw.width), uintptr(stw.height), 0x0010|0x0004) // SWP_NOACTIVATE | SWP_NOZORDER
 
 	// Create DIB section for UpdateLayeredWindow
-	stw.createDIB(scaledW, scaledH)
+	stw.createDIB(stw.width, stw.height)
 
 	// Create GDI+ font (DPI-scaled)
 	fontSize := float32(14.0 * stw.scale)
@@ -178,7 +221,7 @@ func (stw *StreamingTextWindow) run() {
 	}
 	procGdipCreateStringFormat.Call(0, 0, uintptr(unsafe.Pointer(&stw.gdipSF)))
 	if stw.gdipSF != 0 {
-		procGdipSetStringFormatAlign.Call(stw.gdipSF, 1)    // center
+		procGdipSetStringFormatAlign.Call(stw.gdipSF, 1)     // center
 		procGdipSetStringFormatLineAlign.Call(stw.gdipSF, 1) // center vertically
 		procGdipSetStringFormatTrimming.Call(stw.gdipSF, 3)  // EllipsisCharacter
 	}
@@ -240,6 +283,60 @@ func (stw *StreamingTextWindow) createDIB(w, h int) {
 	}
 }
 
+func (stw *StreamingTextWindow) releaseDIB() {
+	if stw.dibBmp != 0 {
+		procDeleteObject.Call(stw.dibBmp)
+		stw.dibBmp = 0
+	}
+	if stw.dibDC != 0 {
+		procDeleteDC.Call(stw.dibDC)
+		stw.dibDC = 0
+	}
+}
+
+func (stw *StreamingTextWindow) measureText(g uintptr, text string) (float32, float32) {
+	if g == 0 || stw.gdipF == 0 || stw.gdipSF == 0 || text == "" {
+		return 0, 0
+	}
+	utf16, _ := windows.UTF16FromString(text)
+	layout := gdipRectF{X: 0, Y: 0, Width: 2000, Height: 100}
+	var bbox gdipRectF
+	procGdipMeasureString.Call(g,
+		uintptr(unsafe.Pointer(&utf16[0])),
+		uintptr(len(utf16)-1),
+		stw.gdipF,
+		uintptr(unsafe.Pointer(&layout)),
+		stw.gdipSF,
+		uintptr(unsafe.Pointer(&bbox)),
+		0, 0)
+	return bbox.Width, bbox.Height
+}
+
+func (stw *StreamingTextWindow) desiredWindowSize(g uintptr, text string) (int, int) {
+	textW, textH := stw.measureText(g, text)
+	padX := float32(_STW_HPAD) * float32(stw.scale)
+	padY := float32(_STW_VPAD) * float32(stw.scale)
+	width := int(math.Ceil(float64(textW + padX*2)))
+	height := int(math.Ceil(float64(textH + padY*2)))
+	minW := int(math.Round(float64(_STW_MIN_WIDTH) * stw.scale))
+	maxW := int(math.Round(float64(_STW_MAX_WIDTH) * stw.scale))
+	minH := int(math.Round(float64(_STW_MIN_HEIGHT) * stw.scale))
+	width = clampInt(width, minW, maxW)
+	if height < minH {
+		height = minH
+	}
+	return width, height
+}
+
+func (stw *StreamingTextWindow) currentPosition(width, height int) (int, int) {
+	if x, y, w, h, ok := currentOverlayBounds(); ok {
+		minX, minY, maxX, maxY := virtualScreenBounds()
+		return calculateStreamingPreviewPosition(x, y, w, h, width, height, minX, minY, maxX, maxY)
+	}
+	screenW, _, _ := procGetSystemMetrics.Call(_SM_CXSCREEN)
+	return (int(screenW) - width) / 2, _OVL_MARGIN + _OVL_HEIGHT + _STW_GAP
+}
+
 // SetText updates the streaming text. Thread-safe.
 func (stw *StreamingTextWindow) SetText(text string) {
 	stw.mu.Lock()
@@ -296,17 +393,34 @@ func (stw *StreamingTextWindow) paint() {
 		return
 	}
 
-	w := int32(float64(_STW_WIDTH) * stw.scale)
-	h := int32(float64(_STW_HEIGHT) * stw.scale)
-	r := float32(float64(_STW_RADIUS) * stw.scale)
-
 	// Get GDI+ graphics from DIB DC
-	var g uintptr
-	procGdipCreateFromHDC.Call(stw.dibDC, uintptr(unsafe.Pointer(&g)))
+	createGraphics := func() uintptr {
+		var g uintptr
+		procGdipCreateFromHDC.Call(stw.dibDC, uintptr(unsafe.Pointer(&g)))
+		return g
+	}
+	g := createGraphics()
 	if g == 0 {
 		return
 	}
+	targetW, targetH := stw.desiredWindowSize(g, text)
+	if targetW != stw.width || targetH != stw.height {
+		procGdipDeleteGraphics.Call(g)
+		stw.releaseDIB()
+		stw.createDIB(targetW, targetH)
+		stw.width = targetW
+		stw.height = targetH
+		g = createGraphics()
+		if g == 0 {
+			return
+		}
+	}
 	defer procGdipDeleteGraphics.Call(g)
+
+	w := int32(stw.width)
+	h := int32(stw.height)
+	r := float32(float64(_STW_RADIUS) * stw.scale)
+	padX := float32(_STW_HPAD) * float32(stw.scale)
 
 	procGdipSetSmoothingMode.Call(g, _SmoothingModeAntiAlias)
 	procGdipSetTextRenderingHint.Call(g, _TextRenderingHintClearType)
@@ -347,7 +461,7 @@ func (stw *StreamingTextWindow) paint() {
 			u16Len++
 		}
 
-		rect := [4]float32{float32(r), 0, float32(w) - 2*float32(r), float32(h)}
+		rect := [4]float32{padX, 0, float32(w) - 2*padX, float32(h)}
 
 		var textBrush uintptr
 		procGdipCreateSolidFill.Call(0xF0FFFFFF, uintptr(unsafe.Pointer(&textBrush)))
@@ -365,6 +479,10 @@ func (stw *StreamingTextWindow) paint() {
 		}
 	}
 
+	const _HWND_TOPMOST_STW = ^uintptr(0)
+	x, y := stw.currentPosition(int(w), int(h))
+	procSetWindowPos.Call(stw.hwnd, _HWND_TOPMOST_STW, uintptr(x), uintptr(y), uintptr(w), uintptr(h), 0x0010) // SWP_NOACTIVATE
+
 	// UpdateLayeredWindow
 	ptSrc := pointT{0, 0}
 	sz := [2]int32{w, h}
@@ -380,10 +498,5 @@ func (stw *StreamingTextWindow) paint() {
 		2, // ULW_ALPHA
 	)
 
-	// Ensure window stays on top of all other windows
-	const _HWND_TOPMOST_STW = ^uintptr(0)
-	procSetWindowPos.Call(stw.hwnd, _HWND_TOPMOST_STW, 0, 0, 0, 0,
-		0x0001|0x0002|0x0010) // SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
 	procShowWindow.Call(stw.hwnd, _SW_SHOWNA) // show without activating
 }
-

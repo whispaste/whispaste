@@ -200,6 +200,11 @@ const translations = {
     cardStreamingPreview: 'Live Preview',
     labelStreamingPreview: 'Live Transcription Preview',
     descStreamingPreview: 'Show a real-time draft of your transcription while recording (local models only)',
+    streamingPreviewModelTitle: 'Download preview model?',
+    streamingPreviewModelMessage: 'For a fast live preview, WhisPaste uses {model} ({size}) only for the on-screen draft. Your final transcription still uses your selected main model.',
+    streamingPreviewModelDownload: 'Download preview model',
+    streamingPreviewModelPreparing: 'Downloading preview model…',
+    streamingPreviewModelReady: 'Live preview is ready.',
     placeholderDictionary: 'e.g. your company name, product names — one per line',
     placeholderSmartPrompt: 'e.g. Format as Markdown, remove filler words',
     hintDictionary: 'Put each term on a new line or separate with commas',
@@ -512,6 +517,17 @@ const translations = {
     'notebook.archived': 'Archived',
     'notebook.archive_selected': 'Archive selected',
     'notebook.delete': 'Delete',
+    'notebook.trash': 'Trash',
+    'notebook.trash_moved': 'Moved to Trash',
+    'notebook.trash_empty': 'Trash is empty',
+    'notebook.restore': 'Restore',
+    'notebook.restored': 'Restored',
+    'notebook.restore_selected': 'Restore selected',
+    'notebook.empty_trash': 'Empty Trash',
+    'notebook.confirm_empty_trash_title': 'Empty Trash',
+    'notebook.confirm_empty_trash_msg': 'All items in the trash will be permanently deleted. This cannot be undone.',
+    'notebook.permanently_delete': 'Delete permanently',
+    'notebook.trash_emptied': 'Trash emptied',
     'notebook.copied': 'Copied!',
     'notebook.duplicate': 'Duplicate',
     'notebook.duplicated': 'Entry duplicated',
@@ -859,6 +875,7 @@ const translations = {
     'onboarding.aha_title': 'Try It Now!',
     'onboarding.aha_desc': 'Everything is set up. Try a quick recording — or skip ahead to customize WhisPaste.',
     'onboarding.aha_hotkey_hint': 'This is your global shortcut — it works from any app.',
+    'onboarding.aha_mode_hint': 'Hold to record, release to stop.',
     'onboarding.finish_explore': 'Explore First',
     'onboarding.open_settings': 'Open Settings Instead',
     'onboarding.discover_title': 'Make It Yours',
@@ -1062,6 +1079,64 @@ const translations = {
     // Empty state
     'emptyState.title': 'Your voice, your words',
     'emptyState.desc': 'Press the hotkey or click the floating button to start your first dictation.',
+
+    // Tooltips
+    'tooltip.toggle_theme': 'Toggle theme',
+    'tooltip.language': 'Language',
+    'tooltip.support': 'Support WhisPaste',
+    'tooltip.group_entries': 'Group entries',
+    'tooltip.hide_sidebar': 'Hide sidebar',
+    'tooltip.show_sidebar': 'Show sidebar',
+    'tooltip.test_sound': 'Test sound',
+    'tooltip.export_all': 'Export all',
+    'tooltip.import': 'Import',
+    'tooltip.view_prompt': 'View prompt',
+
+    // Voice notes
+    'voice_note.record': 'Record voice note',
+    'voice_note.recording': 'Recording…',
+    'voice_note.stop': 'Stop recording',
+    'voice_note.transcribing': 'Transcribing…',
+    'voice_note.saved': 'Voice note saved',
+    'voice_note.error': 'Voice note error',
+    'voice_note.already_recording': 'Already recording',
+
+    // Discovery
+    'discovery.smartmode.title': 'Smart Mode',
+    'discovery.smartmode.desc': 'AI-powered post-processing transforms raw dictation into polished text.',
+    'discovery.analytics.title': 'Analytics',
+    'discovery.analytics.desc': 'Track your dictation habits and see how much time you save.',
+    'discovery.replacements.title': 'Voice Shortcuts',
+    'discovery.replacements.desc': 'Define custom voice shortcuts that auto-replace words or phrases.',
+    'discovery.gotIt': 'Got it',
+
+    // Notebook extras
+    'notebook.tags': 'Tags',
+    'notebook.this_week': 'This week',
+    'notebook.export_selected': 'Export selected',
+    'notebook.noSelection': 'No entries selected',
+
+    // About extras
+    'about.feedback_prompt': 'How can we improve WhisPaste?',
+    'about.rate_us': 'Rate us',
+
+    // Dialog / UI
+    'dialog.cancel': 'Cancel',
+    'ok': 'OK',
+    'clear': 'Clear',
+    'edit': 'Edit',
+    'error': 'Error',
+    'next': 'Next',
+
+    // Generic errors
+    'error.generic': 'Something went wrong',
+    'error.invalid_response': 'Invalid response',
+
+    // Other
+    'settings.advanced': 'Advanced',
+    'group.select_all': 'Select all',
+    'title.edit': 'Edit title',
+    'app.version': 'Version',
   },
   de: {
     // App
@@ -1263,6 +1338,11 @@ const translations = {
     cardStreamingPreview: 'Live-Vorschau',
     labelStreamingPreview: 'Live-Transkriptionsvorschau',
     descStreamingPreview: 'Zeigt während der Aufnahme einen Echtzeit-Entwurf deiner Transkription an (nur lokale Modelle)',
+    streamingPreviewModelTitle: 'Vorschau-Modell herunterladen?',
+    streamingPreviewModelMessage: 'Für eine schnelle Live-Vorschau nutzt WhisPaste {model} ({size}) nur für den Bildschirm-Entwurf. Deine finale Transkription verwendet weiterhin dein ausgewähltes Hauptmodell.',
+    streamingPreviewModelDownload: 'Vorschau-Modell herunterladen',
+    streamingPreviewModelPreparing: 'Vorschau-Modell wird heruntergeladen…',
+    streamingPreviewModelReady: 'Live-Vorschau ist bereit.',
     placeholderDictionary: 'z.B. dein Firmenname, Produktnamen — eines pro Zeile',
     placeholderSmartPrompt: 'z.B. Als Markdown formatieren, Füllwörter entfernen',
     hintDictionary: 'Schreibe jeden Begriff in eine eigene Zeile oder trenne mit Kommas',
@@ -1575,6 +1655,17 @@ const translations = {
     'notebook.archived': 'Archiviert',
     'notebook.archive_selected': 'Auswahl archivieren',
     'notebook.delete': 'Löschen',
+    'notebook.trash': 'Papierkorb',
+    'notebook.trash_moved': 'In den Papierkorb verschoben',
+    'notebook.trash_empty': 'Papierkorb ist leer',
+    'notebook.restore': 'Wiederherstellen',
+    'notebook.restored': 'Wiederhergestellt',
+    'notebook.restore_selected': 'Auswahl wiederherstellen',
+    'notebook.empty_trash': 'Papierkorb leeren',
+    'notebook.confirm_empty_trash_title': 'Papierkorb leeren',
+    'notebook.confirm_empty_trash_msg': 'Alle Einträge im Papierkorb werden endgültig gelöscht. Dies kann nicht rückgängig gemacht werden.',
+    'notebook.permanently_delete': 'Endgültig löschen',
+    'notebook.trash_emptied': 'Papierkorb geleert',
     'notebook.copied': 'Kopiert!',
     'notebook.duplicate': 'Duplizieren',
     'notebook.duplicated': 'Eintrag dupliziert',
@@ -1922,6 +2013,7 @@ const translations = {
     'onboarding.aha_title': 'Probier es aus!',
     'onboarding.aha_desc': 'Alles ist eingerichtet. Probiere eine kurze Aufnahme — oder überspringe diesen Schritt.',
     'onboarding.aha_hotkey_hint': 'Das ist dein globales Tastenkürzel — es funktioniert aus jeder App heraus.',
+    'onboarding.aha_mode_hint': 'Halten zum Aufnehmen, loslassen zum Stoppen.',
     'onboarding.finish_explore': 'Erst erkunden',
     'onboarding.open_settings': 'Einstellungen öffnen',
     'onboarding.discover_title': 'Mach es zu deinem',
@@ -2125,6 +2217,64 @@ const translations = {
     // Empty state
     'emptyState.title': 'Deine Stimme, deine Worte',
     'emptyState.desc': 'Drücke die Tastenkombination oder klicke den Aufnahme-Button, um dein erstes Diktat zu starten.',
+
+    // Tooltips
+    'tooltip.toggle_theme': 'Design wechseln',
+    'tooltip.language': 'Sprache',
+    'tooltip.support': 'WhisPaste unterstützen',
+    'tooltip.group_entries': 'Einträge gruppieren',
+    'tooltip.hide_sidebar': 'Seitenleiste ausblenden',
+    'tooltip.show_sidebar': 'Seitenleiste einblenden',
+    'tooltip.test_sound': 'Ton testen',
+    'tooltip.export_all': 'Alle exportieren',
+    'tooltip.import': 'Importieren',
+    'tooltip.view_prompt': 'Prompt anzeigen',
+
+    // Voice notes
+    'voice_note.record': 'Sprachnotiz aufnehmen',
+    'voice_note.recording': 'Aufnahme läuft…',
+    'voice_note.stop': 'Aufnahme stoppen',
+    'voice_note.transcribing': 'Wird transkribiert…',
+    'voice_note.saved': 'Sprachnotiz gespeichert',
+    'voice_note.error': 'Fehler bei Sprachnotiz',
+    'voice_note.already_recording': 'Aufnahme läuft bereits',
+
+    // Discovery
+    'discovery.smartmode.title': 'Smart-Modus',
+    'discovery.smartmode.desc': 'KI-gestützte Nachbearbeitung verwandelt Rohtext in polierte Ergebnisse.',
+    'discovery.analytics.title': 'Statistiken',
+    'discovery.analytics.desc': 'Verfolge deine Diktiergewohnheiten und sieh, wie viel Zeit du sparst.',
+    'discovery.replacements.title': 'Sprach-Shortcuts',
+    'discovery.replacements.desc': 'Definiere eigene Sprach-Shortcuts, die Wörter oder Phrasen automatisch ersetzen.',
+    'discovery.gotIt': 'Verstanden',
+
+    // Notebook extras
+    'notebook.tags': 'Tags',
+    'notebook.this_week': 'Diese Woche',
+    'notebook.export_selected': 'Ausgewählte exportieren',
+    'notebook.noSelection': 'Keine Einträge ausgewählt',
+
+    // About extras
+    'about.feedback_prompt': 'Wie können wir WhisPaste verbessern?',
+    'about.rate_us': 'Bewerte uns',
+
+    // Dialog / UI
+    'dialog.cancel': 'Abbrechen',
+    'ok': 'OK',
+    'clear': 'Löschen',
+    'edit': 'Bearbeiten',
+    'error': 'Fehler',
+    'next': 'Weiter',
+
+    // Generic errors
+    'error.generic': 'Etwas ist schiefgelaufen',
+    'error.invalid_response': 'Ungültige Antwort',
+
+    // Other
+    'settings.advanced': 'Erweitert',
+    'group.select_all': 'Alle auswählen',
+    'title.edit': 'Titel bearbeiten',
+    'app.version': 'Version',
   }
 };
 

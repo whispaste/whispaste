@@ -465,6 +465,19 @@ func bindSettingsHandlers(w webview.WebView, cfg *Config, recorder *Recorder, on
 		}
 		return result
 	})
+	w.Bind("getStreamingPreviewModelState", func() map[string]interface{} {
+		state := getStreamingPreviewModelState(cfg.GetLocalModelID())
+		return map[string]interface{}{
+			"selected_model_id":   state.SelectedModelID,
+			"runtime_model_id":    state.RuntimeModelID,
+			"download_model_id":   state.DownloadModelID,
+			"model_name":          state.ModelName,
+			"model_size":          state.ModelSize,
+			"ready":               state.Ready,
+			"download_required":   !state.Ready,
+			"uses_selected_model": state.UsesSelected,
+		}
+	})
 
 	w.Bind("getLocalSTTPreflight", func(modelID string, purpose string) string {
 		view := localSTTPreflightViewFor(modelID, purpose)
