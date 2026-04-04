@@ -312,14 +312,17 @@ var (
 // ───────────────────── GDI+ helpers ─────────────────────
 
 var gdiplusToken uintptr
+var gdiplusOnce sync.Once
 
 func initGDIPlus() {
-	input := gdiplusStartupInput{GdiplusVersion: 1}
-	procGdiplusStartup.Call(
-		uintptr(unsafe.Pointer(&gdiplusToken)),
-		uintptr(unsafe.Pointer(&input)),
-		0,
-	)
+	gdiplusOnce.Do(func() {
+		input := gdiplusStartupInput{GdiplusVersion: 1}
+		procGdiplusStartup.Call(
+			uintptr(unsafe.Pointer(&gdiplusToken)),
+			uintptr(unsafe.Pointer(&input)),
+			0,
+		)
+	})
 }
 
 func shutdownGDIPlus() {

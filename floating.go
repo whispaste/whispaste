@@ -1584,7 +1584,7 @@ func drawImageWithAlpha(g, img uintptr, x, y, w, h int, alpha uint32) {
 	defer procGdipDisposeImageAttributes.Call(imgAttr)
 
 	// ColorAdjustTypeBitmap = 1, ColorMatrixFlagsDefault = 0
-	procGdipSetImageAttributesColorMatrix.Call(
+	ret, _, _ := procGdipSetImageAttributesColorMatrix.Call(
 		imgAttr,
 		1,     // ColorAdjustTypeBitmap
 		1,     // enableFlag = TRUE
@@ -1592,6 +1592,10 @@ func drawImageWithAlpha(g, img uintptr, x, y, w, h int, alpha uint32) {
 		0,     // grayMatrix = NULL
 		0,     // flags = ColorMatrixFlagsDefault
 	)
+	if ret != 0 {
+		procGdipDrawImageRectI.Call(g, img, uintptr(x), uintptr(y), uintptr(w), uintptr(h))
+		return
+	}
 
 	// Get source image dimensions for src rect
 	var srcW, srcH uint32
