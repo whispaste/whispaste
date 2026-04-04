@@ -476,9 +476,9 @@ func main() {
 						stw.Show()
 						defer func() {
 							previewClosed.Store(true)
+							previewSTT.Stop()
 							stw.Hide()
 							stw.Close()
-							previewSTT.Stop()
 						}()
 
 						dictPrompt := cfg.DictionaryPrompt()
@@ -536,6 +536,10 @@ func main() {
 			}
 
 		case StateTranscribing:
+			// Stop preview STT server BEFORE main transcription to free GPU resources.
+			// The preview goroutine's defer also calls Stop() — safe to call twice (mutex-guarded).
+			previewSTT.Stop()
+
 			if playSounds {
 				PlayFeedback(SoundRecordStop)
 			}
