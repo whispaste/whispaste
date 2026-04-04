@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/whispaste/whispaste/internal/models"
 	"github.com/whispaste/whispaste/internal/wav"
 )
 
@@ -19,79 +18,6 @@ func normalizeLanguage(lang string) string {
 		return ""
 	}
 	return lang
-}
-
-const (
-	streamingPreviewPrimaryModelID  = "whisper-base"
-	streamingPreviewFallbackModelID = "whisper-tiny"
-)
-
-type streamingPreviewModelState struct {
-	SelectedModelID string
-	RuntimeModelID  string
-	DownloadModelID string
-	ModelName       string
-	ModelSize       string
-	Ready           bool
-	UsesSelected    bool
-}
-
-func isStreamingPreviewModelID(modelID string) bool {
-	switch modelID {
-	case streamingPreviewPrimaryModelID, streamingPreviewFallbackModelID:
-		return true
-	default:
-		return false
-	}
-}
-
-func resolveStreamingPreviewModelWith(selectedModelID string, hasModel func(string) bool) streamingPreviewModelState {
-	state := streamingPreviewModelState{
-		SelectedModelID: selectedModelID,
-		DownloadModelID: streamingPreviewPrimaryModelID,
-	}
-
-	if isStreamingPreviewModelID(selectedModelID) && hasModel(selectedModelID) {
-		state.RuntimeModelID = selectedModelID
-		state.DownloadModelID = selectedModelID
-		state.Ready = true
-		state.UsesSelected = true
-		return state
-	}
-	if hasModel(streamingPreviewPrimaryModelID) {
-		state.RuntimeModelID = streamingPreviewPrimaryModelID
-		state.DownloadModelID = streamingPreviewPrimaryModelID
-		state.Ready = true
-		state.UsesSelected = selectedModelID == streamingPreviewPrimaryModelID
-		return state
-	}
-	if hasModel(streamingPreviewFallbackModelID) {
-		state.RuntimeModelID = streamingPreviewFallbackModelID
-		state.DownloadModelID = streamingPreviewFallbackModelID
-		state.Ready = true
-		state.UsesSelected = selectedModelID == streamingPreviewFallbackModelID
-		return state
-	}
-	if isStreamingPreviewModelID(selectedModelID) {
-		state.RuntimeModelID = selectedModelID
-		state.DownloadModelID = selectedModelID
-		return state
-	}
-	state.RuntimeModelID = streamingPreviewPrimaryModelID
-	return state
-}
-
-func getStreamingPreviewModelState(selectedModelID string) streamingPreviewModelState {
-	state := resolveStreamingPreviewModelWith(selectedModelID, models.IsDownloaded)
-	targetID := state.RuntimeModelID
-	if !state.Ready {
-		targetID = state.DownloadModelID
-	}
-	if info := models.Find(targetID); info != nil {
-		state.ModelName = info.Name
-		state.ModelSize = info.Size
-	}
-	return state
 }
 
 func startLocalSTTModel(s *LocalSTT, modelID string) error {
@@ -139,14 +65,6 @@ func transcribeLocalWithSTT(s *LocalSTT, pcmS16 []byte, sampleRate int, language
 // An optional prompt parameter can be passed (e.g. custom dictionary terms) to improve recognition.
 func TranscribeLocal(pcmS16 []byte, sampleRate int, language string, modelID string, prompt ...string) (string, error) {
 	return transcribeLocalWithSTT(&localSTT, pcmS16, sampleRate, language, modelID, prompt...)
-}
-
-func StartStreamingPreviewRuntime(modelID string) error {
-	return startLocalSTTModel(&previewSTT, modelID)
-}
-
-func TranscribeLocalPreview(pcmS16 []byte, sampleRate int, language string, modelID string, prompt ...string) (string, error) {
-	return transcribeLocalWithSTT(&previewSTT, pcmS16, sampleRate, language, modelID, prompt...)
 }
 
 // LocalRecognizer is a thread-safe singleton wrapper around the whisper.cpp HTTP server.
@@ -198,6 +116,5 @@ func (lr *LocalRecognizer) Close() {
 	defer lr.mu.Unlock()
 
 	localSTT.Stop()
-	previewSTT.Stop()
 	logInfo("local recognizer closed")
 }

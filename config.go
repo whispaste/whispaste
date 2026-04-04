@@ -101,8 +101,7 @@ type Config struct {
 	AutoPasteDelay          int                      `json:"auto_paste_delay"` // milliseconds, 0-2000
 	AutoTagEnabled          *bool                    `json:"auto_tag_enabled,omitempty"`
 	AutoTitleEnabled        *bool                    `json:"auto_title_enabled,omitempty"`
-	StreamingPreview        *bool                    `json:"streaming_preview,omitempty"`
-	mu                      sync.RWMutex
+	mu sync.RWMutex
 }
 
 // TextReplacement defines a trigger→replacement mapping applied to transcriptions.
@@ -1403,21 +1402,4 @@ func (c *Config) SetAutoTitleEnabled(v bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.AutoTitleEnabled = &v
-}
-
-// GetStreamingPreview returns whether live transcription preview is enabled (thread-safe). Defaults to false.
-func (c *Config) GetStreamingPreview() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if c.StreamingPreview == nil {
-		return false
-	}
-	return *c.StreamingPreview
-}
-
-// SetStreamingPreview sets whether live transcription preview is enabled (thread-safe).
-func (c *Config) SetStreamingPreview(v bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.StreamingPreview = &v
 }
