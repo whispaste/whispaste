@@ -1,6 +1,17 @@
 name: Whisper Server Assets
 
 on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Git tag to attach assets to
+        required: true
+        type: string
+      whisper_ref:
+        description: Optional whisper.cpp ref override
+        required: false
+        default: ""
+        type: string
   workflow_dispatch:
     inputs:
       tag:

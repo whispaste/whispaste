@@ -338,3 +338,9 @@ jobs:
             whispaste.exe
             whispaste.exe.sha256
             whispaste.msix
+
+  whisper_server_assets:
+    needs: release
+    uses: ./.github/workflows/whisper-server-release.yml
+    with:
+      tag: ${{ github.ref_name }}
