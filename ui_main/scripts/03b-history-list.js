@@ -344,9 +344,9 @@ function renderHistory() {
       else if (action === 'toggle-attachments') toggleAttachmentsSection(id);
       else if (action === 'save-note') saveNewNote(id);
       else if (action === 'add-attachment') triggerAttachmentPicker(id);
-      else if (action === 'delete-note') deleteNote(btn.dataset.noteId, id);
-      else if (action === 'delete-attachment') deleteAttachment(btn.dataset.attId, id);
-      else if (action === 'open-attachment') openAttachment(btn.dataset.attId);
+      else if (action === 'delete-note') handleDeleteNote(btn.dataset.noteId, id);
+      else if (action === 'delete-attachment') handleDeleteAttachment(btn.dataset.attId, id);
+      else if (action === 'open-attachment') handleOpenAttachment(btn.dataset.attId);
     });
   });
 
