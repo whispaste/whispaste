@@ -695,6 +695,7 @@ var translations = map[string]map[string]string{
 		"streaming.draft":                     "Draft…",
 		"labelStreamingPreview":               "Live Transcription Preview",
 		"descStreamingPreview":                "Show a real-time draft of your transcription while recording (local STT only)",
+		"cardStreamingPreview":                "Live Preview",
 
 		// Mic retry
 		"error.mic_retrying": "Microphone not ready, retrying…",
@@ -1570,6 +1571,7 @@ var translations = map[string]map[string]string{
 		"streaming.draft":                     "Entwurf…",
 		"labelStreamingPreview":               "Live-Transkriptionsvorschau",
 		"descStreamingPreview":                "Zeige einen Echtzeit-Entwurf deiner Transkription während der Aufnahme (nur lokale STT)",
+		"cardStreamingPreview":                "Live-Vorschau",
 
 		// Mic retry
 		"error.mic_retrying": "Mikrofon nicht bereit, neuer Versuch…",

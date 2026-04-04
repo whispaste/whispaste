@@ -102,6 +102,8 @@ func (stw *StreamingTextWindow) run() {
 	runtime.LockOSThread()
 	defer close(stw.done)
 
+	initGDIPlus() // ensure GDI+ is initialized (safe to call multiple times via sync.Once)
+
 	stwClassOnce.Do(func() {
 		name := "WhisPasteStreamText"
 		stwClass, _ = windows.UTF16PtrFromString(name)
@@ -155,14 +157,24 @@ func (stw *StreamingTextWindow) run() {
 		stw.scale = 1.0
 	}
 
-	// Create DIB section for UpdateLayeredWindow
-	stw.createDIB()
+	scaledW := int(float64(_STW_WIDTH) * stw.scale)
+	scaledH := int(float64(_STW_HEIGHT) * stw.scale)
 
-	// Create GDI+ font
+	// Resize window to DPI-scaled dimensions
+	procSetWindowPos.Call(hwnd, 0,
+		uintptr((int(screenW)-scaledW)/2), uintptr(_OVL_MARGIN+_OVL_HEIGHT+_STW_GAP),
+		uintptr(scaledW), uintptr(scaledH),
+		0x0010|0x0004) // SWP_NOACTIVATE | SWP_NOZORDER
+
+	// Create DIB section for UpdateLayeredWindow
+	stw.createDIB(scaledW, scaledH)
+
+	// Create GDI+ font (DPI-scaled)
+	fontSize := float32(12.0 * stw.scale)
 	fontName, _ := windows.UTF16PtrFromString("Segoe UI")
 	procGdipCreateFontFamilyFromName.Call(uintptr(unsafe.Pointer(fontName)), 0, uintptr(unsafe.Pointer(&stw.gdipFF)))
 	if stw.gdipFF != 0 {
-		procGdipCreateFont.Call(stw.gdipFF, f32(12), _FontStyleRegular, _UnitPixel, uintptr(unsafe.Pointer(&stw.gdipF)))
+		procGdipCreateFont.Call(stw.gdipFF, f32(fontSize), _FontStyleRegular, _UnitPixel, uintptr(unsafe.Pointer(&stw.gdipF)))
 	}
 	procGdipCreateStringFormat.Call(0, 0, uintptr(unsafe.Pointer(&stw.gdipSF)))
 	if stw.gdipSF != 0 {
@@ -204,11 +216,11 @@ func (stw *StreamingTextWindow) run() {
 	}
 }
 
-func (stw *StreamingTextWindow) createDIB() {
+func (stw *StreamingTextWindow) createDIB(w, h int) {
 	var bmi bitmapInfoHeader
 	bmi.BiSize = uint32(unsafe.Sizeof(bmi))
-	bmi.BiWidth = _STW_WIDTH
-	bmi.BiHeight = -_STW_HEIGHT // top-down
+	bmi.BiWidth = int32(w)
+	bmi.BiHeight = -int32(h) // top-down
 	bmi.BiPlanes = 1
 	bmi.BiBitCount = 32
 
@@ -261,7 +273,11 @@ func (stw *StreamingTextWindow) Hide() {
 func (stw *StreamingTextWindow) Close() {
 	if stw.hwnd != 0 {
 		procPostMessageW.Call(stw.hwnd, uintptr(_WM_CLOSE), 0, 0)
-		<-stw.done
+		select {
+		case <-stw.done:
+		case <-time.After(2 * time.Second):
+			logWarn("StreamingTextWindow.Close() timed out")
+		}
 	}
 }
 
@@ -280,9 +296,9 @@ func (stw *StreamingTextWindow) paint() {
 		return
 	}
 
-	w := int32(_STW_WIDTH)
-	h := int32(_STW_HEIGHT)
-	r := float32(_STW_RADIUS)
+	w := int32(float64(_STW_WIDTH) * stw.scale)
+	h := int32(float64(_STW_HEIGHT) * stw.scale)
+	r := float32(float64(_STW_RADIUS) * stw.scale)
 
 	// Get GDI+ graphics from DIB DC
 	var g uintptr
@@ -364,6 +380,6 @@ func (stw *StreamingTextWindow) paint() {
 		2, // ULW_ALPHA
 	)
 
-	procShowWindow.Call(stw.hwnd, 8) // SW_SHOWNOACTIVATE
+	procShowWindow.Call(stw.hwnd, _SW_SHOWNA) // show without activating
 }
 
