@@ -23,15 +23,14 @@ import (
 )
 
 type LocalSTT struct {
-	mu              sync.Mutex
-	cmd             *exec.Cmd
-	port            int
-	running         bool
-	modelPath       string
-	waitCh          chan error
-	startupLog      *limitedProcessOutput
-	cfg             *Config
-	gpuModeOverride string
+	mu         sync.Mutex
+	cmd        *exec.Cmd
+	port       int
+	running    bool
+	modelPath  string
+	waitCh     chan error
+	startupLog *limitedProcessOutput
+	cfg        *Config
 }
 
 var localSTT LocalSTT
@@ -146,12 +145,9 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 	port := tcpAddr.Port
 	listener.Close()
 
-	gpuMode := s.gpuModeOverride
-	if gpuMode == "" {
-		gpuMode = "auto"
-		if s.cfg != nil {
-			gpuMode = s.cfg.GetGPUAcceleration()
-		}
+	gpuMode := "auto"
+	if s.cfg != nil {
+		gpuMode = s.cfg.GetGPUAcceleration()
 	}
 	if err := EnsureSTTServerRuntime(gpuMode); err != nil {
 		logInfo("STT runtime refresh failed, continuing with installed runtime: %v", err)
@@ -397,13 +393,11 @@ func sttServerArgs(modelPath string, port int, threads int, gpuMode string) []st
 		"--port", fmt.Sprintf("%d", port),
 		"--threads", fmt.Sprintf("%d", threads),
 	}
-	if gpuMode == "disabled" {
+	backend := gpu.RecommendSTTBackend(gpuMode)
+	if gpuMode == "disabled" || backend == gpu.BackendCPU {
 		return append(args, "--no-gpu")
 	}
-	if gpu.RecommendSTTBackend(gpuMode) != gpu.BackendCPU {
-		return append(args, "--flash-attn")
-	}
-	return args
+	return append(args, "--flash-attn")
 }
 
 // sttThreadCount returns the optimal thread count for whisper-server.
