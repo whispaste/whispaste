@@ -28,56 +28,22 @@ async function mergeSelected() {
 
 
 async function confirmDelete(id) {
-  // Check if delete should archive instead
-  let useArchive = false;
+  // Instant soft-delete (moves to trash, no confirmation needed)
   try {
-    if (window.getConfig) {
-      const raw = await window.getConfig();
-      const cfg = JSON.parse(raw);
-      useArchive = cfg.delete_behavior === 'archive';
-    }
-  } catch (e) {}
-
-  if (useArchive) {
-    try {
-      let ok = true;
-      if (window.archiveEntry) ok = await window.archiveEntry(id);
-      if (ok) {
-        if (_expandedId === id) _expandedId = null;
-        _selectedIds.delete(id);
-        showToast(t('notebook.archived'), false);
-      } else {
-        showToast(t('statusError'), true);
-      }
-    } catch (e) {
+    let ok = true;
+    if (window.deleteEntry) ok = await window.deleteEntry(id);
+    if (ok) {
+      if (_expandedId === id) _expandedId = null;
+      _selectedIds.delete(id);
+      showToast(t('notebook.trash_moved'), false);
+    } else {
       showToast(t('statusError'), true);
     }
-    updateSelectionBar();
-    await loadEntries();
-    return;
+  } catch (e) {
+    showToast(t('statusError'), true);
   }
-
-  const confirmed = await showConfirmDialog(
-    t('notebook.confirm_title'),
-    t('notebook.confirm_msg'),
-    { variant: 'danger', confirmText: t('notebook.confirm_delete') }
-  );
-  if (confirmed) {
-    try {
-      let ok = true;
-      if (window.deleteEntry) ok = await window.deleteEntry(id);
-      if (ok) {
-        if (_expandedId === id) _expandedId = null;
-        _selectedIds.delete(id);
-      } else {
-        showToast(t('statusError'), true);
-      }
-    } catch (e) {
-      showToast(t('statusError'), true);
-    }
-    updateSelectionBar();
-    await loadEntries();
-  }
+  updateSelectionBar();
+  await loadEntries();
 }
 
 async function archiveSelected() {
@@ -106,64 +72,29 @@ async function confirmDeleteSelected() {
   const count = _selectedIds.size;
   if (count === 0) return;
 
-  // Check if delete should archive instead
-  let useArchive = false;
-  try {
-    if (window.getConfig) {
-      const raw = await window.getConfig();
-      const cfg = JSON.parse(raw);
-      useArchive = cfg.delete_behavior === 'archive';
-    }
-  } catch (e) {}
-
-  if (useArchive) {
-    const btn = document.getElementById('deleteSelectedBtn');
-    setLoading(btn, true);
-    let archived = 0;
-    for (const id of _selectedIds) {
-      try {
-        if (window.archiveEntry) {
-          const ok = await window.archiveEntry(id);
-          if (ok) archived++;
-        }
-      } catch (e) {}
-    }
-    setLoading(btn, false);
-    if (archived > 0) {
-      clearSelection();
-      await loadEntries();
-      showToast(t('notebook.archived'), false);
-    }
-    return;
+  const btn = document.getElementById('deleteSelectedBtn');
+  setLoading(btn, true);
+  const deleted = [];
+  for (const id of _selectedIds) {
+    try {
+      let ok = true;
+      if (window.deleteEntry) ok = await window.deleteEntry(id);
+      if (ok) {
+        if (_expandedId === id) _expandedId = null;
+        deleted.push(id);
+      }
+    } catch (e) {}
   }
-
-  const confirmed = await showConfirmDialog(
-    t('notebook.confirm_delete_multi_title').replace('{n}', count),
-    t('notebook.confirm_delete_multi_msg').replace('{n}', count),
-    { variant: 'danger', confirmText: t('notebook.confirm_delete') }
-  );
-  if (confirmed) {
-    const btn = document.getElementById('deleteSelectedBtn');
-    setLoading(btn, true);
-    const deleted = [];
-    for (const id of _selectedIds) {
-      try {
-        let ok = true;
-        if (window.deleteEntry) ok = await window.deleteEntry(id);
-        if (ok) {
-          if (_expandedId === id) _expandedId = null;
-          deleted.push(id);
-        }
-      } catch (e) {}
-    }
-    for (const id of deleted) _selectedIds.delete(id);
-    if (deleted.length < count) {
-      showToast(t('statusError'), true);
-    }
-    setLoading(btn, false);
-    updateSelectionBar();
-    await loadEntries();
+  for (const id of deleted) _selectedIds.delete(id);
+  if (deleted.length > 0) {
+    showToast(t('notebook.trash_moved'), false);
   }
+  if (deleted.length < count) {
+    showToast(t('statusError'), true);
+  }
+  setLoading(btn, false);
+  updateSelectionBar();
+  await loadEntries();
 }
 
 function updateSelectionBar() {
@@ -204,6 +135,17 @@ function selectAllVisible() {
 async function _showEntryMenu(id, anchorEl) {
   const entry = _entries.find(e => e.id === id);
   if (!entry) return;
+
+  // Trash view: show restore + permanently delete only
+  if (_activeFilters.trash) {
+    const items = [
+      { icon: icons.archiveRestore || icons.refreshCw, label: t('notebook.restore'), action: () => doRestoreEntry(id) },
+      { divider: true },
+      { icon: icons.trash, label: t('notebook.permanently_delete'), danger: true, action: () => doPermanentlyDelete(id) },
+    ];
+    showPopover(anchorEl, { items });
+    return;
+  }
 
   const hasAudioCached = window.hasAudio ? await window.hasAudio(id).catch(() => false) : false;
   const isPinned = entry.pinned;
@@ -253,6 +195,86 @@ async function _showEntryMenu(id, anchorEl) {
   items.push({ icon: icons.trash, label: t('notebook.delete'), danger: true, action: () => confirmDelete(id) });
 
   showPopover(anchorEl, { items });
+}
+
+/* ── Trash Actions ────────────────────────────────────── */
+
+async function doRestoreEntry(id) {
+  try {
+    let ok = true;
+    if (window.restoreEntry) ok = await window.restoreEntry(id);
+    if (ok) {
+      if (_expandedId === id) _expandedId = null;
+      _selectedIds.delete(id);
+      showToast(t('notebook.restored'), false);
+    } else {
+      showToast(t('statusError'), true);
+    }
+  } catch (e) {
+    showToast(t('statusError'), true);
+  }
+  updateSelectionBar();
+  await loadEntries();
+}
+
+async function doPermanentlyDelete(id) {
+  const confirmed = await showConfirmDialog(
+    t('notebook.confirm_title'),
+    t('notebook.confirm_msg'),
+    { variant: 'danger', confirmText: t('notebook.permanently_delete') }
+  );
+  if (confirmed) {
+    try {
+      let ok = true;
+      if (window.permanentlyDeleteEntry) ok = await window.permanentlyDeleteEntry(id);
+      if (ok) {
+        if (_expandedId === id) _expandedId = null;
+        _selectedIds.delete(id);
+      } else {
+        showToast(t('statusError'), true);
+      }
+    } catch (e) {
+      showToast(t('statusError'), true);
+    }
+    updateSelectionBar();
+    await loadEntries();
+  }
+}
+
+async function doRestoreSelected() {
+  if (_selectedIds.size === 0) return;
+  let count = 0;
+  for (const id of _selectedIds) {
+    try {
+      if (window.restoreEntry) {
+        const ok = await window.restoreEntry(id);
+        if (ok) count++;
+      }
+    } catch (e) {}
+  }
+  if (count > 0) {
+    clearSelection();
+    showToast(t('notebook.restored'), false);
+    await loadEntries();
+  }
+}
+
+async function doEmptyTrash() {
+  const confirmed = await showConfirmDialog(
+    t('notebook.confirm_empty_trash_title'),
+    t('notebook.confirm_empty_trash_msg'),
+    { variant: 'danger', confirmText: t('notebook.empty_trash') }
+  );
+  if (confirmed) {
+    try {
+      if (window.emptyTrash) await window.emptyTrash();
+      showToast(t('notebook.trash_emptied'), false);
+    } catch (e) {
+      showToast(t('statusError'), true);
+    }
+    clearSelection();
+    await loadEntries();
+  }
 }
 
 function showExportMenu(id, anchorEl) {

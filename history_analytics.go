@@ -130,10 +130,10 @@ func (h *History) GetAnalytics(periodDays int) map[string]interface{} {
 
 	// Get real min/max duration from history_entries
 	var minDuration, maxDuration float64
-	minMaxQuery := `SELECT COALESCE(MIN(duration_sec), 0), COALESCE(MAX(duration_sec), 0) FROM history_entries`
+	minMaxQuery := `SELECT COALESCE(MIN(duration_sec), 0), COALESCE(MAX(duration_sec), 0) FROM history_entries WHERE deleted_at IS NULL`
 	if periodDays > 0 {
 		cutoff := time.Now().AddDate(0, 0, -periodDays).Format("2006-01-02")
-		minMaxQuery += ` WHERE substr(timestamp, 1, 10) >= ?`
+		minMaxQuery += ` AND substr(timestamp, 1, 10) >= ?`
 		err = h.db.QueryRow(minMaxQuery, cutoff).Scan(&minDuration, &maxDuration)
 	} else {
 		err = h.db.QueryRow(minMaxQuery).Scan(&minDuration, &maxDuration)
@@ -283,7 +283,7 @@ func (h *History) auditDailyStats() {
 	statsRows.Close()
 
 	// Get history_entries counts per date
-	entryRows, err := h.db.Query(`SELECT substr(timestamp, 1, 10) as date, COUNT(*) FROM history_entries WHERE substr(timestamp, 1, 10) >= ? GROUP BY date`, cutoff)
+	entryRows, err := h.db.Query(`SELECT substr(timestamp, 1, 10) as date, COUNT(*) FROM history_entries WHERE deleted_at IS NULL AND substr(timestamp, 1, 10) >= ? GROUP BY date`, cutoff)
 	if err != nil {
 		logDebug("Audit history_entries query: %v", err)
 		return

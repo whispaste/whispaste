@@ -22,6 +22,11 @@ function updateCounts() {
     window.getArchivedCount().then(c => setCount('countArchived', c));
   }
 
+  // Trash count
+  if (window.getTrashedCount) {
+    window.getTrashedCount().then(c => setCount('countTrash', c));
+  }
+
   // Dynamic categories (always include persisted custom tags with count 0)
   const cats = {};
   _loadCustomTagsInto(cats);
