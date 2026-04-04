@@ -164,8 +164,18 @@ function _renderEntryCard(e) {
               <textarea class="note-input" id="note-input-${e.id}" placeholder="${t('notebook.add_note_placeholder')}" rows="2"></textarea>
               <div class="note-add-actions">
                 <span class="note-shortcut-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd></span>
+                <button class="btn-icon btn-sm voice-note-btn" data-action="voice-note" data-id="${e.id}" title="${t('voice_note.record')}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                </button>
                 <button class="btn-sm btn-accent" data-action="save-note" data-id="${e.id}">${t('notebook.add_note')}</button>
               </div>
+            </div>
+            <div class="voice-note-recording" id="voice-note-recording-${e.id}" style="display:none">
+              <div class="voice-note-indicator">
+                <span class="voice-note-dot"></span>
+                <span class="voice-note-label">${t('voice_note.recording')}</span>
+              </div>
+              <button class="btn-sm btn-danger voice-note-stop-btn" data-action="stop-voice-note" data-id="${e.id}">${t('voice_note.stop')}</button>
             </div>
           </div>
         </div>
@@ -343,6 +353,8 @@ function renderHistory() {
       else if (action === 'toggle-notes') toggleNotesSection(id);
       else if (action === 'toggle-attachments') toggleAttachmentsSection(id);
       else if (action === 'save-note') saveNewNote(id);
+      else if (action === 'voice-note') startVoiceNoteUI(id);
+      else if (action === 'stop-voice-note') stopVoiceNoteUI(id);
       else if (action === 'add-attachment') triggerAttachmentPicker(id);
       else if (action === 'delete-note') handleDeleteNote(btn.dataset.noteId, id);
       else if (action === 'delete-attachment') handleDeleteAttachment(btn.dataset.attId, id);
