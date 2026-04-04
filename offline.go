@@ -110,9 +110,11 @@ func transcribeLocalWithSTT(s *LocalSTT, pcmS16 []byte, sampleRate int, language
 		return "", fmt.Errorf("audio data too short")
 	}
 
+	serverStart := time.Now()
 	if err := startLocalSTTModel(s, modelID); err != nil {
 		return "", err
 	}
+	serverDur := time.Since(serverStart)
 
 	wavData := wav.Encode(pcmS16, uint32(sampleRate), 1, 16)
 	lang := normalizeLanguage(language)
@@ -121,7 +123,11 @@ func transcribeLocalWithSTT(s *LocalSTT, pcmS16 []byte, sampleRate int, language
 	if len(prompt) > 0 && prompt[0] != "" {
 		promptArg = prompt
 	}
+	inferStart := time.Now()
 	text, err := s.Transcribe(wavData, lang, promptArg...)
+	inferDur := time.Since(inferStart)
+	audioDur := float64(len(pcmS16)) / float64(sampleRate*2) // 16-bit mono
+	logInfo("Local STT timing: serverStart=%v inference=%v audioDur=%.1fs model=%s textLen=%d", serverDur, inferDur, audioDur, modelID, len(text))
 	if err != nil {
 		return "", fmt.Errorf("transcribe: %w", err)
 	}

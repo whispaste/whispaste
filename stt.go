@@ -109,6 +109,7 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 
 	if s.running {
 		if s.modelPath == modelPath {
+			logDebug("STT server already running (warm) on port %d", s.port)
 			return fmt.Sprintf("http://%s:%d", loopbackHost, s.port), nil // DevSkim: ignore DS137138 — loopback-only, no TLS needed
 		}
 		logInfo("STT model changed, restarting whisper-server")
@@ -153,6 +154,7 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 	backend := gpu.RecommendSTTBackend(gpuMode)
 	cmd := exec.Command(serverPath, sttServerArgs(modelPath, port, threads, gpuMode)...)
 	logInfo("Starting whisper-server with backend=%s and %d threads (logical CPUs: %d)", backend, threads, runtime.NumCPU())
+	coldStartBegin := time.Now()
 	logDebug("whisper-server command: %s", strings.Join(cmd.Args, " "))
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	startupLog := &limitedProcessOutput{}
@@ -180,7 +182,7 @@ func (s *LocalSTT) Start(modelPath string) (string, error) {
 		return "", fmt.Errorf("whisper-server not ready: %w", err)
 	}
 
-	logInfo("Local STT started on port %d", port)
+	logInfo("Local STT cold start completed in %v on port %d", time.Since(coldStartBegin), port)
 	return endpoint, nil
 }
 

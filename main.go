@@ -538,7 +538,11 @@ func main() {
 		case StateTranscribing:
 			// Stop preview STT server BEFORE main transcription to free GPU resources.
 			// The preview goroutine's defer also calls Stop() — safe to call twice (mutex-guarded).
+			previewStopStart := time.Now()
 			previewSTT.Stop()
+			if d := time.Since(previewStopStart); d > 100*time.Millisecond {
+				logInfo("Preview STT shutdown took %v", d)
+			}
 
 			if playSounds {
 				PlayFeedback(SoundRecordStop)
@@ -573,6 +577,7 @@ func main() {
 			}()
 
 			// Voice Activity Detection or simple silence trimming
+			vadStart := time.Now()
 			vadApplied := false
 			if cfg.GetUseVAD() {
 				origPCM := make([]byte, len(pcm))
@@ -622,6 +627,7 @@ func main() {
 					pcm = stripped
 				}
 			}
+			logInfo("Audio preprocessing took %v (vadApplied=%v pcmBytes=%d)", time.Since(vadStart), vadApplied, len(pcm))
 
 			// Transcribe in background
 			go func() {
@@ -705,6 +711,7 @@ func main() {
 					}
 				}
 				processingDurationSec := time.Since(transcribeStart).Seconds()
+				logInfo("Total transcription pipeline: %.1fs (useLocal=%v model=%s)", processingDurationSec, useLocal, modelName)
 				if err != nil {
 					if errors.Is(err, context.Canceled) {
 						logInfo("Transcription cancelled by user")
