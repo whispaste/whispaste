@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/theme/theme_provider.dart';
+import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
 
 /// Settings page — organized sections with interactive controls.
@@ -228,7 +229,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget _sectionDivider() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
+      padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
       child: Divider(
         color: isDark
             ? WpColorsDark.borderSubtle
@@ -248,8 +249,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: WpSpacing.xxxl),
+    return WpPageShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -257,6 +257,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           WpSection(
             title: 'Audio',
             subtitle: 'Microphone and input settings',
+            padding: EdgeInsets.zero,
             child: Column(
               children: [
                 _SettingRow(
@@ -300,6 +301,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           WpSection(
             title: 'Recording Safety',
             subtitle: 'Auto-detection and auto-stop',
+            padding: EdgeInsets.zero,
             collapsible: true,
             child: Column(
               children: [
@@ -338,6 +340,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           WpSection(
             title: 'Post-Processing',
             subtitle: 'AI text enhancement after transcription',
+            padding: EdgeInsets.zero,
             child: Column(
               children: [
                 _SettingRow(
@@ -383,6 +386,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           WpSection(
             title: 'Speech Recognition',
             subtitle: 'STT engine and model selection',
+            padding: EdgeInsets.zero,
             collapsible: true,
             child: Column(
               children: [
@@ -441,6 +445,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           WpSection(
             title: 'Interface',
             subtitle: 'Appearance and behavior',
+            padding: EdgeInsets.zero,
             child: Column(
               children: [
                 _SettingRow(
@@ -500,6 +505,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           WpSection(
             title: 'Cloud Providers',
             subtitle: 'API keys for online services',
+            padding: EdgeInsets.zero,
             collapsible: true,
             initiallyExpanded: false,
             child: Column(
@@ -585,7 +591,8 @@ class _SettingRowState extends State<_SettingRow> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: WpMotion.fast,
+        duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+        curve: WpMotion.defaultCurve,
         padding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.sm,
           vertical: WpSpacing.sm,
