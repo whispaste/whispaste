@@ -40,7 +40,7 @@ var (
 	}
 )
 
-// ProfileForPreset maps a smart-mode preset name to an inference profile.
+// ProfileForPreset maps a text-refinement preset name to an inference profile.
 func ProfileForPreset(preset string) Profile {
 	switch preset {
 	case "cleanup", "concise":

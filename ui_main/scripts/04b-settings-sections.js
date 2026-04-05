@@ -222,7 +222,7 @@ function updateAutoPasteDelayLabel(val) {
   if (el) el.textContent = val + ' ms';
 }
 
-/* ── Smart Mode Visibility ────────────────────────────── */
+/* ── Text Refinement Visibility ────────────────────────────── */
 function updateSmartModeVisibility() {
   const toggle = document.getElementById('toggle-smartmode');
   const on = toggle ? toggle.checked : false;
@@ -250,7 +250,7 @@ function selectSmartPreset(preset) {
   autoSave();
 }
 
-/* ── Smart Mode Provider ──────────────────────────────── */
+/* ── Text Refinement Provider ──────────────────────────────── */
 
 async function initSmartProvider() {
   await updateLLMStatus();

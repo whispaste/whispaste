@@ -1,4 +1,4 @@
-/* ── Smart Mode Quick Switcher (status bar popover) ──── */
+/* ── Text Refinement Quick Switcher (status bar popover) ──── */
 
 async function showSmartSwitcher(anchor) {
   let cfg = {};
@@ -15,9 +15,9 @@ async function showSmartSwitcher(anchor) {
   };
 
   const presetLabels = {
-    cleanup: t('smartPresetCleanup'),
-    concise: t('smartPresetConcise'),
-    translate: t('smartPresetTranslate'),
+    cleanup: t('smart.preset.cleanup'),
+    concise: t('smart.preset.concise'),
+    translate: t('smart.preset.translate'),
   };
 
   const items = [];

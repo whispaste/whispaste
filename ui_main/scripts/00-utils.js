@@ -215,7 +215,7 @@ function updateStatusBar(cfg) {
   if (hotkeyLabel) hotkeyLabel.textContent = formatHotkeyParts([...mods, key]).join('+');
   if (hotkeyChip) hotkeyChip.title = t('statusbar.hotkey_tip');
 
-  // Smart Mode chip — shows preset name when active
+  // Text Refinement chip — shows preset name when active
   const smartLabel = document.getElementById('statusSmartLabel');
   const smartChip = document.getElementById('statusSmart');
   if (smartLabel) {

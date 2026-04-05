@@ -176,7 +176,7 @@ type AppTray struct {
 	history               *History
 	balloonShown          bool // tracks whether minimize-to-tray balloon was shown this session
 	cfg                   *Config
-	smartItem             *systray.MenuItem  // single smart mode toggle
+	smartItem             *systray.MenuItem  // single text refinement toggle
 	autoPasteItem         *systray.MenuItem  // auto-paste toggle
 	mStatus              *systray.MenuItem  // disabled status line
 	mPreview             *systray.MenuItem  // last transcription preview
@@ -549,7 +549,7 @@ func (t *AppTray) onReady() {
 	t.mToggle = systray.AddMenuItem(toggleLabel, T("tray.start_record"))
 	systray.AddSeparator()
 
-	// Smart Mode — simple on/off toggle (preset selection in Settings)
+	// Text Refinement — simple on/off toggle (preset selection in Settings)
 	mSmart := systray.AddMenuItem(T("tray.smart_mode"), T("tray.smart_mode"))
 	t.smartItem = mSmart
 	t.updateSmartCheck()
@@ -560,7 +560,7 @@ func (t *AppTray) onReady() {
 			t.cfg.SmartMode = !t.cfg.SmartMode
 			t.cfg.mu.Unlock()
 			if err := t.cfg.Save(); err != nil {
-				logWarn("Failed to save smart mode: %v", err)
+				logWarn("Failed to save text refinement: %v", err)
 			}
 			t.updateSmartCheck()
 			if t.onSaved != nil {
@@ -859,7 +859,7 @@ func relativeTime(ts string) string {
 	}
 }
 
-// updateSmartCheck updates the tray Smart Mode item check state.
+// updateSmartCheck updates the tray text refinement item check state.
 func (t *AppTray) updateSmartCheck() {
 	if t.smartItem == nil {
 		return
