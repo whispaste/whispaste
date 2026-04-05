@@ -48,8 +48,10 @@ config.json
 skills-lock.json
 skills.yaml
 .github/copilot-instructions.md
+# Internal docs (local only)
 docs/AMBOSS_PROJECT_PLAN.md
-
+docs/CRASH-REPORTING-SETUP.md
+docs/SUPABASE-SETUP.md
 docs/STORE-SUBMISSION-GUIDE.md
 docs/competitive-gap-analysis.md
 docs/deep-research-report.md
