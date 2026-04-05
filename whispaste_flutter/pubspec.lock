@@ -315,6 +315,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_lucide_animated:
+    dependency: "direct main"
+    description:
+      name: flutter_lucide_animated
+      sha256: fa27f8289befe5a2028dc1aa2ec825a9db29d1c691650749a637291cfa92d6a4
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.4"
   flutter_riverpod:
     dependency: "direct main"
     description:
