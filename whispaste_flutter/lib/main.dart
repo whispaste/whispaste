@@ -5,43 +5,52 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'core/config/settings_provider.dart';
+import 'core/logging/app_monitoring.dart';
 
 Future<ProviderContainer> bootstrapAppContainer({
   List overrides = const [],
+  List<ProviderObserver> observers = const [],
 }) async {
-  final container = ProviderContainer(overrides: [...overrides]);
+  final container = ProviderContainer(
+    overrides: [...overrides],
+    observers: observers,
+  );
   await container.read(settingsProvider.future);
   return container;
 }
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  await AppMonitoring.bootstrap(appRunner: () async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // Desktop window setup
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    await windowManager.ensureInitialized();
-    const windowOptions = WindowOptions(
-      size: Size(1100, 750),
-      minimumSize: Size(800, 550),
-      center: true,
-      title: 'WhisPaste',
-      titleBarStyle: TitleBarStyle.hidden,
+    // Desktop window setup
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      await windowManager.ensureInitialized();
+      const windowOptions = WindowOptions(
+        size: Size(1100, 750),
+        minimumSize: Size(800, 550),
+        center: true,
+        title: 'WhisPaste',
+        titleBarStyle: TitleBarStyle.hidden,
+      );
+      await windowManager.waitUntilReadyToShow(windowOptions, () async {
+        await windowManager.show();
+        await windowManager.focus();
+      });
+    }
+
+    // TODO: Initialize Go FFI bridge
+    // TODO: Initialize system tray
+
+    final container = await bootstrapAppContainer(
+      observers: const [CrashProviderObserver()],
     );
-    await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
-  }
 
-  // TODO: Initialize Go FFI bridge
-  // TODO: Initialize system tray
-
-  final container = await bootstrapAppContainer();
-
-  runApp(
-    UncontrolledProviderScope(
-      container: container,
-      child: const WhisPasteApp(),
-    ),
-  );
+    runApp(
+      UncontrolledProviderScope(
+        container: container,
+        child: const WhisPasteApp(),
+      ),
+    );
+  });
 }
