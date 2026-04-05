@@ -1026,4 +1026,29 @@ class L10nEn extends L10n {
 
   @override
   String get settingsPrivacyHintLocal => 'Your voice never leaves your device';
+
+  @override
+  String get errorSttServerNotFound =>
+      'Speech engine not found. Please download a speech model in Settings.';
+
+  @override
+  String get errorSttModelNotFound =>
+      'Speech model not found. Please download it in Settings.';
+
+  @override
+  String get errorSttModelUnknown =>
+      'Unknown speech model. Please select a valid model in Settings.';
+
+  @override
+  String get errorRecordingFailed => 'Failed to start recording';
+
+  @override
+  String get errorNoAudioRecorded => 'No audio recorded';
+
+  @override
+  String get errorTranscriptionEmpty =>
+      'Transcription returned empty text — please try again';
+
+  @override
+  String get errorSttServerFailed => 'Speech engine failed to start';
 }

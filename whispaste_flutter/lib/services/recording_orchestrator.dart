@@ -84,7 +84,7 @@ class RecordingOrchestrator extends Notifier<void> {
       final audioStatus = ref.read(audioServiceProvider);
       if (audioStatus.captureState == AudioCaptureState.error) {
         notifier.fail(
-          audioStatus.errorMessage ?? 'Failed to start recording',
+          audioStatus.errorMessage ?? 'recording_failed',
         );
         return;
       }
@@ -118,7 +118,7 @@ class RecordingOrchestrator extends Notifier<void> {
       wavPath = await audioNotifier.stopRecording();
 
       if (wavPath == null) {
-        notifier.fail('No audio recorded');
+        notifier.fail('no_audio_recorded');
         return;
       }
 
@@ -137,7 +137,7 @@ class RecordingOrchestrator extends Notifier<void> {
       final sttStatus = ref.read(sttServiceProvider);
       if (!sttStatus.isReady) {
         notifier.fail(
-          sttStatus.errorMessage ?? 'STT server failed to start',
+          sttStatus.errorMessage ?? 'stt_server_failed',
         );
         return;
       }
@@ -150,7 +150,7 @@ class RecordingOrchestrator extends Notifier<void> {
       );
 
       if (transcript.isEmpty) {
-        notifier.fail('Transcription returned empty text');
+        notifier.fail('transcription_empty');
         return;
       }
 
@@ -188,8 +188,9 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Validates STT prerequisites before starting a recording.
   ///
-  /// Returns a user-friendly error message if something is missing,
-  /// or `null` when everything is ready.
+  /// Returns an error code string if something is missing,
+  /// or `null` when everything is ready. Error codes are mapped
+  /// to localized messages in the UI layer.
   String? _runPreflight() {
     final config = ref.read(effectiveConfigProvider);
 
@@ -200,24 +201,21 @@ class RecordingOrchestrator extends Notifier<void> {
         'Preflight FAIL: whisper-server not found at $serverPath',
         name: 'Orchestrator',
       );
-      return 'whisper-server binary not found. '
-          'Please download STT models in Settings → Speech-to-Text.';
+      return 'stt_server_not_found';
     }
 
     // Check model file.
     final modelId = config.localModelId;
     final modelPath = sttModelPath(modelId);
     if (modelPath == null) {
-      return 'Unknown STT model "$modelId". '
-          'Please select a valid model in Settings → Speech-to-Text.';
+      return 'stt_model_unknown';
     }
     if (!File(modelPath).existsSync()) {
       dev.log(
         'Preflight FAIL: model not found at $modelPath',
         name: 'Orchestrator',
       );
-      return 'STT model "$modelId" not found. '
-          'Please download it in Settings → Speech-to-Text.';
+      return 'stt_model_not_found';
     }
 
     dev.log('Preflight OK: server=$serverPath model=$modelPath',

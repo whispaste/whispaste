@@ -57,6 +57,28 @@ class WhisPasteApp extends ConsumerWidget {
   }
 }
 
+/// Maps error codes from the recording orchestrator to localized messages.
+String _localizeError(L10n l10n, String errorCode) {
+  switch (errorCode) {
+    case 'stt_server_not_found':
+      return l10n.errorSttServerNotFound;
+    case 'stt_model_not_found':
+      return l10n.errorSttModelNotFound;
+    case 'stt_model_unknown':
+      return l10n.errorSttModelUnknown;
+    case 'recording_failed':
+      return l10n.errorRecordingFailed;
+    case 'no_audio_recorded':
+      return l10n.errorNoAudioRecorded;
+    case 'transcription_empty':
+      return l10n.errorTranscriptionEmpty;
+    case 'stt_server_failed':
+      return l10n.errorSttServerFailed;
+    default:
+      return errorCode; // Pass through unknown errors as-is
+  }
+}
+
 /// Navigation items — built from localized strings.
 List<WpNavItem> _navItems(L10n l10n) => [
   WpNavItem(id: 'history', icon: LucideIcons.clock3, label: l10n.navHistory),
@@ -103,7 +125,7 @@ class _AppShell extends ConsumerWidget {
       if (next.isError && next.errorMessage != null) {
         WpToast.show(
           context,
-          message: next.errorMessage!,
+          message: _localizeError(l10n, next.errorMessage!),
           type: WpToastType.error,
           duration: const Duration(seconds: 5),
           actionLabel: l10n.actionDismiss,
