@@ -17,28 +17,39 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
+  // -- Interface --
+  bool _launchAtStartup = false;
+  bool _showNotifications = true;
+
   // -- Audio --
   String _microphone = 'Default';
   double _inputGain = 100;
   bool _pushToTalk = false;
-
-  // -- Recording Safety --
-  double _deadMicTimeout = 3;
-  double _autoStopSilence = 0;
-
-  // -- Post-Processing --
-  bool _postProcessEnabled = true;
-  String _postProcessPreset = 'Clean up';
-  String _postProcessProvider = 'Local';
 
   // -- Speech Recognition --
   String _sttProvider = 'On Device (Private)';
   String _sttModel = 'High Quality (Medium)';
   String _sttLanguage = 'Auto-detect';
 
-  // -- Interface --
-  bool _launchAtStartup = false;
-  bool _showNotifications = true;
+  // -- Text Enhancement (Post-Processing) --
+  bool _postProcessEnabled = true;
+  String _postProcessPreset = 'Clean up';
+  String _postProcessProvider = 'Local';
+
+  // -- Recording Safety --
+  double _deadMicTimeout = 3;
+  double _autoStopSilence = 0;
+
+  // -- Sound & Feedback --
+  bool _recordStartSound = true;
+  bool _recordStopSound = true;
+  bool _transcriptionCompleteSound = true;
+
+  // -- Overlay & Floating Button --
+  bool _showOverlay = true;
+  bool _showFloatingButton = true;
+  double _floatingButtonOpacity = 0.9;
+  String _floatingButtonSize = 'Normal';
 
   // -- Cloud Providers --
   final _openAiKeyCtrl = TextEditingController();
@@ -255,7 +266,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Privacy note
+          // ── Privacy Note ──
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.md,
@@ -298,197 +309,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           const SizedBox(height: WpSpacing.md),
 
-          // — Audio —
-          WpSection(
-            title: 'Audio',
-            subtitle: 'Microphone and recording',
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                _SettingRow(
-                  icon: LucideIcons.mic,
-                  label: 'Microphone',
-                  trailing: _dropdown(
-                    value: _microphone,
-                    items: const ['Default', 'Headset Mic', 'USB Mic'],
-                    onChanged: (v) =>
-                        setState(() => _microphone = v!),
-                  ),
-                ),
-                _SettingRow(
-                  icon: LucideIcons.gauge,
-                  label: 'Microphone Volume',
-                  trailing: _slider(
-                    value: _inputGain,
-                    min: 0,
-                    max: 300,
-                    divisions: 60,
-                    valueLabel: '${_inputGain.round()}%',
-                    onChanged: (v) =>
-                        setState(() => _inputGain = v),
-                  ),
-                ),
-                _SettingRow(
-                  icon: LucideIcons.hand,
-                  label: 'Hold to Record',
-                  trailing: _toggle(
-                    value: _pushToTalk,
-                    onChanged: (v) =>
-                        setState(() => _pushToTalk = v),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _sectionDivider(),
-
-          // — Recording Safety —
-          WpSection(
-            title: 'Recording Safety',
-            subtitle: 'Automatic checks and safeguards',
-            padding: EdgeInsets.zero,
-            collapsible: true,
-            initiallyExpanded: false,
-            child: Column(
-              children: [
-                _SettingRow(
-                  icon: LucideIcons.shieldAlert,
-                  label: 'Silent Mic Detection',
-                  trailing: _slider(
-                    value: _deadMicTimeout,
-                    min: 0,
-                    max: 10,
-                    divisions: 10,
-                    valueLabel: _fmtSeconds(_deadMicTimeout),
-                    onChanged: (v) =>
-                        setState(() => _deadMicTimeout = v),
-                  ),
-                ),
-                _SettingRow(
-                  icon: LucideIcons.timerOff,
-                  label: 'Auto-Stop After Silence',
-                  trailing: _slider(
-                    value: _autoStopSilence,
-                    min: 0,
-                    max: 10,
-                    divisions: 10,
-                    valueLabel: _fmtSeconds(_autoStopSilence),
-                    onChanged: (v) =>
-                        setState(() => _autoStopSilence = v),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _sectionDivider(),
-
-          // — Text Enhancement (Post-Processing) —
-          WpSection(
-            title: 'Text Enhancement',
-            subtitle: 'Improve your dictated text automatically',
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                _SettingRow(
-                  icon: LucideIcons.sparkles,
-                  label: 'Enabled',
-                  trailing: _toggle(
-                    value: _postProcessEnabled,
-                    onChanged: (v) =>
-                        setState(() => _postProcessEnabled = v),
-                  ),
-                ),
-                _SettingRow(
-                  icon: LucideIcons.wandSparkles,
-                  label: 'Style',
-                  trailing: _dropdown(
-                    value: _postProcessPreset,
-                    items: const ['Clean up', 'Concise', 'Translate'],
-                    onChanged: (v) =>
-                        setState(() => _postProcessPreset = v!),
-                  ),
-                ),
-                _SettingRow(
-                  icon: LucideIcons.server,
-                  label: 'Service',
-                  trailing: _dropdown(
-                    value: _postProcessProvider,
-                    items: const [
-                      'Local',
-                      'OpenAI',
-                      'Anthropic',
-                      'Groq',
-                    ],
-                    onChanged: (v) =>
-                        setState(() => _postProcessProvider = v!),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _sectionDivider(),
-
-          // — Speech Recognition —
-          WpSection(
-            title: 'Speech Recognition',
-            subtitle: 'Voice recognition quality and service',
-            padding: EdgeInsets.zero,
-            collapsible: true,
-            initiallyExpanded: false,
-            child: Column(
-              children: [
-                _SettingRow(
-                  icon: LucideIcons.cpu,
-                  label: 'Service',
-                  trailing: _dropdown(
-                    value: _sttProvider,
-                    items: const [
-                      'On Device (Private)',
-                      'OpenAI',
-                      'Groq',
-                      'Deepgram',
-                    ],
-                    onChanged: (v) =>
-                        setState(() => _sttProvider = v!),
-                  ),
-                ),
-                _SettingRow(
-                  icon: LucideIcons.brain,
-                  label: 'Quality',
-                  trailing: _dropdown(
-                    value: _sttModel,
-                    items: const [
-                      'Fast (Tiny)',
-                      'Balanced (Small)',
-                      'High Quality (Medium)',
-                      'Best Quality (Large)',
-                    ],
-                    onChanged: (v) =>
-                        setState(() => _sttModel = v!),
-                  ),
-                ),
-                _SettingRow(
-                  icon: LucideIcons.languages,
-                  label: 'Language',
-                  trailing: _dropdown(
-                    value: _sttLanguage,
-                    items: const [
-                      'Auto-detect',
-                      'English',
-                      'German',
-                      'French',
-                      'Spanish',
-                    ],
-                    onChanged: (v) =>
-                        setState(() => _sttLanguage = v!),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _sectionDivider(),
-
-          // — Interface —
+          // ── Interface ──
           WpSection(
             title: 'Interface',
             subtitle: 'Appearance and behavior',
@@ -551,13 +372,290 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           _sectionDivider(),
 
-          // — Cloud Providers —
+          // ── Audio ──
+          WpSection(
+            title: 'Audio',
+            subtitle: 'Microphone and recording',
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _SettingRow(
+                  icon: LucideIcons.mic,
+                  label: 'Microphone',
+                  trailing: _dropdown(
+                    value: _microphone,
+                    items: const ['Default', 'Headset Mic', 'USB Mic'],
+                    onChanged: (v) =>
+                        setState(() => _microphone = v!),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.gauge,
+                  label: 'Microphone Volume',
+                  trailing: _slider(
+                    value: _inputGain,
+                    min: 0,
+                    max: 300,
+                    divisions: 60,
+                    valueLabel: '${_inputGain.round()}%',
+                    onChanged: (v) =>
+                        setState(() => _inputGain = v),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.hand,
+                  label: 'Hold to Record',
+                  trailing: _toggle(
+                    value: _pushToTalk,
+                    onChanged: (v) =>
+                        setState(() => _pushToTalk = v),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _sectionDivider(),
+
+          // ── Speech Recognition ──
+          WpSection(
+            title: 'Speech Recognition',
+            subtitle: 'Voice recognition quality and service',
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _SettingRow(
+                  icon: LucideIcons.cpu,
+                  label: 'Service',
+                  trailing: _dropdown(
+                    value: _sttProvider,
+                    items: const [
+                      'On Device (Private)',
+                      'OpenAI',
+                      'Groq',
+                      'Deepgram',
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _sttProvider = v!),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.brain,
+                  label: 'Quality',
+                  trailing: _dropdown(
+                    value: _sttModel,
+                    items: const [
+                      'Fast (Tiny)',
+                      'Balanced (Small)',
+                      'High Quality (Medium)',
+                      'Best Quality (Large)',
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _sttModel = v!),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.languages,
+                  label: 'Language',
+                  trailing: _dropdown(
+                    value: _sttLanguage,
+                    items: const [
+                      'Auto-detect',
+                      'English',
+                      'German',
+                      'French',
+                      'Spanish',
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _sttLanguage = v!),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _sectionDivider(),
+
+          // ── Text Enhancement ──
+          WpSection(
+            title: 'Text Enhancement',
+            subtitle: 'Improve your dictated text automatically',
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _SettingRow(
+                  icon: LucideIcons.sparkles,
+                  label: 'Enabled',
+                  trailing: _toggle(
+                    value: _postProcessEnabled,
+                    onChanged: (v) =>
+                        setState(() => _postProcessEnabled = v),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.wandSparkles,
+                  label: 'Style',
+                  trailing: _dropdown(
+                    value: _postProcessPreset,
+                    items: const ['Clean up', 'Concise', 'Translate'],
+                    onChanged: (v) =>
+                        setState(() => _postProcessPreset = v!),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.server,
+                  label: 'Service',
+                  trailing: _dropdown(
+                    value: _postProcessProvider,
+                    items: const [
+                      'Local',
+                      'OpenAI',
+                      'Anthropic',
+                      'Groq',
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _postProcessProvider = v!),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _sectionDivider(),
+
+          // ── Recording Safety ──
+          WpSection(
+            title: 'Recording Safety',
+            subtitle: 'Automatic checks and safeguards',
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _SettingRow(
+                  icon: LucideIcons.shieldAlert,
+                  label: 'Silent Mic Detection',
+                  trailing: _slider(
+                    value: _deadMicTimeout,
+                    min: 0,
+                    max: 10,
+                    divisions: 10,
+                    valueLabel: _fmtSeconds(_deadMicTimeout),
+                    onChanged: (v) =>
+                        setState(() => _deadMicTimeout = v),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.timerOff,
+                  label: 'Auto-Stop After Silence',
+                  trailing: _slider(
+                    value: _autoStopSilence,
+                    min: 0,
+                    max: 10,
+                    divisions: 10,
+                    valueLabel: _fmtSeconds(_autoStopSilence),
+                    onChanged: (v) =>
+                        setState(() => _autoStopSilence = v),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _sectionDivider(),
+
+          // ── Sound & Feedback ──
+          WpSection(
+            title: 'Sound & Feedback',
+            subtitle: 'Audio cues for recording events',
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _SettingRow(
+                  icon: LucideIcons.volume2,
+                  label: 'Record Start Sound',
+                  trailing: _toggle(
+                    value: _recordStartSound,
+                    onChanged: (v) =>
+                        setState(() => _recordStartSound = v),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.volumeX,
+                  label: 'Record Stop Sound',
+                  trailing: _toggle(
+                    value: _recordStopSound,
+                    onChanged: (v) =>
+                        setState(() => _recordStopSound = v),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.bellRing,
+                  label: 'Transcription Complete Sound',
+                  trailing: _toggle(
+                    value: _transcriptionCompleteSound,
+                    onChanged: (v) =>
+                        setState(() => _transcriptionCompleteSound = v),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _sectionDivider(),
+
+          // ── Overlay & Floating Button ──
+          WpSection(
+            title: 'Overlay & Floating Button',
+            subtitle: 'On-screen recording controls',
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _SettingRow(
+                  icon: LucideIcons.layers,
+                  label: 'Show Overlay',
+                  trailing: _toggle(
+                    value: _showOverlay,
+                    onChanged: (v) =>
+                        setState(() => _showOverlay = v),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.move,
+                  label: 'Show Floating Button',
+                  trailing: _toggle(
+                    value: _showFloatingButton,
+                    onChanged: (v) =>
+                        setState(() => _showFloatingButton = v),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.circleDot,
+                  label: 'Floating Button Opacity',
+                  trailing: _slider(
+                    value: _floatingButtonOpacity,
+                    min: 0.1,
+                    max: 1.0,
+                    divisions: 9,
+                    valueLabel:
+                        '${(_floatingButtonOpacity * 100).round()}%',
+                    onChanged: (v) =>
+                        setState(() => _floatingButtonOpacity = v),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.maximize2,
+                  label: 'Floating Button Size',
+                  trailing: _dropdown(
+                    value: _floatingButtonSize,
+                    items: const ['Small', 'Normal', 'Large'],
+                    onChanged: (v) =>
+                        setState(() => _floatingButtonSize = v!),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _sectionDivider(),
+
+          // ── Cloud Providers ──
           WpSection(
             title: 'Cloud Providers',
             subtitle: 'API keys for online services',
             padding: EdgeInsets.zero,
-            collapsible: true,
-            initiallyExpanded: false,
             child: Column(
               children: [
                 _SettingRow(
@@ -619,6 +717,7 @@ class _SettingRow extends StatefulWidget {
     required this.icon,
     required this.label,
     required this.trailing,
+    // ignore: unused_element_parameter
     this.subtitle,
   });
 
