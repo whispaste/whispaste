@@ -92,7 +92,7 @@ class _WindowButtonState extends State<_WindowButton> {
       child: GestureDetector(
         onTap: widget.onPressed,
         child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+          duration: WpMotion.hoverIn,
           curve: WpMotion.defaultCurve,
           width: 40,
           height: 32,
@@ -161,7 +161,7 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
           if (mounted) setState(() => _isMaximized = !_isMaximized);
         },
         child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+          duration: WpMotion.hoverIn,
           curve: WpMotion.defaultCurve,
           width: 40,
           height: 32,

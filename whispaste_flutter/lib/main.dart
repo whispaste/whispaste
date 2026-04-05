@@ -2,7 +2,17 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
+
 import 'app.dart';
+import 'core/config/settings_provider.dart';
+
+Future<ProviderContainer> bootstrapAppContainer({
+  List overrides = const [],
+}) async {
+  final container = ProviderContainer(overrides: [...overrides]);
+  await container.read(settingsProvider.future);
+  return container;
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,9 +36,12 @@ Future<void> main() async {
   // TODO: Initialize Go FFI bridge
   // TODO: Initialize system tray
 
+  final container = await bootstrapAppContainer();
+
   runApp(
-    const ProviderScope(
-      child: WhisPasteApp(),
+    UncontrolledProviderScope(
+      container: container,
+      child: const WhisPasteApp(),
     ),
   );
 }

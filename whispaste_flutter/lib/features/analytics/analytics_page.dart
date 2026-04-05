@@ -2,8 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' show NumberFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/page_shell.dart';
@@ -22,34 +24,18 @@ class _SampleAnalytics {
   int get rawTotalDurationMinutes => 1112;
   int get rawWordsDictated => 89421;
   int get rawTimeSavedMinutes => 255;
-  String get recordingsTrend => '+12% this week';
-
-  // Activity chart — last 7 days (Mon–Sun)
-  List<String> get activityDays => const [
-        'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
-      ];
   List<double> get activityValues => const [32, 45, 28, 61, 54, 18, 39];
 
   // Model usage
   List<_ModelUsage> get modelUsage => const [
-        _ModelUsage('Whisper Large v3', 847, 0.68),
-        _ModelUsage('OpenAI Whisper', 274, 0.22),
-        _ModelUsage('Groq Whisper', 126, 0.10),
-      ];
-
-  // Duration distribution
-  List<_DurationBucket> get durationBuckets => const [
-        _DurationBucket('< 15s', 312, 0.25),
-        _DurationBucket('15–30s', 436, 0.35),
-        _DurationBucket('30–60s', 287, 0.23),
-        _DurationBucket('1–3m', 162, 0.13),
-        _DurationBucket('> 3m', 50, 0.04),
-      ];
+    _ModelUsage('Whisper Large v3', 847, 0.68),
+    _ModelUsage('OpenAI Whisper', 274, 0.22),
+    _ModelUsage('Groq Whisper', 126, 0.10),
+  ];
 
   // Cost & savings
   String get localSavings => '\$12.45';
   String get cloudCost => '\$3.21';
-  String get monthlyTrend => '↓ 18% vs last month';
 }
 
 class _ModelUsage {
@@ -78,6 +64,7 @@ class AnalyticsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     const data = _SampleAnalytics.instance;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = L10n.of(context);
 
     return WpPageShell(
       child: Column(
@@ -110,8 +97,7 @@ class AnalyticsPage extends ConsumerWidget {
                 const SizedBox(width: WpSpacing.sm),
                 Expanded(
                   child: Text(
-                    'Preview — showing sample data. '
-                    'Real analytics will appear once you start recording.',
+                    l10n.analyticsPreviewBanner,
                     style: TextStyle(
                       fontSize: 12.5,
                       color: isDark
@@ -128,8 +114,8 @@ class AnalyticsPage extends ConsumerWidget {
 
           // ── Row 1: Hero stat cards ──────────────────────────────
           WpSection(
-            title: 'Overview',
-            subtitle: 'Your dictation stats at a glance',
+            title: l10n.analyticsOverview,
+            subtitle: l10n.analyticsOverviewSubtitle,
             padding: EdgeInsets.zero,
             child: _HeroStatsRow(data: data, isDark: isDark),
           ),
@@ -138,7 +124,7 @@ class AnalyticsPage extends ConsumerWidget {
 
           // ── Row 2: Activity chart + Model usage ────────────────
           WpSection(
-            title: 'Activity',
+            title: l10n.analyticsActivity,
             padding: EdgeInsets.zero,
             child: WpTwoPanel(
               left: _ActivityChartPanel(data: data, isDark: isDark),
@@ -150,7 +136,7 @@ class AnalyticsPage extends ConsumerWidget {
 
           // ── Row 3: Duration distribution + Cost overview ───────
           WpSection(
-            title: 'Insights',
+            title: l10n.analyticsInsights,
             padding: EdgeInsets.zero,
             child: WpTwoPanel(
               left: _DurationDistPanel(data: data, isDark: isDark),
@@ -174,21 +160,33 @@ class AnalyticsPage extends ConsumerWidget {
 // Helpers
 // ---------------------------------------------------------------------------
 
-String _commaFormat(int v) {
-  final s = v.toString();
-  final buf = StringBuffer();
-  for (var i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
-    buf.write(s[i]);
-  }
-  return buf.toString();
+String _commaFormat(String localeName, int value) {
+  return NumberFormat.decimalPattern(localeName).format(value);
 }
 
-String _durationFormat(int totalMinutes) {
+String _durationFormat(L10n l10n, int totalMinutes) {
   final h = totalMinutes ~/ 60;
   final m = totalMinutes % 60;
-  return '${h}h ${m}m';
+  return l10n.analyticsDurationHoursMinutes(h, m);
 }
+
+List<String> _activityDayLabels(L10n l10n) => [
+  l10n.analyticsDayMon,
+  l10n.analyticsDayTue,
+  l10n.analyticsDayWed,
+  l10n.analyticsDayThu,
+  l10n.analyticsDayFri,
+  l10n.analyticsDaySat,
+  l10n.analyticsDaySun,
+];
+
+List<_DurationBucket> _durationBuckets(L10n l10n) => [
+  _DurationBucket(l10n.analyticsDurationLt15s, 312, 0.25),
+  _DurationBucket(l10n.analyticsDuration15To30s, 436, 0.35),
+  _DurationBucket(l10n.analyticsDuration30To60s, 287, 0.23),
+  _DurationBucket(l10n.analyticsDuration1To3m, 162, 0.13),
+  _DurationBucket(l10n.analyticsDurationGt3m, 50, 0.04),
+];
 
 // ---------------------------------------------------------------------------
 // Panel header with accent underline (renders directly on surface)
@@ -242,9 +240,7 @@ class _PanelHeader extends StatelessWidget {
           height: 1.5,
           width: 40,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [accent, accent.withAlpha(0)],
-            ),
+            gradient: LinearGradient(colors: [accent, accent.withAlpha(0)]),
             borderRadius: WpRadius.borderFull,
           ),
         ),
@@ -265,6 +261,12 @@ class _HeroStatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final localeName = Localizations.localeOf(context).toString();
+    String formatCount(int value) => _commaFormat(localeName, value);
+    String formatDuration(int totalMinutes) =>
+        _durationFormat(l10n, totalMinutes);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final narrow = constraints.maxWidth < 520;
@@ -273,30 +275,30 @@ class _HeroStatsRow extends StatelessWidget {
             isDark: isDark,
             icon: LucideIcons.mic,
             rawValue: data.rawTotalRecordings,
-            formatter: _commaFormat,
-            label: 'Total Recordings',
-            trend: data.recordingsTrend,
+            formatter: formatCount,
+            label: l10n.analyticsTotalRecordings,
+            trend: l10n.analyticsThisWeek('+12%'),
           ),
           _HeroPill(
             isDark: isDark,
             icon: LucideIcons.clock,
             rawValue: data.rawTotalDurationMinutes,
-            formatter: _durationFormat,
-            label: 'Total Duration',
+            formatter: formatDuration,
+            label: l10n.analyticsTotalDuration,
           ),
           _HeroPill(
             isDark: isDark,
             icon: LucideIcons.type,
             rawValue: data.rawWordsDictated,
-            formatter: _commaFormat,
-            label: 'Words Dictated',
+            formatter: formatCount,
+            label: l10n.analyticsWordsDictated,
           ),
           _HeroPill(
             isDark: isDark,
             icon: LucideIcons.zap,
             rawValue: data.rawTimeSavedMinutes,
-            formatter: _durationFormat,
-            label: 'Time Saved',
+            formatter: formatDuration,
+            label: l10n.analyticsTimeSaved,
           ),
         ];
 
@@ -384,11 +386,13 @@ class _HeroPillState extends State<_HeroPill>
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textSecondary =
-        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
     final success = isDark ? WpColorsDark.success : WpColorsLight.success;
-    final borderColor =
-        isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
+    final borderColor = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -455,14 +459,12 @@ class _HeroPillState extends State<_HeroPill>
             AnimatedBuilder(
               animation: _curve,
               builder: (context, _) {
-                final current =
-                    (widget.rawValue * _curve.value).round();
+                final current = (widget.rawValue * _curve.value).round();
                 return Text(
                   widget.formatter(current),
-                  style:
-                      Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 );
               },
             ),
@@ -520,19 +522,18 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
     final data = widget.data;
-    final textMuted = isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
+    final l10n = L10n.of(context);
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _PanelHeader(
           icon: LucideIcons.chartNoAxesColumn,
-          title: 'Recording Activity',
+          title: l10n.analyticsRecordingActivity,
           isDark: isDark,
           trailing: Text(
-            'Last 7 days',
+            l10n.analyticsLast7Days,
             style: TextStyle(fontSize: 11, color: textMuted),
           ),
         ),
@@ -545,9 +546,8 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
               size: Size.infinite,
               painter: _BarChartPainter(
                 values: data.activityValues,
-                labels: data.activityDays,
-                barColor:
-                    isDark ? WpColorsDark.accent : WpColorsLight.accent,
+                labels: _activityDayLabels(l10n),
+                barColor: isDark ? WpColorsDark.accent : WpColorsLight.accent,
                 barColorEnd: isDark
                     ? const Color(0xFF0891B2)
                     : const Color(0xFF06B6D4),
@@ -605,11 +605,7 @@ class _BarChartPainter extends CustomPainter {
       ..strokeWidth = 0.5;
     for (var i = 0; i <= 3; i++) {
       final y = topPad + chartH * (i / 3);
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        gridPaint,
-      );
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
     // Bars
@@ -669,18 +665,17 @@ class _ModelUsagePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _PanelHeader(
           icon: LucideIcons.brain,
-          title: 'Model Usage',
+          title: l10n.analyticsModelUsage,
           isDark: isDark,
         ),
         const SizedBox(height: WpSpacing.md),
-        ...data.modelUsage.map(
-          (m) => _ModelUsageBar(model: m, isDark: isDark),
-        ),
+        ...data.modelUsage.map((m) => _ModelUsageBar(model: m, isDark: isDark)),
       ],
     );
   }
@@ -701,9 +696,7 @@ class _ModelUsageBar extends StatelessWidget {
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
-    final textMuted = isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: WpSpacing.sm),
@@ -774,18 +767,19 @@ class _DurationDistPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _PanelHeader(
           icon: LucideIcons.timer,
-          title: 'Duration Distribution',
+          title: l10n.analyticsDurationDistribution,
           isDark: isDark,
         ),
         const SizedBox(height: WpSpacing.md),
-        ...data.durationBuckets.map(
-          (b) => _DurationBar(bucket: b, isDark: isDark),
-        ),
+        ..._durationBuckets(
+          l10n,
+        ).map((b) => _DurationBar(bucket: b, isDark: isDark)),
       ],
     );
   }
@@ -808,9 +802,7 @@ class _DurationBar extends StatelessWidget {
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
-    final textMuted = isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: WpSpacing.xs),
@@ -875,16 +867,15 @@ class _CostPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final success = isDark ? WpColorsDark.success : WpColorsLight.success;
     final warning = isDark ? WpColorsDark.warning : WpColorsLight.warning;
-    final textMuted = isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final l10n = L10n.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _PanelHeader(
           icon: LucideIcons.piggyBank,
-          title: 'Cost & Savings',
+          title: l10n.analyticsCostSavings,
           isDark: isDark,
         ),
         const SizedBox(height: WpSpacing.lg),
@@ -894,8 +885,8 @@ class _CostPanel extends StatelessWidget {
           isDark: isDark,
           icon: LucideIcons.shieldCheck,
           iconColor: success,
-          title: 'Local savings',
-          value: '${data.localSavings} saved',
+          title: l10n.analyticsLocalSavings,
+          value: l10n.analyticsSavedAmount(data.localSavings),
           valueColor: success,
         ),
         const SizedBox(height: WpSpacing.sm),
@@ -905,8 +896,8 @@ class _CostPanel extends StatelessWidget {
           isDark: isDark,
           icon: LucideIcons.cloud,
           iconColor: warning,
-          title: 'Cloud cost',
-          value: '${data.cloudCost} spent',
+          title: l10n.analyticsCloudCost,
+          value: l10n.analyticsSpentAmount(data.cloudCost),
           valueColor: warning,
         ),
         const SizedBox(height: WpSpacing.md),
@@ -934,7 +925,7 @@ class _CostPanel extends StatelessWidget {
               const SizedBox(width: WpSpacing.xs),
               Flexible(
                 child: Text(
-                  data.monthlyTrend,
+                  l10n.analyticsVsLastMonth('18%'),
                   style: TextStyle(fontSize: 11, color: textMuted),
                 ),
               ),
@@ -1006,12 +997,12 @@ class _PeriodAndResetRow extends StatefulWidget {
 }
 
 class _PeriodAndResetRowState extends State<_PeriodAndResetRow> {
-  int _selectedPeriod = 0; // index into _periods
-  static const _periods = ['7 days', '30 days', '90 days', 'All time'];
+  int _selectedPeriod = 0;
 
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
+    final l10n = L10n.of(context);
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final textSecondary = isDark
         ? WpColorsDark.textSecondary
@@ -1019,6 +1010,12 @@ class _PeriodAndResetRowState extends State<_PeriodAndResetRow> {
     final borderDefault = isDark
         ? WpColorsDark.borderDefault
         : WpColorsLight.borderDefault;
+    final periods = [
+      l10n.analyticsPeriod7d,
+      l10n.analyticsPeriod30d,
+      l10n.analyticsPeriod90d,
+      l10n.analyticsPeriodAll,
+    ];
 
     return Row(
       children: [
@@ -1027,7 +1024,7 @@ class _PeriodAndResetRowState extends State<_PeriodAndResetRow> {
           child: Wrap(
             spacing: WpSpacing.xs,
             runSpacing: WpSpacing.xs,
-            children: List.generate(_periods.length, (i) {
+            children: List.generate(periods.length, (i) {
               final selected = i == _selectedPeriod;
               return GestureDetector(
                 onTap: () => setState(() => _selectedPeriod = i),
@@ -1045,11 +1042,12 @@ class _PeriodAndResetRowState extends State<_PeriodAndResetRow> {
                     ),
                   ),
                   child: Text(
-                    _periods[i],
+                    periods[i],
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight:
-                          selected ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight: selected
+                          ? FontWeight.w600
+                          : FontWeight.normal,
                       color: selected ? accent : textSecondary,
                     ),
                   ),
@@ -1063,10 +1061,9 @@ class _PeriodAndResetRowState extends State<_PeriodAndResetRow> {
         OutlinedButton.icon(
           onPressed: () => _confirmReset(context, isDark),
           icon: const Icon(LucideIcons.trash2, size: WpIconSize.xs),
-          label: const Text('Reset'),
+          label: Text(l10n.analyticsReset),
           style: OutlinedButton.styleFrom(
-            foregroundColor:
-                isDark ? WpColorsDark.error : WpColorsLight.error,
+            foregroundColor: isDark ? WpColorsDark.error : WpColorsLight.error,
             side: BorderSide(
               color: (isDark ? WpColorsDark.error : WpColorsLight.error)
                   .withAlpha(80),
@@ -1084,6 +1081,7 @@ class _PeriodAndResetRowState extends State<_PeriodAndResetRow> {
   }
 
   void _confirmReset(BuildContext context, bool isDark) {
+    final l10n = L10n.of(context);
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1091,15 +1089,12 @@ class _PeriodAndResetRowState extends State<_PeriodAndResetRow> {
             ? WpColorsDark.surfaceElevated
             : WpColorsLight.surfaceElevated,
         shape: RoundedRectangleBorder(borderRadius: WpRadius.borderLg),
-        title: const Text('Reset Statistics'),
-        content: const Text(
-          'Are you sure you want to clear all analytics data? '
-          'This action cannot be undone.',
-        ),
+        title: Text(l10n.analyticsResetTitle),
+        content: Text(l10n.analyticsResetMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
+            child: Text(l10n.actionCancel),
           ),
           TextButton(
             onPressed: () {
@@ -1107,10 +1102,11 @@ class _PeriodAndResetRowState extends State<_PeriodAndResetRow> {
               // TODO: Wire up to Riverpod reset action
             },
             style: TextButton.styleFrom(
-              foregroundColor:
-                  isDark ? WpColorsDark.error : WpColorsLight.error,
+              foregroundColor: isDark
+                  ? WpColorsDark.error
+                  : WpColorsLight.error,
             ),
-            child: const Text('Reset'),
+            child: Text(l10n.analyticsReset),
           ),
         ],
       ),

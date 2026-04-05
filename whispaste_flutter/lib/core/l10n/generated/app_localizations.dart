@@ -628,7 +628,7 @@ abstract class L10n {
   /// No description provided for @settingsPostProcessing.
   ///
   /// In en, this message translates to:
-  /// **'Text Enhancement'**
+  /// **'Post-Processing'**
   String get settingsPostProcessing;
 
   /// No description provided for @settingsPostProcessingHint.
@@ -640,7 +640,7 @@ abstract class L10n {
   /// No description provided for @settingsTextEnhancementSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Improve your dictated text automatically'**
+  /// **'Clean up, shorten, or translate dictated text automatically'**
   String get settingsTextEnhancementSubtitle;
 
   /// No description provided for @settingsEnabled.
@@ -654,6 +654,84 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Style'**
   String get settingsStyle;
+
+  /// No description provided for @settingsMicrophoneDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get settingsMicrophoneDefault;
+
+  /// No description provided for @settingsMicrophoneHeadset.
+  ///
+  /// In en, this message translates to:
+  /// **'Headset Mic'**
+  String get settingsMicrophoneHeadset;
+
+  /// No description provided for @settingsMicrophoneUsb.
+  ///
+  /// In en, this message translates to:
+  /// **'USB Mic'**
+  String get settingsMicrophoneUsb;
+
+  /// No description provided for @settingsServiceOnDevicePrivate.
+  ///
+  /// In en, this message translates to:
+  /// **'On Device (Private)'**
+  String get settingsServiceOnDevicePrivate;
+
+  /// No description provided for @settingsQualityFastTiny.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast (Tiny)'**
+  String get settingsQualityFastTiny;
+
+  /// No description provided for @settingsQualityBalancedSmall.
+  ///
+  /// In en, this message translates to:
+  /// **'Balanced (Small)'**
+  String get settingsQualityBalancedSmall;
+
+  /// No description provided for @settingsQualityHighQualityMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'High Quality (Medium)'**
+  String get settingsQualityHighQualityMedium;
+
+  /// No description provided for @settingsQualityBestLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Best Quality (Large)'**
+  String get settingsQualityBestLarge;
+
+  /// No description provided for @settingsLanguageAutoDetect.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-detect'**
+  String get settingsLanguageAutoDetect;
+
+  /// No description provided for @settingsLanguageEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get settingsLanguageEnglish;
+
+  /// No description provided for @settingsLanguageGerman.
+  ///
+  /// In en, this message translates to:
+  /// **'German'**
+  String get settingsLanguageGerman;
+
+  /// No description provided for @settingsLanguageFrench.
+  ///
+  /// In en, this message translates to:
+  /// **'French'**
+  String get settingsLanguageFrench;
+
+  /// No description provided for @settingsLanguageSpanish.
+  ///
+  /// In en, this message translates to:
+  /// **'Spanish'**
+  String get settingsLanguageSpanish;
 
   /// No description provided for @settingsPresetCleanup.
   ///
@@ -810,6 +888,36 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Advanced'**
   String get settingsAdvanced;
+
+  /// No description provided for @settingsResetToDefaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to Defaults'**
+  String get settingsResetToDefaults;
+
+  /// No description provided for @settingsResetDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset all settings?'**
+  String get settingsResetDialogTitle;
+
+  /// No description provided for @settingsResetConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This will restore all settings to their original values. Your history and data will not be affected.'**
+  String get settingsResetConfirmMessage;
+
+  /// No description provided for @settingsResetConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get settingsResetConfirm;
+
+  /// No description provided for @settingsResetSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings restored to defaults.'**
+  String get settingsResetSuccess;
 
   /// No description provided for @settingsPrivacyNote.
   ///
@@ -1002,6 +1110,726 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Tell us what you think — we read every message.'**
   String get feedbackHint;
+
+  /// No description provided for @analyticsPreviewBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview — showing sample data. Real analytics will appear once you start recording.'**
+  String get analyticsPreviewBanner;
+
+  /// No description provided for @analyticsOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get analyticsOverview;
+
+  /// No description provided for @analyticsOverviewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your dictation stats at a glance'**
+  String get analyticsOverviewSubtitle;
+
+  /// No description provided for @analyticsActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get analyticsActivity;
+
+  /// No description provided for @analyticsInsights.
+  ///
+  /// In en, this message translates to:
+  /// **'Insights'**
+  String get analyticsInsights;
+
+  /// No description provided for @analyticsTotalRecordings.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Recordings'**
+  String get analyticsTotalRecordings;
+
+  /// No description provided for @analyticsTotalDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Duration'**
+  String get analyticsTotalDuration;
+
+  /// No description provided for @analyticsWordsDictated.
+  ///
+  /// In en, this message translates to:
+  /// **'Words Dictated'**
+  String get analyticsWordsDictated;
+
+  /// No description provided for @analyticsTimeSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Time Saved'**
+  String get analyticsTimeSaved;
+
+  /// No description provided for @analyticsRecordingActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording Activity'**
+  String get analyticsRecordingActivity;
+
+  /// No description provided for @analyticsLast7Days.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 days'**
+  String get analyticsLast7Days;
+
+  /// No description provided for @analyticsModelUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'Model Usage'**
+  String get analyticsModelUsage;
+
+  /// No description provided for @analyticsDurationDistribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration Distribution'**
+  String get analyticsDurationDistribution;
+
+  /// No description provided for @analyticsCostSavings.
+  ///
+  /// In en, this message translates to:
+  /// **'Cost & Savings'**
+  String get analyticsCostSavings;
+
+  /// No description provided for @analyticsLocalSavings.
+  ///
+  /// In en, this message translates to:
+  /// **'Local savings'**
+  String get analyticsLocalSavings;
+
+  /// No description provided for @analyticsCloudCost.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud cost'**
+  String get analyticsCloudCost;
+
+  /// No description provided for @analyticsPeriod7d.
+  ///
+  /// In en, this message translates to:
+  /// **'7 days'**
+  String get analyticsPeriod7d;
+
+  /// No description provided for @analyticsPeriod30d.
+  ///
+  /// In en, this message translates to:
+  /// **'30 days'**
+  String get analyticsPeriod30d;
+
+  /// No description provided for @analyticsPeriod90d.
+  ///
+  /// In en, this message translates to:
+  /// **'90 days'**
+  String get analyticsPeriod90d;
+
+  /// No description provided for @analyticsPeriodAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All time'**
+  String get analyticsPeriodAll;
+
+  /// No description provided for @analyticsReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get analyticsReset;
+
+  /// No description provided for @analyticsResetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset Statistics'**
+  String get analyticsResetTitle;
+
+  /// No description provided for @analyticsResetMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to clear all analytics data? This action cannot be undone.'**
+  String get analyticsResetMessage;
+
+  /// No description provided for @analyticsDayMon.
+  ///
+  /// In en, this message translates to:
+  /// **'Mon'**
+  String get analyticsDayMon;
+
+  /// No description provided for @analyticsDayTue.
+  ///
+  /// In en, this message translates to:
+  /// **'Tue'**
+  String get analyticsDayTue;
+
+  /// No description provided for @analyticsDayWed.
+  ///
+  /// In en, this message translates to:
+  /// **'Wed'**
+  String get analyticsDayWed;
+
+  /// No description provided for @analyticsDayThu.
+  ///
+  /// In en, this message translates to:
+  /// **'Thu'**
+  String get analyticsDayThu;
+
+  /// No description provided for @analyticsDayFri.
+  ///
+  /// In en, this message translates to:
+  /// **'Fri'**
+  String get analyticsDayFri;
+
+  /// No description provided for @analyticsDaySat.
+  ///
+  /// In en, this message translates to:
+  /// **'Sat'**
+  String get analyticsDaySat;
+
+  /// No description provided for @analyticsDaySun.
+  ///
+  /// In en, this message translates to:
+  /// **'Sun'**
+  String get analyticsDaySun;
+
+  /// No description provided for @analyticsThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'{delta} this week'**
+  String analyticsThisWeek(String delta);
+
+  /// No description provided for @analyticsVsLastMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'{delta} vs last month'**
+  String analyticsVsLastMonth(String delta);
+
+  /// No description provided for @analyticsDurationHoursMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h {minutes}m'**
+  String analyticsDurationHoursMinutes(int hours, int minutes);
+
+  /// No description provided for @analyticsDurationLt15s.
+  ///
+  /// In en, this message translates to:
+  /// **'< 15s'**
+  String get analyticsDurationLt15s;
+
+  /// No description provided for @analyticsDuration15To30s.
+  ///
+  /// In en, this message translates to:
+  /// **'15–30s'**
+  String get analyticsDuration15To30s;
+
+  /// No description provided for @analyticsDuration30To60s.
+  ///
+  /// In en, this message translates to:
+  /// **'30–60s'**
+  String get analyticsDuration30To60s;
+
+  /// No description provided for @analyticsDuration1To3m.
+  ///
+  /// In en, this message translates to:
+  /// **'1–3m'**
+  String get analyticsDuration1To3m;
+
+  /// No description provided for @analyticsDurationGt3m.
+  ///
+  /// In en, this message translates to:
+  /// **'> 3m'**
+  String get analyticsDurationGt3m;
+
+  /// No description provided for @analyticsSavedAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} saved'**
+  String analyticsSavedAmount(String amount);
+
+  /// No description provided for @analyticsSpentAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} spent'**
+  String analyticsSpentAmount(String amount);
+
+  /// No description provided for @replacementsSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search shortcuts…'**
+  String get replacementsSearch;
+
+  /// No description provided for @replacementsAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get replacementsAdd;
+
+  /// No description provided for @replacementsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No voice shortcuts yet'**
+  String get replacementsEmpty;
+
+  /// No description provided for @replacementsEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add shortcuts to auto-replace words during dictation.\nExample: \"btw\" → \"by the way\"'**
+  String get replacementsEmptyHint;
+
+  /// No description provided for @replacementsNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches'**
+  String get replacementsNoMatches;
+
+  /// No description provided for @replacementsNoMatchesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try a different search term.'**
+  String get replacementsNoMatchesHint;
+
+  /// No description provided for @replacementsAddShortcut.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Shortcut'**
+  String get replacementsAddShortcut;
+
+  /// No description provided for @replacementsEditShortcut.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Shortcut'**
+  String get replacementsEditShortcut;
+
+  /// No description provided for @replacementsNewShortcut.
+  ///
+  /// In en, this message translates to:
+  /// **'New Shortcut'**
+  String get replacementsNewShortcut;
+
+  /// No description provided for @replacementsDialogHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The trigger phrase will be replaced automatically during dictation.'**
+  String get replacementsDialogHint;
+
+  /// No description provided for @replacementsTriggerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Trigger phrase'**
+  String get replacementsTriggerLabel;
+
+  /// No description provided for @replacementsTriggerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. btw'**
+  String get replacementsTriggerHint;
+
+  /// No description provided for @replacementsReplacementLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Replacement text'**
+  String get replacementsReplacementLabel;
+
+  /// No description provided for @replacementsReplacementHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. by the way'**
+  String get replacementsReplacementHint;
+
+  /// No description provided for @replacementsDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Shortcut'**
+  String get replacementsDeleteTitle;
+
+  /// No description provided for @replacementsDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the shortcut \"{trigger}\"? This cannot be undone.'**
+  String replacementsDeleteMessage(String trigger);
+
+  /// No description provided for @aboutTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice to text, instantly.'**
+  String get aboutTagline;
+
+  /// No description provided for @aboutWhatsNew.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s New'**
+  String get aboutWhatsNew;
+
+  /// No description provided for @aboutGitHub.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub'**
+  String get aboutGitHub;
+
+  /// No description provided for @aboutReportIssue.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Issue'**
+  String get aboutReportIssue;
+
+  /// No description provided for @aboutSupportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Support this project'**
+  String get aboutSupportTitle;
+
+  /// No description provided for @aboutSupportDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste is free and open source under the MIT license. If you find it useful, please consider supporting its development!'**
+  String get aboutSupportDescription;
+
+  /// No description provided for @aboutGitHubSponsors.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub Sponsors'**
+  String get aboutGitHubSponsors;
+
+  /// No description provided for @aboutKofi.
+  ///
+  /// In en, this message translates to:
+  /// **'Ko-fi'**
+  String get aboutKofi;
+
+  /// No description provided for @aboutStarOnGitHub.
+  ///
+  /// In en, this message translates to:
+  /// **'Star on GitHub'**
+  String get aboutStarOnGitHub;
+
+  /// No description provided for @aboutBuiltWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Built with'**
+  String get aboutBuiltWith;
+
+  /// No description provided for @aboutFlutterGo.
+  ///
+  /// In en, this message translates to:
+  /// **'Flutter & Go'**
+  String get aboutFlutterGo;
+
+  /// No description provided for @aboutFlutterGoDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Cross-platform UI with Flutter, performance-critical backend in Go via FFI.'**
+  String get aboutFlutterGoDesc;
+
+  /// No description provided for @aboutWhisper.
+  ///
+  /// In en, this message translates to:
+  /// **'whisper.cpp & OpenAI Whisper'**
+  String get aboutWhisper;
+
+  /// No description provided for @aboutWhisperDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Local and cloud speech recognition — fast, accurate, multilingual.'**
+  String get aboutWhisperDesc;
+
+  /// No description provided for @aboutLlamaCpp.
+  ///
+  /// In en, this message translates to:
+  /// **'llama.cpp'**
+  String get aboutLlamaCpp;
+
+  /// No description provided for @aboutLlamaCppDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Local LLM inference for AI post-processing without cloud dependency.'**
+  String get aboutLlamaCppDesc;
+
+  /// No description provided for @aboutPrivacyFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy-first'**
+  String get aboutPrivacyFirst;
+
+  /// No description provided for @aboutPrivacyFirstDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Local AI inference by default — your voice never leaves your device unless you choose a cloud provider.'**
+  String get aboutPrivacyFirstDesc;
+
+  /// No description provided for @aboutPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy & Data'**
+  String get aboutPrivacy;
+
+  /// No description provided for @aboutPrivacyLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'All transcriptions and history are stored locally on your device — never on external servers.'**
+  String get aboutPrivacyLocal;
+
+  /// No description provided for @aboutPrivacyCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud providers (OpenAI, Groq, Deepgram, Anthropic, Gemini) only receive audio or text when you actively use them. Their privacy policies apply.'**
+  String get aboutPrivacyCloud;
+
+  /// No description provided for @aboutPrivacyNoTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'No analytics, no tracking, no user accounts. Update checks contact GitHub (version + IP only).'**
+  String get aboutPrivacyNoTracking;
+
+  /// No description provided for @aboutKeyboardShortcuts.
+  ///
+  /// In en, this message translates to:
+  /// **'Keyboard Shortcuts'**
+  String get aboutKeyboardShortcuts;
+
+  /// No description provided for @aboutShortcutRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Start / Stop recording'**
+  String get aboutShortcutRecord;
+
+  /// No description provided for @aboutShortcutPalette.
+  ///
+  /// In en, this message translates to:
+  /// **'Command palette'**
+  String get aboutShortcutPalette;
+
+  /// No description provided for @aboutShortcutSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get aboutShortcutSettings;
+
+  /// No description provided for @aboutLinks.
+  ///
+  /// In en, this message translates to:
+  /// **'Links'**
+  String get aboutLinks;
+
+  /// No description provided for @aboutWebsite.
+  ///
+  /// In en, this message translates to:
+  /// **'Website'**
+  String get aboutWebsite;
+
+  /// No description provided for @aboutGitHubRepo.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub Repository'**
+  String get aboutGitHubRepo;
+
+  /// No description provided for @aboutMitLicense.
+  ///
+  /// In en, this message translates to:
+  /// **'MIT License'**
+  String get aboutMitLicense;
+
+  /// No description provided for @aboutViewOnGitHub.
+  ///
+  /// In en, this message translates to:
+  /// **'View on GitHub'**
+  String get aboutViewOnGitHub;
+
+  /// No description provided for @aboutPrivacyPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get aboutPrivacyPolicy;
+
+  /// No description provided for @aboutSystemInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'System Info'**
+  String get aboutSystemInfo;
+
+  /// No description provided for @aboutSystemInfoDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy a compact diagnostics snapshot for bug reports.'**
+  String get aboutSystemInfoDesc;
+
+  /// No description provided for @aboutCopyDebugInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy Debug Info'**
+  String get aboutCopyDebugInfo;
+
+  /// No description provided for @aboutCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied!'**
+  String get aboutCopied;
+
+  /// No description provided for @aboutMadeWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Made with ♥ by Silvio Lindstedt'**
+  String get aboutMadeWith;
+
+  /// No description provided for @aboutOpenSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Open source under the MIT License'**
+  String get aboutOpenSource;
+
+  /// No description provided for @feedbackSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Help us improve WhisPaste — every voice matters.'**
+  String get feedbackSubtitle;
+
+  /// No description provided for @feedbackCategoryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s this about?'**
+  String get feedbackCategoryLabel;
+
+  /// No description provided for @feedbackCategoryBug.
+  ///
+  /// In en, this message translates to:
+  /// **'Bug Report'**
+  String get feedbackCategoryBug;
+
+  /// No description provided for @feedbackCategoryFeature.
+  ///
+  /// In en, this message translates to:
+  /// **'Feature Idea'**
+  String get feedbackCategoryFeature;
+
+  /// No description provided for @feedbackCategoryGeneral.
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get feedbackCategoryGeneral;
+
+  /// No description provided for @feedbackCategoryAiQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Quality'**
+  String get feedbackCategoryAiQuality;
+
+  /// No description provided for @feedbackRatingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'How are you feeling about WhisPaste?'**
+  String get feedbackRatingLabel;
+
+  /// No description provided for @feedbackCommentsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell us more'**
+  String get feedbackCommentsLabel;
+
+  /// No description provided for @feedbackPlaceholderBug.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe what happened and what you expected…'**
+  String get feedbackPlaceholderBug;
+
+  /// No description provided for @feedbackPlaceholderFeature.
+  ///
+  /// In en, this message translates to:
+  /// **'What would you like to see in WhisPaste?'**
+  String get feedbackPlaceholderFeature;
+
+  /// No description provided for @feedbackPlaceholderAi.
+  ///
+  /// In en, this message translates to:
+  /// **'How was the transcription or post-processing quality?'**
+  String get feedbackPlaceholderAi;
+
+  /// No description provided for @feedbackPlaceholderGeneral.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your thoughts…'**
+  String get feedbackPlaceholderGeneral;
+
+  /// No description provided for @feedbackSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Feedback'**
+  String get feedbackSubmit;
+
+  /// No description provided for @feedbackPrivacyNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Your feedback is anonymous and encrypted.'**
+  String get feedbackPrivacyNote;
+
+  /// No description provided for @feedbackThankYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you!'**
+  String get feedbackThankYou;
+
+  /// No description provided for @feedbackThankYouMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your feedback helps us make WhisPaste better\nfor everyone.'**
+  String get feedbackThankYouMessage;
+
+  /// No description provided for @feedbackSendAnother.
+  ///
+  /// In en, this message translates to:
+  /// **'Send another'**
+  String get feedbackSendAnother;
+
+  /// No description provided for @feedbackRatingFrustrated.
+  ///
+  /// In en, this message translates to:
+  /// **'Frustrated'**
+  String get feedbackRatingFrustrated;
+
+  /// No description provided for @feedbackRatingMeh.
+  ///
+  /// In en, this message translates to:
+  /// **'Meh'**
+  String get feedbackRatingMeh;
+
+  /// No description provided for @feedbackRatingOkay.
+  ///
+  /// In en, this message translates to:
+  /// **'Okay'**
+  String get feedbackRatingOkay;
+
+  /// No description provided for @feedbackRatingHappy.
+  ///
+  /// In en, this message translates to:
+  /// **'Happy'**
+  String get feedbackRatingHappy;
+
+  /// No description provided for @feedbackRatingLoveIt.
+  ///
+  /// In en, this message translates to:
+  /// **'Love it!'**
+  String get feedbackRatingLoveIt;
+
+  /// No description provided for @statusBarOnDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'On device'**
+  String get statusBarOnDevice;
+
+  /// No description provided for @statusBarPostProcessing.
+  ///
+  /// In en, this message translates to:
+  /// **'Post-Processing'**
+  String get statusBarPostProcessing;
+
+  /// No description provided for @tooltipSwitchToLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to Light Mode'**
+  String get tooltipSwitchToLight;
+
+  /// No description provided for @tooltipSwitchToDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to Dark Mode'**
+  String get tooltipSwitchToDark;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
