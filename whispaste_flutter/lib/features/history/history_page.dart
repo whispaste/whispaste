@@ -426,8 +426,14 @@ class _MasterDetailState extends State<_MasterDetail>
   late final Animation<double> _detailWidth;
   HistoryEntry? _displayedEntry;
 
-  static const _masterWidth = 340.0;
-  static const _dividerWidth = 1.0;
+  double _masterWidth = _defaultMasterWidth;
+  bool _isDragging = false;
+
+  static const _defaultMasterWidth = 340.0;
+  static const _minMasterWidth = 240.0;
+  static const _maxMasterFraction = 0.65;
+  static const _dividerHitWidth = 8.0;
+  static const _dividerVisualWidth = 1.0;
 
   @override
   void initState() {
@@ -511,30 +517,67 @@ class _MasterDetailState extends State<_MasterDetail>
     return LayoutBuilder(
       builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
+        final maxMasterW = totalWidth * _maxMasterFraction;
         return AnimatedBuilder(
           animation: _detailWidth,
           builder: (context, _) {
             final detailFraction = _detailWidth.value;
+            final effectiveMaster = _masterWidth.clamp(
+              _minMasterWidth, maxMasterW,
+            );
             final detailW =
-                (totalWidth - _masterWidth - _dividerWidth) * detailFraction;
-            final masterW = totalWidth - detailW - _dividerWidth;
+                (totalWidth - effectiveMaster - _dividerHitWidth) *
+                    detailFraction;
+            final masterW = totalWidth - detailW - _dividerHitWidth;
 
             return Row(
               children: [
                 SizedBox(
-                  width: masterW.clamp(_masterWidth, totalWidth),
+                  width: masterW.clamp(effectiveMaster, totalWidth),
                   child: _buildMasterBody(
                     selectedId: (widget.selectedEntry ?? _displayedEntry)?.id,
                   ),
                 ),
-                Container(
-                  width: _dividerWidth,
-                  color: widget.isDark
-                      ? WpColorsDark.borderSubtle
-                      : WpColorsLight.borderSubtle,
+                // Draggable divider
+                MouseRegion(
+                  cursor: _isDragging
+                      ? SystemMouseCursors.resizeColumn
+                      : SystemMouseCursors.resizeColumn,
+                  child: GestureDetector(
+                    onHorizontalDragStart: (_) =>
+                        setState(() => _isDragging = true),
+                    onHorizontalDragUpdate: (details) {
+                      setState(() {
+                        _masterWidth = (_masterWidth + details.delta.dx)
+                            .clamp(_minMasterWidth, maxMasterW);
+                      });
+                    },
+                    onHorizontalDragEnd: (_) =>
+                        setState(() => _isDragging = false),
+                    child: Container(
+                      width: _dividerHitWidth,
+                      color: Colors.transparent,
+                      child: Center(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          width: _isDragging ? 3.0 : _dividerVisualWidth,
+                          decoration: BoxDecoration(
+                            color: _isDragging
+                                ? (widget.isDark
+                                    ? WpColorsDark.accent.withValues(alpha: 0.5)
+                                    : WpColorsLight.accent.withValues(alpha: 0.5))
+                                : (widget.isDark
+                                    ? WpColorsDark.borderSubtle
+                                    : WpColorsLight.borderSubtle),
+                            borderRadius: BorderRadius.circular(1.5),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
                 SizedBox(
-                  width: detailW.clamp(0.0, totalWidth - _masterWidth),
+                  width: detailW.clamp(0.0, totalWidth - _minMasterWidth),
                   child: detailFraction > 0.05
                       ? Opacity(
                           opacity: detailFraction.clamp(0.0, 1.0),
