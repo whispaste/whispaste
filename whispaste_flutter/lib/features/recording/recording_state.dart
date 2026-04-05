@@ -1,7 +1,8 @@
 import 'dart:async';
-import 'dart:developer' as dev;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/logging/app_logger.dart';
 
 // ---------------------------------------------------------------------------
 // Phase enum
@@ -89,6 +90,8 @@ class RecordingState {
 
 /// Manages recording lifecycle transitions and the elapsed-time timer.
 class RecordingNotifier extends Notifier<RecordingState> {
+  static final _log = AppLogger('RecordingNotifier');
+
   Timer? _elapsedTimer;
 
   @override
@@ -102,10 +105,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
   /// Transition idle → recording. Starts the elapsed timer.
   void startRecording() {
     if (state.phase != RecordingPhase.idle) {
-      dev.log(
-        'startRecording ignored – current phase: ${state.phase}',
-        name: 'RecordingNotifier',
-      );
+      _log.debug('startRecording ignored – current phase: ${state.phase}');
       return;
     }
     state = const RecordingState(phase: RecordingPhase.recording);
@@ -115,10 +115,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
   /// Transition recording → transcribing. Stops the timer.
   void stopRecording() {
     if (state.phase != RecordingPhase.recording) {
-      dev.log(
-        'stopRecording ignored – current phase: ${state.phase}',
-        name: 'RecordingNotifier',
-      );
+      _log.debug('stopRecording ignored – current phase: ${state.phase}');
       return;
     }
     _cancelTimer();
@@ -131,9 +128,8 @@ class RecordingNotifier extends Notifier<RecordingState> {
   /// Transition transcribing → done with the resulting [text].
   void completeTranscription(String text) {
     if (state.phase != RecordingPhase.transcribing) {
-      dev.log(
+      _log.debug(
         'completeTranscription ignored – current phase: ${state.phase}',
-        name: 'RecordingNotifier',
       );
       return;
     }
