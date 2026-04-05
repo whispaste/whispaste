@@ -208,7 +208,7 @@ abstract class L10n {
   /// No description provided for @settingsGain.
   ///
   /// In en, this message translates to:
-  /// **'Input Gain'**
+  /// **'Microphone Volume'**
   String get settingsGain;
 
   /// No description provided for @settingsRecordingSafety.
@@ -220,7 +220,7 @@ abstract class L10n {
   /// No description provided for @settingsDeadMicTimeout.
   ///
   /// In en, this message translates to:
-  /// **'Dead Microphone Timeout'**
+  /// **'Silent Mic Detection'**
   String get settingsDeadMicTimeout;
 
   /// No description provided for @settingsDeadMicTimeoutHint.
@@ -232,7 +232,7 @@ abstract class L10n {
   /// No description provided for @settingsAutoStopSilence.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Stop on Silence'**
+  /// **'Auto-Stop After Silence'**
   String get settingsAutoStopSilence;
 
   /// No description provided for @settingsAutoStopSilenceHint.
@@ -244,13 +244,13 @@ abstract class L10n {
   /// No description provided for @settingsPostProcessing.
   ///
   /// In en, this message translates to:
-  /// **'Post-Processing'**
+  /// **'Text Enhancement'**
   String get settingsPostProcessing;
 
   /// No description provided for @settingsPostProcessingHint.
   ///
   /// In en, this message translates to:
-  /// **'Automatically enhance transcribed text using AI.'**
+  /// **'Improve your dictated text automatically using AI.'**
   String get settingsPostProcessingHint;
 
   /// No description provided for @settingsPresetCleanup.

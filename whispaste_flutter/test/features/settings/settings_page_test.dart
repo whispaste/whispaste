@@ -16,9 +16,9 @@ void main() {
       expect(find.text('Audio'), findsOneWidget);
     });
 
-    testWidgets('shows Post-Processing section', (tester) async {
+    testWidgets('shows Text Enhancement section', (tester) async {
       await tester.pumpWidget(makeTestable(const SettingsPage()));
-      expect(find.text('Post-Processing'), findsOneWidget);
+      expect(find.text('Text Enhancement'), findsOneWidget);
     });
 
     testWidgets('shows Interface section', (tester) async {
@@ -30,8 +30,8 @@ void main() {
       await tester.pumpWidget(makeTestable(const SettingsPage()));
 
       expect(find.text('Microphone'), findsOneWidget);
-      expect(find.text('Input Gain'), findsOneWidget);
-      expect(find.text('Push-to-Talk'), findsOneWidget);
+      expect(find.text('Microphone Volume'), findsOneWidget);
+      expect(find.text('Hold to Record'), findsOneWidget);
     });
 
     testWidgets('settings page is scrollable', (tester) async {
@@ -44,7 +44,7 @@ void main() {
 
       // Recording Safety is collapsible and initially expanded
       expect(find.text('Recording Safety'), findsOneWidget);
-      expect(find.text('Dead Mic Timeout'), findsOneWidget);
+      expect(find.text('Silent Mic Detection'), findsOneWidget);
 
       // Tap header to collapse
       await tester.tap(find.text('Recording Safety'));
