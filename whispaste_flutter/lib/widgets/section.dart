@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
-/// Flat content section with header and optional divider.
+/// Content section with header — flat, clean, with optional collapse.
 ///
-/// Used for settings groups and content sections — NOT a card.
-/// Content sits directly on the dark surface.
+/// Premium: subtle accent line on header, refined typography, smooth expand.
 class WpSection extends StatelessWidget {
   const WpSection({
     super.key,
@@ -15,7 +16,7 @@ class WpSection extends StatelessWidget {
     this.collapsible = false,
     this.initiallyExpanded = true,
     this.padding = const EdgeInsets.symmetric(
-      horizontal: WpSpacing.lg,
+      horizontal: WpSpacing.xl,
       vertical: WpSpacing.md,
     ),
   });
@@ -87,46 +88,56 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return InkWell(
       onTap: onTap,
       borderRadius: WpRadius.borderSm,
-      child: Row(
-        children: [
-          // Accent dot
-          Container(
-            width: 4,
-            height: 4,
-            margin: const EdgeInsets.only(right: WpSpacing.xs),
-            decoration: BoxDecoration(
-              color: colorScheme.primary,
-              shape: BoxShape.circle,
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: headerStyle),
-                if (subtitle != null)
-                  Text(
-                    subtitle!,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-              ],
-            ),
-          ),
-          ?trailing,
-          if (isExpanded != null)
-            AnimatedRotation(
-              turns: isExpanded! ? 0.5 : 0,
-              duration: WpMotion.normal,
-              child: Icon(
-                Icons.keyboard_arrow_down,
-                color: colorScheme.secondary,
-                size: 20,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+        child: Row(
+          children: [
+            // Accent bar — short vertical line
+            Container(
+              width: 3,
+              height: 16,
+              margin: const EdgeInsets.only(right: WpSpacing.sm),
+              decoration: BoxDecoration(
+                gradient: isDark
+                    ? WpColorsDark.accentGradient
+                    : WpColorsLight.accentGradient,
+                borderRadius: WpRadius.borderFull,
               ),
             ),
-        ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: headerStyle),
+                  if (subtitle != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        subtitle!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            ?trailing,
+            if (isExpanded != null)
+              AnimatedRotation(
+                turns: isExpanded! ? 0.5 : 0,
+                duration: WpMotion.normal,
+                child: Icon(
+                  LucideIcons.chevronDown,
+                  color: colorScheme.secondary,
+                  size: WpIconSize.sm,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -157,13 +168,39 @@ class _CollapsibleSection extends StatefulWidget {
   State<_CollapsibleSection> createState() => _CollapsibleSectionState();
 }
 
-class _CollapsibleSectionState extends State<_CollapsibleSection> {
+class _CollapsibleSectionState extends State<_CollapsibleSection>
+    with SingleTickerProviderStateMixin {
   late bool _isExpanded;
+  late final AnimationController _controller;
+  late final Animation<double> _heightFactor;
 
   @override
   void initState() {
     super.initState();
     _isExpanded = widget.initiallyExpanded;
+    _controller = AnimationController(
+      vsync: this,
+      duration: WpMotion.smooth,
+      value: _isExpanded ? 1.0 : 0.0,
+    );
+    _heightFactor = _controller.drive(CurveTween(curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      if (_isExpanded) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    });
   }
 
   @override
@@ -180,18 +217,26 @@ class _CollapsibleSectionState extends State<_CollapsibleSection> {
             headerStyle: widget.headerStyle,
             colorScheme: widget.colorScheme,
             isExpanded: _isExpanded,
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            onTap: _toggle,
           ),
-          AnimatedCrossFade(
-            firstChild: Padding(
-              padding: const EdgeInsets.only(top: WpSpacing.md),
-              child: widget.child,
+          ClipRect(
+            child: AnimatedBuilder(
+              animation: _heightFactor,
+              builder: (context, child) {
+                return Align(
+                  alignment: Alignment.topLeft,
+                  heightFactor: _heightFactor.value,
+                  child: Opacity(
+                    opacity: _heightFactor.value,
+                    child: child,
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.only(top: WpSpacing.md),
+                child: widget.child,
+              ),
             ),
-            secondChild: const SizedBox.shrink(),
-            crossFadeState: _isExpanded
-                ? CrossFadeState.showFirst
-                : CrossFadeState.showSecond,
-            duration: WpMotion.smooth,
           ),
         ],
       ),

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'core/theme/theme.dart';
+import 'core/theme/colors.dart';
+import 'core/theme/tokens.dart';
 import 'widgets/sidebar.dart';
 import 'widgets/status_bar.dart';
 import 'widgets/fab.dart';
@@ -12,11 +15,27 @@ import 'features/analytics/analytics_page.dart';
 import 'features/about/about_page.dart';
 import 'features/feedback/feedback_page.dart';
 
-/// Active navigation page state (by string id).
-final activePageProvider = StateProvider<String>((ref) => 'history');
+/// Active navigation page state (Riverpod 3.x Notifier).
+class _ActivePageNotifier extends Notifier<String> {
+  @override
+  String build() => 'history';
 
-/// Recording state (will be backed by audio service later).
-final isRecordingProvider = StateProvider<bool>((ref) => false);
+  void setPage(String id) => state = id;
+}
+
+final activePageProvider =
+    NotifierProvider<_ActivePageNotifier, String>(_ActivePageNotifier.new);
+
+/// Recording state (backed by audio service later).
+class _IsRecordingNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+}
+
+final isRecordingProvider =
+    NotifierProvider<_IsRecordingNotifier, bool>(_IsRecordingNotifier.new);
 
 /// Main WhisPaste application widget.
 class WhisPasteApp extends ConsumerWidget {
@@ -35,14 +54,14 @@ class WhisPasteApp extends ConsumerWidget {
   }
 }
 
-/// Navigation items for the sidebar.
+/// Navigation items — Lucide icons, clean & thin.
 const _navItems = [
-  WpNavItem(id: 'history', icon: Icons.history_outlined, activeIcon: Icons.history_rounded, label: 'History'),
-  WpNavItem(id: 'settings', icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, label: 'Settings'),
-  WpNavItem(id: 'replacements', icon: Icons.find_replace_outlined, activeIcon: Icons.find_replace_rounded, label: 'Voice Shortcuts'),
-  WpNavItem(id: 'analytics', icon: Icons.bar_chart_outlined, activeIcon: Icons.bar_chart_rounded, label: 'Analytics'),
-  WpNavItem(id: 'about', icon: Icons.info_outline_rounded, activeIcon: Icons.info_rounded, label: 'About'),
-  WpNavItem(id: 'feedback', icon: Icons.feedback_outlined, activeIcon: Icons.feedback_rounded, label: 'Feedback'),
+  WpNavItem(id: 'history', icon: LucideIcons.clock3, label: 'History'),
+  WpNavItem(id: 'settings', icon: LucideIcons.settings, label: 'Settings'),
+  WpNavItem(id: 'replacements', icon: LucideIcons.replace, label: 'Voice Shortcuts'),
+  WpNavItem(id: 'analytics', icon: LucideIcons.barChart3, label: 'Analytics'),
+  WpNavItem(id: 'about', icon: LucideIcons.info, label: 'About'),
+  WpNavItem(id: 'feedback', icon: LucideIcons.messageSquare, label: 'Feedback'),
 ];
 
 /// Map page IDs to their widgets.
@@ -55,7 +74,7 @@ const _pageWidgets = <String, Widget>{
   'feedback': FeedbackPage(),
 };
 
-/// Root layout: sidebar + content area + status bar + FAB.
+/// Root layout: title bar + sidebar + content + status bar + FAB.
 class _AppShell extends ConsumerWidget {
   const _AppShell();
 
@@ -63,40 +82,52 @@ class _AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final activePage = ref.watch(activePageProvider);
     final isRecording = ref.watch(isRecordingProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: Column(
         children: [
-          // Custom title bar (Windows/Linux)
           const WpTitleBar(),
-          // Main layout: sidebar + content
           Expanded(
             child: Row(
               children: [
-                // Left sidebar
                 WpSidebar(
                   items: _navItems,
                   activeId: activePage,
                   onItemTap: (id) {
-                    ref.read(activePageProvider.notifier).state = id;
+                    ref.read(activePageProvider.notifier).setPage(id);
                   },
                 ),
-                // Content + status bar
+                // Content area with subtle left border highlight
                 Expanded(
-                  child: Column(
-                    children: [
-                      // Content area
-                      Expanded(
-                        child: _pageWidgets[activePage] ?? const SizedBox.shrink(),
-                      ),
-                      // Status bar
-                      const WpStatusBar(
-                        modeLabel: 'Local',
-                        postProcessingLabel: 'Post-Processing',
-                        hotkeyLabel: 'Ctrl + Shift + R',
-                        isOnline: true,
-                      ),
-                    ],
+                  child: Container(
+                    color: isDark
+                        ? WpColorsDark.background
+                        : WpColorsLight.background,
+                    child: Column(
+                      children: [
+                        // Page header
+                        _PageHeader(
+                          title: _navItems
+                              .firstWhere((n) => n.id == activePage)
+                              .label,
+                        ),
+                        // Content
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: WpMotion.normal,
+                            child: _pageWidgets[activePage] ??
+                                const SizedBox.shrink(),
+                          ),
+                        ),
+                        const WpStatusBar(
+                          modeLabel: 'Local',
+                          postProcessingLabel: 'Post-Processing',
+                          hotkeyLabel: 'Ctrl+Shift+R',
+                          isOnline: true,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -104,15 +135,38 @@ class _AppShell extends ConsumerWidget {
           ),
         ],
       ),
-      // Floating action button
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 36, right: 8),
+        padding: const EdgeInsets.only(bottom: WpLayout.statusBarHeight + 8, right: 8),
         child: WpRecordingFab(
           isRecording: isRecording,
           onPressed: () {
-            ref.read(isRecordingProvider.notifier).state = !isRecording;
+            ref.read(isRecordingProvider.notifier).toggle();
           },
         ),
+      ),
+    );
+  }
+}
+
+/// Page header — displays the active page title with clean styling.
+class _PageHeader extends StatelessWidget {
+  const _PageHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.lg,
+        WpSpacing.xl,
+        WpSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          Text(title, style: Theme.of(context).textTheme.headlineLarge),
+        ],
       ),
     );
   }

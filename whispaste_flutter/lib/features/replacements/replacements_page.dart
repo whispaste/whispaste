@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../widgets/empty_state.dart';
 
 /// Voice Shortcuts (Replacements) page.
@@ -7,9 +8,8 @@ class ReplacementsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Implement replacements list + edit panel
     return const WpEmptyState(
-      icon: Icons.find_replace_rounded,
+      icon: LucideIcons.replace,
       title: 'No voice shortcuts yet',
       hint: 'Add shortcuts to auto-replace words during dictation.',
       actionLabel: 'Add Shortcut',

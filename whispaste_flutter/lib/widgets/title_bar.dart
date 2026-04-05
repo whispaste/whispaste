@@ -1,65 +1,83 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
+import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
-/// Custom window title bar matching the premium design.
+/// Premium custom window title bar.
 ///
-/// On Windows/Linux: drag area + app title + minimize/maximize/close buttons.
-/// On macOS: transparent title bar (traffic lights handled natively).
+/// Compact, clean design: accent gradient stripe at top, minimal chrome.
+/// macOS uses native traffic lights — returns SizedBox.shrink().
 class WpTitleBar extends StatelessWidget {
   const WpTitleBar({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // macOS uses native traffic lights — no custom title bar needed
     if (Platform.isMacOS) return const SizedBox.shrink();
 
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return GestureDetector(
-      onPanStart: (_) => windowManager.startDragging(),
-      onDoubleTap: () async {
-        if (await windowManager.isMaximized()) {
-          await windowManager.unmaximize();
-        } else {
-          await windowManager.maximize();
-        }
-      },
-      child: Container(
-        height: WpLayout.appBarHeight,
-        color: cs.surface,
-        child: Row(
-          children: [
-            const SizedBox(width: WpSpacing.md),
-            // App brand icon
-            Icon(Icons.mic_rounded, size: 18, color: cs.primary),
-            const SizedBox(width: WpSpacing.xs),
-            Text(
-              'WhisPaste',
-              style: TextStyle(
-                color: cs.onSurface,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const Spacer(),
-            // Window controls
-            _WindowButton(
-              icon: Icons.remove,
-              onPressed: () => windowManager.minimize(),
-              hoverColor: cs.outlineVariant,
-            ),
-            _MaximizeButton(hoverColor: cs.outlineVariant),
-            _WindowButton(
-              icon: Icons.close,
-              onPressed: () => windowManager.close(),
-              hoverColor: const Color(0xFFE81123),
-              hoverIconColor: Colors.white,
-            ),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Thin accent gradient line at very top
+        Container(
+          height: 2,
+          decoration: BoxDecoration(
+            gradient: isDark
+                ? WpColorsDark.accentGradient
+                : WpColorsLight.accentGradient,
+          ),
         ),
-      ),
+        // Title bar
+        GestureDetector(
+          onPanStart: (_) => windowManager.startDragging(),
+          onDoubleTap: () async {
+            if (await windowManager.isMaximized()) {
+              await windowManager.unmaximize();
+            } else {
+              await windowManager.maximize();
+            }
+          },
+          child: Container(
+            height: WpLayout.appBarHeight - 2,
+            color: isDark ? WpColorsDark.surface : WpColorsLight.surface,
+            child: Row(
+              children: [
+                const SizedBox(width: WpSpacing.md),
+                // App title
+                Text(
+                  'WhisPaste',
+                  style: TextStyle(
+                    color: cs.secondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const Spacer(),
+                // Window controls
+                _WindowButton(
+                  icon: LucideIcons.minus,
+                  onPressed: () => windowManager.minimize(),
+                  hoverColor: isDark ? WpColorsDark.hover : WpColorsLight.hover,
+                ),
+                _MaximizeButton(
+                  hoverColor: isDark ? WpColorsDark.hover : WpColorsLight.hover,
+                ),
+                _WindowButton(
+                  icon: LucideIcons.x,
+                  onPressed: () => windowManager.close(),
+                  hoverColor: const Color(0xFFE81123),
+                  hoverIconColor: Colors.white,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -89,6 +107,7 @@ class _WindowButtonState extends State<_WindowButton> {
     final cs = Theme.of(context).colorScheme;
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
@@ -96,12 +115,12 @@ class _WindowButtonState extends State<_WindowButton> {
         child: AnimatedContainer(
           duration: WpMotion.fast,
           width: 46,
-          height: WpLayout.appBarHeight,
+          height: WpLayout.appBarHeight - 2,
           color: _isHovered ? widget.hoverColor : Colors.transparent,
           alignment: Alignment.center,
           child: Icon(
             widget.icon,
-            size: 16,
+            size: WpIconSize.sm,
             color: _isHovered && widget.hoverIconColor != null
                 ? widget.hoverIconColor
                 : cs.secondary,
@@ -138,6 +157,7 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
     final cs = Theme.of(context).colorScheme;
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
@@ -147,21 +167,17 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
           } else {
             await windowManager.maximize();
           }
-          if (mounted) {
-            setState(() => _isMaximized = !_isMaximized);
-          }
+          if (mounted) setState(() => _isMaximized = !_isMaximized);
         },
         child: AnimatedContainer(
           duration: WpMotion.fast,
           width: 46,
-          height: WpLayout.appBarHeight,
+          height: WpLayout.appBarHeight - 2,
           color: _isHovered ? widget.hoverColor : Colors.transparent,
           alignment: Alignment.center,
           child: Icon(
-            _isMaximized
-                ? Icons.filter_none_rounded
-                : Icons.crop_square_rounded,
-            size: 14,
+            _isMaximized ? LucideIcons.minimize2 : LucideIcons.maximize2,
+            size: WpIconSize.xs,
             color: cs.secondary,
           ),
         ),
