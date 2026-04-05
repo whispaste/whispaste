@@ -56,7 +56,7 @@ void main() {
     final persisted = AppSettings.fromStorageMap(await db.readAppSettings());
     expect(persisted.themeMode, ThemeMode.light);
     expect(persisted.locale, 'de');
-    expect(persisted.sttModel, 'Best Quality (Large)');
+    expect(persisted.sttModel, 'whisper-large-v3');
     expect(persisted.showOverlay, false);
     expect(persisted.recordStartSound, false);
 
