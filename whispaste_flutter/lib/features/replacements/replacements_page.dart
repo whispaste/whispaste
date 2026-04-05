@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/page_shell.dart';
 
 // ---------------------------------------------------------------------------
 // Model
@@ -103,13 +104,16 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
     final all = ref.watch(replacementsProvider);
     final visible = _filtered(all);
 
-    return Column(
-      children: [
-        // Toolbar
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            WpSpacing.xl, WpSpacing.sm, WpSpacing.xl, WpSpacing.sm,
-          ),
+    return WpPageShell(
+      scrollable: false,
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          // Toolbar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WpSpacing.xl, WpSpacing.sm, WpSpacing.xl, WpSpacing.sm,
+            ),
           child: Row(
             children: [
               // Search
@@ -181,7 +185,8 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
                       },
                     ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -513,7 +518,8 @@ class _ReplacementTileState extends State<_ReplacementTile> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: WpMotion.fast,
+          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+          curve: WpMotion.defaultCurve,
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.md,
             vertical: WpSpacing.sm,

@@ -126,11 +126,6 @@ void main() {
       expect(WpLayout.fabSize, greaterThanOrEqualTo(40));
       expect(WpLayout.fabSize, lessThanOrEqualTo(72));
     });
-
-    test('page max width limits content readability', () {
-      expect(WpLayout.pageMaxWidth, greaterThanOrEqualTo(600));
-      expect(WpLayout.pageMaxWidth, lessThanOrEqualTo(900));
-    });
   });
 
   group('WpMotion', () {

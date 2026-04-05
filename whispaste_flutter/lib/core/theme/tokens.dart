@@ -80,6 +80,9 @@ abstract final class WpMotion {
   static const Duration smooth = Duration(milliseconds: 300);
   static const Duration dramatic = Duration(milliseconds: 500);
 
+  /// Near-instant hover-out prevents "blink" when moving between items.
+  static const Duration hoverOut = Duration(milliseconds: 50);
+
   static const Curve defaultCurve = Curves.easeOut;
   static const Curve spring = Curves.elasticOut;
   static const Curve smooth_ = Curves.easeInOut;
@@ -94,7 +97,6 @@ abstract final class WpLayout {
   static const double statusBarHeight = 42;
   static const double fabSize = 56;
   static const double appBarHeight = 64;
-  static const double pageMaxWidth = 720;
 }
 
 // ---------------------------------------------------------------------------

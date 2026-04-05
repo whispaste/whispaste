@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/brand_wordmark.dart';
+import '../../widgets/page_shell.dart';
 
 /// About page — app info, version, credits, links, keyboard shortcuts.
 class AboutPage extends StatelessWidget {
@@ -14,114 +15,108 @@ class AboutPage extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ts = Theme.of(context).textTheme;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(WpSpacing.xl),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: WpLayout.pageMaxWidth),
-          child: Column(
-            children: [
-              const SizedBox(height: WpSpacing.xl),
-              // Brand wordmark — the real PNG
-              const WpBrandWordmark(height: 64),
-              const SizedBox(height: WpSpacing.md),
-              Text('Version 1.2.0', style: ts.bodySmall),
-              const SizedBox(height: WpSpacing.xs),
-              Text(
-                'Dictate anywhere, paste everywhere.',
-                style: ts.bodyMedium?.copyWith(
-                  color: isDark
-                      ? WpColorsDark.textSecondary
-                      : WpColorsLight.textSecondary,
-                ),
+    return WpPageShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: WpSpacing.xl),
+          // Brand wordmark — centered
+          const Center(child: WpBrandWordmark(height: 64)),
+          const SizedBox(height: WpSpacing.md),
+          Center(child: Text('Version 1.2.0', style: ts.bodySmall)),
+          const SizedBox(height: WpSpacing.xs),
+          Center(
+            child: Text(
+              'Dictate anywhere, paste everywhere.',
+              style: ts.bodyMedium?.copyWith(
+                color: isDark
+                    ? WpColorsDark.textSecondary
+                    : WpColorsLight.textSecondary,
               ),
-              const SizedBox(height: WpSpacing.xxl),
-
-              // Info cards
-              _InfoCard(
-                icon: LucideIcons.codeXml,
-                title: 'Built with',
-                description: 'Flutter, Go, whisper.cpp, llama.cpp',
-                isDark: isDark,
-              ),
-              const SizedBox(height: WpSpacing.sm),
-              _InfoCard(
-                icon: LucideIcons.shield,
-                title: 'Privacy-first',
-                description:
-                    'Local AI inference by default — your voice never leaves your device unless you choose a cloud provider.',
-                isDark: isDark,
-              ),
-              const SizedBox(height: WpSpacing.sm),
-              _InfoCard(
-                icon: LucideIcons.monitor,
-                title: 'Platforms',
-                description: 'Windows  ·  macOS (coming soon)  ·  Linux (coming soon)',
-                isDark: isDark,
-              ),
-              const SizedBox(height: WpSpacing.xxl),
-
-              // Keyboard shortcuts
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Keyboard Shortcuts', style: ts.titleMedium),
-              ),
-              const SizedBox(height: WpSpacing.sm),
-              _ShortcutRow(
-                label: 'Start / Stop recording',
-                shortcut: 'Ctrl + Shift + R',
-                isDark: isDark,
-              ),
-              _ShortcutRow(
-                label: 'Command palette',
-                shortcut: 'Ctrl + K',
-                isDark: isDark,
-              ),
-              _ShortcutRow(
-                label: 'Settings',
-                shortcut: 'Ctrl + ,',
-                isDark: isDark,
-              ),
-              const SizedBox(height: WpSpacing.xxl),
-
-              // Links
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Links', style: ts.titleMedium),
-              ),
-              const SizedBox(height: WpSpacing.sm),
-              _LinkRow(
-                icon: LucideIcons.globe,
-                label: 'Website',
-                url: 'whispaste.com',
-                isDark: isDark,
-              ),
-              _LinkRow(
-                icon: IconData(
-                  FontAwesomeIcons.github.codePoint,
-                  fontFamily: FontAwesomeIcons.github.fontFamily,
-                  fontPackage: FontAwesomeIcons.github.fontPackage,
-                ),
-                label: 'GitHub',
-                url: 'github.com/whispaste',
-                isDark: isDark,
-              ),
-              _LinkRow(
-                icon: LucideIcons.fileText,
-                label: 'Privacy Policy',
-                url: 'whispaste.com/privacy',
-                isDark: isDark,
-              ),
-              const SizedBox(height: WpSpacing.xxxl),
-
-              Text(
-                '© ${DateTime.now().year} WhisPaste. All rights reserved.',
-                style: ts.bodySmall,
-              ),
-              const SizedBox(height: WpSpacing.xl),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(height: WpSpacing.xxl),
+
+          // Info cards — fill width
+          _InfoCard(
+            icon: LucideIcons.codeXml,
+            title: 'Built with',
+            description: 'Flutter, Go, whisper.cpp, llama.cpp',
+            isDark: isDark,
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          _InfoCard(
+            icon: LucideIcons.shield,
+            title: 'Privacy-first',
+            description:
+                'Local AI inference by default — your voice never leaves your device unless you choose a cloud provider.',
+            isDark: isDark,
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          _InfoCard(
+            icon: LucideIcons.monitor,
+            title: 'Platforms',
+            description:
+                'Windows  ·  macOS (coming soon)  ·  Linux (coming soon)',
+            isDark: isDark,
+          ),
+          const SizedBox(height: WpSpacing.xxl),
+
+          // Keyboard shortcuts
+          Text('Keyboard Shortcuts', style: ts.titleMedium),
+          const SizedBox(height: WpSpacing.sm),
+          _ShortcutRow(
+            label: 'Start / Stop recording',
+            shortcut: 'Ctrl + Shift + R',
+            isDark: isDark,
+          ),
+          _ShortcutRow(
+            label: 'Command palette',
+            shortcut: 'Ctrl + K',
+            isDark: isDark,
+          ),
+          _ShortcutRow(
+            label: 'Settings',
+            shortcut: 'Ctrl + ,',
+            isDark: isDark,
+          ),
+          const SizedBox(height: WpSpacing.xxl),
+
+          // Links
+          Text('Links', style: ts.titleMedium),
+          const SizedBox(height: WpSpacing.sm),
+          _LinkRow(
+            icon: LucideIcons.globe,
+            label: 'Website',
+            url: 'whispaste.com',
+            isDark: isDark,
+          ),
+          _LinkRow(
+            icon: IconData(
+              FontAwesomeIcons.github.codePoint,
+              fontFamily: FontAwesomeIcons.github.fontFamily,
+              fontPackage: FontAwesomeIcons.github.fontPackage,
+            ),
+            label: 'GitHub',
+            url: 'github.com/whispaste',
+            isDark: isDark,
+          ),
+          _LinkRow(
+            icon: LucideIcons.fileText,
+            label: 'Privacy Policy',
+            url: 'whispaste.com/privacy',
+            isDark: isDark,
+          ),
+          const SizedBox(height: WpSpacing.xxxl),
+
+          Center(
+            child: Text(
+              '© ${DateTime.now().year} WhisPaste. All rights reserved.',
+              style: ts.bodySmall,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.xl),
+        ],
       ),
     );
   }
@@ -291,7 +286,8 @@ class _LinkRowState extends State<_LinkRow> {
       child: GestureDetector(
         onTap: () {}, // TODO: launch URL
         child: AnimatedContainer(
-          duration: WpMotion.fast,
+          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+          curve: WpMotion.defaultCurve,
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.sm,
             vertical: WpSpacing.xs,
