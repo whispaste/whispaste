@@ -31,8 +31,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   String _postProcessProvider = 'Local';
 
   // -- Speech Recognition --
-  String _sttProvider = 'Local';
-  String _sttModel = 'Whisper Medium';
+  String _sttProvider = 'On Device (Private)';
+  String _sttModel = 'High Quality (Medium)';
   String _sttLanguage = 'Auto-detect';
 
   // -- Interface --
@@ -348,6 +348,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             subtitle: 'Automatic checks and safeguards',
             padding: EdgeInsets.zero,
             collapsible: true,
+            initiallyExpanded: false,
             child: Column(
               children: [
                 _SettingRow(
@@ -433,6 +434,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             subtitle: 'Voice recognition quality and service',
             padding: EdgeInsets.zero,
             collapsible: true,
+            initiallyExpanded: false,
             child: Column(
               children: [
                 _SettingRow(
@@ -441,7 +443,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   trailing: _dropdown(
                     value: _sttProvider,
                     items: const [
-                      'Local',
+                      'On Device (Private)',
                       'OpenAI',
                       'Groq',
                       'Deepgram',
@@ -456,10 +458,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   trailing: _dropdown(
                     value: _sttModel,
                     items: const [
-                      'Whisper Tiny',
-                      'Whisper Small',
-                      'Whisper Medium',
-                      'Whisper Large v3 Turbo',
+                      'Fast (Tiny)',
+                      'Balanced (Small)',
+                      'High Quality (Medium)',
+                      'Best Quality (Large)',
                     ],
                     onChanged: (v) =>
                         setState(() => _sttModel = v!),

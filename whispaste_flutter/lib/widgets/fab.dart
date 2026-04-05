@@ -70,38 +70,45 @@ class _WpRecordingFabState extends State<WpRecordingFab>
             ? WpColorsDark.accentWarmGradient
             : WpColorsLight.accentWarmGradient);
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedBuilder(
-        animation: _scaleAnim,
-        builder: (context, child) {
-          final scale = widget.isRecording
-              ? _scaleAnim.value
-              : _isHovered
-                  ? 1.06
-                  : 1.0;
-          return AnimatedScale(
-            scale: widget.isRecording ? scale : (_isHovered ? 1.06 : 1.0),
-            duration: WpMotion.fast,
-            child: child,
-          );
-        },
-        child: GestureDetector(
-          onTap: widget.onPressed,
-          child: Container(
-            width: WpLayout.fabSize,
-            height: WpLayout.fabSize,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: gradient,
-              boxShadow: WpShadows.fab,
-            ),
-            child: Icon(
-              widget.isRecording ? LucideIcons.square : LucideIcons.mic,
-              color: Colors.white,
-              size: WpIconSize.lg,
+    return Semantics(
+      label: widget.isRecording ? 'Stop recording' : 'Start recording',
+      button: true,
+      child: Tooltip(
+        message: widget.isRecording ? 'Stop recording' : 'Start recording',
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: AnimatedBuilder(
+            animation: _scaleAnim,
+            builder: (context, child) {
+              final scale = widget.isRecording
+                  ? _scaleAnim.value
+                  : _isHovered
+                      ? 1.06
+                      : 1.0;
+              return AnimatedScale(
+                scale: widget.isRecording ? scale : (_isHovered ? 1.06 : 1.0),
+                duration: WpMotion.fast,
+                child: child,
+              );
+            },
+            child: GestureDetector(
+              onTap: widget.onPressed,
+              child: Container(
+                width: WpLayout.fabSize,
+                height: WpLayout.fabSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: gradient,
+                  boxShadow: WpShadows.fab,
+                ),
+                child: Icon(
+                  widget.isRecording ? LucideIcons.square : LucideIcons.mic,
+                  color: Colors.white,
+                  size: WpIconSize.lg,
+                ),
+              ),
             ),
           ),
         ),

@@ -192,7 +192,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                         icon: LucideIcons.mic,
                         title: 'No recordings yet',
                         hint:
-                            'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.',
+                            'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.\n\n🔒 All data stays on your device.',
                       ),
           ),
         ],
