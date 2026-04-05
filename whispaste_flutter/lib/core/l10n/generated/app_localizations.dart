@@ -781,6 +781,42 @@ abstract class L10n {
   /// **'Transcription Complete Sound'**
   String get settingsTranscriptionCompleteSound;
 
+  /// No description provided for @settingsSoundVolume.
+  ///
+  /// In en, this message translates to:
+  /// **'Sound Volume'**
+  String get settingsSoundVolume;
+
+  /// No description provided for @settingsAfterTranscription.
+  ///
+  /// In en, this message translates to:
+  /// **'After Transcription'**
+  String get settingsAfterTranscription;
+
+  /// No description provided for @settingsAfterTranscriptionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What happens with the transcribed text'**
+  String get settingsAfterTranscriptionSubtitle;
+
+  /// No description provided for @settingsAfterTranscriptionClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy to Clipboard'**
+  String get settingsAfterTranscriptionClipboard;
+
+  /// No description provided for @settingsAfterTranscriptionPaste.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste at Cursor'**
+  String get settingsAfterTranscriptionPaste;
+
+  /// No description provided for @settingsAfterTranscriptionNothing.
+  ///
+  /// In en, this message translates to:
+  /// **'Do Nothing'**
+  String get settingsAfterTranscriptionNothing;
+
   /// No description provided for @settingsOverlayFloatingButton.
   ///
   /// In en, this message translates to:

@@ -9,6 +9,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/config/settings_provider.dart';
@@ -202,6 +203,9 @@ class RecordingOrchestrator extends Notifier<void> {
       // Save to history database.
       await _saveToHistory(transcript, config);
 
+      // Copy to clipboard / auto-paste based on user preference.
+      await _handleAfterTranscription(transcript, config);
+
       // Transition state: transcribing → done.
       notifier.completeTranscription(transcript);
       _log.info('Pipeline complete: ${transcript.length} chars');
@@ -324,6 +328,31 @@ class RecordingOrchestrator extends Notifier<void> {
     } on Exception catch (e) {
       _log.warning('STT pre-warm failed (non-fatal): $e');
     }
+  }
+
+  /// Copies transcript to clipboard and/or simulates paste depending on the
+  /// user's "after transcription" setting.
+  Future<void> _handleAfterTranscription(
+    String transcript,
+    WhisPasteConfig config,
+  ) async {
+    final settings =
+        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final action = settings.afterTranscription;
+
+    if (action == 'nothing') return;
+
+    // Both 'clipboard' and 'paste' start by copying to clipboard.
+    try {
+      await Clipboard.setData(ClipboardData(text: transcript));
+      _log.info('Transcript copied to clipboard (${transcript.length} chars)');
+    } on Exception catch (e) {
+      _log.warning('Clipboard copy failed: $e');
+    }
+
+    // TODO: 'paste' mode — simulate Ctrl+V via platform channel / Go FFI.
+    // Requires Windows SendInput bridge (paste.go). Will be wired in a
+    // follow-up when the Go FFI paste export is added.
   }
 }
 
