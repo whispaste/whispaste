@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/theme/theme_provider.dart';
 import '../../widgets/section.dart';
 
 /// Settings page — organized sections with interactive controls.
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends ConsumerState<SettingsPage> {
   // -- Audio --
   String _microphone = 'Default';
   double _inputGain = 100;
@@ -33,7 +35,6 @@ class _SettingsPageState extends State<SettingsPage> {
   String _sttLanguage = 'Auto-detect';
 
   // -- Interface --
-  String _theme = 'Dark';
   String _uiLanguage = 'English';
   bool _launchAtStartup = false;
   bool _showNotifications = true;
@@ -446,10 +447,20 @@ class _SettingsPageState extends State<SettingsPage> {
                   icon: LucideIcons.palette,
                   label: 'Theme',
                   trailing: _dropdown(
-                    value: _theme,
+                    value: switch (ref.watch(themeModeProvider)) {
+                      ThemeMode.dark => 'Dark',
+                      ThemeMode.light => 'Light',
+                      ThemeMode.system => 'System',
+                    },
                     items: const ['Dark', 'Light', 'System'],
-                    onChanged: (v) =>
-                        setState(() => _theme = v!),
+                    onChanged: (v) {
+                      final mode = switch (v) {
+                        'Light' => ThemeMode.light,
+                        'System' => ThemeMode.system,
+                        _ => ThemeMode.dark,
+                      };
+                      ref.read(themeModeProvider.notifier).setTheme(mode);
+                    },
                   ),
                 ),
                 _SettingRow(

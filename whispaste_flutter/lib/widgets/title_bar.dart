@@ -30,12 +30,15 @@ class WpTitleBar extends StatelessWidget {
       },
       child: Container(
         height: WpLayout.appBarHeight,
-        color: isDark ? WpColorsDark.background : WpColorsLight.background,
+        decoration: BoxDecoration(
+          gradient: isDark ? WpColorsDark.frameGradient : null,
+          color: isDark ? null : WpColorsLight.background,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
         child: Row(
           children: [
             // Brand wordmark PNG — prominent, gaming-launcher scale
-            const WpBrandWordmark(height: 38),
+            const WpBrandWordmark(height: 34),
             const Spacer(),
             // Window controls — all subtle gray, no red close
             _WindowButton(
