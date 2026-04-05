@@ -24,6 +24,7 @@ import 'services/recording_orchestrator.dart';
 import 'services/sound_feedback_service.dart';
 import 'services/stt_service.dart';
 import 'services/tray_service.dart';
+import 'services/hotkey_service.dart';
 import 'widgets/toast.dart';
 
 /// Active navigation page state (Riverpod 3.x Notifier).
@@ -140,6 +141,12 @@ class _AppShell extends ConsumerWidget {
     };
     tray.onNavigate = (page) {
       ref.read(activePageProvider.notifier).setPage(page);
+    };
+
+    // Eagerly initialise global hotkey (Ctrl+Shift+D → toggle recording).
+    ref.watch(hotkeyServiceProvider);
+    ref.read(hotkeyServiceProvider.notifier).onHotkeyPressed = () {
+      ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
     };
 
     // Show error/success feedback via toast when recording state changes.
