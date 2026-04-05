@@ -21,6 +21,7 @@ import 'features/about/about_page.dart';
 import 'features/feedback/feedback_page.dart';
 import 'features/recording/recording_state.dart';
 import 'services/recording_orchestrator.dart';
+import 'widgets/toast.dart';
 
 /// Active navigation page state (Riverpod 3.x Notifier).
 class _ActivePageNotifier extends Notifier<String> {
@@ -97,31 +98,26 @@ class _AppShell extends ConsumerWidget {
     final l10n = L10n.of(context);
     final navItems = _navItems(l10n);
 
-    // Show error/success feedback via SnackBar when recording state changes.
+    // Show error/success feedback via toast when recording state changes.
     ref.listen<RecordingState>(recordingProvider, (prev, next) {
       if (next.isError && next.errorMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(next.errorMessage!),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          behavior: SnackBarBehavior.floating,
+        WpToast.show(
+          context,
+          message: next.errorMessage!,
+          type: WpToastType.error,
           duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: l10n.actionDismiss,
-            textColor: Colors.white,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              ref.read(recordingOrchestratorProvider.notifier).reset();
-            },
-          ),
-        ));
+          actionLabel: l10n.actionDismiss,
+          onAction: () {
+            ref.read(recordingOrchestratorProvider.notifier).reset();
+          },
+        );
       } else if (next.isDone && next.transcript != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-            '${l10n.statusTranscriptionDone} — ${next.transcript!.length > 80 ? '${next.transcript!.substring(0, 80)}…' : next.transcript!}',
-          ),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ));
+        WpToast.show(
+          context,
+          message:
+              '${l10n.statusTranscriptionDone} — ${next.transcript!.length > 80 ? '${next.transcript!.substring(0, 80)}…' : next.transcript!}',
+          type: WpToastType.success,
+        );
         // Auto-reset after a short delay so the FAB returns to idle.
         Future.delayed(const Duration(seconds: 2), () {
           ref.read(recordingOrchestratorProvider.notifier).reset();
