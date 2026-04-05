@@ -4,11 +4,12 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'brand_logo.dart';
 
-/// Premium custom window title bar.
+/// Premium custom window title bar with brand wordmark.
 ///
-/// Features the real WhisPaste brand logo, a thin accent gradient stripe,
-/// and refined window controls. macOS uses native traffic lights.
+/// Renders the full Whispaste wordmark: logo icon + "Whis" (light) + "paste"
+/// (accent cyan), matching the official brand identity. Gaming-dashboard style.
 class WpTitleBar extends StatelessWidget {
   const WpTitleBar({super.key});
 
@@ -16,7 +17,6 @@ class WpTitleBar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (Platform.isMacOS) return const SizedBox.shrink();
 
-    final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
@@ -57,14 +57,36 @@ class WpTitleBar extends StatelessWidget {
             child: Row(
               children: [
                 const SizedBox(width: WpSpacing.sm),
-                // App name only — logo is in the sidebar
-                Text(
-                  'WhisPaste',
-                  style: TextStyle(
-                    color: cs.onSurface.withValues(alpha: 0.85),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
+                // Brand logo icon
+                const WpBrandLogo(size: 22),
+                const SizedBox(width: WpSpacing.xs),
+                // Dual-color wordmark: "Whis" light + "paste" accent
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Whis',
+                        style: TextStyle(
+                          color: isDark
+                              ? WpColorsDark.textPrimary
+                              : WpColorsLight.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      TextSpan(
+                        text: 'paste',
+                        style: TextStyle(
+                          color: isDark
+                              ? WpColorsDark.accent
+                              : WpColorsLight.accent,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const Spacer(),
