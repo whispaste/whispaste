@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'core/theme/theme.dart';
+import 'core/theme/theme_provider.dart';
 import 'core/theme/colors.dart';
 import 'core/theme/tokens.dart';
 import 'widgets/sidebar.dart';
@@ -14,6 +15,7 @@ import 'features/replacements/replacements_page.dart';
 import 'features/analytics/analytics_page.dart';
 import 'features/about/about_page.dart';
 import 'features/feedback/feedback_page.dart';
+import 'features/recording/recording_state.dart';
 
 /// Active navigation page state (Riverpod 3.x Notifier).
 class _ActivePageNotifier extends Notifier<String> {
@@ -26,29 +28,20 @@ class _ActivePageNotifier extends Notifier<String> {
 final activePageProvider =
     NotifierProvider<_ActivePageNotifier, String>(_ActivePageNotifier.new);
 
-/// Recording state (backed by audio service later).
-class _IsRecordingNotifier extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void toggle() => state = !state;
-}
-
-final isRecordingProvider =
-    NotifierProvider<_IsRecordingNotifier, bool>(_IsRecordingNotifier.new);
-
 /// Main WhisPaste application widget.
 class WhisPasteApp extends ConsumerWidget {
   const WhisPasteApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
     return MaterialApp(
       title: 'WhisPaste',
       debugShowCheckedModeBanner: false,
       theme: wpLightTheme(),
       darkTheme: wpDarkTheme(),
-      themeMode: ThemeMode.dark,
+      themeMode: themeMode,
       home: const _AppShell(),
     );
   }
@@ -84,77 +77,108 @@ class _AppShell extends ConsumerWidget {
     final isRecording = ref.watch(isRecordingProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // The "frame" color — sidebar, title bar, status bar all share this
-    final frameColor = isDark ? WpColorsDark.background : WpColorsLight.background;
-    // The content panel color — slightly lighter, distinct from frame
-    final contentColor = isDark ? WpColorsDark.surface : WpColorsLight.surface;
-
     const contentRadius = BorderRadius.only(
       topLeft: Radius.circular(WpRadius.xl),
       bottomLeft: Radius.circular(WpRadius.xl),
     );
 
+    // Content panel uses a warm gradient for depth
+    final contentDecoration = BoxDecoration(
+      gradient: isDark ? WpColorsDark.warmSurfaceGradient : null,
+      color: isDark ? null : WpColorsLight.surface,
+      borderRadius: contentRadius,
+    );
+
     return Scaffold(
-      backgroundColor: frameColor,
-      body: Column(
-        children: [
-          const WpTitleBar(),
-          Expanded(
-            child: Row(
-              children: [
-                WpSidebar(
-                  items: _navItems,
-                  activeId: activePage,
-                  onItemTap: (id) {
-                    ref.read(activePageProvider.notifier).setPage(id);
-                  },
-                ),
-                // Content area — rounded panel that sits on the frame
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: contentColor,
-                      borderRadius: contentRadius,
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        // Page header
-                        _PageHeader(
-                          title: _navItems
-                              .firstWhere((n) => n.id == activePage)
-                              .label,
-                        ),
-                        // Content
-                        Expanded(
-                          child: AnimatedSwitcher(
-                            duration: WpMotion.normal,
-                            child: _pageWidgets[activePage] ??
-                                const SizedBox.shrink(),
+      backgroundColor: Colors.transparent,
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: isDark ? WpColorsDark.frameGradient : null,
+          color: isDark ? null : WpColorsLight.background,
+        ),
+        child: Column(
+          children: [
+            const WpTitleBar(),
+            Expanded(
+              child: Row(
+                children: [
+                  WpSidebar(
+                    items: _navItems,
+                    activeId: activePage,
+                    onItemTap: (id) {
+                      ref.read(activePageProvider.notifier).setPage(id);
+                    },
+                    bottomItems: [
+                      _ThemeToggle(),
+                    ],
+                  ),
+                  // Content area — rounded panel with warm gradient
+                  Expanded(
+                    child: Container(
+                      decoration: contentDecoration,
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          // Page header
+                          _PageHeader(
+                            title: _navItems
+                                .firstWhere((n) => n.id == activePage)
+                                .label,
                           ),
-                        ),
-                      ],
+                          // Content with page transition animation
+                          Expanded(
+                            child: AnimatedSwitcher(
+                              duration: WpMotion.smooth,
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              transitionBuilder: (child, animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0.0, 0.015),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: KeyedSubtree(
+                                key: ValueKey(activePage),
+                                child: _pageWidgets[activePage] ??
+                                    const SizedBox.shrink(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          // Status bar — sits on the frame color, full width
-          const WpStatusBar(
-            modeLabel: 'Local',
-            postProcessingLabel: 'Post-Processing',
-            hotkeyLabel: 'Ctrl+Shift+R',
-            isOnline: true,
-          ),
-        ],
+            // Status bar — sits on the frame, full width
+            const WpStatusBar(
+              modeLabel: 'Local',
+              postProcessingLabel: 'Post-Processing',
+              hotkeyLabel: 'Ctrl+Shift+R',
+              isOnline: true,
+            ),
+          ],
+        ),
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: WpLayout.statusBarHeight + 8, right: 8),
         child: WpRecordingFab(
           isRecording: isRecording,
           onPressed: () {
-            ref.read(isRecordingProvider.notifier).toggle();
+            final notifier = ref.read(recordingProvider.notifier);
+            if (isRecording) {
+              notifier.stopRecording();
+            } else {
+              notifier.reset();
+              notifier.startRecording();
+            }
           },
         ),
       ),
@@ -182,6 +206,23 @@ class _PageHeader extends StatelessWidget {
           Text(title, style: Theme.of(context).textTheme.headlineLarge),
         ],
       ),
+    );
+  }
+}
+
+/// Sidebar theme toggle — cycles dark ↔ light with a single tap.
+class _ThemeToggle extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = ref.watch(isDarkModeProvider);
+    return IconButton(
+      icon: Icon(
+        isDark ? LucideIcons.moon : LucideIcons.sun,
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+        size: 20,
+      ),
+      tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+      onPressed: () => ref.read(themeModeProvider.notifier).toggleDarkLight(),
     );
   }
 }
