@@ -73,17 +73,66 @@ void main() {
           addTearDown(tester.view.resetPhysicalSize);
           addTearDown(tester.view.resetDevicePixelRatio);
 
+          // Capture overflow errors that Flutter logs (but doesn't throw)
+          final overflows = <String>[];
+          final originalHandler = FlutterError.onError;
+          FlutterError.onError = (details) {
+            if (details.toString().contains('overflowed')) {
+              overflows.add(details.toString());
+            } else {
+              originalHandler?.call(details);
+            }
+          };
+          addTearDown(() => FlutterError.onError = originalHandler);
+
           await tester.pumpWidget(
             _testShell(page.value, sizeEntry.value),
           );
           await tester.pumpAndSettle();
 
-          // If we get here without a RenderFlex overflow exception,
-          // the page handles this size correctly.
+          expect(overflows, isEmpty,
+              reason: '${page.key} overflow at ${sizeEntry.key}:\n${overflows.join('\n')}');
           expect(tester.takeException(), isNull,
-              reason: '${page.key} overflowed at ${sizeEntry.key}');
+              reason: '${page.key} exception at ${sizeEntry.key}');
         });
       }
+    });
+  }
+
+  // Extra: test History with narrow detail panel (common overflow source)
+  for (final narrow in [Size(900, 700), Size(1024, 600)]) {
+    testWidgets('History narrow detail panel at ${narrow.width.toInt()}×${narrow.height.toInt()}',
+        (tester) async {
+      tester.view.physicalSize = narrow;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final overflows = <String>[];
+      final originalHandler = FlutterError.onError;
+      FlutterError.onError = (details) {
+        if (details.toString().contains('overflowed')) {
+          overflows.add(details.toString());
+        } else {
+          originalHandler?.call(details);
+        }
+      };
+      addTearDown(() => FlutterError.onError = originalHandler);
+
+      await tester.pumpWidget(
+        _testShell(const HistoryPage(), narrow),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap first entry to open detail panel
+      final entries = find.byType(GestureDetector);
+      if (entries.evaluate().length > 3) {
+        await tester.tap(entries.at(3));
+        await tester.pumpAndSettle();
+      }
+
+      expect(overflows, isEmpty,
+          reason: 'History detail panel overflow at ${narrow.width}×${narrow.height}:\n${overflows.join('\n')}');
     });
   }
 }
