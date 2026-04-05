@@ -6,10 +6,10 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'brand_logo.dart';
 
-/// Premium custom window title bar with brand wordmark.
+/// Gaming-dashboard–style title bar with brand wordmark.
 ///
-/// Renders the full Whispaste wordmark: logo icon + "Whis" (light) + "paste"
-/// (accent cyan), matching the official brand identity. Gaming-dashboard style.
+/// Inspired by Steam/Dixper: seamless dark background, bold wordmark,
+/// subtle window controls. The bar flows into the content — no separator.
 class WpTitleBar extends StatelessWidget {
   const WpTitleBar({super.key});
 
@@ -19,113 +19,89 @@ class WpTitleBar extends StatelessWidget {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Thin accent gradient stripe at very top
-        Container(
-          height: 2,
-          decoration: BoxDecoration(
-            gradient: isDark
-                ? WpColorsDark.accentGradient
-                : WpColorsLight.accentGradient,
-          ),
-        ),
-        // Title bar body
-        GestureDetector(
-          onPanStart: (_) => windowManager.startDragging(),
-          onDoubleTap: () async {
-            if (await windowManager.isMaximized()) {
-              await windowManager.unmaximize();
-            } else {
-              await windowManager.maximize();
-            }
-          },
-          child: Container(
-            height: WpLayout.appBarHeight - 2,
-            decoration: BoxDecoration(
-              color: isDark ? WpColorsDark.surface : WpColorsLight.surface,
-              border: Border(
-                bottom: BorderSide(
-                  color: isDark
-                      ? WpColorsDark.borderSubtle
-                      : WpColorsLight.borderSubtle,
-                  width: 1,
-                ),
+    return GestureDetector(
+      onPanStart: (_) => windowManager.startDragging(),
+      onDoubleTap: () async {
+        if (await windowManager.isMaximized()) {
+          await windowManager.unmaximize();
+        } else {
+          await windowManager.maximize();
+        }
+      },
+      child: Container(
+        height: WpLayout.appBarHeight,
+        // Seamless — same background as the app, no border
+        color: isDark ? WpColorsDark.background : WpColorsLight.background,
+        child: Row(
+          children: [
+            const SizedBox(width: WpSpacing.md),
+            // Brand logo icon — bold, accent-colored
+            const WpBrandLogo(size: 26),
+            const SizedBox(width: WpSpacing.sm),
+            // Dual-color wordmark: "Whis" light + "paste" accent
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Whis',
+                    style: TextStyle(
+                      color: isDark
+                          ? WpColorsDark.textPrimary
+                          : WpColorsLight.textPrimary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'paste',
+                    style: TextStyle(
+                      color: isDark
+                          ? WpColorsDark.accent
+                          : WpColorsLight.accent,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Row(
-              children: [
-                const SizedBox(width: WpSpacing.sm),
-                // Brand logo icon
-                const WpBrandLogo(size: 22),
-                const SizedBox(width: WpSpacing.xs),
-                // Dual-color wordmark: "Whis" light + "paste" accent
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: 'Whis',
-                        style: TextStyle(
-                          color: isDark
-                              ? WpColorsDark.textPrimary
-                              : WpColorsLight.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      TextSpan(
-                        text: 'paste',
-                        style: TextStyle(
-                          color: isDark
-                              ? WpColorsDark.accent
-                              : WpColorsLight.accent,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                // Window controls
-                _WindowButton(
-                  icon: LucideIcons.minus,
-                  onPressed: () => windowManager.minimize(),
-                  hoverColor: isDark ? WpColorsDark.hover : WpColorsLight.hover,
-                ),
-                _MaximizeButton(
-                  hoverColor: isDark ? WpColorsDark.hover : WpColorsLight.hover,
-                ),
-                _WindowButton(
-                  icon: LucideIcons.x,
-                  onPressed: () => windowManager.close(),
-                  hoverColor: const Color(0xFFE81123),
-                  hoverIconColor: Colors.white,
-                ),
-              ],
+            const Spacer(),
+            // Window controls — compact, subtle, gaming-style
+            _WindowButton(
+              icon: LucideIcons.minus,
+              onPressed: () => windowManager.minimize(),
+              isDark: isDark,
             ),
-          ),
+            _MaximizeButton(isDark: isDark),
+            _WindowButton(
+              icon: LucideIcons.x,
+              onPressed: () => windowManager.close(),
+              isDark: isDark,
+              isClose: true,
+            ),
+            const SizedBox(width: WpSpacing.xxs),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
 
+/// Compact window control button — muted by default, visible on hover.
 class _WindowButton extends StatefulWidget {
   const _WindowButton({
     required this.icon,
     required this.onPressed,
-    required this.hoverColor,
-    this.hoverIconColor,
+    required this.isDark,
+    this.isClose = false,
   });
 
   final IconData icon;
   final VoidCallback onPressed;
-  final Color hoverColor;
-  final Color? hoverIconColor;
+  final bool isDark;
+  final bool isClose;
 
   @override
   State<_WindowButton> createState() => _WindowButtonState();
@@ -136,7 +112,15 @@ class _WindowButtonState extends State<_WindowButton> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final mutedColor = widget.isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
+    final hoverBg = widget.isClose
+        ? const Color(0xFFE81123)
+        : (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover);
+    final hoverFg = widget.isClose
+        ? Colors.white
+        : (widget.isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -146,16 +130,17 @@ class _WindowButtonState extends State<_WindowButton> {
         onTap: widget.onPressed,
         child: AnimatedContainer(
           duration: WpMotion.fast,
-          width: 46,
-          height: WpLayout.appBarHeight - 2,
-          color: _isHovered ? widget.hoverColor : Colors.transparent,
+          width: 40,
+          height: 30,
+          decoration: BoxDecoration(
+            color: _isHovered ? hoverBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(WpRadius.sm),
+          ),
           alignment: Alignment.center,
           child: Icon(
             widget.icon,
-            size: WpIconSize.sm,
-            color: _isHovered && widget.hoverIconColor != null
-                ? widget.hoverIconColor
-                : cs.secondary,
+            size: 14,
+            color: _isHovered ? hoverFg : mutedColor,
           ),
         ),
       ),
@@ -164,9 +149,9 @@ class _WindowButtonState extends State<_WindowButton> {
 }
 
 class _MaximizeButton extends StatefulWidget {
-  const _MaximizeButton({required this.hoverColor});
+  const _MaximizeButton({required this.isDark});
 
-  final Color hoverColor;
+  final bool isDark;
 
   @override
   State<_MaximizeButton> createState() => _MaximizeButtonState();
@@ -186,7 +171,13 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final mutedColor = widget.isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
+    final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
+    final hoverFg = widget.isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -203,14 +194,17 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
         },
         child: AnimatedContainer(
           duration: WpMotion.fast,
-          width: 46,
-          height: WpLayout.appBarHeight - 2,
-          color: _isHovered ? widget.hoverColor : Colors.transparent,
+          width: 40,
+          height: 30,
+          decoration: BoxDecoration(
+            color: _isHovered ? hoverBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(WpRadius.sm),
+          ),
           alignment: Alignment.center,
           child: Icon(
             _isMaximized ? LucideIcons.minimize2 : LucideIcons.maximize2,
-            size: WpIconSize.xs,
-            color: cs.secondary,
+            size: 13,
+            color: _isHovered ? hoverFg : mutedColor,
           ),
         ),
       ),
