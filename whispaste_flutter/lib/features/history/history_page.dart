@@ -2651,7 +2651,7 @@ class _EntryCardState extends State<_EntryCard> {
                     child: Text(
                       widget.entry.title.isNotEmpty
                           ? widget.entry.title
-                          : 'Untitled recording',
+                          : L10n.of(context).historyUntitledRecording,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -2927,7 +2927,7 @@ class _CompactRowState extends State<_CompactRow> {
                 child: Text(
                   widget.entry.title.isNotEmpty
                       ? widget.entry.title
-                      : 'Untitled recording',
+                      : L10n.of(context).historyUntitledRecording,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
