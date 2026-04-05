@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
-import '../../core/l10n/locale_provider.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
-import '../../core/theme/theme_provider.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
 
@@ -18,41 +17,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  // -- Interface --
-  bool _launchAtStartup = false;
-  bool _showNotifications = true;
-
-  // -- Audio --
-  String _microphone = 'Default';
-  double _inputGain = 100;
-  bool _pushToTalk = false;
-
-  // -- Speech Recognition --
-  String _sttProvider = 'On Device (Private)';
-  String _sttModel = 'High Quality (Medium)';
-  String _sttLanguage = 'Auto-detect';
-
-  // -- Text Enhancement (Post-Processing) --
-  bool _postProcessEnabled = true;
-  String _postProcessPreset = 'Clean up';
-  String _postProcessProvider = 'Local';
-
-  // -- Recording Safety --
-  double _deadMicTimeout = 3;
-  double _autoStopSilence = 0;
-
-  // -- Sound & Feedback --
-  bool _recordStartSound = true;
-  bool _recordStopSound = true;
-  bool _transcriptionCompleteSound = true;
-
-  // -- Overlay & Floating Button --
-  bool _showOverlay = true;
-  bool _showFloatingButton = true;
-  double _floatingButtonOpacity = 0.9;
-  String _floatingButtonSize = 'Normal';
-
-  // -- Cloud Providers --
+  // -- Cloud Provider key visibility (UI-only state) --
   final _openAiKeyCtrl = TextEditingController();
   final _groqKeyCtrl = TextEditingController();
   final _deepgramKeyCtrl = TextEditingController();
@@ -69,6 +34,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _deepgramKeyCtrl.dispose();
     _anthropicKeyCtrl.dispose();
     super.dispose();
+  }
+
+  void _syncController(TextEditingController controller, String value) {
+    if (controller.text == value) return;
+    controller.value = controller.value.copyWith(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+      composing: TextRange.empty,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -205,6 +179,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     required TextEditingController controller,
     required bool obscure,
     required VoidCallback onToggle,
+    ValueChanged<String>? onChanged,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
@@ -213,6 +188,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       child: TextField(
         controller: controller,
         obscureText: obscure,
+        onChanged: onChanged,
         style: TextStyle(
           fontSize: 13,
           color: isDark
@@ -269,6 +245,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
+    final settingsAsync = ref.watch(settingsProvider);
+    final settings = settingsAsync.value ?? AppSettings.defaults;
+
+    _syncController(_openAiKeyCtrl, settings.openAiApiKey);
+    _syncController(_groqKeyCtrl, settings.groqApiKey);
+    _syncController(_deepgramKeyCtrl, settings.deepgramApiKey);
+    _syncController(_anthropicKeyCtrl, settings.anthropicApiKey);
 
     return WpPageShell(
       child: Column(
@@ -332,32 +315,40 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: LucideIcons.mic,
                   label: l10n.settingsMicrophone,
                   trailing: _dropdown(
-                    value: _microphone,
+                    value: settings.microphone,
                     items: const ['Default', 'Headset Mic', 'USB Mic'],
-                    onChanged: (v) =>
-                        setState(() => _microphone = v!),
+                    labels: [
+                      l10n.settingsMicrophoneDefault,
+                      l10n.settingsMicrophoneHeadset,
+                      l10n.settingsMicrophoneUsb,
+                    ],
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(microphone: v!)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.gauge,
                   label: l10n.settingsGain,
                   trailing: _slider(
-                    value: _inputGain,
+                    value: settings.inputGain,
                     min: 0,
                     max: 300,
                     divisions: 60,
-                    valueLabel: '${_inputGain.round()}%',
-                    onChanged: (v) =>
-                        setState(() => _inputGain = v),
+                    valueLabel: '${settings.inputGain.round()}%',
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(inputGain: v)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.hand,
                   label: l10n.settingsHoldToRecord,
                   trailing: _toggle(
-                    value: _pushToTalk,
-                    onChanged: (v) =>
-                        setState(() => _pushToTalk = v),
+                    value: settings.pushToTalk,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(pushToTalk: v)),
                   ),
                 ),
               ],
@@ -376,26 +367,28 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: LucideIcons.shieldAlert,
                   label: l10n.settingsDeadMicTimeout,
                   trailing: _slider(
-                    value: _deadMicTimeout,
+                    value: settings.deadMicTimeout,
                     min: 0,
                     max: 10,
                     divisions: 10,
-                    valueLabel: _fmtSeconds(_deadMicTimeout),
-                    onChanged: (v) =>
-                        setState(() => _deadMicTimeout = v),
+                    valueLabel: _fmtSeconds(settings.deadMicTimeout),
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(deadMicTimeout: v)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.timerOff,
                   label: l10n.settingsAutoStopSilence,
                   trailing: _slider(
-                    value: _autoStopSilence,
+                    value: settings.autoStopSilence,
                     min: 0,
                     max: 10,
                     divisions: 10,
-                    valueLabel: _fmtSeconds(_autoStopSilence),
-                    onChanged: (v) =>
-                        setState(() => _autoStopSilence = v),
+                    valueLabel: _fmtSeconds(settings.autoStopSilence),
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(autoStopSilence: v)),
                   ),
                 ),
               ],
@@ -414,37 +407,51 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: LucideIcons.cpu,
                   label: l10n.settingsService,
                   trailing: _dropdown(
-                    value: _sttProvider,
+                    value: settings.sttProvider,
                     items: const [
                       'On Device (Private)',
                       'OpenAI',
                       'Groq',
                       'Deepgram',
                     ],
-                    onChanged: (v) =>
-                        setState(() => _sttProvider = v!),
+                    labels: [
+                      l10n.settingsServiceOnDevicePrivate,
+                      'OpenAI',
+                      'Groq',
+                      'Deepgram',
+                    ],
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(sttProvider: v!)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.brain,
                   label: l10n.settingsQuality,
                   trailing: _dropdown(
-                    value: _sttModel,
+                    value: settings.sttModel,
                     items: const [
                       'Fast (Tiny)',
                       'Balanced (Small)',
                       'High Quality (Medium)',
                       'Best Quality (Large)',
                     ],
-                    onChanged: (v) =>
-                        setState(() => _sttModel = v!),
+                    labels: [
+                      l10n.settingsQualityFastTiny,
+                      l10n.settingsQualityBalancedSmall,
+                      l10n.settingsQualityHighQualityMedium,
+                      l10n.settingsQualityBestLarge,
+                    ],
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(sttModel: v!)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.languages,
                   label: l10n.settingsLanguage,
                   trailing: _dropdown(
-                    value: _sttLanguage,
+                    value: settings.sttLanguage,
                     items: const [
                       'Auto-detect',
                       'English',
@@ -452,8 +459,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       'French',
                       'Spanish',
                     ],
-                    onChanged: (v) =>
-                        setState(() => _sttLanguage = v!),
+                    labels: [
+                      l10n.settingsLanguageAutoDetect,
+                      l10n.settingsLanguageEnglish,
+                      l10n.settingsLanguageGerman,
+                      l10n.settingsLanguageFrench,
+                      l10n.settingsLanguageSpanish,
+                    ],
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(sttLanguage: v!)),
                   ),
                 ),
               ],
@@ -461,7 +476,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           _sectionDivider(),
 
-          // ── 4. Text Enhancement ──
+          // ── 4. Post-Processing ──
           WpSection(
             title: l10n.settingsPostProcessing,
             subtitle: l10n.settingsTextEnhancementSubtitle,
@@ -472,35 +487,44 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: LucideIcons.sparkles,
                   label: l10n.settingsEnabled,
                   trailing: _toggle(
-                    value: _postProcessEnabled,
-                    onChanged: (v) =>
-                        setState(() => _postProcessEnabled = v),
+                    value: settings.postProcessEnabled,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(postProcessEnabled: v)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.wandSparkles,
                   label: l10n.settingsStyle,
                   trailing: _dropdown(
-                    value: _postProcessPreset,
+                    value: settings.postProcessPreset,
                     items: const ['Clean up', 'Concise', 'Translate'],
                     labels: [l10n.settingsPresetCleanup, l10n.settingsPresetConcise, l10n.settingsPresetTranslate],
-                    onChanged: (v) =>
-                        setState(() => _postProcessPreset = v!),
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(postProcessPreset: v!)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.server,
                   label: l10n.settingsService,
                   trailing: _dropdown(
-                    value: _postProcessProvider,
+                    value: settings.postProcessProvider,
                     items: const [
                       'Local',
                       'OpenAI',
                       'Anthropic',
                       'Groq',
                     ],
-                    onChanged: (v) =>
-                        setState(() => _postProcessProvider = v!),
+                    labels: [
+                      l10n.statusLocal,
+                      'OpenAI',
+                      'Anthropic',
+                      'Groq',
+                    ],
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(postProcessProvider: v!)),
                   ),
                 ),
               ],
@@ -523,27 +547,31 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: LucideIcons.volume2,
                   label: l10n.settingsRecordStartSound,
                   trailing: _toggle(
-                    value: _recordStartSound,
-                    onChanged: (v) =>
-                        setState(() => _recordStartSound = v),
+                    value: settings.recordStartSound,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(recordStartSound: v)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.volumeX,
                   label: l10n.settingsRecordStopSound,
                   trailing: _toggle(
-                    value: _recordStopSound,
-                    onChanged: (v) =>
-                        setState(() => _recordStopSound = v),
+                    value: settings.recordStopSound,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(recordStopSound: v)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.bellRing,
                   label: l10n.settingsTranscriptionCompleteSound,
                   trailing: _toggle(
-                    value: _transcriptionCompleteSound,
-                    onChanged: (v) =>
-                        setState(() => _transcriptionCompleteSound = v),
+                    value: settings.transcriptionCompleteSound,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) =>
+                            s.copyWith(transcriptionCompleteSound: v)),
                   ),
                 ),
               ],
@@ -562,43 +590,49 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: LucideIcons.layers,
                   label: l10n.settingsShowOverlay,
                   trailing: _toggle(
-                    value: _showOverlay,
-                    onChanged: (v) =>
-                        setState(() => _showOverlay = v),
+                    value: settings.showOverlay,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(showOverlay: v)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.move,
                   label: l10n.settingsShowFloatingButton,
                   trailing: _toggle(
-                    value: _showFloatingButton,
-                    onChanged: (v) =>
-                        setState(() => _showFloatingButton = v),
+                    value: settings.showFloatingButton,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(showFloatingButton: v)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.circleDot,
                   label: l10n.settingsFloatingButtonOpacity,
                   trailing: _slider(
-                    value: _floatingButtonOpacity,
+                    value: settings.floatingButtonOpacity,
                     min: 0.1,
                     max: 1.0,
                     divisions: 9,
                     valueLabel:
-                        '${(_floatingButtonOpacity * 100).round()}%',
-                    onChanged: (v) =>
-                        setState(() => _floatingButtonOpacity = v),
+                        '${(settings.floatingButtonOpacity * 100).round()}%',
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                            (s) => s.copyWith(floatingButtonOpacity: v)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.maximize2,
                   label: l10n.settingsFloatingButtonSize,
                   trailing: _dropdown(
-                    value: _floatingButtonSize,
+                    value: settings.floatingButtonSize,
                     items: const ['Small', 'Normal', 'Large'],
                     labels: [l10n.settingsSizeSmall, l10n.settingsSizeNormal, l10n.settingsSizeLarge],
-                    onChanged: (v) =>
-                        setState(() => _floatingButtonSize = v!),
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                            (s) => s.copyWith(floatingButtonSize: v!)),
                   ),
                 ),
               ],
@@ -621,20 +655,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: LucideIcons.palette,
                   label: l10n.settingsTheme,
                   trailing: _dropdown(
-                    value: switch (ref.watch(themeModeProvider)) {
-                      ThemeMode.dark => 'Dark',
-                      ThemeMode.light => 'Light',
-                      ThemeMode.system => 'System',
+                    value: switch (settings.themeMode) {
+                      ThemeMode.dark => 'dark',
+                      ThemeMode.light => 'light',
+                      ThemeMode.system => 'system',
                     },
-                    items: const ['Dark', 'Light', 'System'],
-                    labels: [l10n.settingsThemeDark, l10n.settingsThemeLight, l10n.settingsThemeSystem],
+                    items: const ['dark', 'light', 'system'],
+                    labels: [
+                      l10n.settingsThemeDark,
+                      l10n.settingsThemeLight,
+                      l10n.settingsThemeSystem,
+                    ],
                     onChanged: (v) {
                       final mode = switch (v) {
-                        'Light' => ThemeMode.light,
-                        'System' => ThemeMode.system,
+                        'light' => ThemeMode.light,
+                        'system' => ThemeMode.system,
                         _ => ThemeMode.dark,
                       };
-                      ref.read(themeModeProvider.notifier).setTheme(mode);
+                      ref.read(settingsProvider.notifier).updateSettings(
+                        (s) => s.copyWith(themeMode: mode),
+                      );
                     },
                   ),
                 ),
@@ -642,13 +682,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: LucideIcons.globe,
                   label: l10n.settingsLanguage,
                   trailing: _dropdown(
-                    value: ref.watch(localeProvider).languageCode == 'de'
-                        ? 'Deutsch'
-                        : 'English',
-                    items: const ['English', 'Deutsch'],
+                    value: settings.locale == 'de' ? 'de' : 'en',
+                    items: const ['en', 'de'],
+                    labels: [
+                      l10n.settingsLanguageEnglish,
+                      l10n.settingsLanguageGerman,
+                    ],
                     onChanged: (v) {
                       if (v != null) {
-                        ref.read(localeProvider.notifier).setFromDisplayName(v);
+                        ref.read(settingsProvider.notifier).updateSettings(
+                          (s) => s.copyWith(locale: v),
+                        );
                       }
                     },
                   ),
@@ -657,18 +701,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: LucideIcons.power,
                   label: l10n.settingsLaunchAtStartup,
                   trailing: _toggle(
-                    value: _launchAtStartup,
-                    onChanged: (v) =>
-                        setState(() => _launchAtStartup = v),
+                    value: settings.launchAtStartup,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(launchAtStartup: v)),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.bell,
                   label: l10n.settingsShowNotifications,
                   trailing: _toggle(
-                    value: _showNotifications,
-                    onChanged: (v) =>
-                        setState(() => _showNotifications = v),
+                    value: settings.showNotifications,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                            (s) => s.copyWith(showNotifications: v)),
                   ),
                 ),
               ],
@@ -692,6 +739,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     onToggle: () => setState(
                       () => _showOpenAiKey = !_showOpenAiKey,
                     ),
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(openAiApiKey: v)),
                   ),
                 ),
                 _SettingRow(
@@ -703,6 +753,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     onToggle: () => setState(
                       () => _showGroqKey = !_showGroqKey,
                     ),
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(groqApiKey: v)),
                   ),
                 ),
                 _SettingRow(
@@ -714,6 +767,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     onToggle: () => setState(
                       () => _showDeepgramKey = !_showDeepgramKey,
                     ),
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(deepgramApiKey: v)),
                   ),
                 ),
                 _SettingRow(
@@ -725,9 +781,64 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     onToggle: () => setState(
                       () => _showAnthropicKey = !_showAnthropicKey,
                     ),
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(anthropicApiKey: v)),
                   ),
                 ),
               ],
+            ),
+          ),
+          _sectionDivider(),
+
+          // ── 9. Advanced — Factory Reset ──
+          WpSection(
+            title: l10n.settingsAdvanced,
+            padding: EdgeInsets.zero,
+            child: _SettingRow(
+              icon: LucideIcons.rotateCcw,
+              label: l10n.settingsResetToDefaults,
+              trailing: OutlinedButton(
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: Text(l10n.settingsResetDialogTitle),
+                      content: Text(l10n.settingsResetConfirmMessage),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: Text(l10n.actionCancel),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          child: Text(l10n.settingsResetConfirm),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed != true) {
+                    return;
+                  }
+
+                  await ref
+                      .read(settingsProvider.notifier)
+                      .resetToDefaults();
+                  if (!context.mounted) return;
+                  final resetSuccessText = L10n.of(context).settingsResetSuccess;
+
+                  setState(() {
+                    _showOpenAiKey = false;
+                    _showGroqKey = false;
+                    _showDeepgramKey = false;
+                    _showAnthropicKey = false;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(resetSuccessText)),
+                  );
+                },
+                child: Text(l10n.settingsResetConfirm),
+              ),
             ),
           ),
         ],
@@ -770,7 +881,7 @@ class _SettingRowState extends State<_SettingRow> {
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
         child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+          duration: WpMotion.hoverIn,
           curve: WpMotion.defaultCurve,
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.sm,

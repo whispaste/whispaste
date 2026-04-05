@@ -148,12 +148,12 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                         ),
                       ),
                     ),
-                  // Icon pill
-                  AnimatedContainer(
-                    duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-                    curve: WpMotion.defaultCurve,
-                    width: 38,
-                    height: 38,
+                   // Icon pill
+                   AnimatedContainer(
+                     duration: WpMotion.hoverIn,
+                     curve: WpMotion.defaultCurve,
+                     width: 38,
+                     height: 38,
                     decoration: BoxDecoration(
                       color: bgColor,
                       borderRadius: BorderRadius.circular(WpRadius.md),

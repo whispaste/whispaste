@@ -1,14 +1,29 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/app.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/theme/theme_provider.dart';
+import 'package:whispaste/features/history/data/database.dart';
+import 'package:whispaste/main.dart' as app_bootstrap;
 
 void main() {
-  group('ThemeModeNotifier', () {
+  group('themeModeProvider (derived from settings)', () {
+    late HistoryDatabase db;
     late ProviderContainer container;
 
-    setUp(() {
-      container = ProviderContainer();
+    setUp(() async {
+      db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+        ],
+      );
+      await container.read(settingsProvider.future);
     });
 
     tearDown(() {
@@ -19,36 +34,54 @@ void main() {
       expect(container.read(themeModeProvider), ThemeMode.dark);
     });
 
-    test('setTheme changes mode', () {
-      container.read(themeModeProvider.notifier).setTheme(ThemeMode.light);
+    test('changes when settings theme changes', () async {
+      await container.read(settingsProvider.notifier).updateSettings(
+            (s) => s.copyWith(themeMode: ThemeMode.light),
+          );
       expect(container.read(themeModeProvider), ThemeMode.light);
 
-      container.read(themeModeProvider.notifier).setTheme(ThemeMode.system);
+      await container.read(settingsProvider.notifier).updateSettings(
+            (s) => s.copyWith(themeMode: ThemeMode.system),
+          );
       expect(container.read(themeModeProvider), ThemeMode.system);
     });
 
-    test('toggleDarkLight switches between dark and light', () {
+    test('toggleDarkLight switches between dark and light', () async {
       expect(container.read(themeModeProvider), ThemeMode.dark);
 
-      container.read(themeModeProvider.notifier).toggleDarkLight();
+      await container.read(settingsProvider.notifier).toggleDarkLight();
       expect(container.read(themeModeProvider), ThemeMode.light);
 
-      container.read(themeModeProvider.notifier).toggleDarkLight();
+      await container.read(settingsProvider.notifier).toggleDarkLight();
       expect(container.read(themeModeProvider), ThemeMode.dark);
     });
 
-    test('toggleDarkLight from system goes to dark (system treated as non-dark)', () {
-      container.read(themeModeProvider.notifier).setTheme(ThemeMode.system);
-      container.read(themeModeProvider.notifier).toggleDarkLight();
+    test('toggleDarkLight from system goes to dark', () async {
+      await container.read(settingsProvider.notifier).updateSettings(
+            (s) => s.copyWith(themeMode: ThemeMode.system),
+          );
+      // system != dark, so toggle goes to light? No — toggle checks == dark.
+      // system is NOT dark, so next = dark.
+      await container.read(settingsProvider.notifier).toggleDarkLight();
       expect(container.read(themeModeProvider), ThemeMode.dark);
     });
   });
 
   group('isDarkModeProvider', () {
+    late HistoryDatabase db;
     late ProviderContainer container;
 
-    setUp(() {
-      container = ProviderContainer();
+    setUp(() async {
+      db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+        ],
+      );
+      await container.read(settingsProvider.future);
     });
 
     tearDown(() {
@@ -59,14 +92,80 @@ void main() {
       expect(container.read(isDarkModeProvider), true);
     });
 
-    test('returns false for light mode', () {
-      container.read(themeModeProvider.notifier).setTheme(ThemeMode.light);
+    test('returns false for light mode', () async {
+      await container.read(settingsProvider.notifier).updateSettings(
+            (s) => s.copyWith(themeMode: ThemeMode.light),
+          );
       expect(container.read(isDarkModeProvider), false);
     });
 
-    test('returns true for system mode (defaults to dark)', () {
-      container.read(themeModeProvider.notifier).setTheme(ThemeMode.system);
+    test('returns true for system mode (defaults to dark)', () async {
+      await container.read(settingsProvider.notifier).updateSettings(
+            (s) => s.copyWith(themeMode: ThemeMode.system),
+          );
       expect(container.read(isDarkModeProvider), true);
+    });
+  });
+
+  group('bootstrapAppContainer', () {
+    testWidgets('uses persisted light theme on the first frame', (
+      tester,
+    ) async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.writeAppSettings(
+        const AppSettings(themeMode: ThemeMode.light).toStorageMap(),
+      );
+
+      final container = await app_bootstrap.bootstrapAppContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const WhisPasteApp(),
+        ),
+      );
+
+      final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+      expect(container.read(themeModeProvider), ThemeMode.light);
+      expect(app.themeMode, ThemeMode.light);
+    });
+
+    testWidgets('preserves persisted system theme on the first frame', (
+      tester,
+    ) async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.writeAppSettings(
+        const AppSettings(themeMode: ThemeMode.system).toStorageMap(),
+      );
+
+      final container = await app_bootstrap.bootstrapAppContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const WhisPasteApp(),
+        ),
+      );
+
+      final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+      expect(container.read(themeModeProvider), ThemeMode.system);
+      expect(app.themeMode, ThemeMode.system);
     });
   });
 }

@@ -293,7 +293,7 @@ class L10nEn extends L10n {
       'Automatically stop after this many seconds of silence (after speech). 0 = disabled.';
 
   @override
-  String get settingsPostProcessing => 'Text Enhancement';
+  String get settingsPostProcessing => 'Post-Processing';
 
   @override
   String get settingsPostProcessingHint =>
@@ -301,13 +301,52 @@ class L10nEn extends L10n {
 
   @override
   String get settingsTextEnhancementSubtitle =>
-      'Improve your dictated text automatically';
+      'Clean up, shorten, or translate dictated text automatically';
 
   @override
   String get settingsEnabled => 'Enabled';
 
   @override
   String get settingsStyle => 'Style';
+
+  @override
+  String get settingsMicrophoneDefault => 'Default';
+
+  @override
+  String get settingsMicrophoneHeadset => 'Headset Mic';
+
+  @override
+  String get settingsMicrophoneUsb => 'USB Mic';
+
+  @override
+  String get settingsServiceOnDevicePrivate => 'On Device (Private)';
+
+  @override
+  String get settingsQualityFastTiny => 'Fast (Tiny)';
+
+  @override
+  String get settingsQualityBalancedSmall => 'Balanced (Small)';
+
+  @override
+  String get settingsQualityHighQualityMedium => 'High Quality (Medium)';
+
+  @override
+  String get settingsQualityBestLarge => 'Best Quality (Large)';
+
+  @override
+  String get settingsLanguageAutoDetect => 'Auto-detect';
+
+  @override
+  String get settingsLanguageEnglish => 'English';
+
+  @override
+  String get settingsLanguageGerman => 'German';
+
+  @override
+  String get settingsLanguageFrench => 'French';
+
+  @override
+  String get settingsLanguageSpanish => 'Spanish';
 
   @override
   String get settingsPresetCleanup => 'Clean up';
@@ -388,6 +427,22 @@ class L10nEn extends L10n {
 
   @override
   String get settingsAdvanced => 'Advanced';
+
+  @override
+  String get settingsResetToDefaults => 'Reset to Defaults';
+
+  @override
+  String get settingsResetDialogTitle => 'Reset all settings?';
+
+  @override
+  String get settingsResetConfirmMessage =>
+      'This will restore all settings to their original values. Your history and data will not be affected.';
+
+  @override
+  String get settingsResetConfirm => 'Reset';
+
+  @override
+  String get settingsResetSuccess => 'Settings restored to defaults.';
 
   @override
   String get settingsPrivacyNote =>
@@ -489,4 +544,394 @@ class L10nEn extends L10n {
 
   @override
   String get feedbackHint => 'Tell us what you think — we read every message.';
+
+  @override
+  String get analyticsPreviewBanner =>
+      'Preview — showing sample data. Real analytics will appear once you start recording.';
+
+  @override
+  String get analyticsOverview => 'Overview';
+
+  @override
+  String get analyticsOverviewSubtitle => 'Your dictation stats at a glance';
+
+  @override
+  String get analyticsActivity => 'Activity';
+
+  @override
+  String get analyticsInsights => 'Insights';
+
+  @override
+  String get analyticsTotalRecordings => 'Total Recordings';
+
+  @override
+  String get analyticsTotalDuration => 'Total Duration';
+
+  @override
+  String get analyticsWordsDictated => 'Words Dictated';
+
+  @override
+  String get analyticsTimeSaved => 'Time Saved';
+
+  @override
+  String get analyticsRecordingActivity => 'Recording Activity';
+
+  @override
+  String get analyticsLast7Days => 'Last 7 days';
+
+  @override
+  String get analyticsModelUsage => 'Model Usage';
+
+  @override
+  String get analyticsDurationDistribution => 'Duration Distribution';
+
+  @override
+  String get analyticsCostSavings => 'Cost & Savings';
+
+  @override
+  String get analyticsLocalSavings => 'Local savings';
+
+  @override
+  String get analyticsCloudCost => 'Cloud cost';
+
+  @override
+  String get analyticsPeriod7d => '7 days';
+
+  @override
+  String get analyticsPeriod30d => '30 days';
+
+  @override
+  String get analyticsPeriod90d => '90 days';
+
+  @override
+  String get analyticsPeriodAll => 'All time';
+
+  @override
+  String get analyticsReset => 'Reset';
+
+  @override
+  String get analyticsResetTitle => 'Reset Statistics';
+
+  @override
+  String get analyticsResetMessage =>
+      'Are you sure you want to clear all analytics data? This action cannot be undone.';
+
+  @override
+  String get analyticsDayMon => 'Mon';
+
+  @override
+  String get analyticsDayTue => 'Tue';
+
+  @override
+  String get analyticsDayWed => 'Wed';
+
+  @override
+  String get analyticsDayThu => 'Thu';
+
+  @override
+  String get analyticsDayFri => 'Fri';
+
+  @override
+  String get analyticsDaySat => 'Sat';
+
+  @override
+  String get analyticsDaySun => 'Sun';
+
+  @override
+  String analyticsThisWeek(String delta) {
+    return '$delta this week';
+  }
+
+  @override
+  String analyticsVsLastMonth(String delta) {
+    return '$delta vs last month';
+  }
+
+  @override
+  String analyticsDurationHoursMinutes(int hours, int minutes) {
+    return '${hours}h ${minutes}m';
+  }
+
+  @override
+  String get analyticsDurationLt15s => '< 15s';
+
+  @override
+  String get analyticsDuration15To30s => '15–30s';
+
+  @override
+  String get analyticsDuration30To60s => '30–60s';
+
+  @override
+  String get analyticsDuration1To3m => '1–3m';
+
+  @override
+  String get analyticsDurationGt3m => '> 3m';
+
+  @override
+  String analyticsSavedAmount(String amount) {
+    return '$amount saved';
+  }
+
+  @override
+  String analyticsSpentAmount(String amount) {
+    return '$amount spent';
+  }
+
+  @override
+  String get replacementsSearch => 'Search shortcuts…';
+
+  @override
+  String get replacementsAdd => 'Add';
+
+  @override
+  String get replacementsEmpty => 'No voice shortcuts yet';
+
+  @override
+  String get replacementsEmptyHint =>
+      'Add shortcuts to auto-replace words during dictation.\nExample: \"btw\" → \"by the way\"';
+
+  @override
+  String get replacementsNoMatches => 'No matches';
+
+  @override
+  String get replacementsNoMatchesHint => 'Try a different search term.';
+
+  @override
+  String get replacementsAddShortcut => 'Add Shortcut';
+
+  @override
+  String get replacementsEditShortcut => 'Edit Shortcut';
+
+  @override
+  String get replacementsNewShortcut => 'New Shortcut';
+
+  @override
+  String get replacementsDialogHint =>
+      'The trigger phrase will be replaced automatically during dictation.';
+
+  @override
+  String get replacementsTriggerLabel => 'Trigger phrase';
+
+  @override
+  String get replacementsTriggerHint => 'e.g. btw';
+
+  @override
+  String get replacementsReplacementLabel => 'Replacement text';
+
+  @override
+  String get replacementsReplacementHint => 'e.g. by the way';
+
+  @override
+  String get replacementsDeleteTitle => 'Delete Shortcut';
+
+  @override
+  String replacementsDeleteMessage(String trigger) {
+    return 'Remove the shortcut \"$trigger\"? This cannot be undone.';
+  }
+
+  @override
+  String get aboutTagline => 'Voice to text, instantly.';
+
+  @override
+  String get aboutWhatsNew => 'What\'s New';
+
+  @override
+  String get aboutGitHub => 'GitHub';
+
+  @override
+  String get aboutReportIssue => 'Report Issue';
+
+  @override
+  String get aboutSupportTitle => 'Support this project';
+
+  @override
+  String get aboutSupportDescription =>
+      'WhisPaste is free and open source under the MIT license. If you find it useful, please consider supporting its development!';
+
+  @override
+  String get aboutGitHubSponsors => 'GitHub Sponsors';
+
+  @override
+  String get aboutKofi => 'Ko-fi';
+
+  @override
+  String get aboutStarOnGitHub => 'Star on GitHub';
+
+  @override
+  String get aboutBuiltWith => 'Built with';
+
+  @override
+  String get aboutFlutterGo => 'Flutter & Go';
+
+  @override
+  String get aboutFlutterGoDesc =>
+      'Cross-platform UI with Flutter, performance-critical backend in Go via FFI.';
+
+  @override
+  String get aboutWhisper => 'whisper.cpp & OpenAI Whisper';
+
+  @override
+  String get aboutWhisperDesc =>
+      'Local and cloud speech recognition — fast, accurate, multilingual.';
+
+  @override
+  String get aboutLlamaCpp => 'llama.cpp';
+
+  @override
+  String get aboutLlamaCppDesc =>
+      'Local LLM inference for AI post-processing without cloud dependency.';
+
+  @override
+  String get aboutPrivacyFirst => 'Privacy-first';
+
+  @override
+  String get aboutPrivacyFirstDesc =>
+      'Local AI inference by default — your voice never leaves your device unless you choose a cloud provider.';
+
+  @override
+  String get aboutPrivacy => 'Privacy & Data';
+
+  @override
+  String get aboutPrivacyLocal =>
+      'All transcriptions and history are stored locally on your device — never on external servers.';
+
+  @override
+  String get aboutPrivacyCloud =>
+      'Cloud providers (OpenAI, Groq, Deepgram, Anthropic, Gemini) only receive audio or text when you actively use them. Their privacy policies apply.';
+
+  @override
+  String get aboutPrivacyNoTracking =>
+      'No analytics, no tracking, no user accounts. Update checks contact GitHub (version + IP only).';
+
+  @override
+  String get aboutKeyboardShortcuts => 'Keyboard Shortcuts';
+
+  @override
+  String get aboutShortcutRecord => 'Start / Stop recording';
+
+  @override
+  String get aboutShortcutPalette => 'Command palette';
+
+  @override
+  String get aboutShortcutSettings => 'Settings';
+
+  @override
+  String get aboutLinks => 'Links';
+
+  @override
+  String get aboutWebsite => 'Website';
+
+  @override
+  String get aboutGitHubRepo => 'GitHub Repository';
+
+  @override
+  String get aboutMitLicense => 'MIT License';
+
+  @override
+  String get aboutViewOnGitHub => 'View on GitHub';
+
+  @override
+  String get aboutPrivacyPolicy => 'Privacy Policy';
+
+  @override
+  String get aboutSystemInfo => 'System Info';
+
+  @override
+  String get aboutSystemInfoDesc =>
+      'Copy a compact diagnostics snapshot for bug reports.';
+
+  @override
+  String get aboutCopyDebugInfo => 'Copy Debug Info';
+
+  @override
+  String get aboutCopied => 'Copied!';
+
+  @override
+  String get aboutMadeWith => 'Made with ♥ by Silvio Lindstedt';
+
+  @override
+  String get aboutOpenSource => 'Open source under the MIT License';
+
+  @override
+  String get feedbackSubtitle =>
+      'Help us improve WhisPaste — every voice matters.';
+
+  @override
+  String get feedbackCategoryLabel => 'What\'s this about?';
+
+  @override
+  String get feedbackCategoryBug => 'Bug Report';
+
+  @override
+  String get feedbackCategoryFeature => 'Feature Idea';
+
+  @override
+  String get feedbackCategoryGeneral => 'General';
+
+  @override
+  String get feedbackCategoryAiQuality => 'AI Quality';
+
+  @override
+  String get feedbackRatingLabel => 'How are you feeling about WhisPaste?';
+
+  @override
+  String get feedbackCommentsLabel => 'Tell us more';
+
+  @override
+  String get feedbackPlaceholderBug =>
+      'Describe what happened and what you expected…';
+
+  @override
+  String get feedbackPlaceholderFeature =>
+      'What would you like to see in WhisPaste?';
+
+  @override
+  String get feedbackPlaceholderAi =>
+      'How was the transcription or post-processing quality?';
+
+  @override
+  String get feedbackPlaceholderGeneral => 'Share your thoughts…';
+
+  @override
+  String get feedbackSubmit => 'Send Feedback';
+
+  @override
+  String get feedbackPrivacyNote => 'Your feedback is anonymous and encrypted.';
+
+  @override
+  String get feedbackThankYou => 'Thank you!';
+
+  @override
+  String get feedbackThankYouMessage =>
+      'Your feedback helps us make WhisPaste better\nfor everyone.';
+
+  @override
+  String get feedbackSendAnother => 'Send another';
+
+  @override
+  String get feedbackRatingFrustrated => 'Frustrated';
+
+  @override
+  String get feedbackRatingMeh => 'Meh';
+
+  @override
+  String get feedbackRatingOkay => 'Okay';
+
+  @override
+  String get feedbackRatingHappy => 'Happy';
+
+  @override
+  String get feedbackRatingLoveIt => 'Love it!';
+
+  @override
+  String get statusBarOnDevice => 'On device';
+
+  @override
+  String get statusBarPostProcessing => 'Post-Processing';
+
+  @override
+  String get tooltipSwitchToLight => 'Switch to Light Mode';
+
+  @override
+  String get tooltipSwitchToDark => 'Switch to Dark Mode';
 }

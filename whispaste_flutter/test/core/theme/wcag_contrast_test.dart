@@ -315,6 +315,32 @@ void main() {
     }
   });
 
+  group('Color saturation – light theme (surfaces ≥ 15% tint)', () {
+    final lightSurfaceChecks = [
+      _SaturationCheck('light: background', WpColorsLight.background, 0.15),
+      _SaturationCheck('light: surface', WpColorsLight.surface, 0.15),
+      _SaturationCheck(
+        'light: surfaceElevated',
+        WpColorsLight.surfaceElevated,
+        0.15,
+      ),
+      _SaturationCheck('light: surfaceVariant', WpColorsLight.surfaceVariant, 0.15),
+      _SaturationCheck('light: hover', WpColorsLight.hover, 0.15),
+    ];
+    for (final check in lightSurfaceChecks) {
+      test(check.name, () {
+        final sat = hslSaturation(check.color);
+        expect(
+          sat,
+          greaterThanOrEqualTo(check.minSaturation),
+          reason: '${check.name}: saturation ${(sat * 100).toStringAsFixed(1)}% '
+              '< required ${(check.minSaturation * 100).toStringAsFixed(0)}% — '
+              'light surfaces must stay tinted, not sterile white/gray',
+        );
+      });
+    }
+  });
+
   // Frame–content unity: background and surface should be close in lightness
   group('Frame–content unity (lightness gap ≤ 4%)', () {
     test('dark: background vs surface lightness delta', () {
@@ -333,12 +359,11 @@ void main() {
       final bgL = hslLightness(WpColorsLight.background);
       final sfL = hslLightness(WpColorsLight.surface);
       final delta = (bgL - sfL).abs();
-      // Light theme allows slightly bigger gap since white surface vs tinted bg
       expect(
         delta,
-        lessThanOrEqualTo(0.08),
+        lessThanOrEqualTo(0.05),
         reason: 'Frame-content lightness gap: ${(delta * 100).toStringAsFixed(1)}% '
-            '> allowed 8% — frame and content should feel unified',
+            '> allowed 5% — light theme should feel as unified as dark theme',
       );
     });
   });

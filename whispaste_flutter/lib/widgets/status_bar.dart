@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
@@ -100,6 +102,7 @@ class _OnlineBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm, vertical: 4),
       decoration: BoxDecoration(
@@ -122,7 +125,10 @@ class _OnlineBadge extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          Text(isOnline ? 'Online' : 'Offline', style: textStyle),
+          Text(
+            isOnline ? l10n.statusOnline : l10n.statusOffline,
+            style: textStyle,
+          ),
         ],
       ),
     );

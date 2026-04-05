@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/empty_state.dart';
@@ -22,10 +23,10 @@ class Replacement {
   final String replacement;
 
   Replacement copyWith({String? trigger, String? replacement}) => Replacement(
-        id: id,
-        trigger: trigger ?? this.trigger,
-        replacement: replacement ?? this.replacement,
-      );
+    id: id,
+    trigger: trigger ?? this.trigger,
+    replacement: replacement ?? this.replacement,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -37,22 +38,37 @@ int _nextId = 4; // starts after sample data
 class ReplacementsNotifier extends Notifier<List<Replacement>> {
   @override
   List<Replacement> build() => const [
-        Replacement(id: '1', trigger: 'mfg', replacement: 'Mit freundlichen Grüßen'),
-        Replacement(id: '2', trigger: 'lg', replacement: 'Liebe Grüße'),
-        Replacement(id: '3', trigger: 'tel', replacement: '+49 123 456789'),
-      ];
+    Replacement(
+      id: '1',
+      trigger: 'mfg',
+      replacement: 'Mit freundlichen Grüßen',
+    ),
+    Replacement(id: '2', trigger: 'lg', replacement: 'Liebe Grüße'),
+    Replacement(id: '3', trigger: 'tel', replacement: '+49 123 456789'),
+  ];
 
   void add(String trigger, String replacement) {
     state = [
       ...state,
-      Replacement(id: '${_nextId++}', trigger: trigger, replacement: replacement),
+      Replacement(
+        id: '${_nextId++}',
+        trigger: trigger,
+        replacement: replacement,
+      ),
     ];
   }
 
-  void update(String id, {required String trigger, required String replacement}) {
+  void update(
+    String id, {
+    required String trigger,
+    required String replacement,
+  }) {
     state = [
       for (final r in state)
-        if (r.id == id) r.copyWith(trigger: trigger, replacement: replacement) else r,
+        if (r.id == id)
+          r.copyWith(trigger: trigger, replacement: replacement)
+        else
+          r,
     ];
   }
 
@@ -63,8 +79,8 @@ class ReplacementsNotifier extends Notifier<List<Replacement>> {
 
 final replacementsProvider =
     NotifierProvider<ReplacementsNotifier, List<Replacement>>(
-  ReplacementsNotifier.new,
-);
+      ReplacementsNotifier.new,
+    );
 
 // ---------------------------------------------------------------------------
 // Page
@@ -92,9 +108,11 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
     if (_searchQuery.isEmpty) return all;
     final q = _searchQuery.toLowerCase();
     return all
-        .where((r) =>
-            r.trigger.toLowerCase().contains(q) ||
-            r.replacement.toLowerCase().contains(q))
+        .where(
+          (r) =>
+              r.trigger.toLowerCase().contains(q) ||
+              r.replacement.toLowerCase().contains(q),
+        )
         .toList();
   }
 
@@ -103,6 +121,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final all = ref.watch(replacementsProvider);
     final visible = _filtered(all);
+    final l10n = L10n.of(context);
 
     return WpPageShell(
       scrollable: false,
@@ -112,79 +131,80 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
           // Toolbar
           Padding(
             padding: const EdgeInsets.fromLTRB(
-              WpSpacing.xl, WpSpacing.sm, WpSpacing.xl, WpSpacing.sm,
+              WpSpacing.xl,
+              WpSpacing.sm,
+              WpSpacing.xl,
+              WpSpacing.sm,
             ),
-          child: Row(
-            children: [
-              // Search
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search shortcuts…',
-                    prefixIcon: Icon(
-                      LucideIcons.search,
-                      size: WpIconSize.sm,
-                      color: isDark
-                          ? WpColorsDark.textMuted
-                          : WpColorsLight.textMuted,
-                    ),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: WpSpacing.md,
-                      vertical: WpSpacing.xs + 2,
-                    ),
-                  ),
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                ),
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              // Add button
-              ElevatedButton.icon(
-                onPressed: () => _showAddEditDialog(),
-                icon: const Icon(LucideIcons.plus, size: WpIconSize.sm),
-                label: const Text('Add'),
-              ),
-            ],
-          ),
-        ),
-        // Content
-        Expanded(
-          child: all.isEmpty
-              ? WpEmptyState(
-                  icon: LucideIcons.replace,
-                  title: 'No voice shortcuts yet',
-                  hint:
-                      'Add shortcuts to auto-replace words during dictation.\n'
-                      'Example: "btw" → "by the way"',
-                  actionLabel: 'Add Shortcut',
-                  onAction: () => _showAddEditDialog(),
-                )
-              : visible.isEmpty
-                  ? const WpEmptyState(
-                      icon: LucideIcons.searchX,
-                      title: 'No matches',
-                      hint: 'Try a different search term.',
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: WpSpacing.xl,
-                        vertical: WpSpacing.xs,
+            child: Row(
+              children: [
+                // Search
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: l10n.replacementsSearch,
+                      prefixIcon: Icon(
+                        LucideIcons.search,
+                        size: WpIconSize.sm,
+                        color: isDark
+                            ? WpColorsDark.textMuted
+                            : WpColorsLight.textMuted,
                       ),
-                      itemCount: visible.length,
-                      separatorBuilder: (_, _) =>
-                          const SizedBox(height: WpSpacing.xs),
-                      itemBuilder: (context, index) {
-                        final r = visible[index];
-                        return _ReplacementTile(
-                          replacement: r,
-                          isDark: isDark,
-                          onTap: () => _showAddEditDialog(existing: r),
-                          onDelete: () => _confirmDelete(r),
-                        );
-                      },
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: WpSpacing.md,
+                        vertical: WpSpacing.xs + 2,
+                      ),
                     ),
-        ),
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                  ),
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                // Add button
+                ElevatedButton.icon(
+                  onPressed: () => _showAddEditDialog(),
+                  icon: const Icon(LucideIcons.plus, size: WpIconSize.sm),
+                  label: Text(l10n.replacementsAdd),
+                ),
+              ],
+            ),
+          ),
+          // Content
+          Expanded(
+            child: all.isEmpty
+                ? WpEmptyState(
+                    icon: LucideIcons.replace,
+                    title: l10n.replacementsEmpty,
+                    hint: l10n.replacementsEmptyHint,
+                    actionLabel: l10n.replacementsAddShortcut,
+                    onAction: () => _showAddEditDialog(),
+                  )
+                : visible.isEmpty
+                ? WpEmptyState(
+                    icon: LucideIcons.searchX,
+                    title: l10n.replacementsNoMatches,
+                    hint: l10n.replacementsNoMatchesHint,
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: WpSpacing.xl,
+                      vertical: WpSpacing.xs,
+                    ),
+                    itemCount: visible.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: WpSpacing.xs),
+                    itemBuilder: (context, index) {
+                      final r = visible[index];
+                      return _ReplacementTile(
+                        replacement: r,
+                        isDark: isDark,
+                        onTap: () => _showAddEditDialog(existing: r),
+                        onDelete: () => _confirmDelete(r),
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
     );
@@ -249,8 +269,9 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
   void initState() {
     super.initState();
     _triggerCtrl = TextEditingController(text: widget.existing?.trigger ?? '');
-    _replacementCtrl =
-        TextEditingController(text: widget.existing?.replacement ?? '');
+    _replacementCtrl = TextEditingController(
+      text: widget.existing?.replacement ?? '',
+    );
   }
 
   @override
@@ -262,22 +283,26 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
 
   void _submit() {
     if (!_isValid) return;
-    Navigator.of(context)
-        .pop((_triggerCtrl.text.trim(), _replacementCtrl.text.trim()));
+    Navigator.of(
+      context,
+    ).pop((_triggerCtrl.text.trim(), _replacementCtrl.text.trim()));
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg =
-        isDark ? WpColorsDark.surfaceElevated : WpColorsLight.surfaceElevated;
-    final border =
-        isDark ? WpColorsDark.borderDefault : WpColorsLight.borderDefault;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final bg = isDark
+        ? WpColorsDark.surfaceElevated
+        : WpColorsLight.surfaceElevated;
+    final border = isDark
+        ? WpColorsDark.borderDefault
+        : WpColorsLight.borderDefault;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final l10n = L10n.of(context);
 
     return Center(
       child: Material(
@@ -298,7 +323,9 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
             children: [
               // Title
               Text(
-                _isEditing ? 'Edit Shortcut' : 'New Shortcut',
+                _isEditing
+                    ? l10n.replacementsEditShortcut
+                    : l10n.replacementsNewShortcut,
                 style: TextStyle(
                   color: textPrimary,
                   fontSize: 16,
@@ -307,14 +334,14 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
               ),
               const SizedBox(height: WpSpacing.xs),
               Text(
-                'The trigger phrase will be replaced automatically during dictation.',
+                l10n.replacementsDialogHint,
                 style: TextStyle(color: textMuted, fontSize: 12),
               ),
               const SizedBox(height: WpSpacing.lg),
 
               // Trigger field
               Text(
-                'Trigger phrase',
+                l10n.replacementsTriggerLabel,
                 style: TextStyle(
                   color: textPrimary,
                   fontSize: 12,
@@ -326,10 +353,10 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                 controller: _triggerCtrl,
                 autofocus: true,
                 style: TextStyle(color: textPrimary, fontSize: 13),
-                decoration: const InputDecoration(
-                  hintText: 'e.g. btw',
+                decoration: InputDecoration(
+                  hintText: l10n.replacementsTriggerHint,
                   isDense: true,
-                  contentPadding: EdgeInsets.symmetric(
+                  contentPadding: const EdgeInsets.symmetric(
                     horizontal: WpSpacing.md,
                     vertical: WpSpacing.sm,
                   ),
@@ -341,7 +368,7 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
 
               // Replacement field
               Text(
-                'Replacement text',
+                l10n.replacementsReplacementLabel,
                 style: TextStyle(
                   color: textPrimary,
                   fontSize: 12,
@@ -352,10 +379,10 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
               TextField(
                 controller: _replacementCtrl,
                 style: TextStyle(color: textPrimary, fontSize: 13),
-                decoration: const InputDecoration(
-                  hintText: 'e.g. by the way',
+                decoration: InputDecoration(
+                  hintText: l10n.replacementsReplacementHint,
                   isDense: true,
-                  contentPadding: EdgeInsets.symmetric(
+                  contentPadding: const EdgeInsets.symmetric(
                     horizontal: WpSpacing.md,
                     vertical: WpSpacing.sm,
                   ),
@@ -372,7 +399,7 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(
-                      'Cancel',
+                      l10n.actionCancel,
                       style: TextStyle(color: textMuted, fontSize: 13),
                     ),
                   ),
@@ -380,7 +407,7 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                   ElevatedButton(
                     onPressed: _isValid ? _submit : null,
                     child: Text(
-                      _isEditing ? 'Save' : 'Add',
+                      _isEditing ? l10n.actionSave : l10n.replacementsAdd,
                       style: TextStyle(
                         color: _isValid ? accent : textMuted,
                         fontSize: 13,
@@ -410,15 +437,18 @@ class _DeleteConfirmDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg =
-        isDark ? WpColorsDark.surfaceElevated : WpColorsLight.surfaceElevated;
-    final border =
-        isDark ? WpColorsDark.borderDefault : WpColorsLight.borderDefault;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final bg = isDark
+        ? WpColorsDark.surfaceElevated
+        : WpColorsLight.surfaceElevated;
+    final border = isDark
+        ? WpColorsDark.borderDefault
+        : WpColorsLight.borderDefault;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
+    final l10n = L10n.of(context);
 
     return Center(
       child: Material(
@@ -437,7 +467,7 @@ class _DeleteConfirmDialog extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Delete Shortcut',
+                l10n.replacementsDeleteTitle,
                 style: TextStyle(
                   color: textPrimary,
                   fontSize: 16,
@@ -446,7 +476,7 @@ class _DeleteConfirmDialog extends StatelessWidget {
               ),
               const SizedBox(height: WpSpacing.sm),
               Text(
-                'Remove the shortcut "$trigger"? This cannot be undone.',
+                l10n.replacementsDeleteMessage(trigger),
                 style: TextStyle(color: textMuted, fontSize: 13),
               ),
               const SizedBox(height: WpSpacing.xl),
@@ -456,7 +486,7 @@ class _DeleteConfirmDialog extends StatelessWidget {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
                     child: Text(
-                      'Cancel',
+                      l10n.actionCancel,
                       style: TextStyle(color: textMuted, fontSize: 13),
                     ),
                   ),
@@ -467,7 +497,7 @@ class _DeleteConfirmDialog extends StatelessWidget {
                       backgroundColor: errorColor.withValues(alpha: 0.15),
                     ),
                     child: Text(
-                      'Delete',
+                      l10n.actionDelete,
                       style: TextStyle(
                         color: errorColor,
                         fontSize: 13,
@@ -528,17 +558,17 @@ class _ReplacementTileState extends State<_ReplacementTile> {
             color: _isHovered
                 ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
                 : (widget.isDark
-                    ? WpColorsDark.surfaceElevated
-                    : WpColorsLight.surfaceElevated),
+                      ? WpColorsDark.surfaceElevated
+                      : WpColorsLight.surfaceElevated),
             borderRadius: WpRadius.borderMd,
             border: Border.all(
               color: _isHovered
                   ? (widget.isDark
-                      ? WpColorsDark.glassBorder
-                      : WpColorsLight.borderDefault)
+                        ? WpColorsDark.glassBorder
+                        : WpColorsLight.borderDefault)
                   : (widget.isDark
-                      ? WpColorsDark.borderSubtle
-                      : WpColorsLight.borderSubtle),
+                        ? WpColorsDark.borderSubtle
+                        : WpColorsLight.borderSubtle),
             ),
           ),
           child: Row(
@@ -587,6 +617,7 @@ class _ReplacementTileState extends State<_ReplacementTile> {
               // Delete on hover
               if (_isHovered)
                 IconButton(
+                  tooltip: L10n.of(context).actionDelete,
                   icon: Icon(
                     LucideIcons.trash2,
                     size: WpIconSize.sm,
@@ -596,8 +627,10 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                   ),
                   onPressed: widget.onDelete,
                   padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints(minWidth: 28, minHeight: 28),
+                  constraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 28,
+                  ),
                 ),
             ],
           ),
