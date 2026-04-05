@@ -25,6 +25,7 @@ import 'services/sound_feedback_service.dart';
 import 'services/stt_service.dart';
 import 'services/tray_service.dart';
 import 'services/hotkey_service.dart';
+import 'services/autostart_service.dart';
 import 'widgets/toast.dart';
 
 /// Active navigation page state (Riverpod 3.x Notifier).
@@ -148,6 +149,9 @@ class _AppShell extends ConsumerWidget {
     ref.read(hotkeyServiceProvider.notifier).onHotkeyPressed = () {
       ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
     };
+
+    // Sync autostart setting with system.
+    ref.watch(autostartServiceProvider);
 
     // Show error/success feedback via toast when recording state changes.
     // Also triggers sound feedback for start / stop / complete / error.
