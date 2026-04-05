@@ -1,50 +1,67 @@
 import 'package:flutter/material.dart';
-import '../../widgets/section.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/section.dart';
 
-/// Feedback page — rate + text feedback form.
-class FeedbackPage extends StatelessWidget {
+/// Feedback page — rating + text feedback form.
+class FeedbackPage extends StatefulWidget {
   const FeedbackPage({super.key});
 
   @override
+  State<FeedbackPage> createState() => _FeedbackPageState();
+}
+
+class _FeedbackPageState extends State<FeedbackPage> {
+  int _rating = 0;
+
+  @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(WpSpacing.lg),
+      padding: const EdgeInsets.only(bottom: WpSpacing.xxxl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           WpSection(
             title: 'Send Feedback',
-            padding: EdgeInsets.zero,
+            subtitle: 'Help us improve WhisPaste',
+            padding: const EdgeInsets.fromLTRB(
+              WpSpacing.xl, WpSpacing.md, WpSpacing.xl, WpSpacing.md,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Help us improve WhisPaste. Your feedback is appreciated!',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: WpSpacing.lg),
-                // Rating row placeholder
+                const SizedBox(height: WpSpacing.sm),
                 Text(
                   'How would you rate WhisPaste?',
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),
                 const SizedBox(height: WpSpacing.sm),
+                // Star rating
                 Row(
                   children: List.generate(5, (i) {
-                    return IconButton(
-                      onPressed: () {
-                        // TODO: Wire up rating state
-                      },
-                      icon: Icon(
-                        Icons.star_border_rounded,
-                        size: 32,
-                        color: Theme.of(context).colorScheme.primary,
+                    final filled = i < _rating;
+                    return MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _rating = i + 1),
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: WpSpacing.xxs),
+                          child: Icon(
+                            filled ? LucideIcons.star : LucideIcons.star,
+                            size: WpIconSize.xl,
+                            color: filled
+                                ? (isDark ? WpColorsDark.warning : WpColorsLight.warning)
+                                : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted),
+                          ),
+                        ),
                       ),
                     );
                   }),
                 ),
-                const SizedBox(height: WpSpacing.lg),
+                const SizedBox(height: WpSpacing.xl),
                 // Comment field
                 TextField(
                   maxLines: 5,
@@ -54,11 +71,10 @@ class FeedbackPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: WpSpacing.lg),
-                ElevatedButton(
-                  onPressed: () {
-                    // TODO: Submit feedback
-                  },
-                  child: const Text('Send Feedback'),
+                ElevatedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(LucideIcons.send, size: WpIconSize.sm),
+                  label: const Text('Send Feedback'),
                 ),
               ],
             ),
