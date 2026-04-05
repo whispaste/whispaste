@@ -36,7 +36,7 @@ class WpTitleBar extends StatelessWidget {
           children: [
             const SizedBox(width: WpSpacing.md),
             // Brand logo icon — bold, accent-colored
-            const WpBrandLogo(size: 26),
+            const WpBrandLogo(size: 32),
             const SizedBox(width: WpSpacing.sm),
             // Dual-color wordmark: "Whis" light + "paste" accent
             Text.rich(
