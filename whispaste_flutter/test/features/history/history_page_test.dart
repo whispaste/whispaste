@@ -3,14 +3,33 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:whispaste/features/history/data/providers.dart';
+import 'package:whispaste/features/history/data/sample_data.dart';
 import 'package:whispaste/features/history/history_page.dart';
 
 import '../../fixtures/test_helpers.dart';
 
+/// Provider overrides that supply sample data via stream providers,
+/// matching the previous behaviour where the page loaded sample entries.
+List<Object> _sampleOverrides() {
+  final all = generateSampleEntries();
+  final active =
+      all.where((e) => e.deletedAt == null && !e.archived).toList();
+  final archived =
+      all.where((e) => e.archived && e.deletedAt == null).toList();
+  final trash = all.where((e) => e.deletedAt != null).toList();
+  return [
+    historyEntriesProvider.overrideWith((ref) => Stream.value(active)),
+    archivedEntriesProvider.overrideWith((ref) => Stream.value(archived)),
+    trashEntriesProvider.overrideWith((ref) => Stream.value(trash)),
+  ];
+}
+
 void main() {
   group('HistoryPage', () {
     testWidgets('renders search bar and filter chips', (tester) async {
-      await tester.pumpWidget(makeTestable(const HistoryPage()));
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
       await tester.pumpAndSettle();
 
       expect(find.text('Search transcriptions…'), findsOneWidget);
@@ -22,7 +41,8 @@ void main() {
     });
 
     testWidgets('shows sample entries on load', (tester) async {
-      await tester.pumpWidget(makeTestable(const HistoryPage()));
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
       await tester.pumpAndSettle();
 
       // Should show date group headers
@@ -33,7 +53,8 @@ void main() {
     });
 
     testWidgets('filters entries by Today', (tester) async {
-      await tester.pumpWidget(makeTestable(const HistoryPage()));
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
       await tester.pumpAndSettle();
 
       // Find the "Today" filter chip (there are two — chip + date header)
@@ -50,7 +71,8 @@ void main() {
     });
 
     testWidgets('filters entries by Pinned', (tester) async {
-      await tester.pumpWidget(makeTestable(const HistoryPage()));
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Pinned'));
@@ -63,7 +85,8 @@ void main() {
     });
 
     testWidgets('search filters entries by text', (tester) async {
-      await tester.pumpWidget(makeTestable(const HistoryPage()));
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
       await tester.pumpAndSettle();
 
       // Type a search query
@@ -77,7 +100,8 @@ void main() {
     });
 
     testWidgets('search with no matches shows empty state', (tester) async {
-      await tester.pumpWidget(makeTestable(const HistoryPage()));
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'zzzznonexistent');
@@ -87,7 +111,8 @@ void main() {
     });
 
     testWidgets('entry rows show metadata', (tester) async {
-      await tester.pumpWidget(makeTestable(const HistoryPage()));
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
       await tester.pumpAndSettle();
 
       // Clock icon for duration in entry rows
@@ -97,7 +122,8 @@ void main() {
     });
 
     testWidgets('hover shows action buttons', (tester) async {
-      await tester.pumpWidget(makeTestable(const HistoryPage()));
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
       await tester.pumpAndSettle();
 
       // Action icons are always in the tree (inside AnimatedOpacity for
@@ -116,8 +142,8 @@ void main() {
     });
 
     testWidgets('works in light theme', (tester) async {
-      await tester.pumpWidget(
-          makeTestable(const HistoryPage(), brightness: Brightness.light));
+      await tester.pumpWidget(makeTestable(const HistoryPage(),
+          brightness: Brightness.light, overrides: _sampleOverrides()));
       await tester.pumpAndSettle();
 
       expect(find.text('Search transcriptions…'), findsOneWidget);
@@ -126,7 +152,8 @@ void main() {
     });
 
     testWidgets('view mode toggle switches between views', (tester) async {
-      await tester.pumpWidget(makeTestable(const HistoryPage()));
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
       await tester.pumpAndSettle();
 
       // View mode toggle icons should be visible

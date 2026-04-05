@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
@@ -13,7 +14,6 @@ import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
 import 'data/database.dart';
 import 'data/providers.dart';
-import 'data/sample_data.dart';
 
 /// Resolves a [DateGroup.labelKey] to a localized string.
 String _resolveDateLabel(String key, L10n l10n) {
@@ -61,8 +61,6 @@ class HistoryPage extends ConsumerStatefulWidget {
 
 class _HistoryPageState extends ConsumerState<HistoryPage> {
   final _searchController = TextEditingController();
-  // Sample mode — shows preview data until real recording is connected
-  late List<HistoryEntry> _sampleEntries;
   String? _selectedEntryId;
   _ViewMode _viewMode = _ViewMode.list;
   bool _multiSelectMode = false;
@@ -70,122 +68,30 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   /// Tracks last clicked entry for Shift+click range selection.
   String? _lastClickedId;
 
-  HistoryEntry? get _selectedEntry {
-    if (_selectedEntryId == null) return null;
-    final idx = _sampleEntries.indexWhere((e) => e.id == _selectedEntryId);
-    return idx >= 0 ? _sampleEntries[idx] : null;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _sampleEntries = generateSampleEntries();
-  }
-
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
-  HistoryFilter _activeFilter = HistoryFilter.all;
-
-  List<HistoryEntry> get _filteredEntries {
-    var entries = _sampleEntries;
-    final search = _searchController.text.toLowerCase().trim();
-
-    // Apply filter
-    final now = DateTime.now();
-    switch (_activeFilter) {
-      case HistoryFilter.today:
-        entries = entries
-            .where((e) =>
-                e.deletedAt == null &&
-                !e.archived &&
-                e.timestamp.year == now.year &&
-                e.timestamp.month == now.month &&
-                e.timestamp.day == now.day)
-            .toList();
-      case HistoryFilter.week:
-        final weekAgo = now.subtract(const Duration(days: 7));
-        entries = entries
-            .where((e) =>
-                e.deletedAt == null &&
-                !e.archived &&
-                e.timestamp.isAfter(weekAgo))
-            .toList();
-      case HistoryFilter.pinned:
-        entries = entries
-            .where((e) => e.pinned && e.deletedAt == null && !e.archived)
-            .toList();
-      case HistoryFilter.archived:
-        entries =
-            entries.where((e) => e.archived && e.deletedAt == null).toList();
-      case HistoryFilter.trash:
-        entries = entries.where((e) => e.deletedAt != null).toList();
-      case HistoryFilter.all:
-        entries =
-            entries.where((e) => e.deletedAt == null && !e.archived).toList();
-    }
-
-    // Apply search
-    if (search.isNotEmpty) {
-      entries = entries
-          .where((e) =>
-              e.title.toLowerCase().contains(search) ||
-              e.content.toLowerCase().contains(search))
-          .toList();
-    }
-
-    return entries;
-  }
-
-  List<DateGroup> get _groupedEntries {
-    final entries = _filteredEntries;
-    if (entries.isEmpty) return [];
-
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final weekAgo = today.subtract(const Duration(days: 7));
-
-    final todayEntries = <HistoryEntry>[];
-    final yesterdayEntries = <HistoryEntry>[];
-    final weekEntries = <HistoryEntry>[];
-    final olderEntries = <HistoryEntry>[];
-
-    for (final e in entries) {
-      final d = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
-      if (d == today) {
-        todayEntries.add(e);
-      } else if (d == yesterday) {
-        yesterdayEntries.add(e);
-      } else if (d.isAfter(weekAgo)) {
-        weekEntries.add(e);
-      } else {
-        olderEntries.add(e);
-      }
-    }
-
-    return [
-      if (todayEntries.isNotEmpty)
-        DateGroup(labelKey: 'today', entries: todayEntries),
-      if (yesterdayEntries.isNotEmpty)
-        DateGroup(labelKey: 'yesterday', entries: yesterdayEntries),
-      if (weekEntries.isNotEmpty)
-        DateGroup(labelKey: 'thisWeek', entries: weekEntries),
-      if (olderEntries.isNotEmpty)
-        DateGroup(labelKey: 'older', entries: olderEntries),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final groups = _groupedEntries;
-    final hasResults = groups.isNotEmpty;
-    final isTrashView = _activeFilter == HistoryFilter.trash;
-    final isArchiveView = _activeFilter == HistoryFilter.archived;
+    final activeFilter = ref.watch(historyFilterProvider);
+    final groupedAsync = ref.watch(groupedHistoryProvider);
+    final filteredAsync = ref.watch(filteredHistoryProvider);
+    final isTrashView = activeFilter == HistoryFilter.trash;
+    final isArchiveView = activeFilter == HistoryFilter.archived;
+
+    // Resolve the flat filtered list (for selection lookup & shift-click)
+    final filteredEntries = filteredAsync.value ?? [];
+
+    // Look up selected entry from current filtered list
+    HistoryEntry? selectedEntry;
+    if (_selectedEntryId != null) {
+      final idx = filteredEntries.indexWhere((e) => e.id == _selectedEntryId);
+      selectedEntry = idx >= 0 ? filteredEntries[idx] : null;
+    }
 
     return WpPageShell(
       scrollable: false,
@@ -212,16 +118,22 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           if (!_multiSelectMode || _selectedIds.isEmpty)
             _SearchToolbar(
               controller: _searchController,
-              activeFilter: _activeFilter,
+              activeFilter: activeFilter,
               isDark: isDark,
-              onFilterChanged: (f) => setState(() {
-                _activeFilter = f;
-                _multiSelectMode = false;
-                _selectedIds.clear();
-                _selectedEntryId = null;
-              }),
-              onSearchChanged: () => setState(() {}),
-              resultCount: _filteredEntries.length,
+              onFilterChanged: (f) {
+                ref.read(historyFilterProvider.notifier).set(f);
+                setState(() {
+                  _multiSelectMode = false;
+                  _selectedIds.clear();
+                  _selectedEntryId = null;
+                });
+              },
+              onSearchChanged: () {
+                ref.read(historySearchProvider.notifier).set(
+                      _searchController.text,
+                    );
+              },
+              resultCount: filteredEntries.length,
               viewMode: _viewMode,
               onViewModeChanged: (m) => setState(() => _viewMode = m),
               multiSelectMode: _multiSelectMode,
@@ -232,82 +144,91 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             ),
           // Master-detail content
           Expanded(
-            child: hasResults
-                ? _MasterDetail(
-                    groups: groups,
-                    isDark: isDark,
-                    viewMode: _viewMode,
-                    selectedEntry: _selectedEntry,
-                    multiSelectMode: _multiSelectMode,
-                    selectedIds: _selectedIds,
-                    isTrashView: isTrashView,
-                    isArchiveView: isArchiveView,
-                    onEntryTap: (entry) {
-                      final isCtrl =
-                          HardwareKeyboard.instance.isControlPressed ||
-                              HardwareKeyboard.instance.isMetaPressed;
-                      final isShift =
-                          HardwareKeyboard.instance.isShiftPressed;
+            child: groupedAsync.when(
+              data: (groups) {
+                final hasResults = groups.isNotEmpty;
+                if (!hasResults) {
+                  return _emptyStateForFilter(isDark, activeFilter);
+                }
+                return _MasterDetail(
+                  groups: groups,
+                  isDark: isDark,
+                  viewMode: _viewMode,
+                  selectedEntry: selectedEntry,
+                  multiSelectMode: _multiSelectMode,
+                  selectedIds: _selectedIds,
+                  isTrashView: isTrashView,
+                  isArchiveView: isArchiveView,
+                  onEntryTap: (entry) {
+                    final isCtrl =
+                        HardwareKeyboard.instance.isControlPressed ||
+                            HardwareKeyboard.instance.isMetaPressed;
+                    final isShift =
+                        HardwareKeyboard.instance.isShiftPressed;
 
-                      if (isCtrl) {
-                        // Ctrl+click: toggle individual item in multi-select
+                    if (isCtrl) {
+                      // Ctrl+click: toggle individual item in multi-select
+                      setState(() {
+                        if (!_multiSelectMode) _multiSelectMode = true;
+                        if (_selectedIds.contains(entry.id)) {
+                          _selectedIds.remove(entry.id);
+                        } else {
+                          _selectedIds.add(entry.id);
+                        }
+                        _lastClickedId = entry.id;
+                      });
+                    } else if (isShift && _lastClickedId != null) {
+                      // Shift+click: range select from last clicked
+                      final flatIds =
+                          filteredEntries.map((e) => e.id).toList();
+                      final from = flatIds.indexOf(_lastClickedId!);
+                      final to = flatIds.indexOf(entry.id);
+                      if (from >= 0 && to >= 0) {
+                        final start = from < to ? from : to;
+                        final end = from < to ? to : from;
                         setState(() {
                           if (!_multiSelectMode) _multiSelectMode = true;
-                          if (_selectedIds.contains(entry.id)) {
-                            _selectedIds.remove(entry.id);
-                          } else {
-                            _selectedIds.add(entry.id);
+                          for (var i = start; i <= end; i++) {
+                            _selectedIds.add(flatIds[i]);
                           }
-                          _lastClickedId = entry.id;
-                        });
-                      } else if (isShift && _lastClickedId != null) {
-                        // Shift+click: range select from last clicked
-                        final flatIds =
-                            _filteredEntries.map((e) => e.id).toList();
-                        final from = flatIds.indexOf(_lastClickedId!);
-                        final to = flatIds.indexOf(entry.id);
-                        if (from >= 0 && to >= 0) {
-                          final start = from < to ? from : to;
-                          final end = from < to ? to : from;
-                          setState(() {
-                            if (!_multiSelectMode) _multiSelectMode = true;
-                            for (var i = start; i <= end; i++) {
-                              _selectedIds.add(flatIds[i]);
-                            }
-                          });
-                        }
-                      } else if (_multiSelectMode) {
-                        setState(() {
-                          if (_selectedIds.contains(entry.id)) {
-                            _selectedIds.remove(entry.id);
-                          } else {
-                            _selectedIds.add(entry.id);
-                          }
-                          _lastClickedId = entry.id;
-                        });
-                      } else {
-                        setState(() {
-                          _selectedEntryId = entry.id;
-                          _lastClickedId = entry.id;
                         });
                       }
-                    },
-                    onCopy: _copyEntry,
-                    onPin: _togglePin,
-                    onDelete: _deleteEntry,
-                    onArchive: _archiveEntry,
-                    onRestore: _restoreEntry,
-                    onCloseDetail: () =>
-                        setState(() => _selectedEntryId = null),
-                  )
-                : _emptyStateForFilter(isDark),
+                    } else if (_multiSelectMode) {
+                      setState(() {
+                        if (_selectedIds.contains(entry.id)) {
+                          _selectedIds.remove(entry.id);
+                        } else {
+                          _selectedIds.add(entry.id);
+                        }
+                        _lastClickedId = entry.id;
+                      });
+                    } else {
+                      setState(() {
+                        _selectedEntryId = entry.id;
+                        _lastClickedId = entry.id;
+                      });
+                    }
+                  },
+                  onCopy: _copyEntry,
+                  onPin: _togglePin,
+                  onDelete: _deleteEntry,
+                  onArchive: _archiveEntry,
+                  onRestore: _restoreEntry,
+                  onCloseDetail: () =>
+                      setState(() => _selectedEntryId = null),
+                );
+              },
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (e, _) => _emptyStateForFilter(isDark, activeFilter),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _emptyStateForFilter(bool isDark) {
+  Widget _emptyStateForFilter(bool isDark, HistoryFilter activeFilter) {
     final l10n = L10n.of(context);
     if (_searchController.text.isNotEmpty) {
       return WpEmptyState(
@@ -316,14 +237,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         hint: l10n.historyNoResultsHint(_searchController.text),
       );
     }
-    if (_activeFilter == HistoryFilter.trash) {
+    if (activeFilter == HistoryFilter.trash) {
       return WpEmptyState(
         icon: LucideIcons.trash2,
         title: l10n.historyTrashEmpty,
         hint: l10n.historyTrashEmptyHint,
       );
     }
-    if (_activeFilter == HistoryFilter.archived) {
+    if (activeFilter == HistoryFilter.archived) {
       return WpEmptyState(
         icon: LucideIcons.archive,
         title: l10n.historyNoArchivedItems,
@@ -349,64 +270,20 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 
   void _togglePin(HistoryEntry entry) {
-    setState(() {
-      final idx = _sampleEntries.indexWhere((e) => e.id == entry.id);
-      if (idx >= 0) {
-        final old = _sampleEntries[idx];
-        _sampleEntries[idx] = HistoryEntry(
-          id: old.id,
-          content: old.content,
-          title: old.title,
-          timestamp: old.timestamp,
-          durationSec: old.durationSec,
-          processingDurationSec: old.processingDurationSec,
-          language: old.language,
-          languageHint: old.languageHint,
-          tags: old.tags,
-          pinned: !old.pinned,
-          source: old.source,
-          model: old.model,
-          isLocal: old.isLocal,
-          costUsd: old.costUsd,
-          projectId: old.projectId,
-          archived: old.archived,
-          titleEdited: old.titleEdited,
-          deletedAt: old.deletedAt,
-        );
-      }
-    });
+    ref.read(historyDatabaseProvider).togglePin(entry.id);
   }
 
   void _deleteEntry(HistoryEntry entry) {
-    setState(() {
-      // Soft-delete: set deletedAt instead of removing
-      final idx = _sampleEntries.indexWhere((e) => e.id == entry.id);
-      if (idx >= 0) {
-        final old = _sampleEntries[idx];
-        _sampleEntries[idx] = HistoryEntry(
-          id: old.id,
-          content: old.content,
-          title: old.title,
-          timestamp: old.timestamp,
-          durationSec: old.durationSec,
-          processingDurationSec: old.processingDurationSec,
-          language: old.language,
-          languageHint: old.languageHint,
-          tags: old.tags,
-          pinned: old.pinned,
-          source: old.source,
-          model: old.model,
-          isLocal: old.isLocal,
-          costUsd: old.costUsd,
-          projectId: old.projectId,
-          archived: old.archived,
-          titleEdited: old.titleEdited,
-          deletedAt: DateTime.now(),
-        );
-      }
-      if (_selectedEntryId == entry.id) _selectedEntryId = null;
-    });
-    if (!mounted) return;
+    final isTrash = ref.read(historyFilterProvider) == HistoryFilter.trash;
+    if (isTrash) {
+      ref.read(historyDatabaseProvider).permanentDeleteEntry(entry.id);
+    } else {
+      ref.read(historyDatabaseProvider).softDeleteEntry(entry.id);
+    }
+    if (_selectedEntryId == entry.id) {
+      setState(() => _selectedEntryId = null);
+    }
+    if (!mounted || isTrash) return;
     final l10n = L10n.of(context);
     WpToast.show(
       context,
@@ -419,260 +296,69 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 
   void _archiveEntry(HistoryEntry entry) {
-    setState(() {
-      final idx = _sampleEntries.indexWhere((e) => e.id == entry.id);
-      if (idx >= 0) {
-        final old = _sampleEntries[idx];
-        _sampleEntries[idx] = HistoryEntry(
-          id: old.id,
-          content: old.content,
-          title: old.title,
-          timestamp: old.timestamp,
-          durationSec: old.durationSec,
-          processingDurationSec: old.processingDurationSec,
-          language: old.language,
-          languageHint: old.languageHint,
-          tags: old.tags,
-          pinned: old.pinned,
-          source: old.source,
-          model: old.model,
-          isLocal: old.isLocal,
-          costUsd: old.costUsd,
-          projectId: old.projectId,
-          archived: !old.archived,
-          titleEdited: old.titleEdited,
-          deletedAt: old.deletedAt,
-        );
-      }
-      if (_selectedEntryId == entry.id) _selectedEntryId = null;
-    });
+    ref.read(historyDatabaseProvider).toggleArchive(entry.id);
+    if (_selectedEntryId == entry.id) {
+      setState(() => _selectedEntryId = null);
+    }
   }
 
   void _restoreEntry(HistoryEntry entry) {
-    setState(() {
-      final idx = _sampleEntries.indexWhere((e) => e.id == entry.id);
-      if (idx >= 0) {
-        final old = _sampleEntries[idx];
-        _sampleEntries[idx] = HistoryEntry(
-          id: old.id,
-          content: old.content,
-          title: old.title,
-          timestamp: old.timestamp,
-          durationSec: old.durationSec,
-          processingDurationSec: old.processingDurationSec,
-          language: old.language,
-          languageHint: old.languageHint,
-          tags: old.tags,
-          pinned: old.pinned,
-          source: old.source,
-          model: old.model,
-          isLocal: old.isLocal,
-          costUsd: old.costUsd,
-          projectId: old.projectId,
-          archived: false,
-          titleEdited: old.titleEdited,
-          deletedAt: null,
-        );
-      }
-    });
+    ref.read(historyDatabaseProvider).restoreEntry(entry.id);
   }
 
   void _mergeSelected() {
     if (_selectedIds.length < 2) return;
-    setState(() {
-      // Get entries in timestamp order (oldest first)
-      final entries = _selectedIds
-          .map((id) => _sampleEntries.firstWhere((e) => e.id == id))
-          .toList()
-        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-      // Merge content
-      final mergedContent = entries
-          .map((e) => e.content.trim())
-          .where((c) => c.isNotEmpty)
-          .join('\n\n---\n\n');
-
-      // Union tags
-      final allTags = <String>{};
-      for (final e in entries) {
-        try {
-          final decoded = jsonDecode(e.tags);
-          if (decoded is List) {
-            for (final t in decoded) {
-              if (t is String && t.isNotEmpty) allTags.add(t);
-            }
-          }
-        } catch (_) {}
-      }
-      allTags.add('merged');
-      final tagsJson = '[${allTags.map((t) => '"$t"').join(',')}]';
-
-      // Sum durations
-      final totalDuration =
-          entries.fold<double>(0, (s, e) => s + e.durationSec);
-
-      // Use first (oldest) as base
-      final base = entries.first;
-      final mergedEntry = HistoryEntry(
-        id: base.id,
-        content: mergedContent,
-        title: '${base.title} (merged)',
-        timestamp: entries.last.timestamp,
-        durationSec: totalDuration,
-        processingDurationSec: base.processingDurationSec,
-        language: base.language,
-        languageHint: base.languageHint,
-        tags: tagsJson,
-        pinned: entries.any((e) => e.pinned),
-        source: 'merged',
-        model: base.model,
-        isLocal: base.isLocal,
-        costUsd: entries.fold<double>(0, (s, e) => s + e.costUsd),
-        projectId: base.projectId,
-        archived: false,
-        titleEdited: false,
-        deletedAt: null,
+    final db = ref.read(historyDatabaseProvider);
+    final ids = _selectedIds.toList();
+    db.mergeEntries(ids).then((merged) {
+      if (!mounted) return;
+      setState(() {
+        _selectedIds.clear();
+        _multiSelectMode = false;
+        if (merged != null) _selectedEntryId = merged.id;
+      });
+      WpToast.show(
+        context,
+        message: L10n.of(context).historyEntriesMerged,
+        type: WpToastType.success,
+        duration: const Duration(seconds: 2),
       );
-
-      // Replace base entry
-      final baseIdx = _sampleEntries.indexWhere((e) => e.id == base.id);
-      if (baseIdx >= 0) _sampleEntries[baseIdx] = mergedEntry;
-
-      // Soft-delete the others
-      for (final e in entries.skip(1)) {
-        final idx = _sampleEntries.indexWhere((se) => se.id == e.id);
-        if (idx >= 0) {
-          _sampleEntries[idx] = HistoryEntry(
-            id: e.id,
-            content: e.content,
-            title: e.title,
-            timestamp: e.timestamp,
-            durationSec: e.durationSec,
-            processingDurationSec: e.processingDurationSec,
-            language: e.language,
-            languageHint: e.languageHint,
-            tags: e.tags,
-            pinned: e.pinned,
-            source: e.source,
-            model: e.model,
-            isLocal: e.isLocal,
-            costUsd: e.costUsd,
-            projectId: e.projectId,
-            archived: e.archived,
-            titleEdited: e.titleEdited,
-            deletedAt: DateTime.now(),
-          );
-        }
-      }
-
-      _selectedIds.clear();
-      _multiSelectMode = false;
-      _selectedEntryId = base.id;
     });
-
-    if (!mounted) return;
-    WpToast.show(
-      context,
-      message: L10n.of(context).historyEntriesMerged,
-      type: WpToastType.success,
-      duration: const Duration(seconds: 2),
-    );
   }
 
   void _archiveSelected() {
+    final db = ref.read(historyDatabaseProvider);
+    for (final id in _selectedIds) {
+      db.toggleArchive(id);
+    }
     setState(() {
-      for (final id in _selectedIds) {
-        final idx = _sampleEntries.indexWhere((e) => e.id == id);
-        if (idx >= 0) {
-          final old = _sampleEntries[idx];
-          _sampleEntries[idx] = HistoryEntry(
-            id: old.id,
-            content: old.content,
-            title: old.title,
-            timestamp: old.timestamp,
-            durationSec: old.durationSec,
-            processingDurationSec: old.processingDurationSec,
-            language: old.language,
-            languageHint: old.languageHint,
-            tags: old.tags,
-            pinned: old.pinned,
-            source: old.source,
-            model: old.model,
-            isLocal: old.isLocal,
-            costUsd: old.costUsd,
-            projectId: old.projectId,
-            archived: true,
-            titleEdited: old.titleEdited,
-            deletedAt: old.deletedAt,
-          );
-        }
-      }
       _selectedIds.clear();
       _multiSelectMode = false;
     });
   }
 
   void _deleteSelected() {
-    setState(() {
+    final db = ref.read(historyDatabaseProvider);
+    final isTrash = ref.read(historyFilterProvider) == HistoryFilter.trash;
+    if (isTrash) {
       for (final id in _selectedIds) {
-        final idx = _sampleEntries.indexWhere((e) => e.id == id);
-        if (idx >= 0) {
-          final old = _sampleEntries[idx];
-          _sampleEntries[idx] = HistoryEntry(
-            id: old.id,
-            content: old.content,
-            title: old.title,
-            timestamp: old.timestamp,
-            durationSec: old.durationSec,
-            processingDurationSec: old.processingDurationSec,
-            language: old.language,
-            languageHint: old.languageHint,
-            tags: old.tags,
-            pinned: old.pinned,
-            source: old.source,
-            model: old.model,
-            isLocal: old.isLocal,
-            costUsd: old.costUsd,
-            projectId: old.projectId,
-            archived: old.archived,
-            titleEdited: old.titleEdited,
-            deletedAt: DateTime.now(),
-          );
-        }
+        db.permanentDeleteEntry(id);
       }
+    } else {
+      db.softDeleteEntries(_selectedIds.toList());
+    }
+    setState(() {
       _selectedIds.clear();
       _multiSelectMode = false;
     });
   }
 
   void _restoreSelected() {
+    final db = ref.read(historyDatabaseProvider);
+    for (final id in _selectedIds) {
+      db.restoreEntry(id);
+    }
     setState(() {
-      for (final id in _selectedIds) {
-        final idx = _sampleEntries.indexWhere((e) => e.id == id);
-        if (idx >= 0) {
-          final old = _sampleEntries[idx];
-          _sampleEntries[idx] = HistoryEntry(
-            id: old.id,
-            content: old.content,
-            title: old.title,
-            timestamp: old.timestamp,
-            durationSec: old.durationSec,
-            processingDurationSec: old.processingDurationSec,
-            language: old.language,
-            languageHint: old.languageHint,
-            tags: old.tags,
-            pinned: old.pinned,
-            source: old.source,
-            model: old.model,
-            isLocal: old.isLocal,
-            costUsd: old.costUsd,
-            projectId: old.projectId,
-            archived: false,
-            titleEdited: old.titleEdited,
-            deletedAt: null,
-          );
-        }
-      }
       _selectedIds.clear();
       _multiSelectMode = false;
     });
@@ -1852,15 +1538,10 @@ class _DetailPanel extends StatelessWidget {
   final bool isTrashView;
   final bool isArchiveView;
 
-  String get _fullTimestamp {
-    final t = entry.timestamp;
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${months[t.month - 1]} ${t.day}, ${t.year} at '
-        '${t.hour.toString().padLeft(2, '0')}:'
-        '${t.minute.toString().padLeft(2, '0')}';
+  String _fullTimestamp(BuildContext context) {
+    final locale = Localizations.localeOf(context).toString();
+    final fmt = DateFormat.yMMMd(locale).add_Hm();
+    return fmt.format(entry.timestamp);
   }
 
   String get _durationLabel {
@@ -1925,7 +1606,7 @@ class _DetailPanel extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _fullTimestamp,
+                        _fullTimestamp(context),
                         style: TextStyle(fontSize: 12, color: textMuted),
                       ),
                     ],
