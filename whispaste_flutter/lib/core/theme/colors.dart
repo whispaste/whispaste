@@ -12,119 +12,122 @@ import 'package:flutter/material.dart';
 // Dark Theme Colors (Primary) — warm navy-slate tones, NOT cold/harsh black
 // ---------------------------------------------------------------------------
 abstract final class WpColorsDark {
-  /// Window frame — warm deep navy, NOT pure black
-  static const Color background = Color(0xFF151A26);
+  /// Window frame — deep rich navy
+  static const Color background = Color(0xFF0E1219);
 
-  /// Content surfaces — gentle lift from frame, SAME hue family (desaturated)
-  static const Color surface = Color(0xFF1A1F2B);
+  /// Content surfaces — clear lift from frame
+  static const Color surface = Color(0xFF161B28);
 
-  /// Elevated panels, cards — next step up on the monochromatic scale
-  static const Color surfaceElevated = Color(0xFF212738);
+  /// Elevated panels, cards — visible step up
+  static const Color surfaceElevated = Color(0xFF1E2435);
 
   /// Variant surface for alternate rows, secondary panels
-  static const Color surfaceVariant = Color(0xFF282E3F);
-  static const Color hover = Color(0xFF252B3C);
+  static const Color surfaceVariant = Color(0xFF242A3C);
+  static const Color hover = Color(0xFF222840);
   /// Transparent version of hover for smooth AnimatedContainer transitions
   /// (prevents dark flash when interpolating from transparent to hover)
-  static const Color hoverTransparent = Color(0x00252B3C);
-  static const Color active = Color(0xFF2D3448);
+  static const Color hoverTransparent = Color(0x00222840);
+  static const Color active = Color(0xFF2A3148);
 
-  static const Color borderSubtle = Color(0x14FFFFFF);
-  static const Color borderDefault = Color(0x24FFFFFF);
-  static const Color borderAccent = Color(0x4D22D3EE);
+  static const Color borderSubtle = Color(0x1EFFFFFF);
+  static const Color borderDefault = Color(0x30FFFFFF);
+  static const Color borderAccent = Color(0x6022D3EE);
 
-  static const Color textPrimary = Color(0xFFF1F5F9);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted = Color(0xFF8494AA);
+  /// High-contrast text — brighter for clear readability on dark surfaces
+  static const Color textPrimary = Color(0xFFF8FAFC);
+  static const Color textSecondary = Color(0xFFB4C0D0);
+  static const Color textMuted = Color(0xFF94A3B8);
 
-  static const Color accent = Color(0xFF22D3EE);
-  static const Color accentHover = Color(0xFF67E8F9);
-  static const Color accentSubtle = Color(0x1E22D3EE);
+  /// Vibrant cyan accent — punchy and saturated
+  static const Color accent = Color(0xFF4CE0F5);
+  static const Color accentHover = Color(0xFF7AEDFB);
+  static const Color accentSubtle = Color(0x2A4CE0F5);
 
-  static const Color success = Color(0xFF4ADE80);
-  static const Color warning = Color(0xFFFBBF24);
-  static const Color error = Color(0xFFF87171);
+  static const Color success = Color(0xFF6BEE9E);
+  static const Color warning = Color(0xFFFCD34D);
+  static const Color error = Color(0xFFFF8A8A);
 
-  /// Subtle gradient for premium card/container backgrounds
+  /// Visible gradient for premium card/container backgrounds
   static const LinearGradient surfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1C2130), Color(0xFF191E2A)],
+    colors: [Color(0xFF1C2438), Color(0xFF151B28)],
   );
 
-  /// Warm surface gradient — monochromatic diagonal wash, barely visible
+  /// Warm surface gradient — VISIBLE diagonal wash with teal tint
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1C2130), Color(0xFF191E2A), Color(0xFF1B2030)],
-    stops: [0.0, 0.5, 1.0],
+    colors: [Color(0xFF1A2236), Color(0xFF161B28), Color(0xFF17202F)],
+    stops: [0.0, 0.55, 1.0],
   );
 
-  /// Frame gradient — warm deep-navy, subtle top-to-bottom variation
+  /// Frame gradient — deeper separation from content
   static const LinearGradient frameGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFF161B28), Color(0xFF141924)],
+    colors: [Color(0xFF111620), Color(0xFF0C1017)],
   );
 
   /// Top accent line gradient
   static const LinearGradient accentGradient = LinearGradient(
-    colors: [Color(0xFF22D3EE), Color(0xFF0EA5E9)],
+    colors: [Color(0xFF4CE0F5), Color(0xFF1AB5E0)],
   );
 
-  /// Warm accent gradient — cyan to teal to slight purple
+  /// Warm accent gradient — cyan to teal, rich and saturated
   static const LinearGradient accentWarmGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF22D3EE), Color(0xFF06B6D4), Color(0xFF0891B2)],
+    colors: [Color(0xFF4CE0F5), Color(0xFF14B8D4), Color(0xFF0A99B8)],
   );
 
   /// Glass tint — semi-transparent overlay for frosted panels
-  static const Color glassTint = Color(0x10FFFFFF);
+  static const Color glassTint = Color(0x18FFFFFF);
 
   /// Glass border — bright edge on frosted surfaces
-  static const Color glassBorder = Color(0x1AFFFFFF);
+  static const Color glassBorder = Color(0x24FFFFFF);
 }
 
 // ---------------------------------------------------------------------------
 // Light Theme Colors
 // ---------------------------------------------------------------------------
 abstract final class WpColorsLight {
-  static const Color background = Color(0xFFF3F6FA);
+  static const Color background = Color(0xFFECF0F6);
   static const Color surface = Color(0xFFFFFFFF);
   static const Color surfaceElevated = Color(0xFFFFFFFF);
-  static const Color surfaceVariant = Color(0xFFF7F9FC);
-  static const Color hover = Color(0xFFE8ECF2);
-  static const Color hoverTransparent = Color(0x00E8ECF2);
-  static const Color active = Color(0xFFD5DCE6);
+  static const Color surfaceVariant = Color(0xFFF0F2F7);
+  static const Color hover = Color(0xFFDFE4ED);
+  static const Color hoverTransparent = Color(0x00DFE4ED);
+  static const Color active = Color(0xFFCCD4E2);
 
-  static const Color borderSubtle = Color(0x0C000000);
-  static const Color borderDefault = Color(0x18000000);
-  static const Color borderAccent = Color(0x330891B2);
+  static const Color borderSubtle = Color(0x14000000);
+  static const Color borderDefault = Color(0x22000000);
+  static const Color borderAccent = Color(0x4A0891B2);
 
-  static const Color textPrimary = Color(0xFF1A2030);
-  static const Color textSecondary = Color(0xFF5A6880);
-  static const Color textMuted = Color(0xFF566576);
+  /// Strong text contrast for light theme
+  static const Color textPrimary = Color(0xFF101828);
+  static const Color textSecondary = Color(0xFF3E4E66);
+  static const Color textMuted = Color(0xFF566478);
 
-  static const Color accent = Color(0xFF0891B2);
-  static const Color accentHover = Color(0xFF0E7490);
-  static const Color accentSubtle = Color(0x140891B2);
+  static const Color accent = Color(0xFF0887A8);
+  static const Color accentHover = Color(0xFF0C6B87);
+  static const Color accentSubtle = Color(0x1C0891B2);
 
-  static const Color success = Color(0xFF059669);
-  static const Color warning = Color(0xFFD97706);
-  static const Color error = Color(0xFFDC2626);
+  static const Color success = Color(0xFF05875C);
+  static const Color warning = Color(0xFFC97A06);
+  static const Color error = Color(0xFFCC1C1C);
 
   static const LinearGradient surfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF8FAFF), Color(0xFFFFFFFF)],
+    colors: [Color(0xFFF3F0FF), Color(0xFFFFFFFF)],
   );
 
-  /// Warm surface gradient — soft lavender wash for emotional depth
+  /// Warm surface gradient — visible lavender-to-cyan wash
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF5F3FF), Color(0xFFFFFFFF), Color(0xFFF0FAFF)],
+    colors: [Color(0xFFEDE8FF), Color(0xFFFCFCFF), Color(0xFFE8F5FF)],
     stops: [0.0, 0.5, 1.0],
   );
 
