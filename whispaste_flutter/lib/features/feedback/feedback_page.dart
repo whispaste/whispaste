@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/page_shell.dart';
@@ -34,6 +35,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ts = Theme.of(context).textTheme;
+    final l10n = L10n.of(context);
 
     if (_submitted) {
       return WpPageShell(
@@ -45,7 +47,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           // Constrain form width on wide screens for readability
-          final maxFormWidth = constraints.maxWidth > 720 ? 560.0 : double.infinity;
+          final maxFormWidth = constraints.maxWidth > 720
+              ? 560.0
+              : double.infinity;
 
           return Align(
             alignment: Alignment.topCenter,
@@ -57,10 +61,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   const SizedBox(height: WpSpacing.lg),
 
                   // Title area
-                  Text('Send Feedback', style: ts.headlineMedium),
+                  Text(l10n.feedbackTitle, style: ts.headlineMedium),
                   const SizedBox(height: WpSpacing.xs),
                   Text(
-                    'Help us improve WhisPaste — every voice matters.',
+                    l10n.feedbackSubtitle,
                     style: ts.bodyMedium?.copyWith(
                       color: isDark
                           ? WpColorsDark.textSecondary
@@ -71,7 +75,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   const SizedBox(height: WpSpacing.xxxl),
 
                   // Category selection
-                  Text("What's this about?", style: ts.titleSmall),
+                  Text(l10n.feedbackCategoryLabel, style: ts.titleSmall),
                   const SizedBox(height: WpSpacing.md),
                   Wrap(
                     spacing: WpSpacing.sm,
@@ -79,7 +83,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                     children: [
                       _CategoryChip(
                         icon: LucideIcons.bug,
-                        label: 'Bug Report',
+                        label: l10n.feedbackCategoryBug,
                         value: 'bug',
                         selected: _category,
                         isDark: isDark,
@@ -87,7 +91,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       ),
                       _CategoryChip(
                         icon: LucideIcons.lightbulb,
-                        label: 'Feature Idea',
+                        label: l10n.feedbackCategoryFeature,
                         value: 'feature',
                         selected: _category,
                         isDark: isDark,
@@ -95,7 +99,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       ),
                       _CategoryChip(
                         icon: LucideIcons.messageCircle,
-                        label: 'General',
+                        label: l10n.feedbackCategoryGeneral,
                         value: 'general',
                         selected: _category,
                         isDark: isDark,
@@ -103,7 +107,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       ),
                       _CategoryChip(
                         icon: LucideIcons.sparkles,
-                        label: 'AI Quality',
+                        label: l10n.feedbackCategoryAiQuality,
                         value: 'ai',
                         selected: _category,
                         isDark: isDark,
@@ -115,7 +119,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   const SizedBox(height: WpSpacing.xxxl),
 
                   // Emoji rating
-                  Text('How are you feeling about WhisPaste?', style: ts.titleSmall),
+                  Text(l10n.feedbackRatingLabel, style: ts.titleSmall),
                   const SizedBox(height: WpSpacing.md),
                   _EmojiRatingRow(
                     rating: _rating,
@@ -126,7 +130,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   const SizedBox(height: WpSpacing.xxxl),
 
                   // Comment field — chat-styled
-                  Text('Tell us more', style: ts.titleSmall),
+                  Text(l10n.feedbackCommentsLabel, style: ts.titleSmall),
                   const SizedBox(height: WpSpacing.md),
                   DecoratedBox(
                     decoration: BoxDecoration(
@@ -146,12 +150,12 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         hintText: _category == 'bug'
-                            ? 'Describe what happened and what you expected…'
+                            ? l10n.feedbackPlaceholderBug
                             : _category == 'feature'
-                                ? 'What would you like to see in WhisPaste?'
-                                : _category == 'ai'
-                                    ? 'How was the transcription or post-processing quality?'
-                                    : 'Share your thoughts…',
+                            ? l10n.feedbackPlaceholderFeature
+                            : _category == 'ai'
+                            ? l10n.feedbackPlaceholderAi
+                            : l10n.feedbackPlaceholderGeneral,
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.all(WpSpacing.md),
                       ),
@@ -169,7 +173,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       child: ElevatedButton.icon(
                         onPressed: _canSubmit ? _submit : null,
                         icon: const Icon(LucideIcons.send, size: WpIconSize.sm),
-                        label: const Text('Send Feedback'),
+                        label: Text(l10n.feedbackSubmit),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                             vertical: WpSpacing.md,
@@ -195,7 +199,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                         ),
                         const SizedBox(width: WpSpacing.xxs),
                         Text(
-                          'Your feedback is anonymous and encrypted.',
+                          l10n.feedbackPrivacyNote,
                           style: ts.bodySmall?.copyWith(
                             color: isDark
                                 ? WpColorsDark.textMuted
@@ -247,6 +251,7 @@ class _ThankYouView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth = constraints.maxWidth > 720 ? 480.0 : double.infinity;
@@ -276,10 +281,10 @@ class _ThankYouView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: WpSpacing.xxl),
-                Text('Thank you!', style: ts.headlineMedium),
+                Text(l10n.feedbackThankYou, style: ts.headlineMedium),
                 const SizedBox(height: WpSpacing.sm),
                 Text(
-                  'Your feedback helps us make WhisPaste better\nfor everyone.',
+                  l10n.feedbackThankYouMessage,
                   textAlign: TextAlign.center,
                   style: ts.bodyMedium?.copyWith(
                     color: isDark
@@ -290,8 +295,11 @@ class _ThankYouView extends StatelessWidget {
                 const SizedBox(height: WpSpacing.xxxl),
                 OutlinedButton.icon(
                   onPressed: onReset,
-                  icon: const Icon(LucideIcons.messageSquarePlus, size: WpIconSize.sm),
-                  label: const Text('Send another'),
+                  icon: const Icon(
+                    LucideIcons.messageSquarePlus,
+                    size: WpIconSize.sm,
+                  ),
+                  label: Text(l10n.feedbackSendAnother),
                 ),
               ],
             ),
@@ -344,9 +352,7 @@ class _CategoryChipState extends State<_CategoryChip> {
       fg = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     } else if (_hovered) {
       bg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
-      fg = widget.isDark
-          ? WpColorsDark.textPrimary
-          : WpColorsLight.textPrimary;
+      fg = widget.isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
     } else {
       bg = widget.isDark
           ? WpColorsDark.surfaceVariant
@@ -374,10 +380,11 @@ class _CategoryChipState extends State<_CategoryChip> {
             borderRadius: WpRadius.borderFull,
             border: isActive
                 ? Border.all(
-                    color: (widget.isDark
-                            ? WpColorsDark.accent
-                            : WpColorsLight.accent)
-                        .withValues(alpha: 0.3),
+                    color:
+                        (widget.isDark
+                                ? WpColorsDark.accent
+                                : WpColorsLight.accent)
+                            .withValues(alpha: 0.3),
                   )
                 : Border.all(color: Colors.transparent),
           ),
@@ -418,16 +425,17 @@ class _EmojiRatingRow extends StatelessWidget {
   final ValueChanged<int> onChanged;
 
   static const _emojis = ['😟', '😐', '🙂', '😊', '🤩'];
-  static const _labels = [
-    'Frustrated',
-    'Meh',
-    'Okay',
-    'Happy',
-    'Love it!',
-  ];
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final labels = [
+      l10n.feedbackRatingFrustrated,
+      l10n.feedbackRatingMeh,
+      l10n.feedbackRatingOkay,
+      l10n.feedbackRatingHappy,
+      l10n.feedbackRatingLoveIt,
+    ];
     return Row(
       children: List.generate(5, (i) {
         final isSelected = rating == i + 1;
@@ -438,25 +446,24 @@ class _EmojiRatingRow extends StatelessWidget {
               cursor: SystemMouseCursors.click,
               child: AnimatedContainer(
                 duration: WpMotion.fast,
-                margin: EdgeInsets.only(
-                  right: i < 4 ? WpSpacing.xs : 0,
-                ),
+                margin: EdgeInsets.only(right: i < 4 ? WpSpacing.xs : 0),
                 padding: const EdgeInsets.symmetric(vertical: WpSpacing.sm),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? (isDark
-                          ? WpColorsDark.accentSubtle
-                          : WpColorsLight.accentSubtle)
+                            ? WpColorsDark.accentSubtle
+                            : WpColorsLight.accentSubtle)
                       : (isDark
-                          ? WpColorsDark.surfaceVariant
-                          : WpColorsLight.surfaceVariant),
+                            ? WpColorsDark.surfaceVariant
+                            : WpColorsLight.surfaceVariant),
                   borderRadius: WpRadius.borderMd,
                   border: isSelected
                       ? Border.all(
-                          color: (isDark
-                                  ? WpColorsDark.accent
-                                  : WpColorsLight.accent)
-                              .withValues(alpha: 0.4),
+                          color:
+                              (isDark
+                                      ? WpColorsDark.accent
+                                      : WpColorsLight.accent)
+                                  .withValues(alpha: 0.4),
                         )
                       : Border.all(color: Colors.transparent),
                 ),
@@ -468,18 +475,19 @@ class _EmojiRatingRow extends StatelessWidget {
                     ),
                     const SizedBox(height: WpSpacing.xxs),
                     Text(
-                      _labels[i],
+                      labels[i],
                       style: TextStyle(
                         fontSize: 10,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                         color: isSelected
                             ? (isDark
-                                ? WpColorsDark.textPrimary
-                                : WpColorsLight.textPrimary)
+                                  ? WpColorsDark.textPrimary
+                                  : WpColorsLight.textPrimary)
                             : (isDark
-                                ? WpColorsDark.textMuted
-                                : WpColorsLight.textMuted),
+                                  ? WpColorsDark.textMuted
+                                  : WpColorsLight.textMuted),
                       ),
                     ),
                   ],

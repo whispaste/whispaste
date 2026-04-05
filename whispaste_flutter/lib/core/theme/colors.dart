@@ -93,22 +93,22 @@ abstract final class WpColorsDark {
 // Light Theme Colors
 // ---------------------------------------------------------------------------
 abstract final class WpColorsLight {
-  static const Color background = Color(0xFFECF0F6);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceElevated = Color(0xFFFFFFFF);
-  static const Color surfaceVariant = Color(0xFFF0F2F7);
-  static const Color hover = Color(0xFFDFE4ED);
-  static const Color hoverTransparent = Color(0x00DFE4ED);
-  static const Color active = Color(0xFFCCD4E2);
+  static const Color background = Color(0xFFEEF2F6);
+  static const Color surface = Color(0xFFFAFBFD);
+  static const Color surfaceElevated = Color(0xFFFCFDFE);
+  static const Color surfaceVariant = Color(0xFFF1F5FA);
+  static const Color hover = Color(0xFFE6ECF4);
+  static const Color hoverTransparent = Color(0x00E6ECF4);
+  static const Color active = Color(0xFFD9E2EE);
 
-  static const Color borderSubtle = Color(0x14000000);
-  static const Color borderDefault = Color(0x22000000);
+  static const Color borderSubtle = Color(0x140F172A);
+  static const Color borderDefault = Color(0x24131F32);
   static const Color borderAccent = Color(0x4A0891B2);
 
   /// Strong text contrast for light theme
   static const Color textPrimary = Color(0xFF101828);
-  static const Color textSecondary = Color(0xFF3E4E66);
-  static const Color textMuted = Color(0xFF566478);
+  static const Color textSecondary = Color(0xFF44556E);
+  static const Color textMuted = Color(0xFF5B697E);
 
   static const Color accent = Color(0xFF0887A8);
   static const Color accentHover = Color(0xFF0C6B87);
@@ -121,22 +121,23 @@ abstract final class WpColorsLight {
   static const LinearGradient surfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF3F0FF), Color(0xFFFFFFFF)],
+    colors: [Color(0xFFFCFBFD), Color(0xFFF7FAFD)],
   );
 
-  /// Warm surface gradient — visible lavender-to-cyan wash
+  /// Content gradient — pearl/slate family with a subtle cool-warm shift.
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFEDE8FF), Color(0xFFFCFCFF), Color(0xFFE8F5FF)],
+    colors: [Color(0xFFFCFAFB), Color(0xFFF9FBFD), Color(0xFFF4F7FB)],
     stops: [0.0, 0.5, 1.0],
   );
 
-  /// Frame gradient — warm cool-gray wash for unified premium feel
+  /// Frame gradient — intentionally flatter than content, but in the same hue family.
   static const LinearGradient frameGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFFEAEFF6), Color(0xFFE6EBF4)],
+    colors: [Color(0xFFF0F3F7), Color(0xFFEBF0F5), Color(0xFFEAEFF5)],
+    stops: [0.0, 0.48, 1.0],
   );
 
   static const LinearGradient accentGradient = LinearGradient(
@@ -155,8 +156,8 @@ abstract final class WpColorsLight {
   /// Glass border — bright edge on frosted surfaces
   static const Color glassBorder = Color(0x40FFFFFF);
 
-  /// Watermark line color — very faint for subtle topographic effect
-  static const Color watermark = Color(0x0A000000);
+  /// Watermark line color — very faint slate tint for subtle topographic depth.
+  static const Color watermark = Color(0x0A243B53);
 }
 
 // ---------------------------------------------------------------------------

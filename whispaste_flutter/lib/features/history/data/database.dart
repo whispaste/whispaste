@@ -31,7 +31,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   HistoryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -39,9 +39,12 @@ class HistoryDatabase extends _$HistoryDatabase {
           await m.createAll();
           // Create FTS5 virtual table and sync triggers via raw SQL
           await _createFts(m);
+          await _createAppSettingsTable();
         },
         onUpgrade: (m, from, to) async {
-          // Future migrations go here
+          if (from < 2) {
+            await _createAppSettingsTable();
+          }
         },
       );
 
@@ -79,6 +82,16 @@ class HistoryDatabase extends _$HistoryDatabase {
         INSERT INTO history_fts(rowid, title, content)
         VALUES (new.rowid, new.title, new.content);
       END
+    ''');
+  }
+
+  /// Creates the key-value settings table used by the Flutter settings layer.
+  Future<void> _createAppSettingsTable() async {
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
     ''');
   }
 
@@ -313,6 +326,40 @@ class HistoryDatabase extends _$HistoryDatabase {
           ])
           ..limit(limit))
         .watch();
+  }
+
+  // ---------------------------------------------------------------------------
+  // App settings
+  // ---------------------------------------------------------------------------
+
+  /// Reads all persisted app settings from the local key-value table.
+  Future<Map<String, String>> readAppSettings() async {
+    final rows = await customSelect(
+      'SELECT key, value FROM app_settings',
+    ).get();
+
+    return {
+      for (final row in rows)
+        row.read<String>('key'): row.read<String>('value'),
+    };
+  }
+
+  /// Writes the complete settings snapshot to the local key-value table.
+  Future<void> writeAppSettings(Map<String, String> values) async {
+    await transaction(() async {
+      for (final entry in values.entries) {
+        await customStatement(
+          'INSERT INTO app_settings (key, value) VALUES (?, ?) '
+          'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+          [entry.key, entry.value],
+        );
+      }
+    });
+  }
+
+  /// Removes all persisted settings, causing the app to fall back to defaults.
+  Future<void> resetAppSettings() {
+    return customStatement('DELETE FROM app_settings');
   }
 
   // ---------------------------------------------------------------------------

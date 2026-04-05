@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/brand_wordmark.dart';
@@ -26,6 +27,7 @@ class AboutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ts = Theme.of(context).textTheme;
+    final l10n = L10n.of(context);
 
     return WpPageShell(
       child: Column(
@@ -36,11 +38,11 @@ class AboutPage extends StatelessWidget {
           // ── Brand hero ──
           const Center(child: WpBrandWordmark(height: 64)),
           const SizedBox(height: WpSpacing.md),
-          Center(child: Text('Version 1.2.0', style: ts.bodySmall)),
+          Center(child: Text(l10n.aboutVersion('1.2.0'), style: ts.bodySmall)),
           const SizedBox(height: WpSpacing.xs),
           Center(
             child: Text(
-              'Voice to text, instantly.',
+              l10n.aboutTagline,
               style: ts.bodyMedium?.copyWith(
                 color: isDark
                     ? WpColorsDark.textSecondary
@@ -58,7 +60,7 @@ class AboutPage extends StatelessWidget {
             children: [
               _QuickAction(
                 icon: LucideIcons.sparkles,
-                label: "What's New",
+                label: l10n.aboutWhatsNew,
                 url: 'https://whispaste.de/changelog',
                 isDark: isDark,
               ),
@@ -68,13 +70,13 @@ class AboutPage extends StatelessWidget {
                   fontFamily: FontAwesomeIcons.github.fontFamily,
                   fontPackage: FontAwesomeIcons.github.fontPackage,
                 ),
-                label: 'GitHub',
+                label: l10n.aboutGitHub,
                 url: 'https://github.com/whispaste/whispaste',
                 isDark: isDark,
               ),
               _QuickAction(
                 icon: LucideIcons.circleAlert,
-                label: 'Report Issue',
+                label: l10n.aboutReportIssue,
                 url: 'https://github.com/whispaste/whispaste/issues',
                 isDark: isDark,
               ),
@@ -83,11 +85,10 @@ class AboutPage extends StatelessWidget {
           const SizedBox(height: WpSpacing.xxxl),
 
           // ── Support this project ──
-          _SectionHeader(title: 'Support this project', isDark: isDark),
+          _SectionHeader(title: l10n.aboutSupportTitle, isDark: isDark),
           const SizedBox(height: WpSpacing.xs),
           Text(
-            'WhisPaste is free and open source under the MIT license. '
-            'If you find it useful, please consider supporting its development!',
+            l10n.aboutSupportDescription,
             style: TextStyle(
               color: isDark
                   ? WpColorsDark.textSecondary
@@ -103,7 +104,7 @@ class AboutPage extends StatelessWidget {
             children: [
               _SupportButton(
                 icon: LucideIcons.heart,
-                label: 'GitHub Sponsors',
+                label: l10n.aboutGitHubSponsors,
                 url: 'https://github.com/sponsors/silvio-l',
                 isDark: isDark,
               ),
@@ -113,13 +114,13 @@ class AboutPage extends StatelessWidget {
                   fontFamily: FontAwesomeIcons.mugHot.fontFamily,
                   fontPackage: FontAwesomeIcons.mugHot.fontPackage,
                 ),
-                label: 'Ko-fi',
+                label: l10n.aboutKofi,
                 url: 'https://ko-fi.com/silviol',
                 isDark: isDark,
               ),
               _SupportButton(
                 icon: LucideIcons.star,
-                label: 'Star on GitHub',
+                label: l10n.aboutStarOnGitHub,
                 url: 'https://github.com/whispaste/whispaste',
                 isDark: isDark,
               ),
@@ -128,84 +129,68 @@ class AboutPage extends StatelessWidget {
           const SizedBox(height: WpSpacing.xxxl),
 
           // ── Built with ──
-          _SectionHeader(title: 'Built with', isDark: isDark),
+          _SectionHeader(title: l10n.aboutBuiltWith, isDark: isDark),
           const SizedBox(height: WpSpacing.sm),
           _BuiltWithRow(
             icon: LucideIcons.codeXml,
-            title: 'Flutter & Go',
-            description:
-                'Cross-platform UI with Flutter, performance-critical backend in Go via FFI.',
+            title: l10n.aboutFlutterGo,
+            description: l10n.aboutFlutterGoDesc,
             isDark: isDark,
           ),
           _BuiltWithRow(
             icon: LucideIcons.mic,
-            title: 'whisper.cpp & OpenAI Whisper',
-            description:
-                'Local and cloud speech recognition — fast, accurate, multilingual.',
+            title: l10n.aboutWhisper,
+            description: l10n.aboutWhisperDesc,
             isDark: isDark,
           ),
           _BuiltWithRow(
             icon: LucideIcons.brain,
-            title: 'llama.cpp',
-            description:
-                'Local LLM inference for AI post-processing without cloud dependency.',
+            title: l10n.aboutLlamaCpp,
+            description: l10n.aboutLlamaCppDesc,
             isDark: isDark,
           ),
           _BuiltWithRow(
             icon: LucideIcons.shield,
-            title: 'Privacy-first',
-            description:
-                'Local AI inference by default — your voice never leaves your device unless you choose a cloud provider.',
+            title: l10n.aboutPrivacyFirst,
+            description: l10n.aboutPrivacyFirstDesc,
             isDark: isDark,
           ),
           const SizedBox(height: WpSpacing.xxxl),
 
           // ── Privacy & Data ──
-          _SectionHeader(title: 'Privacy & Data', isDark: isDark),
+          _SectionHeader(title: l10n.aboutPrivacy, isDark: isDark),
           const SizedBox(height: WpSpacing.sm),
-          _PrivacyPoint(
-            text:
-                'All transcriptions and history are stored locally on your device — never on external servers.',
-            isDark: isDark,
-          ),
-          _PrivacyPoint(
-            text:
-                'Cloud providers (OpenAI, Groq, Deepgram, Anthropic, Gemini) only receive audio or text when you actively use them. Their privacy policies apply.',
-            isDark: isDark,
-          ),
-          _PrivacyPoint(
-            text:
-                'No analytics, no tracking, no user accounts. Update checks contact GitHub (version + IP only).',
-            isDark: isDark,
-          ),
+          _PrivacyPoint(text: l10n.aboutPrivacyLocal, isDark: isDark),
+          _PrivacyPoint(text: l10n.aboutPrivacyCloud, isDark: isDark),
+          _PrivacyPoint(text: l10n.aboutPrivacyNoTracking, isDark: isDark),
           const SizedBox(height: WpSpacing.xxxl),
 
           // ── Keyboard shortcuts ──
-          _SectionHeader(title: 'Keyboard Shortcuts', isDark: isDark),
+          _SectionHeader(title: l10n.aboutKeyboardShortcuts, isDark: isDark),
           const SizedBox(height: WpSpacing.sm),
           _ShortcutRow(
-            label: 'Start / Stop recording',
+            label: l10n.aboutShortcutRecord,
             shortcut: '$_modKey + Shift + R',
             isDark: isDark,
           ),
           _ShortcutRow(
-            label: 'Command palette',
+            label: l10n.aboutShortcutPalette,
             shortcut: '$_modKey + K',
             isDark: isDark,
           ),
           _ShortcutRow(
-            label: 'Settings',
+            label: l10n.aboutShortcutSettings,
             shortcut: '$_modKey + ,',
             isDark: isDark,
           ),
           const SizedBox(height: WpSpacing.xxxl),
 
           // ── Links ──
-          _SectionHeader(title: 'Links', isDark: isDark),
+          _SectionHeader(title: l10n.aboutLinks, isDark: isDark),
           const SizedBox(height: WpSpacing.sm),
           _LinkRow(
             icon: LucideIcons.globe,
-            label: 'Website',
+            label: l10n.aboutWebsite,
             url: 'https://whispaste.com',
             displayUrl: 'whispaste.com',
             isDark: isDark,
@@ -216,21 +201,21 @@ class AboutPage extends StatelessWidget {
               fontFamily: FontAwesomeIcons.github.fontFamily,
               fontPackage: FontAwesomeIcons.github.fontPackage,
             ),
-            label: 'GitHub Repository',
+            label: l10n.aboutGitHubRepo,
             url: 'https://github.com/whispaste/whispaste',
             displayUrl: 'github.com/whispaste/whispaste',
             isDark: isDark,
           ),
           _LinkRow(
             icon: LucideIcons.scale,
-            label: 'MIT License',
+            label: l10n.aboutMitLicense,
             url: 'https://github.com/whispaste/whispaste/blob/main/LICENSE',
-            displayUrl: 'View on GitHub',
+            displayUrl: l10n.aboutViewOnGitHub,
             isDark: isDark,
           ),
           _LinkRow(
             icon: LucideIcons.fileText,
-            label: 'Privacy Policy',
+            label: l10n.aboutPrivacyPolicy,
             url: 'https://whispaste.com/privacy',
             displayUrl: 'whispaste.com/privacy',
             isDark: isDark,
@@ -238,10 +223,10 @@ class AboutPage extends StatelessWidget {
           const SizedBox(height: WpSpacing.xxxl),
 
           // ── System diagnostics ──
-          _SectionHeader(title: 'System Info', isDark: isDark),
+          _SectionHeader(title: l10n.aboutSystemInfo, isDark: isDark),
           const SizedBox(height: WpSpacing.xs),
           Text(
-            'Copy a compact diagnostics snapshot for bug reports.',
+            l10n.aboutSystemInfoDesc,
             style: TextStyle(
               color: isDark
                   ? WpColorsDark.textSecondary
@@ -259,7 +244,7 @@ class AboutPage extends StatelessWidget {
           // ── Credits ──
           Center(
             child: Text(
-              'Made with ♥ by Silvio Lindstedt',
+              l10n.aboutMadeWith,
               style: ts.bodySmall?.copyWith(
                 color: isDark
                     ? WpColorsDark.textMuted
@@ -270,7 +255,7 @@ class AboutPage extends StatelessWidget {
           const SizedBox(height: WpSpacing.xs),
           Center(
             child: Text(
-              'Open source under the MIT License',
+              l10n.aboutOpenSource,
               style: ts.bodySmall?.copyWith(
                 color: isDark
                     ? WpColorsDark.textMuted
@@ -358,18 +343,22 @@ class _QuickActionState extends State<_QuickAction> {
             ),
             decoration: BoxDecoration(
               color: _hovered
-                  ? (widget.isDark
-                      ? WpColorsDark.hover
-                      : WpColorsLight.hover)
+                  ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
                   : (widget.isDark
-                      ? WpColorsDark.surfaceVariant
-                      : WpColorsLight.surfaceVariant),
+                        ? WpColorsDark.surfaceVariant
+                        : WpColorsLight.surfaceVariant),
               borderRadius: WpRadius.borderFull,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(widget.icon, size: WpIconSize.sm, color: widget.isDark ? WpColorsDark.accent : WpColorsLight.accent),
+                Icon(
+                  widget.icon,
+                  size: WpIconSize.sm,
+                  color: widget.isDark
+                      ? WpColorsDark.accent
+                      : WpColorsLight.accent,
+                ),
                 const SizedBox(width: WpSpacing.xs),
                 Text(
                   widget.label,
@@ -413,8 +402,9 @@ class _SupportButtonState extends State<_SupportButton> {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor =
-        widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final accentColor = widget.isDark
+        ? WpColorsDark.accent
+        : WpColorsLight.accent;
 
     return Semantics(
       button: true,
@@ -489,8 +479,9 @@ class _BuiltWithRow extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color:
-                  isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle,
+              color: isDark
+                  ? WpColorsDark.accentSubtle
+                  : WpColorsLight.accentSubtle,
               borderRadius: WpRadius.borderSm,
             ),
             alignment: Alignment.center,
@@ -689,12 +680,10 @@ class _LinkRowState extends State<_LinkRow> {
             ),
             decoration: BoxDecoration(
               color: _isHovered
-                  ? (widget.isDark
-                      ? WpColorsDark.hover
-                      : WpColorsLight.hover)
+                  ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
                   : (widget.isDark
-                      ? WpColorsDark.hoverTransparent
-                      : WpColorsLight.hoverTransparent),
+                        ? WpColorsDark.hoverTransparent
+                        : WpColorsLight.hoverTransparent),
               borderRadius: WpRadius.borderSm,
             ),
             child: Row(
@@ -746,8 +735,7 @@ class _CopyDiagnosticsButton extends StatefulWidget {
   final bool isDark;
 
   @override
-  State<_CopyDiagnosticsButton> createState() =>
-      _CopyDiagnosticsButtonState();
+  State<_CopyDiagnosticsButton> createState() => _CopyDiagnosticsButtonState();
 }
 
 class _CopyDiagnosticsButtonState extends State<_CopyDiagnosticsButton> {
@@ -756,7 +744,9 @@ class _CopyDiagnosticsButtonState extends State<_CopyDiagnosticsButton> {
   void _copy() {
     final info = StringBuffer()
       ..writeln('WhisPaste v1.2.0')
-      ..writeln('OS: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}')
+      ..writeln(
+        'OS: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
+      )
       ..writeln('Dart: ${Platform.version}')
       ..writeln('Locale: ${Platform.localeName}');
 
@@ -769,9 +759,10 @@ class _CopyDiagnosticsButtonState extends State<_CopyDiagnosticsButton> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
     return Semantics(
       button: true,
-      label: 'Copy debug info',
+      label: l10n.aboutCopyDebugInfo,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
@@ -795,25 +786,25 @@ class _CopyDiagnosticsButtonState extends State<_CopyDiagnosticsButton> {
                   size: WpIconSize.sm,
                   color: _copied
                       ? (widget.isDark
-                          ? WpColorsDark.success
-                          : WpColorsLight.success)
+                            ? WpColorsDark.success
+                            : WpColorsLight.success)
                       : (widget.isDark
-                          ? WpColorsDark.textSecondary
-                          : WpColorsLight.textSecondary),
+                            ? WpColorsDark.textSecondary
+                            : WpColorsLight.textSecondary),
                 ),
                 const SizedBox(width: WpSpacing.xs),
                 Text(
-                  _copied ? 'Copied!' : 'Copy Debug Info',
+                  _copied ? l10n.aboutCopied : l10n.aboutCopyDebugInfo,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: _copied
                         ? (widget.isDark
-                            ? WpColorsDark.success
-                            : WpColorsLight.success)
+                              ? WpColorsDark.success
+                              : WpColorsLight.success)
                         : (widget.isDark
-                            ? WpColorsDark.textSecondary
-                            : WpColorsLight.textSecondary),
+                              ? WpColorsDark.textSecondary
+                              : WpColorsLight.textSecondary),
                   ),
                 ),
               ],
