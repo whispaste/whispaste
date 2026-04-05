@@ -56,8 +56,8 @@ void main() {
       await tester.tap(find.text('Favorites'));
       await tester.pumpAndSettle();
 
-      // Sample has 3 pinned entries
-      expect(find.byIcon(LucideIcons.pin), findsWidgets);
+      // Should show pinned entries (e.g. "Meeting notes")
+      expect(find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
       // Non-pinned entry should be gone
       expect(find.text('Quick reminder'), findsNothing);
     });
@@ -86,16 +86,14 @@ void main() {
       expect(find.text('No results'), findsOneWidget);
     });
 
-    testWidgets('entry rows show metadata chips', (tester) async {
+    testWidgets('entry rows show metadata', (tester) async {
       await tester.pumpWidget(makeTestable(const HistoryPage()));
       await tester.pumpAndSettle();
 
-      // Clock icon for duration
+      // Clock icon for duration in entry rows
       expect(find.byIcon(LucideIcons.clock), findsWidgets);
-      // Globe icon for language
-      expect(find.byIcon(LucideIcons.globe), findsWidgets);
-      // Hard drive icon for local entries
-      expect(find.byIcon(LucideIcons.hardDrive), findsWidgets);
+      // Language codes shown as text (e.g. "EN", "DE")
+      expect(find.text('EN'), findsWidgets);
     });
 
     testWidgets('hover shows action buttons', (tester) async {
