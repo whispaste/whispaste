@@ -114,7 +114,7 @@ class _AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activePage = ref.watch(activePageProvider);
-    final isRecording = ref.watch(isRecordingProvider);
+    final recordingPhase = ref.watch(recordingPhaseProvider);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
@@ -260,7 +260,7 @@ class _AppShell extends ConsumerWidget {
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: WpLayout.statusBarHeight + 8, right: 8),
         child: WpRecordingFab(
-          isRecording: isRecording,
+          phase: recordingPhase,
           onPressed: () {
             ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
           },

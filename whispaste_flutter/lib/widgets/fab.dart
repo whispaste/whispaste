@@ -1,21 +1,30 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../features/recording/recording_state.dart';
 
-/// Recording FAB — clean gradient, smooth pulse, no glow.
+/// Recording FAB — phase-aware with distinct visual states.
 ///
-/// Gradient accent fill when idle, solid red when recording.
-/// Scale animation on recording — subtle and premium.
+/// | Phase        | Visual                                          |
+/// |--------------|-------------------------------------------------|
+/// | idle         | Accent gradient, mic icon, hover scale           |
+/// | recording    | Red gradient, stop icon, pulse animation          |
+/// | transcribing | Amber gradient, rotating loader, non-interactive |
+/// | done         | Green, check icon (brief flash before reset)     |
+/// | error        | Red, alert icon (brief flash before reset)        |
 class WpRecordingFab extends StatefulWidget {
   const WpRecordingFab({
     super.key,
-    required this.isRecording,
+    required this.phase,
     required this.onPressed,
   });
 
-  final bool isRecording;
+  final RecordingPhase phase;
   final VoidCallback onPressed;
 
   @override
@@ -23,14 +32,16 @@ class WpRecordingFab extends StatefulWidget {
 }
 
 class _WpRecordingFabState extends State<WpRecordingFab>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _pulseController;
   late final Animation<double> _scaleAnim;
+  late final AnimationController _spinController;
   bool _isHovered = false;
 
   @override
   void initState() {
     super.initState();
+    // Pulse animation for recording state
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -38,22 +49,41 @@ class _WpRecordingFabState extends State<WpRecordingFab>
     _scaleAnim = Tween<double>(begin: 1.0, end: 0.92).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+    // Spin animation for transcribing/processing state
+    _spinController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _syncAnimations();
   }
 
   @override
   void didUpdateWidget(WpRecordingFab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isRecording && !oldWidget.isRecording) {
+    if (widget.phase != oldWidget.phase) _syncAnimations();
+  }
+
+  void _syncAnimations() {
+    // Pulse: only during recording
+    if (widget.phase == RecordingPhase.recording) {
       _pulseController.repeat(reverse: true);
-    } else if (!widget.isRecording && oldWidget.isRecording) {
+    } else {
       _pulseController.stop();
       _pulseController.reset();
+    }
+    // Spin: only during transcribing
+    if (widget.phase == RecordingPhase.transcribing) {
+      _spinController.repeat();
+    } else {
+      _spinController.stop();
+      _spinController.reset();
     }
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _spinController.dispose();
     super.dispose();
   }
 
@@ -61,46 +91,52 @@ class _WpRecordingFabState extends State<WpRecordingFab>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
-    final recordLabel = widget.isRecording
-        ? l10n.tooltipStopRecord
-        : l10n.tooltipRecord;
+    final phase = widget.phase;
 
-    final gradient = widget.isRecording
-        ? const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
-          )
-        : (isDark
-            ? WpColorsDark.accentWarmGradient
-            : WpColorsLight.accentWarmGradient);
+    final isInteractive = phase == RecordingPhase.idle ||
+        phase == RecordingPhase.recording;
+
+    final tooltip = switch (phase) {
+      RecordingPhase.idle => l10n.tooltipRecord,
+      RecordingPhase.recording => l10n.tooltipStopRecord,
+      RecordingPhase.transcribing => l10n.tooltipProcessing,
+      RecordingPhase.done => l10n.statusTranscriptionDone,
+      RecordingPhase.error => '',
+    };
+
+    final gradient = _gradient(phase, isDark);
+    final icon = _icon(phase);
 
     return Semantics(
-      label: recordLabel,
-      button: true,
+      label: tooltip,
+      button: isInteractive,
       child: Tooltip(
-        message: recordLabel,
+        message: tooltip,
         child: MouseRegion(
-          cursor: SystemMouseCursors.click,
+          cursor: isInteractive
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
           child: AnimatedBuilder(
-            animation: _scaleAnim,
+            animation: Listenable.merge([_scaleAnim, _spinController]),
             builder: (context, child) {
-              final scale = widget.isRecording
-                  ? _scaleAnim.value
-                  : _isHovered
-                      ? 1.06
-                      : 1.0;
+              final scale = switch (phase) {
+                RecordingPhase.recording => _scaleAnim.value,
+                _ when _isHovered && isInteractive => 1.06,
+                _ => 1.0,
+              };
               return AnimatedScale(
-                scale: widget.isRecording ? scale : (_isHovered ? 1.06 : 1.0),
+                scale: scale,
                 duration: WpMotion.fast,
                 child: child,
               );
             },
             child: GestureDetector(
-              onTap: widget.onPressed,
-              child: Container(
+              onTap: isInteractive ? widget.onPressed : null,
+              child: AnimatedContainer(
+                duration: WpMotion.normal,
+                curve: Curves.easeOut,
                 width: WpLayout.fabSize,
                 height: WpLayout.fabSize,
                 decoration: BoxDecoration(
@@ -108,16 +144,65 @@ class _WpRecordingFabState extends State<WpRecordingFab>
                   gradient: gradient,
                   boxShadow: WpShadows.fab,
                 ),
-                child: Icon(
-                  widget.isRecording ? LucideIcons.square : LucideIcons.mic,
-                  color: Colors.white,
-                  size: WpIconSize.lg,
-                ),
+                child: phase == RecordingPhase.transcribing
+                    ? _buildSpinner(icon)
+                    : Icon(icon, color: Colors.white, size: WpIconSize.lg),
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildSpinner(IconData icon) {
+    return AnimatedBuilder(
+      animation: _spinController,
+      builder: (context, child) {
+        return Transform.rotate(
+          angle: _spinController.value * 2 * math.pi,
+          child: child,
+        );
+      },
+      child: const Icon(LucideIcons.loaderCircle, color: Colors.white, size: WpIconSize.lg),
+    );
+  }
+
+  static LinearGradient _gradient(RecordingPhase phase, bool isDark) {
+    return switch (phase) {
+      RecordingPhase.recording => const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+        ),
+      RecordingPhase.transcribing => const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+        ),
+      RecordingPhase.done => const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF34D399), Color(0xFF10B981)],
+        ),
+      RecordingPhase.error => const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFF7B7B), Color(0xFFEF4444)],
+        ),
+      RecordingPhase.idle => isDark
+          ? WpColorsDark.accentWarmGradient
+          : WpColorsLight.accentWarmGradient,
+    };
+  }
+
+  static IconData _icon(RecordingPhase phase) {
+    return switch (phase) {
+      RecordingPhase.idle => LucideIcons.mic,
+      RecordingPhase.recording => LucideIcons.square,
+      RecordingPhase.transcribing => LucideIcons.loaderCircle,
+      RecordingPhase.done => LucideIcons.check,
+      RecordingPhase.error => LucideIcons.triangleAlert,
+    };
   }
 }
