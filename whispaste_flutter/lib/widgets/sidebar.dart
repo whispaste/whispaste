@@ -17,9 +17,8 @@ class WpNavItem {
 
 /// Gaming-launcher sidebar — icon-only rail, seamless with content.
 ///
-/// Inspired by Dixper/BottleNet: large icons, generous spacing,
-/// same background as content, accent pill on active. No border.
-/// Nav items are vertically centered in the available space.
+/// Inspired by Dixper: icons positioned in upper portion (not dead center),
+/// generous spacing, solid filled pill for active state. No glow effects.
 class WpSidebar extends StatelessWidget {
   const WpSidebar({
     super.key,
@@ -43,18 +42,17 @@ class WpSidebar extends StatelessWidget {
       color: isDark ? WpColorsDark.background : WpColorsLight.background,
       child: Column(
         children: [
-          // Top: nav items vertically centered via Expanded + mainAxisAlignment
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: items.map((item) => _NavItemWidget(
-                    item: item,
-                    isActive: item.id == activeId,
-                    onTap: () => onItemTap(item.id),
-                    isDark: isDark,
-                  )).toList(),
+          // Icons in upper portion — shifted up from center like Dixper
+          const SizedBox(height: WpSpacing.xl),
+          // Nav items with generous spacing
+          for (final item in items)
+            _NavItemWidget(
+              item: item,
+              isActive: item.id == activeId,
+              onTap: () => onItemTap(item.id),
+              isDark: isDark,
             ),
-          ),
+          const Spacer(),
           // Bottom items pinned to bottom
           ...bottomItems,
           const SizedBox(height: WpSpacing.md),
@@ -86,24 +84,38 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Active: solid filled squircle with white icon (premium, high contrast)
+    // Hovered: subtle elevated surface with lighter icon
+    // Default: muted icon, transparent
     final Color iconColor;
     final Color bgColor;
+    final Border? border;
 
     if (widget.isActive) {
-      iconColor = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-      bgColor = widget.isDark
-          ? WpColorsDark.accentSubtle
-          : WpColorsLight.accentSubtle;
+      // Solid filled accent background — clean, premium, like Dixper's active
+      iconColor = widget.isDark
+          ? WpColorsDark.background
+          : WpColorsLight.background;
+      bgColor = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+      border = null;
     } else if (_isHovered) {
       iconColor = widget.isDark
           ? WpColorsDark.textPrimary
           : WpColorsLight.textPrimary;
-      bgColor = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
+      bgColor = widget.isDark
+          ? WpColorsDark.surfaceElevated
+          : WpColorsLight.hover;
+      border = Border.all(
+        color: widget.isDark
+            ? WpColorsDark.borderDefault
+            : WpColorsLight.borderDefault,
+      );
     } else {
       iconColor = widget.isDark
           ? WpColorsDark.textMuted
           : WpColorsLight.textMuted;
       bgColor = Colors.transparent;
+      border = null;
     }
 
     return Tooltip(
@@ -117,8 +129,8 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: Padding(
-            // Generous vertical spacing between icons
-            padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+            // Generous vertical spacing between icons (~10px gap)
+            padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs - 2),
             child: SizedBox(
               width: WpLayout.sidebarWidth,
               height: 48,
@@ -131,6 +143,7 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                   decoration: BoxDecoration(
                     color: bgColor,
                     borderRadius: BorderRadius.circular(WpRadius.md),
+                    border: border,
                   ),
                   alignment: Alignment.center,
                   child: Icon(
