@@ -59,12 +59,20 @@ class WhisPasteApp extends ConsumerWidget {
 /// Navigation items — built from localized strings.
 List<WpNavItem> _navItems(L10n l10n) => [
   WpNavItem(id: 'history', icon: LucideIcons.clock3, label: l10n.navHistory),
-  WpNavItem(id: 'settings', icon: LucideIcons.settings, label: l10n.navSettings),
   WpNavItem(id: 'replacements', icon: LucideIcons.replace, label: l10n.navReplacements),
   WpNavItem(id: 'analytics', icon: LucideIcons.chartNoAxesColumn, label: l10n.navAnalytics),
   WpNavItem(id: 'about', icon: LucideIcons.info, label: l10n.navAbout),
   WpNavItem(id: 'feedback', icon: LucideIcons.messageSquare, label: l10n.navFeedback),
 ];
+
+/// Resolves the page title — checks nav items first, falls back for bottom-pinned pages.
+String _pageTitle(String pageId, List<WpNavItem> navItems, L10n l10n) {
+  for (final item in navItems) {
+    if (item.id == pageId) return item.label;
+  }
+  if (pageId == 'settings') return l10n.navSettings;
+  return '';
+}
 
 /// Map page IDs to their widgets.
 const _pageWidgets = <String, Widget>{
@@ -120,7 +128,7 @@ class _AppShell extends ConsumerWidget {
           // Main layout
           Column(
             children: [
-              const WpTitleBar(),
+              const WpTitleBar(actions: [_ThemeToggle()]),
               Expanded(
                 child: Row(
                   children: [
@@ -131,7 +139,10 @@ class _AppShell extends ConsumerWidget {
                       ref.read(activePageProvider.notifier).setPage(id);
                     },
                     bottomItems: [
-                      const _ThemeToggle(),
+                      _SidebarSettingsButton(
+                        isActive: activePage == 'settings',
+                        onTap: () => ref.read(activePageProvider.notifier).setPage('settings'),
+                      ),
                     ],
                   ),
                   // Content area — rounded panel with warm gradient
@@ -146,9 +157,7 @@ class _AppShell extends ConsumerWidget {
                             duration: WpMotion.fast,
                             child: _PageHeader(
                               key: ValueKey('header-$activePage'),
-                              title: navItems
-                                  .firstWhere((n) => n.id == activePage)
-                                  .label,
+                              title: _pageTitle(activePage, navItems, l10n),
                             ),
                           ),
                           // Content with page transition animation
@@ -235,7 +244,7 @@ class _PageHeader extends StatelessWidget {
   }
 }
 
-/// Sidebar theme toggle — cycles dark ↔ light with a single tap.
+/// Theme toggle — cycles dark ↔ light. Placed in title bar.
 class _ThemeToggle extends ConsumerWidget {
   const _ThemeToggle();
 
@@ -243,14 +252,115 @@ class _ThemeToggle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
+    final mutedColor = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     return IconButton(
       icon: Icon(
         isDark ? LucideIcons.moon : LucideIcons.sun,
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-        size: 20,
+        color: mutedColor,
+        size: 16,
       ),
       tooltip: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
       onPressed: () => ref.read(settingsProvider.notifier).toggleDarkLight(),
+      splashRadius: 16,
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 32),
+      padding: EdgeInsets.zero,
+    );
+  }
+}
+
+/// Settings shortcut pinned to sidebar bottom — mirrors nav item style.
+class _SidebarSettingsButton extends StatefulWidget {
+  const _SidebarSettingsButton({
+    required this.isActive,
+    required this.onTap,
+  });
+
+  final bool isActive;
+  final VoidCallback onTap;
+
+  @override
+  State<_SidebarSettingsButton> createState() => _SidebarSettingsButtonState();
+}
+
+class _SidebarSettingsButtonState extends State<_SidebarSettingsButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = L10n.of(context);
+
+    final Color iconColor;
+    final Color bgColor;
+
+    if (widget.isActive) {
+      iconColor = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+      bgColor = isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
+    } else if (_isHovered) {
+      iconColor = isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+      bgColor = isDark ? WpColorsDark.hover : WpColorsLight.hover;
+    } else {
+      iconColor = isDark ? WpColorsDark.textSecondary : WpColorsLight.textMuted;
+      bgColor = isDark
+          ? WpColorsDark.hoverTransparent
+          : WpColorsLight.hoverTransparent;
+    }
+
+    return Semantics(
+      label: l10n.navSettings,
+      button: true,
+      selected: widget.isActive,
+      child: Tooltip(
+        message: l10n.navSettings,
+        preferBelow: false,
+        waitDuration: const Duration(milliseconds: 400),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: SizedBox(
+              width: WpLayout.sidebarWidth,
+              height: 42,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (widget.isActive)
+                    Positioned(
+                      left: 0,
+                      child: Container(
+                        width: 3,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          gradient: isDark
+                              ? WpColorsDark.accentWarmGradient
+                              : WpColorsLight.accentWarmGradient,
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(WpRadius.sm),
+                            bottomRight: Radius.circular(WpRadius.sm),
+                          ),
+                        ),
+                      ),
+                    ),
+                  AnimatedContainer(
+                    duration: WpMotion.hoverIn,
+                    curve: WpMotion.defaultCurve,
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(WpRadius.md),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(LucideIcons.settings, color: iconColor, size: 21),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

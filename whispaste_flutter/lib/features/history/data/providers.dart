@@ -129,9 +129,14 @@ final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
 });
 
 /// Groups entries by relative date for section headers.
+///
+/// [label] uses l10n key IDs (e.g. 'today', 'yesterday') — the UI resolves
+/// them via [DateGroup.resolve] or directly from [L10n].
 class DateGroup {
-  const DateGroup({required this.label, required this.entries});
-  final String label;
+  const DateGroup({required this.labelKey, required this.entries});
+
+  /// Key identifier: 'today', 'yesterday', 'thisWeek', 'older'.
+  final String labelKey;
   final List<HistoryEntry> entries;
 }
 
@@ -167,13 +172,13 @@ final groupedHistoryProvider = Provider<AsyncValue<List<DateGroup>>>((ref) {
 
     return [
       if (todayEntries.isNotEmpty)
-        DateGroup(label: 'Today', entries: todayEntries),
+        DateGroup(labelKey: 'today', entries: todayEntries),
       if (yesterdayEntries.isNotEmpty)
-        DateGroup(label: 'Yesterday', entries: yesterdayEntries),
+        DateGroup(labelKey: 'yesterday', entries: yesterdayEntries),
       if (weekEntries.isNotEmpty)
-        DateGroup(label: 'This Week', entries: weekEntries),
+        DateGroup(labelKey: 'thisWeek', entries: weekEntries),
       if (olderEntries.isNotEmpty)
-        DateGroup(label: 'Older', entries: olderEntries),
+        DateGroup(labelKey: 'older', entries: olderEntries),
     ];
   });
 });
