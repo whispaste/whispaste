@@ -26,12 +26,8 @@ class WpStatusBar extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textStyle = Theme.of(context).textTheme.labelSmall!;
 
-    return Container(
+    return SizedBox(
       height: WpLayout.statusBarHeight,
-      decoration: BoxDecoration(
-        gradient: isDark ? WpColorsDark.frameGradient : null,
-        color: isDark ? null : WpColorsLight.background,
-      ),
       child: Row(
         children: [
           // Sidebar-width spacer — chips start in the content area

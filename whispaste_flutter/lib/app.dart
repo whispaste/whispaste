@@ -101,8 +101,9 @@ class _AppShell extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       body: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: isDark ? WpColorsDark.frameGradient : null,
-          color: isDark ? null : WpColorsLight.background,
+          // Single flat frame color — no gradient to avoid visible banding
+          // between titlebar, sidebar, and statusbar boundaries
+          color: isDark ? WpColorsDark.background : WpColorsLight.background,
         ),
         child: Column(
           children: [
