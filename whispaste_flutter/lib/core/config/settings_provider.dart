@@ -31,6 +31,9 @@ class AppSettings {
     this.recordStartSound = true,
     this.recordStopSound = true,
     this.transcriptionCompleteSound = true,
+    this.soundVolume = 80.0,
+    // After Transcription
+    this.afterTranscription = 'clipboard',
     // Overlay & Floating Button
     this.showOverlay = true,
     this.showFloatingButton = true,
@@ -72,6 +75,11 @@ class AppSettings {
   final bool recordStartSound;
   final bool recordStopSound;
   final bool transcriptionCompleteSound;
+  final double soundVolume;
+
+  // After Transcription
+  /// What happens after transcription: 'clipboard', 'paste', 'nothing'
+  final String afterTranscription;
 
   // Overlay & Floating Button
   final bool showOverlay;
@@ -125,6 +133,9 @@ class AppSettings {
         'transcription_complete_sound',
         defaults.transcriptionCompleteSound,
       ),
+      soundVolume: _readDouble(values, 'sound_volume', defaults.soundVolume),
+      afterTranscription:
+          values['after_transcription'] ?? defaults.afterTranscription,
       showOverlay: _readBool(values, 'show_overlay', defaults.showOverlay),
       showFloatingButton: _readBool(
         values,
@@ -183,6 +194,8 @@ class AppSettings {
       'record_start_sound': '$recordStartSound',
       'record_stop_sound': '$recordStopSound',
       'transcription_complete_sound': '$transcriptionCompleteSound',
+      'sound_volume': '$soundVolume',
+      'after_transcription': afterTranscription,
       'show_overlay': '$showOverlay',
       'show_floating_button': '$showFloatingButton',
       'floating_button_opacity': '$floatingButtonOpacity',
@@ -213,6 +226,8 @@ class AppSettings {
     bool? recordStartSound,
     bool? recordStopSound,
     bool? transcriptionCompleteSound,
+    double? soundVolume,
+    String? afterTranscription,
     bool? showOverlay,
     bool? showFloatingButton,
     double? floatingButtonOpacity,
@@ -242,6 +257,8 @@ class AppSettings {
       recordStopSound: recordStopSound ?? this.recordStopSound,
       transcriptionCompleteSound:
           transcriptionCompleteSound ?? this.transcriptionCompleteSound,
+      soundVolume: soundVolume ?? this.soundVolume,
+      afterTranscription: afterTranscription ?? this.afterTranscription,
       showOverlay: showOverlay ?? this.showOverlay,
       showFloatingButton: showFloatingButton ?? this.showFloatingButton,
       floatingButtonOpacity:

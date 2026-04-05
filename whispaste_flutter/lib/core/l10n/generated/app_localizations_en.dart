@@ -374,6 +374,25 @@ class L10nEn extends L10n {
       'Transcription Complete Sound';
 
   @override
+  String get settingsSoundVolume => 'Sound Volume';
+
+  @override
+  String get settingsAfterTranscription => 'After Transcription';
+
+  @override
+  String get settingsAfterTranscriptionSubtitle =>
+      'What happens with the transcribed text';
+
+  @override
+  String get settingsAfterTranscriptionClipboard => 'Copy to Clipboard';
+
+  @override
+  String get settingsAfterTranscriptionPaste => 'Auto-Paste at Cursor';
+
+  @override
+  String get settingsAfterTranscriptionNothing => 'Do Nothing';
+
+  @override
   String get settingsOverlayFloatingButton => 'Overlay & Floating Button';
 
   @override
