@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'core/config/settings_provider.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/l10n/locale_provider.dart';
 import 'core/theme/theme.dart';
@@ -19,6 +20,7 @@ import 'features/analytics/analytics_page.dart';
 import 'features/about/about_page.dart';
 import 'features/feedback/feedback_page.dart';
 import 'features/recording/recording_state.dart';
+import 'services/recording_orchestrator.dart';
 
 /// Active navigation page state (Riverpod 3.x Notifier).
 class _ActivePageNotifier extends Notifier<String> {
@@ -82,6 +84,7 @@ class _AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final activePage = ref.watch(activePageProvider);
     final isRecording = ref.watch(isRecordingProvider);
+    final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final navItems = _navItems(l10n);
@@ -128,7 +131,7 @@ class _AppShell extends ConsumerWidget {
                       ref.read(activePageProvider.notifier).setPage(id);
                     },
                     bottomItems: [
-                      _ThemeToggle(),
+                      const _ThemeToggle(),
                     ],
                   ),
                   // Content area — rounded panel with warm gradient
@@ -181,9 +184,13 @@ class _AppShell extends ConsumerWidget {
               ),
             ),
             // Status bar — sits on the frame, full width
-            const WpStatusBar(
-              modeLabel: 'On device',
-              postProcessingLabel: 'Text enhancement',
+            WpStatusBar(
+              modeLabel: settings.sttProvider == 'On Device (Private)'
+                  ? l10n.statusBarOnDevice
+                  : settings.sttProvider,
+              postProcessingLabel: settings.postProcessEnabled
+                  ? l10n.statusBarPostProcessing
+                  : l10n.settingsOff,
               hotkeyLabel: 'Ctrl+Shift+R',
               isOnline: true,
             ),
@@ -196,13 +203,7 @@ class _AppShell extends ConsumerWidget {
         child: WpRecordingFab(
           isRecording: isRecording,
           onPressed: () {
-            final notifier = ref.read(recordingProvider.notifier);
-            if (isRecording) {
-              notifier.stopRecording();
-            } else {
-              notifier.reset();
-              notifier.startRecording();
-            }
+            ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
           },
         ),
       ),
@@ -236,17 +237,20 @@ class _PageHeader extends StatelessWidget {
 
 /// Sidebar theme toggle — cycles dark ↔ light with a single tap.
 class _ThemeToggle extends ConsumerWidget {
+  const _ThemeToggle();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = ref.watch(isDarkModeProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = L10n.of(context);
     return IconButton(
       icon: Icon(
         isDark ? LucideIcons.moon : LucideIcons.sun,
         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
         size: 20,
       ),
-      tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-      onPressed: () => ref.read(themeModeProvider.notifier).toggleDarkLight(),
+      tooltip: isDark ? l10n.tooltipSwitchToLight : l10n.tooltipSwitchToDark,
+      onPressed: () => ref.read(settingsProvider.notifier).toggleDarkLight(),
     );
   }
 }
