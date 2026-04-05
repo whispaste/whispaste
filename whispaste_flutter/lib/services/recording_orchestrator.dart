@@ -44,6 +44,10 @@ class RecordingOrchestrator extends Notifier<void> {
   @override
   void build() {
     ref.onDispose(_cancelAmplitude);
+
+    // Pre-warm the STT server in the background so the first recording
+    // doesn't pay the ~10 s cold-start penalty.
+    Future.microtask(() => _prewarmStt());
   }
 
   // -------------------------------------------------------------------------
@@ -127,6 +131,32 @@ class RecordingOrchestrator extends Notifier<void> {
       // Transition state: recording → transcribing.
       notifier.stopRecording();
 
+      // On Windows the `record` package can return before the WAV is fully
+      // flushed to disk.  Wait up to 2 s for the file to appear.
+      final wavFile = File(wavPath);
+      if (!wavFile.existsSync()) {
+        _log.debug('WAV not yet on disk, waiting for flush…');
+        for (var i = 0; i < 8; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+          if (wavFile.existsSync()) break;
+        }
+      }
+      if (!wavFile.existsSync()) {
+        notifier.fail('wav_file_not_created');
+        _log.error('WAV file never appeared: $wavPath');
+        return;
+      }
+
+      // Read bytes now while the file is guaranteed to exist — avoids a
+      // second race during the ensureRunning() await.
+      final wavBytes = await wavFile.readAsBytes();
+      if (wavBytes.isEmpty) {
+        notifier.fail('wav_file_empty');
+        _log.error('WAV file is empty: $wavPath');
+        return;
+      }
+      _log.debug('WAV ready: ${wavBytes.length} bytes');
+
       // Read config for language hint.
       final config = ref.read(effectiveConfigProvider);
       final language = config.transcriptionLanguage;
@@ -144,10 +174,10 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       }
 
-      // Transcribe.
-      _log.info('Transcribing $wavPath');
-      final transcript = await sttNotifier.transcribe(
-        wavPath,
+      // Transcribe using pre-loaded bytes (avoids file-system race).
+      _log.info('Transcribing $wavPath (${wavBytes.length} bytes)');
+      final transcript = await sttNotifier.transcribeBytes(
+        wavBytes,
         language: language != 'auto' ? language : null,
       );
 
@@ -262,6 +292,21 @@ class RecordingOrchestrator extends Notifier<void> {
   void _cancelAmplitude() {
     _amplitudeSub?.cancel();
     _amplitudeSub = null;
+  }
+
+  /// Best-effort pre-warm: starts the STT server so the first dictation is
+  /// instant. Runs in the background — failures are silently logged.
+  Future<void> _prewarmStt() async {
+    final config = ref.read(effectiveConfigProvider);
+    if (!config.useLocalStt) return;
+
+    // Only pre-warm when runtime + model are already downloaded.
+    final serverPath = whisperServerPath();
+    final modelPath = sttModelPath(config.localModelId);
+    if (!File(serverPath).existsSync()) return;
+    if (modelPath == null || !File(modelPath).existsSync()) return;
+
+    await ref.read(sttServiceProvider.notifier).prewarm();
   }
 }
 

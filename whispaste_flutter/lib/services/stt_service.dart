@@ -65,14 +65,30 @@ class SttStatus {
 // STT service notifier
 // ---------------------------------------------------------------------------
 
-/// Manages the local whisper-server subprocess.
+/// Manages the local whisper-server subprocess with keep-alive pooling.
 ///
 /// Exposes [SttStatus] as state and provides [ensureRunning] / [transcribe] /
 /// [stop] for the recording orchestrator.
+///
+/// **Keep-alive strategy**: The server process stays alive between
+/// transcriptions, eliminating the ~10 s cold-start for every recording after
+/// the first. An idle timer kills the server after [_idleTimeout] to free GPU
+/// memory. The server is also restarted transparently when the model changes.
 class SttServiceNotifier extends Notifier<SttStatus> {
   static final _log = AppLogger('SttService');
 
   Process? _process;
+  String? _activeModel;
+  Timer? _idleTimer;
+
+  /// How long the server stays alive after the last transcription before being
+  /// killed to free GPU/VRAM. Matches the Go backend's idle behaviour.
+  static const _idleTimeout = Duration(minutes: 5);
+
+  /// Guards against concurrent [ensureRunning] calls (e.g. rapid
+  /// toggle-recording). If a startup is already in flight, subsequent callers
+  /// await the same future instead of spawning a second process.
+  Completer<void>? _startCompleter;
 
   /// Reusable HTTP client with connection pooling (mirrors Go's
   /// `sttInferenceClient`). Localhost — no compression needed.
@@ -81,6 +97,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   @override
   SttStatus build() {
     ref.onDispose(() {
+      _idleTimer?.cancel();
       stop();
       _httpClient.close();
     });
@@ -93,28 +110,74 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
   /// Ensures the server is running with the configured model.
   ///
-  /// If already running with the same model, returns immediately (warm path).
-  /// If the model changed or the server is stopped, (re)starts it.
+  /// **Warm path**: If the server is already running with the same model and
+  /// passes a fast health check, returns immediately (< 500 ms).
+  ///
+  /// **Model-change path**: If the user switched models, the running server is
+  /// stopped and a fresh one is started.
+  ///
+  /// **Cold path**: Starts a new server subprocess and waits for it to become
+  /// ready (may take 10+ s while the model loads into GPU memory).
+  ///
+  /// Thread-safe: concurrent callers share a single in-flight startup.
   Future<void> ensureRunning() async {
-    final config = ref.read(effectiveConfigProvider);
-
-    final modelId = config.localModelId;
-
-    // Warm path — already running with the same model.
-    if (state.isReady && state.modelId == modelId && _process != null) {
-      _log.debug(
-        'STT server already running (warm) on port ${state.port}',
-      );
-      return;
+    // If a startup is already in-flight, piggy-back on it.
+    if (_startCompleter != null) {
+      return _startCompleter!.future;
     }
 
-    // Model changed — stop first.
-    if (state.serverState != SttServerState.stopped) {
-      _log.info('STT model changed, restarting');
+    final config = ref.read(effectiveConfigProvider);
+    final modelId = config.localModelId;
+
+    // ── Model-change detection ───────────────────────────────────────────
+    if (_activeModel != null && _activeModel != modelId) {
+      _log.info('STT model changed ($_activeModel → $modelId), restarting');
       stop();
     }
 
-    await _start(config);
+    // ── Warm path — server already running with same model ───────────────
+    if (state.isReady && state.modelId == modelId && _process != null) {
+      if (await _quickHealthCheck(state.port)) {
+        _resetIdleTimer();
+        _log.debug(
+          'STT server already running (warm) on port ${state.port}',
+        );
+        return;
+      }
+      // Health check failed — server crashed silently. Clean up and restart.
+      _log.warning('STT server health check failed, restarting');
+      _cleanupProcess();
+    }
+
+    // ── Cold path — start a new server ───────────────────────────────────
+    // Gate concurrent callers through a single Completer.
+    if (state.serverState != SttServerState.stopped) {
+      stop();
+    }
+
+    _startCompleter = Completer<void>();
+    try {
+      await _start(config);
+      _startCompleter?.complete();
+    } on Exception catch (e) {
+      _startCompleter?.completeError(e);
+      rethrow;
+    } finally {
+      _startCompleter = null;
+    }
+  }
+
+  /// Pre-warms the STT server in the background.
+  ///
+  /// Call this at app startup so the first recording doesn't pay the cold-start
+  /// penalty. Failures are logged but never thrown — pre-warming is best-effort.
+  Future<void> prewarm() async {
+    try {
+      await ensureRunning();
+      _log.info('STT server pre-warmed on port ${state.port}');
+    } on Exception catch (e) {
+      _log.debug('Pre-warm skipped: $e');
+    }
   }
 
   /// Transcribes a WAV file and returns the text.
@@ -122,16 +185,25 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   /// Throws [StateError] if the server is not ready.
   /// Throws [HttpException] on non-200 responses.
   Future<String> transcribe(String wavFilePath, {String? language}) async {
+    final file = File(wavFilePath);
+    if (!file.existsSync()) {
+      throw Exception('WAV file not found: $wavFilePath');
+    }
+    return transcribeBytes(await file.readAsBytes(), language: language);
+  }
+
+  /// Transcribes pre-loaded WAV bytes — avoids file-system races when the
+  /// caller already holds the data in memory.
+  Future<String> transcribeBytes(
+    List<int> wavBytes, {
+    String? language,
+  }) async {
     if (!state.isReady) {
       throw StateError('STT server is not running');
     }
 
-    final file = File(wavFilePath);
-    if (!file.existsSync()) {
-      throw ArgumentError('WAV file not found: $wavFilePath');
-    }
+    _resetIdleTimer();
 
-    final wavBytes = await file.readAsBytes();
     final lang = language ?? 'auto';
 
     _log.info(
@@ -176,10 +248,26 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     return text;
   }
 
-  /// Stops the whisper-server subprocess.
+  /// Stops the whisper-server subprocess and frees GPU memory.
   void stop() {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+
+    _cleanupProcess();
+
+    state = const SttStatus();
+    _log.info('Local STT stopped');
+  }
+
+  // -------------------------------------------------------------------------
+  // Private
+  // -------------------------------------------------------------------------
+
+  /// Kills the process without touching state or timers.
+  void _cleanupProcess() {
     final proc = _process;
     _process = null;
+    _activeModel = null;
 
     if (proc != null) {
       try {
@@ -189,14 +277,32 @@ class SttServiceNotifier extends Notifier<SttStatus> {
         _log.debug('Kill whisper-server: $e');
       }
     }
-
-    state = const SttStatus();
-    _log.info('Local STT stopped');
   }
 
-  // -------------------------------------------------------------------------
-  // Private
-  // -------------------------------------------------------------------------
+  /// Fast health check with a tight timeout (< 500 ms). Used on the warm path
+  /// to verify the server is still alive without blocking the user.
+  Future<bool> _quickHealthCheck(int port) async {
+    try {
+      final uri = Uri.parse('http://127.0.0.1:$port/health');
+      final resp = await http.get(uri).timeout(
+        const Duration(milliseconds: 500),
+      );
+      return resp.statusCode == 200;
+    } on Exception {
+      return false;
+    }
+  }
+
+  /// Resets the idle timer. Called after every [ensureRunning] and
+  /// [transcribe] so the server stays alive while in active use.
+  void _resetIdleTimer() {
+    _idleTimer?.cancel();
+    _idleTimer = Timer(_idleTimeout, () {
+      _log.info('STT server idle for ${_idleTimeout.inMinutes} min, '
+          'shutting down to free GPU memory');
+      stop();
+    });
+  }
 
   Future<void> _start(WhisPasteConfig config) async {
     state = const SttStatus(serverState: SttServerState.starting);
@@ -291,6 +397,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
         if (_process == proc) {
           _log.error('whisper-server exited unexpectedly (code $code)');
           _process = null;
+          _activeModel = null;
           state = SttStatus(
             serverState: SttServerState.error,
             errorMessage:
@@ -317,10 +424,14 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     } on _EarlyExitException catch (e) {
       // Process already gone — stop() would fail, just reset state.
       _process = null;
+      _activeModel = null;
       _fail(e.message);
       return;
     }
     coldStart.stop();
+
+    _activeModel = config.localModelId;
+    _resetIdleTimer();
 
     _log.info(
       'STT cold start completed in ${coldStart.elapsedMilliseconds}ms '
