@@ -39,11 +39,16 @@ class WpSidebar extends StatelessWidget {
 
     return Container(
       width: WpLayout.sidebarWidth,
-      color: isDark ? WpColorsDark.background : WpColorsLight.background,
+      decoration: BoxDecoration(
+        gradient: isDark
+            ? WpColorsDark.warmSurfaceGradient
+            : null,
+        color: isDark ? null : WpColorsLight.background,
+      ),
       child: Column(
         children: [
-          // Icons in upper portion — shifted up from center like Dixper
-          const SizedBox(height: WpSpacing.xl),
+          // Weighted spacers: ~40% above, ~60% below → slightly above center
+          const Spacer(flex: 4),
           // Nav items with generous spacing
           for (final item in items)
             _NavItemWidget(
@@ -52,7 +57,7 @@ class WpSidebar extends StatelessWidget {
               onTap: () => onItemTap(item.id),
               isDark: isDark,
             ),
-          const Spacer(),
+          const Spacer(flex: 6),
           // Bottom items pinned to bottom
           ...bottomItems,
           const SizedBox(height: WpSpacing.md),
@@ -84,38 +89,27 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Active: solid filled squircle with white icon (premium, high contrast)
-    // Hovered: subtle elevated surface with lighter icon
+    // Active: accent-subtle bg + accent icon + left indicator bar
+    // Hovered: simple bg-hover + text-primary — clean, like old app
     // Default: muted icon, transparent
     final Color iconColor;
     final Color bgColor;
-    final Border? border;
 
     if (widget.isActive) {
-      // Solid filled accent background — clean, premium, like Dixper's active
-      iconColor = widget.isDark
-          ? WpColorsDark.background
-          : WpColorsLight.background;
-      bgColor = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-      border = null;
+      iconColor = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+      bgColor = widget.isDark
+          ? WpColorsDark.accentSubtle
+          : WpColorsLight.accentSubtle;
     } else if (_isHovered) {
       iconColor = widget.isDark
           ? WpColorsDark.textPrimary
           : WpColorsLight.textPrimary;
-      bgColor = widget.isDark
-          ? WpColorsDark.surfaceElevated
-          : WpColorsLight.hover;
-      border = Border.all(
-        color: widget.isDark
-            ? WpColorsDark.borderDefault
-            : WpColorsLight.borderDefault,
-      );
+      bgColor = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
     } else {
       iconColor = widget.isDark
-          ? WpColorsDark.textMuted
+          ? WpColorsDark.textSecondary
           : WpColorsLight.textMuted;
       bgColor = Colors.transparent;
-      border = null;
     }
 
     return Tooltip(
@@ -129,29 +123,49 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: Padding(
-            // Generous vertical spacing between icons (~10px gap)
             padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs - 2),
             child: SizedBox(
               width: WpLayout.sidebarWidth,
               height: 48,
-              child: Center(
-                child: AnimatedContainer(
-                  duration: WpMotion.fast,
-                  curve: WpMotion.defaultCurve,
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    borderRadius: BorderRadius.circular(WpRadius.md),
-                    border: border,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Left accent indicator bar for active item
+                  if (widget.isActive)
+                    Positioned(
+                      left: 0,
+                      child: Container(
+                        width: 3,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          gradient: widget.isDark
+                              ? WpColorsDark.accentWarmGradient
+                              : WpColorsLight.accentWarmGradient,
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(WpRadius.sm),
+                            bottomRight: Radius.circular(WpRadius.sm),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Icon pill
+                  AnimatedContainer(
+                    duration: WpMotion.fast,
+                    curve: WpMotion.defaultCurve,
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(WpRadius.lg),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      widget.item.icon,
+                      color: iconColor,
+                      size: 26,
+                    ),
                   ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    widget.item.icon,
-                    color: iconColor,
-                    size: WpIconSize.lg,
-                  ),
-                ),
+                ],
               ),
             ),
           ),

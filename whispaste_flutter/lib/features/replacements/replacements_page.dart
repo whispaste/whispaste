@@ -156,9 +156,13 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                   : WpColorsLight.surfaceElevated),
           borderRadius: WpRadius.borderMd,
           border: Border.all(
-            color: widget.isDark
-                ? WpColorsDark.borderSubtle
-                : WpColorsLight.borderSubtle,
+            color: _isHovered
+                ? (widget.isDark
+                    ? WpColorsDark.glassBorder
+                    : WpColorsLight.borderDefault)
+                : (widget.isDark
+                    ? WpColorsDark.borderSubtle
+                    : WpColorsLight.borderSubtle),
           ),
         ),
         child: Row(

@@ -160,8 +160,8 @@ class _FilterChipState extends State<_FilterChip> {
     } else if (_isHovered) {
       bg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
       fg = widget.isDark
-          ? WpColorsDark.textSecondary
-          : WpColorsLight.textSecondary;
+          ? WpColorsDark.textPrimary
+          : WpColorsLight.textPrimary;
     } else {
       bg = widget.isDark
           ? WpColorsDark.surfaceVariant
