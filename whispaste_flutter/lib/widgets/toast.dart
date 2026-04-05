@@ -5,6 +5,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../core/logging/app_logger.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
@@ -20,6 +21,8 @@ enum WpToastType { success, error, info, warning }
 class WpToast {
   WpToast._();
 
+  static final _log = AppLogger('Toast');
+
   static void show(
     BuildContext context, {
     required String message,
@@ -28,6 +31,19 @@ class WpToast {
     String? actionLabel,
     VoidCallback? onAction,
   }) {
+    // Route toast messages through the logging pipeline so they appear
+    // in the `flutter run` terminal in debug mode.
+    switch (type) {
+      case WpToastType.error:
+        _log.error('TOAST: $message');
+      case WpToastType.warning:
+        _log.warning('TOAST: $message');
+      case WpToastType.success:
+        _log.info('TOAST: $message');
+      case WpToastType.info:
+        _log.info('TOAST: $message');
+    }
+
     final overlay = Overlay.of(context);
     late final OverlayEntry entry;
     late final AnimationController controller;

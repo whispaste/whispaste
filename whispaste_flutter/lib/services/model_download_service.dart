@@ -233,6 +233,13 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     _cancelToken = CancelToken();
 
     try {
+      // Ensure target directory exists before any I/O.
+      final dir = Directory(sttDir());
+      if (!dir.existsSync()) {
+        dir.createSync(recursive: true);
+        dev.log('Created STT directory: ${dir.path}', name: 'Download');
+      }
+
       // Phase 1: Ensure whisper-server binary exists.
       if (!state.serverReady) {
         state = state.copyWith(
@@ -342,6 +349,14 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   ModelDownloadState _scanExisting() {
     final downloaded = <String>{};
     final dir = Directory(sttDir());
+    if (!dir.existsSync()) {
+      // Create on first access so downloads never fail on missing dir.
+      try {
+        dir.createSync(recursive: true);
+      } on FileSystemException {
+        // Best-effort — will fail later with a clear error.
+      }
+    }
     if (dir.existsSync()) {
       for (final model in sttModels) {
         if (File(p.join(dir.path, model.filename)).existsSync()) {
