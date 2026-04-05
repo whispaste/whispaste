@@ -37,12 +37,8 @@ class WpSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    return SizedBox(
       width: WpLayout.sidebarWidth,
-      decoration: BoxDecoration(
-        gradient: isDark ? WpColorsDark.frameGradient : null,
-        color: isDark ? null : WpColorsLight.background,
-      ),
       child: Column(
         children: [
           // Weighted spacers: ~40% above, ~60% below → slightly above center
