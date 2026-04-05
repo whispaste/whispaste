@@ -80,8 +80,11 @@ abstract final class WpMotion {
   static const Duration smooth = Duration(milliseconds: 300);
   static const Duration dramatic = Duration(milliseconds: 500);
 
-  /// Near-instant hover-out prevents "blink" when moving between items.
-  static const Duration hoverOut = Duration(milliseconds: 50);
+  /// Instant hover-in prevents flicker when entering a new item.
+  static const Duration hoverIn = Duration.zero;
+
+  /// Quick hover-out for smooth fade when leaving an item.
+  static const Duration hoverOut = Duration(milliseconds: 80);
 
   static const Curve defaultCurve = Curves.easeOut;
   static const Curve spring = Curves.elasticOut;

@@ -329,7 +329,7 @@ class _CategoryChipState extends State<_CategoryChip> {
       child: GestureDetector(
         onTap: () => widget.onTap(widget.value),
         child: AnimatedContainer(
-          duration: _hovered ? WpMotion.fast : WpMotion.hoverOut,
+          duration: _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
           curve: WpMotion.defaultCurve,
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.md,
