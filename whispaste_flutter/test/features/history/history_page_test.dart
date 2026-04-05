@@ -100,8 +100,8 @@ void main() {
       await tester.pumpWidget(makeTestable(const HistoryPage()));
       await tester.pumpAndSettle();
 
-      // Before hover — no copy icons visible (they're hover-only)
-      expect(find.byIcon(LucideIcons.copy), findsNothing);
+      // Action icons are always in the tree (inside AnimatedOpacity for
+      // fixed-height layout), but invisible until hover.
 
       // Hover over first entry
       final firstEntry = find.text('Meeting notes — Product roadmap Q3');
@@ -111,7 +111,7 @@ void main() {
       await gesture.moveTo(tester.getCenter(firstEntry));
       await tester.pumpAndSettle();
 
-      // Now should show action icons
+      // After hover — action icons should be visible and interactive
       expect(find.byIcon(LucideIcons.copy), findsWidgets);
     });
 
@@ -123,6 +123,46 @@ void main() {
       expect(find.text('Search transcriptions…'), findsOneWidget);
       expect(
           find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
+    });
+
+    testWidgets('view mode toggle switches between views', (tester) async {
+      await tester.pumpWidget(makeTestable(const HistoryPage()));
+      await tester.pumpAndSettle();
+
+      // View mode toggle icons should be visible
+      expect(find.byIcon(LucideIcons.list), findsOneWidget);
+      expect(find.byIcon(LucideIcons.layoutGrid), findsOneWidget);
+      expect(find.byIcon(LucideIcons.rows3), findsOneWidget);
+
+      // Default list view — clock icons in entry metadata rows
+      expect(find.byIcon(LucideIcons.clock), findsWidgets);
+
+      // Switch to card view
+      await tester.tap(find.byIcon(LucideIcons.layoutGrid));
+      await tester.pumpAndSettle();
+
+      // Card view — entries visible, clock icons in card metadata
+      expect(
+          find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
+      expect(find.byIcon(LucideIcons.clock), findsWidgets);
+
+      // Switch to compact view
+      await tester.tap(find.byIcon(LucideIcons.rows3));
+      await tester.pumpAndSettle();
+
+      // Compact view — entries visible, no clock icons (compact has none)
+      expect(
+          find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
+      expect(find.byIcon(LucideIcons.clock), findsNothing);
+
+      // Switch back to list view
+      await tester.tap(find.byIcon(LucideIcons.list));
+      await tester.pumpAndSettle();
+
+      // Back to list — clock icons reappear in metadata
+      expect(
+          find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
+      expect(find.byIcon(LucideIcons.clock), findsWidgets);
     });
   });
 }
