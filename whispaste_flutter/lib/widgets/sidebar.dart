@@ -154,7 +154,7 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                     ),
                   // Icon pill
                   AnimatedContainer(
-                    duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+                    duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
                     curve: WpMotion.defaultCurve,
                     width: 38,
                     height: 38,

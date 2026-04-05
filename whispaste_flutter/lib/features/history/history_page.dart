@@ -1481,7 +1481,7 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
           curve: WpMotion.defaultCurve,
           margin: const EdgeInsets.symmetric(
             horizontal: WpSpacing.xs,
@@ -2275,7 +2275,7 @@ class _FilterChipState extends State<_FilterChip> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
           curve: WpMotion.defaultCurve,
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.sm,
@@ -2540,7 +2540,7 @@ class _EntryCardState extends State<_EntryCard> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
           curve: WpMotion.defaultCurve,
           height: 180,
           padding: const EdgeInsets.all(WpSpacing.md),
@@ -2792,7 +2792,7 @@ class _CompactRowState extends State<_CompactRow> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
           curve: WpMotion.defaultCurve,
           margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xs),
           padding: const EdgeInsets.symmetric(

@@ -313,7 +313,7 @@ class _LinkRowState extends State<_LinkRow> {
         child: GestureDetector(
           onTap: _launch,
           child: AnimatedContainer(
-            duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+            duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
             curve: WpMotion.defaultCurve,
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.sm,
