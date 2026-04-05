@@ -652,7 +652,7 @@ class _SettingRowState extends State<_SettingRow> {
           decoration: BoxDecoration(
             color: _isHovered
                 ? (isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                : Colors.transparent,
+                : (isDark ? WpColorsDark.hoverTransparent : WpColorsLight.hoverTransparent),
             borderRadius: WpRadius.borderSm,
           ),
           child: Row(
