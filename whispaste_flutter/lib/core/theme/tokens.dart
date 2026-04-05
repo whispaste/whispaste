@@ -59,6 +59,16 @@ abstract final class WpShadows {
     BoxShadow(color: Color(0x66000000), blurRadius: 12, offset: Offset(0, 4)),
     BoxShadow(color: Color(0x1A000000), blurRadius: 2),
   ];
+
+  /// Warm inner shadow for glass panels — subtle top-light illusion
+  static const List<BoxShadow> glassInner = [
+    BoxShadow(
+      color: Color(0x0AFFFFFF),
+      blurRadius: 1,
+      offset: Offset(0, 1),
+      blurStyle: BlurStyle.inner,
+    ),
+  ];
 }
 
 // ---------------------------------------------------------------------------

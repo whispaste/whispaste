@@ -97,15 +97,15 @@ class _SectionHeader extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
         child: Row(
           children: [
-            // Accent bar — short vertical line
+            // Accent bar — warm gradient vertical line
             Container(
               width: 3,
-              height: 16,
+              height: 18,
               margin: const EdgeInsets.only(right: WpSpacing.sm),
               decoration: BoxDecoration(
                 gradient: isDark
-                    ? WpColorsDark.accentGradient
-                    : WpColorsLight.accentGradient,
+                    ? WpColorsDark.accentWarmGradient
+                    : WpColorsLight.accentWarmGradient,
                 borderRadius: WpRadius.borderFull,
               ),
             ),

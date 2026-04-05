@@ -29,10 +29,12 @@ class WpStatusBar extends StatelessWidget {
     return Container(
       height: WpLayout.statusBarHeight,
       decoration: BoxDecoration(
-        color: isDark ? WpColorsDark.surface : WpColorsLight.surface,
+        color: isDark
+            ? WpColorsDark.surface.withValues(alpha: 0.9)
+            : WpColorsLight.surface,
         border: Border(
           top: BorderSide(
-            color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
+            color: isDark ? WpColorsDark.glassBorder : WpColorsLight.borderSubtle,
             width: 1,
           ),
         ),

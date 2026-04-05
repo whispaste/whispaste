@@ -145,23 +145,34 @@ class _InfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(WpSpacing.md),
       decoration: BoxDecoration(
-        color: isDark
-            ? WpColorsDark.surfaceElevated
-            : WpColorsLight.surfaceElevated,
+        gradient: isDark
+            ? WpColorsDark.warmSurfaceGradient
+            : WpColorsLight.warmSurfaceGradient,
         borderRadius: WpRadius.borderMd,
         border: Border.all(
           color: isDark
-              ? WpColorsDark.borderSubtle
+              ? WpColorsDark.glassBorder
               : WpColorsLight.borderSubtle,
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: WpIconSize.md,
-            color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? WpColorsDark.accentSubtle
+                  : WpColorsLight.accentSubtle,
+              borderRadius: WpRadius.borderSm,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              icon,
+              size: WpIconSize.md,
+              color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
+            ),
           ),
           const SizedBox(width: WpSpacing.md),
           Expanded(

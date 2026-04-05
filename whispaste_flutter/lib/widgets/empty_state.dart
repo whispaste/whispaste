@@ -4,7 +4,7 @@ import '../core/theme/tokens.dart';
 
 /// Empty state — centered visual with icon, title, hint, and optional CTA.
 ///
-/// Premium: subtle gradient background circle, refined spacing, clean typography.
+/// Premium: warm gradient icon circle, glass border hint, refined spacing.
 class WpEmptyState extends StatelessWidget {
   const WpEmptyState({
     super.key,
@@ -32,18 +32,18 @@ class WpEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Icon container with subtle gradient
+            // Icon circle — warm gradient fill with glass border
             Container(
-              width: 64,
-              height: 64,
+              width: 72,
+              height: 72,
               decoration: BoxDecoration(
                 gradient: isDark
-                    ? WpColorsDark.surfaceGradient
-                    : WpColorsLight.surfaceGradient,
+                    ? WpColorsDark.warmSurfaceGradient
+                    : WpColorsLight.warmSurfaceGradient,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: isDark
-                      ? WpColorsDark.borderSubtle
+                      ? WpColorsDark.glassBorder
                       : WpColorsLight.borderSubtle,
                 ),
               ),
@@ -58,7 +58,7 @@ class WpEmptyState extends StatelessWidget {
             if (hint != null) ...[
               const SizedBox(height: WpSpacing.xs),
               SizedBox(
-                width: 280,
+                width: 300,
                 child: Text(
                   hint!,
                   style: Theme.of(context).textTheme.bodyMedium,
