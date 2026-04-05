@@ -9,6 +9,7 @@ import '../../services/model_download_service.dart';
 import '../../widgets/model_download_card.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
+import '../../widgets/toast.dart';
 
 /// Settings page — organized sections with interactive controls.
 class SettingsPage extends ConsumerStatefulWidget {
@@ -1039,9 +1040,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     _showDeepgramKey = false;
                     _showAnthropicKey = false;
                   });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(resetSuccessText)),
-                  );
+                  if (context.mounted) {
+                    WpToast.show(
+                      context,
+                      message: resetSuccessText,
+                      type: WpToastType.success,
+                    );
+                  }
                 },
                 child: Text(l10n.settingsResetConfirm),
               ),
