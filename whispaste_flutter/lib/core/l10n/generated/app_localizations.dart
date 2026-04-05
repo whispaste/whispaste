@@ -973,6 +973,12 @@ abstract class L10n {
   /// **'Processing…'**
   String get statusProcessing;
 
+  /// No description provided for @statusTranscriptionDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcription complete'**
+  String get statusTranscriptionDone;
+
   /// No description provided for @statusCopied.
   ///
   /// In en, this message translates to:
@@ -1026,6 +1032,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Delete'**
   String get actionDelete;
+
+  /// No description provided for @actionDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get actionDismiss;
 
   /// No description provided for @actionEdit.
   ///

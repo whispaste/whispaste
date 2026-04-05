@@ -7,6 +7,7 @@ library;
 
 import 'dart:async';
 import 'dart:developer' as dev;
+import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,6 +66,13 @@ class RecordingOrchestrator extends Notifier<void> {
     final notifier = ref.read(recordingProvider.notifier);
 
     try {
+      // ── Preflight checks ──────────────────────────────────────────────
+      final preflightError = _runPreflight();
+      if (preflightError != null) {
+        notifier.fail(preflightError);
+        return;
+      }
+
       // Transition state: idle → recording.
       notifier.startRecording();
 
@@ -177,6 +185,45 @@ class RecordingOrchestrator extends Notifier<void> {
   // -------------------------------------------------------------------------
   // Private
   // -------------------------------------------------------------------------
+
+  /// Validates STT prerequisites before starting a recording.
+  ///
+  /// Returns a user-friendly error message if something is missing,
+  /// or `null` when everything is ready.
+  String? _runPreflight() {
+    final config = ref.read(effectiveConfigProvider);
+
+    // Check whisper-server binary.
+    final serverPath = whisperServerPath();
+    if (!File(serverPath).existsSync()) {
+      dev.log(
+        'Preflight FAIL: whisper-server not found at $serverPath',
+        name: 'Orchestrator',
+      );
+      return 'whisper-server binary not found. '
+          'Please download STT models in Settings → Speech-to-Text.';
+    }
+
+    // Check model file.
+    final modelId = config.localModelId;
+    final modelPath = sttModelPath(modelId);
+    if (modelPath == null) {
+      return 'Unknown STT model "$modelId". '
+          'Please select a valid model in Settings → Speech-to-Text.';
+    }
+    if (!File(modelPath).existsSync()) {
+      dev.log(
+        'Preflight FAIL: model not found at $modelPath',
+        name: 'Orchestrator',
+      );
+      return 'STT model "$modelId" not found. '
+          'Please download it in Settings → Speech-to-Text.';
+    }
+
+    dev.log('Preflight OK: server=$serverPath model=$modelPath',
+        name: 'Orchestrator');
+    return null;
+  }
 
   Future<void> _saveToHistory(
     String transcript,

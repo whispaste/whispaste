@@ -97,6 +97,38 @@ class _AppShell extends ConsumerWidget {
     final l10n = L10n.of(context);
     final navItems = _navItems(l10n);
 
+    // Show error/success feedback via SnackBar when recording state changes.
+    ref.listen<RecordingState>(recordingProvider, (prev, next) {
+      if (next.isError && next.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(next.errorMessage!),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: l10n.actionDismiss,
+            textColor: Colors.white,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ref.read(recordingOrchestratorProvider.notifier).reset();
+            },
+          ),
+        ));
+      } else if (next.isDone && next.transcript != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+            '${l10n.statusTranscriptionDone} — ${next.transcript!.length > 80 ? '${next.transcript!.substring(0, 80)}…' : next.transcript!}',
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ));
+        // Auto-reset after a short delay so the FAB returns to idle.
+        Future.delayed(const Duration(seconds: 2), () {
+          ref.read(recordingOrchestratorProvider.notifier).reset();
+        });
+      }
+    });
+
     const contentRadius = BorderRadius.only(
       topLeft: Radius.circular(WpRadius.xl),
       bottomLeft: Radius.circular(WpRadius.xl),

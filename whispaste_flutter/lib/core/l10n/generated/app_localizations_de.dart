@@ -475,6 +475,9 @@ class L10nDe extends L10n {
   String get statusProcessing => 'Verarbeite…';
 
   @override
+  String get statusTranscriptionDone => 'Transkription abgeschlossen';
+
+  @override
   String get statusCopied => 'Kopiert!';
 
   @override
@@ -501,6 +504,9 @@ class L10nDe extends L10n {
 
   @override
   String get actionDelete => 'Löschen';
+
+  @override
+  String get actionDismiss => 'Schließen';
 
   @override
   String get actionEdit => 'Bearbeiten';
