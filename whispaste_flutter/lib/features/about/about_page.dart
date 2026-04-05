@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
-import '../../widgets/brand_logo.dart';
+import '../../widgets/brand_wordmark.dart';
 
-/// About page — app info, version, credits, links.
+/// About page — app info, version, credits, links, keyboard shortcuts.
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ts = Theme.of(context).textTheme;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(WpSpacing.xl),
@@ -19,29 +21,22 @@ class AboutPage extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: WpLayout.pageMaxWidth),
           child: Column(
             children: [
-              const SizedBox(height: WpSpacing.xxl),
-              // Real app icon with background
-              const WpBrandLogo(
-                size: 80,
-                withBackground: true,
-              ),
-              const SizedBox(height: WpSpacing.lg),
-              Text(
-                'WhisPaste',
-                style: Theme.of(context).textTheme.headlineLarge,
-              ),
-              const SizedBox(height: WpSpacing.xxs),
-              Text(
-                'v1.2.0',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: WpSpacing.sm),
+              const SizedBox(height: WpSpacing.xl),
+              // Brand wordmark — the real PNG
+              const WpBrandWordmark(height: 64),
+              const SizedBox(height: WpSpacing.md),
+              Text('Version 1.2.0', style: ts.bodySmall),
+              const SizedBox(height: WpSpacing.xs),
               Text(
                 'Dictate anywhere, paste everywhere.',
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
+                style: ts.bodyMedium?.copyWith(
+                  color: isDark
+                      ? WpColorsDark.textSecondary
+                      : WpColorsLight.textSecondary,
+                ),
               ),
-              const SizedBox(height: WpSpacing.xxxl),
+              const SizedBox(height: WpSpacing.xxl),
+
               // Info cards
               _InfoCard(
                 icon: LucideIcons.codeXml,
@@ -52,22 +47,78 @@ class AboutPage extends StatelessWidget {
               const SizedBox(height: WpSpacing.sm),
               _InfoCard(
                 icon: LucideIcons.shield,
-                title: 'Privacy',
-                description: 'Local-first — your data stays on your device',
+                title: 'Privacy-first',
+                description:
+                    'Local AI inference by default — your voice never leaves your device unless you choose a cloud provider.',
                 isDark: isDark,
               ),
               const SizedBox(height: WpSpacing.sm),
               _InfoCard(
-                icon: LucideIcons.globe,
+                icon: LucideIcons.monitor,
                 title: 'Platforms',
-                description: 'Windows, macOS, Linux (coming soon)',
+                description: 'Windows  ·  macOS (coming soon)  ·  Linux (coming soon)',
+                isDark: isDark,
+              ),
+              const SizedBox(height: WpSpacing.xxl),
+
+              // Keyboard shortcuts
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Keyboard Shortcuts', style: ts.titleMedium),
+              ),
+              const SizedBox(height: WpSpacing.sm),
+              _ShortcutRow(
+                label: 'Start / Stop recording',
+                shortcut: 'Ctrl + Shift + R',
+                isDark: isDark,
+              ),
+              _ShortcutRow(
+                label: 'Command palette',
+                shortcut: 'Ctrl + K',
+                isDark: isDark,
+              ),
+              _ShortcutRow(
+                label: 'Settings',
+                shortcut: 'Ctrl + ,',
+                isDark: isDark,
+              ),
+              const SizedBox(height: WpSpacing.xxl),
+
+              // Links
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Links', style: ts.titleMedium),
+              ),
+              const SizedBox(height: WpSpacing.sm),
+              _LinkRow(
+                icon: LucideIcons.globe,
+                label: 'Website',
+                url: 'whispaste.com',
+                isDark: isDark,
+              ),
+              _LinkRow(
+                icon: IconData(
+                  FontAwesomeIcons.github.codePoint,
+                  fontFamily: FontAwesomeIcons.github.fontFamily,
+                  fontPackage: FontAwesomeIcons.github.fontPackage,
+                ),
+                label: 'GitHub',
+                url: 'github.com/whispaste',
+                isDark: isDark,
+              ),
+              _LinkRow(
+                icon: LucideIcons.fileText,
+                label: 'Privacy Policy',
+                url: 'whispaste.com/privacy',
                 isDark: isDark,
               ),
               const SizedBox(height: WpSpacing.xxxl),
+
               Text(
-                '© WhisPaste. All rights reserved.',
-                style: Theme.of(context).textTheme.bodySmall,
+                '© ${DateTime.now().year} WhisPaste. All rights reserved.',
+                style: ts.bodySmall,
               ),
+              const SizedBox(height: WpSpacing.xl),
             ],
           ),
         ),
@@ -91,20 +142,27 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Container(
       padding: const EdgeInsets.all(WpSpacing.md),
       decoration: BoxDecoration(
-        color: isDark ? WpColorsDark.surfaceElevated : WpColorsLight.surfaceElevated,
+        color: isDark
+            ? WpColorsDark.surfaceElevated
+            : WpColorsLight.surfaceElevated,
         borderRadius: WpRadius.borderMd,
         border: Border.all(
-          color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
+          color: isDark
+              ? WpColorsDark.borderSubtle
+              : WpColorsLight.borderSubtle,
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: WpIconSize.md, color: cs.primary),
+          Icon(
+            icon,
+            size: WpIconSize.md,
+            color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
+          ),
           const SizedBox(width: WpSpacing.md),
           Expanded(
             child: Column(
@@ -112,11 +170,163 @@ class _InfoCard extends StatelessWidget {
               children: [
                 Text(title, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 2),
-                Text(description, style: Theme.of(context).textTheme.bodyMedium),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: isDark
+                        ? WpColorsDark.textSecondary
+                        : WpColorsLight.textSecondary,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ShortcutRow extends StatelessWidget {
+  const _ShortcutRow({
+    required this.label,
+    required this.shortcut,
+    required this.isDark,
+  });
+
+  final String label;
+  final String shortcut;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs + 1),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isDark
+                    ? WpColorsDark.textSecondary
+                    : WpColorsLight.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.xs,
+              vertical: 3,
+            ),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? WpColorsDark.surfaceVariant
+                  : WpColorsLight.surfaceVariant,
+              borderRadius: WpRadius.borderSm,
+              border: Border.all(
+                color: isDark
+                    ? WpColorsDark.borderDefault
+                    : WpColorsLight.borderDefault,
+              ),
+            ),
+            child: Text(
+              shortcut,
+              style: TextStyle(
+                color: isDark
+                    ? WpColorsDark.textPrimary
+                    : WpColorsLight.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LinkRow extends StatefulWidget {
+  const _LinkRow({
+    required this.icon,
+    required this.label,
+    required this.url,
+    required this.isDark,
+  });
+
+  final IconData icon;
+  final String label;
+  final String url;
+  final bool isDark;
+
+  @override
+  State<_LinkRow> createState() => _LinkRowState();
+}
+
+class _LinkRowState extends State<_LinkRow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: () {}, // TODO: launch URL
+        child: AnimatedContainer(
+          duration: WpMotion.fast,
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
+                : Colors.transparent,
+            borderRadius: WpRadius.borderSm,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: WpIconSize.sm,
+                color: widget.isDark
+                    ? WpColorsDark.textMuted
+                    : WpColorsLight.textMuted,
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+              Text(
+                widget.url,
+                style: TextStyle(
+                  color: widget.isDark
+                      ? WpColorsDark.textMuted
+                      : WpColorsLight.textMuted,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              Icon(
+                LucideIcons.externalLink,
+                size: WpIconSize.xs,
+                color: widget.isDark
+                    ? WpColorsDark.textMuted
+                    : WpColorsLight.textMuted,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
