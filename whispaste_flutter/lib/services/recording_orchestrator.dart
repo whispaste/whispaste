@@ -6,13 +6,13 @@
 library;
 
 import 'dart:async';
-import 'dart:developer' as dev;
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/config/settings_provider.dart';
+import '../core/logging/app_logger.dart';
 import '../features/history/data/database.dart';
 import '../features/recording/recording_state.dart';
 import 'audio_service.dart';
@@ -37,6 +37,8 @@ import 'stt_service.dart';
 /// All transitions go through the existing [RecordingNotifier] so the UI
 /// reacts automatically. Errors are caught and surfaced via the error phase.
 class RecordingOrchestrator extends Notifier<void> {
+  static final _log = AppLogger('RecordingOrchestrator');
+
   StreamSubscription<double>? _amplitudeSub;
 
   @override
@@ -94,11 +96,11 @@ class RecordingOrchestrator extends Notifier<void> {
       _amplitudeSub = audioNotifier.amplitudeStream?.listen(
         (level) => notifier.updateAudioLevel(level),
         onError: (Object e) {
-          dev.log('Amplitude stream error: $e', name: 'Orchestrator');
+          _log.warning('Amplitude stream error: $e');
         },
       );
 
-      dev.log('Recording started', name: 'Orchestrator');
+      _log.info('Recording started');
     } on Exception catch (e) {
       ref.read(recordingProvider.notifier).fail('$e');
     }
@@ -143,7 +145,7 @@ class RecordingOrchestrator extends Notifier<void> {
       }
 
       // Transcribe.
-      dev.log('Transcribing $wavPath', name: 'Orchestrator');
+      _log.info('Transcribing $wavPath');
       final transcript = await sttNotifier.transcribe(
         wavPath,
         language: language != 'auto' ? language : null,
@@ -159,13 +161,10 @@ class RecordingOrchestrator extends Notifier<void> {
 
       // Transition state: transcribing → done.
       notifier.completeTranscription(transcript);
-      dev.log(
-        'Pipeline complete: ${transcript.length} chars',
-        name: 'Orchestrator',
-      );
+      _log.info('Pipeline complete: ${transcript.length} chars');
     } on Exception catch (e) {
       notifier.fail('$e');
-      dev.log('Pipeline error: $e', name: 'Orchestrator');
+      _log.error('Pipeline error: $e');
     } finally {
       // Always clean up the temp WAV file.
       if (wavPath != null) {
@@ -194,13 +193,20 @@ class RecordingOrchestrator extends Notifier<void> {
   String? _runPreflight() {
     final config = ref.read(effectiveConfigProvider);
 
+    // Ensure STT directory exists.
+    final dir = Directory(sttDir());
+    if (!dir.existsSync()) {
+      try {
+        dir.createSync(recursive: true);
+      } on FileSystemException catch (e) {
+        _log.warning('Failed to create STT dir: $e');
+      }
+    }
+
     // Check whisper-server binary.
     final serverPath = whisperServerPath();
     if (!File(serverPath).existsSync()) {
-      dev.log(
-        'Preflight FAIL: whisper-server not found at $serverPath',
-        name: 'Orchestrator',
-      );
+      _log.warning('Preflight FAIL: whisper-server not found at $serverPath');
       return 'stt_server_not_found';
     }
 
@@ -211,15 +217,11 @@ class RecordingOrchestrator extends Notifier<void> {
       return 'stt_model_unknown';
     }
     if (!File(modelPath).existsSync()) {
-      dev.log(
-        'Preflight FAIL: model not found at $modelPath',
-        name: 'Orchestrator',
-      );
+      _log.warning('Preflight FAIL: model "$modelId" not found at $modelPath');
       return 'stt_model_not_found';
     }
 
-    dev.log('Preflight OK: server=$serverPath model=$modelPath',
-        name: 'Orchestrator');
+    _log.info('Preflight OK: server=$serverPath model=$modelPath');
     return null;
   }
 
@@ -254,7 +256,7 @@ class RecordingOrchestrator extends Notifier<void> {
       source: const Value('dictation'),
     ));
 
-    dev.log('Saved entry $id to history', name: 'Orchestrator');
+    _log.info('Saved entry $id to history');
   }
 
   void _cancelAmplitude() {
