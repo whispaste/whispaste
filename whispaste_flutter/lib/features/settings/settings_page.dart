@@ -340,7 +340,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: LucideIcons.globe,
                   label: 'Language',
                   trailing: _dropdown(
-                    value: ref.watch(localeProvider.notifier).displayName,
+                    value: ref.watch(localeProvider).languageCode == 'de'
+                        ? 'Deutsch'
+                        : 'English',
                     items: const ['English', 'Deutsch'],
                     onChanged: (v) {
                       if (v != null) {

@@ -49,6 +49,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   _ViewMode _viewMode = _ViewMode.list;
   bool _multiSelectMode = false;
   final Set<String> _selectedIds = {};
+  /// Tracks last clicked entry for Shift+click range selection.
+  String? _lastClickedId;
 
   HistoryEntry? get _selectedEntry {
     if (_selectedEntryId == null) return null;
@@ -223,16 +225,53 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     isTrashView: isTrashView,
                     isArchiveView: isArchiveView,
                     onEntryTap: (entry) {
-                      if (_multiSelectMode) {
+                      final isCtrl =
+                          HardwareKeyboard.instance.isControlPressed ||
+                              HardwareKeyboard.instance.isMetaPressed;
+                      final isShift =
+                          HardwareKeyboard.instance.isShiftPressed;
+
+                      if (isCtrl) {
+                        // Ctrl+click: toggle individual item in multi-select
+                        setState(() {
+                          if (!_multiSelectMode) _multiSelectMode = true;
+                          if (_selectedIds.contains(entry.id)) {
+                            _selectedIds.remove(entry.id);
+                          } else {
+                            _selectedIds.add(entry.id);
+                          }
+                          _lastClickedId = entry.id;
+                        });
+                      } else if (isShift && _lastClickedId != null) {
+                        // Shift+click: range select from last clicked
+                        final flatIds =
+                            _filteredEntries.map((e) => e.id).toList();
+                        final from = flatIds.indexOf(_lastClickedId!);
+                        final to = flatIds.indexOf(entry.id);
+                        if (from >= 0 && to >= 0) {
+                          final start = from < to ? from : to;
+                          final end = from < to ? to : from;
+                          setState(() {
+                            if (!_multiSelectMode) _multiSelectMode = true;
+                            for (var i = start; i <= end; i++) {
+                              _selectedIds.add(flatIds[i]);
+                            }
+                          });
+                        }
+                      } else if (_multiSelectMode) {
                         setState(() {
                           if (_selectedIds.contains(entry.id)) {
                             _selectedIds.remove(entry.id);
                           } else {
                             _selectedIds.add(entry.id);
                           }
+                          _lastClickedId = entry.id;
                         });
                       } else {
-                        setState(() => _selectedEntryId = entry.id);
+                        setState(() {
+                          _selectedEntryId = entry.id;
+                          _lastClickedId = entry.id;
+                        });
                       }
                     },
                     onCopy: _copyEntry,
