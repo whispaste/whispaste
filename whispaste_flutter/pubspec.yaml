@@ -64,6 +64,7 @@ dependencies:
 
   # Export (DOCX ZIP generation)
   archive: ^4.0.4
+  audioplayers: ^6.6.0
 
 dev_dependencies:
   flutter_test:

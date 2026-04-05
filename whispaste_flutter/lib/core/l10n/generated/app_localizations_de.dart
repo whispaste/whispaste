@@ -1066,4 +1066,10 @@ class L10nDe extends L10n {
   @override
   String get errorSttServerFailed =>
       'Sprachmodul konnte nicht gestartet werden';
+
+  @override
+  String get statusSttLoading => 'Modell wird geladen…';
+
+  @override
+  String get statusSttReady => 'Modell bereit';
 }
