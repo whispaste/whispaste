@@ -32,7 +32,7 @@ abstract final class WpColorsDark {
 
   static const Color textPrimary = Color(0xFFF1F5F9);
   static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted = Color(0xFF64748B);
+  static const Color textMuted = Color(0xFF7B8DA3);
 
   static const Color accent = Color(0xFF22D3EE);
   static const Color accentHover = Color(0xFF67E8F9);
@@ -100,7 +100,7 @@ abstract final class WpColorsLight {
 
   static const Color textPrimary = Color(0xFF1A2030);
   static const Color textSecondary = Color(0xFF5A6880);
-  static const Color textMuted = Color(0xFF8D99AE);
+  static const Color textMuted = Color(0xFF687788);
 
   static const Color accent = Color(0xFF0891B2);
   static const Color accentHover = Color(0xFF0E7490);
