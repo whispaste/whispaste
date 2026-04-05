@@ -7,6 +7,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/about/about_page.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
@@ -45,6 +46,8 @@ Widget _testShell(Widget page, Size size, {Brightness brightness = Brightness.da
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: theme,
+      localizationsDelegates: L10n.localizationsDelegates,
+      supportedLocales: L10n.supportedLocales,
       home: MediaQuery(
         data: MediaQueryData(size: size),
         child: SizedBox(
