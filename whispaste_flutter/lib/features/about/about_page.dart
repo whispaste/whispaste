@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/brand_logo.dart';
 
 /// About page — app info, version, credits, links.
 class AboutPage extends StatelessWidget {
@@ -19,21 +20,10 @@ class AboutPage extends StatelessWidget {
           child: Column(
             children: [
               const SizedBox(height: WpSpacing.xxl),
-              // App icon
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  gradient: isDark
-                      ? WpColorsDark.accentGradient
-                      : WpColorsLight.accentGradient,
-                  borderRadius: WpRadius.borderLg,
-                ),
-                child: const Icon(
-                  LucideIcons.mic,
-                  size: WpIconSize.xl,
-                  color: Colors.white,
-                ),
+              // Real app icon with background
+              const WpBrandLogo(
+                size: 80,
+                withBackground: true,
               ),
               const SizedBox(height: WpSpacing.lg),
               Text(

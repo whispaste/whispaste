@@ -10,7 +10,7 @@ import 'tokens.dart';
 
 /// Build the complete WhisPaste dark [ThemeData].
 ThemeData wpDarkTheme() {
-  final colorScheme = ColorScheme(
+  const colorScheme = ColorScheme(
     brightness: Brightness.dark,
     primary: WpColorsDark.accent,
     onPrimary: WpColorsDark.background,
@@ -27,7 +27,7 @@ ThemeData wpDarkTheme() {
     onError: WpColorsDark.background,
     outline: WpColorsDark.borderDefault,
     outlineVariant: WpColorsDark.borderSubtle,
-    shadow: const Color(0xFF000000),
+    shadow: Color(0xFF000000),
   );
 
   return _buildTheme(colorScheme, isDark: true);
@@ -35,7 +35,7 @@ ThemeData wpDarkTheme() {
 
 /// Build the complete WhisPaste light [ThemeData].
 ThemeData wpLightTheme() {
-  final colorScheme = ColorScheme(
+  const colorScheme = ColorScheme(
     brightness: Brightness.light,
     primary: WpColorsLight.accent,
     onPrimary: Colors.white,
@@ -52,7 +52,7 @@ ThemeData wpLightTheme() {
     onError: Colors.white,
     outline: WpColorsLight.borderDefault,
     outlineVariant: WpColorsLight.borderSubtle,
-    shadow: const Color(0x1A000000),
+    shadow: Color(0x1A000000),
   );
 
   return _buildTheme(colorScheme, isDark: false);

@@ -63,9 +63,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
                 ),
                 const SizedBox(height: WpSpacing.xl),
                 // Comment field
-                TextField(
+                const TextField(
                   maxLines: 5,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Tell us what you think…',
                     alignLabelWithHint: true,
                   ),

@@ -15,7 +15,7 @@ class SettingsPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          WpSection(
+          const WpSection(
             title: 'Audio',
             subtitle: 'Microphone and input settings',
             child: Column(
@@ -34,7 +34,7 @@ class SettingsPage extends StatelessWidget {
             ),
           ),
           _sectionDivider(context),
-          WpSection(
+          const WpSection(
             title: 'Recording Safety',
             subtitle: 'Auto-detection and auto-stop',
             collapsible: true,
@@ -65,7 +65,7 @@ class SettingsPage extends StatelessWidget {
                   value: 'On',
                   trailing: Switch(value: true, onChanged: (_) {}),
                 ),
-                _SettingRow(
+                const _SettingRow(
                   icon: LucideIcons.wand2,
                   label: 'Preset',
                   value: 'Clean up',
@@ -74,7 +74,7 @@ class SettingsPage extends StatelessWidget {
             ),
           ),
           _sectionDivider(context),
-          WpSection(
+          const WpSection(
             title: 'Speech Recognition',
             subtitle: 'STT engine and model selection',
             collapsible: true,
@@ -94,7 +94,7 @@ class SettingsPage extends StatelessWidget {
             ),
           ),
           _sectionDivider(context),
-          WpSection(
+          const WpSection(
             title: 'Cloud Providers',
             subtitle: 'API keys for online services',
             collapsible: true,

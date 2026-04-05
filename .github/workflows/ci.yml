@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  go-backend:
+    name: Go Backend
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -99,3 +100,53 @@ jobs:
           name: whispaste-exe
           path: whispaste.exe
           retention-days: 14
+
+  flutter-app:
+    name: Flutter App
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: whispaste_flutter
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: whispaste_flutter/pubspec.yaml
+          cache: true
+
+      - name: Verify Flutter installation
+        run: flutter --version
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze (lint + static analysis)
+        run: flutter analyze --fatal-infos
+
+      - name: Run tests
+        run: flutter test
+        continue-on-error: true  # No tests yet — will fail gracefully
+
+      - name: Build Windows (debug)
+        run: flutter build windows --debug
+
+      - name: Verify build output
+        run: |
+          $exe = "build\windows\x64\runner\Debug\whispaste.exe"
+          if (!(Test-Path $exe)) { throw "Flutter build failed: $exe not found" }
+          $size = (Get-Item $exe).Length / 1MB
+          Write-Host "Flutter app size: $([math]::Round($size, 2)) MB"
+
+      - name: Secret scan (Dart/Flutter)
+        shell: bash
+        run: |
+          echo "Scanning Flutter project for secrets..."
+          if grep -rn --include='*.dart' --include='*.yaml' --include='*.json' \
+            -E '(sk-[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|password\s*=\s*"[^"]+")' \
+            --exclude-dir=.git --exclude-dir=build . ; then
+            echo "::error::Potential secrets detected in Flutter source!"
+            exit 1
+          fi
+          echo "No secrets found ✓"
