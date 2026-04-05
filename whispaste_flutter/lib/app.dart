@@ -21,6 +21,8 @@ import 'features/about/about_page.dart';
 import 'features/feedback/feedback_page.dart';
 import 'features/recording/recording_state.dart';
 import 'services/recording_orchestrator.dart';
+import 'services/sound_feedback_service.dart';
+import 'services/stt_service.dart';
 import 'widgets/toast.dart';
 
 /// Active navigation page state (Riverpod 3.x Notifier).
@@ -119,10 +121,17 @@ class _AppShell extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final navItems = _navItems(l10n);
+    final sttStatus = ref.watch(sttServiceProvider);
+
+    // Eagerly initialise the recording orchestrator so that the STT server
+    // prewarm fires at app startup — not when the user first taps record.
+    ref.watch(recordingOrchestratorProvider);
 
     // Show error/success feedback via toast when recording state changes.
+    // Also triggers sound feedback for start / stop / complete / error.
     ref.listen<RecordingState>(recordingProvider, (prev, next) {
       if (next.isError && next.errorMessage != null) {
+        ref.read(soundFeedbackProvider.notifier).playError();
         WpToast.show(
           context,
           message: _localizeError(l10n, next.errorMessage!),
@@ -139,7 +148,12 @@ class _AppShell extends ConsumerWidget {
             ref.read(recordingOrchestratorProvider.notifier).reset();
           }
         });
+      } else if (next.isRecording && (prev == null || !prev.isRecording)) {
+        ref.read(soundFeedbackProvider.notifier).playRecordStart();
+      } else if (next.isTranscribing && (prev == null || !prev.isTranscribing)) {
+        ref.read(soundFeedbackProvider.notifier).playRecordStop();
       } else if (next.isDone && next.transcript != null) {
+        ref.read(soundFeedbackProvider.notifier).playTranscriptionComplete();
         WpToast.show(
           context,
           message:
@@ -260,6 +274,7 @@ class _AppShell extends ConsumerWidget {
                   : l10n.settingsOff,
               hotkeyLabel: 'Ctrl+Shift+R',
               isOnline: true,
+              sttLoading: sttStatus.serverState == SttServerState.starting,
             ),
           ],
         ),

@@ -390,5 +390,8 @@
   "errorRecordingFailed": "Failed to start recording",
   "errorNoAudioRecorded": "No audio recorded",
   "errorTranscriptionEmpty": "Transcription returned empty text — please try again",
-  "errorSttServerFailed": "Speech engine failed to start"
+  "errorSttServerFailed": "Speech engine failed to start",
+
+  "statusSttLoading": "Loading model…",
+  "statusSttReady": "Model ready"
 }

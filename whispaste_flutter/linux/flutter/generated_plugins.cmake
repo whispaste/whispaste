@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  audioplayers_linux
   flutter_acrylic
   hotkey_manager_linux
   irondash_engine_context

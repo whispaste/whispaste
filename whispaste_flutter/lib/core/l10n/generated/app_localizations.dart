@@ -2058,6 +2058,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Speech engine failed to start'**
   String get errorSttServerFailed;
+
+  /// No description provided for @statusSttLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading model…'**
+  String get statusSttLoading;
+
+  /// No description provided for @statusSttReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Model ready'**
+  String get statusSttReady;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
