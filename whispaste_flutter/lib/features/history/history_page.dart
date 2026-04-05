@@ -1093,9 +1093,11 @@ class _MasterDetailState extends State<_MasterDetail>
   }
 
   Widget _buildMasterBody({String? selectedId}) {
+    final Widget body;
     switch (widget.viewMode) {
       case _ViewMode.list:
-        return _EntryList(
+        body = _EntryList(
+          key: const ValueKey('view-list'),
           groups: widget.groups,
           isDark: widget.isDark,
           selectedId: selectedId,
@@ -1108,7 +1110,8 @@ class _MasterDetailState extends State<_MasterDetail>
           isTrashView: widget.isTrashView,
         );
       case _ViewMode.cards:
-        return _CardView(
+        body = _CardView(
+          key: const ValueKey('view-cards'),
           groups: widget.groups,
           isDark: widget.isDark,
           selectedId: selectedId,
@@ -1120,7 +1123,8 @@ class _MasterDetailState extends State<_MasterDetail>
           selectedIds: widget.selectedIds,
         );
       case _ViewMode.compact:
-        return _CompactView(
+        body = _CompactView(
+          key: const ValueKey('view-compact'),
           groups: widget.groups,
           isDark: widget.isDark,
           selectedId: selectedId,
@@ -1129,6 +1133,12 @@ class _MasterDetailState extends State<_MasterDetail>
           selectedIds: widget.selectedIds,
         );
     }
+    return AnimatedSwitcher(
+      duration: WpMotion.normal,
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      child: body,
+    );
   }
 
   @override
@@ -1207,23 +1217,37 @@ class _MasterDetailState extends State<_MasterDetail>
                   child: detailFraction > 0.05
                       ? Opacity(
                           opacity: detailFraction.clamp(0.0, 1.0),
-                          child: _DetailPanel(
-                            entry:
-                                widget.selectedEntry ?? _displayedEntry!,
-                            isDark: widget.isDark,
-                            isTrashView: widget.isTrashView,
-                            isArchiveView: widget.isArchiveView,
-                            onClose: widget.onCloseDetail,
-                            onCopy: () => widget.onCopy(
-                                widget.selectedEntry ?? _displayedEntry!),
-                            onPin: () => widget.onPin(
-                                widget.selectedEntry ?? _displayedEntry!),
-                            onDelete: () => widget.onDelete(
-                                widget.selectedEntry ?? _displayedEntry!),
-                            onArchive: () => widget.onArchive(
-                                widget.selectedEntry ?? _displayedEntry!),
-                            onRestore: () => widget.onRestore(
-                                widget.selectedEntry ?? _displayedEntry!),
+                          child: AnimatedSwitcher(
+                            duration: WpMotion.fast,
+                            switchInCurve: Curves.easeOut,
+                            switchOutCurve: Curves.easeIn,
+                            transitionBuilder: (child, animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              );
+                            },
+                            child: _DetailPanel(
+                              key: ValueKey(
+                                (widget.selectedEntry ?? _displayedEntry!)
+                                    .id),
+                              entry:
+                                  widget.selectedEntry ?? _displayedEntry!,
+                              isDark: widget.isDark,
+                              isTrashView: widget.isTrashView,
+                              isArchiveView: widget.isArchiveView,
+                              onClose: widget.onCloseDetail,
+                              onCopy: () => widget.onCopy(
+                                  widget.selectedEntry ?? _displayedEntry!),
+                              onPin: () => widget.onPin(
+                                  widget.selectedEntry ?? _displayedEntry!),
+                              onDelete: () => widget.onDelete(
+                                  widget.selectedEntry ?? _displayedEntry!),
+                              onArchive: () => widget.onArchive(
+                                  widget.selectedEntry ?? _displayedEntry!),
+                              onRestore: () => widget.onRestore(
+                                  widget.selectedEntry ?? _displayedEntry!),
+                            ),
                           ),
                         )
                       : const SizedBox.shrink(),
@@ -1243,6 +1267,7 @@ class _MasterDetailState extends State<_MasterDetail>
 
 class _EntryList extends StatelessWidget {
   const _EntryList({
+    super.key,
     required this.groups,
     required this.isDark,
     required this.selectedId,
@@ -1750,6 +1775,7 @@ class _EntryAvatar extends StatelessWidget {
 
 class _DetailPanel extends StatelessWidget {
   const _DetailPanel({
+    super.key,
     required this.entry,
     required this.isDark,
     required this.onClose,
@@ -2413,6 +2439,7 @@ class _ViewModeButton extends StatelessWidget {
 
 class _CardView extends StatelessWidget {
   const _CardView({
+    super.key,
     required this.groups,
     required this.isDark,
     required this.selectedId,
@@ -2663,6 +2690,7 @@ class _EntryCardState extends State<_EntryCard> {
 
 class _CompactView extends StatelessWidget {
   const _CompactView({
+    super.key,
     required this.groups,
     required this.isDark,
     required this.selectedId,
