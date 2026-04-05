@@ -528,6 +528,9 @@ class L10nEn extends L10n {
   String get tooltipStopRecord => 'Stop recording';
 
   @override
+  String get tooltipProcessing => 'Processing audio…';
+
+  @override
   String get tooltipTheme => 'Toggle theme';
 
   @override
