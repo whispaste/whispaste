@@ -85,7 +85,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       case HistoryFilter.week:
         final weekAgo = now.subtract(const Duration(days: 7));
         entries = entries.where((e) => e.timestamp.isAfter(weekAgo)).toList();
-      case HistoryFilter.favorites:
+      case HistoryFilter.pinned:
         entries = entries.where((e) => e.pinned).toList();
       case HistoryFilter.all:
         break;
@@ -163,13 +163,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             resultCount: _filteredEntries.length,
             viewMode: _viewMode,
             onViewModeChanged: (m) => setState(() => _viewMode = m),
-          ),
-          // Divider
-          Container(
-            height: 1,
-            color: isDark
-                ? WpColorsDark.borderSubtle
-                : WpColorsLight.borderSubtle,
           ),
           // Master-detail content
           Expanded(
@@ -357,10 +350,10 @@ class _SearchToolbar extends StatelessWidget {
                       ),
                       const SizedBox(width: WpSpacing.xs),
                       _FilterChip(
-                        label: 'Favorites',
-                        icon: LucideIcons.star,
-                        isActive: activeFilter == HistoryFilter.favorites,
-                        onTap: () => onFilterChanged(HistoryFilter.favorites),
+                        label: 'Pinned',
+                        icon: LucideIcons.pin,
+                        isActive: activeFilter == HistoryFilter.pinned,
+                        onTap: () => onFilterChanged(HistoryFilter.pinned),
                         isDark: isDark,
                       ),
                     ],
@@ -400,7 +393,7 @@ class _SearchToolbar extends StatelessWidget {
 // Master-detail layout
 // ---------------------------------------------------------------------------
 
-class _MasterDetail extends StatelessWidget {
+class _MasterDetail extends StatefulWidget {
   const _MasterDetail({
     required this.groups,
     required this.isDark,
@@ -423,72 +416,148 @@ class _MasterDetail extends StatelessWidget {
   final ValueChanged<HistoryEntry> onDelete;
   final VoidCallback onCloseDetail;
 
+  @override
+  State<_MasterDetail> createState() => _MasterDetailState();
+}
+
+class _MasterDetailState extends State<_MasterDetail>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _anim;
+  late final Animation<double> _detailWidth;
+  HistoryEntry? _displayedEntry;
+
+  static const _masterWidth = 340.0;
+  static const _dividerWidth = 1.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _detailWidth = CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic);
+    if (widget.selectedEntry != null) {
+      _displayedEntry = widget.selectedEntry;
+      _anim.value = 1.0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _MasterDetail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedEntry != null && oldWidget.selectedEntry == null) {
+      // Opening detail panel
+      _displayedEntry = widget.selectedEntry;
+      _anim.forward();
+    } else if (widget.selectedEntry == null && oldWidget.selectedEntry != null) {
+      // Closing detail panel
+      _anim.reverse().then((_) {
+        if (mounted) setState(() => _displayedEntry = null);
+      });
+    } else if (widget.selectedEntry != null) {
+      // Switching to different entry
+      _displayedEntry = widget.selectedEntry;
+    }
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
   Widget _buildMasterBody({String? selectedId}) {
-    switch (viewMode) {
+    switch (widget.viewMode) {
       case _ViewMode.list:
         return _EntryList(
-          groups: groups,
-          isDark: isDark,
+          groups: widget.groups,
+          isDark: widget.isDark,
           selectedId: selectedId,
-          onEntryTap: onEntryTap,
-          onCopy: onCopy,
-          onPin: onPin,
-          onDelete: onDelete,
+          onEntryTap: widget.onEntryTap,
+          onCopy: widget.onCopy,
+          onPin: widget.onPin,
+          onDelete: widget.onDelete,
         );
       case _ViewMode.cards:
         return _CardView(
-          groups: groups,
-          isDark: isDark,
+          groups: widget.groups,
+          isDark: widget.isDark,
           selectedId: selectedId,
-          onEntryTap: onEntryTap,
-          onCopy: onCopy,
-          onPin: onPin,
-          onDelete: onDelete,
+          onEntryTap: widget.onEntryTap,
+          onCopy: widget.onCopy,
+          onPin: widget.onPin,
+          onDelete: widget.onDelete,
         );
       case _ViewMode.compact:
         return _CompactView(
-          groups: groups,
-          isDark: isDark,
+          groups: widget.groups,
+          isDark: widget.isDark,
           selectedId: selectedId,
-          onEntryTap: onEntryTap,
+          onEntryTap: widget.onEntryTap,
         );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (selectedEntry == null) {
-      // Full-width view (no detail selected)
+    final showDetail =
+        widget.selectedEntry != null || _displayedEntry != null;
+
+    if (!showDetail) {
       return _buildMasterBody();
     }
 
-    // Side-by-side: master + detail
-    return Row(
-      children: [
-        // Master panel
-        SizedBox(
-          width: 340,
-          child: _buildMasterBody(selectedId: selectedEntry!.id),
-        ),
-        // Divider
-        Container(
-          width: 1,
-          color: isDark
-              ? WpColorsDark.borderSubtle
-              : WpColorsLight.borderSubtle,
-        ),
-        // Detail panel
-        Expanded(
-          child: _DetailPanel(
-            entry: selectedEntry!,
-            isDark: isDark,
-            onClose: onCloseDetail,
-            onCopy: () => onCopy(selectedEntry!),
-            onPin: () => onPin(selectedEntry!),
-            onDelete: () => onDelete(selectedEntry!),
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+        return AnimatedBuilder(
+          animation: _detailWidth,
+          builder: (context, _) {
+            final detailFraction = _detailWidth.value;
+            final detailW =
+                (totalWidth - _masterWidth - _dividerWidth) * detailFraction;
+            final masterW = totalWidth - detailW - _dividerWidth;
+
+            return Row(
+              children: [
+                SizedBox(
+                  width: masterW.clamp(_masterWidth, totalWidth),
+                  child: _buildMasterBody(
+                    selectedId: (widget.selectedEntry ?? _displayedEntry)?.id,
+                  ),
+                ),
+                Container(
+                  width: _dividerWidth,
+                  color: widget.isDark
+                      ? WpColorsDark.borderSubtle
+                      : WpColorsLight.borderSubtle,
+                ),
+                SizedBox(
+                  width: detailW.clamp(0.0, totalWidth - _masterWidth),
+                  child: detailFraction > 0.05
+                      ? Opacity(
+                          opacity: detailFraction.clamp(0.0, 1.0),
+                          child: _DetailPanel(
+                            entry:
+                                widget.selectedEntry ?? _displayedEntry!,
+                            isDark: widget.isDark,
+                            onClose: widget.onCloseDetail,
+                            onCopy: () => widget.onCopy(
+                                widget.selectedEntry ?? _displayedEntry!),
+                            onPin: () => widget.onPin(
+                                widget.selectedEntry ?? _displayedEntry!),
+                            onDelete: () => widget.onDelete(
+                                widget.selectedEntry ?? _displayedEntry!),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
