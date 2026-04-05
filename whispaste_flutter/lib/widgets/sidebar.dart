@@ -107,7 +107,9 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
       iconColor = widget.isDark
           ? WpColorsDark.textSecondary
           : WpColorsLight.textMuted;
-      bgColor = Colors.transparent;
+      bgColor = widget.isDark
+          ? WpColorsDark.hoverTransparent
+          : WpColorsLight.hoverTransparent;
     }
 
     return Semantics(
