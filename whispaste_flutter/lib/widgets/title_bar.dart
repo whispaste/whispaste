@@ -4,11 +4,12 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'brand_logo.dart';
 
 /// Premium custom window title bar.
 ///
-/// Compact, clean design: accent gradient stripe at top, minimal chrome.
-/// macOS uses native traffic lights — returns SizedBox.shrink().
+/// Features the real WhisPaste brand logo, a thin accent gradient stripe,
+/// and refined window controls. macOS uses native traffic lights.
 class WpTitleBar extends StatelessWidget {
   const WpTitleBar({super.key});
 
@@ -22,7 +23,7 @@ class WpTitleBar extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Thin accent gradient line at very top
+        // Thin accent gradient stripe at very top
         Container(
           height: 2,
           decoration: BoxDecoration(
@@ -31,7 +32,7 @@ class WpTitleBar extends StatelessWidget {
                 : WpColorsLight.accentGradient,
           ),
         ),
-        // Title bar
+        // Title bar body
         GestureDetector(
           onPanStart: (_) => windowManager.startDragging(),
           onDoubleTap: () async {
@@ -43,18 +44,52 @@ class WpTitleBar extends StatelessWidget {
           },
           child: Container(
             height: WpLayout.appBarHeight - 2,
-            color: isDark ? WpColorsDark.surface : WpColorsLight.surface,
+            decoration: BoxDecoration(
+              color: isDark ? WpColorsDark.surface : WpColorsLight.surface,
+              border: Border(
+                bottom: BorderSide(
+                  color: isDark
+                      ? WpColorsDark.borderSubtle
+                      : WpColorsLight.borderSubtle,
+                  width: 1,
+                ),
+              ),
+            ),
             child: Row(
               children: [
-                const SizedBox(width: WpSpacing.md),
-                // App title
+                const SizedBox(width: WpSpacing.sm),
+                // Brand logo — crisp, real asset
+                const WpBrandLogo(size: 20),
+                const SizedBox(width: WpSpacing.xs),
+                // App name
                 Text(
                   'WhisPaste',
                   style: TextStyle(
-                    color: cs.secondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
+                    color: cs.onSurface.withValues(alpha: 0.85),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(width: WpSpacing.xxs),
+                // Version badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.12),
+                    borderRadius: WpRadius.borderFull,
+                  ),
+                  child: Text(
+                    'v1.2',
+                    style: TextStyle(
+                      color: cs.primary,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
                   ),
                 ),
                 const Spacer(),
