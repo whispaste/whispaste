@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/brand_logo.dart';
@@ -44,7 +44,7 @@ class AboutPage extends StatelessWidget {
               const SizedBox(height: WpSpacing.xxxl),
               // Info cards
               _InfoCard(
-                icon: LucideIcons.code2,
+                icon: LucideIcons.codeXml,
                 title: 'Built with',
                 description: 'Flutter, Go, whisper.cpp, llama.cpp',
                 isDark: isDark,

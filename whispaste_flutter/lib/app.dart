@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'core/theme/theme.dart';
 import 'core/theme/colors.dart';
 import 'core/theme/tokens.dart';
@@ -59,7 +59,7 @@ const _navItems = [
   WpNavItem(id: 'history', icon: LucideIcons.clock3, label: 'History'),
   WpNavItem(id: 'settings', icon: LucideIcons.settings, label: 'Settings'),
   WpNavItem(id: 'replacements', icon: LucideIcons.replace, label: 'Voice Shortcuts'),
-  WpNavItem(id: 'analytics', icon: LucideIcons.barChart3, label: 'Analytics'),
+  WpNavItem(id: 'analytics', icon: LucideIcons.chartNoAxesColumn, label: 'Analytics'),
   WpNavItem(id: 'about', icon: LucideIcons.info, label: 'About'),
   WpNavItem(id: 'feedback', icon: LucideIcons.messageSquare, label: 'Feedback'),
 ];
