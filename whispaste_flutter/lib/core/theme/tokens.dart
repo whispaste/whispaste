@@ -83,7 +83,7 @@ abstract final class WpLayout {
   static const double sidebarWidthExpanded = 220;
   static const double statusBarHeight = 34;
   static const double fabSize = 56;
-  static const double appBarHeight = 52;
+  static const double appBarHeight = 64;
   static const double pageMaxWidth = 720;
 }
 

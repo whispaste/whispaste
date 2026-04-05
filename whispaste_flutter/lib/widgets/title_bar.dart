@@ -31,11 +31,11 @@ class WpTitleBar extends StatelessWidget {
       child: Container(
         height: WpLayout.appBarHeight,
         color: isDark ? WpColorsDark.background : WpColorsLight.background,
-        padding: const EdgeInsets.symmetric(horizontal: WpSpacing.md),
+        padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
         child: Row(
           children: [
-            // Brand wordmark PNG — the real logo + text composition
-            const WpBrandWordmark(height: 30),
+            // Brand wordmark PNG — prominent, gaming-launcher scale
+            const WpBrandWordmark(height: 38),
             const Spacer(),
             // Window controls — all subtle gray, no red close
             _WindowButton(
@@ -93,8 +93,8 @@ class _WindowButtonState extends State<_WindowButton> {
         onTap: widget.onPressed,
         child: AnimatedContainer(
           duration: WpMotion.fast,
-          width: 36,
-          height: 28,
+          width: 40,
+          height: 32,
           decoration: BoxDecoration(
             color: _isHovered ? hoverBg : Colors.transparent,
             borderRadius: BorderRadius.circular(WpRadius.sm),
@@ -102,7 +102,7 @@ class _WindowButtonState extends State<_WindowButton> {
           alignment: Alignment.center,
           child: Icon(
             widget.icon,
-            size: 14,
+            size: 15,
             color: _isHovered ? hoverFg : mutedColor,
           ),
         ),
@@ -157,8 +157,8 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
         },
         child: AnimatedContainer(
           duration: WpMotion.fast,
-          width: 36,
-          height: 28,
+          width: 40,
+          height: 32,
           decoration: BoxDecoration(
             color: _isHovered ? hoverBg : Colors.transparent,
             borderRadius: BorderRadius.circular(WpRadius.sm),
@@ -166,7 +166,7 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
           alignment: Alignment.center,
           child: Icon(
             _isMaximized ? LucideIcons.minimize2 : LucideIcons.maximize2,
-            size: 13,
+            size: 14,
             color: _isHovered ? hoverFg : mutedColor,
           ),
         ),
