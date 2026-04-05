@@ -337,5 +337,8 @@
   "errorRecordingFailed": "Aufnahme konnte nicht gestartet werden",
   "errorNoAudioRecorded": "Keine Audiodaten aufgenommen",
   "errorTranscriptionEmpty": "Transkription hat keinen Text ergeben — bitte erneut versuchen",
-  "errorSttServerFailed": "Sprachmodul konnte nicht gestartet werden"
+  "errorSttServerFailed": "Sprachmodul konnte nicht gestartet werden",
+
+  "statusSttLoading": "Modell wird geladen…",
+  "statusSttReady": "Modell bereit"
 }

@@ -104,7 +104,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   SttStatus build() {
     ref.onDispose(() {
       _idleTimer?.cancel();
-      stop();
+      _idleTimer = null;
+      _cleanupProcess();
+      _lastPrompt = null;
       _httpClient.close();
     });
     return const SttStatus();
@@ -153,6 +155,11 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       // Health check failed — server crashed silently. Clean up and restart.
       _log.warning('STT server health check failed, restarting');
       _cleanupProcess();
+    }
+
+    // Re-check: another caller may have started while we awaited health check.
+    if (_startCompleter != null) {
+      return _startCompleter!.future;
     }
 
     // ── Cold path — start a new server ───────────────────────────────────
@@ -241,7 +248,13 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       request.fields['prompt'] = _lastPrompt!;
     }
 
-    final streamedResponse = await _httpClient.send(request);
+    final streamedResponse = await _httpClient.send(request).timeout(
+      const Duration(seconds: 300),
+      onTimeout: () => throw TimeoutException(
+        'STT inference timed out after 300s',
+        const Duration(seconds: 300),
+      ),
+    );
     final responseBody =
         await streamedResponse.stream.bytesToString();
 

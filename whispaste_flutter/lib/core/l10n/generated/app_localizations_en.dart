@@ -1054,4 +1054,10 @@ class L10nEn extends L10n {
 
   @override
   String get errorSttServerFailed => 'Speech engine failed to start';
+
+  @override
+  String get statusSttLoading => 'Loading model…';
+
+  @override
+  String get statusSttReady => 'Model ready';
 }

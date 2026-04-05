@@ -15,12 +15,16 @@ class WpStatusBar extends StatelessWidget {
     required this.postProcessingLabel,
     this.hotkeyLabel,
     this.isOnline = true,
+    this.sttLoading = false,
   });
 
   final String modeLabel;
   final String postProcessingLabel;
   final String? hotkeyLabel;
   final bool isOnline;
+
+  /// True while the STT server is cold-starting (model loading).
+  final bool sttLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +54,10 @@ class WpStatusBar extends StatelessWidget {
                       textStyle: textStyle,
                       isDark: isDark,
                     ),
+                    if (sttLoading) ...[
+                      const SizedBox(width: WpSpacing.xs),
+                      _LoadingChip(textStyle: textStyle, isDark: isDark),
+                    ],
                     const SizedBox(width: WpSpacing.xs),
                     _StatusChip(
                       icon: LucideIcons.sparkles,
@@ -128,6 +136,46 @@ class _OnlineBadge extends StatelessWidget {
           Text(
             isOnline ? l10n.statusOnline : l10n.statusOffline,
             style: textStyle,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoadingChip extends StatelessWidget {
+  const _LoadingChip({required this.textStyle, required this.isDark});
+
+  final TextStyle textStyle;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final l10n = L10n.of(context);
+
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: WpSpacing.sm, vertical: 4),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: WpRadius.borderFull,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 10,
+            height: 10,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: accent,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            l10n.statusSttLoading,
+            style: textStyle.copyWith(color: accent),
           ),
         ],
       ),
