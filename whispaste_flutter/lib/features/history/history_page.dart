@@ -10,6 +10,7 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
+import '../../widgets/toast.dart';
 import 'data/database.dart';
 import 'data/providers.dart';
 import 'data/sample_data.dart';
@@ -339,13 +340,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   void _copyEntry(HistoryEntry entry) {
     Clipboard.setData(ClipboardData(text: entry.content));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(L10n.of(context).historyCopiedToClipboard),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        width: 200,
-      ),
+    WpToast.show(
+      context,
+      message: L10n.of(context).historyCopiedToClipboard,
+      type: WpToastType.success,
+      duration: const Duration(seconds: 2),
     );
   }
 
@@ -409,17 +408,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     });
     if (!mounted) return;
     final l10n = L10n.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l10n.historyMovedToTrash),
-        duration: const Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
-        width: 260,
-        action: SnackBarAction(
-          label: l10n.historyUndo,
-          onPressed: () => _restoreEntry(entry),
-        ),
-      ),
+    WpToast.show(
+      context,
+      message: l10n.historyMovedToTrash,
+      type: WpToastType.info,
+      duration: const Duration(seconds: 4),
+      actionLabel: l10n.historyUndo,
+      onAction: () => _restoreEntry(entry),
     );
   }
 
@@ -576,13 +571,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     });
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(L10n.of(context).historyEntriesMerged),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        width: 200,
-      ),
+    WpToast.show(
+      context,
+      message: L10n.of(context).historyEntriesMerged,
+      type: WpToastType.success,
+      duration: const Duration(seconds: 2),
     );
   }
 
