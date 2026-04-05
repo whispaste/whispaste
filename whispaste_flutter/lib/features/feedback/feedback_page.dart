@@ -260,7 +260,7 @@ class _ThankYouView extends StatelessWidget {
         const SizedBox(height: WpSpacing.xxl),
         OutlinedButton.icon(
           onPressed: onReset,
-          icon: const Icon(LucideIcons.messagePlus, size: WpIconSize.sm),
+          icon: Icon(LucideIcons.messageSquarePlus, size: WpIconSize.sm),
           label: const Text('Send another'),
         ),
       ],

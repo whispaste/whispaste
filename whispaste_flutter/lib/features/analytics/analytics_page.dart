@@ -83,6 +83,49 @@ class AnalyticsPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Sample data banner
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.md,
+              vertical: WpSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? WpColorsDark.warning.withValues(alpha: 0.08)
+                  : WpColorsLight.warning.withValues(alpha: 0.08),
+              borderRadius: WpRadius.borderSm,
+              border: Border.all(
+                color: isDark
+                    ? WpColorsDark.warning.withValues(alpha: 0.20)
+                    : WpColorsLight.warning.withValues(alpha: 0.20),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.flaskConical,
+                  size: WpIconSize.sm,
+                  color: isDark ? WpColorsDark.warning : WpColorsLight.warning,
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Preview — showing sample data. '
+                    'Real analytics will appear once you start recording.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: isDark
+                          ? WpColorsDark.textSecondary
+                          : WpColorsLight.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: WpSpacing.md),
+
           // ── Row 1: Hero stat cards ──────────────────────────────
           WpSection(
             title: 'Overview',

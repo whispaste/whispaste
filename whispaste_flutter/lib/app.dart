@@ -159,8 +159,8 @@ class _AppShell extends ConsumerWidget {
             ),
             // Status bar — sits on the frame, full width
             const WpStatusBar(
-              modeLabel: 'Local',
-              postProcessingLabel: 'Post-Processing',
+              modeLabel: 'On device',
+              postProcessingLabel: 'Text enhancement',
               hotkeyLabel: 'Ctrl+Shift+R',
               isOnline: true,
             ),
