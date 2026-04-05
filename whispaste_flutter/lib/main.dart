@@ -6,6 +6,7 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/config/settings_provider.dart';
 import 'core/logging/app_monitoring.dart';
+import 'services/single_instance_service.dart';
 
 Future<ProviderContainer> bootstrapAppContainer({
   List overrides = const [],
@@ -23,6 +24,14 @@ Future<void> main() async {
   await AppMonitoring.bootstrap(appRunner: () async {
     WidgetsFlutterBinding.ensureInitialized();
 
+    // Single-instance guard: if another instance is running, signal it and exit.
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      final isPrimary = await SingleInstanceService.ensureSingleInstance();
+      if (!isPrimary) {
+        exit(0);
+      }
+    }
+
     // Desktop window setup
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       await windowManager.ensureInitialized();
@@ -37,10 +46,15 @@ Future<void> main() async {
         await windowManager.show();
         await windowManager.focus();
       });
+
+      // When a second instance launches, focus this window.
+      SingleInstanceService.onSecondInstanceLaunched = () async {
+        await windowManager.show();
+        await windowManager.focus();
+      };
     }
 
     // TODO: Initialize Go FFI bridge
-    // TODO: Initialize system tray
 
     final container = await bootstrapAppContainer(
       observers: const [CrashProviderObserver()],
