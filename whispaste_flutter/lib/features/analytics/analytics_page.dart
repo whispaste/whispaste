@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../widgets/empty_state.dart';
 
 /// Analytics dashboard page.
@@ -9,7 +9,7 @@ class AnalyticsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const WpEmptyState(
-      icon: LucideIcons.barChart3,
+      icon: LucideIcons.chartNoAxesColumn,
       title: 'Usage Analytics',
       hint: 'Recording statistics and usage insights will appear here.',
     );

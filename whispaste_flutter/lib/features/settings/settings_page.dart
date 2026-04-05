@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/section.dart';
@@ -66,7 +66,7 @@ class SettingsPage extends StatelessWidget {
                   trailing: Switch(value: true, onChanged: (_) {}),
                 ),
                 const _SettingRow(
-                  icon: LucideIcons.wand2,
+                  icon: LucideIcons.wandSparkles,
                   label: 'Preset',
                   value: 'Clean up',
                 ),
