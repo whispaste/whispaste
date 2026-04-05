@@ -2106,6 +2106,54 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Model ready'**
   String get statusSttReady;
+
+  /// No description provided for @historyDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate'**
+  String get historyDuplicate;
+
+  /// No description provided for @historyDuplicated.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry duplicated'**
+  String get historyDuplicated;
+
+  /// No description provided for @historyAddNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Add note'**
+  String get historyAddNote;
+
+  /// No description provided for @historyNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get historyNotes;
+
+  /// No description provided for @historyNotePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Write a note…'**
+  String get historyNotePlaceholder;
+
+  /// No description provided for @historyNoteAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Note added'**
+  String get historyNoteAdded;
+
+  /// No description provided for @historyNoteDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Note deleted'**
+  String get historyNoteDeleted;
+
+  /// No description provided for @historyCopiedAsMarkdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied as Markdown'**
+  String get historyCopiedAsMarkdown;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

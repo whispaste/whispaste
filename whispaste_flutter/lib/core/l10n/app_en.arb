@@ -399,5 +399,14 @@
   "errorSttServerFailed": "Speech engine failed to start",
 
   "statusSttLoading": "Loading model…",
-  "statusSttReady": "Model ready"
+  "statusSttReady": "Model ready",
+
+  "historyDuplicate": "Duplicate",
+  "historyDuplicated": "Entry duplicated",
+  "historyAddNote": "Add note",
+  "historyNotes": "Notes",
+  "historyNotePlaceholder": "Write a note…",
+  "historyNoteAdded": "Note added",
+  "historyNoteDeleted": "Note deleted",
+  "historyCopiedAsMarkdown": "Copied as Markdown"
 }
