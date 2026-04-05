@@ -2010,6 +2010,48 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Your voice never leaves your device'**
   String get settingsPrivacyHintLocal;
+
+  /// No description provided for @errorSttServerNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech engine not found. Please download a speech model in Settings.'**
+  String get errorSttServerNotFound;
+
+  /// No description provided for @errorSttModelNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech model not found. Please download it in Settings.'**
+  String get errorSttModelNotFound;
+
+  /// No description provided for @errorSttModelUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown speech model. Please select a valid model in Settings.'**
+  String get errorSttModelUnknown;
+
+  /// No description provided for @errorRecordingFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to start recording'**
+  String get errorRecordingFailed;
+
+  /// No description provided for @errorNoAudioRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'No audio recorded'**
+  String get errorNoAudioRecorded;
+
+  /// No description provided for @errorTranscriptionEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcription returned empty text — please try again'**
+  String get errorTranscriptionEmpty;
+
+  /// No description provided for @errorSttServerFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech engine failed to start'**
+  String get errorSttServerFailed;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

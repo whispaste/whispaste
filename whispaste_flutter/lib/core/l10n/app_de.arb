@@ -328,5 +328,13 @@
   "settingsModelStatusNeeded": "Sprachmodell wird beim Start der Aufnahme heruntergeladen",
   "settingsModelStatusDownloading": "Sprachmodell wird heruntergeladen…",
   "settingsAdvancedModelManagement": "Erweiterte Modell-Einstellungen",
-  "settingsPrivacyHintLocal": "Deine Stimme verlässt nie dein Gerät"
+  "settingsPrivacyHintLocal": "Deine Stimme verlässt nie dein Gerät",
+
+  "errorSttServerNotFound": "Sprachmodul nicht gefunden. Bitte lade ein Sprachmodell in den Einstellungen herunter.",
+  "errorSttModelNotFound": "Sprachmodell nicht gefunden. Bitte lade es in den Einstellungen herunter.",
+  "errorSttModelUnknown": "Unbekanntes Sprachmodell. Bitte wähle ein gültiges Modell in den Einstellungen.",
+  "errorRecordingFailed": "Aufnahme konnte nicht gestartet werden",
+  "errorNoAudioRecorded": "Keine Audiodaten aufgenommen",
+  "errorTranscriptionEmpty": "Transkription hat keinen Text ergeben — bitte erneut versuchen",
+  "errorSttServerFailed": "Sprachmodul konnte nicht gestartet werden"
 }
