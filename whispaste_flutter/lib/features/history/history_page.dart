@@ -13,6 +13,22 @@ import 'data/database.dart';
 import 'data/providers.dart';
 import 'data/sample_data.dart';
 
+/// View mode for the history page.
+enum _ViewMode { list, cards, compact }
+
+/// Formats timestamp as HH:MM.
+String _formatTime(DateTime t) =>
+    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+/// Formats recording duration as human-readable string.
+String _formatDuration(double durationSec) {
+  final secs = durationSec.round();
+  if (secs < 60) return '${secs}s';
+  final mins = secs ~/ 60;
+  final rem = secs % 60;
+  return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
+}
+
 /// History page — recorded transcriptions with search, filter, and grouping.
 ///
 /// Uses a chat-style layout: flat rows with hover highlight, date group
@@ -30,6 +46,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   // Sample mode — shows preview data until real recording is connected
   late List<HistoryEntry> _sampleEntries;
   String? _selectedEntryId;
+  _ViewMode _viewMode = _ViewMode.list;
 
   HistoryEntry? get _selectedEntry {
     if (_selectedEntryId == null) return null;
@@ -144,6 +161,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             onFilterChanged: (f) => setState(() => _activeFilter = f),
             onSearchChanged: () => setState(() {}),
             resultCount: _filteredEntries.length,
+            viewMode: _viewMode,
+            onViewModeChanged: (m) => setState(() => _viewMode = m),
           ),
           // Divider
           Container(
@@ -158,6 +177,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 ? _MasterDetail(
                     groups: groups,
                     isDark: isDark,
+                    viewMode: _viewMode,
                     selectedEntry: _selectedEntry,
                     onEntryTap: (entry) => setState(() {
                       _selectedEntryId = entry.id;
@@ -249,6 +269,8 @@ class _SearchToolbar extends StatelessWidget {
     required this.onFilterChanged,
     required this.onSearchChanged,
     required this.resultCount,
+    required this.viewMode,
+    required this.onViewModeChanged,
   });
 
   final TextEditingController controller;
@@ -257,6 +279,8 @@ class _SearchToolbar extends StatelessWidget {
   final ValueChanged<HistoryFilter> onFilterChanged;
   final VoidCallback onSearchChanged;
   final int resultCount;
+  final _ViewMode viewMode;
+  final ValueChanged<_ViewMode> onViewModeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -302,7 +326,7 @@ class _SearchToolbar extends StatelessWidget {
             onChanged: (_) => onSearchChanged(),
           ),
           const SizedBox(height: WpSpacing.sm),
-          // Filter chips + result count
+          // Filter chips + result count + view mode toggle
           Row(
             children: [
               Expanded(
@@ -357,6 +381,13 @@ class _SearchToolbar extends StatelessWidget {
                     ),
                   ),
                 ),
+              const SizedBox(width: WpSpacing.sm),
+              // View mode toggle
+              _ViewModeToggle(
+                viewMode: viewMode,
+                isDark: isDark,
+                onChanged: onViewModeChanged,
+              ),
             ],
           ),
         ],
@@ -373,6 +404,7 @@ class _MasterDetail extends StatelessWidget {
   const _MasterDetail({
     required this.groups,
     required this.isDark,
+    required this.viewMode,
     required this.selectedEntry,
     required this.onEntryTap,
     required this.onCopy,
@@ -383,6 +415,7 @@ class _MasterDetail extends StatelessWidget {
 
   final List<DateGroup> groups;
   final bool isDark;
+  final _ViewMode viewMode;
   final HistoryEntry? selectedEntry;
   final ValueChanged<HistoryEntry> onEntryTap;
   final ValueChanged<HistoryEntry> onCopy;
@@ -390,36 +423,52 @@ class _MasterDetail extends StatelessWidget {
   final ValueChanged<HistoryEntry> onDelete;
   final VoidCallback onCloseDetail;
 
+  Widget _buildMasterBody({String? selectedId}) {
+    switch (viewMode) {
+      case _ViewMode.list:
+        return _EntryList(
+          groups: groups,
+          isDark: isDark,
+          selectedId: selectedId,
+          onEntryTap: onEntryTap,
+          onCopy: onCopy,
+          onPin: onPin,
+          onDelete: onDelete,
+        );
+      case _ViewMode.cards:
+        return _CardView(
+          groups: groups,
+          isDark: isDark,
+          selectedId: selectedId,
+          onEntryTap: onEntryTap,
+          onCopy: onCopy,
+          onPin: onPin,
+          onDelete: onDelete,
+        );
+      case _ViewMode.compact:
+        return _CompactView(
+          groups: groups,
+          isDark: isDark,
+          selectedId: selectedId,
+          onEntryTap: onEntryTap,
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (selectedEntry == null) {
-      // Full-width list (no detail selected)
-      return _EntryList(
-        groups: groups,
-        isDark: isDark,
-        selectedId: null,
-        onEntryTap: onEntryTap,
-        onCopy: onCopy,
-        onPin: onPin,
-        onDelete: onDelete,
-      );
+      // Full-width view (no detail selected)
+      return _buildMasterBody();
     }
 
-    // Side-by-side: list + detail
+    // Side-by-side: master + detail
     return Row(
       children: [
-        // Entry list (narrower)
+        // Master panel
         SizedBox(
           width: 340,
-          child: _EntryList(
-            groups: groups,
-            isDark: isDark,
-            selectedId: selectedEntry!.id,
-            onEntryTap: onEntryTap,
-            onCopy: onCopy,
-            onPin: onPin,
-            onDelete: onDelete,
-          ),
+          child: _buildMasterBody(selectedId: selectedEntry!.id),
         ),
         // Divider
         Container(
@@ -679,7 +728,7 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
           ),
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.sm,
-            vertical: WpSpacing.sm,
+            vertical: WpSpacing.md,
           ),
           decoration: BoxDecoration(
             color: bg,
@@ -700,6 +749,7 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
                 icon: _avatarIcon(widget.entry),
                 isPinned: widget.entry.pinned,
                 isDark: isDark,
+                size: 42,
               ),
               const SizedBox(width: WpSpacing.sm),
               // Content
@@ -707,7 +757,7 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Row 1: Title + time/actions
+                    // Row 1: Title + time/actions (fixed height — no jiggle)
                     Row(
                       children: [
                         Expanded(
@@ -718,51 +768,81 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 13.5,
+                              fontSize: 14.5,
                               fontWeight: FontWeight.w600,
                               color: textPrimary,
                             ),
                           ),
                         ),
-                        // Hover actions OR time
-                        if (_isHovered) ...[
-                          _RowAction(
-                            icon: LucideIcons.copy,
-                            tooltip: 'Copy text',
-                            isDark: isDark,
-                            onTap: widget.onCopy,
+                        // Fixed-height container: cross-fade time ↔ actions
+                        SizedBox(
+                          height: 28,
+                          child: Stack(
+                            alignment: Alignment.centerRight,
+                            children: [
+                              // Time label (fades out on hover)
+                              AnimatedOpacity(
+                                duration: _isHovered
+                                    ? WpMotion.fast
+                                    : WpMotion.hoverOut,
+                                opacity: _isHovered ? 0.0 : 1.0,
+                                child: Text(
+                                  _timeLabel,
+                                  style: TextStyle(
+                                      fontSize: 11, color: textMuted),
+                                ),
+                              ),
+                              // Action buttons (fade in on hover)
+                              IgnorePointer(
+                                ignoring: !_isHovered,
+                                child: AnimatedOpacity(
+                                  duration: _isHovered
+                                      ? WpMotion.fast
+                                      : WpMotion.hoverOut,
+                                  opacity: _isHovered ? 1.0 : 0.0,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _RowAction(
+                                        icon: LucideIcons.copy,
+                                        tooltip: 'Copy text',
+                                        isDark: isDark,
+                                        onTap: widget.onCopy,
+                                      ),
+                                      _RowAction(
+                                        icon: widget.entry.pinned
+                                            ? LucideIcons.pinOff
+                                            : LucideIcons.pin,
+                                        tooltip: widget.entry.pinned
+                                            ? 'Unpin'
+                                            : 'Pin to top',
+                                        isDark: isDark,
+                                        onTap: widget.onPin,
+                                      ),
+                                      _RowAction(
+                                        icon: LucideIcons.trash2,
+                                        tooltip: 'Delete',
+                                        isDark: isDark,
+                                        onTap: widget.onDelete,
+                                        isDestructive: true,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          _RowAction(
-                            icon: widget.entry.pinned
-                                ? LucideIcons.pinOff
-                                : LucideIcons.pin,
-                            tooltip:
-                                widget.entry.pinned ? 'Unpin' : 'Pin to top',
-                            isDark: isDark,
-                            onTap: widget.onPin,
-                          ),
-                          _RowAction(
-                            icon: LucideIcons.trash2,
-                            tooltip: 'Delete',
-                            isDark: isDark,
-                            onTap: widget.onDelete,
-                            isDestructive: true,
-                          ),
-                        ] else
-                          Text(
-                            _timeLabel,
-                            style: TextStyle(fontSize: 11, color: textMuted),
-                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 3),
-                    // Row 2: Content preview — single line, WhatsApp-style
+                    // Row 2: Content preview — two lines for more context
                     Text(
                       widget.entry.content,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 13,
                         color: textSecondary,
                         height: 1.3,
                       ),
@@ -827,31 +907,34 @@ class _EntryAvatar extends StatelessWidget {
     required this.icon,
     required this.isPinned,
     required this.isDark,
+    this.size = 36,
   });
 
   final Color color;
   final IconData icon;
   final bool isPinned;
   final bool isDark;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
+    final iconSize = (size * 0.44).roundToDouble();
     return SizedBox(
-      width: 36,
-      height: 36,
+      width: size,
+      height: size,
       child: Stack(
         children: [
           // Avatar circle
           Container(
-            width: 36,
-            height: 36,
+            width: size,
+            height: size,
             decoration: BoxDecoration(
               color: color.withValues(alpha: isDark ? 0.15 : 0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              size: 16,
+              size: iconSize,
               color: color.withValues(alpha: isDark ? 0.9 : 0.8),
             ),
           ),
@@ -1402,6 +1485,536 @@ class _FilterChipState extends State<_FilterChip> {
                   fontWeight:
                       widget.isActive ? FontWeight.w600 : FontWeight.w500,
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// View mode toggle — segmented icon button group
+// ---------------------------------------------------------------------------
+
+class _ViewModeToggle extends StatelessWidget {
+  const _ViewModeToggle({
+    required this.viewMode,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final _ViewMode viewMode;
+  final bool isDark;
+  final ValueChanged<_ViewMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor =
+        isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant;
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: WpRadius.borderSm,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ViewModeButton(
+            icon: LucideIcons.list,
+            isActive: viewMode == _ViewMode.list,
+            isDark: isDark,
+            onTap: () => onChanged(_ViewMode.list),
+          ),
+          _ViewModeButton(
+            icon: LucideIcons.layoutGrid,
+            isActive: viewMode == _ViewMode.cards,
+            isDark: isDark,
+            onTap: () => onChanged(_ViewMode.cards),
+          ),
+          _ViewModeButton(
+            icon: LucideIcons.rows3,
+            isActive: viewMode == _ViewMode.compact,
+            isDark: isDark,
+            onTap: () => onChanged(_ViewMode.compact),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ViewModeButton extends StatelessWidget {
+  const _ViewModeButton({
+    required this.icon,
+    required this.isActive,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool isActive;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive
+        ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+        : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted);
+    final bg = isActive
+        ? (isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle)
+        : Colors.transparent;
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.all(WpSpacing.xxs),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: WpRadius.borderSm,
+          ),
+          child: Icon(icon, size: WpIconSize.sm, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Card view — responsive grid of entry cards
+// ---------------------------------------------------------------------------
+
+class _CardView extends StatelessWidget {
+  const _CardView({
+    required this.groups,
+    required this.isDark,
+    required this.selectedId,
+    required this.onEntryTap,
+    required this.onCopy,
+    required this.onPin,
+    required this.onDelete,
+  });
+
+  final List<DateGroup> groups;
+  final bool isDark;
+  final String? selectedId;
+  final ValueChanged<HistoryEntry> onEntryTap;
+  final ValueChanged<HistoryEntry> onCopy;
+  final ValueChanged<HistoryEntry> onPin;
+  final ValueChanged<HistoryEntry> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const minCardWidth = 280.0;
+        const gap = WpSpacing.md;
+        const sidePad = WpSpacing.md;
+        final availableWidth = constraints.maxWidth - sidePad * 2;
+        final columns =
+            (availableWidth / minCardWidth).floor().clamp(1, 4);
+        final cardWidth =
+            (availableWidth - gap * (columns - 1)) / columns;
+
+        return ListView(
+          padding: const EdgeInsets.only(
+            top: WpSpacing.xs,
+            bottom: WpSpacing.xxl,
+          ),
+          children: [
+            for (final group in groups) ...[
+              _DateHeader(label: group.label, isDark: isDark),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: sidePad),
+                child: Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: [
+                    for (final entry in group.entries)
+                      SizedBox(
+                        width: cardWidth,
+                        child: _EntryCard(
+                          entry: entry,
+                          isDark: isDark,
+                          isSelected: entry.id == selectedId,
+                          onTap: () => onEntryTap(entry),
+                          onCopy: () => onCopy(entry),
+                          onPin: () => onPin(entry),
+                          onDelete: () => onDelete(entry),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Entry card — used in card grid view
+// ---------------------------------------------------------------------------
+
+class _EntryCard extends StatefulWidget {
+  const _EntryCard({
+    required this.entry,
+    required this.isDark,
+    required this.isSelected,
+    required this.onTap,
+    required this.onCopy,
+    required this.onPin,
+    required this.onDelete,
+  });
+
+  final HistoryEntry entry;
+  final bool isDark;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback onCopy;
+  final VoidCallback onPin;
+  final VoidCallback onDelete;
+
+  @override
+  State<_EntryCard> createState() => _EntryCardState();
+}
+
+class _EntryCardState extends State<_EntryCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final avatarCol = _avatarColor(widget.entry, isDark);
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textPrimary =
+        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final textSecondary =
+        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+    final textMuted =
+        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final surfaceElevated = isDark
+        ? WpColorsDark.surfaceElevated
+        : WpColorsLight.surfaceElevated;
+    final borderColor = widget.isSelected
+        ? accent.withValues(alpha: 0.5)
+        : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+          curve: WpMotion.defaultCurve,
+          height: 180,
+          padding: const EdgeInsets.all(WpSpacing.md),
+          decoration: BoxDecoration(
+            color: surfaceElevated,
+            borderRadius: WpRadius.borderMd,
+            border: Border.all(color: borderColor),
+            boxShadow: _isHovered ? WpShadows.subtle : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top row: avatar + title + hover actions
+              Row(
+                children: [
+                  _EntryAvatar(
+                    color: avatarCol,
+                    icon: _avatarIcon(widget.entry),
+                    isPinned: widget.entry.pinned,
+                    isDark: isDark,
+                    size: 32,
+                  ),
+                  const SizedBox(width: WpSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      widget.entry.title.isNotEmpty
+                          ? widget.entry.title
+                          : 'Untitled recording',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: textPrimary,
+                      ),
+                    ),
+                  ),
+                  // Hover action buttons
+                  if (_isHovered) ...[
+                    _RowAction(
+                      icon: LucideIcons.copy,
+                      tooltip: 'Copy text',
+                      isDark: isDark,
+                      onTap: widget.onCopy,
+                    ),
+                    _RowAction(
+                      icon: widget.entry.pinned
+                          ? LucideIcons.pinOff
+                          : LucideIcons.pin,
+                      tooltip: widget.entry.pinned ? 'Unpin' : 'Pin',
+                      isDark: isDark,
+                      onTap: widget.onPin,
+                    ),
+                    _RowAction(
+                      icon: LucideIcons.trash2,
+                      tooltip: 'Delete',
+                      isDark: isDark,
+                      onTap: widget.onDelete,
+                      isDestructive: true,
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: WpSpacing.xs),
+              // Content preview (3-4 lines)
+              Expanded(
+                child: Text(
+                  widget.entry.content,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: WpSpacing.xs),
+              // Bottom metadata
+              Row(
+                children: [
+                  Icon(LucideIcons.clock, size: 10, color: textMuted),
+                  const SizedBox(width: 3),
+                  Text(
+                    _formatDuration(widget.entry.durationSec),
+                    style: TextStyle(fontSize: 10, color: textMuted),
+                  ),
+                  if (widget.entry.language.isNotEmpty) ...[
+                    const SizedBox(width: WpSpacing.xs),
+                    Text(
+                      '·',
+                      style: TextStyle(fontSize: 10, color: textMuted),
+                    ),
+                    const SizedBox(width: WpSpacing.xs),
+                    Text(
+                      widget.entry.language.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: textMuted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  if (!widget.entry.isLocal)
+                    Icon(LucideIcons.cloud, size: 10, color: textMuted),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compact view — dense power-user list
+// ---------------------------------------------------------------------------
+
+class _CompactView extends StatelessWidget {
+  const _CompactView({
+    required this.groups,
+    required this.isDark,
+    required this.selectedId,
+    required this.onEntryTap,
+  });
+
+  final List<DateGroup> groups;
+  final bool isDark;
+  final String? selectedId;
+  final ValueChanged<HistoryEntry> onEntryTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <Widget>[];
+    for (final group in groups) {
+      items.add(_CompactDateHeader(label: group.label, isDark: isDark));
+      for (final entry in group.entries) {
+        items.add(
+          _CompactRow(
+            entry: entry,
+            isDark: isDark,
+            isSelected: entry.id == selectedId,
+            onTap: () => onEntryTap(entry),
+          ),
+        );
+      }
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(
+        top: WpSpacing.xs,
+        bottom: WpSpacing.xxl,
+      ),
+      itemCount: items.length,
+      itemBuilder: (_, i) => items[i],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compact date header — minimal text-only header
+// ---------------------------------------------------------------------------
+
+class _CompactDateHeader extends StatelessWidget {
+  const _CompactDateHeader({required this.label, required this.isDark});
+
+  final String label;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl, WpSpacing.sm, WpSpacing.xl, WpSpacing.xxs,
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+          color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compact row — single-line dense entry
+// ---------------------------------------------------------------------------
+
+class _CompactRow extends StatefulWidget {
+  const _CompactRow({
+    required this.entry,
+    required this.isDark,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final HistoryEntry entry;
+  final bool isDark;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  State<_CompactRow> createState() => _CompactRowState();
+}
+
+class _CompactRowState extends State<_CompactRow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final textPrimary =
+        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final textMuted =
+        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+
+    final Color bg;
+    if (widget.isSelected) {
+      bg = isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
+    } else if (_isHovered) {
+      bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
+    } else {
+      bg = Colors.transparent;
+    }
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+          curve: WpMotion.defaultCurve,
+          margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xs),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: 4,
+          ),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: WpRadius.borderSm,
+          ),
+          child: Row(
+            children: [
+              // Pin indicator
+              if (widget.entry.pinned)
+                Container(
+                  width: 6,
+                  height: 6,
+                  margin: const EdgeInsets.only(right: 6),
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              // Title
+              Expanded(
+                child: Text(
+                  widget.entry.title.isNotEmpty
+                      ? widget.entry.title
+                      : 'Untitled recording',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              // Duration
+              Text(
+                _formatDuration(widget.entry.durationSec),
+                style: TextStyle(fontSize: 11, color: textMuted),
+              ),
+              // Language
+              if (widget.entry.language.isNotEmpty) ...[
+                const SizedBox(width: WpSpacing.sm),
+                Text(
+                  widget.entry.language.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: textMuted,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+              const SizedBox(width: WpSpacing.sm),
+              // Time
+              Text(
+                _formatTime(widget.entry.timestamp),
+                style: TextStyle(fontSize: 11, color: textMuted),
               ),
             ],
           ),
