@@ -346,5 +346,14 @@
   "errorSttServerFailed": "Sprachmodul konnte nicht gestartet werden",
 
   "statusSttLoading": "Modell wird geladen…",
-  "statusSttReady": "Modell bereit"
+  "statusSttReady": "Modell bereit",
+
+  "historyDuplicate": "Duplizieren",
+  "historyDuplicated": "Eintrag dupliziert",
+  "historyAddNote": "Notiz hinzufügen",
+  "historyNotes": "Notizen",
+  "historyNotePlaceholder": "Notiz schreiben…",
+  "historyNoteAdded": "Notiz hinzugefügt",
+  "historyNoteDeleted": "Notiz gelöscht",
+  "historyCopiedAsMarkdown": "Als Markdown kopiert"
 }
