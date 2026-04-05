@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/l10n/locale_provider.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
@@ -77,6 +78,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget _dropdown({
     required String value,
     required List<String> items,
+    List<String>? labels,
     required ValueChanged<String?> onChanged,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -98,8 +100,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         child: DropdownButton<String>(
           value: value,
           items: items
+              .asMap()
+              .entries
               .map(
-                (e) => DropdownMenuItem(value: e, child: Text(e)),
+                (e) => DropdownMenuItem(
+                  value: e.value,
+                  child: Text(labels != null ? labels[e.key] : e.value),
+                ),
               )
               .toList(),
           onChanged: onChanged,
@@ -250,7 +257,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   String _fmtSeconds(double v) {
-    if (v == 0) return 'Off';
+    if (v == 0) return L10n.of(context).settingsOff;
     return '${v.round()}s';
   }
 
@@ -261,6 +268,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = L10n.of(context);
 
     return WpPageShell(
       child: Column(
@@ -293,8 +301,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 const SizedBox(width: WpSpacing.sm),
                 Expanded(
                   child: Text(
-                    'Your recordings and text stay on your device by default. '
-                    'Cloud services are only used when you explicitly enable them.',
+                    l10n.settingsPrivacyNote,
                     style: TextStyle(
                       fontSize: 12.5,
                       color: isDark
@@ -309,81 +316,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           const SizedBox(height: WpSpacing.md),
 
-          // ── Interface ──
-          WpSection(
-            title: 'Interface',
-            subtitle: 'Appearance and behavior',
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                _SettingRow(
-                  icon: LucideIcons.palette,
-                  label: 'Theme',
-                  trailing: _dropdown(
-                    value: switch (ref.watch(themeModeProvider)) {
-                      ThemeMode.dark => 'Dark',
-                      ThemeMode.light => 'Light',
-                      ThemeMode.system => 'System',
-                    },
-                    items: const ['Dark', 'Light', 'System'],
-                    onChanged: (v) {
-                      final mode = switch (v) {
-                        'Light' => ThemeMode.light,
-                        'System' => ThemeMode.system,
-                        _ => ThemeMode.dark,
-                      };
-                      ref.read(themeModeProvider.notifier).setTheme(mode);
-                    },
-                  ),
-                ),
-                _SettingRow(
-                  icon: LucideIcons.globe,
-                  label: 'Language',
-                  trailing: _dropdown(
-                    value: ref.watch(localeProvider).languageCode == 'de'
-                        ? 'Deutsch'
-                        : 'English',
-                    items: const ['English', 'Deutsch'],
-                    onChanged: (v) {
-                      if (v != null) {
-                        ref.read(localeProvider.notifier).setFromDisplayName(v);
-                      }
-                    },
-                  ),
-                ),
-                _SettingRow(
-                  icon: LucideIcons.power,
-                  label: 'Launch at Startup',
-                  trailing: _toggle(
-                    value: _launchAtStartup,
-                    onChanged: (v) =>
-                        setState(() => _launchAtStartup = v),
-                  ),
-                ),
-                _SettingRow(
-                  icon: LucideIcons.bell,
-                  label: 'Show Notifications',
-                  trailing: _toggle(
-                    value: _showNotifications,
-                    onChanged: (v) =>
-                        setState(() => _showNotifications = v),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _sectionDivider(),
+          // ═══════════════════════════════════════════════════════
+          //  RECORDING PIPELINE — ordered by workflow:
+          //  record → safety guard → transcribe → enhance
+          // ═══════════════════════════════════════════════════════
 
-          // ── Audio ──
+          // ── 1. Audio & Recording ──
           WpSection(
-            title: 'Audio',
-            subtitle: 'Microphone and recording',
+            title: l10n.settingsAudio,
+            subtitle: l10n.settingsAudioSubtitle,
             padding: EdgeInsets.zero,
             child: Column(
               children: [
                 _SettingRow(
                   icon: LucideIcons.mic,
-                  label: 'Microphone',
+                  label: l10n.settingsMicrophone,
                   trailing: _dropdown(
                     value: _microphone,
                     items: const ['Default', 'Headset Mic', 'USB Mic'],
@@ -393,7 +340,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.gauge,
-                  label: 'Microphone Volume',
+                  label: l10n.settingsGain,
                   trailing: _slider(
                     value: _inputGain,
                     min: 0,
@@ -406,7 +353,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.hand,
-                  label: 'Hold to Record',
+                  label: l10n.settingsHoldToRecord,
                   trailing: _toggle(
                     value: _pushToTalk,
                     onChanged: (v) =>
@@ -418,16 +365,54 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           _sectionDivider(),
 
-          // ── Speech Recognition ──
+          // ── 2. Recording Safety ──
           WpSection(
-            title: 'Speech Recognition',
-            subtitle: 'Voice recognition quality and service',
+            title: l10n.settingsRecordingSafety,
+            subtitle: l10n.settingsRecordingSafetySubtitle,
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _SettingRow(
+                  icon: LucideIcons.shieldAlert,
+                  label: l10n.settingsDeadMicTimeout,
+                  trailing: _slider(
+                    value: _deadMicTimeout,
+                    min: 0,
+                    max: 10,
+                    divisions: 10,
+                    valueLabel: _fmtSeconds(_deadMicTimeout),
+                    onChanged: (v) =>
+                        setState(() => _deadMicTimeout = v),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.timerOff,
+                  label: l10n.settingsAutoStopSilence,
+                  trailing: _slider(
+                    value: _autoStopSilence,
+                    min: 0,
+                    max: 10,
+                    divisions: 10,
+                    valueLabel: _fmtSeconds(_autoStopSilence),
+                    onChanged: (v) =>
+                        setState(() => _autoStopSilence = v),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _sectionDivider(),
+
+          // ── 3. Speech Recognition ──
+          WpSection(
+            title: l10n.settingsSpeechRecognition,
+            subtitle: l10n.settingsSpeechRecognitionSubtitle,
             padding: EdgeInsets.zero,
             child: Column(
               children: [
                 _SettingRow(
                   icon: LucideIcons.cpu,
-                  label: 'Service',
+                  label: l10n.settingsService,
                   trailing: _dropdown(
                     value: _sttProvider,
                     items: const [
@@ -442,7 +427,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.brain,
-                  label: 'Quality',
+                  label: l10n.settingsQuality,
                   trailing: _dropdown(
                     value: _sttModel,
                     items: const [
@@ -457,7 +442,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.languages,
-                  label: 'Language',
+                  label: l10n.settingsLanguage,
                   trailing: _dropdown(
                     value: _sttLanguage,
                     items: const [
@@ -476,16 +461,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           _sectionDivider(),
 
-          // ── Text Enhancement ──
+          // ── 4. Text Enhancement ──
           WpSection(
-            title: 'Text Enhancement',
-            subtitle: 'Improve your dictated text automatically',
+            title: l10n.settingsPostProcessing,
+            subtitle: l10n.settingsTextEnhancementSubtitle,
             padding: EdgeInsets.zero,
             child: Column(
               children: [
                 _SettingRow(
                   icon: LucideIcons.sparkles,
-                  label: 'Enabled',
+                  label: l10n.settingsEnabled,
                   trailing: _toggle(
                     value: _postProcessEnabled,
                     onChanged: (v) =>
@@ -494,17 +479,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.wandSparkles,
-                  label: 'Style',
+                  label: l10n.settingsStyle,
                   trailing: _dropdown(
                     value: _postProcessPreset,
                     items: const ['Clean up', 'Concise', 'Translate'],
+                    labels: [l10n.settingsPresetCleanup, l10n.settingsPresetConcise, l10n.settingsPresetTranslate],
                     onChanged: (v) =>
                         setState(() => _postProcessPreset = v!),
                   ),
                 ),
                 _SettingRow(
                   icon: LucideIcons.server,
-                  label: 'Service',
+                  label: l10n.settingsService,
                   trailing: _dropdown(
                     value: _postProcessProvider,
                     items: const [
@@ -522,54 +508,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           _sectionDivider(),
 
-          // ── Recording Safety ──
-          WpSection(
-            title: 'Recording Safety',
-            subtitle: 'Automatic checks and safeguards',
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                _SettingRow(
-                  icon: LucideIcons.shieldAlert,
-                  label: 'Silent Mic Detection',
-                  trailing: _slider(
-                    value: _deadMicTimeout,
-                    min: 0,
-                    max: 10,
-                    divisions: 10,
-                    valueLabel: _fmtSeconds(_deadMicTimeout),
-                    onChanged: (v) =>
-                        setState(() => _deadMicTimeout = v),
-                  ),
-                ),
-                _SettingRow(
-                  icon: LucideIcons.timerOff,
-                  label: 'Auto-Stop After Silence',
-                  trailing: _slider(
-                    value: _autoStopSilence,
-                    min: 0,
-                    max: 10,
-                    divisions: 10,
-                    valueLabel: _fmtSeconds(_autoStopSilence),
-                    onChanged: (v) =>
-                        setState(() => _autoStopSilence = v),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _sectionDivider(),
+          // ═══════════════════════════════════════════════════════
+          //  DISPLAY & FEEDBACK — sensory output settings
+          // ═══════════════════════════════════════════════════════
 
-          // ── Sound & Feedback ──
+          // ── 5. Sound & Feedback ──
           WpSection(
-            title: 'Sound & Feedback',
-            subtitle: 'Audio cues for recording events',
+            title: l10n.settingsSoundFeedback,
+            subtitle: l10n.settingsSoundFeedbackSubtitle,
             padding: EdgeInsets.zero,
             child: Column(
               children: [
                 _SettingRow(
                   icon: LucideIcons.volume2,
-                  label: 'Record Start Sound',
+                  label: l10n.settingsRecordStartSound,
                   trailing: _toggle(
                     value: _recordStartSound,
                     onChanged: (v) =>
@@ -578,7 +530,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.volumeX,
-                  label: 'Record Stop Sound',
+                  label: l10n.settingsRecordStopSound,
                   trailing: _toggle(
                     value: _recordStopSound,
                     onChanged: (v) =>
@@ -587,7 +539,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.bellRing,
-                  label: 'Transcription Complete Sound',
+                  label: l10n.settingsTranscriptionCompleteSound,
                   trailing: _toggle(
                     value: _transcriptionCompleteSound,
                     onChanged: (v) =>
@@ -599,16 +551,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           _sectionDivider(),
 
-          // ── Overlay & Floating Button ──
+          // ── 6. Overlay & Floating Button ──
           WpSection(
-            title: 'Overlay & Floating Button',
-            subtitle: 'On-screen recording controls',
+            title: l10n.settingsOverlayFloatingButton,
+            subtitle: l10n.settingsOverlayFloatingButtonSubtitle,
             padding: EdgeInsets.zero,
             child: Column(
               children: [
                 _SettingRow(
                   icon: LucideIcons.layers,
-                  label: 'Show Overlay',
+                  label: l10n.settingsShowOverlay,
                   trailing: _toggle(
                     value: _showOverlay,
                     onChanged: (v) =>
@@ -617,7 +569,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.move,
-                  label: 'Show Floating Button',
+                  label: l10n.settingsShowFloatingButton,
                   trailing: _toggle(
                     value: _showFloatingButton,
                     onChanged: (v) =>
@@ -626,7 +578,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.circleDot,
-                  label: 'Floating Button Opacity',
+                  label: l10n.settingsFloatingButtonOpacity,
                   trailing: _slider(
                     value: _floatingButtonOpacity,
                     min: 0.1,
@@ -640,10 +592,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.maximize2,
-                  label: 'Floating Button Size',
+                  label: l10n.settingsFloatingButtonSize,
                   trailing: _dropdown(
                     value: _floatingButtonSize,
                     items: const ['Small', 'Normal', 'Large'],
+                    labels: [l10n.settingsSizeSmall, l10n.settingsSizeNormal, l10n.settingsSizeLarge],
                     onChanged: (v) =>
                         setState(() => _floatingButtonSize = v!),
                   ),
@@ -653,16 +606,86 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           _sectionDivider(),
 
-          // ── Cloud Providers ──
+          // ═══════════════════════════════════════════════════════
+          //  GENERAL — app-wide preferences
+          // ═══════════════════════════════════════════════════════
+
+          // ── 7. Interface ──
           WpSection(
-            title: 'Cloud Providers',
-            subtitle: 'API keys for online services',
+            title: l10n.settingsInterface,
+            subtitle: l10n.settingsInterfaceSubtitle,
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _SettingRow(
+                  icon: LucideIcons.palette,
+                  label: l10n.settingsTheme,
+                  trailing: _dropdown(
+                    value: switch (ref.watch(themeModeProvider)) {
+                      ThemeMode.dark => 'Dark',
+                      ThemeMode.light => 'Light',
+                      ThemeMode.system => 'System',
+                    },
+                    items: const ['Dark', 'Light', 'System'],
+                    labels: [l10n.settingsThemeDark, l10n.settingsThemeLight, l10n.settingsThemeSystem],
+                    onChanged: (v) {
+                      final mode = switch (v) {
+                        'Light' => ThemeMode.light,
+                        'System' => ThemeMode.system,
+                        _ => ThemeMode.dark,
+                      };
+                      ref.read(themeModeProvider.notifier).setTheme(mode);
+                    },
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.globe,
+                  label: l10n.settingsLanguage,
+                  trailing: _dropdown(
+                    value: ref.watch(localeProvider).languageCode == 'de'
+                        ? 'Deutsch'
+                        : 'English',
+                    items: const ['English', 'Deutsch'],
+                    onChanged: (v) {
+                      if (v != null) {
+                        ref.read(localeProvider.notifier).setFromDisplayName(v);
+                      }
+                    },
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.power,
+                  label: l10n.settingsLaunchAtStartup,
+                  trailing: _toggle(
+                    value: _launchAtStartup,
+                    onChanged: (v) =>
+                        setState(() => _launchAtStartup = v),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.bell,
+                  label: l10n.settingsShowNotifications,
+                  trailing: _toggle(
+                    value: _showNotifications,
+                    onChanged: (v) =>
+                        setState(() => _showNotifications = v),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _sectionDivider(),
+
+          // ── 8. Cloud Providers (advanced — at bottom) ──
+          WpSection(
+            title: l10n.settingsCloudProviders,
+            subtitle: l10n.settingsCloudProvidersSubtitle,
             padding: EdgeInsets.zero,
             child: Column(
               children: [
                 _SettingRow(
                   icon: LucideIcons.keyRound,
-                  label: 'OpenAI API Key',
+                  label: l10n.settingsOpenAiApiKey,
                   trailing: _apiKeyField(
                     controller: _openAiKeyCtrl,
                     obscure: !_showOpenAiKey,
@@ -673,7 +696,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.keyRound,
-                  label: 'Groq API Key',
+                  label: l10n.settingsGroqApiKey,
                   trailing: _apiKeyField(
                     controller: _groqKeyCtrl,
                     obscure: !_showGroqKey,
@@ -684,7 +707,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.keyRound,
-                  label: 'Deepgram API Key',
+                  label: l10n.settingsDeepgramApiKey,
                   trailing: _apiKeyField(
                     controller: _deepgramKeyCtrl,
                     obscure: !_showDeepgramKey,
@@ -695,7 +718,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.keyRound,
-                  label: 'Anthropic API Key',
+                  label: l10n.settingsAnthropicApiKey,
                   trailing: _apiKeyField(
                     controller: _anthropicKeyCtrl,
                     obscure: !_showAnthropicKey,
