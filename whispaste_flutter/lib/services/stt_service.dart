@@ -9,6 +9,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -80,6 +81,11 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   Process? _process;
   String? _activeModel;
   Timer? _idleTimer;
+
+  /// Last successful transcription (~200 chars). Passed as `prompt` to
+  /// subsequent inference calls for faster decoder convergence and improved
+  /// language consistency.
+  String? _lastPrompt;
 
   /// How long the server stays alive after the last transcription before being
   /// killed to free GPU/VRAM. Matches the Go backend's idle behaviour.
@@ -194,6 +200,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
   /// Transcribes pre-loaded WAV bytes — avoids file-system races when the
   /// caller already holds the data in memory.
+  ///
+  /// Uses prompt conditioning from the last transcription to improve decoder
+  /// convergence speed and language consistency.
   Future<String> transcribeBytes(
     List<int> wavBytes, {
     String? language,
@@ -226,6 +235,12 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       request.fields['language'] = lang;
     }
 
+    // Prompt conditioning: pass last transcript for faster decoder
+    // convergence and consistent language detection (mirrors Go's prompt arg).
+    if (_lastPrompt != null && _lastPrompt!.isNotEmpty) {
+      request.fields['prompt'] = _lastPrompt!;
+    }
+
     final streamedResponse = await _httpClient.send(request);
     final responseBody =
         await streamedResponse.stream.bytesToString();
@@ -245,6 +260,13 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     final json = jsonDecode(responseBody) as Map<String, dynamic>;
     final text = (json['text'] as String? ?? '').trim();
+
+    // Update prompt for next transcription (last ~200 chars).
+    if (text.isNotEmpty) {
+      _lastPrompt =
+          text.length > 200 ? text.substring(text.length - 200) : text;
+    }
+
     return text;
   }
 
@@ -254,6 +276,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     _idleTimer = null;
 
     _cleanupProcess();
+    _lastPrompt = null;
 
     state = const SttStatus();
     _log.info('Local STT stopped');
@@ -302,6 +325,89 @@ class SttServiceNotifier extends Notifier<SttStatus> {
           'shutting down to free GPU memory');
       stop();
     });
+  }
+
+  /// Sends a tiny silent WAV to force the GPU to allocate compute buffers
+  /// (KV cache, attention scratch space). Without this, the first real
+  /// inference pays a ~3-5× RTF penalty for lazy allocation.
+  Future<void> _warmupInference(int port) async {
+    final sw = Stopwatch()..start();
+    try {
+      final silentWav = _generateSilentWav();
+      final uri = Uri.parse('http://127.0.0.1:$port/inference');
+      final request = http.MultipartRequest('POST', uri)
+        ..files.add(http.MultipartFile.fromBytes(
+          'file',
+          silentWav,
+          filename: 'warmup.wav',
+        ))
+        ..fields['response_format'] = 'json'
+        ..fields['temperature'] = '0.0';
+
+      final response = await _httpClient
+          .send(request)
+          .timeout(const Duration(seconds: 30));
+      await response.stream.drain<void>();
+      sw.stop();
+      _log.info(
+        'GPU warmup inference completed in ${sw.elapsedMilliseconds}ms',
+      );
+    } on Exception catch (e) {
+      sw.stop();
+      _log.debug('GPU warmup skipped: $e');
+      // Non-fatal — first real inference will be slightly slower.
+    }
+  }
+
+  /// Generates a minimal silent WAV (0.25 s, 16 kHz, mono, 16-bit PCM).
+  ///
+  /// 4 000 samples × 2 bytes = 8 000 data bytes + 44-byte header = 8 044 bytes.
+  static Uint8List _generateSilentWav() {
+    const sampleRate = 16000;
+    const durationSamples = sampleRate ~/ 4; // 0.25 s
+    const bitsPerSample = 16;
+    const numChannels = 1;
+    const bytesPerSample = bitsPerSample ~/ 8;
+    const dataSize = durationSamples * numChannels * bytesPerSample;
+    const headerSize = 44;
+
+    final buffer = Uint8List(headerSize + dataSize);
+    final data = ByteData.sublistView(buffer);
+
+    // RIFF header
+    buffer[0] = 0x52; // R
+    buffer[1] = 0x49; // I
+    buffer[2] = 0x46; // F
+    buffer[3] = 0x46; // F
+    data.setUint32(4, headerSize + dataSize - 8, Endian.little);
+    buffer[8] = 0x57; // W
+    buffer[9] = 0x41; // A
+    buffer[10] = 0x56; // V
+    buffer[11] = 0x45; // E
+
+    // fmt chunk
+    buffer[12] = 0x66; // f
+    buffer[13] = 0x6D; // m
+    buffer[14] = 0x74; // t
+    buffer[15] = 0x20; // ' '
+    data.setUint32(16, 16, Endian.little); // chunk size
+    data.setUint16(20, 1, Endian.little); // PCM format
+    data.setUint16(22, numChannels, Endian.little);
+    data.setUint32(24, sampleRate, Endian.little);
+    data.setUint32(
+        28, sampleRate * numChannels * bytesPerSample, Endian.little);
+    data.setUint16(32, numChannels * bytesPerSample, Endian.little);
+    data.setUint16(34, bitsPerSample, Endian.little);
+
+    // data chunk
+    buffer[36] = 0x64; // d
+    buffer[37] = 0x61; // a
+    buffer[38] = 0x74; // t
+    buffer[39] = 0x61; // a
+    data.setUint32(40, dataSize, Endian.little);
+    // Remaining bytes are already 0 (silence).
+
+    return buffer;
   }
 
   Future<void> _start(WhisPasteConfig config) async {
@@ -437,6 +543,11 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       'STT cold start completed in ${coldStart.elapsedMilliseconds}ms '
       'on port $port',
     );
+
+    // GPU warmup: send a tiny silent WAV to pre-allocate compute buffers.
+    // This moves the first-inference GPU allocation penalty from the user's
+    // first recording into the hidden startup phase.
+    await _warmupInference(port);
 
     state = SttStatus(
       serverState: SttServerState.ready,

@@ -175,11 +175,24 @@ class RecordingOrchestrator extends Notifier<void> {
       }
 
       // Transcribe using pre-loaded bytes (avoids file-system race).
-      _log.info('Transcribing $wavPath (${wavBytes.length} bytes)');
+      // Calculate audio duration for RTF logging (16 kHz, mono, 16-bit + 44-byte header).
+      final audioDurMs = ((wavBytes.length - 44) / 32000 * 1000).round();
+      _log.info('Transcribing $wavPath (${wavBytes.length} bytes, ~${audioDurMs}ms audio)');
+
+      final inferSw = Stopwatch()..start();
       final transcript = await sttNotifier.transcribeBytes(
         wavBytes,
         language: language != 'auto' ? language : null,
       );
+      inferSw.stop();
+
+      if (audioDurMs > 0) {
+        final rtf = inferSw.elapsedMilliseconds / audioDurMs;
+        _log.info(
+          'STT timing: inference=${inferSw.elapsedMilliseconds}ms '
+          'audio=${audioDurMs}ms RTF=${rtf.toStringAsFixed(2)}x',
+        );
+      }
 
       if (transcript.isEmpty) {
         notifier.fail('transcription_empty');
