@@ -36,6 +36,8 @@ class _WpRecordingFabState extends State<WpRecordingFab>
   late final AnimationController _pulseController;
   late final Animation<double> _scaleAnim;
   late final AnimationController _spinController;
+  late final AnimationController _breatheController;
+  late final Animation<double> _breatheAnim;
   bool _isHovered = false;
 
   @override
@@ -53,6 +55,14 @@ class _WpRecordingFabState extends State<WpRecordingFab>
     _spinController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
+    );
+    // Subtle idle breathing — very gentle scale oscillation
+    _breatheController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+    );
+    _breatheAnim = Tween<double>(begin: 1.0, end: 1.03).animate(
+      CurvedAnimation(parent: _breatheController, curve: Curves.easeInOut),
     );
     _syncAnimations();
   }
@@ -78,12 +88,20 @@ class _WpRecordingFabState extends State<WpRecordingFab>
       _spinController.stop();
       _spinController.reset();
     }
+    // Breathe: only during idle
+    if (widget.phase == RecordingPhase.idle) {
+      _breatheController.repeat(reverse: true);
+    } else {
+      _breatheController.stop();
+      _breatheController.reset();
+    }
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
     _spinController.dispose();
+    _breatheController.dispose();
     super.dispose();
   }
 
@@ -119,11 +137,12 @@ class _WpRecordingFabState extends State<WpRecordingFab>
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
           child: AnimatedBuilder(
-            animation: Listenable.merge([_scaleAnim, _spinController]),
+            animation: Listenable.merge([_scaleAnim, _spinController, _breatheAnim]),
             builder: (context, child) {
               final scale = switch (phase) {
                 RecordingPhase.recording => _scaleAnim.value,
-                _ when _isHovered && isInteractive => 1.06,
+                RecordingPhase.idle when _isHovered => 1.06,
+                RecordingPhase.idle => _breatheAnim.value,
                 _ => 1.0,
               };
               return AnimatedScale(
