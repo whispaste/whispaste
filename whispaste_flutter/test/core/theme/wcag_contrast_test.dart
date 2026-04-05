@@ -1,16 +1,23 @@
-/// WCAG AA contrast ratio audit for WhisPaste color tokens.
+/// WCAG AA contrast ratio + color saturation audit for WhisPaste tokens.
 ///
-/// Runs automatically in CI alongside widget tests. Ensures ALL text/background
-/// color pairs meet minimum contrast requirements:
-/// - Normal text (< 18pt): ≥ 4.5:1
-/// - Large text (≥ 18pt bold or ≥ 24pt): ≥ 3.0:1
+/// Runs automatically in CI alongside widget tests. Ensures:
+/// 1. ALL text/background pairs meet minimum CONTRAST requirements
+///    - Normal text (< 18pt): ≥ 4.5:1
+///    - Large text (≥ 18pt bold or ≥ 24pt): ≥ 3.0:1
+/// 2. Key colors meet minimum SATURATION thresholds (HSL saturation)
+///    - Accent/status colors: ≥ 40% saturation
+///    - Surface colors: ≥ 15% saturation (tinted, not flat gray)
+///    - Frame–content lightness gap: ≤ 4% (unified monochrome feel)
 ///
-/// Reference: https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html
+/// References:
+/// - https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html
+/// - HSL model: https://en.wikipedia.org/wiki/HSL_and_HSV
 library;
 
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/painting.dart' show HSLColor;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/colors.dart';
 
@@ -39,6 +46,29 @@ double contrastRatio(Color foreground, Color background) {
   final lighter = l1 > l2 ? l1 : l2;
   final darker = l1 > l2 ? l2 : l1;
   return (lighter + 0.05) / (darker + 0.05);
+}
+
+// ---------------------------------------------------------------------------
+// HSL helpers for saturation audits
+// ---------------------------------------------------------------------------
+
+/// Returns HSL saturation (0.0–1.0) of a color.
+double hslSaturation(Color c) {
+  return HSLColor.fromColor(c).saturation;
+}
+
+/// Returns HSL lightness (0.0–1.0) of a color.
+double hslLightness(Color c) {
+  return HSLColor.fromColor(c).lightness;
+}
+
+/// A named color with a minimum saturation requirement.
+class _SaturationCheck {
+  const _SaturationCheck(this.name, this.color, this.minSaturation);
+  final String name;
+  final Color color;
+  /// Minimum HSL saturation (0.0–1.0), e.g. 0.40 = 40%.
+  final double minSaturation;
 }
 
 // ---------------------------------------------------------------------------
@@ -213,6 +243,103 @@ void main() {
       final ratio =
           contrastRatio(const Color(0xFF767676), const Color(0xFFFFFFFF));
       expect(ratio, greaterThanOrEqualTo(4.5));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Color saturation audits — ensure palette stays rich, not washed-out
+  // ---------------------------------------------------------------------------
+
+  group('Color saturation – dark theme (accent/status ≥ 40%)', () {
+    final darkAccentChecks = [
+      _SaturationCheck('dark: accent', WpColorsDark.accent, 0.40),
+      _SaturationCheck('dark: accentHover', WpColorsDark.accentHover, 0.35),
+      _SaturationCheck('dark: success', WpColorsDark.success, 0.40),
+      _SaturationCheck('dark: warning', WpColorsDark.warning, 0.40),
+      _SaturationCheck('dark: error', WpColorsDark.error, 0.40),
+    ];
+    for (final check in darkAccentChecks) {
+      test(check.name, () {
+        final sat = hslSaturation(check.color);
+        expect(
+          sat,
+          greaterThanOrEqualTo(check.minSaturation),
+          reason: '${check.name}: saturation ${(sat * 100).toStringAsFixed(1)}% '
+              '< required ${(check.minSaturation * 100).toStringAsFixed(0)}% '
+              '(color: #${check.color.value.toRadixString(16).padLeft(8, '0')})',
+        );
+      });
+    }
+  });
+
+  group('Color saturation – dark theme (surfaces ≥ 15% tint)', () {
+    final darkSurfaceChecks = [
+      _SaturationCheck('dark: background', WpColorsDark.background, 0.15),
+      _SaturationCheck('dark: surface', WpColorsDark.surface, 0.15),
+      _SaturationCheck('dark: surfaceElevated', WpColorsDark.surfaceElevated, 0.15),
+      _SaturationCheck('dark: surfaceVariant', WpColorsDark.surfaceVariant, 0.15),
+      _SaturationCheck('dark: hover', WpColorsDark.hover, 0.15),
+    ];
+    for (final check in darkSurfaceChecks) {
+      test(check.name, () {
+        final sat = hslSaturation(check.color);
+        expect(
+          sat,
+          greaterThanOrEqualTo(check.minSaturation),
+          reason: '${check.name}: saturation ${(sat * 100).toStringAsFixed(1)}% '
+              '< required ${(check.minSaturation * 100).toStringAsFixed(0)}% — '
+              'surface must be tinted, not flat gray',
+        );
+      });
+    }
+  });
+
+  group('Color saturation – light theme (accent/status ≥ 40%)', () {
+    final lightAccentChecks = [
+      _SaturationCheck('light: accent', WpColorsLight.accent, 0.40),
+      _SaturationCheck('light: success', WpColorsLight.success, 0.40),
+      _SaturationCheck('light: warning', WpColorsLight.warning, 0.40),
+      _SaturationCheck('light: error', WpColorsLight.error, 0.40),
+    ];
+    for (final check in lightAccentChecks) {
+      test(check.name, () {
+        final sat = hslSaturation(check.color);
+        expect(
+          sat,
+          greaterThanOrEqualTo(check.minSaturation),
+          reason: '${check.name}: saturation ${(sat * 100).toStringAsFixed(1)}% '
+              '< required ${(check.minSaturation * 100).toStringAsFixed(0)}% '
+              '(color: #${check.color.value.toRadixString(16).padLeft(8, '0')})',
+        );
+      });
+    }
+  });
+
+  // Frame–content unity: background and surface should be close in lightness
+  group('Frame–content unity (lightness gap ≤ 4%)', () {
+    test('dark: background vs surface lightness delta', () {
+      final bgL = hslLightness(WpColorsDark.background);
+      final sfL = hslLightness(WpColorsDark.surface);
+      final delta = (bgL - sfL).abs();
+      expect(
+        delta,
+        lessThanOrEqualTo(0.04),
+        reason: 'Frame-content lightness gap: ${(delta * 100).toStringAsFixed(1)}% '
+            '> allowed 4% — frame and content should feel unified',
+      );
+    });
+
+    test('light: background vs surface lightness delta', () {
+      final bgL = hslLightness(WpColorsLight.background);
+      final sfL = hslLightness(WpColorsLight.surface);
+      final delta = (bgL - sfL).abs();
+      // Light theme allows slightly bigger gap since white surface vs tinted bg
+      expect(
+        delta,
+        lessThanOrEqualTo(0.08),
+        reason: 'Frame-content lightness gap: ${(delta * 100).toStringAsFixed(1)}% '
+            '> allowed 8% — frame and content should feel unified',
+      );
     });
   });
 }
