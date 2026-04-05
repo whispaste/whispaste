@@ -24,6 +24,9 @@ abstract final class WpColorsDark {
   /// Variant surface for alternate rows, secondary panels
   static const Color surfaceVariant = Color(0xFF282E3F);
   static const Color hover = Color(0xFF252B3C);
+  /// Transparent version of hover for smooth AnimatedContainer transitions
+  /// (prevents dark flash when interpolating from transparent to hover)
+  static const Color hoverTransparent = Color(0x00252B3C);
   static const Color active = Color(0xFF2D3448);
 
   static const Color borderSubtle = Color(0x14FFFFFF);
@@ -92,6 +95,7 @@ abstract final class WpColorsLight {
   static const Color surfaceElevated = Color(0xFFFFFFFF);
   static const Color surfaceVariant = Color(0xFFF7F9FC);
   static const Color hover = Color(0xFFE8ECF2);
+  static const Color hoverTransparent = Color(0x00E8ECF2);
   static const Color active = Color(0xFFD5DCE6);
 
   static const Color borderSubtle = Color(0x0C000000);

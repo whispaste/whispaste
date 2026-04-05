@@ -322,7 +322,7 @@ class _LinkRowState extends State<_LinkRow> {
             decoration: BoxDecoration(
               color: _isHovered
                   ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                  : Colors.transparent,
+                  : (widget.isDark ? WpColorsDark.hoverTransparent : WpColorsLight.hoverTransparent),
               borderRadius: WpRadius.borderSm,
             ),
             child: Row(

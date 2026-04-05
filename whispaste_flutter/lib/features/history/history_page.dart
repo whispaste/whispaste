@@ -1463,7 +1463,7 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
     } else if (_isHovered) {
       bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
     } else {
-      bg = Colors.transparent;
+      bg = isDark ? WpColorsDark.hoverTransparent : WpColorsLight.hoverTransparent;
     }
 
     final textPrimary =
@@ -2074,7 +2074,9 @@ class _DetailActionState extends State<_DetailAction> {
                   ? (widget.isDark
                       ? WpColorsDark.hover
                       : WpColorsLight.hover)
-                  : Colors.transparent,
+                  : (widget.isDark
+                      ? WpColorsDark.hoverTransparent
+                      : WpColorsLight.hoverTransparent),
               borderRadius: WpRadius.borderSm,
             ),
             child: Icon(widget.icon, size: 16, color: iconColor),
@@ -2202,7 +2204,9 @@ class _RowActionState extends State<_RowAction> {
                     ? (widget.isDark
                         ? WpColorsDark.active
                         : WpColorsLight.active)
-                    : Colors.transparent,
+                    : (widget.isDark
+                        ? WpColorsDark.hoverTransparent
+                        : WpColorsLight.hoverTransparent),
                 borderRadius: WpRadius.borderSm,
               ),
               child: Icon(widget.icon, size: 14, color: iconColor),
@@ -2778,7 +2782,7 @@ class _CompactRowState extends State<_CompactRow> {
     } else if (_isHovered) {
       bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
     } else {
-      bg = Colors.transparent;
+      bg = isDark ? WpColorsDark.hoverTransparent : WpColorsLight.hoverTransparent;
     }
 
     return MouseRegion(

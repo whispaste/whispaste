@@ -100,7 +100,11 @@ class _WindowButtonState extends State<_WindowButton> {
           width: 40,
           height: 32,
           decoration: BoxDecoration(
-            color: _isHovered ? hoverBg : Colors.transparent,
+            color: _isHovered
+                ? hoverBg
+                : (widget.isDark
+                    ? WpColorsDark.hoverTransparent
+                    : WpColorsLight.hoverTransparent),
             borderRadius: BorderRadius.circular(WpRadius.sm),
           ),
           alignment: Alignment.center,
@@ -165,7 +169,11 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
           width: 40,
           height: 32,
           decoration: BoxDecoration(
-            color: _isHovered ? hoverBg : Colors.transparent,
+            color: _isHovered
+                ? hoverBg
+                : (widget.isDark
+                    ? WpColorsDark.hoverTransparent
+                    : WpColorsLight.hoverTransparent),
             borderRadius: BorderRadius.circular(WpRadius.sm),
           ),
           alignment: Alignment.center,
