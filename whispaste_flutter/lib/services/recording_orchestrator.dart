@@ -310,16 +310,20 @@ class RecordingOrchestrator extends Notifier<void> {
   /// Best-effort pre-warm: starts the STT server so the first dictation is
   /// instant. Runs in the background — failures are silently logged.
   Future<void> _prewarmStt() async {
-    final config = ref.read(effectiveConfigProvider);
-    if (!config.useLocalStt) return;
+    try {
+      final config = ref.read(effectiveConfigProvider);
+      if (!config.useLocalStt) return;
 
-    // Only pre-warm when runtime + model are already downloaded.
-    final serverPath = whisperServerPath();
-    final modelPath = sttModelPath(config.localModelId);
-    if (!File(serverPath).existsSync()) return;
-    if (modelPath == null || !File(modelPath).existsSync()) return;
+      // Only pre-warm when runtime + model are already downloaded.
+      final serverPath = whisperServerPath();
+      final modelPath = sttModelPath(config.localModelId);
+      if (!File(serverPath).existsSync()) return;
+      if (modelPath == null || !File(modelPath).existsSync()) return;
 
-    await ref.read(sttServiceProvider.notifier).prewarm();
+      await ref.read(sttServiceProvider.notifier).prewarm();
+    } on Exception catch (e) {
+      _log.warning('STT pre-warm failed (non-fatal): $e');
+    }
   }
 }
 
