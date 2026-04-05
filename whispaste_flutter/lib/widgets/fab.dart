@@ -66,7 +66,9 @@ class _WpRecordingFabState extends State<WpRecordingFab>
             end: Alignment.bottomRight,
             colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
           )
-        : (isDark ? WpColorsDark.accentGradient : WpColorsLight.accentGradient);
+        : (isDark
+            ? WpColorsDark.accentWarmGradient
+            : WpColorsLight.accentWarmGradient);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,

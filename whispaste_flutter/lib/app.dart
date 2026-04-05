@@ -98,40 +98,62 @@ class _AppShell extends ConsumerWidget {
                     ref.read(activePageProvider.notifier).setPage(id);
                   },
                 ),
-                // Content area — elevated panel with rounded corner
+                // Content area — warm gradient bg with elevated glass panel
                 Expanded(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? WpColorsDark.surface
-                          : WpColorsLight.surface,
+                      gradient: isDark
+                          ? WpColorsDark.warmSurfaceGradient
+                          : WpColorsLight.warmSurfaceGradient,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(WpRadius.lg),
                       ),
                     ),
-                    child: Column(
-                      children: [
-                        // Page header
-                        _PageHeader(
-                          title: _navItems
-                              .firstWhere((n) => n.id == activePage)
-                              .label,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? WpColorsDark.surface.withValues(alpha: 0.85)
+                            : WpColorsLight.surface.withValues(alpha: 0.92),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(WpRadius.lg),
                         ),
-                        // Content
-                        Expanded(
-                          child: AnimatedSwitcher(
-                            duration: WpMotion.normal,
-                            child: _pageWidgets[activePage] ??
-                                const SizedBox.shrink(),
+                        border: Border(
+                          left: BorderSide(
+                            color: isDark
+                                ? WpColorsDark.glassBorder
+                                : WpColorsLight.borderSubtle,
+                          ),
+                          top: BorderSide(
+                            color: isDark
+                                ? WpColorsDark.glassBorder
+                                : WpColorsLight.borderSubtle,
                           ),
                         ),
-                        const WpStatusBar(
-                          modeLabel: 'Local',
-                          postProcessingLabel: 'Post-Processing',
-                          hotkeyLabel: 'Ctrl+Shift+R',
-                          isOnline: true,
-                        ),
-                      ],
+                      ),
+                      child: Column(
+                        children: [
+                          // Page header
+                          _PageHeader(
+                            title: _navItems
+                                .firstWhere((n) => n.id == activePage)
+                                .label,
+                          ),
+                          // Content
+                          Expanded(
+                            child: AnimatedSwitcher(
+                              duration: WpMotion.normal,
+                              child: _pageWidgets[activePage] ??
+                                  const SizedBox.shrink(),
+                            ),
+                          ),
+                          const WpStatusBar(
+                            modeLabel: 'Local',
+                            postProcessingLabel: 'Post-Processing',
+                            hotkeyLabel: 'Ctrl+Shift+R',
+                            isOnline: true,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
