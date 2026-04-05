@@ -781,6 +781,41 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             s.copyWith(transcriptionCompleteSound: v)),
                   ),
                 ),
+                _SettingRow(
+                  icon: LucideIcons.volume1,
+                  label: l10n.settingsSoundVolume,
+                  trailing: _slider(
+                    value: settings.soundVolume,
+                    min: 0,
+                    max: 100,
+                    divisions: 20,
+                    valueLabel: '${settings.soundVolume.round()}%',
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(soundVolume: v)),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.clipboardCheck,
+                  label: l10n.settingsAfterTranscription,
+                  subtitle: l10n.settingsAfterTranscriptionSubtitle,
+                  trailing: _dropdown(
+                    value: settings.afterTranscription,
+                    items: const ['clipboard', 'paste', 'nothing'],
+                    labels: [
+                      l10n.settingsAfterTranscriptionClipboard,
+                      l10n.settingsAfterTranscriptionPaste,
+                      l10n.settingsAfterTranscriptionNothing,
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings(
+                              (s) => s.copyWith(afterTranscription: v));
+                    },
+                  ),
+                ),
               ],
             ),
           ),

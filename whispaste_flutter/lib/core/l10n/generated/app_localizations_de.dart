@@ -374,6 +374,26 @@ class L10nDe extends L10n {
   String get settingsTranscriptionCompleteSound => 'Transkription-fertig-Ton';
 
   @override
+  String get settingsSoundVolume => 'Ton-Lautstärke';
+
+  @override
+  String get settingsAfterTranscription => 'Nach der Transkription';
+
+  @override
+  String get settingsAfterTranscriptionSubtitle =>
+      'Was mit dem transkribierten Text geschieht';
+
+  @override
+  String get settingsAfterTranscriptionClipboard =>
+      'In Zwischenablage kopieren';
+
+  @override
+  String get settingsAfterTranscriptionPaste => 'Automatisch einfügen';
+
+  @override
+  String get settingsAfterTranscriptionNothing => 'Nichts tun';
+
+  @override
   String get settingsOverlayFloatingButton => 'Overlay & Schwebender Button';
 
   @override

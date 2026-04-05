@@ -1,8 +1,11 @@
 /// Sound feedback service — plays audio cues for recording events.
 ///
-/// Reads the three sound-feedback toggles from [AppSettings] and plays the
-/// corresponding WAV asset when enabled. Failures are silently logged —
-/// sound feedback is non-critical and must never block the recording pipeline.
+/// Uses fire-and-forget [AudioPlayer] instances so rapid successive sounds
+/// (start → stop → complete) never interfere with each other. Each cue
+/// creates its own player, plays the asset, and self-disposes on completion.
+///
+/// Failures are silently logged — sound feedback is non-critical and must
+/// never block the recording pipeline.
 library;
 
 import 'package:audioplayers/audioplayers.dart';
@@ -18,37 +21,23 @@ import '../core/logging/app_logger.dart';
 class SoundFeedbackService extends Notifier<void> {
   static final _log = AppLogger('SoundFeedback');
 
-  AudioPlayer? _player;
   bool _pluginAvailable = true;
-
-  AudioPlayer? _ensurePlayer() {
-    if (!_pluginAvailable) return null;
-    if (_player != null) return _player;
-    try {
-      _player = AudioPlayer();
-      return _player;
-    } on Exception catch (e) {
-      _log.warning('audioplayers plugin unavailable: $e');
-      _pluginAvailable = false;
-      return null;
-    }
-  }
+  final List<AudioPlayer> _activePlayers = [];
 
   @override
   void build() {
-    ref.onDispose(() {
-      _player?.dispose();
-      _player = null;
-    });
+    ref.onDispose(_disposeAll);
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
   /// Plays the recording-start sound if enabled in settings.
-  Future<void> playRecordStart() => _play('start.wav', _settings.recordStartSound);
+  Future<void> playRecordStart() =>
+      _play('start.wav', _settings.recordStartSound);
 
   /// Plays the recording-stop sound if enabled in settings.
-  Future<void> playRecordStop() => _play('stop.wav', _settings.recordStopSound);
+  Future<void> playRecordStop() =>
+      _play('stop.wav', _settings.recordStopSound);
 
   /// Plays the transcription-complete sound if enabled in settings.
   Future<void> playTranscriptionComplete() =>
@@ -63,16 +52,41 @@ class SoundFeedbackService extends Notifier<void> {
       ref.read(settingsProvider).value ?? AppSettings.defaults;
 
   Future<void> _play(String assetName, bool enabled) async {
-    if (!enabled) return;
+    if (!enabled || !_pluginAvailable) return;
 
     try {
-      final player = _ensurePlayer();
-      if (player == null) return;
-      await player.stop();
+      final player = AudioPlayer();
+      _activePlayers.add(player);
+
+      // Set volume from settings (0.0–1.0).
+      final volume = _settings.soundVolume / 100.0;
+      await player.setVolume(volume);
+
+      // Self-dispose when done playing.
+      player.onPlayerComplete.listen((_) {
+        _activePlayers.remove(player);
+        player.dispose();
+      });
+
       await player.play(AssetSource('sounds/$assetName'));
     } on Exception catch (e) {
-      _log.debug('Sound playback failed ($assetName): $e');
+      // MissingPluginException or other native failure — disable permanently.
+      if (e.toString().contains('MissingPlugin')) {
+        _log.warning('audioplayers plugin unavailable: $e');
+        _pluginAvailable = false;
+      } else {
+        _log.debug('Sound playback failed ($assetName): $e');
+      }
     }
+  }
+
+  void _disposeAll() {
+    for (final player in _activePlayers) {
+      try {
+        player.dispose();
+      } on Exception catch (_) {}
+    }
+    _activePlayers.clear();
   }
 }
 
