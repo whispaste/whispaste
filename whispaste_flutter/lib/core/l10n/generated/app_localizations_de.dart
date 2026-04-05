@@ -530,6 +530,9 @@ class L10nDe extends L10n {
   String get tooltipStopRecord => 'Aufnahme stoppen';
 
   @override
+  String get tooltipProcessing => 'Audio wird verarbeitet…';
+
+  @override
   String get tooltipTheme => 'Design wechseln';
 
   @override

@@ -1081,6 +1081,12 @@ abstract class L10n {
   /// **'Stop recording'**
   String get tooltipStopRecord;
 
+  /// No description provided for @tooltipProcessing.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing audio…'**
+  String get tooltipProcessing;
+
   /// No description provided for @tooltipTheme.
   ///
   /// In en, this message translates to:
