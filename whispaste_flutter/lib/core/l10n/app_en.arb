@@ -182,6 +182,7 @@
   "actionSave": "Save",
   "tooltipRecord": "Start recording",
   "tooltipStopRecord": "Stop recording",
+  "tooltipProcessing": "Processing audio…",
   "tooltipTheme": "Toggle theme",
   "tooltipLanguage": "Language",
   "aboutVersion": "Version {version}",

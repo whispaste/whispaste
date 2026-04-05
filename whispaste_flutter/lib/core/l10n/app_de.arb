@@ -167,6 +167,7 @@
   "actionSave": "Speichern",
   "tooltipRecord": "Aufnahme starten",
   "tooltipStopRecord": "Aufnahme stoppen",
+  "tooltipProcessing": "Audio wird verarbeitet…",
   "tooltipTheme": "Design wechseln",
   "tooltipLanguage": "Sprache",
   "aboutVersion": "Version {version}",
