@@ -98,12 +98,17 @@ class _AppShell extends ConsumerWidget {
                     ref.read(activePageProvider.notifier).setPage(id);
                   },
                 ),
-                // Content area with subtle left border highlight
+                // Content area — elevated panel with rounded corner
                 Expanded(
-                  child: Container(
-                    color: isDark
-                        ? WpColorsDark.background
-                        : WpColorsLight.background,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? WpColorsDark.surface
+                          : WpColorsLight.surface,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(WpRadius.lg),
+                      ),
+                    ),
                     child: Column(
                       children: [
                         // Page header
