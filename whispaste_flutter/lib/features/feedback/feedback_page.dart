@@ -5,6 +5,9 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/page_shell.dart';
 
 /// Feedback page — polished, chat-inspired feedback form.
+///
+/// Top-aligned, responsive: narrow form column on wide screens with generous
+/// padding so it breathes on maximized desktop windows.
 class FeedbackPage extends StatefulWidget {
   const FeedbackPage({super.key});
 
@@ -39,157 +42,176 @@ class _FeedbackPageState extends State<FeedbackPage> {
     }
 
     return WpPageShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title area
-          Text('Send Feedback', style: ts.headlineMedium),
-          const SizedBox(height: WpSpacing.xxs),
-          Text(
-            'Help us improve WhisPaste — every voice matters.',
-            style: ts.bodyMedium?.copyWith(
-              color: isDark
-                  ? WpColorsDark.textSecondary
-                  : WpColorsLight.textSecondary,
-            ),
-          ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Constrain form width on wide screens for readability
+          final maxFormWidth = constraints.maxWidth > 720 ? 560.0 : double.infinity;
 
-          const SizedBox(height: WpSpacing.xxl),
+          return Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxFormWidth),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: WpSpacing.lg),
 
-          // Category selection
-          Text('What\'s this about?', style: ts.titleSmall),
-          const SizedBox(height: WpSpacing.sm),
-          Wrap(
-            spacing: WpSpacing.xs,
-            runSpacing: WpSpacing.xs,
-            children: [
-              _CategoryChip(
-                icon: LucideIcons.bug,
-                label: 'Bug Report',
-                value: 'bug',
-                selected: _category,
-                isDark: isDark,
-                onTap: (v) => setState(() => _category = v),
-              ),
-              _CategoryChip(
-                icon: LucideIcons.lightbulb,
-                label: 'Feature Idea',
-                value: 'feature',
-                selected: _category,
-                isDark: isDark,
-                onTap: (v) => setState(() => _category = v),
-              ),
-              _CategoryChip(
-                icon: LucideIcons.messageCircle,
-                label: 'General',
-                value: 'general',
-                selected: _category,
-                isDark: isDark,
-                onTap: (v) => setState(() => _category = v),
-              ),
-              _CategoryChip(
-                icon: LucideIcons.sparkles,
-                label: 'AI Quality',
-                value: 'ai',
-                selected: _category,
-                isDark: isDark,
-                onTap: (v) => setState(() => _category = v),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: WpSpacing.xxl),
-
-          // Emoji rating
-          Text('How are you feeling about WhisPaste?', style: ts.titleSmall),
-          const SizedBox(height: WpSpacing.sm),
-          _EmojiRatingRow(
-            rating: _rating,
-            isDark: isDark,
-            onChanged: (v) => setState(() => _rating = v),
-          ),
-
-          const SizedBox(height: WpSpacing.xxl),
-
-          // Comment field — chat-styled
-          Text('Tell us more', style: ts.titleSmall),
-          const SizedBox(height: WpSpacing.sm),
-          Container(
-            decoration: BoxDecoration(
-              gradient: isDark
-                  ? WpColorsDark.warmSurfaceGradient
-                  : WpColorsLight.warmSurfaceGradient,
-              borderRadius: WpRadius.borderMd,
-              border: Border.all(
-                color: isDark
-                    ? WpColorsDark.borderDefault
-                    : WpColorsLight.borderDefault,
-              ),
-            ),
-            child: TextField(
-              controller: _commentController,
-              maxLines: 4,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: _category == 'bug'
-                    ? 'Describe what happened and what you expected…'
-                    : _category == 'feature'
-                        ? 'What would you like to see in WhisPaste?'
-                        : _category == 'ai'
-                            ? 'How was the transcription or post-processing quality?'
-                            : 'Share your thoughts…',
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.all(WpSpacing.md),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: WpSpacing.xl),
-
-          // Submit button
-          SizedBox(
-            width: double.infinity,
-            child: AnimatedOpacity(
-              duration: WpMotion.fast,
-              opacity: _canSubmit ? 1.0 : 0.5,
-              child: ElevatedButton.icon(
-                onPressed: _canSubmit ? _submit : null,
-                icon: const Icon(LucideIcons.send, size: WpIconSize.sm),
-                label: const Text('Send Feedback'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: WpSpacing.md),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: WpSpacing.md),
-
-          // Privacy note
-          Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  LucideIcons.lock,
-                  size: WpIconSize.xs,
-                  color: isDark
-                      ? WpColorsDark.textMuted
-                      : WpColorsLight.textMuted,
-                ),
-                const SizedBox(width: WpSpacing.xxs),
-                Text(
-                  'Your feedback is anonymous and encrypted.',
-                  style: ts.bodySmall?.copyWith(
-                    color: isDark
-                        ? WpColorsDark.textMuted
-                        : WpColorsLight.textMuted,
+                  // Title area
+                  Text('Send Feedback', style: ts.headlineMedium),
+                  const SizedBox(height: WpSpacing.xs),
+                  Text(
+                    'Help us improve WhisPaste — every voice matters.',
+                    style: ts.bodyMedium?.copyWith(
+                      color: isDark
+                          ? WpColorsDark.textSecondary
+                          : WpColorsLight.textSecondary,
+                    ),
                   ),
-                ),
-              ],
+
+                  const SizedBox(height: WpSpacing.xxxl),
+
+                  // Category selection
+                  Text("What's this about?", style: ts.titleSmall),
+                  const SizedBox(height: WpSpacing.md),
+                  Wrap(
+                    spacing: WpSpacing.sm,
+                    runSpacing: WpSpacing.sm,
+                    children: [
+                      _CategoryChip(
+                        icon: LucideIcons.bug,
+                        label: 'Bug Report',
+                        value: 'bug',
+                        selected: _category,
+                        isDark: isDark,
+                        onTap: (v) => setState(() => _category = v),
+                      ),
+                      _CategoryChip(
+                        icon: LucideIcons.lightbulb,
+                        label: 'Feature Idea',
+                        value: 'feature',
+                        selected: _category,
+                        isDark: isDark,
+                        onTap: (v) => setState(() => _category = v),
+                      ),
+                      _CategoryChip(
+                        icon: LucideIcons.messageCircle,
+                        label: 'General',
+                        value: 'general',
+                        selected: _category,
+                        isDark: isDark,
+                        onTap: (v) => setState(() => _category = v),
+                      ),
+                      _CategoryChip(
+                        icon: LucideIcons.sparkles,
+                        label: 'AI Quality',
+                        value: 'ai',
+                        selected: _category,
+                        isDark: isDark,
+                        onTap: (v) => setState(() => _category = v),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: WpSpacing.xxxl),
+
+                  // Emoji rating
+                  Text('How are you feeling about WhisPaste?', style: ts.titleSmall),
+                  const SizedBox(height: WpSpacing.md),
+                  _EmojiRatingRow(
+                    rating: _rating,
+                    isDark: isDark,
+                    onChanged: (v) => setState(() => _rating = v),
+                  ),
+
+                  const SizedBox(height: WpSpacing.xxxl),
+
+                  // Comment field — chat-styled
+                  Text('Tell us more', style: ts.titleSmall),
+                  const SizedBox(height: WpSpacing.md),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: isDark
+                          ? WpColorsDark.warmSurfaceGradient
+                          : WpColorsLight.warmSurfaceGradient,
+                      borderRadius: WpRadius.borderMd,
+                      border: Border.all(
+                        color: isDark
+                            ? WpColorsDark.borderDefault
+                            : WpColorsLight.borderDefault,
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _commentController,
+                      maxLines: 5,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        hintText: _category == 'bug'
+                            ? 'Describe what happened and what you expected…'
+                            : _category == 'feature'
+                                ? 'What would you like to see in WhisPaste?'
+                                : _category == 'ai'
+                                    ? 'How was the transcription or post-processing quality?'
+                                    : 'Share your thoughts…',
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.all(WpSpacing.md),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: WpSpacing.xxl),
+
+                  // Submit button
+                  SizedBox(
+                    width: double.infinity,
+                    child: AnimatedOpacity(
+                      duration: WpMotion.fast,
+                      opacity: _canSubmit ? 1.0 : 0.5,
+                      child: ElevatedButton.icon(
+                        onPressed: _canSubmit ? _submit : null,
+                        icon: const Icon(LucideIcons.send, size: WpIconSize.sm),
+                        label: const Text('Send Feedback'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: WpSpacing.md,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: WpSpacing.lg),
+
+                  // Privacy note
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          LucideIcons.lock,
+                          size: WpIconSize.xs,
+                          color: isDark
+                              ? WpColorsDark.textMuted
+                              : WpColorsLight.textMuted,
+                        ),
+                        const SizedBox(width: WpSpacing.xxs),
+                        Text(
+                          'Your feedback is anonymous and encrypted.',
+                          style: ts.bodySmall?.copyWith(
+                            color: isDark
+                                ? WpColorsDark.textMuted
+                                : WpColorsLight.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: WpSpacing.xxxl),
+                ],
+              ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -225,45 +247,57 @@ class _ThankYouView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const SizedBox(height: WpSpacing.xxxl),
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: isDark
-                ? WpColorsDark.accentSubtle
-                : WpColorsLight.accentSubtle,
-            shape: BoxShape.circle,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth > 720 ? 480.0 : double.infinity;
+
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: WpSpacing.xxxl * 1.5),
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? WpColorsDark.accentSubtle
+                        : WpColorsLight.accentSubtle,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    LucideIcons.heart,
+                    size: WpIconSize.xl,
+                    color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
+                  ),
+                ),
+                const SizedBox(height: WpSpacing.xxl),
+                Text('Thank you!', style: ts.headlineMedium),
+                const SizedBox(height: WpSpacing.sm),
+                Text(
+                  'Your feedback helps us make WhisPaste better\nfor everyone.',
+                  textAlign: TextAlign.center,
+                  style: ts.bodyMedium?.copyWith(
+                    color: isDark
+                        ? WpColorsDark.textSecondary
+                        : WpColorsLight.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: WpSpacing.xxxl),
+                OutlinedButton.icon(
+                  onPressed: onReset,
+                  icon: const Icon(LucideIcons.messageSquarePlus, size: WpIconSize.sm),
+                  label: const Text('Send another'),
+                ),
+              ],
+            ),
           ),
-          alignment: Alignment.center,
-          child: Icon(
-            LucideIcons.heart,
-            size: WpIconSize.xl,
-            color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xl),
-        Text('Thank you!', style: ts.headlineMedium),
-        const SizedBox(height: WpSpacing.xs),
-        Text(
-          'Your feedback helps us make WhisPaste better\nfor everyone.',
-          textAlign: TextAlign.center,
-          style: ts.bodyMedium?.copyWith(
-            color: isDark
-                ? WpColorsDark.textSecondary
-                : WpColorsLight.textSecondary,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xxl),
-        OutlinedButton.icon(
-          onPressed: onReset,
-          icon: Icon(LucideIcons.messageSquarePlus, size: WpIconSize.sm),
-          label: const Text('Send another'),
-        ),
-      ],
+        );
+      },
     );
   }
 }

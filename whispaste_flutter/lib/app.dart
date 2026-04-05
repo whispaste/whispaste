@@ -91,10 +91,11 @@ class _AppShell extends ConsumerWidget {
       bottomLeft: Radius.circular(WpRadius.xl),
     );
 
-    // Content panel uses a warm gradient for depth
+    // Content panel uses a warm gradient for depth (both themes)
     final contentDecoration = BoxDecoration(
-      gradient: isDark ? WpColorsDark.warmSurfaceGradient : null,
-      color: isDark ? null : WpColorsLight.surface,
+      gradient: isDark
+          ? WpColorsDark.warmSurfaceGradient
+          : WpColorsLight.warmSurfaceGradient,
       borderRadius: contentRadius,
     );
 
@@ -102,16 +103,17 @@ class _AppShell extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // Frame background
+          // Frame background — gradient for premium unified feel
           DecoratedBox(
             decoration: BoxDecoration(
-              color:
-                  isDark ? WpColorsDark.background : WpColorsLight.background,
+              gradient: isDark
+                  ? WpColorsDark.frameGradient
+                  : WpColorsLight.frameGradient,
             ),
             child: const SizedBox.expand(),
           ),
-          // Subtle topographic watermark pattern
-          if (isDark) const Positioned.fill(child: _FrameWatermark()),
+          // Subtle topographic watermark pattern (both themes)
+          Positioned.fill(child: _FrameWatermark(isDark: isDark)),
           // Main layout
           Column(
             children: [
@@ -249,30 +251,38 @@ class _ThemeToggle extends ConsumerWidget {
   }
 }
 
-/// Subtle topographic contour watermark painted on the dark frame.
+/// Subtle topographic contour watermark painted on the frame.
 ///
 /// Draws faint concentric arcs offset to the bottom-right, evoking a
 /// premium dashboard / gaming-launcher feel without competing with
 /// content. Opacity kept at ≈ 3% so it's FELT, not SEEN.
 class _FrameWatermark extends StatelessWidget {
-  const _FrameWatermark();
+  const _FrameWatermark({required this.isDark});
+
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _TopoPainter(),
+      painter: _TopoPainter(isDark: isDark),
       child: const SizedBox.expand(),
     );
   }
 }
 
 class _TopoPainter extends CustomPainter {
+  const _TopoPainter({required this.isDark});
+
+  final bool isDark;
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5
-      ..color = const Color(0x08FFFFFF); // ~3% white
+      ..color = isDark
+          ? const Color(0x08FFFFFF) // ~3% white on dark
+          : WpColorsLight.watermark; // ~4% black on light
 
     // Origin offset to bottom-right so arcs peek from the corner
     final cx = size.width * 0.85;
@@ -303,5 +313,6 @@ class _TopoPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _TopoPainter oldDelegate) =>
+      oldDelegate.isDark != isDark;
 }
