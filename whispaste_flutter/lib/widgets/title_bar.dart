@@ -6,10 +6,10 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'brand_logo.dart';
 
-/// Gaming-dashboard–style title bar with brand wordmark.
+/// Gaming-launcher–style title bar with brand wordmark.
 ///
-/// Inspired by Steam/Dixper: seamless dark background, bold wordmark,
-/// subtle window controls. The bar flows into the content — no separator.
+/// Seamless dark background, elegant wordmark with prominent logo icon,
+/// subtle window controls. No borders — flows into the content.
 class WpTitleBar extends StatelessWidget {
   const WpTitleBar({super.key});
 
@@ -30,15 +30,14 @@ class WpTitleBar extends StatelessWidget {
       },
       child: Container(
         height: WpLayout.appBarHeight,
-        // Seamless — same background as the app, no border
         color: isDark ? WpColorsDark.background : WpColorsLight.background,
+        padding: const EdgeInsets.symmetric(horizontal: WpSpacing.md),
         child: Row(
           children: [
-            const SizedBox(width: WpSpacing.md),
-            // Brand logo icon — bold, accent-colored
-            const WpBrandLogo(size: 32),
-            const SizedBox(width: WpSpacing.sm),
-            // Dual-color wordmark: "Whis" light + "paste" accent
+            // Brand logo — prominent, ~2× text cap height
+            const WpBrandLogo(size: 36),
+            const SizedBox(width: WpSpacing.xs + 2),
+            // Wordmark: "Whis" light + "paste" accent — medium weight
             Text.rich(
               TextSpan(
                 children: [
@@ -48,9 +47,9 @@ class WpTitleBar extends StatelessWidget {
                       color: isDark
                           ? WpColorsDark.textPrimary
                           : WpColorsLight.textPrimary,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
                     ),
                   ),
                   TextSpan(
@@ -59,16 +58,16 @@ class WpTitleBar extends StatelessWidget {
                       color: isDark
                           ? WpColorsDark.accent
                           : WpColorsLight.accent,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ],
               ),
             ),
             const Spacer(),
-            // Window controls — compact, subtle, gaming-style
+            // Window controls — all subtle gray, no red close
             _WindowButton(
               icon: LucideIcons.minus,
               onPressed: () => windowManager.minimize(),
@@ -79,9 +78,7 @@ class WpTitleBar extends StatelessWidget {
               icon: LucideIcons.x,
               onPressed: () => windowManager.close(),
               isDark: isDark,
-              isClose: true,
             ),
-            const SizedBox(width: WpSpacing.xxs),
           ],
         ),
       ),
@@ -89,19 +86,17 @@ class WpTitleBar extends StatelessWidget {
   }
 }
 
-/// Compact window control button — muted by default, visible on hover.
+/// Subtle window control button — muted by default, visible on hover.
 class _WindowButton extends StatefulWidget {
   const _WindowButton({
     required this.icon,
     required this.onPressed,
     required this.isDark,
-    this.isClose = false,
   });
 
   final IconData icon;
   final VoidCallback onPressed;
   final bool isDark;
-  final bool isClose;
 
   @override
   State<_WindowButton> createState() => _WindowButtonState();
@@ -115,12 +110,10 @@ class _WindowButtonState extends State<_WindowButton> {
     final mutedColor = widget.isDark
         ? WpColorsDark.textMuted
         : WpColorsLight.textMuted;
-    final hoverBg = widget.isClose
-        ? const Color(0xFFE81123)
-        : (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover);
-    final hoverFg = widget.isClose
-        ? Colors.white
-        : (widget.isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary);
+    final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
+    final hoverFg = widget.isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -130,8 +123,8 @@ class _WindowButtonState extends State<_WindowButton> {
         onTap: widget.onPressed,
         child: AnimatedContainer(
           duration: WpMotion.fast,
-          width: 40,
-          height: 30,
+          width: 36,
+          height: 28,
           decoration: BoxDecoration(
             color: _isHovered ? hoverBg : Colors.transparent,
             borderRadius: BorderRadius.circular(WpRadius.sm),
@@ -194,8 +187,8 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
         },
         child: AnimatedContainer(
           duration: WpMotion.fast,
-          width: 40,
-          height: 30,
+          width: 36,
+          height: 28,
           decoration: BoxDecoration(
             color: _isHovered ? hoverBg : Colors.transparent,
             borderRadius: BorderRadius.circular(WpRadius.sm),
