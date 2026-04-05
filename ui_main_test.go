@@ -137,10 +137,10 @@ func TestSettingsCloudTranscriptionLayout(t *testing.T) {
 		t.Fatal("missing OpenAI transcription key row")
 	}
 	if !strings.Contains(html, `id="cloud-llm-openai-key-row"`) {
-		t.Fatal("missing OpenAI Smart Mode key row")
+		t.Fatal("missing OpenAI text refinement key row")
 	}
 	if !strings.Contains(html, `id="cloud-llm-groq-key-row"`) {
-		t.Fatal("missing Groq Smart Mode key row")
+		t.Fatal("missing Groq text refinement key row")
 	}
 	if strings.Contains(html, `id="cloud-stt-openai-hint"`) {
 		t.Fatal("stale separate OpenAI hint block should not remain in settings layout")

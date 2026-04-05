@@ -375,7 +375,7 @@ type Overlay struct {
 	pressBtn        int           // 0=none, same mapping
 	tracking        bool          // whether TrackMouseEvent is active
 	scale           float64       // DPI scale factor (1.0 = 96 DPI)
-	isSmartMode     bool          // whether Smart Mode post-processing is active
+	isSmartMode     bool          // whether text refinement post-processing is active
 	animating       bool          // fade animation in progress
 	animAlpha       byte          // current alpha during fade (0–255)
 	animFadeIn      bool          // true=fading in, false=fading out
@@ -670,7 +670,7 @@ func (o *Overlay) SetMaxRecordSec(sec int) {
 	o.mu.Unlock()
 }
 
-// SetSmartMode sets whether the current processing uses Smart Mode.
+// SetSmartMode sets whether the current processing uses text refinement.
 func (o *Overlay) SetSmartMode(enabled bool) {
 	o.mu.Lock()
 	o.isSmartMode = enabled

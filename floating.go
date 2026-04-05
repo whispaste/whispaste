@@ -499,7 +499,7 @@ func floatingWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 				newState := fb.cfg.SmartMode
 				fb.cfg.mu.Unlock()
 				fb.cfg.Save()
-				logInfo("Floating menu toggled Smart Mode: %v", newState)
+				logInfo("Floating menu toggled text refinement: %v", newState)
 				cb := func() func(bool) {
 					fb.mu.Lock()
 					defer fb.mu.Unlock()
@@ -1948,7 +1948,7 @@ func (fb *FloatingButton) showContextMenu(hwnd uintptr) {
 	}
 	procAppendMenuW.Call(hMenu, recordFlags, _FLOAT_MENU_RECORD, uintptr(unsafe.Pointer(recordPtr)))
 
-	// --- Smart Mode toggle ---
+	// --- Text Refinement toggle ---
 	smartText, _ := windows.UTF16PtrFromString(T("tray.smart_mode"))
 	smartFlags := uintptr(_MF_STRING)
 	if fb.cfg.GetSmartMode() {

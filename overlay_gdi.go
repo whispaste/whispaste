@@ -670,7 +670,7 @@ func (o *Overlay) paintTranscribingULW(g uintptr, frame int, contentX int32, hov
 	gdipFillCircleG(g, btnColor(0xFF1E2A36, 2, hoverBtn, pressBtn), _BTN_CANCEL_X+_BTN_SIZE/2, cy, _BTN_SIZE/2)
 	o.drawXIcon(g, _BTN_CANCEL_X, int32(cy)-_BTN_SIZE/2)
 
-	// Choose label and spinner color based on Smart Mode
+	// Choose label and spinner color based on text refinement
 	labelKey := "overlay.transcribing"
 	spinnerColor := uint32(0x0022D3EE) // cyan (BGR for #22D3EE)
 	if smartMode {

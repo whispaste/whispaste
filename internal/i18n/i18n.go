@@ -214,10 +214,10 @@ var translations = map[string]map[string]string{
 		"error.hotkey":                            "Could not register hotkey %s. It may be used by another application.",
 		"error.microphone":                        "Microphone not available: %s",
 		"error.clipboard":                         "Couldn't reach the clipboard: %s",
-		"error.postprocess_request":               "Smart Mode couldn't process this one",
-		"error.postprocess_api":                   "Smart Mode ran into an issue (error %d)",
-		"error.postprocess_empty":                 "Smart Mode returned nothing — try again",
-		"error.postprocess_parse":                 "Couldn't read Smart Mode's response",
+		"error.postprocess_request":               "Text Refinement couldn't process this one",
+		"error.postprocess_api":                   "Text Refinement ran into an issue (error %d)",
+		"error.postprocess_empty":                 "Text Refinement returned nothing — try again",
+		"error.postprocess_parse":                 "Couldn't read Text Refinement's response",
 		"error.entry_not_found":                   "Entry not found",
 		"error.no_cached_audio":                   "No cached audio available",
 		"error.no_recorder":                       "Recorder not available",
@@ -276,8 +276,8 @@ var translations = map[string]map[string]string{
 		"update.permission_failed":  "Update cannot be installed",
 		"update.permission_hint":    "Please reinstall WhisPaste from whispaste.de to fix auto-updates.",
 
-		// Smart Mode
-		"settings.smart_mode":             "Smart Mode (AI Post-Processing)",
+		// Text Refinement
+		"settings.smart_mode":             "Text Refinement (AI Post-Processing)",
 		"settings.smart_preset":           "Preset",
 		"settings.smart_preset_off":       "Off",
 		"settings.smart_preset_cleanup":   "Clean Up",
@@ -315,7 +315,7 @@ var translations = map[string]map[string]string{
 		// Tray
 		"tray.start_record":     "Start Recording",
 		"tray.stop_record":      "Stop Recording",
-		"tray.smart_mode":       "Smart Mode",
+		"tray.smart_mode":       "Text Refinement",
 		"tray.auto_paste":       "Auto-Paste",
 		"tray.history":          "Recent Transcriptions",
 		"tray.history_empty":    "No recordings yet",
@@ -331,7 +331,7 @@ var translations = map[string]map[string]string{
 		"balloon.sponsor_title":          "Enjoying WhisPaste?",
 		"balloon.sponsor":                "You've completed 50 dictations! If WhisPaste saves you time, consider supporting its development. ❤️",
 		"balloon.transcription_complete": "Transcription complete.",
-		"balloon.smart_mode_raw":         "Smart Mode failed - raw transcription was used.",
+		"balloon.smart_mode_raw":         "Text Refinement failed — raw transcription was used.",
 		"balloon.paste_clipboard_only":   "Could not paste here - the text was copied to your clipboard.",
 		"balloon.test":                   "Test notification — if you see this, notifications work!",
 
@@ -466,7 +466,7 @@ var translations = map[string]map[string]string{
 
 		// Feature Discovery
 		"discovery.smartmode.title":    "AI-powered refinement",
-		"discovery.smartmode.desc":     "Smart Mode refines your dictations with AI — try enabling it!",
+		"discovery.smartmode.desc":     "Text Refinement refines your dictations with AI — try enabling it!",
 		"discovery.analytics.title":    "Your dictation insights",
 		"discovery.analytics.desc":     "See your dictation patterns and productivity trends.",
 		"discovery.replacements.title": "Auto-correct your words",
@@ -477,10 +477,10 @@ var translations = map[string]map[string]string{
 		"shortcuts.title":            "Keyboard Shortcuts",
 		"shortcuts.nav":              "Navigation",
 		"shortcuts.recording":        "Recording",
-		"shortcuts.smartmode":        "Smart Mode",
+		"shortcuts.smartmode":        "Text Refinement",
 		"shortcuts.other":            "Other",
 		"shortcuts.record_stop":      "Record / Stop",
-		"shortcuts.toggle_smartmode": "Toggle Smart Mode",
+		"shortcuts.toggle_smartmode": "Toggle Text Refinement",
 		"shortcuts.search_history":   "Search History",
 		"shortcuts.close_dialog":     "Close / Clear",
 		"shortcuts.this_help":        "This Help",
@@ -584,7 +584,7 @@ var translations = map[string]map[string]string{
 		"statusbar.hotkey_tip":     "Recording hotkey",
 		"statusbar.off":            "Off",
 		"statusbar.on":             "On",
-		"statusbar.smart_tip":      "Smart Mode",
+		"statusbar.smart_tip":      "Text Refinement",
 
 		// Status messages
 		"status.offline":     "Offline",
@@ -597,9 +597,9 @@ var translations = map[string]map[string]string{
 		"statusTestError":    "Test failed",
 		"statusTesting":      "Testing…",
 
-		// Smart Mode
+		// Text Refinement
 		"smart.action":            "Apply",
-		"smart.apply":             "Apply Smart Mode",
+		"smart.apply":             "Apply Text Refinement",
 		"smart.bulkCreated":       "Batch created",
 		"smart.bulkProcessing":    "Processing batch…",
 		"smart.bulkTitle":         "Batch Process",
@@ -610,18 +610,18 @@ var translations = map[string]map[string]string{
 		"smart.customPlaceholder": "Enter your AI prompt…",
 		"smart.customSection":     "Custom",
 		"smart.customTitle":       "Custom Preset",
-		"smart.error":             "Smart Mode error",
+		"smart.error":             "Text Refinement error",
 		"smart.processing":        "Processing…",
 		"smart.replace":           "Replace text",
 		"smart.replaced":          "Text replaced",
 		"smart.resultMessage":     "Result:",
-		"smart.resultTitle":       "Smart Mode Result",
-		"smart.title":             "Smart Mode",
+		"smart.resultTitle":       "Text Refinement Result",
+		"smart.title":             "Text Refinement",
 		"smartNoPrompt":           "No prompt selected",
 		"smartPromptLangNote":     "Prompts work best in the dictation language",
 		"smartViewPromptTitle":    "View Prompt",
 
-		// Smart Mode LLM
+		// Text Refinement LLM
 		"smartLlmDelete":          "Delete Model",
 		"smartLlmDeleteConfirm":   "Delete this LLM model?",
 		"smartLlmDownload":        "Download",
@@ -633,12 +633,12 @@ var translations = map[string]map[string]string{
 		"smartLlmNotInstalled":    "Not installed",
 		"smartLlmReady":           "Ready",
 
-		// Smart Mode Switcher
+		// Text Refinement Switcher
 		"smartSwitcher.disabled": "Disabled",
 		"smartSwitcher.enabled":  "Enabled",
 		"smartSwitcher.settings": "Settings",
 		"smartSwitcher.switched": "Switched",
-		"smartSwitcher.title":    "Smart Mode",
+		"smartSwitcher.title":    "Text Refinement",
 
 		// Onboarding
 		"onboarding.api_key_empty":     "Please enter an API key",
@@ -725,7 +725,7 @@ var translations = map[string]map[string]string{
 		"gpuDisabledStatus":   "GPU acceleration disabled",
 		"gpuNotDetected":      "No GPU detected",
 		"gpuStatusMixedHint":  "Mixed GPU setup detected",
-		"gpuStatusSmart":      "Smart Mode GPU",
+		"gpuStatusSmart":      "Text Refinement GPU",
 		"gpuStatusStt":        "Speech Recognition GPU",
 
 		// Connectivity
@@ -834,7 +834,7 @@ var translations = map[string]map[string]string{
 		"navHistory":      "Dashboard",
 		"navReplacements": "Replacements",
 		"navSettings":     "Settings",
-		"navSmartMode":    "Smart Mode",
+		"navSmartMode":    "Text Refinement",
 
 		// Command Palette
 		"palette.cmd.copyLast":        "Copy last transcription",
@@ -850,7 +850,7 @@ var translations = map[string]map[string]string{
 		"palette.cmd.presetConcise":   "Concise",
 		"palette.cmd.presetTranslate": "Translate",
 		"palette.cmd.searchHistory":   "Search History",
-		"palette.cmd.smartToggle":     "Toggle Smart Mode",
+		"palette.cmd.smartToggle":     "Toggle Text Refinement",
 		"palette.cmd.startRecording":  "Start Recording",
 		"palette.cmd.toggleAutoPaste": "Toggle Auto-Paste",
 		"palette.hint":                "Type a command…",
@@ -1039,10 +1039,10 @@ var translations = map[string]map[string]string{
 		"error.hotkey":                            "Tastenkombination %s konnte nicht registriert werden — vermutlich von einer anderen App belegt.",
 		"error.microphone":                        "Mikrofon nicht verfügbar: %s",
 		"error.clipboard":                         "Zwischenablage nicht erreichbar: %s",
-		"error.postprocess_request":               "Smart Mode konnte das nicht verarbeiten",
-		"error.postprocess_api":                   "Smart Mode hat ein Problem (Fehler %d)",
-		"error.postprocess_empty":                 "Smart Mode hat nichts zurückgegeben — versuch es nochmal",
-		"error.postprocess_parse":                 "Konnte die Smart-Mode-Antwort nicht lesen",
+		"error.postprocess_request":               "Textverfeinerung konnte das nicht verarbeiten",
+		"error.postprocess_api":                   "Textverfeinerung hat ein Problem (Fehler %d)",
+		"error.postprocess_empty":                 "Textverfeinerung hat nichts zurückgegeben — versuch es nochmal",
+		"error.postprocess_parse":                 "Konnte die Textverfeinerungs-Antwort nicht lesen",
 		"error.entry_not_found":                   "Eintrag nicht gefunden",
 		"error.no_cached_audio":                   "Kein zwischengespeichertes Audio verfügbar",
 		"error.no_recorder":                       "Aufnahmegerät nicht verfügbar",
@@ -1101,8 +1101,8 @@ var translations = map[string]map[string]string{
 		"update.permission_failed":  "Update kann nicht installiert werden",
 		"update.permission_hint":    "Bitte installiere WhisPaste neu von whispaste.de, um Auto-Updates zu reparieren.",
 
-		// Smart Mode
-		"settings.smart_mode":             "Smart-Modus (KI-Nachbearbeitung)",
+		// Text Refinement
+		"settings.smart_mode":             "Textverfeinerung (KI-Nachbearbeitung)",
 		"settings.smart_preset":           "Vorlage",
 		"settings.smart_preset_off":       "Aus",
 		"settings.smart_preset_cleanup":   "Bereinigen",
@@ -1140,7 +1140,7 @@ var translations = map[string]map[string]string{
 		// Tray
 		"tray.start_record":     "Aufnahme starten",
 		"tray.stop_record":      "Aufnahme stoppen",
-		"tray.smart_mode":       "Smart-Modus",
+		"tray.smart_mode":       "Textverfeinerung",
 		"tray.auto_paste":       "Auto-Einfügen",
 		"tray.history":          "Letzte Transkriptionen",
 		"tray.history_empty":    "Noch keine Aufnahmen",
@@ -1156,7 +1156,7 @@ var translations = map[string]map[string]string{
 		"balloon.sponsor_title":          "Gefällt dir WhisPaste?",
 		"balloon.sponsor":                "Du hast 50 Diktate abgeschlossen! Wenn WhisPaste dir Zeit spart, unterstütze gerne die Weiterentwicklung. ❤️",
 		"balloon.transcription_complete": "Transkription abgeschlossen.",
-		"balloon.smart_mode_raw":         "Smart-Modus fehlgeschlagen - Rohtext wurde verwendet.",
+		"balloon.smart_mode_raw":         "Textverfeinerung fehlgeschlagen — Rohtext wurde verwendet.",
 		"balloon.paste_clipboard_only":   "Hier konnte nicht eingefügt werden - der Text liegt in deiner Zwischenablage.",
 		"balloon.test":                   "Test-Benachrichtigung — wenn du das siehst, funktionieren Benachrichtigungen!",
 
@@ -1290,8 +1290,8 @@ var translations = map[string]map[string]string{
 		"notebook.pinned_section":             "Angepinnt",
 
 		// Feature Discovery
-		"discovery.smartmode.title":    "KI-gestützte Verfeinerung",
-		"discovery.smartmode.desc":     "Smart Mode verfeinert deine Diktate mit KI — probier es aus!",
+		"discovery.smartmode.title":    "Textverfeinerung",
+		"discovery.smartmode.desc":     "Textverfeinerung verfeinert deine Diktate mit KI — probier es aus!",
 		"discovery.analytics.title":    "Deine Diktat-Einblicke",
 		"discovery.analytics.desc":     "Sieh dir deine Diktatmuster und Produktivitätstrends an.",
 		"discovery.replacements.title": "Automatische Wortkorrekturen",
@@ -1302,10 +1302,10 @@ var translations = map[string]map[string]string{
 		"shortcuts.title":            "Tastenkürzel",
 		"shortcuts.nav":              "Navigation",
 		"shortcuts.recording":        "Aufnahme",
-		"shortcuts.smartmode":        "Smart-Modus",
+		"shortcuts.smartmode":        "Textverfeinerung",
 		"shortcuts.other":            "Sonstiges",
 		"shortcuts.record_stop":      "Aufnahme / Stopp",
-		"shortcuts.toggle_smartmode": "Smart-Modus umschalten",
+		"shortcuts.toggle_smartmode": "Textverfeinerung umschalten",
 		"shortcuts.search_history":   "Verlauf durchsuchen",
 		"shortcuts.close_dialog":     "Schließen / Aufheben",
 		"shortcuts.this_help":        "Diese Hilfe",
@@ -1409,7 +1409,7 @@ var translations = map[string]map[string]string{
 		"statusbar.hotkey_tip":     "Aufnahme-Hotkey",
 		"statusbar.off":            "Aus",
 		"statusbar.on":             "An",
-		"statusbar.smart_tip":      "Smart-Modus",
+		"statusbar.smart_tip":      "Textverfeinerung",
 
 		// Status messages
 		"status.offline":     "Offline",
@@ -1422,9 +1422,9 @@ var translations = map[string]map[string]string{
 		"statusTestError":    "Test fehlgeschlagen",
 		"statusTesting":      "Teste…",
 
-		// Smart Mode
+		// Text Refinement
 		"smart.action":            "Anwenden",
-		"smart.apply":             "Smart Mode anwenden",
+		"smart.apply":             "Textverfeinerung anwenden",
 		"smart.bulkCreated":       "Stapel erstellt",
 		"smart.bulkProcessing":    "Stapelverarbeitung…",
 		"smart.bulkTitle":         "Stapelverarbeitung",
@@ -1435,18 +1435,18 @@ var translations = map[string]map[string]string{
 		"smart.customPlaceholder": "Gib deinen KI-Prompt ein…",
 		"smart.customSection":     "Benutzerdefiniert",
 		"smart.customTitle":       "Eigene Vorlage",
-		"smart.error":             "Smart-Modus-Fehler",
+		"smart.error":             "Textverfeinerungs-Fehler",
 		"smart.processing":        "Verarbeitung läuft…",
 		"smart.replace":           "Text ersetzen",
 		"smart.replaced":          "Text ersetzt",
 		"smart.resultMessage":     "Ergebnis:",
-		"smart.resultTitle":       "Smart-Modus-Ergebnis",
-		"smart.title":             "Smart-Modus",
+		"smart.resultTitle":       "Textverfeinerungs-Ergebnis",
+		"smart.title":             "Textverfeinerung",
 		"smartNoPrompt":           "Kein Prompt ausgewählt",
 		"smartPromptLangNote":     "Prompts funktionieren am besten in der Diktatsprache",
 		"smartViewPromptTitle":    "Prompt anzeigen",
 
-		// Smart Mode LLM
+		// Text Refinement LLM
 		"smartLlmDelete":          "Modell löschen",
 		"smartLlmDeleteConfirm":   "Dieses LLM-Modell löschen?",
 		"smartLlmDownload":        "Herunterladen",
@@ -1458,12 +1458,12 @@ var translations = map[string]map[string]string{
 		"smartLlmNotInstalled":    "Nicht installiert",
 		"smartLlmReady":           "Bereit",
 
-		// Smart Mode Switcher
+		// Text Refinement Switcher
 		"smartSwitcher.disabled": "Deaktiviert",
 		"smartSwitcher.enabled":  "Aktiviert",
 		"smartSwitcher.settings": "Einstellungen",
 		"smartSwitcher.switched": "Gewechselt",
-		"smartSwitcher.title":    "Smart-Modus",
+		"smartSwitcher.title":    "Textverfeinerung",
 
 		// Onboarding
 		"onboarding.api_key_empty":     "Bitte gib einen API-Schlüssel ein",
@@ -1550,7 +1550,7 @@ var translations = map[string]map[string]string{
 		"gpuDisabledStatus":   "GPU-Beschleunigung deaktiviert",
 		"gpuNotDetected":      "Keine GPU erkannt",
 		"gpuStatusMixedHint":  "Gemischte GPU-Konfiguration erkannt",
-		"gpuStatusSmart":      "Smart-Modus-GPU",
+		"gpuStatusSmart":      "Textverfeinerungs-GPU",
 		"gpuStatusStt":        "Spracherkennung GPU",
 
 		// Connectivity
@@ -1659,7 +1659,7 @@ var translations = map[string]map[string]string{
 		"navHistory":      "Dashboard",
 		"navReplacements": "Ersetzungen",
 		"navSettings":     "Einstellungen",
-		"navSmartMode":    "Smart-Modus",
+		"navSmartMode":    "Textverfeinerung",
 
 		// Command Palette
 		"palette.cmd.copyLast":        "Letzte Transkription kopieren",
@@ -1675,7 +1675,7 @@ var translations = map[string]map[string]string{
 		"palette.cmd.presetConcise":   "Kompakt",
 		"palette.cmd.presetTranslate": "Übersetzen",
 		"palette.cmd.searchHistory":   "Verlauf durchsuchen",
-		"palette.cmd.smartToggle":     "Smart-Modus umschalten",
+		"palette.cmd.smartToggle":     "Textverfeinerung umschalten",
 		"palette.cmd.startRecording":  "Aufnahme starten",
 		"palette.cmd.toggleAutoPaste": "Auto-Einfügen umschalten",
 		"palette.hint":                "Befehl eingeben…",

@@ -7,11 +7,11 @@ import (
 	webview "github.com/webview/webview_go"
 )
 
-// bindSmartHandlers registers smart mode, template, text replacement, app detection, and LLM JS bindings.
+// bindSmartHandlers registers text refinement, template, text replacement, app detection, and LLM JS bindings.
 func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 
-	// resolveSmartEndpoint determines the correct endpoint and API key for smart
-	// mode operations, based on the SmartModeProvider config setting.
+	// resolveSmartEndpoint determines the correct endpoint and API key for text
+	// refinement operations, based on the SmartModeProvider config setting.
 	resolveSmartEndpoint := func() (endpoint, apiKey, modelType string, err error) {
 		provider := cfg.GetSmartModeProvider()
 
@@ -211,7 +211,7 @@ func bindSmartHandlers(w webview.WebView, cfg *Config, history *History) {
 		if err := cfg.Save(); err != nil {
 			logError("Save config after smart preset switch: %v", err)
 		}
-		logInfo("Smart mode preset switched to: %s (enabled=%v)", preset, cfg.GetSmartMode())
+		logInfo("Text refinement preset switched to: %s (enabled=%v)", preset, cfg.GetSmartMode())
 	})
 
 	w.Bind("getBuiltinPresets", func() string {

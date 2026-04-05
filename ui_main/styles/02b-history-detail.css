@@ -261,7 +261,7 @@
 }
 .icon.spin { animation: spin 1s linear infinite; }
 
-/* Smart Mode processing state */
+/* Text Refinement processing state */
 .entry.processing {
   opacity: 0.55;
   pointer-events: none;

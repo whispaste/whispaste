@@ -666,7 +666,7 @@ func main() {
 					return
 				}
 
-				// Smart Mode: post-process with AI
+				// Text refinement: post-process with AI
 				smartEnabled, smartPreset, smartCustom, smartTarget := snapshotSmart()
 				smartLangHint := lang
 				if useLocal {
@@ -724,7 +724,7 @@ func main() {
 							processed, ppErr = PostProcess(text, smartPreset, smartCustom, smartTarget, ppAPIKey, ppEndpoint, smartLangHint, cfg.GetLocalLLMModel(), nil)
 						}
 						if ppErr != nil {
-							logWarn("Smart mode error (using raw text): %v", ppErr)
+							logWarn("Text refinement error (using raw text): %v", ppErr)
 							smartModeFallback = true
 						} else {
 							text = processed
@@ -736,7 +736,7 @@ func main() {
 					}
 				}
 
-				// Bail out if cancelled during smart mode post-processing
+				// Bail out if cancelled during text refinement post-processing
 				// (transcription already succeeded, save raw text without auto-paste)
 				postProcCancelled := transcribeCtx.Err() != nil
 				if postProcCancelled {

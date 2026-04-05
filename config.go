@@ -111,7 +111,7 @@ type TextReplacement struct {
 	Enabled     bool   `json:"enabled"`
 }
 
-// ConfigProfile stores a named set of transcription & smart mode settings.
+// ConfigProfile stores a named set of transcription & text refinement settings.
 type ConfigProfile struct {
 	UseLocalSTT           bool   `json:"use_local_stt"`
 	ActiveModelLocal      bool   `json:"active_model_local"`
@@ -629,28 +629,28 @@ func (c *Config) SetAutoPasteDelay(v int) {
 	c.AutoPasteDelay = v
 }
 
-// GetSmartMode returns whether Smart Mode is enabled (thread-safe).
+// GetSmartMode returns whether text refinement is enabled (thread-safe).
 func (c *Config) GetSmartMode() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.SmartMode
 }
 
-// GetSmartModePreset returns the Smart Mode preset (thread-safe).
+// GetSmartModePreset returns the text refinement preset (thread-safe).
 func (c *Config) GetSmartModePreset() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.SmartModePreset
 }
 
-// GetSmartModePrompt returns the custom Smart Mode prompt (thread-safe).
+// GetSmartModePrompt returns the custom text refinement prompt (thread-safe).
 func (c *Config) GetSmartModePrompt() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.SmartModePrompt
 }
 
-// GetSmartModeTarget returns the Smart Mode target language (thread-safe).
+// GetSmartModeTarget returns the text refinement target language (thread-safe).
 func (c *Config) GetSmartModeTarget() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -819,8 +819,8 @@ func (c *Config) GetTagColors() map[string]int {
 	return m
 }
 
-// SetSmartModePreset sets the smart mode preset and enables/disables smart mode (thread-safe).
-// An empty string or "off" disables smart mode; any other value enables it with that preset.
+// SetSmartModePreset sets the text refinement preset and enables/disables text refinement (thread-safe).
+// An empty string or "off" disables text refinement; any other value enables it with that preset.
 func (c *Config) SetSmartModePreset(preset string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -997,7 +997,7 @@ func (c *Config) GetVADSensitivity() float32 {
 	return c.VADSensitivity
 }
 
-// GetSmartModeProvider returns the smart mode provider preference (thread-safe).
+// GetSmartModeProvider returns the text refinement provider preference (thread-safe).
 func (c *Config) GetSmartModeProvider() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
