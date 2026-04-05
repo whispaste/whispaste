@@ -4,6 +4,7 @@
 /// and that pages are navigable via assistive technologies.
 library;
 
+import 'dart:ui' show CheckedState;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -82,7 +83,8 @@ void main() {
       expect(checkbox, findsOneWidget);
 
       final semantics = tester.getSemantics(checkbox);
-      expect(semantics.hasFlag(SemanticsFlag.hasCheckedState), isTrue,
+      expect(
+          semantics.flagsCollection.isChecked != CheckedState.none, isTrue,
           reason: 'Checkbox must expose checked state semantics');
     });
   });

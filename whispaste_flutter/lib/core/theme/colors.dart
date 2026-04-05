@@ -132,6 +132,13 @@ abstract final class WpColorsLight {
     stops: [0.0, 0.5, 1.0],
   );
 
+  /// Frame gradient — warm cool-gray wash for unified premium feel
+  static const LinearGradient frameGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFFEAEFF6), Color(0xFFE6EBF4)],
+  );
+
   static const LinearGradient accentGradient = LinearGradient(
     colors: [Color(0xFF0891B2), Color(0xFF0284C7)],
   );
@@ -147,6 +154,9 @@ abstract final class WpColorsLight {
 
   /// Glass border — bright edge on frosted surfaces
   static const Color glassBorder = Color(0x40FFFFFF);
+
+  /// Watermark line color — very faint for subtle topographic effect
+  static const Color watermark = Color(0x0A000000);
 }
 
 // ---------------------------------------------------------------------------
