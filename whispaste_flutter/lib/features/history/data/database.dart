@@ -86,10 +86,10 @@ class HistoryDatabase extends _$HistoryDatabase {
   // Query helpers
   // ---------------------------------------------------------------------------
 
-  /// All non-deleted entries, newest first.
+  /// All non-deleted, non-archived entries, newest first.
   Future<List<HistoryEntry>> allEntries({int limit = 100, int offset = 0}) {
     return (select(historyEntries)
-          ..where((e) => e.deletedAt.isNull())
+          ..where((e) => e.deletedAt.isNull() & e.archived.equals(false))
           ..orderBy([
             (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
           ])
@@ -97,13 +97,39 @@ class HistoryDatabase extends _$HistoryDatabase {
         .get();
   }
 
-  /// Pinned entries only.
+  /// Pinned entries only (non-deleted, non-archived).
   Future<List<HistoryEntry>> pinnedEntries() {
     return (select(historyEntries)
-          ..where((e) => e.pinned.equals(true) & e.deletedAt.isNull())
+          ..where((e) =>
+              e.pinned.equals(true) &
+              e.deletedAt.isNull() &
+              e.archived.equals(false))
           ..orderBy([
             (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
           ]))
+        .get();
+  }
+
+  /// Archived entries only (non-deleted).
+  Future<List<HistoryEntry>> archivedEntries({int limit = 100}) {
+    return (select(historyEntries)
+          ..where((e) =>
+              e.archived.equals(true) & e.deletedAt.isNull())
+          ..orderBy([
+            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
+          ])
+          ..limit(limit))
+        .get();
+  }
+
+  /// Trash: soft-deleted entries, newest deletion first.
+  Future<List<HistoryEntry>> trashEntries({int limit = 100}) {
+    return (select(historyEntries)
+          ..where((e) => e.deletedAt.isNotNull())
+          ..orderBy([
+            (e) => OrderingTerm(expression: e.deletedAt, mode: OrderingMode.desc)
+          ])
+          ..limit(limit))
         .get();
   }
 
@@ -143,12 +169,102 @@ class HistoryDatabase extends _$HistoryDatabase {
         .write(HistoryEntriesCompanion(deletedAt: Value(DateTime.now())));
   }
 
+  /// Restore a soft-deleted entry from trash.
+  Future<int> restoreEntry(String entryId) {
+    return (update(historyEntries)..where((e) => e.id.equals(entryId)))
+        .write(const HistoryEntriesCompanion(deletedAt: Value(null)));
+  }
+
+  /// Permanently delete a single entry.
+  Future<int> permanentDeleteEntry(String entryId) {
+    return (delete(historyEntries)..where((e) => e.id.equals(entryId))).go();
+  }
+
   /// Permanently remove soft-deleted entries older than [days].
   Future<int> purgeTrash({int days = 30}) {
     final cutoff = DateTime.now().subtract(Duration(days: days));
     return (delete(historyEntries)
           ..where((e) => e.deletedAt.isNotNull() & e.deletedAt.isSmallerThanValue(cutoff)))
         .go();
+  }
+
+  /// Toggle archive status.
+  Future<void> toggleArchive(String entryId) async {
+    final entry = await (select(historyEntries)
+          ..where((e) => e.id.equals(entryId)))
+        .getSingleOrNull();
+    if (entry == null) return;
+    await (update(historyEntries)..where((e) => e.id.equals(entryId)))
+        .write(HistoryEntriesCompanion(archived: Value(!entry.archived)));
+  }
+
+  /// Bulk soft-delete multiple entries.
+  Future<void> softDeleteEntries(List<String> entryIds) async {
+    await (update(historyEntries)..where((e) => e.id.isIn(entryIds)))
+        .write(HistoryEntriesCompanion(deletedAt: Value(DateTime.now())));
+  }
+
+  /// Merge multiple entries into one. Keeps the oldest timestamp,
+  /// concatenates content with dividers, combines tags.
+  Future<HistoryEntry?> mergeEntries(List<String> entryIds) async {
+    if (entryIds.length < 2) return null;
+    final entries = await (select(historyEntries)
+          ..where((e) => e.id.isIn(entryIds))
+          ..orderBy([
+            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.asc)
+          ]))
+        .get();
+    if (entries.length < 2) return null;
+
+    // Merge content
+    final mergedContent =
+        entries.map((e) => e.content.trim()).where((c) => c.isNotEmpty).join('\n\n---\n\n');
+
+    // Merge tags (deduplicate)
+    final allTags = <String>{};
+    for (final e in entries) {
+      // Tags are stored as JSON array string
+      final raw = e.tags;
+      if (raw.isNotEmpty && raw != '[]') {
+        // Simple parse: strip brackets, split by comma
+        for (final t in raw
+            .replaceAll('[', '')
+            .replaceAll(']', '')
+            .replaceAll('"', '')
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)) {
+          allTags.add(t);
+        }
+      }
+    }
+    final tagsJson = allTags.isEmpty
+        ? '[]'
+        : '[${allTags.map((t) => '"$t"').join(',')}]';
+
+    // Sum durations
+    final totalDuration = entries.fold<double>(0, (s, e) => s + e.durationSec);
+
+    // Use first entry as base, update it
+    final base = entries.first;
+    final companion = HistoryEntriesCompanion(
+      id: Value(base.id),
+      content: Value(mergedContent),
+      title: Value('${base.title} (merged)'),
+      timestamp: Value(base.timestamp),
+      durationSec: Value(totalDuration),
+      tags: Value(tagsJson),
+      pinned: Value(entries.any((e) => e.pinned)),
+    );
+    await into(historyEntries).insertOnConflictUpdate(companion);
+
+    // Soft-delete the other entries
+    final otherIds = entryIds.where((id) => id != base.id).toList();
+    await softDeleteEntries(otherIds);
+
+    // Return the merged entry
+    return (select(historyEntries)..where((e) => e.id.equals(base.id)))
+        .getSingleOrNull();
   }
 
   /// Insert or update an entry.
@@ -166,12 +282,34 @@ class HistoryDatabase extends _$HistoryDatabase {
         .write(HistoryEntriesCompanion(pinned: Value(!entry.pinned)));
   }
 
-  /// Watch all non-deleted entries as a live stream.
+  /// Watch all non-deleted, non-archived entries as a live stream.
   Stream<List<HistoryEntry>> watchEntries({int limit = 100}) {
     return (select(historyEntries)
-          ..where((e) => e.deletedAt.isNull())
+          ..where((e) => e.deletedAt.isNull() & e.archived.equals(false))
           ..orderBy([
             (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
+          ])
+          ..limit(limit))
+        .watch();
+  }
+
+  /// Watch archived entries.
+  Stream<List<HistoryEntry>> watchArchived({int limit = 100}) {
+    return (select(historyEntries)
+          ..where((e) => e.archived.equals(true) & e.deletedAt.isNull())
+          ..orderBy([
+            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
+          ])
+          ..limit(limit))
+        .watch();
+  }
+
+  /// Watch trash entries.
+  Stream<List<HistoryEntry>> watchTrash({int limit = 100}) {
+    return (select(historyEntries)
+          ..where((e) => e.deletedAt.isNotNull())
+          ..orderBy([
+            (e) => OrderingTerm(expression: e.deletedAt, mode: OrderingMode.desc)
           ])
           ..limit(limit))
         .watch();

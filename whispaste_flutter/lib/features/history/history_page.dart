@@ -47,6 +47,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   late List<HistoryEntry> _sampleEntries;
   String? _selectedEntryId;
   _ViewMode _viewMode = _ViewMode.list;
+  bool _multiSelectMode = false;
+  final Set<String> _selectedIds = {};
 
   HistoryEntry? get _selectedEntry {
     if (_selectedEntryId == null) return null;
@@ -78,17 +80,32 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       case HistoryFilter.today:
         entries = entries
             .where((e) =>
+                e.deletedAt == null &&
+                !e.archived &&
                 e.timestamp.year == now.year &&
                 e.timestamp.month == now.month &&
                 e.timestamp.day == now.day)
             .toList();
       case HistoryFilter.week:
         final weekAgo = now.subtract(const Duration(days: 7));
-        entries = entries.where((e) => e.timestamp.isAfter(weekAgo)).toList();
+        entries = entries
+            .where((e) =>
+                e.deletedAt == null &&
+                !e.archived &&
+                e.timestamp.isAfter(weekAgo))
+            .toList();
       case HistoryFilter.pinned:
-        entries = entries.where((e) => e.pinned).toList();
+        entries = entries
+            .where((e) => e.pinned && e.deletedAt == null && !e.archived)
+            .toList();
+      case HistoryFilter.archived:
+        entries =
+            entries.where((e) => e.archived && e.deletedAt == null).toList();
+      case HistoryFilter.trash:
+        entries = entries.where((e) => e.deletedAt != null).toList();
       case HistoryFilter.all:
-        break;
+        entries =
+            entries.where((e) => e.deletedAt == null && !e.archived).toList();
     }
 
     // Apply search
@@ -147,23 +164,52 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final groups = _groupedEntries;
     final hasResults = groups.isNotEmpty;
+    final isTrashView = _activeFilter == HistoryFilter.trash;
+    final isArchiveView = _activeFilter == HistoryFilter.archived;
 
     return WpPageShell(
       scrollable: false,
       padding: EdgeInsets.zero,
       child: Column(
         children: [
+          // Multi-select action bar (shown when items are selected)
+          if (_multiSelectMode && _selectedIds.isNotEmpty)
+            _MultiSelectBar(
+              selectedCount: _selectedIds.length,
+              isDark: isDark,
+              isTrashView: isTrashView,
+              isArchiveView: isArchiveView,
+              onMerge: _selectedIds.length >= 2 ? _mergeSelected : null,
+              onArchive: !isTrashView ? _archiveSelected : null,
+              onDelete: _deleteSelected,
+              onRestore: isTrashView ? _restoreSelected : null,
+              onCancelSelection: () => setState(() {
+                _multiSelectMode = false;
+                _selectedIds.clear();
+              }),
+            ),
           // Search & filter toolbar
-          _SearchToolbar(
-            controller: _searchController,
-            activeFilter: _activeFilter,
-            isDark: isDark,
-            onFilterChanged: (f) => setState(() => _activeFilter = f),
-            onSearchChanged: () => setState(() {}),
-            resultCount: _filteredEntries.length,
-            viewMode: _viewMode,
-            onViewModeChanged: (m) => setState(() => _viewMode = m),
-          ),
+          if (!_multiSelectMode || _selectedIds.isEmpty)
+            _SearchToolbar(
+              controller: _searchController,
+              activeFilter: _activeFilter,
+              isDark: isDark,
+              onFilterChanged: (f) => setState(() {
+                _activeFilter = f;
+                _multiSelectMode = false;
+                _selectedIds.clear();
+                _selectedEntryId = null;
+              }),
+              onSearchChanged: () => setState(() {}),
+              resultCount: _filteredEntries.length,
+              viewMode: _viewMode,
+              onViewModeChanged: (m) => setState(() => _viewMode = m),
+              multiSelectMode: _multiSelectMode,
+              onToggleMultiSelect: () => setState(() {
+                _multiSelectMode = !_multiSelectMode;
+                if (!_multiSelectMode) _selectedIds.clear();
+              }),
+            ),
           // Master-detail content
           Expanded(
             child: hasResults
@@ -172,31 +218,66 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     isDark: isDark,
                     viewMode: _viewMode,
                     selectedEntry: _selectedEntry,
-                    onEntryTap: (entry) => setState(() {
-                      _selectedEntryId = entry.id;
-                    }),
+                    multiSelectMode: _multiSelectMode,
+                    selectedIds: _selectedIds,
+                    isTrashView: isTrashView,
+                    isArchiveView: isArchiveView,
+                    onEntryTap: (entry) {
+                      if (_multiSelectMode) {
+                        setState(() {
+                          if (_selectedIds.contains(entry.id)) {
+                            _selectedIds.remove(entry.id);
+                          } else {
+                            _selectedIds.add(entry.id);
+                          }
+                        });
+                      } else {
+                        setState(() => _selectedEntryId = entry.id);
+                      }
+                    },
                     onCopy: _copyEntry,
                     onPin: _togglePin,
                     onDelete: _deleteEntry,
+                    onArchive: _archiveEntry,
+                    onRestore: _restoreEntry,
                     onCloseDetail: () =>
                         setState(() => _selectedEntryId = null),
                   )
-                : _searchController.text.isNotEmpty
-                    ? WpEmptyState(
-                        icon: LucideIcons.searchX,
-                        title: 'No results',
-                        hint:
-                            'No transcriptions match "${_searchController.text}".\nTry a different search term.',
-                      )
-                    : const WpEmptyState(
-                        icon: LucideIcons.mic,
-                        title: 'No recordings yet',
-                        hint:
-                            'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.\n\n🔒 All data stays on your device.',
-                      ),
+                : _emptyStateForFilter(isDark),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _emptyStateForFilter(bool isDark) {
+    if (_searchController.text.isNotEmpty) {
+      return WpEmptyState(
+        icon: LucideIcons.searchX,
+        title: 'No results',
+        hint:
+            'No transcriptions match "${_searchController.text}".\nTry a different search term.',
+      );
+    }
+    if (_activeFilter == HistoryFilter.trash) {
+      return const WpEmptyState(
+        icon: LucideIcons.trash2,
+        title: 'Trash is empty',
+        hint: 'Deleted transcriptions will appear here.\nItems are permanently removed after 30 days.',
+      );
+    }
+    if (_activeFilter == HistoryFilter.archived) {
+      return const WpEmptyState(
+        icon: LucideIcons.archive,
+        title: 'No archived items',
+        hint: 'Archive transcriptions you want to keep\nbut don\'t need in your main list.',
+      );
+    }
+    return const WpEmptyState(
+      icon: LucideIcons.mic,
+      title: 'No recordings yet',
+      hint:
+          'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.\n\n🔒 All data stays on your device.',
     );
   }
 
@@ -244,8 +325,307 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   void _deleteEntry(HistoryEntry entry) {
     setState(() {
-      _sampleEntries.removeWhere((e) => e.id == entry.id);
+      // Soft-delete: set deletedAt instead of removing
+      final idx = _sampleEntries.indexWhere((e) => e.id == entry.id);
+      if (idx >= 0) {
+        final old = _sampleEntries[idx];
+        _sampleEntries[idx] = HistoryEntry(
+          id: old.id,
+          content: old.content,
+          title: old.title,
+          timestamp: old.timestamp,
+          durationSec: old.durationSec,
+          processingDurationSec: old.processingDurationSec,
+          language: old.language,
+          languageHint: old.languageHint,
+          tags: old.tags,
+          pinned: old.pinned,
+          source: old.source,
+          model: old.model,
+          isLocal: old.isLocal,
+          costUsd: old.costUsd,
+          projectId: old.projectId,
+          archived: old.archived,
+          titleEdited: old.titleEdited,
+          deletedAt: DateTime.now(),
+        );
+      }
       if (_selectedEntryId == entry.id) _selectedEntryId = null;
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Moved to trash'),
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        width: 260,
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => _restoreEntry(entry),
+        ),
+      ),
+    );
+  }
+
+  void _archiveEntry(HistoryEntry entry) {
+    setState(() {
+      final idx = _sampleEntries.indexWhere((e) => e.id == entry.id);
+      if (idx >= 0) {
+        final old = _sampleEntries[idx];
+        _sampleEntries[idx] = HistoryEntry(
+          id: old.id,
+          content: old.content,
+          title: old.title,
+          timestamp: old.timestamp,
+          durationSec: old.durationSec,
+          processingDurationSec: old.processingDurationSec,
+          language: old.language,
+          languageHint: old.languageHint,
+          tags: old.tags,
+          pinned: old.pinned,
+          source: old.source,
+          model: old.model,
+          isLocal: old.isLocal,
+          costUsd: old.costUsd,
+          projectId: old.projectId,
+          archived: !old.archived,
+          titleEdited: old.titleEdited,
+          deletedAt: old.deletedAt,
+        );
+      }
+      if (_selectedEntryId == entry.id) _selectedEntryId = null;
+    });
+  }
+
+  void _restoreEntry(HistoryEntry entry) {
+    setState(() {
+      final idx = _sampleEntries.indexWhere((e) => e.id == entry.id);
+      if (idx >= 0) {
+        final old = _sampleEntries[idx];
+        _sampleEntries[idx] = HistoryEntry(
+          id: old.id,
+          content: old.content,
+          title: old.title,
+          timestamp: old.timestamp,
+          durationSec: old.durationSec,
+          processingDurationSec: old.processingDurationSec,
+          language: old.language,
+          languageHint: old.languageHint,
+          tags: old.tags,
+          pinned: old.pinned,
+          source: old.source,
+          model: old.model,
+          isLocal: old.isLocal,
+          costUsd: old.costUsd,
+          projectId: old.projectId,
+          archived: false,
+          titleEdited: old.titleEdited,
+          deletedAt: null,
+        );
+      }
+    });
+  }
+
+  void _mergeSelected() {
+    if (_selectedIds.length < 2) return;
+    setState(() {
+      // Get entries in timestamp order (oldest first)
+      final entries = _selectedIds
+          .map((id) => _sampleEntries.firstWhere((e) => e.id == id))
+          .toList()
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      // Merge content
+      final mergedContent = entries
+          .map((e) => e.content.trim())
+          .where((c) => c.isNotEmpty)
+          .join('\n\n---\n\n');
+
+      // Union tags
+      final allTags = <String>{};
+      for (final e in entries) {
+        try {
+          final decoded = jsonDecode(e.tags);
+          if (decoded is List) {
+            for (final t in decoded) {
+              if (t is String && t.isNotEmpty) allTags.add(t);
+            }
+          }
+        } catch (_) {}
+      }
+      allTags.add('merged');
+      final tagsJson = '[${allTags.map((t) => '"$t"').join(',')}]';
+
+      // Sum durations
+      final totalDuration =
+          entries.fold<double>(0, (s, e) => s + e.durationSec);
+
+      // Use first (oldest) as base
+      final base = entries.first;
+      final mergedEntry = HistoryEntry(
+        id: base.id,
+        content: mergedContent,
+        title: '${base.title} (merged)',
+        timestamp: entries.last.timestamp,
+        durationSec: totalDuration,
+        processingDurationSec: base.processingDurationSec,
+        language: base.language,
+        languageHint: base.languageHint,
+        tags: tagsJson,
+        pinned: entries.any((e) => e.pinned),
+        source: 'merged',
+        model: base.model,
+        isLocal: base.isLocal,
+        costUsd: entries.fold<double>(0, (s, e) => s + e.costUsd),
+        projectId: base.projectId,
+        archived: false,
+        titleEdited: false,
+        deletedAt: null,
+      );
+
+      // Replace base entry
+      final baseIdx = _sampleEntries.indexWhere((e) => e.id == base.id);
+      if (baseIdx >= 0) _sampleEntries[baseIdx] = mergedEntry;
+
+      // Soft-delete the others
+      for (final e in entries.skip(1)) {
+        final idx = _sampleEntries.indexWhere((se) => se.id == e.id);
+        if (idx >= 0) {
+          _sampleEntries[idx] = HistoryEntry(
+            id: e.id,
+            content: e.content,
+            title: e.title,
+            timestamp: e.timestamp,
+            durationSec: e.durationSec,
+            processingDurationSec: e.processingDurationSec,
+            language: e.language,
+            languageHint: e.languageHint,
+            tags: e.tags,
+            pinned: e.pinned,
+            source: e.source,
+            model: e.model,
+            isLocal: e.isLocal,
+            costUsd: e.costUsd,
+            projectId: e.projectId,
+            archived: e.archived,
+            titleEdited: e.titleEdited,
+            deletedAt: DateTime.now(),
+          );
+        }
+      }
+
+      _selectedIds.clear();
+      _multiSelectMode = false;
+      _selectedEntryId = base.id;
+    });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Entries merged'),
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        width: 200,
+      ),
+    );
+  }
+
+  void _archiveSelected() {
+    setState(() {
+      for (final id in _selectedIds) {
+        final idx = _sampleEntries.indexWhere((e) => e.id == id);
+        if (idx >= 0) {
+          final old = _sampleEntries[idx];
+          _sampleEntries[idx] = HistoryEntry(
+            id: old.id,
+            content: old.content,
+            title: old.title,
+            timestamp: old.timestamp,
+            durationSec: old.durationSec,
+            processingDurationSec: old.processingDurationSec,
+            language: old.language,
+            languageHint: old.languageHint,
+            tags: old.tags,
+            pinned: old.pinned,
+            source: old.source,
+            model: old.model,
+            isLocal: old.isLocal,
+            costUsd: old.costUsd,
+            projectId: old.projectId,
+            archived: true,
+            titleEdited: old.titleEdited,
+            deletedAt: old.deletedAt,
+          );
+        }
+      }
+      _selectedIds.clear();
+      _multiSelectMode = false;
+    });
+  }
+
+  void _deleteSelected() {
+    setState(() {
+      for (final id in _selectedIds) {
+        final idx = _sampleEntries.indexWhere((e) => e.id == id);
+        if (idx >= 0) {
+          final old = _sampleEntries[idx];
+          _sampleEntries[idx] = HistoryEntry(
+            id: old.id,
+            content: old.content,
+            title: old.title,
+            timestamp: old.timestamp,
+            durationSec: old.durationSec,
+            processingDurationSec: old.processingDurationSec,
+            language: old.language,
+            languageHint: old.languageHint,
+            tags: old.tags,
+            pinned: old.pinned,
+            source: old.source,
+            model: old.model,
+            isLocal: old.isLocal,
+            costUsd: old.costUsd,
+            projectId: old.projectId,
+            archived: old.archived,
+            titleEdited: old.titleEdited,
+            deletedAt: DateTime.now(),
+          );
+        }
+      }
+      _selectedIds.clear();
+      _multiSelectMode = false;
+    });
+  }
+
+  void _restoreSelected() {
+    setState(() {
+      for (final id in _selectedIds) {
+        final idx = _sampleEntries.indexWhere((e) => e.id == id);
+        if (idx >= 0) {
+          final old = _sampleEntries[idx];
+          _sampleEntries[idx] = HistoryEntry(
+            id: old.id,
+            content: old.content,
+            title: old.title,
+            timestamp: old.timestamp,
+            durationSec: old.durationSec,
+            processingDurationSec: old.processingDurationSec,
+            language: old.language,
+            languageHint: old.languageHint,
+            tags: old.tags,
+            pinned: old.pinned,
+            source: old.source,
+            model: old.model,
+            isLocal: old.isLocal,
+            costUsd: old.costUsd,
+            projectId: old.projectId,
+            archived: false,
+            titleEdited: old.titleEdited,
+            deletedAt: null,
+          );
+        }
+      }
+      _selectedIds.clear();
+      _multiSelectMode = false;
     });
   }
 }
@@ -264,6 +644,8 @@ class _SearchToolbar extends StatelessWidget {
     required this.resultCount,
     required this.viewMode,
     required this.onViewModeChanged,
+    required this.multiSelectMode,
+    required this.onToggleMultiSelect,
   });
 
   final TextEditingController controller;
@@ -274,6 +656,8 @@ class _SearchToolbar extends StatelessWidget {
   final int resultCount;
   final _ViewMode viewMode;
   final ValueChanged<_ViewMode> onViewModeChanged;
+  final bool multiSelectMode;
+  final VoidCallback onToggleMultiSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +740,22 @@ class _SearchToolbar extends StatelessWidget {
                         onTap: () => onFilterChanged(HistoryFilter.pinned),
                         isDark: isDark,
                       ),
+                      const SizedBox(width: WpSpacing.xs),
+                      _FilterChip(
+                        label: 'Archived',
+                        icon: LucideIcons.archive,
+                        isActive: activeFilter == HistoryFilter.archived,
+                        onTap: () => onFilterChanged(HistoryFilter.archived),
+                        isDark: isDark,
+                      ),
+                      const SizedBox(width: WpSpacing.xs),
+                      _FilterChip(
+                        label: 'Trash',
+                        icon: LucideIcons.trash2,
+                        isActive: activeFilter == HistoryFilter.trash,
+                        onTap: () => onFilterChanged(HistoryFilter.trash),
+                        isDark: isDark,
+                      ),
                     ],
                   ),
                 ),
@@ -374,7 +774,30 @@ class _SearchToolbar extends StatelessWidget {
                     ),
                   ),
                 ),
-              const SizedBox(width: WpSpacing.sm),
+              const SizedBox(width: WpSpacing.xs),
+              // Multi-select toggle
+              Tooltip(
+                message: multiSelectMode ? 'Exit selection' : 'Select multiple',
+                child: InkWell(
+                  borderRadius: WpRadius.borderSm,
+                  onTap: onToggleMultiSelect,
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      multiSelectMode
+                          ? LucideIcons.checkCheck
+                          : LucideIcons.listChecks,
+                      size: WpIconSize.sm,
+                      color: multiSelectMode
+                          ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                          : (isDark
+                              ? WpColorsDark.textMuted
+                              : WpColorsLight.textMuted),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: WpSpacing.xxs),
               // View mode toggle
               _ViewModeToggle(
                 viewMode: viewMode,
@@ -384,6 +807,190 @@ class _SearchToolbar extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Multi-select action bar
+// ---------------------------------------------------------------------------
+
+class _MultiSelectBar extends StatelessWidget {
+  const _MultiSelectBar({
+    required this.selectedCount,
+    required this.isDark,
+    required this.isTrashView,
+    required this.isArchiveView,
+    required this.onCancelSelection,
+    this.onMerge,
+    this.onArchive,
+    this.onDelete,
+    this.onRestore,
+  });
+
+  final int selectedCount;
+  final bool isDark;
+  final bool isTrashView;
+  final bool isArchiveView;
+  final VoidCallback onCancelSelection;
+  final VoidCallback? onMerge;
+  final VoidCallback? onArchive;
+  final VoidCallback? onDelete;
+  final VoidCallback? onRestore;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textPrimary =
+        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final bg = isDark
+        ? WpColorsDark.surfaceElevated
+        : WpColorsLight.surfaceElevated;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.xl,
+        vertical: WpSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: bg,
+        border: Border(
+          bottom: BorderSide(
+            color: accent.withValues(alpha: 0.2),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Selection count
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.xxs,
+            ),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.15),
+              borderRadius: WpRadius.borderFull,
+            ),
+            child: Text(
+              '$selectedCount selected',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: accent,
+              ),
+            ),
+          ),
+          const SizedBox(width: WpSpacing.md),
+          // Action buttons
+          if (onMerge != null)
+            _MultiSelectAction(
+              icon: LucideIcons.merge,
+              label: 'Merge',
+              isDark: isDark,
+              onTap: onMerge!,
+            ),
+          if (onRestore != null)
+            _MultiSelectAction(
+              icon: LucideIcons.undo2,
+              label: 'Restore',
+              isDark: isDark,
+              onTap: onRestore!,
+            ),
+          if (onArchive != null)
+            _MultiSelectAction(
+              icon: isArchiveView ? LucideIcons.archiveRestore : LucideIcons.archive,
+              label: isArchiveView ? 'Unarchive' : 'Archive',
+              isDark: isDark,
+              onTap: onArchive!,
+            ),
+          if (onDelete != null)
+            _MultiSelectAction(
+              icon: LucideIcons.trash2,
+              label: isTrashView ? 'Delete forever' : 'Delete',
+              isDark: isDark,
+              onTap: onDelete!,
+              isDestructive: true,
+            ),
+          const Spacer(),
+          // Cancel
+          TextButton.icon(
+            onPressed: onCancelSelection,
+            icon: Icon(LucideIcons.x, size: 14, color: textPrimary),
+            label: Text(
+              'Cancel',
+              style: TextStyle(fontSize: 13, color: textPrimary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MultiSelectAction extends StatefulWidget {
+  const _MultiSelectAction({
+    required this.icon,
+    required this.label,
+    required this.isDark,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isDark;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  @override
+  State<_MultiSelectAction> createState() => _MultiSelectActionState();
+}
+
+class _MultiSelectActionState extends State<_MultiSelectAction> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final textSecondary = widget.isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+    final hoverColor = widget.isDestructive
+        ? (widget.isDark ? WpColorsDark.error : WpColorsLight.error)
+        : (widget.isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary);
+    final color = _hovered ? hoverColor : textSecondary;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: WpSpacing.xs),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: Tooltip(
+          message: widget.label,
+          child: InkWell(
+            borderRadius: WpRadius.borderSm,
+            onTap: widget.onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.xxs + 2,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(widget.icon, size: 14, color: color),
+                  const SizedBox(width: 4),
+                  Text(
+                    widget.label,
+                    style: TextStyle(fontSize: 12, color: color),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -403,7 +1010,13 @@ class _MasterDetail extends StatefulWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    required this.onArchive,
+    required this.onRestore,
     required this.onCloseDetail,
+    required this.multiSelectMode,
+    required this.selectedIds,
+    required this.isTrashView,
+    required this.isArchiveView,
   });
 
   final List<DateGroup> groups;
@@ -414,7 +1027,13 @@ class _MasterDetail extends StatefulWidget {
   final ValueChanged<HistoryEntry> onCopy;
   final ValueChanged<HistoryEntry> onPin;
   final ValueChanged<HistoryEntry> onDelete;
+  final ValueChanged<HistoryEntry> onArchive;
+  final ValueChanged<HistoryEntry> onRestore;
   final VoidCallback onCloseDetail;
+  final bool multiSelectMode;
+  final Set<String> selectedIds;
+  final bool isTrashView;
+  final bool isArchiveView;
 
   @override
   State<_MasterDetail> createState() => _MasterDetailState();
@@ -484,6 +1103,9 @@ class _MasterDetailState extends State<_MasterDetail>
           onCopy: widget.onCopy,
           onPin: widget.onPin,
           onDelete: widget.onDelete,
+          multiSelectMode: widget.multiSelectMode,
+          selectedIds: widget.selectedIds,
+          isTrashView: widget.isTrashView,
         );
       case _ViewMode.cards:
         return _CardView(
@@ -494,6 +1116,8 @@ class _MasterDetailState extends State<_MasterDetail>
           onCopy: widget.onCopy,
           onPin: widget.onPin,
           onDelete: widget.onDelete,
+          multiSelectMode: widget.multiSelectMode,
+          selectedIds: widget.selectedIds,
         );
       case _ViewMode.compact:
         return _CompactView(
@@ -501,6 +1125,8 @@ class _MasterDetailState extends State<_MasterDetail>
           isDark: widget.isDark,
           selectedId: selectedId,
           onEntryTap: widget.onEntryTap,
+          multiSelectMode: widget.multiSelectMode,
+          selectedIds: widget.selectedIds,
         );
     }
   }
@@ -585,12 +1211,18 @@ class _MasterDetailState extends State<_MasterDetail>
                             entry:
                                 widget.selectedEntry ?? _displayedEntry!,
                             isDark: widget.isDark,
+                            isTrashView: widget.isTrashView,
+                            isArchiveView: widget.isArchiveView,
                             onClose: widget.onCloseDetail,
                             onCopy: () => widget.onCopy(
                                 widget.selectedEntry ?? _displayedEntry!),
                             onPin: () => widget.onPin(
                                 widget.selectedEntry ?? _displayedEntry!),
                             onDelete: () => widget.onDelete(
+                                widget.selectedEntry ?? _displayedEntry!),
+                            onArchive: () => widget.onArchive(
+                                widget.selectedEntry ?? _displayedEntry!),
+                            onRestore: () => widget.onRestore(
                                 widget.selectedEntry ?? _displayedEntry!),
                           ),
                         )
@@ -618,6 +1250,9 @@ class _EntryList extends StatelessWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    required this.multiSelectMode,
+    required this.selectedIds,
+    required this.isTrashView,
   });
 
   final List<DateGroup> groups;
@@ -627,6 +1262,9 @@ class _EntryList extends StatelessWidget {
   final ValueChanged<HistoryEntry> onCopy;
   final ValueChanged<HistoryEntry> onPin;
   final ValueChanged<HistoryEntry> onDelete;
+  final bool multiSelectMode;
+  final Set<String> selectedIds;
+  final bool isTrashView;
 
   @override
   Widget build(BuildContext context) {
@@ -639,11 +1277,16 @@ class _EntryList extends StatelessWidget {
           _HistoryEntryRow(
             entry: entry,
             isDark: isDark,
-            isSelected: entry.id == selectedId,
+            isSelected: multiSelectMode
+                ? selectedIds.contains(entry.id)
+                : entry.id == selectedId,
             onTap: () => onEntryTap(entry),
             onCopy: () => onCopy(entry),
             onPin: () => onPin(entry),
             onDelete: () => onDelete(entry),
+            multiSelectMode: multiSelectMode,
+            isChecked: selectedIds.contains(entry.id),
+            isTrashView: isTrashView,
           ),
         );
       }
@@ -771,6 +1414,9 @@ class _HistoryEntryRow extends StatefulWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    this.multiSelectMode = false,
+    this.isChecked = false,
+    this.isTrashView = false,
   });
 
   final HistoryEntry entry;
@@ -780,6 +1426,9 @@ class _HistoryEntryRow extends StatefulWidget {
   final VoidCallback onCopy;
   final VoidCallback onPin;
   final VoidCallback onDelete;
+  final bool multiSelectMode;
+  final bool isChecked;
+  final bool isTrashView;
 
   @override
   State<_HistoryEntryRow> createState() => _HistoryEntryRowState();
@@ -855,6 +1504,27 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Multi-select checkbox
+              if (widget.multiSelectMode)
+                Padding(
+                  padding: const EdgeInsets.only(right: WpSpacing.xs, top: 10),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Checkbox(
+                      value: widget.isChecked,
+                      onChanged: (_) => widget.onTap(),
+                      activeColor: accent,
+                      side: BorderSide(
+                        color: isDark
+                            ? WpColorsDark.textMuted
+                            : WpColorsLight.textMuted,
+                      ),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
               // Avatar — colored circle with content-type icon
               _EntryAvatar(
                 color: avatarCol,
@@ -1086,6 +1756,10 @@ class _DetailPanel extends StatelessWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    required this.onArchive,
+    required this.onRestore,
+    this.isTrashView = false,
+    this.isArchiveView = false,
   });
 
   final HistoryEntry entry;
@@ -1094,6 +1768,10 @@ class _DetailPanel extends StatelessWidget {
   final VoidCallback onCopy;
   final VoidCallback onPin;
   final VoidCallback onDelete;
+  final VoidCallback onArchive;
+  final VoidCallback onRestore;
+  final bool isTrashView;
+  final bool isArchiveView;
 
   String get _fullTimestamp {
     final t = entry.timestamp;
@@ -1174,25 +1852,49 @@ class _DetailPanel extends StatelessWidget {
                   ),
                 ),
                 // Action buttons
-                _DetailAction(
-                  icon: LucideIcons.copy,
-                  tooltip: 'Copy text',
-                  isDark: isDark,
-                  onTap: onCopy,
-                ),
-                _DetailAction(
-                  icon: entry.pinned ? LucideIcons.pinOff : LucideIcons.pin,
-                  tooltip: entry.pinned ? 'Unpin' : 'Pin',
-                  isDark: isDark,
-                  onTap: onPin,
-                ),
-                _DetailAction(
-                  icon: LucideIcons.trash2,
-                  tooltip: 'Delete',
-                  isDark: isDark,
-                  onTap: onDelete,
-                  isDestructive: true,
-                ),
+                if (isTrashView) ...[
+                  _DetailAction(
+                    icon: LucideIcons.undo2,
+                    tooltip: 'Restore',
+                    isDark: isDark,
+                    onTap: onRestore,
+                  ),
+                  _DetailAction(
+                    icon: LucideIcons.trash2,
+                    tooltip: 'Delete forever',
+                    isDark: isDark,
+                    onTap: onDelete,
+                    isDestructive: true,
+                  ),
+                ] else ...[
+                  _DetailAction(
+                    icon: LucideIcons.copy,
+                    tooltip: 'Copy text',
+                    isDark: isDark,
+                    onTap: onCopy,
+                  ),
+                  _DetailAction(
+                    icon: entry.pinned ? LucideIcons.pinOff : LucideIcons.pin,
+                    tooltip: entry.pinned ? 'Unpin' : 'Pin',
+                    isDark: isDark,
+                    onTap: onPin,
+                  ),
+                  _DetailAction(
+                    icon: entry.archived
+                        ? LucideIcons.archiveRestore
+                        : LucideIcons.archive,
+                    tooltip: entry.archived ? 'Unarchive' : 'Archive',
+                    isDark: isDark,
+                    onTap: onArchive,
+                  ),
+                  _DetailAction(
+                    icon: LucideIcons.trash2,
+                    tooltip: 'Delete',
+                    isDark: isDark,
+                    onTap: onDelete,
+                    isDestructive: true,
+                  ),
+                ],
                 const SizedBox(width: WpSpacing.xxs),
                 _DetailAction(
                   icon: LucideIcons.x,
@@ -1417,13 +2119,18 @@ class _DetailMetaRow extends StatelessWidget {
             label,
             style: TextStyle(fontSize: 12, color: textSecondary),
           ),
-          const Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              color: textPrimary,
-              fontWeight: FontWeight.w500,
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -1709,6 +2416,8 @@ class _CardView extends StatelessWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    required this.multiSelectMode,
+    required this.selectedIds,
   });
 
   final List<DateGroup> groups;
@@ -1718,6 +2427,8 @@ class _CardView extends StatelessWidget {
   final ValueChanged<HistoryEntry> onCopy;
   final ValueChanged<HistoryEntry> onPin;
   final ValueChanged<HistoryEntry> onDelete;
+  final bool multiSelectMode;
+  final Set<String> selectedIds;
 
   @override
   Widget build(BuildContext context) {
@@ -1952,12 +2663,16 @@ class _CompactView extends StatelessWidget {
     required this.isDark,
     required this.selectedId,
     required this.onEntryTap,
+    required this.multiSelectMode,
+    required this.selectedIds,
   });
 
   final List<DateGroup> groups;
   final bool isDark;
   final String? selectedId;
   final ValueChanged<HistoryEntry> onEntryTap;
+  final bool multiSelectMode;
+  final Set<String> selectedIds;
 
   @override
   Widget build(BuildContext context) {
@@ -1969,8 +2684,12 @@ class _CompactView extends StatelessWidget {
           _CompactRow(
             entry: entry,
             isDark: isDark,
-            isSelected: entry.id == selectedId,
+            isSelected: multiSelectMode
+                ? selectedIds.contains(entry.id)
+                : entry.id == selectedId,
             onTap: () => onEntryTap(entry),
+            multiSelectMode: multiSelectMode,
+            isChecked: selectedIds.contains(entry.id),
           ),
         );
       }
@@ -2026,12 +2745,16 @@ class _CompactRow extends StatefulWidget {
     required this.isDark,
     required this.isSelected,
     required this.onTap,
+    this.multiSelectMode = false,
+    this.isChecked = false,
   });
 
   final HistoryEntry entry;
   final bool isDark;
   final bool isSelected;
   final VoidCallback onTap;
+  final bool multiSelectMode;
+  final bool isChecked;
 
   @override
   State<_CompactRow> createState() => _CompactRowState();
@@ -2078,6 +2801,27 @@ class _CompactRowState extends State<_CompactRow> {
           ),
           child: Row(
             children: [
+              // Multi-select checkbox
+              if (widget.multiSelectMode)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: Checkbox(
+                      value: widget.isChecked,
+                      onChanged: (_) => widget.onTap(),
+                      activeColor: accent,
+                      side: BorderSide(
+                        color: isDark
+                            ? WpColorsDark.textMuted
+                            : WpColorsLight.textMuted,
+                      ),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
               // Pin indicator
               if (widget.entry.pinned)
                 Container(
