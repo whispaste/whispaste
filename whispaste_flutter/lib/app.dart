@@ -4,6 +4,7 @@ import 'core/theme/theme.dart';
 import 'widgets/sidebar.dart';
 import 'widgets/status_bar.dart';
 import 'widgets/fab.dart';
+import 'widgets/title_bar.dart';
 import 'features/history/history_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/replacements/replacements_page.dart';
@@ -64,30 +65,39 @@ class _AppShell extends ConsumerWidget {
     final isRecording = ref.watch(isRecordingProvider);
 
     return Scaffold(
-      body: Row(
+      body: Column(
         children: [
-          // Left sidebar
-          WpSidebar(
-            items: _navItems,
-            activeId: activePage,
-            onItemTap: (id) {
-              ref.read(activePageProvider.notifier).state = id;
-            },
-          ),
-          // Content + status bar
+          // Custom title bar (Windows/Linux)
+          const WpTitleBar(),
+          // Main layout: sidebar + content
           Expanded(
-            child: Column(
+            child: Row(
               children: [
-                // Content area
-                Expanded(
-                  child: _pageWidgets[activePage] ?? const SizedBox.shrink(),
+                // Left sidebar
+                WpSidebar(
+                  items: _navItems,
+                  activeId: activePage,
+                  onItemTap: (id) {
+                    ref.read(activePageProvider.notifier).state = id;
+                  },
                 ),
-                // Status bar
-                const WpStatusBar(
-                  modeLabel: 'Local',
-                  postProcessingLabel: 'Post-Processing',
-                  hotkeyLabel: 'Ctrl + Shift + R',
-                  isOnline: true,
+                // Content + status bar
+                Expanded(
+                  child: Column(
+                    children: [
+                      // Content area
+                      Expanded(
+                        child: _pageWidgets[activePage] ?? const SizedBox.shrink(),
+                      ),
+                      // Status bar
+                      const WpStatusBar(
+                        modeLabel: 'Local',
+                        postProcessingLabel: 'Post-Processing',
+                        hotkeyLabel: 'Ctrl + Shift + R',
+                        isOnline: true,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
