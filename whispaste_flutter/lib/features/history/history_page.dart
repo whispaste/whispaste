@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../widgets/empty_state.dart';
 
 /// History page — shows recorded transcriptions with search, filter, and grouping.
@@ -7,9 +8,8 @@ class HistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Implement full history page with drift database
     return const WpEmptyState(
-      icon: Icons.history_rounded,
+      icon: LucideIcons.clock3,
       title: 'No recordings yet',
       hint: 'Press the record button or use the hotkey to start dictating.',
     );

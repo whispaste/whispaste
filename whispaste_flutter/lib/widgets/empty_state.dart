@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
-/// Empty state widget — centered icon + title + hint + optional action.
+/// Empty state — centered visual with icon, title, hint, and optional CTA.
 ///
-/// Used for pages with no content (empty history, no analytics data, etc.)
+/// Premium: subtle gradient background circle, refined spacing, clean typography.
 class WpEmptyState extends StatelessWidget {
   const WpEmptyState({
     super.key,
@@ -23,6 +24,7 @@ class WpEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Center(
       child: Padding(
@@ -30,31 +32,42 @@ class WpEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Icon container with subtle gradient
             Container(
-              width: 72,
-              height: 72,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
-                color: cs.primaryContainer,
+                gradient: isDark
+                    ? WpColorsDark.surfaceGradient
+                    : WpColorsLight.surfaceGradient,
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark
+                      ? WpColorsDark.borderSubtle
+                      : WpColorsLight.borderSubtle,
+                ),
               ),
-              child: Icon(icon, size: 36, color: cs.primary),
+              child: Icon(icon, size: WpIconSize.xl, color: cs.secondary),
             ),
             const SizedBox(height: WpSpacing.xl),
             Text(
               title,
-              style: Theme.of(context).textTheme.headlineMedium,
+              style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
             if (hint != null) ...[
               const SizedBox(height: WpSpacing.xs),
-              Text(
-                hint!,
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
+              SizedBox(
+                width: 280,
+                child: Text(
+                  hint!,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
               ),
             ],
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: WpSpacing.xl),
+              const SizedBox(height: WpSpacing.lg),
               ElevatedButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],

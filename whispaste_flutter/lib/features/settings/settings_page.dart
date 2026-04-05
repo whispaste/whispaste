@@ -1,91 +1,221 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../../core/theme/colors.dart';
+import '../../core/theme/tokens.dart';
 import '../../widgets/section.dart';
 
-/// Settings page — flat sections for audio, STT, post-processing, cloud, UI.
+/// Settings page — organized sections with clean setting rows.
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: WpSpacing.xxxl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           WpSection(
             title: 'Audio',
+            subtitle: 'Microphone and input settings',
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _settingRow(context, 'Microphone', 'Default'),
-                _settingRow(context, 'Input Gain', '100%'),
+                _SettingRow(
+                  icon: LucideIcons.mic,
+                  label: 'Microphone',
+                  value: 'Default',
+                ),
+                _SettingRow(
+                  icon: LucideIcons.gauge,
+                  label: 'Input Gain',
+                  value: '100%',
+                ),
               ],
             ),
           ),
-          const Divider(indent: 20, endIndent: 20),
+          _sectionDivider(context),
           WpSection(
             title: 'Recording Safety',
+            subtitle: 'Auto-detection and auto-stop',
             collapsible: true,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _settingRow(context, 'Dead Mic Timeout', '3s'),
-                _settingRow(context, 'Auto-Stop on Silence', 'Off'),
+                _SettingRow(
+                  icon: LucideIcons.shieldAlert,
+                  label: 'Dead Mic Timeout',
+                  value: '3s',
+                ),
+                _SettingRow(
+                  icon: LucideIcons.timerOff,
+                  label: 'Auto-Stop on Silence',
+                  value: 'Off',
+                ),
               ],
             ),
           ),
-          const Divider(indent: 20, endIndent: 20),
+          _sectionDivider(context),
           WpSection(
             title: 'Post-Processing',
+            subtitle: 'AI text enhancement after transcription',
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _settingRow(context, 'Enabled', 'On'),
-                _settingRow(context, 'Preset', 'Clean up'),
+                _SettingRow(
+                  icon: LucideIcons.sparkles,
+                  label: 'Enabled',
+                  value: 'On',
+                  trailing: Switch(value: true, onChanged: (_) {}),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.wand2,
+                  label: 'Preset',
+                  value: 'Clean up',
+                ),
               ],
             ),
           ),
-          const Divider(indent: 20, endIndent: 20),
+          _sectionDivider(context),
           WpSection(
             title: 'Speech Recognition',
+            subtitle: 'STT engine and model selection',
             collapsible: true,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _settingRow(context, 'Provider', 'Local'),
-                _settingRow(context, 'Model', 'Whisper Medium'),
+                _SettingRow(
+                  icon: LucideIcons.cpu,
+                  label: 'Provider',
+                  value: 'Local',
+                ),
+                _SettingRow(
+                  icon: LucideIcons.brain,
+                  label: 'Model',
+                  value: 'Whisper Medium',
+                ),
               ],
             ),
           ),
-          const Divider(indent: 20, endIndent: 20),
+          _sectionDivider(context),
           WpSection(
             title: 'Cloud Providers',
+            subtitle: 'API keys for online services',
             collapsible: true,
             initiallyExpanded: false,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _settingRow(context, 'OpenAI', 'Not configured'),
-                _settingRow(context, 'Groq', 'Not configured'),
-                _settingRow(context, 'Deepgram', 'Not configured'),
+                _SettingRow(
+                  icon: LucideIcons.cloud,
+                  label: 'OpenAI',
+                  value: 'Not configured',
+                  valueColor: true,
+                ),
+                _SettingRow(
+                  icon: LucideIcons.cloud,
+                  label: 'Groq',
+                  value: 'Not configured',
+                  valueColor: true,
+                ),
+                _SettingRow(
+                  icon: LucideIcons.cloud,
+                  label: 'Deepgram',
+                  value: 'Not configured',
+                  valueColor: true,
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  Widget _settingRow(BuildContext context, String label, String value) {
-    final cs = Theme.of(context).colorScheme;
+  Widget _sectionDivider(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.bodyLarge),
-          Text(value, style: TextStyle(color: cs.secondary, fontSize: 14)),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
+      child: Divider(
+        color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
+      ),
+    );
+  }
+}
+
+/// A single setting row — icon, label, value, optional trailing widget.
+class _SettingRow extends StatefulWidget {
+  const _SettingRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.trailing,
+    this.valueColor = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Widget? trailing;
+  final bool valueColor;
+
+  @override
+  State<_SettingRow> createState() => _SettingRowState();
+}
+
+class _SettingRowState extends State<_SettingRow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: WpMotion.fast,
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.sm,
+          vertical: WpSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: _isHovered
+              ? (isDark ? WpColorsDark.hover : WpColorsLight.hover)
+              : Colors.transparent,
+          borderRadius: WpRadius.borderSm,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              widget.icon,
+              size: WpIconSize.sm,
+              color: cs.secondary,
+            ),
+            const SizedBox(width: WpSpacing.sm),
+            Expanded(
+              child: Text(
+                widget.label,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ),
+            if (widget.trailing != null)
+              widget.trailing!
+            else
+              Text(
+                widget.value,
+                style: TextStyle(
+                  color: widget.valueColor
+                      ? (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted)
+                      : cs.secondary,
+                  fontSize: 13,
+                ),
+              ),
+            const SizedBox(width: WpSpacing.xxs),
+            Icon(
+              LucideIcons.chevronRight,
+              size: WpIconSize.xs,
+              color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+            ),
+          ],
+        ),
       ),
     );
   }

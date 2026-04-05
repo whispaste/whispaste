@@ -1,4 +1,7 @@
 /// WhisPaste ThemeData builder — constructs Material 3 themes from design tokens.
+///
+/// Premium aesthetic: clean surfaces, crisp typography, refined spacing.
+/// No glow effects — depth via layered surfaces and clean shadows.
 library;
 
 import 'package:flutter/material.dart';
@@ -49,7 +52,7 @@ ThemeData wpLightTheme() {
     onError: Colors.white,
     outline: WpColorsLight.borderDefault,
     outlineVariant: WpColorsLight.borderSubtle,
-    shadow: const Color(0x33000000),
+    shadow: const Color(0x1A000000),
   );
 
   return _buildTheme(colorScheme, isDark: false);
@@ -62,12 +65,12 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     useMaterial3: true,
     colorScheme: colorScheme,
     scaffoldBackgroundColor: bg,
-    fontFamily: null, // uses system font stack
+    fontFamily: 'Segoe UI',
 
     // Typography
     textTheme: _textTheme(colorScheme),
 
-    // AppBar (custom title bar area, not system bar)
+    // AppBar
     appBarTheme: AppBarTheme(
       backgroundColor: colorScheme.surface,
       foregroundColor: colorScheme.onSurface,
@@ -75,15 +78,16 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
       scrolledUnderElevation: 0,
       toolbarHeight: WpLayout.appBarHeight,
       titleTextStyle: TextStyle(
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
+        letterSpacing: -0.2,
       ),
     ),
 
-    // Cards — only for actionable items
+    // Cards
     cardTheme: CardThemeData(
-      color: colorScheme.surface,
+      color: isDark ? WpColorsDark.surfaceElevated : WpColorsLight.surfaceElevated,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: WpRadius.borderMd,
@@ -99,11 +103,15 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
         foregroundColor: colorScheme.onPrimary,
         elevation: 0,
         padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.lg,
+          horizontal: WpSpacing.xl,
           vertical: WpSpacing.sm,
         ),
         shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
-        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.1,
+        ),
       ),
     ),
 
@@ -116,7 +124,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
           vertical: WpSpacing.xs,
         ),
         shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
-        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
       ),
     ),
 
@@ -125,7 +133,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
       style: IconButton.styleFrom(
         foregroundColor: colorScheme.onSurface,
         padding: const EdgeInsets.all(WpSpacing.xs),
-        minimumSize: const Size(36, 36),
+        minimumSize: const Size(32, 32),
         shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
       ),
     ),
@@ -152,7 +160,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
       ),
       hintStyle: TextStyle(
         color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-        fontSize: 14,
+        fontSize: 13,
       ),
     ),
 
@@ -180,33 +188,41 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     // Tooltip
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
-        color: isDark ? WpColorsDark.surfaceVariant : WpColorsLight.textPrimary,
+        color: isDark ? WpColorsDark.surfaceElevated : WpColorsLight.textPrimary,
         borderRadius: WpRadius.borderSm,
+        border: Border.all(
+          color: isDark ? WpColorsDark.borderDefault : Colors.transparent,
+        ),
       ),
       textStyle: TextStyle(
         color: isDark ? WpColorsDark.textPrimary : Colors.white,
         fontSize: 12,
+        fontWeight: FontWeight.w500,
       ),
-      waitDuration: const Duration(milliseconds: 500),
+      waitDuration: const Duration(milliseconds: 400),
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.sm,
+        vertical: WpSpacing.xxs + 2,
+      ),
     ),
 
     // Scrollbar
     scrollbarTheme: ScrollbarThemeData(
       thumbColor: WidgetStateProperty.all(
         (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted)
-            .withValues(alpha: 0.4),
+            .withValues(alpha: 0.3),
       ),
       radius: const Radius.circular(WpRadius.full),
       thickness: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.hovered)) return 6;
-        return 4;
+        return 3;
       }),
     ),
 
-    // Snackbar (used for toasts)
+    // Snackbar
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: colorScheme.surface,
-      contentTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 14),
+      backgroundColor: isDark ? WpColorsDark.surfaceElevated : colorScheme.surface,
+      contentTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 13),
       shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
       behavior: SnackBarBehavior.floating,
       elevation: 4,
@@ -214,13 +230,14 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 
     // Dialog
     dialogTheme: DialogThemeData(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: isDark ? WpColorsDark.surfaceElevated : colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: WpRadius.borderLg),
       elevation: 8,
       titleTextStyle: TextStyle(
         color: colorScheme.onSurface,
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
       ),
     ),
   );
@@ -228,49 +245,56 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 
 TextTheme _textTheme(ColorScheme cs) {
   return TextTheme(
-    // Display → Page titles (24px / 700)
+    // Display → Page titles (22px / 700)
     headlineLarge: TextStyle(
-      fontSize: 24,
+      fontSize: 22,
       fontWeight: FontWeight.w700,
       color: cs.onSurface,
       letterSpacing: -0.5,
+      height: 1.2,
     ),
-    // Heading → Section headers (18px / 600)
+    // Heading → Section headers (16px / 600)
     headlineMedium: TextStyle(
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: FontWeight.w600,
       color: cs.onSurface,
+      letterSpacing: -0.2,
+      height: 1.3,
     ),
-    // Subheading → Card titles (15px / 600)
+    // Subheading → Card titles (14px / 600)
     titleMedium: TextStyle(
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: FontWeight.w600,
       color: cs.onSurface,
+      letterSpacing: -0.1,
     ),
-    // Body → Default text (14px / 400)
+    // Body → Default text (13px / 400)
     bodyLarge: TextStyle(
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: FontWeight.w400,
       color: cs.onSurface,
+      height: 1.5,
     ),
-    // Body small → secondary text
+    // Body secondary
     bodyMedium: TextStyle(
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: FontWeight.w400,
       color: cs.secondary,
+      height: 1.5,
     ),
     // Caption → metadata (12px / 400)
     bodySmall: TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.w400,
       color: cs.secondary,
+      height: 1.4,
     ),
     // Micro → status chips (11px / 500)
     labelSmall: TextStyle(
       fontSize: 11,
       fontWeight: FontWeight.w500,
       color: cs.secondary,
-      letterSpacing: 0.3,
+      letterSpacing: 0.2,
     ),
   );
 }

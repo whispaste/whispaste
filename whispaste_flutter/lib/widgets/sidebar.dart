@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
 /// Navigation item data for the sidebar.
@@ -6,20 +7,18 @@ class WpNavItem {
   const WpNavItem({
     required this.id,
     required this.icon,
-    required this.activeIcon,
     required this.label,
   });
 
   final String id;
   final IconData icon;
-  final IconData activeIcon;
   final String label;
 }
 
-/// Left icon sidebar navigation (70px wide).
+/// Premium left sidebar — icon-only rail with refined active state.
 ///
-/// Matches the design system: dark surface, icon-only items with tooltip,
-/// active indicator as thin accent bar on left edge.
+/// Clean design: thin accent indicator, subtle background shift on active,
+/// smooth hover transitions. No glow effects.
 class WpSidebar extends StatelessWidget {
   const WpSidebar({
     super.key,
@@ -27,36 +26,43 @@ class WpSidebar extends StatelessWidget {
     required this.activeId,
     required this.onItemTap,
     this.bottomItems = const [],
-    this.brandWidget,
   });
 
   final List<WpNavItem> items;
   final String activeId;
   final ValueChanged<String> onItemTap;
   final List<Widget> bottomItems;
-  final Widget? brandWidget;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       width: WpLayout.sidebarWidth,
       decoration: BoxDecoration(
-        color: cs.surface,
+        color: isDark ? WpColorsDark.surface : WpColorsLight.surface,
         border: Border(
-          right: BorderSide(color: cs.outlineVariant, width: 1),
+          right: BorderSide(
+            color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
+            width: 1,
+          ),
         ),
       ),
       child: Column(
         children: [
-          const SizedBox(height: WpSpacing.md),
-          // Brand icon
-          if (brandWidget != null) ...[
-            brandWidget!,
-            const SizedBox(height: WpSpacing.lg),
-          ],
+          const SizedBox(height: WpSpacing.sm),
+          // Brand mark — small accent line
+          Container(
+            width: 24,
+            height: 3,
+            decoration: BoxDecoration(
+              gradient: isDark
+                  ? WpColorsDark.accentGradient
+                  : WpColorsLight.accentGradient,
+              borderRadius: WpRadius.borderFull,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.lg),
           // Nav items
           ...items.map((item) => _NavItemWidget(
                 item: item,
@@ -65,9 +71,9 @@ class WpSidebar extends StatelessWidget {
                 isDark: isDark,
               )),
           const Spacer(),
-          // Bottom items (theme toggle, lang toggle)
+          // Bottom items
           ...bottomItems,
-          const SizedBox(height: WpSpacing.md),
+          const SizedBox(height: WpSpacing.sm),
         ],
       ),
     );
@@ -98,60 +104,68 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
+    final iconColor = widget.isActive
+        ? cs.primary
+        : _isHovered
+            ? cs.onSurface
+            : cs.secondary;
+
+    final bgColor = widget.isActive
+        ? cs.primaryContainer
+        : _isHovered
+            ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
+            : Colors.transparent;
+
     return Tooltip(
       message: widget.item.label,
       preferBelow: false,
-      waitDuration: const Duration(milliseconds: 400),
+      waitDuration: const Duration(milliseconds: 300),
       child: MouseRegion(
+        cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
         child: GestureDetector(
           onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: WpMotion.normal,
-            curve: WpMotion.defaultCurve,
+          child: SizedBox(
             width: WpLayout.sidebarWidth,
-            height: 48,
-            margin: const EdgeInsets.symmetric(vertical: 2),
+            height: 44,
             child: Stack(
               children: [
-                // Active indicator — thin accent bar on left
-                if (widget.isActive)
-                  Positioned(
-                    left: 0,
-                    top: 10,
-                    bottom: 10,
-                    child: Container(
-                      width: 3,
-                      decoration: BoxDecoration(
-                        color: cs.primary,
-                        borderRadius: const BorderRadius.horizontal(
-                          right: Radius.circular(2),
-                        ),
+                // Active indicator — crisp accent bar on left edge
+                AnimatedPositioned(
+                  duration: WpMotion.normal,
+                  curve: WpMotion.defaultCurve,
+                  left: 0,
+                  top: widget.isActive ? 8 : 22,
+                  bottom: widget.isActive ? 8 : 22,
+                  child: AnimatedContainer(
+                    duration: WpMotion.normal,
+                    width: widget.isActive ? 3 : 0,
+                    decoration: BoxDecoration(
+                      color: cs.primary,
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(2),
                       ),
                     ),
                   ),
-                // Icon centered
+                ),
+                // Icon with background pill
                 Center(
                   child: AnimatedContainer(
-                    duration: WpMotion.normal,
-                    padding: const EdgeInsets.all(WpSpacing.xs),
+                    duration: WpMotion.fast,
+                    curve: WpMotion.defaultCurve,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: WpSpacing.sm,
+                      vertical: WpSpacing.xxs + 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: widget.isActive
-                          ? cs.primaryContainer
-                          : _isHovered
-                              ? cs.outlineVariant
-                              : Colors.transparent,
+                      color: bgColor,
                       borderRadius: WpRadius.borderSm,
                     ),
                     child: Icon(
-                      widget.isActive ? widget.item.activeIcon : widget.item.icon,
-                      color: widget.isActive
-                          ? cs.primary
-                          : _isHovered
-                              ? cs.onSurface
-                              : cs.secondary,
-                      size: 22,
+                      widget.item.icon,
+                      color: iconColor,
+                      size: WpIconSize.md,
                     ),
                   ),
                 ),

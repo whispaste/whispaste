@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
-/// Recording Floating Action Button with pulse animation.
+/// Recording FAB — clean gradient, smooth pulse, no glow.
 ///
-/// Shows a microphone icon that pulses when recording is active.
-/// Design: accent gradient, layered shadow, satisfying press feedback.
+/// Gradient accent fill when idle, solid red when recording.
+/// Scale animation on recording — subtle and premium.
 class WpRecordingFab extends StatefulWidget {
   const WpRecordingFab({
     super.key,
@@ -23,16 +24,17 @@ class WpRecordingFab extends StatefulWidget {
 class _WpRecordingFabState extends State<WpRecordingFab>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulseController;
-  late final Animation<double> _pulseAnimation;
+  late final Animation<double> _scaleAnim;
+  bool _isHovered = false;
 
   @override
   void initState() {
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1000),
     );
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.12).animate(
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.92).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
   }
@@ -56,56 +58,48 @@ class _WpRecordingFabState extends State<WpRecordingFab>
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final baseColor = widget.isRecording
-        ? (isDark ? WpColorsDark.error : WpColorsLight.error)
-        : cs.primary;
+    final gradient = widget.isRecording
+        ? const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+          )
+        : (isDark ? WpColorsDark.accentGradient : WpColorsLight.accentGradient);
 
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        final scale = widget.isRecording ? _pulseAnimation.value : 1.0;
-        return Transform.scale(
-          scale: scale,
-          child: child,
-        );
-      },
-      child: SizedBox(
-        width: WpLayout.fabSize,
-        height: WpLayout.fabSize,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: widget.onPressed,
-            borderRadius: WpRadius.borderFull,
-            child: AnimatedContainer(
-              duration: WpMotion.normal,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    baseColor,
-                    baseColor.withValues(alpha: 0.85),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: baseColor.withValues(alpha: 0.3),
-                    blurRadius: widget.isRecording ? 16 : 8,
-                    offset: const Offset(0, 4),
-                  ),
-                  ...WpShadows.fab,
-                ],
-              ),
-              child: Icon(
-                widget.isRecording ? Icons.stop_rounded : Icons.mic_rounded,
-                color: Colors.white,
-                size: 28,
-              ),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedBuilder(
+        animation: _scaleAnim,
+        builder: (context, child) {
+          final scale = widget.isRecording
+              ? _scaleAnim.value
+              : _isHovered
+                  ? 1.06
+                  : 1.0;
+          return AnimatedScale(
+            scale: widget.isRecording ? scale : (_isHovered ? 1.06 : 1.0),
+            duration: WpMotion.fast,
+            child: child,
+          );
+        },
+        child: GestureDetector(
+          onTap: widget.onPressed,
+          child: Container(
+            width: WpLayout.fabSize,
+            height: WpLayout.fabSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: gradient,
+              boxShadow: WpShadows.fab,
+            ),
+            child: Icon(
+              widget.isRecording ? LucideIcons.square : LucideIcons.mic,
+              color: Colors.white,
+              size: WpIconSize.lg,
             ),
           ),
         ),
