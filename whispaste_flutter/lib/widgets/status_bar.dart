@@ -28,66 +28,105 @@ class WpStatusBar extends StatelessWidget {
 
     return Container(
       height: WpLayout.statusBarHeight,
-      color: isDark ? WpColorsDark.background : WpColorsLight.background,
-      padding: const EdgeInsets.symmetric(horizontal: WpSpacing.md),
+      decoration: BoxDecoration(
+        gradient: isDark ? WpColorsDark.frameGradient : null,
+        color: isDark ? null : WpColorsLight.background,
+      ),
       child: Row(
         children: [
-          _StatusChip(
-            icon: LucideIcons.cpu,
-            label: modeLabel,
-            textStyle: textStyle,
-            isDark: isDark,
-          ),
-          const SizedBox(width: WpSpacing.xs),
-          _StatusChip(
-            icon: LucideIcons.sparkles,
-            label: postProcessingLabel,
-            textStyle: textStyle,
-            isDark: isDark,
-          ),
-          if (hotkeyLabel != null) ...[
-            const SizedBox(width: WpSpacing.xs),
-            _StatusChip(
-              icon: LucideIcons.keyboard,
-              label: hotkeyLabel!,
-              textStyle: textStyle,
-              isDark: isDark,
-            ),
-          ],
-          const Spacer(),
-          // Connectivity dot + label
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: 4,
-            ),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? WpColorsDark.surface.withValues(alpha: 0.5)
-                  : WpColorsLight.surfaceVariant,
-              borderRadius: WpRadius.borderFull,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          // Sidebar-width spacer — chips start in the content area
+          const SizedBox(width: WpLayout.sidebarWidth),
+          // Content-area span: Stack so chips center independently of online badge
+          Expanded(
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: isOnline
-                        ? (isDark ? WpColorsDark.success : WpColorsLight.success)
-                        : cs.error,
-                    shape: BoxShape.circle,
-                  ),
+                // Centered chips within the content area
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _StatusChip(
+                      icon: LucideIcons.cpu,
+                      label: modeLabel,
+                      textStyle: textStyle,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(width: WpSpacing.xs),
+                    _StatusChip(
+                      icon: LucideIcons.sparkles,
+                      label: postProcessingLabel,
+                      textStyle: textStyle,
+                      isDark: isDark,
+                    ),
+                    if (hotkeyLabel != null) ...[
+                      const SizedBox(width: WpSpacing.xs),
+                      _StatusChip(
+                        icon: LucideIcons.keyboard,
+                        label: hotkeyLabel!,
+                        textStyle: textStyle,
+                        isDark: isDark,
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  isOnline ? 'Online' : 'Offline',
-                  style: textStyle,
+                // Online badge — right-aligned within the content area
+                Positioned(
+                  right: WpSpacing.md,
+                  child: _OnlineBadge(
+                    isOnline: isOnline,
+                    isDark: isDark,
+                    textStyle: textStyle,
+                    errorColor: cs.error,
+                  ),
                 ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OnlineBadge extends StatelessWidget {
+  const _OnlineBadge({
+    required this.isOnline,
+    required this.isDark,
+    required this.textStyle,
+    required this.errorColor,
+  });
+
+  final bool isOnline;
+  final bool isDark;
+  final TextStyle textStyle;
+  final Color errorColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark
+            ? WpColorsDark.surface.withValues(alpha: 0.5)
+            : WpColorsLight.surfaceVariant,
+        borderRadius: WpRadius.borderFull,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: isOnline
+                  ? (isDark ? WpColorsDark.success : WpColorsLight.success)
+                  : errorColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(isOnline ? 'Online' : 'Offline', style: textStyle),
         ],
       ),
     );

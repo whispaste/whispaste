@@ -39,7 +39,10 @@ class WpSidebar extends StatelessWidget {
 
     return Container(
       width: WpLayout.sidebarWidth,
-      color: isDark ? WpColorsDark.background : WpColorsLight.background,
+      decoration: BoxDecoration(
+        gradient: isDark ? WpColorsDark.frameGradient : null,
+        color: isDark ? null : WpColorsLight.background,
+      ),
       child: Column(
         children: [
           // Weighted spacers: ~40% above, ~60% below → slightly above center
@@ -118,10 +121,10 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs - 2),
+            padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
             child: SizedBox(
               width: WpLayout.sidebarWidth,
-              height: 48,
+              height: 42,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -131,7 +134,7 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                       left: 0,
                       child: Container(
                         width: 3,
-                        height: 24,
+                        height: 22,
                         decoration: BoxDecoration(
                           gradient: widget.isDark
                               ? WpColorsDark.accentWarmGradient
@@ -147,17 +150,17 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
                   AnimatedContainer(
                     duration: WpMotion.fast,
                     curve: WpMotion.defaultCurve,
-                    width: 44,
-                    height: 44,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: bgColor,
-                      borderRadius: BorderRadius.circular(WpRadius.lg),
+                      borderRadius: BorderRadius.circular(WpRadius.md),
                     ),
                     alignment: Alignment.center,
                     child: Icon(
                       widget.item.icon,
                       color: iconColor,
-                      size: 26,
+                      size: 21,
                     ),
                   ),
                 ],
