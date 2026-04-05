@@ -4,11 +4,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
-import 'brand_logo.dart';
+import 'brand_wordmark.dart';
 
-/// Gaming-launcher–style title bar with brand wordmark.
+/// Gaming-launcher–style title bar with brand wordmark PNG.
 ///
-/// Seamless dark background, elegant wordmark with prominent logo icon,
+/// Seamless dark background, real brand wordmark image (theme-aware),
 /// subtle window controls. No borders — flows into the content.
 class WpTitleBar extends StatelessWidget {
   const WpTitleBar({super.key});
@@ -34,38 +34,8 @@ class WpTitleBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: WpSpacing.md),
         child: Row(
           children: [
-            // Brand logo — prominent, ~2× text cap height
-            const WpBrandLogo(size: 36),
-            const SizedBox(width: WpSpacing.xs + 2),
-            // Wordmark: "Whis" light + "paste" accent — medium weight
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Whis',
-                    style: TextStyle(
-                      color: isDark
-                          ? WpColorsDark.textPrimary
-                          : WpColorsLight.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                  TextSpan(
-                    text: 'paste',
-                    style: TextStyle(
-                      color: isDark
-                          ? WpColorsDark.accent
-                          : WpColorsLight.accent,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // Brand wordmark PNG — the real logo + text composition
+            const WpBrandWordmark(height: 30),
             const Spacer(),
             // Window controls — all subtle gray, no red close
             _WindowButton(

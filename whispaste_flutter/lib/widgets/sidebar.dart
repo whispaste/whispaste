@@ -19,6 +19,7 @@ class WpNavItem {
 ///
 /// Inspired by Dixper/BottleNet: large icons, generous spacing,
 /// same background as content, accent pill on active. No border.
+/// Nav items are vertically centered in the available space.
 class WpSidebar extends StatelessWidget {
   const WpSidebar({
     super.key,
@@ -39,20 +40,22 @@ class WpSidebar extends StatelessWidget {
 
     return Container(
       width: WpLayout.sidebarWidth,
-      // Seamless — same background as content, no border
       color: isDark ? WpColorsDark.background : WpColorsLight.background,
       child: Column(
         children: [
-          const SizedBox(height: WpSpacing.md),
-          // Nav items — centered vertically with generous spacing
-          ...items.map((item) => _NavItemWidget(
-                item: item,
-                isActive: item.id == activeId,
-                onTap: () => onItemTap(item.id),
-                isDark: isDark,
-              )),
-          const Spacer(),
-          // Bottom items
+          // Top: nav items vertically centered via Expanded + mainAxisAlignment
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: items.map((item) => _NavItemWidget(
+                    item: item,
+                    isActive: item.id == activeId,
+                    onTap: () => onItemTap(item.id),
+                    isDark: isDark,
+                  )).toList(),
+            ),
+          ),
+          // Bottom items pinned to bottom
           ...bottomItems,
           const SizedBox(height: WpSpacing.md),
         ],
@@ -83,9 +86,6 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Active: accent icon on accent-tinted pill
-    // Hovered: lighter icon on subtle hover surface
-    // Default: muted icon, transparent
     final Color iconColor;
     final Color bgColor;
 
@@ -116,24 +116,28 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
         onExit: (_) => setState(() => _isHovered = false),
         child: GestureDetector(
           onTap: widget.onTap,
-          child: SizedBox(
-            width: WpLayout.sidebarWidth,
-            height: 52,
-            child: Center(
-              child: AnimatedContainer(
-                duration: WpMotion.fast,
-                curve: WpMotion.defaultCurve,
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(WpRadius.md),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  widget.item.icon,
-                  color: iconColor,
-                  size: WpIconSize.lg,
+          child: Padding(
+            // Generous vertical spacing between icons
+            padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+            child: SizedBox(
+              width: WpLayout.sidebarWidth,
+              height: 48,
+              child: Center(
+                child: AnimatedContainer(
+                  duration: WpMotion.fast,
+                  curve: WpMotion.defaultCurve,
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(WpRadius.md),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    widget.item.icon,
+                    color: iconColor,
+                    size: WpIconSize.lg,
+                  ),
                 ),
               ),
             ),
