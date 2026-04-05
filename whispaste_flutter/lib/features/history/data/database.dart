@@ -285,6 +285,38 @@ class HistoryDatabase extends _$HistoryDatabase {
     return into(historyEntries).insertOnConflictUpdate(entry);
   }
 
+  /// Duplicate an entry with a new ID and "(copy)" title suffix.
+  Future<HistoryEntry?> duplicateEntry(String entryId) async {
+    final original = await (select(historyEntries)
+          ..where((e) => e.id.equals(entryId)))
+        .getSingleOrNull();
+    if (original == null) return null;
+
+    final newId = DateTime.now().millisecondsSinceEpoch.toString();
+    final companion = HistoryEntriesCompanion(
+      id: Value(newId),
+      content: Value(original.content),
+      title: Value('${original.title} (copy)'),
+      timestamp: Value(DateTime.now()),
+      durationSec: Value(original.durationSec),
+      processingDurationSec: Value(original.processingDurationSec),
+      language: Value(original.language),
+      languageHint: Value(original.languageHint),
+      tags: Value(original.tags),
+      pinned: const Value(false),
+      source: Value(original.source),
+      model: Value(original.model),
+      isLocal: Value(original.isLocal),
+      costUsd: Value(original.costUsd),
+      projectId: Value(original.projectId),
+      archived: const Value(false),
+      titleEdited: const Value(false),
+    );
+    await into(historyEntries).insert(companion);
+    return (select(historyEntries)..where((e) => e.id.equals(newId)))
+        .getSingleOrNull();
+  }
+
   /// Toggle pin status.
   Future<void> togglePin(String entryId) async {
     final entry = await (select(historyEntries)
@@ -389,6 +421,14 @@ class HistoryDatabase extends _$HistoryDatabase {
           ..where((n) => n.entryId.equals(entryId))
           ..orderBy([(n) => OrderingTerm.desc(n.createdAt)]))
         .get();
+  }
+
+  /// Watch notes for a specific entry as a live stream.
+  Stream<List<EntryNote>> watchNotesForEntry(String entryId) {
+    return (select(entryNotes)
+          ..where((n) => n.entryId.equals(entryId))
+          ..orderBy([(n) => OrderingTerm.desc(n.createdAt)]))
+        .watch();
   }
 
   Future<void> upsertNote(EntryNotesCompanion note) {

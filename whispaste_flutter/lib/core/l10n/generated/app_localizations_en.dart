@@ -1079,4 +1079,28 @@ class L10nEn extends L10n {
 
   @override
   String get statusSttReady => 'Model ready';
+
+  @override
+  String get historyDuplicate => 'Duplicate';
+
+  @override
+  String get historyDuplicated => 'Entry duplicated';
+
+  @override
+  String get historyAddNote => 'Add note';
+
+  @override
+  String get historyNotes => 'Notes';
+
+  @override
+  String get historyNotePlaceholder => 'Write a note…';
+
+  @override
+  String get historyNoteAdded => 'Note added';
+
+  @override
+  String get historyNoteDeleted => 'Note deleted';
+
+  @override
+  String get historyCopiedAsMarkdown => 'Copied as Markdown';
 }

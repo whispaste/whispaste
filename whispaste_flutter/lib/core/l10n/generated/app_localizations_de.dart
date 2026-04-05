@@ -1092,4 +1092,28 @@ class L10nDe extends L10n {
 
   @override
   String get statusSttReady => 'Modell bereit';
+
+  @override
+  String get historyDuplicate => 'Duplizieren';
+
+  @override
+  String get historyDuplicated => 'Eintrag dupliziert';
+
+  @override
+  String get historyAddNote => 'Notiz hinzufügen';
+
+  @override
+  String get historyNotes => 'Notizen';
+
+  @override
+  String get historyNotePlaceholder => 'Notiz schreiben…';
+
+  @override
+  String get historyNoteAdded => 'Notiz hinzugefügt';
+
+  @override
+  String get historyNoteDeleted => 'Notiz gelöscht';
+
+  @override
+  String get historyCopiedAsMarkdown => 'Als Markdown kopiert';
 }

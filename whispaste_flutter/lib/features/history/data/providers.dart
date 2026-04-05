@@ -23,6 +23,13 @@ final trashEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
   return db.watchTrash(limit: 500);
 });
 
+/// Watch notes for a specific entry.
+final entryNotesProvider =
+    StreamProvider.family<List<EntryNote>, String>((ref, entryId) {
+  final db = ref.watch(historyDatabaseProvider);
+  return db.watchNotesForEntry(entryId);
+});
+
 /// Active filter state for the history page.
 enum HistoryFilter { all, today, week, pinned, archived, trash }
 
