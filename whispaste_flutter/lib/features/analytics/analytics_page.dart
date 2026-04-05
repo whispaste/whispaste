@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
 
 // ---------------------------------------------------------------------------
@@ -78,87 +79,50 @@ class AnalyticsPage extends ConsumerWidget {
     const data = _SampleAnalytics.instance;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(WpSpacing.xl),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: WpLayout.pageMaxWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Row 1: Hero stat cards ──────────────────────────────
-              WpSection(
-                title: 'Overview',
-                subtitle: 'Your dictation stats at a glance',
-                padding: EdgeInsets.zero,
-                child: _HeroStatsRow(data: data, isDark: isDark),
-              ),
-
-              const SizedBox(height: WpSpacing.xxl),
-
-              // ── Row 2: Activity chart + Model usage ────────────────
-              WpSection(
-                title: 'Activity',
-                padding: EdgeInsets.zero,
-                child: _buildTwoPanelRow(
-                  isDark: isDark,
-                  left: _ActivityChartPanel(data: data, isDark: isDark),
-                  right: _ModelUsagePanel(data: data, isDark: isDark),
-                ),
-              ),
-
-              const SizedBox(height: WpSpacing.xxl),
-
-              // ── Row 3: Duration distribution + Cost overview ───────
-              WpSection(
-                title: 'Insights',
-                padding: EdgeInsets.zero,
-                child: _buildTwoPanelRow(
-                  isDark: isDark,
-                  left: _DurationDistPanel(data: data, isDark: isDark),
-                  right: _CostPanel(data: data, isDark: isDark),
-                ),
-              ),
-
-              const SizedBox(height: WpSpacing.xxl),
-
-              // ── Row 4: Period selector + Reset ─────────────────────
-              _PeriodAndResetRow(isDark: isDark),
-
-              const SizedBox(height: WpSpacing.xl),
-            ],
+    return WpPageShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Row 1: Hero stat cards ──────────────────────────────
+          WpSection(
+            title: 'Overview',
+            subtitle: 'Your dictation stats at a glance',
+            padding: EdgeInsets.zero,
+            child: _HeroStatsRow(data: data, isDark: isDark),
           ),
-        ),
-      ),
-    );
-  }
 
-  /// Two panels side-by-side, wrapping on narrow screens.
-  static Widget _buildTwoPanelRow({
-    required bool isDark,
-    required Widget left,
-    required Widget right,
-  }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 480) {
-          return Column(
-            children: [
-              left,
-              const SizedBox(height: WpSpacing.md),
-              right,
-            ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: left),
-            const SizedBox(width: WpSpacing.md),
-            Expanded(child: right),
-          ],
-        );
-      },
+          const SizedBox(height: WpSpacing.xxl),
+
+          // ── Row 2: Activity chart + Model usage ────────────────
+          WpSection(
+            title: 'Activity',
+            padding: EdgeInsets.zero,
+            child: WpTwoPanel(
+              left: _ActivityChartPanel(data: data, isDark: isDark),
+              right: _ModelUsagePanel(data: data, isDark: isDark),
+            ),
+          ),
+
+          const SizedBox(height: WpSpacing.xxl),
+
+          // ── Row 3: Duration distribution + Cost overview ───────
+          WpSection(
+            title: 'Insights',
+            padding: EdgeInsets.zero,
+            child: WpTwoPanel(
+              left: _DurationDistPanel(data: data, isDark: isDark),
+              right: _CostPanel(data: data, isDark: isDark),
+            ),
+          ),
+
+          const SizedBox(height: WpSpacing.xxl),
+
+          // ── Row 4: Period selector + Reset ─────────────────────
+          _PeriodAndResetRow(isDark: isDark),
+
+          const SizedBox(height: WpSpacing.xl),
+        ],
+      ),
     );
   }
 }

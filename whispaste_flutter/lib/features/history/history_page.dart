@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/page_shell.dart';
 
 /// History page — recorded transcriptions with search, filter, and grouping.
 class HistoryPage extends StatefulWidget {
@@ -26,13 +27,16 @@ class _HistoryPageState extends State<HistoryPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Column(
-      children: [
-        // Search & filter toolbar
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            WpSpacing.xl, WpSpacing.sm, WpSpacing.xl, WpSpacing.xs,
-          ),
+    return WpPageShell(
+      scrollable: false,
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          // Search & filter toolbar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WpSpacing.xl, WpSpacing.sm, WpSpacing.xl, WpSpacing.xs,
+            ),
           child: Column(
             children: [
               // Search bar
@@ -122,7 +126,8 @@ class _HistoryPageState extends State<HistoryPage> {
                 'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.',
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -178,7 +183,8 @@ class _FilterChipState extends State<_FilterChip> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: WpMotion.fast,
+          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+          curve: WpMotion.defaultCurve,
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.sm,
             vertical: WpSpacing.xxs,
