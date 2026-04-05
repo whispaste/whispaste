@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
@@ -59,6 +60,10 @@ class _WpRecordingFabState extends State<WpRecordingFab>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = L10n.of(context);
+    final recordLabel = widget.isRecording
+        ? l10n.tooltipStopRecord
+        : l10n.tooltipRecord;
 
     final gradient = widget.isRecording
         ? const LinearGradient(
@@ -71,10 +76,10 @@ class _WpRecordingFabState extends State<WpRecordingFab>
             : WpColorsLight.accentWarmGradient);
 
     return Semantics(
-      label: widget.isRecording ? 'Stop recording' : 'Start recording',
+      label: recordLabel,
       button: true,
       child: Tooltip(
-        message: widget.isRecording ? 'Stop recording' : 'Start recording',
+        message: recordLabel,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _isHovered = true),

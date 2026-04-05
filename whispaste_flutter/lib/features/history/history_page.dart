@@ -14,6 +14,22 @@ import 'data/database.dart';
 import 'data/providers.dart';
 import 'data/sample_data.dart';
 
+/// Resolves a [DateGroup.labelKey] to a localized string.
+String _resolveDateLabel(String key, L10n l10n) {
+  switch (key) {
+    case 'today':
+      return l10n.historyToday;
+    case 'yesterday':
+      return l10n.historyYesterday;
+    case 'thisWeek':
+      return l10n.historyThisWeek;
+    case 'older':
+      return l10n.historyOlder;
+    default:
+      return key;
+  }
+}
+
 /// View mode for the history page.
 enum _ViewMode { list, cards, compact }
 
@@ -127,7 +143,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     final entries = _filteredEntries;
     if (entries.isEmpty) return [];
 
-    final l10n = L10n.of(context);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
@@ -153,13 +168,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
     return [
       if (todayEntries.isNotEmpty)
-        DateGroup(label: l10n.historyToday, entries: todayEntries),
+        DateGroup(labelKey: 'today', entries: todayEntries),
       if (yesterdayEntries.isNotEmpty)
-        DateGroup(label: l10n.historyYesterday, entries: yesterdayEntries),
+        DateGroup(labelKey: 'yesterday', entries: yesterdayEntries),
       if (weekEntries.isNotEmpty)
-        DateGroup(label: l10n.historyThisWeek, entries: weekEntries),
+        DateGroup(labelKey: 'thisWeek', entries: weekEntries),
       if (olderEntries.isNotEmpty)
-        DateGroup(label: l10n.historyOlder, entries: olderEntries),
+        DateGroup(labelKey: 'older', entries: olderEntries),
     ];
   }
 
@@ -1336,10 +1351,11 @@ class _EntryList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
     final items = <Widget>[];
 
     for (final group in groups) {
-      items.add(_DateHeader(label: group.label, isDark: isDark));
+      items.add(_DateHeader(label: _resolveDateLabel(group.labelKey, l10n), isDark: isDark));
       for (final entry in group.entries) {
         items.add(
           _HistoryEntryRow(
@@ -2508,6 +2524,7 @@ class _CardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         const minCardWidth = 280.0;
@@ -2526,7 +2543,7 @@ class _CardView extends StatelessWidget {
           ),
           children: [
             for (final group in groups) ...[
-              _DateHeader(label: group.label, isDark: isDark),
+              _DateHeader(label: _resolveDateLabel(group.labelKey, l10n), isDark: isDark),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: sidePad),
                 child: Wrap(
@@ -2590,6 +2607,7 @@ class _EntryCardState extends State<_EntryCard> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
+    final l10n = L10n.of(context);
     final avatarCol = _avatarColor(widget.entry, isDark);
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final textPrimary =
@@ -2654,7 +2672,7 @@ class _EntryCardState extends State<_EntryCard> {
                   if (_isHovered) ...[
                     _RowAction(
                       icon: LucideIcons.copy,
-                      tooltip: 'Copy text',
+                      tooltip: l10n.historyCopyText,
                       isDark: isDark,
                       onTap: widget.onCopy,
                     ),
@@ -2662,13 +2680,13 @@ class _EntryCardState extends State<_EntryCard> {
                       icon: widget.entry.pinned
                           ? LucideIcons.pinOff
                           : LucideIcons.pin,
-                      tooltip: widget.entry.pinned ? 'Unpin' : 'Pin',
+                      tooltip: widget.entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop,
                       isDark: isDark,
                       onTap: widget.onPin,
                     ),
                     _RowAction(
                       icon: LucideIcons.trash2,
-                      tooltip: 'Delete',
+                      tooltip: l10n.actionDelete,
                       isDark: isDark,
                       onTap: widget.onDelete,
                       isDestructive: true,
@@ -2753,9 +2771,10 @@ class _CompactView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
     final items = <Widget>[];
     for (final group in groups) {
-      items.add(_CompactDateHeader(label: group.label, isDark: isDark));
+      items.add(_CompactDateHeader(label: _resolveDateLabel(group.labelKey, l10n), isDark: isDark));
       for (final entry in group.entries) {
         items.add(
           _CompactRow(

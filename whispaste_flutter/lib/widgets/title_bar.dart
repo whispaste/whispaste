@@ -10,8 +10,12 @@ import 'brand_wordmark.dart';
 ///
 /// Seamless dark background, real brand wordmark image (theme-aware),
 /// subtle window controls. No borders — flows into the content.
+/// [actions] are placed left of the window controls (e.g. theme toggle).
 class WpTitleBar extends StatelessWidget {
-  const WpTitleBar({super.key});
+  const WpTitleBar({super.key, this.actions = const []});
+
+  /// Widgets placed left of the window controls (minimize/maximize/close).
+  final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +41,9 @@ class WpTitleBar extends StatelessWidget {
             // Brand wordmark PNG — prominent, gaming-launcher scale
             const WpBrandWordmark(height: 34),
             const Spacer(),
+            // Custom actions (theme toggle, etc.)
+            ...actions,
+            if (actions.isNotEmpty) const SizedBox(width: WpSpacing.sm),
             // Window controls — all subtle gray, no red close
             _WindowButton(
               icon: LucideIcons.minus,
