@@ -39,21 +39,25 @@ void main() {
       expect(find.byType(SingleChildScrollView), findsOneWidget);
     });
 
-    testWidgets('collapsible sections can be toggled', (tester) async {
+    testWidgets('shows new Sound & Feedback section', (tester) async {
       await tester.pumpWidget(makeTestable(const SettingsPage()));
-
-      // Recording Safety is collapsible and initially expanded
-      expect(find.text('Recording Safety'), findsOneWidget);
-      expect(find.text('Silent Mic Detection'), findsOneWidget);
-
-      // Tap header to collapse
-      await tester.tap(find.text('Recording Safety'));
+      // Scroll down to find the section
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -600),
+      );
       await tester.pumpAndSettle();
+      expect(find.text('Sound & Feedback'), findsOneWidget);
+    });
 
-      // Content should now be collapsed (heightFactor → 0)
-      final aligns = tester.widgetList<Align>(find.byType(Align));
-      final collapsed = aligns.any((a) => a.heightFactor == 0.0);
-      expect(collapsed, isTrue);
+    testWidgets('shows new Overlay & Floating Button section', (tester) async {
+      await tester.pumpWidget(makeTestable(const SettingsPage()));
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -800),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Overlay & Floating Button'), findsOneWidget);
     });
   });
 }

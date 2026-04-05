@@ -127,11 +127,15 @@ class _AppShell extends ConsumerWidget {
                       clipBehavior: Clip.antiAlias,
                       child: Column(
                         children: [
-                          // Page header
-                          _PageHeader(
-                            title: navItems
-                                .firstWhere((n) => n.id == activePage)
-                                .label,
+                          // Page header with smooth title transition
+                          AnimatedSwitcher(
+                            duration: WpMotion.fast,
+                            child: _PageHeader(
+                              key: ValueKey('header-$activePage'),
+                              title: navItems
+                                  .firstWhere((n) => n.id == activePage)
+                                  .label,
+                            ),
                           ),
                           // Content with page transition animation
                           Expanded(
@@ -196,7 +200,7 @@ class _AppShell extends ConsumerWidget {
 
 /// Page header — displays the active page title with clean styling.
 class _PageHeader extends StatelessWidget {
-  const _PageHeader({required this.title});
+  const _PageHeader({super.key, required this.title});
 
   final String title;
 
