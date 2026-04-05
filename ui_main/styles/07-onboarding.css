@@ -593,7 +593,7 @@
   text-align: right;
 }
 
-/* LLM model selection in Smart Mode step */
+/* LLM model selection in Text Refinement step */
 .onboarding-llm-models {
   margin-top: var(--space-4);
   text-align: left;

@@ -627,21 +627,21 @@
           <div class="card" id="settings-llm-card">
             <div class="card-title">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-              <span data-i18n="aiLlmTitle">AI Text Processing</span>
+              <span data-i18n="aiLlmTitle">Text Refinement Models</span>
             </div>
-            <p class="card-desc" data-i18n="aiLlmDesc">Local AI model for Smart Mode and text processing — runs entirely on your device, no data leaves your computer.</p>
+            <p class="card-desc" data-i18n="aiLlmDesc">Refines your text on your device — nothing leaves your computer.</p>
             <div class="form-group">
               <div id="settings-llm-model-list" class="model-list"></div>
             </div>
           </div>
 
-          <!-- Cloud AI Service (shared by Smart Mode + Voice Shortcuts) -->
+          <!-- Cloud AI Service (shared by Text Refinement + Voice Shortcuts) -->
           <div class="card" id="cloud-llm-card">
             <div class="card-title">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
               <span data-i18n="cardCloudLLM">Cloud AI Service</span>
             </div>
-            <p class="card-desc" data-i18n="descCloudLLM">Choose which cloud service processes your text in Smart Mode and Voice Shortcuts.</p>
+            <p class="card-desc" data-i18n="descCloudLLM">Choose which cloud service processes your text in Text Refinement and Voice Shortcuts.</p>
             <div class="form-group" id="cloud-llm-settings">
               <select class="form-select" id="select-cloud-llm-provider" onchange="updateCloudLLMFields()">
                 <option value="openai" data-i18n-opt="cloudLLMOpenAI">OpenAI (Default)</option>
@@ -709,7 +709,7 @@
           </div>
           <p class="settings-section-intro" data-i18n="settingsSectionTextProcessingIntro">Configure how your text is refined after transcription.</p>
 
-          <!-- Text Refinement (formerly Smart Mode) -->
+          <!-- Text Refinement -->
           <div class="card">
             <div class="card-title">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
@@ -753,13 +753,13 @@
             </div>
           </div>
 
-          <!-- Smart Mode AI Provider -->
+          <!-- Text Refinement AI Provider -->
           <div class="card">
             <div class="card-title">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
-              <span data-i18n="aiSmartProviderLabel">Smart Mode runs on…</span>
+              <span data-i18n="aiSmartProviderLabel">Text Refinement runs on…</span>
             </div>
-            <p class="card-desc" data-i18n="aiSmartProviderDesc">Choose where Smart Mode processes your text — locally on your device or via a cloud service.</p>
+            <p class="card-desc" data-i18n="aiSmartProviderDesc">Choose where Text Refinement processes your text — locally on your device or via a cloud service.</p>
             <div class="form-group">
               <div class="radio-row">
                 <label class="radio-option">

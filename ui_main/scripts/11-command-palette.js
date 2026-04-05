@@ -89,7 +89,7 @@
       { id: 'mode-ptt',    label: t('palette.cmd.modePTT'),    icon: icons.microphone,    category: 'palette.cat.recording', action: () => switchRecordMode('push_to_talk') },
       { id: 'mode-toggle', label: t('palette.cmd.modeToggle'), icon: paletteIcons.micOff,  category: 'palette.cat.recording', action: () => switchRecordMode('toggle') },
 
-      // ── Smart Mode ──────────────────────────────────────
+      // ── Text Refinement ──────────────────────────────────────
       { id: 'smart-toggle',      label: t('palette.cmd.smartToggle'),      icon: paletteIcons.toggleRight, category: 'palette.cat.smartMode', action: smartToggleAction, shortcut: 'Ctrl+Shift+S' },
       { id: 'preset-cleanup',    label: t('palette.cmd.presetCleanup'),    icon: icons.sparkles,           category: 'palette.cat.smartMode', action: () => setPreset('cleanup') },
       { id: 'preset-concise',    label: t('palette.cmd.presetConcise'),    icon: icons.minimize,           category: 'palette.cat.smartMode', action: () => setPreset('concise') },

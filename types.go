@@ -7,7 +7,7 @@ const (
 	StateIdle AppState = iota
 	StateRecording
 	StateTranscribing
-	StateProcessing // AI post-processing via Smart Mode
+	StateProcessing // AI post-processing via text refinement
 	StateError
 	StateCopied
 	StatePaused // recording is paused
@@ -77,7 +77,7 @@ var CrashRelayURL = ""
 // user feedback relay. Injected at build time via -ldflags.
 var FeedbackRelayURL string
 
-// TemplateMeta holds metadata for a smart mode template (builtin or custom).
+// TemplateMeta holds metadata for a text refinement template (builtin or custom).
 type TemplateMeta struct {
 	Description string   `json:"description"`
 	Keywords    []string `json:"keywords"`

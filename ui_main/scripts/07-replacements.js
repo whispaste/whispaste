@@ -1,4 +1,4 @@
-// Snippets visibility toggle — matches Smart Mode pattern
+// Snippets visibility toggle — matches Text Refinement pattern
 function updateReplacementsVisibility() {
   const toggle = document.getElementById('replacements-toggle');
   const options = document.getElementById('replacements-options');

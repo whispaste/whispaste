@@ -404,7 +404,7 @@ func PostProcessWithProvider(text, preset, customPrompt, targetLang, langHint st
 
 	result, err := llm.ChatCompletion(context.Background(), messages, opts)
 	if err != nil {
-		return text, fmt.Errorf("smart mode (%s): %w", llm.Name(), err)
+		return text, fmt.Errorf("text refinement (%s): %w", llm.Name(), err)
 	}
 	if result == "" {
 		return text, fmt.Errorf("%s", i18n.T("error.postprocess_empty"))
@@ -417,7 +417,7 @@ func PostProcessWithProvider(text, preset, customPrompt, targetLang, langHint st
 	return cleaned, nil
 }
 
-// ApplySmartAction applies a smart mode preset or custom prompt to existing text.
+// ApplySmartAction applies a text refinement preset or custom prompt to existing text.
 // It reuses the same OpenAI Chat API as PostProcess.
 func ApplySmartAction(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint, localModelID string, userTemplates map[string]string) (string, error) {
 	return PostProcess(text, preset, customPrompt, targetLang, apiKey, endpoint, langHint, localModelID, userTemplates)
