@@ -110,11 +110,15 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
       bgColor = Colors.transparent;
     }
 
-    return Tooltip(
-      message: widget.item.label,
-      preferBelow: false,
-      waitDuration: const Duration(milliseconds: 400),
-      child: MouseRegion(
+    return Semantics(
+      label: widget.item.label,
+      button: true,
+      selected: widget.isActive,
+      child: Tooltip(
+        message: widget.item.label,
+        preferBelow: false,
+        waitDuration: const Duration(milliseconds: 400),
+        child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
@@ -168,6 +172,7 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

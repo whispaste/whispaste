@@ -249,14 +249,59 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return WpPageShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Privacy note
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.md,
+              vertical: WpSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? WpColorsDark.accentSubtle
+                  : WpColorsLight.accentSubtle,
+              borderRadius: WpRadius.borderSm,
+              border: Border.all(
+                color: isDark
+                    ? WpColorsDark.accent.withValues(alpha: 0.15)
+                    : WpColorsLight.accent.withValues(alpha: 0.15),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.shieldCheck,
+                  size: WpIconSize.sm,
+                  color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Your recordings and text stay on your device by default. '
+                    'Cloud services are only used when you explicitly enable them.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: isDark
+                          ? WpColorsDark.textSecondary
+                          : WpColorsLight.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: WpSpacing.md),
+
           // — Audio —
           WpSection(
             title: 'Audio',
-            subtitle: 'Microphone and input settings',
+            subtitle: 'Microphone and recording',
             padding: EdgeInsets.zero,
             child: Column(
               children: [
@@ -272,7 +317,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.gauge,
-                  label: 'Input Gain',
+                  label: 'Microphone Volume',
                   trailing: _slider(
                     value: _inputGain,
                     min: 0,
@@ -285,7 +330,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.hand,
-                  label: 'Push-to-Talk',
+                  label: 'Hold to Record',
                   trailing: _toggle(
                     value: _pushToTalk,
                     onChanged: (v) =>
@@ -300,14 +345,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           // — Recording Safety —
           WpSection(
             title: 'Recording Safety',
-            subtitle: 'Auto-detection and auto-stop',
+            subtitle: 'Automatic checks and safeguards',
             padding: EdgeInsets.zero,
             collapsible: true,
             child: Column(
               children: [
                 _SettingRow(
                   icon: LucideIcons.shieldAlert,
-                  label: 'Dead Mic Timeout',
+                  label: 'Silent Mic Detection',
                   trailing: _slider(
                     value: _deadMicTimeout,
                     min: 0,
@@ -320,7 +365,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.timerOff,
-                  label: 'Auto-Stop on Silence',
+                  label: 'Auto-Stop After Silence',
                   trailing: _slider(
                     value: _autoStopSilence,
                     min: 0,
@@ -336,10 +381,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           _sectionDivider(),
 
-          // — Post-Processing —
+          // — Text Enhancement (Post-Processing) —
           WpSection(
-            title: 'Post-Processing',
-            subtitle: 'AI text enhancement after transcription',
+            title: 'Text Enhancement',
+            subtitle: 'Improve your dictated text automatically',
             padding: EdgeInsets.zero,
             child: Column(
               children: [
@@ -354,7 +399,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.wandSparkles,
-                  label: 'Preset',
+                  label: 'Style',
                   trailing: _dropdown(
                     value: _postProcessPreset,
                     items: const ['Clean up', 'Concise', 'Translate'],
@@ -364,7 +409,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.server,
-                  label: 'Provider',
+                  label: 'Service',
                   trailing: _dropdown(
                     value: _postProcessProvider,
                     items: const [
@@ -385,14 +430,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           // — Speech Recognition —
           WpSection(
             title: 'Speech Recognition',
-            subtitle: 'STT engine and model selection',
+            subtitle: 'Voice recognition quality and service',
             padding: EdgeInsets.zero,
             collapsible: true,
             child: Column(
               children: [
                 _SettingRow(
                   icon: LucideIcons.cpu,
-                  label: 'Provider',
+                  label: 'Service',
                   trailing: _dropdown(
                     value: _sttProvider,
                     items: const [
@@ -407,7 +452,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 _SettingRow(
                   icon: LucideIcons.brain,
-                  label: 'Model',
+                  label: 'Quality',
                   trailing: _dropdown(
                     value: _sttModel,
                     items: const [
@@ -569,11 +614,13 @@ class _SettingRow extends StatefulWidget {
     required this.icon,
     required this.label,
     required this.trailing,
+    this.subtitle,
   });
 
   final IconData icon;
   final String label;
   final Widget trailing;
+  final String? subtitle;
 
   @override
   State<_SettingRow> createState() => _SettingRowState();
@@ -587,39 +634,62 @@ class _SettingRowState extends State<_SettingRow> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
-        curve: WpMotion.defaultCurve,
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.sm,
-          vertical: WpSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: _isHovered
-              ? (isDark ? WpColorsDark.hover : WpColorsLight.hover)
-              : Colors.transparent,
-          borderRadius: WpRadius.borderSm,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              widget.icon,
-              size: WpIconSize.sm,
-              color: cs.secondary,
-            ),
-            const SizedBox(width: WpSpacing.sm),
-            Expanded(
-              child: Text(
-                widget.label,
-                style: Theme.of(context).textTheme.bodyLarge,
+    return Semantics(
+      label: widget.label,
+      hint: widget.subtitle,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
+          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+          curve: WpMotion.defaultCurve,
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? (isDark ? WpColorsDark.hover : WpColorsLight.hover)
+                : Colors.transparent,
+            borderRadius: WpRadius.borderSm,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: WpIconSize.sm,
+                color: cs.secondary,
               ),
-            ),
-            const SizedBox(width: WpSpacing.sm),
-            widget.trailing,
-          ],
+              const SizedBox(width: WpSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.label,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    if (widget.subtitle != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          widget.subtitle!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? WpColorsDark.textMuted
+                                : WpColorsLight.textMuted,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              widget.trailing,
+            ],
+          ),
         ),
       ),
     );

@@ -64,31 +64,31 @@ class L10nDe extends L10n {
   String get settingsMicrophone => 'Mikrofon';
 
   @override
-  String get settingsGain => 'Eingangsverstärkung';
+  String get settingsGain => 'Mikrofon-Lautstärke';
 
   @override
   String get settingsRecordingSafety => 'Aufnahme-Schutz';
 
   @override
-  String get settingsDeadMicTimeout => 'Mikrofon-Erkennung';
+  String get settingsDeadMicTimeout => 'Stilles-Mikrofon-Erkennung';
 
   @override
   String get settingsDeadMicTimeoutHint =>
       'Aufnahme stoppen, wenn kein Audio erkannt wird (Sekunden). 0 = deaktiviert.';
 
   @override
-  String get settingsAutoStopSilence => 'Auto-Stopp bei Stille';
+  String get settingsAutoStopSilence => 'Auto-Stopp nach Stille';
 
   @override
   String get settingsAutoStopSilenceHint =>
       'Automatisch stoppen nach dieser Anzahl Sekunden Stille (nach Sprache). 0 = deaktiviert.';
 
   @override
-  String get settingsPostProcessing => 'Nachbearbeitung';
+  String get settingsPostProcessing => 'Textverbesserung';
 
   @override
   String get settingsPostProcessingHint =>
-      'Transkribierten Text automatisch mit KI verbessern.';
+      'Diktierten Text automatisch mit KI verbessern.';
 
   @override
   String get settingsPresetCleanup => 'Bereinigen';

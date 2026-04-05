@@ -1,6 +1,9 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/brand_wordmark.dart';
@@ -9,6 +12,16 @@ import '../../widgets/page_shell.dart';
 /// About page — app info, version, credits, links, keyboard shortcuts.
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
+
+  /// Platform-aware modifier key label.
+  static String get _modKey {
+    try {
+      if (Platform.isMacOS) return '⌘';
+    } catch (_) {
+      // Platform not available (web) — fall back to Ctrl
+    }
+    return 'Ctrl';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,15 +62,14 @@ class AboutPage extends StatelessWidget {
             icon: LucideIcons.shield,
             title: 'Privacy-first',
             description:
-                'Local AI inference by default — your voice never leaves your device unless you choose a cloud provider.',
+                'Local AI inference by default — your voice never leaves your device unless you choose a cloud service.',
             isDark: isDark,
           ),
           const SizedBox(height: WpSpacing.sm),
           _InfoCard(
             icon: LucideIcons.monitor,
             title: 'Platforms',
-            description:
-                'Windows  ·  macOS (coming soon)  ·  Linux (coming soon)',
+            description: 'Windows  ·  macOS and Linux in development',
             isDark: isDark,
           ),
           const SizedBox(height: WpSpacing.xxl),
@@ -67,17 +79,17 @@ class AboutPage extends StatelessWidget {
           const SizedBox(height: WpSpacing.sm),
           _ShortcutRow(
             label: 'Start / Stop recording',
-            shortcut: 'Ctrl + Shift + R',
+            shortcut: '$_modKey + Shift + R',
             isDark: isDark,
           ),
           _ShortcutRow(
             label: 'Command palette',
-            shortcut: 'Ctrl + K',
+            shortcut: '$_modKey + K',
             isDark: isDark,
           ),
           _ShortcutRow(
             label: 'Settings',
-            shortcut: 'Ctrl + ,',
+            shortcut: '$_modKey + ,',
             isDark: isDark,
           ),
           const SizedBox(height: WpSpacing.xxl),
@@ -88,7 +100,8 @@ class AboutPage extends StatelessWidget {
           _LinkRow(
             icon: LucideIcons.globe,
             label: 'Website',
-            url: 'whispaste.com',
+            url: 'https://whispaste.com',
+            displayUrl: 'whispaste.com',
             isDark: isDark,
           ),
           _LinkRow(
@@ -98,13 +111,15 @@ class AboutPage extends StatelessWidget {
               fontPackage: FontAwesomeIcons.github.fontPackage,
             ),
             label: 'GitHub',
-            url: 'github.com/whispaste',
+            url: 'https://github.com/whispaste',
+            displayUrl: 'github.com/whispaste',
             isDark: isDark,
           ),
           _LinkRow(
             icon: LucideIcons.fileText,
             label: 'Privacy Policy',
-            url: 'whispaste.com/privacy',
+            url: 'https://whispaste.com/privacy',
+            displayUrl: 'whispaste.com/privacy',
             isDark: isDark,
           ),
           const SizedBox(height: WpSpacing.xxxl),
@@ -262,12 +277,14 @@ class _LinkRow extends StatefulWidget {
     required this.icon,
     required this.label,
     required this.url,
+    required this.displayUrl,
     required this.isDark,
   });
 
   final IconData icon;
   final String label;
   final String url;
+  final String displayUrl;
   final bool isDark;
 
   @override
@@ -277,61 +294,72 @@ class _LinkRow extends StatefulWidget {
 class _LinkRowState extends State<_LinkRow> {
   bool _isHovered = false;
 
+  Future<void> _launch() async {
+    final uri = Uri.parse(widget.url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: () {}, // TODO: launch URL
-        child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
-          curve: WpMotion.defaultCurve,
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: _isHovered
-                ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
-                : Colors.transparent,
-            borderRadius: WpRadius.borderSm,
-          ),
-          child: Row(
-            children: [
-              Icon(
-                widget.icon,
-                size: WpIconSize.sm,
-                color: widget.isDark
-                    ? WpColorsDark.textMuted
-                    : WpColorsLight.textMuted,
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-              ),
-              Text(
-                widget.url,
-                style: TextStyle(
+    return Semantics(
+      label: '${widget.label}: ${widget.displayUrl}',
+      link: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: _launch,
+          child: AnimatedContainer(
+            duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+            curve: WpMotion.defaultCurve,
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
+                  : Colors.transparent,
+              borderRadius: WpRadius.borderSm,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  widget.icon,
+                  size: WpIconSize.sm,
                   color: widget.isDark
                       ? WpColorsDark.textMuted
                       : WpColorsLight.textMuted,
-                  fontSize: 12,
                 ),
-              ),
-              const SizedBox(width: WpSpacing.xs),
-              Icon(
-                LucideIcons.externalLink,
-                size: WpIconSize.xs,
-                color: widget.isDark
-                    ? WpColorsDark.textMuted
-                    : WpColorsLight.textMuted,
-              ),
-            ],
+                const SizedBox(width: WpSpacing.sm),
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ),
+                Text(
+                  widget.displayUrl,
+                  style: TextStyle(
+                    color: widget.isDark
+                        ? WpColorsDark.textMuted
+                        : WpColorsLight.textMuted,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(width: WpSpacing.xs),
+                Icon(
+                  LucideIcons.externalLink,
+                  size: WpIconSize.xs,
+                  color: widget.isDark
+                      ? WpColorsDark.textMuted
+                      : WpColorsLight.textMuted,
+                ),
+              ],
+            ),
           ),
         ),
       ),
