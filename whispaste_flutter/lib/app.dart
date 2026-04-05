@@ -23,6 +23,7 @@ import 'features/recording/recording_state.dart';
 import 'services/recording_orchestrator.dart';
 import 'services/sound_feedback_service.dart';
 import 'services/stt_service.dart';
+import 'services/tray_service.dart';
 import 'widgets/toast.dart';
 
 /// Active navigation page state (Riverpod 3.x Notifier).
@@ -131,9 +132,21 @@ class _AppShell extends ConsumerWidget {
     // prewarm fires at app startup — not when the user first taps record.
     ref.watch(recordingOrchestratorProvider);
 
+    // Eagerly initialise system tray and wire callbacks.
+    ref.watch(trayServiceProvider);
+    final tray = ref.read(trayServiceProvider.notifier);
+    tray.onToggleRecording = () {
+      ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+    };
+    tray.onNavigate = (page) {
+      ref.read(activePageProvider.notifier).setPage(page);
+    };
+
     // Show error/success feedback via toast when recording state changes.
     // Also triggers sound feedback for start / stop / complete / error.
+    // Also updates the system tray menu.
     ref.listen<RecordingState>(recordingProvider, (prev, next) {
+      tray.updateRecordingState(next);
       if (next.isError && next.errorMessage != null) {
         ref.read(soundFeedbackProvider.notifier).playError();
         WpToast.show(
