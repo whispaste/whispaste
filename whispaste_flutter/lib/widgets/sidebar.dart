@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'brand_logo.dart';
 
 /// Navigation item data for the sidebar.
 class WpNavItem {
@@ -51,18 +52,16 @@ class WpSidebar extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: WpSpacing.sm),
-          // Brand mark — small accent line
+          // Brand logo — real WhisPaste icon
+          const WpBrandLogo(size: 28),
+          const SizedBox(height: WpSpacing.xs),
+          // Subtle divider under logo
           Container(
-            width: 24,
-            height: 3,
-            decoration: BoxDecoration(
-              gradient: isDark
-                  ? WpColorsDark.accentGradient
-                  : WpColorsLight.accentGradient,
-              borderRadius: WpRadius.borderFull,
-            ),
+            width: 32,
+            height: 1,
+            color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
           ),
-          const SizedBox(height: WpSpacing.lg),
+          const SizedBox(height: WpSpacing.xs),
           // Nav items
           ...items.map((item) => _NavItemWidget(
                 item: item,

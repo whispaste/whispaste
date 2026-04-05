@@ -58,6 +58,7 @@ dependencies:
   url_launcher: ^6.3.0
   equatable: ^2.0.7
   lucide_icons: ^0.257.0
+  flutter_svg: ^2.1.0
 
 dev_dependencies:
   flutter_test:
@@ -73,3 +74,5 @@ flutter:
   assets:
     - assets/icons/
     - assets/sounds/
+    - assets/icons/logo-dark.svg
+    - assets/icons/logo-light.svg
