@@ -12,7 +12,7 @@ final historyEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
 });
 
 /// Active filter state for the history page.
-enum HistoryFilter { all, today, week, favorites }
+enum HistoryFilter { all, today, week, pinned }
 
 class HistoryFilterNotifier extends Notifier<HistoryFilter> {
   @override
@@ -58,7 +58,7 @@ final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
       case HistoryFilter.week:
         final weekAgo = now.subtract(const Duration(days: 7));
         result = result.where((e) => e.timestamp.isAfter(weekAgo)).toList();
-      case HistoryFilter.favorites:
+      case HistoryFilter.pinned:
         result = result.where((e) => e.pinned).toList();
       case HistoryFilter.all:
         break;
