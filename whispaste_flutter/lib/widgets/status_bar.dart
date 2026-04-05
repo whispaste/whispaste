@@ -3,9 +3,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
-/// Bottom status bar — compact, refined chips showing app state.
+/// Bottom status bar — sits on the app frame, full width.
 ///
-/// Clean design: slim 34px bar, subtle chip styling, no visual noise.
+/// Refined chips showing app state. Taller than before (42px) for readability.
 class WpStatusBar extends StatelessWidget {
   const WpStatusBar({
     super.key,
@@ -28,18 +28,8 @@ class WpStatusBar extends StatelessWidget {
 
     return Container(
       height: WpLayout.statusBarHeight,
-      decoration: BoxDecoration(
-        color: isDark
-            ? WpColorsDark.surface.withValues(alpha: 0.9)
-            : WpColorsLight.surface,
-        border: Border(
-          top: BorderSide(
-            color: isDark ? WpColorsDark.glassBorder : WpColorsLight.borderSubtle,
-            width: 1,
-          ),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
+      color: isDark ? WpColorsDark.background : WpColorsLight.background,
+      padding: const EdgeInsets.symmetric(horizontal: WpSpacing.md),
       child: Row(
         children: [
           _StatusChip(
@@ -48,7 +38,7 @@ class WpStatusBar extends StatelessWidget {
             textStyle: textStyle,
             isDark: isDark,
           ),
-          const SizedBox(width: WpSpacing.xxs),
+          const SizedBox(width: WpSpacing.xs),
           _StatusChip(
             icon: LucideIcons.sparkles,
             label: postProcessingLabel,
@@ -56,7 +46,7 @@ class WpStatusBar extends StatelessWidget {
             isDark: isDark,
           ),
           if (hotkeyLabel != null) ...[
-            const SizedBox(width: WpSpacing.xxs),
+            const SizedBox(width: WpSpacing.xs),
             _StatusChip(
               icon: LucideIcons.keyboard,
               label: hotkeyLabel!,
@@ -68,19 +58,21 @@ class WpStatusBar extends StatelessWidget {
           // Connectivity dot + label
           Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.xs,
-              vertical: 3,
+              horizontal: WpSpacing.sm,
+              vertical: 4,
             ),
             decoration: BoxDecoration(
-              color: isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant,
+              color: isDark
+                  ? WpColorsDark.surface.withValues(alpha: 0.5)
+                  : WpColorsLight.surfaceVariant,
               borderRadius: WpRadius.borderFull,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 6,
-                  height: 6,
+                  width: 7,
+                  height: 7,
                   decoration: BoxDecoration(
                     color: isOnline
                         ? (isDark ? WpColorsDark.success : WpColorsLight.success)
@@ -88,7 +80,7 @@ class WpStatusBar extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(width: 5),
+                const SizedBox(width: 6),
                 Text(
                   isOnline ? 'Online' : 'Offline',
                   style: textStyle,
@@ -120,9 +112,11 @@ class _StatusChip extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xs, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm, vertical: 4),
       decoration: BoxDecoration(
-        color: isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant,
+        color: isDark
+            ? WpColorsDark.surface.withValues(alpha: 0.5)
+            : WpColorsLight.surfaceVariant,
         borderRadius: WpRadius.borderFull,
       ),
       child: Row(

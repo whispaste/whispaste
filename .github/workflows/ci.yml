@@ -127,7 +127,6 @@ jobs:
 
       - name: Run tests
         run: flutter test
-        continue-on-error: true  # No tests yet — will fail gracefully
 
       - name: Build Windows (debug)
         run: flutter build windows --debug

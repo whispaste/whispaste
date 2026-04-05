@@ -12,12 +12,12 @@ import 'package:flutter/material.dart';
 // Dark Theme Colors (Primary) — warm slate-blue tones, NOT cold black
 // ---------------------------------------------------------------------------
 abstract final class WpColorsDark {
-  static const Color background = Color(0xFF0F1117);
-  static const Color surface = Color(0xFF1E2130);
-  static const Color surfaceElevated = Color(0xFF252A3A);
-  static const Color surfaceVariant = Color(0xFF2E3348);
-  static const Color hover = Color(0xFF2A2E3E);
-  static const Color active = Color(0xFF333852);
+  static const Color background = Color(0xFF0F1219);
+  static const Color surface = Color(0xFF1A1F2E);
+  static const Color surfaceElevated = Color(0xFF232940);
+  static const Color surfaceVariant = Color(0xFF2C3250);
+  static const Color hover = Color(0xFF282E42);
+  static const Color active = Color(0xFF303658);
 
   static const Color borderSubtle = Color(0x14FFFFFF);
   static const Color borderDefault = Color(0x24FFFFFF);
@@ -39,14 +39,14 @@ abstract final class WpColorsDark {
   static const LinearGradient surfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF141820), Color(0xFF111418)],
+    colors: [Color(0xFF161A28), Color(0xFF12151F)],
   );
 
-  /// Warm surface gradient — slate-blue wash for emotional depth
+  /// Warm surface gradient — indigo-slate wash for emotional depth
   static const LinearGradient warmSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1E2130), Color(0xFF151825), Color(0xFF1A1E2E)],
+    colors: [Color(0xFF1C2035), Color(0xFF151928), Color(0xFF181D30)],
     stops: [0.0, 0.5, 1.0],
   );
 
