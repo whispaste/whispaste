@@ -945,4 +945,96 @@ class L10nDe extends L10n {
 
   @override
   String get tooltipSwitchToDark => 'Zu dunklem Modus wechseln';
+
+  @override
+  String get modelServerReady => 'Sprach-Engine bereit';
+
+  @override
+  String get modelServerMissing => 'Sprach-Engine nicht installiert';
+
+  @override
+  String get modelServerWhisper => 'Lokale Engine';
+
+  @override
+  String get modelReady => 'Bereit';
+
+  @override
+  String get modelDownload => 'Laden';
+
+  @override
+  String get modelDownloading => 'Wird geladen…';
+
+  @override
+  String get modelVerifying => 'Wird überprüft…';
+
+  @override
+  String get modelExtracting => 'Wird entpackt…';
+
+  @override
+  String get modelDeleteConfirm => 'Modell löschen?';
+
+  @override
+  String get modelDeleteConfirmMessage =>
+      'Die Modelldatei wird dauerhaft entfernt. Du kannst sie jederzeit erneut herunterladen.';
+
+  @override
+  String get modelSizeTiny => 'Schnelle Transkription für kurze Notizen';
+
+  @override
+  String get modelSizeBase =>
+      'Schnellere Verarbeitung, ordentliche Genauigkeit';
+
+  @override
+  String get modelSizeSmall =>
+      'Gute Balance aus Geschwindigkeit und Genauigkeit';
+
+  @override
+  String get modelSizeMedium =>
+      'Hervorragende Genauigkeit für die meisten Anwendungsfälle';
+
+  @override
+  String get modelSizeLargeTurbo =>
+      'Beste Genauigkeit mit optimierter Geschwindigkeit';
+
+  @override
+  String get modelSizeLarge => 'Maximale Genauigkeit, benötigt mehr Ressourcen';
+
+  @override
+  String get settingsQualityFast => 'Schnell';
+
+  @override
+  String get settingsQualityBasic => 'Standard';
+
+  @override
+  String get settingsQualityBalanced => 'Ausgewogen';
+
+  @override
+  String get settingsQualityHigh => 'Hohe Qualität';
+
+  @override
+  String get settingsQualityBest => 'Beste Qualität';
+
+  @override
+  String get settingsQualityMaximum => 'Maximale Genauigkeit';
+
+  @override
+  String get settingsQualityRecommended => '★ Empfohlen';
+
+  @override
+  String get settingsModelStatusReady => 'Sprachmodell bereit';
+
+  @override
+  String get settingsModelStatusNeeded =>
+      'Sprachmodell wird beim Start der Aufnahme heruntergeladen';
+
+  @override
+  String get settingsModelStatusDownloading =>
+      'Sprachmodell wird heruntergeladen…';
+
+  @override
+  String get settingsAdvancedModelManagement =>
+      'Erweiterte Modell-Einstellungen';
+
+  @override
+  String get settingsPrivacyHintLocal => 'Deine Stimme verlässt nie dein Gerät';
 }

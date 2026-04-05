@@ -21,7 +21,7 @@ class AppSettings {
     this.autoStopSilence = 0.0,
     // Speech Recognition
     this.sttProvider = 'On Device (Private)',
-    this.sttModel = 'High Quality (Medium)',
+    this.sttModel = 'whisper-medium',
     this.sttLanguage = 'Auto-detect',
     // Post-Processing
     this.postProcessEnabled = true,
@@ -105,7 +105,7 @@ class AppSettings {
       autoStopSilence:
           _readDouble(values, 'auto_stop_silence', defaults.autoStopSilence),
       sttProvider: values['stt_provider'] ?? defaults.sttProvider,
-      sttModel: values['stt_model'] ?? defaults.sttModel,
+      sttModel: _migrateModelId(values['stt_model'] ?? defaults.sttModel),
       sttLanguage: values['stt_language'] ?? defaults.sttLanguage,
       postProcessEnabled: _readBool(
         values,
@@ -282,11 +282,18 @@ double _readDouble(
 }
 
 String _settingModelFromConfig(String modelId) {
-  return switch (modelId) {
-    'whisper-tiny' => 'Fast (Tiny)',
-    'whisper-small' => 'Balanced (Small)',
-    'whisper-large-v3' => 'Best Quality (Large)',
-    _ => 'High Quality (Medium)',
+  // Now settings store actual model IDs directly.
+  return modelId.isEmpty ? 'whisper-medium' : modelId;
+}
+
+/// Migrates legacy display-name model values to proper IDs.
+String _migrateModelId(String raw) {
+  return switch (raw) {
+    'Fast (Tiny)' => 'whisper-tiny',
+    'Balanced (Small)' => 'whisper-small',
+    'High Quality (Medium)' => 'whisper-medium',
+    'Best Quality (Large)' => 'whisper-large-v3',
+    _ => raw, // already a model ID or unknown → keep as-is
   };
 }
 
@@ -309,12 +316,8 @@ String _settingPresetFromConfig(String preset) {
 }
 
 String _configModelIdFromSetting(String setting) {
-  return switch (setting) {
-    'Fast (Tiny)' => 'whisper-tiny',
-    'Balanced (Small)' => 'whisper-small',
-    'Best Quality (Large)' => 'whisper-large-v3',
-    _ => 'whisper-medium',
-  };
+  // Settings now store model IDs directly.
+  return setting.isEmpty ? 'whisper-medium' : setting;
 }
 
 String _configLanguageFromSetting(String setting) {

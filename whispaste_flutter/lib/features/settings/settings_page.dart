@@ -5,6 +5,8 @@ import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../services/model_download_service.dart';
+import '../../widgets/model_download_card.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
 
@@ -26,6 +28,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _showGroqKey = false;
   bool _showDeepgramKey = false;
   bool _showAnthropicKey = false;
+  bool _showAdvancedModels = false;
 
   @override
   void dispose() {
@@ -238,6 +241,46 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   // ---------------------------------------------------------------------------
+  // Quality tier helpers — user-friendly labels for STT models
+  // ---------------------------------------------------------------------------
+
+  /// All model IDs in display order.
+  static const _qualityModelIds = [
+    'whisper-tiny',
+    'whisper-base',
+    'whisper-small',
+    'whisper-medium',
+    'whisper-large-v3-turbo',
+    'whisper-large-v3',
+  ];
+
+  /// User-friendly labels (localized) for each model ID.
+  List<String> _qualityLabels(L10n l10n) => [
+        l10n.settingsQualityFast,
+        l10n.settingsQualityBasic,
+        l10n.settingsQualityBalanced,
+        '${l10n.settingsQualityHigh}  ${l10n.settingsQualityRecommended}',
+        l10n.settingsQualityBest,
+        l10n.settingsQualityMaximum,
+      ];
+
+  /// Description for the currently selected quality tier.
+  String _qualityDescription(String modelId, L10n l10n) {
+    final model = findSttModel(modelId);
+    if (model == null) return '';
+    return switch (modelId) {
+      'whisper-tiny' => '${l10n.modelSizeTiny} (${model.sizeLabel})',
+      'whisper-base' => '${l10n.modelSizeBase} (${model.sizeLabel})',
+      'whisper-small' => '${l10n.modelSizeSmall} (${model.sizeLabel})',
+      'whisper-medium' => '${l10n.modelSizeMedium} (${model.sizeLabel})',
+      'whisper-large-v3-turbo' =>
+        '${l10n.modelSizeLargeTurbo} (${model.sizeLabel})',
+      'whisper-large-v3' => '${l10n.modelSizeLarge} (${model.sizeLabel})',
+      _ => '',
+    };
+  }
+
+  // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
 
@@ -425,28 +468,148 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         .updateSettings((s) => s.copyWith(sttProvider: v!)),
                   ),
                 ),
+                // Privacy hint for on-device mode
+                if (settings.sttProvider == 'On Device (Private)')
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: 52,
+                      right: WpSpacing.md,
+                      bottom: WpSpacing.xs,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          LucideIcons.shieldCheck,
+                          size: 12,
+                          color: isDark
+                              ? WpColorsDark.success
+                              : WpColorsLight.success,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          l10n.settingsPrivacyHintLocal,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark
+                                ? WpColorsDark.success
+                                : WpColorsLight.success,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 _SettingRow(
                   icon: LucideIcons.brain,
                   label: l10n.settingsQuality,
                   trailing: _dropdown(
-                    value: settings.sttModel,
-                    items: const [
-                      'Fast (Tiny)',
-                      'Balanced (Small)',
-                      'High Quality (Medium)',
-                      'Best Quality (Large)',
-                    ],
-                    labels: [
-                      l10n.settingsQualityFastTiny,
-                      l10n.settingsQualityBalancedSmall,
-                      l10n.settingsQualityHighQualityMedium,
-                      l10n.settingsQualityBestLarge,
-                    ],
-                    onChanged: (v) => ref
-                        .read(settingsProvider.notifier)
-                        .updateSettings((s) => s.copyWith(sttModel: v!)),
+                    value: _qualityModelIds.contains(settings.sttModel)
+                        ? settings.sttModel
+                        : 'whisper-medium',
+                    items: _qualityModelIds,
+                    labels: _qualityLabels(l10n),
+                    onChanged: (v) {
+                      ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings((s) => s.copyWith(sttModel: v!));
+                      // Auto-download if model not present
+                      final dlState = ref.read(modelDownloadProvider);
+                      if (!dlState.downloadedModels.contains(v) &&
+                          !dlState.isBusy) {
+                        ref
+                            .read(modelDownloadProvider.notifier)
+                            .downloadModel(v!);
+                      }
+                    },
                   ),
                 ),
+                // Quality description + download status row
+                Builder(builder: (context) {
+                  final dlState = ref.watch(modelDownloadProvider);
+                  final isDownloaded =
+                      dlState.downloadedModels.contains(settings.sttModel);
+                  final isDownloading = dlState.isBusy &&
+                      dlState.activeModelId == settings.sttModel;
+                  final accent =
+                      isDark ? WpColorsDark.accent : WpColorsLight.accent;
+                  final success =
+                      isDark ? WpColorsDark.success : WpColorsLight.success;
+                  final textSec = isDark
+                      ? WpColorsDark.textSecondary
+                      : WpColorsLight.textSecondary;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(
+                      left: 52,
+                      right: WpSpacing.md,
+                      bottom: WpSpacing.sm,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Quality description
+                        Text(
+                          _qualityDescription(settings.sttModel, l10n),
+                          style: TextStyle(fontSize: 11, color: textSec),
+                        ),
+                        const SizedBox(height: 4),
+                        // Download status
+                        Row(
+                          children: [
+                            Icon(
+                              isDownloaded
+                                  ? LucideIcons.circleCheck
+                                  : isDownloading
+                                      ? LucideIcons.loader
+                                      : LucideIcons.download,
+                              size: 12,
+                              color: isDownloaded
+                                  ? success
+                                  : isDownloading
+                                      ? accent
+                                      : textSec,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                isDownloaded
+                                    ? l10n.settingsModelStatusReady
+                                    : isDownloading
+                                        ? '${l10n.settingsModelStatusDownloading} ${dlState.progressPercent}%'
+                                        : l10n.settingsModelStatusNeeded,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDownloaded
+                                      ? success
+                                      : isDownloading
+                                          ? accent
+                                          : textSec,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Progress bar during download
+                        if (isDownloading &&
+                            dlState.phase == DownloadPhase.downloading)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: ClipRRect(
+                              borderRadius:
+                                  BorderRadius.circular(WpRadius.full),
+                              child: LinearProgressIndicator(
+                                value: dlState.progressPercent / 100,
+                                minHeight: 2,
+                                backgroundColor: isDark
+                                    ? WpColorsDark.borderSubtle
+                                    : WpColorsLight.borderSubtle,
+                                valueColor: AlwaysStoppedAnimation(accent),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
                 _SettingRow(
                   icon: LucideIcons.languages,
                   label: l10n.settingsLanguage,
@@ -474,9 +637,52 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ],
             ),
           ),
-          _sectionDivider(),
 
-          // ── 4. Post-Processing ──
+          // ── 3b. Advanced Model Management (collapsed) ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: WpSpacing.md),
+            child: InkWell(
+              onTap: () =>
+                  setState(() => _showAdvancedModels = !_showAdvancedModels),
+              borderRadius: WpRadius.borderSm,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: WpSpacing.sm,
+                  horizontal: WpSpacing.xs,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _showAdvancedModels
+                          ? LucideIcons.chevronDown
+                          : LucideIcons.chevronRight,
+                      size: 14,
+                      color: isDark
+                          ? WpColorsDark.textMuted
+                          : WpColorsLight.textMuted,
+                    ),
+                    const SizedBox(width: WpSpacing.xs),
+                    Text(
+                      l10n.settingsAdvancedModelManagement,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? WpColorsDark.textMuted
+                            : WpColorsLight.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (_showAdvancedModels)
+            WpSection(
+              title: l10n.settingsSttModels,
+              padding: EdgeInsets.zero,
+              child: const SttModelManager(),
+            ),
+          _sectionDivider(),
           WpSection(
             title: l10n.settingsPostProcessing,
             subtitle: l10n.settingsTextEnhancementSubtitle,
