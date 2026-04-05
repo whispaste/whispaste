@@ -31,6 +31,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   late List<HistoryEntry> _sampleEntries;
   String? _selectedEntryId;
 
+  HistoryEntry? get _selectedEntry {
+    if (_selectedEntryId == null) return null;
+    final idx = _sampleEntries.indexWhere((e) => e.id == _selectedEntryId);
+    return idx >= 0 ? _sampleEntries[idx] : null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -146,19 +152,21 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 ? WpColorsDark.borderSubtle
                 : WpColorsLight.borderSubtle,
           ),
-          // Content
+          // Master-detail content
           Expanded(
             child: hasResults
-                ? _EntryList(
+                ? _MasterDetail(
                     groups: groups,
                     isDark: isDark,
-                    selectedId: _selectedEntryId,
+                    selectedEntry: _selectedEntry,
                     onEntryTap: (entry) => setState(() {
                       _selectedEntryId = entry.id;
                     }),
                     onCopy: _copyEntry,
                     onPin: _togglePin,
                     onDelete: _deleteEntry,
+                    onCloseDetail: () =>
+                        setState(() => _selectedEntryId = null),
                   )
                 : _searchController.text.isNotEmpty
                     ? WpEmptyState(
@@ -358,6 +366,85 @@ class _SearchToolbar extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Master-detail layout
+// ---------------------------------------------------------------------------
+
+class _MasterDetail extends StatelessWidget {
+  const _MasterDetail({
+    required this.groups,
+    required this.isDark,
+    required this.selectedEntry,
+    required this.onEntryTap,
+    required this.onCopy,
+    required this.onPin,
+    required this.onDelete,
+    required this.onCloseDetail,
+  });
+
+  final List<DateGroup> groups;
+  final bool isDark;
+  final HistoryEntry? selectedEntry;
+  final ValueChanged<HistoryEntry> onEntryTap;
+  final ValueChanged<HistoryEntry> onCopy;
+  final ValueChanged<HistoryEntry> onPin;
+  final ValueChanged<HistoryEntry> onDelete;
+  final VoidCallback onCloseDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    if (selectedEntry == null) {
+      // Full-width list (no detail selected)
+      return _EntryList(
+        groups: groups,
+        isDark: isDark,
+        selectedId: null,
+        onEntryTap: onEntryTap,
+        onCopy: onCopy,
+        onPin: onPin,
+        onDelete: onDelete,
+      );
+    }
+
+    // Side-by-side: list + detail
+    return Row(
+      children: [
+        // Entry list (narrower)
+        SizedBox(
+          width: 340,
+          child: _EntryList(
+            groups: groups,
+            isDark: isDark,
+            selectedId: selectedEntry!.id,
+            onEntryTap: onEntryTap,
+            onCopy: onCopy,
+            onPin: onPin,
+            onDelete: onDelete,
+          ),
+        ),
+        // Divider
+        Container(
+          width: 1,
+          color: isDark
+              ? WpColorsDark.borderSubtle
+              : WpColorsLight.borderSubtle,
+        ),
+        // Detail panel
+        Expanded(
+          child: _DetailPanel(
+            entry: selectedEntry!,
+            isDark: isDark,
+            onClose: onCloseDetail,
+            onCopy: () => onCopy(selectedEntry!),
+            onPin: () => onPin(selectedEntry!),
+            onDelete: () => onDelete(selectedEntry!),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Entry list with date groups
 // ---------------------------------------------------------------------------
 
@@ -382,7 +469,6 @@ class _EntryList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Build a flat list of widgets: section headers + entry rows
     final items = <Widget>[];
 
     for (final group in groups) {
@@ -414,7 +500,7 @@ class _EntryList extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Date group header
+// Date group header — ChatGPT-style time divider
 // ---------------------------------------------------------------------------
 
 class _DateHeader extends StatelessWidget {
@@ -425,25 +511,94 @@ class _DateHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final lineColor =
+        isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl, WpSpacing.md, WpSpacing.xl, WpSpacing.xxs,
+        WpSpacing.xl, WpSpacing.md, WpSpacing.xl, WpSpacing.xs,
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
-          color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-        ),
+      child: Row(
+        children: [
+          Expanded(child: Container(height: 1, color: lineColor)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+                color: color,
+              ),
+            ),
+          ),
+          Expanded(child: Container(height: 1, color: lineColor)),
+        ],
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// History entry row — flat, ChatGPT/WhatsApp-inspired
+// Content type avatar colors — gives each entry visual identity
+// ---------------------------------------------------------------------------
+
+/// Derives a warm avatar color from the entry's first tag or title.
+Color _avatarColor(HistoryEntry entry, bool isDark) {
+  // Palette of warm, distinguishable hues (not harsh, not glow)
+  const palette = [
+    Color(0xFF22D3EE), // cyan (default)
+    Color(0xFF8B5CF6), // violet
+    Color(0xFFF59E0B), // amber
+    Color(0xFF10B981), // emerald
+    Color(0xFFF472B6), // pink
+    Color(0xFF3B82F6), // blue
+    Color(0xFFEF4444), // red
+    Color(0xFF14B8A6), // teal
+  ];
+  // Hash from title for consistent color per entry
+  final hash = entry.title.isNotEmpty
+      ? entry.title.codeUnits.fold<int>(0, (a, b) => a + b)
+      : entry.id.codeUnits.fold<int>(0, (a, b) => a + b);
+  return palette[hash % palette.length];
+}
+
+/// Icon for the entry avatar — based on content/source hints.
+IconData _avatarIcon(HistoryEntry entry) {
+  final title = entry.title.toLowerCase();
+  final tags = entry.tags.toLowerCase();
+
+  if (tags.contains('meeting') || title.contains('meeting') || title.contains('standup')) {
+    return LucideIcons.users;
+  }
+  if (tags.contains('email') || title.contains('email') || title.contains('follow')) {
+    return LucideIcons.mail;
+  }
+  if (tags.contains('blog') || tags.contains('writing') || title.contains('blog') || title.contains('draft')) {
+    return LucideIcons.penLine;
+  }
+  if (tags.contains('personal') || tags.contains('recipe')) {
+    return LucideIcons.heart;
+  }
+  if (tags.contains('feedback') || title.contains('feedback') || title.contains('review')) {
+    return LucideIcons.messageSquare;
+  }
+  if (tags.contains('project') || title.contains('project') || title.contains('brief')) {
+    return LucideIcons.folderOpen;
+  }
+  if (tags.contains('idea') || tags.contains('team')) {
+    return LucideIcons.lightbulb;
+  }
+  if (title.contains('reminder') || title.contains('todo')) {
+    return LucideIcons.bellRing;
+  }
+  return LucideIcons.mic;
+}
+
+// ---------------------------------------------------------------------------
+// History entry row — WhatsApp/ChatGPT/Discord-inspired
 // ---------------------------------------------------------------------------
 
 class _HistoryEntryRow extends StatefulWidget {
@@ -486,17 +641,10 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
     return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
   }
 
-  List<String> get _tags {
-    try {
-      final decoded = jsonDecode(widget.entry.tags);
-      if (decoded is List) return decoded.cast<String>();
-    } catch (_) {}
-    return [];
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
+    final avatarCol = _avatarColor(widget.entry, isDark);
 
     // Row background
     final Color bg;
@@ -526,123 +674,140 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
           duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
           curve: WpMotion.defaultCurve,
           margin: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
+            horizontal: WpSpacing.xs,
             vertical: 1,
           ),
           padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.md,
+            horizontal: WpSpacing.sm,
             vertical: WpSpacing.sm,
           ),
           decoration: BoxDecoration(
             color: bg,
-            borderRadius: WpRadius.borderSm,
+            borderRadius: WpRadius.borderMd,
+            // Left accent stripe for selected entry (Discord-style)
             border: widget.isSelected
-                ? Border.all(color: accent.withValues(alpha: 0.2))
+                ? Border(
+                    left: BorderSide(color: accent, width: 3),
+                  )
                 : null,
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Row 1: Title + metadata + actions
-              Row(
-                children: [
-                  // Pin indicator
-                  if (widget.entry.pinned) ...[
-                    Icon(LucideIcons.pin, size: 12, color: accent),
-                    const SizedBox(width: WpSpacing.xxs),
-                  ],
-                  // Title
-                  Expanded(
-                    child: Text(
-                      widget.entry.title.isNotEmpty
-                          ? widget.entry.title
-                          : 'Untitled recording',
+              // Avatar — colored circle with content-type icon
+              _EntryAvatar(
+                color: avatarCol,
+                icon: _avatarIcon(widget.entry),
+                isPinned: widget.entry.pinned,
+                isDark: isDark,
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Row 1: Title + time/actions
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.entry.title.isNotEmpty
+                                ? widget.entry.title
+                                : 'Untitled recording',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: textPrimary,
+                            ),
+                          ),
+                        ),
+                        // Hover actions OR time
+                        if (_isHovered) ...[
+                          _RowAction(
+                            icon: LucideIcons.copy,
+                            tooltip: 'Copy text',
+                            isDark: isDark,
+                            onTap: widget.onCopy,
+                          ),
+                          _RowAction(
+                            icon: widget.entry.pinned
+                                ? LucideIcons.pinOff
+                                : LucideIcons.pin,
+                            tooltip:
+                                widget.entry.pinned ? 'Unpin' : 'Pin to top',
+                            isDark: isDark,
+                            onTap: widget.onPin,
+                          ),
+                          _RowAction(
+                            icon: LucideIcons.trash2,
+                            tooltip: 'Delete',
+                            isDark: isDark,
+                            onTap: widget.onDelete,
+                            isDestructive: true,
+                          ),
+                        ] else
+                          Text(
+                            _timeLabel,
+                            style: TextStyle(fontSize: 11, color: textMuted),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    // Row 2: Content preview — single line, WhatsApp-style
+                    Text(
+                      widget.entry.content,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: textPrimary,
+                        fontSize: 12.5,
+                        color: textSecondary,
+                        height: 1.3,
                       ),
                     ),
-                  ),
-                  // Hover actions
-                  if (_isHovered) ...[
-                    _RowAction(
-                      icon: LucideIcons.copy,
-                      tooltip: 'Copy text',
-                      isDark: isDark,
-                      onTap: widget.onCopy,
-                    ),
-                    _RowAction(
-                      icon: widget.entry.pinned
-                          ? LucideIcons.pinOff
-                          : LucideIcons.pin,
-                      tooltip:
-                          widget.entry.pinned ? 'Unpin' : 'Pin to top',
-                      isDark: isDark,
-                      onTap: widget.onPin,
-                    ),
-                    _RowAction(
-                      icon: LucideIcons.trash2,
-                      tooltip: 'Delete',
-                      isDark: isDark,
-                      onTap: widget.onDelete,
-                      isDestructive: true,
-                    ),
-                  ] else ...[
-                    // Time label (when not hovering)
-                    Text(
-                      _timeLabel,
-                      style: TextStyle(fontSize: 11, color: textMuted),
+                    const SizedBox(height: 4),
+                    // Row 3: Subtle inline metadata (duration + language)
+                    Row(
+                      children: [
+                        Icon(LucideIcons.clock, size: 10, color: textMuted),
+                        const SizedBox(width: 3),
+                        Text(
+                          _durationLabel,
+                          style: TextStyle(fontSize: 10, color: textMuted),
+                        ),
+                        if (widget.entry.language.isNotEmpty) ...[
+                          const SizedBox(width: WpSpacing.xs),
+                          Text(
+                            '·',
+                            style: TextStyle(
+                                fontSize: 10, color: textMuted),
+                          ),
+                          const SizedBox(width: WpSpacing.xs),
+                          Text(
+                            widget.entry.language.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: textMuted,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                        if (!widget.entry.isLocal) ...[
+                          const SizedBox(width: WpSpacing.xs),
+                          Text(
+                            '·',
+                            style: TextStyle(
+                                fontSize: 10, color: textMuted),
+                          ),
+                          const SizedBox(width: WpSpacing.xs),
+                          Icon(LucideIcons.cloud, size: 10, color: textMuted),
+                        ],
+                      ],
                     ),
                   ],
-                ],
-              ),
-              const SizedBox(height: WpSpacing.xxs),
-              // Row 2: Content preview
-              Text(
-                widget.entry.content,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: textSecondary,
-                  height: 1.4,
                 ),
-              ),
-              const SizedBox(height: WpSpacing.xxs + 2),
-              // Row 3: Tags + metadata chips
-              Row(
-                children: [
-                  // Duration
-                  _MetaChip(
-                    icon: LucideIcons.clock,
-                    label: _durationLabel,
-                    isDark: isDark,
-                  ),
-                  const SizedBox(width: WpSpacing.xs),
-                  // Language
-                  if (widget.entry.language.isNotEmpty) ...[
-                    _MetaChip(
-                      icon: LucideIcons.globe,
-                      label: widget.entry.language.toUpperCase(),
-                      isDark: isDark,
-                    ),
-                    const SizedBox(width: WpSpacing.xs),
-                  ],
-                  // Local/Cloud indicator
-                  _MetaChip(
-                    icon: widget.entry.isLocal
-                        ? LucideIcons.hardDrive
-                        : LucideIcons.cloud,
-                    label: widget.entry.isLocal ? 'Local' : 'Cloud',
-                    isDark: isDark,
-                  ),
-                  const Spacer(),
-                  // Tags (max 2 visible)
-                  ..._buildTags(textMuted, accent),
-                ],
               ),
             ],
           ),
@@ -650,47 +815,430 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
       ),
     );
   }
+}
 
-  List<Widget> _buildTags(Color textMuted, Color accent) {
-    final tags = _tags;
-    if (tags.isEmpty) return [];
+// ---------------------------------------------------------------------------
+// Entry avatar — colored circle with icon (Discord/WhatsApp identity)
+// ---------------------------------------------------------------------------
 
-    final visible = tags.take(2).toList();
-    final remaining = tags.length - visible.length;
+class _EntryAvatar extends StatelessWidget {
+  const _EntryAvatar({
+    required this.color,
+    required this.icon,
+    required this.isPinned,
+    required this.isDark,
+  });
 
-    return [
-      for (final tag in visible) ...[
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.xxs + 2,
-            vertical: 1,
-          ),
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.08),
-            borderRadius: WpRadius.borderSm,
-          ),
-          child: Text(
-            tag,
-            style: TextStyle(
-              fontSize: 10,
-              color: accent.withValues(alpha: 0.7),
-              fontWeight: FontWeight.w500,
+  final Color color;
+  final IconData icon;
+  final bool isPinned;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: Stack(
+        children: [
+          // Avatar circle
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: isDark ? 0.15 : 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color: color.withValues(alpha: isDark ? 0.9 : 0.8),
             ),
           ),
-        ),
-        const SizedBox(width: 4),
-      ],
-      if (remaining > 0)
-        Text(
-          '+$remaining',
-          style: TextStyle(fontSize: 10, color: textMuted),
-        ),
-    ];
+          // Pin badge — small dot in corner
+          if (isPinned)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark ? WpColorsDark.surface : WpColorsLight.surface,
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Row action button (hover-only)
+// Detail panel — opens on entry selection (ChatGPT/Notion detail view)
+// ---------------------------------------------------------------------------
+
+class _DetailPanel extends StatelessWidget {
+  const _DetailPanel({
+    required this.entry,
+    required this.isDark,
+    required this.onClose,
+    required this.onCopy,
+    required this.onPin,
+    required this.onDelete,
+  });
+
+  final HistoryEntry entry;
+  final bool isDark;
+  final VoidCallback onClose;
+  final VoidCallback onCopy;
+  final VoidCallback onPin;
+  final VoidCallback onDelete;
+
+  String get _fullTimestamp {
+    final t = entry.timestamp;
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[t.month - 1]} ${t.day}, ${t.year} at '
+        '${t.hour.toString().padLeft(2, '0')}:'
+        '${t.minute.toString().padLeft(2, '0')}';
+  }
+
+  String get _durationLabel {
+    final secs = entry.durationSec.round();
+    if (secs < 60) return '${secs}s';
+    final mins = secs ~/ 60;
+    final rem = secs % 60;
+    return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
+  }
+
+  List<String> get _tags {
+    try {
+      final decoded = jsonDecode(entry.tags);
+      if (decoded is List) return decoded.cast<String>();
+    } catch (_) {}
+    return [];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textPrimary =
+        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final textMuted =
+        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final avatarCol = _avatarColor(entry, isDark);
+
+    return Container(
+      color: isDark
+          ? WpColorsDark.surface
+          : WpColorsLight.surface,
+      child: Column(
+        children: [
+          // Header bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              WpSpacing.xl, WpSpacing.md, WpSpacing.md, WpSpacing.sm,
+            ),
+            child: Row(
+              children: [
+                _EntryAvatar(
+                  color: avatarCol,
+                  icon: _avatarIcon(entry),
+                  isPinned: entry.pinned,
+                  isDark: isDark,
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entry.title.isNotEmpty ? entry.title : 'Untitled',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: textPrimary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _fullTimestamp,
+                        style: TextStyle(fontSize: 12, color: textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                // Action buttons
+                _DetailAction(
+                  icon: LucideIcons.copy,
+                  tooltip: 'Copy text',
+                  isDark: isDark,
+                  onTap: onCopy,
+                ),
+                _DetailAction(
+                  icon: entry.pinned ? LucideIcons.pinOff : LucideIcons.pin,
+                  tooltip: entry.pinned ? 'Unpin' : 'Pin',
+                  isDark: isDark,
+                  onTap: onPin,
+                ),
+                _DetailAction(
+                  icon: LucideIcons.trash2,
+                  tooltip: 'Delete',
+                  isDark: isDark,
+                  onTap: onDelete,
+                  isDestructive: true,
+                ),
+                const SizedBox(width: WpSpacing.xxs),
+                _DetailAction(
+                  icon: LucideIcons.x,
+                  tooltip: 'Close',
+                  isDark: isDark,
+                  onTap: onClose,
+                ),
+              ],
+            ),
+          ),
+          // Divider
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xl),
+            color: isDark
+                ? WpColorsDark.borderSubtle
+                : WpColorsLight.borderSubtle,
+          ),
+          // Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(WpSpacing.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Full text
+                  SelectableText(
+                    entry.content,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: textPrimary,
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: WpSpacing.xxl),
+                  // Metadata section
+                  Container(
+                    padding: const EdgeInsets.all(WpSpacing.md),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? WpColorsDark.surfaceElevated
+                          : WpColorsLight.surfaceElevated,
+                      borderRadius: WpRadius.borderMd,
+                      border: Border.all(
+                        color: isDark
+                            ? WpColorsDark.borderSubtle
+                            : WpColorsLight.borderSubtle,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        _DetailMetaRow(
+                          icon: LucideIcons.clock,
+                          label: 'Duration',
+                          value: _durationLabel,
+                          isDark: isDark,
+                        ),
+                        if (entry.language.isNotEmpty)
+                          _DetailMetaRow(
+                            icon: LucideIcons.globe,
+                            label: 'Language',
+                            value: entry.language.toUpperCase(),
+                            isDark: isDark,
+                          ),
+                        _DetailMetaRow(
+                          icon: entry.isLocal
+                              ? LucideIcons.hardDrive
+                              : LucideIcons.cloud,
+                          label: 'Processed',
+                          value: entry.isLocal ? 'On device' : 'Cloud',
+                          isDark: isDark,
+                        ),
+                        if (entry.model.isNotEmpty)
+                          _DetailMetaRow(
+                            icon: LucideIcons.cpu,
+                            label: 'Model',
+                            value: entry.model,
+                            isDark: isDark,
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Tags
+                  if (_tags.isNotEmpty) ...[
+                    const SizedBox(height: WpSpacing.md),
+                    Wrap(
+                      spacing: WpSpacing.xs,
+                      runSpacing: WpSpacing.xs,
+                      children: [
+                        for (final tag in _tags)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: WpSpacing.sm,
+                              vertical: WpSpacing.xxs,
+                            ),
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.1),
+                              borderRadius: WpRadius.borderFull,
+                            ),
+                            child: Text(
+                              '#$tag',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: accent.withValues(alpha: 0.8),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Detail panel action button
+// ---------------------------------------------------------------------------
+
+class _DetailAction extends StatefulWidget {
+  const _DetailAction({
+    required this.icon,
+    required this.tooltip,
+    required this.isDark,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final bool isDark;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  @override
+  State<_DetailAction> createState() => _DetailActionState();
+}
+
+class _DetailActionState extends State<_DetailAction> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color iconColor;
+    if (widget.isDestructive && _isHovered) {
+      iconColor = widget.isDark ? WpColorsDark.error : WpColorsLight.error;
+    } else if (_isHovered) {
+      iconColor = widget.isDark
+          ? WpColorsDark.textPrimary
+          : WpColorsLight.textPrimary;
+    } else {
+      iconColor = widget.isDark
+          ? WpColorsDark.textMuted
+          : WpColorsLight.textMuted;
+    }
+
+    return Tooltip(
+      message: widget.tooltip,
+      preferBelow: false,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: WpMotion.fast,
+            padding: const EdgeInsets.all(WpSpacing.xs),
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? (widget.isDark
+                      ? WpColorsDark.hover
+                      : WpColorsLight.hover)
+                  : Colors.transparent,
+              borderRadius: WpRadius.borderSm,
+            ),
+            child: Icon(widget.icon, size: 16, color: iconColor),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Detail metadata row
+// ---------------------------------------------------------------------------
+
+class _DetailMetaRow extends StatelessWidget {
+  const _DetailMetaRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.isDark,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final textSecondary =
+        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+    final textPrimary =
+        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: textSecondary),
+          const SizedBox(width: WpSpacing.sm),
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: textSecondary),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              color: textPrimary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Row action button (hover-only, used in entry rows)
 // ---------------------------------------------------------------------------
 
 class _RowAction extends StatefulWidget {
@@ -749,7 +1297,9 @@ class _RowActionState extends State<_RowAction> {
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: _isHovered
-                    ? (widget.isDark ? WpColorsDark.active : WpColorsLight.active)
+                    ? (widget.isDark
+                        ? WpColorsDark.active
+                        : WpColorsLight.active)
                     : Colors.transparent,
                 borderRadius: WpRadius.borderSm,
               ),
@@ -758,44 +1308,6 @@ class _RowActionState extends State<_RowAction> {
           ),
         ),
       ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Metadata chip (duration, language, local/cloud)
-// ---------------------------------------------------------------------------
-
-class _MetaChip extends StatelessWidget {
-  const _MetaChip({
-    required this.icon,
-    required this.label,
-    required this.isDark,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    final color =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 11, color: color),
-        const SizedBox(width: 3),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10.5,
-            color: color,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 }
