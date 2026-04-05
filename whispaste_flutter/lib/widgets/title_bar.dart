@@ -30,12 +30,7 @@ class WpTitleBar extends StatelessWidget {
       },
       child: Container(
         height: WpLayout.appBarHeight,
-        decoration: BoxDecoration(
-          gradient: isDark
-              ? WpColorsDark.warmSurfaceGradient
-              : null,
-          color: isDark ? null : WpColorsLight.background,
-        ),
+        color: isDark ? WpColorsDark.background : WpColorsLight.background,
         padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
         child: Row(
           children: [
