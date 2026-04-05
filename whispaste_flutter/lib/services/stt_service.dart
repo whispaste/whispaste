@@ -407,7 +407,6 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       '--port', '$port',
       '--threads', '$threads',
       '--no-timestamps',
-      '--print-progress', 'false',
     ];
 
     final useGpu = _shouldUseGpu(gpuMode);
