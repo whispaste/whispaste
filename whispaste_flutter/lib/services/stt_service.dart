@@ -7,7 +7,6 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer' as dev;
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -15,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/config/settings_provider.dart';
+import '../core/logging/app_logger.dart';
 import 'config_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -70,6 +70,8 @@ class SttStatus {
 /// Exposes [SttStatus] as state and provides [ensureRunning] / [transcribe] /
 /// [stop] for the recording orchestrator.
 class SttServiceNotifier extends Notifier<SttStatus> {
+  static final _log = AppLogger('SttService');
+
   Process? _process;
 
   /// Reusable HTTP client with connection pooling (mirrors Go's
@@ -100,16 +102,15 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     // Warm path — already running with the same model.
     if (state.isReady && state.modelId == modelId && _process != null) {
-      dev.log(
+      _log.debug(
         'STT server already running (warm) on port ${state.port}',
-        name: 'SttService',
       );
       return;
     }
 
     // Model changed — stop first.
     if (state.serverState != SttServerState.stopped) {
-      dev.log('STT model changed, restarting', name: 'SttService');
+      _log.info('STT model changed, restarting');
       stop();
     }
 
@@ -133,9 +134,8 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     final wavBytes = await file.readAsBytes();
     final lang = language ?? 'auto';
 
-    dev.log(
+    _log.info(
       'STT inference: port=${state.port} wavBytes=${wavBytes.length} lang=$lang',
-      name: 'SttService',
     );
     final stopwatch = Stopwatch()..start();
 
@@ -159,10 +159,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
         await streamedResponse.stream.bytesToString();
 
     stopwatch.stop();
-    dev.log(
+    _log.info(
       'STT inference response: status=${streamedResponse.statusCode} '
       'duration=${stopwatch.elapsedMilliseconds}ms bodyLen=${responseBody.length}',
-      name: 'SttService',
     );
 
     if (streamedResponse.statusCode != 200) {
@@ -187,15 +186,12 @@ class SttServiceNotifier extends Notifier<SttStatus> {
         proc.kill();
       } on ProcessException catch (e) {
         // Process already exited — this is fine.
-        dev.log(
-          'Kill whisper-server: $e',
-          name: 'SttService',
-        );
+        _log.debug('Kill whisper-server: $e');
       }
     }
 
     state = const SttStatus();
-    dev.log('Local STT stopped', name: 'SttService');
+    _log.info('Local STT stopped');
   }
 
   // -------------------------------------------------------------------------
@@ -252,14 +248,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       gpuMode: gpuMode,
     );
 
-    dev.log(
+    _log.info(
       'Starting whisper-server: threads=$threads gpu=$gpuMode port=$port',
-      name: 'SttService',
     );
-    dev.log(
-      'Command: $serverPath ${args.join(' ')}',
-      name: 'SttService',
-    );
+    _log.info('Command: $serverPath ${args.join(' ')}');
 
     // --- Start process -------------------------------------------------------
     final Process proc;
@@ -276,14 +268,28 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     _process = proc;
 
+    // Log subprocess output for diagnostics.
+    // whisper-server writes ALL diagnostic info to stderr (model params,
+    // device selection, system_info). These are informational, not errors.
+    proc.stdout.transform(const SystemEncoding().decoder).listen(
+      (line) => _log.debug('whisper-server: $line'),
+    );
+    proc.stderr.transform(const SystemEncoding().decoder).listen((line) {
+      // Actual errors contain "error" or "failed" — everything else is
+      // diagnostic info that whisper.cpp sends to stderr by convention.
+      final lower = line.toLowerCase();
+      if (lower.contains('error') || lower.contains('failed')) {
+        _log.warning('whisper-server: $line');
+      } else {
+        _log.debug('whisper-server: $line');
+      }
+    });
+
     // Monitor for early exit (mirrors Go's waitCh).
     unawaited(
       proc.exitCode.then((code) {
         if (_process == proc) {
-          dev.log(
-            'whisper-server exited unexpectedly (code $code)',
-            name: 'SttService',
-          );
+          _log.error('whisper-server exited unexpectedly (code $code)');
           _process = null;
           state = SttStatus(
             serverState: SttServerState.error,
@@ -316,10 +322,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     }
     coldStart.stop();
 
-    dev.log(
+    _log.info(
       'STT cold start completed in ${coldStart.elapsedMilliseconds}ms '
       'on port $port',
-      name: 'SttService',
     );
 
     state = SttStatus(
@@ -332,12 +337,12 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   /// Progressive-backoff health polling (mirrors Go's `waitReady`).
   ///
   /// Starts at 100 ms, multiplies by 1.5 each iteration, capped at 1 s.
-  /// Total deadline: 120 s.
+  /// Total deadline: 180 s (large models may need 60 s+ to load into VRAM).
   Future<void> _waitReady(int port, Process proc) async {
     final healthUrl = Uri.parse('http://127.0.0.1:$port/health');
     final client = http.Client();
     final deadline =
-        DateTime.now().add(const Duration(seconds: 120));
+        DateTime.now().add(const Duration(seconds: 180));
     var interval = const Duration(milliseconds: 100);
     const maxInterval = Duration(seconds: 1);
     var iteration = 0;
@@ -358,17 +363,15 @@ class SttServiceNotifier extends Notifier<SttStatus> {
           if (resp.statusCode == 200) return;
 
           if (iteration % 10 == 9) {
-            dev.log(
+            _log.info(
               'STT server loading model... '
               '(${iteration + 1}s, status=${resp.statusCode})',
-              name: 'SttService',
             );
           }
         } on Exception {
           if (iteration % 10 == 9) {
-            dev.log(
+            _log.info(
               'STT server not reachable yet (${iteration + 1}s)',
-              name: 'SttService',
             );
           }
         }
@@ -387,7 +390,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     }
 
     throw TimeoutException(
-      'whisper-server did not become ready within 120 s',
+      'whisper-server did not become ready within 180 s',
     );
   }
 
@@ -404,28 +407,35 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       '--port', '$port',
       '--threads', '$threads',
       '--no-timestamps',
+      '--print-progress', 'false',
     ];
 
     final useGpu = _shouldUseGpu(gpuMode);
     if (!useGpu) {
       args.add('--no-gpu');
     } else {
+      // whisper-server uses --flash-attn as a boolean flag (no value).
+      // Unlike llama-server which accepts `--flash-attn auto`.
       args.add('--flash-attn');
     }
 
     return args;
   }
 
-  /// Calculates optimal thread count (mirrors Go's `sttThreadCount`).
+  /// Calculates optimal thread count (mirrors Go's `OptimalThreads`).
   ///
-  /// GPU mode: half the cores (GPU handles the heavy encoder work).
-  /// CPU-only: all cores minus one (keep one for the UI thread).
+  /// Uses 75% of available cores, clamped between 2 and 8 for GPU mode,
+  /// or 2 and 12 for CPU-only mode (matches Go inference.STTThreadsGPU /
+  /// inference.STTThreadsCPUOnly).
   int _threadCount(String gpuMode) {
     final cores = Platform.numberOfProcessors;
     if (_shouldUseGpu(gpuMode)) {
-      return math.max(1, cores ~/ 2);
+      // GPU handles the heavy encoder; CPU threads assist with decoding.
+      final n = (cores * 3) ~/ 4;
+      return n.clamp(2, 8);
     }
-    return math.max(1, cores - 1);
+    // CPU-only: use more threads, keep one free for UI/audio.
+    return (cores - 1).clamp(2, 12);
   }
 
   /// Whether GPU should be used for inference.
@@ -438,7 +448,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   }
 
   void _fail(String message) {
-    dev.log('STT error: $message', name: 'SttService');
+    _log.error('STT error: $message');
     state = SttStatus(
       serverState: SttServerState.error,
       errorMessage: message,
