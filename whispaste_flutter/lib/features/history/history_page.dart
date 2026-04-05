@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/empty_state.dart';
@@ -126,6 +127,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     final entries = _filteredEntries;
     if (entries.isEmpty) return [];
 
+    final l10n = L10n.of(context);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
@@ -151,13 +153,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
     return [
       if (todayEntries.isNotEmpty)
-        DateGroup(label: 'Today', entries: todayEntries),
+        DateGroup(label: l10n.historyToday, entries: todayEntries),
       if (yesterdayEntries.isNotEmpty)
-        DateGroup(label: 'Yesterday', entries: yesterdayEntries),
+        DateGroup(label: l10n.historyYesterday, entries: yesterdayEntries),
       if (weekEntries.isNotEmpty)
-        DateGroup(label: 'This Week', entries: weekEntries),
+        DateGroup(label: l10n.historyThisWeek, entries: weekEntries),
       if (olderEntries.isNotEmpty)
-        DateGroup(label: 'Older', entries: olderEntries),
+        DateGroup(label: l10n.historyOlder, entries: olderEntries),
     ];
   }
 
@@ -290,33 +292,32 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 
   Widget _emptyStateForFilter(bool isDark) {
+    final l10n = L10n.of(context);
     if (_searchController.text.isNotEmpty) {
       return WpEmptyState(
         icon: LucideIcons.searchX,
-        title: 'No results',
-        hint:
-            'No transcriptions match "${_searchController.text}".\nTry a different search term.',
+        title: l10n.historyNoResults,
+        hint: l10n.historyNoResultsHint(_searchController.text),
       );
     }
     if (_activeFilter == HistoryFilter.trash) {
-      return const WpEmptyState(
+      return WpEmptyState(
         icon: LucideIcons.trash2,
-        title: 'Trash is empty',
-        hint: 'Deleted transcriptions will appear here.\nItems are permanently removed after 30 days.',
+        title: l10n.historyTrashEmpty,
+        hint: l10n.historyTrashEmptyHint,
       );
     }
     if (_activeFilter == HistoryFilter.archived) {
-      return const WpEmptyState(
+      return WpEmptyState(
         icon: LucideIcons.archive,
-        title: 'No archived items',
-        hint: 'Archive transcriptions you want to keep\nbut don\'t need in your main list.',
+        title: l10n.historyNoArchivedItems,
+        hint: l10n.historyNoArchivedItemsHint,
       );
     }
-    return const WpEmptyState(
+    return WpEmptyState(
       icon: LucideIcons.mic,
-      title: 'No recordings yet',
-      hint:
-          'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.\n\n🔒 All data stays on your device.',
+      title: l10n.historyEmpty,
+      hint: l10n.historyNoRecordingsHint,
     );
   }
 
@@ -324,9 +325,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     Clipboard.setData(ClipboardData(text: entry.content));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Copied to clipboard'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text(L10n.of(context).historyCopiedToClipboard),
+        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         width: 200,
       ),
@@ -392,14 +393,15 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       if (_selectedEntryId == entry.id) _selectedEntryId = null;
     });
     if (!mounted) return;
+    final l10n = L10n.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Moved to trash'),
+        content: Text(l10n.historyMovedToTrash),
         duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
         width: 260,
         action: SnackBarAction(
-          label: 'Undo',
+          label: l10n.historyUndo,
           onPressed: () => _restoreEntry(entry),
         ),
       ),
@@ -560,9 +562,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Entries merged'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text(L10n.of(context).historyEntriesMerged),
+        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         width: 200,
       ),
@@ -700,6 +702,7 @@ class _SearchToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         WpSpacing.xl, WpSpacing.sm, WpSpacing.xl, WpSpacing.sm,
@@ -711,7 +714,7 @@ class _SearchToolbar extends StatelessWidget {
           TextField(
             controller: controller,
             decoration: InputDecoration(
-              hintText: 'Search transcriptions…',
+              hintText: l10n.historySearchTranscriptions,
               prefixIcon: Icon(
                 LucideIcons.search,
                 size: WpIconSize.sm,
@@ -752,28 +755,28 @@ class _SearchToolbar extends StatelessWidget {
                     scrollDirection: Axis.horizontal,
                     children: [
                       _FilterChip(
-                        label: 'All',
+                        label: l10n.historyAll,
                         isActive: activeFilter == HistoryFilter.all,
                         onTap: () => onFilterChanged(HistoryFilter.all),
                         isDark: isDark,
                       ),
                       const SizedBox(width: WpSpacing.xs),
                       _FilterChip(
-                        label: 'Today',
+                        label: l10n.historyToday,
                         isActive: activeFilter == HistoryFilter.today,
                         onTap: () => onFilterChanged(HistoryFilter.today),
                         isDark: isDark,
                       ),
                       const SizedBox(width: WpSpacing.xs),
                       _FilterChip(
-                        label: 'This Week',
+                        label: l10n.historyThisWeek,
                         isActive: activeFilter == HistoryFilter.week,
                         onTap: () => onFilterChanged(HistoryFilter.week),
                         isDark: isDark,
                       ),
                       const SizedBox(width: WpSpacing.xs),
                       _FilterChip(
-                        label: 'Pinned',
+                        label: l10n.historyPinned,
                         icon: LucideIcons.pin,
                         isActive: activeFilter == HistoryFilter.pinned,
                         onTap: () => onFilterChanged(HistoryFilter.pinned),
@@ -781,7 +784,7 @@ class _SearchToolbar extends StatelessWidget {
                       ),
                       const SizedBox(width: WpSpacing.xs),
                       _FilterChip(
-                        label: 'Archived',
+                        label: l10n.historyArchived,
                         icon: LucideIcons.archive,
                         isActive: activeFilter == HistoryFilter.archived,
                         onTap: () => onFilterChanged(HistoryFilter.archived),
@@ -789,7 +792,7 @@ class _SearchToolbar extends StatelessWidget {
                       ),
                       const SizedBox(width: WpSpacing.xs),
                       _FilterChip(
-                        label: 'Trash',
+                        label: l10n.historyTrash,
                         icon: LucideIcons.trash2,
                         isActive: activeFilter == HistoryFilter.trash,
                         onTap: () => onFilterChanged(HistoryFilter.trash),
@@ -804,7 +807,7 @@ class _SearchToolbar extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: WpSpacing.sm),
                   child: Text(
-                    '$resultCount result${resultCount == 1 ? '' : 's'}',
+                    l10n.historyResultCount(resultCount),
                     style: TextStyle(
                       fontSize: 12,
                       color: isDark
@@ -816,7 +819,7 @@ class _SearchToolbar extends StatelessWidget {
               const SizedBox(width: WpSpacing.xs),
               // Multi-select toggle
               Tooltip(
-                message: multiSelectMode ? 'Exit selection' : 'Select multiple',
+                message: multiSelectMode ? l10n.historyExitSelection : l10n.historySelectMultiple,
                 child: InkWell(
                   borderRadius: WpRadius.borderSm,
                   onTap: onToggleMultiSelect,
@@ -880,6 +883,7 @@ class _MultiSelectBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final textPrimary =
         isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
@@ -914,7 +918,7 @@ class _MultiSelectBar extends StatelessWidget {
               borderRadius: WpRadius.borderFull,
             ),
             child: Text(
-              '$selectedCount selected',
+              l10n.historyItemsSelected(selectedCount),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -927,28 +931,28 @@ class _MultiSelectBar extends StatelessWidget {
           if (onMerge != null)
             _MultiSelectAction(
               icon: LucideIcons.merge,
-              label: 'Merge',
+              label: l10n.historyMerge,
               isDark: isDark,
               onTap: onMerge!,
             ),
           if (onRestore != null)
             _MultiSelectAction(
               icon: LucideIcons.undo2,
-              label: 'Restore',
+              label: l10n.historyRestore,
               isDark: isDark,
               onTap: onRestore!,
             ),
           if (onArchive != null)
             _MultiSelectAction(
               icon: isArchiveView ? LucideIcons.archiveRestore : LucideIcons.archive,
-              label: isArchiveView ? 'Unarchive' : 'Archive',
+              label: isArchiveView ? l10n.historyUnarchive : l10n.historyArchive,
               isDark: isDark,
               onTap: onArchive!,
             ),
           if (onDelete != null)
             _MultiSelectAction(
               icon: LucideIcons.trash2,
-              label: isTrashView ? 'Delete forever' : 'Delete',
+              label: isTrashView ? l10n.historyDeleteForever : l10n.actionDelete,
               isDark: isDark,
               onTap: onDelete!,
               isDestructive: true,
@@ -959,7 +963,7 @@ class _MultiSelectBar extends StatelessWidget {
             onPressed: onCancelSelection,
             icon: Icon(LucideIcons.x, size: 14, color: textPrimary),
             label: Text(
-              'Cancel',
+              l10n.actionCancel,
               style: TextStyle(fontSize: 13, color: textPrimary),
             ),
           ),
@@ -1518,6 +1522,7 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
+    final l10n = L10n.of(context);
     final avatarCol = _avatarColor(widget.entry, isDark);
 
     // Row background
@@ -1610,7 +1615,7 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
                           child: Text(
                             widget.entry.title.isNotEmpty
                                 ? widget.entry.title
-                                : 'Untitled recording',
+                                : l10n.historyUntitledRecording,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -1651,7 +1656,7 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
                                     children: [
                                       _RowAction(
                                         icon: LucideIcons.copy,
-                                        tooltip: 'Copy text',
+                                        tooltip: l10n.historyCopyText,
                                         isDark: isDark,
                                         onTap: widget.onCopy,
                                       ),
@@ -1660,14 +1665,14 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
                                             ? LucideIcons.pinOff
                                             : LucideIcons.pin,
                                         tooltip: widget.entry.pinned
-                                            ? 'Unpin'
-                                            : 'Pin to top',
+                                            ? l10n.historyUnpin
+                                            : l10n.historyPinToTop,
                                         isDark: isDark,
                                         onTap: widget.onPin,
                                       ),
                                       _RowAction(
                                         icon: LucideIcons.trash2,
-                                        tooltip: 'Delete',
+                                        tooltip: l10n.actionDelete,
                                         isDark: isDark,
                                         onTap: widget.onDelete,
                                         isDestructive: true,
@@ -1867,6 +1872,7 @@ class _DetailPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
     final textPrimary =
         isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
     final textMuted =
@@ -1899,7 +1905,7 @@ class _DetailPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        entry.title.isNotEmpty ? entry.title : 'Untitled',
+                        entry.title.isNotEmpty ? entry.title : l10n.historyUntitled,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -1920,13 +1926,13 @@ class _DetailPanel extends StatelessWidget {
                 if (isTrashView) ...[
                   _DetailAction(
                     icon: LucideIcons.undo2,
-                    tooltip: 'Restore',
+                    tooltip: l10n.historyRestore,
                     isDark: isDark,
                     onTap: onRestore,
                   ),
                   _DetailAction(
                     icon: LucideIcons.trash2,
-                    tooltip: 'Delete forever',
+                    tooltip: l10n.historyDeleteForever,
                     isDark: isDark,
                     onTap: onDelete,
                     isDestructive: true,
@@ -1934,13 +1940,13 @@ class _DetailPanel extends StatelessWidget {
                 ] else ...[
                   _DetailAction(
                     icon: LucideIcons.copy,
-                    tooltip: 'Copy text',
+                    tooltip: l10n.historyCopyText,
                     isDark: isDark,
                     onTap: onCopy,
                   ),
                   _DetailAction(
                     icon: entry.pinned ? LucideIcons.pinOff : LucideIcons.pin,
-                    tooltip: entry.pinned ? 'Unpin' : 'Pin',
+                    tooltip: entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop,
                     isDark: isDark,
                     onTap: onPin,
                   ),
@@ -1948,13 +1954,13 @@ class _DetailPanel extends StatelessWidget {
                     icon: entry.archived
                         ? LucideIcons.archiveRestore
                         : LucideIcons.archive,
-                    tooltip: entry.archived ? 'Unarchive' : 'Archive',
+                    tooltip: entry.archived ? l10n.historyUnarchive : l10n.historyArchive,
                     isDark: isDark,
                     onTap: onArchive,
                   ),
                   _DetailAction(
                     icon: LucideIcons.trash2,
-                    tooltip: 'Delete',
+                    tooltip: l10n.actionDelete,
                     isDark: isDark,
                     onTap: onDelete,
                     isDestructive: true,
@@ -1963,7 +1969,7 @@ class _DetailPanel extends StatelessWidget {
                 const SizedBox(width: WpSpacing.xxs),
                 _DetailAction(
                   icon: LucideIcons.x,
-                  tooltip: 'Close',
+                  tooltip: l10n.historyClose,
                   isDark: isDark,
                   onTap: onClose,
                 ),
@@ -2013,14 +2019,14 @@ class _DetailPanel extends StatelessWidget {
                       children: [
                         _DetailMetaRow(
                           icon: LucideIcons.clock,
-                          label: 'Duration',
+                          label: l10n.historyDuration,
                           value: _durationLabel,
                           isDark: isDark,
                         ),
                         if (entry.language.isNotEmpty)
                           _DetailMetaRow(
                             icon: LucideIcons.globe,
-                            label: 'Language',
+                            label: l10n.historyLanguageLabel,
                             value: entry.language.toUpperCase(),
                             isDark: isDark,
                           ),
@@ -2028,14 +2034,14 @@ class _DetailPanel extends StatelessWidget {
                           icon: entry.isLocal
                               ? LucideIcons.hardDrive
                               : LucideIcons.cloud,
-                          label: 'Processed',
-                          value: entry.isLocal ? 'On device' : 'Cloud',
+                          label: l10n.historyProcessed,
+                          value: entry.isLocal ? l10n.historyOnDevice : l10n.statusCloud,
                           isDark: isDark,
                         ),
                         if (entry.model.isNotEmpty)
                           _DetailMetaRow(
                             icon: LucideIcons.cpu,
-                            label: 'Model',
+                            label: l10n.historyModel,
                             value: entry.model,
                             isDark: isDark,
                           ),

@@ -193,11 +193,359 @@ abstract class L10n {
   /// **'Search…'**
   String get historySearch;
 
+  /// No description provided for @historyPinned.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned'**
+  String get historyPinned;
+
+  /// No description provided for @historyToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get historyToday;
+
+  /// No description provided for @historyYesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get historyYesterday;
+
+  /// No description provided for @historyThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'This Week'**
+  String get historyThisWeek;
+
+  /// No description provided for @historyOlder.
+  ///
+  /// In en, this message translates to:
+  /// **'Older'**
+  String get historyOlder;
+
+  /// No description provided for @historyAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get historyAll;
+
+  /// No description provided for @historyTrash.
+  ///
+  /// In en, this message translates to:
+  /// **'Trash'**
+  String get historyTrash;
+
+  /// No description provided for @historyArchive.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive'**
+  String get historyArchive;
+
+  /// No description provided for @historyArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived'**
+  String get historyArchived;
+
+  /// No description provided for @historyList.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get historyList;
+
+  /// No description provided for @historyCards.
+  ///
+  /// In en, this message translates to:
+  /// **'Cards'**
+  String get historyCards;
+
+  /// No description provided for @historyCompact.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get historyCompact;
+
+  /// No description provided for @historyItemsSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String historyItemsSelected(int count);
+
+  /// No description provided for @historyMerge.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge'**
+  String get historyMerge;
+
+  /// No description provided for @historyRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get historyRestore;
+
+  /// No description provided for @historyDeleteForever.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete forever'**
+  String get historyDeleteForever;
+
+  /// No description provided for @historyDeletePermanently.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Permanently'**
+  String get historyDeletePermanently;
+
+  /// No description provided for @historyUnarchive.
+  ///
+  /// In en, this message translates to:
+  /// **'Unarchive'**
+  String get historyUnarchive;
+
+  /// No description provided for @historyExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get historyExport;
+
+  /// No description provided for @historyCopyAsMarkdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy as Markdown'**
+  String get historyCopyAsMarkdown;
+
+  /// No description provided for @historyDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Detail'**
+  String get historyDetail;
+
+  /// No description provided for @historyTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get historyTags;
+
+  /// No description provided for @historyDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get historyDuration;
+
+  /// No description provided for @historyModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Model'**
+  String get historyModel;
+
+  /// No description provided for @historyWords.
+  ///
+  /// In en, this message translates to:
+  /// **'Words'**
+  String get historyWords;
+
+  /// No description provided for @historyCharacters.
+  ///
+  /// In en, this message translates to:
+  /// **'Characters'**
+  String get historyCharacters;
+
+  /// No description provided for @historySearchTranscriptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Search transcriptions…'**
+  String get historySearchTranscriptions;
+
+  /// No description provided for @historyNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No results'**
+  String get historyNoResults;
+
+  /// No description provided for @historyNoResultsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No transcriptions match \"{query}\".\nTry a different search term.'**
+  String historyNoResultsHint(String query);
+
+  /// No description provided for @historyTrashEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Trash is empty'**
+  String get historyTrashEmpty;
+
+  /// No description provided for @historyTrashEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted transcriptions will appear here.\nItems are permanently removed after 30 days.'**
+  String get historyTrashEmptyHint;
+
+  /// No description provided for @historyNoArchivedItems.
+  ///
+  /// In en, this message translates to:
+  /// **'No archived items'**
+  String get historyNoArchivedItems;
+
+  /// No description provided for @historyNoArchivedItemsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive transcriptions you want to keep\nbut don\'t need in your main list.'**
+  String get historyNoArchivedItemsHint;
+
+  /// No description provided for @historyNoRecordingsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.\n\n🔒 All data stays on your device.'**
+  String get historyNoRecordingsHint;
+
+  /// No description provided for @historyCopiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard'**
+  String get historyCopiedToClipboard;
+
+  /// No description provided for @historyMovedToTrash.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved to trash'**
+  String get historyMovedToTrash;
+
+  /// No description provided for @historyUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get historyUndo;
+
+  /// No description provided for @historyEntriesMerged.
+  ///
+  /// In en, this message translates to:
+  /// **'Entries merged'**
+  String get historyEntriesMerged;
+
+  /// No description provided for @historyExitSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit selection'**
+  String get historyExitSelection;
+
+  /// No description provided for @historySelectMultiple.
+  ///
+  /// In en, this message translates to:
+  /// **'Select multiple'**
+  String get historySelectMultiple;
+
+  /// No description provided for @historyProcessed.
+  ///
+  /// In en, this message translates to:
+  /// **'Processed'**
+  String get historyProcessed;
+
+  /// No description provided for @historyOnDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'On device'**
+  String get historyOnDevice;
+
+  /// No description provided for @historyUntitledRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled recording'**
+  String get historyUntitledRecording;
+
+  /// No description provided for @historyUntitled.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled'**
+  String get historyUntitled;
+
+  /// No description provided for @historyPinToTop.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin to top'**
+  String get historyPinToTop;
+
+  /// No description provided for @historyUnpin.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpin'**
+  String get historyUnpin;
+
+  /// No description provided for @historyCopyText.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy text'**
+  String get historyCopyText;
+
+  /// No description provided for @historyClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get historyClose;
+
+  /// No description provided for @historyLanguageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get historyLanguageLabel;
+
+  /// No description provided for @historyResultCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 result} other{{count} results}}'**
+  String historyResultCount(int count);
+
+  /// No description provided for @historySelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Select All'**
+  String get historySelectAll;
+
+  /// No description provided for @historyDeselectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Deselect All'**
+  String get historyDeselectAll;
+
+  /// No description provided for @settingsInterface.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface'**
+  String get settingsInterface;
+
+  /// No description provided for @settingsInterfaceSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance and behavior'**
+  String get settingsInterfaceSubtitle;
+
+  /// No description provided for @settingsTheme.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get settingsTheme;
+
+  /// No description provided for @settingsLaunchAtStartup.
+  ///
+  /// In en, this message translates to:
+  /// **'Launch at Startup'**
+  String get settingsLaunchAtStartup;
+
+  /// No description provided for @settingsShowNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Notifications'**
+  String get settingsShowNotifications;
+
   /// No description provided for @settingsAudio.
   ///
   /// In en, this message translates to:
   /// **'Audio'**
   String get settingsAudio;
+
+  /// No description provided for @settingsAudioSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone and recording'**
+  String get settingsAudioSubtitle;
 
   /// No description provided for @settingsMicrophone.
   ///
@@ -211,11 +559,47 @@ abstract class L10n {
   /// **'Microphone Volume'**
   String get settingsGain;
 
+  /// No description provided for @settingsHoldToRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to Record'**
+  String get settingsHoldToRecord;
+
+  /// No description provided for @settingsSpeechRecognition.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech Recognition'**
+  String get settingsSpeechRecognition;
+
+  /// No description provided for @settingsSpeechRecognitionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice recognition quality and service'**
+  String get settingsSpeechRecognitionSubtitle;
+
+  /// No description provided for @settingsService.
+  ///
+  /// In en, this message translates to:
+  /// **'Service'**
+  String get settingsService;
+
+  /// No description provided for @settingsQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality'**
+  String get settingsQuality;
+
   /// No description provided for @settingsRecordingSafety.
   ///
   /// In en, this message translates to:
   /// **'Recording Safety'**
   String get settingsRecordingSafety;
+
+  /// No description provided for @settingsRecordingSafetySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic checks and safeguards'**
+  String get settingsRecordingSafetySubtitle;
 
   /// No description provided for @settingsDeadMicTimeout.
   ///
@@ -253,6 +637,24 @@ abstract class L10n {
   /// **'Improve your dictated text automatically using AI.'**
   String get settingsPostProcessingHint;
 
+  /// No description provided for @settingsTextEnhancementSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Improve your dictated text automatically'**
+  String get settingsTextEnhancementSubtitle;
+
+  /// No description provided for @settingsEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get settingsEnabled;
+
+  /// No description provided for @settingsStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Style'**
+  String get settingsStyle;
+
   /// No description provided for @settingsPresetCleanup.
   ///
   /// In en, this message translates to:
@@ -270,6 +672,90 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Translate'**
   String get settingsPresetTranslate;
+
+  /// No description provided for @settingsSoundFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Sound & Feedback'**
+  String get settingsSoundFeedback;
+
+  /// No description provided for @settingsSoundFeedbackSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio cues for recording events'**
+  String get settingsSoundFeedbackSubtitle;
+
+  /// No description provided for @settingsRecordStartSound.
+  ///
+  /// In en, this message translates to:
+  /// **'Record Start Sound'**
+  String get settingsRecordStartSound;
+
+  /// No description provided for @settingsRecordStopSound.
+  ///
+  /// In en, this message translates to:
+  /// **'Record Stop Sound'**
+  String get settingsRecordStopSound;
+
+  /// No description provided for @settingsTranscriptionCompleteSound.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcription Complete Sound'**
+  String get settingsTranscriptionCompleteSound;
+
+  /// No description provided for @settingsOverlayFloatingButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay & Floating Button'**
+  String get settingsOverlayFloatingButton;
+
+  /// No description provided for @settingsOverlayFloatingButtonSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'On-screen recording controls'**
+  String get settingsOverlayFloatingButtonSubtitle;
+
+  /// No description provided for @settingsShowOverlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Overlay'**
+  String get settingsShowOverlay;
+
+  /// No description provided for @settingsShowFloatingButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Floating Button'**
+  String get settingsShowFloatingButton;
+
+  /// No description provided for @settingsFloatingButtonOpacity.
+  ///
+  /// In en, this message translates to:
+  /// **'Floating Button Opacity'**
+  String get settingsFloatingButtonOpacity;
+
+  /// No description provided for @settingsFloatingButtonSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Floating Button Size'**
+  String get settingsFloatingButtonSize;
+
+  /// No description provided for @settingsSizeSmall.
+  ///
+  /// In en, this message translates to:
+  /// **'Small'**
+  String get settingsSizeSmall;
+
+  /// No description provided for @settingsSizeNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get settingsSizeNormal;
+
+  /// No description provided for @settingsSizeLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Large'**
+  String get settingsSizeLarge;
 
   /// No description provided for @settingsLanguage.
   ///
@@ -289,11 +775,53 @@ abstract class L10n {
   /// **'Cloud Providers'**
   String get settingsCloudProviders;
 
+  /// No description provided for @settingsCloudProvidersSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'API keys for online services'**
+  String get settingsCloudProvidersSubtitle;
+
+  /// No description provided for @settingsOpenAiApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenAI API Key'**
+  String get settingsOpenAiApiKey;
+
+  /// No description provided for @settingsGroqApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Groq API Key'**
+  String get settingsGroqApiKey;
+
+  /// No description provided for @settingsDeepgramApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Deepgram API Key'**
+  String get settingsDeepgramApiKey;
+
+  /// No description provided for @settingsAnthropicApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Anthropic API Key'**
+  String get settingsAnthropicApiKey;
+
   /// No description provided for @settingsAdvanced.
   ///
   /// In en, this message translates to:
   /// **'Advanced'**
   String get settingsAdvanced;
+
+  /// No description provided for @settingsPrivacyNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Your recordings and text stay on your device by default. Cloud services are only used when you explicitly enable them.'**
+  String get settingsPrivacyNote;
+
+  /// No description provided for @settingsOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get settingsOff;
 
   /// No description provided for @settingsThemeDark.
   ///
