@@ -17,11 +17,11 @@ class _SampleAnalytics {
   const _SampleAnalytics._();
   static const instance = _SampleAnalytics._();
 
-  // Hero stats
-  String get totalRecordings => '1,247';
-  String get totalDuration => '18h 32m';
-  String get wordsDictated => '89,421';
-  String get timeSaved => '4h 15m';
+  // Hero stats (raw values for animated counters)
+  int get rawTotalRecordings => 1247;
+  int get rawTotalDurationMinutes => 1112;
+  int get rawWordsDictated => 89421;
+  int get rawTimeSavedMinutes => 255;
   String get recordingsTrend => '+12% this week';
 
   // Activity chart — last 7 days (Mon–Sun)
@@ -171,34 +171,27 @@ class AnalyticsPage extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Shared card decorator
+// Helpers
 // ---------------------------------------------------------------------------
 
-/// Flat panel — subtle background on surface, NO card elevation/border.
-/// Used for dashboard sections that sit directly on the page surface.
-class _FlatPanel extends StatelessWidget {
-  const _FlatPanel({required this.isDark, required this.child});
-
-  final bool isDark;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(WpSpacing.md),
-      decoration: BoxDecoration(
-        color: isDark
-            ? WpColorsDark.surface.withAlpha(180)
-            : WpColorsLight.surfaceVariant.withAlpha(120),
-        borderRadius: WpRadius.borderMd,
-      ),
-      child: child,
-    );
+String _commaFormat(int v) {
+  final s = v.toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+    buf.write(s[i]);
   }
+  return buf.toString();
+}
+
+String _durationFormat(int totalMinutes) {
+  final h = totalMinutes ~/ 60;
+  final m = totalMinutes % 60;
+  return '${h}h ${m}m';
 }
 
 // ---------------------------------------------------------------------------
-// Shared panel header with accent underline
+// Panel header with accent underline (renders directly on surface)
 // ---------------------------------------------------------------------------
 
 /// Section header inside a flat panel — icon + title with thin accent underline.
@@ -275,30 +268,34 @@ class _HeroStatsRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final narrow = constraints.maxWidth < 520;
-        final cards = [
-          _HeroCard(
+        final pills = [
+          _HeroPill(
             isDark: isDark,
             icon: LucideIcons.mic,
-            value: data.totalRecordings,
+            rawValue: data.rawTotalRecordings,
+            formatter: _commaFormat,
             label: 'Total Recordings',
             trend: data.recordingsTrend,
           ),
-          _HeroCard(
+          _HeroPill(
             isDark: isDark,
             icon: LucideIcons.clock,
-            value: data.totalDuration,
+            rawValue: data.rawTotalDurationMinutes,
+            formatter: _durationFormat,
             label: 'Total Duration',
           ),
-          _HeroCard(
+          _HeroPill(
             isDark: isDark,
             icon: LucideIcons.type,
-            value: data.wordsDictated,
+            rawValue: data.rawWordsDictated,
+            formatter: _commaFormat,
             label: 'Words Dictated',
           ),
-          _HeroCard(
+          _HeroPill(
             isDark: isDark,
             icon: LucideIcons.zap,
-            value: data.timeSaved,
+            rawValue: data.rawTimeSavedMinutes,
+            formatter: _durationFormat,
             label: 'Time Saved',
           ),
         ];
@@ -307,7 +304,7 @@ class _HeroStatsRow extends StatelessWidget {
           return Wrap(
             spacing: WpSpacing.sm,
             runSpacing: WpSpacing.sm,
-            children: cards
+            children: pills
                 .map(
                   (c) => SizedBox(
                     width: (constraints.maxWidth - WpSpacing.sm) / 2,
@@ -318,12 +315,12 @@ class _HeroStatsRow extends StatelessWidget {
           );
         }
         return Row(
-          children: cards
+          children: pills
               .map(
                 (c) => Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(
-                      right: c == cards.last ? 0 : WpSpacing.sm,
+                      right: c == pills.last ? 0 : WpSpacing.sm,
                     ),
                     child: c,
                   ),
@@ -336,99 +333,147 @@ class _HeroStatsRow extends StatelessWidget {
   }
 }
 
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({
+/// Pill-shaped stat block: flat, subtle border, gradient accent strip at top,
+/// animated count-up number, and hover interaction.
+class _HeroPill extends StatefulWidget {
+  const _HeroPill({
     required this.isDark,
     required this.icon,
-    required this.value,
+    required this.rawValue,
+    required this.formatter,
     required this.label,
     this.trend,
   });
 
   final bool isDark;
   final IconData icon;
-  final String value;
+  final int rawValue;
+  final String Function(int) formatter;
   final String label;
   final String? trend;
 
   @override
-  Widget build(BuildContext context) {
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textSecondary = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
-    final success = isDark ? WpColorsDark.success : WpColorsLight.success;
+  State<_HeroPill> createState() => _HeroPillState();
+}
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.md,
-        vertical: WpSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: isDark
-            ? WpColorsDark.surfaceElevated.withAlpha(140)
-            : WpColorsLight.surfaceVariant,
-        borderRadius: WpRadius.borderMd,
-        border: Border(
-          top: BorderSide(color: accent.withAlpha(80), width: 2),
+class _HeroPillState extends State<_HeroPill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _counter;
+  late final CurvedAnimation _curve;
+  bool _hovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _counter = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _curve = CurvedAnimation(parent: _counter, curve: Curves.easeOutCubic);
+    _counter.forward();
+  }
+
+  @override
+  void dispose() {
+    _curve.dispose();
+    _counter.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textSecondary =
+        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+    final success = isDark ? WpColorsDark.success : WpColorsLight.success;
+    final borderColor =
+        isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.md,
+          vertical: WpSpacing.sm,
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Icon + optional trend
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: accent.withAlpha(25),
-                  borderRadius: WpRadius.borderSm,
-                ),
-                child: Icon(icon, size: WpIconSize.sm, color: accent),
+        decoration: BoxDecoration(
+          color: _hovered
+              ? (isDark ? WpColorsDark.hover : WpColorsLight.hover)
+              : Colors.transparent,
+          borderRadius: WpRadius.borderMd,
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Gradient accent strip at top
+            Container(
+              height: 2,
+              margin: const EdgeInsets.only(bottom: WpSpacing.sm),
+              decoration: BoxDecoration(
+                gradient: isDark
+                    ? WpColorsDark.accentWarmGradient
+                    : WpColorsLight.accentWarmGradient,
+                borderRadius: WpRadius.borderFull,
               ),
-              const Spacer(),
-              if (trend != null)
-                Flexible(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: WpSpacing.xs,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: success.withAlpha(20),
-                      borderRadius: WpRadius.borderFull,
-                    ),
-                    child: Text(
-                      trend!,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: success,
+            ),
+            // Icon + optional trend
+            Row(
+              children: [
+                Icon(widget.icon, size: WpIconSize.sm, color: accent),
+                const Spacer(),
+                if (widget.trend != null)
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: WpSpacing.xs,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: success.withAlpha(20),
+                        borderRadius: WpRadius.borderFull,
+                      ),
+                      child: Text(
+                        widget.trend!,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: success,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(height: WpSpacing.sm),
-          // Big number
-          Text(
-            value,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 2),
-          // Label
-          Text(
-            label,
-            style: TextStyle(fontSize: 11, color: textSecondary),
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: WpSpacing.sm),
+            // Animated number
+            AnimatedBuilder(
+              animation: _curve,
+              builder: (context, _) {
+                final current =
+                    (widget.rawValue * _curve.value).round();
+                return Text(
+                  widget.formatter(current),
+                  style:
+                      Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                );
+              },
+            ),
+            const SizedBox(height: 2),
+            // Label
+            Text(
+              widget.label,
+              style: TextStyle(fontSize: 11, color: textSecondary),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -479,48 +524,45 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
         ? WpColorsDark.textMuted
         : WpColorsLight.textMuted;
 
-    return _FlatPanel(
-      isDark: isDark,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _PanelHeader(
-            icon: LucideIcons.chartNoAxesColumn,
-            title: 'Recording Activity',
-            isDark: isDark,
-            trailing: Text(
-              'Last 7 days',
-              style: TextStyle(fontSize: 11, color: textMuted),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(
+          icon: LucideIcons.chartNoAxesColumn,
+          title: 'Recording Activity',
+          isDark: isDark,
+          trailing: Text(
+            'Last 7 days',
+            style: TextStyle(fontSize: 11, color: textMuted),
           ),
-          const SizedBox(height: WpSpacing.md),
-          SizedBox(
-            height: 140,
-            child: AnimatedBuilder(
-              animation: _curve,
-              builder: (context, _) => CustomPaint(
-                size: Size.infinite,
-                painter: _BarChartPainter(
-                  values: data.activityValues,
-                  labels: data.activityDays,
-                  barColor:
-                      isDark ? WpColorsDark.accent : WpColorsLight.accent,
-                  barColorEnd: isDark
-                      ? const Color(0xFF0891B2)
-                      : const Color(0xFF06B6D4),
-                  gridColor: isDark
-                      ? WpColorsDark.borderSubtle
-                      : WpColorsLight.borderSubtle,
-                  labelColor: isDark
-                      ? WpColorsDark.textMuted
-                      : WpColorsLight.textMuted,
-                  animationValue: _curve.value,
-                ),
+        ),
+        const SizedBox(height: WpSpacing.md),
+        SizedBox(
+          height: 140,
+          child: AnimatedBuilder(
+            animation: _curve,
+            builder: (context, _) => CustomPaint(
+              size: Size.infinite,
+              painter: _BarChartPainter(
+                values: data.activityValues,
+                labels: data.activityDays,
+                barColor:
+                    isDark ? WpColorsDark.accent : WpColorsLight.accent,
+                barColorEnd: isDark
+                    ? const Color(0xFF0891B2)
+                    : const Color(0xFF06B6D4),
+                gridColor: isDark
+                    ? WpColorsDark.borderSubtle
+                    : WpColorsLight.borderSubtle,
+                labelColor: isDark
+                    ? WpColorsDark.textMuted
+                    : WpColorsLight.textMuted,
+                animationValue: _curve.value,
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -627,22 +669,19 @@ class _ModelUsagePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _FlatPanel(
-      isDark: isDark,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _PanelHeader(
-            icon: LucideIcons.brain,
-            title: 'Model Usage',
-            isDark: isDark,
-          ),
-          const SizedBox(height: WpSpacing.md),
-          ...data.modelUsage.map(
-            (m) => _ModelUsageBar(model: m, isDark: isDark),
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(
+          icon: LucideIcons.brain,
+          title: 'Model Usage',
+          isDark: isDark,
+        ),
+        const SizedBox(height: WpSpacing.md),
+        ...data.modelUsage.map(
+          (m) => _ModelUsageBar(model: m, isDark: isDark),
+        ),
+      ],
     );
   }
 }
@@ -735,22 +774,19 @@ class _DurationDistPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _FlatPanel(
-      isDark: isDark,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _PanelHeader(
-            icon: LucideIcons.timer,
-            title: 'Duration Distribution',
-            isDark: isDark,
-          ),
-          const SizedBox(height: WpSpacing.md),
-          ...data.durationBuckets.map(
-            (b) => _DurationBar(bucket: b, isDark: isDark),
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(
+          icon: LucideIcons.timer,
+          title: 'Duration Distribution',
+          isDark: isDark,
+        ),
+        const SizedBox(height: WpSpacing.md),
+        ...data.durationBuckets.map(
+          (b) => _DurationBar(bucket: b, isDark: isDark),
+        ),
+      ],
     );
   }
 }
@@ -843,72 +879,69 @@ class _CostPanel extends StatelessWidget {
         ? WpColorsDark.textMuted
         : WpColorsLight.textMuted;
 
-    return _FlatPanel(
-      isDark: isDark,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _PanelHeader(
-            icon: LucideIcons.piggyBank,
-            title: 'Cost & Savings',
-            isDark: isDark,
-          ),
-          const SizedBox(height: WpSpacing.lg),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(
+          icon: LucideIcons.piggyBank,
+          title: 'Cost & Savings',
+          isDark: isDark,
+        ),
+        const SizedBox(height: WpSpacing.lg),
 
-          // Local savings
-          _CostRow(
-            isDark: isDark,
-            icon: LucideIcons.shieldCheck,
-            iconColor: success,
-            title: 'Local savings',
-            value: '${data.localSavings} saved',
-            valueColor: success,
-          ),
-          const SizedBox(height: WpSpacing.sm),
+        // Local savings
+        _CostRow(
+          isDark: isDark,
+          icon: LucideIcons.shieldCheck,
+          iconColor: success,
+          title: 'Local savings',
+          value: '${data.localSavings} saved',
+          valueColor: success,
+        ),
+        const SizedBox(height: WpSpacing.sm),
 
-          // Cloud cost
-          _CostRow(
-            isDark: isDark,
-            icon: LucideIcons.cloud,
-            iconColor: warning,
-            title: 'Cloud cost',
-            value: '${data.cloudCost} spent',
-            valueColor: warning,
-          ),
-          const SizedBox(height: WpSpacing.md),
+        // Cloud cost
+        _CostRow(
+          isDark: isDark,
+          icon: LucideIcons.cloud,
+          iconColor: warning,
+          title: 'Cloud cost',
+          value: '${data.cloudCost} spent',
+          valueColor: warning,
+        ),
+        const SizedBox(height: WpSpacing.md),
 
-          // Monthly trend
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? WpColorsDark.surfaceVariant
-                  : WpColorsLight.surfaceVariant,
-              borderRadius: WpRadius.borderSm,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  LucideIcons.trendingDown,
-                  size: WpIconSize.xs,
-                  color: success,
+        // Monthly trend
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: isDark
+                ? WpColorsDark.surfaceVariant
+                : WpColorsLight.surfaceVariant,
+            borderRadius: WpRadius.borderSm,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                LucideIcons.trendingDown,
+                size: WpIconSize.xs,
+                color: success,
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              Flexible(
+                child: Text(
+                  data.monthlyTrend,
+                  style: TextStyle(fontSize: 11, color: textMuted),
                 ),
-                const SizedBox(width: WpSpacing.xs),
-                Flexible(
-                  child: Text(
-                    data.monthlyTrend,
-                    style: TextStyle(fontSize: 11, color: textMuted),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
