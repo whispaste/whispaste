@@ -5,14 +5,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'database.dart';
 
-/// Live stream of all non-deleted history entries, newest first.
+/// Live stream of all non-deleted, non-archived history entries, newest first.
 final historyEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
   final db = ref.watch(historyDatabaseProvider);
   return db.watchEntries(limit: 500);
 });
 
+/// Live stream of archived entries.
+final archivedEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
+  final db = ref.watch(historyDatabaseProvider);
+  return db.watchArchived(limit: 500);
+});
+
+/// Live stream of trashed entries.
+final trashEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
+  final db = ref.watch(historyDatabaseProvider);
+  return db.watchTrash(limit: 500);
+});
+
 /// Active filter state for the history page.
-enum HistoryFilter { all, today, week, pinned }
+enum HistoryFilter { all, today, week, pinned, archived, trash }
 
 class HistoryFilterNotifier extends Notifier<HistoryFilter> {
   @override
@@ -36,10 +48,46 @@ class HistorySearchNotifier extends Notifier<String> {
 final historySearchProvider =
     NotifierProvider<HistorySearchNotifier, String>(HistorySearchNotifier.new);
 
+/// Multi-select state — set of selected entry IDs.
+class MultiSelectNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => {};
+
+  void toggle(String id) {
+    if (state.contains(id)) {
+      state = {...state}..remove(id);
+    } else {
+      state = {...state, id};
+    }
+  }
+
+  void clear() => state = {};
+
+  void selectAll(List<String> ids) => state = {...ids};
+}
+
+final multiSelectProvider =
+    NotifierProvider<MultiSelectNotifier, Set<String>>(
+        MultiSelectNotifier.new);
+
+/// Whether multi-select mode is active.
+final multiSelectActiveProvider = Provider<bool>((ref) {
+  return ref.watch(multiSelectProvider).isNotEmpty;
+});
+
 /// Filtered and searched history entries — the main data source for the list.
 final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
-  final entriesAsync = ref.watch(historyEntriesProvider);
   final filter = ref.watch(historyFilterProvider);
+
+  // For archive/trash, use dedicated streams
+  if (filter == HistoryFilter.archived) {
+    return ref.watch(archivedEntriesProvider);
+  }
+  if (filter == HistoryFilter.trash) {
+    return ref.watch(trashEntriesProvider);
+  }
+
+  final entriesAsync = ref.watch(historyEntriesProvider);
   final search = ref.watch(historySearchProvider).toLowerCase().trim();
 
   return entriesAsync.whenData((entries) {
@@ -62,6 +110,9 @@ final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
         result = result.where((e) => e.pinned).toList();
       case HistoryFilter.all:
         break;
+      case HistoryFilter.archived:
+      case HistoryFilter.trash:
+        break; // Handled above
     }
 
     // Apply search
