@@ -518,7 +518,7 @@ class _ReplacementTileState extends State<_ReplacementTile> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
           curve: WpMotion.defaultCurve,
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.md,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'core/l10n/generated/app_localizations.dart';
+import 'core/l10n/locale_provider.dart';
 import 'core/theme/theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/theme/colors.dart';
@@ -35,6 +37,7 @@ class WhisPasteApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final locale = ref.watch(localeProvider);
 
     return MaterialApp(
       title: 'WhisPaste',
@@ -42,19 +45,22 @@ class WhisPasteApp extends ConsumerWidget {
       theme: wpLightTheme(),
       darkTheme: wpDarkTheme(),
       themeMode: themeMode,
+      locale: locale,
+      localizationsDelegates: L10n.localizationsDelegates,
+      supportedLocales: L10n.supportedLocales,
       home: const _AppShell(),
     );
   }
 }
 
-/// Navigation items — Lucide icons, clean & thin.
-const _navItems = [
-  WpNavItem(id: 'history', icon: LucideIcons.clock3, label: 'History'),
-  WpNavItem(id: 'settings', icon: LucideIcons.settings, label: 'Settings'),
-  WpNavItem(id: 'replacements', icon: LucideIcons.replace, label: 'Voice Shortcuts'),
-  WpNavItem(id: 'analytics', icon: LucideIcons.chartNoAxesColumn, label: 'Analytics'),
-  WpNavItem(id: 'about', icon: LucideIcons.info, label: 'About'),
-  WpNavItem(id: 'feedback', icon: LucideIcons.messageSquare, label: 'Feedback'),
+/// Navigation items — built from localized strings.
+List<WpNavItem> _navItems(L10n l10n) => [
+  WpNavItem(id: 'history', icon: LucideIcons.clock3, label: l10n.navHistory),
+  WpNavItem(id: 'settings', icon: LucideIcons.settings, label: l10n.navSettings),
+  WpNavItem(id: 'replacements', icon: LucideIcons.replace, label: l10n.navReplacements),
+  WpNavItem(id: 'analytics', icon: LucideIcons.chartNoAxesColumn, label: l10n.navAnalytics),
+  WpNavItem(id: 'about', icon: LucideIcons.info, label: l10n.navAbout),
+  WpNavItem(id: 'feedback', icon: LucideIcons.messageSquare, label: l10n.navFeedback),
 ];
 
 /// Map page IDs to their widgets.
@@ -76,6 +82,8 @@ class _AppShell extends ConsumerWidget {
     final activePage = ref.watch(activePageProvider);
     final isRecording = ref.watch(isRecordingProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = L10n.of(context);
+    final navItems = _navItems(l10n);
 
     const contentRadius = BorderRadius.only(
       topLeft: Radius.circular(WpRadius.xl),
@@ -103,7 +111,7 @@ class _AppShell extends ConsumerWidget {
               child: Row(
                 children: [
                   WpSidebar(
-                    items: _navItems,
+                    items: navItems,
                     activeId: activePage,
                     onItemTap: (id) {
                       ref.read(activePageProvider.notifier).setPage(id);
@@ -121,7 +129,7 @@ class _AppShell extends ConsumerWidget {
                         children: [
                           // Page header
                           _PageHeader(
-                            title: _navItems
+                            title: navItems
                                 .firstWhere((n) => n.id == activePage)
                                 .label,
                           ),

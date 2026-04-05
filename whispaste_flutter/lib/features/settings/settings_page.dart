@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/l10n/locale_provider.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/theme/theme_provider.dart';
@@ -36,7 +37,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   String _sttLanguage = 'Auto-detect';
 
   // -- Interface --
-  String _uiLanguage = 'English';
   bool _launchAtStartup = false;
   bool _showNotifications = true;
 
@@ -519,10 +519,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   icon: LucideIcons.globe,
                   label: 'Language',
                   trailing: _dropdown(
-                    value: _uiLanguage,
+                    value: ref.watch(localeProvider.notifier).displayName,
                     items: const ['English', 'Deutsch'],
-                    onChanged: (v) =>
-                        setState(() => _uiLanguage = v!),
+                    onChanged: (v) {
+                      if (v != null) {
+                        ref.read(localeProvider.notifier).setFromDisplayName(v);
+                      }
+                    },
                   ),
                 ),
                 _SettingRow(
@@ -643,7 +646,7 @@ class _SettingRowState extends State<_SettingRow> {
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
         child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.fast : WpMotion.hoverOut,
+          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
           curve: WpMotion.defaultCurve,
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.sm,
