@@ -76,6 +76,10 @@ String _localizeError(L10n l10n, String errorCode) {
       return l10n.errorTranscriptionEmpty;
     case 'stt_server_failed':
       return l10n.errorSttServerFailed;
+    case 'recording_guard_failed':
+      return l10n.recordingGuardFailed;
+    case 'recording_auto_stopped':
+      return l10n.recordingAutoStopped;
     default:
       return errorCode; // Pass through unknown errors as-is
   }

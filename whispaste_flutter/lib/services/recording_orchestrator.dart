@@ -42,6 +42,20 @@ class RecordingOrchestrator extends Notifier<void> {
 
   StreamSubscription<double>? _amplitudeSub;
 
+  // ── Audio Safety Guard state ──────────────────────────────────────────────
+  /// Amplitude threshold below which we consider the signal "silent".
+  /// Matches the Go implementation: peak < 0.02 ≈ silent.
+  static const _silenceThreshold = 0.02;
+
+  /// Whether speech has been detected at least once during this recording.
+  bool _speechDetected = false;
+
+  /// Consecutive silent samples since last speech (each ~100 ms).
+  int _silentSamples = 0;
+
+  /// Whether the guard already triggered (prevents double-fire).
+  bool _guardFired = false;
+
   @override
   void build() {
     ref.onDispose(_cancelAmplitude);
@@ -96,10 +110,14 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       }
 
-      // Subscribe to amplitude for level metering.
+      // Subscribe to amplitude for level metering + safety guard.
       _cancelAmplitude();
+      _resetGuardState();
       _amplitudeSub = audioNotifier.amplitudeStream?.listen(
-        (level) => notifier.updateAudioLevel(level),
+        (level) {
+          notifier.updateAudioLevel(level);
+          _evaluateGuard(level);
+        },
         onError: (Object e) {
           _log.warning('Amplitude stream error: $e');
         },
@@ -309,6 +327,92 @@ class RecordingOrchestrator extends Notifier<void> {
   void _cancelAmplitude() {
     _amplitudeSub?.cancel();
     _amplitudeSub = null;
+  }
+
+  // ── Audio Safety Guard ────────────────────────────────────────────────────
+
+  void _resetGuardState() {
+    _speechDetected = false;
+    _silentSamples = 0;
+    _guardFired = false;
+  }
+
+  /// Called for every amplitude sample (~100 ms). Implements:
+  /// 1. Dead-mic detection: no audio at all for [deadMicTimeout] → error.
+  /// 2. Auto-stop on silence: speech detected then silence for
+  ///    [autoStopSilence] → auto-transcribe.
+  void _evaluateGuard(double level) {
+    if (_guardFired) return;
+    final recording = ref.read(recordingProvider);
+    if (!recording.isRecording) return;
+
+    final settings =
+        ref.read(settingsProvider).value ?? AppSettings.defaults;
+
+    final isSilent = level < _silenceThreshold;
+
+    if (!isSilent) {
+      _speechDetected = true;
+      _silentSamples = 0;
+      return;
+    }
+
+    // Silent sample — increment counter.
+    _silentSamples++;
+
+    // Amplitude stream fires every ~100 ms → 10 samples ≈ 1 second.
+    const samplesPerSecond = 10;
+
+    // ── Dead-mic detection ───────────────────────────────────────────────
+    if (!_speechDetected && settings.deadMicTimeout > 0) {
+      final threshold =
+          (settings.deadMicTimeout * samplesPerSecond).round();
+      if (_silentSamples >= threshold) {
+        _guardFired = true;
+        _log.warning(
+            'Dead-mic guard triggered after ${settings.deadMicTimeout}s');
+        // Auto-stop with error — runs asynchronously.
+        _handleDeadMic();
+        return;
+      }
+    }
+
+    // ── Auto-stop on silence (only after speech detected) ────────────────
+    if (_speechDetected && settings.autoStopSilence > 0) {
+      final threshold =
+          (settings.autoStopSilence * samplesPerSecond).round();
+      if (_silentSamples >= threshold) {
+        _guardFired = true;
+        _log.info(
+            'Auto-stop triggered after ${settings.autoStopSilence}s silence');
+        // Auto-stop and transcribe — runs asynchronously.
+        _handleAutoStop();
+        return;
+      }
+    }
+  }
+
+  /// Dead-mic triggered: stop recording and surface error.
+  Future<void> _handleDeadMic() async {
+    try {
+      _cancelAmplitude();
+      final audioNotifier = ref.read(audioServiceProvider.notifier);
+      await audioNotifier.stopRecording();
+      ref.read(recordingProvider.notifier).fail('recording_guard_failed');
+    } on Exception catch (e) {
+      _log.warning('Error during dead-mic cleanup: $e');
+      ref.read(recordingProvider.notifier).fail('recording_guard_failed');
+    }
+  }
+
+  /// Auto-stop triggered: stop recording and run transcription pipeline.
+  Future<void> _handleAutoStop() async {
+    try {
+      await stopRecording();
+    } on Exception catch (e) {
+      _log.warning('Error during auto-stop: $e');
+      ref.read(recordingProvider.notifier).fail('$e');
+    }
   }
 
   /// Best-effort pre-warm: starts the STT server so the first dictation is
