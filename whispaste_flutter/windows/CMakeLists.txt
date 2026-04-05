@@ -106,3 +106,16 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# --- WhisPaste Go FFI bridge ---
+# Bundle the prebuilt Go shared library alongside the executable.
+set(GO_BRIDGE_DLL "${CMAKE_CURRENT_SOURCE_DIR}/../go_backend/libwhispaste.dll")
+if(EXISTS "${GO_BRIDGE_DLL}")
+  install(FILES "${GO_BRIDGE_DLL}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+  message(STATUS "WhisPaste: Go bridge DLL found — will be bundled")
+else()
+  message(WARNING "WhisPaste: Go bridge DLL not found at ${GO_BRIDGE_DLL}. "
+    "Build with: cd go_backend && go build -buildmode=c-shared -o libwhispaste.dll .")
+endif()

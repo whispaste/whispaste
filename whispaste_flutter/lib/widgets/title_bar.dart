@@ -1,10 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
-import 'brand_logo.dart';
 
 /// Premium custom window title bar.
 ///
@@ -58,10 +57,7 @@ class WpTitleBar extends StatelessWidget {
             child: Row(
               children: [
                 const SizedBox(width: WpSpacing.sm),
-                // Brand logo — crisp, real asset
-                const WpBrandLogo(size: 20),
-                const SizedBox(width: WpSpacing.xs),
-                // App name
+                // App name only — logo is in the sidebar
                 Text(
                   'WhisPaste',
                   style: TextStyle(
@@ -69,27 +65,6 @@ class WpTitleBar extends StatelessWidget {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.3,
-                  ),
-                ),
-                const SizedBox(width: WpSpacing.xxs),
-                // Version badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.primary.withValues(alpha: 0.12),
-                    borderRadius: WpRadius.borderFull,
-                  ),
-                  child: Text(
-                    'v1.2',
-                    style: TextStyle(
-                      color: cs.primary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.2,
-                    ),
                   ),
                 ),
                 const Spacer(),
