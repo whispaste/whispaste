@@ -1037,4 +1037,30 @@ class L10nDe extends L10n {
 
   @override
   String get settingsPrivacyHintLocal => 'Deine Stimme verlässt nie dein Gerät';
+
+  @override
+  String get errorSttServerNotFound =>
+      'Sprachmodul nicht gefunden. Bitte lade ein Sprachmodell in den Einstellungen herunter.';
+
+  @override
+  String get errorSttModelNotFound =>
+      'Sprachmodell nicht gefunden. Bitte lade es in den Einstellungen herunter.';
+
+  @override
+  String get errorSttModelUnknown =>
+      'Unbekanntes Sprachmodell. Bitte wähle ein gültiges Modell in den Einstellungen.';
+
+  @override
+  String get errorRecordingFailed => 'Aufnahme konnte nicht gestartet werden';
+
+  @override
+  String get errorNoAudioRecorded => 'Keine Audiodaten aufgenommen';
+
+  @override
+  String get errorTranscriptionEmpty =>
+      'Transkription hat keinen Text ergeben — bitte erneut versuchen';
+
+  @override
+  String get errorSttServerFailed =>
+      'Sprachmodul konnte nicht gestartet werden';
 }
