@@ -940,4 +940,90 @@ class L10nEn extends L10n {
 
   @override
   String get tooltipSwitchToDark => 'Switch to Dark Mode';
+
+  @override
+  String get modelServerReady => 'Speech engine ready';
+
+  @override
+  String get modelServerMissing => 'Speech engine not installed';
+
+  @override
+  String get modelServerWhisper => 'Local engine';
+
+  @override
+  String get modelReady => 'Ready';
+
+  @override
+  String get modelDownload => 'Download';
+
+  @override
+  String get modelDownloading => 'Downloading…';
+
+  @override
+  String get modelVerifying => 'Verifying…';
+
+  @override
+  String get modelExtracting => 'Extracting…';
+
+  @override
+  String get modelDeleteConfirm => 'Delete this model?';
+
+  @override
+  String get modelDeleteConfirmMessage =>
+      'The model file will be permanently removed. You can re-download it any time.';
+
+  @override
+  String get modelSizeTiny => 'Quick transcription for short notes';
+
+  @override
+  String get modelSizeBase => 'Faster processing, decent accuracy';
+
+  @override
+  String get modelSizeSmall => 'Good balance of speed and accuracy';
+
+  @override
+  String get modelSizeMedium => 'Excellent accuracy for most use cases';
+
+  @override
+  String get modelSizeLargeTurbo => 'Best accuracy with optimized speed';
+
+  @override
+  String get modelSizeLarge => 'Maximum accuracy, needs more resources';
+
+  @override
+  String get settingsQualityFast => 'Fast';
+
+  @override
+  String get settingsQualityBasic => 'Basic';
+
+  @override
+  String get settingsQualityBalanced => 'Balanced';
+
+  @override
+  String get settingsQualityHigh => 'High Quality';
+
+  @override
+  String get settingsQualityBest => 'Best Quality';
+
+  @override
+  String get settingsQualityMaximum => 'Maximum Accuracy';
+
+  @override
+  String get settingsQualityRecommended => '★ Recommended';
+
+  @override
+  String get settingsModelStatusReady => 'Speech model ready';
+
+  @override
+  String get settingsModelStatusNeeded =>
+      'Speech model will be downloaded when you start recording';
+
+  @override
+  String get settingsModelStatusDownloading => 'Downloading speech model…';
+
+  @override
+  String get settingsAdvancedModelManagement => 'Advanced model settings';
+
+  @override
+  String get settingsPrivacyHintLocal => 'Your voice never leaves your device';
 }

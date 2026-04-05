@@ -1842,6 +1842,174 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Switch to Dark Mode'**
   String get tooltipSwitchToDark;
+
+  /// No description provided for @modelServerReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech engine ready'**
+  String get modelServerReady;
+
+  /// No description provided for @modelServerMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech engine not installed'**
+  String get modelServerMissing;
+
+  /// No description provided for @modelServerWhisper.
+  ///
+  /// In en, this message translates to:
+  /// **'Local engine'**
+  String get modelServerWhisper;
+
+  /// No description provided for @modelReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get modelReady;
+
+  /// No description provided for @modelDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get modelDownload;
+
+  /// No description provided for @modelDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading…'**
+  String get modelDownloading;
+
+  /// No description provided for @modelVerifying.
+  ///
+  /// In en, this message translates to:
+  /// **'Verifying…'**
+  String get modelVerifying;
+
+  /// No description provided for @modelExtracting.
+  ///
+  /// In en, this message translates to:
+  /// **'Extracting…'**
+  String get modelExtracting;
+
+  /// No description provided for @modelDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this model?'**
+  String get modelDeleteConfirm;
+
+  /// No description provided for @modelDeleteConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The model file will be permanently removed. You can re-download it any time.'**
+  String get modelDeleteConfirmMessage;
+
+  /// No description provided for @modelSizeTiny.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick transcription for short notes'**
+  String get modelSizeTiny;
+
+  /// No description provided for @modelSizeBase.
+  ///
+  /// In en, this message translates to:
+  /// **'Faster processing, decent accuracy'**
+  String get modelSizeBase;
+
+  /// No description provided for @modelSizeSmall.
+  ///
+  /// In en, this message translates to:
+  /// **'Good balance of speed and accuracy'**
+  String get modelSizeSmall;
+
+  /// No description provided for @modelSizeMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Excellent accuracy for most use cases'**
+  String get modelSizeMedium;
+
+  /// No description provided for @modelSizeLargeTurbo.
+  ///
+  /// In en, this message translates to:
+  /// **'Best accuracy with optimized speed'**
+  String get modelSizeLargeTurbo;
+
+  /// No description provided for @modelSizeLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum accuracy, needs more resources'**
+  String get modelSizeLarge;
+
+  /// No description provided for @settingsQualityFast.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast'**
+  String get settingsQualityFast;
+
+  /// No description provided for @settingsQualityBasic.
+  ///
+  /// In en, this message translates to:
+  /// **'Basic'**
+  String get settingsQualityBasic;
+
+  /// No description provided for @settingsQualityBalanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Balanced'**
+  String get settingsQualityBalanced;
+
+  /// No description provided for @settingsQualityHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'High Quality'**
+  String get settingsQualityHigh;
+
+  /// No description provided for @settingsQualityBest.
+  ///
+  /// In en, this message translates to:
+  /// **'Best Quality'**
+  String get settingsQualityBest;
+
+  /// No description provided for @settingsQualityMaximum.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum Accuracy'**
+  String get settingsQualityMaximum;
+
+  /// No description provided for @settingsQualityRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'★ Recommended'**
+  String get settingsQualityRecommended;
+
+  /// No description provided for @settingsModelStatusReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech model ready'**
+  String get settingsModelStatusReady;
+
+  /// No description provided for @settingsModelStatusNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech model will be downloaded when you start recording'**
+  String get settingsModelStatusNeeded;
+
+  /// No description provided for @settingsModelStatusDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading speech model…'**
+  String get settingsModelStatusDownloading;
+
+  /// No description provided for @settingsAdvancedModelManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced model settings'**
+  String get settingsAdvancedModelManagement;
+
+  /// No description provided for @settingsPrivacyHintLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'Your voice never leaves your device'**
+  String get settingsPrivacyHintLocal;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
