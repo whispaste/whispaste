@@ -19,8 +19,20 @@ class SoundFeedbackService extends Notifier<void> {
   static final _log = AppLogger('SoundFeedback');
 
   AudioPlayer? _player;
+  bool _pluginAvailable = true;
 
-  AudioPlayer get _audioPlayer => _player ??= AudioPlayer();
+  AudioPlayer? _ensurePlayer() {
+    if (!_pluginAvailable) return null;
+    if (_player != null) return _player;
+    try {
+      _player = AudioPlayer();
+      return _player;
+    } on Exception catch (e) {
+      _log.warning('audioplayers plugin unavailable: $e');
+      _pluginAvailable = false;
+      return null;
+    }
+  }
 
   @override
   void build() {
@@ -54,8 +66,10 @@ class SoundFeedbackService extends Notifier<void> {
     if (!enabled) return;
 
     try {
-      await _audioPlayer.stop();
-      await _audioPlayer.play(AssetSource('sounds/$assetName'));
+      final player = _ensurePlayer();
+      if (player == null) return;
+      await player.stop();
+      await player.play(AssetSource('sounds/$assetName'));
     } on Exception catch (e) {
       _log.debug('Sound playback failed ($assetName): $e');
     }
