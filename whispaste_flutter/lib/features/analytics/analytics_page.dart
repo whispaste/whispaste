@@ -174,32 +174,88 @@ class AnalyticsPage extends ConsumerWidget {
 // Shared card decorator
 // ---------------------------------------------------------------------------
 
-/// Consistent elevated card used across the dashboard.
-class _DashCard extends StatelessWidget {
-  const _DashCard({required this.isDark, required this.child, this.padding});
+/// Flat panel — subtle background on surface, NO card elevation/border.
+/// Used for dashboard sections that sit directly on the page surface.
+class _FlatPanel extends StatelessWidget {
+  const _FlatPanel({required this.isDark, required this.child});
 
   final bool isDark;
   final Widget child;
-  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: padding ??
-          const EdgeInsets.all(WpSpacing.md),
+      padding: const EdgeInsets.all(WpSpacing.md),
       decoration: BoxDecoration(
         color: isDark
-            ? WpColorsDark.surfaceElevated
-            : WpColorsLight.surfaceElevated,
+            ? WpColorsDark.surface.withAlpha(180)
+            : WpColorsLight.surfaceVariant.withAlpha(120),
         borderRadius: WpRadius.borderMd,
-        border: Border.all(
-          color: isDark
-              ? WpColorsDark.borderSubtle
-              : WpColorsLight.borderSubtle,
-        ),
-        boxShadow: isDark ? null : WpShadows.card,
       ),
       child: child,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared panel header with accent underline
+// ---------------------------------------------------------------------------
+
+/// Section header inside a flat panel — icon + title with thin accent underline.
+class _PanelHeader extends StatelessWidget {
+  const _PanelHeader({
+    required this.icon,
+    required this.title,
+    required this.isDark,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final bool isDark;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: WpIconSize.sm, color: accent),
+            const SizedBox(width: WpSpacing.xs),
+            Expanded(
+              child: Text(
+                title,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? WpColorsDark.textPrimary
+                      : WpColorsLight.textPrimary,
+                ),
+              ),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: WpSpacing.xs),
+              trailing!,
+            ],
+          ],
+        ),
+        const SizedBox(height: WpSpacing.xs),
+        Container(
+          height: 1.5,
+          width: 40,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [accent, accent.withAlpha(0)],
+            ),
+            borderRadius: WpRadius.borderFull,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -303,11 +359,19 @@ class _HeroCard extends StatelessWidget {
         : WpColorsLight.textSecondary;
     final success = isDark ? WpColorsDark.success : WpColorsLight.success;
 
-    return _DashCard(
-      isDark: isDark,
+    return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.md,
         vertical: WpSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: isDark
+            ? WpColorsDark.surfaceElevated.withAlpha(140)
+            : WpColorsLight.surfaceVariant,
+        borderRadius: WpRadius.borderMd,
+        border: Border(
+          top: BorderSide(color: accent.withAlpha(80), width: 2),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -374,69 +438,84 @@ class _HeroCard extends StatelessWidget {
 // Row 2 — Activity chart (custom painter)
 // ---------------------------------------------------------------------------
 
-class _ActivityChartPanel extends StatelessWidget {
+class _ActivityChartPanel extends StatefulWidget {
   const _ActivityChartPanel({required this.data, required this.isDark});
 
   final _SampleAnalytics data;
   final bool isDark;
 
   @override
+  State<_ActivityChartPanel> createState() => _ActivityChartPanelState();
+}
+
+class _ActivityChartPanelState extends State<_ActivityChartPanel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _anim;
+  late final CurvedAnimation _curve;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _curve = CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic);
+    _anim.forward();
+  }
+
+  @override
+  void dispose() {
+    _curve.dispose();
+    _anim.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final data = widget.data;
     final textMuted = isDark
         ? WpColorsDark.textMuted
         : WpColorsLight.textMuted;
 
-    return _DashCard(
+    return _FlatPanel(
       isDark: isDark,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                LucideIcons.chartNoAxesColumn,
-                size: WpIconSize.sm,
-                color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-              ),
-              const SizedBox(width: WpSpacing.xs),
-              Expanded(
-                child: Text(
-                  'Recording Activity',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isDark
-                        ? WpColorsDark.textPrimary
-                        : WpColorsLight.textPrimary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: WpSpacing.xs),
-              Text(
-                'Last 7 days',
-                style: TextStyle(fontSize: 11, color: textMuted),
-              ),
-            ],
+          _PanelHeader(
+            icon: LucideIcons.chartNoAxesColumn,
+            title: 'Recording Activity',
+            isDark: isDark,
+            trailing: Text(
+              'Last 7 days',
+              style: TextStyle(fontSize: 11, color: textMuted),
+            ),
           ),
           const SizedBox(height: WpSpacing.md),
           SizedBox(
             height: 140,
-            child: CustomPaint(
-              size: Size.infinite,
-              painter: _BarChartPainter(
-                values: data.activityValues,
-                labels: data.activityDays,
-                barColor: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-                barColorEnd: isDark
-                    ? const Color(0xFF0891B2)
-                    : const Color(0xFF06B6D4),
-                gridColor: isDark
-                    ? WpColorsDark.borderSubtle
-                    : WpColorsLight.borderSubtle,
-                labelColor: isDark
-                    ? WpColorsDark.textMuted
-                    : WpColorsLight.textMuted,
+            child: AnimatedBuilder(
+              animation: _curve,
+              builder: (context, _) => CustomPaint(
+                size: Size.infinite,
+                painter: _BarChartPainter(
+                  values: data.activityValues,
+                  labels: data.activityDays,
+                  barColor:
+                      isDark ? WpColorsDark.accent : WpColorsLight.accent,
+                  barColorEnd: isDark
+                      ? const Color(0xFF0891B2)
+                      : const Color(0xFF06B6D4),
+                  gridColor: isDark
+                      ? WpColorsDark.borderSubtle
+                      : WpColorsLight.borderSubtle,
+                  labelColor: isDark
+                      ? WpColorsDark.textMuted
+                      : WpColorsLight.textMuted,
+                  animationValue: _curve.value,
+                ),
               ),
             ),
           ),
@@ -454,6 +533,7 @@ class _BarChartPainter extends CustomPainter {
     required this.barColorEnd,
     required this.gridColor,
     required this.labelColor,
+    this.animationValue = 1.0,
   });
 
   final List<double> values;
@@ -462,6 +542,7 @@ class _BarChartPainter extends CustomPainter {
   final Color barColorEnd;
   final Color gridColor;
   final Color labelColor;
+  final double animationValue;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -491,7 +572,7 @@ class _BarChartPainter extends CustomPainter {
 
     // Bars
     for (var i = 0; i < barCount; i++) {
-      final fraction = values[i] / maxVal;
+      final fraction = (values[i] / maxVal) * animationValue;
       final barH = chartH * fraction;
       final x = gap + i * (barWidth + gap);
       final y = topPad + chartH - barH;
@@ -529,7 +610,9 @@ class _BarChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BarChartPainter old) =>
-      old.values != values || old.barColor != barColor;
+      old.values != values ||
+      old.barColor != barColor ||
+      old.animationValue != animationValue;
 }
 
 // ---------------------------------------------------------------------------
@@ -544,30 +627,15 @@ class _ModelUsagePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _DashCard(
+    return _FlatPanel(
       isDark: isDark,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                LucideIcons.brain,
-                size: WpIconSize.sm,
-                color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-              ),
-              const SizedBox(width: WpSpacing.xs),
-              Text(
-                'Model Usage',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isDark
-                      ? WpColorsDark.textPrimary
-                      : WpColorsLight.textPrimary,
-                ),
-              ),
-            ],
+          _PanelHeader(
+            icon: LucideIcons.brain,
+            title: 'Model Usage',
+            isDark: isDark,
           ),
           const SizedBox(height: WpSpacing.md),
           ...data.modelUsage.map(
@@ -667,30 +735,15 @@ class _DurationDistPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _DashCard(
+    return _FlatPanel(
       isDark: isDark,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                LucideIcons.timer,
-                size: WpIconSize.sm,
-                color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-              ),
-              const SizedBox(width: WpSpacing.xs),
-              Text(
-                'Duration Distribution',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isDark
-                      ? WpColorsDark.textPrimary
-                      : WpColorsLight.textPrimary,
-                ),
-              ),
-            ],
+          _PanelHeader(
+            icon: LucideIcons.timer,
+            title: 'Duration Distribution',
+            isDark: isDark,
           ),
           const SizedBox(height: WpSpacing.md),
           ...data.durationBuckets.map(
@@ -711,11 +764,11 @@ class _DurationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final barColor = isDark
-        ? WpColorsDark.textMuted.withAlpha(60)
-        : WpColorsLight.textMuted.withAlpha(50);
-    final barFill = isDark
-        ? WpColorsDark.accent.withAlpha(140)
-        : WpColorsLight.accent.withAlpha(160);
+        ? WpColorsDark.textMuted.withAlpha(40)
+        : WpColorsLight.textMuted.withAlpha(30);
+    final barGradient = isDark
+        ? WpColorsDark.accentWarmGradient
+        : WpColorsLight.accentWarmGradient;
     final textPrimary = isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
@@ -747,7 +800,7 @@ class _DurationBar extends StatelessWidget {
                       widthFactor: bucket.fraction,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: barFill,
+                          gradient: barGradient,
                           borderRadius: WpRadius.borderFull,
                         ),
                       ),
@@ -786,35 +839,19 @@ class _CostPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final success = isDark ? WpColorsDark.success : WpColorsLight.success;
     final warning = isDark ? WpColorsDark.warning : WpColorsLight.warning;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
     final textMuted = isDark
         ? WpColorsDark.textMuted
         : WpColorsLight.textMuted;
 
-    return _DashCard(
+    return _FlatPanel(
       isDark: isDark,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                LucideIcons.piggyBank,
-                size: WpIconSize.sm,
-                color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-              ),
-              const SizedBox(width: WpSpacing.xs),
-              Text(
-                'Cost & Savings',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: textPrimary,
-                ),
-              ),
-            ],
+          _PanelHeader(
+            icon: LucideIcons.piggyBank,
+            title: 'Cost & Savings',
+            isDark: isDark,
           ),
           const SizedBox(height: WpSpacing.lg),
 
