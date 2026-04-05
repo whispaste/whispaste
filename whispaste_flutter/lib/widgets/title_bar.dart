@@ -20,6 +20,7 @@ class WpTitleBar extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onPanStart: (_) => windowManager.startDragging(),
       onDoubleTap: () async {
         if (await windowManager.isMaximized()) {
