@@ -327,21 +327,24 @@ class _HeroCard extends StatelessWidget {
               ),
               const Spacer(),
               if (trend != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.xs,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: success.withAlpha(20),
-                    borderRadius: WpRadius.borderFull,
-                  ),
-                  child: Text(
-                    trend!,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: success,
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: WpSpacing.xs,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: success.withAlpha(20),
+                      borderRadius: WpRadius.borderFull,
+                    ),
+                    child: Text(
+                      trend!,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: success,
+                      ),
                     ),
                   ),
                 ),
@@ -396,17 +399,20 @@ class _ActivityChartPanel extends StatelessWidget {
                 color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
               ),
               const SizedBox(width: WpSpacing.xs),
-              Text(
-                'Recording Activity',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isDark
-                      ? WpColorsDark.textPrimary
-                      : WpColorsLight.textPrimary,
+              Expanded(
+                child: Text(
+                  'Recording Activity',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? WpColorsDark.textPrimary
+                        : WpColorsLight.textPrimary,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: WpSpacing.xs),
               Text(
                 'Last 7 days',
                 style: TextStyle(fontSize: 11, color: textMuted),
