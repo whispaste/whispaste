@@ -4,6 +4,7 @@
 /// CI-gating: ensures the app works from small laptops to ultrawide monitors.
 library;
 
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,8 @@ import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/about/about_page.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
+import 'package:whispaste/features/history/data/database.dart';
+import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/history_page.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
@@ -43,6 +46,17 @@ final _pages = <MapEntry<String, Widget>>[
 Widget _testShell(Widget page, Size size, {Brightness brightness = Brightness.dark}) {
   final theme = brightness == Brightness.dark ? wpDarkTheme() : wpLightTheme();
   return ProviderScope(
+    overrides: [
+      historyDatabaseProvider.overrideWith((ref) {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        ref.onDispose(db.close);
+        return db;
+      }),
+      // Provide instant empty streams to avoid pending Drift timers in tests.
+      historyEntriesProvider.overrideWith((ref) => Stream.value(const [])),
+      archivedEntriesProvider.overrideWith((ref) => Stream.value(const [])),
+      trashEntriesProvider.overrideWith((ref) => Stream.value(const [])),
+    ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: theme,
