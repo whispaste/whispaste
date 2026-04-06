@@ -9,7 +9,7 @@ import '../../core/logging/app_logger.dart';
 // ---------------------------------------------------------------------------
 
 /// Discrete phases of a recording lifecycle.
-enum RecordingPhase { idle, recording, transcribing, done, error }
+enum RecordingPhase { idle, recording, transcribing, processing, done, error }
 
 // ---------------------------------------------------------------------------
 // Immutable state
@@ -36,6 +36,7 @@ class RecordingState {
   bool get isIdle => phase == RecordingPhase.idle;
   bool get isRecording => phase == RecordingPhase.recording;
   bool get isTranscribing => phase == RecordingPhase.transcribing;
+  bool get isProcessing => phase == RecordingPhase.processing;
   bool get isDone => phase == RecordingPhase.done;
   bool get isError => phase == RecordingPhase.error;
 
@@ -127,13 +128,23 @@ class RecordingNotifier extends Notifier<RecordingState> {
 
   /// Transition transcribing → done with the resulting [text].
   void completeTranscription(String text) {
-    if (state.phase != RecordingPhase.transcribing) {
+    if (state.phase != RecordingPhase.transcribing &&
+        state.phase != RecordingPhase.processing) {
       _log.debug(
         'completeTranscription ignored – current phase: ${state.phase}',
       );
       return;
     }
     state = state.copyWith(phase: RecordingPhase.done, transcript: text);
+  }
+
+  /// Transition transcribing → processing (post-processing via LLM).
+  void startProcessing() {
+    if (state.phase != RecordingPhase.transcribing) {
+      _log.debug('startProcessing ignored – current phase: ${state.phase}');
+      return;
+    }
+    state = state.copyWith(phase: RecordingPhase.processing);
   }
 
   /// Transition any phase → error.
