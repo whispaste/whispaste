@@ -221,12 +221,27 @@ class RecordingOrchestrator extends Notifier<void> {
       // Save to history database.
       await _saveToHistory(transcript, config);
 
-      // Copy to clipboard / auto-paste based on user preference.
-      await _handleAfterTranscription(transcript, config);
+      // ── Post-processing (LLM) ──────────────────────────────────────────
+      final settings =
+          ref.read(settingsProvider).value ?? AppSettings.defaults;
+      var finalText = transcript;
 
-      // Transition state: transcribing → done.
-      notifier.completeTranscription(transcript);
-      _log.info('Pipeline complete: ${transcript.length} chars');
+      if (settings.postProcessEnabled) {
+        notifier.startProcessing();
+        _log.info('Post-processing enabled — refining transcript');
+
+        // TODO: Wire actual LLM post-processing via Go FFI or cloud API.
+        // For now, skip the LLM call and use the raw transcript.
+        // final llm = ref.read(llmServiceProvider.notifier);
+        // finalText = await llm.postProcess(transcript, config);
+      }
+
+      // Copy to clipboard / auto-paste based on user preference.
+      await _handleAfterTranscription(finalText, config);
+
+      // Transition state: transcribing/processing → done.
+      notifier.completeTranscription(finalText);
+      _log.info('Pipeline complete: ${finalText.length} chars');
     } on Exception catch (e) {
       notifier.fail('$e');
       _log.error('Pipeline error: $e');

@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_windows
+  desktop_multi_window
   flutter_acrylic
   hotkey_manager_windows
   irondash_engine_context
