@@ -36,6 +36,7 @@ class AppSettings {
     this.afterTranscription = 'clipboard',
     // Overlay & Floating Button
     this.showOverlay = true,
+    this.overlayMode = 'in-window',
     this.showFloatingButton = true,
     this.floatingButtonOpacity = 0.9,
     this.floatingButtonSize = 'Normal',
@@ -44,6 +45,27 @@ class AppSettings {
     this.groqApiKey = '',
     this.deepgramApiKey = '',
     this.anthropicApiKey = '',
+    this.geminiApiKey = '',
+    // Cloud Provider Details
+    this.cloudSttProvider = 'openai',
+    this.cloudLlmModel = '',
+    // Post-Processing Advanced
+    this.smartModePrompt = '',
+    this.smartModeTarget = '',
+    // Behavior
+    this.maxRecordDuration = 120,
+    this.closeToTray = true,
+    this.errorReporting = true,
+    this.gpuAcceleration = 'auto',
+    this.autoPasteDelay = 200,
+    // Hotkey
+    this.hotkeyKey = 'D',
+    this.hotkeyModifiers = 'ctrl+shift',
+    // Floating Button Advanced
+    this.floatingButtonLocked = false,
+    this.floatingButtonAutoHide = 'never',
+    // Onboarding
+    this.onboardingCompleted = false,
   });
 
   // Interface
@@ -83,6 +105,8 @@ class AppSettings {
 
   // Overlay & Floating Button
   final bool showOverlay;
+  /// 'in-window', 'floating', or 'off'.
+  final String overlayMode;
   final bool showFloatingButton;
   final double floatingButtonOpacity;
   final String floatingButtonSize;
@@ -92,6 +116,33 @@ class AppSettings {
   final String groqApiKey;
   final String deepgramApiKey;
   final String anthropicApiKey;
+  final String geminiApiKey;
+
+  // Cloud Provider Details
+  final String cloudSttProvider;
+  final String cloudLlmModel;
+
+  // Post-Processing Advanced
+  final String smartModePrompt;
+  final String smartModeTarget;
+
+  // Behavior
+  final int maxRecordDuration;
+  final bool closeToTray;
+  final bool errorReporting;
+  final String gpuAcceleration;
+  final int autoPasteDelay;
+
+  // Hotkey
+  final String hotkeyKey;
+  final String hotkeyModifiers;
+
+  // Floating Button Advanced
+  final bool floatingButtonLocked;
+  final String floatingButtonAutoHide;
+
+  // Onboarding
+  final bool onboardingCompleted;
 
   /// Factory-reset defaults.
   static const AppSettings defaults = AppSettings();
@@ -137,6 +188,10 @@ class AppSettings {
       afterTranscription:
           values['after_transcription'] ?? defaults.afterTranscription,
       showOverlay: _readBool(values, 'show_overlay', defaults.showOverlay),
+      overlayMode: values['overlay_mode'] ??
+          (_readBool(values, 'show_overlay', defaults.showOverlay)
+              ? defaults.overlayMode
+              : 'off'),
       showFloatingButton: _readBool(
         values,
         'show_floating_button',
@@ -154,6 +209,38 @@ class AppSettings {
       deepgramApiKey: values['deepgram_api_key'] ?? defaults.deepgramApiKey,
       anthropicApiKey:
           values['anthropic_api_key'] ?? defaults.anthropicApiKey,
+      geminiApiKey: values['gemini_api_key'] ?? defaults.geminiApiKey,
+      cloudSttProvider:
+          values['cloud_stt_provider'] ?? defaults.cloudSttProvider,
+      cloudLlmModel: values['cloud_llm_model'] ?? defaults.cloudLlmModel,
+      smartModePrompt:
+          values['smart_mode_prompt'] ?? defaults.smartModePrompt,
+      smartModeTarget:
+          values['smart_mode_target'] ?? defaults.smartModeTarget,
+      maxRecordDuration:
+          _readInt(values, 'max_record_duration', defaults.maxRecordDuration),
+      closeToTray: _readBool(values, 'close_to_tray', defaults.closeToTray),
+      errorReporting:
+          _readBool(values, 'error_reporting', defaults.errorReporting),
+      gpuAcceleration:
+          values['gpu_acceleration'] ?? defaults.gpuAcceleration,
+      autoPasteDelay:
+          _readInt(values, 'auto_paste_delay', defaults.autoPasteDelay),
+      hotkeyKey: values['hotkey_key'] ?? defaults.hotkeyKey,
+      hotkeyModifiers:
+          values['hotkey_modifiers'] ?? defaults.hotkeyModifiers,
+      floatingButtonLocked: _readBool(
+        values,
+        'floating_button_locked',
+        defaults.floatingButtonLocked,
+      ),
+      floatingButtonAutoHide:
+          values['floating_button_auto_hide'] ?? defaults.floatingButtonAutoHide,
+      onboardingCompleted: _readBool(
+        values,
+        'onboarding_completed',
+        defaults.onboardingCompleted,
+      ),
     );
   }
 
@@ -170,6 +257,8 @@ class AppSettings {
       recordStartSound: config.playSounds,
       recordStopSound: config.playSounds,
       transcriptionCompleteSound: config.playSounds,
+      maxRecordDuration: config.maxRecordSec,
+      gpuAcceleration: config.gpuAcceleration,
     );
   }
 
@@ -197,6 +286,7 @@ class AppSettings {
       'sound_volume': '$soundVolume',
       'after_transcription': afterTranscription,
       'show_overlay': '$showOverlay',
+      'overlay_mode': overlayMode,
       'show_floating_button': '$showFloatingButton',
       'floating_button_opacity': '$floatingButtonOpacity',
       'floating_button_size': floatingButtonSize,
@@ -204,6 +294,21 @@ class AppSettings {
       'groq_api_key': groqApiKey,
       'deepgram_api_key': deepgramApiKey,
       'anthropic_api_key': anthropicApiKey,
+      'gemini_api_key': geminiApiKey,
+      'cloud_stt_provider': cloudSttProvider,
+      'cloud_llm_model': cloudLlmModel,
+      'smart_mode_prompt': smartModePrompt,
+      'smart_mode_target': smartModeTarget,
+      'max_record_duration': '$maxRecordDuration',
+      'close_to_tray': '$closeToTray',
+      'error_reporting': '$errorReporting',
+      'gpu_acceleration': gpuAcceleration,
+      'auto_paste_delay': '$autoPasteDelay',
+      'hotkey_key': hotkeyKey,
+      'hotkey_modifiers': hotkeyModifiers,
+      'floating_button_locked': '$floatingButtonLocked',
+      'floating_button_auto_hide': floatingButtonAutoHide,
+      'onboarding_completed': '$onboardingCompleted',
     };
   }
 
@@ -229,6 +334,7 @@ class AppSettings {
     double? soundVolume,
     String? afterTranscription,
     bool? showOverlay,
+    String? overlayMode,
     bool? showFloatingButton,
     double? floatingButtonOpacity,
     String? floatingButtonSize,
@@ -236,6 +342,21 @@ class AppSettings {
     String? groqApiKey,
     String? deepgramApiKey,
     String? anthropicApiKey,
+    String? geminiApiKey,
+    String? cloudSttProvider,
+    String? cloudLlmModel,
+    String? smartModePrompt,
+    String? smartModeTarget,
+    int? maxRecordDuration,
+    bool? closeToTray,
+    bool? errorReporting,
+    String? gpuAcceleration,
+    int? autoPasteDelay,
+    String? hotkeyKey,
+    String? hotkeyModifiers,
+    bool? floatingButtonLocked,
+    String? floatingButtonAutoHide,
+    bool? onboardingCompleted,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -260,6 +381,7 @@ class AppSettings {
       soundVolume: soundVolume ?? this.soundVolume,
       afterTranscription: afterTranscription ?? this.afterTranscription,
       showOverlay: showOverlay ?? this.showOverlay,
+      overlayMode: overlayMode ?? this.overlayMode,
       showFloatingButton: showFloatingButton ?? this.showFloatingButton,
       floatingButtonOpacity:
           floatingButtonOpacity ?? this.floatingButtonOpacity,
@@ -268,6 +390,22 @@ class AppSettings {
       groqApiKey: groqApiKey ?? this.groqApiKey,
       deepgramApiKey: deepgramApiKey ?? this.deepgramApiKey,
       anthropicApiKey: anthropicApiKey ?? this.anthropicApiKey,
+      geminiApiKey: geminiApiKey ?? this.geminiApiKey,
+      cloudSttProvider: cloudSttProvider ?? this.cloudSttProvider,
+      cloudLlmModel: cloudLlmModel ?? this.cloudLlmModel,
+      smartModePrompt: smartModePrompt ?? this.smartModePrompt,
+      smartModeTarget: smartModeTarget ?? this.smartModeTarget,
+      maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
+      closeToTray: closeToTray ?? this.closeToTray,
+      errorReporting: errorReporting ?? this.errorReporting,
+      gpuAcceleration: gpuAcceleration ?? this.gpuAcceleration,
+      autoPasteDelay: autoPasteDelay ?? this.autoPasteDelay,
+      hotkeyKey: hotkeyKey ?? this.hotkeyKey,
+      hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
+      floatingButtonLocked: floatingButtonLocked ?? this.floatingButtonLocked,
+      floatingButtonAutoHide:
+          floatingButtonAutoHide ?? this.floatingButtonAutoHide,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     );
   }
 }
@@ -296,6 +434,14 @@ double _readDouble(
   double fallback,
 ) {
   return double.tryParse(values[key] ?? '') ?? fallback;
+}
+
+int _readInt(
+  Map<String, String> values,
+  String key,
+  int fallback,
+) {
+  return int.tryParse(values[key] ?? '') ?? fallback;
 }
 
 String _settingModelFromConfig(String modelId) {
@@ -418,5 +564,7 @@ final effectiveConfigProvider = Provider<WhisPasteConfig>((ref) {
         settings.recordStopSound ||
         settings.transcriptionCompleteSound,
     inputGain: settings.inputGain / 100.0,
+    maxRecordSec: settings.maxRecordDuration,
+    gpuAcceleration: settings.gpuAcceleration,
   );
 });

@@ -838,8 +838,20 @@ abstract class L10n {
   /// No description provided for @settingsShowOverlay.
   ///
   /// In en, this message translates to:
-  /// **'Show Overlay'**
+  /// **'Recording Overlay'**
   String get settingsShowOverlay;
+
+  /// No description provided for @settingsOverlayModeInWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Show during recording'**
+  String get settingsOverlayModeInWindow;
+
+  /// No description provided for @settingsOverlayModeOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get settingsOverlayModeOff;
 
   /// No description provided for @settingsShowFloatingButton.
   ///
@@ -2184,6 +2196,588 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Copied as Markdown'**
   String get historyCopiedAsMarkdown;
+
+  /// No description provided for @settingsKeyboardShortcut.
+  ///
+  /// In en, this message translates to:
+  /// **'Keyboard Shortcut'**
+  String get settingsKeyboardShortcut;
+
+  /// No description provided for @settingsKeyboardShortcutSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Global hotkey to start and stop recording'**
+  String get settingsKeyboardShortcutSubtitle;
+
+  /// No description provided for @settingsCurrentHotkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Hotkey'**
+  String get settingsCurrentHotkey;
+
+  /// No description provided for @settingsChangeHotkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get settingsChangeHotkey;
+
+  /// No description provided for @settingsHotkeyRecorderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Record New Hotkey'**
+  String get settingsHotkeyRecorderTitle;
+
+  /// No description provided for @settingsHotkeyRecorderHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Press the key combination you want to use…'**
+  String get settingsHotkeyRecorderHint;
+
+  /// No description provided for @settingsHotkeyRecorderCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get settingsHotkeyRecorderCancel;
+
+  /// No description provided for @settingsHotkeyRecorderSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get settingsHotkeyRecorderSave;
+
+  /// No description provided for @settingsHotkeyRecorderClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get settingsHotkeyRecorderClear;
+
+  /// No description provided for @settingsGeminiApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Gemini API Key'**
+  String get settingsGeminiApiKey;
+
+  /// No description provided for @settingsDefaultSttProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Default Cloud STT'**
+  String get settingsDefaultSttProvider;
+
+  /// No description provided for @settingsDefaultSttProviderSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud speech recognition service'**
+  String get settingsDefaultSttProviderSubtitle;
+
+  /// No description provided for @settingsLlmModel.
+  ///
+  /// In en, this message translates to:
+  /// **'LLM Model'**
+  String get settingsLlmModel;
+
+  /// No description provided for @settingsLlmModelSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Model used for cloud post-processing'**
+  String get settingsLlmModelSubtitle;
+
+  /// No description provided for @settingsLlmModelPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. gpt-4o-mini'**
+  String get settingsLlmModelPlaceholder;
+
+  /// No description provided for @settingsCustomInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Instructions'**
+  String get settingsCustomInstructions;
+
+  /// No description provided for @settingsCustomInstructionsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom prompt for AI post-processing'**
+  String get settingsCustomInstructionsSubtitle;
+
+  /// No description provided for @settingsCustomInstructionsPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Always use formal language…'**
+  String get settingsCustomInstructionsPlaceholder;
+
+  /// No description provided for @settingsOutputLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Output Language'**
+  String get settingsOutputLanguage;
+
+  /// No description provided for @settingsOutputLanguageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Force output to a specific language'**
+  String get settingsOutputLanguageSubtitle;
+
+  /// No description provided for @settingsOutputLanguageSameAsInput.
+  ///
+  /// In en, this message translates to:
+  /// **'Same as input'**
+  String get settingsOutputLanguageSameAsInput;
+
+  /// No description provided for @settingsMaxRecordDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Max Recording Duration'**
+  String get settingsMaxRecordDuration;
+
+  /// No description provided for @settingsMaxRecordDurationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic safety stop after this time'**
+  String get settingsMaxRecordDurationSubtitle;
+
+  /// No description provided for @settingsMaxRecordDurationUnlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get settingsMaxRecordDurationUnlimited;
+
+  /// No description provided for @settingsCloseToTray.
+  ///
+  /// In en, this message translates to:
+  /// **'Close to Tray'**
+  String get settingsCloseToTray;
+
+  /// No description provided for @settingsCloseToTraySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep running in the system tray when closing the window'**
+  String get settingsCloseToTraySubtitle;
+
+  /// No description provided for @settingsErrorReporting.
+  ///
+  /// In en, this message translates to:
+  /// **'Error Reporting'**
+  String get settingsErrorReporting;
+
+  /// No description provided for @settingsErrorReportingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Help improve WhisPaste by sending anonymous crash reports'**
+  String get settingsErrorReportingSubtitle;
+
+  /// No description provided for @settingsGpuAcceleration.
+  ///
+  /// In en, this message translates to:
+  /// **'GPU Acceleration'**
+  String get settingsGpuAcceleration;
+
+  /// No description provided for @settingsGpuAccelerationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use graphics card for faster AI processing'**
+  String get settingsGpuAccelerationSubtitle;
+
+  /// No description provided for @settingsGpuAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-detect'**
+  String get settingsGpuAuto;
+
+  /// No description provided for @settingsGpuEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Always On'**
+  String get settingsGpuEnabled;
+
+  /// No description provided for @settingsGpuDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get settingsGpuDisabled;
+
+  /// No description provided for @settingsAutoPasteDelay.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste Delay'**
+  String get settingsAutoPasteDelay;
+
+  /// No description provided for @settingsAutoPasteDelaySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wait time before pasting into the active window'**
+  String get settingsAutoPasteDelaySubtitle;
+
+  /// No description provided for @settingsFloatingButtonAdvanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced Floating Button Options'**
+  String get settingsFloatingButtonAdvanced;
+
+  /// No description provided for @settingsLockPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock Position'**
+  String get settingsLockPosition;
+
+  /// No description provided for @settingsLockPositionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Prevent accidental dragging'**
+  String get settingsLockPositionSubtitle;
+
+  /// No description provided for @settingsAutoHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Hide'**
+  String get settingsAutoHide;
+
+  /// No description provided for @settingsAutoHideSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically hide when not recording'**
+  String get settingsAutoHideSubtitle;
+
+  /// No description provided for @settingsAutoHideNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get settingsAutoHideNever;
+
+  /// No description provided for @settingsAutoHide5s.
+  ///
+  /// In en, this message translates to:
+  /// **'After 5 seconds'**
+  String get settingsAutoHide5s;
+
+  /// No description provided for @settingsAutoHideEdge.
+  ///
+  /// In en, this message translates to:
+  /// **'Snap to edge'**
+  String get settingsAutoHideEdge;
+
+  /// No description provided for @onboardingGetStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Get Started'**
+  String get onboardingGetStarted;
+
+  /// No description provided for @onboardingSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get onboardingSkip;
+
+  /// No description provided for @onboardingNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get onboardingNext;
+
+  /// No description provided for @onboardingBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get onboardingBack;
+
+  /// No description provided for @onboardingStepOf.
+  ///
+  /// In en, this message translates to:
+  /// **'Step {current} of {total}'**
+  String onboardingStepOf(int current, int total);
+
+  /// No description provided for @onboardingLanguageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Your Language'**
+  String get onboardingLanguageTitle;
+
+  /// No description provided for @onboardingLanguageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You can change this later in Settings'**
+  String get onboardingLanguageSubtitle;
+
+  /// No description provided for @onboardingThemeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick Your Theme'**
+  String get onboardingThemeTitle;
+
+  /// No description provided for @onboardingThemeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get onboardingThemeLight;
+
+  /// No description provided for @onboardingThemeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get onboardingThemeDark;
+
+  /// No description provided for @onboardingMicTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone Setup'**
+  String get onboardingMicTitle;
+
+  /// No description provided for @onboardingMicSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste needs microphone access to transcribe your voice'**
+  String get onboardingMicSubtitle;
+
+  /// No description provided for @onboardingMicPermissionGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone access granted'**
+  String get onboardingMicPermissionGranted;
+
+  /// No description provided for @onboardingMicPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone access denied'**
+  String get onboardingMicPermissionDenied;
+
+  /// No description provided for @onboardingMicPermissionPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for permission…'**
+  String get onboardingMicPermissionPending;
+
+  /// No description provided for @onboardingMicRequestAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant Access'**
+  String get onboardingMicRequestAccess;
+
+  /// No description provided for @onboardingMicTestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Test Your Microphone'**
+  String get onboardingMicTestTitle;
+
+  /// No description provided for @onboardingMicTestHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to start a test recording'**
+  String get onboardingMicTestHint;
+
+  /// No description provided for @onboardingMicTestRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording… speak now'**
+  String get onboardingMicTestRecording;
+
+  /// No description provided for @onboardingMicTestDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording complete! Tap to play back'**
+  String get onboardingMicTestDone;
+
+  /// No description provided for @onboardingMicDeviceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio Input Device'**
+  String get onboardingMicDeviceLabel;
+
+  /// No description provided for @onboardingMicDeniedInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Open your system settings to grant microphone access'**
+  String get onboardingMicDeniedInstructions;
+
+  /// No description provided for @onboardingModelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech Recognition Model'**
+  String get onboardingModelTitle;
+
+  /// No description provided for @onboardingModelSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Download a model for local, private speech-to-text'**
+  String get onboardingModelSubtitle;
+
+  /// No description provided for @onboardingModelRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended for your device'**
+  String get onboardingModelRecommended;
+
+  /// No description provided for @onboardingModelChangeLater.
+  ///
+  /// In en, this message translates to:
+  /// **'You can always change the model later in Settings'**
+  String get onboardingModelChangeLater;
+
+  /// No description provided for @onboardingModelUseCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Cloud API instead'**
+  String get onboardingModelUseCloud;
+
+  /// No description provided for @onboardingModelDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading…'**
+  String get onboardingModelDownloading;
+
+  /// No description provided for @onboardingModelReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Model ready'**
+  String get onboardingModelReady;
+
+  /// No description provided for @onboardingReadyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re All Set!'**
+  String get onboardingReadyTitle;
+
+  /// No description provided for @onboardingReadySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Here\'s how to use WhisPaste'**
+  String get onboardingReadySubtitle;
+
+  /// No description provided for @onboardingReadyStep1.
+  ///
+  /// In en, this message translates to:
+  /// **'Press the hotkey to start recording'**
+  String get onboardingReadyStep1;
+
+  /// No description provided for @onboardingReadyStep2.
+  ///
+  /// In en, this message translates to:
+  /// **'Press again to stop and transcribe'**
+  String get onboardingReadyStep2;
+
+  /// No description provided for @onboardingReadyStep3.
+  ///
+  /// In en, this message translates to:
+  /// **'Text is copied to clipboard automatically'**
+  String get onboardingReadyStep3;
+
+  /// No description provided for @onboardingReadyChangeHotkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Hotkey'**
+  String get onboardingReadyChangeHotkey;
+
+  /// No description provided for @onboardingReadyCurrentHotkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Current hotkey'**
+  String get onboardingReadyCurrentHotkey;
+
+  /// No description provided for @onboardingStartDictating.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Dictating'**
+  String get onboardingStartDictating;
+
+  /// No description provided for @onboardingPrivacyLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'All processing happens on your device'**
+  String get onboardingPrivacyLocal;
+
+  /// No description provided for @onboardingPrivacyBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'100% Private'**
+  String get onboardingPrivacyBadge;
+
+  /// No description provided for @overlayRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording'**
+  String get overlayRecording;
+
+  /// No description provided for @overlayTranscribing.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcribing…'**
+  String get overlayTranscribing;
+
+  /// No description provided for @overlayRefining.
+  ///
+  /// In en, this message translates to:
+  /// **'Refining…'**
+  String get overlayRefining;
+
+  /// No description provided for @overlayDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get overlayDone;
+
+  /// No description provided for @overlayDonePasted.
+  ///
+  /// In en, this message translates to:
+  /// **'Pasted'**
+  String get overlayDonePasted;
+
+  /// No description provided for @overlayDoneBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied & Pasted'**
+  String get overlayDoneBoth;
+
+  /// No description provided for @overlayDoneReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get overlayDoneReady;
+
+  /// No description provided for @overlayError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get overlayError;
+
+  /// No description provided for @overlayCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get overlayCancel;
+
+  /// No description provided for @overlayPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get overlayPause;
+
+  /// No description provided for @overlayResume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get overlayResume;
+
+  /// No description provided for @overlayStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get overlayStop;
+
+  /// No description provided for @overlayKeyboardHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Press {hotkey} to stop'**
+  String overlayKeyboardHint(String hotkey);
+
+  /// No description provided for @overlayProcessingLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'Local'**
+  String get overlayProcessingLocal;
+
+  /// No description provided for @overlayProcessingCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud'**
+  String get overlayProcessingCloud;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

@@ -403,7 +403,13 @@ class L10nEn extends L10n {
       'On-screen recording controls';
 
   @override
-  String get settingsShowOverlay => 'Show Overlay';
+  String get settingsShowOverlay => 'Recording Overlay';
+
+  @override
+  String get settingsOverlayModeInWindow => 'Show during recording';
+
+  @override
+  String get settingsOverlayModeOff => 'Off';
 
   @override
   String get settingsShowFloatingButton => 'Show Floating Button';
@@ -1118,4 +1124,318 @@ class L10nEn extends L10n {
 
   @override
   String get historyCopiedAsMarkdown => 'Copied as Markdown';
+
+  @override
+  String get settingsKeyboardShortcut => 'Keyboard Shortcut';
+
+  @override
+  String get settingsKeyboardShortcutSubtitle =>
+      'Global hotkey to start and stop recording';
+
+  @override
+  String get settingsCurrentHotkey => 'Current Hotkey';
+
+  @override
+  String get settingsChangeHotkey => 'Change';
+
+  @override
+  String get settingsHotkeyRecorderTitle => 'Record New Hotkey';
+
+  @override
+  String get settingsHotkeyRecorderHint =>
+      'Press the key combination you want to use…';
+
+  @override
+  String get settingsHotkeyRecorderCancel => 'Cancel';
+
+  @override
+  String get settingsHotkeyRecorderSave => 'Save';
+
+  @override
+  String get settingsHotkeyRecorderClear => 'Clear';
+
+  @override
+  String get settingsGeminiApiKey => 'Gemini API Key';
+
+  @override
+  String get settingsDefaultSttProvider => 'Default Cloud STT';
+
+  @override
+  String get settingsDefaultSttProviderSubtitle =>
+      'Cloud speech recognition service';
+
+  @override
+  String get settingsLlmModel => 'LLM Model';
+
+  @override
+  String get settingsLlmModelSubtitle => 'Model used for cloud post-processing';
+
+  @override
+  String get settingsLlmModelPlaceholder => 'e.g. gpt-4o-mini';
+
+  @override
+  String get settingsCustomInstructions => 'Custom Instructions';
+
+  @override
+  String get settingsCustomInstructionsSubtitle =>
+      'Custom prompt for AI post-processing';
+
+  @override
+  String get settingsCustomInstructionsPlaceholder =>
+      'e.g. Always use formal language…';
+
+  @override
+  String get settingsOutputLanguage => 'Output Language';
+
+  @override
+  String get settingsOutputLanguageSubtitle =>
+      'Force output to a specific language';
+
+  @override
+  String get settingsOutputLanguageSameAsInput => 'Same as input';
+
+  @override
+  String get settingsMaxRecordDuration => 'Max Recording Duration';
+
+  @override
+  String get settingsMaxRecordDurationSubtitle =>
+      'Automatic safety stop after this time';
+
+  @override
+  String get settingsMaxRecordDurationUnlimited => 'Unlimited';
+
+  @override
+  String get settingsCloseToTray => 'Close to Tray';
+
+  @override
+  String get settingsCloseToTraySubtitle =>
+      'Keep running in the system tray when closing the window';
+
+  @override
+  String get settingsErrorReporting => 'Error Reporting';
+
+  @override
+  String get settingsErrorReportingSubtitle =>
+      'Help improve WhisPaste by sending anonymous crash reports';
+
+  @override
+  String get settingsGpuAcceleration => 'GPU Acceleration';
+
+  @override
+  String get settingsGpuAccelerationSubtitle =>
+      'Use graphics card for faster AI processing';
+
+  @override
+  String get settingsGpuAuto => 'Auto-detect';
+
+  @override
+  String get settingsGpuEnabled => 'Always On';
+
+  @override
+  String get settingsGpuDisabled => 'Disabled';
+
+  @override
+  String get settingsAutoPasteDelay => 'Auto-Paste Delay';
+
+  @override
+  String get settingsAutoPasteDelaySubtitle =>
+      'Wait time before pasting into the active window';
+
+  @override
+  String get settingsFloatingButtonAdvanced =>
+      'Advanced Floating Button Options';
+
+  @override
+  String get settingsLockPosition => 'Lock Position';
+
+  @override
+  String get settingsLockPositionSubtitle => 'Prevent accidental dragging';
+
+  @override
+  String get settingsAutoHide => 'Auto-Hide';
+
+  @override
+  String get settingsAutoHideSubtitle =>
+      'Automatically hide when not recording';
+
+  @override
+  String get settingsAutoHideNever => 'Never';
+
+  @override
+  String get settingsAutoHide5s => 'After 5 seconds';
+
+  @override
+  String get settingsAutoHideEdge => 'Snap to edge';
+
+  @override
+  String get onboardingGetStarted => 'Get Started';
+
+  @override
+  String get onboardingSkip => 'Skip';
+
+  @override
+  String get onboardingNext => 'Next';
+
+  @override
+  String get onboardingBack => 'Back';
+
+  @override
+  String onboardingStepOf(int current, int total) {
+    return 'Step $current of $total';
+  }
+
+  @override
+  String get onboardingLanguageTitle => 'Choose Your Language';
+
+  @override
+  String get onboardingLanguageSubtitle =>
+      'You can change this later in Settings';
+
+  @override
+  String get onboardingThemeTitle => 'Pick Your Theme';
+
+  @override
+  String get onboardingThemeLight => 'Light';
+
+  @override
+  String get onboardingThemeDark => 'Dark';
+
+  @override
+  String get onboardingMicTitle => 'Microphone Setup';
+
+  @override
+  String get onboardingMicSubtitle =>
+      'WhisPaste needs microphone access to transcribe your voice';
+
+  @override
+  String get onboardingMicPermissionGranted => 'Microphone access granted';
+
+  @override
+  String get onboardingMicPermissionDenied => 'Microphone access denied';
+
+  @override
+  String get onboardingMicPermissionPending => 'Waiting for permission…';
+
+  @override
+  String get onboardingMicRequestAccess => 'Grant Access';
+
+  @override
+  String get onboardingMicTestTitle => 'Test Your Microphone';
+
+  @override
+  String get onboardingMicTestHint => 'Tap to start a test recording';
+
+  @override
+  String get onboardingMicTestRecording => 'Recording… speak now';
+
+  @override
+  String get onboardingMicTestDone => 'Recording complete! Tap to play back';
+
+  @override
+  String get onboardingMicDeviceLabel => 'Audio Input Device';
+
+  @override
+  String get onboardingMicDeniedInstructions =>
+      'Open your system settings to grant microphone access';
+
+  @override
+  String get onboardingModelTitle => 'Speech Recognition Model';
+
+  @override
+  String get onboardingModelSubtitle =>
+      'Download a model for local, private speech-to-text';
+
+  @override
+  String get onboardingModelRecommended => 'Recommended for your device';
+
+  @override
+  String get onboardingModelChangeLater =>
+      'You can always change the model later in Settings';
+
+  @override
+  String get onboardingModelUseCloud => 'Use Cloud API instead';
+
+  @override
+  String get onboardingModelDownloading => 'Downloading…';
+
+  @override
+  String get onboardingModelReady => 'Model ready';
+
+  @override
+  String get onboardingReadyTitle => 'You\'re All Set!';
+
+  @override
+  String get onboardingReadySubtitle => 'Here\'s how to use WhisPaste';
+
+  @override
+  String get onboardingReadyStep1 => 'Press the hotkey to start recording';
+
+  @override
+  String get onboardingReadyStep2 => 'Press again to stop and transcribe';
+
+  @override
+  String get onboardingReadyStep3 =>
+      'Text is copied to clipboard automatically';
+
+  @override
+  String get onboardingReadyChangeHotkey => 'Change Hotkey';
+
+  @override
+  String get onboardingReadyCurrentHotkey => 'Current hotkey';
+
+  @override
+  String get onboardingStartDictating => 'Start Dictating';
+
+  @override
+  String get onboardingPrivacyLocal => 'All processing happens on your device';
+
+  @override
+  String get onboardingPrivacyBadge => '100% Private';
+
+  @override
+  String get overlayRecording => 'Recording';
+
+  @override
+  String get overlayTranscribing => 'Transcribing…';
+
+  @override
+  String get overlayRefining => 'Refining…';
+
+  @override
+  String get overlayDone => 'Copied';
+
+  @override
+  String get overlayDonePasted => 'Pasted';
+
+  @override
+  String get overlayDoneBoth => 'Copied & Pasted';
+
+  @override
+  String get overlayDoneReady => 'Done';
+
+  @override
+  String get overlayError => 'Error';
+
+  @override
+  String get overlayCancel => 'Cancel';
+
+  @override
+  String get overlayPause => 'Pause';
+
+  @override
+  String get overlayResume => 'Resume';
+
+  @override
+  String get overlayStop => 'Stop';
+
+  @override
+  String overlayKeyboardHint(String hotkey) {
+    return 'Press $hotkey to stop';
+  }
+
+  @override
+  String get overlayProcessingLocal => 'Local';
+
+  @override
+  String get overlayProcessingCloud => 'Cloud';
 }
