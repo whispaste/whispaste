@@ -391,6 +391,9 @@ class L10nDe extends L10n {
   String get settingsAfterTranscriptionPaste => 'Automatisch einfügen';
 
   @override
+  String get settingsAfterTranscriptionBoth => 'Kopieren & einfügen';
+
+  @override
   String get settingsAfterTranscriptionNothing => 'Nichts tun';
 
   @override
@@ -962,6 +965,18 @@ class L10nDe extends L10n {
 
   @override
   String get statusBarPostProcessing => 'Nachbearbeitung';
+
+  @override
+  String get sttStatusStandby => 'Bereitschaft';
+
+  @override
+  String get sttStatusStarting => 'Startet…';
+
+  @override
+  String get sttStatusReady => 'Bereit';
+
+  @override
+  String get sttStatusError => 'Fehler';
 
   @override
   String get tooltipSwitchToLight => 'Zu hellem Modus wechseln';
