@@ -19,6 +19,8 @@ import 'features/replacements/replacements_page.dart';
 import 'features/analytics/analytics_page.dart';
 import 'features/about/about_page.dart';
 import 'features/feedback/feedback_page.dart';
+import 'features/onboarding/onboarding_overlay.dart';
+import 'features/recording/recording_overlay.dart';
 import 'features/recording/recording_state.dart';
 import 'services/recording_orchestrator.dart';
 import 'services/sound_feedback_service.dart';
@@ -306,6 +308,19 @@ class _AppShell extends ConsumerWidget {
             ),
           ],
         ),
+          // Onboarding overlay — shown on first launch
+          if (!settings.onboardingCompleted)
+            const Positioned.fill(child: OnboardingOverlay()),
+
+          // Recording overlay — bottom-center above status bar
+          if (recordingPhase != RecordingPhase.idle &&
+              settings.overlayMode == 'in-window')
+            Positioned(
+              bottom: WpLayout.statusBarHeight + 8,
+              left: 0,
+              right: 0,
+              child: const Center(child: RecordingOverlay()),
+            ),
         ],
       ),
       floatingActionButton: Padding(
@@ -506,7 +521,8 @@ class _RecordingIndicatorBarState extends State<_RecordingIndicatorBar>
 
   void _syncPulse() {
     if (widget.phase == RecordingPhase.recording ||
-        widget.phase == RecordingPhase.transcribing) {
+        widget.phase == RecordingPhase.transcribing ||
+        widget.phase == RecordingPhase.processing) {
       _pulse.repeat(reverse: true);
     } else {
       _pulse.stop();
@@ -523,7 +539,8 @@ class _RecordingIndicatorBarState extends State<_RecordingIndicatorBar>
   @override
   Widget build(BuildContext context) {
     final isActive = widget.phase == RecordingPhase.recording ||
-        widget.phase == RecordingPhase.transcribing;
+        widget.phase == RecordingPhase.transcribing ||
+        widget.phase == RecordingPhase.processing;
 
     final color = widget.phase == RecordingPhase.recording
         ? const Color(0xFFEF4444)
