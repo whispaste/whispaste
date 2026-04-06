@@ -6,7 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
-import '../features/recording/recording_state.dart';
+import '../core/recording/recording_state.dart';
 
 /// Recording FAB — phase-aware with distinct visual states.
 ///

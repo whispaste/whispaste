@@ -1,8 +1,18 @@
+/// App settings provider — persisted via SQLite, loaded from Go config.
+///
+/// **Architecture note**: This file lives in `core/config/` because every
+/// layer depends on it (theme, l10n, services, features). It intentionally
+/// imports from `features/history/data/` (database provider for persistence)
+/// and `services/` (Go config reader). This is a documented bridge — not a
+/// bug. Moving the database provider to `core/data/` would be the clean
+/// resolution; tracked as a future refactor.
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/history/data/database.dart';
-import '../../services/config_service.dart';
+import '../../features/history/data/database.dart'; // see note above
+import '../../services/config_service.dart'; // see note above
 
 /// All persisted app settings in one immutable data class.
 class AppSettings {
