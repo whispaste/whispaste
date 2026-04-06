@@ -1,0 +1,399 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../../core/config/settings_provider.dart';
+import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/theme/tokens.dart';
+import '../../../widgets/hotkey_recorder.dart';
+
+/// Onboarding Step 4 — Ready screen with hotkey summary and quick-start guide.
+class ReadyStep extends ConsumerWidget {
+  const ReadyStep({
+    super.key,
+    required this.onComplete,
+    required this.onBack,
+  });
+
+  final VoidCallback onComplete;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = L10n.of(context);
+
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textPrimary =
+        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final textSecondary =
+        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+    final textMuted =
+        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final success = isDark ? WpColorsDark.success : WpColorsLight.success;
+    final accentGradient = isDark
+        ? WpColorsDark.accentWarmGradient
+        : WpColorsLight.accentWarmGradient;
+
+    final hotkeyKey = settings.hotkeyKey;
+    final hotkeyModifiers = settings.hotkeyModifiers;
+    final modifierLabels = HotkeyRecorderDialog.parseModifiers(hotkeyModifiers);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Title
+        Text(
+          l10n.onboardingReadyTitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: textPrimary,
+          ),
+        ),
+        const SizedBox(height: WpSpacing.xs),
+
+        // Subtitle
+        Text(
+          l10n.onboardingReadySubtitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            color: textSecondary,
+          ),
+        ),
+        const SizedBox(height: WpSpacing.xxl),
+
+        // Hotkey display
+        Text(
+          l10n.onboardingReadyCurrentHotkey,
+          style: TextStyle(fontSize: 12, color: textMuted),
+        ),
+        const SizedBox(height: WpSpacing.sm),
+        _HotkeyKeyCaps(
+          modifiers: modifierLabels,
+          keyLabel: hotkeyKey,
+          isDark: isDark,
+        ),
+        const SizedBox(height: WpSpacing.sm),
+        GestureDetector(
+          onTap: () async {
+            final result = await HotkeyRecorderDialog.show(
+              context,
+              initialKey: hotkeyKey,
+              initialModifiers: hotkeyModifiers,
+            );
+            if (result != null && context.mounted) {
+              ref.read(settingsProvider.notifier).updateSettings(
+                    (s) => s.copyWith(
+                      hotkeyKey: result.key,
+                      hotkeyModifiers: result.modifiers,
+                    ),
+                  );
+            }
+          },
+          child: Text(
+            l10n.onboardingReadyChangeHotkey,
+            style: TextStyle(
+              fontSize: 13,
+              color: accent,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: WpSpacing.xl),
+
+        // Quick start instructions
+        _InstructionRow(
+          number: '1.',
+          text: l10n.onboardingReadyStep1,
+          icon: LucideIcons.keyboard,
+          accent: accent,
+          textColor: textPrimary,
+        ),
+        const SizedBox(height: WpSpacing.md),
+        _InstructionRow(
+          number: '2.',
+          text: l10n.onboardingReadyStep2,
+          icon: LucideIcons.micOff,
+          accent: accent,
+          textColor: textPrimary,
+        ),
+        const SizedBox(height: WpSpacing.md),
+        _InstructionRow(
+          number: '3.',
+          text: l10n.onboardingReadyStep3,
+          icon: LucideIcons.clipboard,
+          accent: accent,
+          textColor: textPrimary,
+        ),
+        const SizedBox(height: WpSpacing.lg),
+
+        // Privacy badge
+        Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.xxs + 2,
+            ),
+            decoration: BoxDecoration(
+              color: success.withValues(alpha: 0.12),
+              borderRadius: WpRadius.borderFull,
+            ),
+            child: Text(
+              l10n.onboardingPrivacyBadge,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: success,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: WpSpacing.xxl),
+
+        // Navigation row
+        Row(
+          children: [
+            TextButton(
+              onPressed: onBack,
+              child: Text(
+                l10n.onboardingBack,
+                style: TextStyle(color: textMuted, fontSize: 14),
+              ),
+            ),
+            const Spacer(),
+            Expanded(
+              flex: 2,
+              child: _AccentButton(
+                label: l10n.onboardingStartDictating,
+                gradient: accentGradient,
+                textColor: textPrimary,
+                onPressed: onComplete,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hotkey key caps row — modifier pills + "+" separators + primary key
+// ---------------------------------------------------------------------------
+
+class _HotkeyKeyCaps extends StatelessWidget {
+  const _HotkeyKeyCaps({
+    required this.modifiers,
+    required this.keyLabel,
+    required this.isDark,
+  });
+
+  final List<String> modifiers;
+  final String keyLabel;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final textMuted =
+        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final surfaceVariant =
+        isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant;
+    final borderColor =
+        isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
+    final textPrimary =
+        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+
+    final caps = <Widget>[];
+    for (var i = 0; i < modifiers.length; i++) {
+      if (i > 0) {
+        caps.add(Padding(
+          padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
+          child: Text(
+            '+',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: textMuted,
+            ),
+          ),
+        ));
+      }
+      caps.add(_KeyCapPill(
+        label: modifiers[i],
+        bgColor: surfaceVariant,
+        borderColor: borderColor,
+        textColor: textPrimary,
+      ));
+    }
+
+    if (keyLabel.isNotEmpty) {
+      if (caps.isNotEmpty) {
+        caps.add(Padding(
+          padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
+          child: Text(
+            '+',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: textMuted,
+            ),
+          ),
+        ));
+      }
+      caps.add(_KeyCapPill(
+        label: keyLabel,
+        bgColor: surfaceVariant,
+        borderColor: borderColor,
+        textColor: textPrimary,
+      ));
+    }
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: WpSpacing.xxs,
+      runSpacing: WpSpacing.xs,
+      children: caps,
+    );
+  }
+}
+
+class _KeyCapPill extends StatelessWidget {
+  const _KeyCapPill({
+    required this.label,
+    required this.bgColor,
+    required this.borderColor,
+    required this.textColor,
+  });
+
+  final String label;
+  final Color bgColor;
+  final Color borderColor;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.sm,
+        vertical: WpSpacing.xxs + 2,
+      ),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(WpRadius.sm),
+        border: Border.all(color: borderColor),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: textColor,
+          letterSpacing: 0.3,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Instruction row — numbered step with icon
+// ---------------------------------------------------------------------------
+
+class _InstructionRow extends StatelessWidget {
+  const _InstructionRow({
+    required this.number,
+    required this.text,
+    required this.icon,
+    required this.accent,
+    required this.textColor,
+  });
+
+  final String number;
+  final String text;
+  final IconData icon;
+  final Color accent;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: WpIconSize.md, color: accent),
+        const SizedBox(width: WpSpacing.sm),
+        Expanded(
+          child: Text(
+            '$number $text',
+            style: TextStyle(fontSize: 14, color: textColor),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Full-width accent gradient CTA button
+// ---------------------------------------------------------------------------
+
+class _AccentButton extends StatefulWidget {
+  const _AccentButton({
+    required this.label,
+    required this.gradient,
+    required this.textColor,
+    required this.onPressed,
+  });
+
+  final String label;
+  final LinearGradient gradient;
+  final Color textColor;
+  final VoidCallback onPressed;
+
+  @override
+  State<_AccentButton> createState() => _AccentButtonState();
+}
+
+class _AccentButtonState extends State<_AccentButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onPressed,
+        child: AnimatedScale(
+          scale: _hovered ? 1.02 : 1.0,
+          duration: WpMotion.fast,
+          curve: WpMotion.defaultCurve,
+          child: AnimatedContainer(
+            duration: WpMotion.fast,
+            curve: WpMotion.defaultCurve,
+            padding: const EdgeInsets.symmetric(vertical: WpSpacing.md),
+            decoration: BoxDecoration(
+              gradient: widget.gradient,
+              borderRadius: WpRadius.borderMd,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              widget.label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: widget.textColor,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

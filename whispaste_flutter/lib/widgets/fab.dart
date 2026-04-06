@@ -81,8 +81,9 @@ class _WpRecordingFabState extends State<WpRecordingFab>
       _pulseController.stop();
       _pulseController.reset();
     }
-    // Spin: only during transcribing
-    if (widget.phase == RecordingPhase.transcribing) {
+    // Spin: only during transcribing or processing
+    if (widget.phase == RecordingPhase.transcribing ||
+        widget.phase == RecordingPhase.processing) {
       _spinController.repeat();
     } else {
       _spinController.stop();
@@ -117,7 +118,7 @@ class _WpRecordingFabState extends State<WpRecordingFab>
     final tooltip = switch (phase) {
       RecordingPhase.idle => l10n.tooltipRecord,
       RecordingPhase.recording => l10n.tooltipStopRecord,
-      RecordingPhase.transcribing => l10n.tooltipProcessing,
+      RecordingPhase.transcribing || RecordingPhase.processing => l10n.tooltipProcessing,
       RecordingPhase.done => l10n.statusTranscriptionDone,
       RecordingPhase.error => '',
     };
@@ -162,7 +163,8 @@ class _WpRecordingFabState extends State<WpRecordingFab>
                   gradient: gradient,
                   boxShadow: WpShadows.fab,
                 ),
-                child: phase == RecordingPhase.transcribing
+                child: phase == RecordingPhase.transcribing ||
+                        phase == RecordingPhase.processing
                     ? _buildSpinner(icon)
                     : Icon(icon, color: Colors.white, size: WpIconSize.lg),
               ),
@@ -193,7 +195,7 @@ class _WpRecordingFabState extends State<WpRecordingFab>
           end: Alignment.bottomRight,
           colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
         ),
-      RecordingPhase.transcribing => const LinearGradient(
+      RecordingPhase.transcribing || RecordingPhase.processing => const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
@@ -218,7 +220,7 @@ class _WpRecordingFabState extends State<WpRecordingFab>
     return switch (phase) {
       RecordingPhase.idle => LucideIcons.mic,
       RecordingPhase.recording => LucideIcons.square,
-      RecordingPhase.transcribing => LucideIcons.loaderCircle,
+      RecordingPhase.transcribing || RecordingPhase.processing => LucideIcons.loaderCircle,
       RecordingPhase.done => LucideIcons.check,
       RecordingPhase.error => LucideIcons.triangleAlert,
     };
