@@ -237,7 +237,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // ── Post-processing (LLM) ──────────────────────────────────────────
       final settings =
           ref.read(settingsProvider).value ?? AppSettings.defaults;
-      var finalText = transcript;
+      final finalText = transcript;
 
       if (settings.postProcessEnabled) {
         notifier.startProcessing();

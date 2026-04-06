@@ -86,7 +86,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       child: Stack(
         children: [
           // -- Frosted glass backdrop ----------------------------------------
-          Positioned.fill(
+          const Positioned.fill(
             child: ModalBarrier(
               dismissible: false,
               color: Colors.transparent,

@@ -30,8 +30,8 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
   const overlayWidth = 480.0;
   const overlayHeight = 72.0;
 
-  final options = WindowOptions(
-    size: const Size(overlayWidth, overlayHeight),
+  const options = WindowOptions(
+    size: Size(overlayWidth, overlayHeight),
     center: false,
     backgroundColor: Colors.transparent,
     skipTaskbar: true,
@@ -276,7 +276,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
             // Pulsing red dot.
             AnimatedBuilder(
               animation: _pulseAnim,
-              builder: (_, _a) => Container(
+              builder: (_, a) => Container(
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
@@ -306,7 +306,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 14,
               height: 14,
               child: CircularProgressIndicator(
@@ -317,7 +317,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
             const SizedBox(width: WpSpacing.xs),
             Text(
               l10n.overlayTranscribing,
-              style: TextStyle(
+              style: const TextStyle(
                 color: WpColorsDark.textSecondary,
                 fontSize: 13,
               ),
@@ -329,7 +329,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 14,
               height: 14,
               child: CircularProgressIndicator(
@@ -340,7 +340,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
             const SizedBox(width: WpSpacing.xs),
             Text(
               l10n.overlayRefining,
-              style: TextStyle(
+              style: const TextStyle(
                 color: WpColorsDark.textSecondary,
                 fontSize: 13,
               ),
@@ -352,11 +352,11 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(LucideIcons.check, size: 16, color: WpColorsDark.success),
+            const Icon(LucideIcons.check, size: 16, color: WpColorsDark.success),
             const SizedBox(width: WpSpacing.xs),
             Text(
               l10n.overlayDone,
-              style: TextStyle(color: WpColorsDark.success, fontSize: 13),
+              style: const TextStyle(color: WpColorsDark.success, fontSize: 13),
             ),
           ],
         );
@@ -434,7 +434,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
       // Indeterminate shimmer.
       return AnimatedBuilder(
         animation: _shimmerCtrl,
-        builder: (_, _a) {
+        builder: (_, a) {
           final offset = _shimmerCtrl.value;
           return Container(
             height: height,
@@ -461,7 +461,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
       );
     }
 
-    return SizedBox(height: height);
+    return const SizedBox(height: height);
   }
 }
 
@@ -519,7 +519,7 @@ class _StopBtn extends StatelessWidget {
           child: Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
               gradient: WpColorsDark.accentWarmGradient,
             ),
