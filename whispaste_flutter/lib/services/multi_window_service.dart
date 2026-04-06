@@ -126,12 +126,20 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
           hideOverlay();
         }
       }
+    });
 
-      // Auto-show floating button on app start if enabled.
+    // Auto-show floating button on app start if enabled.
+    ref.listen<AsyncValue<AppSettings>>(settingsProvider, (_, next) {
+      final settings = next.value;
       if (settings != null &&
           settings.showFloatingButton &&
           !state.buttonVisible) {
         showButton();
+      }
+      if (settings != null &&
+          !settings.showFloatingButton &&
+          state.buttonVisible) {
+        hideButton();
       }
     });
 
@@ -259,11 +267,9 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   }
 
   void _pushEncodedTo(WindowController controller, String encoded) {
-    try {
-      controller.invokeMethod('updateRecordingState', encoded);
-    } catch (_) {
-      // Window may have been closed; ignore.
-    }
+    controller.invokeMethod('updateRecordingState', encoded).catchError((_) {
+      // Window may have been closed; ignore channel errors.
+    });
   }
 
   // -- Command handler (secondary → main) -----------------------------------

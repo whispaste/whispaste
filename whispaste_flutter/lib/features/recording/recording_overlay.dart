@@ -191,11 +191,6 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
                     ? const Color(0xD9141926)
                     : const Color(0xD9F0F3F7),
                 borderRadius: pillRadius,
-                border: Border.all(
-                  color: isDark
-                      ? WpColorsDark.borderDefault
-                      : WpColorsLight.borderDefault,
-                ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
