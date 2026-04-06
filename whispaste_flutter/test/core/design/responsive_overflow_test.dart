@@ -117,7 +117,7 @@ void main() {
   }
 
   // Extra: test History with narrow detail panel (common overflow source)
-  for (final narrow in [Size(900, 700), Size(1024, 600)]) {
+  for (final narrow in [const Size(900, 700), const Size(1024, 600)]) {
     testWidgets('History narrow detail panel at ${narrow.width.toInt()}×${narrow.height.toInt()}',
         (tester) async {
       tester.view.physicalSize = narrow;

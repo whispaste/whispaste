@@ -28,12 +28,12 @@ void main() {
   group('WpAdaptiveGrid', () {
     testWidgets('renders single column when narrow', (tester) async {
       await tester.pumpWidget(makeTestable(
-        SizedBox(
+        const SizedBox(
           width: 300,
           height: 400,
           child: WpAdaptiveGrid(
             narrowBreak: 400,
-            children: const [Text('A'), Text('B'), Text('C')],
+            children: [Text('A'), Text('B'), Text('C')],
           ),
         ),
       ));
@@ -46,14 +46,14 @@ void main() {
 
     testWidgets('renders multiple columns when wide', (tester) async {
       await tester.pumpWidget(makeTestable(
-        SizedBox(
+        const SizedBox(
           width: 800,
           height: 400,
           child: WpAdaptiveGrid(
             narrowBreak: 400,
             wideBreak: 700,
             maxColumns: 3,
-            children: const [Text('A'), Text('B'), Text('C')],
+            children: [Text('A'), Text('B'), Text('C')],
           ),
         ),
       ));
@@ -70,13 +70,13 @@ void main() {
   group('WpTwoPanel', () {
     testWidgets('shows side-by-side when wide', (tester) async {
       await tester.pumpWidget(makeTestable(
-        SizedBox(
+        const SizedBox(
           width: 800,
           height: 200,
           child: WpTwoPanel(
             breakpoint: 500,
-            left: const Text('Left'),
-            right: const Text('Right'),
+            left: Text('Left'),
+            right: Text('Right'),
           ),
         ),
       ));
@@ -90,13 +90,13 @@ void main() {
 
     testWidgets('stacks vertically when narrow', (tester) async {
       await tester.pumpWidget(makeTestable(
-        SizedBox(
+        const SizedBox(
           width: 300,
           height: 400,
           child: WpTwoPanel(
             breakpoint: 500,
-            left: const Text('Top'),
-            right: const Text('Bottom'),
+            left: Text('Top'),
+            right: Text('Bottom'),
           ),
         ),
       ));
