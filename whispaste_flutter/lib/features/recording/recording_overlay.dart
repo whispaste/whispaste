@@ -11,6 +11,7 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../recording/recording_state.dart';
 import '../../widgets/waveform_bars.dart';
+import '../../services/recording_orchestrator.dart';
 import '../../widgets/privacy_badge.dart';
 
 // ---------------------------------------------------------------------------
@@ -118,7 +119,7 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
       if (next == RecordingPhase.done) {
         _doneTimer?.cancel();
         _doneTimer = Timer(const Duration(milliseconds: 800), () {
-          if (mounted) ref.read(recordingProvider.notifier).reset();
+          if (mounted) ref.read(recordingOrchestratorProvider.notifier).reset();
         });
       }
     });
@@ -286,7 +287,7 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
               icon: LucideIcons.x,
               color: mutedColor,
               semanticsLabel: l10n.overlayCancel,
-              onPressed: () => ref.read(recordingProvider.notifier).reset(),
+              onPressed: () => ref.read(recordingOrchestratorProvider.notifier).reset(),
             ),
           ),
       ],
@@ -530,7 +531,7 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
           const SizedBox(width: WpSpacing.xs),
           _StopButton(
             onPressed: () =>
-                ref.read(recordingProvider.notifier).stopRecording(),
+                ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
           ),
         ],
       ],
