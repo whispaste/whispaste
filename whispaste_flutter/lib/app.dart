@@ -22,7 +22,7 @@ import 'features/about/about_page.dart';
 import 'features/feedback/feedback_page.dart';
 import 'features/onboarding/onboarding_overlay.dart';
 import 'features/recording/recording_overlay.dart';
-import 'features/recording/recording_state.dart';
+import 'core/recording/recording_state.dart';
 import 'services/multi_window_service.dart';
 import 'services/recording_orchestrator.dart';
 import 'services/sound_feedback_service.dart';

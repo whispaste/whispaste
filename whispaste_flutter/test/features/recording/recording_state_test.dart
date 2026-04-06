@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whispaste/features/recording/recording_state.dart';
+import 'package:whispaste/core/recording/recording_state.dart';
 
 // ---------------------------------------------------------------------------
 // Helper: create a ProviderContainer for pure-logic tests (no widget needed).
