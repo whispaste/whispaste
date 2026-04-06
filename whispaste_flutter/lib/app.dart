@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +23,7 @@ import 'features/feedback/feedback_page.dart';
 import 'features/onboarding/onboarding_overlay.dart';
 import 'features/recording/recording_overlay.dart';
 import 'features/recording/recording_state.dart';
+import 'services/multi_window_service.dart';
 import 'services/recording_orchestrator.dart';
 import 'services/sound_feedback_service.dart';
 import 'services/stt_service.dart';
@@ -154,6 +156,11 @@ class _AppShell extends ConsumerWidget {
 
     // Sync autostart setting with system.
     ref.watch(autostartServiceProvider);
+
+    // Initialise multi-window service for floating button/overlay (desktop).
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      ref.watch(multiWindowProvider);
+    }
 
     // Show error/success feedback via toast when recording state changes.
     // Also triggers sound feedback for start / stop / complete / error.
