@@ -20,8 +20,8 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/theme.dart';
 import '../core/theme/tokens.dart';
-import '../features/recording/recording_state.dart';
-import '../services/multi_window_service.dart';
+import '../core/recording/recording_state.dart';
+import '../core/multi_window/multi_window_types.dart';
 
 /// Entry point for the floating overlay secondary window.
 Future<void> runFloatingOverlayWindow(WindowController controller) async {

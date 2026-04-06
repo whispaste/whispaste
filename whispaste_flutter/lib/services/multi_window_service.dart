@@ -16,65 +16,11 @@ import 'package:window_manager/window_manager.dart';
 
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
-import '../features/recording/recording_state.dart';
+import '../core/multi_window/multi_window_types.dart';
+export '../core/multi_window/multi_window_types.dart';
+import '../core/recording/recording_state.dart';
 import 'floating_button_service.dart';
 import 'recording_orchestrator.dart';
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-/// Identifies the type of secondary window in its launch arguments.
-abstract final class WindowType {
-  static const String main = 'main';
-  static const String floatingButton = 'floating_button';
-  static const String floatingOverlay = 'floating_overlay';
-}
-
-/// Named channel for secondary → main command routing.
-///
-/// Secondary windows call `commandChannel.invokeMethod('toggleRecording')`
-/// and the main window receives them via `commandChannel.setMethodCallHandler`.
-const commandChannel = WindowMethodChannel(
-  'whispaste_commands',
-  mode: ChannelMode.unidirectional,
-);
-
-// ---------------------------------------------------------------------------
-// Encoding helpers
-// ---------------------------------------------------------------------------
-
-/// Serialises [RecordingState] to a JSON string for cross-window transfer.
-String encodeRecordingState(RecordingState state) => jsonEncode({
-      'phase': state.phase.index,
-      'elapsedMs': state.elapsed.inMilliseconds,
-      'audioLevel': state.audioLevel,
-      'transcript': state.transcript,
-      'errorMessage': state.errorMessage,
-    });
-
-/// Deserialises a JSON string back into a [RecordingState].
-///
-/// Returns [RecordingState()] (idle) if the JSON is malformed or contains
-/// an out-of-range phase index.
-RecordingState decodeRecordingState(String json) {
-  try {
-    final map = jsonDecode(json) as Map<String, dynamic>;
-    final phaseIdx = map['phase'] as int;
-    if (phaseIdx < 0 || phaseIdx >= RecordingPhase.values.length) {
-      return const RecordingState();
-    }
-    return RecordingState(
-      phase: RecordingPhase.values[phaseIdx],
-      elapsed: Duration(milliseconds: map['elapsedMs'] as int),
-      audioLevel: (map['audioLevel'] as num).toDouble(),
-      transcript: map['transcript'] as String?,
-      errorMessage: map['errorMessage'] as String?,
-    );
-  } catch (_) {
-    return const RecordingState();
-  }
-}
 
 // ---------------------------------------------------------------------------
 // State

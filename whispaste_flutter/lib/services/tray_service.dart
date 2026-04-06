@@ -12,7 +12,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../core/logging/app_logger.dart';
-import '../features/recording/recording_state.dart';
+import '../core/recording/recording_state.dart';
 
 // ---------------------------------------------------------------------------
 // Service

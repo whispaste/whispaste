@@ -9,7 +9,7 @@ import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
-import '../recording/recording_state.dart';
+import '../../core/recording/recording_state.dart';
 import '../../widgets/waveform_bars.dart';
 import '../../services/recording_orchestrator.dart';
 import '../../widgets/privacy_badge.dart';
