@@ -258,12 +258,15 @@ class HistoryDatabase extends _$HistoryDatabase {
     // Sum durations
     final totalDuration = entries.fold<double>(0, (s, e) => s + e.durationSec);
 
+    // Mark as merged via tag (not title suffix)
+    allTags.add('merged');
+
     // Use first entry as base, update it
     final base = entries.first;
     final companion = HistoryEntriesCompanion(
       id: Value(base.id),
       content: Value(mergedContent),
-      title: Value('${base.title} (merged)'),
+      title: Value(base.title),
       timestamp: Value(base.timestamp),
       durationSec: Value(totalDuration),
       tags: Value(tagsJson),
