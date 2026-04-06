@@ -322,11 +322,11 @@ class _AppShell extends ConsumerWidget {
           // Recording overlay — bottom-center above status bar
           if (recordingPhase != RecordingPhase.idle &&
               settings.overlayMode == 'in-window')
-            Positioned(
+            const Positioned(
               bottom: WpLayout.statusBarHeight + 8,
               left: 0,
               right: 0,
-              child: const Center(child: RecordingOverlay()),
+              child: Center(child: RecordingOverlay()),
             ),
         ],
       ),

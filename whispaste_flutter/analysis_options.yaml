@@ -11,6 +11,15 @@ analyzer:
     dead_code: warning
     missing_return: error
     invalid_use_of_protected_member: error
+    # Enforce lint rules the project opted into as warnings, not silent infos
+    prefer_const_constructors: warning
+    prefer_const_declarations: warning
+    prefer_final_locals: warning
+    prefer_final_in_for_each: warning
+    avoid_dynamic_calls: warning
+    avoid_print: warning
+    deprecated_member_use: warning
+    no_leading_underscores_for_local_identifiers: warning
   exclude:
     - "**/*.g.dart"
     - "**/*.freezed.dart"

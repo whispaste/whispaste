@@ -164,9 +164,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         _overlayController = null;
       }
     }
-    if (_overlayController == null) {
-      _overlayController = await _createWindow(WindowType.floatingOverlay);
-    }
+    _overlayController ??= await _createWindow(WindowType.floatingOverlay);
     if (_overlayController != null) {
       state = state.copyWith(overlayVisible: true);
       _pushRecordingStateTo(
@@ -195,9 +193,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         _buttonController = null;
       }
     }
-    if (_buttonController == null) {
-      _buttonController = await _createWindow(WindowType.floatingButton);
-    }
+    _buttonController ??= await _createWindow(WindowType.floatingButton);
     if (_buttonController != null) {
       state = state.copyWith(buttonVisible: true);
       _pushRecordingStateTo(

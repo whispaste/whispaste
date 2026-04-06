@@ -68,11 +68,13 @@ void main() {
 
       expect(bytes, greaterThan(0));
       final content = File(path).readAsStringSync();
-      final parsed = jsonDecode(content) as List;
+      final parsed = jsonDecode(content) as List<dynamic>;
       expect(parsed, hasLength(2));
-      expect(parsed[0]['title'], equals('Meeting notes'));
-      expect(parsed[0]['tags'], equals(['work', 'meeting']));
-      expect(parsed[1]['title'], equals('Quick reminder'));
+      final first = parsed[0] as Map<String, dynamic>;
+      final second = parsed[1] as Map<String, dynamic>;
+      expect(first['title'], equals('Meeting notes'));
+      expect(first['tags'], equals(['work', 'meeting']));
+      expect(second['title'], equals('Quick reminder'));
     });
 
     test('exports CSV format with header', () async {
