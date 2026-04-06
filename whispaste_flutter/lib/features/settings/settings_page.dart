@@ -6,6 +6,7 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/model_download_service.dart';
+import '../../widgets/hotkey_recorder.dart';
 import '../../widgets/model_download_card.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
@@ -25,11 +26,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _groqKeyCtrl = TextEditingController();
   final _deepgramKeyCtrl = TextEditingController();
   final _anthropicKeyCtrl = TextEditingController();
+  final _geminiKeyCtrl = TextEditingController();
+  final _llmModelCtrl = TextEditingController();
+  final _customInstructionsCtrl = TextEditingController();
   bool _showOpenAiKey = false;
   bool _showGroqKey = false;
   bool _showDeepgramKey = false;
   bool _showAnthropicKey = false;
-  bool _showAdvancedModels = false;
+  bool _showGeminiKey = false;
 
   @override
   void dispose() {
@@ -37,6 +41,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _groqKeyCtrl.dispose();
     _deepgramKeyCtrl.dispose();
     _anthropicKeyCtrl.dispose();
+    _geminiKeyCtrl.dispose();
+    _llmModelCtrl.dispose();
+    _customInstructionsCtrl.dispose();
     super.dispose();
   }
 
@@ -236,10 +243,51 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
+  Widget _textField({
+    required TextEditingController controller,
+    String? hintText,
+    int maxLines = 1,
+    ValueChanged<String>? onChanged,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SizedBox(
+      width: maxLines > 1 ? double.infinity : 240,
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        onChanged: onChanged,
+        style: TextStyle(
+          fontSize: 13,
+          color: isDark
+              ? WpColorsDark.textPrimary
+              : WpColorsLight.textPrimary,
+        ),
+        decoration: InputDecoration(
+          hintText: hintText,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.xs,
+          ),
+        ),
+      ),
+    );
+  }
+
   String _fmtSeconds(double v) {
     if (v == 0) return L10n.of(context).settingsOff;
     return '${v.round()}s';
   }
+
+  String _fmtDuration(int seconds) {
+    if (seconds == 0) return L10n.of(context).settingsMaxRecordDurationUnlimited;
+    if (seconds < 60) return '${seconds}s';
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return s == 0 ? '${m}m' : '${m}m ${s}s';
+  }
+
+  String _fmtMs(int ms) => '${ms}ms';
 
   // ---------------------------------------------------------------------------
   // Quality tier helpers — user-friendly labels for STT models
@@ -296,6 +344,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _syncController(_groqKeyCtrl, settings.groqApiKey);
     _syncController(_deepgramKeyCtrl, settings.deepgramApiKey);
     _syncController(_anthropicKeyCtrl, settings.anthropicApiKey);
+    _syncController(_geminiKeyCtrl, settings.geminiApiKey);
+    _syncController(_llmModelCtrl, settings.cloudLlmModel);
+    _syncController(_customInstructionsCtrl, settings.smartModePrompt);
 
     return WpPageShell(
       child: Column(
@@ -433,6 +484,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     onChanged: (v) => ref
                         .read(settingsProvider.notifier)
                         .updateSettings((s) => s.copyWith(autoStopSilence: v)),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.timer,
+                  label: l10n.settingsMaxRecordDuration,
+                  subtitle: l10n.settingsMaxRecordDurationSubtitle,
+                  trailing: _slider(
+                    value: settings.maxRecordDuration.toDouble(),
+                    min: 0,
+                    max: 600,
+                    divisions: 20,
+                    valueLabel: _fmtDuration(settings.maxRecordDuration),
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                            (s) => s.copyWith(maxRecordDuration: v.round())),
                   ),
                 ),
               ],
@@ -639,50 +706,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           ),
 
-          // ── 3b. Advanced Model Management (collapsed) ──
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WpSpacing.md),
-            child: InkWell(
-              onTap: () =>
-                  setState(() => _showAdvancedModels = !_showAdvancedModels),
-              borderRadius: WpRadius.borderSm,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: WpSpacing.sm,
-                  horizontal: WpSpacing.xs,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _showAdvancedModels
-                          ? LucideIcons.chevronDown
-                          : LucideIcons.chevronRight,
-                      size: 14,
-                      color: isDark
-                          ? WpColorsDark.textMuted
-                          : WpColorsLight.textMuted,
-                    ),
-                    const SizedBox(width: WpSpacing.xs),
-                    Text(
-                      l10n.settingsAdvancedModelManagement,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark
-                            ? WpColorsDark.textMuted
-                            : WpColorsLight.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          // ── 3b. STT Model Management ──
+          WpSection(
+            title: l10n.settingsSttModels,
+            padding: EdgeInsets.zero,
+            child: const SttModelManager(),
           ),
-          if (_showAdvancedModels)
-            WpSection(
-              title: l10n.settingsSttModels,
-              padding: EdgeInsets.zero,
-              child: const SttModelManager(),
-            ),
           _sectionDivider(),
           WpSection(
             title: l10n.settingsPostProcessing,
@@ -734,7 +763,134 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         .updateSettings((s) => s.copyWith(postProcessProvider: v!)),
                   ),
                 ),
+                if (settings.postProcessEnabled) ...[
+                  _SettingRow(
+                    icon: LucideIcons.languages,
+                    label: l10n.settingsOutputLanguage,
+                    subtitle: l10n.settingsOutputLanguageSubtitle,
+                    trailing: _dropdown(
+                      value: settings.smartModeTarget.isEmpty
+                          ? 'same'
+                          : settings.smartModeTarget,
+                      items: const [
+                        'same',
+                        'English',
+                        'German',
+                        'French',
+                        'Spanish',
+                      ],
+                      labels: [
+                        l10n.settingsOutputLanguageSameAsInput,
+                        l10n.settingsLanguageEnglish,
+                        l10n.settingsLanguageGerman,
+                        l10n.settingsLanguageFrench,
+                        l10n.settingsLanguageSpanish,
+                      ],
+                      onChanged: (v) => ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings((s) => s.copyWith(
+                              smartModeTarget: v == 'same' ? '' : v!)),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: WpSpacing.sm,
+                      vertical: WpSpacing.xs,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              LucideIcons.messageSquareText,
+                              size: WpIconSize.sm,
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
+                            const SizedBox(width: WpSpacing.sm),
+                            Text(
+                              l10n.settingsCustomInstructions,
+                              style: Theme.of(context).textTheme.bodyLarge,
+                            ),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            left: 36,
+                            top: WpSpacing.xs,
+                          ),
+                          child: Text(
+                            l10n.settingsCustomInstructionsSubtitle,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark
+                                  ? WpColorsDark.textMuted
+                                  : WpColorsLight.textMuted,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            left: 36,
+                            top: WpSpacing.xs,
+                            right: WpSpacing.sm,
+                            bottom: WpSpacing.xs,
+                          ),
+                          child: _textField(
+                            controller: _customInstructionsCtrl,
+                            hintText: l10n.settingsCustomInstructionsPlaceholder,
+                            maxLines: 3,
+                            onChanged: (v) => ref
+                                .read(settingsProvider.notifier)
+                                .updateSettings(
+                                    (s) => s.copyWith(smartModePrompt: v)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
+            ),
+          ),
+          _sectionDivider(),
+
+          // ── Keyboard Shortcut ──
+          WpSection(
+            title: l10n.settingsKeyboardShortcut,
+            subtitle: l10n.settingsKeyboardShortcutSubtitle,
+            padding: EdgeInsets.zero,
+            child: _SettingRow(
+              icon: LucideIcons.keyboard,
+              label: l10n.settingsCurrentHotkey,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _HotkeyDisplay(
+                    hotkeyKey: settings.hotkeyKey,
+                    hotkeyModifiers: settings.hotkeyModifiers,
+                  ),
+                  const SizedBox(width: WpSpacing.sm),
+                  OutlinedButton(
+                    onPressed: () async {
+                      final result = await HotkeyRecorderDialog.show(
+                        context,
+                        initialKey: settings.hotkeyKey,
+                        initialModifiers: settings.hotkeyModifiers,
+                      );
+                      if (result != null) {
+                        ref.read(settingsProvider.notifier).updateSettings(
+                              (s) => s.copyWith(
+                            hotkeyKey: result.key,
+                            hotkeyModifiers: result.modifiers,
+                          ),
+                        );
+                      }
+                    },
+                    child: Text(l10n.settingsChangeHotkey),
+                  ),
+                ],
+              ),
             ),
           ),
           _sectionDivider(),
@@ -832,11 +988,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 _SettingRow(
                   icon: LucideIcons.layers,
                   label: l10n.settingsShowOverlay,
-                  trailing: _toggle(
-                    value: settings.showOverlay,
-                    onChanged: (v) => ref
-                        .read(settingsProvider.notifier)
-                        .updateSettings((s) => s.copyWith(showOverlay: v)),
+                  trailing: _dropdown(
+                    value: settings.overlayMode,
+                    items: const ['in-window', 'off'],
+                    labels: [
+                      l10n.settingsOverlayModeInWindow,
+                      l10n.settingsOverlayModeOff,
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      ref.read(settingsProvider.notifier).updateSettings(
+                        (s) => s.copyWith(
+                          overlayMode: v,
+                          showOverlay: v != 'off',
+                        ),
+                      );
+                    },
                   ),
                 ),
                 _SettingRow(
@@ -876,6 +1043,45 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         .read(settingsProvider.notifier)
                         .updateSettings(
                             (s) => s.copyWith(floatingButtonSize: v!)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Floating Button Advanced Options (always visible)
+          WpSection(
+            title: l10n.settingsFloatingButtonAdvanced,
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _SettingRow(
+                  icon: LucideIcons.lock,
+                  label: l10n.settingsLockPosition,
+                  subtitle: l10n.settingsLockPositionSubtitle,
+                  trailing: _toggle(
+                    value: settings.floatingButtonLocked,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                            (s) => s.copyWith(floatingButtonLocked: v)),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.eyeOff,
+                  label: l10n.settingsAutoHide,
+                  subtitle: l10n.settingsAutoHideSubtitle,
+                  trailing: _dropdown(
+                    value: settings.floatingButtonAutoHide,
+                    items: const ['never', 'after_5s', 'edge'],
+                    labels: [
+                      l10n.settingsAutoHideNever,
+                      l10n.settingsAutoHide5s,
+                      l10n.settingsAutoHideEdge,
+                    ],
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                            (s) => s.copyWith(floatingButtonAutoHide: v!)),
                   ),
                 ),
               ],
@@ -961,6 +1167,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             (s) => s.copyWith(showNotifications: v)),
                   ),
                 ),
+                _SettingRow(
+                  icon: LucideIcons.panelBottomClose,
+                  label: l10n.settingsCloseToTray,
+                  subtitle: l10n.settingsCloseToTraySubtitle,
+                  trailing: _toggle(
+                    value: settings.closeToTray,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                            (s) => s.copyWith(closeToTray: v)),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1029,19 +1247,114 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         .updateSettings((s) => s.copyWith(anthropicApiKey: v)),
                   ),
                 ),
+                _SettingRow(
+                  icon: LucideIcons.keyRound,
+                  label: l10n.settingsGeminiApiKey,
+                  trailing: _apiKeyField(
+                    controller: _geminiKeyCtrl,
+                    obscure: !_showGeminiKey,
+                    onToggle: () => setState(
+                      () => _showGeminiKey = !_showGeminiKey,
+                    ),
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(geminiApiKey: v)),
+                  ),
+                ),
+                // Cloud STT provider (only when not using local)
+                if (settings.sttProvider != 'On Device (Private)')
+                  _SettingRow(
+                    icon: LucideIcons.audioLines,
+                    label: l10n.settingsDefaultSttProvider,
+                    subtitle: l10n.settingsDefaultSttProviderSubtitle,
+                    trailing: _dropdown(
+                      value: settings.cloudSttProvider,
+                      items: const ['openai', 'groq', 'deepgram'],
+                      labels: const ['OpenAI', 'Groq', 'Deepgram'],
+                      onChanged: (v) => ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings(
+                              (s) => s.copyWith(cloudSttProvider: v!)),
+                    ),
+                  ),
+                // Cloud LLM model (only when not using local post-processing)
+                if (settings.postProcessProvider != 'Local')
+                  _SettingRow(
+                    icon: LucideIcons.brain,
+                    label: l10n.settingsLlmModel,
+                    subtitle: l10n.settingsLlmModelSubtitle,
+                    trailing: _textField(
+                      controller: _llmModelCtrl,
+                      hintText: l10n.settingsLlmModelPlaceholder,
+                      onChanged: (v) => ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings(
+                              (s) => s.copyWith(cloudLlmModel: v)),
+                    ),
+                  ),
               ],
             ),
           ),
           _sectionDivider(),
 
-          // ── 9. Advanced — Factory Reset ──
+          // ── 9. Advanced ──
           WpSection(
             title: l10n.settingsAdvanced,
             padding: EdgeInsets.zero,
-            child: _SettingRow(
-              icon: LucideIcons.rotateCcw,
-              label: l10n.settingsResetToDefaults,
-              trailing: OutlinedButton(
+            child: Column(
+              children: [
+                _SettingRow(
+                  icon: LucideIcons.gpu,
+                  label: l10n.settingsGpuAcceleration,
+                  subtitle: l10n.settingsGpuAccelerationSubtitle,
+                  trailing: _dropdown(
+                    value: settings.gpuAcceleration,
+                    items: const ['auto', 'enabled', 'disabled'],
+                    labels: [
+                      l10n.settingsGpuAuto,
+                      l10n.settingsGpuEnabled,
+                      l10n.settingsGpuDisabled,
+                    ],
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                            (s) => s.copyWith(gpuAcceleration: v!)),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.shieldCheck,
+                  label: l10n.settingsErrorReporting,
+                  subtitle: l10n.settingsErrorReportingSubtitle,
+                  trailing: _toggle(
+                    value: settings.errorReporting,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                            (s) => s.copyWith(errorReporting: v)),
+                  ),
+                ),
+                if (settings.afterTranscription == 'paste' ||
+                    settings.afterTranscription == 'clipboard_and_paste')
+                  _SettingRow(
+                    icon: LucideIcons.timer,
+                    label: l10n.settingsAutoPasteDelay,
+                    subtitle: l10n.settingsAutoPasteDelaySubtitle,
+                    trailing: _slider(
+                      value: settings.autoPasteDelay.toDouble(),
+                      min: 0,
+                      max: 2000,
+                      divisions: 20,
+                      valueLabel: _fmtMs(settings.autoPasteDelay),
+                      onChanged: (v) => ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings(
+                              (s) => s.copyWith(autoPasteDelay: v.round())),
+                    ),
+                  ),
+                _SettingRow(
+                  icon: LucideIcons.rotateCcw,
+                  label: l10n.settingsResetToDefaults,
+                  trailing: OutlinedButton(
                 onPressed: () async {
                   final confirmed = await showDialog<bool>(
                     context: context,
@@ -1075,6 +1388,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     _showGroqKey = false;
                     _showDeepgramKey = false;
                     _showAnthropicKey = false;
+                    _showGeminiKey = false;
                   });
                   if (context.mounted) {
                     WpToast.show(
@@ -1086,6 +1400,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 },
                 child: Text(l10n.settingsResetConfirm),
               ),
+            ),
+              ],
             ),
           ),
         ],
@@ -1181,4 +1497,77 @@ class _SettingRowState extends State<_SettingRow> {
       ),
     );
   }
+}
+
+/// Displays a hotkey combination as styled key cap chips.
+class _HotkeyDisplay extends StatelessWidget {
+  const _HotkeyDisplay({
+    required this.hotkeyKey,
+    required this.hotkeyModifiers,
+  });
+
+  final String hotkeyKey;
+  final String hotkeyModifiers;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final parts = <String>[
+      ...hotkeyModifiers
+          .split('+')
+          .where((s) => s.trim().isNotEmpty)
+          .map((s) => _capitalize(s.trim())),
+      hotkeyKey,
+    ];
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < parts.length; i++) ...[
+          if (i > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                '+',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isDark
+                      ? WpColorsDark.textMuted
+                      : WpColorsLight.textMuted,
+                ),
+              ),
+            ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xs, vertical: WpSpacing.xxs),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? WpColorsDark.surfaceVariant
+                  : WpColorsLight.surfaceVariant,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isDark
+                    ? WpColorsDark.borderSubtle
+                    : WpColorsLight.borderSubtle,
+              ),
+            ),
+            child: Text(
+              parts[i],
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()],
+                color: isDark
+                    ? WpColorsDark.textPrimary
+                    : WpColorsLight.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  static String _capitalize(String s) =>
+      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 }
