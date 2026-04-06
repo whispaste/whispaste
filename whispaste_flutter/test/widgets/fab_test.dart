@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:whispaste/features/recording/recording_state.dart';
+import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/widgets/fab.dart';
 
 import '../fixtures/test_helpers.dart';

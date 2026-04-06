@@ -15,7 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../features/history/data/database.dart';
-import '../features/recording/recording_state.dart';
+import '../core/recording/recording_state.dart';
 import 'audio_service.dart';
 import 'config_service.dart';
 import 'stt_service.dart';
