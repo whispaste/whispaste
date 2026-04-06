@@ -136,6 +136,7 @@
   "settingsAfterTranscriptionSubtitle": "What happens with the transcribed text",
   "settingsAfterTranscriptionClipboard": "Copy to Clipboard",
   "settingsAfterTranscriptionPaste": "Auto-Paste at Cursor",
+  "settingsAfterTranscriptionBoth": "Copy & Auto-Paste",
   "settingsAfterTranscriptionNothing": "Do Nothing",
   "settingsOverlayFloatingButton": "Overlay & Floating Button",
   "settingsOverlayFloatingButtonSubtitle": "On-screen recording controls",
@@ -357,6 +358,10 @@
 
   "statusBarOnDevice": "On device",
   "statusBarPostProcessing": "Post-Processing",
+  "sttStatusStandby": "Standby",
+  "sttStatusStarting": "Starting…",
+  "sttStatusReady": "Ready",
+  "sttStatusError": "Error",
   "tooltipSwitchToLight": "Switch to Light Mode",
   "tooltipSwitchToDark": "Switch to Dark Mode",
 

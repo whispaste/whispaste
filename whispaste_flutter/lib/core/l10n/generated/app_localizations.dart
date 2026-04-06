@@ -811,6 +811,12 @@ abstract class L10n {
   /// **'Auto-Paste at Cursor'**
   String get settingsAfterTranscriptionPaste;
 
+  /// No description provided for @settingsAfterTranscriptionBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy & Auto-Paste'**
+  String get settingsAfterTranscriptionBoth;
+
   /// No description provided for @settingsAfterTranscriptionNothing.
   ///
   /// In en, this message translates to:
@@ -1872,6 +1878,30 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Post-Processing'**
   String get statusBarPostProcessing;
+
+  /// No description provided for @sttStatusStandby.
+  ///
+  /// In en, this message translates to:
+  /// **'Standby'**
+  String get sttStatusStandby;
+
+  /// No description provided for @sttStatusStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting…'**
+  String get sttStatusStarting;
+
+  /// No description provided for @sttStatusReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get sttStatusReady;
+
+  /// No description provided for @sttStatusError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get sttStatusError;
 
   /// No description provided for @tooltipSwitchToLight.
   ///

@@ -302,7 +302,7 @@ class _AppShell extends ConsumerWidget {
                   : l10n.settingsOff,
               hotkeyLabel: 'Ctrl+Shift+R',
               isOnline: true,
-              sttLoading: sttStatus.serverState == SttServerState.starting,
+              sttState: sttStatus.serverState,
             ),
           ],
         ),
