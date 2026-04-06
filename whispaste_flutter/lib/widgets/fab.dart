@@ -145,9 +145,8 @@ class _WpRecordingFabState extends State<WpRecordingFab>
                 RecordingPhase.idle => _breatheAnim.value,
                 _ => 1.0,
               };
-              return AnimatedScale(
+              return Transform.scale(
                 scale: scale,
-                duration: WpMotion.fast,
                 child: child,
               );
             },
