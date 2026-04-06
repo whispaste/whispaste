@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:flutter/services.dart';
 
+import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 
 // ---------------------------------------------------------------------------
@@ -69,11 +70,12 @@ class HotkeyService extends Notifier<void> {
 
   Future<void> _init() async {
     try {
-      // Default: Ctrl+Shift+D
-      _registeredHotKey = HotKey(
-        key: LogicalKeyboardKey.keyD,
-        modifiers: [HotKeyModifier.control, HotKeyModifier.shift],
-      );
+      // Read hotkey from settings (falls back to Ctrl+Shift+D)
+      final settings = ref.read(settingsProvider).value;
+      final key = _resolveKey(settings?.hotkeyKey ?? 'D');
+      final mods = _resolveModifiers(settings?.hotkeyModifiers ?? 'ctrl+shift');
+
+      _registeredHotKey = HotKey(key: key, modifiers: mods);
 
       await hotKeyManager.register(_registeredHotKey!, keyDownHandler: (_) {
         _log.info('Global hotkey pressed');
@@ -81,7 +83,7 @@ class HotkeyService extends Notifier<void> {
       });
 
       _initialized = true;
-      _log.info('Global hotkey registered: Ctrl+Shift+D');
+      _log.info('Global hotkey registered: ${settings?.hotkeyModifiers ?? "ctrl+shift"}+${settings?.hotkeyKey ?? "D"}');
     } on Exception catch (e) {
       _log.warning('Failed to register global hotkey: $e');
     }
@@ -116,3 +118,59 @@ class HotkeyService extends Notifier<void> {
 /// Global hotkey provider — eagerly watched in the app shell.
 final hotkeyServiceProvider =
     NotifierProvider<HotkeyService, void>(HotkeyService.new);
+
+// ---------------------------------------------------------------------------
+// Key resolution helpers
+// ---------------------------------------------------------------------------
+
+/// Maps a stored key label (e.g. 'D', 'F1') to a [LogicalKeyboardKey].
+LogicalKeyboardKey _resolveKey(String label) {
+  final upper = label.toUpperCase();
+  // Single letter
+  if (upper.length == 1 && upper.codeUnitAt(0) >= 65 && upper.codeUnitAt(0) <= 90) {
+    final offset = upper.codeUnitAt(0) - 65;
+    return LogicalKeyboardKey(0x00000000061 + offset); // keyA = 0x61
+  }
+  // Function keys
+  final fnMatch = RegExp(r'^F(\d+)$').firstMatch(upper);
+  if (fnMatch != null) {
+    final n = int.parse(fnMatch.group(1)!);
+    if (n >= 1 && n <= 12) {
+      return LogicalKeyboardKey(0x00100000070 + n - 1); // f1..f12
+    }
+  }
+  // Named keys
+  return switch (upper) {
+    'SPACE' => LogicalKeyboardKey.space,
+    'ENTER' => LogicalKeyboardKey.enter,
+    'TAB' => LogicalKeyboardKey.tab,
+    'ESCAPE' => LogicalKeyboardKey.escape,
+    'BACKSPACE' => LogicalKeyboardKey.backspace,
+    'DELETE' => LogicalKeyboardKey.delete,
+    'INSERT' => LogicalKeyboardKey.insert,
+    'HOME' => LogicalKeyboardKey.home,
+    'END' => LogicalKeyboardKey.end,
+    'PAGEUP' => LogicalKeyboardKey.pageUp,
+    'PAGEDOWN' => LogicalKeyboardKey.pageDown,
+    _ => LogicalKeyboardKey.keyD, // fallback
+  };
+}
+
+/// Maps a stored modifier string (e.g. 'ctrl+shift') to [HotKeyModifier] list.
+List<HotKeyModifier> _resolveModifiers(String modifiers) {
+  final parts = modifiers.toLowerCase().split('+');
+  final result = <HotKeyModifier>[];
+  for (final part in parts) {
+    switch (part.trim()) {
+      case 'ctrl' || 'control':
+        result.add(HotKeyModifier.control);
+      case 'shift':
+        result.add(HotKeyModifier.shift);
+      case 'alt':
+        result.add(HotKeyModifier.alt);
+      case 'meta' || 'win' || 'super' || 'cmd':
+        result.add(HotKeyModifier.meta);
+    }
+  }
+  return result;
+}

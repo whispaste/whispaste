@@ -1,12 +1,14 @@
 /// Sound feedback service — plays audio cues for recording events.
 ///
-/// Uses fire-and-forget [AudioPlayer] instances so rapid successive sounds
-/// (start → stop → complete) never interfere with each other. Each cue
-/// creates its own player, plays the asset, and self-disposes on completion.
+/// Uses a small pool of pre-initialized [AudioPlayer] instances (one per
+/// sound type) for reliability. Players are reused across calls to avoid
+/// per-call native resource allocation that can fail on Windows.
 ///
 /// Failures are silently logged — sound feedback is non-critical and must
 /// never block the recording pipeline.
 library;
+
+import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,7 +24,8 @@ class SoundFeedbackService extends Notifier<void> {
   static final _log = AppLogger('SoundFeedback');
 
   bool _pluginAvailable = true;
-  final List<AudioPlayer> _activePlayers = [];
+  final Map<String, AudioPlayer> _pool = {};
+  final Map<String, Timer> _cleanupTimers = {};
 
   @override
   void build() {
@@ -51,26 +54,36 @@ class SoundFeedbackService extends Notifier<void> {
   AppSettings get _settings =>
       ref.read(settingsProvider).value ?? AppSettings.defaults;
 
+  AudioPlayer _getOrCreatePlayer(String assetName) {
+    return _pool.putIfAbsent(assetName, () {
+      _log.debug('Creating audio player for $assetName');
+      return AudioPlayer();
+    });
+  }
+
   Future<void> _play(String assetName, bool enabled) async {
     if (!enabled || !_pluginAvailable) return;
 
     try {
-      final player = AudioPlayer();
-      _activePlayers.add(player);
+      final player = _getOrCreatePlayer(assetName);
+
+      // Stop any in-progress playback before starting new.
+      await player.stop();
 
       // Set volume from settings (0.0–1.0).
       final volume = _settings.soundVolume / 100.0;
       await player.setVolume(volume);
 
-      // Self-dispose when done playing.
-      player.onPlayerComplete.listen((_) {
-        _activePlayers.remove(player);
-        player.dispose();
+      await player.play(AssetSource('sounds/$assetName'));
+
+      // Safety timer: force-stop after 4s in case onPlayerComplete never fires.
+      _cleanupTimers[assetName]?.cancel();
+      _cleanupTimers[assetName] = Timer(const Duration(seconds: 4), () {
+        player.stop().catchError((_) {});
       });
 
-      await player.play(AssetSource('sounds/$assetName'));
+      _log.debug('Playing $assetName (vol: ${(volume * 100).round()}%)');
     } on Exception catch (e) {
-      // MissingPluginException or other native failure — disable permanently.
       if (e.toString().contains('MissingPlugin')) {
         _log.warning('audioplayers plugin unavailable: $e');
         _pluginAvailable = false;
@@ -81,12 +94,16 @@ class SoundFeedbackService extends Notifier<void> {
   }
 
   void _disposeAll() {
-    for (final player in _activePlayers) {
+    for (final timer in _cleanupTimers.values) {
+      timer.cancel();
+    }
+    _cleanupTimers.clear();
+    for (final player in _pool.values) {
       try {
         player.dispose();
       } on Exception catch (_) {}
     }
-    _activePlayers.clear();
+    _pool.clear();
   }
 }
 

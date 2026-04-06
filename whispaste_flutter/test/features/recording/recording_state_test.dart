@@ -131,6 +131,10 @@ void main() {
               n.startRecording();
               n.stopRecording();
               n.completeTranscription('text');
+            case RecordingPhase.processing:
+              n.startRecording();
+              n.stopRecording();
+              n.startProcessing();
             case RecordingPhase.error:
               n.fail('prior error');
           }
@@ -165,6 +169,10 @@ void main() {
               n.startRecording();
               n.stopRecording();
               n.completeTranscription('text');
+            case RecordingPhase.processing:
+              n.startRecording();
+              n.stopRecording();
+              n.startProcessing();
             case RecordingPhase.error:
               n.fail('err');
           }
