@@ -83,8 +83,8 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp> {
     return null;
   }
 
-  void _stop() => widget.controller.invokeMethod('stopRecording');
-  void _cancel() => widget.controller.invokeMethod('cancelRecording');
+  void _stop() => commandChannel.invokeMethod('stopRecording');
+  void _cancel() => commandChannel.invokeMethod('cancelRecording');
 
   @override
   Widget build(BuildContext context) {

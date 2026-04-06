@@ -106,7 +106,7 @@ class FloatingButtonNotifier extends Notifier<FloatingButtonState> {
     return FloatingButtonState(
       isVisible: settings.showFloatingButton,
       isLocked: settings.floatingButtonLocked,
-      size: _sizeFromString(settings.floatingButtonSize),
+      size: sizeFromString(settings.floatingButtonSize),
       opacity: settings.floatingButtonOpacity,
       autoHide: settings.floatingButtonAutoHide,
     );
@@ -170,7 +170,7 @@ class FloatingButtonNotifier extends Notifier<FloatingButtonState> {
   // -- Helpers --------------------------------------------------------------
 
   /// Converts the persisted size string to a pixel value.
-  static int _sizeFromString(String size) {
+  static int sizeFromString(String size) {
     return switch (size.toLowerCase()) {
       'small' => 48,
       'large' => 72,
