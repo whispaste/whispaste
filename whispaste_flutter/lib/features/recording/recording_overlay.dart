@@ -193,8 +193,8 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
                 borderRadius: pillRadius,
                 border: Border.all(
                   color: isDark
-                      ? WpColorsDark.borderSubtle
-                      : WpColorsLight.borderSubtle,
+                      ? WpColorsDark.borderDefault
+                      : WpColorsLight.borderDefault,
                 ),
               ),
               child: Column(
@@ -662,7 +662,7 @@ class _OverlayIconButton extends StatelessWidget {
   }
 }
 
-/// Prominent accent stop button (44×44 rounded square with gradient).
+/// Prominent accent stop button (44×44 circle with gradient — matches FAB shape).
 class _StopButton extends StatelessWidget {
   const _StopButton({required this.onPressed});
 
@@ -681,11 +681,11 @@ class _StopButton extends StatelessWidget {
         button: true,
         child: Material(
           color: Colors.transparent,
-          borderRadius: WpRadius.borderMd,
+          shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onPressed,
-            borderRadius: WpRadius.borderMd,
+            customBorder: const CircleBorder(),
             child: AnimatedContainer(
               duration: WpMotion.fast,
               curve: WpMotion.defaultCurve,
@@ -693,7 +693,7 @@ class _StopButton extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 gradient: gradient,
-                borderRadius: WpRadius.borderMd,
+                shape: BoxShape.circle,
               ),
               child: const Center(
                 child: Icon(LucideIcons.square, size: WpIconSize.sm, color: Colors.white),
