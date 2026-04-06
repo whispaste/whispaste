@@ -26,6 +26,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   static const _totalSteps = 4;
 
   int _currentStep = 0;
+  int _previousStep = 0;
 
   // ---------------------------------------------------------------------------
   // Navigation helpers
@@ -33,20 +34,26 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
 
   void _goNext() {
     if (_currentStep < _totalSteps - 1) {
-      setState(() => _currentStep++);
+      setState(() {
+        _previousStep = _currentStep;
+        _currentStep++;
+      });
     }
   }
 
   void _goBack() {
     if (_currentStep > 0) {
-      setState(() => _currentStep--);
+      setState(() {
+        _previousStep = _currentStep;
+        _currentStep--;
+      });
     }
   }
 
   void _skip() => _complete();
 
-  void _complete() {
-    ref
+  Future<void> _complete() async {
+    await ref
         .read(settingsProvider.notifier)
         .updateSettings((s) => s.copyWith(onboardingCompleted: true));
   }
@@ -57,9 +64,9 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
 
   Widget _buildStep(int index) {
     return switch (index) {
-      0 => WelcomeStep(onNext: _goNext, onSkip: _skip),
-      1 => MicrophoneStep(onNext: _goNext, onBack: _goBack, onSkip: _skip),
-      2 => ModelStep(onNext: _goNext, onBack: _goBack, onSkip: _skip),
+      0 => WelcomeStep(onNext: _goNext),
+      1 => MicrophoneStep(onNext: _goNext, onBack: _goBack),
+      2 => ModelStep(onNext: _goNext, onBack: _goBack),
       3 => ReadyStep(onComplete: _complete, onBack: _goBack),
       _ => const SizedBox.shrink(),
     };
@@ -73,125 +80,121 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
+    final direction = _currentStep >= _previousStep ? 1.0 : -1.0;
 
-    return Stack(
-      children: [
-        // -- Frosted glass backdrop ------------------------------------------
-        Positioned.fill(
-          child: GestureDetector(
-            // Absorb taps so they don't reach the app behind the overlay.
-            onTap: () {},
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: ColoredBox(
-                color: Colors.black.withValues(alpha: 0.6),
+    return BlockSemantics(
+      child: Stack(
+        children: [
+          // -- Frosted glass backdrop ----------------------------------------
+          Positioned.fill(
+            child: ModalBarrier(
+              dismissible: false,
+              color: Colors.transparent,
+            ),
+          ),
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {},
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: ColoredBox(
+                  color: Colors.black.withValues(alpha: 0.6),
+                ),
               ),
             ),
           ),
-        ),
 
-        // -- Centered content ------------------------------------------------
-        Center(
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                  // Skip button — visible on steps 0-2, hidden on last step.
-                  if (_currentStep < _totalSteps - 1)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: _skip,
-                        child: Text(
-                          l10n.onboardingSkip,
-                          style: TextStyle(
+          // -- Centered content ----------------------------------------------
+          Center(
+            child: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Skip button — visible on steps 0-2, hidden on last.
+                      if (_currentStep < _totalSteps - 1)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _skip,
+                            child: Text(
+                              l10n.onboardingSkip,
+                              style: TextStyle(
+                                color: isDark
+                                    ? WpColorsDark.textMuted
+                                    : WpColorsLight.textMuted,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        const SizedBox(height: WpSpacing.xxl),
+
+                      const SizedBox(height: WpSpacing.xs),
+
+                      // Content card
+                      Container(
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? WpColorsDark.surfaceElevated
+                              : WpColorsLight.surfaceElevated,
+                          borderRadius: WpRadius.borderXl,
+                          border: Border.all(
                             color: isDark
-                                ? WpColorsDark.textMuted
-                                : WpColorsLight.textMuted,
+                                ? WpColorsDark.borderSubtle
+                                : WpColorsLight.borderSubtle,
+                          ),
+                          boxShadow: WpShadows.elevated,
+                        ),
+                        padding: const EdgeInsets.all(WpSpacing.xxl),
+                        child: AnimatedSwitcher(
+                          duration: WpMotion.smooth,
+                          switchInCurve: WpMotion.smooth_,
+                          switchOutCurve: WpMotion.smooth_,
+                          transitionBuilder: (child, animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: Offset(0.05 * direction, 0),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: KeyedSubtree(
+                            key: ValueKey<int>(_currentStep),
+                            child: _buildStep(_currentStep),
                           ),
                         ),
                       ),
-                    )
-                  else
-                    const SizedBox(height: WpSpacing.xxl),
 
-                  const SizedBox(height: WpSpacing.xs),
+                      const SizedBox(height: WpSpacing.lg),
 
-                  // Content card
-                  Container(
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? WpColorsDark.surfaceElevated
-                          : WpColorsLight.surfaceElevated,
-                      borderRadius: WpRadius.borderXl,
-                      border: Border.all(
-                        color: isDark
-                            ? WpColorsDark.borderSubtle
-                            : WpColorsLight.borderSubtle,
+                      // Stepper dots (pill-style active indicator)
+                      _StepperDots(
+                        currentStep: _currentStep,
+                        totalSteps: _totalSteps,
                       ),
-                      boxShadow: WpShadows.elevated,
-                    ),
-                    padding: const EdgeInsets.all(WpSpacing.xxl),
-                    child: AnimatedSwitcher(
-                      duration: WpMotion.smooth,
-                      switchInCurve: WpMotion.smooth_,
-                      switchOutCurve: WpMotion.smooth_,
-                      transitionBuilder: (child, animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0.05, 0),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: KeyedSubtree(
-                        key: ValueKey<int>(_currentStep),
-                        child: _buildStep(_currentStep),
-                      ),
-                    ),
+                    ],
                   ),
-
-                  const SizedBox(height: WpSpacing.lg),
-
-                  // Step indicator text
-                  Text(
-                    l10n.onboardingStepOf(_currentStep + 1, _totalSteps),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark
-                          ? WpColorsDark.textMuted
-                          : WpColorsLight.textMuted,
-                    ),
-                  ),
-
-                  const SizedBox(height: WpSpacing.sm),
-
-                  // Stepper dots
-                  _StepperDots(
-                    currentStep: _currentStep,
-                    totalSteps: _totalSteps,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 // =============================================================================
-// Stepper dots — animated size + color per the design system.
+// Stepper dots — active dot expands to pill shape for clear indication.
 // =============================================================================
 
 class _StepperDots extends StatelessWidget {
@@ -206,10 +209,8 @@ class _StepperDots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent =
-        isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final muted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final muted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -220,10 +221,10 @@ class _StepperDots extends StatelessWidget {
           child: AnimatedContainer(
             duration: WpMotion.fast,
             curve: WpMotion.defaultCurve,
-            width: isActive ? 10 : 8,
-            height: isActive ? 10 : 8,
+            width: isActive ? 24 : 8,
+            height: 8,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
+              borderRadius: WpRadius.borderFull,
               color: isActive ? accent : muted.withValues(alpha: 0.35),
             ),
           ),
