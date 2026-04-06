@@ -214,6 +214,52 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     }
   }
 
+  /// Removes stale `whispaste_*.wav` files from the system temp directory.
+  ///
+  /// Called once at startup to clean up leftovers from crashes or interrupted
+  /// recordings. Only deletes files older than [maxAge] (default: 5 minutes)
+  /// to avoid removing a WAV that's currently being recorded.
+  static Future<void> cleanupStaleFiles({
+    Duration maxAge = const Duration(minutes: 5),
+  }) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final now = DateTime.now();
+      var cleaned = 0;
+      var freedBytes = 0;
+
+      await for (final entity in tempDir.list()) {
+        if (entity is! File) continue;
+        final name = p.basename(entity.path);
+        if (!name.startsWith('whispaste_') || !name.endsWith('.wav')) continue;
+
+        try {
+          final stat = await entity.stat();
+          if (now.difference(stat.modified) > maxAge) {
+            final size = stat.size;
+            await entity.delete();
+            cleaned++;
+            freedBytes += size;
+          }
+        } on FileSystemException catch (e) {
+          // File may be locked by a concurrent instance — skip it.
+          dev.log('Skipping locked WAV: ${entity.path}: $e',
+              name: 'AudioService');
+        }
+      }
+
+      if (cleaned > 0) {
+        dev.log(
+          'Startup cleanup: removed $cleaned stale WAV file(s) '
+          '(${(freedBytes / 1024 / 1024).toStringAsFixed(1)} MB)',
+          name: 'AudioService',
+        );
+      }
+    } on Exception catch (e) {
+      dev.log('Stale WAV cleanup failed: $e', name: 'AudioService');
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Private
   // -------------------------------------------------------------------------

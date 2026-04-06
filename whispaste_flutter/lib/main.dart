@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/config/settings_provider.dart';
 import 'core/logging/app_monitoring.dart';
+import 'services/audio_service.dart';
 import 'services/single_instance_service.dart';
 
 Future<ProviderContainer> bootstrapAppContainer({
@@ -59,6 +61,9 @@ Future<void> main() async {
     final container = await bootstrapAppContainer(
       observers: const [CrashProviderObserver()],
     );
+
+    // Clean up stale WAV files from previous sessions (fire-and-forget).
+    unawaited(AudioServiceNotifier.cleanupStaleFiles());
 
     runApp(
       UncontrolledProviderScope(

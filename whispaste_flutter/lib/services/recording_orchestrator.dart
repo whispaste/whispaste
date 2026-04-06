@@ -180,6 +180,17 @@ class RecordingOrchestrator extends Notifier<void> {
       final config = ref.read(effectiveConfigProvider);
       final language = config.transcriptionLanguage;
 
+      // When language is empty or "auto", fall back to the app's UI locale
+      // so local whisper models don't guess wrong (mirrors Go's
+      // GetEffectiveLocalTranscriptionLanguage which uses UILanguage).
+      final appLocale = ref.read(settingsProvider).value?.locale;
+      String? effectiveLang;
+      if (language.isNotEmpty && language != 'auto') {
+        effectiveLang = language;
+      } else if (appLocale != null && appLocale.isNotEmpty) {
+        effectiveLang = appLocale; // e.g. "de", "en"
+      }
+
       // Ensure STT server is ready.
       final sttNotifier = ref.read(sttServiceProvider.notifier);
       await sttNotifier.ensureRunning();
@@ -196,12 +207,14 @@ class RecordingOrchestrator extends Notifier<void> {
       // Transcribe using pre-loaded bytes (avoids file-system race).
       // Calculate audio duration for RTF logging (16 kHz, mono, 16-bit + 44-byte header).
       final audioDurMs = ((wavBytes.length - 44) / 32000 * 1000).round();
-      _log.info('Transcribing $wavPath (${wavBytes.length} bytes, ~${audioDurMs}ms audio)');
+      _log.info(
+        'Transcribing $wavPath (${wavBytes.length} bytes, ~${audioDurMs}ms audio, lang=$effectiveLang)',
+      );
 
       final inferSw = Stopwatch()..start();
       final transcript = await sttNotifier.transcribeBytes(
         wavBytes,
-        language: language != 'auto' ? language : null,
+        language: effectiveLang,
       );
       inferSw.stop();
 
