@@ -390,6 +390,9 @@ class L10nEn extends L10n {
   String get settingsAfterTranscriptionPaste => 'Auto-Paste at Cursor';
 
   @override
+  String get settingsAfterTranscriptionBoth => 'Copy & Auto-Paste';
+
+  @override
   String get settingsAfterTranscriptionNothing => 'Do Nothing';
 
   @override
@@ -956,6 +959,18 @@ class L10nEn extends L10n {
 
   @override
   String get statusBarPostProcessing => 'Post-Processing';
+
+  @override
+  String get sttStatusStandby => 'Standby';
+
+  @override
+  String get sttStatusStarting => 'Starting…';
+
+  @override
+  String get sttStatusReady => 'Ready';
+
+  @override
+  String get sttStatusError => 'Error';
 
   @override
   String get tooltipSwitchToLight => 'Switch to Light Mode';

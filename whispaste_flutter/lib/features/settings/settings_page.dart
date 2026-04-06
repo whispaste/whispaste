@@ -801,10 +801,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   subtitle: l10n.settingsAfterTranscriptionSubtitle,
                   trailing: _dropdown(
                     value: settings.afterTranscription,
-                    items: const ['clipboard', 'paste', 'nothing'],
+                    items: const ['clipboard', 'paste', 'clipboard_and_paste', 'nothing'],
                     labels: [
                       l10n.settingsAfterTranscriptionClipboard,
                       l10n.settingsAfterTranscriptionPaste,
+                      l10n.settingsAfterTranscriptionBoth,
                       l10n.settingsAfterTranscriptionNothing,
                     ],
                     onChanged: (v) {
