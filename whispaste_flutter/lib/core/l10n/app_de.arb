@@ -121,6 +121,7 @@
   "settingsAfterTranscriptionSubtitle": "Was mit dem transkribierten Text geschieht",
   "settingsAfterTranscriptionClipboard": "In Zwischenablage kopieren",
   "settingsAfterTranscriptionPaste": "Automatisch einfügen",
+  "settingsAfterTranscriptionBoth": "Kopieren & einfügen",
   "settingsAfterTranscriptionNothing": "Nichts tun",
   "settingsOverlayFloatingButton": "Overlay & Schwebender Button",
   "settingsOverlayFloatingButtonSubtitle": "Bildschirm-Aufnahmesteuerung",
@@ -304,6 +305,10 @@
 
   "statusBarOnDevice": "Auf dem Gerät",
   "statusBarPostProcessing": "Nachbearbeitung",
+  "sttStatusStandby": "Bereitschaft",
+  "sttStatusStarting": "Startet…",
+  "sttStatusReady": "Bereit",
+  "sttStatusError": "Fehler",
   "tooltipSwitchToLight": "Zu hellem Modus wechseln",
   "tooltipSwitchToDark": "Zu dunklem Modus wechseln",
 
