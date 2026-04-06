@@ -12,10 +12,12 @@ import 'dart:io';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../features/recording/recording_state.dart';
+import 'floating_button_service.dart';
 import 'recording_orchestrator.dart';
 
 // ---------------------------------------------------------------------------
@@ -28,6 +30,15 @@ abstract final class WindowType {
   static const String floatingButton = 'floating_button';
   static const String floatingOverlay = 'floating_overlay';
 }
+
+/// Named channel for secondary → main command routing.
+///
+/// Secondary windows call `commandChannel.invokeMethod('toggleRecording')`
+/// and the main window receives them via `commandChannel.setMethodCallHandler`.
+const commandChannel = WindowMethodChannel(
+  'whispaste_commands',
+  mode: ChannelMode.unidirectional,
+);
 
 // ---------------------------------------------------------------------------
 // Encoding helpers
@@ -43,15 +54,26 @@ String encodeRecordingState(RecordingState state) => jsonEncode({
     });
 
 /// Deserialises a JSON string back into a [RecordingState].
+///
+/// Returns [RecordingState()] (idle) if the JSON is malformed or contains
+/// an out-of-range phase index.
 RecordingState decodeRecordingState(String json) {
-  final map = jsonDecode(json) as Map<String, dynamic>;
-  return RecordingState(
-    phase: RecordingPhase.values[map['phase'] as int],
-    elapsed: Duration(milliseconds: map['elapsedMs'] as int),
-    audioLevel: (map['audioLevel'] as num).toDouble(),
-    transcript: map['transcript'] as String?,
-    errorMessage: map['errorMessage'] as String?,
-  );
+  try {
+    final map = jsonDecode(json) as Map<String, dynamic>;
+    final phaseIdx = map['phase'] as int;
+    if (phaseIdx < 0 || phaseIdx >= RecordingPhase.values.length) {
+      return const RecordingState();
+    }
+    return RecordingState(
+      phase: RecordingPhase.values[phaseIdx],
+      elapsed: Duration(milliseconds: map['elapsedMs'] as int),
+      audioLevel: (map['audioLevel'] as num).toDouble(),
+      transcript: map['transcript'] as String?,
+      errorMessage: map['errorMessage'] as String?,
+    );
+  } catch (_) {
+    return const RecordingState();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -86,27 +108,37 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
 
   @override
   MultiWindowState build() {
-    // Push recording state changes to all open secondary windows.
-    ref.listen<RecordingState>(recordingProvider, (_, next) {
-      _pushRecordingState(next);
-    });
+    // Register the main window's command handler for secondary → main calls.
+    commandChannel.setMethodCallHandler(_handleCommand);
 
-    // Auto-show/hide floating overlay when recording starts/stops.
+    // Push recording state to secondary windows + auto-show/hide overlay.
     ref.listen<RecordingState>(recordingProvider, (prev, next) {
-      final settings = ref.read(settingsProvider).value;
-      if (settings == null) return;
-      if (settings.overlayMode != 'floating') return;
+      _pushRecordingState(next);
 
-      if (prev?.phase == RecordingPhase.idle &&
-          next.phase == RecordingPhase.recording) {
-        showOverlay();
+      // Auto-show/hide floating overlay based on recording phase.
+      final settings = ref.read(settingsProvider).value;
+      if (settings != null && settings.overlayMode == 'floating') {
+        if (prev?.phase == RecordingPhase.idle &&
+            next.phase == RecordingPhase.recording) {
+          showOverlay();
+        }
+        if (next.phase == RecordingPhase.idle && state.overlayVisible) {
+          hideOverlay();
+        }
       }
-      if (next.phase == RecordingPhase.idle && state.overlayVisible) {
-        hideOverlay();
+
+      // Auto-show floating button on app start if enabled.
+      if (settings != null &&
+          settings.showFloatingButton &&
+          !state.buttonVisible) {
+        showButton();
       }
     });
 
-    ref.onDispose(_closeAll);
+    ref.onDispose(() {
+      commandChannel.setMethodCallHandler(null);
+      _closeAll();
+    });
     return const MultiWindowState();
   }
 
@@ -179,13 +211,24 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
 
   Future<WindowController?> _createWindow(String type) async {
     try {
-      final args = jsonEncode({'type': type});
+      // Include settings in the creation arguments for the secondary window.
+      final settings = ref.read(settingsProvider).value;
+      final args = jsonEncode({
+        'type': type,
+        if (settings != null) ...{
+          'size': FloatingButtonNotifier.sizeFromString(
+              settings.floatingButtonSize),
+          'opacity': settings.floatingButtonOpacity,
+        },
+      });
       final controller = await WindowController.create(
         WindowConfiguration(arguments: args, hiddenAtLaunch: true),
       );
 
-      // Set up command handler for this window.
-      controller.setWindowMethodHandler(_handleCommand);
+      // NOTE: We do NOT call controller.setWindowMethodHandler() here.
+      // The handler is set by the secondary window's own Flutter engine
+      // in its initState(). Commands from secondary → main use
+      // WindowMethodChannel instead.
 
       // Give the secondary engine time to initialise.
       await Future.delayed(const Duration(milliseconds: 400));
@@ -235,8 +278,11 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
       case 'cancelRecording':
         ref.read(recordingOrchestratorProvider.notifier).reset();
       case 'showMainWindow':
-        // Handled by the app — import window_manager there.
-        return 'not_implemented';
+        await windowManager.show();
+        await windowManager.focus();
+      case 'quitApp':
+        _closeAll();
+        exit(0);
     }
     return null;
   }

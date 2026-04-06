@@ -105,12 +105,11 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp> {
   }
 
   void _toggleRecording() {
-    // Send command to main window via the controller's channel.
-    widget.controller.invokeMethod('toggleRecording');
+    commandChannel.invokeMethod('toggleRecording');
   }
 
   void _showDashboard() {
-    widget.controller.invokeMethod('showMainWindow');
+    commandChannel.invokeMethod('showMainWindow');
   }
 
   void _hideButton() {
@@ -118,7 +117,7 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp> {
   }
 
   void _quitApp() {
-    widget.controller.invokeMethod('quitApp');
+    commandChannel.invokeMethod('quitApp');
   }
 
   @override
