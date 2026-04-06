@@ -1452,9 +1452,9 @@ class _HistoryEntryRowState extends State<_HistoryEntryRow> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         color: textSecondary,
-                        height: 1.3,
+                        height: 1.35,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1702,40 +1702,86 @@ class _DetailPanel extends StatelessWidget {
                     isDark: isDark,
                     onTap: onCopy,
                   ),
-                  if (onCopyMarkdown != null)
-                    _DetailAction(
-                      icon: LucideIcons.fileText,
-                      tooltip: l10n.historyCopyAsMarkdown,
-                      isDark: isDark,
-                      onTap: onCopyMarkdown!,
-                    ),
-                  if (onDuplicate != null)
-                    _DetailAction(
-                      icon: LucideIcons.files,
-                      tooltip: l10n.historyDuplicate,
-                      isDark: isDark,
-                      onTap: onDuplicate!,
-                    ),
                   _DetailAction(
                     icon: entry.pinned ? LucideIcons.pinOff : LucideIcons.pin,
                     tooltip: entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop,
                     isDark: isDark,
                     onTap: onPin,
                   ),
-                  _DetailAction(
-                    icon: entry.archived
-                        ? LucideIcons.archiveRestore
-                        : LucideIcons.archive,
-                    tooltip: entry.archived ? l10n.historyUnarchive : l10n.historyArchive,
-                    isDark: isDark,
-                    onTap: onArchive,
-                  ),
-                  _DetailAction(
-                    icon: LucideIcons.trash2,
-                    tooltip: l10n.actionDelete,
-                    isDark: isDark,
-                    onTap: onDelete,
-                    isDestructive: true,
+                  // Overflow menu for secondary actions
+                  PopupMenuButton<String>(
+                    icon: Icon(
+                      LucideIcons.ellipsisVertical,
+                      size: 18,
+                      color: isDark
+                          ? WpColorsDark.textSecondary
+                          : WpColorsLight.textSecondary,
+                    ),
+                    tooltip: '',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    color: isDark
+                        ? WpColorsDark.surfaceElevated
+                        : WpColorsLight.surfaceElevated,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(WpRadius.md),
+                    ),
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'markdown':
+                          onCopyMarkdown?.call();
+                        case 'duplicate':
+                          onDuplicate?.call();
+                        case 'archive':
+                          onArchive();
+                        case 'delete':
+                          onDelete();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      if (onCopyMarkdown != null)
+                        PopupMenuItem(
+                          value: 'markdown',
+                          child: _PopupMenuRow(
+                            icon: LucideIcons.fileText,
+                            label: l10n.historyCopyAsMarkdown,
+                            isDark: isDark,
+                          ),
+                        ),
+                      if (onDuplicate != null)
+                        PopupMenuItem(
+                          value: 'duplicate',
+                          child: _PopupMenuRow(
+                            icon: LucideIcons.files,
+                            label: l10n.historyDuplicate,
+                            isDark: isDark,
+                          ),
+                        ),
+                      PopupMenuItem(
+                        value: 'archive',
+                        child: _PopupMenuRow(
+                          icon: entry.archived
+                              ? LucideIcons.archiveRestore
+                              : LucideIcons.archive,
+                          label: entry.archived
+                              ? l10n.historyUnarchive
+                              : l10n.historyArchive,
+                          isDark: isDark,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: _PopupMenuRow(
+                          icon: LucideIcons.trash2,
+                          label: l10n.actionDelete,
+                          isDark: isDark,
+                          isDestructive: true,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
                 const SizedBox(width: WpSpacing.xxs),
@@ -1767,9 +1813,9 @@ class _DetailPanel extends StatelessWidget {
                   SelectableText(
                     entry.content,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 15.5,
                       color: textPrimary,
-                      height: 1.6,
+                      height: 1.65,
                     ),
                   ),
                   const SizedBox(height: WpSpacing.xxl),
@@ -1852,6 +1898,8 @@ class _DetailPanel extends StatelessWidget {
                   // Notes section
                   const SizedBox(height: WpSpacing.lg),
                   _NotesSection(entryId: entry.id, isDark: isDark),
+                  // FAB clearance so content isn't hidden behind the floating button
+                  const SizedBox(height: 80),
                 ],
               ),
             ),
@@ -2050,6 +2098,39 @@ class _NotesSectionState extends ConsumerState<_NotesSection> {
           ],
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Popup menu row (icon + label)
+// ---------------------------------------------------------------------------
+
+class _PopupMenuRow extends StatelessWidget {
+  const _PopupMenuRow({
+    required this.icon,
+    required this.label,
+    required this.isDark,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isDark;
+  final bool isDestructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDestructive
+        ? (isDark ? WpColorsDark.error : WpColorsLight.error)
+        : (isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: WpSpacing.sm),
+        Text(label, style: TextStyle(fontSize: 13, color: color)),
+      ],
     );
   }
 }
