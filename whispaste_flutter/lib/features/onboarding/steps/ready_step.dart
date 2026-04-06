@@ -7,6 +7,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/hotkey_recorder.dart';
+import '../../../widgets/wp_accent_button.dart';
 
 /// Onboarding Step 4 — Ready screen with hotkey summary and quick-start guide.
 class ReadyStep extends ConsumerWidget {
@@ -41,6 +42,11 @@ class ReadyStep extends ConsumerWidget {
     final hotkeyModifiers = settings.hotkeyModifiers;
     final modifierLabels = HotkeyRecorderDialog.parseModifiers(hotkeyModifiers);
 
+    // Determine if user is using local or cloud STT
+    final isLocalStt =
+        settings.sttProvider.toLowerCase().contains('on device') ||
+            settings.sttProvider.toLowerCase().contains('local');
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -73,34 +79,48 @@ class ReadyStep extends ConsumerWidget {
           style: TextStyle(fontSize: 12, color: textMuted),
         ),
         const SizedBox(height: WpSpacing.sm),
-        _HotkeyKeyCaps(
-          modifiers: modifierLabels,
-          keyLabel: hotkeyKey,
-          isDark: isDark,
+        Semantics(
+          label:
+              'Current hotkey: ${modifierLabels.join(" + ")} + $hotkeyKey',
+          child: _HotkeyKeyCaps(
+            modifiers: modifierLabels,
+            keyLabel: hotkeyKey,
+            isDark: isDark,
+          ),
         ),
         const SizedBox(height: WpSpacing.sm),
-        GestureDetector(
-          onTap: () async {
-            final result = await HotkeyRecorderDialog.show(
-              context,
-              initialKey: hotkeyKey,
-              initialModifiers: hotkeyModifiers,
-            );
-            if (result != null && context.mounted) {
-              ref.read(settingsProvider.notifier).updateSettings(
-                    (s) => s.copyWith(
-                      hotkeyKey: result.key,
-                      hotkeyModifiers: result.modifiers,
-                    ),
-                  );
-            }
-          },
-          child: Text(
-            l10n.onboardingReadyChangeHotkey,
-            style: TextStyle(
-              fontSize: 13,
-              color: accent,
-              fontWeight: FontWeight.w600,
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () async {
+              final result = await HotkeyRecorderDialog.show(
+                context,
+                initialKey: hotkeyKey,
+                initialModifiers: hotkeyModifiers,
+              );
+              if (result != null && context.mounted) {
+                await ref.read(settingsProvider.notifier).updateSettings(
+                      (s) => s.copyWith(
+                        hotkeyKey: result.key,
+                        hotkeyModifiers: result.modifiers,
+                      ),
+                    );
+              }
+            },
+            borderRadius: WpRadius.borderSm,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.xs,
+              ),
+              child: Text(
+                l10n.onboardingReadyChangeHotkey,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: accent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
         ),
@@ -132,23 +152,41 @@ class ReadyStep extends ConsumerWidget {
         ),
         const SizedBox(height: WpSpacing.lg),
 
-        // Privacy badge
+        // Privacy badge — conditional on actual STT provider
         Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.xxs + 2,
-            ),
-            decoration: BoxDecoration(
-              color: success.withValues(alpha: 0.12),
-              borderRadius: WpRadius.borderFull,
-            ),
-            child: Text(
-              l10n.onboardingPrivacyBadge,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: success,
+          child: Semantics(
+            label: isLocalStt
+                ? 'Processing mode: local, on this device'
+                : 'Processing mode: cloud',
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.xxs + 2,
+              ),
+              decoration: BoxDecoration(
+                color: (isLocalStt ? success : accent).withValues(alpha: 0.12),
+                borderRadius: WpRadius.borderFull,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isLocalStt ? LucideIcons.shieldCheck : LucideIcons.cloud,
+                    size: 14,
+                    color: isLocalStt ? success : accent,
+                  ),
+                  const SizedBox(width: WpSpacing.xxs),
+                  Text(
+                    isLocalStt
+                        ? l10n.onboardingPrivacyBadge
+                        : l10n.statusCloud,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isLocalStt ? success : accent,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -168,10 +206,9 @@ class ReadyStep extends ConsumerWidget {
             const Spacer(),
             Expanded(
               flex: 2,
-              child: _AccentButton(
+              child: WpAccentButton(
                 label: l10n.onboardingStartDictating,
                 gradient: accentGradient,
-                textColor: textPrimary,
                 onPressed: onComplete,
               ),
             ),
@@ -323,76 +360,20 @@ class _InstructionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: WpIconSize.md, color: accent),
-        const SizedBox(width: WpSpacing.sm),
-        Expanded(
-          child: Text(
-            '$number $text',
-            style: TextStyle(fontSize: 14, color: textColor),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Full-width accent gradient CTA button
-// ---------------------------------------------------------------------------
-
-class _AccentButton extends StatefulWidget {
-  const _AccentButton({
-    required this.label,
-    required this.gradient,
-    required this.textColor,
-    required this.onPressed,
-  });
-
-  final String label;
-  final LinearGradient gradient;
-  final Color textColor;
-  final VoidCallback onPressed;
-
-  @override
-  State<_AccentButton> createState() => _AccentButtonState();
-}
-
-class _AccentButtonState extends State<_AccentButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onPressed,
-        child: AnimatedScale(
-          scale: _hovered ? 1.02 : 1.0,
-          duration: WpMotion.fast,
-          curve: WpMotion.defaultCurve,
-          child: AnimatedContainer(
-            duration: WpMotion.fast,
-            curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.symmetric(vertical: WpSpacing.md),
-            decoration: BoxDecoration(
-              gradient: widget.gradient,
-              borderRadius: WpRadius.borderMd,
-            ),
-            alignment: Alignment.center,
+    return Semantics(
+      excludeSemantics: true,
+      label: '$number $text',
+      child: Row(
+        children: [
+          Icon(icon, size: WpIconSize.md, color: accent),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
             child: Text(
-              widget.label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: widget.textColor,
-              ),
+              '$number $text',
+              style: TextStyle(fontSize: 14, color: textColor),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

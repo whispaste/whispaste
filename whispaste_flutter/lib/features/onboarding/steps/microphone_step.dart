@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_accent_button.dart';
 
 // ---------------------------------------------------------------------------
 // Permission state machine
@@ -20,29 +20,26 @@ enum _MicPermission { unknown, checking, granted, denied }
 /// This is a UI-only widget. Actual audio permission / recording is wired
 /// later — the "Grant Access" tap simulates a brief delay then marks
 /// permission as granted so users can proceed through onboarding.
-class MicrophoneStep extends ConsumerStatefulWidget {
+class MicrophoneStep extends StatefulWidget {
   const MicrophoneStep({
     super.key,
     required this.onNext,
     required this.onBack,
-    required this.onSkip,
   });
 
   final VoidCallback onNext;
   final VoidCallback onBack;
-  final VoidCallback onSkip;
 
   @override
-  ConsumerState<MicrophoneStep> createState() => _MicrophoneStepState();
+  State<MicrophoneStep> createState() => _MicrophoneStepState();
 }
 
-class _MicrophoneStepState extends ConsumerState<MicrophoneStep>
+class _MicrophoneStepState extends State<MicrophoneStep>
     with SingleTickerProviderStateMixin {
   _MicPermission _permissionStatus = _MicPermission.unknown;
   bool _isTestRecording = false;
   bool _testComplete = false;
 
-  // Pulse animation for the simulated recording visualizer.
   late final AnimationController _pulseController;
   Timer? _recordingTimer;
 
@@ -159,10 +156,9 @@ class _MicrophoneStepState extends ConsumerState<MicrophoneStep>
               : SizedBox(
                   key: const ValueKey('grant'),
                   width: 200,
-                  child: _AccentButton(
+                  child: WpAccentButton(
                     label: l10n.onboardingMicRequestAccess,
                     gradient: accentGradient,
-                    textColor: textPrimary,
                     onPressed: _permissionStatus == _MicPermission.checking
                         ? null
                         : _requestPermission,
@@ -203,11 +199,10 @@ class _MicrophoneStepState extends ConsumerState<MicrophoneStep>
             ),
             const Spacer(),
             SizedBox(
-              width: 120,
-              child: _AccentButton(
+              width: 140,
+              child: WpAccentButton(
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
-                textColor: textPrimary,
                 onPressed: widget.onNext,
               ),
             ),
@@ -235,44 +230,56 @@ class _PermissionIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    final textMuted =
+        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
-    final (IconData icon, Color color, String label) = switch (status) {
+    final (Widget iconWidget, Color color, String label) = switch (status) {
       _MicPermission.granted => (
-          LucideIcons.circleCheck,
+          Icon(LucideIcons.circleCheck, size: WpIconSize.xxl,
+              color: isDark ? WpColorsDark.success : WpColorsLight.success),
           isDark ? WpColorsDark.success : WpColorsLight.success,
           l10n.onboardingMicPermissionGranted,
         ),
       _MicPermission.denied => (
-          LucideIcons.circleX,
+          Icon(LucideIcons.circleX, size: WpIconSize.xxl,
+              color: isDark ? WpColorsDark.error : WpColorsLight.error),
           isDark ? WpColorsDark.error : WpColorsLight.error,
           l10n.onboardingMicPermissionDenied,
         ),
       _MicPermission.checking => (
-          LucideIcons.clock,
-          isDark ? WpColorsDark.warning : WpColorsLight.warning,
+          SizedBox(
+            width: WpIconSize.xxl,
+            height: WpIconSize.xxl,
+            child: CircularProgressIndicator(strokeWidth: 2.5, color: accent),
+          ),
+          accent,
           l10n.onboardingMicPermissionPending,
         ),
       _MicPermission.unknown => (
-          LucideIcons.clock,
-          isDark ? WpColorsDark.warning : WpColorsLight.warning,
+          Icon(LucideIcons.mic, size: WpIconSize.xxl, color: textMuted),
+          textMuted,
           l10n.onboardingMicPermissionPending,
         ),
     };
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: WpIconSize.xxl, color: color),
-        const SizedBox(height: WpSpacing.sm),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: color,
+    return Semantics(
+      label: label,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          iconWidget,
+          const SizedBox(height: WpSpacing.sm),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -312,9 +319,8 @@ class _MicTestArea extends StatelessWidget {
             ? l10n.onboardingMicTestDone
             : l10n.onboardingMicTestHint;
 
-    final borderColor = isDark
-        ? WpColorsDark.borderSubtle
-        : WpColorsLight.borderSubtle;
+    final borderColor =
+        isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -328,49 +334,62 @@ class _MicTestArea extends StatelessWidget {
           ),
         ),
         const SizedBox(height: WpSpacing.sm),
-        GestureDetector(
-          onTap: isRecording ? null : onTap,
-          child: AnimatedContainer(
-            duration: WpMotion.fast,
-            curve: WpMotion.defaultCurve,
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.lg,
-              vertical: WpSpacing.lg,
-            ),
-            decoration: BoxDecoration(
-              color: surfaceVariant,
-              borderRadius: WpRadius.borderLg,
-              border: Border.all(
-                color: isRecording ? accent : borderColor,
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Waveform bars
-                SizedBox(
-                  height: 40,
-                  child: _WaveformBars(
-                    animation: pulseAnimation,
-                    isActive: isRecording,
-                    accent: accent,
-                    muted: textSecondary.withValues(alpha: 0.3),
+        Material(
+          color: Colors.transparent,
+          borderRadius: WpRadius.borderLg,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: isRecording ? null : onTap,
+            borderRadius: WpRadius.borderLg,
+            child: Semantics(
+              button: true,
+              label: hintText,
+              child: AnimatedContainer(
+                duration: WpMotion.fast,
+                curve: WpMotion.defaultCurve,
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.lg,
+                  vertical: WpSpacing.lg,
+                ),
+                decoration: BoxDecoration(
+                  color: surfaceVariant,
+                  borderRadius: WpRadius.borderLg,
+                  border: Border.all(
+                    color: isRecording ? accent : borderColor,
                   ),
                 ),
-                const SizedBox(height: WpSpacing.sm),
-                AnimatedSwitcher(
-                  duration: WpMotion.fast,
-                  child: Text(
-                    hintText,
-                    key: ValueKey(hintText),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isRecording ? accent : textSecondary,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Waveform bars
+                    Semantics(
+                      excludeSemantics: true,
+                      child: SizedBox(
+                        height: 40,
+                        child: _WaveformBars(
+                          animation: pulseAnimation,
+                          isActive: isRecording,
+                          accent: accent,
+                          muted: textSecondary.withValues(alpha: 0.3),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: WpSpacing.sm),
+                    AnimatedSwitcher(
+                      duration: WpMotion.fast,
+                      child: Text(
+                        hintText,
+                        key: ValueKey(hintText),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isRecording ? accent : textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -407,7 +426,6 @@ class _WaveformBars extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: List.generate(_barCount, (i) {
-            // Vary heights using a seeded pattern so bars look organic.
             final phase = (i / _barCount) * math.pi * 2;
             final base = 0.25 + 0.15 * math.sin(phase * 1.7 + i);
             final animatedHeight = isActive
@@ -419,8 +437,7 @@ class _WaveformBars extends StatelessWidget {
 
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 1.5),
-              child: AnimatedContainer(
-                duration: WpMotion.fast,
+              child: Container(
                 width: 3,
                 height: 40 * animatedHeight.clamp(0.15, 1.0),
                 decoration: BoxDecoration(
@@ -432,71 +449,6 @@ class _WaveformBars extends StatelessWidget {
           }),
         );
       },
-    );
-  }
-}
-
-// =============================================================================
-// Full-width accent gradient CTA button (mirrors welcome_step.dart)
-// =============================================================================
-
-class _AccentButton extends StatefulWidget {
-  const _AccentButton({
-    required this.label,
-    required this.gradient,
-    required this.textColor,
-    required this.onPressed,
-  });
-
-  final String label;
-  final LinearGradient gradient;
-  final Color textColor;
-  final VoidCallback? onPressed;
-
-  @override
-  State<_AccentButton> createState() => _AccentButtonState();
-}
-
-class _AccentButtonState extends State<_AccentButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDisabled = widget.onPressed == null;
-    return MouseRegion(
-      cursor: isDisabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onPressed,
-        child: AnimatedScale(
-          scale: !isDisabled && _hovered ? 1.02 : 1.0,
-          duration: WpMotion.fast,
-          curve: WpMotion.defaultCurve,
-          child: AnimatedOpacity(
-            duration: WpMotion.fast,
-            opacity: isDisabled ? 0.5 : 1.0,
-            child: AnimatedContainer(
-              duration: WpMotion.fast,
-              curve: WpMotion.defaultCurve,
-              padding: const EdgeInsets.symmetric(vertical: WpSpacing.md),
-              decoration: BoxDecoration(
-                gradient: widget.gradient,
-                borderRadius: WpRadius.borderMd,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: widget.textColor,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

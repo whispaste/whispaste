@@ -7,13 +7,13 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/brand_logo.dart';
 import '../../../widgets/brand_wordmark.dart';
+import '../../../widgets/wp_accent_button.dart';
 
 /// Onboarding Step 1 — Welcome screen with language & theme selection.
 class WelcomeStep extends ConsumerWidget {
-  const WelcomeStep({super.key, required this.onNext, required this.onSkip});
+  const WelcomeStep({super.key, required this.onNext});
 
   final VoidCallback onNext;
-  final VoidCallback onSkip;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,10 +26,9 @@ class WelcomeStep extends ConsumerWidget {
         isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant;
     final textSecondary =
         isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final accentGradient =
-        isDark ? WpColorsDark.accentWarmGradient : WpColorsLight.accentWarmGradient;
+    final accentGradient = isDark
+        ? WpColorsDark.accentWarmGradient
+        : WpColorsLight.accentWarmGradient;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -135,10 +134,9 @@ class WelcomeStep extends ConsumerWidget {
         // Get Started button
         SizedBox(
           width: double.infinity,
-          child: _AccentButton(
+          child: WpAccentButton(
             label: l10n.onboardingGetStarted,
             gradient: accentGradient,
-            textColor: textPrimary,
             onPressed: onNext,
           ),
         ),
@@ -148,7 +146,7 @@ class WelcomeStep extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Pill-shaped toggle button with animated color transitions
+// Pill-shaped toggle button — focusable via Material + InkWell
 // ---------------------------------------------------------------------------
 class _PillButton extends StatelessWidget {
   const _PillButton({
@@ -169,82 +167,34 @@ class _PillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: WpMotion.fast,
-        curve: WpMotion.defaultCurve,
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.lg,
-          vertical: WpSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: isActive ? accent : surfaceVariant,
+    return Semantics(
+      button: true,
+      selected: isActive,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: WpRadius.borderFull,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: WpRadius.borderFull,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: isActive ? Colors.white : textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Full-width accent gradient CTA button
-// ---------------------------------------------------------------------------
-class _AccentButton extends StatefulWidget {
-  const _AccentButton({
-    required this.label,
-    required this.gradient,
-    required this.textColor,
-    required this.onPressed,
-  });
-
-  final String label;
-  final LinearGradient gradient;
-  final Color textColor;
-  final VoidCallback onPressed;
-
-  @override
-  State<_AccentButton> createState() => _AccentButtonState();
-}
-
-class _AccentButtonState extends State<_AccentButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onPressed,
-        child: AnimatedScale(
-          scale: _hovered ? 1.02 : 1.0,
-          duration: WpMotion.fast,
-          curve: WpMotion.defaultCurve,
           child: AnimatedContainer(
             duration: WpMotion.fast,
             curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.symmetric(vertical: WpSpacing.md),
-            decoration: BoxDecoration(
-              gradient: widget.gradient,
-              borderRadius: WpRadius.borderMd,
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.lg,
+              vertical: WpSpacing.md,
             ),
-            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isActive ? accent : surfaceVariant,
+              borderRadius: WpRadius.borderFull,
+            ),
             child: Text(
-              widget.label,
+              label,
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: widget.textColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isActive ? Colors.white : textSecondary,
               ),
             ),
           ),
