@@ -2,7 +2,6 @@
 ///
 /// Manages the full lifecycle of the whisper-server HTTP process:
 /// find free port → start subprocess → health-poll → transcribe → stop.
-/// Mirrors the Go `LocalSTT` from `stt.go` as closely as possible.
 library;
 
 import 'dart:async';
@@ -89,7 +88,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   String? _lastPrompt;
 
   /// How long the server stays alive after the last transcription before being
-  /// killed to free GPU/VRAM. Matches the Go backend's idle behaviour.
+  /// killed to free GPU/VRAM.
   static const _idleTimeout = Duration(minutes: 5);
 
   /// Guards against concurrent [ensureRunning] calls (e.g. rapid
@@ -682,9 +681,8 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
   /// Whether GPU should be used for inference.
   ///
-  /// `auto` queries the Go FFI bridge for a recommendation.
-  /// For now, we treat `auto` as GPU-enabled since the Go bridge
-  /// handles the actual backend selection when starting the server.
+  /// `auto` is treated as GPU-enabled — the whisper-server binary
+  /// handles actual backend selection (CUDA / Vulkan / CPU).
   bool _shouldUseGpu(String gpuMode) {
     return gpuMode != 'disabled';
   }

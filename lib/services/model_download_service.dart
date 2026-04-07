@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/config/settings_provider.dart';
+import '../core/app_info.dart';
 import 'path_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -199,7 +200,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   final _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(minutes: 10),
-    headers: {'User-Agent': 'WhisPaste/1.2.0'},
+    headers: {'User-Agent': appUserAgent},
   ));
 
   @override

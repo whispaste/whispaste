@@ -93,7 +93,7 @@ BEGIN
             VALUE "FileDescription", "WhisPaste — Dictate anywhere, paste everywhere" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "whispaste" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 WhisPaste. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (c) 2025 WhisPaste contributors. MIT License." "\0"
             VALUE "OriginalFilename", "whispaste.exe" "\0"
             VALUE "ProductName", "WhisPaste" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/config/settings_labels.dart';
 import '../../core/config/settings_provider.dart';
+import '../../core/app_info.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
@@ -41,7 +42,7 @@ class AboutPage extends ConsumerWidget {
           // ── Brand hero ──
           const Center(child: WpBrandWordmark(height: 64)),
           const SizedBox(height: WpSpacing.md),
-          Center(child: Text(l10n.aboutVersion('1.2.0'), style: ts.bodySmall)),
+          Center(child: Text(l10n.aboutVersion(appVersion), style: ts.bodySmall)),
           const SizedBox(height: WpSpacing.xs),
           Center(
             child: Text(
@@ -739,7 +740,7 @@ class _CopyDiagnosticsButtonState extends State<_CopyDiagnosticsButton> {
 
   void _copy() {
     final info = StringBuffer()
-      ..writeln('WhisPaste v1.2.0')
+      ..writeln('WhisPaste v$appVersion')
       ..writeln(
         'OS: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
       )

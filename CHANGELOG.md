@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.2.0
+
+Complete rewrite: WhisPaste is now a native **Flutter** application replacing the previous Go+WebView2 architecture.
+
+### What's New
+
+- **Native Flutter UI** — truly cross-platform (Windows, macOS, Linux, iOS, Android) with a single Dart codebase
+- **SQLite via Drift** — all data stored locally in a type-safe database; no shared config files
+- **Riverpod state management** — reactive, testable, maintainable architecture
+- **Unified design system** — WpToast notifications, WpDialog modals, consistent theme tokens
+- **Recording pill overlay** — slim, elegant status bar during dictation with progress ring
+- **Floating button** — always-on-top recording trigger with context menu and multi-monitor support
+- **Premium UI** — warm gradients, frosted glass effects, micro-animations, WCAG AA contrast
+- **469+ automated tests** — widget, unit, and integration tests with >90% feature coverage
+
+### Architecture
+
+- All Go backend code removed — zero Go dependencies
+- CI/CD updated for Flutter-only builds (Windows debug + release)
+- Security scanning migrated from golangci-lint/gosec to flutter analyze + gitleaks
+- Version centralized in `pubspec.yaml` with `app_info.dart` constant
+
+### Breaking Changes
+
+- Settings are stored in SQLite, not the legacy Go `config.json`
+- No Go FFI bridge — all inference via whisper-server subprocess
+
+---
+
 ## 1.1.3.0
 
 A polished UI update that makes WhisPaste feel faster, clearer, and more intuitive to use.
