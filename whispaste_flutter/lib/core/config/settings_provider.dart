@@ -706,6 +706,10 @@ String _configPresetFromSetting(String setting) {
 /// the in-memory [AppSettings] on load. A one-time migration moves any
 /// plaintext keys from SQLite into secure storage and clears the SQLite rows.
 class SettingsNotifier extends AsyncNotifier<AppSettings> {
+  /// Completes when deferred secure-key migration/merge finishes.
+  @visibleForTesting
+  Future<void>? secureKeysFuture;
+
   @override
   Future<AppSettings> build() async {
     final db = ref.watch(historyDatabaseProvider);
@@ -724,11 +728,21 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       }
     }
 
-    // Migrate plaintext API keys from SQLite → secure storage (one-time).
-    await _migrateApiKeys(values, secureStore, db);
-
-    // Merge API keys from secure storage into the in-memory settings.
-    settings = await _mergeSecureKeys(settings, secureStore);
+    // Defer slow secure store operations to after initial load.
+    // This lets the app show its window and become interactive immediately.
+    // API keys will be available within ~200ms after startup.
+    secureKeysFuture = Future.microtask(() async {
+      try {
+        await _migrateApiKeys(values, secureStore, db);
+        final merged =
+            await _mergeSecureKeys(state.value ?? settings, secureStore);
+        if (state.value != merged) {
+          state = AsyncData(merged);
+        }
+      } catch (_) {
+        // Non-fatal — keys will be missing until next restart.
+      }
+    });
 
     return settings;
   }
