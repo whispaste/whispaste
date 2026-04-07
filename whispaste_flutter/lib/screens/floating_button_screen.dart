@@ -5,6 +5,7 @@
 /// sends commands (toggle, stop, cancel) back.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -246,6 +247,8 @@ class _DraggableButtonScaffold extends StatefulWidget {
 
 class _DraggableButtonScaffoldState extends State<_DraggableButtonScaffold>
     with WindowListener {
+  Timer? _saveDebounce;
+
   @override
   void initState() {
     super.initState();
@@ -254,14 +257,18 @@ class _DraggableButtonScaffoldState extends State<_DraggableButtonScaffold>
 
   @override
   void dispose() {
+    _saveDebounce?.cancel();
     windowManager.removeListener(this);
     super.dispose();
   }
 
   @override
   void onWindowMoved() {
-    // Fires when the OS finishes the native drag.
-    widget.onDragEnd();
+    // Debounce rapid move events — save only after 500ms of inactivity.
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 500), () {
+      widget.onDragEnd();
+    });
   }
 
   @override
