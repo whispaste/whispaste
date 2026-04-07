@@ -55,34 +55,7 @@ class HistorySearchNotifier extends Notifier<String> {
 final historySearchProvider =
     NotifierProvider<HistorySearchNotifier, String>(HistorySearchNotifier.new);
 
-/// Multi-select state — set of selected entry IDs.
-class MultiSelectNotifier extends Notifier<Set<String>> {
-  @override
-  Set<String> build() => {};
-
-  void toggle(String id) {
-    if (state.contains(id)) {
-      state = {...state}..remove(id);
-    } else {
-      state = {...state, id};
-    }
-  }
-
-  void clear() => state = {};
-
-  void selectAll(List<String> ids) => state = {...ids};
-}
-
-final multiSelectProvider =
-    NotifierProvider<MultiSelectNotifier, Set<String>>(
-        MultiSelectNotifier.new);
-
-/// Whether multi-select mode is active.
-final multiSelectActiveProvider = Provider<bool>((ref) {
-  return ref.watch(multiSelectProvider).isNotEmpty;
-});
-
-/// Filtered and searched history entries — the main data source for the list.
+/// Filtered and searched history entries— the main data source for the list.
 final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
   final filter = ref.watch(historyFilterProvider);
 

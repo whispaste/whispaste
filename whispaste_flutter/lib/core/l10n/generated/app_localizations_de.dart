@@ -508,7 +508,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsResetConfirmMessage =>
-      'Alle Einstellungen werden auf die ursprünglichen Werte zurückgesetzt. Dein Verlauf und deine Daten sind davon nicht betroffen.';
+      'Alle Einstellungen werden auf die ursprünglichen Werte zurückgesetzt und die Nutzungsstatistiken gelöscht. Deine Verlaufseinträge sind davon nicht betroffen.';
 
   @override
   String get settingsResetConfirm => 'Zurücksetzen';
@@ -899,12 +899,6 @@ class L10nDe extends L10n {
 
   @override
   String get aboutShortcutRecord => 'Aufnahme starten / stoppen';
-
-  @override
-  String get aboutShortcutPalette => 'Befehlspalette';
-
-  @override
-  String get aboutShortcutSettings => 'Einstellungen';
 
   @override
   String get aboutLinks => 'Links';
