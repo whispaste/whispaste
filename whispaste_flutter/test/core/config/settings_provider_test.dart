@@ -56,6 +56,8 @@ void main() {
       ],
     );
     await container.read(settingsProvider.future);
+    // Wait for deferred secure store migration/merge to complete.
+    await container.read(settingsProvider.notifier).secureKeysFuture;
   });
 
   tearDown(() {
@@ -152,9 +154,12 @@ void main() {
       );
       addTearDown(container2.dispose);
 
-      final settings = await container2.read(settingsProvider.future);
+      await container2.read(settingsProvider.future);
+      // Wait for deferred secure store migration/merge to complete.
+      await container2.read(settingsProvider.notifier).secureKeysFuture;
 
-      // Key is available in settings.
+      // Key is available in settings (re-read after deferred merge).
+      final settings = container2.read(settingsProvider).value!;
       expect(settings.groqApiKey, 'gsk-legacy');
 
       // Key is now in secure storage.

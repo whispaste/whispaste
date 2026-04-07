@@ -149,12 +149,14 @@ class _AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
   Timer? _windowSaveTimer;
   bool _isMaximized = false;
+  bool _orchestratorInitialized = false;
 
   @override
   void initState() {
     super.initState();
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       windowManager.addListener(this);
+      windowManager.setPreventClose(true);
       windowManager.isMaximized().then((v) => _isMaximized = v);
     }
   }
@@ -213,6 +215,17 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
   }
 
   @override
+  void onWindowClose() async {
+    // Intercept the X button to shut down floating windows before exiting.
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      try {
+        await ref.read(multiWindowProvider.notifier).shutdownAll();
+      } catch (_) {}
+    }
+    await windowManager.destroy();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final activePage = ref.watch(activePageProvider);
     final recordingPhase = ref.watch(recordingPhaseProvider);
@@ -233,9 +246,16 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     // lifetime (tray icon, hotkey listener, STT prewarm, multi-window).
     // Safe despite being in build() — no re-init on rebuild.
 
-    // Eagerly initialise the recording orchestrator so that the STT server
-    // prewarm fires at app startup — not when the user first taps record.
-    ref.watch(recordingOrchestratorProvider);
+    // Defer recording orchestrator init (and its STT prewarm) until after
+    // the first frame — so the window is interactive immediately.
+    if (!_orchestratorInitialized) {
+      _orchestratorInitialized = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(recordingOrchestratorProvider);
+      });
+    } else {
+      ref.watch(recordingOrchestratorProvider);
+    }
 
     // Eagerly initialise system tray and wire callbacks.
     ref.watch(trayServiceProvider);

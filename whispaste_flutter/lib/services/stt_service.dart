@@ -309,6 +309,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     if (proc != null) {
       try {
         proc.kill();
+        // Give the process 2s to exit, then move on.
+        proc.exitCode
+            .timeout(const Duration(seconds: 2), onTimeout: () => -1)
+            .then((_) {});
       } on ProcessException catch (e) {
         // Process already exited — this is fine.
         _log.debug('Kill whisper-server: $e');
