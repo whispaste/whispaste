@@ -166,7 +166,7 @@ class _AppShell extends ConsumerWidget {
     // Also triggers sound feedback for start / stop / complete / error.
     // Also updates the system tray menu.
     ref.listen<RecordingState>(recordingProvider, (prev, next) {
-      tray.updateRecordingState(next);
+      tray.updateRecordingState(next, l10n: l10n);
       if (next.isError && next.errorMessage != null) {
         ref.read(soundFeedbackProvider.notifier).playError();
         WpToast.show(
@@ -319,9 +319,14 @@ class _AppShell extends ConsumerWidget {
           if (!settings.onboardingCompleted)
             const Positioned.fill(child: OnboardingOverlay()),
 
-          // Recording overlay — bottom-center above status bar
+          // Recording overlay — shown in-window when:
+          //  1. overlayMode is 'in-window', OR
+          //  2. overlayMode is 'floating' but the floating window isn't visible
+          //     (fallback so user always sees recording status)
           if (recordingPhase != RecordingPhase.idle &&
-              settings.overlayMode == 'in-window')
+              (settings.overlayMode == 'in-window' ||
+               (settings.overlayMode == 'floating' &&
+                !(ref.watch(multiWindowProvider).overlayVisible))))
             const Positioned(
               bottom: WpLayout.statusBarHeight + 8,
               left: 0,

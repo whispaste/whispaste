@@ -1438,4 +1438,31 @@ class L10nEn extends L10n {
 
   @override
   String get overlayProcessingCloud => 'Cloud';
+
+  @override
+  String get floatingButtonHide => 'Hide';
+
+  @override
+  String get floatingButtonQuit => 'Quit';
+
+  @override
+  String get trayStatusRecording => 'Recording…';
+
+  @override
+  String get trayStatusReady => 'Ready';
+
+  @override
+  String get trayStartRecording => 'Start Recording';
+
+  @override
+  String get trayStopRecording => 'Stop Recording';
+
+  @override
+  String get trayOpenApp => 'Open WhisPaste';
+
+  @override
+  String get traySettings => 'Settings';
+
+  @override
+  String get trayQuit => 'Quit';
 }

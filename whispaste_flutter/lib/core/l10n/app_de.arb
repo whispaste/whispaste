@@ -473,5 +473,14 @@
     }
   },
   "overlayProcessingLocal": "Lokal",
-  "overlayProcessingCloud": "Cloud"
+  "overlayProcessingCloud": "Cloud",
+  "floatingButtonHide": "Ausblenden",
+  "floatingButtonQuit": "Beenden",
+  "trayStatusRecording": "Aufnahme…",
+  "trayStatusReady": "Bereit",
+  "trayStartRecording": "Aufnahme starten",
+  "trayStopRecording": "Aufnahme beenden",
+  "trayOpenApp": "WhisPaste öffnen",
+  "traySettings": "Einstellungen",
+  "trayQuit": "Beenden"
 }
