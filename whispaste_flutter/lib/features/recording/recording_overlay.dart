@@ -177,7 +177,7 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 480, minHeight: 64),
+        constraints: const BoxConstraints(maxWidth: 480, minWidth: 220, minHeight: 64),
         decoration: BoxDecoration(
           borderRadius: pillRadius,
           boxShadow: WpShadows.elevated,
@@ -271,7 +271,8 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
     final showCancel = phase == RecordingPhase.recording ||
         phase == RecordingPhase.transcribing ||
         phase == RecordingPhase.processing ||
-        phase == RecordingPhase.error;
+        phase == RecordingPhase.error ||
+        phase == RecordingPhase.done;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -431,14 +432,13 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
     );
   }
 
-  /// Done: subtle success text that fades out quickly.
-  /// Adapts message to the actual after-transcription setting.
+  /// Done: success icon + context-appropriate message.
   Widget _buildDoneCenter(bool isDark) {
     final l10n = L10n.of(context);
     final settings =
         ref.watch(settingsProvider).value ?? AppSettings.defaults;
-    final textColor =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final successColor =
+        isDark ? WpColorsDark.success : WpColorsLight.success;
 
     // Show context-appropriate done message.
     final doneText = switch (settings.afterTranscriptionAction) {
@@ -448,13 +448,20 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
       _ => l10n.overlayDone, // clipboard default
     };
 
-    return Text(
-      doneText,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: textColor,
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(LucideIcons.circleCheck, size: WpIconSize.sm, color: successColor),
+        const SizedBox(width: WpSpacing.xs),
+        Text(
+          doneText,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: successColor,
+          ),
+        ),
+      ],
     );
   }
 
@@ -604,6 +611,18 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
               );
 
             case RecordingPhase.done:
+              // Full green bar — visual completion signal.
+              return Container(
+                height: 4,
+                width: fullWidth,
+                decoration: BoxDecoration(
+                  color: isDark ? WpColorsDark.success : WpColorsLight.success,
+                  borderRadius: const BorderRadius.horizontal(
+                    right: Radius.circular(2),
+                  ),
+                ),
+              );
+
             case RecordingPhase.error:
             case RecordingPhase.idle:
               return const SizedBox.shrink();

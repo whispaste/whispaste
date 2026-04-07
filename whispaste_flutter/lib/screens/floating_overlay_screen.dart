@@ -397,11 +397,16 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.check, size: 16, color: WpColorsDark.success),
+            const Icon(LucideIcons.circleCheck,
+                size: 16, color: WpColorsDark.success),
             const SizedBox(width: WpSpacing.xs),
             Text(
               l10n.overlayDone,
-              style: const TextStyle(color: WpColorsDark.success, fontSize: 13),
+              style: const TextStyle(
+                color: WpColorsDark.success,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         );
