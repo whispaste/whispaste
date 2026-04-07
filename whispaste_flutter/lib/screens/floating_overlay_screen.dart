@@ -71,6 +71,12 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
     with WindowHeartbeat {
   RecordingState _state = const RecordingState();
 
+  /// When true, this window has been shut down and ignores all method calls.
+  /// We can't truly destroy a secondary engine (the package has no API for it),
+  /// so we hide + go inert instead of calling exit(0) which would kill the
+  /// entire process.
+  bool _inert = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,14 +95,22 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
   }
 
   Future<dynamic> _onMethodCall(MethodCall call) async {
+    if (_inert) return null; // Window has been shut down — ignore everything.
     if (call.method == 'updateRecordingState' && call.arguments is String) {
       setState(() {
         _state = decodeRecordingState(call.arguments as String);
       });
     } else if (call.method == 'shutdown') {
-      debugPrint('FloatingOverlay: received shutdown command — exiting');
+      // IMPORTANT: Do NOT call exit(0) here! All windows share the same OS
+      // process — exit(0) would kill the ENTIRE application including the
+      // main window. Instead, go inert: stop heartbeat, hide, ignore future
+      // method calls.
+      debugPrint('FloatingOverlay: received shutdown — going inert');
       stopHeartbeat();
-      exit(0);
+      _inert = true;
+      try {
+        await windowManager.hide();
+      } catch (_) {}
     }
     return null;
   }
