@@ -1243,6 +1243,21 @@ class L10nEn extends L10n {
   String get historyCopiedAsMarkdown => 'Copied as Markdown';
 
   @override
+  String get historyAddTag => 'Add tag…';
+
+  @override
+  String get historyTagAdded => 'Tag added';
+
+  @override
+  String get historyTagRemoved => 'Tag removed';
+
+  @override
+  String get historyEditTranscript => 'Edit transcript';
+
+  @override
+  String get historyTranscriptSaved => 'Transcript saved';
+
+  @override
   String get settingsKeyboardShortcut => 'Keyboard Shortcut';
 
   @override

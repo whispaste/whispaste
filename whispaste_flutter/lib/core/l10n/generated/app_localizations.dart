@@ -2407,6 +2407,36 @@ abstract class L10n {
   /// **'Copied as Markdown'**
   String get historyCopiedAsMarkdown;
 
+  /// No description provided for @historyAddTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Add tag…'**
+  String get historyAddTag;
+
+  /// No description provided for @historyTagAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag added'**
+  String get historyTagAdded;
+
+  /// No description provided for @historyTagRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag removed'**
+  String get historyTagRemoved;
+
+  /// No description provided for @historyEditTranscript.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit transcript'**
+  String get historyEditTranscript;
+
+  /// No description provided for @historyTranscriptSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcript saved'**
+  String get historyTranscriptSaved;
+
   /// No description provided for @settingsKeyboardShortcut.
   ///
   /// In en, this message translates to:

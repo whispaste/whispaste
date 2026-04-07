@@ -1257,6 +1257,21 @@ class L10nDe extends L10n {
   String get historyCopiedAsMarkdown => 'Als Markdown kopiert';
 
   @override
+  String get historyAddTag => 'Tag hinzufügen…';
+
+  @override
+  String get historyTagAdded => 'Tag hinzugefügt';
+
+  @override
+  String get historyTagRemoved => 'Tag entfernt';
+
+  @override
+  String get historyEditTranscript => 'Transkript bearbeiten';
+
+  @override
+  String get historyTranscriptSaved => 'Transkript gespeichert';
+
+  @override
   String get settingsKeyboardShortcut => 'Tastenkürzel';
 
   @override
