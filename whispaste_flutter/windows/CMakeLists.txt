@@ -71,6 +71,7 @@ endif()
 
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
+set(TRAY_ICON_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/../../resources/tray.ico")
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
@@ -106,6 +107,14 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+if(EXISTS "${TRAY_ICON_SOURCE}")
+  install(FILES "${TRAY_ICON_SOURCE}"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/resources"
+    COMPONENT Runtime)
+else()
+  message(WARNING "WhisPaste: tray icon not found at ${TRAY_ICON_SOURCE}")
+endif()
 
 # --- WhisPaste Go FFI bridge ---
 # Bundle the prebuilt Go shared library alongside the executable.

@@ -192,9 +192,17 @@ class RecordingOrchestrator extends Notifier<void> {
         effectiveLang = appLocale; // e.g. "de", "en"
       }
 
-      // Ensure STT server is ready.
+      // Ensure STT server is ready (with timeout to prevent indefinite hang).
       final sttNotifier = ref.read(sttServiceProvider.notifier);
-      await sttNotifier.ensureRunning();
+      try {
+        await sttNotifier.ensureRunning().timeout(
+              const Duration(seconds: 30),
+            );
+      } on TimeoutException {
+        notifier.fail('stt_start_timeout');
+        _log.warning('STT server start timed out after 30s');
+        return;
+      }
 
       // Verify server is ready before transcribing.
       final sttStatus = ref.read(sttServiceProvider);
@@ -242,16 +250,23 @@ class RecordingOrchestrator extends Notifier<void> {
 
       if (settings.postProcessEnabled) {
         notifier.startProcessing();
-        _log.info('Post-processing enabled — refining transcript');
+        _log.info('Post-processing enabled — skipping (not yet implemented)');
 
         // TODO: Wire actual LLM post-processing via Go FFI or cloud API.
-        // For now, skip the LLM call and use the raw transcript.
-        // final llm = ref.read(llmServiceProvider.notifier);
-        // finalText = await llm.postProcess(transcript, config);
       }
 
       // Copy to clipboard / auto-paste based on user preference.
-      await _handleAfterTranscription(finalText, config);
+      // Timeout prevents a locked clipboard from hanging the pipeline.
+      try {
+        await _handleAfterTranscription(finalText, config).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            _log.warning('After-transcription action timed out (10s)');
+          },
+        );
+      } on Exception catch (e) {
+        _log.warning('After-transcription action failed (non-fatal): $e');
+      }
 
       // Transition state: transcribing/processing → done.
       notifier.completeTranscription(finalText);
@@ -328,6 +343,7 @@ class RecordingOrchestrator extends Notifier<void> {
     final recording = ref.read(recordingProvider);
 
     final id = '${now.millisecondsSinceEpoch}';
+    final durationSec = recording.elapsed.inSeconds.toDouble();
 
     // Auto-generate a short title from the first ~60 chars.
     var title = transcript.trim();
@@ -338,17 +354,33 @@ class RecordingOrchestrator extends Notifier<void> {
       title = lastSpace > 20 ? '${cut.substring(0, lastSpace)}…' : '$cut…';
     }
 
+    final wordCount = transcript.trim().isEmpty
+        ? 0
+        : transcript.trim().split(RegExp(r'\s+')).length;
+
     await db.upsertEntry(HistoryEntriesCompanion(
       id: Value(id),
       content: Value(transcript),
       title: Value(title),
       timestamp: Value(now),
-      durationSec: Value(recording.elapsed.inSeconds.toDouble()),
+      durationSec: Value(durationSec),
       language: Value(config.transcriptionLanguage),
       model: Value(config.localModelId),
       isLocal: const Value(true),
       source: const Value('dictation'),
     ));
+
+    // Persist analytics independently from history — these counters survive
+    // history entry deletion.
+    await db.recordDailyStat(
+      timestamp: now,
+      model: config.localModelId,
+      isLocal: true,
+      durationSec: durationSec,
+      processingDurationSec: 0,
+      wordCount: wordCount,
+      costUsd: 0,
+    );
 
     _log.info('Saved entry $id to history');
   }
@@ -477,7 +509,12 @@ class RecordingOrchestrator extends Notifier<void> {
 
     // clipboard, paste, and clipboardAndPaste all start by copying.
     try {
-      await Clipboard.setData(ClipboardData(text: transcript));
+      await Clipboard.setData(ClipboardData(text: transcript)).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          _log.warning('Clipboard.setData timed out after 5s');
+        },
+      );
       _log.info('Transcript copied to clipboard (${transcript.length} chars)');
     } on Exception catch (e) {
       _log.warning('Clipboard copy failed: $e');

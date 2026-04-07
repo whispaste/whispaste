@@ -31,16 +31,21 @@ Future<void> runFloatingButtonWindow(WindowController controller) async {
   // Parse initial settings from arguments passed by the main window.
   int buttonSize = 56;
   double buttonOpacity = 1.0;
-  bool buttonLocked = false;
   double posX = -1.0;
   double posY = -1.0;
+  int launchEpochMs = 0;
+  int maxRecordDurationSeconds = 0;
+  bool showRecordingProgress = false;
   try {
     final args = jsonDecode(controller.arguments) as Map<String, dynamic>;
     buttonSize = args['size'] as int? ?? 56;
     buttonOpacity = (args['opacity'] as num?)?.toDouble() ?? 1.0;
-    buttonLocked = args['locked'] as bool? ?? false;
     posX = (args['posX'] as num?)?.toDouble() ?? -1.0;
     posY = (args['posY'] as num?)?.toDouble() ?? -1.0;
+    launchEpochMs = (args['launchEpochMs'] as num?)?.toInt() ?? 0;
+    maxRecordDurationSeconds =
+        (args['maxRecordDurationSeconds'] as num?)?.toInt() ?? 0;
+    showRecordingProgress = args['showRecordingProgress'] == true;
   } catch (e) {
     debugPrint('FloatingButton: failed to parse arguments: $e');
   }
@@ -71,12 +76,16 @@ Future<void> runFloatingButtonWindow(WindowController controller) async {
     await windowManager.focus();
   });
 
-  runApp(_FloatingButtonApp(
-    controller: controller,
-    buttonSize: buttonSize,
-    buttonOpacity: buttonOpacity,
-    buttonLocked: buttonLocked,
-  ));
+  runApp(
+    _FloatingButtonApp(
+      controller: controller,
+      buttonSize: buttonSize,
+      buttonOpacity: buttonOpacity,
+      launchEpochMs: launchEpochMs,
+      maxRecordDurationSeconds: maxRecordDurationSeconds,
+      showRecordingProgress: showRecordingProgress,
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -88,47 +97,73 @@ class _FloatingButtonApp extends StatefulWidget {
     required this.controller,
     required this.buttonSize,
     required this.buttonOpacity,
-    required this.buttonLocked,
+    required this.launchEpochMs,
+    required this.maxRecordDurationSeconds,
+    required this.showRecordingProgress,
   });
 
   final WindowController controller;
   final int buttonSize;
   final double buttonOpacity;
-  final bool buttonLocked;
+  final int launchEpochMs;
+  final int maxRecordDurationSeconds;
+  final bool showRecordingProgress;
 
   @override
   State<_FloatingButtonApp> createState() => _FloatingButtonAppState();
 }
 
 class _FloatingButtonAppState extends State<_FloatingButtonApp>
-    with WindowHeartbeat {
+    with WindowHeartbeat, WindowListener {
   RecordingState _recordingState = const RecordingState();
   late int _buttonSize;
   late double _buttonOpacity;
-  late bool _buttonLocked;
+  late int _maxRecordDurationSeconds;
+  late bool _showRecordingProgress;
 
   /// When true, this window has been shut down and ignores all method calls.
   bool _inert = false;
+
+  /// Periodically re-asserts always-on-top so the button isn't buried by other
+  /// topmost windows (e.g. game overlays, fullscreen apps).
+  Timer? _topmostTimer;
+
+  /// Debounce timer for saving window position after drag.
+  Timer? _saveDebounce;
 
   @override
   void initState() {
     super.initState();
     _buttonSize = widget.buttonSize;
     _buttonOpacity = widget.buttonOpacity;
-    _buttonLocked = widget.buttonLocked;
+    _maxRecordDurationSeconds = widget.maxRecordDurationSeconds;
+    _showRecordingProgress = widget.showRecordingProgress;
     // Listen for state pushes from the main window.
     try {
       widget.controller.setWindowMethodHandler(_onMethodCall);
     } catch (e) {
       debugPrint('FloatingButton: failed to register method handler: $e');
     }
+    windowManager.addListener(this);
     startHeartbeat();
+    _topmostTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!_inert) windowManager.setAlwaysOnTop(true).catchError((_) {});
+    });
   }
 
   @override
   void dispose() {
+    _topmostTimer?.cancel();
+    _saveDebounce?.cancel();
+    windowManager.removeListener(this);
     stopHeartbeat();
     super.dispose();
+  }
+
+  @override
+  void onWindowMoved() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 500), _savePosition);
   }
 
   Future<dynamic> _onMethodCall(MethodCall call) async {
@@ -149,16 +184,44 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
               _buttonSize = data['size'] as int? ?? _buttonSize;
               _buttonOpacity =
                   (data['opacity'] as num?)?.toDouble() ?? _buttonOpacity;
-              _buttonLocked = data['locked'] as bool? ?? _buttonLocked;
+              _maxRecordDurationSeconds =
+                  (data['maxRecordDurationSeconds'] as num?)?.toInt() ??
+                  _maxRecordDurationSeconds;
+              _showRecordingProgress =
+                  data['showRecordingProgress'] as bool? ??
+                  _showRecordingProgress;
             });
             // Resize the window to match the new button size.
             final windowSize = (_buttonSize * 1.8).ceilToDouble();
-            await windowManager
-                .setSize(Size(windowSize, windowSize));
+            await windowManager.setSize(Size(windowSize, windowSize));
           } catch (e) {
             debugPrint('FloatingButton: failed to parse settings: $e');
           }
         }
+      case 'showWindow':
+        try {
+          await windowManager.show();
+          await windowManager.setAlwaysOnTop(true);
+        } catch (e) {
+          debugPrint('FloatingButton: showWindow failed: $e');
+        }
+      case 'assertTopmost':
+        try {
+          await windowManager.setAlwaysOnTop(true);
+        } catch (_) {}
+      case 'hideWindow':
+        try {
+          await windowManager.hide();
+        } catch (e) {
+          debugPrint('FloatingButton: hideWindow failed: $e');
+        }
+      case 'getWindowStatus':
+        return jsonEncode({
+          'type': WindowType.floatingButton,
+          'visible': await windowManager.isVisible(),
+          'inert': _inert,
+          'launchEpochMs': widget.launchEpochMs,
+        });
       case 'shutdown':
         // IMPORTANT: Do NOT call exit(0) here! All windows share the same OS
         // process — exit(0) would kill the ENTIRE application including the
@@ -186,19 +249,78 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
     commandChannel.invokeMethod('quitApp');
   }
 
+  /// GlobalKey for the navigator context — needed for `showMenu` after window
+  /// resize so Flutter's overlay has room for the popup.
+  final _navKey = GlobalKey<NavigatorState>();
+
+  /// Whether the context menu is currently open (prevents re-entrant calls).
+  bool _menuOpen = false;
+
+  /// Saved button window position/size before expanding for context menu.
+  Offset? _preMenuPosition;
+  Size? _preMenuSize;
+
+  /// Opens the context menu: expands the window, shows the popup, dispatches
+  /// the action, and shrinks back. This entire flow is sequential to avoid
+  /// the race condition where the menu renders in the unexpanded window.
+  Future<void> _openContextMenu(Offset globalPosition) async {
+    if (_menuOpen || _inert) return;
+    _menuOpen = true;
+    try {
+      await _expandForMenu();
+      // Small delay so the window manager completes the resize before
+      // Flutter paints the overlay.
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      if (!mounted) return;
+      final ctx = _navKey.currentContext;
+      if (ctx == null) {
+        _menuOpen = false;
+        await _shrinkAfterMenu();
+        return;
+      }
+      // Position menu at the top-left of the expanded window.
+      // ignore: use_build_context_synchronously — ctx is from a GlobalKey,
+      // freshly obtained and null-checked after the await; not the State's own
+      // context.
+      final action = await WpFloatingButton.showButtonContextMenu(
+        ctx, // ignore: use_build_context_synchronously
+        const Offset(8, 8),
+      );
+      _buttonWidget?.handleMenuAction(action);
+    } finally {
+      _menuOpen = false;
+      await _shrinkAfterMenu();
+    }
+  }
+
+  /// Reference to the current button widget for dispatching menu actions.
+  WpFloatingButton? _buttonWidget;
+
   /// Expand the window to accommodate a popup menu above the button.
   Future<void> _expandForMenu() async {
     try {
       final pos = await windowManager.getPosition();
+      final curSize = await windowManager.getSize();
+      _preMenuPosition = pos;
+      _preMenuSize = curSize;
+
       const menuW = 220.0;
       const menuH = 240.0;
-      final btnWindow = (_buttonSize * 1.8).ceilToDouble();
+      final btnWindow = curSize.width; // current square window size
       final newW = menuW.clamp(btnWindow, 400.0);
       final newH = menuH + btnWindow;
-      // Move window up so the button stays in the same screen position.
-      final newY = pos.dy - menuH;
+
+      // Move window up by menuH so the button (at bottom) stays in place.
+      // Also center the wider window horizontally around the button center.
+      final newY = (pos.dy - menuH).clamp(0.0, double.infinity);
+      final newX = pos.dx - (newW - btnWindow) / 2;
+
+      // Hide→reposition→resize→show to avoid visible jump.
+      await windowManager.hide();
+      await windowManager.setPosition(Offset(newX, newY));
       await windowManager.setSize(Size(newW, newH));
-      await windowManager.setPosition(Offset(pos.dx, newY));
+      await windowManager.show();
+      await windowManager.setAlwaysOnTop(true);
     } catch (e) {
       debugPrint('FloatingButton: expandForMenu failed: $e');
     }
@@ -207,13 +329,29 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
   /// Shrink back to button size after the menu closes.
   Future<void> _shrinkAfterMenu() async {
     try {
-      final pos = await windowManager.getPosition();
-      final btnWindow = (_buttonSize * 1.8).ceilToDouble();
-      const menuH = 240.0;
-      // Restore position: move down by the menu height we added.
-      final newY = pos.dy + menuH;
-      await windowManager.setSize(Size(btnWindow, btnWindow));
-      await windowManager.setPosition(Offset(pos.dx, newY));
+      final origPos = _preMenuPosition;
+      final origSize = _preMenuSize;
+      _preMenuPosition = null;
+      _preMenuSize = null;
+
+      // Hide→resize→reposition→show to avoid visible jump.
+      await windowManager.hide();
+
+      if (origPos != null && origSize != null) {
+        await windowManager.setSize(origSize);
+        await windowManager.setPosition(origPos);
+      } else {
+        // Fallback: use current position + offset.
+        final pos = await windowManager.getPosition();
+        final btnWindow = (_buttonSize * 1.8).ceilToDouble();
+        const menuH = 240.0;
+        final newY = pos.dy + menuH;
+        await windowManager.setSize(Size(btnWindow, btnWindow));
+        await windowManager.setPosition(Offset(pos.dx, newY));
+      }
+
+      await windowManager.show();
+      await windowManager.setAlwaysOnTop(true);
     } catch (e) {
       debugPrint('FloatingButton: shrinkAfterMenu failed: $e');
     }
@@ -221,7 +359,6 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
 
   /// Initiates a native window drag — the OS handles tracking until release.
   void _startDrag() {
-    if (_buttonLocked) return;
     windowManager.startDragging();
   }
 
@@ -240,94 +377,50 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
 
   @override
   Widget build(BuildContext context) {
+    final button = WpFloatingButton(
+      size: _buttonSize.toDouble(),
+      opacity: _buttonOpacity,
+      phase: _recordingState.phase,
+      elapsed: _recordingState.elapsed,
+      maxRecordDurationSeconds: _maxRecordDurationSeconds,
+      showRecordingProgress: _showRecordingProgress,
+      onTap: _toggleRecording,
+      onDragStart: _startDrag,
+      onDragEnd: _savePosition,
+      onContextMenuRequest: _openContextMenu,
+      onNavigate: (page) {
+        commandChannel.invokeMethod('showMainWindow', page);
+      },
+      onHide: _hideButton,
+      onQuit: _quitApp,
+    );
+    _buttonWidget = button;
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      navigatorKey: _navKey,
       theme: wpDarkTheme(),
       darkTheme: wpDarkTheme(),
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
-      home: _DraggableButtonScaffold(
-        locked: _buttonLocked,
-        onDragStart: _startDrag,
-        onDragEnd: _savePosition,
-        child: WpFloatingButton(
-          size: _buttonSize.toDouble(),
-          opacity: _buttonOpacity,
-          phase: _recordingState.phase,
-          onTap: _toggleRecording,
-          onLongPress: () async {
-            await _expandForMenu();
-          },
-          enableContextMenu: true,
-          onMenuClosed: _shrinkAfterMenu,
-          locked: _buttonLocked,
-          onNavigate: (page) {
-            commandChannel.invokeMethod('showMainWindow');
-          },
-          onHide: _hideButton,
-          onQuit: _quitApp,
-        ),
-      ),
+      home: _ButtonScaffold(child: button),
     );
   }
 }
 
-/// Scaffold that wraps the floating button with drag-to-move support.
-///
-/// Uses [GestureDetector.onPanStart] to initiate native window dragging
-/// via [windowManager.startDragging()]. Position is saved on drag end.
-class _DraggableButtonScaffold extends StatefulWidget {
-  const _DraggableButtonScaffold({
-    required this.locked,
-    required this.onDragStart,
-    required this.onDragEnd,
-    required this.child,
-  });
+/// Simple transparent scaffold that hosts the floating button.
+class _ButtonScaffold extends StatelessWidget {
+  const _ButtonScaffold({required this.child});
 
-  final bool locked;
-  final VoidCallback onDragStart;
-  final VoidCallback onDragEnd;
   final Widget child;
-
-  @override
-  State<_DraggableButtonScaffold> createState() =>
-      _DraggableButtonScaffoldState();
-}
-
-class _DraggableButtonScaffoldState extends State<_DraggableButtonScaffold>
-    with WindowListener {
-  Timer? _saveDebounce;
-
-  @override
-  void initState() {
-    super.initState();
-    windowManager.addListener(this);
-  }
-
-  @override
-  void dispose() {
-    _saveDebounce?.cancel();
-    windowManager.removeListener(this);
-    super.dispose();
-  }
-
-  @override
-  void onWindowMoved() {
-    // Debounce rapid move events — save only after 500ms of inactivity.
-    _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 500), () {
-      widget.onDragEnd();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: GestureDetector(
-        onPanStart: widget.locked ? null : (_) => widget.onDragStart(),
-        child: Center(child: widget.child),
-      ),
+      // bottomCenter keeps the button visually pinned when the window
+      // expands upward for the context menu.
+      body: Align(alignment: Alignment.bottomCenter, child: child),
     );
   }
 }

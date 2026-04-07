@@ -1,11 +1,10 @@
 /// Reusable setting widgets shared across all settings sections.
 library;
 
-
-
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/config/settings_labels.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
@@ -57,8 +56,8 @@ class _SettingRowState extends State<SettingRow> {
             color: _isHovered
                 ? (isDark ? WpColorsDark.hover : WpColorsLight.hover)
                 : (isDark
-                    ? WpColorsDark.hoverTransparent
-                    : WpColorsLight.hoverTransparent),
+                      ? WpColorsDark.hoverTransparent
+                      : WpColorsLight.hoverTransparent),
             borderRadius: WpRadius.borderSm,
           ),
           child: Row(
@@ -117,13 +116,8 @@ class HotkeyDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final parts = <String>[
-      ...hotkeyModifiers
-          .split('+')
-          .where((s) => s.trim().isNotEmpty)
-          .map((s) => _capitalize(s.trim())),
-      hotkeyKey,
-    ];
+    final l10n = L10n.of(context);
+    final parts = hotkeyDisplayParts(hotkeyModifiers, hotkeyKey, l10n: l10n);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -175,9 +169,6 @@ class HotkeyDisplay extends StatelessWidget {
       ],
     );
   }
-
-  static String _capitalize(String s) =>
-      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 }
 
 // ---------------------------------------------------------------------------
@@ -197,12 +188,12 @@ Widget settingsDropdown({
     height: 32,
     padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
     decoration: BoxDecoration(
-      color:
-          isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant,
+      color: isDark
+          ? WpColorsDark.surfaceVariant
+          : WpColorsLight.surfaceVariant,
       borderRadius: WpRadius.borderSm,
       border: Border.all(
-        color:
-            isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
+        color: isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle,
       ),
     ),
     child: DropdownButtonHideUnderline(

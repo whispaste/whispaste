@@ -22,14 +22,16 @@ class WpFloatingButton extends StatefulWidget {
     required this.size,
     required this.opacity,
     required this.phase,
+    this.elapsed = Duration.zero,
+    this.maxRecordDurationSeconds = 0,
+    this.showRecordingProgress = false,
     required this.onTap,
-    required this.onLongPress,
+    this.onDragStart,
+    this.onDragEnd,
     this.onNavigate,
     this.onHide,
     this.onQuit,
-    this.onMenuClosed,
-    this.locked = false,
-    this.enableContextMenu = true,
+    this.onContextMenuRequest,
   });
 
   /// Diameter in logical pixels (48, 56, or 72).
@@ -41,11 +43,23 @@ class WpFloatingButton extends StatefulWidget {
   /// Current recording phase — drives gradient, icon, and animation.
   final RecordingPhase phase;
 
+  /// Elapsed recording duration.
+  final Duration elapsed;
+
+  /// Active recording limit in seconds. `0` disables the progress ring.
+  final int maxRecordDurationSeconds;
+
+  /// Whether the floating button should surface recording-time progress.
+  final bool showRecordingProgress;
+
   /// Toggle recording (start / stop).
   final VoidCallback onTap;
 
-  /// Show the long-press context menu.
-  final VoidCallback onLongPress;
+  /// Start dragging the window (native drag).
+  final VoidCallback? onDragStart;
+
+  /// Drag ended — save position.
+  final VoidCallback? onDragEnd;
 
   /// Navigate to a named page (e.g. 'history', 'settings').
   final void Function(String page)? onNavigate;
@@ -56,17 +70,120 @@ class WpFloatingButton extends StatefulWidget {
   /// Quit the application.
   final VoidCallback? onQuit;
 
-  /// Called after the context menu closes (for window resize cleanup).
-  final VoidCallback? onMenuClosed;
-
-  /// When true, dragging is disabled.
-  final bool locked;
-
-  /// Whether the built-in context menu should open on long-press.
-  final bool enableContextMenu;
+  /// Called on right-click or long-press. The screen should expand the window,
+  /// show the menu (calling [showButtonContextMenu]), then shrink back.
+  final void Function(Offset globalPosition)? onContextMenuRequest;
 
   @override
   State<WpFloatingButton> createState() => _WpFloatingButtonState();
+
+  /// Shows the popup context menu. Call from the screen AFTER expanding the
+  /// window so Flutter's overlay has room to render the menu.
+  static Future<ButtonMenuAction?> showButtonContextMenu(
+    BuildContext context,
+    Offset position,
+  ) {
+    final l10n = L10n.of(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final surfaceColor = isDark
+        ? WpColorsDark.surfaceElevated
+        : WpColorsLight.surfaceElevated;
+    final textColor = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final mutedColor = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+
+    return showMenu<ButtonMenuAction>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      color: surfaceColor,
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: WpRadius.borderLg,
+        side: BorderSide(
+          color: isDark
+              ? WpColorsDark.borderSubtle
+              : WpColorsLight.borderSubtle,
+        ),
+      ),
+      items: [
+        _menuItem(
+          ButtonMenuAction.dashboard,
+          LucideIcons.layoutDashboard,
+          l10n.navHistory,
+          textColor,
+          mutedColor,
+        ),
+        _menuItem(
+          ButtonMenuAction.settings,
+          LucideIcons.settings,
+          l10n.navSettings,
+          textColor,
+          mutedColor,
+        ),
+        const PopupMenuDivider(height: 8),
+        _menuItem(
+          ButtonMenuAction.hide,
+          LucideIcons.eyeOff,
+          l10n.floatingButtonHide,
+          textColor,
+          mutedColor,
+        ),
+        _menuItem(
+          ButtonMenuAction.quit,
+          LucideIcons.power,
+          l10n.floatingButtonQuit,
+          textColor,
+          mutedColor,
+        ),
+      ],
+    );
+  }
+
+  /// Dispatches a menu action to the appropriate callback.
+  void handleMenuAction(ButtonMenuAction? action) {
+    if (action == null) return;
+    switch (action) {
+      case ButtonMenuAction.dashboard:
+        onNavigate?.call('history');
+      case ButtonMenuAction.settings:
+        onNavigate?.call('settings');
+      case ButtonMenuAction.hide:
+        onHide?.call();
+      case ButtonMenuAction.quit:
+        onQuit?.call();
+    }
+  }
+
+  static PopupMenuItem<ButtonMenuAction> _menuItem(
+    ButtonMenuAction value,
+    IconData icon,
+    String label,
+    Color textColor,
+    Color iconColor,
+  ) {
+    return PopupMenuItem<ButtonMenuAction>(
+      value: value,
+      height: 40,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: WpIconSize.sm, color: iconColor),
+          const SizedBox(width: WpSpacing.sm),
+          Text(label, style: TextStyle(color: textColor, fontSize: 13)),
+        ],
+      ),
+    );
+  }
 }
 
 class _WpFloatingButtonState extends State<WpFloatingButton>
@@ -96,12 +213,14 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    _pulseScale = Tween<double>(begin: 1.0, end: 1.8).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeOut),
-    );
-    _pulseOpacity = Tween<double>(begin: 0.5, end: 0.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeOut),
-    );
+    _pulseScale = Tween<double>(
+      begin: 1.0,
+      end: 1.8,
+    ).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeOut));
+    _pulseOpacity = Tween<double>(
+      begin: 0.5,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeOut));
 
     // Spin animation for transcribing state
     _spinController = AnimationController(
@@ -115,10 +234,7 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
       duration: const Duration(milliseconds: 1800),
     );
     _bodyPulseScale = Tween<double>(begin: 1.0, end: 1.06).animate(
-      CurvedAnimation(
-        parent: _bodyPulseController,
-        curve: Curves.easeInOut,
-      ),
+      CurvedAnimation(parent: _bodyPulseController, curve: Curves.easeInOut),
     );
 
     _syncAnimations();
@@ -161,104 +277,10 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
     super.dispose();
   }
 
-  // -- long-press menu ------------------------------------------------------
+  // -- long-press / right-click menu -----------------------------------------
 
-  void _showContextMenu(BuildContext context, Offset globalPosition) {
-    final l10n = L10n.of(context);
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final surfaceColor =
-        isDark ? WpColorsDark.surfaceElevated : WpColorsLight.surfaceElevated;
-    final textColor =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final mutedColor =
-        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
-
-    showMenu<_MenuAction>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        globalPosition.dx,
-        globalPosition.dy,
-        globalPosition.dx,
-        globalPosition.dy,
-      ),
-      color: surfaceColor,
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: WpRadius.borderLg,
-        side: BorderSide(
-          color: isDark
-              ? WpColorsDark.borderSubtle
-              : WpColorsLight.borderSubtle,
-        ),
-      ),
-      items: [
-        _menuItem(
-          _MenuAction.dashboard,
-          LucideIcons.layoutDashboard,
-          l10n.navHistory,
-          textColor,
-          mutedColor,
-        ),
-        _menuItem(
-          _MenuAction.settings,
-          LucideIcons.settings,
-          l10n.navSettings,
-          textColor,
-          mutedColor,
-        ),
-        _menuItem(
-          _MenuAction.hide,
-          LucideIcons.eyeOff,
-          l10n.floatingButtonHide,
-          textColor,
-          mutedColor,
-        ),
-        _menuItem(
-          _MenuAction.quit,
-          LucideIcons.power,
-          l10n.floatingButtonQuit,
-          textColor,
-          mutedColor,
-        ),
-      ],
-    ).then((action) {
-      // Notify parent that menu closed (e.g. for window resize cleanup).
-      widget.onMenuClosed?.call();
-      if (action == null) return;
-      switch (action) {
-        case _MenuAction.dashboard:
-          widget.onNavigate?.call('history');
-        case _MenuAction.settings:
-          widget.onNavigate?.call('settings');
-        case _MenuAction.hide:
-          widget.onHide?.call();
-        case _MenuAction.quit:
-          widget.onQuit?.call();
-      }
-    });
-  }
-
-  static PopupMenuItem<_MenuAction> _menuItem(
-    _MenuAction value,
-    IconData icon,
-    String label,
-    Color textColor,
-    Color iconColor,
-  ) {
-    return PopupMenuItem<_MenuAction>(
-      value: value,
-      height: 40,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: WpIconSize.sm, color: iconColor),
-          const SizedBox(width: WpSpacing.sm),
-          Text(label, style: TextStyle(color: textColor, fontSize: 13)),
-        ],
-      ),
-    );
+  void _requestContextMenu(Offset globalPosition) {
+    widget.onContextMenuRequest?.call(globalPosition);
   }
 
   // -- build ----------------------------------------------------------------
@@ -276,7 +298,8 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
     final tooltip = switch (phase) {
       RecordingPhase.idle => l10n.tooltipRecord,
       RecordingPhase.recording => l10n.tooltipStopRecord,
-      RecordingPhase.transcribing || RecordingPhase.processing => l10n.tooltipProcessing,
+      RecordingPhase.transcribing ||
+      RecordingPhase.processing => l10n.tooltipProcessing,
       RecordingPhase.done => l10n.statusTranscriptionDone,
       RecordingPhase.error => '',
     };
@@ -284,6 +307,10 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
     final gradient = _gradient(phase, isDark);
     final iconData = _icon(phase);
     final iconSize = size * 0.42; // proportional to button size
+    final showProgressRing =
+        phase == RecordingPhase.recording &&
+        widget.showRecordingProgress &&
+        widget.maxRecordDurationSeconds > 0;
 
     // Outer opacity wrapper
     return Opacity(
@@ -306,9 +333,11 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
                 onEnter: (_) => setState(() => _isHovered = true),
                 onExit: (_) => setState(() => _isHovered = false),
                 child: AnimatedBuilder(
-                  animation: Listenable.merge(
-                    [_pulseController, _spinController, _bodyPulseController],
-                  ),
+                  animation: Listenable.merge([
+                    _pulseController,
+                    _spinController,
+                    _bodyPulseController,
+                  ]),
                   builder: (context, child) {
                     return Stack(
                       alignment: Alignment.center,
@@ -316,6 +345,9 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
                         // Pulse ring (recording only)
                         if (phase == RecordingPhase.recording)
                           _buildPulseRing(size, gradient),
+
+                        if (showProgressRing)
+                          _buildRecordingProgressRing(size, isDark),
 
                         // Button with breathing scale during recording
                         Transform.scale(
@@ -329,11 +361,13 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
                   },
                   child: GestureDetector(
                     onTap: isInteractive ? widget.onTap : null,
-                    onLongPressStart: (details) {
-                      widget.onLongPress();
-                      if (widget.enableContextMenu) {
-                        _showContextMenu(context, details.globalPosition);
-                      }
+                    // Left-button drag → move window via native drag.
+                    onPanStart: widget.onDragStart != null
+                        ? (_) => widget.onDragStart!()
+                        : null,
+                    // Right-click opens context menu (primary desktop UX).
+                    onSecondaryTapUp: (details) {
+                      _requestContextMenu(details.globalPosition);
                     },
                     child: AnimatedScale(
                       scale: _isHovered && isInteractive ? 1.08 : 1.0,
@@ -355,7 +389,8 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
                             duration: WpMotion.fast,
                             switchInCurve: Curves.easeOut,
                             switchOutCurve: Curves.easeIn,
-                            child: phase == RecordingPhase.transcribing ||
+                            child:
+                                phase == RecordingPhase.transcribing ||
                                     phase == RecordingPhase.processing
                                 ? _buildSpinner(iconSize)
                                 : Icon(
@@ -382,8 +417,9 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
 
   Widget _buildPulseRing(double buttonSize, LinearGradient gradient) {
     final ringSize = buttonSize * _pulseScale.value;
-    final ringColor =
-        (gradient.colors.first).withValues(alpha: _pulseOpacity.value);
+    final ringColor = (gradient.colors.first).withValues(
+      alpha: _pulseOpacity.value,
+    );
 
     return Container(
       width: ringSize,
@@ -391,6 +427,40 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: ringColor, width: 2.5),
+      ),
+    );
+  }
+
+  Widget _buildRecordingProgressRing(double buttonSize, bool isDark) {
+    final ringSize = buttonSize * 1.55;
+    final strokeWidth = (buttonSize * 0.08).clamp(3.0, 6.0);
+    final maxSeconds = widget.maxRecordDurationSeconds;
+    final elapsedSeconds = widget.elapsed.inMilliseconds / 1000;
+    final progress = maxSeconds <= 0
+        ? 0.0
+        : (elapsedSeconds / maxSeconds).clamp(0.0, 1.0);
+    final remaining = 1.0 - progress;
+    final progressColor = remaining <= 0.15
+        ? (isDark
+              ? WpColorsDark.errorGradient.colors.first
+              : WpColorsLight.errorGradient.colors.first)
+        : remaining <= 0.35
+        ? (isDark
+              ? WpColorsDark.processingGradient.colors.first
+              : WpColorsLight.processingGradient.colors.first)
+        : Colors.white.withValues(alpha: 0.92);
+    final trackColor = Colors.white.withValues(alpha: isDark ? 0.16 : 0.22);
+
+    return SizedBox(
+      width: ringSize,
+      height: ringSize,
+      child: CustomPaint(
+        painter: _RecordingProgressRingPainter(
+          progress: progress,
+          progressColor: progressColor,
+          trackColor: trackColor,
+          strokeWidth: strokeWidth,
+        ),
       ),
     );
   }
@@ -415,23 +485,22 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
 
   static LinearGradient _gradient(RecordingPhase phase, bool isDark) {
     return switch (phase) {
-      RecordingPhase.idle => isDark
-          ? WpColorsDark.accentWarmGradient
-          : WpColorsLight.accentWarmGradient,
-      RecordingPhase.recording => isDark
-          ? WpColorsDark.recordingGradient
-          : WpColorsLight.recordingGradient,
-      RecordingPhase.transcribing ||
-      RecordingPhase.processing =>
+      RecordingPhase.idle =>
+        isDark
+            ? WpColorsDark.accentWarmGradient
+            : WpColorsLight.accentWarmGradient,
+      RecordingPhase.recording =>
+        isDark
+            ? WpColorsDark.recordingGradient
+            : WpColorsLight.recordingGradient,
+      RecordingPhase.transcribing || RecordingPhase.processing =>
         isDark
             ? WpColorsDark.processingGradient
             : WpColorsLight.processingGradient,
-      RecordingPhase.done => isDark
-          ? WpColorsDark.successGradient
-          : WpColorsLight.successGradient,
-      RecordingPhase.error => isDark
-          ? WpColorsDark.errorGradient
-          : WpColorsLight.errorGradient,
+      RecordingPhase.done =>
+        isDark ? WpColorsDark.successGradient : WpColorsLight.successGradient,
+      RecordingPhase.error =>
+        isDark ? WpColorsDark.errorGradient : WpColorsLight.errorGradient,
     };
   }
 
@@ -439,7 +508,8 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
     return switch (phase) {
       RecordingPhase.idle => LucideIcons.mic,
       RecordingPhase.recording => LucideIcons.square,
-      RecordingPhase.transcribing || RecordingPhase.processing => LucideIcons.loaderCircle,
+      RecordingPhase.transcribing ||
+      RecordingPhase.processing => LucideIcons.loaderCircle,
       RecordingPhase.done => LucideIcons.check,
       RecordingPhase.error => LucideIcons.triangleAlert,
     };
@@ -450,4 +520,53 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
 // Private helpers
 // ---------------------------------------------------------------------------
 
-enum _MenuAction { dashboard, settings, hide, quit }
+/// Actions available in the floating button's context menu.
+enum ButtonMenuAction { dashboard, settings, hide, quit }
+
+class _RecordingProgressRingPainter extends CustomPainter {
+  const _RecordingProgressRingPainter({
+    required this.progress,
+    required this.progressColor,
+    required this.trackColor,
+    required this.strokeWidth,
+  });
+
+  final double progress;
+  final Color progressColor;
+  final Color trackColor;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final arcRect = rect.deflate(strokeWidth / 2);
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    final progressPaint = Paint()
+      ..color = progressColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(arcRect, 0, math.pi * 2, false, trackPaint);
+    if (progress <= 0) return;
+    canvas.drawArc(
+      arcRect,
+      -math.pi / 2,
+      -math.pi * 2 * progress,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RecordingProgressRingPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.progressColor != progressColor ||
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.strokeWidth != strokeWidth;
+  }
+}

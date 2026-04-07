@@ -421,10 +421,14 @@ class L10nEn extends L10n {
 
   @override
   String get settingsOverlayFloatingButtonSubtitle =>
-      'On-screen recording controls';
+      'Control how recording status appears outside the main window';
 
   @override
-  String get settingsShowOverlay => 'Recording Overlay';
+  String get settingsShowOverlay => 'Recording status display';
+
+  @override
+  String get settingsShowOverlaySubtitle =>
+      'Choose where live recording feedback appears while you dictate';
 
   @override
   String get settingsOverlayModeInWindow => 'In main window';
@@ -436,13 +440,25 @@ class L10nEn extends L10n {
   String get settingsOverlayModeOff => 'Off';
 
   @override
-  String get settingsShowFloatingButton => 'Show Floating Button';
+  String get settingsShowFloatingButton => 'Floating recording button';
 
   @override
-  String get settingsFloatingButtonOpacity => 'Floating Button Opacity';
+  String get settingsShowFloatingButtonSubtitle =>
+      'Small always-on-top button for starting or stopping recording from any app';
 
   @override
-  String get settingsFloatingButtonSize => 'Floating Button Size';
+  String get settingsFloatingButtonOpacity => 'Floating button opacity';
+
+  @override
+  String get settingsFloatingButtonOpacitySubtitle =>
+      'Only affects the floating button, not the recording overlay';
+
+  @override
+  String get settingsFloatingButtonSize => 'Floating button size';
+
+  @override
+  String get settingsFloatingButtonSizeSubtitle =>
+      'Choose how prominent the always-on-top button should feel';
 
   @override
   String get settingsSizeSmall => 'Small';
@@ -609,6 +625,13 @@ class L10nEn extends L10n {
   @override
   String get analyticsPreviewBanner =>
       'Preview — showing sample data. Real analytics will appear once you start recording.';
+
+  @override
+  String get analyticsEmptyTitle => 'No recordings yet';
+
+  @override
+  String get analyticsEmptySubtitle =>
+      'Start dictating to see your analytics here.';
 
   @override
   String get analyticsOverview => 'Overview';
@@ -991,6 +1014,36 @@ class L10nEn extends L10n {
   String get statusBarPostProcessing => 'Post-Processing';
 
   @override
+  String get statusBarOverlayInWindow => 'Overlay: Window';
+
+  @override
+  String get statusBarOverlayFloating => 'Overlay: Floating';
+
+  @override
+  String get statusBarOverlayOff => 'Overlay: Off';
+
+  @override
+  String get statusBarAfterCopy => 'After: Copy';
+
+  @override
+  String get statusBarAfterPaste => 'After: Paste';
+
+  @override
+  String get statusBarAfterBoth => 'After: Copy & Paste';
+
+  @override
+  String get statusBarAfterNothing => 'After: Manual';
+
+  @override
+  String get statusBarPresetCleanup => 'Clean Up';
+
+  @override
+  String get statusBarPresetConcise => 'Concise';
+
+  @override
+  String get statusBarPresetTranslate => 'Translate';
+
+  @override
   String get sttStatusStandby => 'Standby';
 
   @override
@@ -1001,6 +1054,39 @@ class L10nEn extends L10n {
 
   @override
   String get sttStatusError => 'Error';
+
+  @override
+  String get statusBarSttTooltip => 'Speech engine and current status';
+
+  @override
+  String get statusBarPostProcessTooltip => 'Active post-processing';
+
+  @override
+  String get statusBarRecording => 'Recording…';
+
+  @override
+  String get statusBarTranscribing => 'Transcribing…';
+
+  @override
+  String get statusBarProcessing => 'Processing…';
+
+  @override
+  String get statusBarDone => 'Done';
+
+  @override
+  String get modifierCtrl => 'Ctrl';
+
+  @override
+  String get modifierShift => 'Shift';
+
+  @override
+  String get modifierAlt => 'Alt';
+
+  @override
+  String get modifierWin => 'Win';
+
+  @override
+  String get modifierCmd => 'Cmd';
 
   @override
   String get tooltipSwitchToLight => 'Switch to Light Mode';
@@ -1281,32 +1367,6 @@ class L10nEn extends L10n {
   @override
   String get settingsCheckUpdatesSubtitle =>
       'Automatically check for new versions on startup';
-
-  @override
-  String get settingsFloatingButtonAdvanced =>
-      'Advanced Floating Button Options';
-
-  @override
-  String get settingsLockPosition => 'Lock Position';
-
-  @override
-  String get settingsLockPositionSubtitle => 'Prevent accidental dragging';
-
-  @override
-  String get settingsAutoHide => 'Auto-Hide';
-
-  @override
-  String get settingsAutoHideSubtitle =>
-      'Automatically hide when not recording';
-
-  @override
-  String get settingsAutoHideNever => 'Never';
-
-  @override
-  String get settingsAutoHide5s => 'After 5 seconds';
-
-  @override
-  String get settingsAutoHideEdge => 'Snap to edge';
 
   @override
   String get onboardingGetStarted => 'Get Started';

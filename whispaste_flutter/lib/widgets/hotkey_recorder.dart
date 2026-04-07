@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../core/config/settings_labels.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
@@ -77,19 +78,7 @@ class HotkeyRecorderDialog extends StatefulWidget {
 
   /// Parses a storage string like `'ctrl+shift'` into display labels.
   static List<String> parseModifiers(String modifiers) {
-    if (modifiers.isEmpty) return [];
-    return modifiers
-        .split('+')
-        .map((m) => m.trim())
-        .where((m) => m.isNotEmpty)
-        .map((m) => switch (m.toLowerCase()) {
-              'ctrl' || 'control' => 'Ctrl',
-              'shift' => 'Shift',
-              'alt' => 'Alt',
-              'meta' || 'win' || 'cmd' || 'super' => 'Win',
-              _ => m,
-            })
-        .toList();
+    return hotkeyModifierLabels(modifiers);
   }
 
   /// Serializes a set of held modifier keys to storage format.

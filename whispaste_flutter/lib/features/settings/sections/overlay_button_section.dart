@@ -32,6 +32,7 @@ class OverlayButtonSection extends ConsumerWidget {
           SettingRow(
             icon: LucideIcons.layers,
             label: l10n.settingsShowOverlay,
+            subtitle: l10n.settingsShowOverlaySubtitle,
             trailing: settingsDropdown(
               context: context,
               value: settings.overlayMode,
@@ -43,47 +44,49 @@ class OverlayButtonSection extends ConsumerWidget {
               ],
               onChanged: (v) {
                 if (v == null) return;
-                ref.read(settingsProvider.notifier).updateSettings(
-                  (s) => s.copyWith(
-                    overlayMode: v,
-                    showOverlay:
-                        OverlayMode.fromValue(v) != OverlayMode.off,
-                  ),
-                );
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWith(
+                        overlayMode: v,
+                        showOverlay:
+                            OverlayMode.fromValue(v) != OverlayMode.off,
+                      ),
+                    );
               },
             ),
           ),
           SettingRow(
             icon: LucideIcons.move,
             label: l10n.settingsShowFloatingButton,
+            subtitle: l10n.settingsShowFloatingButtonSubtitle,
             trailing: settingsToggle(
               value: settings.showFloatingButton,
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(showFloatingButton: v)),
+                  .updateSettings((s) => s.copyWith(showFloatingButton: v)),
             ),
           ),
           SettingRow(
             icon: LucideIcons.circleDot,
             label: l10n.settingsFloatingButtonOpacity,
+            subtitle: l10n.settingsFloatingButtonOpacitySubtitle,
             trailing: settingsSlider(
               context: context,
               value: settings.floatingButtonOpacity,
               min: 0.1,
               max: 1.0,
               divisions: 9,
-              valueLabel:
-                  '${(settings.floatingButtonOpacity * 100).round()}%',
+              valueLabel: '${(settings.floatingButtonOpacity * 100).round()}%',
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(floatingButtonOpacity: v)),
+                  .updateSettings((s) => s.copyWith(floatingButtonOpacity: v)),
             ),
           ),
           SettingRow(
             icon: LucideIcons.maximize2,
             label: l10n.settingsFloatingButtonSize,
+            subtitle: l10n.settingsFloatingButtonSizeSubtitle,
             trailing: settingsDropdown(
               context: context,
               value: settings.floatingButtonSize,
@@ -95,62 +98,7 @@ class OverlayButtonSection extends ConsumerWidget {
               ],
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(floatingButtonSize: v!)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Floating Button Advanced Options section
-// ---------------------------------------------------------------------------
-
-class FloatingButtonAdvancedSection extends ConsumerWidget {
-  const FloatingButtonAdvancedSection({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = L10n.of(context);
-    final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
-
-    return WpSection(
-      title: l10n.settingsFloatingButtonAdvanced,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          SettingRow(
-            icon: LucideIcons.lock,
-            label: l10n.settingsLockPosition,
-            subtitle: l10n.settingsLockPositionSubtitle,
-            trailing: settingsToggle(
-              value: settings.floatingButtonLocked,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(floatingButtonLocked: v)),
-            ),
-          ),
-          SettingRow(
-            icon: LucideIcons.eyeOff,
-            label: l10n.settingsAutoHide,
-            subtitle: l10n.settingsAutoHideSubtitle,
-            trailing: settingsDropdown(
-              context: context,
-              value: settings.floatingButtonAutoHide,
-              items: const ['never', 'after_5s', 'edge'],
-              labels: [
-                l10n.settingsAutoHideNever,
-                l10n.settingsAutoHide5s,
-                l10n.settingsAutoHideEdge,
-              ],
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(floatingButtonAutoHide: v!)),
+                  .updateSettings((s) => s.copyWith(floatingButtonSize: v!)),
             ),
           ),
         ],

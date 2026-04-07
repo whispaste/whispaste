@@ -32,12 +32,12 @@ const commandChannel = WindowMethodChannel(
 
 /// Serialises [RecordingState] to a JSON string for cross-window transfer.
 String encodeRecordingState(RecordingState state) => jsonEncode({
-      'phase': state.phase.index,
-      'elapsedMs': state.elapsed.inMilliseconds,
-      'audioLevel': state.audioLevel,
-      'transcript': state.transcript,
-      'errorMessage': state.errorMessage,
-    });
+  'phase': state.phase.index,
+  'elapsedMs': state.elapsed.inMilliseconds,
+  'audioLevel': state.audioLevel,
+  'transcript': state.transcript,
+  'errorMessage': state.errorMessage,
+});
 
 /// Deserialises a JSON string back into a [RecordingState].
 ///
@@ -68,8 +68,8 @@ RecordingState decodeRecordingState(String json) {
 
 /// Converts a persisted size string ('small', 'normal', 'large') to pixels.
 ///
-/// Shared by [MultiWindowNotifier] and [FloatingButtonNotifier] so neither
-/// needs to import the other.
+/// Shared by the multi-window service and settings UI so size mapping stays
+/// consistent everywhere.
 int floatingButtonSizeFromString(String size) {
   return switch (size.toLowerCase()) {
     'small' => 48,
