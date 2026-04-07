@@ -83,6 +83,9 @@ class AppSettings {
     // Floating Button Position (persisted across sessions)
     this.floatingButtonX = -1.0,
     this.floatingButtonY = -1.0,
+    // Floating Overlay Position (persisted across sessions; -1 = not set)
+    this.floatingOverlayX = -1.0,
+    this.floatingOverlayY = -1.0,
     // Main Window State (persisted across sessions; -1 = not set)
     this.windowX = -1.0,
     this.windowY = -1.0,
@@ -176,6 +179,10 @@ class AppSettings {
   // Floating Button Position (persisted across sessions; -1 = not set)
   final double floatingButtonX;
   final double floatingButtonY;
+
+  // Floating Overlay Position (persisted across sessions; -1 = not set)
+  final double floatingOverlayX;
+  final double floatingOverlayY;
 
   // Main Window State (persisted across sessions; -1 = not set)
   final double windowX;
@@ -312,6 +319,16 @@ class AppSettings {
         'floating_button_y',
         defaults.floatingButtonY,
       ),
+      floatingOverlayX: _readDouble(
+        values,
+        'floating_overlay_x',
+        defaults.floatingOverlayX,
+      ),
+      floatingOverlayY: _readDouble(
+        values,
+        'floating_overlay_y',
+        defaults.floatingOverlayY,
+      ),
       windowX: _readDouble(values, 'window_x', defaults.windowX),
       windowY: _readDouble(values, 'window_y', defaults.windowY),
       windowWidth:
@@ -400,6 +417,8 @@ class AppSettings {
       'hotkey_modifiers': hotkeyModifiers,
       'floating_button_x': '$floatingButtonX',
       'floating_button_y': '$floatingButtonY',
+      'floating_overlay_x': '$floatingOverlayX',
+      'floating_overlay_y': '$floatingOverlayY',
       'window_x': '$windowX',
       'window_y': '$windowY',
       'window_width': '$windowWidth',
@@ -458,6 +477,8 @@ class AppSettings {
     String? hotkeyModifiers,
     double? floatingButtonX,
     double? floatingButtonY,
+    double? floatingOverlayX,
+    double? floatingOverlayY,
     double? windowX,
     double? windowY,
     double? windowWidth,
@@ -517,6 +538,8 @@ class AppSettings {
       hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
       floatingButtonX: floatingButtonX ?? this.floatingButtonX,
       floatingButtonY: floatingButtonY ?? this.floatingButtonY,
+      floatingOverlayX: floatingOverlayX ?? this.floatingOverlayX,
+      floatingOverlayY: floatingOverlayY ?? this.floatingOverlayY,
       windowX: windowX ?? this.windowX,
       windowY: windowY ?? this.windowY,
       windowWidth: windowWidth ?? this.windowWidth,
@@ -579,6 +602,8 @@ class AppSettings {
           hotkeyModifiers == other.hotkeyModifiers &&
           floatingButtonX == other.floatingButtonX &&
           floatingButtonY == other.floatingButtonY &&
+          floatingOverlayX == other.floatingOverlayX &&
+          floatingOverlayY == other.floatingOverlayY &&
           windowX == other.windowX &&
           windowY == other.windowY &&
           windowWidth == other.windowWidth &&
@@ -610,6 +635,7 @@ class AppSettings {
             textReplacementsEnabled, checkUpdates,
             hotkeyKey, hotkeyModifiers,
             floatingButtonX, floatingButtonY,
+            floatingOverlayX, floatingOverlayY,
             windowX, windowY, windowWidth, windowHeight,
             windowMaximized, onboardingCompleted,
           ),

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
@@ -328,24 +329,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     if (_selectedIds.length < 2) return;
     final l10n = L10n.of(context);
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showWpConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.historyMergeConfirm(_selectedIds.length)),
-        content: Text(l10n.historyMergeConfirmMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(l10n.actionCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(l10n.historyMerge),
-          ),
-        ],
-      ),
+      title: l10n.historyMergeConfirm(_selectedIds.length),
+      message: l10n.historyMergeConfirmMessage,
+      confirmLabel: l10n.historyMerge,
+      cancelLabel: l10n.actionCancel,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     final db = ref.read(historyDatabaseProvider);
     final ids = _selectedIds.toList();

@@ -340,13 +340,11 @@ class L10nEn extends L10n {
   String get settingsStyle => 'Style';
 
   @override
-  String get settingsMicrophoneDefault => 'Default';
+  String get settingsMicSystemDefault => 'System Default';
 
   @override
-  String get settingsMicrophoneHeadset => 'Headset Mic';
-
-  @override
-  String get settingsMicrophoneUsb => 'USB Mic';
+  String get settingsMicSystemHint =>
+      'Audio input is managed by your system settings';
 
   @override
   String get settingsServiceOnDevicePrivate => 'On Device (Private)';
@@ -515,17 +513,17 @@ class L10nEn extends L10n {
   String get settingsResetToDefaults => 'Reset to Defaults';
 
   @override
-  String get settingsResetDialogTitle => 'Reset all settings?';
+  String get settingsResetTitle => 'Reset Settings';
 
   @override
-  String get settingsResetConfirmMessage =>
-      'This will restore all settings to their original values and clear usage statistics. Your history entries will not be affected.';
+  String get settingsResetMessage =>
+      'All settings will be restored to defaults. API keys will be removed. This cannot be undone.';
 
   @override
   String get settingsResetConfirm => 'Reset';
 
   @override
-  String get settingsResetSuccess => 'Settings restored to defaults.';
+  String get settingsResetSuccess => 'Settings reset to defaults';
 
   @override
   String get settingsPrivacyNote =>

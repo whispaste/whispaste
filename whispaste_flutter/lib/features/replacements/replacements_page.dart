@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import 'package:whispaste/core/data/database.dart';
@@ -273,12 +274,16 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
   // ── Delete confirmation ──────────────────────────────────────────────
 
   Future<void> _confirmDelete(Replacement r) async {
-    final confirmed = await showDialog<bool>(
+    final l10n = L10n.of(context);
+    final confirmed = await showWpConfirmDialog(
       context: context,
-      barrierColor: Colors.black54,
-      builder: (_) => _DeleteConfirmDialog(trigger: r.trigger),
+      title: l10n.replacementsDeleteTitle,
+      message: l10n.replacementsDeleteMessage(r.trigger),
+      confirmLabel: l10n.actionDelete,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
     );
-    if (confirmed == true) {
+    if (confirmed) {
       ref.read(replacementsProvider.notifier).remove(r.id);
     }
   }
@@ -452,96 +457,6 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
                       _isEditing ? l10n.actionSave : l10n.replacementsAdd,
                       style: TextStyle(
                         color: _isValid ? accent : textMuted,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Delete confirmation dialog
-// ---------------------------------------------------------------------------
-
-class _DeleteConfirmDialog extends StatelessWidget {
-  const _DeleteConfirmDialog({required this.trigger});
-
-  final String trigger;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
-    final border = isDark
-        ? WpColorsDark.borderDefault
-        : WpColorsLight.borderDefault;
-    final textPrimary = isDark
-        ? WpColorsDark.textPrimary
-        : WpColorsLight.textPrimary;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
-    final l10n = L10n.of(context);
-
-    return Center(
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: 360,
-          padding: const EdgeInsets.all(WpSpacing.xl),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: WpRadius.borderLg,
-            border: Border.all(color: border),
-            boxShadow: WpShadows.elevated,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.replacementsDeleteTitle,
-                style: TextStyle(
-                  color: textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.sm),
-              Text(
-                l10n.replacementsDeleteMessage(trigger),
-                style: TextStyle(color: textMuted, fontSize: 13),
-              ),
-              const SizedBox(height: WpSpacing.xl),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: Text(
-                      l10n.actionCancel,
-                      style: TextStyle(color: textMuted, fontSize: 13),
-                    ),
-                  ),
-                  const SizedBox(width: WpSpacing.sm),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: errorColor.withValues(alpha: 0.15),
-                    ),
-                    child: Text(
-                      l10n.actionDelete,
-                      style: TextStyle(
-                        color: errorColor,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),

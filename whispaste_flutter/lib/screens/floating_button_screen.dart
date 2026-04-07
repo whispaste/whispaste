@@ -12,6 +12,7 @@ import 'dart:io';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
@@ -68,9 +69,17 @@ Future<void> runFloatingButtonWindow(WindowController controller) async {
     if (Platform.isWindows) {
       await windowManager.setHasShadow(false);
     }
-    // Restore persisted position (if any).
+    // Restore persisted position (if any), validating screen bounds.
     if (posX >= 0 && posY >= 0) {
-      await windowManager.setPosition(Offset(posX, posY));
+      if (await _isPositionOnScreen(posX, posY, windowSize, windowSize)) {
+        await windowManager.setPosition(Offset(posX, posY));
+      } else {
+        debugPrint(
+          'FloatingButton: saved position ($posX, $posY) is off-screen, '
+          'resetting',
+        );
+        await windowManager.setAlignment(Alignment.centerRight);
+      }
     }
     await windowManager.show();
     await windowManager.focus();
@@ -371,9 +380,24 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
   }
 
   /// Saves the current window position to settings via the main window.
+  /// Skips save if the position is off-screen (e.g. mid-drag to an
+  /// unreachable area).
   Future<void> _savePosition() async {
     try {
       final pos = await windowManager.getPosition();
+      final size = await windowManager.getSize();
+      if (!await _isPositionOnScreen(
+        pos.dx,
+        pos.dy,
+        size.width,
+        size.height,
+      )) {
+        debugPrint(
+          'FloatingButton: position (${pos.dx}, ${pos.dy}) is off-screen, '
+          'not saving',
+        );
+        return;
+      }
       commandChannel.invokeMethod(
         'saveButtonPosition',
         jsonEncode({'x': pos.dx, 'y': pos.dy}),
@@ -413,6 +437,46 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
       supportedLocales: L10n.supportedLocales,
       home: _ButtonScaffold(child: button),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Multi-monitor bounds check
+// ---------------------------------------------------------------------------
+
+/// Returns `true` when a window at ([x], [y]) with the given dimensions
+/// overlaps at least one connected display. Uses [screenRetriever] to
+/// enumerate all monitors with their logical positions and sizes.
+///
+/// If the display list cannot be retrieved the check is skipped and the
+/// position is assumed valid.
+Future<bool> _isPositionOnScreen(
+  double x,
+  double y,
+  double windowWidth,
+  double windowHeight,
+) async {
+  try {
+    final displays = await screenRetriever.getAllDisplays();
+    if (displays.isEmpty) return true; // Can't validate — assume OK.
+
+    for (final display in displays) {
+      final pos = display.visiblePosition;
+      final size = display.visibleSize;
+      if (pos == null || size == null) continue;
+      final rect = Rect.fromLTWH(pos.dx, pos.dy, size.width, size.height);
+      // At least part of the window is visible on this display.
+      if (x < rect.right &&
+          x + windowWidth > rect.left &&
+          y < rect.bottom &&
+          y + windowHeight > rect.top) {
+        return true;
+      }
+    }
+    return false;
+  } catch (e) {
+    debugPrint('FloatingButton: screen bounds check failed: $e');
+    return true; // Can't validate — assume OK.
   }
 }
 
