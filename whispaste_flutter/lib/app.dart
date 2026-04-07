@@ -405,15 +405,23 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
             ),
         ],
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: WpLayout.statusBarHeight, right: 0),
-        child: WpRecordingFab(
-          phase: recordingPhase,
-          onPressed: () {
-            ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
-          },
-        ),
-      ),
+      // Hide in-window FAB when floating button is active outside the window.
+      // They are mutually exclusive — only one should be visible at a time.
+      floatingActionButton: (settings.showFloatingButton &&
+              ref.watch(multiWindowProvider).buttonVisible)
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(
+                  bottom: WpLayout.statusBarHeight, right: 0),
+              child: WpRecordingFab(
+                phase: recordingPhase,
+                onPressed: () {
+                  ref
+                      .read(recordingOrchestratorProvider.notifier)
+                      .toggleRecording();
+                },
+              ),
+            ),
     );
   }
 }
