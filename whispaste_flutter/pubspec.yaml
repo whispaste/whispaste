@@ -50,8 +50,11 @@ dependencies:
   path_provider: ^2.1.5
   path: ^1.9.1
 
-  # FFI for Go backend
+  # FFI (platform interop)
   ffi: ^2.2.0
+
+  # Cross-platform audio engine (replaces Win32 PlaySoundW)
+  flutter_soloud: ^4.0.0
 
   # Utilities
   intl: ^0.20.2
