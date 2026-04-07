@@ -114,3 +114,24 @@ class TextReplacements extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// Normalized tags for categorizing history entries.
+@DataClassName('Tag')
+class Tags extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text().unique()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Many-to-many link between history entries and tags.
+@DataClassName('EntryTag')
+class EntryTags extends Table {
+  TextColumn get entryId => text().references(HistoryEntries, #id)();
+  TextColumn get tagId => text().references(Tags, #id)();
+
+  @override
+  Set<Column> get primaryKey => {entryId, tagId};
+}

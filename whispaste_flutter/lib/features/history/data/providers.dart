@@ -67,46 +67,73 @@ final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
     return ref.watch(trashEntriesProvider);
   }
 
+  final search = ref.watch(historySearchProvider).trim();
   final entriesAsync = ref.watch(historyEntriesProvider);
-  final search = ref.watch(historySearchProvider).toLowerCase().trim();
 
-  return entriesAsync.whenData((entries) {
-    var result = entries;
+  if (search.isNotEmpty) {
+    // Try FTS5 first; fall back to in-memory search for resilience
+    // (handles DB-unavailable scenarios and test environments).
+    final ftsAsync = ref.watch(_ftsSearchProvider(search));
+    if (ftsAsync is AsyncData<List<HistoryEntry>>) {
+      final ftsEntries = ftsAsync.value;
+      if (ftsEntries.isNotEmpty) {
+        return AsyncValue.data(_applyFilter(ftsEntries, filter));
+      }
+    }
 
-    // Apply filter
-    final now = DateTime.now();
-    switch (filter) {
-      case HistoryFilter.today:
-        result = result
+    // FTS empty / loading / error — fall back to in-memory search
+    return entriesAsync.whenData((entries) {
+      final lower = search.toLowerCase();
+      return _applyFilter(
+        entries
             .where((e) =>
-                e.timestamp.year == now.year &&
-                e.timestamp.month == now.month &&
-                e.timestamp.day == now.day)
-            .toList();
-      case HistoryFilter.week:
-        final weekAgo = now.subtract(const Duration(days: 7));
-        result = result.where((e) => e.timestamp.isAfter(weekAgo)).toList();
-      case HistoryFilter.pinned:
-        result = result.where((e) => e.pinned).toList();
-      case HistoryFilter.all:
-        break;
-      case HistoryFilter.archived:
-      case HistoryFilter.trash:
-        break; // Handled above
-    }
+                e.title.toLowerCase().contains(lower) ||
+                e.content.toLowerCase().contains(lower))
+            .toList(),
+        filter,
+      );
+    });
+  }
 
-    // Apply search
-    if (search.isNotEmpty) {
-      result = result
-          .where((e) =>
-              e.title.toLowerCase().contains(search) ||
-              e.content.toLowerCase().contains(search))
-          .toList();
-    }
-
-    return result;
-  });
+  return entriesAsync.whenData((entries) => _applyFilter(entries, filter));
 });
+
+/// FTS5 search results — auto-disposes when the query changes.
+final _ftsSearchProvider =
+    FutureProvider.autoDispose.family<List<HistoryEntry>, String>(
+  (ref, query) async {
+    final db = ref.watch(historyDatabaseProvider);
+    try {
+      return await db.searchEntries(query);
+    } catch (_) {
+      return [];
+    }
+  },
+);
+
+/// Applies date/pin filter predicates to a list of entries.
+List<HistoryEntry> _applyFilter(
+    List<HistoryEntry> entries, HistoryFilter filter) {
+  final now = DateTime.now();
+  switch (filter) {
+    case HistoryFilter.today:
+      return entries
+          .where((e) =>
+              e.timestamp.year == now.year &&
+              e.timestamp.month == now.month &&
+              e.timestamp.day == now.day)
+          .toList();
+    case HistoryFilter.week:
+      final weekAgo = now.subtract(const Duration(days: 7));
+      return entries.where((e) => e.timestamp.isAfter(weekAgo)).toList();
+    case HistoryFilter.pinned:
+      return entries.where((e) => e.pinned).toList();
+    case HistoryFilter.all:
+    case HistoryFilter.archived:
+    case HistoryFilter.trash:
+      return entries;
+  }
+}
 
 /// Groups entries by relative date for section headers.
 ///
