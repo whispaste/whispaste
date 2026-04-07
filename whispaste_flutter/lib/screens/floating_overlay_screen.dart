@@ -28,7 +28,7 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
   await windowManager.ensureInitialized();
 
   const overlayWidth = 480.0;
-  const overlayHeight = 72.0;
+  const overlayHeight = 64.0;
 
   const options = WindowOptions(
     size: Size(overlayWidth, overlayHeight),
@@ -211,7 +211,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
 
     return Center(
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 480, minHeight: 64),
+        constraints: const BoxConstraints(maxWidth: 480, minHeight: 56),
         decoration: BoxDecoration(
           borderRadius: pillRadius,
           boxShadow: WpShadows.elevated,
@@ -224,7 +224,11 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
               decoration: BoxDecoration(
                 color: const Color(0xD9141926),
                 borderRadius: pillRadius,
-                border: Border.all(color: WpColorsDark.borderDefault),
+                // Subtle border — barely visible, structural depth only.
+                border: Border.all(
+                  color: WpColorsDark.borderSubtle,
+                  width: 0.5,
+                ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -232,7 +236,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: WpSpacing.md,
-                      vertical: WpSpacing.sm,
+                      vertical: WpSpacing.xs,
                     ),
                     child: _buildContent(context, phase, l10n),
                   ),
