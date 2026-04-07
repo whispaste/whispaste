@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../services/audio_service.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
@@ -18,6 +19,14 @@ class AudioSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final devicesAsync = ref.watch(audioInputDevicesProvider);
+    final devices = devicesAsync.value ?? ['Default'];
+
+    // Ensure current setting is in the list (prevents blank dropdown).
+    final currentMic = settings.microphone;
+    final effectiveDevices = devices.contains(currentMic)
+        ? devices
+        : [currentMic, ...devices];
 
     return WpSection(
       title: l10n.settingsAudio,
@@ -30,13 +39,12 @@ class AudioSection extends ConsumerWidget {
             label: l10n.settingsMicrophone,
             trailing: settingsDropdown(
               context: context,
-              value: settings.microphone,
-              items: const ['Default', 'Headset Mic', 'USB Mic'],
-              labels: [
-                l10n.settingsMicrophoneDefault,
-                l10n.settingsMicrophoneHeadset,
-                l10n.settingsMicrophoneUsb,
-              ],
+              value: currentMic,
+              items: effectiveDevices,
+              labels: effectiveDevices.map((d) {
+                if (d == 'Default') return l10n.settingsMicrophoneDefault;
+                return d; // Real device names need no translation.
+              }).toList(),
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
                   .updateSettings((s) => s.copyWith(microphone: v!)),

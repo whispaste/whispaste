@@ -504,7 +504,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsResetConfirmMessage =>
-      'This will restore all settings to their original values. Your history and data will not be affected.';
+      'This will restore all settings to their original values and clear usage statistics. Your history entries will not be affected.';
 
   @override
   String get settingsResetConfirm => 'Reset';
@@ -892,12 +892,6 @@ class L10nEn extends L10n {
 
   @override
   String get aboutShortcutRecord => 'Start / Stop recording';
-
-  @override
-  String get aboutShortcutPalette => 'Command palette';
-
-  @override
-  String get aboutShortcutSettings => 'Settings';
 
   @override
   String get aboutLinks => 'Links';

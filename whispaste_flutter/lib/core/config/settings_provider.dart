@@ -761,13 +761,18 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   }
 
   /// Restore all settings to factory defaults.
+  ///
+  /// Clears secure-storage API keys, persisted settings (including window
+  /// position/size and floating-button position), and daily analytics stats.
   Future<void> resetToDefaults() async {
     // Clear secure storage API keys.
     final secureStore = ref.read(secureKeyStoreProvider);
     for (final secureKey in apiKeyMapping.values) {
       await secureStore.deleteKey(secureKey);
     }
-    await ref.read(historyDatabaseProvider).resetAppSettings();
+    final db = ref.read(historyDatabaseProvider);
+    await db.resetAppSettings();
+    await db.resetDailyStats();
     state = const AsyncData(AppSettings.defaults);
   }
 }
