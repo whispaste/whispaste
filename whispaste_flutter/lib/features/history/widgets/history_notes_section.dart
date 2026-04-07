@@ -6,7 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
-import '../data/database.dart';
+import 'package:whispaste/core/data/database.dart';
 import '../data/providers.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 
@@ -50,8 +50,41 @@ class _HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
     setState(() => _isAdding = false);
   }
 
-  void _deleteNote(String noteId) {
-    ref.read(historyDatabaseProvider).deleteNote(noteId);
+  Future<void> _deleteNote(String noteId, String noteContent) async {
+    // Capture context dependencies before async gap
+    final l10n = L10n.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    
+    // Save the note content for undo
+    final savedNote = noteContent;
+    
+    // Delete the note
+    await ref.read(historyDatabaseProvider).deleteNote(noteId);
+    
+    // Show undo snackbar
+    if (context.mounted) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.historyNoteDeleted),
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: l10n.undo,
+            onPressed: () {
+              // Restore the note
+              ref.read(historyDatabaseProvider).upsertNote(
+                EntryNotesCompanion(
+                  id: Value(noteId),
+                  entryId: Value(widget.entryId),
+                  content: Value(savedNote),
+                  createdAt: Value(DateTime.now()),
+                  updatedAt: Value(DateTime.now()),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -184,7 +217,7 @@ class _HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () => _deleteNote(note.id),
+                      onTap: () => _deleteNote(note.id, note.content),
                       child: Padding(
                         padding: const EdgeInsets.only(left: WpSpacing.xs),
                         child:

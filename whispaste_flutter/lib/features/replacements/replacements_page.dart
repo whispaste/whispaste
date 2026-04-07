@@ -7,7 +7,7 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
-import '../history/data/database.dart';
+import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
 // Model

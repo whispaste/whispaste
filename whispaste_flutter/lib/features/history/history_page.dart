@@ -10,7 +10,7 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
-import 'data/database.dart';
+import 'package:whispaste/core/data/database.dart';
 import 'data/providers.dart';
 import 'widgets/widgets.dart';
 

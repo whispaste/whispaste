@@ -13,7 +13,7 @@ import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/about/about_page.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
-import 'package:whispaste/features/history/data/database.dart';
+import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/history_page.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';

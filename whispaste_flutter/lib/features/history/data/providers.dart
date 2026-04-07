@@ -3,7 +3,7 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'database.dart';
+import 'package:whispaste/core/data/database.dart';
 
 /// Live stream of all non-deleted, non-archived history entries, newest first.
 final historyEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
