@@ -46,9 +46,10 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
     if (Platform.isWindows) {
       await windowManager.setHasShadow(false);
     }
-    // Position at top-center of screen.
     await windowManager.setAlignment(Alignment.topCenter);
-    await windowManager.show();
+    // Do NOT show here — the main window controls visibility via
+    // MultiWindowNotifier.showOverlay() / hideOverlay(). The window
+    // is pre-created hidden and shown only when recording starts.
   });
 
   runApp(_FloatingOverlayApp(controller: controller));
