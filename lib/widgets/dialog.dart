@@ -84,8 +84,32 @@ Future<bool> showWpConfirmDialog({
   return result ?? false;
 }
 
-// ---------------------------------------------------------------------------
-// Barrier — frosted glass on non-Windows, solid overlay on Windows
+/// Shows a form dialog with the WhisPaste glass barrier.
+///
+/// Use for dialogs that contain form fields (text inputs, dropdowns, etc.)
+/// rather than simple confirmations. The [builder] receives the [Animation]
+/// for coordinating entrance/exit transitions.
+Future<T?> showWpFormDialog<T>({
+  required BuildContext context,
+  required Widget Function(BuildContext context, Animation<double> animation)
+      builder,
+}) {
+  return showGeneralDialog<T>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.transparent,
+    transitionDuration: WpMotion.smooth,
+    pageBuilder: (_, a2, a3) => const SizedBox.shrink(),
+    transitionBuilder: (ctx, animation, secondaryAnimation, child) {
+      return _WpDialogBarrier(
+        animation: animation,
+        child: builder(ctx, animation),
+      );
+    },
+  );
+}
+
 // ---------------------------------------------------------------------------
 
 class _WpDialogBarrier extends StatelessWidget {
