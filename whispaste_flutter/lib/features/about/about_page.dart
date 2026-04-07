@@ -2,9 +2,12 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/config/settings_labels.dart';
+import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
@@ -13,21 +16,21 @@ import '../../widgets/page_shell.dart';
 
 /// About page — app info, version, open-source links, support, credits,
 /// keyboard shortcuts, privacy, and system diagnostics.
-class AboutPage extends StatelessWidget {
+class AboutPage extends ConsumerWidget {
   const AboutPage({super.key});
 
-  static String get _modKey {
-    try {
-      if (Platform.isMacOS) return '⌘';
-    } catch (_) {}
-    return 'Ctrl';
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ts = Theme.of(context).textTheme;
     final l10n = L10n.of(context);
+    final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final hotkeyLabel = formatHotkeyShortcut(
+      settings.hotkeyModifiers,
+      settings.hotkeyKey,
+      separator: ' + ',
+      l10n: l10n,
+    );
 
     return WpPageShell(
       child: Column(
@@ -170,17 +173,7 @@ class AboutPage extends StatelessWidget {
           const SizedBox(height: WpSpacing.sm),
           _ShortcutRow(
             label: l10n.aboutShortcutRecord,
-            shortcut: '$_modKey + Shift + R',
-            isDark: isDark,
-          ),
-          _ShortcutRow(
-            label: l10n.aboutShortcutPalette,
-            shortcut: '$_modKey + K',
-            isDark: isDark,
-          ),
-          _ShortcutRow(
-            label: l10n.aboutShortcutSettings,
-            shortcut: '$_modKey + ,',
+            shortcut: hotkeyLabel,
             isDark: isDark,
           ),
           const SizedBox(height: WpSpacing.xxxl),

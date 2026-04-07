@@ -281,3 +281,25 @@ final audioServiceProvider =
     NotifierProvider<AudioServiceNotifier, AudioStatus>(
   AudioServiceNotifier.new,
 );
+
+/// Available audio input devices. Returns device labels for the microphone
+/// dropdown in settings. The first entry is always "Default".
+final audioInputDevicesProvider = FutureProvider<List<String>>((ref) async {
+  try {
+    final recorder = AudioRecorder();
+    try {
+      final devices = await recorder.listInputDevices();
+      return [
+        'Default',
+        ...devices
+            .where((d) => d.label.isNotEmpty)
+            .map((d) => d.label),
+      ];
+    } finally {
+      recorder.dispose();
+    }
+  } catch (e) {
+    dev.log('Failed to enumerate input devices: $e', name: 'AudioService');
+    return ['Default'];
+  }
+});

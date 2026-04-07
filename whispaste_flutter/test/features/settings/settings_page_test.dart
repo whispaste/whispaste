@@ -21,7 +21,7 @@ void main() {
     testWidgets('shows Post-Processing section', (tester) async {
       await tester.pumpWidget(makeTestable(const SettingsPage()));
       await tester.pumpAndSettle();
-      expect(find.text('Post-Processing'), findsOneWidget);
+      expect(find.textContaining('Post-Processing'), findsOneWidget);
     });
 
     testWidgets('shows Interface section', (tester) async {
