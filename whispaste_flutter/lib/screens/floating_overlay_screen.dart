@@ -35,10 +35,16 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
     debugPrint('FloatingOverlay: failed to parse arguments: $e');
   }
 
-  const overlaySize = Size(480, 100);
+  // Start at 1×1 — effectively invisible but the OS keeps the rendering
+  // surface alive. We NEVER call hide()/show() after init because
+  // window_manager 0.5.1 on Windows has a dead-code bug in Show() where
+  // SWP_FRAMECHANGED never executes, causing transparent frameless windows
+  // to lose their compositor surface after a hide→show cycle.
+  // Instead we toggle visibility by resizing: 1×1 = hidden, 480×100 = visible.
+  const hiddenSize = Size(1, 1);
 
   const options = WindowOptions(
-    size: overlaySize,
+    size: hiddenSize,
     center: false,
     backgroundColor: Colors.transparent,
     skipTaskbar: true,
@@ -52,23 +58,12 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
     if (Platform.isWindows) {
       await windowManager.setHasShadow(false);
     }
-    await windowManager.setSize(overlaySize);
-    await windowManager.setAlignment(Alignment.topCenter);
-
-    // CRITICAL: Briefly show then hide to force Windows to materialize the
-    // rendering surface at the correct dimensions. Transparent frameless
-    // windows that are created hidden (hiddenAtLaunch: true) get collapsed
-    // to minimal size on Windows because the OS never allocates a proper
-    // surface. The floating button works because it shows during init —
-    // we replicate that pattern here. The window content is SizedBox.shrink()
-    // at this point (idle phase), so nothing is visible.
+    // Show at 1×1 — the window is "shown" from the OS perspective so the
+    // rendering surface is properly allocated, but at 1×1 it's invisible
+    // and doesn't intercept mouse events. This matches the floating button
+    // pattern (always shown, content changes based on state).
     await windowManager.show();
     await windowManager.setAlwaysOnTop(true);
-    if (Platform.isWindows) {
-      // Give Windows time to process the show + style flags before hiding.
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-    }
-    await windowManager.hide();
   });
 
   runApp(
@@ -148,6 +143,10 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
         } catch (_) {}
       }
       try {
+        // Resize from 1×1 (hidden) → 480×100 (visible). The window is
+        // already "shown" from the OS perspective — we never hide/show,
+        // we only resize. This avoids the window_manager Show() bug that
+        // breaks transparent frameless window compositing on Windows.
         const targetSize = Size(480, 100);
         await windowManager.setSize(targetSize);
         if (posX != null && posX >= 0 && posY != null && posY >= 0) {
@@ -155,54 +154,37 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
         } else {
           await windowManager.setAlignment(Alignment.topCenter);
         }
-        await windowManager.show();
         await windowManager.setAlwaysOnTop(true);
-
-        // Post-show size verification — on Windows, verify the actual window
-        // size matches what we requested. If Windows collapsed the geometry
-        // (e.g. after sleep/wake or display change), re-assert.
-        if (Platform.isWindows) {
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-          final actualSize = await windowManager.getSize();
-          if (actualSize.width < 400 || actualSize.height < 60) {
-            debugPrint(
-              'FloatingOverlay: size mismatch! '
-              'Expected $targetSize, got $actualSize — re-asserting',
-            );
-            await windowManager.setSize(targetSize);
-            if (posX != null && posX >= 0 && posY != null && posY >= 0) {
-              await windowManager.setPosition(Offset(posX, posY));
-            } else {
-              await windowManager.setAlignment(Alignment.topCenter);
-            }
-          }
-        }
       } catch (e) {
         debugPrint('FloatingOverlay: showWindow failed: $e');
       }
     } else if (call.method == 'hideWindow') {
       try {
-        await windowManager.hide();
+        // Shrink to 1×1 instead of hiding — keeps the rendering surface
+        // alive so the next show (resize) works correctly.
+        await windowManager.setSize(const Size(1, 1));
       } catch (e) {
         debugPrint('FloatingOverlay: hideWindow failed: $e');
       }
     } else if (call.method == 'getWindowStatus') {
+      final size = await windowManager.getSize();
+      final isExpanded = size.width > 10 && size.height > 10;
       return jsonEncode({
         'type': WindowType.floatingOverlay,
-        'visible': await windowManager.isVisible(),
+        'visible': isExpanded,
         'inert': _inert,
         'launchEpochMs': widget.launchEpochMs,
       });
     } else if (call.method == 'shutdown') {
       // IMPORTANT: Do NOT call exit(0) here! All windows share the same OS
       // process — exit(0) would kill the ENTIRE application including the
-      // main window. Instead, go inert: stop heartbeat, hide, ignore future
+      // main window. Instead, go inert: stop heartbeat, shrink, ignore future
       // method calls.
       debugPrint('FloatingOverlay: received shutdown — going inert');
       stopHeartbeat();
       _inert = true;
       try {
-        await windowManager.hide();
+        await windowManager.setSize(const Size(1, 1));
       } catch (_) {}
     }
     return null;
