@@ -406,7 +406,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
         ],
       ),
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: WpLayout.statusBarHeight + 8, right: 8),
+        padding: const EdgeInsets.only(bottom: WpLayout.statusBarHeight, right: 0),
         child: WpRecordingFab(
           phase: recordingPhase,
           onPressed: () {
