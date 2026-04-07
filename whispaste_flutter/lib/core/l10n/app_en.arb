@@ -572,5 +572,6 @@
   "trayOpenApp": "Open WhisPaste",
   "traySettings": "Settings",
   "trayQuit": "Quit",
-  "settingsComingSoon": "Coming Soon"
+  "settingsComingSoon": "Coming Soon",
+  "undo": "Undo"
 }
