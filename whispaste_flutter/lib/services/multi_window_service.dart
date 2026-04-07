@@ -108,7 +108,26 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
       commandChannel.setMethodCallHandler(null);
       _closeAll();
     });
+
+    // Eagerly apply initial settings state — ref.listen only fires on
+    // CHANGES, so if settings are already loaded we must check now.
+    _applyInitialSettings();
+
     return const MultiWindowState();
+  }
+
+  /// Reads the current settings (if already resolved) and shows button/overlay
+  /// that should be visible on startup. Called once at the end of [build].
+  void _applyInitialSettings() {
+    final settings = ref.read(settingsProvider).value;
+    if (settings == null) return;
+
+    if (settings.showFloatingButton) {
+      // Use a short delay so the first frame renders before window creation.
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (!state.buttonVisible) showButton();
+      });
+    }
   }
 
   bool get _isDesktop =>
@@ -200,6 +219,10 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
           'size': floatingButtonSizeFromString(
               settings.floatingButtonSize),
           'opacity': settings.floatingButtonOpacity,
+          'locked': settings.floatingButtonLocked,
+          // Persisted position (-1 = not set → let OS choose).
+          'posX': settings.floatingButtonX,
+          'posY': settings.floatingButtonY,
         },
       });
       final controller = await WindowController.create(
@@ -312,6 +335,21 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         // Use windowManager.destroy() for graceful shutdown — unlike exit(0),
         // this allows Flutter's normal lifecycle (dispose, DB flush, etc.).
         await windowManager.destroy();
+      case 'saveButtonPosition':
+        // Persist button position from drag in secondary window.
+        final posData = call.arguments;
+        if (posData is String) {
+          try {
+            final pos = jsonDecode(posData) as Map<String, dynamic>;
+            final x = (pos['x'] as num?)?.toDouble() ?? -1.0;
+            final y = (pos['y'] as num?)?.toDouble() ?? -1.0;
+            ref.read(settingsProvider.notifier).updateSettings(
+              (s) => s.copyWith(floatingButtonX: x, floatingButtonY: y),
+            );
+          } catch (e) {
+            _log.warning('Failed to parse button position', e);
+          }
+        }
     }
     return null;
   }

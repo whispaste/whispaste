@@ -142,6 +142,7 @@
   "settingsOverlayFloatingButtonSubtitle": "On-screen recording controls",
   "settingsShowOverlay": "Recording Overlay",
   "settingsOverlayModeInWindow": "Show during recording",
+  "settingsOverlayModeFloating": "Floating (always on top)",
   "settingsOverlayModeOff": "Off",
   "settingsShowFloatingButton": "Show Floating Button",
   "settingsFloatingButtonOpacity": "Floating Button Opacity",

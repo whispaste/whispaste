@@ -74,6 +74,9 @@ class AppSettings {
     // Floating Button Advanced
     this.floatingButtonLocked = false,
     this.floatingButtonAutoHide = 'never',
+    // Floating Button Position (persisted across sessions)
+    this.floatingButtonX = -1.0,
+    this.floatingButtonY = -1.0,
     // Onboarding
     this.onboardingCompleted = false,
   });
@@ -150,6 +153,10 @@ class AppSettings {
   // Floating Button Advanced
   final bool floatingButtonLocked;
   final String floatingButtonAutoHide;
+
+  // Floating Button Position (persisted across sessions; -1 = not set)
+  final double floatingButtonX;
+  final double floatingButtonY;
 
   // Onboarding
   final bool onboardingCompleted;
@@ -246,6 +253,16 @@ class AppSettings {
       ),
       floatingButtonAutoHide:
           values['floating_button_auto_hide'] ?? defaults.floatingButtonAutoHide,
+      floatingButtonX: _readDouble(
+        values,
+        'floating_button_x',
+        defaults.floatingButtonX,
+      ),
+      floatingButtonY: _readDouble(
+        values,
+        'floating_button_y',
+        defaults.floatingButtonY,
+      ),
       onboardingCompleted: _readBool(
         values,
         'onboarding_completed',
@@ -318,6 +335,8 @@ class AppSettings {
       'hotkey_modifiers': hotkeyModifiers,
       'floating_button_locked': '$floatingButtonLocked',
       'floating_button_auto_hide': floatingButtonAutoHide,
+      'floating_button_x': '$floatingButtonX',
+      'floating_button_y': '$floatingButtonY',
       'onboarding_completed': '$onboardingCompleted',
     };
   }
@@ -366,6 +385,8 @@ class AppSettings {
     String? hotkeyModifiers,
     bool? floatingButtonLocked,
     String? floatingButtonAutoHide,
+    double? floatingButtonX,
+    double? floatingButtonY,
     bool? onboardingCompleted,
   }) {
     return AppSettings(
@@ -415,6 +436,8 @@ class AppSettings {
       floatingButtonLocked: floatingButtonLocked ?? this.floatingButtonLocked,
       floatingButtonAutoHide:
           floatingButtonAutoHide ?? this.floatingButtonAutoHide,
+      floatingButtonX: floatingButtonX ?? this.floatingButtonX,
+      floatingButtonY: floatingButtonY ?? this.floatingButtonY,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     );
   }
