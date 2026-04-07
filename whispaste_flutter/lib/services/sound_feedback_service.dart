@@ -4,8 +4,8 @@
 /// the native threading crash in `audioplayers_windows_plugin.dll` (see
 /// Windows Event Viewer: 0xc0000005 in audioplayers).
 ///
-/// Failures are silently logged — sound feedback is non-critical and must
-/// never block the recording pipeline.
+/// Failures are logged and retried — sound feedback is non-critical but
+/// important for user experience.
 library;
 
 import 'dart:ffi';
@@ -45,39 +45,47 @@ bool _initWin32() {
     _playSound =
         winmm.lookupFunction<_PlaySoundNative, _PlaySoundDart>('PlaySoundW');
     return true;
-  } catch (_) {
+  } catch (e) {
+    _log.warning('Failed to load winmm.dll: $e');
     return false;
   }
 }
 
 /// Plays a WAV file asynchronously via Win32 PlaySound.
-void _playSoundWin32(String filePath) {
-  if (_playSound == null) return;
+/// Returns true if the API call succeeded.
+bool _playSoundWin32(String filePath) {
+  if (_playSound == null) return false;
   final ptr = filePath.toNativeUtf16();
   try {
-    _playSound!(ptr, 0, _sndAsync | _sndFilename | _sndNoDefault);
+    final result =
+        _playSound!(ptr, 0, _sndAsync | _sndFilename | _sndNoDefault);
+    return result != 0;
   } finally {
     calloc.free(ptr);
   }
 }
+
+final _log = AppLogger('SoundFeedback');
+
+const _soundAssets = ['start.wav', 'stop.wav', 'success.wav', 'error.wav'];
 
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
 class SoundFeedbackService extends Notifier<void> {
-  static final _log = AppLogger('SoundFeedback');
-
   /// Resolved absolute paths for each sound asset.
   final Map<String, String> _resolvedPaths = {};
-  bool _available = false;
+  bool _win32Available = false;
+  bool _extracted = false;
 
   @override
   void build() {
-    _available = _initWin32();
-    if (_available) {
-      // Pre-extract assets to temp so PlaySound can read them.
+    _win32Available = _initWin32();
+    if (_win32Available) {
       _extractAssets();
+    } else {
+      _log.warning('Win32 PlaySound not available — sound disabled');
     }
   }
 
@@ -105,35 +113,69 @@ class SoundFeedbackService extends Notifier<void> {
       final soundDir = Directory(p.join(dir.path, 'whispaste_sounds'));
       if (!soundDir.existsSync()) soundDir.createSync(recursive: true);
 
-      for (final name in ['start.wav', 'stop.wav', 'success.wav', 'error.wav']) {
+      for (final name in _soundAssets) {
         final target = File(p.join(soundDir.path, name));
-        if (!target.existsSync()) {
+        if (!target.existsSync() || target.lengthSync() == 0) {
           final data = await rootBundle.load('assets/sounds/$name');
           await target.writeAsBytes(
             data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
             flush: true,
           );
+          _log.info('Extracted $name (${data.lengthInBytes} bytes)');
         }
         _resolvedPaths[name] = target.path;
       }
-      _log.info('Sound assets extracted to ${soundDir.path}');
+      _extracted = true;
+      _log.info(
+          'Sound assets ready at ${soundDir.path} (${_resolvedPaths.length} files)');
     } catch (e) {
       _log.warning('Failed to extract sound assets: $e');
-      _available = false;
+      _extracted = false;
     }
   }
 
   Future<void> _play(String assetName, bool enabled) async {
-    if (!enabled || !_available) return;
+    if (!enabled || !_win32Available) return;
+
+    // If extraction hasn't completed yet, wait for it.
+    if (!_extracted) {
+      _log.info('Sound assets not yet extracted, re-extracting...');
+      await _extractAssets();
+    }
 
     final filePath = _resolvedPaths[assetName];
-    if (filePath == null) return;
+    if (filePath == null) {
+      _log.warning('No resolved path for $assetName');
+      return;
+    }
 
+    // Verify file still exists (temp cleanup protection).
+    if (!File(filePath).existsSync()) {
+      _log.info('Sound file missing, re-extracting: $assetName');
+      _extracted = false;
+      await _extractAssets();
+      final retryPath = _resolvedPaths[assetName];
+      if (retryPath == null || !File(retryPath).existsSync()) {
+        _log.warning('Re-extraction failed for $assetName');
+        return;
+      }
+      _playSoundAndLog(retryPath, assetName);
+      return;
+    }
+
+    _playSoundAndLog(filePath, assetName);
+  }
+
+  void _playSoundAndLog(String filePath, String assetName) {
     try {
-      _playSoundWin32(filePath);
-      _log.debug('Playing $assetName');
+      final ok = _playSoundWin32(filePath);
+      if (ok) {
+        _log.debug('Playing $assetName');
+      } else {
+        _log.warning('PlaySound returned FALSE for $assetName ($filePath)');
+      }
     } catch (e) {
-      _log.debug('Sound playback failed ($assetName): $e');
+      _log.warning('Sound playback exception ($assetName): $e');
     }
   }
 }
