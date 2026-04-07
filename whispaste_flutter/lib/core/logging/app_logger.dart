@@ -6,15 +6,18 @@
 /// In **release** mode only `info`, `warning`, `error`, and `fatal` are
 /// forwarded — and only to DevTools (no stdout).
 ///
-/// Modeled after REDACTED-OTHER-PROJECT's `AppLogger` pattern but extended with
-/// breadcrumb ring buffer for crash context.
+/// **Persistent log file**: All info+ messages are written to
+/// `%LOCALAPPDATA%/Whispaste/logs/whispaste.log` (or platform equivalent).
+/// The file is rotated when it exceeds 2 MB.
 library;
 
 import 'dart:collection';
 import 'dart:developer' as dev;
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'crash_reporter.dart';
 
@@ -73,13 +76,102 @@ final _breadcrumbs = _BreadcrumbRing(30);
 /// Returns the most recent log lines for crash report context.
 List<String> getRecentBreadcrumbs() => _breadcrumbs.recent;
 
+// ---------------------------------------------------------------------------
+// Persistent file logging
+// ---------------------------------------------------------------------------
+
+/// Manages a log file with rotation (max 2 MB).
+class _LogFileSink {
+  _LogFileSink._();
+
+  static const int _maxBytes = 2 * 1024 * 1024; // 2 MB
+  File? _file;
+  IOSink? _sink;
+  int _bytesWritten = 0;
+
+  /// Initializes the file sink. Safe to call from main isolate only.
+  Future<void> init() async {
+    try {
+      final appSupport = await getApplicationSupportDirectory();
+      final logDir = Directory('${appSupport.path}${Platform.pathSeparator}logs');
+      if (!logDir.existsSync()) {
+        logDir.createSync(recursive: true);
+      }
+      _file = File('${logDir.path}${Platform.pathSeparator}whispaste.log');
+      _bytesWritten = _file!.existsSync() ? _file!.lengthSync() : 0;
+      _rotateIfNeeded();
+      _sink = _file!.openWrite(mode: FileMode.append);
+      _writeLine('--- Log session started '
+          '(${DateTime.now().toIso8601String()}) ---');
+    } catch (e) {
+      // File logging is best-effort — don't crash the app.
+      debugPrint('LogFileSink: init failed: $e');
+    }
+  }
+
+  void _rotateIfNeeded() {
+    if (_file == null || _bytesWritten < _maxBytes) return;
+    try {
+      final oldFile = File('${_file!.path}.old');
+      if (oldFile.existsSync()) oldFile.deleteSync();
+      _file!.renameSync(oldFile.path);
+      _file = File(_file!.path.replaceAll('.old', ''));
+      _bytesWritten = 0;
+    } catch (e) {
+      debugPrint('LogFileSink: rotate failed: $e');
+    }
+  }
+
+  void _writeLine(String line) {
+    if (_sink == null) return;
+    try {
+      _sink!.writeln(line);
+      _bytesWritten += line.length + 1;
+      if (_bytesWritten >= _maxBytes) {
+        _sink!.flush();
+        _sink!.close();
+        _rotateIfNeeded();
+        _sink = _file!.openWrite(mode: FileMode.append);
+      }
+    } catch (_) {
+      // Best-effort — don't propagate file I/O errors to logging callers.
+    }
+  }
+
+  void write(LogRecord record) {
+    final ts = record.time.toIso8601String().substring(0, 23);
+    final buf = StringBuffer(
+      '$ts [${record.level.name}] ${record.loggerName}: ${record.message}',
+    );
+    if (record.error != null) buf.write('\n  Error: ${record.error}');
+    if (record.stackTrace != null) buf.write('\n${record.stackTrace}');
+    _writeLine(buf.toString());
+  }
+
+  Future<void> close() async {
+    await _sink?.flush();
+    await _sink?.close();
+    _sink = null;
+  }
+}
+
+/// The global file sink instance (initialized in [configureLogging]).
+_LogFileSink? _fileSink;
+
+/// Returns the path to the current log file, or null if not initialized.
+String? get logFilePath => _fileSink?._file?.path;
+
 /// Call once during app bootstrap (before `runApp`).
 ///
 /// Wires `package:logging` → `developer.log` + `debugPrint` (debug only)
-/// + breadcrumb ring + crash reporter auto-capture (warning/error/fatal).
-void configureLogging() {
+/// + breadcrumb ring + persistent log file + crash reporter auto-capture.
+Future<void> configureLogging() async {
   // In release mode, filter out trace/debug.
   Logger.root.level = kReleaseMode ? Level.INFO : Level.ALL;
+
+  // Initialize persistent file logging.
+  _fileSink = _LogFileSink._();
+  await _fileSink!.init();
 
   Logger.root.onRecord.listen((record) {
     // Format: "[LEVEL] LoggerName: message"
@@ -109,6 +201,11 @@ void configureLogging() {
       }
       // debugPrint is rate-limited and safe for terminal output.
       debugPrint(buf.toString());
+    }
+
+    // Persistent file: write info+ always (debug and release).
+    if (record.level >= Level.INFO) {
+      _fileSink?.write(record);
     }
 
     // Auto-escalate warnings/errors/fatals to crash reporter.
