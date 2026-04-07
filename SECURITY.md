@@ -34,7 +34,7 @@ If the vulnerability is declined, we will explain why.
 
 The following are in scope for security reports:
 
-- The WhisPaste desktop application (Go binary)
+- The WhisPaste desktop application (Flutter)
 - The auto-update mechanism (download verification, HTTPS enforcement)
 - Local data storage (config, history database, audio cache)
 - API key handling and credential storage

@@ -184,14 +184,10 @@ $secretPatterns = @(
     'Bearer\s+[a-zA-Z0-9._\-]+',
     'https?://[^\s]*supabase[^\s]*',
     'https?://[^\s]*discord[^\s]*webhook[^\s]*',
-    'C:\\[^\s]+\.(go|ps1|yml|json|db|exe)',
+    'C:\\[^\s]+\.(dart|ps1|yml|json|db|exe)',
     'whisper-server',
     'llama-server',
     'crashreporter',
-    'captureSubprocessCrash',
-    'logWarn|logError|logDebug',
-    'buildEmbed',
-    'sync\.RWMutex',
     '127\.0\.0\.1:\d+'
 )
 

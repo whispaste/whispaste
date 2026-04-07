@@ -105,8 +105,6 @@ Future<void> main(List<String> args) async {
       };
     }
 
-    // TODO: Initialize Go FFI bridge
-
     // Clean up stale WAV files from previous sessions (fire-and-forget).
     unawaited(AudioServiceNotifier.cleanupStaleFiles());
 
