@@ -625,6 +625,42 @@ abstract class L10n {
   /// **'Automatically stop after this many seconds of silence (after speech). 0 = disabled.'**
   String get settingsAutoStopSilenceHint;
 
+  /// No description provided for @settingsTrimSilence.
+  ///
+  /// In en, this message translates to:
+  /// **'Trim Silence'**
+  String get settingsTrimSilence;
+
+  /// No description provided for @settingsTrimSilenceSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically remove leading and trailing silence from recordings'**
+  String get settingsTrimSilenceSubtitle;
+
+  /// No description provided for @settingsVoiceActivityDetection.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice Activity Detection'**
+  String get settingsVoiceActivityDetection;
+
+  /// No description provided for @settingsVoiceActivityDetectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Only process audio segments with speech detected'**
+  String get settingsVoiceActivityDetectionSubtitle;
+
+  /// No description provided for @settingsVadSensitivity.
+  ///
+  /// In en, this message translates to:
+  /// **'VAD Sensitivity'**
+  String get settingsVadSensitivity;
+
+  /// No description provided for @settingsVadSensitivitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How sensitive speech detection is (lower = more sensitive)'**
+  String get settingsVadSensitivitySubtitle;
+
   /// No description provided for @settingsPostProcessing.
   ///
   /// In en, this message translates to:
@@ -2412,6 +2448,36 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Wait time before pasting into the active window'**
   String get settingsAutoPasteDelaySubtitle;
+
+  /// No description provided for @settingsTextReplacements.
+  ///
+  /// In en, this message translates to:
+  /// **'Text Replacements'**
+  String get settingsTextReplacements;
+
+  /// No description provided for @settingsTextReplacementsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically replace specific words or phrases after transcription'**
+  String get settingsTextReplacementsSubtitle;
+
+  /// No description provided for @settingsTextReplacementsEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Text Replacements'**
+  String get settingsTextReplacementsEnabled;
+
+  /// No description provided for @settingsCheckUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for Updates'**
+  String get settingsCheckUpdates;
+
+  /// No description provided for @settingsCheckUpdatesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically check for new versions on startup'**
+  String get settingsCheckUpdatesSubtitle;
 
   /// No description provided for @settingsFloatingButtonAdvanced.
   ///

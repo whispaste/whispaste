@@ -293,6 +293,27 @@ class L10nEn extends L10n {
       'Automatically stop after this many seconds of silence (after speech). 0 = disabled.';
 
   @override
+  String get settingsTrimSilence => 'Trim Silence';
+
+  @override
+  String get settingsTrimSilenceSubtitle =>
+      'Automatically remove leading and trailing silence from recordings';
+
+  @override
+  String get settingsVoiceActivityDetection => 'Voice Activity Detection';
+
+  @override
+  String get settingsVoiceActivityDetectionSubtitle =>
+      'Only process audio segments with speech detected';
+
+  @override
+  String get settingsVadSensitivity => 'VAD Sensitivity';
+
+  @override
+  String get settingsVadSensitivitySubtitle =>
+      'How sensitive speech detection is (lower = more sensitive)';
+
+  @override
   String get settingsPostProcessing => 'Post-Processing';
 
   @override
@@ -1243,6 +1264,23 @@ class L10nEn extends L10n {
   @override
   String get settingsAutoPasteDelaySubtitle =>
       'Wait time before pasting into the active window';
+
+  @override
+  String get settingsTextReplacements => 'Text Replacements';
+
+  @override
+  String get settingsTextReplacementsSubtitle =>
+      'Automatically replace specific words or phrases after transcription';
+
+  @override
+  String get settingsTextReplacementsEnabled => 'Enable Text Replacements';
+
+  @override
+  String get settingsCheckUpdates => 'Check for Updates';
+
+  @override
+  String get settingsCheckUpdatesSubtitle =>
+      'Automatically check for new versions on startup';
 
   @override
   String get settingsFloatingButtonAdvanced =>

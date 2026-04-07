@@ -502,6 +502,44 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             (s) => s.copyWith(maxRecordDuration: v.round())),
                   ),
                 ),
+                _SettingRow(
+                  icon: LucideIcons.scissors,
+                  label: l10n.settingsTrimSilence,
+                  subtitle: l10n.settingsTrimSilenceSubtitle,
+                  trailing: _toggle(
+                    value: settings.trimSilence,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(trimSilence: v)),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.audioLines,
+                  label: l10n.settingsVoiceActivityDetection,
+                  subtitle: l10n.settingsVoiceActivityDetectionSubtitle,
+                  trailing: _toggle(
+                    value: settings.useVAD,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(useVAD: v)),
+                  ),
+                ),
+                if (settings.useVAD)
+                  _SettingRow(
+                    icon: LucideIcons.slidersHorizontal,
+                    label: l10n.settingsVadSensitivity,
+                    subtitle: l10n.settingsVadSensitivitySubtitle,
+                    trailing: _slider(
+                      value: settings.vadSensitivity,
+                      min: 0.0,
+                      max: 1.0,
+                      divisions: 10,
+                      valueLabel: '${(settings.vadSensitivity * 100).round()}%',
+                      onChanged: (v) => ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings((s) => s.copyWith(vadSensitivity: v)),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -855,6 +893,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           _sectionDivider(),
 
+          // ── Text Replacements ──
+          WpSection(
+            title: l10n.settingsTextReplacements,
+            subtitle: l10n.settingsTextReplacementsSubtitle,
+            padding: EdgeInsets.zero,
+            child: _SettingRow(
+              icon: LucideIcons.replace,
+              label: l10n.settingsTextReplacementsEnabled,
+              trailing: _toggle(
+                value: settings.textReplacementsEnabled,
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                        (s) => s.copyWith(textReplacementsEnabled: v)),
+              ),
+            ),
+          ),
+          _sectionDivider(),
+
           // ── Keyboard Shortcut ──
           WpSection(
             title: l10n.settingsKeyboardShortcut,
@@ -1178,6 +1235,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         .read(settingsProvider.notifier)
                         .updateSettings(
                             (s) => s.copyWith(closeToTray: v)),
+                  ),
+                ),
+                _SettingRow(
+                  icon: LucideIcons.refreshCw,
+                  label: l10n.settingsCheckUpdates,
+                  subtitle: l10n.settingsCheckUpdatesSubtitle,
+                  trailing: _toggle(
+                    value: settings.checkUpdates,
+                    onChanged: (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                            (s) => s.copyWith(checkUpdates: v)),
                   ),
                 ),
               ],
