@@ -4,7 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
-import '../data/database.dart';
+import 'package:whispaste/core/data/database.dart';
 import 'history_helpers.dart';
 import 'history_row_action.dart';
 

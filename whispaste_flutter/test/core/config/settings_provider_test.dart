@@ -6,7 +6,7 @@ import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/locale_provider.dart';
 import 'package:whispaste/core/theme/theme_provider.dart';
-import 'package:whispaste/features/history/data/database.dart';
+import 'package:whispaste/core/data/database.dart';
 
 /// In-memory fake for [SecureKeyStore] used in tests.
 class FakeSecureKeyStore extends SecureKeyStore {
