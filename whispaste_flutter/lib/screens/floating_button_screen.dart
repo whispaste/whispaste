@@ -163,16 +163,45 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
     commandChannel.invokeMethod('toggleRecording');
   }
 
-  void _showDashboard() {
-    commandChannel.invokeMethod('showMainWindow');
-  }
-
   void _hideButton() {
     windowManager.hide();
   }
 
   void _quitApp() {
     commandChannel.invokeMethod('quitApp');
+  }
+
+  /// Expand the window to accommodate a popup menu above the button.
+  Future<void> _expandForMenu() async {
+    try {
+      final pos = await windowManager.getPosition();
+      const menuW = 220.0;
+      const menuH = 240.0;
+      final btnWindow = (_buttonSize * 1.8).ceilToDouble();
+      final newW = menuW.clamp(btnWindow, 400.0);
+      final newH = menuH + btnWindow;
+      // Move window up so the button stays in the same screen position.
+      final newY = pos.dy - menuH;
+      await windowManager.setSize(Size(newW, newH));
+      await windowManager.setPosition(Offset(pos.dx, newY));
+    } catch (e) {
+      debugPrint('FloatingButton: expandForMenu failed: $e');
+    }
+  }
+
+  /// Shrink back to button size after the menu closes.
+  Future<void> _shrinkAfterMenu() async {
+    try {
+      final pos = await windowManager.getPosition();
+      final btnWindow = (_buttonSize * 1.8).ceilToDouble();
+      const menuH = 240.0;
+      // Restore position: move down by the menu height we added.
+      final newY = pos.dy + menuH;
+      await windowManager.setSize(Size(btnWindow, btnWindow));
+      await windowManager.setPosition(Offset(pos.dx, newY));
+    } catch (e) {
+      debugPrint('FloatingButton: shrinkAfterMenu failed: $e');
+    }
   }
 
   /// Initiates a native window drag — the OS handles tracking until release.
@@ -211,10 +240,15 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
           opacity: _buttonOpacity,
           phase: _recordingState.phase,
           onTap: _toggleRecording,
-          onLongPress: _showDashboard,
-          enableContextMenu: false,
+          onLongPress: () async {
+            await _expandForMenu();
+          },
+          enableContextMenu: true,
+          onMenuClosed: _shrinkAfterMenu,
           locked: _buttonLocked,
-          onNavigate: (page) => _showDashboard(),
+          onNavigate: (page) {
+            commandChannel.invokeMethod('showMainWindow');
+          },
           onHide: _hideButton,
           onQuit: _quitApp,
         ),

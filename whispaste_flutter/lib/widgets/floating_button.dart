@@ -27,6 +27,7 @@ class WpFloatingButton extends StatefulWidget {
     this.onNavigate,
     this.onHide,
     this.onQuit,
+    this.onMenuClosed,
     this.locked = false,
     this.enableContextMenu = true,
   });
@@ -55,11 +56,13 @@ class WpFloatingButton extends StatefulWidget {
   /// Quit the application.
   final VoidCallback? onQuit;
 
+  /// Called after the context menu closes (for window resize cleanup).
+  final VoidCallback? onMenuClosed;
+
   /// When true, dragging is disabled.
   final bool locked;
 
   /// Whether the built-in context menu should open on long-press.
-  /// Set false in secondary windows where the popup would be clipped.
   final bool enableContextMenu;
 
   @override
@@ -221,6 +224,8 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
         ),
       ],
     ).then((action) {
+      // Notify parent that menu closed (e.g. for window resize cleanup).
+      widget.onMenuClosed?.call();
       if (action == null) return;
       switch (action) {
         case _MenuAction.dashboard:
