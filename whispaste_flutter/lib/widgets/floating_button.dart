@@ -341,16 +341,8 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
                           shape: BoxShape.circle,
                           gradient: gradient,
                           boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x66000000),
-                              blurRadius: 8,
-                              offset: Offset(0, 2),
-                            ),
-                            BoxShadow(
-                              color: Color(0x33000000),
-                              blurRadius: 16,
-                              offset: Offset(0, 4),
-                            ),
+                            WpColorsDark.elevationMd,
+                            WpColorsDark.elevationLg,
                           ],
                         ),
                         child: Center(
@@ -421,26 +413,20 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
       RecordingPhase.idle => isDark
           ? WpColorsDark.accentWarmGradient
           : WpColorsLight.accentWarmGradient,
-      RecordingPhase.recording => const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
-        ),
-      RecordingPhase.transcribing || RecordingPhase.processing => const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-        ),
-      RecordingPhase.done => const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
-        ),
-      RecordingPhase.error => const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
-        ),
+      RecordingPhase.recording => isDark
+          ? WpColorsDark.recordingGradient
+          : WpColorsLight.recordingGradient,
+      RecordingPhase.transcribing ||
+      RecordingPhase.processing =>
+        isDark
+            ? WpColorsDark.processingGradient
+            : WpColorsLight.processingGradient,
+      RecordingPhase.done => isDark
+          ? WpColorsDark.successGradient
+          : WpColorsLight.successGradient,
+      RecordingPhase.error => isDark
+          ? WpColorsDark.errorGradient
+          : WpColorsLight.errorGradient,
     };
   }
 

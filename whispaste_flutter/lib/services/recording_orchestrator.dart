@@ -12,6 +12,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../features/history/data/database.dart';
@@ -470,11 +471,11 @@ class RecordingOrchestrator extends Notifier<void> {
   ) async {
     final settings =
         ref.read(settingsProvider).value ?? AppSettings.defaults;
-    final action = settings.afterTranscription;
+    final action = settings.afterTranscriptionAction;
 
-    if (action == 'nothing') return;
+    if (action == AfterTranscriptionAction.nothing) return;
 
-    // Both 'clipboard' and 'paste' start by copying to clipboard.
+    // clipboard, paste, and clipboardAndPaste all start by copying.
     try {
       await Clipboard.setData(ClipboardData(text: transcript));
       _log.info('Transcript copied to clipboard (${transcript.length} chars)');
