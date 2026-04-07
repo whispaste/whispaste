@@ -1,16 +1,12 @@
 <#
 .SYNOPSIS
-    Local security scan for WhisPaste.
+    Local security scan for WhisPaste (Flutter).
 .DESCRIPTION
-    Runs all available security tools and reports findings.
+    Runs language-agnostic security tools and reports findings.
     Exit code 0 = clean, 1 = findings detected, 2 = tool missing/error.
 .EXAMPLE
-    .\scripts\security-scan.ps1            # Run all checks
-    .\scripts\security-scan.ps1 -Quick     # Skip slow checks (govulncheck)
+    .\scripts\security-scan.ps1
 #>
-param(
-    [switch]$Quick
-)
 
 $ErrorActionPreference = "Continue"
 $script:exitCode = 0
@@ -34,76 +30,15 @@ function Write-Result($tool, $status, $detail) {
 
 function Test-Tool($name) {
     if (-not (Get-Command $name -ErrorAction SilentlyContinue)) {
-        Write-Result $name "ERROR" "Not installed. Run: go install ... or see README."
+        Write-Result $name "ERROR" "Not installed. See README for installation instructions."
         $script:toolError = $true
         return $false
     }
     return $true
 }
 
-$env:CGO_ENABLED = "1"
-
 # ------------------------------------------------------------------
-# 1. golangci-lint (security profile)
-# ------------------------------------------------------------------
-Write-Header "golangci-lint (Security Linters)"
-
-if (Test-Tool "golangci-lint") {
-    $lintOutput = & golangci-lint run --timeout 5m 2>&1
-    $lintExit = $LASTEXITCODE
-
-    if ($lintExit -eq 0) {
-        Write-Result "golangci-lint" "PASS" "No issues found"
-    } else {
-        $issueCount = ($lintOutput | Where-Object { $_ -match "^\w" } | Measure-Object).Count
-        Write-Result "golangci-lint" "WARN" "$issueCount issue(s) found"
-        $lintOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow }
-        if ($script:exitCode -lt 1) { $script:exitCode = 1 }
-    }
-}
-
-# ------------------------------------------------------------------
-# 2. gosec (standalone — deeper analysis)
-# ------------------------------------------------------------------
-Write-Header "gosec (Go Security Scanner)"
-
-if (Test-Tool "gosec") {
-    $gosecOutput = & gosec -quiet -fmt text ./... 2>&1
-    $gosecExit = $LASTEXITCODE
-
-    if ($gosecExit -eq 0) {
-        Write-Result "gosec" "PASS" "No security issues found"
-    } else {
-        Write-Result "gosec" "WARN" "Security issues detected"
-        $gosecOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow }
-        if ($script:exitCode -lt 1) { $script:exitCode = 1 }
-    }
-}
-
-# ------------------------------------------------------------------
-# 3. govulncheck (dependency vulnerabilities)
-# ------------------------------------------------------------------
-if (-not $Quick) {
-    Write-Header "govulncheck (Dependency Vulnerabilities)"
-
-    if (Test-Tool "govulncheck") {
-        $vulnOutput = & govulncheck ./... 2>&1
-        $vulnExit = $LASTEXITCODE
-
-        if ($vulnExit -eq 0) {
-            Write-Result "govulncheck" "PASS" "No known vulnerabilities"
-        } else {
-            Write-Result "govulncheck" "FAIL" "Vulnerable dependencies found"
-            $vulnOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor Red }
-            if ($script:exitCode -lt 1) { $script:exitCode = 1 }
-        }
-    }
-} else {
-    Write-Result "govulncheck" "SKIP" "Skipped (use without -Quick to include)"
-}
-
-# ------------------------------------------------------------------
-# 4. gitleaks (secret scanning)
+# 1. gitleaks (secret scanning)
 # ------------------------------------------------------------------
 Write-Header "gitleaks (Secret Scanner)"
 
@@ -121,7 +56,7 @@ if (Test-Tool "gitleaks") {
 }
 
 # ------------------------------------------------------------------
-# 5. DevSkim (multi-language security linter: Go, JS, HTML, CSS)
+# 2. DevSkim (multi-language security linter: Dart, JS, HTML, CSS)
 # ------------------------------------------------------------------
 Write-Header "DevSkim (Multi-Language Security Linter)"
 
@@ -130,7 +65,7 @@ if (Test-Tool "devskim") {
         --source-code . `
         --file-format text `
         --severity "Critical,Important,Moderate" `
-        --ignore-globs "**/.git/**,**/bin/**,**/node_modules/**,**/dist/**,**/*.exe,**/*.dll,**/*.syso,skills-lock.json" `
+        --ignore-globs "**/.git/**,**/bin/**,**/node_modules/**,**/dist/**,**/build/**,**/*.exe,**/*.dll,skills-lock.json" `
         2>&1
     $devskimExit = $LASTEXITCODE
 
@@ -142,7 +77,7 @@ if (Test-Tool "devskim") {
         $findingCount = ($devskimFindings | Measure-Object).Count
 
         if ($findingCount -eq 0) {
-            Write-Result "DevSkim" "PASS" "No security issues found (Go, JS, HTML, CSS)"
+            Write-Result "DevSkim" "PASS" "No security issues found (Dart, JS, HTML, CSS)"
         } else {
             Write-Result "DevSkim" "WARN" "$findingCount finding(s) — review for false positives"
             $devskimFindings | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow }
@@ -152,19 +87,21 @@ if (Test-Tool "devskim") {
 }
 
 # ------------------------------------------------------------------
-# 6. go vet
+# 3. Flutter analyze (Dart static analysis)
 # ------------------------------------------------------------------
-Write-Header "go vet (Static Analysis)"
+Write-Header "Flutter Analyze (Dart Static Analysis)"
 
-if (Test-Tool "go") {
-    $vetOutput = & go vet ./... 2>&1
-    $vetExit = $LASTEXITCODE
+if (Test-Tool "flutter") {
+    $env:CI = "true"
+    $analyzeOutput = & flutter analyze --no-preamble 2>&1
+    $analyzeExit = $LASTEXITCODE
 
-    if ($vetExit -eq 0) {
-        Write-Result "go vet" "PASS" "No issues found"
+    if ($analyzeExit -eq 0) {
+        Write-Result "flutter analyze" "PASS" "No issues found"
     } else {
-        Write-Result "go vet" "WARN" "Issues detected"
-        $vetOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow }
+        $issueCount = ($analyzeOutput | Where-Object { $_ -match "(error|warning|info)\s+•" } | Measure-Object).Count
+        Write-Result "flutter analyze" "WARN" "$issueCount issue(s) found"
+        $analyzeOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow }
         if ($script:exitCode -lt 1) { $script:exitCode = 1 }
     }
 }
@@ -178,7 +115,6 @@ Write-Header "Summary"
 $passed = ($script:results | Where-Object { $_.Status -eq "PASS" } | Measure-Object).Count
 $warned = ($script:results | Where-Object { $_.Status -eq "WARN" } | Measure-Object).Count
 $failed = ($script:results | Where-Object { $_.Status -eq "FAIL" } | Measure-Object).Count
-$skipped = ($script:results | Where-Object { $_.Status -eq "SKIP" } | Measure-Object).Count
 $errors = ($script:results | Where-Object { $_.Status -eq "ERROR" } | Measure-Object).Count
 $total = $script:results.Count
 
@@ -194,7 +130,7 @@ if ($script:toolError) {
 } elseif ($script:exitCode -eq 0) {
     Write-Host "  All $passed checks passed!" -ForegroundColor Green
 } else {
-    Write-Host "  $passed passed, $warned warnings, $failed failed, $skipped skipped (of $total)" -ForegroundColor Yellow
+    Write-Host "  $passed passed, $warned warnings, $failed failed (of $total)" -ForegroundColor Yellow
 }
 
 Write-Host ""
