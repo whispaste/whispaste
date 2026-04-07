@@ -18,7 +18,7 @@ import '../core/logging/app_logger.dart';
 import '../core/data/database.dart';
 import '../core/recording/recording_state.dart';
 import 'audio_service.dart';
-import 'config_service.dart';
+import 'path_service.dart';
 import 'stt_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -187,9 +187,10 @@ class RecordingOrchestrator extends Notifier<void> {
       }
       _log.debug('WAV ready: ${wavBytes.length} bytes');
 
-      // Read config for language hint.
-      final config = ref.read(effectiveConfigProvider);
-      final language = config.transcriptionLanguage;
+      // Read settings for language hint and model info.
+      final settings =
+          ref.read(settingsProvider).value ?? AppSettings.defaults;
+      final language = settings.sttLanguageCode;
 
       // When language is empty or "auto", fall back to the app's UI locale
       // so local whisper models don't guess wrong (mirrors Go's
@@ -258,11 +259,9 @@ class RecordingOrchestrator extends Notifier<void> {
       }
 
       // Save to history database.
-      await _saveToHistory(transcript, config);
+      await _saveToHistory(transcript, settings);
 
       // ── Post-processing (LLM) ──────────────────────────────────────────
-      final settings =
-          ref.read(settingsProvider).value ?? AppSettings.defaults;
       final finalText = transcript;
 
       if (settings.postProcessEnabled) {
@@ -275,7 +274,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // Copy to clipboard / auto-paste based on user preference.
       // Timeout prevents a locked clipboard from hanging the pipeline.
       try {
-        await _handleAfterTranscription(finalText, config).timeout(
+        await _handleAfterTranscription(finalText, settings).timeout(
           const Duration(seconds: 10),
           onTimeout: () {
             _log.warning('After-transcription action timed out (10s)');
@@ -318,7 +317,8 @@ class RecordingOrchestrator extends Notifier<void> {
   /// or `null` when everything is ready. Error codes are mapped
   /// to localized messages in the UI layer.
   String? _runPreflight() {
-    final config = ref.read(effectiveConfigProvider);
+    final settings =
+        ref.read(settingsProvider).value ?? AppSettings.defaults;
 
     // Ensure STT directory exists.
     final dir = Directory(sttDir());
@@ -338,7 +338,7 @@ class RecordingOrchestrator extends Notifier<void> {
     }
 
     // Check model file.
-    final modelId = config.localModelId;
+    final modelId = settings.effectiveModelId;
     final modelPath = sttModelPath(modelId);
     if (modelPath == null) {
       return 'stt_model_unknown';
@@ -354,7 +354,7 @@ class RecordingOrchestrator extends Notifier<void> {
 
   Future<void> _saveToHistory(
     String transcript,
-    WhisPasteConfig config,
+    AppSettings settings,
   ) async {
     final db = ref.read(historyDatabaseProvider);
     final now = DateTime.now();
@@ -382,8 +382,8 @@ class RecordingOrchestrator extends Notifier<void> {
       title: Value(title),
       timestamp: Value(now),
       durationSec: Value(durationSec),
-      language: Value(config.transcriptionLanguage),
-      model: Value(config.localModelId),
+      language: Value(settings.sttLanguageCode),
+      model: Value(settings.effectiveModelId),
       isLocal: const Value(true),
       source: const Value('dictation'),
     ));
@@ -392,7 +392,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // history entry deletion.
     await db.recordDailyStat(
       timestamp: now,
-      model: config.localModelId,
+      model: settings.effectiveModelId,
       isLocal: true,
       durationSec: durationSec,
       processingDurationSec: 0,
@@ -498,12 +498,13 @@ class RecordingOrchestrator extends Notifier<void> {
   /// instant. Runs in the background — failures are silently logged.
   Future<void> _prewarmStt() async {
     try {
-      final config = ref.read(effectiveConfigProvider);
-      if (!config.useLocalStt) return;
+      final settings =
+          ref.read(settingsProvider).value ?? AppSettings.defaults;
+      if (!settings.sttProviderType.isLocal) return;
 
       // Only pre-warm when runtime + model are already downloaded.
       final serverPath = whisperServerPath();
-      final modelPath = sttModelPath(config.localModelId);
+      final modelPath = sttModelPath(settings.effectiveModelId);
       if (!File(serverPath).existsSync()) return;
       if (modelPath == null || !File(modelPath).existsSync()) return;
 
@@ -517,10 +518,8 @@ class RecordingOrchestrator extends Notifier<void> {
   /// user's "after transcription" setting.
   Future<void> _handleAfterTranscription(
     String transcript,
-    WhisPasteConfig config,
+    AppSettings settings,
   ) async {
-    final settings =
-        ref.read(settingsProvider).value ?? AppSettings.defaults;
     final action = settings.afterTranscriptionAction;
 
     if (action == AfterTranscriptionAction.nothing) return;

@@ -14,7 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/config/settings_provider.dart';
-import 'config_service.dart';
+import 'path_service.dart';
 
 // ---------------------------------------------------------------------------
 // Model registry — single source of truth for all downloadable assets
@@ -479,8 +479,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     dev.log('Downloading whisper-server binary…', name: 'Download');
 
     // Determine GPU mode for asset selection.
-    final config = ref.read(effectiveConfigProvider);
-    final gpuMode = config.gpuAcceleration;
+    final settings =
+        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final gpuMode = settings.gpuAcceleration;
 
     // Try WhisPaste-owned releases first, then upstream.
     const repos = [

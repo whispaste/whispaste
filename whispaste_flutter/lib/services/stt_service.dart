@@ -17,7 +17,7 @@ import 'package:http/http.dart' as http;
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart' show SttServerState;
-import 'config_service.dart';
+import 'path_service.dart';
 
 // Re-export so existing importers of stt_service.dart still see SttServerState.
 export '../core/recording/recording_state.dart' show SttServerState;
@@ -135,8 +135,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       return _startCompleter!.future;
     }
 
-    final config = ref.read(effectiveConfigProvider);
-    final modelId = config.localModelId;
+    final settings =
+        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final modelId = settings.effectiveModelId;
 
     // ── Model-change detection ───────────────────────────────────────────
     if (_activeModel != null && _activeModel != modelId) {
@@ -171,7 +172,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     _startCompleter = Completer<void>();
     try {
-      await _start(config);
+      await _start(modelId: modelId, gpuAcceleration: settings.gpuAcceleration);
       _startCompleter?.complete();
     } on Exception catch (e) {
       _startCompleter?.completeError(e);
@@ -428,15 +429,18 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     return buffer;
   }
 
-  Future<void> _start(WhisPasteConfig config) async {
+  Future<void> _start({
+    required String modelId,
+    required String gpuAcceleration,
+  }) async {
     state = const SttStatus(serverState: SttServerState.starting);
 
     // --- Resolve paths -------------------------------------------------------
     final serverPath = whisperServerPath();
-    final modelPath = sttModelPath(config.localModelId);
+    final modelPath = sttModelPath(modelId);
 
     if (modelPath == null) {
-      _fail('Unknown STT model: ${config.localModelId}');
+      _fail('Unknown STT model: $modelId');
       return;
     }
 
@@ -469,17 +473,16 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     }
 
     // --- Build args (mirrors Go's sttServerArgs) -----------------------------
-    final gpuMode = config.gpuAcceleration;
-    final threads = _threadCount(gpuMode);
+    final threads = _threadCount(gpuAcceleration);
     final args = _serverArgs(
       modelPath: modelPath,
       port: port,
       threads: threads,
-      gpuMode: gpuMode,
+      gpuMode: gpuAcceleration,
     );
 
     _log.info(
-      'Starting whisper-server: threads=$threads gpu=$gpuMode port=$port',
+      'Starting whisper-server: threads=$threads gpu=$gpuAcceleration port=$port',
     );
     _log.info('Command: $serverPath ${args.join(' ')}');
 
@@ -534,7 +537,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     state = SttStatus(
       serverState: SttServerState.starting,
       port: port,
-      modelId: config.localModelId,
+      modelId: modelId,
     );
 
     // --- Health poll ---------------------------------------------------------
@@ -554,7 +557,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     }
     coldStart.stop();
 
-    _activeModel = config.localModelId;
+    _activeModel = modelId;
     _resetIdleTimer();
 
     _log.info(
@@ -570,7 +573,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     state = SttStatus(
       serverState: SttServerState.ready,
       port: port,
-      modelId: config.localModelId,
+      modelId: modelId,
     );
   }
 
