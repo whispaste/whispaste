@@ -7,6 +7,7 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/theme/theme_provider.dart';
 import 'package:whispaste/features/history/data/database.dart';
 import 'package:whispaste/main.dart' as app_bootstrap;
+import 'package:whispaste/services/multi_window_service.dart';
 
 void main() {
   group('themeModeProvider (derived from settings)', () {
@@ -108,6 +109,11 @@ void main() {
   });
 
   group('bootstrapAppContainer', () {
+    // Stub notifier that does nothing — prevents MultiWindowNotifier from
+    // creating timers (showButton, ensureOverlay) that break pumpAndSettle.
+    final _multiWindowStub =
+        multiWindowProvider.overrideWith(() => _StubMultiWindowNotifier());
+
     testWidgets('uses persisted light theme on the first frame', (
       tester,
     ) async {
@@ -122,6 +128,7 @@ void main() {
             ref.onDispose(db.close);
             return db;
           }),
+          _multiWindowStub,
         ],
       );
       addTearDown(container.dispose);
@@ -152,6 +159,7 @@ void main() {
             ref.onDispose(db.close);
             return db;
           }),
+          _multiWindowStub,
         ],
       );
       addTearDown(container.dispose);
@@ -168,4 +176,10 @@ void main() {
       expect(app.themeMode, ThemeMode.system);
     });
   });
+}
+
+/// Stub [MultiWindowNotifier] that does nothing — no timers, no listeners.
+class _StubMultiWindowNotifier extends MultiWindowNotifier {
+  @override
+  MultiWindowState build() => const MultiWindowState();
 }
