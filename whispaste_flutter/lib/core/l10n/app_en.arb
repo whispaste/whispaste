@@ -65,6 +65,9 @@
   "historyMovedToTrash": "Moved to trash",
   "historyUndo": "Undo",
   "historyEntriesMerged": "Entries merged",
+  "historyMergeConfirm": "Merge {count} entries?",
+  "@historyMergeConfirm": { "placeholders": { "count": { "type": "int" } } },
+  "historyMergeConfirmMessage": "The selected entries will be combined into one. This cannot be undone.",
   "historyExitSelection": "Exit selection",
   "historySelectMultiple": "Select multiple",
   "historyProcessed": "Processed",
@@ -161,6 +164,8 @@
   "settingsSizeNormal": "Normal",
   "settingsSizeLarge": "Large",
   "settingsLanguage": "Language",
+  "settingsRecognitionLanguage": "Recognition Language",
+  "settingsAppLanguage": "App Language",
   "settingsSttModels": "Speech Recognition Models",
   "settingsCloudProviders": "Cloud Providers",
   "settingsCloudProvidersSubtitle": "API keys for online services",
@@ -566,5 +571,6 @@
   "trayStopRecording": "Stop Recording",
   "trayOpenApp": "Open WhisPaste",
   "traySettings": "Settings",
-  "trayQuit": "Quit"
+  "trayQuit": "Quit",
+  "settingsComingSoon": "Coming Soon"
 }

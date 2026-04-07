@@ -358,8 +358,29 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     return [];
   }
 
-  void _mergeSelected() {
+  void _mergeSelected() async {
     if (_selectedIds.length < 2) return;
+    final l10n = L10n.of(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.historyMergeConfirm(_selectedIds.length)),
+        content: Text(l10n.historyMergeConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.actionCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.historyMerge),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     final db = ref.read(historyDatabaseProvider);
     final ids = _selectedIds.toList();
     db.mergeEntries(ids).then((merged) {
@@ -371,7 +392,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       });
       WpToast.show(
         context,
-        message: L10n.of(context).historyEntriesMerged,
+        message: l10n.historyEntriesMerged,
         type: WpToastType.success,
         duration: const Duration(seconds: 2),
       );

@@ -421,6 +421,18 @@ abstract class L10n {
   /// **'Entries merged'**
   String get historyEntriesMerged;
 
+  /// No description provided for @historyMergeConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge {count} entries?'**
+  String historyMergeConfirm(int count);
+
+  /// No description provided for @historyMergeConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected entries will be combined into one. This cannot be undone.'**
+  String get historyMergeConfirmMessage;
+
   /// No description provided for @historyExitSelection.
   ///
   /// In en, this message translates to:
@@ -960,6 +972,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Language'**
   String get settingsLanguage;
+
+  /// No description provided for @settingsRecognitionLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Recognition Language'**
+  String get settingsRecognitionLanguage;
+
+  /// No description provided for @settingsAppLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'App Language'**
+  String get settingsAppLanguage;
 
   /// No description provided for @settingsSttModels.
   ///
@@ -3006,6 +3030,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Quit'**
   String get trayQuit;
+
+  /// No description provided for @settingsComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming Soon'**
+  String get settingsComingSoon;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

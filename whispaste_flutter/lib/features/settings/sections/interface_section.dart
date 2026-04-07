@@ -54,7 +54,7 @@ class InterfaceSection extends ConsumerWidget {
           ),
           SettingRow(
             icon: LucideIcons.globe,
-            label: l10n.settingsLanguage,
+            label: l10n.settingsAppLanguage,
             trailing: settingsDropdown(
               context: context,
               value: settings.locale == 'de' ? 'de' : 'en',
