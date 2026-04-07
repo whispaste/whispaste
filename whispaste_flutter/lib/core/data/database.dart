@@ -5,7 +5,9 @@
 /// to generate the `.g.dart` file.
 library;
 
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
@@ -24,6 +26,8 @@ part 'database.g.dart';
   EntryNotes,
   EntryAttachments,
   TextReplacements,
+  Tags,
+  EntryTags,
 ])
 class HistoryDatabase extends _$HistoryDatabase {
   HistoryDatabase() : super(_openConnection());
@@ -32,7 +36,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   HistoryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -49,6 +53,12 @@ class HistoryDatabase extends _$HistoryDatabase {
           if (from < 3) {
             await m.createTable(textReplacements);
           }
+          if (from < 4) {
+            await m.createTable(tags);
+            await m.createTable(entryTags);
+            await _recreateFtsWithTags();
+            await _migrateJsonTags();
+          }
         },
         beforeOpen: (details) async {
           // One-time backfill: populate DailyStats from existing history
@@ -62,7 +72,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   Future<void> _createFts(Migrator m) async {
     await customStatement('''
       CREATE VIRTUAL TABLE IF NOT EXISTS history_fts USING fts5(
-        title, content,
+        title, content, tags,
         content='',
         tokenize='unicode61'
       )
@@ -71,26 +81,26 @@ class HistoryDatabase extends _$HistoryDatabase {
     await customStatement('''
       CREATE TRIGGER IF NOT EXISTS history_fts_ai AFTER INSERT ON history_entries
       BEGIN
-        INSERT INTO history_fts(rowid, title, content)
-        VALUES (new.rowid, new.title, new.content);
+        INSERT INTO history_fts(rowid, title, content, tags)
+        VALUES (new.rowid, new.title, new.content, new.tags);
       END
     ''');
 
     await customStatement('''
       CREATE TRIGGER IF NOT EXISTS history_fts_ad AFTER DELETE ON history_entries
       BEGIN
-        INSERT INTO history_fts(history_fts, rowid, title, content)
-        VALUES ('delete', old.rowid, old.title, old.content);
+        INSERT INTO history_fts(history_fts, rowid, title, content, tags)
+        VALUES ('delete', old.rowid, old.title, old.content, old.tags);
       END
     ''');
 
     await customStatement('''
       CREATE TRIGGER IF NOT EXISTS history_fts_au AFTER UPDATE ON history_entries
       BEGIN
-        INSERT INTO history_fts(history_fts, rowid, title, content)
-        VALUES ('delete', old.rowid, old.title, old.content);
-        INSERT INTO history_fts(rowid, title, content)
-        VALUES (new.rowid, new.title, new.content);
+        INSERT INTO history_fts(history_fts, rowid, title, content, tags)
+        VALUES ('delete', old.rowid, old.title, old.content, old.tags);
+        INSERT INTO history_fts(rowid, title, content, tags)
+        VALUES (new.rowid, new.title, new.content, new.tags);
       END
     ''');
   }
@@ -103,6 +113,86 @@ class HistoryDatabase extends _$HistoryDatabase {
         value TEXT NOT NULL
       )
     ''');
+  }
+
+  /// Recreates FTS5 table and triggers with the tags column (v4 migration).
+  Future<void> _recreateFtsWithTags() async {
+    await customStatement('DROP TRIGGER IF EXISTS history_fts_ai');
+    await customStatement('DROP TRIGGER IF EXISTS history_fts_ad');
+    await customStatement('DROP TRIGGER IF EXISTS history_fts_au');
+    await customStatement('DROP TABLE IF EXISTS history_fts');
+
+    await customStatement('''
+      CREATE VIRTUAL TABLE IF NOT EXISTS history_fts USING fts5(
+        title, content, tags,
+        content='',
+        tokenize='unicode61'
+      )
+    ''');
+
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS history_fts_ai AFTER INSERT ON history_entries
+      BEGIN
+        INSERT INTO history_fts(rowid, title, content, tags)
+        VALUES (new.rowid, new.title, new.content, new.tags);
+      END
+    ''');
+
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS history_fts_ad AFTER DELETE ON history_entries
+      BEGIN
+        INSERT INTO history_fts(history_fts, rowid, title, content, tags)
+        VALUES ('delete', old.rowid, old.title, old.content, old.tags);
+      END
+    ''');
+
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS history_fts_au AFTER UPDATE ON history_entries
+      BEGIN
+        INSERT INTO history_fts(history_fts, rowid, title, content, tags)
+        VALUES ('delete', old.rowid, old.title, old.content, old.tags);
+        INSERT INTO history_fts(rowid, title, content, tags)
+        VALUES (new.rowid, new.title, new.content, new.tags);
+      END
+    ''');
+
+    // Rebuild FTS index from existing data
+    await customStatement('''
+      INSERT INTO history_fts(rowid, title, content, tags)
+      SELECT rowid, title, content, tags FROM history_entries
+    ''');
+  }
+
+  /// Migrates JSON tag arrays on history_entries into normalized Tags/EntryTags.
+  Future<void> _migrateJsonTags() async {
+    final rows = await customSelect(
+      "SELECT id, tags FROM history_entries WHERE tags != '[]' AND tags != ''",
+    ).get();
+
+    for (final row in rows) {
+      final entryId = row.read<String>('id');
+      final tagsJson = row.read<String>('tags');
+
+      List<String> tagNames;
+      try {
+        final decoded = jsonDecode(tagsJson);
+        if (decoded is List) {
+          tagNames = decoded.cast<String>();
+        } else {
+          continue;
+        }
+      } catch (_) {
+        continue;
+      }
+
+      for (final name in tagNames) {
+        final normalized = name.toLowerCase().trim();
+        if (normalized.isEmpty) continue;
+
+        final tag = await createTag(normalized);
+        await tagEntry(entryId, tag.id);
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -167,23 +257,48 @@ class HistoryDatabase extends _$HistoryDatabase {
         .get();
   }
 
-  /// Full-text search via FTS5.
+  /// Full-text search via FTS5 with query sanitization.
   Future<List<HistoryEntry>> searchEntries(String query) async {
-    final ftsResults = await customSelect(
-      'SELECT rowid FROM history_fts WHERE history_fts MATCH ?',
-      variables: [Variable.withString(query)],
-    ).get();
+    final sanitized = _sanitizeFtsQuery(query);
+    if (sanitized.isEmpty) return [];
 
-    if (ftsResults.isEmpty) return [];
+    try {
+      final ftsResults = await customSelect(
+        'SELECT rowid FROM history_fts WHERE history_fts MATCH ?',
+        variables: [Variable.withString(sanitized)],
+      ).get();
 
-    final rowIds = ftsResults.map((r) => r.read<int>('rowid')).toList();
-    return (select(historyEntries)
-          ..where((e) =>
-              e.rowId.isIn(rowIds) & e.deletedAt.isNull())
-          ..orderBy([
-            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
-          ]))
-        .get();
+      if (ftsResults.isEmpty) return [];
+
+      final rowIds = ftsResults.map((r) => r.read<int>('rowid')).toList();
+      return (select(historyEntries)
+            ..where((e) => e.rowId.isIn(rowIds) & e.deletedAt.isNull())
+            ..orderBy([
+              (e) =>
+                  OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
+            ]))
+          .get();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Escapes special FTS5 characters and converts to a prefix query.
+  static String _sanitizeFtsQuery(String query) {
+    final cleaned = query
+        .replaceAll(RegExp(r'[*"()+\-^{}~:\\/]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (cleaned.isEmpty) return '';
+    final terms = cleaned.split(' ').where((t) => t.isNotEmpty).toList();
+    if (terms.isEmpty) return '';
+    return terms.map((t) => '"$t"*').join(' ');
+  }
+
+  /// Get a single entry by ID (or null if not found).
+  Future<HistoryEntry?> getEntry(String entryId) {
+    return (select(historyEntries)..where((e) => e.id.equals(entryId)))
+        .getSingleOrNull();
   }
 
   /// Soft-delete an entry (move to trash).
@@ -371,6 +486,124 @@ class HistoryDatabase extends _$HistoryDatabase {
           ])
           ..limit(limit))
         .watch();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tags — normalized tag CRUD
+  // ---------------------------------------------------------------------------
+
+  /// Creates a tag with the given name (lowercased). Returns existing if duplicate.
+  Future<Tag> createTag(String name) async {
+    final normalized = name.toLowerCase().trim();
+    final existing = await (select(tags)
+          ..where((t) => t.name.equals(normalized)))
+        .getSingleOrNull();
+    if (existing != null) return existing;
+
+    final id = _uuid();
+    final now = DateTime.now();
+    await into(tags).insert(TagsCompanion.insert(
+      id: id,
+      name: normalized,
+      createdAt: now,
+    ));
+    return Tag(id: id, name: normalized, createdAt: now);
+  }
+
+  /// Deletes a tag and all its entry links.
+  Future<void> deleteTag(String tagId) async {
+    await (delete(entryTags)..where((et) => et.tagId.equals(tagId))).go();
+    await (delete(tags)..where((t) => t.id.equals(tagId))).go();
+  }
+
+  /// Renames a tag (lowercased). Fails silently if new name already exists.
+  Future<void> renameTag(String tagId, String newName) async {
+    final normalized = newName.toLowerCase().trim();
+    final existing = await (select(tags)
+          ..where((t) => t.name.equals(normalized)))
+        .getSingleOrNull();
+    if (existing != null && existing.id != tagId) return;
+
+    await (update(tags)..where((t) => t.id.equals(tagId)))
+        .write(TagsCompanion(name: Value(normalized)));
+  }
+
+  /// All tags, alphabetically.
+  Future<List<Tag>> allTags() {
+    return (select(tags)..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
+  }
+
+  /// Tags for a specific entry (via join).
+  Future<List<Tag>> tagsForEntry(String entryId) async {
+    final query = select(tags).join([
+      innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id)),
+    ])
+      ..where(entryTags.entryId.equals(entryId))
+      ..orderBy([OrderingTerm.asc(tags.name)]);
+    final rows = await query.get();
+    return rows.map((r) => r.readTable(tags)).toList();
+  }
+
+  /// Reactive stream of tags for a specific entry.
+  Stream<List<Tag>> watchTagsForEntry(String entryId) {
+    final query = select(tags).join([
+      innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id)),
+    ])
+      ..where(entryTags.entryId.equals(entryId))
+      ..orderBy([OrderingTerm.asc(tags.name)]);
+    return query.watch().map(
+          (rows) => rows.map((r) => r.readTable(tags)).toList(),
+        );
+  }
+
+  /// Most-used tags by entry count.
+  Future<List<Tag>> frequentTags({int limit = 10}) async {
+    final count = entryTags.tagId.count();
+    final query = select(tags).join([
+      innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id)),
+    ])
+      ..groupBy([tags.id, tags.name, tags.createdAt])
+      ..orderBy([OrderingTerm.desc(count)])
+      ..limit(limit);
+    final rows = await query.get();
+    return rows.map((r) => r.readTable(tags)).toList();
+  }
+
+  /// Prefix search for tag autocomplete.
+  Future<List<Tag>> searchTags(String prefix) {
+    final normalized = prefix.toLowerCase().trim();
+    return (select(tags)
+          ..where((t) => t.name.like('$normalized%'))
+          ..orderBy([(t) => OrderingTerm.asc(t.name)])
+          ..limit(20))
+        .get();
+  }
+
+  /// Link an entry to a tag.
+  Future<void> tagEntry(String entryId, String tagId) {
+    return into(entryTags).insert(
+      EntryTagsCompanion.insert(entryId: entryId, tagId: tagId),
+      mode: InsertMode.insertOrIgnore,
+    );
+  }
+
+  /// Remove a tag from an entry.
+  Future<void> untagEntry(String entryId, String tagId) {
+    return (delete(entryTags)
+          ..where(
+              (et) => et.entryId.equals(entryId) & et.tagId.equals(tagId)))
+        .go();
+  }
+
+  /// Generates a v4 UUID without external dependencies.
+  static String _uuid() {
+    final r = Random.secure();
+    final bytes = List.generate(16, (_) => r.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    final h = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${h.substring(0, 8)}-${h.substring(8, 12)}-'
+        '${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
   }
 
   // ---------------------------------------------------------------------------
