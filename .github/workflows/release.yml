@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --fatal-infos
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Prepare release artifacts
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          $artifactDir = "release-artifacts"
+          New-Item -ItemType Directory -Path $artifactDir -Force
+
+          # Copy build output
+          $buildDir = "build\windows\x64\runner\Release"
+          $zipName = "WhisPaste-$version-windows-x64.zip"
+          Compress-Archive -Path "$buildDir\*" -DestinationPath "$artifactDir\$zipName"
+
+          Write-Host "Created: $artifactDir\$zipName"
+          Get-ChildItem $artifactDir
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: release-artifacts/
+
+  build-msix:
+    name: Build MSIX
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build MSIX
+        run: dart run msix:create --store
+        continue-on-error: true
+
+      - name: Upload MSIX
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: msix-release
+          path: build/windows/x64/runner/Release/*.msix
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: artifacts/
+
+      - name: Generate release notes
+        id: notes
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # Extract section from CHANGELOG.md
+          awk "/^## $VERSION/{flag=1; next} /^## /{flag=0} flag" CHANGELOG.md > release-body.md
+
+          if [ ! -s release-body.md ]; then
+            echo "Release $VERSION" > release-body.md
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: WhisPaste v${{ steps.notes.outputs.version }}
+          body_path: release-body.md
+          draft: true
+          files: artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

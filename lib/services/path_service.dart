@@ -11,10 +11,10 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 // ---------------------------------------------------------------------------
-// Model ID → GGML filename lookup (mirrors internal/models/models.go)
+// Model ID → GGML filename lookup
 // ---------------------------------------------------------------------------
 
-/// Maps Go model IDs to their on-disk GGML filenames.
+/// Maps model IDs to their on-disk GGML filenames.
 const Map<String, String> modelFilenames = {
   'whisper-tiny': 'ggml-tiny-q5_1.bin',
   'whisper-base': 'ggml-base-q5_1.bin',

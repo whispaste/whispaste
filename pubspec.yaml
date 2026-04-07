@@ -80,6 +80,7 @@ dev_dependencies:
   build_runner: ^2.4.0
   drift_dev: ^2.25.0
   mocktail: ^1.0.4
+  msix: ^3.16.8
 
 flutter:
   uses-material-design: true
@@ -94,3 +95,12 @@ flutter:
     - assets/sounds/
     - assets/icons/logo-dark.svg
     - assets/icons/logo-light.svg
+
+msix_config:
+  display_name: WhisPaste
+  publisher_display_name: WhisPaste
+  identity_name: WhisPaste
+  msix_version: 1.2.0.0
+  logo_path: assets/icons/app_icon.png
+  capabilities: microphone, internetClient
+  store: true
