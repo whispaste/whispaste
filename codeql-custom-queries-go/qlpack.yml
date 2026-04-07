@@ -1,7 +1,0 @@
----
-library: false
-warnOnImplicitThis: false
-name: whispaste/codeql-custom-queries-go
-version: 1.0.0
-dependencies:
-  codeql/go-all: ^1.1.0
