@@ -789,12 +789,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       'OpenAI',
                       'Anthropic',
                       'Groq',
+                      'Gemini',
                     ],
                     labels: [
                       l10n.statusLocal,
                       'OpenAI',
                       'Anthropic',
                       'Groq',
+                      'Gemini',
                     ],
                     onChanged: (v) => ref
                         .read(settingsProvider.notifier)
