@@ -880,13 +880,13 @@ abstract class L10n {
   /// No description provided for @settingsOverlayModeInWindow.
   ///
   /// In en, this message translates to:
-  /// **'Show during recording'**
+  /// **'In main window'**
   String get settingsOverlayModeInWindow;
 
   /// No description provided for @settingsOverlayModeFloating.
   ///
   /// In en, this message translates to:
-  /// **'Floating (always on top)'**
+  /// **'Floating window (always visible)'**
   String get settingsOverlayModeFloating;
 
   /// No description provided for @settingsOverlayModeOff.

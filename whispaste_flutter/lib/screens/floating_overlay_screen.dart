@@ -29,7 +29,7 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
   await windowManager.ensureInitialized();
 
   const overlayWidth = 480.0;
-  const overlayHeight = 64.0;
+  const overlayHeight = 80.0;
 
   const options = WindowOptions(
     size: Size(overlayWidth, overlayHeight),
