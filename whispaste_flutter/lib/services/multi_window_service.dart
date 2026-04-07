@@ -806,7 +806,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
           ref.read(activePageProvider.notifier).setPage(page);
         }
       case 'quitApp':
-        _closeAll();
+        await _closeAll();
         // Use windowManager.destroy() for graceful shutdown — unlike exit(0),
         // this allows Flutter's normal lifecycle (dispose, DB flush, etc.).
         await windowManager.destroy();
@@ -831,22 +831,47 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     return null;
   }
 
-  void _closeAll() {
+  /// Shuts down all secondary windows with a hard timeout.
+  /// Called before windowManager.destroy() to give floating windows
+  /// time to hide and go inert.
+  Future<void> _closeAll() async {
     final overlay = _overlayController;
     final button = _buttonController;
     _overlayController = null;
     _buttonController = null;
     state = state.copyWith(overlayVisible: false, buttonVisible: false);
     _log.info('Shutting down all secondary windows (hide + inert)');
-    // Send shutdown commands so secondary engines go inert.
-    overlay?.invokeMethod('shutdown').catchError((_) {});
-    button?.invokeMethod('shutdown').catchError((_) {});
-    overlay?.invokeMethod('hideWindow').catchError((_) {});
-    button?.invokeMethod('hideWindow').catchError((_) {});
-    // Hide the OS windows.
-    overlay?.hide().catchError((_) {});
-    button?.hide().catchError((_) {});
+
+    Future<void> shutdownWindow(WindowController? ctrl, String label) async {
+      if (ctrl == null) return;
+      try {
+        await ctrl.invokeMethod('shutdown').timeout(
+          const Duration(seconds: 1),
+          onTimeout: () => null,
+        );
+      } catch (_) {}
+      try {
+        await ctrl.hide().timeout(
+          const Duration(milliseconds: 500),
+          onTimeout: () {},
+        );
+      } catch (_) {}
+    }
+
+    // Shut down both windows in parallel with a hard 2s overall timeout.
+    await Future.wait([
+      shutdownWindow(overlay, 'overlay'),
+      shutdownWindow(button, 'button'),
+    ]).timeout(
+      const Duration(seconds: 2),
+      onTimeout: () => [null, null],
+    );
+
+    _log.info('Secondary windows shut down');
   }
+
+  /// Public API for app shutdown — closes all secondary windows with timeout.
+  Future<void> shutdownAll() => _closeAll();
 }
 
 // ---------------------------------------------------------------------------

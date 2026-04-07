@@ -186,7 +186,7 @@ class TrayService extends Notifier<void> implements TrayListener {
 
   Future<void> _quit() async {
     try {
-      await trayManager.destroy();
+      await trayManager.destroy().timeout(const Duration(seconds: 1));
     } on Exception catch (_) {
       // Best-effort cleanup.
     }
