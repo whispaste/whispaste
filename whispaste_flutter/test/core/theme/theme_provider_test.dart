@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/app.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/theme/theme_provider.dart';
-import 'package:whispaste/features/history/data/database.dart';
+import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/main.dart' as app_bootstrap;
 import 'package:whispaste/services/multi_window_service.dart';
 

@@ -1,7 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/drift.dart';
-import 'package:whispaste/features/history/data/database.dart';
+import 'package:whispaste/core/data/database.dart';
 
 void main() {
   late HistoryDatabase db;

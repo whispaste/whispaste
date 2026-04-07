@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
-import 'package:whispaste/features/history/data/database.dart';
+import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/config_service.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';

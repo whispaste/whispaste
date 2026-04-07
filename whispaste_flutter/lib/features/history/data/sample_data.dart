@@ -4,7 +4,7 @@
 /// Provides realistic entries that showcase search, filtering, and grouping.
 library;
 
-import 'database.dart';
+import 'package:whispaste/core/data/database.dart';
 
 /// Sample entries spanning multiple days to demonstrate date grouping.
 List<HistoryEntry> generateSampleEntries() {
