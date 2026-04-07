@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/dialog.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
 import 'analytics_provider.dart';
@@ -1074,34 +1075,17 @@ class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
 
   void _confirmReset(BuildContext context, bool isDark) {
     final l10n = L10n.of(context);
-    showDialog<void>(
+    showWpConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark
-            ? WpColorsDark.surfaceElevated
-            : WpColorsLight.surfaceElevated,
-        shape: RoundedRectangleBorder(borderRadius: WpRadius.borderLg),
-        title: Text(l10n.analyticsResetTitle),
-        content: Text(l10n.analyticsResetMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l10n.actionCancel),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              // TODO: Wire up to Riverpod reset action
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: isDark
-                  ? WpColorsDark.error
-                  : WpColorsLight.error,
-            ),
-            child: Text(l10n.analyticsReset),
-          ),
-        ],
-      ),
-    );
+      title: l10n.analyticsResetTitle,
+      message: l10n.analyticsResetMessage,
+      confirmLabel: l10n.analyticsReset,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
+    ).then((confirmed) {
+      if (confirmed) {
+        // TODO: Wire up to Riverpod reset action
+      }
+    });
   }
 }

@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
 import '../settings_widgets.dart';
@@ -260,24 +261,15 @@ class AdvancedSection extends ConsumerWidget {
 
   Future<void> _confirmReset(BuildContext context, WidgetRef ref) async {
     final l10n = L10n.of(context);
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showWpConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.settingsResetDialogTitle),
-        content: Text(l10n.settingsResetConfirmMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(l10n.actionCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(l10n.settingsResetConfirm),
-          ),
-        ],
-      ),
+      title: l10n.settingsResetTitle,
+      message: l10n.settingsResetMessage,
+      confirmLabel: l10n.settingsResetConfirm,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     await ref.read(settingsProvider.notifier).resetToDefaults();
     if (!context.mounted) return;

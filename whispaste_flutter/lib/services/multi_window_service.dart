@@ -26,6 +26,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../core/config/settings_enums.dart';
+import '../core/config/settings_labels.dart' show formatHotkeyShortcut;
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/multi_window/multi_window_types.dart';
@@ -411,24 +412,20 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     WindowController controller, {
     required String target,
     bool assertTopmost = false,
+    String? arguments,
   }) async {
-    // Invoke showWindow FIRST — this triggers the secondary engine to set
-    // correct size/alignment before the window becomes visible. controller.show()
-    // (DMW native show) makes the window instantly visible at whatever size it
-    // currently has, so it must come AFTER the engine has sized itself.
+    // invokeMethod('showWindow') triggers the Flutter engine inside the
+    // secondary window to resize + show via window_manager. We intentionally
+    // do NOT call controller.show() (DMW native) — that would make the window
+    // visible at whatever stale size it has, racing with the engine sizing.
     try {
-      await controller.invokeMethod('showWindow');
+      await controller.invokeMethod('showWindow', arguments);
     } catch (e) {
-      _log.debug('showWindow failed for $target window: $e');
-    }
-    try {
-      await controller.show();
-    } catch (e) {
-      _log.debug('Native show() failed for $target window: $e');
+      _log.warning('showWindow failed for $target window: $e');
     }
     if (assertTopmost) {
       controller.invokeMethod('assertTopmost').catchError((Object e) {
-        _log.debug('assertTopmost failed for $target window: $e');
+        _log.warning('assertTopmost failed for $target window: $e');
       });
     }
   }
@@ -440,12 +437,12 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     try {
       await controller.invokeMethod('hideWindow');
     } catch (e) {
-      _log.debug('hideWindow failed for $target window: $e');
+      _log.warning('hideWindow failed for $target window: $e');
     }
     try {
       await controller.hide();
     } catch (e) {
-      _log.debug('Native hide() failed for $target window: $e');
+      _log.warning('Native hide() failed for $target window: $e');
     }
   }
 
@@ -512,6 +509,15 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     if (_overlayController == null) {
       await _reconcileExistingWindows();
     }
+    // Build overlay position args from persisted settings.
+    String? posArgs;
+    final settings = ref.read(settingsProvider).value;
+    if (settings != null && settings.floatingOverlayX >= 0) {
+      posArgs = jsonEncode({
+        'x': settings.floatingOverlayX,
+        'y': settings.floatingOverlayY,
+      });
+    }
     if (_overlayController != null) {
       // Window exists — push state first, then show.
       try {
@@ -520,6 +526,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
           _overlayController!,
           target: 'overlay',
           assertTopmost: true,
+          arguments: posArgs,
         );
         _log.info('Floating overlay shown (existing window)');
       } catch (e) {
@@ -542,6 +549,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
               _overlayController!,
               target: 'overlay',
               assertTopmost: true,
+              arguments: posArgs,
             );
             _log.info('Floating overlay shown (newly created)');
           } catch (e) {
@@ -716,8 +724,27 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
 
   // -- State sync (main → secondary) ---------------------------------------
 
+  String _encodeWithSettings(RecordingState recState) {
+    final settings = ref.read(settingsProvider).value;
+    if (settings == null) return encodeRecordingState(recState);
+    final aiMode = settings.postProcessEnabled
+        ? settings.postProcessPreset
+        : null;
+    return encodeRecordingState(
+      recState,
+      maxRecordDurationSeconds: settings.maxRecordDuration,
+      afterAction: settings.afterTranscription,
+      aiMode: aiMode,
+      isLocalStt: settings.sttProviderType.isLocal,
+      hotkeyLabel: formatHotkeyShortcut(
+        settings.hotkeyModifiers,
+        settings.hotkeyKey,
+      ),
+    );
+  }
+
   void _pushRecordingState(RecordingState recState) {
-    final encoded = encodeRecordingState(recState);
+    final encoded = _encodeWithSettings(recState);
     // Push to all live controllers regardless of visibility flags.
     // The visibility flags can temporarily go false during window
     // reconciliation — gating on them would permanently block state sync
@@ -739,7 +766,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         : controller == _buttonController
         ? 'button'
         : 'secondary';
-    _pushEncodedTo(controller, encodeRecordingState(recState), target);
+    _pushEncodedTo(controller, _encodeWithSettings(recState), target);
   }
 
   void _pushEncodedTo(
@@ -825,6 +852,23 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
                 );
           } catch (e) {
             _log.warning('Failed to parse button position', e);
+          }
+        }
+      case 'saveOverlayPosition':
+        // Persist overlay position from drag in secondary window.
+        final posData = call.arguments;
+        if (posData is String) {
+          try {
+            final pos = jsonDecode(posData) as Map<String, dynamic>;
+            final x = (pos['x'] as num?)?.toDouble() ?? -1.0;
+            final y = (pos['y'] as num?)?.toDouble() ?? -1.0;
+            ref
+                .read(settingsProvider.notifier)
+                .updateSettings(
+                  (s) => s.copyWith(floatingOverlayX: x, floatingOverlayY: y),
+                );
+          } catch (e) {
+            _log.warning('Failed to parse overlay position', e);
           }
         }
     }

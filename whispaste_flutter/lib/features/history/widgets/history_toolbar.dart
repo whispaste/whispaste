@@ -247,21 +247,24 @@ class HistoryMultiSelectBar extends StatelessWidget {
       child: Row(
         children: [
           // Selection count
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: WpSpacing.xxs,
-            ),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.15),
-              borderRadius: WpRadius.borderFull,
-            ),
-            child: Text(
-              l10n.historyItemsSelected(selectedCount),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: accent,
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.xxs,
+              ),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.15),
+                borderRadius: WpRadius.borderFull,
+              ),
+              child: Text(
+                l10n.historyItemsSelected(selectedCount),
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: accent,
+                ),
               ),
             ),
           ),
