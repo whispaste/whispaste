@@ -241,6 +241,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
       // Window exists — show and push latest state.
       try {
         await _overlayController!.show();
+        _log.info('Floating overlay shown (existing window)');
       } catch (e) {
         _log.warning('Overlay show() failed — recreating', e);
         _overlayController = null;
@@ -251,6 +252,14 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
       _creatingOverlay = true;
       try {
         _overlayController = await _createWindow(WindowType.floatingOverlay);
+        if (_overlayController != null) {
+          try {
+            await _overlayController!.show();
+            _log.info('Floating overlay shown (newly created)');
+          } catch (e) {
+            _log.warning('Overlay show() on new window failed', e);
+          }
+        }
       } finally {
         _creatingOverlay = false;
       }
@@ -269,6 +278,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     final ctrl = _overlayController;
     if (ctrl == null) return;
     state = state.copyWith(overlayVisible: false);
+    _log.info('Floating overlay hidden');
     try {
       await ctrl.hide();
     } catch (e) {
