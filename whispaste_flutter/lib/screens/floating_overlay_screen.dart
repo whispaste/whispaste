@@ -261,11 +261,6 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
               decoration: BoxDecoration(
                 color: const Color(0xD9141926),
                 borderRadius: pillRadius,
-                // Subtle border — barely visible, structural depth only.
-                border: Border.all(
-                  color: WpColorsDark.borderSubtle,
-                  width: 0.5,
-                ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
