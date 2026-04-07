@@ -439,10 +439,16 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     } catch (e) {
       _log.warning('hideWindow failed for $target window: $e');
     }
-    try {
-      await controller.hide();
-    } catch (e) {
-      _log.warning('Native hide() failed for $target window: $e');
+    // For the overlay, we do NOT call controller.hide() (DMW native). The
+    // overlay uses resize-based visibility (1×1 = hidden, 480×100 = visible)
+    // to work around a window_manager bug where transparent frameless windows
+    // lose their rendering surface after hide → show on Windows.
+    if (target != 'overlay') {
+      try {
+        await controller.hide();
+      } catch (e) {
+        _log.warning('Native hide() failed for $target window: $e');
+      }
     }
   }
 
