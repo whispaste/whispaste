@@ -25,6 +25,7 @@ class HistoryEntryRow extends StatefulWidget {
     this.multiSelectMode = false,
     this.isChecked = false,
     this.isTrashView = false,
+    this.isFocused = false,
   });
 
   final HistoryEntry entry;
@@ -37,6 +38,7 @@ class HistoryEntryRow extends StatefulWidget {
   final bool multiSelectMode;
   final bool isChecked;
   final bool isTrashView;
+  final bool isFocused;
 
   @override
   State<HistoryEntryRow> createState() => _HistoryEntryRowState();
@@ -69,6 +71,8 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
     final Color bg;
     if (widget.isSelected) {
       bg = isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
+    } else if (widget.isFocused) {
+      bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
     } else if (_isHovered) {
       bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
     } else {
@@ -104,11 +108,17 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
             color: bg,
             borderRadius: WpRadius.borderMd,
             // Left accent stripe for selected entry (Discord-style)
+            // Focus ring for keyboard-navigated entry
             border: widget.isSelected
                 ? Border(
                     left: BorderSide(color: accent, width: 3),
                   )
-                : null,
+                : widget.isFocused
+                    ? Border.all(
+                        color: accent.withValues(alpha: 0.5),
+                        width: 1.5,
+                      )
+                    : null,
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,

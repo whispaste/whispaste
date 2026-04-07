@@ -26,6 +26,7 @@ class HistoryCardView extends StatelessWidget {
     required this.onDelete,
     required this.multiSelectMode,
     required this.selectedIds,
+    this.focusedId,
   });
 
   final List<DateGroup> groups;
@@ -37,6 +38,7 @@ class HistoryCardView extends StatelessWidget {
   final ValueChanged<HistoryEntry> onDelete;
   final bool multiSelectMode;
   final Set<String> selectedIds;
+  final String? focusedId;
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +75,7 @@ class HistoryCardView extends StatelessWidget {
                           entry: entry,
                           isDark: isDark,
                           isSelected: entry.id == selectedId,
+                          isFocused: entry.id == focusedId,
                           onTap: () => onEntryTap(entry),
                           onCopy: () => onCopy(entry),
                           onPin: () => onPin(entry),
@@ -108,6 +111,7 @@ class HistoryEntryCard extends StatefulWidget {
     required this.onDelete,
     required this.multiSelectMode,
     required this.isMultiSelected,
+    this.isFocused = false,
   });
 
   final HistoryEntry entry;
@@ -119,6 +123,7 @@ class HistoryEntryCard extends StatefulWidget {
   final VoidCallback onDelete;
   final bool multiSelectMode;
   final bool isMultiSelected;
+  final bool isFocused;
 
   @override
   State<HistoryEntryCard> createState() => _HistoryEntryCardState();
@@ -144,7 +149,9 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
         : WpColorsLight.surfaceElevated;
     final borderColor = widget.isSelected
         ? accent.withValues(alpha: 0.5)
-        : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle);
+        : widget.isFocused
+            ? accent.withValues(alpha: 0.4)
+            : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,

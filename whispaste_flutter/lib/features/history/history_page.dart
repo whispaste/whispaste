@@ -1,12 +1,15 @@
 ﻿import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../widgets/command_palette.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
@@ -36,10 +39,40 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   /// Tracks last clicked entry for Shift+click range selection.
   String? _lastClickedId;
 
+  /// Keyboard-focused entry ID (distinct from selected/detail entry).
+  String? _focusedEntryId;
+  final FocusNode _listFocusNode = FocusNode();
+
   @override
   void dispose() {
     _searchController.dispose();
+    _listFocusNode.dispose();
     super.dispose();
+  }
+
+  /// Builds a flat list of entry IDs from the grouped data for keyboard
+  /// navigation ordering.
+  List<HistoryEntry> _flatEntries(List<DateGroup> groups) {
+    return [for (final g in groups) ...g.entries];
+  }
+
+  void _moveFocus(int delta, List<HistoryEntry> flat) {
+    if (flat.isEmpty) return;
+    final currentIdx =
+        flat.indexWhere((e) => e.id == _focusedEntryId);
+    final int nextIdx;
+    if (currentIdx < 0) {
+      nextIdx = delta > 0 ? 0 : flat.length - 1;
+    } else {
+      nextIdx = (currentIdx + delta).clamp(0, flat.length - 1);
+    }
+    setState(() => _focusedEntryId = flat[nextIdx].id);
+  }
+
+  HistoryEntry? _focusedEntry(List<HistoryEntry> flat) {
+    if (_focusedEntryId == null) return null;
+    final idx = flat.indexWhere((e) => e.id == _focusedEntryId);
+    return idx >= 0 ? flat[idx] : null;
   }
 
   @override
@@ -118,74 +151,121 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 if (!hasResults) {
                   return _emptyStateForFilter(isDark, activeFilter);
                 }
-                return HistoryMasterDetail(
-                  groups: groups,
-                  isDark: isDark,
-                  viewMode: _viewMode,
-                  selectedEntry: selectedEntry,
-                  multiSelectMode: _multiSelectMode,
-                  selectedIds: _selectedIds,
-                  isTrashView: isTrashView,
-                  isArchiveView: isArchiveView,
-                  onEntryTap: (entry) {
-                    final isCtrl =
-                        HardwareKeyboard.instance.isControlPressed ||
-                            HardwareKeyboard.instance.isMetaPressed;
-                    final isShift =
-                        HardwareKeyboard.instance.isShiftPressed;
-
-                    if (isCtrl) {
-                      // Ctrl+click: toggle individual item in multi-select
-                      setState(() {
-                        if (!_multiSelectMode) _multiSelectMode = true;
-                        if (_selectedIds.contains(entry.id)) {
-                          _selectedIds.remove(entry.id);
-                        } else {
-                          _selectedIds.add(entry.id);
-                        }
-                        _lastClickedId = entry.id;
-                      });
-                    } else if (isShift && _lastClickedId != null) {
-                      // Shift+click: range select from last clicked
-                      final flatIds =
-                          filteredEntries.map((e) => e.id).toList();
-                      final from = flatIds.indexOf(_lastClickedId!);
-                      final to = flatIds.indexOf(entry.id);
-                      if (from >= 0 && to >= 0) {
-                        final start = from < to ? from : to;
-                        final end = from < to ? to : from;
+                final flat = _flatEntries(groups);
+                return CallbackShortcuts(
+                  bindings: <ShortcutActivator, VoidCallback>{
+                    const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+                        _moveFocus(1, flat),
+                    const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
+                        _moveFocus(-1, flat),
+                    const SingleActivator(LogicalKeyboardKey.enter): () {
+                      final entry = _focusedEntry(flat);
+                      if (entry != null) {
                         setState(() {
-                          if (!_multiSelectMode) _multiSelectMode = true;
-                          for (var i = start; i <= end; i++) {
-                            _selectedIds.add(flatIds[i]);
-                          }
+                          _selectedEntryId = entry.id;
+                          _lastClickedId = entry.id;
                         });
                       }
-                    } else if (_multiSelectMode) {
-                      setState(() {
-                        if (_selectedIds.contains(entry.id)) {
-                          _selectedIds.remove(entry.id);
-                        } else {
-                          _selectedIds.add(entry.id);
-                        }
-                        _lastClickedId = entry.id;
-                      });
-                    } else {
-                      setState(() {
-                        _selectedEntryId = entry.id;
-                        _lastClickedId = entry.id;
-                      });
-                    }
+                    },
+                    const SingleActivator(LogicalKeyboardKey.delete): () {
+                      final entry = _focusedEntry(flat);
+                      if (entry != null) _deleteEntry(entry);
+                    },
+                    const SingleActivator(LogicalKeyboardKey.keyP): () {
+                      final entry = _focusedEntry(flat);
+                      if (entry != null) _togglePin(entry);
+                    },
+                    const SingleActivator(LogicalKeyboardKey.escape): () {
+                      if (_selectedEntryId != null) {
+                        setState(() => _selectedEntryId = null);
+                      } else if (_focusedEntryId != null) {
+                        setState(() => _focusedEntryId = null);
+                      }
+                    },
+                    const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
+                      final entry = selectedEntry ?? _focusedEntry(flat);
+                      if (entry != null) _openCommandPalette(entry);
+                    },
                   },
-                  onCopy: _copyEntry,
-                  onPin: _togglePin,
-                  onDelete: _deleteEntry,
-                  onArchive: _archiveEntry,
-                  onRestore: _restoreEntry,
-                  onDuplicate: _duplicateEntry,
-                  onCopyMarkdown: _copyAsMarkdown,
-                  onCloseDetail: () =>
-                      setState(() => _selectedEntryId = null),
+                  child: Focus(
+                    focusNode: _listFocusNode,
+                    autofocus: true,
+                    child: GestureDetector(
+                      onTap: () => _listFocusNode.requestFocus(),
+                      behavior: HitTestBehavior.translucent,
+                      child: HistoryMasterDetail(
+                        groups: groups,
+                        isDark: isDark,
+                        viewMode: _viewMode,
+                        selectedEntry: selectedEntry,
+                        focusedId: _focusedEntryId,
+                        multiSelectMode: _multiSelectMode,
+                        selectedIds: _selectedIds,
+                        isTrashView: isTrashView,
+                        isArchiveView: isArchiveView,
+                        onEntryTap: (entry) {
+                          final isCtrl =
+                              HardwareKeyboard.instance.isControlPressed ||
+                                  HardwareKeyboard.instance.isMetaPressed;
+                          final isShift =
+                              HardwareKeyboard.instance.isShiftPressed;
+
+                          if (isCtrl) {
+                            // Ctrl+click: toggle individual item in multi-select
+                            setState(() {
+                              if (!_multiSelectMode) _multiSelectMode = true;
+                              if (_selectedIds.contains(entry.id)) {
+                                _selectedIds.remove(entry.id);
+                              } else {
+                                _selectedIds.add(entry.id);
+                              }
+                              _lastClickedId = entry.id;
+                            });
+                          } else if (isShift && _lastClickedId != null) {
+                            // Shift+click: range select from last clicked
+                            final flatIds =
+                                filteredEntries.map((e) => e.id).toList();
+                            final from = flatIds.indexOf(_lastClickedId!);
+                            final to = flatIds.indexOf(entry.id);
+                            if (from >= 0 && to >= 0) {
+                              final start = from < to ? from : to;
+                              final end = from < to ? to : from;
+                              setState(() {
+                                if (!_multiSelectMode) _multiSelectMode = true;
+                                for (var i = start; i <= end; i++) {
+                                  _selectedIds.add(flatIds[i]);
+                                }
+                              });
+                            }
+                          } else if (_multiSelectMode) {
+                            setState(() {
+                              if (_selectedIds.contains(entry.id)) {
+                                _selectedIds.remove(entry.id);
+                              } else {
+                                _selectedIds.add(entry.id);
+                              }
+                              _lastClickedId = entry.id;
+                            });
+                          } else {
+                            setState(() {
+                              _selectedEntryId = entry.id;
+                              _focusedEntryId = entry.id;
+                              _lastClickedId = entry.id;
+                            });
+                          }
+                        },
+                        onCopy: _copyEntry,
+                        onPin: _togglePin,
+                        onDelete: _deleteEntry,
+                        onArchive: _archiveEntry,
+                        onRestore: _restoreEntry,
+                        onDuplicate: _duplicateEntry,
+                        onCopyMarkdown: _copyAsMarkdown,
+                        onCloseDetail: () =>
+                            setState(() => _selectedEntryId = null),
+                      ),
+                    ),
+                  ),
                 );
               },
               loading: () =>
@@ -196,6 +276,123 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         ],
       ),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Command Palette
+  // ---------------------------------------------------------------------------
+
+  void _openCommandPalette(HistoryEntry entry) {
+    final l10n = L10n.of(context);
+    final isPinned = entry.pinned;
+    final isArchived = entry.archived;
+
+    final commands = <WpCommand>[
+      WpCommand(
+        id: 'copy',
+        label: l10n.historyCopyText,
+        icon: LucideIcons.copy,
+        shortcutHint: 'Ctrl+C',
+        onExecute: () => _copyEntry(entry),
+      ),
+      WpCommand(
+        id: 'edit',
+        label: l10n.historyEditTranscript,
+        icon: LucideIcons.pencil,
+        shortcutHint: 'Ctrl+E',
+        onExecute: () {
+          // Open detail panel and toggle edit mode by selecting the entry
+          setState(() => _selectedEntryId = entry.id);
+        },
+      ),
+      WpCommand(
+        id: 'add-tag',
+        label: l10n.historyAddTag,
+        icon: LucideIcons.tag,
+        shortcutHint: 'T',
+        onExecute: () {
+          setState(() => _selectedEntryId = entry.id);
+        },
+      ),
+      WpCommand(
+        id: 'add-note',
+        label: l10n.historyAddNote,
+        icon: LucideIcons.stickyNote,
+        shortcutHint: 'N',
+        onExecute: () {
+          setState(() => _selectedEntryId = entry.id);
+        },
+      ),
+      WpCommand(
+        id: 'toggle-pin',
+        label: isPinned ? l10n.historyUnpin : l10n.historyPinToTop,
+        icon: isPinned ? LucideIcons.pinOff : LucideIcons.pin,
+        shortcutHint: 'P',
+        onExecute: () => _togglePin(entry),
+      ),
+      WpCommand(
+        id: 'toggle-archive',
+        label: isArchived ? l10n.historyUnarchive : l10n.historyArchive,
+        icon: isArchived ? LucideIcons.archiveRestore : LucideIcons.archive,
+        onExecute: () => _archiveEntry(entry),
+      ),
+      WpCommand(
+        id: 'duplicate',
+        label: l10n.historyDuplicate,
+        icon: LucideIcons.copyPlus,
+        onExecute: () => _duplicateEntry(entry),
+      ),
+      WpCommand(
+        id: 'export-text',
+        label: l10n.commandPaletteExportText,
+        icon: LucideIcons.fileDown,
+        onExecute: () => _exportAsText(entry),
+      ),
+      WpCommand(
+        id: 'copy-markdown',
+        label: l10n.historyCopyAsMarkdown,
+        icon: LucideIcons.fileCode,
+        onExecute: () => _copyAsMarkdown(entry),
+      ),
+      WpCommand(
+        id: 'delete',
+        label: l10n.actionDelete,
+        icon: LucideIcons.trash2,
+        shortcutHint: 'Del',
+        onExecute: () => _deleteEntry(entry),
+      ),
+    ];
+
+    showWpCommandPalette(context: context, commands: commands);
+  }
+
+  Future<void> _exportAsText(HistoryEntry entry) async {
+    try {
+      final dir = await getDownloadsDirectory() ??
+          await getApplicationDocumentsDirectory();
+      final safeName = (entry.title.isNotEmpty ? entry.title : 'transcription')
+          .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
+          .trim();
+      final timestamp =
+          DateFormat('yyyyMMdd_HHmmss').format(entry.timestamp);
+      final file = File('${dir.path}${Platform.pathSeparator}${safeName}_$timestamp.txt');
+      await file.writeAsString(entry.content);
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).commandPaletteExported(file.path),
+        type: WpToastType.success,
+        duration: const Duration(seconds: 3),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: e.toString(),
+        type: WpToastType.error,
+        duration: const Duration(seconds: 3),
+      );
+    }
   }
 
   Widget _emptyStateForFilter(bool isDark, HistoryFilter activeFilter) {
