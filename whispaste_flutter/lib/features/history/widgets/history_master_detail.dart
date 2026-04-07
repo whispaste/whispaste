@@ -34,6 +34,7 @@ class HistoryMasterDetail extends StatefulWidget {
     required this.isArchiveView,
     this.onDuplicate,
     this.onCopyMarkdown,
+    this.focusedId,
   });
 
   final List<DateGroup> groups;
@@ -53,6 +54,7 @@ class HistoryMasterDetail extends StatefulWidget {
   final bool isArchiveView;
   final ValueChanged<HistoryEntry>? onDuplicate;
   final ValueChanged<HistoryEntry>? onCopyMarkdown;
+  final String? focusedId;
 
   @override
   State<HistoryMasterDetail> createState() => _HistoryMasterDetailState();
@@ -120,6 +122,7 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
           groups: widget.groups,
           isDark: widget.isDark,
           selectedId: selectedId,
+          focusedId: widget.focusedId,
           onEntryTap: widget.onEntryTap,
           onCopy: widget.onCopy,
           onPin: widget.onPin,
@@ -134,6 +137,7 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
           groups: widget.groups,
           isDark: widget.isDark,
           selectedId: selectedId,
+          focusedId: widget.focusedId,
           onEntryTap: widget.onEntryTap,
           onCopy: widget.onCopy,
           onPin: widget.onPin,
@@ -147,6 +151,7 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
           groups: widget.groups,
           isDark: widget.isDark,
           selectedId: selectedId,
+          focusedId: widget.focusedId,
           onEntryTap: widget.onEntryTap,
           multiSelectMode: widget.multiSelectMode,
           selectedIds: widget.selectedIds,

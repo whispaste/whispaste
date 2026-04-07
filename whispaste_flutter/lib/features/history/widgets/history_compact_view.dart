@@ -21,6 +21,7 @@ class HistoryCompactView extends StatelessWidget {
     required this.onEntryTap,
     required this.multiSelectMode,
     required this.selectedIds,
+    this.focusedId,
   });
 
   final List<DateGroup> groups;
@@ -29,6 +30,7 @@ class HistoryCompactView extends StatelessWidget {
   final ValueChanged<HistoryEntry> onEntryTap;
   final bool multiSelectMode;
   final Set<String> selectedIds;
+  final String? focusedId;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +46,7 @@ class HistoryCompactView extends StatelessWidget {
             isSelected: multiSelectMode
                 ? selectedIds.contains(entry.id)
                 : entry.id == selectedId,
+            isFocused: !multiSelectMode && entry.id == focusedId,
             onTap: () => onEntryTap(entry),
             multiSelectMode: multiSelectMode,
             isChecked: selectedIds.contains(entry.id),
@@ -76,6 +79,7 @@ class HistoryCompactRow extends StatefulWidget {
     required this.onTap,
     this.multiSelectMode = false,
     this.isChecked = false,
+    this.isFocused = false,
   });
 
   final HistoryEntry entry;
@@ -84,6 +88,7 @@ class HistoryCompactRow extends StatefulWidget {
   final VoidCallback onTap;
   final bool multiSelectMode;
   final bool isChecked;
+  final bool isFocused;
 
   @override
   State<HistoryCompactRow> createState() => _HistoryCompactRowState();
@@ -104,6 +109,8 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
     final Color bg;
     if (widget.isSelected) {
       bg = isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
+    } else if (widget.isFocused) {
+      bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
     } else if (_isHovered) {
       bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
     } else {
@@ -127,6 +134,12 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
           decoration: BoxDecoration(
             color: bg,
             borderRadius: WpRadius.borderSm,
+            border: widget.isFocused
+                ? Border.all(
+                    color: accent.withValues(alpha: 0.5),
+                    width: 1.5,
+                  )
+                : null,
           ),
           child: Row(
             children: [
