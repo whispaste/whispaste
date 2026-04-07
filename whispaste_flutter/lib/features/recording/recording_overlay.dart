@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/config/settings_enums.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
@@ -440,11 +441,11 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
         isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
 
     // Show context-appropriate done message.
-    final doneText = switch (settings.afterTranscription) {
-      'paste' => l10n.overlayDonePasted,
-      'both' => l10n.overlayDoneBoth,
-      'nothing' => l10n.overlayDoneReady,
-      _ => l10n.overlayDone, // 'clipboard' default
+    final doneText = switch (settings.afterTranscriptionAction) {
+      AfterTranscriptionAction.paste => l10n.overlayDonePasted,
+      AfterTranscriptionAction.clipboardAndPaste => l10n.overlayDoneBoth,
+      AfterTranscriptionAction.nothing => l10n.overlayDoneReady,
+      _ => l10n.overlayDone, // clipboard default
     };
 
     return Text(

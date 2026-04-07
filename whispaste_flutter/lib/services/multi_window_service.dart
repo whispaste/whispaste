@@ -21,6 +21,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/multi_window/multi_window_types.dart';
@@ -78,9 +79,10 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     ref.listen<RecordingState>(recordingProvider, (prev, next) {
       _pushRecordingState(next);
 
-      // Auto-show floating overlay when recording starts (if mode is 'floating').
+      // Auto-show floating overlay when recording starts (if mode is floating).
       final settings = ref.read(settingsProvider).value;
-      if (settings != null && settings.overlayMode == 'floating') {
+      if (settings != null &&
+          settings.overlayModeType == OverlayMode.floating) {
         if (prev?.phase == RecordingPhase.idle &&
             next.phase == RecordingPhase.recording) {
           _overlayDismissTimer?.cancel();
@@ -116,9 +118,9 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         }
 
         // ── Floating overlay mode changes ──
-        final prevMode = prev?.value?.overlayMode;
-        if (prevMode != settings.overlayMode) {
-          if (settings.overlayMode == 'floating') {
+        final prevMode = prev?.value?.overlayModeType;
+        if (prevMode != settings.overlayModeType) {
+          if (settings.overlayModeType == OverlayMode.floating) {
             // Pre-create the overlay window so it's ready instantly.
             _ensureOverlayCreated();
           } else {
@@ -188,7 +190,8 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     }
     // Pre-create the floating overlay window so it's ready when recording
     // starts. The window stays hidden until showOverlay() is called.
-    if (settings.overlayMode == 'floating' && _overlayController == null) {
+    if (settings.overlayModeType == OverlayMode.floating &&
+        _overlayController == null) {
       Future.delayed(const Duration(milliseconds: 800), () {
         _ensureOverlayCreated();
       });
@@ -275,7 +278,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   }
 
   /// Destroys the overlay window completely (when mode changes away from
-  /// 'floating'). Unlike [hideOverlay], this releases the controller.
+  /// floating mode). Unlike [hideOverlay], this releases the controller.
   Future<void> destroyOverlay() async {
     final ctrl = _overlayController;
     if (ctrl == null) return;

@@ -19,7 +19,7 @@ class WpPrivacyBadge extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings =
         ref.watch(settingsProvider).value ?? AppSettings.defaults;
-    final isLocal = settings.sttProvider == 'On Device (Private)';
+    final isLocal = settings.sttProviderType.isLocal;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 

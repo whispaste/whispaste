@@ -87,6 +87,50 @@ abstract final class WpColorsDark {
 
   /// Glass border — bright edge on frosted surfaces
   static const Color glassBorder = Color(0x24FFFFFF);
+
+  // -- Semantic state gradients (FAB / overlay) ----------------------------
+
+  /// Recording-active state — warm red
+  static const LinearGradient recordingGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+  );
+
+  /// Transcribing / processing state — amber
+  static const LinearGradient processingGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+  );
+
+  /// Done / success state — green
+  static const LinearGradient successGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
+  );
+
+  /// Error state — deep red
+  static const LinearGradient errorGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
+  );
+
+  /// Elevation shadow — medium depth
+  static const BoxShadow elevationMd = BoxShadow(
+    color: Color(0x66000000),
+    blurRadius: 8,
+    offset: Offset(0, 2),
+  );
+
+  /// Elevation shadow — large depth
+  static const BoxShadow elevationLg = BoxShadow(
+    color: Color(0x33000000),
+    blurRadius: 16,
+    offset: Offset(0, 4),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +202,16 @@ abstract final class WpColorsLight {
 
   /// Watermark line color — very faint slate tint for subtle topographic depth.
   static const Color watermark = Color(0x0A243B53);
+
+  // -- Semantic state gradients (FAB / overlay) ----------------------------
+  // Light theme uses the same state gradients (they're against white bg)
+
+  static const LinearGradient recordingGradient = WpColorsDark.recordingGradient;
+  static const LinearGradient processingGradient = WpColorsDark.processingGradient;
+  static const LinearGradient successGradient = WpColorsDark.successGradient;
+  static const LinearGradient errorGradient = WpColorsDark.errorGradient;
+  static const BoxShadow elevationMd = WpColorsDark.elevationMd;
+  static const BoxShadow elevationLg = WpColorsDark.elevationLg;
 }
 
 // ---------------------------------------------------------------------------
