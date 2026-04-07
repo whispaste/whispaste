@@ -62,7 +62,6 @@ class SettingsPage extends StatelessWidget {
           //  DISPLAY & LAYOUT
           // ═══════════════════════════════════════════
           const OverlayButtonSection(),
-          const FloatingButtonAdvancedSection(),
           settingsSectionDivider(context),
 
           // ═══════════════════════════════════════════

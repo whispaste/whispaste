@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/config/settings_enums.dart';
+import '../../core/config/settings_labels.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
@@ -97,16 +98,6 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
     return (elapsed.inSeconds / maxSeconds).clamp(0.0, 1.0);
   }
 
-  String _hotkeyLabel(AppSettings settings) {
-    final mods = settings.hotkeyModifiers
-        .split('+')
-        .where((m) => m.isNotEmpty)
-        .map((m) => '${m[0].toUpperCase()}${m.substring(1)}')
-        .join('+');
-    if (mods.isEmpty) return settings.hotkeyKey;
-    return '$mods+${settings.hotkeyKey}';
-  }
-
   // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
@@ -138,7 +129,8 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
 
     // Clear waveform history when leaving recording phase.
     ref.listen<RecordingPhase>(recordingPhaseProvider, (prev, next) {
-      if (prev == RecordingPhase.recording && next != RecordingPhase.recording) {
+      if (prev == RecordingPhase.recording &&
+          next != RecordingPhase.recording) {
         _levelHistory.clear();
       }
     });
@@ -169,15 +161,18 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
   Widget _buildPill(BuildContext context, RecordingPhase phase) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final pillRadius = BorderRadius.circular(38);
-    final settings =
-        ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final elapsed = ref.watch(recordingElapsedProvider);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 480, minWidth: 220, minHeight: 64),
+        constraints: const BoxConstraints(
+          maxWidth: 480,
+          minWidth: 220,
+          minHeight: 64,
+        ),
         decoration: BoxDecoration(
           borderRadius: pillRadius,
           boxShadow: WpShadows.elevated,
@@ -264,11 +259,13 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
 
   Widget _buildSecondaryButtons(BuildContext context, RecordingPhase phase) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final mutedColor =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final mutedColor = isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
     final l10n = L10n.of(context);
 
-    final showCancel = phase == RecordingPhase.recording ||
+    final showCancel =
+        phase == RecordingPhase.recording ||
         phase == RecordingPhase.transcribing ||
         phase == RecordingPhase.processing ||
         phase == RecordingPhase.error ||
@@ -284,7 +281,8 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
               icon: LucideIcons.x,
               color: mutedColor,
               semanticsLabel: l10n.overlayCancel,
-              onPressed: () => ref.read(recordingOrchestratorProvider.notifier).reset(),
+              onPressed: () =>
+                  ref.read(recordingOrchestratorProvider.notifier).reset(),
             ),
           ),
       ],
@@ -355,9 +353,9 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
             height: 8,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFFF5252).withValues(
-                alpha: _pulseAnim.value,
-              ),
+              color: const Color(
+                0xFFFF5252,
+              ).withValues(alpha: _pulseAnim.value),
             ),
           ),
         ),
@@ -365,7 +363,8 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
 
         // Timer.
         Semantics(
-          label: '${L10n.of(context).overlayRecording} ${_formatDuration(elapsed)}',
+          label:
+              '${L10n.of(context).overlayRecording} ${_formatDuration(elapsed)}',
           child: AnimatedDefaultTextStyle(
             duration: WpMotion.fast,
             style: TextStyle(
@@ -400,8 +399,9 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
     required String label,
     required Color accentColor,
   }) {
-    final mutedColor =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final mutedColor = isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -435,10 +435,8 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
   /// Done: success icon + context-appropriate message.
   Widget _buildDoneCenter(bool isDark) {
     final l10n = L10n.of(context);
-    final settings =
-        ref.watch(settingsProvider).value ?? AppSettings.defaults;
-    final successColor =
-        isDark ? WpColorsDark.success : WpColorsLight.success;
+    final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
 
     // Show context-appropriate done message.
     final doneText = switch (settings.afterTranscriptionAction) {
@@ -503,8 +501,9 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
     bool isDark,
   ) {
     final showStop = phase == RecordingPhase.recording;
-    final mutedColor =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final mutedColor = isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -523,7 +522,11 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
           child: Padding(
             padding: const EdgeInsets.only(left: WpSpacing.xs),
             child: Text(
-              _hotkeyLabel(settings),
+              formatHotkeyShortcut(
+                settings.hotkeyModifiers,
+                settings.hotkeyKey,
+                l10n: L10n.of(context),
+              ),
               style: TextStyle(fontSize: 11, color: mutedColor),
             ),
           ),
@@ -533,8 +536,9 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
         if (showStop) ...[
           const SizedBox(width: WpSpacing.xs),
           _StopButton(
-            onPressed: () =>
-                ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
+            onPressed: () => ref
+                .read(recordingOrchestratorProvider.notifier)
+                .stopRecording(),
           ),
         ],
       ],
@@ -571,8 +575,10 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
                       .withValues(alpha: 0.3),
                 );
               }
-              final fraction =
-                  _progressFraction(elapsed: elapsed, maxSeconds: maxSec);
+              final fraction = _progressFraction(
+                elapsed: elapsed,
+                maxSeconds: maxSec,
+              );
               final barColor = _timerColor(
                 elapsed: elapsed,
                 maxSeconds: maxSec,
@@ -583,10 +589,11 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
                   Container(
                     height: 4,
                     width: fullWidth,
-                    color: (isDark
-                            ? WpColorsDark.textMuted
-                            : WpColorsLight.textMuted)
-                        .withValues(alpha: 0.15),
+                    color:
+                        (isDark
+                                ? WpColorsDark.textMuted
+                                : WpColorsLight.textMuted)
+                            .withValues(alpha: 0.15),
                   ),
                   AnimatedContainer(
                     duration: WpMotion.smooth,
@@ -714,7 +721,11 @@ class _StopButton extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: const Center(
-                child: Icon(LucideIcons.square, size: WpIconSize.sm, color: Colors.white),
+                child: Icon(
+                  LucideIcons.square,
+                  size: WpIconSize.sm,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),

@@ -422,10 +422,14 @@ class L10nDe extends L10n {
 
   @override
   String get settingsOverlayFloatingButtonSubtitle =>
-      'Bildschirm-Aufnahmesteuerung';
+      'Lege fest, wie der Aufnahmezustand außerhalb des Hauptfensters sichtbar wird';
 
   @override
-  String get settingsShowOverlay => 'Aufnahme-Overlay';
+  String get settingsShowOverlay => 'Anzeige des Aufnahme-Status';
+
+  @override
+  String get settingsShowOverlaySubtitle =>
+      'Wähle, wo du während des Diktierens Live-Feedback zur Aufnahme siehst';
 
   @override
   String get settingsOverlayModeInWindow => 'Im Hauptfenster';
@@ -438,13 +442,26 @@ class L10nDe extends L10n {
   String get settingsOverlayModeOff => 'Aus';
 
   @override
-  String get settingsShowFloatingButton => 'Schwebenden Button anzeigen';
+  String get settingsShowFloatingButton => 'Schwebender Aufnahme-Button';
 
   @override
-  String get settingsFloatingButtonOpacity => 'Schwebender Button Deckkraft';
+  String get settingsShowFloatingButtonSubtitle =>
+      'Kleiner immer sichtbarer Button zum Starten oder Stoppen der Aufnahme aus jeder App';
 
   @override
-  String get settingsFloatingButtonSize => 'Schwebender Button Größe';
+  String get settingsFloatingButtonOpacity =>
+      'Deckkraft des schwebenden Buttons';
+
+  @override
+  String get settingsFloatingButtonOpacitySubtitle =>
+      'Betrifft nur den schwebenden Button, nicht das Aufnahme-Overlay';
+
+  @override
+  String get settingsFloatingButtonSize => 'Größe des schwebenden Buttons';
+
+  @override
+  String get settingsFloatingButtonSizeSubtitle =>
+      'Lege fest, wie präsent der immer sichtbare Button wirken soll';
 
   @override
   String get settingsSizeSmall => 'Klein';
@@ -614,6 +631,13 @@ class L10nDe extends L10n {
   @override
   String get analyticsPreviewBanner =>
       'Vorschau — zeigt Beispieldaten. Echte Statistiken erscheinen, sobald du aufnimmst.';
+
+  @override
+  String get analyticsEmptyTitle => 'Noch keine Aufnahmen';
+
+  @override
+  String get analyticsEmptySubtitle =>
+      'Starte eine Aufnahme, um hier deine Statistiken zu sehen.';
 
   @override
   String get analyticsOverview => 'Überblick';
@@ -998,6 +1022,36 @@ class L10nDe extends L10n {
   String get statusBarPostProcessing => 'Nachbearbeitung';
 
   @override
+  String get statusBarOverlayInWindow => 'Overlay: Fenster';
+
+  @override
+  String get statusBarOverlayFloating => 'Overlay: Schwebend';
+
+  @override
+  String get statusBarOverlayOff => 'Overlay: Aus';
+
+  @override
+  String get statusBarAfterCopy => 'Danach: Kopieren';
+
+  @override
+  String get statusBarAfterPaste => 'Danach: Einfügen';
+
+  @override
+  String get statusBarAfterBoth => 'Danach: Kopieren & Einfügen';
+
+  @override
+  String get statusBarAfterNothing => 'Danach: Manuell';
+
+  @override
+  String get statusBarPresetCleanup => 'Bereinigen';
+
+  @override
+  String get statusBarPresetConcise => 'Kompakt';
+
+  @override
+  String get statusBarPresetTranslate => 'Übersetzen';
+
+  @override
   String get sttStatusStandby => 'Bereitschaft';
 
   @override
@@ -1008,6 +1062,39 @@ class L10nDe extends L10n {
 
   @override
   String get sttStatusError => 'Fehler';
+
+  @override
+  String get statusBarSttTooltip => 'Sprach-Engine und aktueller Status';
+
+  @override
+  String get statusBarPostProcessTooltip => 'Aktive Nachbearbeitung';
+
+  @override
+  String get statusBarRecording => 'Aufnahme…';
+
+  @override
+  String get statusBarTranscribing => 'Transkribieren…';
+
+  @override
+  String get statusBarProcessing => 'Verarbeiten…';
+
+  @override
+  String get statusBarDone => 'Fertig';
+
+  @override
+  String get modifierCtrl => 'Strg';
+
+  @override
+  String get modifierShift => 'Umschalt';
+
+  @override
+  String get modifierAlt => 'Alt';
+
+  @override
+  String get modifierWin => 'Win';
+
+  @override
+  String get modifierCmd => 'Befehl';
 
   @override
   String get tooltipSwitchToLight => 'Zu hellem Modus wechseln';
@@ -1295,33 +1382,6 @@ class L10nDe extends L10n {
   @override
   String get settingsCheckUpdatesSubtitle =>
       'Beim Start automatisch nach neuen Versionen suchen';
-
-  @override
-  String get settingsFloatingButtonAdvanced =>
-      'Erweiterte Floating-Button-Optionen';
-
-  @override
-  String get settingsLockPosition => 'Position sperren';
-
-  @override
-  String get settingsLockPositionSubtitle =>
-      'Versehentliches Verschieben verhindern';
-
-  @override
-  String get settingsAutoHide => 'Automatisch ausblenden';
-
-  @override
-  String get settingsAutoHideSubtitle =>
-      'Automatisch ausblenden, wenn nicht aufgenommen wird';
-
-  @override
-  String get settingsAutoHideNever => 'Nie';
-
-  @override
-  String get settingsAutoHide5s => 'Nach 5 Sekunden';
-
-  @override
-  String get settingsAutoHideEdge => 'Am Rand anheften';
 
   @override
   String get onboardingGetStarted => 'Los geht\'s';

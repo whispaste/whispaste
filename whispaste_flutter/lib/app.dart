@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/config/settings_enums.dart';
+import 'core/config/settings_labels.dart';
 import 'core/config/settings_provider.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/l10n/locale_provider.dart';
@@ -26,6 +27,7 @@ import 'features/feedback/feedback_page.dart';
 import 'features/onboarding/onboarding_overlay.dart';
 import 'features/recording/recording_overlay.dart';
 import 'core/recording/recording_state.dart';
+import 'core/logging/crash_reporter.dart';
 import 'services/multi_window_service.dart';
 import 'services/recording_orchestrator.dart';
 import 'services/sound_feedback_service.dart';
@@ -43,8 +45,9 @@ class _ActivePageNotifier extends Notifier<String> {
   void setPage(String id) => state = id;
 }
 
-final activePageProvider =
-    NotifierProvider<_ActivePageNotifier, String>(_ActivePageNotifier.new);
+final activePageProvider = NotifierProvider<_ActivePageNotifier, String>(
+  _ActivePageNotifier.new,
+);
 
 /// Main WhisPaste application widget.
 class WhisPasteApp extends ConsumerWidget {
@@ -98,10 +101,22 @@ String _localizeError(L10n l10n, String errorCode) {
 /// Navigation items — built from localized strings.
 List<WpNavItem> _navItems(L10n l10n) => [
   WpNavItem(id: 'history', icon: LucideIcons.clock3, label: l10n.navHistory),
-  WpNavItem(id: 'replacements', icon: LucideIcons.replace, label: l10n.navReplacements),
-  WpNavItem(id: 'analytics', icon: LucideIcons.chartNoAxesColumn, label: l10n.navAnalytics),
+  WpNavItem(
+    id: 'replacements',
+    icon: LucideIcons.replace,
+    label: l10n.navReplacements,
+  ),
+  WpNavItem(
+    id: 'analytics',
+    icon: LucideIcons.chartNoAxesColumn,
+    label: l10n.navAnalytics,
+  ),
   WpNavItem(id: 'about', icon: LucideIcons.info, label: l10n.navAbout),
-  WpNavItem(id: 'feedback', icon: LucideIcons.messageSquare, label: l10n.navFeedback),
+  WpNavItem(
+    id: 'feedback',
+    icon: LucideIcons.messageSquare,
+    label: l10n.navFeedback,
+  ),
 ];
 
 /// Resolves the page title — checks nav items first, falls back for bottom-pinned pages.
@@ -159,13 +174,15 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     _windowSaveTimer = Timer(const Duration(milliseconds: 400), () async {
       if (_isMaximized) {
         // Only persist the maximized flag; keep pre-maximize geometry.
-        ref.read(settingsProvider.notifier).updateSettings(
-              (s) => s.copyWith(windowMaximized: true),
-            );
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(windowMaximized: true));
         return;
       }
       final bounds = await windowManager.getBounds();
-      ref.read(settingsProvider.notifier).updateSettings(
+      ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
             (s) => s.copyWith(
               windowX: bounds.left,
               windowY: bounds.top,
@@ -200,10 +217,14 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     final activePage = ref.watch(activePageProvider);
     final recordingPhase = ref.watch(recordingPhaseProvider);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+
+    // Sync crash reporting consent with user's settings toggle (Finding 1 fix).
+    CrashReporter.instance?.consentGranted = settings.errorReporting;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final navItems = _navItems(l10n);
     final sttStatus = ref.watch(sttServiceProvider);
+    final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
 
     // Eagerly initialise the recording orchestrator so that the STT server
     // prewarm fires at app startup — not when the user first taps record.
@@ -258,7 +279,8 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
         });
       } else if (next.isRecording && (prev == null || !prev.isRecording)) {
         ref.read(soundFeedbackProvider.notifier).playRecordStart();
-      } else if (next.isTranscribing && (prev == null || !prev.isTranscribing)) {
+      } else if (next.isTranscribing &&
+          (prev == null || !prev.isTranscribing)) {
         ref.read(soundFeedbackProvider.notifier).playRecordStop();
       } else if (next.isDone && next.transcript != null) {
         ref.read(soundFeedbackProvider.notifier).playTranscriptionComplete();
@@ -312,80 +334,82 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                   children: [
                     WpSidebar(
                       items: navItems,
-                    activeId: activePage,
-                    onItemTap: (id) {
-                      ref.read(activePageProvider.notifier).setPage(id);
-                    },
-                    bottomItems: [
-                      _SidebarSettingsButton(
-                        isActive: activePage == 'settings',
-                        onTap: () => ref.read(activePageProvider.notifier).setPage('settings'),
-                      ),
-                    ],
-                  ),
-                  // Content area — rounded panel with warm gradient
-                  Expanded(
-                    child: Container(
-                      decoration: contentDecoration,
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        children: [
-                          // Recording indicator — thin pulsing bar
-                          _RecordingIndicatorBar(phase: recordingPhase),
-                          // Page header with smooth title transition
-                          AnimatedSwitcher(
-                            duration: WpMotion.fast,
-                            child: _PageHeader(
-                              key: ValueKey('header-$activePage'),
-                              title: _pageTitle(activePage, navItems, l10n),
-                            ),
-                          ),
-                          // Content with page transition animation
-                          Expanded(
-                            child: AnimatedSwitcher(
-                              duration: WpMotion.smooth,
-                              switchInCurve: Curves.easeOutCubic,
-                              switchOutCurve: Curves.easeInCubic,
-                              transitionBuilder: (child, animation) {
-                                return FadeTransition(
-                                  opacity: animation,
-                                  child: SlideTransition(
-                                    position: Tween<Offset>(
-                                      begin: const Offset(0.0, 0.015),
-                                      end: Offset.zero,
-                                    ).animate(animation),
-                                    child: child,
-                                  ),
-                                );
-                              },
-                              child: KeyedSubtree(
-                                key: ValueKey(activePage),
-                                child: _pageWidgets[activePage] ??
-                                    const SizedBox.shrink(),
+                      activeId: activePage,
+                      onItemTap: (id) {
+                        ref.read(activePageProvider.notifier).setPage(id);
+                      },
+                      bottomItems: [
+                        _SidebarSettingsButton(
+                          isActive: activePage == 'settings',
+                          onTap: () => ref
+                              .read(activePageProvider.notifier)
+                              .setPage('settings'),
+                        ),
+                      ],
+                    ),
+                    // Content area — rounded panel with warm gradient
+                    Expanded(
+                      child: Container(
+                        decoration: contentDecoration,
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          children: [
+                            // Recording indicator — thin pulsing bar
+                            _RecordingIndicatorBar(phase: recordingPhase),
+                            // Page header with smooth title transition
+                            AnimatedSwitcher(
+                              duration: WpMotion.fast,
+                              child: _PageHeader(
+                                key: ValueKey('header-$activePage'),
+                                title: _pageTitle(activePage, navItems, l10n),
                               ),
                             ),
-                          ),
-                        ],
+                            // Content with page transition animation
+                            Expanded(
+                              child: AnimatedSwitcher(
+                                duration: WpMotion.smooth,
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                transitionBuilder: (child, animation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: SlideTransition(
+                                      position: Tween<Offset>(
+                                        begin: const Offset(0.0, 0.015),
+                                        end: Offset.zero,
+                                      ).animate(animation),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: KeyedSubtree(
+                                  key: ValueKey(activePage),
+                                  child:
+                                      _pageWidgets[activePage] ??
+                                      const SizedBox.shrink(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            // Status bar — sits on the frame, full width
-            WpStatusBar(
-              modeLabel: settings.sttProviderType.isLocal
-                  ? l10n.statusBarOnDevice
-                  : settings.sttProvider,
-              postProcessingLabel: settings.postProcessEnabled
-                  ? l10n.statusBarPostProcessing
-                  : l10n.settingsOff,
-              hotkeyLabel: 'Ctrl+Shift+R',
-              isOnline: true,
-              sttState: sttStatus.serverState,
-            ),
-          ],
-        ),
+              // Status bar — sits on the frame, full width
+              WpStatusBar(
+                sttModeLabel: statusBarModel.sttModeLabel,
+                postProcessingLabel: statusBarModel.postProcessingLabel,
+                sttState: sttStatus.serverState,
+                recordingPhase: recordingPhase,
+                onSttTap: () =>
+                    ref.read(activePageProvider.notifier).setPage('settings'),
+                onPostProcessTap: () =>
+                    ref.read(activePageProvider.notifier).setPage('settings'),
+              ),
+            ],
+          ),
           // Onboarding overlay — shown on first launch
           if (!settings.onboardingCompleted)
             const Positioned.fill(child: OnboardingOverlay()),
@@ -408,12 +432,15 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       ),
       // Hide in-window FAB when floating button is active outside the window.
       // They are mutually exclusive — only one should be visible at a time.
-      floatingActionButton: (settings.showFloatingButton &&
+      floatingActionButton:
+          (settings.showFloatingButton &&
               ref.watch(multiWindowProvider).buttonVisible)
           ? null
           : Padding(
               padding: const EdgeInsets.only(
-                  bottom: WpLayout.statusBarHeight, right: 0),
+                bottom: WpLayout.statusBarHeight,
+                right: 0,
+              ),
               child: WpRecordingFab(
                 phase: recordingPhase,
                 onPressed: () {
@@ -459,7 +486,9 @@ class _ThemeToggle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
-    final mutedColor = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final mutedColor = isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
     return IconButton(
       icon: Icon(
         isDark ? LucideIcons.moon : LucideIcons.sun,
@@ -477,10 +506,7 @@ class _ThemeToggle extends ConsumerWidget {
 
 /// Settings shortcut pinned to sidebar bottom — mirrors nav item style.
 class _SidebarSettingsButton extends StatefulWidget {
-  const _SidebarSettingsButton({
-    required this.isActive,
-    required this.onTap,
-  });
+  const _SidebarSettingsButton({required this.isActive, required this.onTap});
 
   final bool isActive;
   final VoidCallback onTap;
@@ -560,7 +586,11 @@ class _SidebarSettingsButtonState extends State<_SidebarSettingsButton> {
                       borderRadius: BorderRadius.circular(WpRadius.md),
                     ),
                     alignment: Alignment.center,
-                    child: Icon(LucideIcons.settings, color: iconColor, size: 21),
+                    child: Icon(
+                      LucideIcons.settings,
+                      color: iconColor,
+                      size: 21,
+                    ),
                   ),
                 ],
               ),
@@ -598,9 +628,10 @@ class _RecordingIndicatorBarState extends State<_RecordingIndicatorBar>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    _opacity = Tween<double>(begin: 0.45, end: 1.0).animate(
-      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
-    );
+    _opacity = Tween<double>(
+      begin: 0.45,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
     _syncPulse();
   }
 
@@ -629,7 +660,8 @@ class _RecordingIndicatorBarState extends State<_RecordingIndicatorBar>
 
   @override
   Widget build(BuildContext context) {
-    final isActive = widget.phase == RecordingPhase.recording ||
+    final isActive =
+        widget.phase == RecordingPhase.recording ||
         widget.phase == RecordingPhase.transcribing ||
         widget.phase == RecordingPhase.processing;
 

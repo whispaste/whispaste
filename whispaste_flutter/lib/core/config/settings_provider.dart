@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/history/data/database.dart'; // see note above
 import '../../services/config_service.dart'; // see note above
+import 'secure_key_store.dart';
 import 'settings_enums.dart';
 
 /// All persisted app settings in one immutable data class.
@@ -80,9 +81,6 @@ class AppSettings {
     // Hotkey
     this.hotkeyKey = 'D',
     this.hotkeyModifiers = 'ctrl+shift',
-    // Floating Button Advanced
-    this.floatingButtonLocked = false,
-    this.floatingButtonAutoHide = 'never',
     // Floating Button Position (persisted across sessions)
     this.floatingButtonX = -1.0,
     this.floatingButtonY = -1.0,
@@ -176,10 +174,6 @@ class AppSettings {
   final String hotkeyKey;
   final String hotkeyModifiers;
 
-  // Floating Button Advanced
-  final bool floatingButtonLocked;
-  final String floatingButtonAutoHide;
-
   // Floating Button Position (persisted across sessions; -1 = not set)
   final double floatingButtonX;
   final double floatingButtonY;
@@ -212,8 +206,6 @@ class AppSettings {
       FloatingButtonSize.fromValue(floatingButtonSize);
   GpuAcceleration get gpuAccelerationType =>
       GpuAcceleration.fromValue(gpuAcceleration);
-  FloatingButtonAutoHide get floatingButtonAutoHideType =>
-      FloatingButtonAutoHide.fromValue(floatingButtonAutoHide);
 
   /// Factory-reset defaults.
   static const AppSettings defaults = AppSettings();
@@ -311,13 +303,6 @@ class AppSettings {
       hotkeyKey: values['hotkey_key'] ?? defaults.hotkeyKey,
       hotkeyModifiers:
           values['hotkey_modifiers'] ?? defaults.hotkeyModifiers,
-      floatingButtonLocked: _readBool(
-        values,
-        'floating_button_locked',
-        defaults.floatingButtonLocked,
-      ),
-      floatingButtonAutoHide:
-          values['floating_button_auto_hide'] ?? defaults.floatingButtonAutoHide,
       floatingButtonX: _readDouble(
         values,
         'floating_button_x',
@@ -392,11 +377,12 @@ class AppSettings {
       'show_floating_button': '$showFloatingButton',
       'floating_button_opacity': '$floatingButtonOpacity',
       'floating_button_size': floatingButtonSize,
-      'openai_api_key': openAiApiKey,
-      'groq_api_key': groqApiKey,
-      'deepgram_api_key': deepgramApiKey,
-      'anthropic_api_key': anthropicApiKey,
-      'gemini_api_key': geminiApiKey,
+      // API keys are stored in secure storage — never persist to SQLite.
+      'openai_api_key': '',
+      'groq_api_key': '',
+      'deepgram_api_key': '',
+      'anthropic_api_key': '',
+      'gemini_api_key': '',
       'cloud_stt_provider': cloudSttProvider,
       'cloud_llm_model': cloudLlmModel,
       'smart_mode_prompt': smartModePrompt,
@@ -413,8 +399,6 @@ class AppSettings {
       'check_updates': '$checkUpdates',
       'hotkey_key': hotkeyKey,
       'hotkey_modifiers': hotkeyModifiers,
-      'floating_button_locked': '$floatingButtonLocked',
-      'floating_button_auto_hide': floatingButtonAutoHide,
       'floating_button_x': '$floatingButtonX',
       'floating_button_y': '$floatingButtonY',
       'window_x': '$windowX',
@@ -473,8 +457,6 @@ class AppSettings {
     bool? checkUpdates,
     String? hotkeyKey,
     String? hotkeyModifiers,
-    bool? floatingButtonLocked,
-    String? floatingButtonAutoHide,
     double? floatingButtonX,
     double? floatingButtonY,
     double? windowX,
@@ -534,9 +516,6 @@ class AppSettings {
       checkUpdates: checkUpdates ?? this.checkUpdates,
       hotkeyKey: hotkeyKey ?? this.hotkeyKey,
       hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
-      floatingButtonLocked: floatingButtonLocked ?? this.floatingButtonLocked,
-      floatingButtonAutoHide:
-          floatingButtonAutoHide ?? this.floatingButtonAutoHide,
       floatingButtonX: floatingButtonX ?? this.floatingButtonX,
       floatingButtonY: floatingButtonY ?? this.floatingButtonY,
       windowX: windowX ?? this.windowX,
@@ -599,8 +578,6 @@ class AppSettings {
           checkUpdates == other.checkUpdates &&
           hotkeyKey == other.hotkeyKey &&
           hotkeyModifiers == other.hotkeyModifiers &&
-          floatingButtonLocked == other.floatingButtonLocked &&
-          floatingButtonAutoHide == other.floatingButtonAutoHide &&
           floatingButtonX == other.floatingButtonX &&
           floatingButtonY == other.floatingButtonY &&
           windowX == other.windowX &&
@@ -633,7 +610,6 @@ class AppSettings {
             trimSilence, useVAD, vadSensitivity,
             textReplacementsEnabled, checkUpdates,
             hotkeyKey, hotkeyModifiers,
-            floatingButtonLocked, floatingButtonAutoHide,
             floatingButtonX, floatingButtonY,
             windowX, windowY, windowWidth, windowHeight,
             windowMaximized, onboardingCompleted,
@@ -726,21 +702,36 @@ String _configPresetFromSetting(String setting) {
 }
 
 /// Central settings notifier — loads from and persists to Drift/SQLite.
+///
+/// API keys are stored in platform-native secure storage and merged into
+/// the in-memory [AppSettings] on load. A one-time migration moves any
+/// plaintext keys from SQLite into secure storage and clears the SQLite rows.
 class SettingsNotifier extends AsyncNotifier<AppSettings> {
   @override
   Future<AppSettings> build() async {
     final db = ref.watch(historyDatabaseProvider);
+    final secureStore = ref.watch(secureKeyStoreProvider);
     final values = await db.readAppSettings();
+
+    AppSettings settings;
     if (values.isNotEmpty) {
-      return AppSettings.fromStorageMap(values);
+      settings = AppSettings.fromStorageMap(values);
+    } else {
+      try {
+        final config = await ref.read(configProvider.future);
+        settings = AppSettings.fromGoConfig(config);
+      } catch (_) {
+        settings = AppSettings.defaults;
+      }
     }
 
-    try {
-      final config = await ref.read(configProvider.future);
-      return AppSettings.fromGoConfig(config);
-    } catch (_) {
-      return AppSettings.defaults;
-    }
+    // Migrate plaintext API keys from SQLite → secure storage (one-time).
+    await _migrateApiKeys(values, secureStore, db);
+
+    // Merge API keys from secure storage into the in-memory settings.
+    settings = await _mergeSecureKeys(settings, secureStore);
+
+    return settings;
   }
 
   /// Update one or more settings and persist the change.
@@ -748,7 +739,15 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     final current = state.value ?? const AppSettings();
     final updated = updater(current);
     state = AsyncData(updated);
-    await ref.read(historyDatabaseProvider).writeAppSettings(updated.toStorageMap());
+
+    // Persist API key changes to secure storage.
+    final secureStore = ref.read(secureKeyStoreProvider);
+    await _syncApiKeysToSecureStorage(current, updated, secureStore);
+
+    // Persist all non-key settings to SQLite (toStorageMap writes '' for keys).
+    await ref.read(historyDatabaseProvider).writeAppSettings(
+          updated.toStorageMap(),
+        );
   }
 
   /// Toggle between dark and light theme.
@@ -763,10 +762,96 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
 
   /// Restore all settings to factory defaults.
   Future<void> resetToDefaults() async {
+    // Clear secure storage API keys.
+    final secureStore = ref.read(secureKeyStoreProvider);
+    for (final secureKey in apiKeyMapping.values) {
+      await secureStore.deleteKey(secureKey);
+    }
     await ref.read(historyDatabaseProvider).resetAppSettings();
     state = const AsyncData(AppSettings.defaults);
   }
 }
+
+/// Migrate plaintext API keys from SQLite → secure storage, then clear SQLite.
+Future<void> _migrateApiKeys(
+  Map<String, String> sqliteValues,
+  SecureKeyStore secureStore,
+  HistoryDatabase db,
+) async {
+  // SQLite key → secure-storage key mapping.
+  const sqliteToSecure = {
+    'openai_api_key': 'wp_openai_api_key',
+    'groq_api_key': 'wp_groq_api_key',
+    'deepgram_api_key': 'wp_deepgram_api_key',
+    'anthropic_api_key': 'wp_anthropic_api_key',
+    'gemini_api_key': 'wp_gemini_api_key',
+  };
+
+  var migrated = false;
+  for (final entry in sqliteToSecure.entries) {
+    final plaintext = sqliteValues[entry.key];
+    if (plaintext == null || plaintext.isEmpty) continue;
+
+    // Only migrate if secure storage doesn't already have a value.
+    final existing = await secureStore.readKey(entry.value);
+    if (existing == null || existing.isEmpty) {
+      await secureStore.writeKey(entry.value, plaintext);
+    }
+    migrated = true;
+  }
+
+  // Re-write settings with empty API key fields to clear SQLite.
+  if (migrated) {
+    final cleaned = Map<String, String>.from(sqliteValues);
+    for (final key in sqliteToSecure.keys) {
+      cleaned[key] = '';
+    }
+    await db.writeAppSettings(cleaned);
+  }
+}
+
+/// Merge API keys from secure storage into [settings].
+Future<AppSettings> _mergeSecureKeys(
+  AppSettings settings,
+  SecureKeyStore secureStore,
+) async {
+  final keys = await secureStore.readAllApiKeys();
+  if (keys.isEmpty) return settings;
+
+  return settings.copyWith(
+    openAiApiKey: keys['wp_openai_api_key'] ?? settings.openAiApiKey,
+    groqApiKey: keys['wp_groq_api_key'] ?? settings.groqApiKey,
+    deepgramApiKey: keys['wp_deepgram_api_key'] ?? settings.deepgramApiKey,
+    anthropicApiKey: keys['wp_anthropic_api_key'] ?? settings.anthropicApiKey,
+    geminiApiKey: keys['wp_gemini_api_key'] ?? settings.geminiApiKey,
+  );
+}
+
+/// Write changed API keys to secure storage.
+Future<void> _syncApiKeysToSecureStorage(
+  AppSettings oldSettings,
+  AppSettings newSettings,
+  SecureKeyStore secureStore,
+) async {
+  final pairs = <String, _KeyPair>{
+    'wp_openai_api_key': (old: oldSettings.openAiApiKey, cur: newSettings.openAiApiKey),
+    'wp_groq_api_key': (old: oldSettings.groqApiKey, cur: newSettings.groqApiKey),
+    'wp_deepgram_api_key': (old: oldSettings.deepgramApiKey, cur: newSettings.deepgramApiKey),
+    'wp_anthropic_api_key': (old: oldSettings.anthropicApiKey, cur: newSettings.anthropicApiKey),
+    'wp_gemini_api_key': (old: oldSettings.geminiApiKey, cur: newSettings.geminiApiKey),
+  };
+
+  for (final entry in pairs.entries) {
+    if (entry.value.old == entry.value.cur) continue;
+    if (entry.value.cur.isEmpty) {
+      await secureStore.deleteKey(entry.key);
+    } else {
+      await secureStore.writeKey(entry.key, entry.value.cur);
+    }
+  }
+}
+
+typedef _KeyPair = ({String old, String cur});
 
 /// Central settings provider — single source of truth for all app settings.
 final settingsProvider =

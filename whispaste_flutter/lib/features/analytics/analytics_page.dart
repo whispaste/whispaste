@@ -10,33 +10,11 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
+import 'analytics_provider.dart';
 
 // ---------------------------------------------------------------------------
-// Sample data — TODO: Replace with real Riverpod provider when history DB
-// is connected. All values below are hardcoded placeholders.
+// Helper data classes (kept local — only used by widgets below)
 // ---------------------------------------------------------------------------
-class _SampleAnalytics {
-  const _SampleAnalytics._();
-  static const instance = _SampleAnalytics._();
-
-  // Hero stats (raw values for animated counters)
-  int get rawTotalRecordings => 1247;
-  int get rawTotalDurationMinutes => 1112;
-  int get rawWordsDictated => 89421;
-  int get rawTimeSavedMinutes => 255;
-  List<double> get activityValues => const [32, 45, 28, 61, 54, 18, 39];
-
-  // Model usage
-  List<_ModelUsage> get modelUsage => const [
-    _ModelUsage('Whisper Large v3', 847, 0.68),
-    _ModelUsage('OpenAI Whisper', 274, 0.22),
-    _ModelUsage('Groq Whisper', 126, 0.10),
-  ];
-
-  // Cost & savings
-  String get localSavings => '\$12.45';
-  String get cloudCost => '\$3.21';
-}
 
 class _ModelUsage {
   const _ModelUsage(this.name, this.count, this.fraction);
@@ -62,56 +40,88 @@ class AnalyticsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const data = _SampleAnalytics.instance;
+    final asyncData = ref.watch(analyticsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = L10n.of(context);
+
+    return asyncData.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (data) {
+        if (data.isEmpty) {
+          return _EmptyAnalytics(isDark: isDark, l10n: l10n);
+        }
+        return _AnalyticsDashboard(data: data, isDark: isDark);
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
+
+class _EmptyAnalytics extends StatelessWidget {
+  const _EmptyAnalytics({required this.isDark, required this.l10n});
+
+  final bool isDark;
+  final L10n l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final textSecondary =
+        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+    return WpPageShell(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              LucideIcons.chartNoAxesColumn,
+              size: 48,
+              color: textSecondary.withAlpha(120),
+            ),
+            const SizedBox(height: WpSpacing.md),
+            Text(
+              l10n.analyticsEmptyTitle,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? WpColorsDark.textPrimary
+                    : WpColorsLight.textPrimary,
+              ),
+            ),
+            const SizedBox(height: WpSpacing.xs),
+            Text(
+              l10n.analyticsEmptySubtitle,
+              style: TextStyle(fontSize: 13, color: textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard body
+// ---------------------------------------------------------------------------
+
+class _AnalyticsDashboard extends StatelessWidget {
+  const _AnalyticsDashboard({required this.data, required this.isDark});
+
+  final AnalyticsData data;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = L10n.of(context);
 
     return WpPageShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Sample data banner
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? WpColorsDark.warning.withValues(alpha: 0.08)
-                  : WpColorsLight.warning.withValues(alpha: 0.08),
-              borderRadius: WpRadius.borderSm,
-              border: Border.all(
-                color: isDark
-                    ? WpColorsDark.warning.withValues(alpha: 0.20)
-                    : WpColorsLight.warning.withValues(alpha: 0.20),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  LucideIcons.flaskConical,
-                  size: WpIconSize.sm,
-                  color: isDark ? WpColorsDark.warning : WpColorsLight.warning,
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                Expanded(
-                  child: Text(
-                    l10n.analyticsPreviewBanner,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: isDark
-                          ? WpColorsDark.textSecondary
-                          : WpColorsLight.textSecondary,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: WpSpacing.md),
-
           // ── Row 1: Hero stat cards ──────────────────────────────
           WpSection(
             title: l10n.analyticsOverview,
@@ -127,8 +137,16 @@ class AnalyticsPage extends ConsumerWidget {
             title: l10n.analyticsActivity,
             padding: EdgeInsets.zero,
             child: WpTwoPanel(
-              left: _ActivityChartPanel(data: data, isDark: isDark),
-              right: _ModelUsagePanel(data: data, isDark: isDark),
+              left: _ActivityChartPanel(
+                values: data.weeklyActivity,
+                isDark: isDark,
+              ),
+              right: _ModelUsagePanel(
+                models: data.modelUsage
+                    .map((m) => _ModelUsage(m.model, m.count, m.fraction))
+                    .toList(),
+                isDark: isDark,
+              ),
             ),
           ),
 
@@ -139,8 +157,15 @@ class AnalyticsPage extends ConsumerWidget {
             title: l10n.analyticsInsights,
             padding: EdgeInsets.zero,
             child: WpTwoPanel(
-              left: _DurationDistPanel(data: data, isDark: isDark),
-              right: _CostPanel(data: data, isDark: isDark),
+              left: _DurationDistPanel(
+                buckets: _buildBuckets(l10n, data.durationBuckets),
+                isDark: isDark,
+              ),
+              right: _CostPanel(
+                localSavingsUsd: data.localSavingsUsd,
+                cloudCostUsd: data.cloudCostUsd,
+                isDark: isDark,
+              ),
             ),
           ),
 
@@ -153,6 +178,20 @@ class AnalyticsPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  List<_DurationBucket> _buildBuckets(L10n l10n, List<int> counts) {
+    final total = counts.fold<int>(0, (s, c) => s + c);
+    double frac(int c) => total > 0 ? c / total : 0.0;
+    return [
+      _DurationBucket(l10n.analyticsDurationLt15s, counts[0], frac(counts[0])),
+      _DurationBucket(
+          l10n.analyticsDuration15To30s, counts[1], frac(counts[1])),
+      _DurationBucket(
+          l10n.analyticsDuration30To60s, counts[2], frac(counts[2])),
+      _DurationBucket(l10n.analyticsDuration1To3m, counts[3], frac(counts[3])),
+      _DurationBucket(l10n.analyticsDurationGt3m, counts[4], frac(counts[4])),
+    ];
   }
 }
 
@@ -178,14 +217,6 @@ List<String> _activityDayLabels(L10n l10n) => [
   l10n.analyticsDayFri,
   l10n.analyticsDaySat,
   l10n.analyticsDaySun,
-];
-
-List<_DurationBucket> _durationBuckets(L10n l10n) => [
-  _DurationBucket(l10n.analyticsDurationLt15s, 312, 0.25),
-  _DurationBucket(l10n.analyticsDuration15To30s, 436, 0.35),
-  _DurationBucket(l10n.analyticsDuration30To60s, 287, 0.23),
-  _DurationBucket(l10n.analyticsDuration1To3m, 162, 0.13),
-  _DurationBucket(l10n.analyticsDurationGt3m, 50, 0.04),
 ];
 
 // ---------------------------------------------------------------------------
@@ -256,7 +287,7 @@ class _PanelHeader extends StatelessWidget {
 class _HeroStatsRow extends StatelessWidget {
   const _HeroStatsRow({required this.data, required this.isDark});
 
-  final _SampleAnalytics data;
+  final AnalyticsData data;
   final bool isDark;
 
   @override
@@ -274,29 +305,28 @@ class _HeroStatsRow extends StatelessWidget {
           _HeroPill(
             isDark: isDark,
             icon: LucideIcons.mic,
-            rawValue: data.rawTotalRecordings,
+            rawValue: data.totalRecordings,
             formatter: formatCount,
             label: l10n.analyticsTotalRecordings,
-            trend: l10n.analyticsThisWeek('+12%'),
           ),
           _HeroPill(
             isDark: isDark,
             icon: LucideIcons.clock,
-            rawValue: data.rawTotalDurationMinutes,
+            rawValue: data.totalDurationMinutes,
             formatter: formatDuration,
             label: l10n.analyticsTotalDuration,
           ),
           _HeroPill(
             isDark: isDark,
             icon: LucideIcons.type,
-            rawValue: data.rawWordsDictated,
+            rawValue: data.totalWords,
             formatter: formatCount,
             label: l10n.analyticsWordsDictated,
           ),
           _HeroPill(
             isDark: isDark,
             icon: LucideIcons.zap,
-            rawValue: data.rawTimeSavedMinutes,
+            rawValue: data.timeSavedMinutes,
             formatter: formatDuration,
             label: l10n.analyticsTimeSaved,
           ),
@@ -344,7 +374,6 @@ class _HeroPill extends StatefulWidget {
     required this.rawValue,
     required this.formatter,
     required this.label,
-    this.trend,
   });
 
   final bool isDark;
@@ -352,7 +381,6 @@ class _HeroPill extends StatefulWidget {
   final int rawValue;
   final String Function(int) formatter;
   final String label;
-  final String? trend;
 
   @override
   State<_HeroPill> createState() => _HeroPillState();
@@ -389,7 +417,6 @@ class _HeroPillState extends State<_HeroPill>
     final textSecondary = isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
-    final success = isDark ? WpColorsDark.success : WpColorsLight.success;
     final borderColor = isDark
         ? WpColorsDark.borderSubtle
         : WpColorsLight.borderSubtle;
@@ -425,33 +452,11 @@ class _HeroPillState extends State<_HeroPill>
                 borderRadius: WpRadius.borderFull,
               ),
             ),
-            // Icon + optional trend
+            // Icon
             Row(
               children: [
                 Icon(widget.icon, size: WpIconSize.sm, color: accent),
                 const Spacer(),
-                if (widget.trend != null)
-                  Flexible(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: WpSpacing.xs,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: success.withAlpha(20),
-                        borderRadius: WpRadius.borderFull,
-                      ),
-                      child: Text(
-                        widget.trend!,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: success,
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
             const SizedBox(height: WpSpacing.sm),
@@ -486,9 +491,9 @@ class _HeroPillState extends State<_HeroPill>
 // ---------------------------------------------------------------------------
 
 class _ActivityChartPanel extends StatefulWidget {
-  const _ActivityChartPanel({required this.data, required this.isDark});
+  const _ActivityChartPanel({required this.values, required this.isDark});
 
-  final _SampleAnalytics data;
+  final List<double> values;
   final bool isDark;
 
   @override
@@ -521,7 +526,6 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
-    final data = widget.data;
     final l10n = L10n.of(context);
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
@@ -545,7 +549,7 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
             builder: (context, _) => CustomPaint(
               size: Size.infinite,
               painter: _BarChartPainter(
-                values: data.activityValues,
+                values: widget.values,
                 labels: _activityDayLabels(l10n),
                 barColor: isDark ? WpColorsDark.accent : WpColorsLight.accent,
                 barColorEnd: isDark
@@ -658,9 +662,9 @@ class _BarChartPainter extends CustomPainter {
 // ---------------------------------------------------------------------------
 
 class _ModelUsagePanel extends StatelessWidget {
-  const _ModelUsagePanel({required this.data, required this.isDark});
+  const _ModelUsagePanel({required this.models, required this.isDark});
 
-  final _SampleAnalytics data;
+  final List<_ModelUsage> models;
   final bool isDark;
 
   @override
@@ -675,7 +679,18 @@ class _ModelUsagePanel extends StatelessWidget {
           isDark: isDark,
         ),
         const SizedBox(height: WpSpacing.md),
-        ...data.modelUsage.map((m) => _ModelUsageBar(model: m, isDark: isDark)),
+        if (models.isEmpty)
+          Text(
+            '—',
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark
+                  ? WpColorsDark.textMuted
+                  : WpColorsLight.textMuted,
+            ),
+          )
+        else
+          ...models.map((m) => _ModelUsageBar(model: m, isDark: isDark)),
       ],
     );
   }
@@ -760,9 +775,9 @@ class _ModelUsageBar extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _DurationDistPanel extends StatelessWidget {
-  const _DurationDistPanel({required this.data, required this.isDark});
+  const _DurationDistPanel({required this.buckets, required this.isDark});
 
-  final _SampleAnalytics data;
+  final List<_DurationBucket> buckets;
   final bool isDark;
 
   @override
@@ -777,9 +792,7 @@ class _DurationDistPanel extends StatelessWidget {
           isDark: isDark,
         ),
         const SizedBox(height: WpSpacing.md),
-        ..._durationBuckets(
-          l10n,
-        ).map((b) => _DurationBar(bucket: b, isDark: isDark)),
+        ...buckets.map((b) => _DurationBar(bucket: b, isDark: isDark)),
       ],
     );
   }
@@ -858,17 +871,24 @@ class _DurationBar extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _CostPanel extends StatelessWidget {
-  const _CostPanel({required this.data, required this.isDark});
+  const _CostPanel({
+    required this.localSavingsUsd,
+    required this.cloudCostUsd,
+    required this.isDark,
+  });
 
-  final _SampleAnalytics data;
+  final double localSavingsUsd;
+  final double cloudCostUsd;
   final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     final success = isDark ? WpColorsDark.success : WpColorsLight.success;
     final warning = isDark ? WpColorsDark.warning : WpColorsLight.warning;
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final l10n = L10n.of(context);
+
+    final savingsStr = '\$${localSavingsUsd.toStringAsFixed(2)}';
+    final costStr = '\$${cloudCostUsd.toStringAsFixed(2)}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -886,7 +906,7 @@ class _CostPanel extends StatelessWidget {
           icon: LucideIcons.shieldCheck,
           iconColor: success,
           title: l10n.analyticsLocalSavings,
-          value: l10n.analyticsSavedAmount(data.localSavings),
+          value: l10n.analyticsSavedAmount(savingsStr),
           valueColor: success,
         ),
         const SizedBox(height: WpSpacing.sm),
@@ -897,40 +917,8 @@ class _CostPanel extends StatelessWidget {
           icon: LucideIcons.cloud,
           iconColor: warning,
           title: l10n.analyticsCloudCost,
-          value: l10n.analyticsSpentAmount(data.cloudCost),
+          value: l10n.analyticsSpentAmount(costStr),
           valueColor: warning,
-        ),
-        const SizedBox(height: WpSpacing.md),
-
-        // Monthly trend
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: isDark
-                ? WpColorsDark.surfaceVariant
-                : WpColorsLight.surfaceVariant,
-            borderRadius: WpRadius.borderSm,
-          ),
-          child: Row(
-            children: [
-              Icon(
-                LucideIcons.trendingDown,
-                size: WpIconSize.xs,
-                color: success,
-              ),
-              const SizedBox(width: WpSpacing.xs),
-              Flexible(
-                child: Text(
-                  l10n.analyticsVsLastMonth('18%'),
-                  style: TextStyle(fontSize: 11, color: textMuted),
-                ),
-              ),
-            ],
-          ),
         ),
       ],
     );
@@ -987,17 +975,16 @@ class _CostRow extends StatelessWidget {
 // Row 4 — Period selector + Reset
 // ---------------------------------------------------------------------------
 
-class _PeriodAndResetRow extends StatefulWidget {
+class _PeriodAndResetRow extends ConsumerStatefulWidget {
   const _PeriodAndResetRow({required this.isDark});
 
   final bool isDark;
 
   @override
-  State<_PeriodAndResetRow> createState() => _PeriodAndResetRowState();
+  ConsumerState<_PeriodAndResetRow> createState() => _PeriodAndResetRowState();
 }
 
-class _PeriodAndResetRowState extends State<_PeriodAndResetRow> {
-  int _selectedPeriod = 0;
+class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
 
   @override
   Widget build(BuildContext context) {
@@ -1017,6 +1004,9 @@ class _PeriodAndResetRowState extends State<_PeriodAndResetRow> {
       l10n.analyticsPeriodAll,
     ];
 
+    final currentPeriod = ref.watch(analyticsPeriodProvider);
+    final selectedIndex = AnalyticsPeriod.values.indexOf(currentPeriod);
+
     return Row(
       children: [
         // Period chips
@@ -1025,9 +1015,11 @@ class _PeriodAndResetRowState extends State<_PeriodAndResetRow> {
             spacing: WpSpacing.xs,
             runSpacing: WpSpacing.xs,
             children: List.generate(periods.length, (i) {
-              final selected = i == _selectedPeriod;
+              final selected = i == selectedIndex;
               return GestureDetector(
-                onTap: () => setState(() => _selectedPeriod = i),
+                onTap: () => ref
+                    .read(analyticsPeriodProvider.notifier)
+                    .setPeriod(AnalyticsPeriod.values[i]),
                 child: AnimatedContainer(
                   duration: WpMotion.normal,
                   padding: const EdgeInsets.symmetric(

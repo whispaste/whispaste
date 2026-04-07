@@ -35,11 +35,12 @@ mixin WindowHeartbeat {
   int _consecutiveFailures = 0;
 
   /// Ping interval — how often we check if the main window is alive.
-  static const _interval = Duration(seconds: 3);
+  static const _interval = Duration(seconds: 2);
 
   /// Number of consecutive failures before self-hiding.
-  /// 10 failures × 3s = 30s grace period — covers hot reload and slow startup.
-  static const maxFailures = 10;
+  /// 4 failures × 2s = 8s grace period — long enough for reloads, short enough
+  /// to clear duplicate floating windows quickly.
+  static const maxFailures = 4;
 
   /// Starts the periodic heartbeat. Call from [initState].
   void startHeartbeat() {

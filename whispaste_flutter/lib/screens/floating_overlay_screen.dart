@@ -7,8 +7,8 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -27,9 +27,16 @@ import '../core/multi_window/window_heartbeat.dart';
 /// Entry point for the floating overlay secondary window.
 Future<void> runFloatingOverlayWindow(WindowController controller) async {
   await windowManager.ensureInitialized();
+  var launchEpochMs = 0;
+  try {
+    final args = jsonDecode(controller.arguments) as Map<String, dynamic>;
+    launchEpochMs = (args['launchEpochMs'] as num?)?.toInt() ?? 0;
+  } catch (e) {
+    debugPrint('FloatingOverlay: failed to parse arguments: $e');
+  }
 
   const overlayWidth = 480.0;
-  const overlayHeight = 80.0;
+  const overlayHeight = 100.0;
 
   const options = WindowOptions(
     size: Size(overlayWidth, overlayHeight),
@@ -41,18 +48,29 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
   );
 
   await windowManager.waitUntilReadyToShow(options, () async {
+    // Set size BEFORE setAsFrameless — on Windows, setAsFrameless modifies
+    // window style flags (removes WS_CAPTION/WS_THICKFRAME) which can reset
+    // the window geometry to minimal values.
+    await windowManager.setSize(const Size(overlayWidth, overlayHeight));
     await windowManager.setAsFrameless();
     await windowManager.setBackgroundColor(Colors.transparent);
     if (Platform.isWindows) {
       await windowManager.setHasShadow(false);
+      // Let Windows process the style-flag changes before re-asserting size.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
     }
+    // Re-assert size after frameless — belt-and-suspenders against
+    // style-change geometry resets.
+    await windowManager.setSize(const Size(overlayWidth, overlayHeight));
     await windowManager.setAlignment(Alignment.topCenter);
     // Do NOT show here — the main window controls visibility via
     // MultiWindowNotifier.showOverlay() / hideOverlay(). The window
     // is pre-created hidden and shown only when recording starts.
   });
 
-  runApp(_FloatingOverlayApp(controller: controller));
+  runApp(
+    _FloatingOverlayApp(controller: controller, launchEpochMs: launchEpochMs),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -60,8 +78,12 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
 // ---------------------------------------------------------------------------
 
 class _FloatingOverlayApp extends StatefulWidget {
-  const _FloatingOverlayApp({required this.controller});
+  const _FloatingOverlayApp({
+    required this.controller,
+    required this.launchEpochMs,
+  });
   final WindowController controller;
+  final int launchEpochMs;
 
   @override
   State<_FloatingOverlayApp> createState() => _FloatingOverlayAppState();
@@ -97,8 +119,44 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
   Future<dynamic> _onMethodCall(MethodCall call) async {
     if (_inert) return null; // Window has been shut down — ignore everything.
     if (call.method == 'updateRecordingState' && call.arguments is String) {
+      final decoded = decodeRecordingState(call.arguments as String);
+      // Only log phase transitions — elapsed-time updates would flood the log.
+      if (decoded.phase != _state.phase) {
+        debugPrint('FloatingOverlay: phase → ${decoded.phase.name}');
+      }
       setState(() {
-        _state = decodeRecordingState(call.arguments as String);
+        _state = decoded;
+      });
+    } else if (call.method == 'assertTopmost') {
+      // Re-assert always-on-top from inside the secondary engine so the
+      // overlay is guaranteed to appear above the main window.
+      try {
+        await windowManager.setAlwaysOnTop(true);
+      } catch (_) {}
+    } else if (call.method == 'showWindow') {
+      try {
+        // Re-assert correct size — the window may have been created at a
+        // default tiny size if hiddenAtLaunch was true and the OS didn't
+        // apply WindowOptions.size until the first show().
+        await windowManager.setSize(const Size(480, 100));
+        await windowManager.setAlignment(Alignment.topCenter);
+        await windowManager.show();
+        await windowManager.setAlwaysOnTop(true);
+      } catch (e) {
+        debugPrint('FloatingOverlay: showWindow failed: $e');
+      }
+    } else if (call.method == 'hideWindow') {
+      try {
+        await windowManager.hide();
+      } catch (e) {
+        debugPrint('FloatingOverlay: hideWindow failed: $e');
+      }
+    } else if (call.method == 'getWindowStatus') {
+      return jsonEncode({
+        'type': WindowType.floatingOverlay,
+        'visible': await windowManager.isVisible(),
+        'inert': _inert,
+        'launchEpochMs': widget.launchEpochMs,
       });
     } else if (call.method == 'shutdown') {
       // IMPORTANT: Do NOT call exit(0) here! All windows share the same OS
@@ -181,9 +239,10 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
-    _pulseAnim = Tween<double>(begin: 0.4, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
-    );
+    _pulseAnim = Tween<double>(
+      begin: 0.4,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
 
     _shimmerCtrl = AnimationController(
       vsync: this,
@@ -254,10 +313,9 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
     // Show pill for active phases, or during the done-hold period.
     final showPill = phase != RecordingPhase.idle || _showDonePill;
     // When holding the done pill, display as "done" even though phase is idle.
-    final displayPhase =
-        (phase == RecordingPhase.idle && _showDonePill)
-            ? RecordingPhase.done
-            : phase;
+    final displayPhase = (phase == RecordingPhase.idle && _showDonePill)
+        ? RecordingPhase.done
+        : phase;
 
     if (!showPill) return const SizedBox.shrink();
 
@@ -269,44 +327,34 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
       liveRegion: true,
       label: semanticLabel,
       child: Center(
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 480, minHeight: 56),
-        decoration: BoxDecoration(
-          borderRadius: pillRadius,
-          boxShadow: WpShadows.elevated,
-        ),
-        child: ClipRRect(
-          borderRadius: pillRadius,
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: WpColorsDark.background.withValues(alpha: 0.85),
-                borderRadius: pillRadius,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 480, minHeight: 56),
+          decoration: BoxDecoration(
+            // Solid dark background — BackdropFilter does NOT work in frameless
+            // transparent windows on Windows (renders as opaque black).
+            color: WpColorsDark.background.withValues(alpha: 0.92),
+            borderRadius: pillRadius,
+            boxShadow: WpShadows.elevated,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.md,
+                  vertical: WpSpacing.xs,
+                ),
+                child: _buildContent(context, displayPhase, l10n),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: WpSpacing.md,
-                      vertical: WpSpacing.xs,
-                    ),
-                    child: _buildContent(context, displayPhase, l10n),
-                  ),
-                  _buildProgressBar(displayPhase),
-                ],
-              ),
-            ),
+              _buildProgressBar(displayPhase),
+            ],
           ),
         ),
       ),
-    ),
     );
   }
 
-  Widget _buildContent(
-      BuildContext context, RecordingPhase phase, L10n l10n) {
+  Widget _buildContent(BuildContext context, RecordingPhase phase, L10n l10n) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -415,8 +463,11 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.circleCheck,
-                size: 16, color: WpColorsDark.success),
+            const Icon(
+              LucideIcons.circleCheck,
+              size: 16,
+              color: WpColorsDark.success,
+            ),
             const SizedBox(width: WpSpacing.xs),
             Text(
               l10n.overlayDone,
@@ -433,8 +484,11 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.triangleAlert,
-                size: 16, color: Colors.redAccent),
+            const Icon(
+              LucideIcons.triangleAlert,
+              size: 16,
+              color: Colors.redAccent,
+            ),
             const SizedBox(width: WpSpacing.xs),
             Flexible(
               child: Text(
@@ -472,21 +526,26 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
     const gap = 2.0;
 
     final bars = <Widget>[];
-    final startIdx =
-        _levelHistory.length > barCount ? _levelHistory.length - barCount : 0;
+    final startIdx = _levelHistory.length > barCount
+        ? _levelHistory.length - barCount
+        : 0;
     for (int i = startIdx; i < _levelHistory.length; i++) {
       final level = _levelHistory[i].clamp(0.0, 1.0);
       final height = (level * maxHeight).clamp(3.0, maxHeight);
-      bars.add(AnimatedContainer(
-        duration: WpMotion.fast,
-        width: barWidth,
-        height: height,
-        margin: const EdgeInsets.symmetric(horizontal: gap / 2),
-        decoration: BoxDecoration(
-          color: WpColorsDark.accent.withValues(alpha: level > 0.3 ? 0.85 : 0.5),
-          borderRadius: BorderRadius.circular(2),
+      bars.add(
+        AnimatedContainer(
+          duration: WpMotion.fast,
+          width: barWidth,
+          height: height,
+          margin: const EdgeInsets.symmetric(horizontal: gap / 2),
+          decoration: BoxDecoration(
+            color: WpColorsDark.accent.withValues(
+              alpha: level > 0.3 ? 0.85 : 0.5,
+            ),
+            borderRadius: BorderRadius.circular(2),
+          ),
         ),
-      ));
+      );
     }
     return bars;
   }
@@ -535,10 +594,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
     }
 
     if (phase == RecordingPhase.done) {
-      return Container(
-        height: height,
-        color: WpColorsDark.success,
-      );
+      return Container(height: height, color: WpColorsDark.success);
     }
 
     return const SizedBox(height: height);
