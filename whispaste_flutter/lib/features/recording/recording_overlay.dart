@@ -665,9 +665,12 @@ class _StopButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final gradient =
-        isDark ? WpColorsDark.accentWarmGradient : WpColorsLight.accentWarmGradient;
+    // Red gradient — matches FAB stop state and floating overlay stop button.
+    const gradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+    );
 
     return Tooltip(
       message: L10n.of(context).overlayStop,
@@ -686,7 +689,7 @@ class _StopButton extends StatelessWidget {
               curve: WpMotion.defaultCurve,
               width: 44,
               height: 44,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 gradient: gradient,
                 shape: BoxShape.circle,
               ),
