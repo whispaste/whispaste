@@ -39,6 +39,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import '../../services/path_service.dart' as paths;
 import 'app_logger.dart';
 
 // ---------------------------------------------------------------------------
@@ -557,13 +558,13 @@ class CrashReporter {
   }
 
   static String _crashDbDir() {
-    final appData = Platform.environment['APPDATA'];
-    if (appData != null && appData.isNotEmpty) {
-      return p.join(appData, 'WhisPaste');
+    try {
+      return paths.appDataDir();
+    } catch (_) {
+      // Fallback for platforms where path_service can't resolve.
+      final home = Platform.environment['HOME'] ?? '.';
+      return p.join(home, '.whispaste');
     }
-    // macOS / Linux fallback.
-    final home = Platform.environment['HOME'] ?? '.';
-    return p.join(home, '.whispaste');
   }
 }
 
