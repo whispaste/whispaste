@@ -739,7 +739,7 @@ String _settingLanguageFromConfig(String languageCode) {
 }
 
 String _settingPresetFromConfig(String preset) {
-  return PostProcessPreset.fromGoKey(preset).displayValue;
+  return PostProcessPreset.fromKey(preset).displayValue;
 }
 
 /// Central settings notifier — loads from and persists to Drift/SQLite.

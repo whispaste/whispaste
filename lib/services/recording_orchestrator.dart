@@ -268,7 +268,7 @@ class RecordingOrchestrator extends Notifier<void> {
         notifier.startProcessing();
         _log.info('Post-processing enabled — skipping (not yet implemented)');
 
-        // TODO: Wire actual LLM post-processing via Go FFI or cloud API.
+        // TODO: Wire actual LLM post-processing via cloud API.
       }
 
       // Copy to clipboard / auto-paste based on user preference.
@@ -537,9 +537,8 @@ class RecordingOrchestrator extends Notifier<void> {
       _log.warning('Clipboard copy failed: $e');
     }
 
-    // TODO: 'paste' mode — simulate Ctrl+V via platform channel / Go FFI.
-    // Requires Windows SendInput bridge (paste.go). Will be wired in a
-    // follow-up when the Go FFI paste export is added.
+    // TODO: 'paste' mode — simulate Ctrl+V via platform channel.
+    // Requires Windows SendInput bridge. Will be wired in a follow-up.
   }
 }
 
