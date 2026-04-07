@@ -28,6 +28,7 @@ class WpFloatingButton extends StatefulWidget {
     this.onHide,
     this.onQuit,
     this.locked = false,
+    this.enableContextMenu = true,
   });
 
   /// Diameter in logical pixels (48, 56, or 72).
@@ -56,6 +57,10 @@ class WpFloatingButton extends StatefulWidget {
 
   /// When true, dragging is disabled.
   final bool locked;
+
+  /// Whether the built-in context menu should open on long-press.
+  /// Set false in secondary windows where the popup would be clipped.
+  final bool enableContextMenu;
 
   @override
   State<WpFloatingButton> createState() => _WpFloatingButtonState();
@@ -295,7 +300,9 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
                     onTap: isInteractive ? widget.onTap : null,
                     onLongPressStart: (details) {
                       widget.onLongPress();
-                      _showContextMenu(context, details.globalPosition);
+                      if (widget.enableContextMenu) {
+                        _showContextMenu(context, details.globalPosition);
+                      }
                     },
                     child: AnimatedScale(
                       scale: _isHovered && isInteractive ? 1.08 : 1.0,
