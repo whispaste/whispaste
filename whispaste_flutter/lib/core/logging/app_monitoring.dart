@@ -45,8 +45,8 @@ class AppMonitoring {
   static Future<void> bootstrap({
     required Future<void> Function() appRunner,
   }) async {
-    // 1. Configure logging (breadcrumbs, dev-tools output, auto-escalation).
-    configureLogging();
+    // 1. Configure logging (breadcrumbs, dev-tools output, file sink, auto-escalation).
+    await configureLogging();
 
     // 2. Initialize crash reporter.
     await CrashReporter.init(

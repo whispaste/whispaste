@@ -76,6 +76,10 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
 
   late final AnimationController _spinController;
 
+  // Subtle body scale pulsing during recording (complements the ring).
+  late final AnimationController _bodyPulseController;
+  late final Animation<double> _bodyPulseScale;
+
   bool _isHovered = false;
 
   // -- lifecycle ------------------------------------------------------------
@@ -102,6 +106,18 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
       duration: const Duration(milliseconds: 1200),
     );
 
+    // Subtle body scale pulse — breathing effect during recording.
+    _bodyPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
+    _bodyPulseScale = Tween<double>(begin: 1.0, end: 1.06).animate(
+      CurvedAnimation(
+        parent: _bodyPulseController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
     _syncAnimations();
   }
 
@@ -114,8 +130,12 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
   void _syncAnimations() {
     if (widget.phase == RecordingPhase.recording) {
       _pulseController.repeat();
+      _bodyPulseController.repeat(reverse: true);
     } else {
       _pulseController
+        ..stop()
+        ..reset();
+      _bodyPulseController
         ..stop()
         ..reset();
     }
@@ -134,6 +154,7 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
   void dispose() {
     _pulseController.dispose();
     _spinController.dispose();
+    _bodyPulseController.dispose();
     super.dispose();
   }
 
@@ -281,7 +302,7 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
                 onExit: (_) => setState(() => _isHovered = false),
                 child: AnimatedBuilder(
                   animation: Listenable.merge(
-                    [_pulseController, _spinController],
+                    [_pulseController, _spinController, _bodyPulseController],
                   ),
                   builder: (context, child) {
                     return Stack(
@@ -291,8 +312,13 @@ class _WpFloatingButtonState extends State<WpFloatingButton>
                         if (phase == RecordingPhase.recording)
                           _buildPulseRing(size, gradient),
 
-                        // Button
-                        child!,
+                        // Button with breathing scale during recording
+                        Transform.scale(
+                          scale: phase == RecordingPhase.recording
+                              ? _bodyPulseScale.value
+                              : 1.0,
+                          child: child!,
+                        ),
                       ],
                     );
                   },
