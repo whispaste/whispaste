@@ -1024,7 +1024,7 @@ abstract class L10n {
   /// No description provided for @settingsResetConfirmMessage.
   ///
   /// In en, this message translates to:
-  /// **'This will restore all settings to their original values. Your history and data will not be affected.'**
+  /// **'This will restore all settings to their original values and clear usage statistics. Your history entries will not be affected.'**
   String get settingsResetConfirmMessage;
 
   /// No description provided for @settingsResetConfirm.
@@ -1740,18 +1740,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Start / Stop recording'**
   String get aboutShortcutRecord;
-
-  /// No description provided for @aboutShortcutPalette.
-  ///
-  /// In en, this message translates to:
-  /// **'Command palette'**
-  String get aboutShortcutPalette;
-
-  /// No description provided for @aboutShortcutSettings.
-  ///
-  /// In en, this message translates to:
-  /// **'Settings'**
-  String get aboutShortcutSettings;
 
   /// No description provided for @aboutLinks.
   ///

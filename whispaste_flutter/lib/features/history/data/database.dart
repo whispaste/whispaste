@@ -407,6 +407,11 @@ class HistoryDatabase extends _$HistoryDatabase {
     return customStatement('DELETE FROM app_settings');
   }
 
+  /// Removes all accumulated daily analytics stats.
+  Future<void> resetDailyStats() {
+    return delete(dailyStats).go();
+  }
+
   // ---------------------------------------------------------------------------
   // Text Replacements (voice shortcuts)
   // ---------------------------------------------------------------------------

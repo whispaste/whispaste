@@ -131,9 +131,19 @@ class RecordingOrchestrator extends Notifier<void> {
   }
 
   /// Stops recording and runs the transcription pipeline.
+  ///
+  /// Each major step has its own timeout so a single hung operation cannot
+  /// freeze the app.  A 90 s pipeline watchdog acts as a final safety net.
   Future<void> stopRecording() async {
     final notifier = ref.read(recordingProvider.notifier);
     String? wavPath;
+
+    // ── Pipeline watchdog ─────────────────────────────────────────────────
+    // Force-fail if the entire stop→done pipeline exceeds 90 s.
+    final watchdog = Timer(const Duration(seconds: 90), () {
+      _log.error('Pipeline watchdog triggered after 90s — force-resetting');
+      notifier.fail('pipeline_timeout');
+    });
 
     try {
       // Cancel amplitude subscription.
@@ -221,10 +231,17 @@ class RecordingOrchestrator extends Notifier<void> {
       );
 
       final inferSw = Stopwatch()..start();
-      final transcript = await sttNotifier.transcribeBytes(
-        wavBytes,
-        language: effectiveLang,
-      );
+      String transcript;
+      try {
+        transcript = await sttNotifier.transcribeBytes(
+          wavBytes,
+          language: effectiveLang,
+        ).timeout(const Duration(seconds: 45));
+      } on TimeoutException {
+        notifier.fail('transcription_timeout');
+        _log.error('Transcription timed out after 45s');
+        return;
+      }
       inferSw.stop();
 
       if (audioDurMs > 0) {
@@ -275,6 +292,7 @@ class RecordingOrchestrator extends Notifier<void> {
       notifier.fail('$e');
       _log.error('Pipeline error: $e');
     } finally {
+      watchdog.cancel();
       // Always clean up the temp WAV file.
       if (wavPath != null) {
         await ref

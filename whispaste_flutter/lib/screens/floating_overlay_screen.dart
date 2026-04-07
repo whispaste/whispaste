@@ -35,11 +35,10 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
     debugPrint('FloatingOverlay: failed to parse arguments: $e');
   }
 
-  const overlayWidth = 480.0;
-  const overlayHeight = 100.0;
+  const overlaySize = Size(480, 100);
 
   const options = WindowOptions(
-    size: Size(overlayWidth, overlayHeight),
+    size: overlaySize,
     center: false,
     backgroundColor: Colors.transparent,
     skipTaskbar: true,
@@ -48,24 +47,28 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
   );
 
   await windowManager.waitUntilReadyToShow(options, () async {
-    // Set size BEFORE setAsFrameless — on Windows, setAsFrameless modifies
-    // window style flags (removes WS_CAPTION/WS_THICKFRAME) which can reset
-    // the window geometry to minimal values.
-    await windowManager.setSize(const Size(overlayWidth, overlayHeight));
     await windowManager.setAsFrameless();
     await windowManager.setBackgroundColor(Colors.transparent);
     if (Platform.isWindows) {
       await windowManager.setHasShadow(false);
-      // Let Windows process the style-flag changes before re-asserting size.
-      await Future<void>.delayed(const Duration(milliseconds: 50));
     }
-    // Re-assert size after frameless — belt-and-suspenders against
-    // style-change geometry resets.
-    await windowManager.setSize(const Size(overlayWidth, overlayHeight));
+    await windowManager.setSize(overlaySize);
     await windowManager.setAlignment(Alignment.topCenter);
-    // Do NOT show here — the main window controls visibility via
-    // MultiWindowNotifier.showOverlay() / hideOverlay(). The window
-    // is pre-created hidden and shown only when recording starts.
+
+    // CRITICAL: Briefly show then hide to force Windows to materialize the
+    // rendering surface at the correct dimensions. Transparent frameless
+    // windows that are created hidden (hiddenAtLaunch: true) get collapsed
+    // to minimal size on Windows because the OS never allocates a proper
+    // surface. The floating button works because it shows during init —
+    // we replicate that pattern here. The window content is SizedBox.shrink()
+    // at this point (idle phase), so nothing is visible.
+    await windowManager.show();
+    await windowManager.setAlwaysOnTop(true);
+    if (Platform.isWindows) {
+      // Give Windows time to process the show + style flags before hiding.
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    await windowManager.hide();
   });
 
   runApp(
@@ -135,13 +138,27 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
       } catch (_) {}
     } else if (call.method == 'showWindow') {
       try {
-        // Re-assert correct size — the window may have been created at a
-        // default tiny size if hiddenAtLaunch was true and the OS didn't
-        // apply WindowOptions.size until the first show().
-        await windowManager.setSize(const Size(480, 100));
+        const targetSize = Size(480, 100);
+        await windowManager.setSize(targetSize);
         await windowManager.setAlignment(Alignment.topCenter);
         await windowManager.show();
         await windowManager.setAlwaysOnTop(true);
+
+        // Post-show size verification — on Windows, verify the actual window
+        // size matches what we requested. If Windows collapsed the geometry
+        // (e.g. after sleep/wake or display change), re-assert.
+        if (Platform.isWindows) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          final actualSize = await windowManager.getSize();
+          if (actualSize.width < 400 || actualSize.height < 60) {
+            debugPrint(
+              'FloatingOverlay: size mismatch! '
+              'Expected $targetSize, got $actualSize — re-asserting',
+            );
+            await windowManager.setSize(targetSize);
+            await windowManager.setAlignment(Alignment.topCenter);
+          }
+        }
       } catch (e) {
         debugPrint('FloatingOverlay: showWindow failed: $e');
       }

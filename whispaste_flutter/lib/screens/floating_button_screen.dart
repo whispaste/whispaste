@@ -146,7 +146,7 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
     }
     windowManager.addListener(this);
     startHeartbeat();
-    _topmostTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _topmostTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!_inert) windowManager.setAlwaysOnTop(true).catchError((_) {});
     });
   }
@@ -164,6 +164,19 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
   void onWindowMoved() {
     _saveDebounce?.cancel();
     _saveDebounce = Timer(const Duration(milliseconds: 500), _savePosition);
+  }
+
+  @override
+  void onWindowBlur() {
+    // Auto-dismiss the context menu when the window loses focus (e.g. user
+    // clicks outside the floating button window). Without this, the menu stays
+    // open because clicks outside the OS window boundary never reach Flutter.
+    if (_menuOpen) {
+      final nav = _navKey.currentState;
+      if (nav != null && nav.canPop()) {
+        nav.pop();
+      }
+    }
   }
 
   Future<dynamic> _onMethodCall(MethodCall call) async {
@@ -315,11 +328,9 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
       final newY = (pos.dy - menuH).clamp(0.0, double.infinity);
       final newX = pos.dx - (newW - btnWindow) / 2;
 
-      // Hide→reposition→resize→show to avoid visible jump.
-      await windowManager.hide();
+      // Reposition + resize in place — no hide/show to avoid visible hop.
       await windowManager.setPosition(Offset(newX, newY));
       await windowManager.setSize(Size(newW, newH));
-      await windowManager.show();
       await windowManager.setAlwaysOnTop(true);
     } catch (e) {
       debugPrint('FloatingButton: expandForMenu failed: $e');
@@ -334,9 +345,7 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
       _preMenuPosition = null;
       _preMenuSize = null;
 
-      // Hide→resize→reposition→show to avoid visible jump.
-      await windowManager.hide();
-
+      // Resize + reposition in place — no hide/show to avoid visible hop.
       if (origPos != null && origSize != null) {
         await windowManager.setSize(origSize);
         await windowManager.setPosition(origPos);
@@ -350,7 +359,6 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
         await windowManager.setPosition(Offset(pos.dx, newY));
       }
 
-      await windowManager.show();
       await windowManager.setAlwaysOnTop(true);
     } catch (e) {
       debugPrint('FloatingButton: shrinkAfterMenu failed: $e');

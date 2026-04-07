@@ -226,6 +226,13 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     final sttStatus = ref.watch(sttServiceProvider);
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
 
+    // ── Service eager-init via ref.watch ──
+    // These are keepAlive NotifierProviders (not autoDispose). Riverpod
+    // creates each exactly once; subsequent builds reuse the same instance.
+    // This is intentional: services need to be alive for the entire app
+    // lifetime (tray icon, hotkey listener, STT prewarm, multi-window).
+    // Safe despite being in build() — no re-init on rebuild.
+
     // Eagerly initialise the recording orchestrator so that the STT server
     // prewarm fires at app startup — not when the user first taps record.
     ref.watch(recordingOrchestratorProvider);
