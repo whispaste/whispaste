@@ -93,6 +93,10 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
       setState(() {
         _state = decodeRecordingState(call.arguments as String);
       });
+    } else if (call.method == 'shutdown') {
+      debugPrint('FloatingOverlay: received shutdown command — exiting');
+      stopHeartbeat();
+      exit(0);
     }
     return null;
   }

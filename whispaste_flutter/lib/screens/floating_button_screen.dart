@@ -155,6 +155,10 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
             debugPrint('FloatingButton: failed to parse settings: $e');
           }
         }
+      case 'shutdown':
+        debugPrint('FloatingButton: received shutdown command — exiting');
+        stopHeartbeat();
+        exit(0);
     }
     return null;
   }
