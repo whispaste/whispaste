@@ -22,6 +22,7 @@ import '../core/theme/theme.dart';
 import '../core/theme/tokens.dart';
 import '../core/recording/recording_state.dart';
 import '../core/multi_window/multi_window_types.dart';
+import '../core/multi_window/window_heartbeat.dart';
 
 /// Entry point for the floating overlay secondary window.
 Future<void> runFloatingOverlayWindow(WindowController controller) async {
@@ -65,7 +66,8 @@ class _FloatingOverlayApp extends StatefulWidget {
   State<_FloatingOverlayApp> createState() => _FloatingOverlayAppState();
 }
 
-class _FloatingOverlayAppState extends State<_FloatingOverlayApp> {
+class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
+    with WindowHeartbeat {
   RecordingState _state = const RecordingState();
 
   @override
@@ -76,6 +78,13 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp> {
     } catch (e) {
       debugPrint('FloatingOverlay: failed to register method handler: $e');
     }
+    startHeartbeat();
+  }
+
+  @override
+  void dispose() {
+    stopHeartbeat();
+    super.dispose();
   }
 
   Future<dynamic> _onMethodCall(MethodCall call) async {
@@ -142,6 +151,10 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
   // Shimmer for indeterminate progress.
   late final AnimationController _shimmerCtrl;
 
+  // Done-phase hold: keep pill visible for a few seconds after completion.
+  Timer? _doneHoldTimer;
+  bool _showDonePill = false;
+
   @override
   void initState() {
     super.initState();
@@ -164,7 +177,21 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
   @override
   void didUpdateWidget(covariant _FloatingOverlayPill old) {
     super.didUpdateWidget(old);
-    if (widget.state.phase != old.state.phase) _syncAnimations();
+    if (widget.state.phase != old.state.phase) {
+      _syncAnimations();
+
+      // Hold the "done" pill visible for 3 seconds before hiding.
+      if (widget.state.phase == RecordingPhase.done) {
+        _doneHoldTimer?.cancel();
+        _showDonePill = true;
+        _doneHoldTimer = Timer(const Duration(seconds: 3), () {
+          if (mounted) setState(() => _showDonePill = false);
+        });
+      } else if (widget.state.phase != RecordingPhase.idle) {
+        _doneHoldTimer?.cancel();
+        _showDonePill = false;
+      }
+    }
     // Update waveform buffer.
     if (widget.state.phase == RecordingPhase.recording) {
       _levelHistory.add(widget.state.audioLevel);
@@ -189,6 +216,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
 
   @override
   void dispose() {
+    _doneHoldTimer?.cancel();
     _pulseCtrl.dispose();
     _shimmerCtrl.dispose();
     super.dispose();
@@ -204,7 +232,15 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
   @override
   Widget build(BuildContext context) {
     final phase = widget.state.phase;
-    if (phase == RecordingPhase.idle) return const SizedBox.shrink();
+    // Show pill for active phases, or during the done-hold period.
+    final showPill = phase != RecordingPhase.idle || _showDonePill;
+    // When holding the done pill, display as "done" even though phase is idle.
+    final displayPhase =
+        (phase == RecordingPhase.idle && _showDonePill)
+            ? RecordingPhase.done
+            : phase;
+
+    if (!showPill) return const SizedBox.shrink();
 
     final l10n = L10n.of(context);
     final pillRadius = BorderRadius.circular(38);
@@ -238,9 +274,9 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
                       horizontal: WpSpacing.md,
                       vertical: WpSpacing.xs,
                     ),
-                    child: _buildContent(context, phase, l10n),
+                    child: _buildContent(context, displayPhase, l10n),
                   ),
-                  _buildProgressBar(phase),
+                  _buildProgressBar(displayPhase),
                 ],
               ),
             ),

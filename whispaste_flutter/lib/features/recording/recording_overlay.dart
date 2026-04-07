@@ -118,7 +118,7 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay>
     ref.listen<RecordingPhase>(recordingPhaseProvider, (prev, next) {
       if (next == RecordingPhase.done) {
         _doneTimer?.cancel();
-        _doneTimer = Timer(const Duration(milliseconds: 800), () {
+        _doneTimer = Timer(const Duration(seconds: 3), () {
           if (mounted) ref.read(recordingOrchestratorProvider.notifier).reset();
         });
       }
