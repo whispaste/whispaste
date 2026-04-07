@@ -61,3 +61,19 @@ RecordingState decodeRecordingState(String json) {
     return const RecordingState();
   }
 }
+
+// ---------------------------------------------------------------------------
+// Floating button size mapping
+// ---------------------------------------------------------------------------
+
+/// Converts a persisted size string ('small', 'normal', 'large') to pixels.
+///
+/// Shared by [MultiWindowNotifier] and [FloatingButtonNotifier] so neither
+/// needs to import the other.
+int floatingButtonSizeFromString(String size) {
+  return switch (size.toLowerCase()) {
+    'small' => 48,
+    'large' => 72,
+    _ => 56, // 'normal' / 'medium' / unknown → default
+  };
+}
