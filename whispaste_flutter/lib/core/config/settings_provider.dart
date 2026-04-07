@@ -77,6 +77,12 @@ class AppSettings {
     // Floating Button Position (persisted across sessions)
     this.floatingButtonX = -1.0,
     this.floatingButtonY = -1.0,
+    // Main Window State (persisted across sessions; -1 = not set)
+    this.windowX = -1.0,
+    this.windowY = -1.0,
+    this.windowWidth = 1100.0,
+    this.windowHeight = 750.0,
+    this.windowMaximized = false,
     // Onboarding
     this.onboardingCompleted = false,
   });
@@ -157,6 +163,13 @@ class AppSettings {
   // Floating Button Position (persisted across sessions; -1 = not set)
   final double floatingButtonX;
   final double floatingButtonY;
+
+  // Main Window State (persisted across sessions; -1 = not set)
+  final double windowX;
+  final double windowY;
+  final double windowWidth;
+  final double windowHeight;
+  final bool windowMaximized;
 
   // Onboarding
   final bool onboardingCompleted;
@@ -263,6 +276,14 @@ class AppSettings {
         'floating_button_y',
         defaults.floatingButtonY,
       ),
+      windowX: _readDouble(values, 'window_x', defaults.windowX),
+      windowY: _readDouble(values, 'window_y', defaults.windowY),
+      windowWidth:
+          _readDouble(values, 'window_width', defaults.windowWidth),
+      windowHeight:
+          _readDouble(values, 'window_height', defaults.windowHeight),
+      windowMaximized:
+          _readBool(values, 'window_maximized', defaults.windowMaximized),
       onboardingCompleted: _readBool(
         values,
         'onboarding_completed',
@@ -337,6 +358,11 @@ class AppSettings {
       'floating_button_auto_hide': floatingButtonAutoHide,
       'floating_button_x': '$floatingButtonX',
       'floating_button_y': '$floatingButtonY',
+      'window_x': '$windowX',
+      'window_y': '$windowY',
+      'window_width': '$windowWidth',
+      'window_height': '$windowHeight',
+      'window_maximized': '$windowMaximized',
       'onboarding_completed': '$onboardingCompleted',
     };
   }
@@ -387,6 +413,11 @@ class AppSettings {
     String? floatingButtonAutoHide,
     double? floatingButtonX,
     double? floatingButtonY,
+    double? windowX,
+    double? windowY,
+    double? windowWidth,
+    double? windowHeight,
+    bool? windowMaximized,
     bool? onboardingCompleted,
   }) {
     return AppSettings(
@@ -438,6 +469,11 @@ class AppSettings {
           floatingButtonAutoHide ?? this.floatingButtonAutoHide,
       floatingButtonX: floatingButtonX ?? this.floatingButtonX,
       floatingButtonY: floatingButtonY ?? this.floatingButtonY,
+      windowX: windowX ?? this.windowX,
+      windowY: windowY ?? this.windowY,
+      windowWidth: windowWidth ?? this.windowWidth,
+      windowHeight: windowHeight ?? this.windowHeight,
+      windowMaximized: windowMaximized ?? this.windowMaximized,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     );
   }
