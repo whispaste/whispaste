@@ -31,35 +31,90 @@ const commandChannel = WindowMethodChannel(
 // ---------------------------------------------------------------------------
 
 /// Serialises [RecordingState] to a JSON string for cross-window transfer.
-String encodeRecordingState(RecordingState state) => jsonEncode({
-  'phase': state.phase.index,
+///
+/// Optional settings parameters enrich the payload with context that the
+/// floating overlay needs to render a full UX (progress ring, hotkey hint,
+/// AI mode badge, etc.).
+String encodeRecordingState(
+  RecordingState state, {
+  int maxRecordDurationSeconds = 0,
+  String? afterAction,
+  String? aiMode,
+  bool? isLocalStt,
+  String? hotkeyLabel,
+}) => jsonEncode({
+  'phase': state.phase.name,
   'elapsedMs': state.elapsed.inMilliseconds,
   'audioLevel': state.audioLevel,
   'transcript': state.transcript,
   'errorMessage': state.errorMessage,
+  if (maxRecordDurationSeconds > 0)
+    'maxRecordDurationSeconds': maxRecordDurationSeconds,
+  'afterAction': ?afterAction,
+  'aiMode': ?aiMode,
+  'isLocalStt': ?isLocalStt,
+  'hotkeyLabel': ?hotkeyLabel,
 });
 
-/// Deserialises a JSON string back into a [RecordingState].
+/// Deserialises a JSON string back into a [DecodedRecordingState].
 ///
-/// Returns [RecordingState()] (idle) if the JSON is malformed or contains
-/// an out-of-range phase index.
-RecordingState decodeRecordingState(String json) {
+/// Returns a default idle state if the JSON is malformed.
+DecodedRecordingState decodeRecordingState(String json) {
   try {
     final map = jsonDecode(json) as Map<String, dynamic>;
-    final phaseIdx = map['phase'] as int;
-    if (phaseIdx < 0 || phaseIdx >= RecordingPhase.values.length) {
-      return const RecordingState();
-    }
-    return RecordingState(
-      phase: RecordingPhase.values[phaseIdx],
+    return DecodedRecordingState(
+      phase: _parsePhase(map['phase']),
       elapsed: Duration(milliseconds: map['elapsedMs'] as int),
       audioLevel: (map['audioLevel'] as num).toDouble(),
       transcript: map['transcript'] as String?,
       errorMessage: map['errorMessage'] as String?,
+      maxRecordDurationSeconds:
+          (map['maxRecordDurationSeconds'] as num?)?.toInt() ?? 0,
+      afterAction: map['afterAction'] as String?,
+      aiMode: map['aiMode'] as String?,
+      isLocalStt: map['isLocalStt'] as bool?,
+      hotkeyLabel: map['hotkeyLabel'] as String?,
     );
   } catch (_) {
-    return const RecordingState();
+    return const DecodedRecordingState();
   }
+}
+
+/// Parses a [RecordingPhase] from a string name or legacy integer index.
+RecordingPhase _parsePhase(dynamic raw) {
+  if (raw is String) {
+    return RecordingPhase.values.firstWhere(
+      (p) => p.name == raw,
+      orElse: () => RecordingPhase.idle,
+    );
+  }
+  // Backward compat: integer index from old clients.
+  if (raw is int && raw >= 0 && raw < RecordingPhase.values.length) {
+    return RecordingPhase.values[raw];
+  }
+  return RecordingPhase.idle;
+}
+
+/// Extended [RecordingState] with optional settings context decoded from IPC.
+class DecodedRecordingState extends RecordingState {
+  const DecodedRecordingState({
+    super.phase,
+    super.elapsed,
+    super.audioLevel,
+    super.transcript,
+    super.errorMessage,
+    this.maxRecordDurationSeconds = 0,
+    this.afterAction,
+    this.aiMode,
+    this.isLocalStt,
+    this.hotkeyLabel,
+  });
+
+  final int maxRecordDurationSeconds;
+  final String? afterAction;
+  final String? aiMode;
+  final bool? isLocalStt;
+  final String? hotkeyLabel;
 }
 
 // ---------------------------------------------------------------------------

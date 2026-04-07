@@ -22,6 +22,9 @@ class AudioSection extends ConsumerWidget {
     final devicesAsync = ref.watch(audioInputDevicesProvider);
     final devices = devicesAsync.value ?? ['Default'];
 
+    // True when real input devices were enumerated beyond the default.
+    final hasRealDevices = devices.length > 1;
+
     // Ensure current setting is in the list (prevents blank dropdown).
     final currentMic = settings.microphone;
     final effectiveDevices = devices.contains(currentMic)
@@ -34,22 +37,37 @@ class AudioSection extends ConsumerWidget {
       padding: EdgeInsets.zero,
       child: Column(
         children: [
-          SettingRow(
-            icon: LucideIcons.mic,
-            label: l10n.settingsMicrophone,
-            trailing: settingsDropdown(
-              context: context,
-              value: currentMic,
-              items: effectiveDevices,
-              labels: effectiveDevices.map((d) {
-                if (d == 'Default') return l10n.settingsMicrophoneDefault;
-                return d; // Real device names need no translation.
-              }).toList(),
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(microphone: v!)),
+          if (hasRealDevices)
+            SettingRow(
+              icon: LucideIcons.mic,
+              label: l10n.settingsMicrophone,
+              trailing: settingsDropdown(
+                context: context,
+                value: currentMic,
+                items: effectiveDevices,
+                labels: effectiveDevices.map((d) {
+                  if (d == 'Default') return l10n.settingsMicSystemDefault;
+                  return d; // Real device names need no translation.
+                }).toList(),
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(microphone: v!)),
+              ),
+            )
+          else
+            // No real devices enumerated — show non-interactive system default.
+            SettingRow(
+              icon: LucideIcons.mic,
+              label: l10n.settingsMicrophone,
+              subtitle: l10n.settingsMicSystemHint,
+              trailing: Text(
+                l10n.settingsMicSystemDefault,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              ),
             ),
-          ),
           SettingRow(
             icon: LucideIcons.gauge,
             label: l10n.settingsGain,

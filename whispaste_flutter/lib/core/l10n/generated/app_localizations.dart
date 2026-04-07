@@ -703,23 +703,17 @@ abstract class L10n {
   /// **'Style'**
   String get settingsStyle;
 
-  /// No description provided for @settingsMicrophoneDefault.
+  /// No description provided for @settingsMicSystemDefault.
   ///
   /// In en, this message translates to:
-  /// **'Default'**
-  String get settingsMicrophoneDefault;
+  /// **'System Default'**
+  String get settingsMicSystemDefault;
 
-  /// No description provided for @settingsMicrophoneHeadset.
+  /// No description provided for @settingsMicSystemHint.
   ///
   /// In en, this message translates to:
-  /// **'Headset Mic'**
-  String get settingsMicrophoneHeadset;
-
-  /// No description provided for @settingsMicrophoneUsb.
-  ///
-  /// In en, this message translates to:
-  /// **'USB Mic'**
-  String get settingsMicrophoneUsb;
+  /// **'Audio input is managed by your system settings'**
+  String get settingsMicSystemHint;
 
   /// No description provided for @settingsServiceOnDevicePrivate.
   ///
@@ -1039,17 +1033,17 @@ abstract class L10n {
   /// **'Reset to Defaults'**
   String get settingsResetToDefaults;
 
-  /// No description provided for @settingsResetDialogTitle.
+  /// No description provided for @settingsResetTitle.
   ///
   /// In en, this message translates to:
-  /// **'Reset all settings?'**
-  String get settingsResetDialogTitle;
+  /// **'Reset Settings'**
+  String get settingsResetTitle;
 
-  /// No description provided for @settingsResetConfirmMessage.
+  /// No description provided for @settingsResetMessage.
   ///
   /// In en, this message translates to:
-  /// **'This will restore all settings to their original values and clear usage statistics. Your history entries will not be affected.'**
-  String get settingsResetConfirmMessage;
+  /// **'All settings will be restored to defaults. API keys will be removed. This cannot be undone.'**
+  String get settingsResetMessage;
 
   /// No description provided for @settingsResetConfirm.
   ///
@@ -1060,7 +1054,7 @@ abstract class L10n {
   /// No description provided for @settingsResetSuccess.
   ///
   /// In en, this message translates to:
-  /// **'Settings restored to defaults.'**
+  /// **'Settings reset to defaults'**
   String get settingsResetSuccess;
 
   /// No description provided for @settingsPrivacyNote.

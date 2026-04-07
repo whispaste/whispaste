@@ -230,12 +230,15 @@ class _ModelRowState extends State<_ModelRow> {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            _localizedLabel(widget.model.id, widget.l10n),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: textPrimary,
+                          Flexible(
+                            child: Text(
+                              _localizedLabel(widget.model.id, widget.l10n),
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: textPrimary,
+                              ),
                             ),
                           ),
                           const SizedBox(width: WpSpacing.sm),

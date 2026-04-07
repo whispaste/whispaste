@@ -94,7 +94,7 @@ class _FloatingOverlayApp extends StatefulWidget {
 
 class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
     with WindowHeartbeat {
-  RecordingState _state = const RecordingState();
+  DecodedRecordingState _state = const DecodedRecordingState();
 
   /// When true, this window has been shut down and ignores all method calls.
   /// We can't truly destroy a secondary engine (the package has no API for it),
@@ -137,10 +137,24 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
         await windowManager.setAlwaysOnTop(true);
       } catch (_) {}
     } else if (call.method == 'showWindow') {
+      // Parse optional saved position from arguments.
+      double? posX, posY;
+      if (call.arguments is String) {
+        try {
+          final pos =
+              jsonDecode(call.arguments as String) as Map<String, dynamic>;
+          posX = (pos['x'] as num?)?.toDouble();
+          posY = (pos['y'] as num?)?.toDouble();
+        } catch (_) {}
+      }
       try {
         const targetSize = Size(480, 100);
         await windowManager.setSize(targetSize);
-        await windowManager.setAlignment(Alignment.topCenter);
+        if (posX != null && posX >= 0 && posY != null && posY >= 0) {
+          await windowManager.setPosition(Offset(posX, posY));
+        } else {
+          await windowManager.setAlignment(Alignment.topCenter);
+        }
         await windowManager.show();
         await windowManager.setAlwaysOnTop(true);
 
@@ -156,7 +170,11 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
               'Expected $targetSize, got $actualSize — re-asserting',
             );
             await windowManager.setSize(targetSize);
-            await windowManager.setAlignment(Alignment.topCenter);
+            if (posX != null && posX >= 0 && posY != null && posY >= 0) {
+              await windowManager.setPosition(Offset(posX, posY));
+            } else {
+              await windowManager.setAlignment(Alignment.topCenter);
+            }
           }
         }
       } catch (e) {
@@ -192,6 +210,12 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
 
   void _stop() => commandChannel.invokeMethod('stopRecording');
   void _cancel() => commandChannel.invokeMethod('cancelRecording');
+  void _savePosition(Offset pos) {
+    commandChannel.invokeMethod(
+      'saveOverlayPosition',
+      jsonEncode({'x': pos.dx, 'y': pos.dy}),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +231,7 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
           state: _state,
           onStop: _stop,
           onCancel: _cancel,
+          onPositionChanged: _savePosition,
         ),
       ),
     );
@@ -222,11 +247,13 @@ class _FloatingOverlayPill extends StatefulWidget {
     required this.state,
     required this.onStop,
     required this.onCancel,
+    required this.onPositionChanged,
   });
 
-  final RecordingState state;
+  final DecodedRecordingState state;
   final VoidCallback onStop;
   final VoidCallback onCancel;
+  final ValueChanged<Offset> onPositionChanged;
 
   @override
   State<_FloatingOverlayPill> createState() => _FloatingOverlayPillState();
@@ -248,6 +275,9 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
   // Done-phase hold: keep pill visible for a few seconds after completion.
   Timer? _doneHoldTimer;
   bool _showDonePill = false;
+
+  // Hover state for drag handle + hotkey hint.
+  bool _isHovered = false;
 
   @override
   void initState() {
@@ -324,6 +354,33 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
     return '$m:$s';
   }
 
+  /// Start native window drag. Saves position on completion.
+  Future<void> _startDrag() async {
+    await windowManager.startDragging();
+    final pos = await windowManager.getPosition();
+    widget.onPositionChanged(pos);
+  }
+
+  /// Timer text color — amber at 75%, red at 90% of max duration.
+  Color _timerColor() {
+    final maxSec = widget.state.maxRecordDurationSeconds;
+    if (maxSec <= 0) return Colors.white;
+    final fraction = widget.state.elapsed.inSeconds / maxSec;
+    if (fraction > 0.9) return WpColorsDark.errorGradient.colors.first;
+    if (fraction > 0.75) return WpColorsDark.processingGradient.colors.first;
+    return Colors.white;
+  }
+
+  /// Context-aware done message based on afterAction setting.
+  String _doneMessage(L10n l10n) {
+    return switch (widget.state.afterAction) {
+      'paste' => l10n.overlayDonePasted,
+      'copy_and_paste' => l10n.overlayDoneBoth,
+      'copy' => l10n.overlayDone,
+      _ => l10n.overlayDoneReady,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final phase = widget.state.phase;
@@ -334,38 +391,236 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
         ? RecordingPhase.done
         : phase;
 
-    if (!showPill) return const SizedBox.shrink();
+    // Fixed-size transparent container when idle — ensures the window always
+    // has content to prevent thin-line rendering on Windows frameless windows.
+    if (!showPill) return const SizedBox(width: 480, height: 100);
 
     final l10n = L10n.of(context);
     final pillRadius = BorderRadius.circular(38);
     final semanticLabel = _semanticLabel(displayPhase, l10n);
+    final decoded = widget.state;
+    final hotkeyLabel = decoded.hotkeyLabel;
 
     return Semantics(
       liveRegion: true,
       label: semanticLabel,
       child: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 480, minHeight: 56),
-          decoration: BoxDecoration(
-            // Solid dark background — BackdropFilter does NOT work in frameless
-            // transparent windows on Windows (renders as opaque black).
-            color: WpColorsDark.background.withValues(alpha: 0.92),
-            borderRadius: pillRadius,
-            boxShadow: WpShadows.elevated,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: GestureDetector(
+            onPanStart: (_) => _startDrag(),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Main pill.
+                Container(
+                  constraints:
+                      const BoxConstraints(maxWidth: 480, minHeight: 56),
+                  decoration: BoxDecoration(
+                    color: WpColorsDark.background.withValues(alpha: 0.92),
+                    borderRadius: pillRadius,
+                    boxShadow: WpShadows.elevated,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: WpSpacing.md,
+                          vertical: WpSpacing.xs,
+                        ),
+                        child: _buildContent(context, displayPhase, l10n),
+                      ),
+                      // Badges row (AI mode + privacy) — recording only.
+                      if (displayPhase == RecordingPhase.recording)
+                        _buildBadgesRow(decoded, l10n),
+                      // Transcript preview — transcribing/processing.
+                      if ((displayPhase == RecordingPhase.transcribing ||
+                              displayPhase == RecordingPhase.processing) &&
+                          decoded.transcript != null &&
+                          decoded.transcript!.isNotEmpty)
+                        _buildTranscriptPreview(decoded),
+                      _buildProgressBar(displayPhase),
+                    ],
+                  ),
+                ),
+                // Drag handle indicator — fades on hover.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 2,
+                  child: IgnorePointer(
+                    child: AnimatedOpacity(
+                      opacity: (_isHovered &&
+                              displayPhase != RecordingPhase.done)
+                          ? 1.0
+                          : 0.0,
+                      duration: WpMotion.fast,
+                      child: Center(
+                        child: Text(
+                          '⠿',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color:
+                                WpColorsDark.textMuted.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Hotkey hint — fades on hover, positioned below the pill.
+                if (hotkeyLabel != null && hotkeyLabel.isNotEmpty)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: -24,
+                    child: IgnorePointer(
+                      child: AnimatedOpacity(
+                        opacity: _isHovered ? 1.0 : 0.0,
+                        duration: WpMotion.fast,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: WpSpacing.xs,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  WpColorsDark.surface.withValues(alpha: 0.9),
+                              borderRadius: WpRadius.borderSm,
+                            ),
+                            child: Text(
+                              hotkeyLabel,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: WpColorsDark.textMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-          child: Column(
+        ),
+      ),
+    );
+  }
+
+  // -- Badges row (privacy + AI mode) during recording ---------------------
+
+  Widget _buildBadgesRow(DecodedRecordingState decoded, L10n l10n) {
+    final badges = <Widget>[];
+
+    // Privacy badge.
+    if (decoded.isLocalStt != null) {
+      final isLocal = decoded.isLocalStt!;
+      final color = isLocal ? WpColorsDark.success : WpColorsDark.accent;
+      badges.add(
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.xs,
+            vertical: 2,
+          ),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: WpRadius.borderFull,
+          ),
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.md,
-                  vertical: WpSpacing.xs,
-                ),
-                child: _buildContent(context, displayPhase, l10n),
+              Text(
+                isLocal ? '🔒' : '☁️',
+                style: const TextStyle(fontSize: 10),
               ),
-              _buildProgressBar(displayPhase),
+              const SizedBox(width: 3),
+              Text(
+                isLocal
+                    ? l10n.overlayProcessingLocal
+                    : l10n.overlayProcessingCloud,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
             ],
           ),
+        ),
+      );
+    }
+
+    // AI mode badge.
+    if (decoded.aiMode != null && decoded.aiMode!.isNotEmpty) {
+      badges.add(
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.xs,
+            vertical: 2,
+          ),
+          decoration: BoxDecoration(
+            color: WpColorsDark.accent.withValues(alpha: 0.12),
+            borderRadius: WpRadius.borderFull,
+          ),
+          child: Text(
+            '🤖 ${decoded.aiMode}',
+            style: const TextStyle(
+              fontSize: 10,
+              color: WpColorsDark.textSecondary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (badges.isEmpty) return const SizedBox.shrink();
+
+    return AnimatedSize(
+      duration: WpMotion.fast,
+      curve: WpMotion.defaultCurve,
+      child: Padding(
+        padding: const EdgeInsets.only(
+          bottom: WpSpacing.xs,
+          left: WpSpacing.md,
+          right: WpSpacing.md,
+        ),
+        child: Wrap(
+          spacing: WpSpacing.xs,
+          runSpacing: WpSpacing.xxs,
+          alignment: WrapAlignment.center,
+          children: badges,
+        ),
+      ),
+    );
+  }
+
+  // -- Transcript preview during transcribing/processing -------------------
+
+  Widget _buildTranscriptPreview(DecodedRecordingState decoded) {
+    final text = decoded.transcript!;
+    final truncated = text.length > 50 ? '${text.substring(0, 50)}…' : text;
+
+    return AnimatedSize(
+      duration: WpMotion.smooth,
+      curve: WpMotion.defaultCurve,
+      child: Padding(
+        padding: const EdgeInsets.only(
+          bottom: WpSpacing.xs,
+          left: WpSpacing.md,
+          right: WpSpacing.md,
+        ),
+        child: Text(
+          truncated,
+          style: const TextStyle(
+            fontSize: 11,
+            color: WpColorsDark.textMuted,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ),
     );
@@ -398,6 +653,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
   Widget _buildCenter(RecordingPhase phase, L10n l10n) {
     switch (phase) {
       case RecordingPhase.recording:
+        final timerColor = _timerColor();
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -414,15 +670,16 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
               ),
             ),
             const SizedBox(width: WpSpacing.xs),
-            // Timer.
-            Text(
-              _formatElapsed(widget.state.elapsed),
-              style: const TextStyle(
-                color: Colors.white,
+            // Timer with color warnings.
+            AnimatedDefaultTextStyle(
+              duration: WpMotion.fast,
+              style: TextStyle(
+                color: timerColor,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                fontFeatures: [FontFeature.tabularFigures()],
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
+              child: Text(_formatElapsed(widget.state.elapsed)),
             ),
             const SizedBox(width: WpSpacing.sm),
             // Simplified waveform (no bars — just level indicator).
@@ -487,7 +744,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
             ),
             const SizedBox(width: WpSpacing.xs),
             Text(
-              l10n.overlayDone,
+              _doneMessage(l10n),
               style: const TextStyle(
                 color: WpColorsDark.success,
                 fontSize: 13,
@@ -529,7 +786,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
         '${l10n.overlayRecording} ${_formatElapsed(widget.state.elapsed)}',
       RecordingPhase.transcribing => l10n.overlayTranscribing,
       RecordingPhase.processing => l10n.overlayRefining,
-      RecordingPhase.done => l10n.overlayDone,
+      RecordingPhase.done => _doneMessage(l10n),
       RecordingPhase.error => widget.state.errorMessage ?? 'Error',
       _ => '',
     };
@@ -571,7 +828,31 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
     const height = 3.0;
 
     if (phase == RecordingPhase.recording) {
-      // Thin accent line (no percentage since we don't have maxDuration here).
+      final maxSec = widget.state.maxRecordDurationSeconds;
+      if (maxSec > 0) {
+        // Determinate progress when max duration is known.
+        final progress =
+            (widget.state.elapsed.inSeconds / maxSec).clamp(0.0, 1.0);
+        final fraction = widget.state.elapsed.inSeconds / maxSec;
+        final barColor = fraction > 0.9
+            ? WpColorsDark.errorGradient.colors.first
+            : fraction > 0.75
+                ? WpColorsDark.processingGradient.colors.first
+                : WpColorsDark.accent;
+        return AnimatedContainer(
+          duration: WpMotion.fast,
+          height: height,
+          alignment: Alignment.centerLeft,
+          child: FractionallySizedBox(
+            widthFactor: progress,
+            child: Container(
+              height: height,
+              color: barColor,
+            ),
+          ),
+        );
+      }
+      // Thin accent line when no max duration.
       return Container(
         height: height,
         decoration: BoxDecoration(
