@@ -577,5 +577,29 @@
   "traySettings": "Settings",
   "trayQuit": "Quit",
   "settingsComingSoon": "Coming Soon",
-  "undo": "Undo"
+  "undo": "Undo",
+
+  "voiceNoteButton": "Voice note",
+  "voiceNoteRecording": "Recording voice note…",
+  "voiceNoteTranscribing": "Transcribing…",
+  "voiceNoteAdded": "Voice note added",
+  "voiceTagAdded": "Tag \"{tag}\" added by voice",
+  "@voiceTagAdded": {
+    "placeholders": {
+      "tag": { "type": "String" }
+    }
+  },
+  "voiceCorrectionApplied": "Transcript corrected by voice",
+  "voiceNoteEmpty": "No speech detected",
+  "voiceNoteError": "Voice note failed",
+
+  "commandPaletteHint": "Type a command…",
+  "commandPaletteNoResults": "No matching commands",
+  "commandPaletteExportText": "Export as text file",
+  "commandPaletteExported": "Exported to {path}",
+  "@commandPaletteExported": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  }
 }

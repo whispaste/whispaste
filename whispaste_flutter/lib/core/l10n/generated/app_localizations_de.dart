@@ -1612,4 +1612,44 @@ class L10nDe extends L10n {
 
   @override
   String get undo => 'Rückgängig';
+
+  @override
+  String get voiceNoteButton => 'Sprachnotiz';
+
+  @override
+  String get voiceNoteRecording => 'Sprachnotiz wird aufgenommen…';
+
+  @override
+  String get voiceNoteTranscribing => 'Wird transkribiert…';
+
+  @override
+  String get voiceNoteAdded => 'Sprachnotiz hinzugefügt';
+
+  @override
+  String voiceTagAdded(String tag) {
+    return 'Tag „$tag“ per Sprache hinzugefügt';
+  }
+
+  @override
+  String get voiceCorrectionApplied => 'Transkript per Sprache korrigiert';
+
+  @override
+  String get voiceNoteEmpty => 'Keine Sprache erkannt';
+
+  @override
+  String get voiceNoteError => 'Sprachnotiz fehlgeschlagen';
+
+  @override
+  String get commandPaletteHint => 'Befehl eingeben…';
+
+  @override
+  String get commandPaletteNoResults => 'Keine passenden Befehle';
+
+  @override
+  String get commandPaletteExportText => 'Als Textdatei exportieren';
+
+  @override
+  String commandPaletteExported(String path) {
+    return 'Exportiert nach $path';
+  }
 }

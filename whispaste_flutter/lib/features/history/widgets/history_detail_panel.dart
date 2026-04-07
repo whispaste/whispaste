@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -55,6 +56,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   String _tagSearchQuery = '';
   bool _isEditingTranscript = false;
   late TextEditingController _transcriptController;
+  final FocusNode _panelFocusNode = FocusNode();
+  final GlobalKey<_TagSectionState> _tagSectionKey = GlobalKey<_TagSectionState>();
+  final GlobalKey<HistoryNotesSectionState> _notesSectionKey =
+      GlobalKey<HistoryNotesSectionState>();
 
   @override
   void initState() {
@@ -74,6 +79,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   @override
   void dispose() {
     _transcriptController.dispose();
+    _panelFocusNode.dispose();
     super.dispose();
   }
 
@@ -133,12 +139,25 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
         isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final avatarCol = historyAvatarColor(entry, isDark);
 
-    return Container(
-      color: isDark
-          ? WpColorsDark.surface
-          : WpColorsLight.surface,
-      child: Column(
-        children: [
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.escape): onClose,
+        const SingleActivator(LogicalKeyboardKey.keyT): () {
+          _tagSectionKey.currentState?.focusTagInput();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyN): () {
+          _notesSectionKey.currentState?.startAddingNote();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyE, control: true): _toggleEdit,
+      },
+      child: Focus(
+        focusNode: _panelFocusNode,
+        child: Container(
+          color: isDark
+              ? WpColorsDark.surface
+              : WpColorsLight.surface,
+          child: Column(
+            children: [
           // Header bar
           Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -471,6 +490,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                   ),
                   const SizedBox(height: WpSpacing.xs),
                   _TagSection(
+                    key: _tagSectionKey,
                     entryId: entry.id,
                     tags: tags,
                     isDark: isDark,
@@ -480,7 +500,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                   ),
                   // Notes section
                   const SizedBox(height: WpSpacing.lg),
-                  HistoryNotesSection(entryId: entry.id, isDark: isDark),
+                  HistoryNotesSection(key: _notesSectionKey, entryId: entry.id, isDark: isDark),
                   // FAB clearance so content isn't hidden behind the floating button
                   const SizedBox(height: 80),
                 ],
@@ -489,6 +509,8 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           ),
         ],
       ),
+    ),
+    ),
     );
   }
 }
@@ -660,6 +682,7 @@ class HistoryDetailMetaRow extends StatelessWidget {
 
 class _TagSection extends ConsumerStatefulWidget {
   const _TagSection({
+    super.key,
     required this.entryId,
     required this.tags,
     required this.isDark,
@@ -679,6 +702,12 @@ class _TagSection extends ConsumerStatefulWidget {
 
 class _TagSectionState extends ConsumerState<_TagSection> {
   List<Tag> _suggestions = [];
+  final FocusNode _tagFocusNode = FocusNode();
+
+  /// Called by keyboard shortcut (T) to focus the tag input field.
+  void focusTagInput() {
+    _tagFocusNode.requestFocus();
+  }
 
   @override
   void didUpdateWidget(covariant _TagSection old) {
@@ -703,6 +732,12 @@ class _TagSectionState extends ConsumerState<_TagSection> {
   }
 
   @override
+  void dispose() {
+    _tagFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final notifier = ref.read(historyDetailProvider(widget.entryId).notifier);
     final l10n = L10n.of(context);
@@ -712,6 +747,7 @@ class _TagSectionState extends ConsumerState<_TagSection> {
       isDark: widget.isDark,
       hintText: l10n.historyAddTag,
       suggestions: _suggestions,
+      focusNode: _tagFocusNode,
       onSearchChanged: (q) {
         widget.onSearchChanged(q);
         _loadSuggestions();
