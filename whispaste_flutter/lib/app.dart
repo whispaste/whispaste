@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
+import 'core/config/settings_enums.dart';
 import 'core/config/settings_provider.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/l10n/locale_provider.dart';
@@ -373,7 +374,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
             ),
             // Status bar — sits on the frame, full width
             WpStatusBar(
-              modeLabel: settings.sttProvider == 'On Device (Private)'
+              modeLabel: settings.sttProviderType.isLocal
                   ? l10n.statusBarOnDevice
                   : settings.sttProvider,
               postProcessingLabel: settings.postProcessEnabled
@@ -390,12 +391,12 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
             const Positioned.fill(child: OnboardingOverlay()),
 
           // Recording overlay — shown in-window when:
-          //  1. overlayMode is 'in-window', OR
-          //  2. overlayMode is 'floating' but the floating window isn't visible
+          //  1. overlayMode is inWindow, OR
+          //  2. overlayMode is floating but the floating window isn't visible
           //     (fallback so user always sees recording status)
           if (recordingPhase != RecordingPhase.idle &&
-              (settings.overlayMode == 'in-window' ||
-               (settings.overlayMode == 'floating' &&
+              (settings.overlayModeType == OverlayMode.inWindow ||
+               (settings.overlayModeType == OverlayMode.floating &&
                 !(ref.watch(multiWindowProvider).overlayVisible))))
             const Positioned(
               bottom: WpLayout.statusBarHeight + 8,

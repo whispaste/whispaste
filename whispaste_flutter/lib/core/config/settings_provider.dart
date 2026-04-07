@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/history/data/database.dart'; // see note above
 import '../../services/config_service.dart'; // see note above
+import 'settings_enums.dart';
 
 /// All persisted app settings in one immutable data class.
 class AppSettings {
@@ -193,6 +194,27 @@ class AppSettings {
   // Onboarding
   final bool onboardingCompleted;
 
+  // ---------------------------------------------------------------------------
+  // Typed accessors — prefer these over raw string comparisons.
+  // ---------------------------------------------------------------------------
+
+  SttProviderType get sttProviderType => SttProviderType.fromValue(sttProvider);
+  CloudSttProvider get cloudSttProviderType =>
+      CloudSttProvider.fromValue(cloudSttProvider);
+  PostProcessProviderType get postProcessProviderType =>
+      PostProcessProviderType.fromValue(postProcessProvider);
+  PostProcessPreset get postProcessPresetType =>
+      PostProcessPreset.fromDisplayValue(postProcessPreset);
+  AfterTranscriptionAction get afterTranscriptionAction =>
+      AfterTranscriptionAction.fromValue(afterTranscription);
+  OverlayMode get overlayModeType => OverlayMode.fromValue(overlayMode);
+  FloatingButtonSize get floatingButtonSizeType =>
+      FloatingButtonSize.fromValue(floatingButtonSize);
+  GpuAcceleration get gpuAccelerationType =>
+      GpuAcceleration.fromValue(gpuAcceleration);
+  FloatingButtonAutoHide get floatingButtonAutoHideType =>
+      FloatingButtonAutoHide.fromValue(floatingButtonAutoHide);
+
   /// Factory-reset defaults.
   static const AppSettings defaults = AppSettings();
 
@@ -240,7 +262,7 @@ class AppSettings {
       overlayMode: values['overlay_mode'] ??
           (_readBool(values, 'show_overlay', defaults.showOverlay)
               ? defaults.overlayMode
-              : 'off'),
+              : OverlayMode.off.value),
       showFloatingButton: _readBool(
         values,
         'show_floating_button',
@@ -326,12 +348,14 @@ class AppSettings {
   factory AppSettings.fromGoConfig(WhisPasteConfig config) {
     return AppSettings(
       inputGain: config.inputGain * 100.0,
-      sttProvider: config.useLocalStt ? 'On Device (Private)' : defaults.sttProvider,
+      sttProvider: config.useLocalStt
+          ? SttProviderType.onDevice.value
+          : defaults.sttProvider,
       sttModel: _settingModelFromConfig(config.localModelId),
       sttLanguage: _settingLanguageFromConfig(config.transcriptionLanguage),
       postProcessEnabled: config.smartMode,
       postProcessPreset: _settingPresetFromConfig(config.smartModePreset),
-      postProcessProvider: 'Local',
+      postProcessProvider: PostProcessProviderType.local.value,
       recordStartSound: config.playSounds,
       recordStopSound: config.playSounds,
       transcriptionCompleteSound: config.playSounds,
@@ -679,11 +703,7 @@ String _settingLanguageFromConfig(String languageCode) {
 }
 
 String _settingPresetFromConfig(String preset) {
-  return switch (preset) {
-    'concise' => 'Concise',
-    'translate' => 'Translate',
-    _ => 'Clean up',
-  };
+  return PostProcessPreset.fromGoKey(preset).displayValue;
 }
 
 String _configModelIdFromSetting(String setting) {
@@ -702,11 +722,7 @@ String _configLanguageFromSetting(String setting) {
 }
 
 String _configPresetFromSetting(String setting) {
-  return switch (setting) {
-    'Concise' => 'concise',
-    'Translate' => 'translate',
-    _ => 'cleanup',
-  };
+  return PostProcessPreset.fromDisplayValue(setting).goKey;
 }
 
 /// Central settings notifier — loads from and persists to Drift/SQLite.
@@ -763,7 +779,7 @@ final effectiveConfigProvider = Provider<WhisPasteConfig>((ref) {
   if (settings == null) return diskConfig;
 
   return diskConfig.copyWith(
-    useLocalStt: settings.sttProvider == 'On Device (Private)',
+    useLocalStt: settings.sttProviderType.isLocal,
     localModelId: _configModelIdFromSetting(settings.sttModel),
     transcriptionLanguage: _configLanguageFromSetting(settings.sttLanguage),
     smartMode: settings.postProcessEnabled,
