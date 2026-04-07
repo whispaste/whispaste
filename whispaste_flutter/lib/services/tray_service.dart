@@ -119,41 +119,50 @@ class TrayService extends Notifier<void> implements TrayListener {
         ? (l?.trayStatusRecording ?? 'Recording…')
         : (l?.trayStatusReady ?? 'Ready');
 
-    final menu = Menu(items: [
-      MenuItem(key: 'status', label: '$statusDot $statusText', disabled: true),
-      MenuItem.separator(),
-      MenuItem(key: 'toggle_recording', label: toggleLabel),
-      MenuItem.separator(),
-      MenuItem(key: 'show', label: l?.trayOpenApp ?? 'Open WhisPaste'),
-      MenuItem(key: 'settings', label: l?.traySettings ?? 'Settings'),
-      MenuItem.separator(),
-      MenuItem(key: 'quit', label: l?.trayQuit ?? 'Quit'),
-    ]);
+    final menu = Menu(
+      items: [
+        MenuItem(
+          key: 'status',
+          label: '$statusDot $statusText',
+          disabled: true,
+        ),
+        MenuItem.separator(),
+        MenuItem(key: 'toggle_recording', label: toggleLabel),
+        MenuItem.separator(),
+        MenuItem(key: 'show', label: l?.trayOpenApp ?? 'Open WhisPaste'),
+        MenuItem(key: 'settings', label: l?.traySettings ?? 'Settings'),
+        MenuItem.separator(),
+        MenuItem(key: 'quit', label: l?.trayQuit ?? 'Quit'),
+      ],
+    );
 
     trayManager.setContextMenu(menu);
   }
 
   String? _resolveIconPath() {
-    // On Windows, use the ICO from the runner resources directory.
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+
+    // On Windows, prefer a dedicated ICO. PNG tray icons often render as an
+    // empty transparent slot with `tray_manager`.
     if (Platform.isWindows) {
-      final exeDir = File(Platform.resolvedExecutable).parent.path;
-      // Check runner resources path (development + installed).
       final candidates = [
-        '$exeDir\\data\\flutter_assets\\assets\\icons\\logo-dark.png',
+        '$exeDir\\resources\\tray.ico',
+        '$exeDir\\tray.ico',
         '$exeDir\\resources\\app_icon.ico',
         '$exeDir\\app_icon.ico',
       ];
       for (final path in candidates) {
-        if (File(path).existsSync()) return path;
+        if (File(path).existsSync()) {
+          _log.info('Resolved tray icon: $path');
+          return path;
+        }
       }
-      // Fallback: use resolvedExecutable itself (shows exe icon).
-      _log.warning('No tray icon file found, trying exe icon');
+      _log.warning('No tray icon file found, falling back to executable icon');
       return Platform.resolvedExecutable;
     }
 
     // macOS / Linux: use PNG from Flutter assets.
     if (Platform.isMacOS || Platform.isLinux) {
-      final exeDir = File(Platform.resolvedExecutable).parent.path;
       final candidates = [
         '$exeDir/../Resources/app_icon.png', // macOS bundle
         '$exeDir/data/flutter_assets/assets/icons/logo-dark.png',
@@ -197,8 +206,7 @@ class TrayService extends Notifier<void> implements TrayListener {
   }
 
   static bool get _isDesktop =>
-      !kIsWeb &&
-      (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+      !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 }
 
 // ---------------------------------------------------------------------------
@@ -206,4 +214,6 @@ class TrayService extends Notifier<void> implements TrayListener {
 // ---------------------------------------------------------------------------
 
 /// System tray provider — eagerly watched in the app shell.
-final trayServiceProvider = NotifierProvider<TrayService, void>(TrayService.new);
+final trayServiceProvider = NotifierProvider<TrayService, void>(
+  TrayService.new,
+);

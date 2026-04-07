@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
@@ -11,11 +12,7 @@ import '../../../widgets/wp_accent_button.dart';
 
 /// Onboarding Step 4 — Ready screen with hotkey summary and quick-start guide.
 class ReadyStep extends ConsumerWidget {
-  const ReadyStep({
-    super.key,
-    required this.onComplete,
-    required this.onBack,
-  });
+  const ReadyStep({super.key, required this.onComplete, required this.onBack});
 
   final VoidCallback onComplete;
   final VoidCallback onBack;
@@ -27,12 +24,13 @@ class ReadyStep extends ConsumerWidget {
     final l10n = L10n.of(context);
 
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final textSecondary =
-        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final success = isDark ? WpColorsDark.success : WpColorsLight.success;
     final accentGradient = isDark
         ? WpColorsDark.accentWarmGradient
@@ -40,12 +38,13 @@ class ReadyStep extends ConsumerWidget {
 
     final hotkeyKey = settings.hotkeyKey;
     final hotkeyModifiers = settings.hotkeyModifiers;
-    final modifierLabels = HotkeyRecorderDialog.parseModifiers(hotkeyModifiers);
+    final modifierLabels = hotkeyModifierLabels(hotkeyModifiers, l10n: l10n);
+    final formattedHotkey = formatHotkeyShortcut(hotkeyModifiers, hotkeyKey, l10n: l10n);
 
     // Determine if user is using local or cloud STT
     final isLocalStt =
         settings.sttProvider.toLowerCase().contains('on device') ||
-            settings.sttProvider.toLowerCase().contains('local');
+        settings.sttProvider.toLowerCase().contains('local');
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -66,10 +65,7 @@ class ReadyStep extends ConsumerWidget {
         Text(
           l10n.onboardingReadySubtitle,
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            color: textSecondary,
-          ),
+          style: TextStyle(fontSize: 14, color: textSecondary),
         ),
         const SizedBox(height: WpSpacing.xxl),
 
@@ -80,8 +76,7 @@ class ReadyStep extends ConsumerWidget {
         ),
         const SizedBox(height: WpSpacing.sm),
         Semantics(
-          label:
-              'Current hotkey: ${modifierLabels.join(" + ")} + $hotkeyKey',
+          label: '${l10n.onboardingReadyCurrentHotkey}: $formattedHotkey',
           child: _HotkeyKeyCaps(
             modifiers: modifierLabels,
             keyLabel: hotkeyKey,
@@ -99,7 +94,9 @@ class ReadyStep extends ConsumerWidget {
                 initialModifiers: hotkeyModifiers,
               );
               if (result != null && context.mounted) {
-                await ref.read(settingsProvider.notifier).updateSettings(
+                await ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
                       (s) => s.copyWith(
                         hotkeyKey: result.key,
                         hotkeyModifiers: result.modifiers,
@@ -177,9 +174,7 @@ class ReadyStep extends ConsumerWidget {
                   ),
                   const SizedBox(width: WpSpacing.xxs),
                   Text(
-                    isLocalStt
-                        ? l10n.onboardingPrivacyBadge
-                        : l10n.statusCloud,
+                    isLocalStt ? l10n.onboardingPrivacyBadge : l10n.statusCloud,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -236,58 +231,68 @@ class _HotkeyKeyCaps extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final surfaceVariant =
-        isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant;
-    final borderColor =
-        isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final surfaceVariant = isDark
+        ? WpColorsDark.surfaceVariant
+        : WpColorsLight.surfaceVariant;
+    final borderColor = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
 
     final caps = <Widget>[];
     for (var i = 0; i < modifiers.length; i++) {
       if (i > 0) {
-        caps.add(Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
-          child: Text(
-            '+',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: textMuted,
+        caps.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
+            child: Text(
+              '+',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: textMuted,
+              ),
             ),
           ),
-        ));
+        );
       }
-      caps.add(_KeyCapPill(
-        label: modifiers[i],
-        bgColor: surfaceVariant,
-        borderColor: borderColor,
-        textColor: textPrimary,
-      ));
+      caps.add(
+        _KeyCapPill(
+          label: modifiers[i],
+          bgColor: surfaceVariant,
+          borderColor: borderColor,
+          textColor: textPrimary,
+        ),
+      );
     }
 
     if (keyLabel.isNotEmpty) {
       if (caps.isNotEmpty) {
-        caps.add(Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
-          child: Text(
-            '+',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: textMuted,
+        caps.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
+            child: Text(
+              '+',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: textMuted,
+              ),
             ),
           ),
-        ));
+        );
       }
-      caps.add(_KeyCapPill(
-        label: keyLabel,
-        bgColor: surfaceVariant,
-        borderColor: borderColor,
-        textColor: textPrimary,
-      ));
+      caps.add(
+        _KeyCapPill(
+          label: keyLabel,
+          bgColor: surfaceVariant,
+          borderColor: borderColor,
+          textColor: textPrimary,
+        ),
+      );
     }
 
     return Wrap(

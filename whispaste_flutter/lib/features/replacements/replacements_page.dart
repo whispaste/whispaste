@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -6,6 +7,7 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
+import '../history/data/database.dart';
 
 // ---------------------------------------------------------------------------
 // Model
@@ -30,55 +32,89 @@ class Replacement {
 }
 
 // ---------------------------------------------------------------------------
-// State management (Riverpod Notifier)
+// State management (Riverpod AsyncNotifier — persisted in Drift DB)
 // ---------------------------------------------------------------------------
 
-int _nextId = 4; // starts after sample data
-
-class ReplacementsNotifier extends Notifier<List<Replacement>> {
+class ReplacementsNotifier extends AsyncNotifier<List<Replacement>> {
   @override
-  List<Replacement> build() => const [
-    Replacement(
-      id: '1',
-      trigger: 'mfg',
-      replacement: 'Mit freundlichen Grüßen',
-    ),
-    Replacement(id: '2', trigger: 'lg', replacement: 'Liebe Grüße'),
-    Replacement(id: '3', trigger: 'tel', replacement: '+49 123 456789'),
-  ];
-
-  void add(String trigger, String replacement) {
-    state = [
-      ...state,
-      Replacement(
-        id: '${_nextId++}',
-        trigger: trigger,
-        replacement: replacement,
-      ),
-    ];
+  Future<List<Replacement>> build() async {
+    final db = ref.read(historyDatabaseProvider);
+    final rows = await db.readAllReplacements();
+    if (rows.isEmpty) {
+      await _insertSampleData(db);
+      return (await db.readAllReplacements())
+          .map(_fromDb)
+          .toList();
+    }
+    return rows.map(_fromDb).toList();
   }
 
-  void update(
+  Future<void> _insertSampleData(HistoryDatabase db) async {
+    final now = DateTime.now();
+    const samples = [
+      ('mfg', 'Mit freundlichen Grüßen'),
+      ('lg', 'Liebe Grüße'),
+      ('tel', '+49 123 456789'),
+    ];
+    for (final (trigger, replacement) in samples) {
+      final id = '${now.millisecondsSinceEpoch}_$trigger';
+      await db.upsertReplacement(TextReplacementsCompanion(
+        id: Value(id),
+        trigger: Value(trigger),
+        replacement: Value(replacement),
+        createdAt: Value(now),
+      ));
+    }
+  }
+
+  Future<void> add(String trigger, String replacement) async {
+    final db = ref.read(historyDatabaseProvider);
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    await db.upsertReplacement(TextReplacementsCompanion(
+      id: Value(id),
+      trigger: Value(trigger),
+      replacement: Value(replacement),
+      createdAt: Value(DateTime.now()),
+    ));
+    state = AsyncData(
+      (await db.readAllReplacements()).map(_fromDb).toList(),
+    );
+  }
+
+  Future<void> updateReplacement(
     String id, {
     required String trigger,
     required String replacement,
-  }) {
-    state = [
-      for (final r in state)
-        if (r.id == id)
-          r.copyWith(trigger: trigger, replacement: replacement)
-        else
-          r,
-    ];
+  }) async {
+    final db = ref.read(historyDatabaseProvider);
+    await db.upsertReplacement(TextReplacementsCompanion(
+      id: Value(id),
+      trigger: Value(trigger),
+      replacement: Value(replacement),
+      createdAt: Value(DateTime.now()),
+    ));
+    state = AsyncData(
+      (await db.readAllReplacements()).map(_fromDb).toList(),
+    );
   }
 
-  void remove(String id) {
-    state = state.where((r) => r.id != id).toList();
+  Future<void> remove(String id) async {
+    final db = ref.read(historyDatabaseProvider);
+    await db.deleteReplacement(id);
+    state = AsyncData(
+      (await db.readAllReplacements()).map(_fromDb).toList(),
+    );
   }
+
+  static Replacement _fromDb(TextReplacement row) => Replacement(
+        id: row.id,
+        trigger: row.trigger,
+        replacement: row.replacement,
+      );
 }
 
 final replacementsProvider =
-    NotifierProvider<ReplacementsNotifier, List<Replacement>>(
+    AsyncNotifierProvider<ReplacementsNotifier, List<Replacement>>(
       ReplacementsNotifier.new,
     );
 
@@ -119,93 +155,99 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final all = ref.watch(replacementsProvider);
-    final visible = _filtered(all);
+    final asyncAll = ref.watch(replacementsProvider);
     final l10n = L10n.of(context);
 
     return WpPageShell(
       scrollable: false,
       padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          // Toolbar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              WpSpacing.xl,
-              WpSpacing.sm,
-              WpSpacing.xl,
-              WpSpacing.sm,
-            ),
-            child: Row(
-              children: [
-                // Search
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: l10n.replacementsSearch,
-                      prefixIcon: Icon(
-                        LucideIcons.search,
-                        size: WpIconSize.sm,
-                        color: isDark
-                            ? WpColorsDark.textMuted
-                            : WpColorsLight.textMuted,
-                      ),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: WpSpacing.md,
-                        vertical: WpSpacing.xs + 2,
+      child: asyncAll.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (all) {
+          final visible = _filtered(all);
+          return Column(
+            children: [
+              // Toolbar
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  WpSpacing.xl,
+                  WpSpacing.sm,
+                  WpSpacing.xl,
+                  WpSpacing.sm,
+                ),
+                child: Row(
+                  children: [
+                    // Search
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: l10n.replacementsSearch,
+                          prefixIcon: Icon(
+                            LucideIcons.search,
+                            size: WpIconSize.sm,
+                            color: isDark
+                                ? WpColorsDark.textMuted
+                                : WpColorsLight.textMuted,
+                          ),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: WpSpacing.md,
+                            vertical: WpSpacing.xs + 2,
+                          ),
+                        ),
+                        onChanged: (v) => setState(() => _searchQuery = v),
                       ),
                     ),
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                  ),
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                // Add button
-                ElevatedButton.icon(
-                  onPressed: () => _showAddEditDialog(),
-                  icon: const Icon(LucideIcons.plus, size: WpIconSize.sm),
-                  label: Text(l10n.replacementsAdd),
-                ),
-              ],
-            ),
-          ),
-          // Content
-          Expanded(
-            child: all.isEmpty
-                ? WpEmptyState(
-                    icon: LucideIcons.replace,
-                    title: l10n.replacementsEmpty,
-                    hint: l10n.replacementsEmptyHint,
-                    actionLabel: l10n.replacementsAddShortcut,
-                    onAction: () => _showAddEditDialog(),
-                  )
-                : visible.isEmpty
-                ? WpEmptyState(
-                    icon: LucideIcons.searchX,
-                    title: l10n.replacementsNoMatches,
-                    hint: l10n.replacementsNoMatchesHint,
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: WpSpacing.xl,
-                      vertical: WpSpacing.xs,
+                    const SizedBox(width: WpSpacing.sm),
+                    // Add button
+                    ElevatedButton.icon(
+                      onPressed: () => _showAddEditDialog(),
+                      icon: const Icon(LucideIcons.plus, size: WpIconSize.sm),
+                      label: Text(l10n.replacementsAdd),
                     ),
-                    itemCount: visible.length,
-                    separatorBuilder: (_, _) =>
-                        const SizedBox(height: WpSpacing.xs),
-                    itemBuilder: (context, index) {
-                      final r = visible[index];
-                      return _ReplacementTile(
-                        replacement: r,
+                  ],
+                ),
+              ),
+              // Content
+              Expanded(
+                child: all.isEmpty
+                    ? WpEmptyState(
+                        icon: LucideIcons.replace,
+                        title: l10n.replacementsEmpty,
+                        hint: l10n.replacementsEmptyHint,
+                        actionLabel: l10n.replacementsAddShortcut,
+                        onAction: () => _showAddEditDialog(),
+                      )
+                    : visible.isEmpty
+                    ? WpEmptyState(
+                        icon: LucideIcons.searchX,
+                        title: l10n.replacementsNoMatches,
+                        hint: l10n.replacementsNoMatchesHint,
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: WpSpacing.xl,
+                          vertical: WpSpacing.xs,
+                        ),
+                        itemCount: visible.length,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(height: WpSpacing.xs),
+                        itemBuilder: (context, index) {
+                          final r = visible[index];
+                          return _ReplacementTile(
+                            replacement: r,
                         isDark: isDark,
                         onTap: () => _showAddEditDialog(existing: r),
                         onDelete: () => _confirmDelete(r),
                       );
                     },
                   ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -222,7 +264,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
     final (trigger, replacement) = result;
     final notifier = ref.read(replacementsProvider.notifier);
     if (existing != null) {
-      notifier.update(existing.id, trigger: trigger, replacement: replacement);
+      notifier.updateReplacement(existing.id, trigger: trigger, replacement: replacement);
     } else {
       notifier.add(trigger, replacement);
     }

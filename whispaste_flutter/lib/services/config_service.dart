@@ -172,15 +172,30 @@ class WhisPasteConfig {
 // Path helpers
 // ---------------------------------------------------------------------------
 
-/// Returns `%APPDATA%\WhisPaste` on Windows.
+/// Returns the platform-specific WhisPaste app data directory.
 ///
-/// Throws [StateError] if APPDATA is not set (non-Windows or broken env).
+/// - Windows: `%APPDATA%\WhisPaste`
+/// - macOS: `~/Library/Application Support/WhisPaste`
+/// - Linux: `$XDG_CONFIG_HOME/whispaste` or `~/.config/whispaste`
 String _appDataDir() {
-  final appData = Platform.environment['APPDATA'];
-  if (appData == null || appData.isEmpty) {
-    throw StateError('APPDATA environment variable is not set');
+  if (Platform.isWindows) {
+    final appData = Platform.environment['APPDATA'];
+    if (appData == null || appData.isEmpty) {
+      throw StateError('APPDATA environment variable is not set');
+    }
+    return p.join(appData, 'WhisPaste');
   }
-  return p.join(appData, 'WhisPaste');
+  if (Platform.isMacOS) {
+    final home = Platform.environment['HOME'] ?? '';
+    return p.join(home, 'Library', 'Application Support', 'WhisPaste');
+  }
+  // Linux / other Unix
+  final xdgConfig = Platform.environment['XDG_CONFIG_HOME'];
+  if (xdgConfig != null && xdgConfig.isNotEmpty) {
+    return p.join(xdgConfig, 'whispaste');
+  }
+  final home = Platform.environment['HOME'] ?? '';
+  return p.join(home, '.config', 'whispaste');
 }
 
 /// Full path to the config file.
@@ -190,7 +205,10 @@ String configFilePath() => p.join(_appDataDir(), 'config.json');
 String sttDir() => p.join(_appDataDir(), 'models', 'stt');
 
 /// Full path to the whisper-server executable.
-String whisperServerPath() => p.join(sttDir(), 'whisper-server.exe');
+String whisperServerPath() {
+  final name = Platform.isWindows ? 'whisper-server.exe' : 'whisper-server';
+  return p.join(sttDir(), name);
+}
 
 /// Full path to the GGML model file for [modelId].
 ///

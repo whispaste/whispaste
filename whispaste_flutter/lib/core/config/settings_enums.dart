@@ -195,24 +195,3 @@ enum GpuAcceleration {
     return auto;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Floating Button Auto-Hide
-// ---------------------------------------------------------------------------
-
-/// Auto-hide behavior for the floating button.
-enum FloatingButtonAutoHide {
-  never('never'),
-  afterIdle('after_idle'),
-  snapToEdge('snap_to_edge');
-
-  const FloatingButtonAutoHide(this.value);
-  final String value;
-
-  static FloatingButtonAutoHide fromValue(String? v) {
-    for (final e in values) {
-      if (e.value == v) return e;
-    }
-    return never;
-  }
-}

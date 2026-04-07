@@ -36,5 +36,18 @@ target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
+# Copy the dedicated tray icon next to the executable for dev runs.
+set(TRAY_ICON_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/../../../resources/tray.ico")
+if(EXISTS "${TRAY_ICON_SOURCE}")
+  add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${BINARY_NAME}>/resources"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${TRAY_ICON_SOURCE}"
+      "$<TARGET_FILE_DIR:${BINARY_NAME}>/resources/tray.ico"
+  )
+else()
+  message(WARNING "WhisPaste: tray icon not found at ${TRAY_ICON_SOURCE}")
+endif()
+
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)

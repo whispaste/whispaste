@@ -98,9 +98,17 @@ class RecordingNotifier extends Notifier<RecordingState> {
 
   Timer? _elapsedTimer;
 
+  /// Safety-net timer: if the state machine stays in transcribing/processing
+  /// for longer than this, auto-fail to unblock the UI.
+  Timer? _stuckGuard;
+  static const _stuckTimeout = Duration(minutes: 5);
+
   @override
   RecordingState build() {
-    ref.onDispose(_cancelTimer);
+    ref.onDispose(() {
+      _cancelTimer();
+      _stuckGuard?.cancel();
+    });
     return const RecordingState();
   }
 
@@ -127,6 +135,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
       phase: RecordingPhase.transcribing,
       audioLevel: 0.0,
     );
+    _startStuckGuard();
   }
 
   /// Transition transcribing → done with the resulting [text].
@@ -138,6 +147,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
       );
       return;
     }
+    _stuckGuard?.cancel();
     state = state.copyWith(phase: RecordingPhase.done, transcript: text);
   }
 
@@ -148,11 +158,14 @@ class RecordingNotifier extends Notifier<RecordingState> {
       return;
     }
     state = state.copyWith(phase: RecordingPhase.processing);
+    // Restart stuck guard for the processing phase.
+    _startStuckGuard();
   }
 
   /// Transition any phase → error.
   void fail(String error) {
     _cancelTimer();
+    _stuckGuard?.cancel();
     state = RecordingState(
       phase: RecordingPhase.error,
       errorMessage: error,
@@ -162,6 +175,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
   /// Reset from any phase → idle.
   void reset() {
     _cancelTimer();
+    _stuckGuard?.cancel();
     state = const RecordingState();
   }
 
@@ -188,6 +202,21 @@ class RecordingNotifier extends Notifier<RecordingState> {
   void _cancelTimer() {
     _elapsedTimer?.cancel();
     _elapsedTimer = null;
+  }
+
+  /// Safety net: auto-fail if stuck in transcribing/processing too long.
+  void _startStuckGuard() {
+    _stuckGuard?.cancel();
+    _stuckGuard = Timer(_stuckTimeout, () {
+      if (state.phase == RecordingPhase.transcribing ||
+          state.phase == RecordingPhase.processing) {
+        _log.error(
+          'State machine stuck in ${state.phase} for '
+          '${_stuckTimeout.inMinutes} min — auto-failing',
+        );
+        fail('pipeline_timeout');
+      }
+    });
   }
 }
 
