@@ -23,6 +23,7 @@ part 'database.g.dart';
   DailyStats,
   EntryNotes,
   EntryAttachments,
+  TextReplacements,
 ])
 class HistoryDatabase extends _$HistoryDatabase {
   HistoryDatabase() : super(_openConnection());
@@ -31,7 +32,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   HistoryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -45,6 +46,15 @@ class HistoryDatabase extends _$HistoryDatabase {
           if (from < 2) {
             await _createAppSettingsTable();
           }
+          if (from < 3) {
+            await m.createTable(textReplacements);
+          }
+        },
+        beforeOpen: (details) async {
+          // One-time backfill: populate DailyStats from existing history
+          // entries so that stats are correct for users upgrading from
+          // a version that never wrote to DailyStats.
+          await backfillDailyStats();
         },
       );
 
@@ -398,6 +408,22 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   // ---------------------------------------------------------------------------
+  // Text Replacements (voice shortcuts)
+  // ---------------------------------------------------------------------------
+
+  Future<List<TextReplacement>> readAllReplacements() =>
+      select(textReplacements).get();
+
+  Stream<List<TextReplacement>> watchAllReplacements() =>
+      select(textReplacements).watch();
+
+  Future<void> upsertReplacement(TextReplacementsCompanion entry) =>
+      into(textReplacements).insertOnConflictUpdate(entry);
+
+  Future<void> deleteReplacement(String id) =>
+      (delete(textReplacements)..where((t) => t.id.equals(id))).go();
+
+  // ---------------------------------------------------------------------------
   // Projects
   // ---------------------------------------------------------------------------
 
@@ -441,6 +467,267 @@ class HistoryDatabase extends _$HistoryDatabase {
   Future<int> deleteNote(String noteId) {
     return (delete(entryNotes)..where((n) => n.id.equals(noteId))).go();
   }
+
+  // ---------------------------------------------------------------------------
+  // DailyStats — persistent analytics (independent of history CRUD)
+  // ---------------------------------------------------------------------------
+
+  /// Record a completed transcription in the DailyStats table.
+  ///
+  /// Uses upsert (INSERT OR UPDATE) keyed on (date, model, isLocal).
+  /// This is the ONLY write path for analytics — deleting history entries
+  /// does NOT affect these counters.
+  Future<void> recordDailyStat({
+    required DateTime timestamp,
+    required String model,
+    required bool isLocal,
+    required double durationSec,
+    required double processingDurationSec,
+    required int wordCount,
+    required double costUsd,
+  }) async {
+    final dateStr = _dateKey(timestamp);
+    final bucket = _durationBucket(durationSec);
+
+    await into(dailyStats).insert(
+      DailyStatsCompanion(
+        date: Value(dateStr),
+        model: Value(model.isEmpty ? 'unknown' : model),
+        isLocal: Value(isLocal),
+        count: const Value(1),
+        totalDurationSec: Value(durationSec),
+        totalProcessingSec: Value(processingDurationSec),
+        totalWords: Value(wordCount),
+        totalCostUsd: Value(costUsd),
+        durUnder15s: Value(bucket == 0 ? 1 : 0),
+        dur15To30s: Value(bucket == 1 ? 1 : 0),
+        dur30To60s: Value(bucket == 2 ? 1 : 0),
+        dur1To3m: Value(bucket == 3 ? 1 : 0),
+        durOver3m: Value(bucket == 4 ? 1 : 0),
+      ),
+      onConflict: DoUpdate(
+        (old) => DailyStatsCompanion.custom(
+          count: dailyStats.count + const Constant(1),
+          totalDurationSec:
+              dailyStats.totalDurationSec + Variable(durationSec),
+          totalProcessingSec:
+              dailyStats.totalProcessingSec + Variable(processingDurationSec),
+          totalWords: dailyStats.totalWords + Variable(wordCount),
+          totalCostUsd: dailyStats.totalCostUsd + Variable(costUsd),
+          durUnder15s:
+              dailyStats.durUnder15s + Variable(bucket == 0 ? 1 : 0),
+          dur15To30s:
+              dailyStats.dur15To30s + Variable(bucket == 1 ? 1 : 0),
+          dur30To60s:
+              dailyStats.dur30To60s + Variable(bucket == 2 ? 1 : 0),
+          dur1To3m: dailyStats.dur1To3m + Variable(bucket == 3 ? 1 : 0),
+          durOver3m:
+              dailyStats.durOver3m + Variable(bucket == 4 ? 1 : 0),
+        ),
+        target: [dailyStats.date, dailyStats.model, dailyStats.isLocal],
+      ),
+    );
+  }
+
+  /// Backfill DailyStats from existing HistoryEntries (one-time migration).
+  Future<void> backfillDailyStats() async {
+    // Check if DailyStats already has data — skip if already backfilled.
+    final existing = await (selectOnly(dailyStats)
+          ..addColumns([dailyStats.count.sum()]))
+        .getSingle();
+    final existingCount = existing.read(dailyStats.count.sum()) ?? 0;
+    if (existingCount > 0) return;
+
+    // Read ALL history entries (including deleted/archived) for backfill.
+    final entries = await select(historyEntries).get();
+    for (final e in entries) {
+      final words =
+          e.content.trim().isEmpty ? 0 : e.content.trim().split(RegExp(r'\s+')).length;
+      await recordDailyStat(
+        timestamp: e.timestamp,
+        model: e.model,
+        isLocal: e.isLocal,
+        durationSec: e.durationSec,
+        processingDurationSec: e.processingDurationSec,
+        wordCount: words,
+        costUsd: e.costUsd,
+      );
+    }
+  }
+
+  static String _dateKey(DateTime dt) =>
+      '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+
+  static int _durationBucket(double sec) {
+    if (sec < 15) return 0;
+    if (sec < 30) return 1;
+    if (sec < 60) return 2;
+    if (sec < 180) return 3;
+    return 4;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Analytics queries — read from DailyStats (history-independent)
+  // ---------------------------------------------------------------------------
+
+  /// Total number of recordings ever made.
+  Future<int> analyticsEntryCount({DateTime? since}) async {
+    final total = dailyStats.count.sum();
+    final q = selectOnly(dailyStats)..addColumns([total]);
+    if (since != null) {
+      q.where(dailyStats.date
+          .isBiggerOrEqualValue(_dateKey(since)));
+    }
+    final row = await q.getSingle();
+    return row.read(total) ?? 0;
+  }
+
+  /// Sum of recording duration in seconds.
+  Future<double> analyticsTotalDurationSec({DateTime? since}) async {
+    final total = dailyStats.totalDurationSec.sum();
+    final q = selectOnly(dailyStats)..addColumns([total]);
+    if (since != null) {
+      q.where(dailyStats.date
+          .isBiggerOrEqualValue(_dateKey(since)));
+    }
+    final row = await q.getSingle();
+    return row.read(total) ?? 0.0;
+  }
+
+  /// Total word count across all recordings.
+  Future<int> analyticsTotalWords({DateTime? since}) async {
+    final total = dailyStats.totalWords.sum();
+    final q = selectOnly(dailyStats)..addColumns([total]);
+    if (since != null) {
+      q.where(dailyStats.date
+          .isBiggerOrEqualValue(_dateKey(since)));
+    }
+    final row = await q.getSingle();
+    return row.read(total) ?? 0;
+  }
+
+  /// Total cloud cost in USD.
+  Future<double> analyticsTotalCostUsd({DateTime? since}) async {
+    final total = dailyStats.totalCostUsd.sum();
+    final q = selectOnly(dailyStats)..addColumns([total]);
+    if (since != null) {
+      q.where(dailyStats.date
+          .isBiggerOrEqualValue(_dateKey(since)));
+    }
+    final row = await q.getSingle();
+    return row.read(total) ?? 0.0;
+  }
+
+  /// Estimated savings: sum durationSec of local entries × rate/min.
+  Future<double> analyticsLocalSavingsUsd({
+    DateTime? since,
+    double ratePerMinute = 0.006,
+  }) async {
+    final total = dailyStats.totalDurationSec.sum();
+    final q = selectOnly(dailyStats)..addColumns([total]);
+    q.where(dailyStats.isLocal.equals(true));
+    if (since != null) {
+      q.where(dailyStats.date
+          .isBiggerOrEqualValue(_dateKey(since)));
+    }
+    final row = await q.getSingle();
+    final totalSec = row.read(total) ?? 0.0;
+    return (totalSec / 60.0) * ratePerMinute;
+  }
+
+  /// Per-model usage stats.
+  Future<List<AnalyticsModelUsage>> analyticsModelUsage({
+    DateTime? since,
+  }) async {
+    final cnt = dailyStats.count.sum();
+    final q = selectOnly(dailyStats)
+      ..addColumns([dailyStats.model, cnt])
+      ..groupBy([dailyStats.model])
+      ..orderBy([OrderingTerm.desc(cnt)]);
+    if (since != null) {
+      q.where(dailyStats.date
+          .isBiggerOrEqualValue(_dateKey(since)));
+    }
+    final rows = await q.get();
+    final total = rows.fold<int>(0, (s, r) => s + (r.read(cnt) ?? 0));
+    return rows.map((r) {
+      final name = r.read(dailyStats.model) ?? '';
+      final count = r.read(cnt) ?? 0;
+      return AnalyticsModelUsage(
+        model: name.isEmpty ? 'Unknown' : name,
+        count: count,
+        fraction: total > 0 ? count / total : 0.0,
+      );
+    }).toList();
+  }
+
+  /// Recordings per day-of-week (0=Monday … 6=Sunday) for the last 7 days.
+  ///
+  /// Uses DailyStats date strings to derive day-of-week.
+  Future<List<double>> analyticsWeeklyActivity() async {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    final sinceStr = _dateKey(weekAgo);
+
+    final cnt = dailyStats.count.sum();
+    final q = selectOnly(dailyStats)
+      ..addColumns([dailyStats.date, cnt])
+      ..groupBy([dailyStats.date]);
+    q.where(dailyStats.date.isBiggerOrEqualValue(sinceStr));
+    final rows = await q.get();
+
+    final counts = List.filled(7, 0.0);
+    for (final r in rows) {
+      final dateStr = r.read(dailyStats.date);
+      if (dateStr == null) continue;
+      final dt = DateTime.tryParse(dateStr);
+      if (dt == null) continue;
+      final idx = dt.weekday - 1; // 0-based Mon..Sun
+      counts[idx] += (r.read(cnt) ?? 0).toDouble();
+    }
+    return counts;
+  }
+
+  /// Duration distribution buckets: [<15s, 15-30s, 30-60s, 1-3m, >3m].
+  Future<List<int>> analyticsDurationBuckets({DateTime? since}) async {
+    final cols = [
+      dailyStats.durUnder15s.sum(),
+      dailyStats.dur15To30s.sum(),
+      dailyStats.dur30To60s.sum(),
+      dailyStats.dur1To3m.sum(),
+      dailyStats.durOver3m.sum(),
+    ];
+    final q = selectOnly(dailyStats)..addColumns(cols);
+    if (since != null) {
+      q.where(dailyStats.date
+          .isBiggerOrEqualValue(_dateKey(since)));
+    }
+    final row = await q.getSingle();
+    return [
+      row.read(cols[0]) ?? 0,
+      row.read(cols[1]) ?? 0,
+      row.read(cols[2]) ?? 0,
+      row.read(cols[3]) ?? 0,
+      row.read(cols[4]) ?? 0,
+    ];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Analytics data classes
+// ---------------------------------------------------------------------------
+
+/// Model usage row for analytics.
+class AnalyticsModelUsage {
+  const AnalyticsModelUsage({
+    required this.model,
+    required this.count,
+    required this.fraction,
+  });
+
+  final String model;
+  final int count;
+  final double fraction;
 }
 
 // ---------------------------------------------------------------------------

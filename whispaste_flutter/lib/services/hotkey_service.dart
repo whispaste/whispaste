@@ -5,13 +5,15 @@
 /// Uses the `hotkey_manager` package.
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/config/settings_labels.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 
@@ -36,7 +38,22 @@ class HotkeyService extends Notifier<void> {
   void build() {
     if (!_isDesktop) return;
 
-    Future.microtask(_init);
+    ref.listen<AsyncValue<AppSettings>>(settingsProvider, (prev, next) {
+      final previous = prev?.value;
+      final current = next.value;
+      if (current == null || previous == null) return;
+      final changed =
+          previous.hotkeyKey != current.hotkeyKey ||
+          previous.hotkeyModifiers != current.hotkeyModifiers;
+      if (changed) {
+        unawaited(_registerFromSettings(current));
+      }
+    });
+
+    Future.microtask(() async {
+      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+      await _registerFromSettings(settings);
+    });
     ref.onDispose(_destroy);
   }
 
@@ -50,17 +67,17 @@ class HotkeyService extends Notifier<void> {
     if (!_isDesktop) return;
     await _unregister();
 
-    _registeredHotKey = HotKey(
-      key: key,
-      modifiers: modifiers,
-    );
+    _registeredHotKey = HotKey(key: key, modifiers: modifiers);
 
     try {
-      await hotKeyManager.register(_registeredHotKey!, keyDownHandler: (_) {
-        _log.info('Global hotkey pressed');
-        onHotkeyPressed?.call();
-      });
-      _log.info('Hotkey registered: $modifiers + $key');
+      await hotKeyManager.register(
+        _registeredHotKey!,
+        keyDownHandler: (_) {
+          _log.info('Global hotkey pressed');
+          onHotkeyPressed?.call();
+        },
+      );
+      _log.info('Hotkey registered successfully');
     } on Exception catch (e) {
       _log.warning('Failed to register hotkey: $e');
     }
@@ -68,22 +85,17 @@ class HotkeyService extends Notifier<void> {
 
   // ── Private ───────────────────────────────────────────────────────────────
 
-  Future<void> _init() async {
+  Future<void> _registerFromSettings(AppSettings settings) async {
     try {
-      // Read hotkey from settings (falls back to Ctrl+Shift+D)
-      final settings = ref.read(settingsProvider).value;
-      final key = _resolveKey(settings?.hotkeyKey ?? 'D');
-      final mods = _resolveModifiers(settings?.hotkeyModifiers ?? 'ctrl+shift');
-
-      _registeredHotKey = HotKey(key: key, modifiers: mods);
-
-      await hotKeyManager.register(_registeredHotKey!, keyDownHandler: (_) {
-        _log.info('Global hotkey pressed');
-        onHotkeyPressed?.call();
-      });
-
+      await updateHotkey(
+        key: _resolveKey(settings.hotkeyKey),
+        modifiers: _resolveModifiers(settings.hotkeyModifiers),
+      );
       _initialized = true;
-      _log.info('Global hotkey registered: ${settings?.hotkeyModifiers ?? "ctrl+shift"}+${settings?.hotkeyKey ?? "D"}');
+      _log.info(
+        'Global hotkey synced from settings: '
+        '${formatHotkeyShortcut(settings.hotkeyModifiers, settings.hotkeyKey)}',
+      );
     } on Exception catch (e) {
       _log.warning('Failed to register global hotkey: $e');
     }
@@ -107,8 +119,7 @@ class HotkeyService extends Notifier<void> {
   }
 
   static bool get _isDesktop =>
-      !kIsWeb &&
-      (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+      !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 }
 
 // ---------------------------------------------------------------------------
@@ -116,8 +127,9 @@ class HotkeyService extends Notifier<void> {
 // ---------------------------------------------------------------------------
 
 /// Global hotkey provider — eagerly watched in the app shell.
-final hotkeyServiceProvider =
-    NotifierProvider<HotkeyService, void>(HotkeyService.new);
+final hotkeyServiceProvider = NotifierProvider<HotkeyService, void>(
+  HotkeyService.new,
+);
 
 // ---------------------------------------------------------------------------
 // Key resolution helpers
@@ -127,7 +139,9 @@ final hotkeyServiceProvider =
 LogicalKeyboardKey _resolveKey(String label) {
   final upper = label.toUpperCase();
   // Single letter
-  if (upper.length == 1 && upper.codeUnitAt(0) >= 65 && upper.codeUnitAt(0) <= 90) {
+  if (upper.length == 1 &&
+      upper.codeUnitAt(0) >= 65 &&
+      upper.codeUnitAt(0) <= 90) {
     final offset = upper.codeUnitAt(0) - 65;
     return LogicalKeyboardKey(0x00000000061 + offset); // keyA = 0x61
   }

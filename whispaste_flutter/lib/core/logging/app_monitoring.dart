@@ -49,10 +49,14 @@ class AppMonitoring {
     await configureLogging();
 
     // 2. Initialize crash reporter.
-    await CrashReporter.init(
-      relayUrl: _crashRelayUrl,
-      enabled: true,
-    );
+    await CrashReporter.init(relayUrl: _crashRelayUrl, enabled: true);
+    if (_crashRelayUrl.isEmpty) {
+      _log.warning(
+        'Flutter crash relay is not configured — reports stay in the local queue only',
+      );
+    } else {
+      _log.info('Flutter crash relay configured');
+    }
 
     // 3. Install global error handlers BEFORE runApp.
     _installGlobalErrorHandlers();
@@ -66,8 +70,11 @@ class AppMonitoring {
     FlutterError.onError = (details) {
       // Keep default reporting in debug mode.
       FlutterError.presentError(details);
-      _log.error('Flutter error: ${details.exceptionAsString()}',
-          details.exception, details.stack);
+      _log.error(
+        'Flutter error: ${details.exceptionAsString()}',
+        details.exception,
+        details.stack,
+      );
       CrashReporter.instance?.captureFlutterError(details);
     };
 
@@ -86,22 +93,17 @@ class AppMonitoring {
   }
 
   /// Runs [appRunner] inside `runZonedGuarded` to catch stray async errors.
-  static Future<void> _runGuarded(
-    Future<void> Function() appRunner,
-  ) async {
-    await runZonedGuarded(
-      appRunner,
-      (error, stack) {
-        _log.error('Uncaught zone error', error, stack);
-        CrashReporter.instance?.captureError(
-          message: '$error',
-          error: error,
-          stackTrace: stack,
-          severity: 'error',
-          type: 'zone_error',
-        );
-      },
-    );
+  static Future<void> _runGuarded(Future<void> Function() appRunner) async {
+    await runZonedGuarded(appRunner, (error, stack) {
+      _log.error('Uncaught zone error', error, stack);
+      CrashReporter.instance?.captureError(
+        message: '$error',
+        error: error,
+        stackTrace: stack,
+        severity: 'error',
+        type: 'zone_error',
+      );
+    });
   }
 }
 

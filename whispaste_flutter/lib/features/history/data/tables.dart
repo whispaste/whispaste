@@ -102,3 +102,15 @@ class EntryAttachments extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// Voice shortcuts — auto-replace trigger words during dictation.
+@DataClassName('TextReplacement')
+class TextReplacements extends Table {
+  TextColumn get id => text()();
+  TextColumn get trigger => text()();
+  TextColumn get replacement => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

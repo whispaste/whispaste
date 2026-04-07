@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   desktop_multi_window
   flutter_acrylic
+  flutter_secure_storage_windows
   hotkey_manager_windows
   irondash_engine_context
   record_windows

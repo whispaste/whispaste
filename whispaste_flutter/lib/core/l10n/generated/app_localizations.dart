@@ -868,14 +868,20 @@ abstract class L10n {
   /// No description provided for @settingsOverlayFloatingButtonSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'On-screen recording controls'**
+  /// **'Control how recording status appears outside the main window'**
   String get settingsOverlayFloatingButtonSubtitle;
 
   /// No description provided for @settingsShowOverlay.
   ///
   /// In en, this message translates to:
-  /// **'Recording Overlay'**
+  /// **'Recording status display'**
   String get settingsShowOverlay;
+
+  /// No description provided for @settingsShowOverlaySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose where live recording feedback appears while you dictate'**
+  String get settingsShowOverlaySubtitle;
 
   /// No description provided for @settingsOverlayModeInWindow.
   ///
@@ -898,20 +904,38 @@ abstract class L10n {
   /// No description provided for @settingsShowFloatingButton.
   ///
   /// In en, this message translates to:
-  /// **'Show Floating Button'**
+  /// **'Floating recording button'**
   String get settingsShowFloatingButton;
+
+  /// No description provided for @settingsShowFloatingButtonSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Small always-on-top button for starting or stopping recording from any app'**
+  String get settingsShowFloatingButtonSubtitle;
 
   /// No description provided for @settingsFloatingButtonOpacity.
   ///
   /// In en, this message translates to:
-  /// **'Floating Button Opacity'**
+  /// **'Floating button opacity'**
   String get settingsFloatingButtonOpacity;
+
+  /// No description provided for @settingsFloatingButtonOpacitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Only affects the floating button, not the recording overlay'**
+  String get settingsFloatingButtonOpacitySubtitle;
 
   /// No description provided for @settingsFloatingButtonSize.
   ///
   /// In en, this message translates to:
-  /// **'Floating Button Size'**
+  /// **'Floating button size'**
   String get settingsFloatingButtonSize;
+
+  /// No description provided for @settingsFloatingButtonSizeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how prominent the always-on-top button should feel'**
+  String get settingsFloatingButtonSizeSubtitle;
 
   /// No description provided for @settingsSizeSmall.
   ///
@@ -1230,6 +1254,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Preview — showing sample data. Real analytics will appear once you start recording.'**
   String get analyticsPreviewBanner;
+
+  /// No description provided for @analyticsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No recordings yet'**
+  String get analyticsEmptyTitle;
+
+  /// No description provided for @analyticsEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start dictating to see your analytics here.'**
+  String get analyticsEmptySubtitle;
 
   /// No description provided for @analyticsOverview.
   ///
@@ -1933,6 +1969,66 @@ abstract class L10n {
   /// **'Post-Processing'**
   String get statusBarPostProcessing;
 
+  /// No description provided for @statusBarOverlayInWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay: Window'**
+  String get statusBarOverlayInWindow;
+
+  /// No description provided for @statusBarOverlayFloating.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay: Floating'**
+  String get statusBarOverlayFloating;
+
+  /// No description provided for @statusBarOverlayOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay: Off'**
+  String get statusBarOverlayOff;
+
+  /// No description provided for @statusBarAfterCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'After: Copy'**
+  String get statusBarAfterCopy;
+
+  /// No description provided for @statusBarAfterPaste.
+  ///
+  /// In en, this message translates to:
+  /// **'After: Paste'**
+  String get statusBarAfterPaste;
+
+  /// No description provided for @statusBarAfterBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'After: Copy & Paste'**
+  String get statusBarAfterBoth;
+
+  /// No description provided for @statusBarAfterNothing.
+  ///
+  /// In en, this message translates to:
+  /// **'After: Manual'**
+  String get statusBarAfterNothing;
+
+  /// No description provided for @statusBarPresetCleanup.
+  ///
+  /// In en, this message translates to:
+  /// **'Clean Up'**
+  String get statusBarPresetCleanup;
+
+  /// No description provided for @statusBarPresetConcise.
+  ///
+  /// In en, this message translates to:
+  /// **'Concise'**
+  String get statusBarPresetConcise;
+
+  /// No description provided for @statusBarPresetTranslate.
+  ///
+  /// In en, this message translates to:
+  /// **'Translate'**
+  String get statusBarPresetTranslate;
+
   /// No description provided for @sttStatusStandby.
   ///
   /// In en, this message translates to:
@@ -1956,6 +2052,72 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Error'**
   String get sttStatusError;
+
+  /// No description provided for @statusBarSttTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech engine and current status'**
+  String get statusBarSttTooltip;
+
+  /// No description provided for @statusBarPostProcessTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Active post-processing'**
+  String get statusBarPostProcessTooltip;
+
+  /// No description provided for @statusBarRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording…'**
+  String get statusBarRecording;
+
+  /// No description provided for @statusBarTranscribing.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcribing…'**
+  String get statusBarTranscribing;
+
+  /// No description provided for @statusBarProcessing.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing…'**
+  String get statusBarProcessing;
+
+  /// No description provided for @statusBarDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get statusBarDone;
+
+  /// No description provided for @modifierCtrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Ctrl'**
+  String get modifierCtrl;
+
+  /// No description provided for @modifierShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift'**
+  String get modifierShift;
+
+  /// No description provided for @modifierAlt.
+  ///
+  /// In en, this message translates to:
+  /// **'Alt'**
+  String get modifierAlt;
+
+  /// No description provided for @modifierWin.
+  ///
+  /// In en, this message translates to:
+  /// **'Win'**
+  String get modifierWin;
+
+  /// No description provided for @modifierCmd.
+  ///
+  /// In en, this message translates to:
+  /// **'Cmd'**
+  String get modifierCmd;
 
   /// No description provided for @tooltipSwitchToLight.
   ///
@@ -2478,54 +2640,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Automatically check for new versions on startup'**
   String get settingsCheckUpdatesSubtitle;
-
-  /// No description provided for @settingsFloatingButtonAdvanced.
-  ///
-  /// In en, this message translates to:
-  /// **'Advanced Floating Button Options'**
-  String get settingsFloatingButtonAdvanced;
-
-  /// No description provided for @settingsLockPosition.
-  ///
-  /// In en, this message translates to:
-  /// **'Lock Position'**
-  String get settingsLockPosition;
-
-  /// No description provided for @settingsLockPositionSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Prevent accidental dragging'**
-  String get settingsLockPositionSubtitle;
-
-  /// No description provided for @settingsAutoHide.
-  ///
-  /// In en, this message translates to:
-  /// **'Auto-Hide'**
-  String get settingsAutoHide;
-
-  /// No description provided for @settingsAutoHideSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Automatically hide when not recording'**
-  String get settingsAutoHideSubtitle;
-
-  /// No description provided for @settingsAutoHideNever.
-  ///
-  /// In en, this message translates to:
-  /// **'Never'**
-  String get settingsAutoHideNever;
-
-  /// No description provided for @settingsAutoHide5s.
-  ///
-  /// In en, this message translates to:
-  /// **'After 5 seconds'**
-  String get settingsAutoHide5s;
-
-  /// No description provided for @settingsAutoHideEdge.
-  ///
-  /// In en, this message translates to:
-  /// **'Snap to edge'**
-  String get settingsAutoHideEdge;
 
   /// No description provided for @onboardingGetStarted.
   ///
