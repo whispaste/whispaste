@@ -1,7 +1,7 @@
 /// Offline-first crash reporter that queues reports to SQLite and flushes
 /// them to the Supabase crash-relay edge function (which posts to Discord).
 ///
-/// Mirrors the Go `CrashReporter` in `crashreporter.go`:
+/// Features:
 /// - SQLite queue with FIFO flushing
 /// - MD5-based dedup within a 1-hour window
 /// - Rate limiting (50 reports/hour)
@@ -40,10 +40,11 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../../services/path_service.dart' as paths;
+import '../app_info.dart';
 import 'app_logger.dart';
 
 // ---------------------------------------------------------------------------
-// Constants (mirrors crashreporter.go)
+// Constants
 // ---------------------------------------------------------------------------
 
 const _maxQueueSize = 500;
@@ -54,11 +55,11 @@ const _maxFieldLen = 1024;
 const _httpTimeout = Duration(seconds: 15);
 const _queueMaxAgeDays = 30;
 
-/// App version — single source of truth is types.go AppVersion.
-const _appVersion = '1.2.0';
+/// App version — single source of truth is lib/core/app_info.dart.
+const _appVersion = appVersion;
 
 // ---------------------------------------------------------------------------
-// Sensitive data patterns (mirrors crashreporter.go)
+// Sensitive data patterns for PII sanitization
 // ---------------------------------------------------------------------------
 
 // ignore_for_file: valid_regexps

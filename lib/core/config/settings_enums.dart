@@ -87,13 +87,13 @@ enum PostProcessPreset {
   concise('Concise', 'concise'),
   translate('Translate', 'translate');
 
-  const PostProcessPreset(this.displayValue, this.goKey);
+  const PostProcessPreset(this.displayValue, this.key);
 
   /// Display name shown in UI dropdowns.
   final String displayValue;
 
-  /// Key used in Go backend communication.
-  final String goKey;
+  /// Persisted key stored in settings.
+  final String key;
 
   static PostProcessPreset fromDisplayValue(String? v) {
     for (final e in values) {
@@ -102,9 +102,9 @@ enum PostProcessPreset {
     return cleanup;
   }
 
-  static PostProcessPreset fromGoKey(String? v) {
+  static PostProcessPreset fromKey(String? v) {
     for (final e in values) {
-      if (e.goKey == v) return e;
+      if (e.key == v) return e;
     }
     return cleanup;
   }
