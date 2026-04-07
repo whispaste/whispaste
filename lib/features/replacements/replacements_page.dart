@@ -256,10 +256,9 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
   // ── Add / Edit dialog ────────────────────────────────────────────────
 
   Future<void> _showAddEditDialog({Replacement? existing}) async {
-    final result = await showDialog<(String, String)>(
+    final result = await showWpFormDialog<(String, String)>(
       context: context,
-      barrierColor: Colors.black54,
-      builder: (_) => _ReplacementDialog(existing: existing),
+      builder: (_, a) => _ReplacementDialog(existing: existing),
     );
     if (result == null) return;
     final (trigger, replacement) = result;
