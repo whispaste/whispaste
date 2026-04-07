@@ -94,6 +94,19 @@ class RecordingPill extends StatefulWidget {
   /// When true, always uses dark theme colors (floating overlay has no Theme access).
   final bool isDarkOnly;
 
+  /// Context-aware done message based on afterAction setting.
+  ///
+  /// Exposed as static for reuse by wrapper widgets (e.g. semantic labels
+  /// in floating overlay).
+  static String doneMessageFor(String? afterAction, L10n l10n) {
+    return switch (afterAction) {
+      'paste' => l10n.overlayDonePasted,
+      'copy_and_paste' || 'clipboard_and_paste' => l10n.overlayDoneBoth,
+      'clipboard' || 'copy' => l10n.overlayDone,
+      _ => l10n.overlayDoneReady,
+    };
+  }
+
   @override
   State<RecordingPill> createState() => _RecordingPillState();
 }
@@ -138,7 +151,10 @@ class _RecordingPillState extends State<RecordingPill>
     super.didUpdateWidget(old);
 
     // Accumulate waveform level history during recording.
-    if (widget.phase == RecordingPhase.recording) {
+    // Guard against duplicates: only add when audioLevel actually changes
+    // (parent rebuilds on elapsed ticks would otherwise duplicate samples).
+    if (widget.phase == RecordingPhase.recording &&
+        widget.audioLevel != old.audioLevel) {
       _levelHistory.add(widget.audioLevel);
       if (_levelHistory.length > _maxLevelHistory) _levelHistory.removeAt(0);
     }
@@ -158,15 +174,27 @@ class _RecordingPillState extends State<RecordingPill>
   void _syncAnimations() {
     final phase = widget.phase;
     if (phase == RecordingPhase.recording) {
-      _pulseController.repeat(reverse: true);
-      _shimmerController.stop();
+      _shimmerController
+        ..stop()
+        ..reset();
+      _pulseController
+        ..reset()
+        ..repeat(reverse: true);
     } else if (phase == RecordingPhase.transcribing ||
         phase == RecordingPhase.processing) {
-      _pulseController.stop();
-      _shimmerController.repeat();
+      _pulseController
+        ..stop()
+        ..reset();
+      _shimmerController
+        ..reset()
+        ..repeat();
     } else {
-      _pulseController.stop();
-      _shimmerController.stop();
+      _pulseController
+        ..stop()
+        ..reset();
+      _shimmerController
+        ..stop()
+        ..reset();
     }
   }
 
@@ -209,14 +237,8 @@ class _RecordingPillState extends State<RecordingPill>
   }
 
   /// Context-aware done message based on afterAction setting.
-  String _doneMessage(L10n l10n) {
-    return switch (widget.afterAction) {
-      'paste' => l10n.overlayDonePasted,
-      'copy_and_paste' || 'clipboard_and_paste' => l10n.overlayDoneBoth,
-      'clipboard' || 'copy' => l10n.overlayDone,
-      _ => l10n.overlayDoneReady,
-    };
-  }
+  String _doneMessage(L10n l10n) =>
+      RecordingPill.doneMessageFor(widget.afterAction, l10n);
 
   // ---------------------------------------------------------------------------
   // Build
@@ -348,8 +370,11 @@ class _RecordingPillState extends State<RecordingPill>
             ),
             child: _buildContent(context),
           ),
-          // Badges row (privacy + AI mode) -- recording only.
-          if (widget.phase == RecordingPhase.recording) _buildBadgesRow(),
+          // Badges row (privacy + AI mode) -- visible during active phases.
+          if (widget.phase == RecordingPhase.recording ||
+              widget.phase == RecordingPhase.transcribing ||
+              widget.phase == RecordingPhase.processing)
+            _buildBadgesRow(),
           // Transcript preview -- transcribing/processing.
           if ((widget.phase == RecordingPhase.transcribing ||
                   widget.phase == RecordingPhase.processing) &&
