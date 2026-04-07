@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
@@ -17,7 +16,7 @@ import '../core/recording/recording_state.dart';
 /// window. Renders as a circle with gradient fill, phase-specific icon, and
 /// pulse / spin animations. Supports drag, tap (toggle recording), and
 /// long-press (context menu).
-class WpFloatingButton extends ConsumerStatefulWidget {
+class WpFloatingButton extends StatefulWidget {
   const WpFloatingButton({
     super.key,
     required this.size,
@@ -59,10 +58,10 @@ class WpFloatingButton extends ConsumerStatefulWidget {
   final bool locked;
 
   @override
-  ConsumerState<WpFloatingButton> createState() => _WpFloatingButtonState();
+  State<WpFloatingButton> createState() => _WpFloatingButtonState();
 }
 
-class _WpFloatingButtonState extends ConsumerState<WpFloatingButton>
+class _WpFloatingButtonState extends State<WpFloatingButton>
     with TickerProviderStateMixin {
   // -- animation controllers ------------------------------------------------
 
@@ -183,14 +182,14 @@ class _WpFloatingButtonState extends ConsumerState<WpFloatingButton>
         _menuItem(
           _MenuAction.hide,
           LucideIcons.eyeOff,
-          'Hide', // not yet in l10n
+          l10n.floatingButtonHide,
           textColor,
           mutedColor,
         ),
         _menuItem(
           _MenuAction.quit,
           LucideIcons.power,
-          'Quit', // not yet in l10n
+          l10n.floatingButtonQuit,
           textColor,
           mutedColor,
         ),

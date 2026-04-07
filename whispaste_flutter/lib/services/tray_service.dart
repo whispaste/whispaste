@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart';
 
@@ -76,14 +77,16 @@ class TrayService extends Notifier<void> implements TrayListener {
   // ── Public API ────────────────────────────────────────────────────────────
 
   /// Updates the tray menu to reflect the current recording state.
-  void updateRecordingState(RecordingState recording) {
+  void updateRecordingState(RecordingState recording, {L10n? l10n}) {
     if (!_isDesktop || !_initialized) return;
+    _l10n = l10n;
     _rebuildMenu(recording);
   }
 
   // ── Private ───────────────────────────────────────────────────────────────
 
   bool _initialized = false;
+  L10n? _l10n;
 
   Future<void> _init() async {
     try {
@@ -107,21 +110,24 @@ class TrayService extends Notifier<void> implements TrayListener {
 
   void _rebuildMenu(RecordingState recording) {
     final isRecording = recording.isRecording;
-    final toggleLabel =
-        isRecording ? 'Stop Recording' : 'Start Recording';
+    final l = _l10n;
+    final toggleLabel = isRecording
+        ? (l?.trayStopRecording ?? 'Stop Recording')
+        : (l?.trayStartRecording ?? 'Start Recording');
     final statusDot = isRecording ? '🔴' : '🟢';
-    final statusText =
-        isRecording ? 'Recording…' : 'Ready';
+    final statusText = isRecording
+        ? (l?.trayStatusRecording ?? 'Recording…')
+        : (l?.trayStatusReady ?? 'Ready');
 
     final menu = Menu(items: [
       MenuItem(key: 'status', label: '$statusDot $statusText', disabled: true),
       MenuItem.separator(),
       MenuItem(key: 'toggle_recording', label: toggleLabel),
       MenuItem.separator(),
-      MenuItem(key: 'show', label: 'Open WhisPaste'),
-      MenuItem(key: 'settings', label: 'Settings'),
+      MenuItem(key: 'show', label: l?.trayOpenApp ?? 'Open WhisPaste'),
+      MenuItem(key: 'settings', label: l?.traySettings ?? 'Settings'),
       MenuItem.separator(),
-      MenuItem(key: 'quit', label: 'Quit'),
+      MenuItem(key: 'quit', label: l?.trayQuit ?? 'Quit'),
     ]);
 
     trayManager.setContextMenu(menu);
