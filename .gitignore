@@ -1,6 +1,14 @@
 # Secrets
 .env
 
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+build/
+.build/
+
 # Binaries
 *.exe
 *.exe~
@@ -8,15 +16,6 @@
 *.dll
 *.so
 *.dylib
-*.syso
-
-# Test binary
-*.test
-
-# Output
-/dist/
-/build/
-/.build/
 
 # IDE
 .idea/
@@ -30,47 +29,39 @@
 Thumbs.db
 desktop.ini
 
-# Go
-vendor/
-
 # Node
 node_modules/
 
-# Astro
+# Astro (website)
 website/dist/
 website/.astro/
-supabase/.temp/
 
-# Config (contains API keys)
-config.json
+# Supabase
+supabase/.temp/
 
 # AI agent / skill config (local only — NEVER push to GitHub)
 skills-lock.json
 skills.yaml
 .github/copilot-instructions.md
+.skills/
+.agent/
+.agents/
+.claude/
+
 # Internal docs (local only)
 docs/AMBOSS_PROJECT_PLAN.md
-docs/CRASH-REPORTING-SETUP.md
 docs/SUPABASE-SETUP.md
 docs/STORE-SUBMISSION-GUIDE.md
 docs/competitive-gap-analysis.md
 docs/deep-research-report.md
 docs/seo-guide.md
 docs/video-script.md
-.skills/
-.agent/
-.agents/
-.claude/
 
 # Internal dev tools (local only)
 cmd/
 scripts/*
-!scripts/build.ps1
-!scripts/build-whisper-server.ps1
-!scripts/package-whisper-server.ps1
-!scripts/release-whisper-server-assets.ps1
 !scripts/generate-release-notes.ps1
-!scripts/whispercpp-ref.txt
+!scripts/security-scan.ps1
 
 # Internal docs (local only)
 website/design-system/
