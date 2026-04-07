@@ -1597,4 +1597,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsComingSoon => 'Demnächst';
+
+  @override
+  String get undo => 'Rückgängig';
 }

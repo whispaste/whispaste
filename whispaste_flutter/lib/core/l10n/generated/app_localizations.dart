@@ -3036,6 +3036,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Coming Soon'**
   String get settingsComingSoon;
+
+  /// No description provided for @undo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get undo;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
