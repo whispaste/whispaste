@@ -245,8 +245,12 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
 
     final l10n = L10n.of(context);
     final pillRadius = BorderRadius.circular(38);
+    final semanticLabel = _semanticLabel(displayPhase, l10n);
 
-    return Center(
+    return Semantics(
+      liveRegion: true,
+      label: semanticLabel,
+      child: Center(
       child: Container(
         constraints: const BoxConstraints(maxWidth: 480, minHeight: 56),
         decoration: BoxDecoration(
@@ -259,7 +263,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
             filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xD9141926),
+                color: WpColorsDark.background.withValues(alpha: 0.85),
                 borderRadius: pillRadius,
               ),
               child: Column(
@@ -279,6 +283,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -424,6 +429,18 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill>
     }
   }
 
+  String _semanticLabel(RecordingPhase phase, L10n l10n) {
+    return switch (phase) {
+      RecordingPhase.recording =>
+        '${l10n.overlayRecording} ${_formatElapsed(widget.state.elapsed)}',
+      RecordingPhase.transcribing => l10n.overlayTranscribing,
+      RecordingPhase.processing => l10n.overlayRefining,
+      RecordingPhase.done => l10n.overlayDone,
+      RecordingPhase.error => widget.state.errorMessage ?? 'Error',
+      _ => '',
+    };
+  }
+
   List<Widget> _buildWaveformBars() {
     if (_levelHistory.isEmpty) return [];
     const barCount = 16;
@@ -532,7 +549,7 @@ class _IconBtn extends StatelessWidget {
           onTap: onPressed,
           customBorder: const CircleBorder(),
           child: Padding(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(10),
             child: Icon(icon, size: 16, color: WpColorsDark.textMuted),
           ),
         ),
