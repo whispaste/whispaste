@@ -111,7 +111,7 @@ void main() {
   group('bootstrapAppContainer', () {
     // Stub notifier that does nothing — prevents MultiWindowNotifier from
     // creating timers (showButton, ensureOverlay) that break pumpAndSettle.
-    final _multiWindowStub =
+    final multiWindowStub =
         multiWindowProvider.overrideWith(() => _StubMultiWindowNotifier());
 
     testWidgets('uses persisted light theme on the first frame', (
@@ -128,7 +128,7 @@ void main() {
             ref.onDispose(db.close);
             return db;
           }),
-          _multiWindowStub,
+          multiWindowStub,
         ],
       );
       addTearDown(container.dispose);
@@ -159,7 +159,7 @@ void main() {
             ref.onDispose(db.close);
             return db;
           }),
-          _multiWindowStub,
+          multiWindowStub,
         ],
       );
       addTearDown(container.dispose);
