@@ -39,7 +39,7 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
   // window_manager 0.5.1 on Windows has a dead-code bug in Show() where
   // SWP_FRAMECHANGED never executes, causing transparent frameless windows
   // to lose their compositor surface after a hide->show cycle.
-  // Instead we toggle visibility by resizing: 1x1 = hidden, 520x140 = visible.
+  // Instead we toggle visibility by resizing: 1x1 = hidden, 520x100 = visible.
   const hiddenSize = Size(1, 1);
 
   const options = WindowOptions(
@@ -136,11 +136,11 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
         } catch (_) {}
       }
       try {
-        // Resize from 1x1 (hidden) -> 520x140 (visible). The window is
+        // Resize from 1x1 (hidden) -> 520x100 (visible). The window is
         // already "shown" from the OS perspective -- we never hide/show,
         // we only resize. This avoids the window_manager Show() bug that
         // breaks transparent frameless window compositing on Windows.
-        const targetSize = Size(520, 140);
+        const targetSize = Size(520, 100);
         await windowManager.setSize(targetSize);
         if (posX != null && posX >= 0 && posY != null && posY >= 0) {
           await windowManager.setPosition(Offset(posX, posY));
@@ -301,7 +301,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill> {
 
     // Fixed-size transparent container when idle -- ensures the window always
     // has content to prevent thin-line rendering on Windows frameless windows.
-    if (!showPill) return const SizedBox(width: 520, height: 140);
+    if (!showPill) return const SizedBox(width: 520, height: 100);
 
     final l10n = L10n.of(context);
     final semanticLabel = _semanticLabel(displayPhase, l10n);
