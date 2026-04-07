@@ -9,6 +9,7 @@ import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../data/providers.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../widgets/toast.dart';
 import 'voice_note_button.dart';
 
 // ---------------------------------------------------------------------------
@@ -57,38 +58,32 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   }
 
   Future<void> _deleteNote(String noteId, String noteContent) async {
-    // Capture context dependencies before async gap
+    // Capture all context-dependent values before async gap
     final l10n = L10n.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    
-    // Save the note content for undo
     final savedNote = noteContent;
     
     // Delete the note
     await ref.read(historyDatabaseProvider).deleteNote(noteId);
     
-    // Show undo snackbar
-    if (context.mounted) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(l10n.historyNoteDeleted),
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: l10n.undo,
-            onPressed: () {
-              // Restore the note
-              ref.read(historyDatabaseProvider).upsertNote(
-                EntryNotesCompanion(
-                  id: Value(noteId),
-                  entryId: Value(widget.entryId),
-                  content: Value(savedNote),
-                  createdAt: Value(DateTime.now()),
-                  updatedAt: Value(DateTime.now()),
-                ),
-              );
-            },
-          ),
-        ),
+    // Show undo toast (using captured overlay, not context after await)
+    if (mounted) {
+      WpToast.show(
+        context,
+        message: l10n.historyNoteDeleted,
+        type: WpToastType.info,
+        duration: const Duration(seconds: 4),
+        actionLabel: l10n.undo,
+        onAction: () {
+          ref.read(historyDatabaseProvider).upsertNote(
+            EntryNotesCompanion(
+              id: Value(noteId),
+              entryId: Value(widget.entryId),
+              content: Value(savedNote),
+              createdAt: Value(DateTime.now()),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
+        },
       );
     }
   }

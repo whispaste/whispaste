@@ -19,6 +19,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/audio_service.dart';
 import '../../../services/stt_service.dart';
 import '../../../services/voice_action_service.dart';
+import '../../../widgets/toast.dart';
 import '../data/history_detail_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -211,12 +212,11 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
 
   void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? _error : null,
-        duration: const Duration(seconds: 2),
-      ),
+    WpToast.show(
+      context,
+      message: message,
+      type: isError ? WpToastType.error : WpToastType.success,
+      duration: const Duration(seconds: 2),
     );
   }
 

@@ -14,6 +14,7 @@ import '../core/config/settings_labels.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'dialog.dart';
 
 // ---------------------------------------------------------------------------
 // Data class
@@ -64,10 +65,9 @@ class HotkeyRecorderDialog extends StatefulWidget {
     String? initialKey,
     String? initialModifiers,
   }) {
-    return showDialog<HotkeyResult>(
+    return showWpFormDialog<HotkeyResult>(
       context: context,
-      barrierColor: Colors.black54,
-      builder: (ctx) => HotkeyRecorderDialog(
+      builder: (ctx, a) => HotkeyRecorderDialog(
         initialKey: initialKey ?? 'D',
         initialModifiers: initialModifiers ?? 'ctrl+shift',
       ),

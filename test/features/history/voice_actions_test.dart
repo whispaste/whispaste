@@ -409,11 +409,17 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // Should show a SnackBar with error message.
-      expect(find.byType(SnackBar), findsOneWidget);
+      // Should show a WpToast error message (overlay-based, not SnackBar).
+      expect(find.text('Voice note failed'), findsOneWidget);
 
       // Should return to idle (mic icon).
       expect(find.byIcon(LucideIcons.mic), findsOneWidget);
+
+      // Drain the WpToast auto-dismiss timer + animation controller.
+      // Timeline: Future.delayed(3s) → controller.reverse(200ms) → dispose
+      await tester.pump(const Duration(seconds: 3)); // fires Future.delayed
+      await tester.pump(const Duration(milliseconds: 300)); // reverse completes
+      await tester.pump(); // .then() callback disposes
     });
 
     testWidgets('does not start when main recording is active',
