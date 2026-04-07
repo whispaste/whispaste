@@ -246,7 +246,7 @@ class _RecordingPillState extends State<RecordingPill>
 
   @override
   Widget build(BuildContext context) {
-    final pillRadius = BorderRadius.circular(38);
+    final pillRadius = BorderRadius.circular(24);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -259,7 +259,7 @@ class _RecordingPillState extends State<RecordingPill>
             constraints: const BoxConstraints(
               maxWidth: 480,
               minWidth: 220,
-              minHeight: 64,
+              minHeight: 48,
             ),
             decoration: BoxDecoration(
               borderRadius: pillRadius,
@@ -365,8 +365,8 @@ class _RecordingPillState extends State<RecordingPill>
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.sm,
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.xs,
             ),
             child: _buildContent(context),
           ),
@@ -512,7 +512,7 @@ class _RecordingPillState extends State<RecordingPill>
           child: AnimatedDefaultTextStyle(
             duration: WpMotion.fast,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w700,
               fontFeatures: const [FontFeature.tabularFigures()],
               color: tColor,
@@ -526,8 +526,8 @@ class _RecordingPillState extends State<RecordingPill>
         WpWaveformBars(
           levels: List.unmodifiable(_levelHistory),
           barCount: _maxLevelHistory,
-          height: 32,
-          barWidth: 3,
+          height: 22,
+          barWidth: 2.5,
           barSpacing: 2,
           isActive: true,
         ),
@@ -558,7 +558,7 @@ class _RecordingPillState extends State<RecordingPill>
         Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             color: accentColor,
           ),
@@ -586,7 +586,7 @@ class _RecordingPillState extends State<RecordingPill>
         Text(
           doneText,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             color: successColor,
           ),
@@ -832,7 +832,7 @@ class _RecordingPillState extends State<RecordingPill>
 // Private sub-widgets (shared -- no Riverpod)
 // =============================================================================
 
-/// Small icon button for secondary pill actions (meets 44x44 touch target).
+/// Small icon button for secondary pill actions (36x36 compact).
 class _PillIconButton extends StatelessWidget {
   const _PillIconButton({
     required this.icon,
@@ -852,8 +852,8 @@ class _PillIconButton extends StatelessWidget {
       label: semanticsLabel,
       button: true,
       child: SizedBox(
-        width: 44,
-        height: 44,
+        width: 36,
+        height: 36,
         child: Material(
           color: Colors.transparent,
           shape: const CircleBorder(),
@@ -863,7 +863,7 @@ class _PillIconButton extends StatelessWidget {
             customBorder: const CircleBorder(),
             hoverColor: color.withValues(alpha: 0.12),
             child: Center(
-              child: Icon(icon, size: WpIconSize.sm, color: color),
+              child: Icon(icon, size: 18, color: color),
             ),
           ),
         ),
@@ -872,7 +872,7 @@ class _PillIconButton extends StatelessWidget {
   }
 }
 
-/// Prominent accent stop button (44x44 circle with gradient).
+/// Prominent accent stop button (36x36 circle with gradient).
 class _PillStopButton extends StatelessWidget {
   const _PillStopButton({required this.onPressed});
 
@@ -902,8 +902,8 @@ class _PillStopButton extends StatelessWidget {
             child: AnimatedContainer(
               duration: WpMotion.fast,
               curve: WpMotion.defaultCurve,
-              width: 44,
-              height: 44,
+              width: 36,
+              height: 36,
               decoration: const BoxDecoration(
                 gradient: gradient,
                 shape: BoxShape.circle,
@@ -911,7 +911,7 @@ class _PillStopButton extends StatelessWidget {
               child: const Center(
                 child: Icon(
                   LucideIcons.square,
-                  size: WpIconSize.sm,
+                  size: 18,
                   color: Colors.white,
                 ),
               ),
