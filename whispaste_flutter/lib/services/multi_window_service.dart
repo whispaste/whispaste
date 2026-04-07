@@ -97,23 +97,34 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
       }
     });
 
-    // React to settings changes: show/hide button AND push appearance updates.
+    // React to settings changes: show/hide button + overlay, push updates.
     ref.listen<AsyncValue<AppSettings>>(settingsProvider, (prev, next) {
       final settings = next.value;
       if (settings == null) return;
 
       _buttonDebounce?.cancel();
       _buttonDebounce = Timer(const Duration(milliseconds: 300), () {
-        // Show/hide based on toggle.
+        // ── Floating button show/hide ──
         if (settings.showFloatingButton && !state.buttonVisible) {
           showButton();
         }
         if (!settings.showFloatingButton && state.buttonVisible) {
           hideButton();
         }
-        // Push appearance changes (size, opacity, lock) to the live window.
         if (state.buttonVisible && _buttonController != null) {
           _pushButtonSettings(settings);
+        }
+
+        // ── Floating overlay mode changes ──
+        final prevMode = prev?.value?.overlayMode;
+        if (prevMode != settings.overlayMode) {
+          if (settings.overlayMode == 'floating') {
+            // Pre-create the overlay window so it's ready instantly.
+            _ensureOverlayCreated();
+          } else {
+            // Switched away from floating — destroy the overlay window.
+            destroyOverlay();
+          }
         }
       });
     });
@@ -175,6 +186,13 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         if (!state.buttonVisible) showButton();
       });
     }
+    // Pre-create the floating overlay window so it's ready when recording
+    // starts. The window stays hidden until showOverlay() is called.
+    if (settings.overlayMode == 'floating' && _overlayController == null) {
+      Future.delayed(const Duration(milliseconds: 800), () {
+        _ensureOverlayCreated();
+      });
+    }
   }
 
   /// Pushes appearance settings (size, opacity, locked) to the floating button
@@ -197,32 +215,68 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
 
   // -- Floating overlay window ----------------------------------------------
 
-  Future<void> showOverlay() async {
-    if (!_isDesktop || _creatingOverlay) return;
-    if (_overlayController != null) {
-      // Window already created — just push latest state.
-      _pushRecordingStateTo(
-          _overlayController!, ref.read(recordingProvider));
-      state = state.copyWith(overlayVisible: true);
-      return;
-    }
+  /// Pre-creates the overlay window (hidden) so it's ready instantly.
+  Future<void> _ensureOverlayCreated() async {
+    if (!_isDesktop || _creatingOverlay || _overlayController != null) return;
     _creatingOverlay = true;
     try {
       _overlayController = await _createWindow(WindowType.floatingOverlay);
       if (_overlayController != null) {
-        state = state.copyWith(overlayVisible: true);
-        _pushRecordingStateTo(
-            _overlayController!, ref.read(recordingProvider));
+        _log.info('Floating overlay pre-created (hidden)');
       } else {
-        _log.warning('Floating overlay creation failed — '
-            'in-window overlay will be used as fallback');
+        _log.warning('Floating overlay pre-creation failed');
       }
     } finally {
       _creatingOverlay = false;
     }
   }
 
+  /// Shows the floating overlay. Creates the window if it doesn't exist yet.
+  Future<void> showOverlay() async {
+    if (!_isDesktop || _creatingOverlay) return;
+    if (_overlayController != null) {
+      // Window exists — show and push latest state.
+      try {
+        await _overlayController!.show();
+      } catch (e) {
+        _log.warning('Overlay show() failed — recreating', e);
+        _overlayController = null;
+      }
+    }
+    // Create if not present (first time or after failed show).
+    if (_overlayController == null) {
+      _creatingOverlay = true;
+      try {
+        _overlayController = await _createWindow(WindowType.floatingOverlay);
+      } finally {
+        _creatingOverlay = false;
+      }
+    }
+    if (_overlayController != null) {
+      state = state.copyWith(overlayVisible: true);
+      _pushRecordingStateTo(_overlayController!, ref.read(recordingProvider));
+    } else {
+      _log.warning('Floating overlay creation failed — '
+          'in-window overlay will be used as fallback');
+    }
+  }
+
+  /// Hides the overlay window but keeps the controller alive for reuse.
   Future<void> hideOverlay() async {
+    final ctrl = _overlayController;
+    if (ctrl == null) return;
+    state = state.copyWith(overlayVisible: false);
+    try {
+      await ctrl.hide();
+    } catch (e) {
+      _log.warning('Overlay hide() failed (may already be closed)', e);
+      _overlayController = null;
+    }
+  }
+
+  /// Destroys the overlay window completely (when mode changes away from
+  /// 'floating'). Unlike [hideOverlay], this releases the controller.
+  Future<void> destroyOverlay() async {
     final ctrl = _overlayController;
     if (ctrl == null) return;
     _overlayController = null;
@@ -230,7 +284,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     try {
       await ctrl.hide();
     } catch (e) {
-      _log.warning('Overlay hide() failed (may already be closed)', e);
+      _log.warning('Overlay destroy: hide() failed', e);
     }
   }
 
@@ -292,12 +346,10 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
       );
 
       // Wait for the secondary Flutter engine to initialise.
-      // The screen code handles showing the window via windowManager.show()
-      // AFTER configuring transparency/frameless — so we must NOT call
-      // controller.show() here (that would show before configuration,
-      // causing a white flash).
-      //
-      // Instead, we verify engine readiness by attempting a state push.
+      // The engine runs in a separate process and takes time to start. We
+      // verify readiness by probing the method channel. The button screen
+      // shows itself via windowManager.show(); the overlay stays hidden
+      // until explicitly shown via controller.show() from showOverlay().
       const maxAttempts = 6;
       for (int attempt = 1; attempt <= maxAttempts; attempt++) {
         await Future<void>.delayed(
@@ -424,6 +476,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     final button = _buttonController;
     _overlayController = null;
     _buttonController = null;
+    state = state.copyWith(overlayVisible: false, buttonVisible: false);
     overlay?.hide().catchError((_) {});
     button?.hide().catchError((_) {});
   }
