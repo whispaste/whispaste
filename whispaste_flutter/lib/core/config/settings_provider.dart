@@ -1,17 +1,23 @@
-/// App settings provider — persisted via SQLite, loaded from Go config.
+/// App settings provider — persisted via SQLite.
 ///
 /// **Architecture note**: This file lives in `core/config/` because every
 /// layer depends on it (theme, l10n, services, features). It imports from
-/// `core/data/` (database provider for persistence) and `services/` (Go config
-/// reader). This is a clean architecture — database access is now in the core
-/// layer where it belongs.
+/// `core/data/` (database provider for persistence) and `services/path_service`
+/// (cross-platform path helpers). The Go config dependency has been removed;
+/// a one-time migration reads the legacy file directly if no Flutter settings
+/// exist yet.
 library;
+
+import 'dart:convert';
+import 'dart:developer' as dev;
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../data/database.dart';
-import '../../services/config_service.dart'; // see note above
+import '../../services/path_service.dart';
 import 'secure_key_store.dart';
 import 'settings_enums.dart';
 
@@ -213,6 +219,21 @@ class AppSettings {
   GpuAcceleration get gpuAccelerationType =>
       GpuAcceleration.fromValue(gpuAcceleration);
 
+  /// Resolved model ID — falls back to `whisper-medium` if empty.
+  String get effectiveModelId => sttModel.isEmpty ? 'whisper-medium' : sttModel;
+
+  /// STT language code for the whisper server (e.g. `en`, `de`, `auto`).
+  ///
+  /// Converts the user-facing display value stored in [sttLanguage] to the
+  /// short code expected by whisper-server's `language` parameter.
+  String get sttLanguageCode => switch (sttLanguage) {
+    'English' => 'en',
+    'German' => 'de',
+    'French' => 'fr',
+    'Spanish' => 'es',
+    _ => 'auto',
+  };
+
   /// Factory-reset defaults.
   static const AppSettings defaults = AppSettings();
 
@@ -345,23 +366,37 @@ class AppSettings {
     );
   }
 
-  /// Seeds settings from the existing Go config when no Flutter row exists yet.
-  factory AppSettings.fromGoConfig(WhisPasteConfig config) {
+  /// One-time migration: seeds Flutter settings from the legacy Go
+  /// `config.json`.  Accepts the raw JSON map so we don't depend on a
+  /// Go config class.
+  factory AppSettings.fromGoConfig(Map<String, dynamic> json) {
+    final useLocal = json['use_local_stt'] as bool? ?? false;
+    final modelId = json['local_model_id'] as String? ?? 'whisper-small';
+    final lang = json['transcription_language'] as String? ?? 'auto';
+    final gpu = json['gpu_acceleration'] as String? ?? 'auto';
+    final smart = json['smart_mode'] as bool? ?? false;
+    final smartPreset = json['smart_mode_preset'] as String? ?? '';
+    final autoPaste = json['auto_paste'] as bool? ?? true;
+    final sounds = json['play_sounds'] as bool? ?? true;
+    final maxSec = json['max_record_sec'] as int? ?? 120;
+    final gain = (json['input_gain'] as num?)?.toDouble() ?? 1.0;
+
     return AppSettings(
-      inputGain: config.inputGain * 100.0,
-      sttProvider: config.useLocalStt
+      inputGain: gain * 100.0,
+      sttProvider: useLocal
           ? SttProviderType.onDevice.value
           : defaults.sttProvider,
-      sttModel: _settingModelFromConfig(config.localModelId),
-      sttLanguage: _settingLanguageFromConfig(config.transcriptionLanguage),
-      postProcessEnabled: config.smartMode,
-      postProcessPreset: _settingPresetFromConfig(config.smartModePreset),
+      sttModel: _settingModelFromConfig(modelId),
+      sttLanguage: _settingLanguageFromConfig(lang),
+      postProcessEnabled: smart,
+      postProcessPreset: _settingPresetFromConfig(smartPreset),
       postProcessProvider: PostProcessProviderType.local.value,
-      recordStartSound: config.playSounds,
-      recordStopSound: config.playSounds,
-      transcriptionCompleteSound: config.playSounds,
-      maxRecordDuration: config.maxRecordSec,
-      gpuAcceleration: config.gpuAcceleration,
+      recordStartSound: sounds,
+      recordStopSound: sounds,
+      transcriptionCompleteSound: sounds,
+      afterTranscription: autoPaste ? 'clipboard' : 'nothing',
+      maxRecordDuration: maxSec,
+      gpuAcceleration: gpu,
     );
   }
 
@@ -707,25 +742,6 @@ String _settingPresetFromConfig(String preset) {
   return PostProcessPreset.fromGoKey(preset).displayValue;
 }
 
-String _configModelIdFromSetting(String setting) {
-  // Settings now store model IDs directly.
-  return setting.isEmpty ? 'whisper-medium' : setting;
-}
-
-String _configLanguageFromSetting(String setting) {
-  return switch (setting) {
-    'English' => 'en',
-    'German' => 'de',
-    'French' => 'fr',
-    'Spanish' => 'es',
-    _ => 'auto',
-  };
-}
-
-String _configPresetFromSetting(String setting) {
-  return PostProcessPreset.fromDisplayValue(setting).goKey;
-}
-
 /// Central settings notifier — loads from and persists to Drift/SQLite.
 ///
 /// API keys are stored in platform-native secure storage and merged into
@@ -746,10 +762,14 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     if (values.isNotEmpty) {
       settings = AppSettings.fromStorageMap(values);
     } else {
-      try {
-        final config = await ref.read(configProvider.future);
-        settings = AppSettings.fromGoConfig(config);
-      } catch (_) {
+      // One-time migration: read the legacy Go config.json if it exists.
+      final migrated = _tryMigrateGoConfig();
+      if (migrated != null) {
+        settings = migrated;
+        // Persist immediately so migration never re-runs.
+        await db.writeAppSettings(settings.toStorageMap());
+        dev.log('Migrated Go config persisted to SQLite', name: 'Settings');
+      } else {
         settings = AppSettings.defaults;
       }
     }
@@ -813,6 +833,34 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     await db.resetAppSettings();
     await db.resetDailyStats();
     state = const AsyncData(AppSettings.defaults);
+  }
+
+  /// Reads the legacy Go `config.json` once and converts it to [AppSettings].
+  ///
+  /// Returns `null` if the file doesn't exist or can't be parsed — callers
+  /// fall back to [AppSettings.defaults].
+  static AppSettings? _tryMigrateGoConfig() {
+    try {
+      final configPath = p.join(appDataDir(), 'config.json');
+      final file = File(configPath);
+      if (!file.existsSync()) return null;
+      final contents = file.readAsStringSync();
+      final raw = jsonDecode(contents);
+      if (raw is! Map<String, dynamic>) {
+        dev.log('Go config JSON is not an object, skipping migration',
+            name: 'Settings');
+        return null;
+      }
+      dev.log('Migrating Go config.json → Flutter settings', name: 'Settings');
+      return AppSettings.fromGoConfig(raw);
+    } catch (e) {
+      // Catches StateError (missing APPDATA), FormatException (bad JSON),
+      // FileSystemException (I/O failure), TypeError (unexpected JSON shape),
+      // and anything else.  Migration is best-effort — never crash the app.
+      dev.log('Go config migration failed, using defaults: $e',
+          name: 'Settings');
+      return null;
+    }
   }
 }
 
@@ -900,24 +948,3 @@ typedef _KeyPair = ({String old, String cur});
 /// Central settings provider — single source of truth for all app settings.
 final settingsProvider =
     AsyncNotifierProvider<SettingsNotifier, AppSettings>(SettingsNotifier.new);
-
-/// Effective recording/runtime config: Go config overlaid with Flutter settings.
-final effectiveConfigProvider = Provider<WhisPasteConfig>((ref) {
-  final diskConfig = ref.watch(configProvider).value ?? const WhisPasteConfig();
-  final settings = ref.watch(settingsProvider).value;
-  if (settings == null) return diskConfig;
-
-  return diskConfig.copyWith(
-    useLocalStt: settings.sttProviderType.isLocal,
-    localModelId: _configModelIdFromSetting(settings.sttModel),
-    transcriptionLanguage: _configLanguageFromSetting(settings.sttLanguage),
-    smartMode: settings.postProcessEnabled,
-    smartModePreset: _configPresetFromSetting(settings.postProcessPreset),
-    playSounds: settings.recordStartSound ||
-        settings.recordStopSound ||
-        settings.transcriptionCompleteSound,
-    inputGain: settings.inputGain / 100.0,
-    maxRecordSec: settings.maxRecordDuration,
-    gpuAcceleration: settings.gpuAcceleration,
-  );
-});
