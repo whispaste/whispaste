@@ -10,7 +10,9 @@
 /// - Readiness probe (up to 6 attempts) verifies engine before use.
 /// - Logged errors on channel failures (no silent catches).
 /// - Fallback to in-window overlay when floating overlay creation fails.
-/// - Shutdown command for true window destruction (no orphaned engines).
+/// - Shutdown sends 'shutdown' command → secondary hides + goes inert.
+///   We NEVER call exit(0) from secondary windows because all engines
+///   share the same OS process — exit(0) would kill the whole app.
 /// - Recording-safe mode changes: overlay is not destroyed during recording.
 library;
 
@@ -322,22 +324,26 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     }
   }
 
-  /// Sends a shutdown command to the overlay's secondary engine and releases
-  /// the controller. The secondary window exits cleanly on receiving the
-  /// command. Unlike [hideOverlay], which keeps the window alive for reuse,
-  /// this terminates the secondary engine entirely.
+  /// Hides and releases the floating overlay.
+  ///
+  /// The `desktop_multi_window` package has no API to destroy a secondary
+  /// window — only show/hide. We send a 'shutdown' command so the secondary
+  /// engine goes inert (stops heartbeat, ignores future calls), then hide the
+  /// OS window. The engine stays alive but dormant until the process exits.
+  ///
+  /// **CRITICAL**: We do NOT call exit(0) in the secondary engine because all
+  /// windows share the same OS process — exit(0) would kill everything.
   Future<void> _shutdownOverlay() async {
     final ctrl = _overlayController;
     if (ctrl == null) return;
     _overlayController = null;
     state = state.copyWith(overlayVisible: false);
-    _log.info('Shutting down floating overlay window');
+    _log.info('Shutting down floating overlay window (hide + inert)');
     try {
       await ctrl.invokeMethod('shutdown');
     } catch (e) {
       _log.debug('Overlay shutdown command failed (may already be gone): $e');
     }
-    // Fallback: hide in case shutdown command didn't reach the engine.
     try {
       await ctrl.hide();
     } catch (_) {}
@@ -372,7 +378,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     if (ctrl == null) return;
     _buttonController = null;
     state = state.copyWith(buttonVisible: false);
-    _log.info('Floating button hidden (shutdown)');
+    _log.info('Shutting down floating button (hide + inert)');
     try {
       await ctrl.invokeMethod('shutdown');
     } catch (e) {
@@ -538,11 +544,11 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     _overlayController = null;
     _buttonController = null;
     state = state.copyWith(overlayVisible: false, buttonVisible: false);
-    _log.info('Shutting down all secondary windows');
-    // Send shutdown commands for clean engine termination.
+    _log.info('Shutting down all secondary windows (hide + inert)');
+    // Send shutdown commands so secondary engines go inert.
     overlay?.invokeMethod('shutdown').catchError((_) {});
     button?.invokeMethod('shutdown').catchError((_) {});
-    // Fallback hide in case shutdown didn't reach.
+    // Hide the OS windows.
     overlay?.hide().catchError((_) {});
     button?.hide().catchError((_) {});
   }

@@ -1,16 +1,20 @@
 /// Keep-alive heartbeat for secondary floating windows.
 ///
 /// Secondary windows (floating button, floating overlay) run in separate
-/// Flutter engines. If the main window is closed, crashes, or hot-reloads,
-/// these windows become orphaned. This mixin provides a periodic heartbeat
-/// that pings the main window via the command channel. After [maxFailures]
-/// consecutive failures the window self-terminates.
+/// Flutter engines within the **same OS process**. If the main window is
+/// closed, crashes, or hot-reloads, these windows become orphaned. This
+/// mixin provides a periodic heartbeat that pings the main window via
+/// the command channel. After [maxFailures] consecutive failures the
+/// window hides itself and goes inert.
+///
+/// **IMPORTANT**: We do NOT call `exit(0)` because that would terminate the
+/// entire process, killing the main window too.
 library;
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'multi_window_types.dart';
 
@@ -33,9 +37,9 @@ mixin WindowHeartbeat {
   /// Ping interval — how often we check if the main window is alive.
   static const _interval = Duration(seconds: 3);
 
-  /// Number of consecutive failures before self-terminating.
-  /// 3 failures × 3s = 9s grace period (covers hot reload which takes ~1-3s).
-  static const maxFailures = 3;
+  /// Number of consecutive failures before self-hiding.
+  /// 10 failures × 3s = 30s grace period — covers hot reload and slow startup.
+  static const maxFailures = 10;
 
   /// Starts the periodic heartbeat. Call from [initState].
   void startHeartbeat() {
@@ -60,10 +64,12 @@ mixin WindowHeartbeat {
       _consecutiveFailures++;
       debugPrint('Heartbeat: ping failed ($_consecutiveFailures/$maxFailures)');
       if (_consecutiveFailures >= maxFailures) {
-        debugPrint('Heartbeat: main window unresponsive — self-terminating');
+        debugPrint('Heartbeat: main window unresponsive — hiding window');
         stopHeartbeat();
-        // Hard exit — the secondary window has no parent to report to.
-        exit(0);
+        // Hide instead of exit(0) — all windows share one OS process.
+        try {
+          await windowManager.hide();
+        } catch (_) {}
       }
     }
   }
