@@ -273,14 +273,9 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill> {
   }
 
   /// Context-aware done message based on afterAction setting.
-  String _doneMessage(L10n l10n) {
-    return switch (widget.state.afterAction) {
-      'paste' => l10n.overlayDonePasted,
-      'copy_and_paste' || 'clipboard_and_paste' => l10n.overlayDoneBoth,
-      'clipboard' || 'copy' => l10n.overlayDone,
-      _ => l10n.overlayDoneReady,
-    };
-  }
+  /// Delegates to [RecordingPill.doneMessageFor] for single source of truth.
+  String _doneMessage(L10n l10n) =>
+      RecordingPill.doneMessageFor(widget.state.afterAction, l10n);
 
   String _semanticLabel(RecordingPhase phase, L10n l10n) {
     return switch (phase) {
@@ -332,7 +327,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill> {
             showDragHandle: true,
             isDarkOnly: true,
             onStop: widget.onStop,
-            onCancel: widget.onCancel,
+            onCancel: phase == RecordingPhase.idle ? null : widget.onCancel,
           ),
         ),
       ),

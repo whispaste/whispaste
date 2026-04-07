@@ -44,8 +44,8 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay> {
 
     // Schedule auto-dismiss when entering the done phase (fast, subtle).
     ref.listen<RecordingPhase>(recordingPhaseProvider, (prev, next) {
+      _doneTimer?.cancel();
       if (next == RecordingPhase.done) {
-        _doneTimer?.cancel();
         _doneTimer = Timer(const Duration(seconds: 3), () {
           if (mounted) ref.read(recordingOrchestratorProvider.notifier).reset();
         });
@@ -76,7 +76,9 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay> {
       },
       child: KeyedSubtree(
         key: const ValueKey('recording-overlay-visible'),
-        child: RecordingPill(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 28),
+          child: RecordingPill(
           phase: phase,
           elapsed: elapsed,
           audioLevel: audioLevel,
@@ -96,6 +98,7 @@ class _RecordingOverlayState extends ConsumerState<RecordingOverlay> {
               ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
           onCancel: () =>
               ref.read(recordingOrchestratorProvider.notifier).reset(),
+        ),
         ),
       ),
     );
