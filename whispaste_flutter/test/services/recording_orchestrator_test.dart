@@ -15,7 +15,6 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/audio_service.dart';
-import 'package:whispaste/services/config_service.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/stt_service.dart';
 
@@ -121,12 +120,6 @@ class FakeSettingsNotifier extends SettingsNotifier {
   Future<AppSettings> build() async => _settings;
 }
 
-/// Fake config notifier — returns defaults without disk I/O.
-class FakeConfigNotifier extends ConfigNotifier {
-  @override
-  Future<WhisPasteConfig> build() async => const WhisPasteConfig();
-}
-
 /// In-memory secure key store that never touches platform credential stores.
 class FakeSecureKeyStore extends SecureKeyStore {
   FakeSecureKeyStore() : super(null);
@@ -205,17 +198,14 @@ void main() {
         }),
         audioServiceProvider.overrideWith(() => fakeAudio),
         sttServiceProvider.overrideWith(() => fakeStt),
-        configProvider.overrideWith(() => FakeConfigNotifier()),
-        settingsProvider.overrideWith(() => FakeSettingsNotifier()),
+        settingsProvider.overrideWith(
+          () => FakeSettingsNotifier(const AppSettings(
+            sttModel: 'whisper-small',
+            sttLanguage: 'English',
+          )),
+        ),
         secureKeyStoreProvider
             .overrideWith((ref) => FakeSecureKeyStore()),
-        effectiveConfigProvider.overrideWith(
-          (ref) => const WhisPasteConfig(
-            useLocalStt: false,
-            localModelId: 'whisper-small',
-            transcriptionLanguage: 'en',
-          ),
-        ),
       ],
     );
 
@@ -603,17 +593,14 @@ void main() {
               ..wavPathToReturn = wavFile.absolute.path;
           }),
           sttServiceProvider.overrideWith(() => customStt),
-          configProvider.overrideWith(() => FakeConfigNotifier()),
-          settingsProvider.overrideWith(() => FakeSettingsNotifier()),
+          settingsProvider.overrideWith(
+            () => FakeSettingsNotifier(const AppSettings(
+              sttModel: 'whisper-small',
+              sttLanguage: 'English',
+            )),
+          ),
           secureKeyStoreProvider
               .overrideWith((ref) => FakeSecureKeyStore()),
-          effectiveConfigProvider.overrideWith(
-            (ref) => const WhisPasteConfig(
-              useLocalStt: false,
-              localModelId: 'whisper-small',
-              transcriptionLanguage: 'en',
-            ),
-          ),
         ],
       );
       addTearDown(c2.dispose);
