@@ -61,17 +61,34 @@ Future<void> main(List<String> args) async {
       }
     }
 
-    // Desktop window setup
+    // Bootstrap the provider container early so we can read persisted window
+    // geometry BEFORE creating the window — this avoids resize/move flicker.
+    final container = await bootstrapAppContainer(
+      observers: const [CrashProviderObserver()],
+    );
+    final settings =
+        container.read(settingsProvider).value ?? AppSettings.defaults;
+
+    // Desktop window setup — use persisted geometry when available.
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       await windowManager.ensureInitialized();
-      const windowOptions = WindowOptions(
-        size: Size(1100, 750),
-        minimumSize: Size(800, 550),
-        center: true,
+
+      final hasPosition = settings.windowX >= 0 && settings.windowY >= 0;
+      final windowOptions = WindowOptions(
+        size: Size(settings.windowWidth, settings.windowHeight),
+        minimumSize: const Size(800, 550),
+        center: !hasPosition,
         title: 'WhisPaste',
         titleBarStyle: TitleBarStyle.hidden,
       );
       await windowManager.waitUntilReadyToShow(windowOptions, () async {
+        if (hasPosition) {
+          await windowManager.setPosition(
+              Offset(settings.windowX, settings.windowY));
+        }
+        if (settings.windowMaximized) {
+          await windowManager.maximize();
+        }
         await windowManager.show();
         await windowManager.focus();
       });
@@ -84,10 +101,6 @@ Future<void> main(List<String> args) async {
     }
 
     // TODO: Initialize Go FFI bridge
-
-    final container = await bootstrapAppContainer(
-      observers: const [CrashProviderObserver()],
-    );
 
     // Clean up stale WAV files from previous sessions (fire-and-forget).
     unawaited(AudioServiceNotifier.cleanupStaleFiles());

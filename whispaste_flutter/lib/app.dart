@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:window_manager/window_manager.dart';
 import 'core/config/settings_provider.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/l10n/locale_provider.dart';
@@ -121,11 +123,79 @@ const _pageWidgets = <String, Widget>{
 };
 
 /// Root layout: title bar + sidebar + content + status bar + FAB.
-class _AppShell extends ConsumerWidget {
+class _AppShell extends ConsumerStatefulWidget {
   const _AppShell();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
+  Timer? _windowSaveTimer;
+  bool _isMaximized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      windowManager.addListener(this);
+      windowManager.isMaximized().then((v) => _isMaximized = v);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      windowManager.removeListener(this);
+    }
+    _windowSaveTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Debounced save to avoid excessive DB writes during drag/resize.
+  void _debounceSaveWindowState() {
+    _windowSaveTimer?.cancel();
+    _windowSaveTimer = Timer(const Duration(milliseconds: 400), () async {
+      if (_isMaximized) {
+        // Only persist the maximized flag; keep pre-maximize geometry.
+        ref.read(settingsProvider.notifier).updateSettings(
+              (s) => s.copyWith(windowMaximized: true),
+            );
+        return;
+      }
+      final bounds = await windowManager.getBounds();
+      ref.read(settingsProvider.notifier).updateSettings(
+            (s) => s.copyWith(
+              windowX: bounds.left,
+              windowY: bounds.top,
+              windowWidth: bounds.width,
+              windowHeight: bounds.height,
+              windowMaximized: false,
+            ),
+          );
+    });
+  }
+
+  @override
+  void onWindowMoved() => _debounceSaveWindowState();
+
+  @override
+  void onWindowResized() => _debounceSaveWindowState();
+
+  @override
+  void onWindowMaximize() {
+    _isMaximized = true;
+    _debounceSaveWindowState();
+  }
+
+  @override
+  void onWindowUnmaximize() {
+    _isMaximized = false;
+    _debounceSaveWindowState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final activePage = ref.watch(activePageProvider);
     final recordingPhase = ref.watch(recordingPhaseProvider);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
