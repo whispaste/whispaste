@@ -26,13 +26,19 @@ import '../widgets/floating_button.dart';
 Future<void> runFloatingButtonWindow(WindowController controller) async {
   await windowManager.ensureInitialized();
 
-  // Parse initial size from settings passed in arguments (default 56).
+  // Parse initial settings from arguments passed by the main window.
   int buttonSize = 56;
   double buttonOpacity = 1.0;
+  bool buttonLocked = false;
+  double posX = -1.0;
+  double posY = -1.0;
   try {
     final args = jsonDecode(controller.arguments) as Map<String, dynamic>;
     buttonSize = args['size'] as int? ?? 56;
     buttonOpacity = (args['opacity'] as num?)?.toDouble() ?? 1.0;
+    buttonLocked = args['locked'] as bool? ?? false;
+    posX = (args['posX'] as num?)?.toDouble() ?? -1.0;
+    posY = (args['posY'] as num?)?.toDouble() ?? -1.0;
   } catch (e) {
     debugPrint('FloatingButton: failed to parse arguments: $e');
   }
@@ -42,7 +48,7 @@ Future<void> runFloatingButtonWindow(WindowController controller) async {
 
   final options = WindowOptions(
     size: Size(windowSize, windowSize),
-    center: false,
+    center: posX < 0 || posY < 0, // center only if no persisted position
     backgroundColor: Colors.transparent,
     skipTaskbar: true,
     titleBarStyle: TitleBarStyle.hidden,
@@ -55,6 +61,10 @@ Future<void> runFloatingButtonWindow(WindowController controller) async {
     if (Platform.isWindows) {
       await windowManager.setHasShadow(false);
     }
+    // Restore persisted position (if any).
+    if (posX >= 0 && posY >= 0) {
+      await windowManager.setPosition(Offset(posX, posY));
+    }
     await windowManager.show();
     await windowManager.focus();
   });
@@ -63,6 +73,7 @@ Future<void> runFloatingButtonWindow(WindowController controller) async {
     controller: controller,
     buttonSize: buttonSize,
     buttonOpacity: buttonOpacity,
+    buttonLocked: buttonLocked,
   ));
 }
 
@@ -75,11 +86,13 @@ class _FloatingButtonApp extends StatefulWidget {
     required this.controller,
     required this.buttonSize,
     required this.buttonOpacity,
+    required this.buttonLocked,
   });
 
   final WindowController controller;
   final int buttonSize;
   final double buttonOpacity;
+  final bool buttonLocked;
 
   @override
   State<_FloatingButtonApp> createState() => _FloatingButtonAppState();
@@ -127,6 +140,25 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp> {
     commandChannel.invokeMethod('quitApp');
   }
 
+  /// Initiates a native window drag — the OS handles tracking until release.
+  void _startDrag() {
+    if (widget.buttonLocked) return;
+    windowManager.startDragging();
+  }
+
+  /// Saves the current window position to settings via the main window.
+  Future<void> _savePosition() async {
+    try {
+      final pos = await windowManager.getPosition();
+      commandChannel.invokeMethod(
+        'saveButtonPosition',
+        jsonEncode({'x': pos.dx, 'y': pos.dy}),
+      );
+    } catch (e) {
+      debugPrint('FloatingButton: failed to save position: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -135,21 +167,76 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp> {
       darkTheme: wpDarkTheme(),
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
-      home: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Center(
-          child: WpFloatingButton(
-            size: widget.buttonSize.toDouble(),
-            opacity: widget.buttonOpacity,
-            phase: _recordingState.phase,
-            onTap: _toggleRecording,
-            onLongPress: _showDashboard,
-            enableContextMenu: false,
-            onNavigate: (page) => _showDashboard(),
-            onHide: _hideButton,
-            onQuit: _quitApp,
-          ),
+      home: _DraggableButtonScaffold(
+        locked: widget.buttonLocked,
+        onDragStart: _startDrag,
+        onDragEnd: _savePosition,
+        child: WpFloatingButton(
+          size: widget.buttonSize.toDouble(),
+          opacity: widget.buttonOpacity,
+          phase: _recordingState.phase,
+          onTap: _toggleRecording,
+          onLongPress: _showDashboard,
+          enableContextMenu: false,
+          locked: widget.buttonLocked,
+          onNavigate: (page) => _showDashboard(),
+          onHide: _hideButton,
+          onQuit: _quitApp,
         ),
+      ),
+    );
+  }
+}
+
+/// Scaffold that wraps the floating button with drag-to-move support.
+///
+/// Uses [GestureDetector.onPanStart] to initiate native window dragging
+/// via [windowManager.startDragging()]. Position is saved on drag end.
+class _DraggableButtonScaffold extends StatefulWidget {
+  const _DraggableButtonScaffold({
+    required this.locked,
+    required this.onDragStart,
+    required this.onDragEnd,
+    required this.child,
+  });
+
+  final bool locked;
+  final VoidCallback onDragStart;
+  final VoidCallback onDragEnd;
+  final Widget child;
+
+  @override
+  State<_DraggableButtonScaffold> createState() =>
+      _DraggableButtonScaffoldState();
+}
+
+class _DraggableButtonScaffoldState extends State<_DraggableButtonScaffold>
+    with WindowListener {
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  void onWindowMoved() {
+    // Fires when the OS finishes the native drag.
+    widget.onDragEnd();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: GestureDetector(
+        onPanStart: widget.locked ? null : (_) => widget.onDragStart(),
+        child: Center(child: widget.child),
       ),
     );
   }

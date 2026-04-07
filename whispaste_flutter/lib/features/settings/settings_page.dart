@@ -990,9 +990,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: l10n.settingsShowOverlay,
                   trailing: _dropdown(
                     value: settings.overlayMode,
-                    items: const ['in-window', 'off'],
+                    items: const ['in-window', 'floating', 'off'],
                     labels: [
                       l10n.settingsOverlayModeInWindow,
+                      l10n.settingsOverlayModeFloating,
                       l10n.settingsOverlayModeOff,
                     ],
                     onChanged: (v) {

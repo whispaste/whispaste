@@ -127,6 +127,7 @@
   "settingsOverlayFloatingButtonSubtitle": "Bildschirm-Aufnahmesteuerung",
   "settingsShowOverlay": "Aufnahme-Overlay",
   "settingsOverlayModeInWindow": "Während der Aufnahme anzeigen",
+  "settingsOverlayModeFloating": "Schwebend (immer im Vordergrund)",
   "settingsOverlayModeOff": "Aus",
   "settingsShowFloatingButton": "Schwebenden Button anzeigen",
   "settingsFloatingButtonOpacity": "Schwebender Button Deckkraft",
