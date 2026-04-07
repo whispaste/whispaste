@@ -33,7 +33,9 @@ Future<void> runFloatingButtonWindow(WindowController controller) async {
     final args = jsonDecode(controller.arguments) as Map<String, dynamic>;
     buttonSize = args['size'] as int? ?? 56;
     buttonOpacity = (args['opacity'] as num?)?.toDouble() ?? 1.0;
-  } catch (_) {}
+  } catch (e) {
+    debugPrint('FloatingButton: failed to parse arguments: $e');
+  }
 
   // Extra space for pulse ring.
   final windowSize = (buttonSize * 1.8).ceilToDouble();
@@ -90,16 +92,21 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp> {
   void initState() {
     super.initState();
     // Listen for state pushes from the main window.
-    widget.controller.setWindowMethodHandler(_onMethodCall);
+    try {
+      widget.controller.setWindowMethodHandler(_onMethodCall);
+    } catch (e) {
+      debugPrint('FloatingButton: failed to register method handler: $e');
+    }
   }
 
   Future<dynamic> _onMethodCall(MethodCall call) async {
     switch (call.method) {
       case 'updateRecordingState':
-        final encoded = call.arguments as String;
-        setState(() {
-          _recordingState = decodeRecordingState(encoded);
-        });
+        if (call.arguments is String) {
+          setState(() {
+            _recordingState = decodeRecordingState(call.arguments as String);
+          });
+        }
     }
     return null;
   }
