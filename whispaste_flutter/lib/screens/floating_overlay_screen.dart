@@ -525,7 +525,12 @@ class _StopBtn extends StatelessWidget {
             height: 40,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              gradient: WpColorsDark.accentWarmGradient,
+              // Red gradient — consistent with FAB stop state.
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+              ),
             ),
             child: const Center(
               child: Icon(LucideIcons.square, size: 16, color: Colors.white),

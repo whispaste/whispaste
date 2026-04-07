@@ -55,12 +55,14 @@ class MultiWindowState {
 class MultiWindowNotifier extends Notifier<MultiWindowState> {
   static final _log = AppLogger('MultiWindow');
 
-  WindowController? _overlayController;
-  WindowController? _buttonController;
+  // Static registry — survives hot reload (notifier instance recreation).
+  // Secondary OS windows run in separate engines and persist across reloads.
+  static WindowController? _overlayController;
+  static WindowController? _buttonController;
 
   // Guards against concurrent creation of the same window type.
-  bool _creatingOverlay = false;
-  bool _creatingButton = false;
+  static bool _creatingOverlay = false;
+  static bool _creatingButton = false;
 
   // Debounce timer for settings-driven button show/hide.
   Timer? _buttonDebounce;
@@ -105,15 +107,27 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
 
     ref.onDispose(() {
       _buttonDebounce?.cancel();
+      // Only clear our handler — do NOT close secondary windows.
+      // They survive hot reload and will be reconnected by the next build().
       commandChannel.setMethodCallHandler(null);
-      _closeAll();
     });
 
-    // Eagerly apply initial settings state — ref.listen only fires on
-    // CHANGES, so if settings are already loaded we must check now.
-    _applyInitialSettings();
+    // Recover state from surviving secondary windows (hot reload scenario).
+    final initialState = MultiWindowState(
+      overlayVisible: _overlayController != null,
+      buttonVisible: _buttonController != null,
+    );
 
-    return const MultiWindowState();
+    // If no windows survived, apply initial settings to show them.
+    if (!initialState.buttonVisible && !initialState.overlayVisible) {
+      _applyInitialSettings();
+    } else {
+      _log.info('Reconnected to surviving secondary windows '
+          '(button=${initialState.buttonVisible}, '
+          'overlay=${initialState.overlayVisible})');
+    }
+
+    return initialState;
   }
 
   /// Reads the current settings (if already resolved) and shows button/overlay
