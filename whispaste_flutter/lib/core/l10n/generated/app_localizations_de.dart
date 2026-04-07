@@ -1456,4 +1456,31 @@ class L10nDe extends L10n {
 
   @override
   String get overlayProcessingCloud => 'Cloud';
+
+  @override
+  String get floatingButtonHide => 'Ausblenden';
+
+  @override
+  String get floatingButtonQuit => 'Beenden';
+
+  @override
+  String get trayStatusRecording => 'Aufnahme…';
+
+  @override
+  String get trayStatusReady => 'Bereit';
+
+  @override
+  String get trayStartRecording => 'Aufnahme starten';
+
+  @override
+  String get trayStopRecording => 'Aufnahme beenden';
+
+  @override
+  String get trayOpenApp => 'WhisPaste öffnen';
+
+  @override
+  String get traySettings => 'Einstellungen';
+
+  @override
+  String get trayQuit => 'Beenden';
 }

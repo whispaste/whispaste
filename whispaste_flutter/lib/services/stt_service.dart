@@ -16,14 +16,15 @@ import 'package:http/http.dart' as http;
 
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
+import '../core/recording/recording_state.dart' show SttServerState;
 import 'config_service.dart';
+
+// Re-export so existing importers of stt_service.dart still see SttServerState.
+export '../core/recording/recording_state.dart' show SttServerState;
 
 // ---------------------------------------------------------------------------
 // STT service state
 // ---------------------------------------------------------------------------
-
-/// Lifecycle state of the whisper-server subprocess.
-enum SttServerState { stopped, starting, ready, error }
 
 /// Immutable snapshot of the STT service.
 class SttStatus {

@@ -11,6 +11,9 @@ import '../logging/app_logger.dart';
 /// Discrete phases of a recording lifecycle.
 enum RecordingPhase { idle, recording, transcribing, processing, done, error }
 
+/// State of the local STT server subprocess.
+enum SttServerState { stopped, starting, ready, error }
+
 // ---------------------------------------------------------------------------
 // Immutable state
 // ---------------------------------------------------------------------------

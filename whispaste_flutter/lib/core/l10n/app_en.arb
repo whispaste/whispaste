@@ -526,5 +526,14 @@
     }
   },
   "overlayProcessingLocal": "Local",
-  "overlayProcessingCloud": "Cloud"
+  "overlayProcessingCloud": "Cloud",
+  "floatingButtonHide": "Hide",
+  "floatingButtonQuit": "Quit",
+  "trayStatusRecording": "Recording…",
+  "trayStatusReady": "Ready",
+  "trayStartRecording": "Start Recording",
+  "trayStopRecording": "Stop Recording",
+  "trayOpenApp": "Open WhisPaste",
+  "traySettings": "Settings",
+  "trayQuit": "Quit"
 }
