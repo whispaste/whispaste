@@ -660,6 +660,79 @@ void main() {
   });
 
   // =========================================================================
+  // Clipboard / after-transcription action
+  // =========================================================================
+
+  group('After-transcription action', () {
+    test('pipeline completes with clipboard action setting', () async {
+      // Rebuild container with clipboard action.
+      container.dispose();
+      db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      wavFile = createFakeWav(
+        'test_audio_clip_${DateTime.now().millisecondsSinceEpoch}.wav',
+      );
+      fakeAudio = FakeAudioService()
+        ..wavPathToReturn = wavFile.absolute.path;
+      fakeStt = FakeSttService()..transcriptToReturn = 'Clipboard text';
+
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          audioServiceProvider.overrideWith(() => fakeAudio),
+          sttServiceProvider.overrideWith(() => fakeStt),
+          settingsProvider.overrideWith(
+            () => FakeSettingsNotifier(const AppSettings(
+              sttModel: 'whisper-small',
+              sttLanguage: 'English',
+              afterTranscription: 'clipboard',
+              postProcessEnabled: false,
+            )),
+          ),
+          secureKeyStoreProvider
+              .overrideWith((ref) => FakeSecureKeyStore()),
+        ],
+      );
+      await container.read(settingsProvider.future);
+
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      container.read(recordingProvider.notifier).startRecording();
+
+      await orch.stopRecording();
+
+      // Pipeline completes — clipboard action doesn't block it.
+      final state = container.read(recordingProvider);
+      expect(state.phase, RecordingPhase.done);
+      expect(state.transcript, 'Clipboard text');
+
+      // History entry saved.
+      final entries = await db.allEntries();
+      expect(entries, hasLength(1));
+      expect(entries.first.content, 'Clipboard text');
+    });
+
+    test('pipeline completes with action=nothing (no clipboard)', () async {
+      // Default FakeSettingsNotifier uses afterTranscription='nothing'.
+      fakeStt.transcriptToReturn = 'No clipboard';
+      final orch = await startRecordingPhase();
+
+      await orch.stopRecording();
+
+      expect(
+        container.read(recordingProvider).phase,
+        RecordingPhase.done,
+      );
+      expect(
+        container.read(recordingProvider).transcript,
+        'No clipboard',
+      );
+    });
+  });
+
+  // =========================================================================
   // WAV file edge cases
   // =========================================================================
 
