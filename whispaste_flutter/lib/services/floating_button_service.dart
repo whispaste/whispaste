@@ -10,6 +10,7 @@ import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/config/settings_provider.dart';
+import '../core/multi_window/multi_window_types.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -106,7 +107,7 @@ class FloatingButtonNotifier extends Notifier<FloatingButtonState> {
     return FloatingButtonState(
       isVisible: settings.showFloatingButton,
       isLocked: settings.floatingButtonLocked,
-      size: sizeFromString(settings.floatingButtonSize),
+      size: floatingButtonSizeFromString(settings.floatingButtonSize),
       opacity: settings.floatingButtonOpacity,
       autoHide: settings.floatingButtonAutoHide,
     );
@@ -170,13 +171,8 @@ class FloatingButtonNotifier extends Notifier<FloatingButtonState> {
   // -- Helpers --------------------------------------------------------------
 
   /// Converts the persisted size string to a pixel value.
-  static int sizeFromString(String size) {
-    return switch (size.toLowerCase()) {
-      'small' => 48,
-      'large' => 72,
-      _ => 56, // 'normal' / 'medium' / unknown → default
-    };
-  }
+  @Deprecated('Use floatingButtonSizeFromString() from multi_window_types.dart')
+  static int sizeFromString(String size) => floatingButtonSizeFromString(size);
 }
 
 // ---------------------------------------------------------------------------

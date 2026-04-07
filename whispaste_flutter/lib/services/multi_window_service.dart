@@ -7,7 +7,7 @@
 ///
 /// Robustness guarantees:
 /// - Creation guards prevent concurrent window creation for the same type.
-/// - Retry loop (up to 5 attempts) replaces fixed delay for engine readiness.
+/// - Readiness probe (up to 6 attempts) verifies engine before use.
 /// - Logged errors on channel failures (no silent catches).
 /// - Fallback to in-window overlay when floating overlay creation fails.
 library;
@@ -26,7 +26,6 @@ import '../core/logging/app_logger.dart';
 import '../core/multi_window/multi_window_types.dart';
 export '../core/multi_window/multi_window_types.dart';
 import '../core/recording/recording_state.dart';
-import 'floating_button_service.dart';
 import 'recording_orchestrator.dart';
 
 // ---------------------------------------------------------------------------
@@ -198,7 +197,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
       final args = jsonEncode({
         'type': type,
         if (settings != null) ...{
-          'size': FloatingButtonNotifier.sizeFromString(
+          'size': floatingButtonSizeFromString(
               settings.floatingButtonSize),
           'opacity': settings.floatingButtonOpacity,
         },
@@ -214,10 +213,10 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
       // causing a white flash).
       //
       // Instead, we verify engine readiness by attempting a state push.
-      const maxAttempts = 8;
+      const maxAttempts = 6;
       for (int attempt = 1; attempt <= maxAttempts; attempt++) {
         await Future<void>.delayed(
-          Duration(milliseconds: 250 * attempt), // 250, 500, 750, …, 2000ms
+          Duration(milliseconds: 200 * attempt), // 200, 400, …, 1200ms (total ~5s)
         );
         try {
           await controller.invokeMethod(
@@ -233,6 +232,10 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
             _log.error(
                 'Engine for $type window not ready after $maxAttempts attempts',
                 e);
+            // Clean up the orphaned OS window to avoid resource leak.
+            try {
+              await controller.hide();
+            } catch (_) {}
             return null;
           }
           _log.debug('$type engine not ready (attempt $attempt), retrying…');
@@ -259,8 +262,12 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
 
   void _pushRecordingStateTo(
       WindowController controller, RecordingState recState) {
-    _pushEncodedTo(
-        controller, encodeRecordingState(recState), 'secondary');
+    final target = controller == _overlayController
+        ? 'overlay'
+        : controller == _buttonController
+            ? 'button'
+            : 'secondary';
+    _pushEncodedTo(controller, encodeRecordingState(recState), target);
   }
 
   void _pushEncodedTo(
@@ -302,7 +309,9 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         await windowManager.focus();
       case 'quitApp':
         _closeAll();
-        exit(0);
+        // Use windowManager.destroy() for graceful shutdown — unlike exit(0),
+        // this allows Flutter's normal lifecycle (dispose, DB flush, etc.).
+        await windowManager.destroy();
     }
     return null;
   }
