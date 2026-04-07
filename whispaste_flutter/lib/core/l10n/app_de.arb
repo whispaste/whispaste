@@ -55,6 +55,8 @@
   "historyMovedToTrash": "In den Papierkorb verschoben",
   "historyUndo": "Rückgängig",
   "historyEntriesMerged": "Einträge zusammengefügt",
+  "historyMergeConfirm": "{count} Einträge zusammenführen?",
+  "historyMergeConfirmMessage": "Die ausgewählten Einträge werden zu einem zusammengefügt. Dies kann nicht rückgängig gemacht werden.",
   "historyExitSelection": "Auswahl beenden",
   "historySelectMultiple": "Mehrere auswählen",
   "historyProcessed": "Verarbeitet",
@@ -146,6 +148,8 @@
   "settingsSizeNormal": "Normal",
   "settingsSizeLarge": "Groß",
   "settingsLanguage": "Sprache",
+  "settingsRecognitionLanguage": "Erkennungssprache",
+  "settingsAppLanguage": "App-Sprache",
   "settingsSttModels": "Spracherkennungs-Modelle",
   "settingsCloudProviders": "Cloud-Anbieter",
   "settingsCloudProvidersSubtitle": "API-Schlüssel für Online-Dienste",
@@ -513,5 +517,6 @@
   "trayStopRecording": "Aufnahme beenden",
   "trayOpenApp": "WhisPaste öffnen",
   "traySettings": "Einstellungen",
-  "trayQuit": "Beenden"
+  "trayQuit": "Beenden",
+  "settingsComingSoon": "Demnächst"
 }

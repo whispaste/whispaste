@@ -179,6 +179,15 @@ class L10nDe extends L10n {
   String get historyEntriesMerged => 'Einträge zusammengefügt';
 
   @override
+  String historyMergeConfirm(int count) {
+    return '$count Einträge zusammenführen?';
+  }
+
+  @override
+  String get historyMergeConfirmMessage =>
+      'Die ausgewählten Einträge werden zu einem zusammengefügt. Dies kann nicht rückgängig gemacht werden.';
+
+  @override
   String get historyExitSelection => 'Auswahl beenden';
 
   @override
@@ -474,6 +483,12 @@ class L10nDe extends L10n {
 
   @override
   String get settingsLanguage => 'Sprache';
+
+  @override
+  String get settingsRecognitionLanguage => 'Erkennungssprache';
+
+  @override
+  String get settingsAppLanguage => 'App-Sprache';
 
   @override
   String get settingsSttModels => 'Spracherkennungs-Modelle';
@@ -1579,4 +1594,7 @@ class L10nDe extends L10n {
 
   @override
   String get trayQuit => 'Beenden';
+
+  @override
+  String get settingsComingSoon => 'Demnächst';
 }

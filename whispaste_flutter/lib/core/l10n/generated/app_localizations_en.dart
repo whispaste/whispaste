@@ -179,6 +179,15 @@ class L10nEn extends L10n {
   String get historyEntriesMerged => 'Entries merged';
 
   @override
+  String historyMergeConfirm(int count) {
+    return 'Merge $count entries?';
+  }
+
+  @override
+  String get historyMergeConfirmMessage =>
+      'The selected entries will be combined into one. This cannot be undone.';
+
+  @override
   String get historyExitSelection => 'Exit selection';
 
   @override
@@ -471,6 +480,12 @@ class L10nEn extends L10n {
 
   @override
   String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsRecognitionLanguage => 'Recognition Language';
+
+  @override
+  String get settingsAppLanguage => 'App Language';
 
   @override
   String get settingsSttModels => 'Speech Recognition Models';
@@ -1560,4 +1575,7 @@ class L10nEn extends L10n {
 
   @override
   String get trayQuit => 'Quit';
+
+  @override
+  String get settingsComingSoon => 'Coming Soon';
 }
