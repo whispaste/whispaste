@@ -34,22 +34,29 @@ class WpRecordingFab extends StatefulWidget {
 class _WpRecordingFabState extends State<WpRecordingFab>
     with TickerProviderStateMixin {
   late final AnimationController _pulseController;
-  late final Animation<double> _scaleAnim;
+  late final Animation<double> _pulseScale;
+  late final Animation<double> _pulseOpacity;
   late final AnimationController _spinController;
   late final AnimationController _breatheController;
   late final Animation<double> _breatheAnim;
+  // Subtle body scale pulse during recording (complements the ring).
+  late final AnimationController _bodyPulseController;
+  late final Animation<double> _bodyPulseScale;
   bool _isHovered = false;
 
   @override
   void initState() {
     super.initState();
-    // Pulse animation for recording state
+    // Pulse ring animation for recording state (expanding ring that fades out)
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1400),
     );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.92).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    _pulseScale = Tween<double>(begin: 1.0, end: 1.8).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeOut),
+    );
+    _pulseOpacity = Tween<double>(begin: 0.5, end: 0.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeOut),
     );
     // Spin animation for transcribing/processing state
     _spinController = AnimationController(
@@ -64,6 +71,14 @@ class _WpRecordingFabState extends State<WpRecordingFab>
     _breatheAnim = Tween<double>(begin: 1.0, end: 1.03).animate(
       CurvedAnimation(parent: _breatheController, curve: Curves.easeInOut),
     );
+    // Body scale pulse during recording
+    _bodyPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
+    _bodyPulseScale = Tween<double>(begin: 1.0, end: 1.04).animate(
+      CurvedAnimation(parent: _bodyPulseController, curve: Curves.easeInOut),
+    );
     _syncAnimations();
   }
 
@@ -74,12 +89,15 @@ class _WpRecordingFabState extends State<WpRecordingFab>
   }
 
   void _syncAnimations() {
-    // Pulse: only during recording
+    // Pulse ring + body pulse: only during recording
     if (widget.phase == RecordingPhase.recording) {
-      _pulseController.repeat(reverse: true);
+      _pulseController.repeat();
+      _bodyPulseController.repeat(reverse: true);
     } else {
       _pulseController.stop();
       _pulseController.reset();
+      _bodyPulseController.stop();
+      _bodyPulseController.reset();
     }
     // Spin: only during transcribing or processing
     if (widget.phase == RecordingPhase.transcribing ||
@@ -103,6 +121,7 @@ class _WpRecordingFabState extends State<WpRecordingFab>
     _pulseController.dispose();
     _spinController.dispose();
     _breatheController.dispose();
+    _bodyPulseController.dispose();
     super.dispose();
   }
 
@@ -137,40 +156,75 @@ class _WpRecordingFabState extends State<WpRecordingFab>
               : SystemMouseCursors.basic,
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
-          child: AnimatedBuilder(
-            animation: Listenable.merge([_scaleAnim, _spinController, _breatheAnim]),
-            builder: (context, child) {
-              final scale = switch (phase) {
-                RecordingPhase.recording => _scaleAnim.value,
-                RecordingPhase.idle when _isHovered => 1.06,
-                RecordingPhase.idle => _breatheAnim.value,
-                _ => 1.0,
-              };
-              return Transform.scale(
-                scale: scale,
-                child: child,
-              );
-            },
-            child: GestureDetector(
-              onTap: isInteractive ? widget.onPressed : null,
-              child: AnimatedContainer(
-                duration: WpMotion.normal,
-                curve: Curves.easeOut,
-                width: WpLayout.fabSize,
-                height: WpLayout.fabSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: gradient,
-                  boxShadow: WpShadows.fab,
+          child: SizedBox(
+            // Extra space for the expanding pulse ring.
+            width: WpLayout.fabSize * 1.8,
+            height: WpLayout.fabSize * 1.8,
+            child: Center(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([
+                  _pulseController,
+                  _spinController,
+                  _breatheAnim,
+                  _bodyPulseController,
+                ]),
+                builder: (context, child) {
+                  final bodyScale = switch (phase) {
+                    RecordingPhase.recording => _bodyPulseScale.value,
+                    RecordingPhase.idle when _isHovered => 1.06,
+                    RecordingPhase.idle => _breatheAnim.value,
+                    _ => 1.0,
+                  };
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Expanding pulse ring (recording only)
+                      if (phase == RecordingPhase.recording)
+                        _buildPulseRing(WpLayout.fabSize, gradient),
+                      // Button body with breathing scale
+                      Transform.scale(
+                        scale: bodyScale,
+                        child: child!,
+                      ),
+                    ],
+                  );
+                },
+                child: GestureDetector(
+                  onTap: isInteractive ? widget.onPressed : null,
+                  child: AnimatedContainer(
+                    duration: WpMotion.normal,
+                    curve: Curves.easeOut,
+                    width: WpLayout.fabSize,
+                    height: WpLayout.fabSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: gradient,
+                      boxShadow: WpShadows.fab,
+                    ),
+                    child: phase == RecordingPhase.transcribing ||
+                            phase == RecordingPhase.processing
+                        ? _buildSpinner(icon)
+                        : Icon(icon, color: Colors.white, size: WpIconSize.lg),
+                  ),
                 ),
-                child: phase == RecordingPhase.transcribing ||
-                        phase == RecordingPhase.processing
-                    ? _buildSpinner(icon)
-                    : Icon(icon, color: Colors.white, size: WpIconSize.lg),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPulseRing(double buttonSize, LinearGradient gradient) {
+    final ringSize = buttonSize * _pulseScale.value;
+    final ringColor =
+        gradient.colors.first.withValues(alpha: _pulseOpacity.value);
+    return Container(
+      width: ringSize,
+      height: ringSize,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: ringColor, width: 2.5),
       ),
     );
   }

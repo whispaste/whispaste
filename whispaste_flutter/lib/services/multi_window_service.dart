@@ -69,7 +69,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
 
   @override
   MultiWindowState build() {
-    // Register the main window's command handler for secondary → main calls.
+    // Register the main window's command handler for secondary -> main calls.
     commandChannel.setMethodCallHandler(_handleCommand);
 
     // Push recording state to secondary windows + auto-show/hide overlay.
@@ -89,18 +89,23 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
       }
     });
 
-    // Auto-show/hide floating button based on settings (debounced).
-    ref.listen<AsyncValue<AppSettings>>(settingsProvider, (_, next) {
+    // React to settings changes: show/hide button AND push appearance updates.
+    ref.listen<AsyncValue<AppSettings>>(settingsProvider, (prev, next) {
       final settings = next.value;
       if (settings == null) return;
 
       _buttonDebounce?.cancel();
       _buttonDebounce = Timer(const Duration(milliseconds: 300), () {
+        // Show/hide based on toggle.
         if (settings.showFloatingButton && !state.buttonVisible) {
           showButton();
         }
         if (!settings.showFloatingButton && state.buttonVisible) {
           hideButton();
+        }
+        // Push appearance changes (size, opacity, lock) to the live window.
+        if (state.buttonVisible && _buttonController != null) {
+          _pushButtonSettings(settings);
         }
       });
     });
@@ -130,18 +135,51 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     return initialState;
   }
 
-  /// Reads the current settings (if already resolved) and shows button/overlay
-  /// that should be visible on startup. Called once at the end of [build].
+  /// Shows the floating button if settings require it.
+  ///
+  /// When settings aren't loaded yet (first frame), schedules a retry.
+  /// This covers both the common path (settings already in memory from
+  /// main.dart bootstrap) and the cold-start path.
   void _applyInitialSettings() {
     final settings = ref.read(settingsProvider).value;
-    if (settings == null) return;
+    if (settings != null) {
+      _applySettingsNow(settings);
+      return;
+    }
+    // Settings not yet loaded — retry after a short delay. The ref.listen
+    // on settingsProvider (above) will handle subsequent changes, but we
+    // need this initial trigger because listen doesn't fire for the first
+    // resolved value when transitioning from loading → data.
+    _log.debug('Settings not yet loaded — deferring initial window setup');
+    Future.delayed(const Duration(milliseconds: 800), () {
+      final s = ref.read(settingsProvider).value;
+      if (s != null && !state.buttonVisible) {
+        _applySettingsNow(s);
+      }
+    });
+  }
 
-    if (settings.showFloatingButton) {
-      // Use a short delay so the first frame renders before window creation.
+  void _applySettingsNow(AppSettings settings) {
+    if (settings.showFloatingButton && !state.buttonVisible) {
       Future.delayed(const Duration(milliseconds: 500), () {
         if (!state.buttonVisible) showButton();
       });
     }
+  }
+
+  /// Pushes appearance settings (size, opacity, locked) to the floating button
+  /// window via method channel so changes take effect in real-time.
+  void _pushButtonSettings(AppSettings settings) {
+    final ctrl = _buttonController;
+    if (ctrl == null) return;
+    final payload = jsonEncode({
+      'size': floatingButtonSizeFromString(settings.floatingButtonSize),
+      'opacity': settings.floatingButtonOpacity,
+      'locked': settings.floatingButtonLocked,
+    });
+    ctrl.invokeMethod('updateButtonSettings', payload).catchError((Object e) {
+      _log.warning('Failed to push button settings', e);
+    });
   }
 
   bool get _isDesktop =>

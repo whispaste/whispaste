@@ -100,10 +100,16 @@ class _FloatingButtonApp extends StatefulWidget {
 
 class _FloatingButtonAppState extends State<_FloatingButtonApp> {
   RecordingState _recordingState = const RecordingState();
+  late int _buttonSize;
+  late double _buttonOpacity;
+  late bool _buttonLocked;
 
   @override
   void initState() {
     super.initState();
+    _buttonSize = widget.buttonSize;
+    _buttonOpacity = widget.buttonOpacity;
+    _buttonLocked = widget.buttonLocked;
     // Listen for state pushes from the main window.
     try {
       widget.controller.setWindowMethodHandler(_onMethodCall);
@@ -119,6 +125,25 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp> {
           setState(() {
             _recordingState = decodeRecordingState(call.arguments as String);
           });
+        }
+      case 'updateButtonSettings':
+        if (call.arguments is String) {
+          try {
+            final data =
+                jsonDecode(call.arguments as String) as Map<String, dynamic>;
+            setState(() {
+              _buttonSize = data['size'] as int? ?? _buttonSize;
+              _buttonOpacity =
+                  (data['opacity'] as num?)?.toDouble() ?? _buttonOpacity;
+              _buttonLocked = data['locked'] as bool? ?? _buttonLocked;
+            });
+            // Resize the window to match the new button size.
+            final windowSize = (_buttonSize * 1.8).ceilToDouble();
+            await windowManager
+                .setSize(Size(windowSize, windowSize));
+          } catch (e) {
+            debugPrint('FloatingButton: failed to parse settings: $e');
+          }
         }
     }
     return null;
@@ -142,7 +167,7 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp> {
 
   /// Initiates a native window drag — the OS handles tracking until release.
   void _startDrag() {
-    if (widget.buttonLocked) return;
+    if (_buttonLocked) return;
     windowManager.startDragging();
   }
 
@@ -168,17 +193,17 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp> {
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
       home: _DraggableButtonScaffold(
-        locked: widget.buttonLocked,
+        locked: _buttonLocked,
         onDragStart: _startDrag,
         onDragEnd: _savePosition,
         child: WpFloatingButton(
-          size: widget.buttonSize.toDouble(),
-          opacity: widget.buttonOpacity,
+          size: _buttonSize.toDouble(),
+          opacity: _buttonOpacity,
           phase: _recordingState.phase,
           onTap: _toggleRecording,
           onLongPress: _showDashboard,
           enableContextMenu: false,
-          locked: widget.buttonLocked,
+          locked: _buttonLocked,
           onNavigate: (page) => _showDashboard(),
           onHide: _hideButton,
           onQuit: _quitApp,
