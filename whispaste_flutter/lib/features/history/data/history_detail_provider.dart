@@ -5,6 +5,8 @@
 /// UI widgets become pure consumers — no direct DB calls.
 library;
 
+import 'dart:math';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -70,8 +72,7 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
   Future<void> updateContent(String newContent) async {
     final current = state.asData?.value;
     if (current == null) return;
-    await _db.upsertEntry(HistoryEntriesCompanion(
-      id: Value(_entryId),
+    await _db.updateEntry(_entryId, HistoryEntriesCompanion(
       content: Value(newContent),
     ));
     state = AsyncValue.data(current.copyWith(
@@ -82,8 +83,7 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
   Future<void> updateTitle(String newTitle) async {
     final current = state.asData?.value;
     if (current == null) return;
-    await _db.upsertEntry(HistoryEntriesCompanion(
-      id: Value(_entryId),
+    await _db.updateEntry(_entryId, HistoryEntriesCompanion(
       title: Value(newTitle),
       titleEdited: const Value(true),
     ));
@@ -99,7 +99,7 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
     if (current == null || content.trim().isEmpty) return;
     final now = DateTime.now();
     await _db.upsertNote(EntryNotesCompanion(
-      id: Value(now.millisecondsSinceEpoch.toString()),
+      id: Value(_uuid()),
       entryId: Value(_entryId),
       content: Value(content.trim()),
       createdAt: Value(now),
@@ -120,9 +120,7 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
   Future<void> updateNote(String noteId, String newContent) async {
     final current = state.asData?.value;
     if (current == null) return;
-    await _db.upsertNote(EntryNotesCompanion(
-      id: Value(noteId),
-      entryId: Value(_entryId),
+    await _db.updateNoteFields(noteId, EntryNotesCompanion(
       content: Value(newContent.trim()),
       updatedAt: Value(DateTime.now()),
     ));
@@ -203,6 +201,16 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
 
   Future<HistoryEntry?> duplicate() async {
     return _db.duplicateEntry(_entryId);
+  }
+
+  static String _uuid() {
+    final r = Random.secure();
+    final bytes = List.generate(16, (_) => r.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    final h = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${h.substring(0, 8)}-${h.substring(8, 12)}-'
+        '${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
   }
 }
 

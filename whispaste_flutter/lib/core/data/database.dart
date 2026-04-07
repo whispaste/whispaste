@@ -301,6 +301,12 @@ class HistoryDatabase extends _$HistoryDatabase {
         .getSingleOrNull();
   }
 
+  /// Partial update of an existing entry (only writes provided fields).
+  Future<int> updateEntry(String entryId, HistoryEntriesCompanion companion) {
+    return (update(historyEntries)..where((e) => e.id.equals(entryId)))
+        .write(companion);
+  }
+
   /// Soft-delete an entry (move to trash).
   Future<int> softDeleteEntry(String entryId) {
     return (update(historyEntries)..where((e) => e.id.equals(entryId)))
@@ -700,6 +706,12 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   Future<void> upsertNote(EntryNotesCompanion note) {
     return into(entryNotes).insertOnConflictUpdate(note);
+  }
+
+  /// Partial update of an existing note (only writes provided fields).
+  Future<int> updateNoteFields(String noteId, EntryNotesCompanion companion) {
+    return (update(entryNotes)..where((n) => n.id.equals(noteId)))
+        .write(companion);
   }
 
   Future<int> deleteNote(String noteId) {

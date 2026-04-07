@@ -400,6 +400,11 @@
   "historyNoteAdded": "Notiz hinzugefügt",
   "historyNoteDeleted": "Notiz gelöscht",
   "historyCopiedAsMarkdown": "Als Markdown kopiert",
+  "historyAddTag": "Tag hinzufügen…",
+  "historyTagAdded": "Tag hinzugefügt",
+  "historyTagRemoved": "Tag entfernt",
+  "historyEditTranscript": "Transkript bearbeiten",
+  "historyTranscriptSaved": "Transkript gespeichert",
 
   "settingsKeyboardShortcut": "Tastenkürzel",
   "settingsKeyboardShortcutSubtitle": "Globaler Hotkey zum Starten und Stoppen der Aufnahme",
