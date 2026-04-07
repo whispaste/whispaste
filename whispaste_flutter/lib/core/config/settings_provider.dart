@@ -523,6 +523,99 @@ class AppSettings {
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppSettings &&
+          runtimeType == other.runtimeType &&
+          themeMode == other.themeMode &&
+          locale == other.locale &&
+          launchAtStartup == other.launchAtStartup &&
+          showNotifications == other.showNotifications &&
+          microphone == other.microphone &&
+          inputGain == other.inputGain &&
+          pushToTalk == other.pushToTalk &&
+          deadMicTimeout == other.deadMicTimeout &&
+          autoStopSilence == other.autoStopSilence &&
+          sttProvider == other.sttProvider &&
+          sttModel == other.sttModel &&
+          sttLanguage == other.sttLanguage &&
+          postProcessEnabled == other.postProcessEnabled &&
+          postProcessPreset == other.postProcessPreset &&
+          postProcessProvider == other.postProcessProvider &&
+          recordStartSound == other.recordStartSound &&
+          recordStopSound == other.recordStopSound &&
+          transcriptionCompleteSound == other.transcriptionCompleteSound &&
+          soundVolume == other.soundVolume &&
+          afterTranscription == other.afterTranscription &&
+          showOverlay == other.showOverlay &&
+          overlayMode == other.overlayMode &&
+          showFloatingButton == other.showFloatingButton &&
+          floatingButtonOpacity == other.floatingButtonOpacity &&
+          floatingButtonSize == other.floatingButtonSize &&
+          openAiApiKey == other.openAiApiKey &&
+          groqApiKey == other.groqApiKey &&
+          deepgramApiKey == other.deepgramApiKey &&
+          anthropicApiKey == other.anthropicApiKey &&
+          geminiApiKey == other.geminiApiKey &&
+          cloudSttProvider == other.cloudSttProvider &&
+          cloudLlmModel == other.cloudLlmModel &&
+          smartModePrompt == other.smartModePrompt &&
+          smartModeTarget == other.smartModeTarget &&
+          maxRecordDuration == other.maxRecordDuration &&
+          closeToTray == other.closeToTray &&
+          errorReporting == other.errorReporting &&
+          gpuAcceleration == other.gpuAcceleration &&
+          autoPasteDelay == other.autoPasteDelay &&
+          trimSilence == other.trimSilence &&
+          useVAD == other.useVAD &&
+          vadSensitivity == other.vadSensitivity &&
+          textReplacementsEnabled == other.textReplacementsEnabled &&
+          checkUpdates == other.checkUpdates &&
+          hotkeyKey == other.hotkeyKey &&
+          hotkeyModifiers == other.hotkeyModifiers &&
+          floatingButtonLocked == other.floatingButtonLocked &&
+          floatingButtonAutoHide == other.floatingButtonAutoHide &&
+          floatingButtonX == other.floatingButtonX &&
+          floatingButtonY == other.floatingButtonY &&
+          windowX == other.windowX &&
+          windowY == other.windowY &&
+          windowWidth == other.windowWidth &&
+          windowHeight == other.windowHeight &&
+          windowMaximized == other.windowMaximized &&
+          onboardingCompleted == other.onboardingCompleted;
+
+  @override
+  int get hashCode => Object.hash(
+        themeMode, locale, launchAtStartup, showNotifications,
+        microphone, inputGain, pushToTalk,
+        deadMicTimeout, autoStopSilence,
+        sttProvider, sttModel, sttLanguage,
+        postProcessEnabled, postProcessPreset, postProcessProvider,
+        recordStartSound, recordStopSound, transcriptionCompleteSound,
+        // Object.hash supports max 20 positional args; nest for rest.
+        Object.hash(
+          soundVolume, afterTranscription,
+          showOverlay, overlayMode, showFloatingButton,
+          floatingButtonOpacity, floatingButtonSize,
+          openAiApiKey, groqApiKey, deepgramApiKey,
+          anthropicApiKey, geminiApiKey,
+          cloudSttProvider, cloudLlmModel,
+          smartModePrompt, smartModeTarget,
+          maxRecordDuration, closeToTray, errorReporting,
+          Object.hash(
+            gpuAcceleration, autoPasteDelay,
+            trimSilence, useVAD, vadSensitivity,
+            textReplacementsEnabled, checkUpdates,
+            hotkeyKey, hotkeyModifiers,
+            floatingButtonLocked, floatingButtonAutoHide,
+            floatingButtonX, floatingButtonY,
+            windowX, windowY, windowWidth, windowHeight,
+            windowMaximized, onboardingCompleted,
+          ),
+        ),
+      );
 }
 
 ThemeMode _themeModeFromString(String name) {
