@@ -2,11 +2,10 @@
 *.ico binary
 *.wav binary
 *.png binary
-*.syso binary
 *.exe binary
 
 # Ensure consistent line endings for source
-*.go text eol=lf
+*.dart text eol=lf
 *.html text eol=lf
 *.yml text eol=lf
 *.json text eol=lf
