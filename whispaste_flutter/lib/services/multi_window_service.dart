@@ -120,16 +120,11 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   Future<void> showOverlay() async {
     if (!_isDesktop || _creatingOverlay) return;
     if (_overlayController != null) {
-      try {
-        await _overlayController!.show();
-        state = state.copyWith(overlayVisible: true);
-        _pushRecordingStateTo(
-            _overlayController!, ref.read(recordingProvider));
-        return;
-      } catch (e) {
-        _log.warning('Overlay show() failed, will recreate', e);
-        _overlayController = null;
-      }
+      // Window already created — just push latest state.
+      _pushRecordingStateTo(
+          _overlayController!, ref.read(recordingProvider));
+      state = state.copyWith(overlayVisible: true);
+      return;
     }
     _creatingOverlay = true;
     try {
@@ -139,8 +134,8 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         _pushRecordingStateTo(
             _overlayController!, ref.read(recordingProvider));
       } else {
-        _log.warning('Floating overlay creation failed — no fallback needed '
-            '(in-window overlay shown by app shell when mode != floating)');
+        _log.warning('Floating overlay creation failed — '
+            'in-window overlay will be used as fallback');
       }
     } finally {
       _creatingOverlay = false;
@@ -148,14 +143,15 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   }
 
   Future<void> hideOverlay() async {
-    if (_overlayController == null) return;
-    try {
-      await _overlayController!.hide();
-    } catch (e) {
-      _log.warning('Overlay hide() failed', e);
-      _overlayController = null;
-    }
+    final ctrl = _overlayController;
+    if (ctrl == null) return;
+    _overlayController = null;
     state = state.copyWith(overlayVisible: false);
+    try {
+      await ctrl.hide();
+    } catch (e) {
+      _log.warning('Overlay hide() failed (may already be closed)', e);
+    }
   }
 
   // -- Floating button window -----------------------------------------------
@@ -163,16 +159,11 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   Future<void> showButton() async {
     if (!_isDesktop || _creatingButton) return;
     if (_buttonController != null) {
-      try {
-        await _buttonController!.show();
-        state = state.copyWith(buttonVisible: true);
-        _pushRecordingStateTo(
-            _buttonController!, ref.read(recordingProvider));
-        return;
-      } catch (e) {
-        _log.warning('Button show() failed, will recreate', e);
-        _buttonController = null;
-      }
+      // Window already created — just push latest state.
+      _pushRecordingStateTo(
+          _buttonController!, ref.read(recordingProvider));
+      state = state.copyWith(buttonVisible: true);
+      return;
     }
     _creatingButton = true;
     try {
@@ -188,14 +179,15 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   }
 
   Future<void> hideButton() async {
-    if (_buttonController == null) return;
-    try {
-      await _buttonController!.hide();
-    } catch (e) {
-      _log.warning('Button hide() failed', e);
-      _buttonController = null;
-    }
+    final ctrl = _buttonController;
+    if (ctrl == null) return;
+    _buttonController = null;
     state = state.copyWith(buttonVisible: false);
+    try {
+      await ctrl.hide();
+    } catch (e) {
+      _log.warning('Button hide() failed (may already be closed)', e);
+    }
   }
 
   // -- Window creation with retry -------------------------------------------
@@ -215,26 +207,35 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         WindowConfiguration(arguments: args, hiddenAtLaunch: true),
       );
 
-      // Retry loop: wait for secondary engine to initialise (up to 2s).
-      const maxAttempts = 5;
+      // Wait for the secondary Flutter engine to initialise.
+      // The screen code handles showing the window via windowManager.show()
+      // AFTER configuring transparency/frameless — so we must NOT call
+      // controller.show() here (that would show before configuration,
+      // causing a white flash).
+      //
+      // Instead, we verify engine readiness by attempting a state push.
+      const maxAttempts = 8;
       for (int attempt = 1; attempt <= maxAttempts; attempt++) {
         await Future<void>.delayed(
-          Duration(milliseconds: 200 * attempt), // 200, 400, 600, 800, 1000ms
+          Duration(milliseconds: 250 * attempt), // 250, 500, 750, …, 2000ms
         );
         try {
-          await controller.show();
+          await controller.invokeMethod(
+            'updateRecordingState',
+            encodeRecordingState(const RecordingState()),
+          );
           _log.info(
               'Created $type window (id: ${controller.windowId}, '
-              'attempt: $attempt)');
+              'ready on attempt: $attempt)');
           return controller;
         } catch (e) {
           if (attempt == maxAttempts) {
             _log.error(
-                'Failed to show $type window after $maxAttempts attempts',
+                'Engine for $type window not ready after $maxAttempts attempts',
                 e);
             return null;
           }
-          _log.debug('$type window not ready (attempt $attempt), retrying…');
+          _log.debug('$type engine not ready (attempt $attempt), retrying…');
         }
       }
       return null;
@@ -267,7 +268,21 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     controller
         .invokeMethod('updateRecordingState', encoded)
         .catchError((Object e) {
-      _log.warning('State sync to $target window failed', e);
+      // If the channel is gone, the window was closed/destroyed.
+      // Null-out the controller so we don't keep spamming a dead window.
+      final msg = e.toString();
+      if (msg.contains('CHANNEL_UNREGISTERED') ||
+          msg.contains('not accessible')) {
+        _log.warning('$target window channel dead — removing controller');
+        if (target == 'overlay' || target == 'secondary') {
+          if (_overlayController == controller) _overlayController = null;
+        }
+        if (target == 'button' || target == 'secondary') {
+          if (_buttonController == controller) _buttonController = null;
+        }
+      } else {
+        _log.warning('State sync to $target window failed', e);
+      }
     });
   }
 
@@ -293,8 +308,12 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   }
 
   void _closeAll() {
+    final overlay = _overlayController;
+    final button = _buttonController;
     _overlayController = null;
     _buttonController = null;
+    overlay?.hide().catchError((_) {});
+    button?.hide().catchError((_) {});
   }
 }
 
