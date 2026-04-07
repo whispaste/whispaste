@@ -66,6 +66,8 @@ class AppMonitoring {
     FlutterError.onError = (details) {
       // Keep default reporting in debug mode.
       FlutterError.presentError(details);
+      _log.error('Flutter error: ${details.exceptionAsString()}',
+          details.exception, details.stack);
       CrashReporter.instance?.captureFlutterError(details);
     };
 

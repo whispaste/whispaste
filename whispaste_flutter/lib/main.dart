@@ -28,31 +28,36 @@ Future<ProviderContainer> bootstrapAppContainer({
 }
 
 Future<void> main(List<String> args) async {
-  WidgetsFlutterBinding.ensureInitialized();
+  // NOTE: WidgetsFlutterBinding.ensureInitialized() is called INSIDE the
+  // bootstrap callback so that the binding and runApp() share the same zone.
+  // Calling it here (root zone) while runApp() runs in the guarded zone
+  // triggers a zone-mismatch assertion in debug mode.
 
-  // Secondary window detection: desktop_multi_window passes the window type
-  // via WindowController.fromCurrentEngine().arguments.
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    try {
-      final controller = await WindowController.fromCurrentEngine();
-      final windowArgs = controller.arguments;
-      if (windowArgs.isNotEmpty) {
-        final parsed = jsonDecode(windowArgs) as Map<String, dynamic>;
-        final type = parsed['type'] as String?;
-        if (type == WindowType.floatingButton) {
-          return runFloatingButtonWindow(controller);
-        }
-        if (type == WindowType.floatingOverlay) {
-          return runFloatingOverlayWindow(controller);
-        }
-      }
-    } catch (_) {
-      // Not a secondary window — continue with main window setup.
-    }
-  }
-
-  // ── Main window path ─────────────────────────────────────────────────────
   await AppMonitoring.bootstrap(appRunner: () async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    // Secondary window detection: desktop_multi_window passes the window type
+    // via WindowController.fromCurrentEngine().arguments.
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      try {
+        final controller = await WindowController.fromCurrentEngine();
+        final windowArgs = controller.arguments;
+        if (windowArgs.isNotEmpty) {
+          final parsed = jsonDecode(windowArgs) as Map<String, dynamic>;
+          final type = parsed['type'] as String?;
+          if (type == WindowType.floatingButton) {
+            return runFloatingButtonWindow(controller);
+          }
+          if (type == WindowType.floatingOverlay) {
+            return runFloatingOverlayWindow(controller);
+          }
+        }
+      } catch (_) {
+        // Not a secondary window — continue with main window setup.
+      }
+    }
+
+    // ── Main window path ───────────────────────────────────────────────────
     // Single-instance guard: if another instance is running, signal it and exit.
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       final isPrimary = await SingleInstanceService.ensureSingleInstance();
