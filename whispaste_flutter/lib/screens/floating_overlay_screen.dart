@@ -71,11 +71,15 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp> {
   @override
   void initState() {
     super.initState();
-    widget.controller.setWindowMethodHandler(_onMethodCall);
+    try {
+      widget.controller.setWindowMethodHandler(_onMethodCall);
+    } catch (e) {
+      debugPrint('FloatingOverlay: failed to register method handler: $e');
+    }
   }
 
   Future<dynamic> _onMethodCall(MethodCall call) async {
-    if (call.method == 'updateRecordingState') {
+    if (call.method == 'updateRecordingState' && call.arguments is String) {
       setState(() {
         _state = decodeRecordingState(call.arguments as String);
       });
