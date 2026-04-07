@@ -409,6 +409,9 @@ class L10nEn extends L10n {
   String get settingsOverlayModeInWindow => 'Show during recording';
 
   @override
+  String get settingsOverlayModeFloating => 'Floating (always on top)';
+
+  @override
   String get settingsOverlayModeOff => 'Off';
 
   @override
