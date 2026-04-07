@@ -518,5 +518,6 @@
   "trayOpenApp": "WhisPaste öffnen",
   "traySettings": "Einstellungen",
   "trayQuit": "Beenden",
-  "settingsComingSoon": "Demnächst"
+  "settingsComingSoon": "Demnächst",
+  "undo": "Rückgängig"
 }
