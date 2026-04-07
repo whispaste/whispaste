@@ -38,6 +38,8 @@ class SettingsPage extends StatelessWidget {
           settingsSectionDivider(context),
           const RecordingSafetySection(),
           settingsSectionDivider(context),
+          const AfterTranscriptionSection(),
+          settingsSectionDivider(context),
 
           // ═══════════════════════════════════════════
           //  TRANSCRIPTION & ENHANCEMENT
