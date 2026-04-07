@@ -143,7 +143,8 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp> {
             opacity: widget.buttonOpacity,
             phase: _recordingState.phase,
             onTap: _toggleRecording,
-            onLongPress: () {}, // handled by onNavigate/onHide/onQuit
+            onLongPress: _showDashboard,
+            enableContextMenu: false,
             onNavigate: (page) => _showDashboard(),
             onHide: _hideButton,
             onQuit: _quitApp,
