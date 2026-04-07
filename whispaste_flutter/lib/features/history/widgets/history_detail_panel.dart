@@ -1,6 +1,5 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -8,14 +7,16 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
+import '../data/history_detail_provider.dart';
 import 'history_helpers.dart';
 import 'history_notes_section.dart';
+import '../../../widgets/tag_input.dart';
 
 // ---------------------------------------------------------------------------
 // Detail panel — opens on entry selection (ChatGPT/Notion detail view)
 // ---------------------------------------------------------------------------
 
-class HistoryDetailPanel extends StatelessWidget {
+class HistoryDetailPanel extends ConsumerStatefulWidget {
   const HistoryDetailPanel({
     super.key,
     required this.entry,
@@ -45,6 +46,67 @@ class HistoryDetailPanel extends StatelessWidget {
   final bool isTrashView;
   final bool isArchiveView;
 
+  @override
+  ConsumerState<HistoryDetailPanel> createState() =>
+      _HistoryDetailPanelState();
+}
+
+class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
+  String _tagSearchQuery = '';
+  bool _isEditingTranscript = false;
+  late TextEditingController _transcriptController;
+
+  @override
+  void initState() {
+    super.initState();
+    _transcriptController = TextEditingController(text: widget.entry.content);
+  }
+
+  @override
+  void didUpdateWidget(covariant HistoryDetailPanel old) {
+    super.didUpdateWidget(old);
+    if (old.entry.id != widget.entry.id) {
+      _transcriptController.text = widget.entry.content;
+      _isEditingTranscript = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _transcriptController.dispose();
+    super.dispose();
+  }
+
+  HistoryEntry get entry => widget.entry;
+  bool get isDark => widget.isDark;
+  VoidCallback get onClose => widget.onClose;
+  VoidCallback get onCopy => widget.onCopy;
+  VoidCallback get onPin => widget.onPin;
+  VoidCallback get onDelete => widget.onDelete;
+  VoidCallback get onArchive => widget.onArchive;
+  VoidCallback get onRestore => widget.onRestore;
+  VoidCallback? get onDuplicate => widget.onDuplicate;
+  VoidCallback? get onCopyMarkdown => widget.onCopyMarkdown;
+  bool get isTrashView => widget.isTrashView;
+  bool get isArchiveView => widget.isArchiveView;
+
+  void _saveTranscript() {
+    final newContent = _transcriptController.text.trim();
+    if (newContent != entry.content) {
+      ref.read(historyDetailProvider(entry.id).notifier).updateContent(newContent);
+    }
+    setState(() => _isEditingTranscript = false);
+  }
+
+  void _toggleEdit() {
+    if (_isEditingTranscript) {
+      _saveTranscript();
+    } else {
+      _transcriptController.text = entry.content;
+      setState(() => _isEditingTranscript = true);
+    }
+  }
+
   String _fullTimestamp(BuildContext context) {
     final locale = Localizations.localeOf(context).toString();
     final fmt = DateFormat.yMMMd(locale).add_Hm();
@@ -59,22 +121,16 @@ class HistoryDetailPanel extends StatelessWidget {
     return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
   }
 
-  List<String> get _tags {
-    try {
-      final decoded = jsonDecode(entry.tags);
-      if (decoded is List) return decoded.cast<String>();
-    } catch (_) {}
-    return [];
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    final detailAsync = ref.watch(historyDetailProvider(entry.id));
+    final tags = detailAsync.asData?.value.tags ?? [];
+
     final textPrimary =
         isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
     final textMuted =
         isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final avatarCol = historyAvatarColor(entry, isDark);
 
     return Container(
@@ -248,15 +304,107 @@ class HistoryDetailPanel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Full text
-                  SelectableText(
-                    entry.content,
-                    style: TextStyle(
-                      fontSize: 15.5,
-                      color: textPrimary,
-                      height: 1.65,
-                    ),
+                  // Transcript — view or edit mode
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _isEditingTranscript
+                            ? TextField(
+                                controller: _transcriptController,
+                                maxLines: null,
+                                autofocus: true,
+                                style: TextStyle(
+                                  fontSize: 15.5,
+                                  color: textPrimary,
+                                  height: 1.65,
+                                ),
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(
+                                    borderRadius: WpRadius.borderSm,
+                                    borderSide: BorderSide(
+                                      color: isDark
+                                          ? WpColorsDark.borderSubtle
+                                          : WpColorsLight.borderSubtle,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: WpRadius.borderSm,
+                                    borderSide: BorderSide(
+                                      color: isDark
+                                          ? WpColorsDark.accent
+                                          : WpColorsLight.accent,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  contentPadding: const EdgeInsets.all(WpSpacing.sm),
+                                ),
+                                onSubmitted: (_) => _saveTranscript(),
+                              )
+                            : SelectableText(
+                                entry.content,
+                                style: TextStyle(
+                                  fontSize: 15.5,
+                                  color: textPrimary,
+                                  height: 1.65,
+                                ),
+                              ),
+                      ),
+                    ],
                   ),
+                  if (!isTrashView) ...[
+                    const SizedBox(height: WpSpacing.xs),
+                    Row(
+                      children: [
+                        if (entry.titleEdited || _isEditingTranscript)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: WpSpacing.xs,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: textMuted.withValues(alpha: 0.1),
+                              borderRadius: WpRadius.borderFull,
+                            ),
+                            child: Text(
+                              _isEditingTranscript ? '●' : l10n.historyEditTranscript,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: textMuted,
+                              ),
+                            ),
+                          ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: _toggleEdit,
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _isEditingTranscript
+                                      ? LucideIcons.check
+                                      : LucideIcons.pencil,
+                                  size: 13,
+                                  color: textMuted,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _isEditingTranscript
+                                      ? l10n.historyTranscriptSaved
+                                      : l10n.historyEditTranscript,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: WpSpacing.xxl),
                   // Metadata section
                   Container(
@@ -305,35 +453,31 @@ class HistoryDetailPanel extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Tags
-                  if (_tags.isNotEmpty) ...[
-                    const SizedBox(height: WpSpacing.md),
-                    Wrap(
-                      spacing: WpSpacing.xs,
-                      runSpacing: WpSpacing.xs,
-                      children: [
-                        for (final tag in _tags)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: WpSpacing.sm,
-                              vertical: WpSpacing.xxs,
-                            ),
-                            decoration: BoxDecoration(
-                              color: accent.withValues(alpha: 0.1),
-                              borderRadius: WpRadius.borderFull,
-                            ),
-                            child: Text(
-                              '#$tag',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: accent.withValues(alpha: 0.8),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
+                  // Tags — interactive editor
+                  const SizedBox(height: WpSpacing.md),
+                  Row(
+                    children: [
+                      Icon(LucideIcons.tags, size: 14, color: textMuted),
+                      const SizedBox(width: WpSpacing.xs),
+                      Text(
+                        l10n.historyTags,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: WpSpacing.xs),
+                  _TagSection(
+                    entryId: entry.id,
+                    tags: tags,
+                    isDark: isDark,
+                    searchQuery: _tagSearchQuery,
+                    onSearchChanged: (q) =>
+                        setState(() => _tagSearchQuery = q),
+                  ),
                   // Notes section
                   const SizedBox(height: WpSpacing.lg),
                   HistoryNotesSection(entryId: entry.id, isDark: isDark),
@@ -506,6 +650,74 @@ class HistoryDetailMetaRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tag section — connects WpTagInput to HistoryDetailNotifier
+// ---------------------------------------------------------------------------
+
+class _TagSection extends ConsumerStatefulWidget {
+  const _TagSection({
+    required this.entryId,
+    required this.tags,
+    required this.isDark,
+    required this.searchQuery,
+    required this.onSearchChanged,
+  });
+
+  final String entryId;
+  final List<Tag> tags;
+  final bool isDark;
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
+
+  @override
+  ConsumerState<_TagSection> createState() => _TagSectionState();
+}
+
+class _TagSectionState extends ConsumerState<_TagSection> {
+  List<Tag> _suggestions = [];
+
+  @override
+  void didUpdateWidget(covariant _TagSection old) {
+    super.didUpdateWidget(old);
+    if (old.searchQuery != widget.searchQuery) {
+      _loadSuggestions();
+    }
+  }
+
+  Future<void> _loadSuggestions() async {
+    final db = ref.read(historyDatabaseProvider);
+    final results = widget.searchQuery.isEmpty
+        ? await db.frequentTags(limit: 8)
+        : await db.searchTags(widget.searchQuery);
+    if (mounted) setState(() => _suggestions = results);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSuggestions();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final notifier = ref.read(historyDetailProvider(widget.entryId).notifier);
+    final l10n = L10n.of(context);
+
+    return WpTagInput(
+      tags: widget.tags,
+      isDark: widget.isDark,
+      hintText: l10n.historyAddTag,
+      suggestions: _suggestions,
+      onSearchChanged: (q) {
+        widget.onSearchChanged(q);
+        _loadSuggestions();
+      },
+      onAdd: (name) => notifier.addTag(name),
+      onRemove: (tagId) => notifier.removeTag(tagId),
     );
   }
 }
