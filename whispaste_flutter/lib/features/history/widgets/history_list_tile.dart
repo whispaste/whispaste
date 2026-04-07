@@ -1,0 +1,289 @@
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/theme/tokens.dart';
+import '../data/database.dart';
+import 'history_helpers.dart';
+import 'history_row_action.dart';
+
+// ---------------------------------------------------------------------------
+// History entry row — WhatsApp/ChatGPT/Discord-inspired
+// ---------------------------------------------------------------------------
+
+class HistoryEntryRow extends StatefulWidget {
+  const HistoryEntryRow({
+    super.key,
+    required this.entry,
+    required this.isDark,
+    required this.isSelected,
+    required this.onTap,
+    required this.onCopy,
+    required this.onPin,
+    required this.onDelete,
+    this.multiSelectMode = false,
+    this.isChecked = false,
+    this.isTrashView = false,
+  });
+
+  final HistoryEntry entry;
+  final bool isDark;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback onCopy;
+  final VoidCallback onPin;
+  final VoidCallback onDelete;
+  final bool multiSelectMode;
+  final bool isChecked;
+  final bool isTrashView;
+
+  @override
+  State<HistoryEntryRow> createState() => _HistoryEntryRowState();
+}
+
+class _HistoryEntryRowState extends State<HistoryEntryRow> {
+  bool _isHovered = false;
+
+  String get _timeLabel {
+    final t = widget.entry.timestamp;
+    return '${t.hour.toString().padLeft(2, '0')}:'
+        '${t.minute.toString().padLeft(2, '0')}';
+  }
+
+  String get _durationLabel {
+    final secs = widget.entry.durationSec.round();
+    if (secs < 60) return '${secs}s';
+    final mins = secs ~/ 60;
+    final rem = secs % 60;
+    return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final l10n = L10n.of(context);
+    final avatarCol = historyAvatarColor(widget.entry, isDark);
+
+    // Row background
+    final Color bg;
+    if (widget.isSelected) {
+      bg = isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
+    } else if (_isHovered) {
+      bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
+    } else {
+      bg = isDark ? WpColorsDark.hoverTransparent : WpColorsLight.hoverTransparent;
+    }
+
+    final textPrimary =
+        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final textSecondary =
+        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+    final textMuted =
+        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+          curve: WpMotion.defaultCurve,
+          margin: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.xs,
+            vertical: 1,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.md,
+          ),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: WpRadius.borderMd,
+            // Left accent stripe for selected entry (Discord-style)
+            border: widget.isSelected
+                ? Border(
+                    left: BorderSide(color: accent, width: 3),
+                  )
+                : null,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Multi-select checkbox
+              if (widget.multiSelectMode)
+                Padding(
+                  padding: const EdgeInsets.only(right: WpSpacing.xs, top: 10),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Checkbox(
+                      value: widget.isChecked,
+                      onChanged: (_) => widget.onTap(),
+                      activeColor: accent,
+                      side: BorderSide(
+                        color: isDark
+                            ? WpColorsDark.textMuted
+                            : WpColorsLight.textMuted,
+                      ),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+              // Avatar — colored circle with content-type icon
+              HistoryEntryAvatar(
+                color: avatarCol,
+                icon: historyAvatarIcon(widget.entry),
+                isPinned: widget.entry.pinned,
+                isDark: isDark,
+                size: 42,
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Row 1: Title + time/actions (fixed height — no jiggle)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.entry.title.isNotEmpty
+                                ? widget.entry.title
+                                : l10n.historyUntitledRecording,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w600,
+                              color: textPrimary,
+                            ),
+                          ),
+                        ),
+                        // Fixed-height container: cross-fade time ↔ actions
+                        SizedBox(
+                          height: 28,
+                          child: Stack(
+                            alignment: Alignment.centerRight,
+                            children: [
+                              // Time label (fades out on hover)
+                              AnimatedOpacity(
+                                duration: _isHovered
+                                    ? WpMotion.fast
+                                    : WpMotion.hoverOut,
+                                opacity: _isHovered ? 0.0 : 1.0,
+                                child: Text(
+                                  _timeLabel,
+                                  style: TextStyle(
+                                      fontSize: 11, color: textMuted),
+                                ),
+                              ),
+                              // Action buttons (fade in on hover)
+                              IgnorePointer(
+                                ignoring: !_isHovered,
+                                child: AnimatedOpacity(
+                                  duration: _isHovered
+                                      ? WpMotion.fast
+                                      : WpMotion.hoverOut,
+                                  opacity: _isHovered ? 1.0 : 0.0,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      HistoryRowAction(
+                                        icon: LucideIcons.copy,
+                                        tooltip: l10n.historyCopyText,
+                                        isDark: isDark,
+                                        onTap: widget.onCopy,
+                                      ),
+                                      HistoryRowAction(
+                                        icon: widget.entry.pinned
+                                            ? LucideIcons.pinOff
+                                            : LucideIcons.pin,
+                                        tooltip: widget.entry.pinned
+                                            ? l10n.historyUnpin
+                                            : l10n.historyPinToTop,
+                                        isDark: isDark,
+                                        onTap: widget.onPin,
+                                      ),
+                                      HistoryRowAction(
+                                        icon: LucideIcons.trash2,
+                                        tooltip: l10n.actionDelete,
+                                        isDark: isDark,
+                                        onTap: widget.onDelete,
+                                        isDestructive: true,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    // Row 2: Content preview — two lines for more context
+                    Text(
+                      widget.entry.content,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Row 3: Subtle inline metadata (duration + language)
+                    Row(
+                      children: [
+                        Icon(LucideIcons.clock, size: 10, color: textMuted),
+                        const SizedBox(width: 3),
+                        Text(
+                          _durationLabel,
+                          style: TextStyle(fontSize: 10, color: textMuted),
+                        ),
+                        if (widget.entry.language.isNotEmpty) ...[
+                          const SizedBox(width: WpSpacing.xs),
+                          Text(
+                            '·',
+                            style: TextStyle(
+                                fontSize: 10, color: textMuted),
+                          ),
+                          const SizedBox(width: WpSpacing.xs),
+                          Text(
+                            widget.entry.language.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: textMuted,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                        if (!widget.entry.isLocal) ...[
+                          const SizedBox(width: WpSpacing.xs),
+                          Text(
+                            '·',
+                            style: TextStyle(
+                                fontSize: 10, color: textMuted),
+                          ),
+                          const SizedBox(width: WpSpacing.xs),
+                          Icon(LucideIcons.cloud, size: 10, color: textMuted),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
