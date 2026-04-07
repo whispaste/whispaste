@@ -428,10 +428,11 @@ class L10nDe extends L10n {
   String get settingsShowOverlay => 'Aufnahme-Overlay';
 
   @override
-  String get settingsOverlayModeInWindow => 'Während der Aufnahme anzeigen';
+  String get settingsOverlayModeInWindow => 'Im Hauptfenster';
 
   @override
-  String get settingsOverlayModeFloating => 'Schwebend (immer im Vordergrund)';
+  String get settingsOverlayModeFloating =>
+      'Schwebendes Fenster (immer sichtbar)';
 
   @override
   String get settingsOverlayModeOff => 'Aus';
