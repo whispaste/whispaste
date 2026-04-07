@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
+import '../core/recording/recording_state.dart' show SttServerState;
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
-import '../services/stt_service.dart';
 
 /// Bottom status bar — sits on the app frame, full width.
 ///

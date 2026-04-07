@@ -2778,6 +2778,60 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Cloud'**
   String get overlayProcessingCloud;
+
+  /// No description provided for @floatingButtonHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get floatingButtonHide;
+
+  /// No description provided for @floatingButtonQuit.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit'**
+  String get floatingButtonQuit;
+
+  /// No description provided for @trayStatusRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording…'**
+  String get trayStatusRecording;
+
+  /// No description provided for @trayStatusReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get trayStatusReady;
+
+  /// No description provided for @trayStartRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Recording'**
+  String get trayStartRecording;
+
+  /// No description provided for @trayStopRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop Recording'**
+  String get trayStopRecording;
+
+  /// No description provided for @trayOpenApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Open WhisPaste'**
+  String get trayOpenApp;
+
+  /// No description provided for @traySettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get traySettings;
+
+  /// No description provided for @trayQuit.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit'**
+  String get trayQuit;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
