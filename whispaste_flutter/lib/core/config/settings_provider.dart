@@ -68,6 +68,14 @@ class AppSettings {
     this.errorReporting = true,
     this.gpuAcceleration = 'auto',
     this.autoPasteDelay = 200,
+    // Audio Processing
+    this.trimSilence = false,
+    this.useVAD = false,
+    this.vadSensitivity = 0.5,
+    // Text Replacements
+    this.textReplacementsEnabled = false,
+    // Updates
+    this.checkUpdates = true,
     // Hotkey
     this.hotkeyKey = 'D',
     this.hotkeyModifiers = 'ctrl+shift',
@@ -151,6 +159,17 @@ class AppSettings {
   final bool errorReporting;
   final String gpuAcceleration;
   final int autoPasteDelay;
+
+  // Audio Processing
+  final bool trimSilence;
+  final bool useVAD;
+  final double vadSensitivity;
+
+  // Text Replacements
+  final bool textReplacementsEnabled;
+
+  // Updates
+  final bool checkUpdates;
 
   // Hotkey
   final String hotkeyKey;
@@ -256,6 +275,17 @@ class AppSettings {
           values['gpu_acceleration'] ?? defaults.gpuAcceleration,
       autoPasteDelay:
           _readInt(values, 'auto_paste_delay', defaults.autoPasteDelay),
+      trimSilence: _readBool(values, 'trim_silence', defaults.trimSilence),
+      useVAD: _readBool(values, 'use_vad', defaults.useVAD),
+      vadSensitivity:
+          _readDouble(values, 'vad_sensitivity', defaults.vadSensitivity),
+      textReplacementsEnabled: _readBool(
+        values,
+        'text_replacements_enabled',
+        defaults.textReplacementsEnabled,
+      ),
+      checkUpdates:
+          _readBool(values, 'check_updates', defaults.checkUpdates),
       hotkeyKey: values['hotkey_key'] ?? defaults.hotkeyKey,
       hotkeyModifiers:
           values['hotkey_modifiers'] ?? defaults.hotkeyModifiers,
@@ -352,6 +382,11 @@ class AppSettings {
       'error_reporting': '$errorReporting',
       'gpu_acceleration': gpuAcceleration,
       'auto_paste_delay': '$autoPasteDelay',
+      'trim_silence': '$trimSilence',
+      'use_vad': '$useVAD',
+      'vad_sensitivity': '$vadSensitivity',
+      'text_replacements_enabled': '$textReplacementsEnabled',
+      'check_updates': '$checkUpdates',
       'hotkey_key': hotkeyKey,
       'hotkey_modifiers': hotkeyModifiers,
       'floating_button_locked': '$floatingButtonLocked',
@@ -407,6 +442,11 @@ class AppSettings {
     bool? errorReporting,
     String? gpuAcceleration,
     int? autoPasteDelay,
+    bool? trimSilence,
+    bool? useVAD,
+    double? vadSensitivity,
+    bool? textReplacementsEnabled,
+    bool? checkUpdates,
     String? hotkeyKey,
     String? hotkeyModifiers,
     bool? floatingButtonLocked,
@@ -462,6 +502,12 @@ class AppSettings {
       errorReporting: errorReporting ?? this.errorReporting,
       gpuAcceleration: gpuAcceleration ?? this.gpuAcceleration,
       autoPasteDelay: autoPasteDelay ?? this.autoPasteDelay,
+      trimSilence: trimSilence ?? this.trimSilence,
+      useVAD: useVAD ?? this.useVAD,
+      vadSensitivity: vadSensitivity ?? this.vadSensitivity,
+      textReplacementsEnabled:
+          textReplacementsEnabled ?? this.textReplacementsEnabled,
+      checkUpdates: checkUpdates ?? this.checkUpdates,
       hotkeyKey: hotkeyKey ?? this.hotkeyKey,
       hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
       floatingButtonLocked: floatingButtonLocked ?? this.floatingButtonLocked,
