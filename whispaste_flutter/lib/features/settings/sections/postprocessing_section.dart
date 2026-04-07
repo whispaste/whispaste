@@ -25,7 +25,7 @@ class PostProcessingSection extends ConsumerWidget {
       opacity: 0.5,
       child: AbsorbPointer(
         child: WpSection(
-          title: '${l10n.settingsPostProcessing} — Coming Soon',
+          title: '${l10n.settingsPostProcessing} — ${l10n.settingsComingSoon}',
           subtitle: l10n.settingsTextEnhancementSubtitle,
           padding: EdgeInsets.zero,
           child: Column(

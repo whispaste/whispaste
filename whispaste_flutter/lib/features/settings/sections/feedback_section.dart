@@ -129,32 +129,52 @@ class SoundFeedbackSection extends ConsumerWidget {
                   .updateSettings((s) => s.copyWith(soundVolume: v)),
             ),
           ),
-          SettingRow(
-            icon: LucideIcons.clipboardCheck,
-            label: l10n.settingsAfterTranscription,
-            subtitle: l10n.settingsAfterTranscriptionSubtitle,
-            trailing: settingsDropdown(
-              context: context,
-              value: settings.afterTranscription,
-              items: AfterTranscriptionAction.values
-                  .map((e) => e.value)
-                  .toList(),
-              labels: [
-                l10n.settingsAfterTranscriptionClipboard,
-                l10n.settingsAfterTranscriptionPaste,
-                l10n.settingsAfterTranscriptionBoth,
-                l10n.settingsAfterTranscriptionNothing,
-              ],
-              onChanged: (v) {
-                if (v == null) return;
-                ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                        (s) => s.copyWith(afterTranscription: v));
-              },
-            ),
-          ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// After Transcription section
+// ---------------------------------------------------------------------------
+
+class AfterTranscriptionSection extends ConsumerWidget {
+  const AfterTranscriptionSection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+
+    return WpSection(
+      title: l10n.settingsAfterTranscription,
+      subtitle: l10n.settingsAfterTranscriptionSubtitle,
+      padding: EdgeInsets.zero,
+      child: SettingRow(
+        icon: LucideIcons.clipboardCheck,
+        label: l10n.settingsAfterTranscription,
+        subtitle: l10n.settingsAfterTranscriptionSubtitle,
+        trailing: settingsDropdown(
+          context: context,
+          value: settings.afterTranscription,
+          items: AfterTranscriptionAction.values
+              .map((e) => e.value)
+              .toList(),
+          labels: [
+            l10n.settingsAfterTranscriptionClipboard,
+            l10n.settingsAfterTranscriptionPaste,
+            l10n.settingsAfterTranscriptionBoth,
+            l10n.settingsAfterTranscriptionNothing,
+          ],
+          onChanged: (v) {
+            if (v == null) return;
+            ref
+                .read(settingsProvider.notifier)
+                .updateSettings(
+                    (s) => s.copyWith(afterTranscription: v));
+          },
+        ),
       ),
     );
   }

@@ -143,7 +143,7 @@ class SpeechRecognitionSection extends ConsumerWidget {
           _QualityStatusRow(modelId: settings.sttModel),
           SettingRow(
             icon: LucideIcons.languages,
-            label: l10n.settingsLanguage,
+            label: l10n.settingsRecognitionLanguage,
             trailing: settingsDropdown(
               context: context,
               value: settings.sttLanguage,
