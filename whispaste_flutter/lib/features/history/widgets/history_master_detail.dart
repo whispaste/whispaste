@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
-import '../data/database.dart';
+import 'package:whispaste/core/data/database.dart';
 import '../data/providers.dart';
 import 'history_card_view.dart';
 import 'history_compact_view.dart';

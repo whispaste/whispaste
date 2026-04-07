@@ -6,7 +6,7 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../history/data/database.dart';
+import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
 // Data model
