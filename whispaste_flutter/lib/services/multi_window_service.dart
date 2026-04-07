@@ -124,8 +124,9 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     );
 
     // If no windows survived, apply initial settings to show them.
+    // Scheduled as microtask because `state` is not set until build() returns.
     if (!initialState.buttonVisible && !initialState.overlayVisible) {
-      _applyInitialSettings();
+      Future.microtask(_applyInitialSettings);
     } else {
       _log.info('Reconnected to surviving secondary windows '
           '(button=${initialState.buttonVisible}, '
