@@ -293,6 +293,27 @@ class L10nDe extends L10n {
       'Automatisch stoppen nach dieser Anzahl Sekunden Stille (nach Sprache). 0 = deaktiviert.';
 
   @override
+  String get settingsTrimSilence => 'Stille trimmen';
+
+  @override
+  String get settingsTrimSilenceSubtitle =>
+      'Stille am Anfang und Ende der Aufnahme automatisch entfernen';
+
+  @override
+  String get settingsVoiceActivityDetection => 'Sprachaktivitätserkennung';
+
+  @override
+  String get settingsVoiceActivityDetectionSubtitle =>
+      'Nur Audioabschnitte mit erkannter Sprache verarbeiten';
+
+  @override
+  String get settingsVadSensitivity => 'VAD-Empfindlichkeit';
+
+  @override
+  String get settingsVadSensitivitySubtitle =>
+      'Empfindlichkeit der Spracherkennung (niedriger = empfindlicher)';
+
+  @override
   String get settingsPostProcessing => 'Nachbearbeitung';
 
   @override
@@ -1256,6 +1277,23 @@ class L10nDe extends L10n {
   @override
   String get settingsAutoPasteDelaySubtitle =>
       'Wartezeit vor dem Einfügen in das aktive Fenster';
+
+  @override
+  String get settingsTextReplacements => 'Textersetzungen';
+
+  @override
+  String get settingsTextReplacementsSubtitle =>
+      'Bestimmte Wörter oder Phrasen nach der Transkription automatisch ersetzen';
+
+  @override
+  String get settingsTextReplacementsEnabled => 'Textersetzungen aktivieren';
+
+  @override
+  String get settingsCheckUpdates => 'Auf Updates prüfen';
+
+  @override
+  String get settingsCheckUpdatesSubtitle =>
+      'Beim Start automatisch nach neuen Versionen suchen';
 
   @override
   String get settingsFloatingButtonAdvanced =>
