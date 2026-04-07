@@ -10,97 +10,6 @@ permissions:
   contents: read
 
 jobs:
-  go-backend:
-    name: Go Backend
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Setup MinGW
-        run: |
-          if (Test-Path "C:\mingw64\bin\gcc.exe") {
-            echo "C:\mingw64\bin" | Out-File -Append $env:GITHUB_PATH
-            Write-Host "Using pre-installed MinGW"
-          } else {
-            choco install mingw -y --no-progress
-            echo "C:\ProgramData\mingw64\mingw64\bin" | Out-File -Append $env:GITHUB_PATH
-          }
-
-      - name: Download dependencies
-        env:
-          CGO_ENABLED: "1"
-        run: go mod download
-
-      - name: Generate Windows resources
-        run: |
-          go install github.com/tc-hib/go-winres@latest
-          go-winres make
-
-      - name: Vet
-        env:
-          CGO_ENABLED: "1"
-        run: go vet ./...
-
-      - name: Go vulnerability check
-        env:
-          CGO_ENABLED: "1"
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
-
-      - name: Test
-        env:
-          CGO_ENABLED: "1"
-        run: go test -count=1 ./...
-
-      - name: Build
-        env:
-          CGO_ENABLED: "1"
-        run: go build -ldflags="-s -w -H windowsgui" -o whispaste.exe .
-
-      - name: Check binary exists
-        run: |
-          if (!(Test-Path whispaste.exe)) { throw "Build failed: whispaste.exe not found" }
-          $size = (Get-Item whispaste.exe).Length / 1MB
-          Write-Host "Binary size: $([math]::Round($size, 2)) MB"
-
-      - name: Secret scan
-        shell: bash
-        run: |
-          echo "Scanning for potential secrets..."
-          if grep -rn --include='*.go' --include='*.html' --include='*.json' --include='*.md' \
-            -E '(sk-[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|password\s*=\s*"[^"]+")' \
-            --exclude-dir=.git . ; then
-            echo "::error::Potential secrets detected in source files!"
-            exit 1
-          fi
-          echo "No secrets found ✓"
-
-      - name: Audit website dependencies
-        working-directory: website
-        run: |
-          npm ci --ignore-scripts
-          npm audit --audit-level=high
-        continue-on-error: false
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: whispaste-exe
-          path: whispaste.exe
-          retention-days: 14
-
   flutter-app:
     name: Flutter App
     runs-on: windows-latest
@@ -138,14 +47,34 @@ jobs:
           $size = (Get-Item $exe).Length / 1MB
           Write-Host "Flutter app size: $([math]::Round($size, 2)) MB"
 
-      - name: Secret scan (Dart/Flutter)
+      - name: Secret scan
         shell: bash
         run: |
-          echo "Scanning Flutter project for secrets..."
-          if grep -rn --include='*.dart' --include='*.yaml' --include='*.json' \
+          echo "Scanning for potential secrets..."
+          if grep -rn --include='*.dart' --include='*.yaml' --include='*.json' --include='*.md' \
             -E '(sk-[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|password\s*=\s*"[^"]+")' \
-            --exclude-dir=.git --exclude-dir=build . ; then
-            echo "::error::Potential secrets detected in Flutter source!"
+            --exclude-dir=.git --exclude-dir=build --exclude-dir=node_modules . ; then
+            echo "::error::Potential secrets detected in source files!"
             exit 1
           fi
           echo "No secrets found ✓"
+
+  website:
+    name: Website Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Audit dependencies
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=high
+        continue-on-error: false
