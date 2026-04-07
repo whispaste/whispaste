@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/config/settings_enums.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
@@ -557,12 +558,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: l10n.settingsService,
                   trailing: _dropdown(
                     value: settings.sttProvider,
-                    items: const [
-                      'On Device (Private)',
-                      'OpenAI',
-                      'Groq',
-                      'Deepgram',
-                    ],
+                    items: SttProviderType.values
+                        .map((e) => e.value)
+                        .toList(),
                     labels: [
                       l10n.settingsServiceOnDevicePrivate,
                       'OpenAI',
@@ -575,7 +573,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                 ),
                 // Privacy hint for on-device mode
-                if (settings.sttProvider == 'On Device (Private)')
+                if (settings.sttProviderType.isLocal)
                   Padding(
                     padding: const EdgeInsets.only(
                       left: 52,
@@ -772,7 +770,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: l10n.settingsStyle,
                   trailing: _dropdown(
                     value: settings.postProcessPreset,
-                    items: const ['Clean up', 'Concise', 'Translate'],
+                    items: PostProcessPreset.values
+                        .map((e) => e.displayValue)
+                        .toList(),
                     labels: [l10n.settingsPresetCleanup, l10n.settingsPresetConcise, l10n.settingsPresetTranslate],
                     onChanged: (v) => ref
                         .read(settingsProvider.notifier)
@@ -784,13 +784,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: l10n.settingsService,
                   trailing: _dropdown(
                     value: settings.postProcessProvider,
-                    items: const [
-                      'Local',
-                      'OpenAI',
-                      'Anthropic',
-                      'Groq',
-                      'Gemini',
-                    ],
+                    items: PostProcessProviderType.values
+                        .map((e) => e.value)
+                        .toList(),
                     labels: [
                       l10n.statusLocal,
                       'OpenAI',
@@ -1016,7 +1012,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   subtitle: l10n.settingsAfterTranscriptionSubtitle,
                   trailing: _dropdown(
                     value: settings.afterTranscription,
-                    items: const ['clipboard', 'paste', 'clipboard_and_paste', 'nothing'],
+                    items: AfterTranscriptionAction.values
+                        .map((e) => e.value)
+                        .toList(),
                     labels: [
                       l10n.settingsAfterTranscriptionClipboard,
                       l10n.settingsAfterTranscriptionPaste,
@@ -1049,7 +1047,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   label: l10n.settingsShowOverlay,
                   trailing: _dropdown(
                     value: settings.overlayMode,
-                    items: const ['in-window', 'floating', 'off'],
+                    items: OverlayMode.values
+                        .map((e) => e.value)
+                        .toList(),
                     labels: [
                       l10n.settingsOverlayModeInWindow,
                       l10n.settingsOverlayModeFloating,
@@ -1060,7 +1060,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       ref.read(settingsProvider.notifier).updateSettings(
                         (s) => s.copyWith(
                           overlayMode: v,
-                          showOverlay: v != 'off',
+                          showOverlay:
+                              OverlayMode.fromValue(v) != OverlayMode.off,
                         ),
                       );
                     },
@@ -1334,14 +1335,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                 ),
                 // Cloud STT provider (only when not using local)
-                if (settings.sttProvider != 'On Device (Private)')
+                if (!settings.sttProviderType.isLocal)
                   _SettingRow(
                     icon: LucideIcons.audioLines,
                     label: l10n.settingsDefaultSttProvider,
                     subtitle: l10n.settingsDefaultSttProviderSubtitle,
                     trailing: _dropdown(
                       value: settings.cloudSttProvider,
-                      items: const ['openai', 'groq', 'deepgram'],
+                      items: CloudSttProvider.values
+                          .map((e) => e.value)
+                          .toList(),
                       labels: const ['OpenAI', 'Groq', 'Deepgram'],
                       onChanged: (v) => ref
                           .read(settingsProvider.notifier)
@@ -1350,7 +1353,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     ),
                   ),
                 // Cloud LLM model (only when not using local post-processing)
-                if (settings.postProcessProvider != 'Local')
+                if (!settings.postProcessProviderType.isLocal)
                   _SettingRow(
                     icon: LucideIcons.brain,
                     label: l10n.settingsLlmModel,
@@ -1405,8 +1408,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             (s) => s.copyWith(errorReporting: v)),
                   ),
                 ),
-                if (settings.afterTranscription == 'paste' ||
-                    settings.afterTranscription == 'clipboard_and_paste')
+                if (settings.afterTranscriptionAction ==
+                        AfterTranscriptionAction.paste ||
+                    settings.afterTranscriptionAction ==
+                        AfterTranscriptionAction.clipboardAndPaste)
                   _SettingRow(
                     icon: LucideIcons.timer,
                     label: l10n.settingsAutoPasteDelay,
