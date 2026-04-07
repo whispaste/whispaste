@@ -9,6 +9,7 @@ import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../data/providers.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import 'voice_note_button.dart';
 
 // ---------------------------------------------------------------------------
 // Inline notes section (progressive disclosure)
@@ -20,12 +21,17 @@ class HistoryNotesSection extends ConsumerStatefulWidget {
   final bool isDark;
 
   @override
-  ConsumerState<HistoryNotesSection> createState() => _HistoryNotesSectionState();
+  ConsumerState<HistoryNotesSection> createState() => HistoryNotesSectionState();
 }
 
-class _HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
+class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   final _controller = TextEditingController();
   bool _isAdding = false;
+
+  /// Called by keyboard shortcut (N) to start adding a new note.
+  void startAddingNote() {
+    setState(() => _isAdding = true);
+  }
 
   @override
   void dispose() {
@@ -126,6 +132,11 @@ class _HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                   ),
                 ),
                 const Spacer(),
+                VoiceNoteButton(
+                  entryId: widget.entryId,
+                  isDark: widget.isDark,
+                ),
+                const SizedBox(width: WpSpacing.xxs),
                 if (!_isAdding)
                   GestureDetector(
                     onTap: () => setState(() => _isAdding = true),

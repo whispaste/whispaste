@@ -1594,4 +1594,44 @@ class L10nEn extends L10n {
 
   @override
   String get undo => 'Undo';
+
+  @override
+  String get voiceNoteButton => 'Voice note';
+
+  @override
+  String get voiceNoteRecording => 'Recording voice note…';
+
+  @override
+  String get voiceNoteTranscribing => 'Transcribing…';
+
+  @override
+  String get voiceNoteAdded => 'Voice note added';
+
+  @override
+  String voiceTagAdded(String tag) {
+    return 'Tag \"$tag\" added by voice';
+  }
+
+  @override
+  String get voiceCorrectionApplied => 'Transcript corrected by voice';
+
+  @override
+  String get voiceNoteEmpty => 'No speech detected';
+
+  @override
+  String get voiceNoteError => 'Voice note failed';
+
+  @override
+  String get commandPaletteHint => 'Type a command…';
+
+  @override
+  String get commandPaletteNoResults => 'No matching commands';
+
+  @override
+  String get commandPaletteExportText => 'Export as text file';
+
+  @override
+  String commandPaletteExported(String path) {
+    return 'Exported to $path';
+  }
 }

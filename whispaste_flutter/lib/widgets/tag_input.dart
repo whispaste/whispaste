@@ -22,6 +22,7 @@ class WpTagInput extends StatefulWidget {
     this.suggestions = const [],
     this.onSearchChanged,
     this.hintText = 'Add tag…',
+    this.focusNode,
   });
 
   final List<Tag> tags;
@@ -31,6 +32,7 @@ class WpTagInput extends StatefulWidget {
   final List<Tag> suggestions;
   final ValueChanged<String>? onSearchChanged;
   final String hintText;
+  final FocusNode? focusNode;
 
   @override
   State<WpTagInput> createState() => _WpTagInputState();
@@ -38,12 +40,13 @@ class WpTagInput extends StatefulWidget {
 
 class _WpTagInputState extends State<WpTagInput> {
   final _controller = TextEditingController();
-  final _focusNode = FocusNode();
+  late final FocusNode _focusNode;
   bool _showSuggestions = false;
 
   @override
   void initState() {
     super.initState();
+    _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(_onFocusChange);
   }
 
@@ -51,7 +54,7 @@ class _WpTagInputState extends State<WpTagInput> {
   void dispose() {
     _controller.dispose();
     _focusNode.removeListener(_onFocusChange);
-    _focusNode.dispose();
+    if (widget.focusNode == null) _focusNode.dispose();
     super.dispose();
   }
 

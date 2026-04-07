@@ -25,6 +25,7 @@ class HistoryEntryList extends StatelessWidget {
     required this.multiSelectMode,
     required this.selectedIds,
     required this.isTrashView,
+    this.focusedId,
   });
 
   final List<DateGroup> groups;
@@ -37,6 +38,7 @@ class HistoryEntryList extends StatelessWidget {
   final bool multiSelectMode;
   final Set<String> selectedIds;
   final bool isTrashView;
+  final String? focusedId;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +55,7 @@ class HistoryEntryList extends StatelessWidget {
             isSelected: multiSelectMode
                 ? selectedIds.contains(entry.id)
                 : entry.id == selectedId,
+            isFocused: !multiSelectMode && entry.id == focusedId,
             onTap: () => onEntryTap(entry),
             onCopy: () => onCopy(entry),
             onPin: () => onPin(entry),

@@ -523,5 +523,24 @@
   "traySettings": "Einstellungen",
   "trayQuit": "Beenden",
   "settingsComingSoon": "Demnächst",
-  "undo": "Rückgängig"
+  "undo": "Rückgängig",
+
+  "voiceNoteButton": "Sprachnotiz",
+  "voiceNoteRecording": "Sprachnotiz wird aufgenommen…",
+  "voiceNoteTranscribing": "Wird transkribiert…",
+  "voiceNoteAdded": "Sprachnotiz hinzugefügt",
+  "voiceTagAdded": "Tag \u201E{tag}\u201C per Sprache hinzugefügt",
+  "voiceCorrectionApplied": "Transkript per Sprache korrigiert",
+  "voiceNoteEmpty": "Keine Sprache erkannt",
+  "voiceNoteError": "Sprachnotiz fehlgeschlagen",
+
+  "commandPaletteHint": "Befehl eingeben…",
+  "commandPaletteNoResults": "Keine passenden Befehle",
+  "commandPaletteExportText": "Als Textdatei exportieren",
+  "commandPaletteExported": "Exportiert nach {path}",
+  "@commandPaletteExported": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  }
 }

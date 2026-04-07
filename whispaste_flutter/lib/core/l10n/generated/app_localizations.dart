@@ -3066,6 +3066,78 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Undo'**
   String get undo;
+
+  /// No description provided for @voiceNoteButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice note'**
+  String get voiceNoteButton;
+
+  /// No description provided for @voiceNoteRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording voice note…'**
+  String get voiceNoteRecording;
+
+  /// No description provided for @voiceNoteTranscribing.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcribing…'**
+  String get voiceNoteTranscribing;
+
+  /// No description provided for @voiceNoteAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice note added'**
+  String get voiceNoteAdded;
+
+  /// No description provided for @voiceTagAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag \"{tag}\" added by voice'**
+  String voiceTagAdded(String tag);
+
+  /// No description provided for @voiceCorrectionApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcript corrected by voice'**
+  String get voiceCorrectionApplied;
+
+  /// No description provided for @voiceNoteEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No speech detected'**
+  String get voiceNoteEmpty;
+
+  /// No description provided for @voiceNoteError.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice note failed'**
+  String get voiceNoteError;
+
+  /// No description provided for @commandPaletteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type a command…'**
+  String get commandPaletteHint;
+
+  /// No description provided for @commandPaletteNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching commands'**
+  String get commandPaletteNoResults;
+
+  /// No description provided for @commandPaletteExportText.
+  ///
+  /// In en, this message translates to:
+  /// **'Export as text file'**
+  String get commandPaletteExportText;
+
+  /// No description provided for @commandPaletteExported.
+  ///
+  /// In en, this message translates to:
+  /// **'Exported to {path}'**
+  String commandPaletteExported(String path);
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
