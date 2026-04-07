@@ -66,6 +66,8 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
 
   // Debounce timer for settings-driven button show/hide.
   Timer? _buttonDebounce;
+  // Timer for auto-dismissing the floating overlay after completion.
+  Timer? _overlayDismissTimer;
 
   @override
   MultiWindowState build() {
@@ -76,15 +78,21 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     ref.listen<RecordingState>(recordingProvider, (prev, next) {
       _pushRecordingState(next);
 
-      // Auto-show/hide floating overlay based on recording phase.
+      // Auto-show floating overlay when recording starts (if mode is 'floating').
       final settings = ref.read(settingsProvider).value;
       if (settings != null && settings.overlayMode == 'floating') {
         if (prev?.phase == RecordingPhase.idle &&
             next.phase == RecordingPhase.recording) {
+          _overlayDismissTimer?.cancel();
           showOverlay();
         }
+        // Auto-hide overlay a few seconds after completion so the done pill
+        // is readable. The pill holds for 3s, then we hide the window.
         if (next.phase == RecordingPhase.idle && state.overlayVisible) {
-          hideOverlay();
+          _overlayDismissTimer?.cancel();
+          _overlayDismissTimer = Timer(const Duration(seconds: 4), () {
+            if (state.overlayVisible) hideOverlay();
+          });
         }
       }
     });
@@ -112,6 +120,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
 
     ref.onDispose(() {
       _buttonDebounce?.cancel();
+      _overlayDismissTimer?.cancel();
       // Only clear our handler — do NOT close secondary windows.
       // They survive hot reload and will be reconnected by the next build().
       commandChannel.setMethodCallHandler(null);
@@ -374,6 +383,9 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   Future<dynamic> _handleCommand(MethodCall call) async {
     _log.debug('Received command: ${call.method}');
     switch (call.method) {
+      case 'ping':
+        // Heartbeat response — secondary window verifies main is alive.
+        return 'pong';
       case 'toggleRecording':
         ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
       case 'stopRecording':

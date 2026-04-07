@@ -17,6 +17,7 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/theme.dart';
 import '../core/recording/recording_state.dart';
 import '../core/multi_window/multi_window_types.dart';
+import '../core/multi_window/window_heartbeat.dart';
 import '../widgets/floating_button.dart';
 
 /// Entry point for the floating button secondary window.
@@ -98,7 +99,8 @@ class _FloatingButtonApp extends StatefulWidget {
   State<_FloatingButtonApp> createState() => _FloatingButtonAppState();
 }
 
-class _FloatingButtonAppState extends State<_FloatingButtonApp> {
+class _FloatingButtonAppState extends State<_FloatingButtonApp>
+    with WindowHeartbeat {
   RecordingState _recordingState = const RecordingState();
   late int _buttonSize;
   late double _buttonOpacity;
@@ -116,6 +118,13 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp> {
     } catch (e) {
       debugPrint('FloatingButton: failed to register method handler: $e');
     }
+    startHeartbeat();
+  }
+
+  @override
+  void dispose() {
+    stopHeartbeat();
+    super.dispose();
   }
 
   Future<dynamic> _onMethodCall(MethodCall call) async {
