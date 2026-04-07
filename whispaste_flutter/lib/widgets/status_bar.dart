@@ -57,30 +57,33 @@ class WpStatusBar extends StatelessWidget {
           // Content-area span.
           Expanded(
             child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _SttChip(
-                    modeLabel: sttModeLabel,
-                    state: sttState,
-                    recordingPhase: recordingPhase,
-                    textStyle: textStyle,
-                    isDark: isDark,
-                    l10n: l10n,
-                    onTap: onSttTap,
-                  ),
-                  if (postProcessingLabel != null) ...[
-                    const SizedBox(width: WpSpacing.xs),
-                    _StatusChip(
-                      icon: LucideIcons.sparkles,
-                      label: postProcessingLabel!,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _SttChip(
+                      modeLabel: sttModeLabel,
+                      state: sttState,
+                      recordingPhase: recordingPhase,
                       textStyle: textStyle,
                       isDark: isDark,
-                      tooltip: l10n.statusBarPostProcessTooltip,
-                      onTap: onPostProcessTap,
+                      l10n: l10n,
+                      onTap: onSttTap,
                     ),
+                    if (postProcessingLabel != null) ...[
+                      const SizedBox(width: WpSpacing.xs),
+                      _StatusChip(
+                        icon: LucideIcons.sparkles,
+                        label: postProcessingLabel!,
+                        textStyle: textStyle,
+                        isDark: isDark,
+                        tooltip: l10n.statusBarPostProcessTooltip,
+                        onTap: onPostProcessTap,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

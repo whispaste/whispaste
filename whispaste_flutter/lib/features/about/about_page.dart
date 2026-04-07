@@ -695,13 +695,16 @@ class _LinkRowState extends State<_LinkRow> {
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                 ),
-                Text(
-                  widget.displayUrl,
-                  style: TextStyle(
-                    color: widget.isDark
-                        ? WpColorsDark.textMuted
-                        : WpColorsLight.textMuted,
-                    fontSize: 12,
+                Flexible(
+                  child: Text(
+                    widget.displayUrl,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: widget.isDark
+                          ? WpColorsDark.textMuted
+                          : WpColorsLight.textMuted,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
                 const SizedBox(width: WpSpacing.xs),
