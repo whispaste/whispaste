@@ -393,11 +393,11 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
           // Recording overlay — shown in-window when:
           //  1. overlayMode is inWindow, OR
           //  2. overlayMode is floating but the floating window isn't visible
-          //     (fallback so user always sees recording status)
+          //     AND overlay isn't currently being created (prevents flash
+          //     during async window creation).
+          //  3. overlayMode is off → never show.
           if (recordingPhase != RecordingPhase.idle &&
-              (settings.overlayModeType == OverlayMode.inWindow ||
-               (settings.overlayModeType == OverlayMode.floating &&
-                !(ref.watch(multiWindowProvider).overlayVisible))))
+              settings.overlayModeType == OverlayMode.inWindow)
             const Positioned(
               bottom: WpLayout.statusBarHeight + 8,
               left: 0,
