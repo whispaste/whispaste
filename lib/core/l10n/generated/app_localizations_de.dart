@@ -681,11 +681,44 @@ class L10nDe extends L10n {
   }
 
   @override
-  String get onboardingWelcome => 'Willkommen bei WhisPaste';
+  String get onboardingWelcomeEyebrow => 'Kurze Diktate. Sofort sauber.';
+
+  @override
+  String get onboardingWelcome => 'Einmal sprechen. Überall einfügen.';
 
   @override
   String get onboardingWelcomeHint =>
-      'Verwandle deine Stimme in Text — schnell, privat und überall einfügbar.';
+      'WhisPaste verwandelt schnelle Gedanken in klaren Text für Nachrichten, Mails, Notizen und Kommentare.';
+
+  @override
+  String get onboardingWelcomeFeaturePrivate => 'Privat standardmäßig';
+
+  @override
+  String get onboardingWelcomeFeaturePaste => 'Funktioniert in jeder App';
+
+  @override
+  String get onboardingWelcomeFeatureFast => 'Für kurze Notizen gebaut';
+
+  @override
+  String get onboardingPreviewSourceLabel => 'Du sprichst';
+
+  @override
+  String get onboardingPreviewSourceText =>
+      'hey max kannst du mir heute noch das aktualisierte angebot schicken fragezeichen';
+
+  @override
+  String get onboardingPreviewResultLabel => 'WhisPaste bereitet vor';
+
+  @override
+  String get onboardingPreviewResultText =>
+      'Hey Max, kannst du mir heute noch das aktualisierte Angebot schicken?';
+
+  @override
+  String get onboardingPersonalizeTitle => 'Mach\'s zu deinem';
+
+  @override
+  String get onboardingPersonalizeHint =>
+      'Wähle Sprache und Design — du kannst beides jederzeit ändern.';
 
   @override
   String get feedbackTitle => 'Feedback senden';
@@ -1581,7 +1614,7 @@ class L10nDe extends L10n {
       'Beim Start automatisch nach neuen Versionen suchen';
 
   @override
-  String get onboardingGetStarted => 'Los geht\'s';
+  String get onboardingGetStarted => 'Weiter';
 
   @override
   String get onboardingSkip => 'Überspringen';
@@ -1608,6 +1641,10 @@ class L10nDe extends L10n {
   String get onboardingThemeTitle => 'Design wählen';
 
   @override
+  String get onboardingThemeSubtitle =>
+      'Hell und dunkel wechseln sofort. System folgt deinem Gerät.';
+
+  @override
   String get onboardingThemeLight => 'Hell';
 
   @override
@@ -1615,6 +1652,13 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingThemeSystem => 'System';
+
+  @override
+  String get onboardingThemeSystemHint => 'Geräteeinstellung verwenden';
+
+  @override
+  String get onboardingPersonalizeLater =>
+      'Du kannst alles später in den Einstellungen ändern.';
 
   @override
   String get onboardingMicTitle => 'Lass uns dein Mikrofon einrichten';

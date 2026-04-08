@@ -1327,17 +1327,77 @@ abstract class L10n {
   /// **'Version {version}'**
   String aboutVersion(String version);
 
+  /// No description provided for @onboardingWelcomeEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Short dictations. Instant polish.'**
+  String get onboardingWelcomeEyebrow;
+
   /// No description provided for @onboardingWelcome.
   ///
   /// In en, this message translates to:
-  /// **'Welcome to WhisPaste'**
+  /// **'Speak it once. Paste it anywhere.'**
   String get onboardingWelcome;
 
   /// No description provided for @onboardingWelcomeHint.
   ///
   /// In en, this message translates to:
-  /// **'Turn your voice into text — fast, private, and ready to paste anywhere.'**
+  /// **'WhisPaste turns quick thoughts into clean text for messages, emails, notes, and comments.'**
   String get onboardingWelcomeHint;
+
+  /// No description provided for @onboardingWelcomeFeaturePrivate.
+  ///
+  /// In en, this message translates to:
+  /// **'Private by default'**
+  String get onboardingWelcomeFeaturePrivate;
+
+  /// No description provided for @onboardingWelcomeFeaturePaste.
+  ///
+  /// In en, this message translates to:
+  /// **'Works with any app'**
+  String get onboardingWelcomeFeaturePaste;
+
+  /// No description provided for @onboardingWelcomeFeatureFast.
+  ///
+  /// In en, this message translates to:
+  /// **'Built for quick notes'**
+  String get onboardingWelcomeFeatureFast;
+
+  /// No description provided for @onboardingPreviewSourceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'You say'**
+  String get onboardingPreviewSourceLabel;
+
+  /// No description provided for @onboardingPreviewSourceText.
+  ///
+  /// In en, this message translates to:
+  /// **'hey max can you send the updated quote today question mark'**
+  String get onboardingPreviewSourceText;
+
+  /// No description provided for @onboardingPreviewResultLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste prepares'**
+  String get onboardingPreviewResultLabel;
+
+  /// No description provided for @onboardingPreviewResultText.
+  ///
+  /// In en, this message translates to:
+  /// **'Hey Max, can you send the updated quote today?'**
+  String get onboardingPreviewResultText;
+
+  /// No description provided for @onboardingPersonalizeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Make it yours'**
+  String get onboardingPersonalizeTitle;
+
+  /// No description provided for @onboardingPersonalizeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a language and theme — you can always change these later.'**
+  String get onboardingPersonalizeHint;
 
   /// No description provided for @feedbackTitle.
   ///
@@ -2974,7 +3034,7 @@ abstract class L10n {
   /// No description provided for @onboardingGetStarted.
   ///
   /// In en, this message translates to:
-  /// **'Get Started'**
+  /// **'Continue'**
   String get onboardingGetStarted;
 
   /// No description provided for @onboardingSkip.
@@ -3019,6 +3079,12 @@ abstract class L10n {
   /// **'Pick Your Theme'**
   String get onboardingThemeTitle;
 
+  /// No description provided for @onboardingThemeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Light and dark switch instantly. System follows your device.'**
+  String get onboardingThemeSubtitle;
+
   /// No description provided for @onboardingThemeLight.
   ///
   /// In en, this message translates to:
@@ -3036,6 +3102,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'System'**
   String get onboardingThemeSystem;
+
+  /// No description provided for @onboardingThemeSystemHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use device setting'**
+  String get onboardingThemeSystemHint;
+
+  /// No description provided for @onboardingPersonalizeLater.
+  ///
+  /// In en, this message translates to:
+  /// **'You can change all of this later in Settings.'**
+  String get onboardingPersonalizeLater;
 
   /// No description provided for @onboardingMicTitle.
   ///
