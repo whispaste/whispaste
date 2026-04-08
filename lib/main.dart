@@ -12,6 +12,7 @@ import 'core/logging/app_monitoring.dart';
 import 'screens/floating_button_screen.dart';
 import 'screens/floating_overlay_screen.dart';
 import 'services/audio_service.dart';
+import 'services/hardware_info_service.dart' as hw;
 import 'services/multi_window_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/subprocess_guard.dart' as guard;
@@ -111,6 +112,9 @@ Future<void> main(List<String> args) async {
 
     // Kill orphaned whisper-server / llama-server from crashed sessions.
     unawaited(guard.cleanupOrphans());
+
+    // Pre-cache GPU detection so binary selection is instant later.
+    unawaited(hw.detectGpu());
 
     runApp(
       UncontrolledProviderScope(

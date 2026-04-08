@@ -15,6 +15,7 @@ import 'package:path/path.dart' as p;
 
 import '../core/config/settings_provider.dart';
 import '../core/app_info.dart';
+import 'hardware_info_service.dart' as hw;
 import 'path_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -376,6 +377,20 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     );
   }
 
+  /// Marks the server binary as incompatible and deletes it.
+  ///
+  /// Called by stt_service when a DLL-not-found crash is detected (wrong
+  /// GPU binary variant). After this, `serverReady` is false and the next
+  /// model download will fetch the correct binary for the detected GPU.
+  Future<void> invalidateServerBinary() async {
+    try {
+      await hw.deleteServerBinary(sttDir());
+    } catch (e) {
+      dev.log('Failed to delete server binary: $e', name: 'Download');
+    }
+    state = state.copyWith(serverReady: false);
+  }
+
   void _markModelDone(String modelId) {
     state = state.copyWith(
       phase: DownloadPhase.done,
@@ -477,7 +492,14 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   // -----------------------------------------------------------------------
 
   Future<void> _downloadWhisperServer() async {
-    dev.log('Downloading whisper-server binary…', name: 'Download');
+    // Log detected GPU for download debugging.
+    final gpu = await hw.detectGpu();
+    dev.log(
+      'Downloading whisper-server binary… '
+      '(gpu=${gpu.vendor.name}, name="${gpu.name}", '
+      'cuda=${gpu.cudaAvailable})',
+      name: 'Download',
+    );
 
     // Determine GPU mode for asset selection.
     final settings =
@@ -500,12 +522,15 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         );
         if (assetUrl == null) continue;
 
-        // Download ZIP to temp.
+        // Download ZIP to temp. Size varies dramatically by backend:
+        // CPU/BLAS ~17 MB, Vulkan ~30 MB, CUDA 12 ~460 MB.
+        final isCuda = assetUrl.contains('cuda') || assetUrl.contains('cublas');
+        final estimatedSize = isCuda ? 460 * 1024 * 1024 : 30 * 1024 * 1024;
         final zipPath = p.join(sttDir(), '_whisper-server.zip');
         await _downloadFile(
           url: assetUrl,
           destPath: zipPath,
-          expectedSize: 30 * 1024 * 1024, // ~30 MB estimate
+          expectedSize: estimatedSize,
         );
 
         state = state.copyWith(phase: DownloadPhase.extracting);
@@ -545,46 +570,40 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     final assets = (response.data?['assets'] as List<dynamic>?) ?? [];
     if (assets.isEmpty) return null;
 
-    // Build priority list of asset name patterns.
-    final patterns = _serverAssetPatterns(gpuMode, isWhisPaste);
+    // Build priority list of asset name patterns based on detected GPU.
+    final patterns = await _serverAssetPatterns(gpuMode, isWhisPaste);
+
+    // Architecture filter: match platform to expected binary arch.
+    final archPattern = Platform.isMacOS ? 'arm64' : 'x64';
 
     for (final pattern in patterns) {
       for (final asset in assets) {
         final assetMap = asset as Map<String, dynamic>;
         final name = (assetMap['name'] as String?) ?? '';
         final lowerName = name.toLowerCase();
-        if (lowerName.contains(pattern) && lowerName.contains('x64')) {
+        if (lowerName.contains(pattern) && lowerName.contains(archPattern)) {
+          dev.log(
+            'Selected server asset: $name (pattern=$pattern, '
+            'arch=$archPattern, repo=$owner/$repo)',
+            name: 'Download',
+          );
           return assetMap['browser_download_url'] as String?;
         }
       }
     }
 
+    dev.log(
+      'No matching server asset in $owner/$repo '
+      '(patterns=$patterns, arch=$archPattern, '
+      'assets=${assets.map((a) => (a as Map)['name']).toList()})',
+      name: 'Download',
+    );
     return null;
   }
 
-  List<String> _serverAssetPatterns(String gpuMode, bool isWhisPaste) {
-    // Detect GPU type for binary selection.
-    // For now, try CUDA → Vulkan → CPU fallback chain.
-    if (isWhisPaste) {
-      switch (gpuMode) {
-        case 'enabled':
-          return ['cuda12', 'vulkan', 'cpu'];
-        case 'disabled':
-          return ['cpu'];
-        default: // 'auto'
-          return ['cuda12', 'vulkan', 'cpu'];
-      }
-    } else {
-      // Upstream whisper.cpp naming.
-      switch (gpuMode) {
-        case 'enabled':
-          return ['cublas-12', 'vulkan', 'blas-bin'];
-        case 'disabled':
-          return ['blas-bin'];
-        default:
-          return ['cublas-12', 'vulkan', 'blas-bin'];
-      }
-    }
+  Future<List<String>> _serverAssetPatterns(String gpuMode, bool isWhisPaste) async {
+    final gpu = await hw.detectGpu();
+    return hw.serverAssetPatterns(gpu, gpuMode, isWhisPaste);
   }
 
   /// Extracts whisper-server.exe and DLLs from a ZIP archive.

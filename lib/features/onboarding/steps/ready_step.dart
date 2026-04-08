@@ -31,7 +31,6 @@ class ReadyStep extends ConsumerWidget {
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
     final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final success = isDark ? WpColorsDark.success : WpColorsLight.success;
     final accentGradient = isDark
         ? WpColorsDark.accentWarmGradient
         : WpColorsLight.accentWarmGradient;
@@ -40,11 +39,6 @@ class ReadyStep extends ConsumerWidget {
     final hotkeyModifiers = settings.hotkeyModifiers;
     final modifierLabels = hotkeyModifierLabels(hotkeyModifiers, l10n: l10n);
     final formattedHotkey = formatHotkeyShortcut(hotkeyModifiers, hotkeyKey, l10n: l10n);
-
-    // Determine if user is using local or cloud STT
-    final isLocalStt =
-        settings.sttProvider.toLowerCase().contains('on device') ||
-        settings.sttProvider.toLowerCase().contains('local');
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -146,45 +140,6 @@ class ReadyStep extends ConsumerWidget {
           icon: LucideIcons.clipboard,
           accent: accent,
           textColor: textPrimary,
-        ),
-        const SizedBox(height: WpSpacing.lg),
-
-        // Privacy badge — conditional on actual STT provider
-        Center(
-          child: Semantics(
-            label: isLocalStt
-                ? 'Processing mode: local, on this device'
-                : 'Processing mode: cloud',
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.sm,
-                vertical: WpSpacing.xxs + 2,
-              ),
-              decoration: BoxDecoration(
-                color: (isLocalStt ? success : accent).withValues(alpha: 0.12),
-                borderRadius: WpRadius.borderFull,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isLocalStt ? LucideIcons.shieldCheck : LucideIcons.cloud,
-                    size: 14,
-                    color: isLocalStt ? success : accent,
-                  ),
-                  const SizedBox(width: WpSpacing.xxs),
-                  Text(
-                    isLocalStt ? l10n.onboardingPrivacyBadge : l10n.statusCloud,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isLocalStt ? success : accent,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ),
         const SizedBox(height: WpSpacing.xxl),
 

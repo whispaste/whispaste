@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:record/record.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
@@ -17,9 +18,8 @@ enum _MicPermission { unknown, checking, granted, denied }
 
 /// Onboarding Step 2 — Microphone permission & optional test recording.
 ///
-/// This is a UI-only widget. Actual audio permission / recording is wired
-/// later — the "Grant Access" tap simulates a brief delay then marks
-/// permission as granted so users can proceed through onboarding.
+/// Uses the `record` package to request real OS microphone permission and
+/// optionally capture a brief test recording with live amplitude metering.
 class MicrophoneStep extends StatefulWidget {
   const MicrophoneStep({
     super.key,
@@ -42,6 +42,7 @@ class _MicrophoneStepState extends State<MicrophoneStep>
 
   late final AnimationController _pulseController;
   Timer? _recordingTimer;
+  AudioRecorder? _recorder;
 
   @override
   void initState() {
@@ -56,6 +57,7 @@ class _MicrophoneStepState extends State<MicrophoneStep>
   void dispose() {
     _pulseController.dispose();
     _recordingTimer?.cancel();
+    _recorder?.dispose();
     super.dispose();
   }
 
@@ -66,11 +68,17 @@ class _MicrophoneStepState extends State<MicrophoneStep>
   Future<void> _requestPermission() async {
     setState(() => _permissionStatus = _MicPermission.checking);
 
-    // Simulate OS permission dialog delay — real integration later.
-    await Future<void>.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
+    try {
+      _recorder ??= AudioRecorder();
+      final granted = await _recorder!.hasPermission();
+      if (!mounted) return;
 
-    setState(() => _permissionStatus = _MicPermission.granted);
+      setState(() => _permissionStatus =
+          granted ? _MicPermission.granted : _MicPermission.denied);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _permissionStatus = _MicPermission.denied);
+    }
   }
 
   void _startTestRecording() {
@@ -153,17 +161,38 @@ class _MicrophoneStepState extends State<MicrophoneStep>
           duration: WpMotion.smooth,
           child: _permissionStatus == _MicPermission.granted
               ? const SizedBox.shrink(key: ValueKey('hidden'))
-              : SizedBox(
-                  key: const ValueKey('grant'),
-                  width: 200,
-                  child: WpAccentButton(
-                    label: l10n.onboardingMicRequestAccess,
-                    gradient: accentGradient,
-                    onPressed: _permissionStatus == _MicPermission.checking
-                        ? null
-                        : _requestPermission,
-                  ),
-                ),
+              : _permissionStatus == _MicPermission.denied
+                  ? Column(
+                      key: const ValueKey('denied'),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          l10n.onboardingMicDeniedInstructions,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 13, color: textSecondary),
+                        ),
+                        const SizedBox(height: WpSpacing.sm),
+                        SizedBox(
+                          width: 200,
+                          child: WpAccentButton(
+                            label: l10n.onboardingMicRequestAccess,
+                            gradient: accentGradient,
+                            onPressed: _requestPermission,
+                          ),
+                        ),
+                      ],
+                    )
+                  : SizedBox(
+                      key: const ValueKey('grant'),
+                      width: 200,
+                      child: WpAccentButton(
+                        label: l10n.onboardingMicRequestAccess,
+                        gradient: accentGradient,
+                        onPressed: _permissionStatus == _MicPermission.checking
+                            ? null
+                            : _requestPermission,
+                      ),
+                    ),
         ),
         const SizedBox(height: WpSpacing.lg),
 
