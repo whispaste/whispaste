@@ -405,6 +405,10 @@
   "feedbackRatingOkay": "Okay",
   "feedbackRatingHappy": "Happy",
   "feedbackRatingLoveIt": "Love it!",
+  "feedbackSubmitting": "Sending…",
+  "feedbackErrorRateLimited": "You already sent feedback recently. Please try again later.",
+  "feedbackErrorNetwork": "Could not connect to the server. Please check your internet connection.",
+  "feedbackErrorServer": "Something went wrong. Please try again later.",
 
   "statusBarOnDevice": "On device",
   "statusBarPostProcessing": "Post-Processing",

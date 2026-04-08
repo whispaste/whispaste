@@ -137,17 +137,17 @@ enum QualityTier { compact, balanced, premium }
 
 /// Returns the ordered list of models belonging to [tier] (best first).
 ///
-/// Within each tier, models are sorted by descending file size so that
-/// [bestModelForTier] always returns the highest-quality option.
+/// Order is explicit — the first entry in each tier is the recommended
+/// default returned by [bestModelForTier].
 List<SttModelInfo> modelsForTier(QualityTier tier) {
   final ids = switch (tier) {
-    QualityTier.compact => {'whisper-small', 'whisper-base', 'whisper-tiny'},
-    QualityTier.balanced => {'whisper-medium'},
-    QualityTier.premium => {'whisper-large-v3-turbo', 'whisper-large-v3'},
+    QualityTier.compact => ['whisper-small', 'whisper-base', 'whisper-tiny'],
+    QualityTier.balanced => ['whisper-medium'],
+    QualityTier.premium => ['whisper-large-v3-turbo', 'whisper-large-v3'],
   };
-  final models = sttModels.where((m) => ids.contains(m.id)).toList()
-    ..sort((a, b) => b.sizeBytes.compareTo(a.sizeBytes));
-  return models;
+  return ids
+      .map((id) => sttModels.firstWhere((m) => m.id == id))
+      .toList();
 }
 
 /// Returns the single best model for [tier].

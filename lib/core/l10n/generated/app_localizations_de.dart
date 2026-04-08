@@ -1082,6 +1082,21 @@ class L10nDe extends L10n {
   String get feedbackRatingLoveIt => 'Liebe es!';
 
   @override
+  String get feedbackSubmitting => 'Wird gesendet…';
+
+  @override
+  String get feedbackErrorRateLimited =>
+      'Du hast kürzlich bereits Feedback gesendet. Bitte versuche es später erneut.';
+
+  @override
+  String get feedbackErrorNetwork =>
+      'Verbindung zum Server fehlgeschlagen. Bitte prüfe deine Internetverbindung.';
+
+  @override
+  String get feedbackErrorServer =>
+      'Etwas ist schiefgelaufen. Bitte versuche es später erneut.';
+
+  @override
   String get statusBarOnDevice => 'Auf dem Gerät';
 
   @override
