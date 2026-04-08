@@ -27,6 +27,7 @@ import 'features/feedback/feedback_page.dart';
 import 'features/onboarding/onboarding_overlay.dart';
 import 'features/recording/recording_overlay.dart';
 import 'core/recording/recording_state.dart';
+import 'core/data/database.dart';
 import 'core/logging/crash_reporter.dart';
 import 'core/logging/app_logger.dart';
 import 'services/multi_window_service.dart';
@@ -194,6 +195,26 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     // Watchdog: detect and auto-recover if state stuck in "done" for >15s.
     _watchdogTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _checkStuckDone();
+    });
+
+    // Show one-time migration toast if Go → Flutter migration happened.
+    // Force a DB query first to ensure beforeOpen/migrations have completed.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final db = ref.read(historyDatabaseProvider);
+      // Ensures Drift's beforeOpen (and _reconcileGoSchema) has run.
+      await db.customSelect('SELECT 1').get();
+      if (!mounted) return;
+      final count = db.consumeGoMigrationCount();
+      if (count != null && count > 0) {
+        final l10n = L10n.of(context);
+        WpToast.show(
+          context,
+          message: l10n.migrationComplete(count),
+          type: WpToastType.success,
+          duration: const Duration(seconds: 8),
+        );
+      }
     });
   }
 
