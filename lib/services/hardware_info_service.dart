@@ -195,14 +195,19 @@ bool isServerBinaryCompatible(String sttDirPath, GpuInfo gpu) {
     final currentBackend = gpu.optimalBackend;
 
     if (storedBackend.isNotEmpty && storedBackend != currentBackend) {
-      // Allow CPU binary as valid fallback if no accelerated binary is available.
-      // But if a GPU is available and we have a CPU binary, we're sub-optimal.
       _log.warning(
         'Binary mismatch: installed backend="$storedBackend" but '
         'current GPU needs "$currentBackend" (${gpu.name}). '
         'Binary needs re-download for optimal performance.',
       );
       return false;
+    }
+
+    // Metadata present and backend matches → binary was correctly downloaded
+    // for this GPU. Trust the metadata and skip DLL heuristics below.
+    // DLL checks (L2/L3) are fallbacks for legacy downloads without metadata.
+    if (storedBackend.isNotEmpty) {
+      return true;
     }
   }
 

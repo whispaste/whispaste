@@ -5,12 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/data/database.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
+import '../../widgets/toast.dart';
 import 'analytics_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -1082,9 +1084,14 @@ class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
       confirmLabel: l10n.analyticsReset,
       cancelLabel: l10n.actionCancel,
       destructive: true,
-    ).then((confirmed) {
+    ).then((confirmed) async {
       if (confirmed) {
-        // TODO: Wire up to Riverpod reset action
+        final db = ref.read(historyDatabaseProvider);
+        await db.resetDailyStats();
+        ref.invalidate(analyticsProvider);
+        if (context.mounted) {
+          WpToast.show(context, message: L10n.of(context).analyticsResetTitle, type: WpToastType.success);
+        }
       }
     });
   }
