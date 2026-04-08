@@ -111,7 +111,7 @@ class L10nDe extends L10n {
   String get historyDeletePermanently => 'Endgültig löschen';
 
   @override
-  String get historyUnarchive => 'Dearchivieren';
+  String get historyUnarchive => 'Aus Archiv holen';
 
   @override
   String get historyExport => 'Exportieren';
@@ -151,7 +151,7 @@ class L10nDe extends L10n {
   String get historyReadingTimeUnder1 => '< 1 Min. Lesezeit';
 
   @override
-  String get historyEditing => 'Bearbeitung…';
+  String get historyEditing => 'Bearbeiten';
 
   @override
   String get historySearchTranscriptions => 'Transkriptionen suchen…';
@@ -1333,6 +1333,9 @@ class L10nDe extends L10n {
 
   @override
   String get historyTranscriptSaved => 'Transkript gespeichert';
+
+  @override
+  String get historySaveTranscript => 'Speichern';
 
   @override
   String get settingsKeyboardShortcut => 'Tastenkürzel';

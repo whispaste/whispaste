@@ -180,7 +180,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   }
 
   String _wordCountLabel(L10n l10n) {
-    final words = entry.content.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+    final source = _isEditingTranscript
+        ? _transcriptController.text
+        : entry.content;
+    final words = source.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
     final readMinutes = (words / 200).ceil(); // ~200 wpm average
     final wordStr = l10n.historyWordCount(words);
     final timeStr = readMinutes < 1
@@ -203,7 +206,13 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
 
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.escape): onClose,
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (_isEditingTranscript) {
+            _saveTranscript();
+          } else {
+            onClose();
+          }
+        },
         // Single-key shortcuts — guarded to avoid intercepting text input
         const SingleActivator(LogicalKeyboardKey.keyT): () {
           if (!_isTextFieldFocused()) {
@@ -222,6 +231,9 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
         const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
           if (_isEditingTranscript) _saveTranscript();
         },
+        const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
+          if (_isEditingTranscript) _saveTranscript();
+        },
         const SingleActivator(LogicalKeyboardKey.keyC, control: true): onCopy,
         // Markdown formatting shortcuts (active only in edit mode)
         const SingleActivator(LogicalKeyboardKey.keyB, control: true): () {
@@ -236,10 +248,12 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       },
       child: Focus(
         focusNode: _panelFocusNode,
-        child: Container(
-          color: isDark
-              ? WpColorsDark.surface
-              : WpColorsLight.surface,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: isDark
+                ? WpColorsDark.surfaceGradient
+                : WpColorsLight.surfaceGradient,
+          ),
           child: Column(
             children: [
           // Header bar
@@ -407,7 +421,80 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Transcript — view or edit mode
+                  // ── Context zone: metadata + tags ──
+                  Wrap(
+                    spacing: WpSpacing.xs,
+                    runSpacing: WpSpacing.xs,
+                    children: [
+                      _MetaChip(
+                        icon: LucideIcons.clock,
+                        label: _durationLabel,
+                        isDark: isDark,
+                      ),
+                      if (entry.language.isNotEmpty)
+                        _MetaChip(
+                          icon: LucideIcons.globe,
+                          label: entry.language.toUpperCase(),
+                          isDark: isDark,
+                        ),
+                      _MetaChip(
+                        icon: entry.isLocal
+                            ? LucideIcons.hardDrive
+                            : LucideIcons.cloud,
+                        label: entry.isLocal
+                            ? l10n.historyOnDevice
+                            : l10n.statusCloud,
+                        isDark: isDark,
+                      ),
+                      if (entry.model.isNotEmpty)
+                        Tooltip(
+                          message: '${l10n.historyModel}: ${entry.model}',
+                          child: _MetaChip(
+                            icon: LucideIcons.cpu,
+                            label: entry.model.length > 20
+                                ? '${entry.model.substring(0, 20)}…'
+                                : entry.model,
+                            isDark: isDark,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: WpSpacing.sm),
+                  // Tags — interactive editor
+                  Row(
+                    children: [
+                      Icon(LucideIcons.tags, size: 14, color: textMuted),
+                      const SizedBox(width: WpSpacing.xs),
+                      Text(
+                        l10n.historyTags,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: WpSpacing.xs),
+                  _TagSection(
+                    key: _tagSectionKey,
+                    entryId: entry.id,
+                    tags: tags,
+                    isDark: isDark,
+                    searchQuery: _tagSearchQuery,
+                    onSearchChanged: (q) =>
+                        setState(() => _tagSearchQuery = q),
+                  ),
+                  // ── Divider between context and content ──
+                  const SizedBox(height: WpSpacing.md),
+                  Container(
+                    height: 1,
+                    color: isDark
+                        ? WpColorsDark.borderSubtle
+                        : WpColorsLight.borderSubtle,
+                  ),
+                  const SizedBox(height: WpSpacing.md),
+                  // ── Content zone: transcript + edit controls ──
                   if (_isEditingTranscript) ...[
                     WpMarkdownToolbar(
                       controller: _transcriptController,
@@ -497,21 +584,21 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                             ),
                           ),
                         const Spacer(),
-                        // Word count + reading time
-                        if (!_isEditingTranscript && entry.content.isNotEmpty)
+                        // Word count + reading time (always shown when content exists)
+                        if (entry.content.isNotEmpty || _isEditingTranscript)
                           Padding(
                             padding: const EdgeInsets.only(right: WpSpacing.sm),
                             child: Text(
                               _wordCountLabel(l10n),
                               style: TextStyle(
                                 fontSize: 11,
-                                color: textMuted.withValues(alpha: 0.7),
+                                color: textMuted,
                               ),
                             ),
                           ),
                         Tooltip(
                           message: _isEditingTranscript
-                              ? '${l10n.historyTranscriptSaved} (Ctrl+S)'
+                              ? '${l10n.historySaveTranscript} (Ctrl+S / Ctrl+↵)'
                               : '${l10n.historyEditTranscript} (Ctrl+E)',
                           child: Material(
                             color: Colors.transparent,
@@ -547,7 +634,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                     const SizedBox(width: 6),
                                     Text(
                                       _isEditingTranscript
-                                          ? l10n.historyTranscriptSaved
+                                          ? l10n.historySaveTranscript
                                           : l10n.historyEditTranscript,
                                       style: TextStyle(
                                         fontSize: 12,
@@ -566,72 +653,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                       ],
                     ),
                   ],
-                  const SizedBox(height: WpSpacing.md),
-                  // Tags — interactive editor
-                  Row(
-                    children: [
-                      Icon(LucideIcons.tags, size: 14, color: textMuted),
-                      const SizedBox(width: WpSpacing.xs),
-                      Text(
-                        l10n.historyTags,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: WpSpacing.xs),
-                  _TagSection(
-                    key: _tagSectionKey,
-                    entryId: entry.id,
-                    tags: tags,
-                    isDark: isDark,
-                    searchQuery: _tagSearchQuery,
-                    onSearchChanged: (q) =>
-                        setState(() => _tagSearchQuery = q),
-                  ),
-                  const SizedBox(height: WpSpacing.md),
-                  // Metadata — compact inline chips
-                  Wrap(
-                    spacing: WpSpacing.xs,
-                    runSpacing: WpSpacing.xs,
-                    children: [
-                      _MetaChip(
-                        icon: LucideIcons.clock,
-                        label: _durationLabel,
-                        isDark: isDark,
-                      ),
-                      if (entry.language.isNotEmpty)
-                        _MetaChip(
-                          icon: LucideIcons.globe,
-                          label: entry.language.toUpperCase(),
-                          isDark: isDark,
-                        ),
-                      _MetaChip(
-                        icon: entry.isLocal
-                            ? LucideIcons.hardDrive
-                            : LucideIcons.cloud,
-                        label: entry.isLocal
-                            ? l10n.historyOnDevice
-                            : l10n.statusCloud,
-                        isDark: isDark,
-                      ),
-                      if (entry.model.isNotEmpty)
-                        Tooltip(
-                          message: '${l10n.historyModel}: ${entry.model}',
-                          child: _MetaChip(
-                            icon: LucideIcons.cpu,
-                            label: entry.model.length > 20
-                                ? '${entry.model.substring(0, 20)}…'
-                                : entry.model,
-                            isDark: isDark,
-                          ),
-                        ),
-                    ],
-                  ),
-                  // Notes section
+                  // ── Notes section ──
                   const SizedBox(height: WpSpacing.lg),
                   HistoryNotesSection(key: _notesSectionKey, entryId: entry.id, isDark: isDark),
                   // FAB clearance so content isn't hidden behind the floating button
@@ -734,7 +756,7 @@ class _HistoryDetailActionState extends State<HistoryDetailAction> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: WpMotion.fast,
+            duration: _isHovered ? Duration.zero : WpMotion.hoverOut,
             padding: const EdgeInsets.all(WpSpacing.xs),
             decoration: BoxDecoration(
               color: _isHovered
@@ -826,12 +848,14 @@ class _MetaChip extends StatelessWidget {
     final bg = isDark
         ? WpColorsDark.surfaceElevated
         : WpColorsLight.surfaceElevated;
-    final fg = isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+    final fg = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
 
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.sm,
-        vertical: 4,
+        vertical: WpSpacing.xxs,
       ),
       decoration: BoxDecoration(
         color: bg,
@@ -841,10 +865,11 @@ class _MetaChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: fg),
-          const SizedBox(width: 4),
+          const SizedBox(width: WpSpacing.xxs),
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: fg, fontWeight: FontWeight.w500),
+            style: TextStyle(
+                fontSize: 11, color: fg, fontWeight: FontWeight.w500),
           ),
         ],
       ),

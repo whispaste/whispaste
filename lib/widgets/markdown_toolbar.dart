@@ -104,7 +104,7 @@ class WpMarkdownToolbar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.xs,
-        vertical: 2,
+        vertical: WpSpacing.xxs,
       ),
       decoration: BoxDecoration(
         color: (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
@@ -133,7 +133,7 @@ class WpMarkdownToolbar extends StatelessWidget {
           Container(
             width: 1,
             height: 16,
-            margin: const EdgeInsets.symmetric(horizontal: 2),
+            margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
             color: divColor,
           ),
           _ToolbarButton(
@@ -163,7 +163,7 @@ class WpMarkdownToolbar extends StatelessWidget {
           Container(
             width: 1,
             height: 16,
-            margin: const EdgeInsets.symmetric(horizontal: 2),
+            margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
             color: divColor,
           ),
           _ToolbarButton(
@@ -225,7 +225,7 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: WpMotion.hoverOut,
-            padding: const EdgeInsets.all(5),
+            padding: const EdgeInsets.all(WpSpacing.xs),
             decoration: BoxDecoration(
               color: _hovered
                   ? widget.accent.withValues(alpha: 0.12)
@@ -234,7 +234,7 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
             ),
             child: Icon(
               widget.icon,
-              size: 15,
+              size: 14,
               color: _hovered ? widget.accent : widget.muted,
             ),
           ),

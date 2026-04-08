@@ -370,7 +370,7 @@ abstract class L10n {
   /// No description provided for @historyEditing.
   ///
   /// In en, this message translates to:
-  /// **'Editing…'**
+  /// **'Editing'**
   String get historyEditing;
 
   /// No description provided for @historySearchTranscriptions.
@@ -2538,6 +2538,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Transcript saved'**
   String get historyTranscriptSaved;
+
+  /// No description provided for @historySaveTranscript.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get historySaveTranscript;
 
   /// No description provided for @settingsKeyboardShortcut.
   ///
