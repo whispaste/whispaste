@@ -573,9 +573,10 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
             ),
         ],
       ),
-      // Hide in-window FAB when floating button is active outside the window.
-      // They are mutually exclusive — only one should be visible at a time.
+      // Hide in-window FAB when floating button is active outside the window,
+      // or during onboarding (user can't record yet).
       floatingActionButton:
+          !settings.onboardingCompleted ||
           (settings.showFloatingButton &&
               ref.watch(multiWindowProvider).buttonVisible)
           ? null

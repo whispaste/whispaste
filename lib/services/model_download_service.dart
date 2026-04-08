@@ -136,18 +136,19 @@ SttModelInfo? findSttModel(String id) {
 enum QualityTier { compact, balanced, premium }
 
 /// Returns the ordered list of models belonging to [tier] (best first).
-List<SttModelInfo> modelsForTier(QualityTier tier) => switch (tier) {
-      QualityTier.compact => sttModels
-          .where((m) => m.id == 'whisper-base' || m.id == 'whisper-tiny')
-          .toList(),
-      QualityTier.balanced => sttModels
-          .where((m) => m.id == 'whisper-medium' || m.id == 'whisper-small')
-          .toList(),
-      QualityTier.premium => sttModels
-          .where((m) =>
-              m.id == 'whisper-large-v3-turbo' || m.id == 'whisper-large-v3')
-          .toList(),
-    };
+///
+/// Within each tier, models are sorted by descending file size so that
+/// [bestModelForTier] always returns the highest-quality option.
+List<SttModelInfo> modelsForTier(QualityTier tier) {
+  final ids = switch (tier) {
+    QualityTier.compact => {'whisper-base', 'whisper-tiny'},
+    QualityTier.balanced => {'whisper-medium', 'whisper-small'},
+    QualityTier.premium => {'whisper-large-v3-turbo', 'whisper-large-v3'},
+  };
+  final models = sttModels.where((m) => ids.contains(m.id)).toList()
+    ..sort((a, b) => b.sizeBytes.compareTo(a.sizeBytes));
+  return models;
+}
 
 /// Returns the single best model for [tier].
 SttModelInfo bestModelForTier(QualityTier tier) => modelsForTier(tier).first;
@@ -161,10 +162,13 @@ QualityTier? tierForModel(String modelId) {
 }
 
 /// Auto-recommend a tier based on VRAM (megabytes).
+///
+/// Thresholds are intentionally generous — large-v3-turbo (574 MB) runs well
+/// on 1.5 GB+ VRAM, so Intel Iris Xe (2047 MB) qualifies for premium.
 QualityTier recommendTier(int vramMB) {
-  if (vramMB >= 2048) return QualityTier.premium;
-  if (vramMB >= 1024) return QualityTier.balanced;
-  return QualityTier.balanced; // small is still balanced tier
+  if (vramMB >= 1536) return QualityTier.premium;
+  if (vramMB >= 512) return QualityTier.balanced;
+  return QualityTier.compact;
 }
 
 /// Total download size for [tier]'s best model (human-readable).

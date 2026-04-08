@@ -78,6 +78,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         dlState.phase == DownloadPhase.verifying;
     final isDone = dlState.phase == DownloadPhase.done ||
         dlState.downloadedModels.isNotEmpty;
+    final isError = dlState.phase == DownloadPhase.error;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -122,14 +123,20 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             onTap: null,
           ),
 
-          // Download progress or download button
+          // Download progress, error, success, or download button
           const SizedBox(height: WpSpacing.md),
           if (isDownloading)
             _DownloadProgress(
               phase: dlState.phase,
-              progress: dlState.progressPercent.toDouble(),
+              progress: dlState.progressPercent / 100.0,
               isDark: isDark,
               accent: accent,
+            )
+          else if (isError)
+            _DownloadError(
+              message: dlState.errorMessage,
+              isDark: isDark,
+              onRetry: _startDownload,
             )
           else if (isDone)
             Row(
@@ -488,6 +495,76 @@ class _DownloadProgress extends StatelessWidget {
         Text(
           label,
           style: TextStyle(fontSize: 12, color: textSecondary),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Download error — shows error message + retry button
+// ---------------------------------------------------------------------------
+
+class _DownloadError extends StatelessWidget {
+  const _DownloadError({
+    required this.message,
+    required this.isDark,
+    required this.onRetry,
+  });
+
+  final String? message;
+  final bool isDark;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
+    final textSecondary =
+        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(WpSpacing.md),
+          decoration: BoxDecoration(
+            color: errorColor.withValues(alpha: 0.08),
+            borderRadius: WpRadius.borderMd,
+            border: Border.all(color: errorColor.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            children: [
+              Icon(LucideIcons.triangleAlert, size: 16, color: errorColor),
+              const SizedBox(width: WpSpacing.sm),
+              Expanded(
+                child: Text(
+                  message ?? 'Download failed. Please check your internet connection.',
+                  style: TextStyle(fontSize: 12, color: errorColor),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: WpSpacing.sm),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: Icon(LucideIcons.refreshCw, size: 14, color: textSecondary),
+            label: Text(
+              'Retry',
+              style: TextStyle(fontSize: 13, color: textSecondary),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(
+                color: isDark
+                    ? WpColorsDark.borderDefault
+                    : WpColorsLight.borderDefault,
+              ),
+              shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
+              padding: const EdgeInsets.symmetric(vertical: WpSpacing.sm),
+            ),
+          ),
         ),
       ],
     );
