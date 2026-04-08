@@ -680,7 +680,7 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingWelcomeHint =>
-      'Premium dictation with AI post-processing. Dictate anywhere, paste everywhere.';
+      'Turn your voice into text — fast, private, and ready to paste anywhere.';
 
   @override
   String get feedbackTitle => 'Send Feedback';
@@ -1210,6 +1210,48 @@ class L10nEn extends L10n {
   String get modelSizeLarge => 'Maximum accuracy, needs more resources';
 
   @override
+  String get qualityTierCompactLabel => 'Quick & Compact';
+
+  @override
+  String get qualityTierCompactDesc =>
+      'Fast results, small download. Great for short notes and quick messages.';
+
+  @override
+  String get qualityTierBalancedLabel => 'Balanced';
+
+  @override
+  String get qualityTierBalancedDesc =>
+      'Accurate and reliable for everyday dictation. Works on most devices.';
+
+  @override
+  String get qualityTierPremiumLabel => 'Best Quality';
+
+  @override
+  String get qualityTierPremiumDesc =>
+      'Top accuracy for longer dictation and complex content. Needs a capable GPU.';
+
+  @override
+  String get qualityTierRecommended => 'Recommended for your device';
+
+  @override
+  String qualityTierDownloadSize(String size) {
+    return '$size download';
+  }
+
+  @override
+  String get qualityTierDownloadAndContinue => 'Download & Continue';
+
+  @override
+  String get qualityTierChooseDifferent => 'Choose a different quality level';
+
+  @override
+  String get qualityTierActive => 'Active';
+
+  @override
+  String get settingsOverlayInWindowHint =>
+      'Only visible while the main window is open';
+
+  @override
   String get settingsQualityFast => 'Fast';
 
   @override
@@ -1558,20 +1600,22 @@ class L10nEn extends L10n {
   String get onboardingThemeSystem => 'System';
 
   @override
-  String get onboardingMicTitle => 'Microphone Setup';
+  String get onboardingMicTitle => 'Let\'s set up your microphone';
 
   @override
   String get onboardingMicSubtitle =>
-      'WhisPaste needs microphone access to transcribe your voice';
+      'We need mic access so you can dictate. Your audio stays on your device.';
 
   @override
-  String get onboardingMicPermissionGranted => 'Microphone access granted';
+  String get onboardingMicPermissionGranted =>
+      'You\'re all set — microphone ready!';
 
   @override
   String get onboardingMicPermissionDenied => 'Microphone access denied';
 
   @override
-  String get onboardingMicPermissionPending => 'Waiting for permission…';
+  String get onboardingMicPermissionPending =>
+      'Tap below to enable your microphone';
 
   @override
   String get onboardingMicRequestAccess => 'Grant Access';
@@ -1586,7 +1630,8 @@ class L10nEn extends L10n {
   String get onboardingMicTestRecording => 'Recording… speak now';
 
   @override
-  String get onboardingMicTestDone => 'Microphone is working!';
+  String get onboardingMicTestDone =>
+      'Sounds great — your mic is working perfectly!';
 
   @override
   String get onboardingMicDeviceLabel => 'Audio Input Device';
@@ -1596,21 +1641,22 @@ class L10nEn extends L10n {
       'Open your system settings to grant microphone access';
 
   @override
-  String get onboardingModelTitle => 'Speech Recognition Model';
+  String get onboardingModelTitle => 'Set up speech recognition';
 
   @override
   String get onboardingModelSubtitle =>
-      'Download a model for local, private speech-to-text';
+      'Download the speech engine to dictate offline — your voice never leaves your device.';
 
   @override
   String get onboardingModelRecommended => 'Recommended for your device';
 
   @override
   String get onboardingModelChangeLater =>
-      'You can always change the model later in Settings';
+      'You can adjust quality later in Settings';
 
   @override
-  String get onboardingModelUseCloud => 'Use Cloud API instead';
+  String get onboardingModelUseCloud =>
+      'Skip — I\'ll use a cloud service instead';
 
   @override
   String get onboardingModelDownloading => 'Downloading…';

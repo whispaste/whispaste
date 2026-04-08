@@ -96,6 +96,7 @@ flutter:
     - assets/sounds/
     - assets/icons/logo-dark.svg
     - assets/icons/logo-light.svg
+    - assets/flags/
 
 msix_config:
   display_name: WhisPaste
