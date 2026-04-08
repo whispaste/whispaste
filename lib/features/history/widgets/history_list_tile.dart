@@ -252,7 +252,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                     // Row 3: Subtle inline metadata (duration + language)
                     Row(
                       children: [
-                        Icon(LucideIcons.clock, size: 10, color: textMuted),
+                        Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
                         const SizedBox(width: 3),
                         Text(
                           _durationLabel,
@@ -283,7 +283,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                                 fontSize: 10, color: textMuted),
                           ),
                           const SizedBox(width: WpSpacing.xs),
-                          Icon(LucideIcons.cloud, size: 10, color: textMuted),
+                          Icon(LucideIcons.cloud, size: WpIconSize.xs, color: textMuted),
                         ],
                       ],
                     ),

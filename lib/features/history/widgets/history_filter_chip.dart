@@ -60,12 +60,13 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
           curve: WpMotion.defaultCurve,
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.sm,
-            vertical: WpSpacing.xxs,
+            vertical: WpSpacing.xs,
           ),
           decoration: BoxDecoration(
             color: bg,
@@ -83,14 +84,14 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (widget.icon != null) ...[
-                Icon(widget.icon, size: 13, color: fg),
-                const SizedBox(width: 4),
+                Icon(widget.icon, size: WpIconSize.sm, color: fg),
+                const SizedBox(width: WpSpacing.xxs),
               ],
               Text(
                 widget.label,
                 style: TextStyle(
                   color: fg,
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight:
                       widget.isActive ? FontWeight.w600 : FontWeight.w500,
                 ),

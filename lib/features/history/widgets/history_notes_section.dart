@@ -16,6 +16,9 @@ import 'voice_note_button.dart';
 
 // ---------------------------------------------------------------------------
 // Inline notes section (progressive disclosure)
+//
+// Mobile-first: actions always visible (reduced opacity), touch targets ≥ 48px,
+// interactive icons ≥ 20px.
 // ---------------------------------------------------------------------------
 
 class HistoryNotesSection extends ConsumerStatefulWidget {
@@ -63,14 +66,11 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   }
 
   Future<void> _deleteNote(String noteId, String noteContent) async {
-    // Capture all context-dependent values before async gap
     final l10n = L10n.of(context);
     final savedNote = noteContent;
     
-    // Delete the note
     await ref.read(historyDatabaseProvider).deleteNote(noteId);
     
-    // Show undo toast (using captured overlay, not context after await)
     if (mounted) {
       WpToast.show(
         context,
@@ -117,6 +117,8 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
     final notes = ref.watch(entryNotesProvider(widget.entryId));
     final textPrimary =
         widget.isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final textSecondary =
+        widget.isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
     final textMuted =
         widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
@@ -137,16 +139,17 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
             // Header row
             Row(
               children: [
-                Icon(LucideIcons.stickyNote, size: 14, color: textMuted),
+                Icon(LucideIcons.stickyNote, size: WpIconSize.sm, color: accent),
                 const SizedBox(width: WpSpacing.xs),
                 Text(
                   noteList.isEmpty
                       ? l10n.historyAddNote
                       : '${l10n.historyNotes} (${noteList.length})',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: textMuted,
+                    color: textSecondary,
+                    letterSpacing: 0.3,
                   ),
                 ),
                 const Spacer(),
@@ -158,11 +161,12 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                 if (!_isAdding)
                   Tooltip(
                     message: l10n.historyAddNote,
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: () => setState(() => _isAdding = true),
-                        child: Icon(LucideIcons.plus, size: 16, color: accent),
+                    child: InkWell(
+                      onTap: () => setState(() => _isAdding = true),
+                      borderRadius: WpRadius.borderSm,
+                      child: Padding(
+                        padding: const EdgeInsets.all(WpSpacing.xs),
+                        child: Icon(LucideIcons.plus, size: WpIconSize.md, color: accent),
                       ),
                     ),
                   ),
@@ -175,7 +179,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                 decoration: BoxDecoration(
                   color: surfaceElevated,
                   borderRadius: WpRadius.borderSm,
-                  border: Border.all(color: borderColor),
+                  border: Border.all(color: accent.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -184,7 +188,6 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                       child: KeyboardListener(
                         focusNode: FocusNode(),
                         onKeyEvent: (event) {
-                          // Enter without Shift submits
                           if (event is KeyDownEvent &&
                               event.logicalKey == LogicalKeyboardKey.enter &&
                               !HardwareKeyboard.instance.isShiftPressed) {
@@ -204,28 +207,26 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: WpSpacing.sm,
-                              vertical: WpSpacing.xs,
+                              vertical: WpSpacing.sm,
                             ),
                           ),
                         ),
                       ),
                     ),
                     IconButton(
-                      icon: Icon(LucideIcons.check, size: 16, color: accent),
+                      icon: Icon(LucideIcons.check, size: WpIconSize.md, color: accent),
                       onPressed: _addNote,
-                      splashRadius: 16,
                       padding: const EdgeInsets.all(WpSpacing.xs),
-                      constraints: const BoxConstraints(),
+                      tooltip: 'Save',
                     ),
                     IconButton(
-                      icon: Icon(LucideIcons.x, size: 16, color: textMuted),
+                      icon: Icon(LucideIcons.x, size: WpIconSize.md, color: textMuted),
                       onPressed: () {
                         _controller.clear();
                         setState(() => _isAdding = false);
                       },
-                      splashRadius: 16,
                       padding: const EdgeInsets.all(WpSpacing.xs),
-                      constraints: const BoxConstraints(),
+                      tooltip: 'Cancel',
                     ),
                     const SizedBox(width: WpSpacing.xxs),
                   ],
@@ -259,7 +260,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
 }
 
 // ---------------------------------------------------------------------------
-// Single note item with hover state
+// Single note item — actions always visible (mobile-first)
 // ---------------------------------------------------------------------------
 
 class _NoteItem extends StatefulWidget {
@@ -303,7 +304,6 @@ class _NoteItemState extends State<_NoteItem> {
   String _formatNoteTimestamp(EntryNote note) {
     final fmt = DateFormat.yMd().add_Hm();
     final created = fmt.format(note.createdAt);
-    // Show "· edited" suffix when updatedAt differs meaningfully from createdAt
     final diff = note.updatedAt.difference(note.createdAt);
     if (diff.inSeconds.abs() > 2) {
       return '$created · ✎ ${fmt.format(note.updatedAt)}';
@@ -324,7 +324,7 @@ class _NoteItemState extends State<_NoteItem> {
         duration: _hovered ? Duration.zero : WpMotion.hoverOut,
         padding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.sm,
-          vertical: WpSpacing.xs,
+          vertical: WpSpacing.sm,
         ),
         decoration: BoxDecoration(
           color: _hovered && !widget.isEditing
@@ -368,17 +368,17 @@ class _NoteItemState extends State<_NoteItem> {
                   ),
                   IconButton(
                     icon: Icon(LucideIcons.check,
-                        size: 14, color: widget.accent),
+                        size: WpIconSize.md, color: widget.accent),
                     onPressed: widget.onSave,
                     padding: const EdgeInsets.all(WpSpacing.xxs),
-                    constraints: const BoxConstraints(),
+                    tooltip: 'Save',
                   ),
                   IconButton(
                     icon: Icon(LucideIcons.x,
-                        size: 14, color: widget.textMuted),
+                        size: WpIconSize.md, color: widget.textMuted),
                     onPressed: widget.onCancel,
                     padding: const EdgeInsets.all(WpSpacing.xxs),
-                    constraints: const BoxConstraints(),
+                    tooltip: 'Cancel',
                   ),
                 ],
               )
@@ -398,41 +398,34 @@ class _NoteItemState extends State<_NoteItem> {
                         Text(
                           _formatNoteTimestamp(widget.note),
                           style: TextStyle(
-                              fontSize: 11, color: widget.textMuted),
+                              fontSize: 12, color: widget.textMuted),
                         ),
                       ],
                     ),
                   ),
-                  // Show action icons on hover
+                  // Actions always visible — opacity increases on hover
                   AnimatedOpacity(
-                    opacity: _hovered ? 1.0 : 0.0,
+                    opacity: _hovered ? 1.0 : 0.35,
                     duration: _hovered ? Duration.zero : WpMotion.hoverOut,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: widget.onStartEdit,
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.only(left: WpSpacing.xs),
-                              child: Icon(LucideIcons.pencil,
-                                  size: 13, color: widget.textMuted),
-                            ),
+                        InkWell(
+                          onTap: widget.onStartEdit,
+                          borderRadius: WpRadius.borderSm,
+                          child: Padding(
+                            padding: const EdgeInsets.all(WpSpacing.xs),
+                            child: Icon(LucideIcons.pencil,
+                                size: WpIconSize.sm, color: widget.textMuted),
                           ),
                         ),
-                        const SizedBox(width: WpSpacing.xxs),
-                        MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: widget.onDelete,
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.only(left: WpSpacing.xxs),
-                              child: Icon(LucideIcons.x,
-                                  size: 14, color: widget.textMuted),
-                            ),
+                        InkWell(
+                          onTap: widget.onDelete,
+                          borderRadius: WpRadius.borderSm,
+                          child: Padding(
+                            padding: const EdgeInsets.all(WpSpacing.xs),
+                            child: Icon(LucideIcons.x,
+                                size: WpIconSize.sm, color: widget.textMuted),
                           ),
                         ),
                       ],
