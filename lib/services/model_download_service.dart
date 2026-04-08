@@ -141,8 +141,8 @@ enum QualityTier { compact, balanced, premium }
 /// [bestModelForTier] always returns the highest-quality option.
 List<SttModelInfo> modelsForTier(QualityTier tier) {
   final ids = switch (tier) {
-    QualityTier.compact => {'whisper-base', 'whisper-tiny'},
-    QualityTier.balanced => {'whisper-medium', 'whisper-small'},
+    QualityTier.compact => {'whisper-small', 'whisper-base', 'whisper-tiny'},
+    QualityTier.balanced => {'whisper-medium'},
     QualityTier.premium => {'whisper-large-v3-turbo', 'whisper-large-v3'},
   };
   final models = sttModels.where((m) => ids.contains(m.id)).toList()
@@ -181,8 +181,10 @@ QualityTier recommendTier(int vramMB, {hw.GpuVendor? vendor}) {
   }
 
   // Intel/AMD Vulkan or CPU — slower inference, conservative thresholds.
-  if (vramMB >= 4096) return QualityTier.premium;
-  if (vramMB >= 512) return QualityTier.balanced;
+  // Integrated GPUs report shared VRAM (often 4–8 GB) which overstates
+  // real inference headroom. Require ≥8 GB for premium, ≥2 GB for balanced.
+  if (vramMB >= 8192) return QualityTier.premium;
+  if (vramMB >= 2048) return QualityTier.balanced;
   return QualityTier.compact;
 }
 
@@ -202,13 +204,15 @@ String? tierWarning(QualityTier tier, hw.GpuInfo gpu) {
     }
   }
 
-  // Intel/AMD integrated graphics — premium is risky.
-  if (tier == QualityTier.premium &&
-      (gpu.vendor == hw.GpuVendor.intel || gpu.vendor == hw.GpuVendor.amd)) {
+  // Intel/AMD integrated graphics — premium is risky, balanced may be slow.
+  if (gpu.vendor == hw.GpuVendor.intel || gpu.vendor == hw.GpuVendor.amd) {
     final vram = gpu.vramMB ?? 0;
-    if (vram < 4096) {
+    if (tier == QualityTier.premium && vram < 8192) {
       return 'Large models may be slow on integrated graphics. '
           '"Balanced" is recommended for your hardware.';
+    }
+    if (tier == QualityTier.balanced && vram < 4096) {
+      return 'Transcription may be noticeably slower on this hardware.';
     }
   }
 
@@ -362,7 +366,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         state = state.copyWith(phase: DownloadPhase.verifying);
         final ok = await _verifySha256(destPath, model.sha256);
         if (ok) {
-          _markModelDone(model.id);
+          await _markModelDone(model.id);
           return;
         }
         // Hash mismatch — re-download.
@@ -387,7 +391,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         return;
       }
 
-      _markModelDone(model.id);
+      await _markModelDone(model.id);
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
         state = state.copyWith(
@@ -484,7 +488,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     state = state.copyWith(serverReady: false);
   }
 
-  void _markModelDone(String modelId) {
+  Future<void> _markModelDone(String modelId) async {
     state = state.copyWith(
       phase: DownloadPhase.done,
       activeModelId: modelId,
@@ -492,6 +496,15 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       downloadedModels: {...state.downloadedModels, modelId},
       serverReady: true,
     );
+
+    // Auto-activate the downloaded model so the STT service uses it.
+    try {
+      await ref
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(sttModel: modelId));
+    } catch (e) {
+      dev.log('Failed to persist sttModel=$modelId: $e', name: 'Download');
+    }
   }
 
   // -----------------------------------------------------------------------
