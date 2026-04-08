@@ -14,6 +14,7 @@ import 'screens/floating_overlay_screen.dart';
 import 'services/audio_service.dart';
 import 'services/multi_window_service.dart';
 import 'services/single_instance_service.dart';
+import 'services/subprocess_guard.dart' as guard;
 
 Future<ProviderContainer> bootstrapAppContainer({
   List overrides = const [],
@@ -107,6 +108,9 @@ Future<void> main(List<String> args) async {
 
     // Clean up stale WAV files from previous sessions (fire-and-forget).
     unawaited(AudioServiceNotifier.cleanupStaleFiles());
+
+    // Kill orphaned whisper-server / llama-server from crashed sessions.
+    unawaited(guard.cleanupOrphans());
 
     runApp(
       UncontrolledProviderScope(
