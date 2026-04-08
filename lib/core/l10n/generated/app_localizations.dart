@@ -1105,6 +1105,42 @@ abstract class L10n {
   /// **'Settings reset to defaults'**
   String get settingsResetSuccess;
 
+  /// No description provided for @settingsFactoryReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Factory Reset'**
+  String get settingsFactoryReset;
+
+  /// No description provided for @settingsFactoryResetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Factory Reset'**
+  String get settingsFactoryResetTitle;
+
+  /// No description provided for @settingsFactoryResetMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete ALL data: dictation history, tags, projects, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.'**
+  String get settingsFactoryResetMessage;
+
+  /// No description provided for @settingsFactoryResetConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Everything'**
+  String get settingsFactoryResetConfirm;
+
+  /// No description provided for @settingsFactoryResetSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'App has been completely reset'**
+  String get settingsFactoryResetSuccess;
+
+  /// No description provided for @migrationComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 dictation migrated from WhisPaste 1.x} other{{count} dictations migrated from WhisPaste 1.x}}'**
+  String migrationComplete(int count);
+
   /// No description provided for @settingsOff.
   ///
   /// In en, this message translates to:
