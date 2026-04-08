@@ -240,17 +240,21 @@ class HistoryDatabase extends _$HistoryDatabase {
     }
 
     // 4. Convert ISO 8601 TEXT timestamps → Unix epoch integers.
+    // COALESCE guards against NULL from unparseable dates (strftime returns
+    // NULL for invalid input, which would violate the NOT NULL constraint).
     await customStatement('''
       UPDATE history_entries
-      SET timestamp = CAST(strftime('%s', timestamp) AS INTEGER)
+      SET timestamp = COALESCE(CAST(strftime('%s', timestamp) AS INTEGER), 0)
       WHERE typeof(timestamp) = 'text'
     ''');
+    final tsChanges = await customSelect('SELECT changes() AS n').getSingle();
+    if ((tsChanges.data['n'] as int? ?? 0) > 0) changed = true;
 
     // 5. Convert project timestamps if projects table has TEXT dates.
     try {
       await customStatement('''
         UPDATE projects
-        SET created_at = CAST(strftime('%s', created_at) AS INTEGER)
+        SET created_at = COALESCE(CAST(strftime('%s', created_at) AS INTEGER), 0)
         WHERE typeof(created_at) = 'text'
       ''');
     } catch (_) {
@@ -793,19 +797,25 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Deletes ALL user data from ALL tables — used by Factory Reset.
   ///
-  /// Preserves the database file and schema so the app can continue
-  /// running without restart. Order matters: junction/child tables first.
+  /// Wrapped in a transaction so partial failure never leaves the DB in
+  /// an inconsistent state. Order: junction/child tables first.
   Future<void> deleteAllData() async {
-    await delete(entryTags).go();
-    await delete(entryNotes).go();
-    await delete(entryAttachments).go();
-    await delete(tags).go();
-    await delete(historyEntries).go();
-    await delete(projects).go();
-    await delete(dailyStats).go();
-    await delete(textReplacements).go();
-    await customStatement('DELETE FROM app_settings');
-    await customStatement('DELETE FROM history_fts');
+    await transaction(() async {
+      await delete(entryTags).go();
+      await delete(entryNotes).go();
+      await delete(entryAttachments).go();
+      await delete(tags).go();
+      await delete(historyEntries).go();
+      await delete(projects).go();
+      await delete(dailyStats).go();
+      await delete(textReplacements).go();
+      await customStatement('DELETE FROM app_settings');
+      // FTS triggers already fire on historyEntries delete, but
+      // issue an explicit rebuild to guarantee a clean index.
+      await customStatement(
+        "INSERT INTO history_fts(history_fts) VALUES('rebuild')",
+      );
+    });
   }
 
   // ---------------------------------------------------------------------------
