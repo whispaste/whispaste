@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -177,22 +178,36 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                   border: Border.all(color: borderColor),
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        autofocus: true,
-                        style: TextStyle(fontSize: 13, color: textPrimary),
-                        decoration: InputDecoration(
-                          hintText: l10n.historyNotePlaceholder,
-                          hintStyle: TextStyle(color: textMuted),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: WpSpacing.sm,
-                            vertical: WpSpacing.xs,
+                      child: KeyboardListener(
+                        focusNode: FocusNode(),
+                        onKeyEvent: (event) {
+                          // Enter without Shift submits
+                          if (event is KeyDownEvent &&
+                              event.logicalKey == LogicalKeyboardKey.enter &&
+                              !HardwareKeyboard.instance.isShiftPressed) {
+                            _addNote();
+                          }
+                        },
+                        child: TextField(
+                          controller: _controller,
+                          autofocus: true,
+                          maxLines: 3,
+                          minLines: 1,
+                          textInputAction: TextInputAction.newline,
+                          style: TextStyle(fontSize: 13, color: textPrimary),
+                          decoration: InputDecoration(
+                            hintText: l10n.historyNotePlaceholder,
+                            hintStyle: TextStyle(color: textMuted),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: WpSpacing.sm,
+                              vertical: WpSpacing.xs,
+                            ),
                           ),
                         ),
-                        onSubmitted: (_) => _addNote(),
                       ),
                     ),
                     IconButton(
@@ -285,6 +300,17 @@ class _NoteItem extends StatefulWidget {
 class _NoteItemState extends State<_NoteItem> {
   bool _hovered = false;
 
+  String _formatNoteTimestamp(EntryNote note) {
+    final fmt = DateFormat.yMd().add_Hm();
+    final created = fmt.format(note.createdAt);
+    // Show "· edited" suffix when updatedAt differs meaningfully from createdAt
+    final diff = note.updatedAt.difference(note.createdAt);
+    if (diff.inSeconds.abs() > 2) {
+      return '$created · ✎ ${fmt.format(note.updatedAt)}';
+    }
+    return created;
+  }
+
   @override
   Widget build(BuildContext context) {
     final hoverBg = widget.isDark
@@ -311,20 +337,33 @@ class _NoteItemState extends State<_NoteItem> {
         ),
         child: widget.isEditing
             ? Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: TextField(
-                      controller: widget.editController,
-                      autofocus: true,
-                      style: TextStyle(
-                          fontSize: 13, color: widget.textPrimary),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          vertical: WpSpacing.xxs,
+                    child: KeyboardListener(
+                      focusNode: FocusNode(),
+                      onKeyEvent: (event) {
+                        if (event is KeyDownEvent &&
+                            event.logicalKey == LogicalKeyboardKey.enter &&
+                            !HardwareKeyboard.instance.isShiftPressed) {
+                          widget.onSave();
+                        }
+                      },
+                      child: TextField(
+                        controller: widget.editController,
+                        autofocus: true,
+                        maxLines: 5,
+                        minLines: 1,
+                        textInputAction: TextInputAction.newline,
+                        style: TextStyle(
+                            fontSize: 13, color: widget.textPrimary),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            vertical: WpSpacing.xxs,
+                          ),
                         ),
                       ),
-                      onSubmitted: (_) => widget.onSave(),
                     ),
                   ),
                   IconButton(
@@ -357,9 +396,7 @@ class _NoteItemState extends State<_NoteItem> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          DateFormat.yMd()
-                              .add_Hm()
-                              .format(widget.note.createdAt),
+                          _formatNoteTimestamp(widget.note),
                           style: TextStyle(
                               fontSize: 11, color: widget.textMuted),
                         ),

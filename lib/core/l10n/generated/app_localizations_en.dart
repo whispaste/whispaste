@@ -1322,6 +1322,42 @@ class L10nEn extends L10n {
   String get historySaveTranscript => 'Save';
 
   @override
+  String get historyShortcutHelp => 'Keyboard Shortcuts';
+
+  @override
+  String get historyShortcutGeneral => 'GENERAL';
+
+  @override
+  String get historyShortcutTags => 'Focus tag input';
+
+  @override
+  String get historyShortcutNotes => 'Add a note';
+
+  @override
+  String get historyShortcutPin => 'Pin / unpin';
+
+  @override
+  String get historyShortcutClose => 'Save & close';
+
+  @override
+  String get historyShortcutEditing => 'EDITING';
+
+  @override
+  String get historyShortcutToggleEdit => 'Toggle edit mode';
+
+  @override
+  String get historyShortcutSave => 'Save transcript';
+
+  @override
+  String get historyShortcutBold => 'Bold';
+
+  @override
+  String get historyShortcutItalic => 'Italic';
+
+  @override
+  String get historyShortcutCopy => 'Copy to clipboard';
+
+  @override
   String get settingsKeyboardShortcut => 'Keyboard Shortcut';
 
   @override
