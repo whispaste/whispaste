@@ -34,7 +34,7 @@
   "historyRestore": "Wiederherstellen",
   "historyDeleteForever": "Endgültig löschen",
   "historyDeletePermanently": "Endgültig löschen",
-  "historyUnarchive": "Dearchivieren",
+  "historyUnarchive": "Aus Archiv holen",
   "historyExport": "Exportieren",
   "historyCopyAsMarkdown": "Als Markdown kopieren",
   "historyDetail": "Details",
@@ -56,7 +56,7 @@
     }
   },
   "historyReadingTimeUnder1": "< 1 Min. Lesezeit",
-  "historyEditing": "Bearbeitung…",
+  "historyEditing": "Bearbeiten",
   "historySearchTranscriptions": "Transkriptionen suchen…",
   "historyNoResults": "Keine Ergebnisse",
   "historyNoResultsHint": "Keine Transkriptionen stimmen mit \"{query}\" überein.\nVersuche einen anderen Suchbegriff.",
@@ -432,6 +432,7 @@
   "historyTagRemoved": "Tag entfernt",
   "historyEditTranscript": "Transkript bearbeiten",
   "historyTranscriptSaved": "Transkript gespeichert",
+  "historySaveTranscript": "Speichern",
 
   "settingsKeyboardShortcut": "Tastenkürzel",
   "settingsKeyboardShortcutSubtitle": "Globaler Hotkey zum Starten und Stoppen der Aufnahme",

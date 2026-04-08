@@ -155,9 +155,15 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                 ),
                 const SizedBox(width: WpSpacing.xxs),
                 if (!_isAdding)
-                  GestureDetector(
-                    onTap: () => setState(() => _isAdding = true),
-                    child: Icon(LucideIcons.plus, size: 16, color: accent),
+                  Tooltip(
+                    message: l10n.historyAddNote,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isAdding = true),
+                        child: Icon(LucideIcons.plus, size: 16, color: accent),
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -214,113 +220,190 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
             // Existing notes
             for (final note in noteList) ...[
               const SizedBox(height: WpSpacing.xs),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.sm,
-                  vertical: WpSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: surfaceElevated,
-                  borderRadius: WpRadius.borderSm,
-                  border: Border.all(
-                    color: _editingNoteId == note.id
-                        ? accent
-                        : borderColor,
-                  ),
-                ),
-                child: _editingNoteId == note.id
-                    ? Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _editController,
-                              autofocus: true,
-                              style: TextStyle(
-                                  fontSize: 13, color: textPrimary),
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                contentPadding:
-                                    EdgeInsets.symmetric(
-                                  vertical: WpSpacing.xxs,
-                                ),
-                              ),
-                              onSubmitted: (_) =>
-                                  _saveEditedNote(note.id),
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(LucideIcons.check,
-                                size: 14, color: accent),
-                            onPressed: () =>
-                                _saveEditedNote(note.id),
-                            padding:
-                                const EdgeInsets.all(WpSpacing.xxs),
-                            constraints: const BoxConstraints(),
-                          ),
-                          IconButton(
-                            icon: Icon(LucideIcons.x,
-                                size: 14, color: textMuted),
-                            onPressed: _cancelEditing,
-                            padding:
-                                const EdgeInsets.all(WpSpacing.xxs),
-                            constraints: const BoxConstraints(),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  note.content,
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      color: textPrimary),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  DateFormat.yMd()
-                                      .add_Hm()
-                                      .format(note.createdAt),
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: textMuted),
-                                ),
-                              ],
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => _startEditing(
-                                note.id, note.content),
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                  left: WpSpacing.xs),
-                              child: Icon(LucideIcons.pencil,
-                                  size: 13, color: textMuted),
-                            ),
-                          ),
-                          const SizedBox(width: WpSpacing.xxs),
-                          GestureDetector(
-                            onTap: () => _deleteNote(
-                                note.id, note.content),
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                  left: WpSpacing.xxs),
-                              child: Icon(LucideIcons.x,
-                                  size: 14, color: textMuted),
-                            ),
-                          ),
-                        ],
-                      ),
+              _NoteItem(
+                note: note,
+                isEditing: _editingNoteId == note.id,
+                editController: _editController,
+                isDark: widget.isDark,
+                accent: accent,
+                textPrimary: textPrimary,
+                textMuted: textMuted,
+                surfaceElevated: surfaceElevated,
+                borderColor: borderColor,
+                onSave: () => _saveEditedNote(note.id),
+                onCancel: _cancelEditing,
+                onStartEdit: () => _startEditing(note.id, note.content),
+                onDelete: () => _deleteNote(note.id, note.content),
               ),
             ],
           ],
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Single note item with hover state
+// ---------------------------------------------------------------------------
+
+class _NoteItem extends StatefulWidget {
+  const _NoteItem({
+    required this.note,
+    required this.isEditing,
+    required this.editController,
+    required this.isDark,
+    required this.accent,
+    required this.textPrimary,
+    required this.textMuted,
+    required this.surfaceElevated,
+    required this.borderColor,
+    required this.onSave,
+    required this.onCancel,
+    required this.onStartEdit,
+    required this.onDelete,
+  });
+
+  final EntryNote note;
+  final bool isEditing;
+  final TextEditingController editController;
+  final bool isDark;
+  final Color accent;
+  final Color textPrimary;
+  final Color textMuted;
+  final Color surfaceElevated;
+  final Color borderColor;
+  final VoidCallback onSave;
+  final VoidCallback onCancel;
+  final VoidCallback onStartEdit;
+  final VoidCallback onDelete;
+
+  @override
+  State<_NoteItem> createState() => _NoteItemState();
+}
+
+class _NoteItemState extends State<_NoteItem> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final hoverBg = widget.isDark
+        ? WpColorsDark.surfaceVariant
+        : WpColorsLight.surfaceVariant;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: _hovered ? Duration.zero : WpMotion.hoverOut,
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.sm,
+          vertical: WpSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: _hovered && !widget.isEditing
+              ? hoverBg
+              : widget.surfaceElevated,
+          borderRadius: WpRadius.borderSm,
+          border: Border.all(
+            color: widget.isEditing ? widget.accent : widget.borderColor,
+          ),
+        ),
+        child: widget.isEditing
+            ? Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: widget.editController,
+                      autofocus: true,
+                      style: TextStyle(
+                          fontSize: 13, color: widget.textPrimary),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(
+                          vertical: WpSpacing.xxs,
+                        ),
+                      ),
+                      onSubmitted: (_) => widget.onSave(),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(LucideIcons.check,
+                        size: 14, color: widget.accent),
+                    onPressed: widget.onSave,
+                    padding: const EdgeInsets.all(WpSpacing.xxs),
+                    constraints: const BoxConstraints(),
+                  ),
+                  IconButton(
+                    icon: Icon(LucideIcons.x,
+                        size: 14, color: widget.textMuted),
+                    onPressed: widget.onCancel,
+                    padding: const EdgeInsets.all(WpSpacing.xxs),
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.note.content,
+                          style: TextStyle(
+                              fontSize: 13, color: widget.textPrimary),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          DateFormat.yMd()
+                              .add_Hm()
+                              .format(widget.note.createdAt),
+                          style: TextStyle(
+                              fontSize: 11, color: widget.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Show action icons on hover
+                  AnimatedOpacity(
+                    opacity: _hovered ? 1.0 : 0.0,
+                    duration: _hovered ? Duration.zero : WpMotion.hoverOut,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: widget.onStartEdit,
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.only(left: WpSpacing.xs),
+                              child: Icon(LucideIcons.pencil,
+                                  size: 13, color: widget.textMuted),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: WpSpacing.xxs),
+                        MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: widget.onDelete,
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.only(left: WpSpacing.xxs),
+                              child: Icon(LucideIcons.x,
+                                  size: 14, color: widget.textMuted),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 }

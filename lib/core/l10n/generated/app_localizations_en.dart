@@ -151,7 +151,7 @@ class L10nEn extends L10n {
   String get historyReadingTimeUnder1 => '< 1 min read';
 
   @override
-  String get historyEditing => 'Editing…';
+  String get historyEditing => 'Editing';
 
   @override
   String get historySearchTranscriptions => 'Search transcriptions…';
@@ -1317,6 +1317,9 @@ class L10nEn extends L10n {
 
   @override
   String get historyTranscriptSaved => 'Transcript saved';
+
+  @override
+  String get historySaveTranscript => 'Save';
 
   @override
   String get settingsKeyboardShortcut => 'Keyboard Shortcut';
