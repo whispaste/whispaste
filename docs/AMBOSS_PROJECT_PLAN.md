@@ -1,6 +1,6 @@
 # Projekt-Plan
 
-> Automatisch gepflegt von Amboss. Letzte Aktualisierung: 2026-04-08 19:17
+> Automatisch gepflegt von Amboss. Letzte Aktualisierung: 2026-04-08 21:45
 
 ## Projekt-Übersicht
 WhisPaste — cross-platform Flutter dictation app (Windows, macOS, Linux, iOS, Android). Speech-to-text via whisper.cpp subprocess, LLM post-processing via llama.cpp/cloud APIs, SQLite via Drift, Riverpod state management. Migrating from Go v1.1.3 to Flutter v1.2.0.
@@ -17,8 +17,13 @@ WhisPaste — cross-platform Flutter dictation app (Windows, macOS, Linux, iOS, 
 - [x] Wire up migration toast for first launch after Go→Flutter upgrade (integrated in app.dart initState)
 - [x] Onboarding UX overhaul — quality tiers, download fixes, settings unification, visual polish
 - [x] Zero-trust hardening for existing Supabase crash/feedback relays
-- [ ] Push main to origin (31+ commits ahead)
+- [x] Push main to origin (58 commits pushed to GitHub)
 - [x] Merge `amboss/onboarding-ux-overhaul` branch to main
+- [x] Merge `amboss/welcome-step-redesign` branch to main (welcome redesign, bug fixes, CI, hardware validation)
+- [x] Startup hardware validation — auto-detects GPU changes and deletes incompatible server binaries
+- [x] Vulkan whisper-server CI build triggered (workflow run 24149578036)
+- [x] Branch investigation — Premium features (sync/share/cloud) are PLANNED only, not coded
+- [x] Deleted stale `amboss/hw-detection-service` and `amboss/welcome-step-redesign` branches
 - [ ] Manual testing: Factory Reset button, Reset to Defaults, Go migration path
 - [ ] Manual testing: Full onboarding flow end-to-end (welcome → mic → model download → ready)
 - [ ] Consider centralizing reset orchestration into a single service (currently split between UI + provider)
@@ -47,6 +52,7 @@ WhisPaste — cross-platform Flutter dictation app (Windows, macOS, Linux, iOS, 
 
 | Datum | Aufgabe | Größe | Branch | Zusammenfassung |
 |-------|---------|-------|--------|-----------------|
+| 2026-04-08 | startup-hw-validation | M | amboss/welcome-step-redesign→main | Startup binary validation, .server-info.json metadata, proactive check in SttService, two-layer compatibility check |
 | 2026-04-08 | cleanup-go-references | M | amboss/welcome-step-redesign | Remove all 22 Go/FFI references from copilot-instructions.md — migration complete, Go codebase fully removed |
 | 2026-04-08 | vulkan-server-build | M | amboss/welcome-step-redesign | Add Vulkan whisper-server CI build workflow + download service routing to dedicated release tag |
 | 2026-04-08 | fix-download-retry | M | amboss/welcome-step-redesign | Add retry with backoff, proper logging, GitHub rate-limit detection for model/server downloads |
