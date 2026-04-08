@@ -16,6 +16,7 @@ import 'package:http/http.dart' as http;
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart' show SttServerState;
+import 'hardware_info_service.dart' as hw;
 import 'path_service.dart';
 import 'subprocess_guard.dart' as guard;
 
@@ -473,6 +474,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       return;
     }
 
+    // --- Detect GPU for optimal configuration --------------------------------
+    final gpu = await hw.detectGpu();
+    _log.info('GPU: ${gpu.name} (${gpu.vendor.name}, backend=${gpu.optimalBackend})');
+
     // --- Build args (mirrors Go's sttServerArgs) -----------------------------
     final threads = _threadCount(gpuAcceleration);
     final args = _serverArgs(
@@ -524,13 +529,29 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     unawaited(
       proc.exitCode.then((code) {
         if (_process == proc) {
-          _log.error('whisper-server exited unexpectedly (code $code)');
+          // Windows STATUS_DLL_NOT_FOUND (0xC0000135) indicates a binary
+          // variant mismatch — e.g. CUDA build on a system without NVIDIA.
+          final isDllNotFound = Platform.isWindows && code == -1073741515;
+          if (isDllNotFound) {
+            _log.error(
+              'whisper-server crashed: missing DLL (exit code $code). '
+              'Wrong binary variant for this GPU. '
+              'Auto-deleting incompatible binary for re-download.',
+            );
+            // Delete the wrong binary so the next download fetches the
+            // correct variant based on GPU detection.
+            unawaited(hw.deleteServerBinary(sttDir()));
+          } else {
+            _log.error('whisper-server exited unexpectedly (code $code)');
+          }
           _process = null;
           _activeModel = null;
           state = SttStatus(
             serverState: SttServerState.error,
-            errorMessage:
-                'whisper-server exited before becoming ready (code $code)',
+            errorMessage: isDllNotFound
+                ? 'Incompatible server binary for your GPU. '
+                    'Please re-download the speech model in Settings.'
+                : 'whisper-server exited before becoming ready (code $code)',
           );
         }
       }),
@@ -662,9 +683,14 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     if (!useGpu) {
       args.add('--no-gpu');
     } else {
-      // whisper-server uses --flash-attn as a boolean flag (no value).
-      // Unlike llama-server which accepts `--flash-attn auto`.
-      args.add('--flash-attn');
+      // Only enable flash-attn for NVIDIA CUDA — Vulkan doesn't support it.
+      final gpu = hw.cachedGpuInfo;
+      if (gpu != null && gpu.supportsFlashAttn) {
+        args.add('--flash-attn');
+      } else if (gpu == null) {
+        // Detection hasn't run yet — skip flash-attn to be safe.
+        _log.debug('GPU info not cached yet, skipping --flash-attn');
+      }
     }
 
     return args;
