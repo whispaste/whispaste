@@ -222,6 +222,9 @@
   "tooltipRecord": "Aufnahme starten",
   "tooltipStopRecord": "Aufnahme stoppen",
   "tooltipProcessing": "Audio wird verarbeitet…",
+  "tooltipEngineNotReady": "Sprach-Engine nicht bereit",
+  "tooltipEngineDownloading": "Sprach-Engine wird heruntergeladen…",
+  "tooltipModelMissing": "Kein Sprachmodell heruntergeladen",
   "tooltipTheme": "Design wechseln",
   "tooltipLanguage": "Sprache",
   "aboutVersion": "Version {version}",
@@ -430,6 +433,10 @@
   "settingsModelStatusNeeded": "Sprachmodell wird beim Start der Aufnahme heruntergeladen",
   "settingsModelStatusDownloading": "Sprachmodell wird heruntergeladen…",
   "settingsAdvancedModelManagement": "Erweiterte Modell-Einstellungen",
+
+  "infoEngineDownloading": "Sprach-Engine wird vorbereitet. Bitte warte einen Moment.",
+  "infoEngineAutoDownload": "Sprach-Engine fehlt — wird automatisch heruntergeladen…",
+  "infoModelMissing": "Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.",
 
   "errorSttServerNotFound": "Sprachmodul nicht gefunden. Bitte lade ein Sprachmodell in den Einstellungen herunter.",
   "errorOnboardingNotCompleted": "Bitte schließe zuerst die Einrichtung ab.",
