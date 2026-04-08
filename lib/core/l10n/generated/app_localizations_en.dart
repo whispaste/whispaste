@@ -576,7 +576,7 @@ class L10nEn extends L10n {
 
   @override
   String get recordingGuardFailed =>
-      'No audio detected — microphone may not be working.';
+      'No audio detected — please try again. Sometimes the microphone needs a moment to warm up.';
 
   @override
   String get recordingAutoStopped => 'Recording stopped — silence detected.';
@@ -1203,10 +1203,11 @@ class L10nEn extends L10n {
       'Unknown speech model. Please select a valid model in Settings.';
 
   @override
-  String get errorRecordingFailed => 'Failed to start recording';
+  String get errorRecordingFailed =>
+      'Could not start recording — please try again';
 
   @override
-  String get errorNoAudioRecorded => 'No audio recorded';
+  String get errorNoAudioRecorded => 'No audio recorded — please try again';
 
   @override
   String get errorTranscriptionEmpty =>
