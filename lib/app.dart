@@ -93,6 +93,8 @@ String _localizeError(L10n l10n, String errorCode) {
   switch (errorCode) {
     case 'stt_server_not_found':
       return l10n.errorSttServerNotFound;
+    case 'onboarding_not_completed':
+      return l10n.errorOnboardingNotCompleted;
     case 'stt_model_not_found':
       return l10n.errorSttModelNotFound;
     case 'stt_model_unknown':

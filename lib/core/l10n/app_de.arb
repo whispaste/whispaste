@@ -414,6 +414,7 @@
   "settingsAdvancedModelManagement": "Erweiterte Modell-Einstellungen",
 
   "errorSttServerNotFound": "Sprachmodul nicht gefunden. Bitte lade ein Sprachmodell in den Einstellungen herunter.",
+  "errorOnboardingNotCompleted": "Bitte schließe zuerst die Einrichtung ab.",
   "errorSttModelNotFound": "Sprachmodell nicht gefunden. Bitte lade es in den Einstellungen herunter.",
   "errorSttModelUnknown": "Unbekanntes Sprachmodell. Bitte wähle ein gültiges Modell in den Einstellungen.",
   "errorRecordingFailed": "Aufnahme konnte nicht gestartet werden — bitte versuche es erneut",
