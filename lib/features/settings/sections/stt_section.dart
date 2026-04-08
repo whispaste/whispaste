@@ -1,4 +1,8 @@
-/// Speech Recognition & STT Model settings sections.
+/// Speech Recognition settings section — unified tier-based UI.
+///
+/// When local STT is selected, shows quality tier cards (compact/balanced/
+/// premium) with one-click download. When a cloud provider is selected,
+/// shows the relevant API key inline for convenience.
 library;
 
 import 'package:flutter/material.dart';
@@ -8,61 +12,39 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../services/model_download_service.dart';
 import '../../../widgets/model_download_card.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
-// Quality tier helpers
-// ---------------------------------------------------------------------------
-
-const _qualityModelIds = [
-  'whisper-tiny',
-  'whisper-base',
-  'whisper-small',
-  'whisper-medium',
-  'whisper-large-v3-turbo',
-  'whisper-large-v3',
-];
-
-List<String> _qualityLabels(L10n l10n) => [
-      l10n.settingsQualityFast,
-      l10n.settingsQualityBasic,
-      l10n.settingsQualityBalanced,
-      '${l10n.settingsQualityHigh}  ${l10n.settingsQualityRecommended}',
-      l10n.settingsQualityBest,
-      l10n.settingsQualityMaximum,
-    ];
-
-String _qualityDescription(String modelId, L10n l10n) {
-  final model = findSttModel(modelId);
-  if (model == null) return '';
-  return switch (modelId) {
-    'whisper-tiny' => '${l10n.modelSizeTiny} (${model.sizeLabel})',
-    'whisper-base' => '${l10n.modelSizeBase} (${model.sizeLabel})',
-    'whisper-small' => '${l10n.modelSizeSmall} (${model.sizeLabel})',
-    'whisper-medium' => '${l10n.modelSizeMedium} (${model.sizeLabel})',
-    'whisper-large-v3-turbo' =>
-      '${l10n.modelSizeLargeTurbo} (${model.sizeLabel})',
-    'whisper-large-v3' => '${l10n.modelSizeLarge} (${model.sizeLabel})',
-    _ => '',
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Speech Recognition section
 // ---------------------------------------------------------------------------
 
-class SpeechRecognitionSection extends ConsumerWidget {
+class SpeechRecognitionSection extends ConsumerStatefulWidget {
   const SpeechRecognitionSection({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SpeechRecognitionSection> createState() =>
+      _SpeechRecognitionSectionState();
+}
+
+class _SpeechRecognitionSectionState
+    extends ConsumerState<SpeechRecognitionSection> {
+  final _apiKeyCtrl = TextEditingController();
+  bool _showKey = false;
+
+  @override
+  void dispose() {
+    _apiKeyCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final isLocal = settings.sttProviderType.isLocal;
 
     return WpSection(
       title: l10n.settingsSpeechRecognition,
@@ -70,14 +52,14 @@ class SpeechRecognitionSection extends ConsumerWidget {
       padding: EdgeInsets.zero,
       child: Column(
         children: [
+          // Provider selector (On-device / OpenAI / Groq / Deepgram)
           SettingRow(
             icon: LucideIcons.cpu,
             label: l10n.settingsService,
             trailing: settingsDropdown(
               context: context,
               value: settings.sttProviderType.value,
-              items:
-                  SttProviderType.values.map((e) => e.value).toList(),
+              items: SttProviderType.values.map((e) => e.value).toList(),
               labels: [
                 l10n.settingsServiceOnDevicePrivate,
                 'OpenAI',
@@ -89,29 +71,27 @@ class SpeechRecognitionSection extends ConsumerWidget {
                   .updateSettings((s) => s.copyWith(sttProvider: v!)),
             ),
           ),
-          SettingRow(
-            icon: LucideIcons.brain,
-            label: l10n.settingsQuality,
-            trailing: settingsDropdown(
-              context: context,
-              value: _qualityModelIds.contains(settings.sttModel)
-                  ? settings.sttModel
-                  : 'whisper-medium',
-              items: _qualityModelIds,
-              labels: _qualityLabels(l10n),
-              onChanged: (v) {
-                ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings((s) => s.copyWith(sttModel: v!));
-                final dlState = ref.read(modelDownloadProvider);
-                if (!dlState.downloadedModels.contains(v) && !dlState.isBusy) {
-                  ref.read(modelDownloadProvider.notifier).downloadModel(v!);
-                }
-              },
+
+          // ----- Local mode: tier cards + model management ------------------
+          if (isLocal) ...[
+            const SizedBox(height: WpSpacing.xs),
+            const SttModelManager(),
+          ],
+
+          // ----- Cloud mode: inline API key + sub-provider ------------------
+          if (!isLocal) ...[
+            _CloudSttInlineKey(
+              provider: settings.sttProviderType,
+              apiKeyCtrl: _apiKeyCtrl,
+              showKey: _showKey,
+              onToggleVisibility: () =>
+                  setState(() => _showKey = !_showKey),
+              ref: ref,
+              settings: settings,
             ),
-          ),
-          // Quality description + download status
-          _QualityStatusRow(modelId: settings.sttModel),
+          ],
+
+          // Language selector (shared)
           SettingRow(
             icon: LucideIcons.languages,
             label: l10n.settingsRecognitionLanguage,
@@ -144,109 +124,72 @@ class SpeechRecognitionSection extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Quality status row — download progress + description
+// Inline cloud API key — shows the key field for the currently selected
+// cloud STT provider, right in the STT section for convenience.
 // ---------------------------------------------------------------------------
 
-class _QualityStatusRow extends ConsumerWidget {
-  const _QualityStatusRow({required this.modelId});
-  final String modelId;
+class _CloudSttInlineKey extends StatelessWidget {
+  const _CloudSttInlineKey({
+    required this.provider,
+    required this.apiKeyCtrl,
+    required this.showKey,
+    required this.onToggleVisibility,
+    required this.ref,
+    required this.settings,
+  });
+
+  final SttProviderType provider;
+  final TextEditingController apiKeyCtrl;
+  final bool showKey;
+  final VoidCallback onToggleVisibility;
+  final WidgetRef ref;
+  final AppSettings settings;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final dlState = ref.watch(modelDownloadProvider);
-    final isDownloaded = dlState.downloadedModels.contains(modelId);
-    final isDownloading = dlState.isBusy && dlState.activeModelId == modelId;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final success = isDark ? WpColorsDark.success : WpColorsLight.success;
-    final textSec =
-        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
 
-    return Padding(
-      padding: const EdgeInsets.only(
-        left: 52,
-        right: WpSpacing.md,
-        bottom: WpSpacing.sm,
+    // Map provider → key value and label
+    final (String label, String keyValue, void Function(String) onChanged) =
+        switch (provider) {
+      SttProviderType.openAI => (
+          l10n.settingsOpenAiApiKey,
+          settings.openAiApiKey,
+          (String v) => ref
+              .read(settingsProvider.notifier)
+              .updateSettings((s) => s.copyWith(openAiApiKey: v)),
+        ),
+      SttProviderType.groq => (
+          l10n.settingsGroqApiKey,
+          settings.groqApiKey,
+          (String v) => ref
+              .read(settingsProvider.notifier)
+              .updateSettings((s) => s.copyWith(groqApiKey: v)),
+        ),
+      SttProviderType.deepgram => (
+          l10n.settingsDeepgramApiKey,
+          settings.deepgramApiKey,
+          (String v) => ref
+              .read(settingsProvider.notifier)
+              .updateSettings((s) => s.copyWith(deepgramApiKey: v)),
+        ),
+      _ => ('', '', (String _) {}),
+    };
+
+    if (label.isEmpty) return const SizedBox.shrink();
+
+    syncController(apiKeyCtrl, keyValue);
+
+    return SettingRow(
+      icon: LucideIcons.keyRound,
+      label: label,
+      trailing: settingsApiKeyField(
+        context: context,
+        controller: apiKeyCtrl,
+        obscure: !showKey,
+        onToggle: onToggleVisibility,
+        onChanged: onChanged,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _qualityDescription(modelId, l10n),
-            style: TextStyle(fontSize: 11, color: textSec),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(
-                isDownloaded
-                    ? LucideIcons.circleCheck
-                    : isDownloading
-                        ? LucideIcons.loader
-                        : LucideIcons.download,
-                size: 12,
-                color: isDownloaded
-                    ? success
-                    : isDownloading
-                        ? accent
-                        : textSec,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  isDownloaded
-                      ? l10n.settingsModelStatusReady
-                      : isDownloading
-                          ? '${l10n.settingsModelStatusDownloading} ${dlState.progressPercent}%'
-                          : l10n.settingsModelStatusNeeded,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isDownloaded
-                        ? success
-                        : isDownloading
-                            ? accent
-                            : textSec,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (isDownloading && dlState.phase == DownloadPhase.downloading)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(WpRadius.full),
-                child: LinearProgressIndicator(
-                  value: dlState.progressPercent / 100,
-                  minHeight: 2,
-                  backgroundColor: isDark
-                      ? WpColorsDark.borderSubtle
-                      : WpColorsLight.borderSubtle,
-                  valueColor: AlwaysStoppedAnimation(accent),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// STT Model Management section
-// ---------------------------------------------------------------------------
-
-class SttModelSection extends ConsumerWidget {
-  const SttModelSection({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = L10n.of(context);
-    return WpSection(
-      title: l10n.settingsSttModels,
-      padding: EdgeInsets.zero,
-      child: const SttModelManager(),
     );
   }
 }
