@@ -1,12 +1,13 @@
 # CodeQL configuration for WhisPaste (JavaScript/TypeScript analysis)
-# Uses the default security suite for Edge Functions and UI scripts.
+# Covers Supabase Edge Functions and website scripts.
+# Note: Dart analysis is handled by flutter analyze in ci.yml.
 
 queries:
   - uses: security-and-quality
 
 paths:
   - supabase/functions
-  - ui_main/scripts
+  - website/src
 
 paths-ignore:
   - node_modules
