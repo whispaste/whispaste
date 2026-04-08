@@ -861,6 +861,87 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     state = const AsyncData(AppSettings.defaults);
   }
 
+  /// Full factory reset — deletes ALL user data, models, and settings.
+  ///
+  /// The caller MUST stop the STT subprocess before calling this method
+  /// (to avoid file-locking on the whisper-server binary).
+  Future<void> factoryReset() async {
+    final db = ref.read(historyDatabaseProvider);
+
+    // 1. Clear ALL secure storage API keys.
+    final secureStore = ref.read(secureKeyStoreProvider);
+    for (final secureKey in apiKeyMapping.values) {
+      await secureStore.deleteKey(secureKey);
+    }
+
+    // 2. Delete all database content (history, tags, projects, etc.).
+    await db.deleteAllData();
+
+    // 3. Delete downloaded models directory.
+    _tryDeleteDir(sttDir());
+
+    // 4. Delete log files.
+    final logsDir = p.join(appDataDir(), 'logs');
+    _tryDeleteDir(logsDir);
+
+    // 5. Delete PID files from subprocess_guard.
+    _tryDeleteFile(p.join(appDataDir(), '.whisper-server.pid'));
+    _tryDeleteFile(p.join(appDataDir(), '.llama-server.pid'));
+
+    // 6. Delete crash queue database.
+    _tryDeleteFile(p.join(appDataDir(), 'crash_queue.db'));
+    _tryDeleteFile(p.join(appDataDir(), 'crash_queue.db-wal'));
+    _tryDeleteFile(p.join(appDataDir(), 'crash_queue.db-shm'));
+
+    // 7. Delete legacy Go config.
+    _tryDeleteFile(p.join(appDataDir(), 'config.json'));
+
+    // 8. Clean up temp WAV files.
+    _cleanupTempWavFiles();
+
+    // 9. Reset in-memory state.
+    state = const AsyncData(AppSettings.defaults);
+
+    dev.log('Factory reset complete', name: 'Settings');
+  }
+
+  static void _tryDeleteDir(String path) {
+    try {
+      final dir = Directory(path);
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    } catch (e) {
+      dev.log('Factory reset: failed to delete dir $path: $e',
+          name: 'Settings');
+    }
+  }
+
+  static void _tryDeleteFile(String path) {
+    try {
+      final file = File(path);
+      if (file.existsSync()) file.deleteSync();
+    } catch (e) {
+      dev.log('Factory reset: failed to delete file $path: $e',
+          name: 'Settings');
+    }
+  }
+
+  static void _cleanupTempWavFiles() {
+    try {
+      final tempDir = Directory.systemTemp;
+      for (final entity in tempDir.listSync()) {
+        if (entity is File) {
+          final name = p.basename(entity.path);
+          if (name.startsWith('whispaste_') && name.endsWith('.wav')) {
+            entity.deleteSync();
+          }
+        }
+      }
+    } catch (e) {
+      dev.log('Factory reset: failed to clean temp WAVs: $e',
+          name: 'Settings');
+    }
+  }
+
   /// Reads the legacy Go `config.json` once and converts it to [AppSettings].
   ///
   /// Returns `null` if the file doesn't exist or can't be parsed — callers

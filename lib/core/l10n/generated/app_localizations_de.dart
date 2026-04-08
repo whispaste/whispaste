@@ -557,6 +557,34 @@ class L10nDe extends L10n {
   String get settingsResetSuccess => 'Einstellungen zurückgesetzt';
 
   @override
+  String get settingsFactoryReset => 'Werksreset';
+
+  @override
+  String get settingsFactoryResetTitle => 'Werksreset';
+
+  @override
+  String get settingsFactoryResetMessage =>
+      'Damit werden ALLE Daten unwiderruflich gelöscht: Diktatverlauf, Tags, Projekte, Sprachkürzel, heruntergeladene Modelle, Protokolle und Einstellungen. Die App wird in den Ausgangszustand zurückversetzt.\n\nDies kann nicht rückgängig gemacht werden.';
+
+  @override
+  String get settingsFactoryResetConfirm => 'Alles löschen';
+
+  @override
+  String get settingsFactoryResetSuccess =>
+      'App wurde vollständig zurückgesetzt';
+
+  @override
+  String migrationComplete(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Diktate von WhisPaste 1.x migriert',
+      one: '1 Diktat von WhisPaste 1.x migriert',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get settingsOff => 'Aus';
 
   @override
