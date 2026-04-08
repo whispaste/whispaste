@@ -93,6 +93,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final direction = _currentStep >= _previousStep ? 1.0 : -1.0;
+    final maxCardWidth = _currentStep == 0 ? 840.0 : 600.0;
 
     return BlockSemantics(
       child: Stack(
@@ -106,9 +107,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
               onPanStart: (_) => windowManager.startDragging(),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.6),
-                ),
+                child: ColoredBox(color: Colors.black.withValues(alpha: 0.6)),
               ),
             ),
           ),
@@ -117,10 +116,9 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           Center(
             child: SingleChildScrollView(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
+                constraints: BoxConstraints(maxWidth: maxCardWidth),
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
+                  padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -142,8 +140,9 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                                     ? WpColorsDark.textMuted
                                     : WpColorsLight.textMuted,
                               ),
-                              tooltip: MaterialLocalizations.of(context)
-                                  .closeButtonTooltip,
+                              tooltip: MaterialLocalizations.of(
+                                context,
+                              ).closeButtonTooltip,
                               splashRadius: 16,
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(
@@ -224,10 +223,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                       // Step counter text ("Step X of Y")
                       const SizedBox(height: WpSpacing.xs),
                       Text(
-                        l10n.onboardingStepOf(
-                          _currentStep + 1,
-                          _totalSteps,
-                        ),
+                        l10n.onboardingStepOf(_currentStep + 1, _totalSteps),
                         style: TextStyle(
                           fontSize: 12,
                           color: isDark
@@ -252,10 +248,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
 // =============================================================================
 
 class _StepperDots extends StatelessWidget {
-  const _StepperDots({
-    required this.currentStep,
-    required this.totalSteps,
-  });
+  const _StepperDots({required this.currentStep, required this.totalSteps});
 
   final int currentStep;
   final int totalSteps;
