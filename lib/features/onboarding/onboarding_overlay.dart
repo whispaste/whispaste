@@ -93,8 +93,6 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final direction = _currentStep >= _previousStep ? 1.0 : -1.0;
-    final maxCardWidth = _currentStep == 0 ? 840.0 : 600.0;
-
     return BlockSemantics(
       child: Stack(
         children: [
@@ -116,7 +114,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           Center(
             child: SingleChildScrollView(
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxCardWidth),
+                constraints: const BoxConstraints(maxWidth: 600),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
                   child: Column(

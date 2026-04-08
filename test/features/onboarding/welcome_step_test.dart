@@ -68,8 +68,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(notifier.state.value!.themeMode, ThemeMode.light);
 
-      await tester.ensureVisible(find.text('Use device setting'));
-      await tester.tap(find.text('Use device setting'));
+      await tester.tap(find.text('System'));
       await tester.pumpAndSettle();
       expect(notifier.state.value!.themeMode, ThemeMode.system);
     });
