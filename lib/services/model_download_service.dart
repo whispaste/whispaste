@@ -697,20 +697,40 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   }
 
   /// Queries GitHub releases API and finds the best matching asset.
+  ///
+  /// For the WhisPaste repo, queries the dedicated `whisper-server-latest`
+  /// release (built by the `build-whisper-server.yml` workflow). For upstream
+  /// repos, queries the latest release as before.
   Future<String?> _findServerAsset({
     required String owner,
     required String repo,
     required String gpuMode,
     required bool isWhisPaste,
   }) async {
-    final apiUrl =
-        'https://api.github.com/repos/$owner/$repo/releases/latest';
+    // WhisPaste hosts server binaries in a dedicated release tag so they
+    // don't conflict with app releases.
+    final apiUrl = isWhisPaste
+        ? 'https://api.github.com/repos/$owner/$repo/releases/tags/whisper-server-latest'
+        : 'https://api.github.com/repos/$owner/$repo/releases/latest';
 
-    final response = await _dio.get<Map<String, dynamic>>(
-      apiUrl,
-      cancelToken: _cancelToken,
-      options: Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
-    );
+    final Response<Map<String, dynamic>> response;
+    try {
+      response = await _dio.get<Map<String, dynamic>>(
+        apiUrl,
+        cancelToken: _cancelToken,
+        options:
+            Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        _log.info(
+          'No server-binaries release in $owner/$repo '
+          '(tag=whisper-server-latest)',
+        );
+        return null;
+      }
+      rethrow;
+    }
 
     // Check GitHub rate limit from response headers.
     final remaining = response.headers['x-ratelimit-remaining']?.firstOrNull;
