@@ -62,7 +62,6 @@ class SpeechRecognitionSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
 
     return WpSection(
@@ -90,34 +89,6 @@ class SpeechRecognitionSection extends ConsumerWidget {
                   .updateSettings((s) => s.copyWith(sttProvider: v!)),
             ),
           ),
-          if (settings.sttProviderType.isLocal)
-            Padding(
-              padding: const EdgeInsets.only(
-                left: 52,
-                right: WpSpacing.md,
-                bottom: WpSpacing.xs,
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    LucideIcons.shieldCheck,
-                    size: 12,
-                    color:
-                        isDark ? WpColorsDark.success : WpColorsLight.success,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    l10n.settingsPrivacyHintLocal,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isDark
-                          ? WpColorsDark.success
-                          : WpColorsLight.success,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           SettingRow(
             icon: LucideIcons.brain,
             label: l10n.settingsQuality,

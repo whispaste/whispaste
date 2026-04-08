@@ -442,7 +442,7 @@ abstract class L10n {
   /// No description provided for @historyNoRecordingsHint.
   ///
   /// In en, this message translates to:
-  /// **'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.\n\n🔒 All data stays on your device.'**
+  /// **'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.'**
   String get historyNoRecordingsHint;
 
   /// No description provided for @historyCopiedToClipboard.
@@ -766,7 +766,7 @@ abstract class L10n {
   /// No description provided for @settingsServiceOnDevicePrivate.
   ///
   /// In en, this message translates to:
-  /// **'On Device (Private)'**
+  /// **'On Device'**
   String get settingsServiceOnDevicePrivate;
 
   /// No description provided for @settingsQualityFastTiny.
@@ -2382,12 +2382,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Advanced model settings'**
   String get settingsAdvancedModelManagement;
-
-  /// No description provided for @settingsPrivacyHintLocal.
-  ///
-  /// In en, this message translates to:
-  /// **'Your voice never leaves your device'**
-  String get settingsPrivacyHintLocal;
 
   /// No description provided for @errorSttServerNotFound.
   ///
