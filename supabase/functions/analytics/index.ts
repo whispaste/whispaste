@@ -46,7 +46,7 @@ function extractReportFields(payload: any) {
     process_name: r.process_name || null,
     app_version: r.app_version || null,
     build_commit: r.build_commit || null,
-    go_version: r.go_version || null,
+    runtime_version: r.go_version || r.runtime_version || null,
     os: r.os || null,
     arch: r.arch || null,
     gpu: r.gpu || null,
@@ -237,7 +237,7 @@ Deno.serve(async (req) => {
         const envStats = {
           os_versions: new Set<string>(),
           architectures: new Set<string>(),
-          go_versions: new Set<string>(),
+          runtime_versions: new Set<string>(),
           gpu_configs: new Set<string>(),
           install_sources: new Set<string>(),
           crash_types: new Set<string>(),
@@ -252,7 +252,8 @@ Deno.serve(async (req) => {
           if (fields) {
             if (fields.os) envStats.os_versions.add(fields.os);
             if (fields.arch) envStats.architectures.add(fields.arch);
-            if (fields.go_version) envStats.go_versions.add(fields.go_version);
+            const rv = fields.go_version || fields.runtime_version;
+            if (rv) envStats.runtime_versions.add(rv);
             if (fields.gpu) envStats.gpu_configs.add(fields.gpu);
             if (fields.install_source)
               envStats.install_sources.add(fields.install_source);
@@ -279,7 +280,7 @@ Deno.serve(async (req) => {
           environment: {
             os_versions: [...envStats.os_versions],
             architectures: [...envStats.architectures],
-            go_versions: [...envStats.go_versions],
+            runtime_versions: [...envStats.runtime_versions],
             gpu_configs: [...envStats.gpu_configs],
             install_sources: [...envStats.install_sources],
             crash_types: [...envStats.crash_types],
