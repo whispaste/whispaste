@@ -119,6 +119,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "whisper-server-latest"
+          $asset = "whisper-server-vulkan-x64.zip"
           $title = "Whisper Server Binaries"
           $notes = @"
           Pre-built whisper-server binaries with GPU acceleration for WhisPaste.
@@ -130,12 +131,15 @@ jobs:
           > This release only contains variants not available upstream.
           "@
 
-          # Create release if it doesn't exist (ignore error if it does).
-          gh release create $tag --title $title --notes $notes --latest=false 2>$null
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "Release exists, updating assets..."
-          }
+          # Delete existing release to avoid immutability/clobber issues.
+          # This is safe because the release is always fully recreated.
+          gh release delete $tag --yes 2>$null
+          Start-Sleep -Seconds 2
+          Write-Host "Cleaned up previous release (if any)"
 
-          # Upload (--clobber replaces existing asset with same name).
-          gh release upload $tag "whisper-server-vulkan-x64.zip" --clobber
-          Write-Host "Uploaded to release: $tag"
+          # Create the release with the asset in one atomic operation.
+          gh release create $tag $asset `
+            --title $title `
+            --notes $notes `
+            --latest=false
+          Write-Host "Created release $tag with $asset"
