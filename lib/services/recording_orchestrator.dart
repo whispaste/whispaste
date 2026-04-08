@@ -236,15 +236,19 @@ class RecordingOrchestrator extends Notifier<void> {
       );
 
       final inferSw = Stopwatch()..start();
+      // Timeout scales with audio length: 60s base + 0.8× audio duration.
+      // A 10s clip gets 68s, a 120s clip gets 156s — enough headroom for
+      // large-v3-turbo even on slower hardware.
+      final timeoutSec = 60 + (audioDurMs / 1000 * 0.8).round();
       String transcript;
       try {
         transcript = await sttNotifier.transcribeBytes(
           wavBytes,
           language: effectiveLang,
-        ).timeout(const Duration(seconds: 45));
+        ).timeout(Duration(seconds: timeoutSec));
       } on TimeoutException {
         notifier.fail('transcription_timeout');
-        _log.error('Transcription timed out after 45s');
+        _log.error('Transcription timed out after ${timeoutSec}s');
         return;
       }
       inferSw.stop();
