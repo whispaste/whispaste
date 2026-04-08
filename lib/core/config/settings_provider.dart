@@ -55,6 +55,7 @@ class AppSettings {
     // Overlay & Floating Button
     this.showOverlay = true,
     this.overlayMode = 'in-window',
+    this.overlayStartPosition = 'top-center',
     this.showFloatingButton = true,
     this.floatingButtonOpacity = 0.9,
     this.floatingButtonSize = 'Normal',
@@ -143,6 +144,8 @@ class AppSettings {
   final bool showOverlay;
   /// 'in-window', 'floating', or 'off'.
   final String overlayMode;
+  /// 'top-center', 'bottom-center', or 'last-position'.
+  final String overlayStartPosition;
   final bool showFloatingButton;
   final double floatingButtonOpacity;
   final String floatingButtonSize;
@@ -216,6 +219,8 @@ class AppSettings {
   AfterTranscriptionAction get afterTranscriptionAction =>
       AfterTranscriptionAction.fromValue(afterTranscription);
   OverlayMode get overlayModeType => OverlayMode.fromValue(overlayMode);
+  OverlayStartPosition get overlayStartPositionType =>
+      OverlayStartPosition.fromValue(overlayStartPosition);
   FloatingButtonSize get floatingButtonSizeType =>
       FloatingButtonSize.fromValue(floatingButtonSize);
   GpuAcceleration get gpuAccelerationType =>
@@ -289,6 +294,8 @@ class AppSettings {
           (_readBool(values, 'show_overlay', defaults.showOverlay)
               ? defaults.overlayMode
               : OverlayMode.off.value),
+      overlayStartPosition:
+          values['overlay_start_position'] ?? defaults.overlayStartPosition,
       showFloatingButton: _readBool(
         values,
         'show_floating_button',
@@ -434,6 +441,7 @@ class AppSettings {
       'after_transcription': afterTranscription,
       'show_overlay': '$showOverlay',
       'overlay_mode': overlayMode,
+      'overlay_start_position': overlayStartPosition,
       'show_floating_button': '$showFloatingButton',
       'floating_button_opacity': '$floatingButtonOpacity',
       'floating_button_size': floatingButtonSize,
@@ -496,6 +504,7 @@ class AppSettings {
     String? afterTranscription,
     bool? showOverlay,
     String? overlayMode,
+    String? overlayStartPosition,
     bool? showFloatingButton,
     double? floatingButtonOpacity,
     String? floatingButtonSize,
@@ -557,6 +566,8 @@ class AppSettings {
       afterTranscription: afterTranscription ?? this.afterTranscription,
       showOverlay: showOverlay ?? this.showOverlay,
       overlayMode: overlayMode ?? this.overlayMode,
+      overlayStartPosition:
+          overlayStartPosition ?? this.overlayStartPosition,
       showFloatingButton: showFloatingButton ?? this.showFloatingButton,
       floatingButtonOpacity:
           floatingButtonOpacity ?? this.floatingButtonOpacity,
@@ -624,6 +635,7 @@ class AppSettings {
           afterTranscription == other.afterTranscription &&
           showOverlay == other.showOverlay &&
           overlayMode == other.overlayMode &&
+          overlayStartPosition == other.overlayStartPosition &&
           showFloatingButton == other.showFloatingButton &&
           floatingButtonOpacity == other.floatingButtonOpacity &&
           floatingButtonSize == other.floatingButtonSize &&
@@ -671,15 +683,15 @@ class AppSettings {
         // Object.hash supports max 20 positional args; nest for rest.
         Object.hash(
           soundVolume, afterTranscription,
-          showOverlay, overlayMode, showFloatingButton,
+          showOverlay, overlayMode, overlayStartPosition, showFloatingButton,
           floatingButtonOpacity, floatingButtonSize,
           openAiApiKey, groqApiKey, deepgramApiKey,
           anthropicApiKey, geminiApiKey,
           cloudSttProvider, cloudLlmModel,
           smartModePrompt, smartModeTarget,
-          maxRecordDuration, closeToTray, errorReporting,
+          maxRecordDuration, closeToTray,
           Object.hash(
-            gpuAcceleration, autoPasteDelay,
+            errorReporting, gpuAcceleration, autoPasteDelay,
             trimSilence, useVAD, vadSensitivity,
             textReplacementsEnabled, checkUpdates,
             hotkeyKey, hotkeyModifiers,

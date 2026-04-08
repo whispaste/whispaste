@@ -127,6 +127,16 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
   }
 
+  String _wordCountLabel(L10n l10n) {
+    final words = entry.content.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+    final readMinutes = (words / 200).ceil(); // ~200 wpm average
+    final wordStr = l10n.historyWordCount(words);
+    final timeStr = readMinutes < 1
+        ? l10n.historyReadingTimeUnder1
+        : l10n.historyReadingTime(readMinutes);
+    return '$wordStr · $timeStr';
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -377,47 +387,77 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                         if (entry.titleEdited || _isEditingTranscript)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: WpSpacing.xs,
-                              vertical: 2,
+                              horizontal: WpSpacing.sm,
+                              vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: textMuted.withValues(alpha: 0.1),
+                              color: _isEditingTranscript
+                                  ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                                      .withValues(alpha: 0.15)
+                                  : textMuted.withValues(alpha: 0.1),
                               borderRadius: WpRadius.borderFull,
                             ),
                             child: Text(
-                              _isEditingTranscript ? '●' : l10n.historyEditTranscript,
+                              _isEditingTranscript
+                                  ? l10n.historyEditing
+                                  : l10n.historyEditTranscript,
                               style: TextStyle(
                                 fontSize: 10,
-                                color: textMuted,
+                                fontWeight: _isEditingTranscript
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                                color: _isEditingTranscript
+                                    ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                                    : textMuted,
                               ),
                             ),
                           ),
                         const Spacer(),
-                        GestureDetector(
-                          onTap: _toggleEdit,
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _isEditingTranscript
-                                      ? LucideIcons.check
-                                      : LucideIcons.pencil,
-                                  size: 13,
-                                  color: textMuted,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _isEditingTranscript
-                                      ? l10n.historyTranscriptSaved
-                                      : l10n.historyEditTranscript,
-                                  style: TextStyle(
-                                    fontSize: 11,
+                        // Word count + reading time
+                        if (!_isEditingTranscript && entry.content.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(right: WpSpacing.sm),
+                            child: Text(
+                              _wordCountLabel(l10n),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: textMuted.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ),
+                        Material(
+                          color: Colors.transparent,
+                          borderRadius: WpRadius.borderFull,
+                          child: InkWell(
+                            borderRadius: const BorderRadius.all(Radius.circular(999)),
+                            onTap: _toggleEdit,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: WpSpacing.xs,
+                                vertical: 4,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _isEditingTranscript
+                                        ? LucideIcons.check
+                                        : LucideIcons.pencil,
+                                    size: 14,
                                     color: textMuted,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _isEditingTranscript
+                                        ? l10n.historyTranscriptSaved
+                                        : l10n.historyEditTranscript,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -425,52 +465,43 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                     ),
                   ],
                   const SizedBox(height: WpSpacing.xxl),
-                  // Metadata section
-                  Container(
-                    padding: const EdgeInsets.all(WpSpacing.md),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? WpColorsDark.surfaceElevated
-                          : WpColorsLight.surfaceElevated,
-                      borderRadius: WpRadius.borderMd,
-                      border: Border.all(
-                        color: isDark
-                            ? WpColorsDark.borderSubtle
-                            : WpColorsLight.borderSubtle,
+                  // Metadata — compact inline chips
+                  Wrap(
+                    spacing: WpSpacing.xs,
+                    runSpacing: WpSpacing.xs,
+                    children: [
+                      _MetaChip(
+                        icon: LucideIcons.clock,
+                        label: _durationLabel,
+                        isDark: isDark,
                       ),
-                    ),
-                    child: Column(
-                      children: [
-                        HistoryDetailMetaRow(
-                          icon: LucideIcons.clock,
-                          label: l10n.historyDuration,
-                          value: _durationLabel,
+                      if (entry.language.isNotEmpty)
+                        _MetaChip(
+                          icon: LucideIcons.globe,
+                          label: entry.language.toUpperCase(),
                           isDark: isDark,
                         ),
-                        if (entry.language.isNotEmpty)
-                          HistoryDetailMetaRow(
-                            icon: LucideIcons.globe,
-                            label: l10n.historyLanguageLabel,
-                            value: entry.language.toUpperCase(),
-                            isDark: isDark,
-                          ),
-                        HistoryDetailMetaRow(
-                          icon: entry.isLocal
-                              ? LucideIcons.hardDrive
-                              : LucideIcons.cloud,
-                          label: l10n.historyProcessed,
-                          value: entry.isLocal ? l10n.historyOnDevice : l10n.statusCloud,
-                          isDark: isDark,
-                        ),
-                        if (entry.model.isNotEmpty)
-                          HistoryDetailMetaRow(
+                      _MetaChip(
+                        icon: entry.isLocal
+                            ? LucideIcons.hardDrive
+                            : LucideIcons.cloud,
+                        label: entry.isLocal
+                            ? l10n.historyOnDevice
+                            : l10n.statusCloud,
+                        isDark: isDark,
+                      ),
+                      if (entry.model.isNotEmpty)
+                        Tooltip(
+                          message: '${l10n.historyModel}: ${entry.model}',
+                          child: _MetaChip(
                             icon: LucideIcons.cpu,
-                            label: l10n.historyModel,
-                            value: entry.model,
+                            label: entry.model.length > 20
+                                ? '${entry.model.substring(0, 20)}…'
+                                : entry.model,
                             isDark: isDark,
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
                   // Tags — interactive editor
                   const SizedBox(height: WpSpacing.md),
@@ -669,6 +700,49 @@ class HistoryDetailMetaRow extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact inline metadata chip for the detail panel.
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({
+    required this.icon,
+    required this.label,
+    required this.isDark,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark
+        ? WpColorsDark.surfaceElevated
+        : WpColorsLight.surfaceElevated;
+    final fg = isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.sm,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: WpRadius.borderFull,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: fg, fontWeight: FontWeight.w500),
           ),
         ],
       ),

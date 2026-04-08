@@ -39,7 +39,7 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
   // window_manager 0.5.1 on Windows has a dead-code bug in Show() where
   // SWP_FRAMECHANGED never executes, causing transparent frameless windows
   // to lose their compositor surface after a hide->show cycle.
-  // Instead we toggle visibility by resizing: 1x1 = hidden, 520x100 = visible.
+  // Instead we toggle visibility by resizing: 1x1 = hidden, 520x110 = visible.
   const hiddenSize = Size(1, 1);
 
   const options = WindowOptions(
@@ -129,12 +129,14 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
         await windowManager.setAlwaysOnTop(true);
       } catch (_) {}
     } else if (call.method == 'showWindow') {
-      // Parse optional saved position from arguments.
+      // Parse position/alignment from arguments.
       double? posX, posY;
+      String? align;
       if (call.arguments is String) {
         try {
           final pos =
               jsonDecode(call.arguments as String) as Map<String, dynamic>;
+          align = pos['align'] as String?;
           posX = (pos['x'] as num?)?.toDouble();
           posY = (pos['y'] as num?)?.toDouble();
         } catch (_) {}
@@ -143,12 +145,32 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
         // Resize from 1x1 (hidden) -> visible. Window is slightly larger than
         // the pill to accommodate box shadows (16px blur + 6px offset) and
         // the hotkey hint below the pill.
-        const targetSize = Size(520, 100);
+        const targetSize = Size(520, 110);
         await windowManager.setSize(targetSize);
-        if (posX != null && posX >= 0 && posY != null && posY >= 0) {
+        if (align == 'bottom-center') {
+          // Position above the taskbar (~48px margin from bottom).
+          final screen = await windowManager.getBounds();
+          final screenHeight = screen.height;
+          if (screenHeight > 0) {
+            // Use screen info to place near bottom
+            await windowManager.setAlignment(Alignment.bottomCenter);
+            // Shift up slightly to account for taskbar
+            final currentPos = await windowManager.getPosition();
+            await windowManager.setPosition(
+              Offset(currentPos.dx, currentPos.dy - 48),
+            );
+          } else {
+            await windowManager.setAlignment(Alignment.bottomCenter);
+          }
+        } else if (posX != null && posX >= 0 && posY != null && posY >= 0) {
           await windowManager.setPosition(Offset(posX, posY));
         } else {
+          // Default: top-center with small margin
           await windowManager.setAlignment(Alignment.topCenter);
+          final currentPos = await windowManager.getPosition();
+          await windowManager.setPosition(
+            Offset(currentPos.dx, currentPos.dy + 16),
+          );
         }
         await windowManager.setAlwaysOnTop(true);
       } catch (e) {
@@ -305,7 +327,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill> {
 
     // Fixed-size transparent container when idle -- ensures the window always
     // has content to prevent thin-line rendering on Windows frameless windows.
-    if (!showPill) return const SizedBox(width: 520, height: 100);
+    if (!showPill) return const SizedBox(width: 520, height: 110);
 
     final l10n = L10n.of(context);
     final semanticLabel = _semanticLabel(displayPhase, l10n);

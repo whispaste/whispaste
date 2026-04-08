@@ -43,6 +43,20 @@
   "historyModel": "Modell",
   "historyWords": "Wörter",
   "historyCharacters": "Zeichen",
+  "historyWordCount": "{count} Wörter",
+  "@historyWordCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "historyReadingTime": "{minutes} Min. Lesezeit",
+  "@historyReadingTime": {
+    "placeholders": {
+      "minutes": {"type": "int"}
+    }
+  },
+  "historyReadingTimeUnder1": "< 1 Min. Lesezeit",
+  "historyEditing": "Bearbeitung…",
   "historySearchTranscriptions": "Transkriptionen suchen…",
   "historyNoResults": "Keine Ergebnisse",
   "historyNoResultsHint": "Keine Transkriptionen stimmen mit \"{query}\" überein.\nVersuche einen anderen Suchbegriff.",
@@ -138,6 +152,11 @@
   "settingsOverlayModeInWindow": "Im Hauptfenster",
   "settingsOverlayModeFloating": "Schwebendes Fenster (immer sichtbar)",
   "settingsOverlayModeOff": "Aus",
+  "settingsOverlayStartPosition": "Overlay-Startposition",
+  "settingsOverlayStartPositionSubtitle": "Wo das schwebende Overlay beim Aufnahmestart erscheint",
+  "settingsOverlayStartTopCenter": "Oben mittig",
+  "settingsOverlayStartBottomCenter": "Unten mittig",
+  "settingsOverlayStartLastPosition": "Letzte Position merken",
   "settingsShowFloatingButton": "Schwebender Aufnahme-Button",
   "settingsShowFloatingButtonSubtitle": "Kleiner immer sichtbarer Button zum Starten oder Stoppen der Aufnahme aus jeder App",
   "settingsFloatingButtonOpacity": "Deckkraft des schwebenden Buttons",
