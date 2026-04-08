@@ -403,6 +403,30 @@ abstract class L10n {
   /// **'Deleted transcriptions will appear here.\nItems are permanently removed after 30 days.'**
   String get historyTrashEmptyHint;
 
+  /// No description provided for @historyEmptyTrash.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty Trash'**
+  String get historyEmptyTrash;
+
+  /// No description provided for @historyEmptyTrashConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty trash?'**
+  String get historyEmptyTrashConfirm;
+
+  /// No description provided for @historyEmptyTrashConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete all items in the trash. This action cannot be undone.'**
+  String get historyEmptyTrashConfirmMessage;
+
+  /// No description provided for @historyTrashEmptied.
+  ///
+  /// In en, this message translates to:
+  /// **'Trash emptied'**
+  String get historyTrashEmptied;
+
   /// No description provided for @historyNoArchivedItems.
   ///
   /// In en, this message translates to:
