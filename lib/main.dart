@@ -14,6 +14,7 @@ import 'screens/floating_overlay_screen.dart';
 import 'services/audio_service.dart';
 import 'services/hardware_info_service.dart' as hw;
 import 'services/multi_window_service.dart';
+import 'services/path_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/subprocess_guard.dart' as guard;
 
@@ -113,8 +114,12 @@ Future<void> main(List<String> args) async {
     // Kill orphaned whisper-server / llama-server from crashed sessions.
     unawaited(guard.cleanupOrphans());
 
-    // Pre-cache GPU detection so binary selection is instant later.
-    unawaited(hw.detectGpu());
+    // Pre-cache GPU detection and validate the whisper-server binary matches
+    // the current hardware. If the GPU changed since the binary was
+    // downloaded (e.g., eGPU plugged in, driver update, hardware swap),
+    // the incompatible binary is auto-deleted so the next download fetches
+    // the correct variant.
+    unawaited(hw.validateAndCleanIncompatibleBinary(sttDir()));
 
     runApp(
       UncontrolledProviderScope(
