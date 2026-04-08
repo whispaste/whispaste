@@ -658,6 +658,16 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           await _extractServerZip(zipPath, sttDir());
           await File(zipPath).delete().catchError((_) => File(zipPath));
 
+          // Write metadata so startup validation can verify compatibility
+          // without relying on DLL heuristics alone.
+          final assetName = Uri.parse(assetUrl).pathSegments.lastOrNull ?? '';
+          await hw.writeServerBinaryInfo(
+            sttDir(),
+            gpu,
+            sourceRepo: '$owner/$repo',
+            assetName: assetName,
+          );
+
           state = state.copyWith(serverReady: true);
           _log.info('whisper-server ready (source=$owner/$repo)');
           return;

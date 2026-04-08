@@ -479,6 +479,23 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     final gpu = await hw.detectGpu();
     _log.info('GPU: ${gpu.name} (${gpu.vendor.name}, backend=${gpu.optimalBackend})');
 
+    // --- Proactive binary compatibility check --------------------------------
+    // Verify the server binary matches the current GPU before attempting to
+    // start it. This catches hardware changes (e.g., new GPU, driver update)
+    // that would otherwise cause a DLL_NOT_FOUND crash at startup.
+    if (!hw.isServerBinaryCompatible(sttDir(), gpu)) {
+      _log.error(
+        'Proactive check: server binary incompatible with current GPU. '
+        'Deleting for re-download.',
+      );
+      await hw.deleteServerBinary(sttDir());
+      _fail(
+        'Incompatible whisper-server for your GPU (${gpu.name}). '
+        'Please re-download the speech model in Settings.',
+      );
+      return;
+    }
+
     // --- Build args (mirrors Go's sttServerArgs) -----------------------------
     final threads = _threadCount(gpuAcceleration);
     final args = _serverArgs(
