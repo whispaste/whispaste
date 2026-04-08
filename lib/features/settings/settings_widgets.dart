@@ -241,6 +241,7 @@ Widget settingsSlider({
   required int divisions,
   required String valueLabel,
   required ValueChanged<double> onChanged,
+  ValueChanged<double>? onChangeEnd,
 }) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
@@ -267,6 +268,7 @@ Widget settingsSlider({
             max: max,
             divisions: divisions,
             onChanged: onChanged,
+            onChangeEnd: onChangeEnd,
           ),
         ),
       ),
