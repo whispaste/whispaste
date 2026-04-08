@@ -810,11 +810,6 @@ class HistoryDatabase extends _$HistoryDatabase {
       await delete(dailyStats).go();
       await delete(textReplacements).go();
       await customStatement('DELETE FROM app_settings');
-      // FTS triggers already fire on historyEntries delete, but
-      // issue an explicit rebuild to guarantee a clean index.
-      await customStatement(
-        "INSERT INTO history_fts(history_fts) VALUES('rebuild')",
-      );
     });
   }
 
