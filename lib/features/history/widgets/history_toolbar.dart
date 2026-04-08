@@ -90,7 +90,7 @@ class HistorySearchToolbar extends StatelessWidget {
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 32,
+                  height: 36,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [

@@ -66,7 +66,7 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
           curve: WpMotion.defaultCurve,
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.sm,
-            vertical: WpSpacing.xs,
+            vertical: 6,
           ),
           decoration: BoxDecoration(
             color: bg,
@@ -92,6 +92,7 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
                 style: TextStyle(
                   color: fg,
                   fontSize: 13,
+                  height: 1.15,
                   fontWeight:
                       widget.isActive ? FontWeight.w600 : FontWeight.w500,
                 ),

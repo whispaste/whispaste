@@ -1197,6 +1197,9 @@ class L10nEn extends L10n {
   String get modelReady => 'Ready';
 
   @override
+  String get modelUse => 'Use';
+
+  @override
   String get modelDownload => 'Download';
 
   @override
@@ -1426,6 +1429,11 @@ class L10nEn extends L10n {
 
   @override
   String get historyTagRemoved => 'Tag removed';
+
+  @override
+  String historyCreateTag(Object tag) {
+    return 'Create \"$tag\"';
+  }
 
   @override
   String get historyEditTranscript => 'Edit transcript';

@@ -2299,6 +2299,12 @@ abstract class L10n {
   /// **'Ready'**
   String get modelReady;
 
+  /// No description provided for @modelUse.
+  ///
+  /// In en, this message translates to:
+  /// **'Use'**
+  String get modelUse;
+
   /// No description provided for @modelDownload.
   ///
   /// In en, this message translates to:
@@ -2712,6 +2718,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Tag removed'**
   String get historyTagRemoved;
+
+  /// No description provided for @historyCreateTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Create \"{tag}\"'**
+  String historyCreateTag(Object tag);
 
   /// No description provided for @historyEditTranscript.
   ///

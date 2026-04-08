@@ -11,6 +11,7 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/hardware_info_service.dart' as hw;
 import '../services/model_download_service.dart';
+import '../core/config/settings_provider.dart';
 
 /// Tier-based model manager — shows 3 quality tiers (compact, balanced,
 /// premium) instead of raw model names. Auto-recommends based on GPU VRAM.
@@ -32,22 +33,20 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
     final downloadState = ref.watch(modelDownloadProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
+    final settings = ref.watch(settingsProvider).value;
+    final currentModelId = settings?.effectiveModelId;
+    final currentTier =
+        currentModelId != null ? tierForModel(currentModelId) : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Server status row
-        _ServerStatusRow(
-          serverReady: downloadState.serverReady,
-          isDark: isDark,
-          l10n: l10n,
-        ),
-        const SizedBox(height: WpSpacing.sm),
         // Tier cards
         for (final tier in QualityTier.values) ...[
           _TierRow(
             tier: tier,
             isRecommended: tier == recommendedTier,
+            isCurrentTier: tier == currentTier,
             warning: gpu != null ? tierWarning(tier, gpu) : null,
             downloadState: downloadState,
             isDark: isDark,
@@ -74,6 +73,10 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
                     }
                   }
                 : null,
+            onActivate: _isTierDownloaded(tier, downloadState) &&
+                    tier != currentTier
+                ? () => _activateTier(tier)
+                : null,
           ),
         ],
         // Error message
@@ -87,6 +90,14 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
         ],
       ],
     );
+  }
+
+  /// Activate a downloaded tier as the current model.
+  void _activateTier(QualityTier tier) {
+    final modelId = bestModelForTier(tier).id;
+    ref
+        .read(settingsProvider.notifier)
+        .updateSettings((s) => s.copyWith(sttModel: modelId));
   }
 
   /// Whether any model in this tier is currently being downloaded.
@@ -110,6 +121,7 @@ class _TierRow extends StatefulWidget {
   const _TierRow({
     required this.tier,
     required this.isRecommended,
+    this.isCurrentTier = false,
     this.warning,
     required this.downloadState,
     required this.isDark,
@@ -117,10 +129,12 @@ class _TierRow extends StatefulWidget {
     required this.onDownload,
     required this.onCancel,
     required this.onDelete,
+    this.onActivate,
   });
 
   final QualityTier tier;
   final bool isRecommended;
+  final bool isCurrentTier;
   final String? warning;
   final ModelDownloadState downloadState;
   final bool isDark;
@@ -128,6 +142,7 @@ class _TierRow extends StatefulWidget {
   final VoidCallback? onDownload;
   final VoidCallback? onCancel;
   final VoidCallback? onDelete;
+  final VoidCallback? onActivate;
 
   @override
   State<_TierRow> createState() => _TierRowState();
@@ -350,36 +365,77 @@ class _TierRowState extends State<_TierRow> {
     }
 
     if (_isDownloaded) {
-      if (_isHovered) {
-        return _ActionChip(
-          label: widget.l10n.actionDelete,
-          icon: LucideIcons.trash2,
-          color: widget.isDark ? WpColorsDark.error : WpColorsLight.error,
-          onTap: widget.onDelete,
+      // Current active tier — show checkmark.
+      if (widget.isCurrentTier) {
+        if (_isHovered) {
+          return _ActionChip(
+            label: widget.l10n.actionDelete,
+            icon: LucideIcons.trash2,
+            color: widget.isDark ? WpColorsDark.error : WpColorsLight.error,
+            onTap: widget.onDelete,
+          );
+        }
+        final success =
+            widget.isDark ? WpColorsDark.success : WpColorsLight.success;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.circleCheck, size: 14, color: success),
+            const SizedBox(width: 4),
+            Text(
+              widget.l10n.modelReady,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: success,
+              ),
+            ),
+          ],
         );
       }
-      // Show "ready" only when both model file AND server binary exist.
-      final fullyReady = widget.downloadState.serverReady;
-      final chipColor = fullyReady
+      // Downloaded but not active — "Use" button on hover, "Ready" otherwise.
+      if (_isHovered) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ActionChip(
+              label: widget.l10n.modelUse,
+              icon: LucideIcons.check,
+              color: accent,
+              onTap: widget.onActivate,
+            ),
+            const SizedBox(width: WpSpacing.xs),
+            _ActionChip(
+              label: widget.l10n.actionDelete,
+              icon: LucideIcons.trash2,
+              color: widget.isDark ? WpColorsDark.error : WpColorsLight.error,
+              onTap: widget.onDelete,
+            ),
+          ],
+        );
+      }
+      final readyColor = widget.downloadState.serverReady
           ? (widget.isDark ? WpColorsDark.success : WpColorsLight.success)
           : (widget.isDark ? WpColorsDark.warning : WpColorsLight.warning);
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            fullyReady ? LucideIcons.circleCheck : LucideIcons.loaderCircle,
+            widget.downloadState.serverReady
+                ? LucideIcons.circleCheck
+                : LucideIcons.loaderCircle,
             size: 14,
-            color: chipColor,
+            color: readyColor,
           ),
           const SizedBox(width: 4),
           Text(
-            fullyReady
+            widget.downloadState.serverReady
                 ? widget.l10n.modelReady
                 : widget.l10n.modelServerMissing,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: chipColor,
+              color: readyColor,
             ),
           ),
         ],
@@ -391,54 +447,6 @@ class _TierRowState extends State<_TierRow> {
       icon: LucideIcons.download,
       color: accent,
       onTap: widget.onDownload,
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Server status indicator
-// ---------------------------------------------------------------------------
-
-class _ServerStatusRow extends StatelessWidget {
-  const _ServerStatusRow({
-    required this.serverReady,
-    required this.isDark,
-    required this.l10n,
-  });
-
-  final bool serverReady;
-  final bool isDark;
-  final L10n l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColor = serverReady
-        ? (isDark ? WpColorsDark.success : WpColorsLight.success)
-        : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted);
-    final textColor =
-        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.md,
-        vertical: WpSpacing.xs,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            serverReady ? LucideIcons.circleCheck : LucideIcons.circleAlert,
-            size: 14,
-            color: statusColor,
-          ),
-          const SizedBox(width: WpSpacing.xs),
-          Text(
-            serverReady
-                ? l10n.modelServerReady
-                : l10n.modelServerMissing,
-            style: TextStyle(fontSize: 12, color: textColor),
-          ),
-        ],
-      ),
     );
   }
 }
