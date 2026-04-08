@@ -492,7 +492,14 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   // -----------------------------------------------------------------------
 
   Future<void> _downloadWhisperServer() async {
-    dev.log('Downloading whisper-server binary…', name: 'Download');
+    // Log detected GPU for download debugging.
+    final gpu = await hw.detectGpu();
+    dev.log(
+      'Downloading whisper-server binary… '
+      '(gpu=${gpu.vendor.name}, name="${gpu.name}", '
+      'cuda=${gpu.cudaAvailable})',
+      name: 'Download',
+    );
 
     // Determine GPU mode for asset selection.
     final settings =
@@ -515,12 +522,15 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         );
         if (assetUrl == null) continue;
 
-        // Download ZIP to temp.
+        // Download ZIP to temp. Size varies dramatically by backend:
+        // CPU/BLAS ~17 MB, Vulkan ~30 MB, CUDA 12 ~460 MB.
+        final isCuda = assetUrl.contains('cuda') || assetUrl.contains('cublas');
+        final estimatedSize = isCuda ? 460 * 1024 * 1024 : 30 * 1024 * 1024;
         final zipPath = p.join(sttDir(), '_whisper-server.zip');
         await _downloadFile(
           url: assetUrl,
           destPath: zipPath,
-          expectedSize: 30 * 1024 * 1024, // ~30 MB estimate
+          expectedSize: estimatedSize,
         );
 
         state = state.copyWith(phase: DownloadPhase.extracting);
@@ -563,17 +573,31 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     // Build priority list of asset name patterns based on detected GPU.
     final patterns = await _serverAssetPatterns(gpuMode, isWhisPaste);
 
+    // Architecture filter: match platform to expected binary arch.
+    final archPattern = Platform.isMacOS ? 'arm64' : 'x64';
+
     for (final pattern in patterns) {
       for (final asset in assets) {
         final assetMap = asset as Map<String, dynamic>;
         final name = (assetMap['name'] as String?) ?? '';
         final lowerName = name.toLowerCase();
-        if (lowerName.contains(pattern) && lowerName.contains('x64')) {
+        if (lowerName.contains(pattern) && lowerName.contains(archPattern)) {
+          dev.log(
+            'Selected server asset: $name (pattern=$pattern, '
+            'arch=$archPattern, repo=$owner/$repo)',
+            name: 'Download',
+          );
           return assetMap['browser_download_url'] as String?;
         }
       }
     }
 
+    dev.log(
+      'No matching server asset in $owner/$repo '
+      '(patterns=$patterns, arch=$archPattern, '
+      'assets=${assets.map((a) => (a as Map)['name']).toList()})',
+      name: 'Download',
+    );
     return null;
   }
 
