@@ -12,6 +12,7 @@ import '../data/history_detail_provider.dart';
 import 'history_helpers.dart';
 import 'history_notes_section.dart';
 import '../../../widgets/tag_input.dart';
+import '../../../widgets/markdown_toolbar.dart';
 
 // ---------------------------------------------------------------------------
 // Detail panel — opens on entry selection (ChatGPT/Notion detail view)
@@ -57,6 +58,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   bool _isEditingTranscript = false;
   late TextEditingController _transcriptController;
   final FocusNode _panelFocusNode = FocusNode();
+  final FocusNode _editorFocusNode = FocusNode();
   final GlobalKey<_TagSectionState> _tagSectionKey = GlobalKey<_TagSectionState>();
   final GlobalKey<HistoryNotesSectionState> _notesSectionKey =
       GlobalKey<HistoryNotesSectionState>();
@@ -80,6 +82,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   void dispose() {
     _transcriptController.dispose();
     _panelFocusNode.dispose();
+    _editorFocusNode.dispose();
     super.dispose();
   }
 
@@ -96,6 +99,16 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   bool get isTrashView => widget.isTrashView;
   bool get isArchiveView => widget.isArchiveView;
 
+  /// Returns true if any text input field currently has focus.
+  /// Used to prevent single-key shortcuts from intercepting typed characters.
+  bool _isTextFieldFocused() {
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary == null) return false;
+    return primary.context
+            ?.findAncestorWidgetOfExactType<EditableText>() !=
+        null;
+  }
+
   void _saveTranscript() {
     final newContent = _transcriptController.text.trim();
     if (newContent != entry.content) {
@@ -111,6 +124,45 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       _transcriptController.text = entry.content;
       setState(() => _isEditingTranscript = true);
     }
+  }
+
+  void _wrapBold() => _wrapEditorSelection('**');
+  void _wrapItalic() => _wrapEditorSelection('_');
+  void _toggleBullet() => _toggleEditorLinePrefix('- ');
+
+  void _wrapEditorSelection(String marker) {
+    final sel = _transcriptController.selection;
+    if (!sel.isValid) return;
+    final text = _transcriptController.text;
+    final selected = text.substring(sel.start, sel.end);
+    final wrapped = '$marker$selected$marker';
+    _transcriptController.value = TextEditingValue(
+      text: '${text.substring(0, sel.start)}$wrapped${text.substring(sel.end)}',
+      selection: TextSelection(
+        baseOffset: sel.start,
+        extentOffset: sel.start + wrapped.length,
+      ),
+    );
+    _editorFocusNode.requestFocus();
+  }
+
+  void _toggleEditorLinePrefix(String prefix) {
+    final sel = _transcriptController.selection;
+    if (!sel.isValid) return;
+    final text = _transcriptController.text;
+    final lineStart = text.lastIndexOf('\n', sel.start > 0 ? sel.start - 1 : 0);
+    final start = lineStart == -1 ? 0 : lineStart + 1;
+    final lineEnd = text.indexOf('\n', sel.end);
+    final end = lineEnd == -1 ? text.length : lineEnd;
+    final line = text.substring(start, end);
+    final toggled = line.startsWith(prefix)
+        ? line.substring(prefix.length)
+        : '$prefix$line';
+    _transcriptController.value = TextEditingValue(
+      text: '${text.substring(0, start)}$toggled${text.substring(end)}',
+      selection: TextSelection.collapsed(offset: start + toggled.length),
+    );
+    _editorFocusNode.requestFocus();
   }
 
   String _fullTimestamp(BuildContext context) {
@@ -152,15 +204,35 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
         const SingleActivator(LogicalKeyboardKey.escape): onClose,
+        // Single-key shortcuts — guarded to avoid intercepting text input
         const SingleActivator(LogicalKeyboardKey.keyT): () {
-          _tagSectionKey.currentState?.focusTagInput();
+          if (!_isTextFieldFocused()) {
+            _tagSectionKey.currentState?.focusTagInput();
+          }
         },
         const SingleActivator(LogicalKeyboardKey.keyN): () {
-          _notesSectionKey.currentState?.startAddingNote();
+          if (!_isTextFieldFocused()) {
+            _notesSectionKey.currentState?.startAddingNote();
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.keyP): () {
+          if (!_isTextFieldFocused()) onPin();
         },
         const SingleActivator(LogicalKeyboardKey.keyE, control: true): _toggleEdit,
-        const SingleActivator(LogicalKeyboardKey.keyP): onPin,
+        const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
+          if (_isEditingTranscript) _saveTranscript();
+        },
         const SingleActivator(LogicalKeyboardKey.keyC, control: true): onCopy,
+        // Markdown formatting shortcuts (active only in edit mode)
+        const SingleActivator(LogicalKeyboardKey.keyB, control: true): () {
+          if (_isEditingTranscript) _wrapBold();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyI, control: true): () {
+          if (_isEditingTranscript) _wrapItalic();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyL, control: true, shift: true): () {
+          if (_isEditingTranscript) _toggleBullet();
+        },
       },
       child: Focus(
         focusNode: _panelFocusNode,
@@ -224,13 +296,13 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                 ] else ...[
                   HistoryDetailAction(
                     icon: LucideIcons.copy,
-                    tooltip: l10n.historyCopyText,
+                    tooltip: '${l10n.historyCopyText} (Ctrl+C)',
                     isDark: isDark,
                     onTap: onCopy,
                   ),
                   HistoryDetailAction(
                     icon: entry.pinned ? LucideIcons.pinOff : LucideIcons.pin,
-                    tooltip: entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop,
+                    tooltip: '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (P)',
                     isDark: isDark,
                     onTap: onPin,
                   ),
@@ -313,7 +385,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                 const SizedBox(width: WpSpacing.xxs),
                 HistoryDetailAction(
                   icon: LucideIcons.x,
-                  tooltip: l10n.historyClose,
+                  tooltip: '${l10n.historyClose} (Esc)',
                   isDark: isDark,
                   onTap: onClose,
                 ),
@@ -336,16 +408,26 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Transcript — view or edit mode
+                  if (_isEditingTranscript) ...[
+                    WpMarkdownToolbar(
+                      controller: _transcriptController,
+                      isDark: isDark,
+                      focusNode: _editorFocusNode,
+                    ),
+                    const SizedBox(height: WpSpacing.xs),
+                  ],
                   Row(
                     children: [
                       Expanded(
                         child: _isEditingTranscript
                             ? TextField(
                                 controller: _transcriptController,
+                                focusNode: _editorFocusNode,
                                 maxLines: null,
                                 autofocus: true,
                                 style: TextStyle(
                                   fontSize: 15.5,
+                                  fontFamily: 'monospace',
                                   color: textPrimary,
                                   height: 1.65,
                                 ),
@@ -427,38 +509,56 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                               ),
                             ),
                           ),
-                        Material(
-                          color: Colors.transparent,
-                          borderRadius: WpRadius.borderFull,
-                          child: InkWell(
-                            borderRadius: const BorderRadius.all(Radius.circular(999)),
-                            onTap: _toggleEdit,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: WpSpacing.xs,
-                                vertical: 4,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    _isEditingTranscript
-                                        ? LucideIcons.check
-                                        : LucideIcons.pencil,
-                                    size: 14,
-                                    color: textMuted,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _isEditingTranscript
-                                        ? l10n.historyTranscriptSaved
-                                        : l10n.historyEditTranscript,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: textMuted,
+                        Tooltip(
+                          message: _isEditingTranscript
+                              ? '${l10n.historyTranscriptSaved} (Ctrl+S)'
+                              : '${l10n.historyEditTranscript} (Ctrl+E)',
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: WpRadius.borderFull,
+                            child: InkWell(
+                              borderRadius: const BorderRadius.all(Radius.circular(999)),
+                              onTap: _toggleEdit,
+                              child: AnimatedContainer(
+                                duration: WpMotion.fast,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: WpSpacing.sm,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _isEditingTranscript
+                                      ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                                          .withValues(alpha: 0.15)
+                                      : textMuted.withValues(alpha: 0.08),
+                                  borderRadius: WpRadius.borderFull,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _isEditingTranscript
+                                          ? LucideIcons.check
+                                          : LucideIcons.pencil,
+                                      size: 14,
+                                      color: _isEditingTranscript
+                                          ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                                          : textMuted,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      _isEditingTranscript
+                                          ? l10n.historyTranscriptSaved
+                                          : l10n.historyEditTranscript,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: _isEditingTranscript
+                                            ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                                            : textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
