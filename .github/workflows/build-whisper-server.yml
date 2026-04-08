@@ -131,10 +131,10 @@ jobs:
           > This release only contains variants not available upstream.
           "@
 
-          # Delete existing release to avoid immutability/clobber issues.
-          # This is safe because the release is always fully recreated.
-          gh release delete $tag --yes 2>$null
-          Start-Sleep -Seconds 2
+          # Delete existing release AND its git tag to avoid immutability issues.
+          # Without --cleanup-tag, the orphaned tag blocks re-creation.
+          gh release delete $tag --yes --cleanup-tag 2>$null
+          Start-Sleep -Seconds 3
           Write-Host "Cleaned up previous release (if any)"
 
           # Create the release with the asset in one atomic operation.
