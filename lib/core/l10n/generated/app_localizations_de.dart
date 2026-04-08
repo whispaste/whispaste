@@ -1412,6 +1412,12 @@ class L10nDe extends L10n {
   String get historyAddTag => 'Tag hinzufügen…';
 
   @override
+  String get historySearchTags => 'Suchen oder erstellen…';
+
+  @override
+  String get historyNoteEdited => 'bearbeitet';
+
+  @override
   String get historyTagAdded => 'Tag hinzugefügt';
 
   @override
