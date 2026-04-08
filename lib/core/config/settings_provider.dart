@@ -41,7 +41,7 @@ class AppSettings {
     this.sttModel = 'whisper-medium',
     this.sttLanguage = 'Auto-detect',
     // Post-Processing
-    this.postProcessEnabled = true,
+    this.postProcessEnabled = false,
     this.postProcessPreset = 'Clean up',
     this.postProcessProvider = 'Local',
     // Sound & Feedback
@@ -53,10 +53,10 @@ class AppSettings {
     // After Transcription
     this.afterTranscription = 'clipboard',
     // Overlay & Floating Button
-    this.showOverlay = true,
+    this.showOverlay = false,
     this.overlayMode = 'in-window',
     this.overlayStartPosition = 'top-center',
-    this.showFloatingButton = true,
+    this.showFloatingButton = false,
     this.floatingButtonOpacity = 0.9,
     this.floatingButtonSize = 'Normal',
     // Cloud Providers (API keys)
