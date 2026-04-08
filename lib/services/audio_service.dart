@@ -15,6 +15,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../core/config/settings_provider.dart';
+
 // ---------------------------------------------------------------------------
 // Audio service state
 // ---------------------------------------------------------------------------
@@ -48,15 +50,17 @@ class AudioStatus {
 // Recorder config — whisper-compatible WAV
 // ---------------------------------------------------------------------------
 
-/// RecordConfig tuned for whisper-server: 16 kHz, mono, WAV.
-const _whisperRecordConfig = RecordConfig(
-  encoder: AudioEncoder.wav,
-  sampleRate: 16000,
-  numChannels: 1,
-  autoGain: true,
-  echoCancel: false,
-  noiseSuppress: true,
-);
+/// Builds a whisper-compatible [RecordConfig], optionally targeting a
+/// specific [InputDevice]. Pass `null` to use the system default.
+RecordConfig _whisperConfig({InputDevice? device}) => RecordConfig(
+      encoder: AudioEncoder.wav,
+      sampleRate: 16000,
+      numChannels: 1,
+      autoGain: true,
+      echoCancel: false,
+      noiseSuppress: true,
+      device: device,
+    );
 
 // ---------------------------------------------------------------------------
 // Audio service notifier
@@ -92,6 +96,10 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
 
   /// Starts recording to a temporary WAV file.
   ///
+  /// Reads the selected microphone from [settingsProvider] and resolves it
+  /// to an [InputDevice]. Falls back to the system default if the configured
+  /// device cannot be found.
+  ///
   /// Returns immediately — audio data streams to disk.
   /// Subscribe to [amplitudeStream] for level metering.
   ///
@@ -115,6 +123,36 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       return;
     }
 
+    // ── Resolve selected microphone from settings ──────────────────────
+    final settings = ref.read(settingsProvider).value;
+    final micLabel = settings?.microphone ?? 'Default';
+    InputDevice? selectedDevice;
+
+    if (micLabel != 'Default') {
+      try {
+        final devices = await recorder.listInputDevices();
+        for (final d in devices) {
+          if (d.label == micLabel) {
+            selectedDevice = d;
+            break;
+          }
+        }
+        if (selectedDevice == null) {
+          dev.log(
+            'Configured mic "$micLabel" not found in '
+            '[${devices.map((d) => d.label).join(", ")}]. '
+            'Falling back to system default.',
+            name: 'AudioService',
+          );
+        }
+      } catch (e) {
+        dev.log(
+          'Failed to enumerate input devices: $e',
+          name: 'AudioService',
+        );
+      }
+    }
+
     // Generate a temp file path for the WAV.
     final tempDir = await getTemporaryDirectory();
     final timestamp =
@@ -122,7 +160,13 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     final wavPath =
         p.join(tempDir.path, 'whispaste_$timestamp.wav');
 
-    dev.log('Start recording → $wavPath', name: 'AudioService');
+    dev.log(
+      'Start recording → $wavPath | '
+      'Mic: ${selectedDevice?.label ?? "System Default"} '
+      '(setting: "$micLabel"'
+      '${selectedDevice != null ? ', id: ${selectedDevice.id}' : ''})',
+      name: 'AudioService',
+    );
 
     // Prepare amplitude stream.
     _amplitudeController?.close();
@@ -148,7 +192,10 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     );
 
     try {
-      await recorder.start(_whisperRecordConfig, path: wavPath);
+      await recorder.start(
+        _whisperConfig(device: selectedDevice),
+        path: wavPath,
+      );
     } on Exception {
       _amplitudeSub?.cancel();
       _amplitudeController?.close();

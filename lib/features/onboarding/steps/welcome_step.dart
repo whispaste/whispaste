@@ -81,43 +81,14 @@ class WelcomeStep extends ConsumerWidget {
         ),
         const SizedBox(height: WpSpacing.xxl),
 
-        // Language selector
-        _SegmentedSelector(
-          items: [
-            _SegmentItem(
-              icon: ExcludeSemantics(
-                child: ClipOval(
-                  child: SvgPicture.asset(
-                    'assets/flags/us.svg',
-                    width: 22,
-                    height: 22,
-                  ),
-                ),
-              ),
-              label: 'English',
-              isActive: settings.locale == 'en',
-              onTap: () => selectLocale('en'),
-            ),
-            _SegmentItem(
-              icon: ExcludeSemantics(
-                child: ClipOval(
-                  child: SvgPicture.asset(
-                    'assets/flags/de.svg',
-                    width: 22,
-                    height: 22,
-                  ),
-                ),
-              ),
-              label: 'Deutsch',
-              isActive: settings.locale == 'de',
-              onTap: () => selectLocale('de'),
-            ),
-          ],
-          activeGradient: accentGradient,
-          borderColor: borderColor,
-          surfaceColor: surfaceVariant,
+        // Language toggle — flag thumb slides between EN/DE
+        _LanguageToggle(
+          locale: settings.locale,
+          onChanged: selectLocale,
+          textPrimary: textPrimary,
           textSecondary: textSecondary,
-          height: 52,
+          surfaceColor: surfaceVariant,
+          borderColor: borderColor,
         ),
         const SizedBox(height: WpSpacing.lg),
 
@@ -329,6 +300,182 @@ class _SegmentButtonState extends State<_SegmentButton> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Language toggle — circular flag thumb that slides between EN and DE.
+// Inspired by flag-thumb toggle references: a pill track with a sliding
+// circular flag indicator and flanking language labels.
+// =============================================================================
+
+class _LanguageToggle extends StatefulWidget {
+  const _LanguageToggle({
+    required this.locale,
+    required this.onChanged,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.surfaceColor,
+    required this.borderColor,
+  });
+
+  final String locale;
+  final ValueChanged<String> onChanged;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color surfaceColor;
+  final Color borderColor;
+
+  @override
+  State<_LanguageToggle> createState() => _LanguageToggleState();
+}
+
+class _LanguageToggleState extends State<_LanguageToggle> {
+  bool _trackHovered = false;
+
+  static const double _trackW = 104;
+  static const double _trackH = 50;
+  static const double _thumb = 40;
+  static const double _pad = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    final isEn = widget.locale == 'en';
+
+    return Semantics(
+      label: 'Language',
+      value: isEn ? 'English' : 'Deutsch',
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // English label
+          _LangLabel(
+            text: 'English',
+            isActive: isEn,
+            textPrimary: widget.textPrimary,
+            textSecondary: widget.textSecondary,
+            onTap: () => widget.onChanged('en'),
+          ),
+          const SizedBox(width: WpSpacing.md),
+
+          // Toggle track with sliding flag thumb
+          MouseRegion(
+            onEnter: (_) => setState(() => _trackHovered = true),
+            onExit: (_) => setState(() => _trackHovered = false),
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => widget.onChanged(isEn ? 'de' : 'en'),
+              child: AnimatedContainer(
+                duration: WpMotion.fast,
+                width: _trackW,
+                height: _trackH,
+                decoration: BoxDecoration(
+                  color: _trackHovered
+                      ? widget.surfaceColor.withValues(alpha: 0.75)
+                      : widget.surfaceColor,
+                  borderRadius: WpRadius.borderFull,
+                  border: Border.all(color: widget.borderColor),
+                  boxShadow: WpShadows.glassInner,
+                ),
+                child: Stack(
+                  children: [
+                    AnimatedPositioned(
+                      duration: WpMotion.smooth,
+                      curve: Curves.easeOutCubic,
+                      left: isEn ? _pad : (_trackW - _thumb - _pad),
+                      top: _pad,
+                      child: Container(
+                        width: _thumb,
+                        height: _thumb,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: WpShadows.card,
+                        ),
+                        child: ClipOval(
+                          child: ExcludeSemantics(
+                            child: AnimatedSwitcher(
+                              duration: WpMotion.fast,
+                              child: SvgPicture.asset(
+                                isEn
+                                    ? 'assets/flags/us.svg'
+                                    : 'assets/flags/de.svg',
+                                key: ValueKey(widget.locale),
+                                width: _thumb,
+                                height: _thumb,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: WpSpacing.md),
+
+          // Deutsch label
+          _LangLabel(
+            text: 'Deutsch',
+            isActive: !isEn,
+            textPrimary: widget.textPrimary,
+            textSecondary: widget.textSecondary,
+            onTap: () => widget.onChanged('de'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LangLabel extends StatefulWidget {
+  const _LangLabel({
+    required this.text,
+    required this.isActive,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.onTap,
+  });
+
+  final String text;
+  final bool isActive;
+  final Color textPrimary;
+  final Color textSecondary;
+  final VoidCallback onTap;
+
+  @override
+  State<_LangLabel> createState() => _LangLabelState();
+}
+
+class _LangLabelState extends State<_LangLabel> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedDefaultTextStyle(
+          duration: WpMotion.fast,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: widget.isActive ? FontWeight.w700 : FontWeight.w500,
+            color: widget.isActive
+                ? widget.textPrimary
+                : (_hovered
+                    ? widget.textPrimary.withValues(alpha: 0.7)
+                    : widget.textSecondary),
+          ),
+          child: Text(widget.text),
         ),
       ),
     );
