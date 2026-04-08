@@ -244,7 +244,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     }
 
     // Prompt conditioning: pass last transcript for faster decoder
-    // convergence and consistent language detection (mirrors Go's prompt arg).
+    // convergence and consistent language detection.
     if (_lastPrompt != null && _lastPrompt!.isNotEmpty) {
       request.fields['prompt'] = _lastPrompt!;
     }
