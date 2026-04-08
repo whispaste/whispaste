@@ -514,6 +514,8 @@
   "historyNoteDeleted": "Note deleted",
   "historyCopiedAsMarkdown": "Copied as Markdown",
   "historyAddTag": "Add tag…",
+  "historySearchTags": "Search or create…",
+  "historyNoteEdited": "edited",
   "historyTagAdded": "Tag added",
   "historyTagRemoved": "Tag removed",
   "historyEditTranscript": "Edit transcript",
