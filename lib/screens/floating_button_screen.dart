@@ -337,9 +337,11 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
       final newY = (pos.dy - menuH).clamp(0.0, double.infinity);
       final newX = pos.dx - (newW - btnWindow) / 2;
 
-      // Reposition + resize in place — no hide/show to avoid visible hop.
-      await windowManager.setPosition(Offset(newX, newY));
+      // Resize first, then reposition — keeps the button visually anchored
+      // during the transition (size change alone just extends upward/rightward,
+      // the subsequent position adjustment aligns it properly).
       await windowManager.setSize(Size(newW, newH));
+      await windowManager.setPosition(Offset(newX, newY));
       await windowManager.setAlwaysOnTop(true);
     } catch (e) {
       debugPrint('FloatingButton: expandForMenu failed: $e');
@@ -354,18 +356,20 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
       _preMenuPosition = null;
       _preMenuSize = null;
 
-      // Resize + reposition in place — no hide/show to avoid visible hop.
       if (origPos != null && origSize != null) {
-        await windowManager.setSize(origSize);
+        // Move back to original position first, then resize — the button
+        // visually returns to its position before the shrink collapses the
+        // menu area, avoiding the "jump down then shrink" artefact.
         await windowManager.setPosition(origPos);
+        await windowManager.setSize(origSize);
       } else {
         // Fallback: use current position + offset.
         final pos = await windowManager.getPosition();
         final btnWindow = (_buttonSize * 1.8).ceilToDouble();
         const menuH = 240.0;
         final newY = pos.dy + menuH;
-        await windowManager.setSize(Size(btnWindow, btnWindow));
         await windowManager.setPosition(Offset(pos.dx, newY));
+        await windowManager.setSize(Size(btnWindow, btnWindow));
       }
 
       await windowManager.setAlwaysOnTop(true);

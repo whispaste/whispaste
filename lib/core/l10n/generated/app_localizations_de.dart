@@ -580,7 +580,7 @@ class L10nDe extends L10n {
 
   @override
   String get recordingGuardFailed =>
-      'Kein Audio erkannt — Mikrofon funktioniert möglicherweise nicht.';
+      'Kein Audio erkannt — bitte versuche es erneut. Manchmal braucht das Mikrofon einen Moment.';
 
   @override
   String get recordingAutoStopped => 'Aufnahme gestoppt — Stille erkannt.';
@@ -1216,10 +1216,12 @@ class L10nDe extends L10n {
       'Unbekanntes Sprachmodell. Bitte wähle ein gültiges Modell in den Einstellungen.';
 
   @override
-  String get errorRecordingFailed => 'Aufnahme konnte nicht gestartet werden';
+  String get errorRecordingFailed =>
+      'Aufnahme konnte nicht gestartet werden — bitte versuche es erneut';
 
   @override
-  String get errorNoAudioRecorded => 'Keine Audiodaten aufgenommen';
+  String get errorNoAudioRecorded =>
+      'Keine Audiodaten aufgenommen — bitte versuche es erneut';
 
   @override
   String get errorTranscriptionEmpty =>
