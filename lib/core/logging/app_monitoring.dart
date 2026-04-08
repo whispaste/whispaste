@@ -51,10 +51,10 @@ class AppMonitoring {
     // 2. Initialize crash reporter.
     await CrashReporter.init(relayUrl: _crashRelayUrl, enabled: true);
     if (_crashRelayUrl.isEmpty) {
-      _log.warning(
+      _log.info(
         'Flutter crash relay is not configured — reports stay in the local queue only',
       );
-    } else {
+    }else {
       _log.info('Flutter crash relay configured');
     }
 
