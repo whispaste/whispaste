@@ -283,9 +283,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                     ),
                   ),
                   const SizedBox(height: WpSpacing.xs),
-                  shortcutRow('T', l10n.historyShortcutTags),
-                  shortcutRow('N', l10n.historyShortcutNotes),
-                  shortcutRow('P', l10n.historyShortcutPin),
                   shortcutRow('Esc', l10n.historyShortcutClose),
                   const SizedBox(height: WpSpacing.sm),
                   Text(
@@ -344,20 +341,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           } else {
             onClose();
           }
-        },
-        // Single-key shortcuts — guarded to avoid intercepting text input
-        const SingleActivator(LogicalKeyboardKey.keyT): () {
-          if (!_isTextFieldFocused()) {
-            _tagSectionKey.currentState?.focusTagInput();
-          }
-        },
-        const SingleActivator(LogicalKeyboardKey.keyN): () {
-          if (!_isTextFieldFocused()) {
-            _notesSectionKey.currentState?.startAddingNote();
-          }
-        },
-        const SingleActivator(LogicalKeyboardKey.keyP): () {
-          if (!_isTextFieldFocused()) onPin();
         },
         const SingleActivator(LogicalKeyboardKey.keyE, control: true): _toggleEdit,
         const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
@@ -597,20 +580,24 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                   ),
                   const SizedBox(height: WpSpacing.sm),
                   // Tags — interactive editor
-                  Row(
-                    children: [
-                      Icon(LucideIcons.tags, size: WpIconSize.sm, color: accent),
-                      const SizedBox(width: WpSpacing.xs),
-                      Text(
-                        l10n.historyTags,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: textSecondary,
-                          letterSpacing: 0.3,
+                  GestureDetector(
+                    onTap: () => _tagSectionKey.currentState?.focusTagInput(),
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      children: [
+                        Icon(LucideIcons.tags, size: WpIconSize.sm, color: accent),
+                        const SizedBox(width: WpSpacing.xs),
+                        Text(
+                          l10n.historyTags,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: textSecondary,
+                            letterSpacing: 0.3,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: WpSpacing.xs),
                   _TagSection(
