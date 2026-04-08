@@ -12,11 +12,16 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/page_shell.dart';
 
-/// Feedback relay URL — injected at build time via `--dart-define`.
-///
-/// Empty string in development = feedback is not sent (UI-only).
-const _feedbackRelayUrl = String.fromEnvironment(
-  'FEEDBACK_RELAY_URL',
+/// Supabase URL — injected at build time via `--dart-define`.
+const _supabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: '',
+);
+
+/// Supabase anon key — injected at build time via `--dart-define`.
+/// Public key, safe for client-side use (RLS enforces access control).
+const _supabaseAnonKey = String.fromEnvironment(
+  'SUPABASE_ANON_KEY',
   defaultValue: '',
 );
 
@@ -277,27 +282,28 @@ class _FeedbackPageState extends State<FeedbackPage> {
     });
 
     try {
-      // Build payload matching the Supabase feedback-relay Edge Function.
-      final textWithCategory = '[$_category] ${_commentController.text.trim()}';
       final payload = {
         'rating': _rating,
-        'text': textWithCategory,
+        'feedback_text': '[$_category] ${_commentController.text.trim()}',
         'app_version': appVersion,
-        'device_id': _deriveDeviceId(),
+        'device_id_hash': _deriveDeviceId(),
       };
 
-      if (_feedbackRelayUrl.isEmpty) {
+      if (_supabaseUrl.isEmpty || _supabaseAnonKey.isEmpty) {
         _log.info(
-          'Feedback relay not configured — skipping HTTP POST '
+          'Supabase not configured — skipping feedback submission '
           '(rating=$_rating category=$_category)',
         );
       } else {
         _log.info('Submitting feedback: rating=$_rating category=$_category');
         final response = await http
             .post(
-              Uri.parse(_feedbackRelayUrl),
+              Uri.parse('$_supabaseUrl/rest/v1/user_feedback'),
               headers: {
                 'Content-Type': 'application/json',
+                'apikey': _supabaseAnonKey,
+                'Authorization': 'Bearer $_supabaseAnonKey',
+                'Prefer': 'return=minimal',
                 'User-Agent': appUserAgent,
               },
               body: jsonEncode(payload),
@@ -313,9 +319,20 @@ class _FeedbackPageState extends State<FeedbackPage> {
           return;
         }
 
+        // PG trigger raises P0001 → PostgREST returns 400 with "rate_limited".
+        if (response.statusCode == 400 &&
+            response.body.contains('rate_limited')) {
+          _log.info('Feedback rate-limited by DB trigger');
+          setState(() {
+            _submitting = false;
+            _error = 'rate_limited';
+          });
+          return;
+        }
+
         if (response.statusCode < 200 || response.statusCode >= 300) {
           _log.warning(
-            'Feedback relay error: ${response.statusCode} ${response.body}',
+            'Feedback submission error: ${response.statusCode} ${response.body}',
           );
           setState(() {
             _submitting = false;
