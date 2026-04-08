@@ -1338,6 +1338,42 @@ class L10nDe extends L10n {
   String get historySaveTranscript => 'Speichern';
 
   @override
+  String get historyShortcutHelp => 'Tastenkürzel';
+
+  @override
+  String get historyShortcutGeneral => 'ALLGEMEIN';
+
+  @override
+  String get historyShortcutTags => 'Tag-Eingabe fokussieren';
+
+  @override
+  String get historyShortcutNotes => 'Notiz hinzufügen';
+
+  @override
+  String get historyShortcutPin => 'Anheften / lösen';
+
+  @override
+  String get historyShortcutClose => 'Speichern & schließen';
+
+  @override
+  String get historyShortcutEditing => 'BEARBEITUNG';
+
+  @override
+  String get historyShortcutToggleEdit => 'Bearbeitungsmodus umschalten';
+
+  @override
+  String get historyShortcutSave => 'Transkript speichern';
+
+  @override
+  String get historyShortcutBold => 'Fett';
+
+  @override
+  String get historyShortcutItalic => 'Kursiv';
+
+  @override
+  String get historyShortcutCopy => 'In Zwischenablage kopieren';
+
+  @override
   String get settingsKeyboardShortcut => 'Tastenkürzel';
 
   @override

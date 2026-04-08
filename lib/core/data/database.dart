@@ -613,6 +613,22 @@ class HistoryDatabase extends _$HistoryDatabase {
     return rows.map((r) => r.readTable(tags)).toList();
   }
 
+  /// Like [frequentTags] but also returns usage count per tag.
+  Future<List<(Tag, int)>> frequentTagsWithCount({int limit = 10}) async {
+    final count = entryTags.tagId.count();
+    final query = select(tags).join([
+      innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id)),
+    ])
+      ..addColumns([count])
+      ..groupBy([tags.id, tags.name, tags.createdAt])
+      ..orderBy([OrderingTerm.desc(count)])
+      ..limit(limit);
+    final rows = await query.get();
+    return rows
+        .map((r) => (r.readTable(tags), r.read(count) ?? 0))
+        .toList();
+  }
+
   /// Prefix search for tag autocomplete.
   Future<List<Tag>> searchTags(String prefix) {
     final normalized = prefix.toLowerCase().trim();

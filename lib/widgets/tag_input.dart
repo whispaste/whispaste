@@ -20,6 +20,7 @@ class WpTagInput extends StatefulWidget {
     required this.onAdd,
     required this.onRemove,
     this.suggestions = const [],
+    this.suggestionCounts = const {},
     this.onSearchChanged,
     this.hintText = 'Add tag…',
     this.focusNode,
@@ -30,6 +31,7 @@ class WpTagInput extends StatefulWidget {
   final ValueChanged<String> onAdd;
   final ValueChanged<String> onRemove; // tagId
   final List<Tag> suggestions;
+  final Map<String, int> suggestionCounts;
   final ValueChanged<String>? onSearchChanged;
   final String hintText;
   final FocusNode? focusNode;
@@ -202,6 +204,7 @@ class _WpTagInputState extends State<WpTagInput> {
                   return _SuggestionTile(
                     tag: tag,
                     isDark: widget.isDark,
+                    count: widget.suggestionCounts[tag.id],
                     onTap: () => _selectSuggestion(tag),
                   );
                 },
@@ -291,11 +294,13 @@ class _SuggestionTile extends StatefulWidget {
     required this.tag,
     required this.isDark,
     required this.onTap,
+    this.count,
   });
 
   final Tag tag;
   final bool isDark;
   final VoidCallback onTap;
+  final int? count;
 
   @override
   State<_SuggestionTile> createState() => _SuggestionTileState();
@@ -333,10 +338,20 @@ class _SuggestionTileState extends State<_SuggestionTile> {
                 color: textPrimary.withValues(alpha: 0.5),
               ),
               const SizedBox(width: WpSpacing.xs),
-              Text(
-                widget.tag.name,
-                style: TextStyle(fontSize: 12, color: textPrimary),
+              Expanded(
+                child: Text(
+                  widget.tag.name,
+                  style: TextStyle(fontSize: 12, color: textPrimary),
+                ),
               ),
+              if (widget.count != null && widget.count! > 0)
+                Text(
+                  '${widget.count}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: textPrimary.withValues(alpha: 0.4),
+                  ),
+                ),
             ],
           ),
         ),

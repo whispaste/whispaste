@@ -13,6 +13,7 @@ import 'history_helpers.dart';
 import 'history_notes_section.dart';
 import '../../../widgets/tag_input.dart';
 import '../../../widgets/markdown_toolbar.dart';
+import '../../../widgets/toast.dart';
 
 // ---------------------------------------------------------------------------
 // Detail panel — opens on entry selection (ChatGPT/Notion detail view)
@@ -192,6 +193,134 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     return '$wordStr · $timeStr';
   }
 
+  void _showShortcutHelp() {
+    final l10n = L10n.of(context);
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final isDarkTheme = isDark;
+        final bg = isDarkTheme
+            ? WpColorsDark.surfaceElevated
+            : WpColorsLight.surfaceElevated;
+        final textCol = isDarkTheme
+            ? WpColorsDark.textPrimary
+            : WpColorsLight.textPrimary;
+        final mutedCol = isDarkTheme
+            ? WpColorsDark.textMuted
+            : WpColorsLight.textMuted;
+        final accentCol =
+            isDarkTheme ? WpColorsDark.accent : WpColorsLight.accent;
+
+        Widget shortcutRow(String key, String description) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: WpSpacing.xs,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accentCol.withValues(alpha: 0.12),
+                    borderRadius: WpRadius.borderSm,
+                  ),
+                  child: Text(
+                    key,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'monospace',
+                      color: accentCol,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                Expanded(
+                  child: Text(
+                    description,
+                    style: TextStyle(fontSize: 13, color: textCol),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Dialog(
+          backgroundColor: bg,
+          shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Padding(
+              padding: const EdgeInsets.all(WpSpacing.lg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(LucideIcons.keyboard, size: 18, color: accentCol),
+                      const SizedBox(width: WpSpacing.sm),
+                      Text(
+                        l10n.historyShortcutHelp,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: textCol,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: WpSpacing.md),
+                  Text(
+                    l10n.historyShortcutGeneral,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: mutedCol,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: WpSpacing.xs),
+                  shortcutRow('T', l10n.historyShortcutTags),
+                  shortcutRow('N', l10n.historyShortcutNotes),
+                  shortcutRow('P', l10n.historyShortcutPin),
+                  shortcutRow('Esc', l10n.historyShortcutClose),
+                  const SizedBox(height: WpSpacing.sm),
+                  Text(
+                    l10n.historyShortcutEditing,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: mutedCol,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: WpSpacing.xs),
+                  shortcutRow('Ctrl+E', l10n.historyShortcutToggleEdit),
+                  shortcutRow('Ctrl+S', l10n.historyShortcutSave),
+                  shortcutRow('Ctrl+↵', l10n.historyShortcutSave),
+                  shortcutRow('Ctrl+B', l10n.historyShortcutBold),
+                  shortcutRow('Ctrl+I', l10n.historyShortcutItalic),
+                  shortcutRow('Ctrl+C', l10n.historyShortcutCopy),
+                  const SizedBox(height: WpSpacing.md),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: Text(l10n.historyClose),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -244,6 +373,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
         },
         const SingleActivator(LogicalKeyboardKey.keyL, control: true, shift: true): () {
           if (_isEditingTranscript) _toggleBullet();
+        },
+        // Shortcut help overlay
+        const SingleActivator(LogicalKeyboardKey.slash, shift: true): () {
+          if (!_isTextFieldFocused()) _showShortcutHelp();
         },
       },
       child: Focus(
@@ -903,6 +1036,7 @@ class _TagSection extends ConsumerStatefulWidget {
 
 class _TagSectionState extends ConsumerState<_TagSection> {
   List<Tag> _suggestions = [];
+  Map<String, int> _suggestionCounts = {};
   final FocusNode _tagFocusNode = FocusNode();
 
   /// Called by keyboard shortcut (T) to focus the tag input field.
@@ -920,10 +1054,25 @@ class _TagSectionState extends ConsumerState<_TagSection> {
 
   Future<void> _loadSuggestions() async {
     final db = ref.read(historyDatabaseProvider);
-    final results = widget.searchQuery.isEmpty
-        ? await db.frequentTags(limit: 8)
-        : await db.searchTags(widget.searchQuery);
-    if (mounted) setState(() => _suggestions = results);
+    if (widget.searchQuery.isEmpty) {
+      final results = await db.frequentTagsWithCount(limit: 8);
+      if (mounted) {
+        setState(() {
+          _suggestions = results.map((r) => r.$1).toList();
+          _suggestionCounts = {
+            for (final r in results) r.$1.id: r.$2,
+          };
+        });
+      }
+    } else {
+      final results = await db.searchTags(widget.searchQuery);
+      if (mounted) {
+        setState(() {
+          _suggestions = results;
+          _suggestionCounts = {};
+        });
+      }
+    }
   }
 
   @override
@@ -948,13 +1097,28 @@ class _TagSectionState extends ConsumerState<_TagSection> {
       isDark: widget.isDark,
       hintText: l10n.historyAddTag,
       suggestions: _suggestions,
+      suggestionCounts: _suggestionCounts,
       focusNode: _tagFocusNode,
       onSearchChanged: (q) {
         widget.onSearchChanged(q);
         _loadSuggestions();
       },
       onAdd: (name) => notifier.addTag(name),
-      onRemove: (tagId) => notifier.removeTag(tagId),
+      onRemove: (tagId) {
+        final tag = widget.tags.where((t) => t.id == tagId).firstOrNull;
+        final tagName = tag?.name ?? '';
+        notifier.removeTag(tagId);
+        if (tag != null) {
+          WpToast.show(
+            context,
+            message: l10n.historyTagRemoved,
+            type: WpToastType.info,
+            duration: const Duration(seconds: 4),
+            actionLabel: l10n.undo,
+            onAction: () => notifier.addTag(tagName),
+          );
+        }
+      },
     );
   }
 }
