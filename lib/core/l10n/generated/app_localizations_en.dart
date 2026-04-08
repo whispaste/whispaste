@@ -402,6 +402,9 @@ class L10nEn extends L10n {
       'Transcription Complete Sound';
 
   @override
+  String get settingsDurationWarningSound => 'Duration Limit Warning';
+
+  @override
   String get settingsSoundVolume => 'Sound Volume';
 
   @override
@@ -858,11 +861,11 @@ class L10nEn extends L10n {
   String get aboutBuiltWith => 'Built with';
 
   @override
-  String get aboutFlutterGo => 'Flutter & Go';
+  String get aboutFlutterGo => 'Flutter';
 
   @override
   String get aboutFlutterGoDesc =>
-      'Cross-platform UI with Flutter, performance-critical backend in Go via FFI.';
+      'Cross-platform UI with Flutter. Local AI inference via whisper.cpp and llama.cpp.';
 
   @override
   String get aboutWhisper => 'whisper.cpp & OpenAI Whisper';

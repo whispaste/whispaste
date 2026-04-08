@@ -19,6 +19,7 @@ import '../core/data/database.dart';
 import '../core/recording/recording_state.dart';
 import 'audio_service.dart';
 import 'path_service.dart';
+import 'sound_feedback_service.dart';
 import 'stt_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -56,6 +57,9 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Whether the guard already triggered (prevents double-fire).
   bool _guardFired = false;
+
+  /// Whether the 90% duration warning has been played.
+  bool _durationWarningFired = false;
 
   @override
   void build() {
@@ -414,11 +418,13 @@ class RecordingOrchestrator extends Notifier<void> {
     _speechDetected = false;
     _silentSamples = 0;
     _guardFired = false;
+    _durationWarningFired = false;
   }
 
   /// Called for every amplitude sample (~100 ms). Implements:
-  /// 1. Dead-mic detection: no audio at all for [deadMicTimeout] → error.
-  /// 2. Auto-stop on silence: speech detected then silence for
+  /// 1. Max recording duration: auto-stop at user-configured limit.
+  /// 2. Dead-mic detection: no audio at all for [deadMicTimeout] → error.
+  /// 3. Auto-stop on silence: speech detected then silence for
   ///    [autoStopSilence] → auto-transcribe.
   void _evaluateGuard(double level) {
     if (_guardFired) return;
@@ -427,6 +433,25 @@ class RecordingOrchestrator extends Notifier<void> {
 
     final settings =
         ref.read(settingsProvider).value ?? AppSettings.defaults;
+
+    // ── Max recording duration ──────────────────────────────────────────
+    final maxDuration = settings.maxRecordDuration;
+    if (maxDuration > 0) {
+      final elapsed = recording.elapsed.inSeconds;
+      if (elapsed >= maxDuration) {
+        _guardFired = true;
+        _log.info('Max recording duration reached (${maxDuration}s)');
+        _handleAutoStop();
+        return;
+      }
+
+      // ── Duration warning at 90% ────────────────────────────────────────
+      if (!_durationWarningFired &&
+          elapsed >= (maxDuration * 0.9).round()) {
+        _durationWarningFired = true;
+        _playDurationWarning(settings);
+      }
+    }
 
     final isSilent = level < _silenceThreshold;
 
@@ -491,6 +516,16 @@ class RecordingOrchestrator extends Notifier<void> {
     } on Exception catch (e) {
       _log.warning('Error during auto-stop: $e');
       ref.read(recordingProvider.notifier).fail('$e');
+    }
+  }
+
+  /// Play duration warning sound (90% of max duration reached).
+  void _playDurationWarning(AppSettings settings) {
+    if (!settings.durationWarningSound) return;
+    try {
+      ref.read(soundFeedbackProvider.notifier).playDurationWarning();
+    } catch (e) {
+      _log.warning('Duration warning sound failed: $e');
     }
   }
 

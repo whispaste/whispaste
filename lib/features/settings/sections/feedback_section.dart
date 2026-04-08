@@ -115,6 +115,17 @@ class SoundFeedbackSection extends ConsumerWidget {
             ),
           ),
           SettingRow(
+            icon: LucideIcons.alarmClock,
+            label: l10n.settingsDurationWarningSound,
+            trailing: settingsToggle(
+              value: settings.durationWarningSound,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                      (s) => s.copyWith(durationWarningSound: v)),
+            ),
+          ),
+          SettingRow(
             icon: LucideIcons.volume1,
             label: l10n.settingsSoundVolume,
             trailing: settingsSlider(

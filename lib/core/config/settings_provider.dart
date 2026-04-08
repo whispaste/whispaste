@@ -48,6 +48,7 @@ class AppSettings {
     this.recordStartSound = true,
     this.recordStopSound = true,
     this.transcriptionCompleteSound = true,
+    this.durationWarningSound = true,
     this.soundVolume = 80.0,
     // After Transcription
     this.afterTranscription = 'clipboard',
@@ -131,6 +132,7 @@ class AppSettings {
   final bool recordStartSound;
   final bool recordStopSound;
   final bool transcriptionCompleteSound;
+  final bool durationWarningSound;
   final double soundVolume;
 
   // After Transcription
@@ -274,6 +276,11 @@ class AppSettings {
         'transcription_complete_sound',
         defaults.transcriptionCompleteSound,
       ),
+      durationWarningSound: _readBool(
+        values,
+        'duration_warning_sound',
+        defaults.durationWarningSound,
+      ),
       soundVolume: _readDouble(values, 'sound_volume', defaults.soundVolume),
       afterTranscription:
           values['after_transcription'] ?? defaults.afterTranscription,
@@ -394,6 +401,7 @@ class AppSettings {
       recordStartSound: sounds,
       recordStopSound: sounds,
       transcriptionCompleteSound: sounds,
+      durationWarningSound: sounds,
       afterTranscription: autoPaste ? 'clipboard' : 'nothing',
       maxRecordDuration: maxSec,
       gpuAcceleration: gpu,
@@ -421,6 +429,7 @@ class AppSettings {
       'record_start_sound': '$recordStartSound',
       'record_stop_sound': '$recordStopSound',
       'transcription_complete_sound': '$transcriptionCompleteSound',
+      'duration_warning_sound': '$durationWarningSound',
       'sound_volume': '$soundVolume',
       'after_transcription': afterTranscription,
       'show_overlay': '$showOverlay',
@@ -482,6 +491,7 @@ class AppSettings {
     bool? recordStartSound,
     bool? recordStopSound,
     bool? transcriptionCompleteSound,
+    bool? durationWarningSound,
     double? soundVolume,
     String? afterTranscription,
     bool? showOverlay,
@@ -541,6 +551,8 @@ class AppSettings {
       recordStopSound: recordStopSound ?? this.recordStopSound,
       transcriptionCompleteSound:
           transcriptionCompleteSound ?? this.transcriptionCompleteSound,
+      durationWarningSound:
+          durationWarningSound ?? this.durationWarningSound,
       soundVolume: soundVolume ?? this.soundVolume,
       afterTranscription: afterTranscription ?? this.afterTranscription,
       showOverlay: showOverlay ?? this.showOverlay,
@@ -607,6 +619,7 @@ class AppSettings {
           recordStartSound == other.recordStartSound &&
           recordStopSound == other.recordStopSound &&
           transcriptionCompleteSound == other.transcriptionCompleteSound &&
+          durationWarningSound == other.durationWarningSound &&
           soundVolume == other.soundVolume &&
           afterTranscription == other.afterTranscription &&
           showOverlay == other.showOverlay &&
@@ -654,6 +667,7 @@ class AppSettings {
         sttProvider, sttModel, sttLanguage,
         postProcessEnabled, postProcessPreset, postProcessProvider,
         recordStartSound, recordStopSound, transcriptionCompleteSound,
+        durationWarningSound,
         // Object.hash supports max 20 positional args; nest for rest.
         Object.hash(
           soundVolume, afterTranscription,
