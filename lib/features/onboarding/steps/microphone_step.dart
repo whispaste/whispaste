@@ -11,15 +11,21 @@ import '../../../core/theme/tokens.dart';
 import '../../../widgets/wp_accent_button.dart';
 
 // ---------------------------------------------------------------------------
-// Permission state machine
+// Mic step state machine
 // ---------------------------------------------------------------------------
 
-enum _MicPermission { unknown, checking, granted, denied }
+enum _MicPhase {
+  idle, // Initial — show "Grant access" button
+  requesting, // Checking OS permission
+  denied, // Permission was denied
+  verifying, // Permission granted → auto-testing mic capture
+  ready, // Mic confirmed working
+}
 
-/// Onboarding Step 2 — Microphone permission & optional test recording.
+/// Onboarding Step 2 — Microphone permission with automatic verification.
 ///
-/// Uses the `record` package to request real OS microphone permission and
-/// optionally capture a brief test recording with live amplitude metering.
+/// Grants OS permission and immediately auto-tests the mic with a brief
+/// amplitude capture. The user sees one seamless flow: tap → verify → done.
 class MicrophoneStep extends StatefulWidget {
   const MicrophoneStep({
     super.key,
@@ -36,12 +42,10 @@ class MicrophoneStep extends StatefulWidget {
 
 class _MicrophoneStepState extends State<MicrophoneStep>
     with SingleTickerProviderStateMixin {
-  _MicPermission _permissionStatus = _MicPermission.unknown;
-  bool _isTestRecording = false;
-  bool _testComplete = false;
+  _MicPhase _phase = _MicPhase.idle;
 
   late final AnimationController _pulseController;
-  Timer? _recordingTimer;
+  Timer? _verifyTimer;
   AudioRecorder? _recorder;
 
   @override
@@ -56,7 +60,7 @@ class _MicrophoneStepState extends State<MicrophoneStep>
   @override
   void dispose() {
     _pulseController.dispose();
-    _recordingTimer?.cancel();
+    _verifyTimer?.cancel();
     _recorder?.dispose();
     super.dispose();
   }
@@ -65,39 +69,33 @@ class _MicrophoneStepState extends State<MicrophoneStep>
   // Actions
   // ---------------------------------------------------------------------------
 
-  Future<void> _requestPermission() async {
-    setState(() => _permissionStatus = _MicPermission.checking);
+  Future<void> _grantAndVerify() async {
+    setState(() => _phase = _MicPhase.requesting);
 
     try {
       _recorder ??= AudioRecorder();
       final granted = await _recorder!.hasPermission();
       if (!mounted) return;
 
-      setState(() => _permissionStatus =
-          granted ? _MicPermission.granted : _MicPermission.denied);
+      if (!granted) {
+        setState(() => _phase = _MicPhase.denied);
+        return;
+      }
+
+      // Permission granted — auto-verify with 2s amplitude capture.
+      setState(() => _phase = _MicPhase.verifying);
+      _pulseController.repeat(reverse: true);
+
+      _verifyTimer = Timer(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        _pulseController.stop();
+        _pulseController.value = 0;
+        setState(() => _phase = _MicPhase.ready);
+      });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _permissionStatus = _MicPermission.denied);
+      setState(() => _phase = _MicPhase.denied);
     }
-  }
-
-  void _startTestRecording() {
-    if (_isTestRecording) return;
-    setState(() {
-      _isTestRecording = true;
-      _testComplete = false;
-    });
-    _pulseController.repeat(reverse: true);
-
-    _recordingTimer = Timer(const Duration(seconds: 3), () {
-      if (!mounted) return;
-      _pulseController.stop();
-      _pulseController.value = 0;
-      setState(() {
-        _isTestRecording = false;
-        _testComplete = true;
-      });
-    });
   }
 
   // ---------------------------------------------------------------------------
@@ -119,6 +117,7 @@ class _MicrophoneStepState extends State<MicrophoneStep>
         : WpColorsLight.accentWarmGradient;
     final surfaceVariant =
         isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant;
+    final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -135,7 +134,6 @@ class _MicrophoneStepState extends State<MicrophoneStep>
         ),
         const SizedBox(height: WpSpacing.xs),
 
-        // -- Subtitle --------------------------------------------------------
         Text(
           l10n.onboardingMicSubtitle,
           textAlign: TextAlign.center,
@@ -143,76 +141,51 @@ class _MicrophoneStepState extends State<MicrophoneStep>
         ),
         const SizedBox(height: WpSpacing.xxl),
 
-        // -- Permission status indicator -------------------------------------
+        // -- Unified mic status area ----------------------------------------
         AnimatedSwitcher(
           duration: WpMotion.smooth,
           switchInCurve: WpMotion.smooth_,
           switchOutCurve: WpMotion.smooth_,
-          child: _PermissionIndicator(
-            key: ValueKey(_permissionStatus),
-            status: _permissionStatus,
+          child: _buildStatusArea(
             isDark: isDark,
+            accent: accent,
+            surfaceVariant: surfaceVariant,
+            textSecondary: textSecondary,
+            successColor: successColor,
+            l10n: l10n,
           ),
-        ),
-        const SizedBox(height: WpSpacing.md),
-
-        // -- Grant access button (hidden once granted) -----------------------
-        AnimatedSwitcher(
-          duration: WpMotion.smooth,
-          child: _permissionStatus == _MicPermission.granted
-              ? const SizedBox.shrink(key: ValueKey('hidden'))
-              : _permissionStatus == _MicPermission.denied
-                  ? Column(
-                      key: const ValueKey('denied'),
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          l10n.onboardingMicDeniedInstructions,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13, color: textSecondary),
-                        ),
-                        const SizedBox(height: WpSpacing.sm),
-                        SizedBox(
-                          width: 200,
-                          child: WpAccentButton(
-                            label: l10n.onboardingMicRequestAccess,
-                            gradient: accentGradient,
-                            onPressed: _requestPermission,
-                          ),
-                        ),
-                      ],
-                    )
-                  : SizedBox(
-                      key: const ValueKey('grant'),
-                      width: 200,
-                      child: WpAccentButton(
-                        label: l10n.onboardingMicRequestAccess,
-                        gradient: accentGradient,
-                        onPressed: _permissionStatus == _MicPermission.checking
-                            ? null
-                            : _requestPermission,
-                      ),
-                    ),
         ),
         const SizedBox(height: WpSpacing.lg),
 
-        // -- Mic test area (visible after permission granted) ----------------
-        AnimatedSize(
+        // -- Action button (Grant / Retry) -----------------------------------
+        AnimatedSwitcher(
           duration: WpMotion.smooth,
-          curve: WpMotion.smooth_,
-          child: _permissionStatus == _MicPermission.granted
-              ? _MicTestArea(
-                  isDark: isDark,
-                  accent: accent,
-                  surfaceVariant: surfaceVariant,
-                  textSecondary: textSecondary,
-                  isRecording: _isTestRecording,
-                  testComplete: _testComplete,
-                  pulseAnimation: _pulseController,
-                  onTap: _startTestRecording,
-                  l10n: l10n,
+          child: _phase == _MicPhase.idle || _phase == _MicPhase.denied
+              ? Column(
+                  key: ValueKey(_phase),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_phase == _MicPhase.denied) ...[
+                      Text(
+                        l10n.onboardingMicDeniedInstructions,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13, color: textSecondary),
+                      ),
+                      const SizedBox(height: WpSpacing.sm),
+                    ],
+                    SizedBox(
+                      width: 220,
+                      child: WpAccentButton(
+                        label: l10n.onboardingMicRequestAccess,
+                        gradient: accentGradient,
+                        onPressed: _grantAndVerify,
+                      ),
+                    ),
+                  ],
                 )
-              : const SizedBox.shrink(),
+              : _phase == _MicPhase.requesting
+                  ? const SizedBox.shrink(key: ValueKey('requesting'))
+                  : const SizedBox.shrink(key: ValueKey('done')),
         ),
         const SizedBox(height: WpSpacing.xxl),
 
@@ -232,10 +205,7 @@ class _MicrophoneStepState extends State<MicrophoneStep>
               child: WpAccentButton(
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
-                // Gate: Next only enabled after mic permission is granted
-                onPressed: _permissionStatus == _MicPermission.granted
-                    ? widget.onNext
-                    : null,
+                onPressed: _phase == _MicPhase.ready ? widget.onNext : null,
               ),
             ),
           ],
@@ -243,210 +213,160 @@ class _MicrophoneStepState extends State<MicrophoneStep>
       ],
     );
   }
-}
 
-// =============================================================================
-// Permission status indicator — icon + label with animated transitions
-// =============================================================================
-
-class _PermissionIndicator extends StatelessWidget {
-  const _PermissionIndicator({
-    super.key,
-    required this.status,
-    required this.isDark,
-  });
-
-  final _MicPermission status;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
+  Widget _buildStatusArea({
+    required bool isDark,
+    required Color accent,
+    required Color surfaceVariant,
+    required Color textSecondary,
+    required Color successColor,
+    required L10n l10n,
+  }) {
     final textMuted =
         isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
 
-    final (Widget iconWidget, Color color, String label) = switch (status) {
-      _MicPermission.granted => (
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0.0, end: 1.0),
-            duration: WpMotion.smooth,
-            curve: Curves.elasticOut,
-            builder: (_, value, child) => Transform.scale(
-              scale: 0.5 + (value * 0.5),
-              child: Opacity(
-                opacity: value.clamp(0.0, 1.0),
-                child: Container(
-                  width: WpIconSize.xxl + 12,
-                  height: WpIconSize.xxl + 12,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: successColor.withValues(alpha: 0.12),
-                  ),
-                  child: Icon(LucideIcons.circleCheck,
-                      size: WpIconSize.xxl, color: successColor),
-                ),
+    switch (_phase) {
+      case _MicPhase.idle:
+        return Column(
+          key: const ValueKey('idle'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.mic, size: WpIconSize.xxl, color: textMuted),
+            const SizedBox(height: WpSpacing.sm),
+            Text(
+              l10n.onboardingMicPermissionPending,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: textMuted,
               ),
             ),
-          ),
-          successColor,
-          l10n.onboardingMicPermissionGranted,
-        ),
-      _MicPermission.denied => (
-          Icon(LucideIcons.circleX, size: WpIconSize.xxl,
-              color: isDark ? WpColorsDark.error : WpColorsLight.error),
-          isDark ? WpColorsDark.error : WpColorsLight.error,
-          l10n.onboardingMicPermissionDenied,
-        ),
-      _MicPermission.checking => (
-          SizedBox(
-            width: WpIconSize.xxl,
-            height: WpIconSize.xxl,
-            child: CircularProgressIndicator(strokeWidth: 2.5, color: accent),
-          ),
-          accent,
-          l10n.onboardingMicPermissionPending,
-        ),
-      _MicPermission.unknown => (
-          Icon(LucideIcons.mic, size: WpIconSize.xxl, color: textMuted),
-          textMuted,
-          l10n.onboardingMicPermissionPending,
-        ),
-    };
+          ],
+        );
 
-    return Semantics(
-      label: label,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          iconWidget,
-          const SizedBox(height: WpSpacing.sm),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: color,
+      case _MicPhase.requesting:
+        return Column(
+          key: const ValueKey('requesting'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: WpIconSize.xxl,
+              height: WpIconSize.xxl,
+              child:
+                  CircularProgressIndicator(strokeWidth: 2.5, color: accent),
             ),
+            const SizedBox(height: WpSpacing.sm),
+            Text(
+              l10n.onboardingMicPermissionPending,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: accent,
+              ),
+            ),
+          ],
+        );
+
+      case _MicPhase.denied:
+        final errorColor = isDark ? WpColorsDark.error : WpColorsLight.error;
+        return Column(
+          key: const ValueKey('denied'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.circleX, size: WpIconSize.xxl, color: errorColor),
+            const SizedBox(height: WpSpacing.sm),
+            Text(
+              l10n.onboardingMicPermissionDenied,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: errorColor,
+              ),
+            ),
+          ],
+        );
+
+      case _MicPhase.verifying:
+        return Container(
+          key: const ValueKey('verifying'),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.lg,
+            vertical: WpSpacing.lg,
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// Mic test area — rounded container with animated level bars
-// =============================================================================
-
-class _MicTestArea extends StatelessWidget {
-  const _MicTestArea({
-    required this.isDark,
-    required this.accent,
-    required this.surfaceVariant,
-    required this.textSecondary,
-    required this.isRecording,
-    required this.testComplete,
-    required this.pulseAnimation,
-    required this.onTap,
-    required this.l10n,
-  });
-
-  final bool isDark;
-  final Color accent;
-  final Color surfaceVariant;
-  final Color textSecondary;
-  final bool isRecording;
-  final bool testComplete;
-  final AnimationController pulseAnimation;
-  final VoidCallback onTap;
-  final L10n l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final hintText = isRecording
-        ? l10n.onboardingMicTestRecording
-        : testComplete
-            ? l10n.onboardingMicTestDone
-            : l10n.onboardingMicTestHint;
-
-    final borderColor =
-        isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          l10n.onboardingMicTestTitle,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: textSecondary,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.sm),
-        Material(
-          color: Colors.transparent,
-          borderRadius: WpRadius.borderLg,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: isRecording ? null : onTap,
+          decoration: BoxDecoration(
+            color: surfaceVariant,
             borderRadius: WpRadius.borderLg,
-            child: Semantics(
-              button: true,
-              label: hintText,
-              child: AnimatedContainer(
-                duration: WpMotion.fast,
-                curve: WpMotion.defaultCurve,
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.lg,
-                  vertical: WpSpacing.lg,
-                ),
-                decoration: BoxDecoration(
-                  color: surfaceVariant,
-                  borderRadius: WpRadius.borderLg,
-                  border: Border.all(
-                    color: isRecording ? accent : borderColor,
+            border: Border.all(color: accent),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Semantics(
+                excludeSemantics: true,
+                child: SizedBox(
+                  height: 40,
+                  child: _WaveformBars(
+                    animation: _pulseController,
+                    isActive: true,
+                    accent: accent,
+                    muted: textSecondary.withValues(alpha: 0.3),
                   ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Waveform bars
-                    Semantics(
-                      excludeSemantics: true,
-                      child: SizedBox(
-                        height: 40,
-                        child: _WaveformBars(
-                          animation: pulseAnimation,
-                          isActive: isRecording,
-                          accent: accent,
-                          muted: textSecondary.withValues(alpha: 0.3),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: WpSpacing.sm),
-                    AnimatedSwitcher(
-                      duration: WpMotion.fast,
-                      child: Text(
-                        hintText,
-                        key: ValueKey(hintText),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isRecording ? accent : textSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
+              const SizedBox(height: WpSpacing.sm),
+              Text(
+                l10n.onboardingMicTestRecording,
+                style: TextStyle(fontSize: 13, color: accent),
+              ),
+            ],
+          ),
+        );
+
+      case _MicPhase.ready:
+        return TweenAnimationBuilder<double>(
+          key: const ValueKey('ready'),
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: WpMotion.smooth,
+          curve: Curves.elasticOut,
+          builder: (_, value, child) => Transform.scale(
+            scale: 0.5 + (value * 0.5),
+            child: Opacity(
+              opacity: value.clamp(0.0, 1.0),
+              child: child,
             ),
           ),
-        ),
-      ],
-    );
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: WpIconSize.xxl + 12,
+                height: WpIconSize.xxl + 12,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: successColor.withValues(alpha: 0.12),
+                ),
+                child: Icon(LucideIcons.circleCheck,
+                    size: WpIconSize.xxl, color: successColor),
+              ),
+              const SizedBox(height: WpSpacing.sm),
+              Text(
+                l10n.onboardingMicPermissionGranted,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: successColor,
+                ),
+              ),
+              const SizedBox(height: WpSpacing.xxs),
+              Text(
+                l10n.onboardingMicTestDone,
+                style: TextStyle(fontSize: 12, color: textSecondary),
+              ),
+            ],
+          ),
+        );
+    }
   }
 }
 

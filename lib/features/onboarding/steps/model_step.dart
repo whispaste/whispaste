@@ -32,6 +32,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
   QualityTier? _recommendedTier;
   bool _showAlternatives = false;
   bool _gpuDetected = false;
+  hw.GpuInfo? _gpu;
 
   @override
   void initState() {
@@ -42,8 +43,9 @@ class _ModelStepState extends ConsumerState<ModelStep> {
   Future<void> _detectHardware() async {
     final gpu = await hw.detectGpu();
     if (!mounted) return;
-    final rec = recommendTier(gpu.vramMB ?? 0);
+    final rec = recommendTier(gpu.vramMB ?? 0, vendor: gpu.vendor);
     setState(() {
+      _gpu = gpu;
       _recommendedTier = rec;
       _selectedTier ??= rec;
       _gpuDetected = true;
@@ -170,6 +172,46 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                 onPressed: _startDownload,
               ),
             ),
+
+          // Hardware warning
+          if (_gpu != null) ...[
+            Builder(builder: (context) {
+              final warning = tierWarning(
+                _selectedTier ?? QualityTier.balanced,
+                _gpu!,
+              );
+              if (warning == null) return const SizedBox.shrink();
+              final warningColor =
+                  isDark ? WpColorsDark.warning : WpColorsLight.warning;
+              return Padding(
+                padding: const EdgeInsets.only(top: WpSpacing.sm),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(WpSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: warningColor.withValues(alpha: 0.08),
+                    borderRadius: WpRadius.borderMd,
+                    border: Border.all(
+                        color: warningColor.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(LucideIcons.triangleAlert,
+                          size: 14, color: warningColor),
+                      const SizedBox(width: WpSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          warning,
+                          style:
+                              TextStyle(fontSize: 12, color: warningColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
 
           // Choose different tier
           const SizedBox(height: WpSpacing.md),
