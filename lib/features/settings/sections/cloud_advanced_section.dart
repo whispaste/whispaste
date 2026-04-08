@@ -8,6 +8,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../features/analytics/analytics_provider.dart';
+import '../../../features/history/data/providers.dart';
 import '../../../services/hardware_info_service.dart';
 import '../../../services/stt_service.dart';
 import '../../../widgets/dialog.dart';
@@ -309,15 +311,24 @@ class AdvancedSection extends ConsumerWidget {
     );
     if (!confirmed) return;
 
-    // Stop whisper-server subprocess before deleting its binary.
+    // Stop whisper-server subprocess and wait for exit before deleting files.
     try {
       ref.read(sttServiceProvider.notifier).stop();
+      // Give the process time to release file handles on Windows.
+      await Future<void>.delayed(const Duration(milliseconds: 800));
     } catch (_) {}
 
     // Clear GPU detection cache.
     clearGpuCache();
 
     await ref.read(settingsProvider.notifier).factoryReset();
+
+    // Invalidate all data-backed providers so UI reflects the empty state.
+    ref.invalidate(historyEntriesProvider);
+    ref.invalidate(archivedEntriesProvider);
+    ref.invalidate(trashEntriesProvider);
+    ref.invalidate(analyticsProvider);
+
     if (!context.mounted) return;
     WpToast.show(
       context,
