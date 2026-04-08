@@ -8,6 +8,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../data/providers.dart';
+import '../data/history_detail_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../widgets/toast.dart';
 import 'voice_note_button.dart';
@@ -27,7 +28,9 @@ class HistoryNotesSection extends ConsumerStatefulWidget {
 
 class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   final _controller = TextEditingController();
+  final _editController = TextEditingController();
   bool _isAdding = false;
+  String? _editingNoteId;
 
   /// Called by keyboard shortcut (N) to start adding a new note.
   void startAddingNote() {
@@ -37,6 +40,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   @override
   void dispose() {
     _controller.dispose();
+    _editController.dispose();
     super.dispose();
   }
 
@@ -86,6 +90,24 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
         },
       );
     }
+  }
+
+  void _startEditing(String noteId, String content) {
+    _editController.text = content;
+    setState(() => _editingNoteId = noteId);
+  }
+
+  void _saveEditedNote(String noteId) {
+    final newContent = _editController.text.trim();
+    if (newContent.isEmpty) return;
+    ref
+        .read(historyDetailProvider(widget.entryId).notifier)
+        .updateNote(noteId, newContent);
+    setState(() => _editingNoteId = null);
+  }
+
+  void _cancelEditing() {
+    setState(() => _editingNoteId = null);
   }
 
   @override
@@ -200,38 +222,100 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                 decoration: BoxDecoration(
                   color: surfaceElevated,
                   borderRadius: WpRadius.borderSm,
-                  border: Border.all(color: borderColor),
+                  border: Border.all(
+                    color: _editingNoteId == note.id
+                        ? accent
+                        : borderColor,
+                  ),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
+                child: _editingNoteId == note.id
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _editController,
+                              autofocus: true,
+                              style: TextStyle(
+                                  fontSize: 13, color: textPrimary),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding:
+                                    EdgeInsets.symmetric(
+                                  vertical: WpSpacing.xxs,
+                                ),
+                              ),
+                              onSubmitted: (_) =>
+                                  _saveEditedNote(note.id),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(LucideIcons.check,
+                                size: 14, color: accent),
+                            onPressed: () =>
+                                _saveEditedNote(note.id),
+                            padding:
+                                const EdgeInsets.all(WpSpacing.xxs),
+                            constraints: const BoxConstraints(),
+                          ),
+                          IconButton(
+                            icon: Icon(LucideIcons.x,
+                                size: 14, color: textMuted),
+                            onPressed: _cancelEditing,
+                            padding:
+                                const EdgeInsets.all(WpSpacing.xxs),
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      )
+                    : Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            note.content,
-                            style:
-                                TextStyle(fontSize: 13, color: textPrimary),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  note.content,
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: textPrimary),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  DateFormat.yMd()
+                                      .add_Hm()
+                                      .format(note.createdAt),
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: textMuted),
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            DateFormat.yMd().add_Hm().format(note.createdAt),
-                            style: TextStyle(fontSize: 11, color: textMuted),
+                          GestureDetector(
+                            onTap: () => _startEditing(
+                                note.id, note.content),
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                  left: WpSpacing.xs),
+                              child: Icon(LucideIcons.pencil,
+                                  size: 13, color: textMuted),
+                            ),
+                          ),
+                          const SizedBox(width: WpSpacing.xxs),
+                          GestureDetector(
+                            onTap: () => _deleteNote(
+                                note.id, note.content),
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                  left: WpSpacing.xxs),
+                              child: Icon(LucideIcons.x,
+                                  size: 14, color: textMuted),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    GestureDetector(
-                      onTap: () => _deleteNote(note.id, note.content),
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: WpSpacing.xs),
-                        child:
-                            Icon(LucideIcons.x, size: 14, color: textMuted),
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ],
           ],
