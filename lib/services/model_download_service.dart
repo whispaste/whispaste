@@ -15,6 +15,7 @@ import 'package:path/path.dart' as p;
 
 import '../core/config/settings_provider.dart';
 import '../core/app_info.dart';
+import 'hardware_info_service.dart' as hw;
 import 'path_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -376,6 +377,20 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     );
   }
 
+  /// Marks the server binary as incompatible and deletes it.
+  ///
+  /// Called by stt_service when a DLL-not-found crash is detected (wrong
+  /// GPU binary variant). After this, `serverReady` is false and the next
+  /// model download will fetch the correct binary for the detected GPU.
+  Future<void> invalidateServerBinary() async {
+    try {
+      await hw.deleteServerBinary(sttDir());
+    } catch (e) {
+      dev.log('Failed to delete server binary: $e', name: 'Download');
+    }
+    state = state.copyWith(serverReady: false);
+  }
+
   void _markModelDone(String modelId) {
     state = state.copyWith(
       phase: DownloadPhase.done,
@@ -545,8 +560,8 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     final assets = (response.data?['assets'] as List<dynamic>?) ?? [];
     if (assets.isEmpty) return null;
 
-    // Build priority list of asset name patterns.
-    final patterns = _serverAssetPatterns(gpuMode, isWhisPaste);
+    // Build priority list of asset name patterns based on detected GPU.
+    final patterns = await _serverAssetPatterns(gpuMode, isWhisPaste);
 
     for (final pattern in patterns) {
       for (final asset in assets) {
@@ -562,29 +577,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     return null;
   }
 
-  List<String> _serverAssetPatterns(String gpuMode, bool isWhisPaste) {
-    // Detect GPU type for binary selection.
-    // For now, try CUDA → Vulkan → CPU fallback chain.
-    if (isWhisPaste) {
-      switch (gpuMode) {
-        case 'enabled':
-          return ['cuda12', 'vulkan', 'cpu'];
-        case 'disabled':
-          return ['cpu'];
-        default: // 'auto'
-          return ['cuda12', 'vulkan', 'cpu'];
-      }
-    } else {
-      // Upstream whisper.cpp naming.
-      switch (gpuMode) {
-        case 'enabled':
-          return ['cublas-12', 'vulkan', 'blas-bin'];
-        case 'disabled':
-          return ['blas-bin'];
-        default:
-          return ['cublas-12', 'vulkan', 'blas-bin'];
-      }
-    }
+  Future<List<String>> _serverAssetPatterns(String gpuMode, bool isWhisPaste) async {
+    final gpu = await hw.detectGpu();
+    return hw.serverAssetPatterns(gpu, gpuMode, isWhisPaste);
   }
 
   /// Extracts whisper-server.exe and DLLs from a ZIP archive.
