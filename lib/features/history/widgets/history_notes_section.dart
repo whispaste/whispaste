@@ -136,41 +136,45 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row
-            Row(
-              children: [
-                Icon(LucideIcons.stickyNote, size: WpIconSize.sm, color: accent),
-                const SizedBox(width: WpSpacing.xs),
-                Text(
-                  noteList.isEmpty
-                      ? l10n.historyAddNote
-                      : '${l10n.historyNotes} (${noteList.length})',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: textSecondary,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                const Spacer(),
-                VoiceNoteButton(
-                  entryId: widget.entryId,
-                  isDark: widget.isDark,
-                ),
-                const SizedBox(width: WpSpacing.xxs),
-                if (!_isAdding)
-                  Tooltip(
-                    message: l10n.historyAddNote,
-                    child: InkWell(
-                      onTap: () => setState(() => _isAdding = true),
-                      borderRadius: WpRadius.borderSm,
-                      child: Padding(
-                        padding: const EdgeInsets.all(WpSpacing.xs),
-                        child: Icon(LucideIcons.plus, size: WpIconSize.md, color: accent),
-                      ),
+            // Header row — clickable to start adding a note
+            GestureDetector(
+              onTap: _isAdding ? null : () => setState(() => _isAdding = true),
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                children: [
+                  Icon(LucideIcons.stickyNote, size: WpIconSize.sm, color: accent),
+                  const SizedBox(width: WpSpacing.xs),
+                  Text(
+                    noteList.isEmpty
+                        ? l10n.historyAddNote
+                        : '${l10n.historyNotes} (${noteList.length})',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: textSecondary,
+                      letterSpacing: 0.3,
                     ),
                   ),
-              ],
+                  const SizedBox(width: WpSpacing.sm),
+                  VoiceNoteButton(
+                    entryId: widget.entryId,
+                    isDark: widget.isDark,
+                  ),
+                  const SizedBox(width: WpSpacing.xxs),
+                  if (!_isAdding)
+                    Tooltip(
+                      message: l10n.historyAddNote,
+                      child: InkWell(
+                        onTap: () => setState(() => _isAdding = true),
+                        borderRadius: WpRadius.borderSm,
+                        child: Padding(
+                          padding: const EdgeInsets.all(WpSpacing.xs),
+                          child: Icon(LucideIcons.plus, size: WpIconSize.md, color: accent),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
             // Add note input
             if (_isAdding) ...[
