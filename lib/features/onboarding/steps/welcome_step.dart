@@ -182,7 +182,7 @@ class _SegmentItem {
 }
 
 // ---------------------------------------------------------------------------
-// Segmented selector — a row of rounded segments with icon + label
+// Segmented selector — premium sliding-pill toggle
 // ---------------------------------------------------------------------------
 
 class _SegmentedSelector extends StatelessWidget {
@@ -203,27 +203,63 @@ class _SegmentedSelector extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor =
         isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
+    final activeIndex = items.indexWhere((i) => i.isActive);
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: WpRadius.borderFull,
-        border: Border.all(color: borderColor),
-        color: surfaceVariant.withValues(alpha: 0.5),
-      ),
-      padding: const EdgeInsets.all(3),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (int i = 0; i < items.length; i++) ...[
-            if (i > 0) const SizedBox(width: 2),
-            _SegmentButton(
-              item: items[i],
-              accent: accent,
-              textSecondary: textSecondary,
-            ),
-          ],
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalWidth =
+            constraints.maxWidth.isFinite ? constraints.maxWidth : 320.0;
+        final itemWidth = totalWidth / items.length;
+
+        return Container(
+          height: 44,
+          decoration: BoxDecoration(
+            borderRadius: WpRadius.borderFull,
+            border: Border.all(color: borderColor),
+            color: surfaceVariant.withValues(alpha: 0.4),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              // Sliding pill indicator
+              AnimatedPositioned(
+                duration: WpMotion.normal,
+                curve: Curves.easeOutCubic,
+                left: activeIndex >= 0 ? activeIndex * itemWidth + 3 : 3,
+                top: 3,
+                bottom: 3,
+                width: itemWidth - 6,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: WpRadius.borderFull,
+                    boxShadow: [
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Segment buttons
+              Row(
+                children: [
+                  for (int i = 0; i < items.length; i++)
+                    Expanded(
+                      child: _SegmentButton(
+                        item: items[i],
+                        accent: accent,
+                        textSecondary: textSecondary,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -262,29 +298,13 @@ class _SegmentButtonState extends State<_SegmentButton> {
           child: AnimatedContainer(
             duration: WpMotion.fast,
             curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.md,
-              vertical: WpSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? widget.accent
-                  : _hovered
-                      ? widget.textSecondary.withValues(alpha: 0.08)
-                      : Colors.transparent,
-              borderRadius: WpRadius.borderFull,
-              boxShadow: isActive
-                  ? [
-                      BoxShadow(
-                        color: widget.accent.withValues(alpha: 0.35),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
-            ),
+            color: !isActive && _hovered
+                ? widget.textSecondary.withValues(alpha: 0.06)
+                : Colors.transparent,
+            alignment: Alignment.center,
             child: Row(
               mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 IconTheme(
                   data: IconThemeData(
@@ -299,13 +319,14 @@ class _SegmentButtonState extends State<_SegmentButton> {
                   ),
                 ),
                 const SizedBox(width: WpSpacing.xs),
-                Text(
-                  widget.item.label,
+                AnimatedDefaultTextStyle(
+                  duration: WpMotion.fast,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: isActive ? Colors.white : widget.textSecondary,
                   ),
+                  child: Text(widget.item.label),
                 ),
               ],
             ),
