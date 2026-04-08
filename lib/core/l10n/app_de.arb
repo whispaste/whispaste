@@ -460,6 +460,8 @@
   "historyNoteDeleted": "Notiz gelöscht",
   "historyCopiedAsMarkdown": "Als Markdown kopiert",
   "historyAddTag": "Tag hinzufügen…",
+  "historySearchTags": "Suchen oder erstellen…",
+  "historyNoteEdited": "bearbeitet",
   "historyTagAdded": "Tag hinzugefügt",
   "historyTagRemoved": "Tag entfernt",
   "historyEditTranscript": "Transkript bearbeiten",

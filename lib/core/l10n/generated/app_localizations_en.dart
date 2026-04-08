@@ -1395,6 +1395,12 @@ class L10nEn extends L10n {
   String get historyAddTag => 'Add tag…';
 
   @override
+  String get historySearchTags => 'Search or create…';
+
+  @override
+  String get historyNoteEdited => 'edited';
+
+  @override
   String get historyTagAdded => 'Tag added';
 
   @override
