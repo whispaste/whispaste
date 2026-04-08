@@ -47,6 +47,27 @@ class WpToast {
     final overlay = Overlay.of(context);
     late final OverlayEntry entry;
     late final AnimationController controller;
+    var dismissed = false;
+
+    void dismiss() {
+      if (dismissed) return;
+      dismissed = true;
+      try {
+        controller.reverse().then((_) {
+          try {
+            if (entry.mounted) entry.remove();
+          } catch (_) {}
+          try {
+            controller.dispose();
+          } catch (_) {}
+        });
+      } catch (_) {
+        // Controller already disposed or in bad state — force cleanup.
+        try {
+          if (entry.mounted) entry.remove();
+        } catch (_) {}
+      }
+    }
 
     controller = AnimationController(
       vsync: overlay,
@@ -61,27 +82,15 @@ class WpToast {
         animation: controller,
         actionLabel: actionLabel,
         onAction: onAction,
-        onDismiss: () {
-          controller.reverse().then((_) {
-            entry.remove();
-            controller.dispose();
-          });
-        },
+        onDismiss: dismiss,
       ),
     );
 
     overlay.insert(entry);
     controller.forward();
 
-    // Auto-dismiss after duration
-    Future.delayed(duration, () {
-      if (controller.isAnimating || controller.isCompleted) {
-        controller.reverse().then((_) {
-          if (entry.mounted) entry.remove();
-          controller.dispose();
-        });
-      }
-    });
+    // Auto-dismiss after duration — guarded by the same `dismissed` flag.
+    Future.delayed(duration, dismiss);
   }
 }
 
