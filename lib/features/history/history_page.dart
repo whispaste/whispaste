@@ -103,6 +103,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           if (_multiSelectMode && _selectedIds.isNotEmpty)
             HistoryMultiSelectBar(
               selectedCount: _selectedIds.length,
+              totalCount: filteredEntries.length,
               isDark: isDark,
               isTrashView: isTrashView,
               isArchiveView: isArchiveView,
@@ -110,6 +111,18 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
               onArchive: !isTrashView ? _archiveSelected : null,
               onDelete: _deleteSelected,
               onRestore: isTrashView ? _restoreSelected : null,
+              onSelectAll: () => setState(() {
+                if (_selectedIds.length >= filteredEntries.length) {
+                  // All selected → deselect all
+                  _selectedIds.clear();
+                  _multiSelectMode = false;
+                } else {
+                  // Select all visible
+                  _selectedIds
+                    ..clear()
+                    ..addAll(filteredEntries.map((e) => e.id));
+                }
+              }),
               onCancelSelection: () => setState(() {
                 _multiSelectMode = false;
                 _selectedIds.clear();
@@ -142,6 +155,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 _multiSelectMode = !_multiSelectMode;
                 if (!_multiSelectMode) _selectedIds.clear();
               }),
+              onEmptyTrash: isTrashView && filteredEntries.isNotEmpty
+                  ? _emptyTrash
+                  : null,
             ),
           // Master-detail content
           Expanded(
@@ -168,15 +184,51 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       }
                     },
                     const SingleActivator(LogicalKeyboardKey.delete): () {
-                      final entry = _focusedEntry(flat);
-                      if (entry != null) _deleteEntry(entry);
+                      if (_multiSelectMode && _selectedIds.isNotEmpty) {
+                        _deleteSelected();
+                      } else {
+                        final entry = _focusedEntry(flat);
+                        if (entry != null) _deleteEntry(entry);
+                      }
+                    },
+                    // Ctrl+A: Select all visible items
+                    const SingleActivator(LogicalKeyboardKey.keyA, control: true): () {
+                      setState(() {
+                        _multiSelectMode = true;
+                        _selectedIds
+                          ..clear()
+                          ..addAll(flat.map((e) => e.id));
+                      });
+                    },
+                    // Ctrl+Shift+A or Ctrl+D: Deselect all
+                    const SingleActivator(
+                      LogicalKeyboardKey.keyA, control: true, shift: true,
+                    ): () {
+                      setState(() {
+                        _selectedIds.clear();
+                        _multiSelectMode = false;
+                      });
+                    },
+                    // Ctrl+C: Copy focused/selected entry text
+                    const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
+                      if (_multiSelectMode && _selectedIds.isNotEmpty) {
+                        _copySelectedEntries(flat);
+                      } else {
+                        final entry = selectedEntry ?? _focusedEntry(flat);
+                        if (entry != null) _copyEntry(entry);
+                      }
                     },
                     const SingleActivator(LogicalKeyboardKey.keyP): () {
                       final entry = _focusedEntry(flat);
                       if (entry != null) _togglePin(entry);
                     },
                     const SingleActivator(LogicalKeyboardKey.escape): () {
-                      if (_selectedEntryId != null) {
+                      if (_multiSelectMode) {
+                        setState(() {
+                          _selectedIds.clear();
+                          _multiSelectMode = false;
+                        });
+                      } else if (_selectedEntryId != null) {
                         setState(() => _selectedEntryId = null);
                       } else if (_focusedEntryId != null) {
                         setState(() => _focusedEntryId = null);
@@ -588,6 +640,49 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     setState(() {
       _selectedIds.clear();
       _multiSelectMode = false;
+    });
+  }
+
+  /// Copy all selected entries' text to clipboard (joined by double newline).
+  void _copySelectedEntries(List<HistoryEntry> flat) {
+    final selected = flat.where((e) => _selectedIds.contains(e.id)).toList();
+    if (selected.isEmpty) return;
+    final text = selected.map((e) => e.content).join('\n\n');
+    Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    WpToast.show(
+      context,
+      message: L10n.of(context).historyCopiedToClipboard,
+      type: WpToastType.success,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  /// Permanently delete all items in trash after confirmation.
+  Future<void> _emptyTrash() async {
+    final l10n = L10n.of(context);
+    final confirmed = await showWpConfirmDialog(
+      context: context,
+      title: l10n.historyEmptyTrashConfirm,
+      message: l10n.historyEmptyTrashConfirmMessage,
+      confirmLabel: l10n.historyEmptyTrash,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    final count = await ref.read(historyDatabaseProvider).emptyTrash();
+    if (!mounted) return;
+    WpToast.show(
+      context,
+      message: '${l10n.historyTrashEmptied} ($count)',
+      type: WpToastType.success,
+      duration: const Duration(seconds: 2),
+    );
+    // Reset selection state
+    setState(() {
+      _selectedIds.clear();
+      _multiSelectMode = false;
+      _selectedEntryId = null;
     });
   }
 }

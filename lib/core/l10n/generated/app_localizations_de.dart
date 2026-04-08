@@ -172,6 +172,19 @@ class L10nDe extends L10n {
       'Gelöschte Transkriptionen erscheinen hier.\nElemente werden nach 30 Tagen endgültig entfernt.';
 
   @override
+  String get historyEmptyTrash => 'Papierkorb leeren';
+
+  @override
+  String get historyEmptyTrashConfirm => 'Papierkorb leeren?';
+
+  @override
+  String get historyEmptyTrashConfirmMessage =>
+      'Alle Elemente im Papierkorb werden endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.';
+
+  @override
+  String get historyTrashEmptied => 'Papierkorb geleert';
+
+  @override
   String get historyNoArchivedItems => 'Keine archivierten Elemente';
 
   @override
