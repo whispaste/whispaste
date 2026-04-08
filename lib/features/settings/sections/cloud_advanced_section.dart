@@ -8,6 +8,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../services/hardware_info_service.dart';
+import '../../../services/stt_service.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
@@ -254,6 +256,20 @@ class AdvancedSection extends ConsumerWidget {
               child: Text(l10n.settingsResetConfirm),
             ),
           ),
+          SettingRow(
+            icon: LucideIcons.trash2,
+            label: l10n.settingsFactoryReset,
+            trailing: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.error.withValues(alpha: 0.5),
+                ),
+              ),
+              onPressed: () => _confirmFactoryReset(context, ref),
+              child: Text(l10n.settingsFactoryResetConfirm),
+            ),
+          ),
         ],
       ),
     );
@@ -276,6 +292,36 @@ class AdvancedSection extends ConsumerWidget {
     WpToast.show(
       context,
       message: L10n.of(context).settingsResetSuccess,
+      type: WpToastType.success,
+    );
+  }
+
+  Future<void> _confirmFactoryReset(
+      BuildContext context, WidgetRef ref) async {
+    final l10n = L10n.of(context);
+    final confirmed = await showWpConfirmDialog(
+      context: context,
+      title: l10n.settingsFactoryResetTitle,
+      message: l10n.settingsFactoryResetMessage,
+      confirmLabel: l10n.settingsFactoryResetConfirm,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
+    );
+    if (!confirmed) return;
+
+    // Stop whisper-server subprocess before deleting its binary.
+    try {
+      ref.read(sttServiceProvider.notifier).stop();
+    } catch (_) {}
+
+    // Clear GPU detection cache.
+    clearGpuCache();
+
+    await ref.read(settingsProvider.notifier).factoryReset();
+    if (!context.mounted) return;
+    WpToast.show(
+      context,
+      message: L10n.of(context).settingsFactoryResetSuccess,
       type: WpToastType.success,
     );
   }

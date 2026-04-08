@@ -200,29 +200,115 @@ class HistoryDatabase extends _$HistoryDatabase {
     }
   }
 
-  /// Safety net: if the DB has Go-era schema (column "text" instead of
-  /// "content", TEXT timestamps instead of INTEGER), reconcile it to match
-  /// the Drift-expected schema.
+  /// Reconciles Go-era (v1.1.3) schema to match Flutter/Drift expectations.
+  ///
+  /// Each check is independent so partial migrations (e.g. column already
+  /// renamed but timestamps not converted) are handled correctly.
   Future<void> _reconcileGoSchema() async {
     final cols =
         await customSelect("PRAGMA table_info('history_entries')").get();
     final colNames = cols.map((r) => r.data['name'] as String).toSet();
 
-    if (!colNames.contains('text') || colNames.contains('content')) return;
+    var changed = false;
 
-    debugPrint('Reconciling Go-era schema: "text" → "content"');
-    await customStatement(
-      'ALTER TABLE history_entries RENAME COLUMN "text" TO "content"',
-    );
-    // Go stored ISO 8601 TEXT timestamps; Drift expects Unix epoch integers.
+    // 1. Rename Go's "text" column to Drift's "content".
+    if (colNames.contains('text') && !colNames.contains('content')) {
+      debugPrint('[Migration] Renaming column "text" → "content"');
+      await customStatement(
+        'ALTER TABLE history_entries RENAME COLUMN "text" TO "content"',
+      );
+      changed = true;
+    }
+
+    // 2. Add "deleted_at" column if missing (Go v1.1.3 doesn't have it).
+    if (!colNames.contains('deleted_at')) {
+      debugPrint('[Migration] Adding column "deleted_at"');
+      await customStatement(
+        'ALTER TABLE history_entries ADD COLUMN deleted_at INTEGER',
+      );
+      changed = true;
+    }
+
+    // 3. Add "title_edited" column if missing (Go v1.1.3 doesn't have it).
+    if (!colNames.contains('title_edited')) {
+      debugPrint('[Migration] Adding column "title_edited"');
+      await customStatement(
+        'ALTER TABLE history_entries ADD COLUMN title_edited '
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+      changed = true;
+    }
+
+    // 4. Convert ISO 8601 TEXT timestamps → Unix epoch integers.
     await customStatement('''
       UPDATE history_entries
       SET timestamp = CAST(strftime('%s', timestamp) AS INTEGER)
       WHERE typeof(timestamp) = 'text'
     ''');
-    // Recreate FTS triggers (they reference the "content" column name).
-    await _recreateFtsWithTags();
-    debugPrint('Go-era schema reconciliation complete');
+
+    // 5. Convert project timestamps if projects table has TEXT dates.
+    try {
+      await customStatement('''
+        UPDATE projects
+        SET created_at = CAST(strftime('%s', created_at) AS INTEGER)
+        WHERE typeof(created_at) = 'text'
+      ''');
+    } catch (_) {
+      // projects table may not exist yet — that's fine.
+    }
+
+    // 6. Migrate JSON tags into normalized Tags/EntryTags if needed.
+    await _migrateJsonTagsIfNeeded();
+
+    if (changed) {
+      await _recreateFtsWithTags();
+      _goMigrationEntryCount = await _countHistoryEntries();
+      debugPrint(
+        '[Migration] Go-era schema reconciliation complete '
+        '($_goMigrationEntryCount dictations migrated)',
+      );
+    }
+  }
+
+  /// Number of entries migrated from Go — set during reconciliation,
+  /// read by the UI to show a one-time migration toast.
+  int? _goMigrationEntryCount;
+
+  /// Returns the number of entries migrated from Go, or null if no
+  /// Go migration occurred. Resets after reading.
+  int? consumeGoMigrationCount() {
+    final count = _goMigrationEntryCount;
+    _goMigrationEntryCount = null;
+    return count;
+  }
+
+  Future<int> _countHistoryEntries() async {
+    final result = await customSelect(
+      'SELECT COUNT(*) AS cnt FROM history_entries',
+    ).getSingle();
+    return result.data['cnt'] as int? ?? 0;
+  }
+
+  /// Runs JSON tag migration only if entry_tags is empty but history
+  /// has tagged entries. Safe to call multiple times (idempotent guard).
+  Future<void> _migrateJsonTagsIfNeeded() async {
+    try {
+      final tagCount = await customSelect(
+        'SELECT COUNT(*) AS cnt FROM entry_tags',
+      ).getSingle();
+      if ((tagCount.data['cnt'] as int? ?? 0) > 0) return;
+
+      final taggedEntries = await customSelect(
+        'SELECT COUNT(*) AS cnt FROM history_entries '
+        "WHERE tags != '[]' AND tags != ''",
+      ).getSingle();
+      if ((taggedEntries.data['cnt'] as int? ?? 0) == 0) return;
+
+      debugPrint('[Migration] Migrating JSON tags → Tags/EntryTags tables');
+      await _migrateJsonTags();
+    } catch (_) {
+      // Tables may not exist yet during initial creation — skip.
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -703,6 +789,23 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// Removes all accumulated daily analytics stats.
   Future<void> resetDailyStats() {
     return delete(dailyStats).go();
+  }
+
+  /// Deletes ALL user data from ALL tables — used by Factory Reset.
+  ///
+  /// Preserves the database file and schema so the app can continue
+  /// running without restart. Order matters: junction/child tables first.
+  Future<void> deleteAllData() async {
+    await delete(entryTags).go();
+    await delete(entryNotes).go();
+    await delete(entryAttachments).go();
+    await delete(tags).go();
+    await delete(historyEntries).go();
+    await delete(projects).go();
+    await delete(dailyStats).go();
+    await delete(textReplacements).go();
+    await customStatement('DELETE FROM app_settings');
+    await customStatement('DELETE FROM history_fts');
   }
 
   // ---------------------------------------------------------------------------
