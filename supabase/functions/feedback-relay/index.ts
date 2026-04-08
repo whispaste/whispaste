@@ -7,11 +7,54 @@ const CORS_HEADERS = {
   "access-control-allow-headers": "content-type",
 };
 
+const SENSITIVE_PATTERNS = [
+  /["']?(api[_-]?key|token|password|authorization)["']?\s*[:=]\s*['"]?[^\s'",}]+/gi,
+  /\bbearer\s+\S+/gi,
+  /\bsk-[A-Za-z0-9][A-Za-z0-9_]{5,}\b/g,
+  /\bgsk_[A-Za-z0-9][A-Za-z0-9_]{5,}\b/g,
+  /\bsk-ant-[A-Za-z0-9_]{8,}\b/g,
+  /\bAIza[0-9A-Za-z_]{10,}\b/g,
+];
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json", ...CORS_HEADERS },
   });
+}
+
+function sanitizeUserText(value: string, max: number): string {
+  let result = value.trim();
+  for (const pattern of SENSITIVE_PATTERNS) {
+    result = result.replace(pattern, "[redacted]");
+  }
+  result = result.replaceAll("@", "@\u200B");
+  return result.slice(0, max);
+}
+
+function requireToken(value: unknown, name: string, max = 1024): string {
+  if (typeof value !== "string") {
+    throw new Error(`${name} must be a string`);
+  }
+  const trimmed = value.trim().replaceAll("@", "@\u200B");
+  if (!trimmed) {
+    throw new Error(`${name} is required`);
+  }
+  if (trimmed.length > max) {
+    throw new Error(`${name} is too long`);
+  }
+  return trimmed;
+}
+
+function requireString(value: unknown, name: string, max = 1024): string {
+  if (typeof value !== "string") {
+    throw new Error(`${name} must be a string`);
+  }
+  const sanitized = sanitizeUserText(value, max);
+  if (!sanitized) {
+    throw new Error(`${name} is required`);
+  }
+  return sanitized;
 }
 
 async function sha256(input: string): Promise<string> {
@@ -46,8 +89,8 @@ Deno.serve(async (req) => {
   let parsed: {
     rating: number;
     text?: string;
-    app_version: string;
-    device_id: string;
+    app_version?: string;
+    device_id?: string;
   };
   try {
     parsed = JSON.parse(rawBody);
@@ -69,37 +112,54 @@ Deno.serve(async (req) => {
     );
   }
   const text =
-    typeof parsed.text === "string" ? parsed.text.trim().slice(0, 500) : "";
+    typeof parsed.text === "string" ? sanitizeUserText(parsed.text, 500) : "";
   const appVersion =
-    typeof parsed.app_version === "string"
-      ? parsed.app_version.trim().slice(0, 64)
+    typeof parsed.app_version === "string" && parsed.app_version.trim()
+      ? requireToken(parsed.app_version, "app_version", 64)
       : "unknown";
-  const deviceId =
-    typeof parsed.device_id === "string"
-      ? parsed.device_id.trim().slice(0, 64)
-      : "unknown";
+
+  let deviceId = "";
+  if (typeof parsed.device_id === "string" && parsed.device_id.trim()) {
+    try {
+      deviceId = requireToken(parsed.device_id, "device_id", 128);
+    } catch (error) {
+      return json(
+        { error: "invalid_device_id", detail: error instanceof Error ? error.message : String(error) },
+        400,
+      );
+    }
+  }
 
   const supabase = createClient(supabaseURL, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // Rate limit: max 1 feedback per device per 24h
+  // Rate limit: max 1 feedback per device/IP per 24h.
   const forwardedFor = req.headers.get("x-forwarded-for") ?? "";
-  const ipHash = await sha256(
-    forwardedFor.split(",")[0]?.trim() || "unknown",
-  );
+  const clientIp = forwardedFor.split(",")[0]?.trim() || "";
+  const ipHash = clientIp ? await sha256(clientIp) : null;
+  const deviceIdHash = deviceId
+    ? await sha256(deviceId)
+    : await sha256(`missing-device:${ipHash ?? "no-ip"}`);
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const { count } = await supabase
-    .from("user_feedback")
-    .select("*", { count: "exact", head: true })
-    .eq("ip_hash", ipHash)
-    .gte("received_at", dayAgo);
-  if ((count ?? 0) >= 1) {
-    return json(
-      { error: "rate_limited", detail: "one feedback per 24 hours" },
-      429,
-    );
+  const rateLimitFilters = [
+    `device_id_hash.eq.${deviceIdHash}`,
+    ipHash ? `ip_hash.eq.${ipHash}` : null,
+  ].filter((value): value is string => value !== null);
+
+  if (rateLimitFilters.length > 0) {
+    const { count } = await supabase
+      .from("user_feedback")
+      .select("*", { count: "exact", head: true })
+      .or(rateLimitFilters.join(","))
+      .gte("received_at", dayAgo);
+    if ((count ?? 0) >= 1) {
+      return json(
+        { error: "rate_limited", detail: "one feedback per device or IP per 24 hours" },
+        429,
+      );
+    }
   }
 
   // Build Discord embed
@@ -112,7 +172,7 @@ Deno.serve(async (req) => {
     color,
     fields: [
       { name: "Version", value: appVersion, inline: true },
-      { name: "Device", value: deviceId.slice(0, 12), inline: true },
+      { name: "Device", value: deviceIdHash.slice(0, 12), inline: true },
     ],
     footer: { text: new Date().toISOString().split("T")[0] },
   };
@@ -126,7 +186,7 @@ Deno.serve(async (req) => {
       rating,
       feedback_text: text || null,
       app_version: appVersion,
-      device_id_hash: deviceId,
+      device_id_hash: deviceIdHash,
       ip_hash: ipHash,
       status: "pending",
     });

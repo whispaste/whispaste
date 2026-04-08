@@ -38,6 +38,25 @@ const CORS_HEADERS = {
   "access-control-allow-headers": "content-type",
 };
 
+const SENSITIVE_PATTERNS = [
+  /["']?(api[_-]?key|token|password|authorization)["']?\s*[:=]\s*['"]?[^\s'",}]+/gi,
+  /\bbearer\s+\S+/gi,
+  /\bsk-[A-Za-z0-9][A-Za-z0-9_]{5,}\b/g,
+  /\bgsk_[A-Za-z0-9][A-Za-z0-9_]{5,}\b/g,
+  /\bsk-ant-[A-Za-z0-9_]{8,}\b/g,
+  /\bAIza[0-9A-Za-z_]{10,}\b/g,
+];
+const VALID_SEVERITIES = new Set(["critical", "error", "warning", "info"]);
+const VALID_TYPES = new Set([
+  "error",
+  "fatal",
+  "flutter_error",
+  "platform_error",
+  "zone_error",
+  "riverpod_error",
+]);
+const RECENT_LOGS_FIELD = "Recent Logs";
+
 type CrashReport = {
   id: string;
   timestamp: number;
@@ -61,7 +80,7 @@ type CrashReport = {
 
 type CrashPayload = {
   report: CrashReport;
-  embed: {
+  embed?: {
     title: string;
     description: string;
     color?: number;
@@ -77,12 +96,33 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function requireString(value: unknown, name: string, max = 1024): string {
+function sanitizeUserText(value: string, max = 1024): string {
+  let result = value.trim();
+  for (const pattern of SENSITIVE_PATTERNS) {
+    result = result.replace(pattern, "[redacted]");
+  }
+  result = result.replaceAll("@", "@\u200B");
+  return result.slice(0, max);
+}
+
+function requireToken(value: unknown, name: string, max = 1024): string {
   if (typeof value !== "string") throw new Error(`${name} must be a string`);
-  const trimmed = value.trim();
+  const trimmed = value.trim().replaceAll("@", "@\u200B");
   if (!trimmed) throw new Error(`${name} is required`);
   if (trimmed.length > max) throw new Error(`${name} is too long`);
   return trimmed;
+}
+
+function optionalToken(value: unknown, name: string, max = 1024): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  return requireToken(value, name, max);
+}
+
+function requireString(value: unknown, name: string, max = 1024): string {
+  if (typeof value !== "string") throw new Error(`${name} must be a string`);
+  const sanitized = sanitizeUserText(value, max);
+  if (!sanitized) throw new Error(`${name} is required`);
+  return sanitized;
 }
 
 function optionalString(value: unknown, name: string, max = 1024): string | undefined {
@@ -100,42 +140,91 @@ function requireNumber(value: unknown, name: string): number {
   return value;
 }
 
-function sanitizeEmbed(payload: CrashPayload["embed"]) {
-  const fields = Array.isArray(payload.fields) ? payload.fields.slice(0, 12).map((field) => ({
-    name: requireString(field?.name, "embed.fields.name", 128),
-    value: requireString(field?.value, "embed.fields.value", 1024),
-    inline: Boolean(field?.inline),
-  })) : [];
+function requireSeverity(value: unknown, name: string): string {
+  const token = requireToken(value, name, 64);
+  if (!VALID_SEVERITIES.has(token)) {
+    throw new Error(`${name} must be one of: ${Array.from(VALID_SEVERITIES).join(", ")}`);
+  }
+  return token;
+}
+
+function requireType(value: unknown, name: string): string {
+  const token = requireToken(value, name, 64);
+  if (!VALID_TYPES.has(token)) {
+    throw new Error(`${name} must be one of: ${Array.from(VALID_TYPES).join(", ")}`);
+  }
+  return token;
+}
+
+function buildBaseEmbed(report: CrashReport) {
+  const [emoji, color] = report.severity === "critical"
+    ? ["🔴", 0xDC2626]
+    : report.severity === "error"
+    ? ["🟠", 0xE97451]
+    : report.severity === "warning"
+    ? ["🟡", 0xF59E0B]
+    : ["ℹ️", 0x3B82F6];
 
   return {
-    title: requireString(payload.title, "embed.title", 256),
-    description: requireString(payload.description, "embed.description", 1024),
-    color: typeof payload.color === "number" ? payload.color : 16711680,
-    fields,
-    footer: payload.footer?.text ? { text: requireString(payload.footer.text, "embed.footer.text", 256) } : undefined,
+    title: `${emoji} [${report.type}] ${report.severity}`,
+    description: report.message,
+    color,
+    fields: [
+      { name: "Version", value: report.app_version, inline: true },
+      { name: "OS", value: `${report.os}/${report.arch}`, inline: true },
+      { name: "Device", value: report.device_id.slice(0, 12), inline: true },
+      ...(report.process_name
+        ? [{ name: "Process", value: report.process_name, inline: true }]
+        : []),
+      ...(report.stack_trace
+        ? [{ name: "Stack Trace", value: `\`\`\`\n${report.stack_trace.slice(0, 900)}\n\`\`\``, inline: false }]
+        : []),
+    ],
+    footer: {
+      text: `ID: ${report.id.length > 16 ? report.id.slice(0, 16) : report.id}`,
+    },
+  };
+}
+
+function sanitizeEmbed(payload: CrashPayload["embed"], report: CrashReport) {
+  const base = buildBaseEmbed(report);
+  const extraFields = Array.isArray(payload?.fields)
+    ? payload.fields
+        .filter((field) => typeof field?.name === "string" && field.name.trim() === RECENT_LOGS_FIELD)
+        .slice(0, 1)
+        .map((field) => ({
+          name: RECENT_LOGS_FIELD,
+          value: requireString(field?.value, "embed.fields.value", 800),
+          inline: false,
+        }))
+    : [];
+
+  return {
+    ...base,
+    fields: [...base.fields, ...extraFields],
   };
 }
 
 function sanitizeReport(report: CrashPayload["report"]): CrashReport {
   return {
-    id: requireString(report.id, "report.id", 80),
+    id: requireToken(report.id, "report.id", 80),
     timestamp: requireNumber(report.timestamp, "report.timestamp"),
-    type: requireString(report.type, "report.type", 64),
-    severity: requireString(report.severity, "report.severity", 64),
+    type: requireType(report.type, "report.type"),
+    severity: requireSeverity(report.severity, "report.severity"),
     message: requireString(report.message, "report.message", 1024),
     stack_trace: optionalString(report.stack_trace, "report.stack_trace", 2048),
     process_name: optionalString(report.process_name, "report.process_name", 128),
-    app_version: requireString(report.app_version || "dev", "report.app_version", 64),
-    build_commit: optionalString(report.build_commit, "report.build_commit", 64),
-    go_version: requireString(report.go_version, "report.go_version", 64),
-    os: requireString(report.os, "report.os", 32),
-    arch: requireString(report.arch, "report.arch", 32),
-    device_id: requireString(report.device_id, "report.device_id", 64),
-    gpu: requireString(report.gpu || "auto", "report.gpu", 64),
+    app_version: requireToken(report.app_version || "dev", "report.app_version", 64),
+    build_commit: optionalToken(report.build_commit, "report.build_commit", 64),
+    go_version: requireToken(report.go_version, "report.go_version", 64),
+    os: requireToken(report.os, "report.os", 32),
+    arch: requireToken(report.arch, "report.arch", 32),
+    device_id: requireToken(report.device_id, "report.device_id", 64),
+    gpu: requireToken(report.gpu || "auto", "report.gpu", 64),
     local_stt: requireBoolean(report.local_stt, "report.local_stt"),
     smart_mode: requireBoolean(report.smart_mode, "report.smart_mode"),
     config_snapshot: optionalString(report.config_snapshot, "report.config_snapshot", 1024),
-    hash: requireString(report.hash, "report.hash", 64),
+    hash: requireToken(report.hash, "report.hash", 64),
   };
 }
 
@@ -177,7 +266,14 @@ Deno.serve(async (req) => {
   let embed: ReturnType<typeof sanitizeEmbed>;
   try {
     report = sanitizeReport(parsed.report);
-    embed = sanitizeEmbed(parsed.embed);
+    const serverHash = await sha256(`${report.message}${report.stack_trace ?? ""}`);
+    report = {
+      ...report,
+      id: crypto.randomUUID(),
+      device_id: await sha256(report.device_id),
+      hash: serverHash,
+    };
+    embed = sanitizeEmbed(parsed.embed, report);
   } catch (error) {
     return json({ error: "invalid_payload", detail: error instanceof Error ? error.message : String(error) }, 400);
   }
@@ -189,7 +285,8 @@ Deno.serve(async (req) => {
   const now = new Date();
   const hourAgo = new Date(now.getTime() - DEDUP_WINDOW_MS).toISOString();
   const forwardedFor = req.headers.get("x-forwarded-for") ?? "";
-  const ipHash = await sha256(forwardedFor.split(",")[0]?.trim() || "unknown");
+  const clientIp = forwardedFor.split(",")[0]?.trim() || "";
+  const ipHash = clientIp ? await sha256(clientIp) : "unknown";
 
   const { data: duplicateRows, error: duplicateError } = await supabase
     .from("crash_report_events")
@@ -234,14 +331,21 @@ Deno.serve(async (req) => {
     }
   }
 
-  const { count, error: rateError } = await supabase
-    .from("crash_report_events")
-    .select("*", { count: "exact", head: true })
-    .or(`device_id.eq.${report.device_id},ip_hash.eq.${ipHash}`)
-    .gte("received_at", hourAgo);
-  if (rateError) return json({ error: "rate_limit_query_failed" }, 500);
-  if ((count ?? 0) >= MAX_REPORTS_PER_HOUR) {
-    return json({ error: "rate_limited" }, 429);
+  const rateLimitFilters = [
+    `device_id.eq.${report.device_id}`,
+    clientIp ? `ip_hash.eq.${ipHash}` : null,
+  ].filter((value): value is string => value !== null);
+
+  if (rateLimitFilters.length > 0) {
+    const { count, error: rateError } = await supabase
+      .from("crash_report_events")
+      .select("*", { count: "exact", head: true })
+      .or(rateLimitFilters.join(","))
+      .gte("received_at", hourAgo);
+    if (rateError) return json({ error: "rate_limit_query_failed" }, 500);
+    if ((count ?? 0) >= MAX_REPORTS_PER_HOUR) {
+      return json({ error: "rate_limited" }, 429);
+    }
   }
 
   const eventRow = {
