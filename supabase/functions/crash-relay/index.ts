@@ -38,6 +38,13 @@ const CORS_HEADERS = {
   "access-control-allow-headers": "content-type",
 };
 
+const SECURITY_HEADERS = {
+  "content-type": "application/json",
+  ...CORS_HEADERS,
+  "x-content-type-options": "nosniff",
+  "cache-control": "no-store",
+};
+
 const SENSITIVE_PATTERNS = [
   /["']?(api[_-]?key|token|password|authorization)["']?\s*[:=]\s*['"]?[^\s'",}]+/gi,
   /\bbearer\s+\S+/gi,
@@ -92,7 +99,7 @@ type CrashPayload = {
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json", ...CORS_HEADERS },
+    headers: SECURITY_HEADERS,
   });
 }
 
@@ -284,8 +291,10 @@ Deno.serve(async (req) => {
 
   const now = new Date();
   const hourAgo = new Date(now.getTime() - DEDUP_WINDOW_MS).toISOString();
+  // OWASP A02: Use LAST entry from X-Forwarded-For (Supabase appends real IP)
   const forwardedFor = req.headers.get("x-forwarded-for") ?? "";
-  const clientIp = forwardedFor.split(",")[0]?.trim() || "";
+  const forwardedParts = forwardedFor.split(",").map(s => s.trim()).filter(Boolean);
+  const clientIp = forwardedParts.length > 0 ? forwardedParts[forwardedParts.length - 1] : "";
   const ipHash = clientIp ? await sha256(clientIp) : "unknown";
 
   const { data: duplicateRows, error: duplicateError } = await supabase
@@ -297,7 +306,7 @@ Deno.serve(async (req) => {
     .limit(1);
   if (duplicateError) return json({ error: "dedup_query_failed" }, 500);
   if (duplicateRows && duplicateRows.length > 0) {
-    return json({ status: "duplicate" }, 202);
+    return json({ status: "accepted" }, 202);
   }
 
   // Check if this crash hash has been fixed in a newer version
@@ -327,23 +336,29 @@ Deno.serve(async (req) => {
         payload: { report, embed },
       };
       await supabase.from("crash_report_events").insert(dismissedRow);
-      return json({ status: "auto_dismissed", fixed_in: fixedIn }, 202);
+      return json({ status: "accepted" }, 202);
     }
   }
 
-  const rateLimitFilters = [
-    `device_id.eq.${report.device_id}`,
-    clientIp ? `ip_hash.eq.${ipHash}` : null,
-  ].filter((value): value is string => value !== null);
+  // Rate limit: per-device AND per-IP independently (both must pass)
+  const { count: deviceCount, error: deviceRateError } = await supabase
+    .from("crash_report_events")
+    .select("*", { count: "exact", head: true })
+    .eq("device_id", report.device_id)
+    .gte("received_at", hourAgo);
+  if (deviceRateError) return json({ error: "rate_limit_query_failed" }, 500);
+  if ((deviceCount ?? 0) >= MAX_REPORTS_PER_HOUR) {
+    return json({ error: "rate_limited" }, 429);
+  }
 
-  if (rateLimitFilters.length > 0) {
-    const { count, error: rateError } = await supabase
+  if (clientIp && ipHash !== "unknown") {
+    const { count: ipCount, error: ipRateError } = await supabase
       .from("crash_report_events")
       .select("*", { count: "exact", head: true })
-      .or(rateLimitFilters.join(","))
+      .eq("ip_hash", ipHash)
       .gte("received_at", hourAgo);
-    if (rateError) return json({ error: "rate_limit_query_failed" }, 500);
-    if ((count ?? 0) >= MAX_REPORTS_PER_HOUR) {
+    if (ipRateError) return json({ error: "rate_limit_query_failed" }, 500);
+    if ((ipCount ?? 0) >= MAX_REPORTS_PER_HOUR) {
       return json({ error: "rate_limited" }, 429);
     }
   }
@@ -362,6 +377,23 @@ Deno.serve(async (req) => {
   const { error: insertError } = await supabase.from("crash_report_events").insert(eventRow);
   if (insertError) return json({ error: "event_insert_failed" }, 500);
 
+  // Discord posting rate limit: max 20 posts per minute (T06)
+  const minuteAgo = new Date(now.getTime() - 60_000).toISOString();
+  const { count: recentPosts } = await supabase
+    .from("crash_report_events")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "sent")
+    .gte("received_at", minuteAgo);
+
+  if ((recentPosts ?? 0) >= 20) {
+    // Skip Discord, still stored in DB
+    await supabase
+      .from("crash_report_events")
+      .update({ status: "discord_throttled" })
+      .eq("id", report.id);
+    return json({ status: "accepted" }, 202);
+  }
+
   const discordURL = webhookURL.includes("?") ? `${webhookURL}&wait=true` : `${webhookURL}?wait=true`;
   const discordResp = await fetch(discordURL, {
     method: "POST",
@@ -376,9 +408,9 @@ Deno.serve(async (req) => {
     const detail = await discordResp.text();
     await supabase
       .from("crash_report_events")
-      .update({ status: "discord_failed", error_detail: detail.slice(0, 500) })
+      .update({ status: "discord_failed" })
       .eq("id", report.id);
-    return json({ error: "discord_post_failed", detail: detail.slice(0, 200) }, 502);
+    return json({ status: "accepted" }, 202);
   }
 
   const discordText = await discordResp.text();
@@ -398,5 +430,5 @@ Deno.serve(async (req) => {
     })
     .eq("id", report.id);
 
-  return json({ status: "sent", id: report.id, discord_message_id: discordBody?.id ?? null }, 202);
+  return json({ status: "accepted" }, 202);
 });
