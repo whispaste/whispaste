@@ -133,7 +133,7 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
       style: IconButton.styleFrom(
         foregroundColor: colorScheme.onSurface,
         padding: const EdgeInsets.all(WpSpacing.xs),
-        minimumSize: const Size(32, 32),
+        minimumSize: const Size(WpLayout.minTouchTarget, WpLayout.minTouchTarget),
         shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
       ),
     ),
