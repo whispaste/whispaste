@@ -670,6 +670,15 @@ class L10nDe extends L10n {
   String get tooltipProcessing => 'Audio wird verarbeitet…';
 
   @override
+  String get tooltipEngineNotReady => 'Sprach-Engine nicht bereit';
+
+  @override
+  String get tooltipEngineDownloading => 'Sprach-Engine wird heruntergeladen…';
+
+  @override
+  String get tooltipModelMissing => 'Kein Sprachmodell heruntergeladen';
+
+  @override
   String get tooltipTheme => 'Design wechseln';
 
   @override
@@ -1313,6 +1322,18 @@ class L10nDe extends L10n {
   @override
   String get settingsAdvancedModelManagement =>
       'Erweiterte Modell-Einstellungen';
+
+  @override
+  String get infoEngineDownloading =>
+      'Sprach-Engine wird vorbereitet. Bitte warte einen Moment.';
+
+  @override
+  String get infoEngineAutoDownload =>
+      'Sprach-Engine fehlt — wird automatisch heruntergeladen…';
+
+  @override
+  String get infoModelMissing =>
+      'Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.';
 
   @override
   String get errorSttServerNotFound =>

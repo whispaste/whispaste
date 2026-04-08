@@ -17,15 +17,24 @@ import '../core/recording/recording_state.dart';
 /// | transcribing | Amber gradient, rotating loader, non-interactive |
 /// | done         | Green, check icon (brief flash before reset)     |
 /// | error        | Red, alert icon (brief flash before reset)        |
+///
+/// When [readiness] is not [RecordingReadiness.ready] and phase is idle:
+/// | Readiness         | Visual                                       |
+/// |-------------------|----------------------------------------------|
+/// | serverMissing     | Muted gradient, download icon, still tappable |
+/// | serverDownloading | Muted gradient, spinning loader               |
+/// | modelMissing      | Muted gradient, download icon, still tappable |
 class WpRecordingFab extends StatefulWidget {
   const WpRecordingFab({
     super.key,
     required this.phase,
     required this.onPressed,
+    this.readiness = RecordingReadiness.ready,
   });
 
   final RecordingPhase phase;
   final VoidCallback onPressed;
+  final RecordingReadiness readiness;
 
   @override
   State<WpRecordingFab> createState() => _WpRecordingFabState();
@@ -130,20 +139,37 @@ class _WpRecordingFabState extends State<WpRecordingFab>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final phase = widget.phase;
+    final readiness = widget.readiness;
+    final notReady =
+        phase == RecordingPhase.idle && readiness != RecordingReadiness.ready;
 
+    // FAB is tappable when idle (including not-ready — shows info toast)
+    // or recording. Non-interactive during transcribing/processing/done/error.
     final isInteractive = phase == RecordingPhase.idle ||
         phase == RecordingPhase.recording;
 
-    final tooltip = switch (phase) {
-      RecordingPhase.idle => l10n.tooltipRecord,
-      RecordingPhase.recording => l10n.tooltipStopRecord,
-      RecordingPhase.transcribing || RecordingPhase.processing => l10n.tooltipProcessing,
-      RecordingPhase.done => l10n.statusTranscriptionDone,
-      RecordingPhase.error => '',
-    };
+    final tooltip = notReady
+        ? switch (readiness) {
+            RecordingReadiness.serverDownloading =>
+              l10n.tooltipEngineDownloading,
+            RecordingReadiness.serverMissing => l10n.tooltipEngineNotReady,
+            RecordingReadiness.modelMissing => l10n.tooltipModelMissing,
+            RecordingReadiness.ready => '', // unreachable
+          }
+        : switch (phase) {
+            RecordingPhase.idle => l10n.tooltipRecord,
+            RecordingPhase.recording => l10n.tooltipStopRecord,
+            RecordingPhase.transcribing ||
+            RecordingPhase.processing =>
+              l10n.tooltipProcessing,
+            RecordingPhase.done => l10n.statusTranscriptionDone,
+            RecordingPhase.error => '',
+          };
 
-    final gradient = _gradient(phase, isDark);
-    final icon = _icon(phase);
+    final gradient = notReady
+        ? _mutedGradient(isDark)
+        : _gradient(phase, isDark);
+    final icon = notReady ? _readinessIcon(readiness) : _icon(phase);
 
     return Semantics(
       label: tooltip,
@@ -201,10 +227,14 @@ class _WpRecordingFabState extends State<WpRecordingFab>
                       gradient: gradient,
                       boxShadow: WpShadows.fab,
                     ),
-                    child: phase == RecordingPhase.transcribing ||
-                            phase == RecordingPhase.processing
+                    child: notReady &&
+                            readiness == RecordingReadiness.serverDownloading
                         ? _buildSpinner(icon)
-                        : Icon(icon, color: Colors.white, size: WpIconSize.lg),
+                        : phase == RecordingPhase.transcribing ||
+                                phase == RecordingPhase.processing
+                            ? _buildSpinner(icon)
+                            : Icon(icon,
+                                color: Colors.white, size: WpIconSize.lg),
                   ),
                 ),
               ),
@@ -240,6 +270,29 @@ class _WpRecordingFabState extends State<WpRecordingFab>
       },
       child: const Icon(LucideIcons.loaderCircle, color: Colors.white, size: WpIconSize.lg),
     );
+  }
+
+  static LinearGradient _mutedGradient(bool isDark) {
+    return isDark
+        ? const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF52525B), Color(0xFF3F3F46)],
+          )
+        : const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF9CA3AF), Color(0xFF6B7280)],
+          );
+  }
+
+  static IconData _readinessIcon(RecordingReadiness readiness) {
+    return switch (readiness) {
+      RecordingReadiness.serverDownloading => LucideIcons.loaderCircle,
+      RecordingReadiness.serverMissing => LucideIcons.download,
+      RecordingReadiness.modelMissing => LucideIcons.download,
+      RecordingReadiness.ready => LucideIcons.mic,
+    };
   }
 
   static LinearGradient _gradient(RecordingPhase phase, bool isDark) {

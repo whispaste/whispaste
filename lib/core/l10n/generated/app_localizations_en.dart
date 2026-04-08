@@ -665,6 +665,15 @@ class L10nEn extends L10n {
   String get tooltipProcessing => 'Processing audio…';
 
   @override
+  String get tooltipEngineNotReady => 'Speech engine not ready';
+
+  @override
+  String get tooltipEngineDownloading => 'Downloading speech engine…';
+
+  @override
+  String get tooltipModelMissing => 'No speech model downloaded';
+
+  @override
   String get tooltipTheme => 'Toggle theme';
 
   @override
@@ -1299,6 +1308,18 @@ class L10nEn extends L10n {
 
   @override
   String get settingsAdvancedModelManagement => 'Advanced model settings';
+
+  @override
+  String get infoEngineDownloading =>
+      'Speech engine is being prepared. Please wait a moment.';
+
+  @override
+  String get infoEngineAutoDownload =>
+      'Speech engine missing — downloading automatically…';
+
+  @override
+  String get infoModelMissing =>
+      'Please download a speech model in Settings first.';
 
   @override
   String get errorSttServerNotFound =>

@@ -130,6 +130,20 @@ String _localizeError(L10n l10n, String errorCode) {
   }
 }
 
+/// Maps info codes from the recording pipeline to localized messages.
+String _localizeInfo(L10n l10n, String infoCode) {
+  switch (infoCode) {
+    case 'info_engine_auto_download':
+      return l10n.infoEngineAutoDownload;
+    case 'info_engine_downloading':
+      return l10n.infoEngineDownloading;
+    case 'info_model_missing':
+      return l10n.infoModelMissing;
+    default:
+      return infoCode;
+  }
+}
+
 /// Navigation items — built from localized strings.
 List<WpNavItem> _navItems(L10n l10n) => [
   WpNavItem(id: 'history', icon: LucideIcons.clock3, label: l10n.navHistory),
@@ -319,6 +333,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
   Widget build(BuildContext context) {
     final activePage = ref.watch(activePageProvider);
     final recordingPhase = ref.watch(recordingPhaseProvider);
+    final readiness = ref.watch(recordingReadinessProvider);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
 
     // Sync crash reporting consent with user's settings toggle.
@@ -429,6 +444,21 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       } else if (next.isIdle && prev != null && !prev.isIdle) {
         _appLog.debug('State → idle (from ${prev.phase})');
         _doneResetTimer?.cancel();
+      }
+    });
+
+    // Listen for info notifications (soft preflight, auto-download).
+    ref.listen<String?>(recordingInfoProvider, (prev, next) {
+      if (next != null) {
+        WpToast.show(
+          context,
+          message: _localizeInfo(l10n, next),
+          type: WpToastType.info,
+        );
+        // Clear after showing so it can fire again.
+        Future.microtask(
+          () => ref.read(recordingInfoProvider.notifier).clear(),
+        );
       }
     });
 
@@ -563,7 +593,9 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
           //     AND overlay isn't currently being created (prevents flash
           //     during async window creation).
           //  3. overlayMode is off → never show.
+          //  4. error phase → never show (errors are handled via toast).
           if (recordingPhase != RecordingPhase.idle &&
+              recordingPhase != RecordingPhase.error &&
               settings.overlayModeType == OverlayMode.inWindow)
             const Positioned(
               bottom: WpLayout.statusBarHeight + 8,
@@ -587,7 +619,15 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
               ),
               child: WpRecordingFab(
                 phase: recordingPhase,
+                readiness: readiness,
                 onPressed: () {
+                  if (readiness != RecordingReadiness.ready) {
+                    // Still tappable — triggers soft preflight for info toast.
+                    ref
+                        .read(recordingOrchestratorProvider.notifier)
+                        .toggleRecording();
+                    return;
+                  }
                   ref
                       .read(recordingOrchestratorProvider.notifier)
                       .toggleRecording();
