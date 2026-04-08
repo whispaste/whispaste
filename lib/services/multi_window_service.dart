@@ -22,6 +22,7 @@ import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -746,6 +747,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         settings.hotkeyModifiers,
         settings.hotkeyKey,
       ),
+      isDark: settings.themeMode == ThemeMode.dark,
     );
   }
 

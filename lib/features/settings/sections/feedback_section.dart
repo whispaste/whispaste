@@ -9,6 +9,7 @@ import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/sound_feedback_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
@@ -138,6 +139,9 @@ class SoundFeedbackSection extends ConsumerWidget {
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
                   .updateSettings((s) => s.copyWith(soundVolume: v)),
+              onChangeEnd: (v) => ref
+                  .read(soundFeedbackProvider.notifier)
+                  .playVolumePreview(v),
             ),
           ),
         ],

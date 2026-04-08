@@ -89,6 +89,9 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
     with WindowHeartbeat {
   DecodedRecordingState _state = const DecodedRecordingState();
 
+  /// Theme preference received from the main window via IPC.
+  bool _isDark = true;
+
   /// When true, this window has been shut down and ignores all method calls.
   bool _inert = false;
 
@@ -119,6 +122,7 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
       }
       setState(() {
         _state = decoded;
+        if (decoded.isDark != null) _isDark = decoded.isDark!;
       });
     } else if (call.method == 'assertTopmost') {
       try {
@@ -136,11 +140,10 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
         } catch (_) {}
       }
       try {
-        // Resize from 1x1 (hidden) -> 540x72 (visible). The window is
-        // already "shown" from the OS perspective -- we never hide/show,
-        // we only resize. This avoids the window_manager Show() bug that
-        // breaks transparent frameless window compositing on Windows.
-        const targetSize = Size(540, 72);
+        // Resize from 1x1 (hidden) -> visible. Window is slightly larger than
+        // the pill to accommodate box shadows (16px blur + 6px offset) and
+        // the hotkey hint below the pill.
+        const targetSize = Size(520, 100);
         await windowManager.setSize(targetSize);
         if (posX != null && posX >= 0 && posY != null && posY >= 0) {
           await windowManager.setPosition(Offset(posX, posY));
@@ -190,10 +193,11 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
 
   @override
   Widget build(BuildContext context) {
+    final theme = _isDark ? wpDarkTheme() : wpLightTheme();
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: wpDarkTheme(),
-      darkTheme: wpDarkTheme(),
+      theme: theme,
+      darkTheme: theme,
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
       home: Scaffold(
@@ -325,7 +329,6 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill> {
             afterAction: decoded.afterAction,
             hotkeyLabel: decoded.hotkeyLabel,
             showDragHandle: true,
-            isDarkOnly: true,
             onStop: widget.onStop,
             onCancel: phase == RecordingPhase.idle ? null : widget.onCancel,
           ),

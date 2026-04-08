@@ -46,6 +46,19 @@ class SoundFeedbackService extends Notifier<void> {
 
   Future<void> playError() => _play('error.wav', true);
 
+  /// Play a preview of the start sound at the given [volume] (0–100).
+  /// Used by the settings UI to preview volume changes.
+  Future<void> playVolumePreview(double volume) async {
+    try {
+      await _ensureInit();
+      final source = _sources['start.wav'];
+      if (source == null) return;
+      _engine.play(source, volume: (volume / 100.0).clamp(0.0, 1.0));
+    } catch (e) {
+      _log.warning('Volume preview error: $e');
+    }
+  }
+
   // ── Private ────────────────────────────────────────────────────────────────
 
   AppSettings get _settings =>
