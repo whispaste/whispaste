@@ -89,9 +89,13 @@ class WelcomeStep extends ConsumerWidget {
             ),
           ],
         ),
+        const SizedBox(height: WpSpacing.xs),
+        Text(
+          l10n.onboardingLanguageSubtitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: textSecondary),
+        ),
         const SizedBox(height: WpSpacing.lg),
-
-        // Theme toggle
         Text(
           l10n.onboardingThemeTitle,
           style: TextStyle(
@@ -126,6 +130,18 @@ class WelcomeStep extends ConsumerWidget {
                   .read(settingsProvider.notifier)
                   .updateSettings(
                       (s) => s.copyWith(themeMode: ThemeMode.dark)),
+            ),
+            const SizedBox(width: WpSpacing.sm),
+            _PillButton(
+              label: '🖥️ ${l10n.onboardingThemeSystem}',
+              isActive: settings.themeMode == ThemeMode.system,
+              accent: accent,
+              surfaceVariant: surfaceVariant,
+              textSecondary: textSecondary,
+              onTap: () => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                      (s) => s.copyWith(themeMode: ThemeMode.system)),
             ),
           ],
         ),

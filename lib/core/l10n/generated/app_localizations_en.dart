@@ -1524,6 +1524,9 @@ class L10nEn extends L10n {
   String get onboardingThemeDark => 'Dark';
 
   @override
+  String get onboardingThemeSystem => 'System';
+
+  @override
   String get onboardingMicTitle => 'Microphone Setup';
 
   @override
@@ -1552,7 +1555,7 @@ class L10nEn extends L10n {
   String get onboardingMicTestRecording => 'Recording… speak now';
 
   @override
-  String get onboardingMicTestDone => 'Recording complete! Tap to play back';
+  String get onboardingMicTestDone => 'Microphone is working!';
 
   @override
   String get onboardingMicDeviceLabel => 'Audio Input Device';
@@ -1608,12 +1611,6 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingStartDictating => 'Start Dictating';
-
-  @override
-  String get onboardingPrivacyLocal => 'All processing happens on your device';
-
-  @override
-  String get onboardingPrivacyBadge => '100% Private';
 
   @override
   String get overlayRecording => 'Recording';
