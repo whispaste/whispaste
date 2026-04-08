@@ -193,7 +193,7 @@ class L10nEn extends L10n {
 
   @override
   String get historyNoRecordingsHint =>
-      'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.\n\n🔒 All data stays on your device.';
+      'Press the record button or use the hotkey to start dictating.\nYour transcriptions will appear here.';
 
   @override
   String get historyCopiedToClipboard => 'Copied to clipboard';
@@ -376,7 +376,7 @@ class L10nEn extends L10n {
       'Audio input is managed by your system settings';
 
   @override
-  String get settingsServiceOnDevicePrivate => 'On Device (Private)';
+  String get settingsServiceOnDevicePrivate => 'On Device';
 
   @override
   String get settingsQualityFastTiny => 'Fast (Tiny)';
@@ -1231,9 +1231,6 @@ class L10nEn extends L10n {
 
   @override
   String get settingsAdvancedModelManagement => 'Advanced model settings';
-
-  @override
-  String get settingsPrivacyHintLocal => 'Your voice never leaves your device';
 
   @override
   String get errorSttServerNotFound =>

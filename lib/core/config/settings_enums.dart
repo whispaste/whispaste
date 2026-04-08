@@ -10,7 +10,7 @@ library;
 
 /// Speech-to-text engine selection.
 enum SttProviderType {
-  onDevice('On Device (Private)'),
+  onDevice('On Device'),
   openAI('OpenAI'),
   groq('Groq'),
   deepgram('Deepgram');
@@ -22,6 +22,7 @@ enum SttProviderType {
 
   /// Look up by persisted [value]. Falls back to [onDevice].
   static SttProviderType fromValue(String? v) {
+    if (v == 'On Device (Private)') return onDevice; // legacy migration
     for (final e in values) {
       if (e.value == v) return e;
     }
