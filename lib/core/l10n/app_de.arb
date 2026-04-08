@@ -180,6 +180,19 @@
   "settingsResetMessage": "Alle Einstellungen werden auf die Standardwerte zurückgesetzt. API-Schlüssel werden entfernt. Dies kann nicht rückgängig gemacht werden.",
   "settingsResetConfirm": "Zurücksetzen",
   "settingsResetSuccess": "Einstellungen zurückgesetzt",
+  "settingsFactoryReset": "Werksreset",
+  "settingsFactoryResetTitle": "Werksreset",
+  "settingsFactoryResetMessage": "Damit werden ALLE Daten unwiderruflich gelöscht: Diktatverlauf, Tags, Projekte, Sprachkürzel, heruntergeladene Modelle, Protokolle und Einstellungen. Die App wird in den Ausgangszustand zurückversetzt.\n\nDies kann nicht rückgängig gemacht werden.",
+  "settingsFactoryResetConfirm": "Alles löschen",
+  "settingsFactoryResetSuccess": "App wurde vollständig zurückgesetzt",
+  "migrationComplete": "{count, plural, one{1 Diktat von WhisPaste 1.x migriert} other{{count} Diktate von WhisPaste 1.x migriert}}",
+  "@migrationComplete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "settingsOff": "Aus",
   "settingsOn": "An",
   "settingsThemeDark": "Dunkel",
