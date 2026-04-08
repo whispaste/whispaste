@@ -8,7 +8,14 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
+
+/// Override the STT directory for testing. When non-null, [sttDir] returns
+/// this value instead of the real AppData path, isolating tests from the
+/// host file system.
+@visibleForTesting
+String? sttDirOverride;
 
 // ---------------------------------------------------------------------------
 // Model ID → GGML filename lookup
@@ -82,7 +89,7 @@ String appDataDir() {
 }
 
 /// Directory containing STT model files and whisper-server.
-String sttDir() => p.join(appDataDir(), 'models', 'stt');
+String sttDir() => sttDirOverride ?? p.join(appDataDir(), 'models', 'stt');
 
 /// Full path to the whisper-server executable.
 String whisperServerPath() {
