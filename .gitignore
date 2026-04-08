@@ -63,6 +63,8 @@ scripts/*
 !scripts/generate-release-notes.ps1
 !scripts/security-scan.ps1
 !scripts/store-screenshots.py
+!scripts/capture-store-screenshots.py
+!scripts/premium-screenshots.py
 
 # Internal docs (local only)
 website/design-system/

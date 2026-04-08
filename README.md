@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Press. Speak. Done.</strong><br>
-  Voice to text, pasted right where your cursor is — in any app.<br>
+  Dictate short texts, notes & ideas — pasted right where your cursor is, in any app.<br>
   Cloud or fully offline. Free & open source.
 </p>
 
@@ -30,7 +30,7 @@
 Hotkey → Speak → Text appears at your cursor
 ```
 
-1. **Press your hotkey** — `Ctrl+Shift+V` by default, hold-to-talk or toggle mode
+1. **Press your hotkey** — `Ctrl+Shift+D` by default, hold-to-talk or toggle mode
 2. **Speak naturally** — a minimal overlay shows a live waveform while you record
 3. **Done** — transcribed text is pasted wherever your cursor sits
 
@@ -42,11 +42,11 @@ Works in emails, chat apps, code editors, browsers, terminals — everywhere.
 
 **Transcription** — Cloud providers (OpenAI, Groq, Deepgram) or local Whisper models via [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — fully offline, no API key needed for local mode · [99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py)
 
-**Post-Processing** — 13 AI presets: grammar cleanup, formal email, bullet points, translation, and more · Custom prompts · Runs locally or via cloud APIs (OpenAI, Anthropic, Gemini, Groq)
+**Post-Processing** — AI presets (cleanup, concise, translate) · Custom prompts · Runs locally or via cloud APIs (OpenAI, Anthropic, Gemini, Groq)
 
 **Productivity** — Voice shortcuts (spoken triggers → text expansion) · Command palette (`Ctrl+K`) · Audio feedback sounds
 
-**History** — Full-text search · Projects & color-coded tags · Auto-tagging via LLM · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX) · Audio playback · Voice notes
+**History** — Full-text search · Projects & color-coded tags · Auto-tagging via LLM · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX)
 
 **System** — Auto-update with SHA256 verification · Light/dark/system theme · EN/DE interface · Autostart · System tray
 
