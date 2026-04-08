@@ -85,6 +85,13 @@ wack-report.xml
 # Screenshots (local output only — golden test sources are tracked)
 screenshots/
 !test/screenshots/
+test/screenshots/failures/
+
+# Sentry native build artifacts
+.sentry-native/
+
+# Temporary files
+tmp_funcs.sql
 
 # Design source files
 *.afdesign
