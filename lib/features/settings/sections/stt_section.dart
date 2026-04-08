@@ -75,7 +75,7 @@ class SpeechRecognitionSection extends ConsumerWidget {
             label: l10n.settingsService,
             trailing: settingsDropdown(
               context: context,
-              value: settings.sttProvider,
+              value: settings.sttProviderType.value,
               items:
                   SttProviderType.values.map((e) => e.value).toList(),
               labels: [

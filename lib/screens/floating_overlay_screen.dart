@@ -310,7 +310,7 @@ class _FloatingOverlayPillState extends State<_FloatingOverlayPill> {
       RecordingPhase.transcribing => l10n.overlayTranscribing,
       RecordingPhase.processing => l10n.overlayRefining,
       RecordingPhase.done => _doneMessage(l10n),
-      RecordingPhase.error => widget.state.errorMessage ?? 'Error',
+      RecordingPhase.error => widget.state.errorMessage ?? l10n.overlayError,
       _ => '',
     };
   }

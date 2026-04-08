@@ -331,27 +331,6 @@ class L10nDe extends L10n {
       'Automatisch stoppen nach dieser Anzahl Sekunden Stille (nach Sprache). 0 = deaktiviert.';
 
   @override
-  String get settingsTrimSilence => 'Stille trimmen';
-
-  @override
-  String get settingsTrimSilenceSubtitle =>
-      'Stille am Anfang und Ende der Aufnahme automatisch entfernen';
-
-  @override
-  String get settingsVoiceActivityDetection => 'Sprachaktivitätserkennung';
-
-  @override
-  String get settingsVoiceActivityDetectionSubtitle =>
-      'Nur Audioabschnitte mit erkannter Sprache verarbeiten';
-
-  @override
-  String get settingsVadSensitivity => 'VAD-Empfindlichkeit';
-
-  @override
-  String get settingsVadSensitivitySubtitle =>
-      'Empfindlichkeit der Spracherkennung (niedriger = empfindlicher)';
-
-  @override
   String get settingsPostProcessing => 'Nachbearbeitung';
 
   @override
@@ -578,11 +557,10 @@ class L10nDe extends L10n {
   String get settingsResetSuccess => 'Einstellungen zurückgesetzt';
 
   @override
-  String get settingsPrivacyNote =>
-      'Deine Aufnahmen und Texte bleiben standardmäßig auf deinem Gerät. Cloud-Dienste werden nur verwendet, wenn du sie ausdrücklich aktivierst.';
+  String get settingsOff => 'Aus';
 
   @override
-  String get settingsOff => 'Aus';
+  String get settingsOn => 'An';
 
   @override
   String get settingsThemeDark => 'Dunkel';
@@ -846,6 +824,12 @@ class L10nDe extends L10n {
 
   @override
   String get replacementsNoMatchesHint => 'Versuche einen anderen Suchbegriff.';
+
+  @override
+  String get replacementsToggleEnabled => 'Sprachkürzel sind aktiv';
+
+  @override
+  String get replacementsToggleDisabled => 'Sprachkürzel sind deaktiviert';
 
   @override
   String get replacementsAddShortcut => 'Shortcut hinzufügen';
@@ -1272,6 +1256,38 @@ class L10nDe extends L10n {
   @override
   String get errorSttServerFailed =>
       'Sprachmodul konnte nicht gestartet werden';
+
+  @override
+  String get errorPipelineTimeout =>
+      'Aufnahme hat zu lange gedauert. Bitte versuche eine kürzere Aufnahme.';
+
+  @override
+  String get errorWavFileNotCreated =>
+      'Audiodatei konnte nicht gespeichert werden. Bitte versuche es erneut.';
+
+  @override
+  String get errorWavFileEmpty =>
+      'Kein Audio aufgenommen. Bitte überprüfe dein Mikrofon.';
+
+  @override
+  String get errorSttStartTimeout =>
+      'Sprachmodul startet noch. Bitte versuche es gleich nochmal.';
+
+  @override
+  String get errorTranscriptionTimeout =>
+      'Transkription hat zu lange gedauert. Bitte versuche eine kürzere Aufnahme.';
+
+  @override
+  String get errorMicPermissionDenied =>
+      'Mikrofonzugriff wird benötigt. Bitte erlaube ihn in den Systemeinstellungen.';
+
+  @override
+  String get errorRecordingStartFailed =>
+      'Aufnahme konnte nicht gestartet werden. Bitte versuche es erneut.';
+
+  @override
+  String get errorGeneric =>
+      'Etwas ist schiefgelaufen. Bitte versuche es erneut.';
 
   @override
   String get statusSttLoading => 'Modell wird geladen…';
