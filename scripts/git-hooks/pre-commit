@@ -1,0 +1,116 @@
+#!/bin/sh
+# ╔═════════════════════════════════════════════════════════════════════╗
+# ║  WhisPaste Pre-Commit Guard                                       ║
+# ║  Prevents internal/sensitive files from being committed.           ║
+# ║  Also prevents weakening the PROTECTED section in .gitignore.      ║
+# ║                                                                    ║
+# ║  Install: cp scripts/git-hooks/pre-commit .git/hooks/pre-commit   ║
+# ║  This hook is tracked in the repo so it survives cloning.          ║
+# ╚═════════════════════════════════════════════════════════════════════╝
+
+set -e
+
+# ── 1. Block commits that include files from protected paths ──────────
+
+BLOCKED_PATHS="
+^\.internal/
+^docs/
+^\.agents/
+^\.agent/
+^\.skills/
+^\.claude/
+^cmd/
+"
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
+
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+VIOLATIONS=""
+for pattern in $BLOCKED_PATHS; do
+  [ -z "$pattern" ] && continue
+  MATCHES=$(echo "$STAGED_FILES" | grep -E "$pattern" 2>/dev/null || true)
+  if [ -n "$MATCHES" ]; then
+    VIOLATIONS="$VIOLATIONS
+$MATCHES"
+  fi
+done
+
+if [ -n "$VIOLATIONS" ]; then
+  echo ""
+  echo "╔═══════════════════════════════════════════════════════════╗"
+  echo "║  ❌ BLOCKED: Internal files staged for commit            ║"
+  echo "╠═══════════════════════════════════════════════════════════╣"
+  echo "║  The following files are protected and must NOT be       ║"
+  echo "║  pushed to the public GitHub repository:                 ║"
+  echo "╚═══════════════════════════════════════════════════════════╝"
+  echo ""
+  echo "$VIOLATIONS" | grep -v '^$'
+  echo ""
+  echo "To unstage: git reset HEAD <file>"
+  echo "To bypass (DANGEROUS): git commit --no-verify"
+  echo ""
+  exit 1
+fi
+
+# ── 2. Block modifications to .gitignore PROTECTED section ────────────
+
+if echo "$STAGED_FILES" | grep -q "^\.gitignore$"; then
+  STAGED_PROTECTED=$(git show :0:.gitignore 2>/dev/null | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
+  COMMITTED_PROTECTED=$(git show HEAD:.gitignore 2>/dev/null | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
+
+  if [ -n "$COMMITTED_PROTECTED" ] && [ "$STAGED_PROTECTED" != "$COMMITTED_PROTECTED" ]; then
+    COMMITTED_ENTRIES=$(echo "$COMMITTED_PROTECTED" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort)
+    STAGED_ENTRIES=$(echo "$STAGED_PROTECTED" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort)
+    REMOVED=$(comm -23 <(echo "$COMMITTED_ENTRIES") <(echo "$STAGED_ENTRIES") 2>/dev/null || true)
+
+    if [ -n "$REMOVED" ]; then
+      echo ""
+      echo "╔═══════════════════════════════════════════════════════════╗"
+      echo "║  ❌ BLOCKED: .gitignore PROTECTED section weakened       ║"
+      echo "╠═══════════════════════════════════════════════════════════╣"
+      echo "║  The following protected gitignore entries were removed:  ║"
+      echo "╚═══════════════════════════════════════════════════════════╝"
+      echo ""
+      echo "$REMOVED"
+      echo ""
+      echo "Adding new entries is allowed. Removing existing ones is not."
+      echo "To bypass (DANGEROUS): git commit --no-verify"
+      echo ""
+      exit 1
+    fi
+  fi
+fi
+
+# ── 3. Block secrets patterns ─────────────────────────────────────────
+# Build pattern dynamically to avoid self-matching in this hook file
+S1="SUPA"
+S2="BASE_SERVICE_ROLE_KEY"
+S3="ADMIN_API"
+S4="_KEY"
+SECRET_PATTERNS="${S1}${S2}=.{20,}|${S3}${S4}=.{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}"
+
+for file in $STAGED_FILES; do
+  case "$file" in
+    *.png|*.jpg|*.ico|*.svg|*.exe|*.dll|.env.example) continue ;;
+  esac
+
+  CONTENT=$(git show ":0:$file" 2>/dev/null || true)
+  if [ -n "$CONTENT" ]; then
+    SECRET_MATCH=$(echo "$CONTENT" | grep -oE "$SECRET_PATTERNS" 2>/dev/null | head -3 || true)
+    if [ -n "$SECRET_MATCH" ]; then
+      echo ""
+      echo "╔═══════════════════════════════════════════════════════════╗"
+      echo "║  ❌ BLOCKED: Potential secret in $file"
+      echo "╚═══════════════════════════════════════════════════════════╝"
+      echo ""
+      echo "$SECRET_MATCH" | head -1 | cut -c1-40
+      echo ""
+      exit 1
+    fi
+  fi
+done
+
+exit 0
