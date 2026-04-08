@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
@@ -201,6 +202,9 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
                         onChanged: (v) => setState(() => _searchQuery = v),
                       ),
                     ),
+                    const SizedBox(width: WpSpacing.sm),
+                    // Enable/disable toggle
+                    _ReplacementsToggle(),
                     const SizedBox(width: WpSpacing.sm),
                     // Add button
                     ElevatedButton.icon(
@@ -588,6 +592,75 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                     minHeight: 28,
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Toggle widget for text replacements enabled state
+// ---------------------------------------------------------------------------
+
+class _ReplacementsToggle extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final settings = ref.watch(settingsProvider).value;
+    final enabled = settings?.textReplacementsEnabled ?? true;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Tooltip(
+      message: enabled
+          ? l10n.replacementsToggleEnabled
+          : l10n.replacementsToggleDisabled,
+      child: InkWell(
+        borderRadius: WpRadius.borderSm,
+        onTap: () => ref
+            .read(settingsProvider.notifier)
+            .updateSettings(
+                (s) => s.copyWith(textReplacementsEnabled: !enabled)),
+        child: AnimatedContainer(
+          duration: WpMotion.fast,
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: enabled
+                ? (isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle)
+                : Colors.transparent,
+            borderRadius: WpRadius.borderSm,
+            border: Border.all(
+              color: enabled
+                  ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                      .withValues(alpha: 0.3)
+                  : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                enabled ? LucideIcons.toggleRight : LucideIcons.toggleLeft,
+                size: WpIconSize.sm,
+                color: enabled
+                    ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                    : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted),
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              Text(
+                enabled ? l10n.settingsOn : l10n.settingsOff,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
+                  color: enabled
+                      ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                      : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted),
+                ),
+              ),
             ],
           ),
         ),
