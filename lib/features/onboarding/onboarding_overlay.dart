@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:window_manager/window_manager.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
@@ -96,35 +98,12 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       child: Stack(
         children: [
           // -- Frosted glass backdrop ----------------------------------------
-          // Leave the title bar area (top 64px) passthrough so the window
-          // can still be dragged via WpTitleBar's onPanStart handler.
+          // The entire overlay is draggable so users can move the window
+          // during onboarding (title bar is hidden behind the overlay).
           Positioned.fill(
-            child: Column(
-              children: [
-                // Title bar passthrough zone — gestures reach WpTitleBar
-                const SizedBox(height: WpLayout.appBarHeight),
-                // Barrier + blur below the title bar
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {},
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: ColoredBox(
-                        color: Colors.black.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Apply blur to the title bar zone too (visual only, no gesture block)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: WpLayout.appBarHeight,
-            child: IgnorePointer(
+            child: GestureDetector(
+              onTap: () {},
+              onPanStart: (_) => windowManager.startDragging(),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                 child: ColoredBox(
@@ -145,28 +124,54 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Skip button — visible on steps 0-2, hidden on last.
-                      if (_currentStep < _totalSteps - 1)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Semantics(
-                            button: true,
-                            label: l10n.onboardingSkip,
-                            child: TextButton(
-                              onPressed: _skip,
-                              child: Text(
-                                l10n.onboardingSkip,
-                                style: TextStyle(
-                                  color: isDark
-                                      ? WpColorsDark.textMuted
-                                      : WpColorsLight.textMuted,
-                                ),
+                      // Top bar — close (X) left, skip right. The row
+                      // background acts as a drag handle so the window
+                      // stays movable even above the content card.
+                      GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onPanStart: (_) => windowManager.startDragging(),
+                        child: Row(
+                          children: [
+                            // Close button — always visible
+                            IconButton(
+                              onPressed: () => windowManager.close(),
+                              icon: Icon(
+                                LucideIcons.x,
+                                size: 18,
+                                color: isDark
+                                    ? WpColorsDark.textMuted
+                                    : WpColorsLight.textMuted,
+                              ),
+                              tooltip: MaterialLocalizations.of(context)
+                                  .closeButtonTooltip,
+                              splashRadius: 16,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
                               ),
                             ),
-                          ),
-                        )
-                      else
-                        const SizedBox(height: WpSpacing.xxl),
+                            const Spacer(),
+                            // Skip button — visible on steps 0-2
+                            if (_currentStep < _totalSteps - 1)
+                              Semantics(
+                                button: true,
+                                label: l10n.onboardingSkip,
+                                child: TextButton(
+                                  onPressed: _skip,
+                                  child: Text(
+                                    l10n.onboardingSkip,
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? WpColorsDark.textMuted
+                                          : WpColorsLight.textMuted,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
 
                       const SizedBox(height: WpSpacing.xs),
 

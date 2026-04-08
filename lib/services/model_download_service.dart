@@ -129,6 +129,99 @@ SttModelInfo? findSttModel(String id) {
 }
 
 // ---------------------------------------------------------------------------
+// Quality Tiers — user-facing abstraction over raw model names
+// ---------------------------------------------------------------------------
+
+/// User-facing quality tiers that abstract away model internals.
+enum QualityTier { compact, balanced, premium }
+
+/// Returns the ordered list of models belonging to [tier] (best first).
+///
+/// Within each tier, models are sorted by descending file size so that
+/// [bestModelForTier] always returns the highest-quality option.
+List<SttModelInfo> modelsForTier(QualityTier tier) {
+  final ids = switch (tier) {
+    QualityTier.compact => {'whisper-base', 'whisper-tiny'},
+    QualityTier.balanced => {'whisper-medium', 'whisper-small'},
+    QualityTier.premium => {'whisper-large-v3-turbo', 'whisper-large-v3'},
+  };
+  final models = sttModels.where((m) => ids.contains(m.id)).toList()
+    ..sort((a, b) => b.sizeBytes.compareTo(a.sizeBytes));
+  return models;
+}
+
+/// Returns the single best model for [tier].
+SttModelInfo bestModelForTier(QualityTier tier) => modelsForTier(tier).first;
+
+/// Returns the tier a model belongs to, or null if unknown.
+QualityTier? tierForModel(String modelId) {
+  for (final tier in QualityTier.values) {
+    if (modelsForTier(tier).any((m) => m.id == modelId)) return tier;
+  }
+  return null;
+}
+
+/// Auto-recommend a tier based on GPU capabilities.
+///
+/// NVIDIA with CUDA handles large models well at modest VRAM. Intel/AMD
+/// Vulkan and CPU-only need higher VRAM margins for the same tier.
+QualityTier recommendTier(int vramMB, {hw.GpuVendor? vendor}) {
+  // NVIDIA CUDA — dedicated GPU, excellent inference performance.
+  if (vendor == hw.GpuVendor.nvidia) {
+    if (vramMB >= 2048) return QualityTier.premium;
+    if (vramMB >= 512) return QualityTier.balanced;
+    return QualityTier.compact;
+  }
+
+  // Apple Metal — unified memory, generally performs well.
+  if (vendor == hw.GpuVendor.apple) {
+    if (vramMB >= 4096) return QualityTier.premium;
+    if (vramMB >= 2048) return QualityTier.balanced;
+    return QualityTier.compact;
+  }
+
+  // Intel/AMD Vulkan or CPU — slower inference, conservative thresholds.
+  if (vramMB >= 4096) return QualityTier.premium;
+  if (vramMB >= 512) return QualityTier.balanced;
+  return QualityTier.compact;
+}
+
+/// Returns a user-facing warning when [tier] may perform poorly on [gpu],
+/// or `null` if no concerns.
+String? tierWarning(QualityTier tier, hw.GpuInfo gpu) {
+  if (tier == QualityTier.compact) return null;
+
+  // CPU-only — large models will be very slow.
+  if (!gpu.hasGpu) {
+    if (tier == QualityTier.premium) {
+      return 'Large models are very slow without GPU acceleration. '
+          'Consider "Balanced" for better performance.';
+    }
+    if (tier == QualityTier.balanced) {
+      return 'Without a GPU, transcription will be noticeably slower.';
+    }
+  }
+
+  // Intel/AMD integrated graphics — premium is risky.
+  if (tier == QualityTier.premium &&
+      (gpu.vendor == hw.GpuVendor.intel || gpu.vendor == hw.GpuVendor.amd)) {
+    final vram = gpu.vramMB ?? 0;
+    if (vram < 4096) {
+      return 'Large models may be slow on integrated graphics. '
+          '"Balanced" is recommended for your hardware.';
+    }
+  }
+
+  return null;
+}
+
+/// Total download size for [tier]'s best model (human-readable).
+String tierSizeLabel(QualityTier tier) {
+  final model = bestModelForTier(tier);
+  return model.sizeLabel;
+}
+
+// ---------------------------------------------------------------------------
 // Download state
 // ---------------------------------------------------------------------------
 

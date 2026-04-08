@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../widgets/brand_logo.dart';
 import '../../../widgets/brand_wordmark.dart';
 import '../../../widgets/wp_accent_button.dart';
 
@@ -33,15 +34,9 @@ class WelcomeStep extends ConsumerWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Brand logo — larger for a premium first impression
-        const WpBrandLogo(size: 80, withBackground: true),
-        const SizedBox(height: WpSpacing.md),
-
-        // Brand wordmark
-        const WpBrandWordmark(height: 36),
+        const WpBrandWordmark(height: 56),
         const SizedBox(height: WpSpacing.lg),
 
-        // Welcome title — warm, personal greeting
         Text(
           l10n.onboardingWelcome,
           textAlign: TextAlign.center,
@@ -53,7 +48,6 @@ class WelcomeStep extends ConsumerWidget {
         ),
         const SizedBox(height: WpSpacing.sm),
 
-        // Tagline
         Text(
           l10n.onboardingWelcomeHint,
           textAlign: TextAlign.center,
@@ -75,31 +69,32 @@ class WelcomeStep extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: WpSpacing.sm),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _PillButton(
-              label: 'English 🇬🇧',
+        _SegmentedSelector(
+          items: [
+            _SegmentItem(
+              icon: ClipOval(
+                child: SvgPicture.asset('assets/flags/us.svg', width: 20, height: 20),
+              ),
+              label: 'English',
               isActive: settings.locale == 'en',
-              accent: accent,
-              surfaceVariant: surfaceVariant,
-              textSecondary: textSecondary,
               onTap: () => ref
                   .read(settingsProvider.notifier)
                   .updateSettings((s) => s.copyWith(locale: 'en')),
             ),
-            const SizedBox(width: WpSpacing.sm),
-            _PillButton(
-              label: 'Deutsch 🇩🇪',
+            _SegmentItem(
+              icon: ClipOval(
+                child: SvgPicture.asset('assets/flags/de.svg', width: 20, height: 20),
+              ),
+              label: 'Deutsch',
               isActive: settings.locale == 'de',
-              accent: accent,
-              surfaceVariant: surfaceVariant,
-              textSecondary: textSecondary,
               onTap: () => ref
                   .read(settingsProvider.notifier)
                   .updateSettings((s) => s.copyWith(locale: 'de')),
             ),
           ],
+          accent: accent,
+          surfaceVariant: surfaceVariant,
+          textSecondary: textSecondary,
         ),
         const SizedBox(height: WpSpacing.xs),
         Text(
@@ -108,6 +103,8 @@ class WelcomeStep extends ConsumerWidget {
           style: TextStyle(fontSize: 12, color: textSecondary),
         ),
         const SizedBox(height: WpSpacing.lg),
+
+        // Theme selector
         Text(
           l10n.onboardingThemeTitle,
           style: TextStyle(
@@ -117,49 +114,42 @@ class WelcomeStep extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: WpSpacing.sm),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _PillButton(
-              label: '☀️ ${l10n.onboardingThemeLight}',
+        _SegmentedSelector(
+          items: [
+            _SegmentItem(
+              icon: const Icon(LucideIcons.sun, size: 16),
+              label: l10n.onboardingThemeLight,
               isActive: settings.themeMode == ThemeMode.light,
-              accent: accent,
-              surfaceVariant: surfaceVariant,
-              textSecondary: textSecondary,
               onTap: () => ref
                   .read(settingsProvider.notifier)
                   .updateSettings(
                       (s) => s.copyWith(themeMode: ThemeMode.light)),
             ),
-            const SizedBox(width: WpSpacing.sm),
-            _PillButton(
-              label: '🌙 ${l10n.onboardingThemeDark}',
+            _SegmentItem(
+              icon: const Icon(LucideIcons.moon, size: 16),
+              label: l10n.onboardingThemeDark,
               isActive: settings.themeMode == ThemeMode.dark,
-              accent: accent,
-              surfaceVariant: surfaceVariant,
-              textSecondary: textSecondary,
               onTap: () => ref
                   .read(settingsProvider.notifier)
                   .updateSettings(
                       (s) => s.copyWith(themeMode: ThemeMode.dark)),
             ),
-            const SizedBox(width: WpSpacing.sm),
-            _PillButton(
-              label: '🖥️ ${l10n.onboardingThemeSystem}',
+            _SegmentItem(
+              icon: const Icon(LucideIcons.monitor, size: 16),
+              label: l10n.onboardingThemeSystem,
               isActive: settings.themeMode == ThemeMode.system,
-              accent: accent,
-              surfaceVariant: surfaceVariant,
-              textSecondary: textSecondary,
               onTap: () => ref
                   .read(settingsProvider.notifier)
                   .updateSettings(
                       (s) => s.copyWith(themeMode: ThemeMode.system)),
             ),
           ],
+          accent: accent,
+          surfaceVariant: surfaceVariant,
+          textSecondary: textSecondary,
         ),
         const SizedBox(height: WpSpacing.xxl),
 
-        // Get Started button
         SizedBox(
           width: double.infinity,
           child: WpAccentButton(
@@ -174,56 +164,171 @@ class WelcomeStep extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Pill-shaped toggle button — focusable via Material + InkWell
+// Segment item data
 // ---------------------------------------------------------------------------
-class _PillButton extends StatelessWidget {
-  const _PillButton({
+
+class _SegmentItem {
+  const _SegmentItem({
+    required this.icon,
     required this.label,
     required this.isActive,
-    required this.accent,
-    required this.surfaceVariant,
-    required this.textSecondary,
     required this.onTap,
   });
 
+  final Widget icon;
   final String label;
   final bool isActive;
+  final VoidCallback onTap;
+}
+
+// ---------------------------------------------------------------------------
+// Segmented selector — premium sliding-pill toggle
+// ---------------------------------------------------------------------------
+
+class _SegmentedSelector extends StatelessWidget {
+  const _SegmentedSelector({
+    required this.items,
+    required this.accent,
+    required this.surfaceVariant,
+    required this.textSecondary,
+  });
+
+  final List<_SegmentItem> items;
   final Color accent;
   final Color surfaceVariant;
   final Color textSecondary;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor =
+        isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
+    final activeIndex = items.indexWhere((i) => i.isActive);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalWidth =
+            constraints.maxWidth.isFinite ? constraints.maxWidth : 320.0;
+        final itemWidth = totalWidth / items.length;
+
+        return Container(
+          height: 44,
+          decoration: BoxDecoration(
+            borderRadius: WpRadius.borderFull,
+            border: Border.all(color: borderColor),
+            color: surfaceVariant.withValues(alpha: 0.4),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              // Sliding pill indicator
+              AnimatedPositioned(
+                duration: WpMotion.normal,
+                curve: Curves.easeOutCubic,
+                left: activeIndex >= 0 ? activeIndex * itemWidth + 3 : 3,
+                top: 3,
+                bottom: 3,
+                width: itemWidth - 6,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: WpRadius.borderFull,
+                    boxShadow: [
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Segment buttons
+              Row(
+                children: [
+                  for (int i = 0; i < items.length; i++)
+                    Expanded(
+                      child: _SegmentButton(
+                        item: items[i],
+                        accent: accent,
+                        textSecondary: textSecondary,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SegmentButton extends StatefulWidget {
+  const _SegmentButton({
+    required this.item,
+    required this.accent,
+    required this.textSecondary,
+  });
+
+  final _SegmentItem item;
+  final Color accent;
+  final Color textSecondary;
+
+  @override
+  State<_SegmentButton> createState() => _SegmentButtonState();
+}
+
+class _SegmentButtonState extends State<_SegmentButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = widget.item.isActive;
+
     return Semantics(
       button: true,
       selected: isActive,
-      label: label,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: WpRadius.borderFull,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: WpRadius.borderFull,
+      label: widget.item.label,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.item.onTap,
           child: AnimatedContainer(
             duration: WpMotion.fast,
             curve: WpMotion.defaultCurve,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.lg,
-              vertical: WpSpacing.md,
-            ),
-            decoration: BoxDecoration(
-              color: isActive ? accent : surfaceVariant,
-              borderRadius: WpRadius.borderFull,
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: isActive ? Colors.white : textSecondary,
-              ),
+            color: !isActive && _hovered
+                ? widget.textSecondary.withValues(alpha: 0.06)
+                : Colors.transparent,
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconTheme(
+                  data: IconThemeData(
+                    color: isActive ? Colors.white : widget.textSecondary,
+                    size: 16,
+                  ),
+                  child: DefaultTextStyle(
+                    style: TextStyle(
+                      color: isActive ? Colors.white : widget.textSecondary,
+                    ),
+                    child: widget.item.icon,
+                  ),
+                ),
+                const SizedBox(width: WpSpacing.xs),
+                AnimatedDefaultTextStyle(
+                  duration: WpMotion.fast,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isActive ? Colors.white : widget.textSecondary,
+                  ),
+                  child: Text(widget.item.label),
+                ),
+              ],
             ),
           ),
         ),
