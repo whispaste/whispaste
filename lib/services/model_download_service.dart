@@ -129,6 +129,51 @@ SttModelInfo? findSttModel(String id) {
 }
 
 // ---------------------------------------------------------------------------
+// Quality Tiers — user-facing abstraction over raw model names
+// ---------------------------------------------------------------------------
+
+/// User-facing quality tiers that abstract away model internals.
+enum QualityTier { compact, balanced, premium }
+
+/// Returns the ordered list of models belonging to [tier] (best first).
+List<SttModelInfo> modelsForTier(QualityTier tier) => switch (tier) {
+      QualityTier.compact => sttModels
+          .where((m) => m.id == 'whisper-base' || m.id == 'whisper-tiny')
+          .toList(),
+      QualityTier.balanced => sttModels
+          .where((m) => m.id == 'whisper-medium' || m.id == 'whisper-small')
+          .toList(),
+      QualityTier.premium => sttModels
+          .where((m) =>
+              m.id == 'whisper-large-v3-turbo' || m.id == 'whisper-large-v3')
+          .toList(),
+    };
+
+/// Returns the single best model for [tier].
+SttModelInfo bestModelForTier(QualityTier tier) => modelsForTier(tier).first;
+
+/// Returns the tier a model belongs to, or null if unknown.
+QualityTier? tierForModel(String modelId) {
+  for (final tier in QualityTier.values) {
+    if (modelsForTier(tier).any((m) => m.id == modelId)) return tier;
+  }
+  return null;
+}
+
+/// Auto-recommend a tier based on VRAM (megabytes).
+QualityTier recommendTier(int vramMB) {
+  if (vramMB >= 2048) return QualityTier.premium;
+  if (vramMB >= 1024) return QualityTier.balanced;
+  return QualityTier.balanced; // small is still balanced tier
+}
+
+/// Total download size for [tier]'s best model (human-readable).
+String tierSizeLabel(QualityTier tier) {
+  final model = bestModelForTier(tier);
+  return model.sizeLabel;
+}
+
+// ---------------------------------------------------------------------------
 // Download state
 // ---------------------------------------------------------------------------
 

@@ -1336,7 +1336,7 @@ abstract class L10n {
   /// No description provided for @onboardingWelcomeHint.
   ///
   /// In en, this message translates to:
-  /// **'Premium dictation with AI post-processing. Dictate anywhere, paste everywhere.'**
+  /// **'Turn your voice into text — fast, private, and ready to paste anywhere.'**
   String get onboardingWelcomeHint;
 
   /// No description provided for @feedbackTitle.
@@ -2329,6 +2329,78 @@ abstract class L10n {
   /// **'Maximum accuracy, needs more resources'**
   String get modelSizeLarge;
 
+  /// No description provided for @qualityTierCompactLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick & Compact'**
+  String get qualityTierCompactLabel;
+
+  /// No description provided for @qualityTierCompactDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast results, small download. Great for short notes and quick messages.'**
+  String get qualityTierCompactDesc;
+
+  /// No description provided for @qualityTierBalancedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Balanced'**
+  String get qualityTierBalancedLabel;
+
+  /// No description provided for @qualityTierBalancedDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Accurate and reliable for everyday dictation. Works on most devices.'**
+  String get qualityTierBalancedDesc;
+
+  /// No description provided for @qualityTierPremiumLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Best Quality'**
+  String get qualityTierPremiumLabel;
+
+  /// No description provided for @qualityTierPremiumDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Top accuracy for longer dictation and complex content. Needs a capable GPU.'**
+  String get qualityTierPremiumDesc;
+
+  /// No description provided for @qualityTierRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended for your device'**
+  String get qualityTierRecommended;
+
+  /// No description provided for @qualityTierDownloadSize.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} download'**
+  String qualityTierDownloadSize(String size);
+
+  /// No description provided for @qualityTierDownloadAndContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Download & Continue'**
+  String get qualityTierDownloadAndContinue;
+
+  /// No description provided for @qualityTierChooseDifferent.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a different quality level'**
+  String get qualityTierChooseDifferent;
+
+  /// No description provided for @qualityTierActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get qualityTierActive;
+
+  /// No description provided for @settingsOverlayInWindowHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Only visible while the main window is open'**
+  String get settingsOverlayInWindowHint;
+
   /// No description provided for @settingsQualityFast.
   ///
   /// In en, this message translates to:
@@ -2968,19 +3040,19 @@ abstract class L10n {
   /// No description provided for @onboardingMicTitle.
   ///
   /// In en, this message translates to:
-  /// **'Microphone Setup'**
+  /// **'Let\'s set up your microphone'**
   String get onboardingMicTitle;
 
   /// No description provided for @onboardingMicSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste needs microphone access to transcribe your voice'**
+  /// **'We need mic access so you can dictate. Your audio stays on your device.'**
   String get onboardingMicSubtitle;
 
   /// No description provided for @onboardingMicPermissionGranted.
   ///
   /// In en, this message translates to:
-  /// **'Microphone access granted'**
+  /// **'You\'re all set — microphone ready!'**
   String get onboardingMicPermissionGranted;
 
   /// No description provided for @onboardingMicPermissionDenied.
@@ -2992,7 +3064,7 @@ abstract class L10n {
   /// No description provided for @onboardingMicPermissionPending.
   ///
   /// In en, this message translates to:
-  /// **'Waiting for permission…'**
+  /// **'Tap below to enable your microphone'**
   String get onboardingMicPermissionPending;
 
   /// No description provided for @onboardingMicRequestAccess.
@@ -3022,7 +3094,7 @@ abstract class L10n {
   /// No description provided for @onboardingMicTestDone.
   ///
   /// In en, this message translates to:
-  /// **'Microphone is working!'**
+  /// **'Sounds great — your mic is working perfectly!'**
   String get onboardingMicTestDone;
 
   /// No description provided for @onboardingMicDeviceLabel.
@@ -3040,13 +3112,13 @@ abstract class L10n {
   /// No description provided for @onboardingModelTitle.
   ///
   /// In en, this message translates to:
-  /// **'Speech Recognition Model'**
+  /// **'Set up speech recognition'**
   String get onboardingModelTitle;
 
   /// No description provided for @onboardingModelSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Download a model for local, private speech-to-text'**
+  /// **'Download the speech engine to dictate offline — your voice never leaves your device.'**
   String get onboardingModelSubtitle;
 
   /// No description provided for @onboardingModelRecommended.
@@ -3058,13 +3130,13 @@ abstract class L10n {
   /// No description provided for @onboardingModelChangeLater.
   ///
   /// In en, this message translates to:
-  /// **'You can always change the model later in Settings'**
+  /// **'You can adjust quality later in Settings'**
   String get onboardingModelChangeLater;
 
   /// No description provided for @onboardingModelUseCloud.
   ///
   /// In en, this message translates to:
-  /// **'Use Cloud API instead'**
+  /// **'Skip — I\'ll use a cloud service instead'**
   String get onboardingModelUseCloud;
 
   /// No description provided for @onboardingModelDownloading.

@@ -232,7 +232,11 @@ class _MicrophoneStepState extends State<MicrophoneStep>
               child: WpAccentButton(
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
-                onPressed: widget.onNext,
+                // Gate: Next disabled until permission has been attempted
+                onPressed: _permissionStatus == _MicPermission.granted ||
+                        _permissionStatus == _MicPermission.denied
+                    ? widget.onNext
+                    : null,
               ),
             ),
           ],
@@ -262,12 +266,32 @@ class _PermissionIndicator extends StatelessWidget {
     final textMuted =
         isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
 
     final (Widget iconWidget, Color color, String label) = switch (status) {
       _MicPermission.granted => (
-          Icon(LucideIcons.circleCheck, size: WpIconSize.xxl,
-              color: isDark ? WpColorsDark.success : WpColorsLight.success),
-          isDark ? WpColorsDark.success : WpColorsLight.success,
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: WpMotion.smooth,
+            curve: Curves.elasticOut,
+            builder: (_, value, child) => Transform.scale(
+              scale: 0.5 + (value * 0.5),
+              child: Opacity(
+                opacity: value.clamp(0.0, 1.0),
+                child: Container(
+                  width: WpIconSize.xxl + 12,
+                  height: WpIconSize.xxl + 12,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: successColor.withValues(alpha: 0.12),
+                  ),
+                  child: Icon(LucideIcons.circleCheck,
+                      size: WpIconSize.xxl, color: successColor),
+                ),
+              ),
+            ),
+          ),
+          successColor,
           l10n.onboardingMicPermissionGranted,
         ),
       _MicPermission.denied => (
