@@ -45,6 +45,10 @@ function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_definitions(${TARGET} PRIVATE "$<$<CONFIG:Debug>:_DEBUG>")
 endfunction()
 
+# WhisPaste only uses WAV audio — skip Opus/Ogg/Vorbis/FLAC codec libs
+# in flutter_soloud to reduce binary size and avoid unnecessary DLLs.
+set(ENV{NO_XIPH_LIBS} "1")
+
 # Flutter library and tool build rules.
 set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")
 add_subdirectory(${FLUTTER_MANAGED_DIR})

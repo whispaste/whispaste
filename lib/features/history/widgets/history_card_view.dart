@@ -198,30 +198,34 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                       ),
                     ),
                   ),
-                  // Hover action buttons
-                  if (_isHovered) ...[
-                    HistoryRowAction(
-                      icon: LucideIcons.copy,
-                      tooltip: l10n.historyCopyText,
-                      isDark: isDark,
-                      onTap: widget.onCopy,
+                  // Hover action buttons — constrained to avoid overflow
+                  if (_isHovered)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        HistoryRowAction(
+                          icon: LucideIcons.copy,
+                          tooltip: l10n.historyCopyText,
+                          isDark: isDark,
+                          onTap: widget.onCopy,
+                        ),
+                        HistoryRowAction(
+                          icon: widget.entry.pinned
+                              ? LucideIcons.pinOff
+                              : LucideIcons.pin,
+                          tooltip: widget.entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop,
+                          isDark: isDark,
+                          onTap: widget.onPin,
+                        ),
+                        HistoryRowAction(
+                          icon: LucideIcons.trash2,
+                          tooltip: l10n.actionDelete,
+                          isDark: isDark,
+                          onTap: widget.onDelete,
+                          isDestructive: true,
+                        ),
+                      ],
                     ),
-                    HistoryRowAction(
-                      icon: widget.entry.pinned
-                          ? LucideIcons.pinOff
-                          : LucideIcons.pin,
-                      tooltip: widget.entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop,
-                      isDark: isDark,
-                      onTap: widget.onPin,
-                    ),
-                    HistoryRowAction(
-                      icon: LucideIcons.trash2,
-                      tooltip: l10n.actionDelete,
-                      isDark: isDark,
-                      onTap: widget.onDelete,
-                      isDestructive: true,
-                    ),
-                  ],
                 ],
               ),
               const SizedBox(height: WpSpacing.xs),
