@@ -685,7 +685,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingWelcomeHint =>
-      'Premium-Diktat mit KI-Nachbearbeitung. Diktiere überall, füge überall ein.';
+      'Verwandle deine Stimme in Text — schnell, privat und überall einfügbar.';
 
   @override
   String get feedbackTitle => 'Feedback senden';
@@ -1222,6 +1222,48 @@ class L10nDe extends L10n {
   String get modelSizeLarge => 'Maximale Genauigkeit, benötigt mehr Ressourcen';
 
   @override
+  String get qualityTierCompactLabel => 'Schnell & Kompakt';
+
+  @override
+  String get qualityTierCompactDesc =>
+      'Schnelle Ergebnisse, kleiner Download. Ideal für kurze Notizen und schnelle Nachrichten.';
+
+  @override
+  String get qualityTierBalancedLabel => 'Ausgewogen';
+
+  @override
+  String get qualityTierBalancedDesc =>
+      'Zuverlässig und genau für alltägliches Diktieren. Funktioniert auf den meisten Geräten.';
+
+  @override
+  String get qualityTierPremiumLabel => 'Beste Qualität';
+
+  @override
+  String get qualityTierPremiumDesc =>
+      'Höchste Genauigkeit für längere Diktate und komplexe Inhalte. Benötigt eine leistungsfähige Grafikkarte.';
+
+  @override
+  String get qualityTierRecommended => 'Empfohlen für dein Gerät';
+
+  @override
+  String qualityTierDownloadSize(String size) {
+    return '$size Download';
+  }
+
+  @override
+  String get qualityTierDownloadAndContinue => 'Herunterladen & Weiter';
+
+  @override
+  String get qualityTierChooseDifferent => 'Andere Qualitätsstufe wählen';
+
+  @override
+  String get qualityTierActive => 'Aktiv';
+
+  @override
+  String get settingsOverlayInWindowHint =>
+      'Nur sichtbar, solange das Hauptfenster geöffnet ist';
+
+  @override
   String get settingsQualityFast => 'Schnell';
 
   @override
@@ -1575,20 +1617,21 @@ class L10nDe extends L10n {
   String get onboardingThemeSystem => 'System';
 
   @override
-  String get onboardingMicTitle => 'Mikrofon einrichten';
+  String get onboardingMicTitle => 'Lass uns dein Mikrofon einrichten';
 
   @override
   String get onboardingMicSubtitle =>
-      'WhisPaste benötigt Mikrofonzugriff, um deine Stimme zu transkribieren';
+      'Wir brauchen Mikrofonzugriff zum Diktieren. Dein Audio bleibt auf deinem Gerät.';
 
   @override
-  String get onboardingMicPermissionGranted => 'Mikrofonzugriff gewährt';
+  String get onboardingMicPermissionGranted => 'Perfekt — Mikrofon ist bereit!';
 
   @override
   String get onboardingMicPermissionDenied => 'Mikrofonzugriff verweigert';
 
   @override
-  String get onboardingMicPermissionPending => 'Warte auf Berechtigung…';
+  String get onboardingMicPermissionPending =>
+      'Tippe unten, um dein Mikrofon zu aktivieren';
 
   @override
   String get onboardingMicRequestAccess => 'Zugriff gewähren';
@@ -1603,7 +1646,8 @@ class L10nDe extends L10n {
   String get onboardingMicTestRecording => 'Aufnahme… sprich jetzt';
 
   @override
-  String get onboardingMicTestDone => 'Mikrofon funktioniert!';
+  String get onboardingMicTestDone =>
+      'Klingt super — dein Mikrofon funktioniert einwandfrei!';
 
   @override
   String get onboardingMicDeviceLabel => 'Audio-Eingabegerät';
@@ -1613,21 +1657,22 @@ class L10nDe extends L10n {
       'Öffne die Systemeinstellungen, um den Mikrofonzugriff zu erlauben';
 
   @override
-  String get onboardingModelTitle => 'Spracherkennungsmodell';
+  String get onboardingModelTitle => 'Spracherkennung einrichten';
 
   @override
   String get onboardingModelSubtitle =>
-      'Lade ein Modell für lokale, private Spracherkennung herunter';
+      'Lade die Sprach-Engine herunter, um offline zu diktieren — deine Stimme verlässt nie dein Gerät.';
 
   @override
   String get onboardingModelRecommended => 'Empfohlen für dein Gerät';
 
   @override
   String get onboardingModelChangeLater =>
-      'Du kannst das Modell jederzeit in den Einstellungen ändern';
+      'Du kannst die Qualität später in den Einstellungen anpassen';
 
   @override
-  String get onboardingModelUseCloud => 'Stattdessen Cloud-API verwenden';
+  String get onboardingModelUseCloud =>
+      'Überspringen — ich nutze lieber einen Cloud-Dienst';
 
   @override
   String get onboardingModelDownloading => 'Wird heruntergeladen…';
