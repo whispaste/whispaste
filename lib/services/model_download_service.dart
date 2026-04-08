@@ -297,6 +297,7 @@ class ModelDownloadState {
 
 class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   CancelToken? _cancelToken;
+  bool _autoDownloadAttempted = false;
   final _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(minutes: 10),
@@ -310,7 +311,17 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       _dio.close();
     });
     // Scan disk for already-downloaded models.
-    return _scanExisting();
+    final initial = _scanExisting();
+
+    // Self-heal: if models exist but server is missing, auto-download.
+    if (!initial.serverReady &&
+        initial.downloadedModels.isNotEmpty &&
+        !_autoDownloadAttempted) {
+      _autoDownloadAttempted = true;
+      Future.microtask(() => ensureServerBinary());
+    }
+
+    return initial;
   }
 
   // -----------------------------------------------------------------------
@@ -429,6 +440,59 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     );
   }
 
+  /// Ensures the whisper-server binary exists, downloading it if missing.
+  ///
+  /// Called automatically when the preflight check finds the server missing
+  /// but at least one model is downloaded. Also safe to call manually.
+  /// No-op if the server is already ready or a download is in progress.
+  Future<void> ensureServerBinary() async {
+    if (state.serverReady || state.isBusy) return;
+
+    _cancelToken = CancelToken();
+    _log.info('Auto-downloading whisper-server (self-heal)');
+
+    try {
+      final dir = Directory(sttDir());
+      if (!dir.existsSync()) {
+        dir.createSync(recursive: true);
+      }
+
+      state = state.copyWith(
+        phase: DownloadPhase.downloading,
+        progressPercent: 0,
+        errorMessage: null,
+      );
+
+      await _downloadWhisperServer();
+
+      // Reset to idle (not done — no model was downloaded).
+      state = state.copyWith(
+        phase: DownloadPhase.idle,
+        progressPercent: 0,
+      );
+      _log.info('Self-heal complete: whisper-server ready');
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        state = state.copyWith(phase: DownloadPhase.idle);
+      } else {
+        final msg = e.response?.statusCode == 403
+            ? 'GitHub API rate limit reached.'
+            : 'Download failed: ${e.message}';
+        _log.warning('Self-heal failed: $msg');
+        state = state.copyWith(
+          phase: DownloadPhase.idle,
+          errorMessage: msg,
+        );
+      }
+    } on Exception catch (e) {
+      _log.warning('Self-heal failed: $e');
+      state = state.copyWith(
+        phase: DownloadPhase.idle,
+        errorMessage: '$e',
+      );
+    }
+  }
+
   /// Deletes a downloaded model file.
   Future<void> deleteModel(String modelId) async {
     final model = findSttModel(modelId);
@@ -483,8 +547,8 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   /// Marks the server binary as incompatible and deletes it.
   ///
   /// Called by stt_service when a DLL-not-found crash is detected (wrong
-  /// GPU binary variant). After this, `serverReady` is false and the next
-  /// model download will fetch the correct binary for the detected GPU.
+  /// GPU binary variant). After this, `serverReady` is false and the
+  /// self-heal logic will auto-download the correct binary.
   Future<void> invalidateServerBinary() async {
     try {
       await hw.deleteServerBinary(sttDir());
@@ -492,6 +556,8 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       _log.warning('Failed to delete server binary: $e');
     }
     state = state.copyWith(serverReady: false);
+    // Trigger self-heal for the correct GPU variant.
+    Future.microtask(() => ensureServerBinary());
   }
 
   Future<void> _markModelDone(String modelId) async {

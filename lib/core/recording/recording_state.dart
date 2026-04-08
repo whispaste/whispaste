@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/settings_provider.dart';
 import '../logging/app_logger.dart';
+import '../../services/model_download_service.dart';
 
 // ---------------------------------------------------------------------------
 // Phase enum
@@ -250,3 +252,62 @@ final recordingElapsedProvider = Provider<Duration>((ref) {
 final recordingPhaseProvider = Provider<RecordingPhase>((ref) {
   return ref.watch(recordingProvider.select((s) => s.phase));
 });
+
+// ---------------------------------------------------------------------------
+// Recording readiness — can the system start a recording?
+// ---------------------------------------------------------------------------
+
+/// Pre-conditions for starting a recording.
+enum RecordingReadiness {
+  /// Everything is set — server binary + model present.
+  ready,
+
+  /// Server binary missing, not currently downloading.
+  serverMissing,
+
+  /// Server binary is being auto-downloaded.
+  serverDownloading,
+
+  /// Selected model file is missing.
+  modelMissing,
+}
+
+/// Computed readiness state — watches download state + settings.
+final recordingReadinessProvider = Provider<RecordingReadiness>((ref) {
+  final dl = ref.watch(modelDownloadProvider);
+  final settings = ref.watch(settingsProvider).value;
+
+  // While settings are loading or onboarding isn't done, report ready
+  // and let the orchestrator's hard preflight catch those cases.
+  if (settings == null || !settings.onboardingCompleted) {
+    return RecordingReadiness.ready;
+  }
+
+  if (!dl.serverReady) {
+    if (dl.isBusy) return RecordingReadiness.serverDownloading;
+    return RecordingReadiness.serverMissing;
+  }
+
+  final modelId = settings.effectiveModelId;
+  if (!dl.downloadedModels.contains(modelId)) {
+    return RecordingReadiness.modelMissing;
+  }
+
+  return RecordingReadiness.ready;
+});
+
+/// Lightweight info notification channel for the recording pipeline.
+///
+/// Set by the orchestrator when a non-error condition needs user feedback
+/// (e.g. "server is downloading"). Listened to by the UI for info toasts.
+/// Auto-cleared after reading.
+class RecordingInfoNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void show(String code) => state = code;
+  void clear() => state = null;
+}
+
+final recordingInfoProvider =
+    NotifierProvider<RecordingInfoNotifier, String?>(RecordingInfoNotifier.new);

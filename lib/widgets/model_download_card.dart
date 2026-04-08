@@ -371,18 +371,28 @@ class _TierRowState extends State<_TierRow> {
           onTap: widget.onDelete,
         );
       }
+      // Show "ready" only when both model file AND server binary exist.
+      final fullyReady = widget.downloadState.serverReady;
+      final chipColor = fullyReady
+          ? (widget.isDark ? WpColorsDark.success : WpColorsLight.success)
+          : (widget.isDark ? WpColorsDark.warning : WpColorsLight.warning);
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(LucideIcons.circleCheck, size: 14, color:
-              widget.isDark ? WpColorsDark.success : WpColorsLight.success),
+          Icon(
+            fullyReady ? LucideIcons.circleCheck : LucideIcons.loaderCircle,
+            size: 14,
+            color: chipColor,
+          ),
           const SizedBox(width: 4),
           Text(
-            widget.l10n.modelReady,
+            fullyReady
+                ? widget.l10n.modelReady
+                : widget.l10n.modelServerMissing,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: widget.isDark ? WpColorsDark.success : WpColorsLight.success,
+              color: chipColor,
             ),
           ),
         ],

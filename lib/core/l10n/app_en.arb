@@ -238,6 +238,9 @@
   "tooltipRecord": "Start recording",
   "tooltipStopRecord": "Stop recording",
   "tooltipProcessing": "Processing audio…",
+  "tooltipEngineNotReady": "Speech engine not ready",
+  "tooltipEngineDownloading": "Downloading speech engine…",
+  "tooltipModelMissing": "No speech model downloaded",
   "tooltipTheme": "Toggle theme",
   "tooltipLanguage": "Language",
   "aboutVersion": "Version {version}",
@@ -484,6 +487,10 @@
   "settingsModelStatusNeeded": "Speech model will be downloaded when you start recording",
   "settingsModelStatusDownloading": "Downloading speech model…",
   "settingsAdvancedModelManagement": "Advanced model settings",
+
+  "infoEngineDownloading": "Speech engine is being prepared. Please wait a moment.",
+  "infoEngineAutoDownload": "Speech engine missing — downloading automatically…",
+  "infoModelMissing": "Please download a speech model in Settings first.",
 
   "errorSttServerNotFound": "Speech engine not found. Please download a speech model in Settings.",
   "errorOnboardingNotCompleted": "Please complete the setup wizard first.",

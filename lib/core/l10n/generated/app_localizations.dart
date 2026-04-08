@@ -1309,6 +1309,24 @@ abstract class L10n {
   /// **'Processing audio…'**
   String get tooltipProcessing;
 
+  /// No description provided for @tooltipEngineNotReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech engine not ready'**
+  String get tooltipEngineNotReady;
+
+  /// No description provided for @tooltipEngineDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading speech engine…'**
+  String get tooltipEngineDownloading;
+
+  /// No description provided for @tooltipModelMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'No speech model downloaded'**
+  String get tooltipModelMissing;
+
   /// No description provided for @tooltipTheme.
   ///
   /// In en, this message translates to:
@@ -2490,6 +2508,24 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Advanced model settings'**
   String get settingsAdvancedModelManagement;
+
+  /// No description provided for @infoEngineDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech engine is being prepared. Please wait a moment.'**
+  String get infoEngineDownloading;
+
+  /// No description provided for @infoEngineAutoDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech engine missing — downloading automatically…'**
+  String get infoEngineAutoDownload;
+
+  /// No description provided for @infoModelMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Please download a speech model in Settings first.'**
+  String get infoModelMissing;
 
   /// No description provided for @errorSttServerNotFound.
   ///
