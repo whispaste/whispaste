@@ -11,6 +11,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../features/analytics/analytics_provider.dart';
 import '../../../features/history/data/providers.dart';
 import '../../../services/hardware_info_service.dart';
+import '../../../services/model_download_service.dart';
 import '../../../services/stt_service.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
@@ -328,6 +329,7 @@ class AdvancedSection extends ConsumerWidget {
     ref.invalidate(archivedEntriesProvider);
     ref.invalidate(trashEntriesProvider);
     ref.invalidate(analyticsProvider);
+    ref.invalidate(modelDownloadProvider);
 
     if (!context.mounted) return;
     WpToast.show(

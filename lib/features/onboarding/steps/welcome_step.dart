@@ -33,13 +33,25 @@ class WelcomeStep extends ConsumerWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Brand logo
-        const WpBrandLogo(size: 64, withBackground: true),
+        // Brand logo — larger for a premium first impression
+        const WpBrandLogo(size: 80, withBackground: true),
         const SizedBox(height: WpSpacing.md),
 
         // Brand wordmark
         const WpBrandWordmark(height: 36),
-        const SizedBox(height: WpSpacing.xl),
+        const SizedBox(height: WpSpacing.lg),
+
+        // Welcome title — warm, personal greeting
+        Text(
+          l10n.onboardingWelcome,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
+          ),
+        ),
+        const SizedBox(height: WpSpacing.sm),
 
         // Tagline
         Text(

@@ -1262,6 +1262,10 @@ class L10nDe extends L10n {
       'Sprachmodul nicht gefunden. Bitte lade ein Sprachmodell in den Einstellungen herunter.';
 
   @override
+  String get errorOnboardingNotCompleted =>
+      'Bitte schließe zuerst die Einrichtung ab.';
+
+  @override
   String get errorSttModelNotFound =>
       'Sprachmodell nicht gefunden. Bitte lade es in den Einstellungen herunter.';
 

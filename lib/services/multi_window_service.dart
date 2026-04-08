@@ -136,6 +136,11 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
       // ── Floating button (separate debounce) ──
       _buttonDebounce?.cancel();
       _buttonDebounce = Timer(const Duration(milliseconds: 300), () {
+        // Suppress floating button during onboarding.
+        if (!settings.onboardingCompleted) {
+          if (state.buttonVisible) hideButton();
+          return;
+        }
         if (settings.showFloatingButton && !state.buttonVisible) {
           _log.info('Settings → showing floating button');
           showButton();
@@ -231,6 +236,10 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   }
 
   void _applySettingsNow(AppSettings settings) {
+    // Don't show the floating button during onboarding — the overlay blocks
+    // interaction with the main window but the button is a separate OS window.
+    if (!settings.onboardingCompleted) return;
+
     if (settings.showFloatingButton && !state.buttonVisible) {
       Future.delayed(const Duration(milliseconds: 500), () {
         if (!state.buttonVisible) showButton();
@@ -255,7 +264,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
       return;
     }
 
-    if (settings.showFloatingButton) {
+    if (settings.showFloatingButton && settings.onboardingCompleted) {
       if (_buttonController == null) {
         await showButton();
       } else {
