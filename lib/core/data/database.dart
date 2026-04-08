@@ -332,6 +332,12 @@ class HistoryDatabase extends _$HistoryDatabase {
         .go();
   }
 
+  /// Permanently remove ALL soft-deleted entries (empty trash).
+  Future<int> emptyTrash() {
+    return (delete(historyEntries)..where((e) => e.deletedAt.isNotNull()))
+        .go();
+  }
+
   /// Toggle archive status.
   Future<void> toggleArchive(String entryId) async {
     final entry = await (select(historyEntries)
