@@ -676,11 +676,11 @@ class L10nEn extends L10n {
   }
 
   @override
-  String get onboardingWelcome => 'Welcome to WhisPaste';
+  String get onboardingWelcome => 'Speak it once. Paste it anywhere.';
 
   @override
   String get onboardingWelcomeHint =>
-      'Turn your voice into text — fast, private, and ready to paste anywhere.';
+      'WhisPaste turns quick thoughts into clean text for messages, emails, notes, and comments.';
 
   @override
   String get feedbackTitle => 'Send Feedback';
@@ -1072,6 +1072,21 @@ class L10nEn extends L10n {
 
   @override
   String get feedbackRatingLoveIt => 'Love it!';
+
+  @override
+  String get feedbackSubmitting => 'Sending…';
+
+  @override
+  String get feedbackErrorRateLimited =>
+      'You already sent feedback recently. Please try again later.';
+
+  @override
+  String get feedbackErrorNetwork =>
+      'Could not connect to the server. Please check your internet connection.';
+
+  @override
+  String get feedbackErrorServer =>
+      'Something went wrong. Please try again later.';
 
   @override
   String get statusBarOnDevice => 'On device';
@@ -1564,7 +1579,7 @@ class L10nEn extends L10n {
       'Automatically check for new versions on startup';
 
   @override
-  String get onboardingGetStarted => 'Get Started';
+  String get onboardingGetStarted => 'Continue';
 
   @override
   String get onboardingSkip => 'Skip';
@@ -1579,16 +1594,6 @@ class L10nEn extends L10n {
   String onboardingStepOf(int current, int total) {
     return 'Step $current of $total';
   }
-
-  @override
-  String get onboardingLanguageTitle => 'Choose Your Language';
-
-  @override
-  String get onboardingLanguageSubtitle =>
-      'You can change this later in Settings';
-
-  @override
-  String get onboardingThemeTitle => 'Pick Your Theme';
 
   @override
   String get onboardingThemeLight => 'Light';

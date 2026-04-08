@@ -1,0 +1,141 @@
+name: Build Whisper Server
+
+# Builds whisper-server from whisper.cpp with Vulkan GPU acceleration.
+# Upstream only provides CUDA and CPU binaries — this workflow fills the
+# Vulkan gap for Intel/AMD GPUs.
+#
+# The resulting binary is uploaded to a dedicated GitHub release tagged
+# "whisper-server-latest". The WhisPaste download service queries this
+# release tag to find the correct server binary for the detected GPU.
+
+on:
+  workflow_dispatch:
+    inputs:
+      whisper_tag:
+        description: 'whisper.cpp release tag (e.g., v1.8.4)'
+        required: true
+        default: 'v1.8.4'
+
+permissions:
+  contents: write
+
+jobs:
+  build-vulkan-windows:
+    name: Vulkan – Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vulkan SDK
+        shell: pwsh
+        run: |
+          Write-Host "Downloading Vulkan SDK..."
+          Invoke-WebRequest `
+            -Uri "https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe" `
+            -OutFile vulkan-sdk.exe
+
+          Write-Host "Installing Vulkan SDK (silent)..."
+          Start-Process -FilePath .\vulkan-sdk.exe `
+            -ArgumentList "--accept-licenses --default-answer --confirm-command install" `
+            -Wait -NoNewWindow
+
+          # Locate the installed SDK (latest version directory).
+          $sdkRoot = Get-ChildItem "C:\VulkanSDK" -Directory |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+
+          if (-not $sdkRoot) {
+            Write-Error "Vulkan SDK installation failed — no directory found"
+            exit 1
+          }
+
+          Write-Host "Vulkan SDK installed at: $($sdkRoot.FullName)"
+          echo "VULKAN_SDK=$($sdkRoot.FullName)" >> $env:GITHUB_ENV
+
+      - name: Clone whisper.cpp
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch ${{ inputs.whisper_tag }} `
+            https://github.com/ggml-org/whisper.cpp.git
+          Write-Host "Cloned whisper.cpp at ${{ inputs.whisper_tag }}"
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          cd whisper.cpp
+          cmake -B build `
+            -DGGML_VULKAN=ON `
+            -DBUILD_SHARED_LIBS=OFF `
+            -DWHISPER_BUILD_TESTS=OFF `
+            -DWHISPER_BUILD_EXAMPLES=ON `
+            -DCMAKE_BUILD_TYPE=Release
+          Write-Host "CMake configured with Vulkan support"
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cd whisper.cpp
+          cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
+          Write-Host "Build complete"
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $stagingDir = "whisper-server-vulkan-x64"
+          New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+
+          # Find the server binary (name varies by whisper.cpp version).
+          $serverExe = Get-ChildItem -Path "whisper.cpp\build" -Recurse -Filter "*.exe" |
+            Where-Object { $_.Name -match "^(whisper-server|server)\.exe$" } |
+            Select-Object -First 1
+
+          if (-not $serverExe) {
+            Write-Error "whisper-server.exe not found in build output"
+            Get-ChildItem -Path "whisper.cpp\build" -Recurse -Filter "*.exe" |
+              ForEach-Object { Write-Host "  Found: $($_.FullName)" }
+            exit 1
+          }
+
+          # Always name it whisper-server.exe for consistency.
+          Copy-Item $serverExe.FullName "$stagingDir\whisper-server.exe"
+
+          # Copy co-located DLLs (ggml, Vulkan shaders, etc.).
+          $binDir = $serverExe.DirectoryName
+          Get-ChildItem "$binDir\*.dll" -ErrorAction SilentlyContinue |
+            ForEach-Object { Copy-Item $_.FullName "$stagingDir\" }
+
+          # List contents for verification.
+          Write-Host "Package contents:"
+          Get-ChildItem $stagingDir | ForEach-Object {
+            Write-Host "  $($_.Name) ($([math]::Round($_.Length/1KB))KB)"
+          }
+
+          Compress-Archive -Path "$stagingDir\*" -DestinationPath "whisper-server-vulkan-x64.zip"
+          Write-Host "Created whisper-server-vulkan-x64.zip"
+
+      - name: Upload to server-binaries release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "whisper-server-latest"
+          $title = "Whisper Server Binaries"
+          $notes = @"
+          Pre-built whisper-server binaries with GPU acceleration for WhisPaste.
+
+          **Source**: [whisper.cpp ${{ inputs.whisper_tag }}](https://github.com/ggml-org/whisper.cpp/releases/tag/${{ inputs.whisper_tag }})
+          **Variants**: Vulkan (Intel/AMD GPUs on Windows x64)
+
+          > CUDA and CPU binaries are provided by the upstream whisper.cpp project.
+          > This release only contains variants not available upstream.
+          "@
+
+          # Create release if it doesn't exist (ignore error if it does).
+          gh release create $tag --title $title --notes $notes --latest=false 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Release exists, updating assets..."
+          }
+
+          # Upload (--clobber replaces existing asset with same name).
+          gh release upload $tag "whisper-server-vulkan-x64.zip" --clobber
+          Write-Host "Uploaded to release: $tag"
