@@ -202,6 +202,7 @@ void main() {
           () => FakeSettingsNotifier(const AppSettings(
             sttModel: 'whisper-small',
             sttLanguage: 'English',
+            onboardingCompleted: true,
           )),
         ),
         secureKeyStoreProvider
@@ -513,8 +514,9 @@ void main() {
   // =========================================================================
 
   group('Preflight failure', () {
-    test('startRecording fails when STT binary is missing', () async {
-      // Initialize orchestrator (build + pre-warm settle).
+    test('missing STT binary is soft-handled (stays idle)', () async {
+      // Soft-preflight catches stt_server_not_found and shows an info
+      // notification instead of entering the error phase.
       container.read(recordingOrchestratorProvider);
       await Future<void>.delayed(Duration.zero);
 
@@ -523,18 +525,12 @@ void main() {
           .startRecording();
 
       final state = container.read(recordingProvider);
-      expect(state.phase, RecordingPhase.error);
-      expect(
-        state.errorMessage,
-        anyOf(
-          'stt_server_not_found',
-          'stt_model_not_found',
-          'stt_model_unknown',
-        ),
-      );
+      expect(state.phase, RecordingPhase.idle);
+      expect(state.errorMessage, isNull);
     });
 
-    test('toggleRecording from idle hits preflight → error', () async {
+    test('toggleRecording from idle with missing binary stays idle',
+        () async {
       container.read(recordingOrchestratorProvider);
       await Future<void>.delayed(Duration.zero);
 
@@ -544,7 +540,7 @@ void main() {
 
       expect(
         container.read(recordingProvider).phase,
-        RecordingPhase.error,
+        RecordingPhase.idle,
       );
     });
   });
@@ -597,6 +593,7 @@ void main() {
             () => FakeSettingsNotifier(const AppSettings(
               sttModel: 'whisper-small',
               sttLanguage: 'English',
+              onboardingCompleted: true,
             )),
           ),
           secureKeyStoreProvider
@@ -689,6 +686,7 @@ void main() {
               sttLanguage: 'English',
               afterTranscription: 'clipboard',
               postProcessEnabled: false,
+              onboardingCompleted: true,
             )),
           ),
           secureKeyStoreProvider
