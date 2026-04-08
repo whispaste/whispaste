@@ -50,7 +50,17 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     }
   }
 
-  void _skip() => _complete();
+  void _skip() {
+    // Skip advances to the next step rather than completing the entire
+    // onboarding immediately. This lets users skip individual steps while
+    // still seeing the remaining ones. On the last step there is no skip
+    // button — only the "Start Dictating" CTA.
+    if (_currentStep < _totalSteps - 1) {
+      _goNext();
+    } else {
+      _complete();
+    }
+  }
 
   Future<void> _complete() async {
     await ref
@@ -86,15 +96,35 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       child: Stack(
         children: [
           // -- Frosted glass backdrop ----------------------------------------
-          const Positioned.fill(
-            child: ModalBarrier(
-              dismissible: false,
-              color: Colors.transparent,
+          // Leave the title bar area (top 64px) passthrough so the window
+          // can still be dragged via WpTitleBar's onPanStart handler.
+          Positioned.fill(
+            child: Column(
+              children: [
+                // Title bar passthrough zone — gestures reach WpTitleBar
+                const SizedBox(height: WpLayout.appBarHeight),
+                // Barrier + blur below the title bar
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {},
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: ColoredBox(
+                        color: Colors.black.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {},
+          // Apply blur to the title bar zone too (visual only, no gesture block)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: WpLayout.appBarHeight,
+            child: IgnorePointer(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                 child: ColoredBox(
@@ -119,14 +149,18 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                       if (_currentStep < _totalSteps - 1)
                         Align(
                           alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: _skip,
-                            child: Text(
-                              l10n.onboardingSkip,
-                              style: TextStyle(
-                                color: isDark
-                                    ? WpColorsDark.textMuted
-                                    : WpColorsLight.textMuted,
+                          child: Semantics(
+                            button: true,
+                            label: l10n.onboardingSkip,
+                            child: TextButton(
+                              onPressed: _skip,
+                              child: Text(
+                                l10n.onboardingSkip,
+                                style: TextStyle(
+                                  color: isDark
+                                      ? WpColorsDark.textMuted
+                                      : WpColorsLight.textMuted,
+                                ),
                               ),
                             ),
                           ),
@@ -180,6 +214,21 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                       _StepperDots(
                         currentStep: _currentStep,
                         totalSteps: _totalSteps,
+                      ),
+
+                      // Step counter text ("Step X of Y")
+                      const SizedBox(height: WpSpacing.xs),
+                      Text(
+                        l10n.onboardingStepOf(
+                          _currentStep + 1,
+                          _totalSteps,
+                        ),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark
+                              ? WpColorsDark.textMuted
+                              : WpColorsLight.textMuted,
+                        ),
                       ),
                     ],
                   ),
