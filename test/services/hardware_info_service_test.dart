@@ -8,7 +8,6 @@
 @TestOn('windows')
 library;
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -274,6 +273,7 @@ void main() {
         () async {
       // Use Intel/Vulkan — no DLL heuristic to complicate things.
       File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, 'ggml-vulkan.dll')).createSync();
       await writeServerBinaryInfo(tmpDir.path, _intelGpu);
 
       expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
@@ -328,9 +328,47 @@ void main() {
 
     test('returns true for Vulkan binary on Intel (no CUDA DLLs)', () async {
       File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, 'ggml-vulkan.dll')).createSync();
       await writeServerBinaryInfo(tmpDir.path, _intelGpu);
 
       expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
+    });
+
+    // --- Layer 3: Vulkan DLL heuristic ---
+
+    test('returns false when no ggml-vulkan.dll on Vulkan-capable GPU',
+        () async {
+      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      // CPU/OpenBLAS DLLs but no Vulkan DLL — legacy upstream download.
+      File(p.join(tmpDir.path, 'libopenblas.dll')).createSync();
+      File(p.join(tmpDir.path, 'ggml-blas.dll')).createSync();
+
+      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
+    });
+
+    test('returns false when no Vulkan DLL on AMD GPU', () async {
+      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, 'libopenblas.dll')).createSync();
+
+      expect(isServerBinaryCompatible(tmpDir.path, _amdGpu), isFalse);
+    });
+
+    test('returns true when ggml-vulkan.dll present without metadata',
+        () async {
+      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      File(p.join(tmpDir.path, 'ggml-vulkan.dll')).createSync();
+      // No .server-info.json — relies on DLL heuristic only.
+
+      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
+    });
+
+    test('returns false when metadata says vulkan but DLL is missing',
+        () async {
+      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+      await writeServerBinaryInfo(tmpDir.path, _intelGpu);
+      // Metadata says vulkan, but ggml-vulkan.dll was never extracted.
+
+      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
     });
   });
 
@@ -451,6 +489,12 @@ void main() {
         File(p.join(tmpDir.path, 'cublas64_12.dll')).createSync();
         File(p.join(tmpDir.path, 'cublaslt64_12.dll')).createSync();
         File(p.join(tmpDir.path, 'ggml-cuda.dll')).createSync();
+      }
+
+      // If the real GPU needs Vulkan, we need ggml-vulkan.dll to pass
+      // Layer 3.
+      if (realGpu.optimalBackend == 'vulkan') {
+        File(p.join(tmpDir.path, 'ggml-vulkan.dll')).createSync();
       }
 
       final deleted = await validateAndCleanIncompatibleBinary(tmpDir.path);
