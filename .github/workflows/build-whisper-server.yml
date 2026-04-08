@@ -118,26 +118,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag = "whisper-server-latest"
+          $whisperTag = "${{ inputs.whisper_tag }}"
+          $tag = "whisper-server-$whisperTag"
           $asset = "whisper-server-vulkan-x64.zip"
-          $title = "Whisper Server Binaries"
+          $title = "Whisper Server ($whisperTag) – Vulkan"
           $notes = @"
-          Pre-built whisper-server binaries with GPU acceleration for WhisPaste.
+          Pre-built whisper-server binary with Vulkan GPU acceleration.
 
-          **Source**: [whisper.cpp ${{ inputs.whisper_tag }}](https://github.com/ggml-org/whisper.cpp/releases/tag/${{ inputs.whisper_tag }})
-          **Variants**: Vulkan (Intel/AMD GPUs on Windows x64)
+          **Source**: [whisper.cpp $whisperTag](https://github.com/ggml-org/whisper.cpp/releases/tag/$whisperTag)
+          **Variant**: Vulkan (Intel/AMD GPUs on Windows x64)
 
           > CUDA and CPU binaries are provided by the upstream whisper.cpp project.
           > This release only contains variants not available upstream.
           "@
 
-          # Delete existing release AND its git tag to avoid immutability issues.
-          # Without --cleanup-tag, the orphaned tag blocks re-creation.
-          gh release delete $tag --yes --cleanup-tag 2>$null
-          Start-Sleep -Seconds 3
-          Write-Host "Cleaned up previous release (if any)"
-
-          # Create the release with the asset in one atomic operation.
+          # Each whisper.cpp version gets its own immutable release tag.
+          # No delete-and-recreate needed — just create fresh.
           gh release create $tag $asset `
             --title $title `
             --notes $notes `
