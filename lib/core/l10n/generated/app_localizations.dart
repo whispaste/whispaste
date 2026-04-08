@@ -1156,7 +1156,7 @@ abstract class L10n {
   /// No description provided for @recordingGuardFailed.
   ///
   /// In en, this message translates to:
-  /// **'No audio detected — microphone may not be working.'**
+  /// **'No audio detected — please try again. Sometimes the microphone needs a moment to warm up.'**
   String get recordingGuardFailed;
 
   /// No description provided for @recordingAutoStopped.
@@ -2332,13 +2332,13 @@ abstract class L10n {
   /// No description provided for @errorRecordingFailed.
   ///
   /// In en, this message translates to:
-  /// **'Failed to start recording'**
+  /// **'Could not start recording — please try again'**
   String get errorRecordingFailed;
 
   /// No description provided for @errorNoAudioRecorded.
   ///
   /// In en, this message translates to:
-  /// **'No audio recorded'**
+  /// **'No audio recorded — please try again'**
   String get errorNoAudioRecorded;
 
   /// No description provided for @errorTranscriptionEmpty.

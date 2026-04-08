@@ -268,38 +268,48 @@ class HistoryMultiSelectBar extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: WpSpacing.md),
-          // Action buttons
-          if (onMerge != null)
-            HistoryMultiSelectAction(
-              icon: LucideIcons.merge,
-              label: l10n.historyMerge,
-              isDark: isDark,
-              onTap: onMerge!,
+          const SizedBox(width: WpSpacing.sm),
+          // Action buttons — wrap in Flexible to prevent overflow
+          Flexible(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (onMerge != null)
+                    HistoryMultiSelectAction(
+                      icon: LucideIcons.merge,
+                      label: l10n.historyMerge,
+                      isDark: isDark,
+                      onTap: onMerge!,
+                    ),
+                  if (onRestore != null)
+                    HistoryMultiSelectAction(
+                      icon: LucideIcons.undo2,
+                      label: l10n.historyRestore,
+                      isDark: isDark,
+                      onTap: onRestore!,
+                    ),
+                  if (onArchive != null)
+                    HistoryMultiSelectAction(
+                      icon: isArchiveView ? LucideIcons.archiveRestore : LucideIcons.archive,
+                      label: isArchiveView ? l10n.historyUnarchive : l10n.historyArchive,
+                      isDark: isDark,
+                      onTap: onArchive!,
+                    ),
+                  if (onDelete != null)
+                    HistoryMultiSelectAction(
+                      icon: LucideIcons.trash2,
+                      label: isTrashView ? l10n.historyDeleteForever : l10n.actionDelete,
+                      isDark: isDark,
+                      onTap: onDelete!,
+                      isDestructive: true,
+                    ),
+                ],
+              ),
             ),
-          if (onRestore != null)
-            HistoryMultiSelectAction(
-              icon: LucideIcons.undo2,
-              label: l10n.historyRestore,
-              isDark: isDark,
-              onTap: onRestore!,
-            ),
-          if (onArchive != null)
-            HistoryMultiSelectAction(
-              icon: isArchiveView ? LucideIcons.archiveRestore : LucideIcons.archive,
-              label: isArchiveView ? l10n.historyUnarchive : l10n.historyArchive,
-              isDark: isDark,
-              onTap: onArchive!,
-            ),
-          if (onDelete != null)
-            HistoryMultiSelectAction(
-              icon: LucideIcons.trash2,
-              label: isTrashView ? l10n.historyDeleteForever : l10n.actionDelete,
-              isDark: isDark,
-              onTap: onDelete!,
-              isDestructive: true,
-            ),
-          const Spacer(),
+          ),
+          const SizedBox(width: WpSpacing.sm),
           // Cancel
           TextButton.icon(
             onPressed: onCancelSelection,
