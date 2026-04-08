@@ -5,7 +5,10 @@
 /// and whether flash-attention or GPU acceleration should be enabled.
 library;
 
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:path/path.dart' as p;
 
 import '../core/logging/app_logger.dart';
 
@@ -163,29 +166,147 @@ List<String> serverAssetPatterns(GpuInfo gpu, String gpuMode, bool isWhisPaste) 
 // Binary compatibility check
 // ---------------------------------------------------------------------------
 
-/// Checks if the existing whisper-server binary in [sttDir] is compatible
-/// with the detected GPU.
-///
-/// Returns `true` if compatible or no binary exists. Returns `false` if a
-/// CUDA binary is installed on a non-NVIDIA system (or vice versa).
-bool isServerBinaryCompatible(String sttDirPath, GpuInfo gpu) {
-  final cudaDlls = ['cublas64_12.dll', 'cublaslt64_12.dll', 'ggml-cuda.dll'];
-  final hasCudaDlls = cudaDlls.any(
-    (dll) => File('$sttDirPath${Platform.pathSeparator}$dll').existsSync(),
-  );
+/// Metadata file written after each successful whisper-server download.
+const _serverInfoFilename = '.server-info.json';
 
-  if (hasCudaDlls && gpu.vendor != GpuVendor.nvidia) {
-    _log.warning(
-      'Incompatible binary: CUDA build installed but GPU is ${gpu.vendor} '
-      '(${gpu.name}). Binary needs re-download.',
+/// Checks if the existing whisper-server binary in [sttDirPath] is compatible
+/// with the detected [gpu].
+///
+/// Uses two layers of validation:
+/// 1. **Metadata check**: reads `.server-info.json` written during download
+///    and compares the stored backend against the GPU's optimal backend.
+/// 2. **DLL heuristic**: if CUDA DLLs are present on a non-NVIDIA system,
+///    the binary is incompatible regardless of metadata.
+///
+/// Returns `true` if compatible or no binary exists. Returns `false` if the
+/// binary was downloaded for a different backend than what the current GPU
+/// requires (e.g., CPU binary on a Vulkan-capable system, or CUDA binary
+/// on a non-NVIDIA system).
+bool isServerBinaryCompatible(String sttDirPath, GpuInfo gpu) {
+  final serverFile = File(
+    p.join(sttDirPath, Platform.isWindows ? 'whisper-server.exe' : 'whisper-server'),
+  );
+  if (!serverFile.existsSync()) return true; // Nothing to validate.
+
+  // --- Layer 1: Metadata-based check ----------------------------------------
+  final info = readServerBinaryInfo(sttDirPath);
+  if (info != null) {
+    final storedBackend = info['backend'] as String? ?? '';
+    final currentBackend = gpu.optimalBackend;
+
+    if (storedBackend.isNotEmpty && storedBackend != currentBackend) {
+      // Allow CPU binary as valid fallback if no accelerated binary is available.
+      // But if a GPU is available and we have a CPU binary, we're sub-optimal.
+      _log.warning(
+        'Binary mismatch: installed backend="$storedBackend" but '
+        'current GPU needs "$currentBackend" (${gpu.name}). '
+        'Binary needs re-download for optimal performance.',
+      );
+      return false;
+    }
+  }
+
+  // --- Layer 2: DLL heuristic (Windows-only) --------------------------------
+  if (Platform.isWindows) {
+    final cudaDlls = ['cublas64_12.dll', 'cublaslt64_12.dll', 'ggml-cuda.dll'];
+    final hasCudaDlls = cudaDlls.any(
+      (dll) => File(p.join(sttDirPath, dll)).existsSync(),
     );
-    return false;
+
+    if (hasCudaDlls && gpu.vendor != GpuVendor.nvidia) {
+      _log.warning(
+        'Incompatible binary: CUDA DLLs found but GPU is ${gpu.vendor} '
+        '(${gpu.name}). Binary needs re-download.',
+      );
+      return false;
+    }
+
+    // Inverse: non-CUDA binary on a CUDA-capable NVIDIA system.
+    if (!hasCudaDlls && gpu.vendor == GpuVendor.nvidia && gpu.cudaAvailable) {
+      _log.warning(
+        'Sub-optimal binary: no CUDA DLLs but GPU is NVIDIA with CUDA. '
+        'Binary needs re-download for optimal performance.',
+      );
+      return false;
+    }
   }
 
   return true;
 }
 
-/// Deletes the whisper-server binary and all associated DLLs from [sttDirPath].
+/// Writes metadata about the downloaded whisper-server binary.
+///
+/// Called after a successful server binary download/extraction so that
+/// [isServerBinaryCompatible] can later validate without DLL heuristics.
+Future<void> writeServerBinaryInfo(
+  String sttDirPath,
+  GpuInfo gpu, {
+  String? sourceRepo,
+  String? assetName,
+}) async {
+  final infoFile = File(p.join(sttDirPath, _serverInfoFilename));
+  final info = {
+    'backend': gpu.optimalBackend,
+    'gpu_vendor': gpu.vendor.name,
+    'gpu_name': gpu.name,
+    'cuda_available': gpu.cudaAvailable,
+    'vulkan_available': gpu.vulkanAvailable,
+    if (sourceRepo != null) 'source_repo': sourceRepo, // ignore: use_null_aware_elements
+    if (assetName != null) 'asset_name': assetName, // ignore: use_null_aware_elements
+    'downloaded_at': DateTime.now().toUtc().toIso8601String(),
+  };
+  try {
+    await infoFile.writeAsString(
+      const JsonEncoder.withIndent('  ').convert(info),
+    );
+    _log.info('Wrote server binary info: backend=${gpu.optimalBackend}');
+  } on FileSystemException catch (e) {
+    _log.warning('Could not write server binary info: $e');
+  }
+}
+
+/// Reads the stored server binary metadata, or `null` if no info file exists.
+Map<String, dynamic>? readServerBinaryInfo(String sttDirPath) {
+  final infoFile = File(p.join(sttDirPath, _serverInfoFilename));
+  if (!infoFile.existsSync()) return null;
+  try {
+    return jsonDecode(infoFile.readAsStringSync()) as Map<String, dynamic>;
+  } catch (e) {
+    _log.warning('Could not read server binary info: $e');
+    return null;
+  }
+}
+
+/// Validates the server binary at startup and deletes it if incompatible.
+///
+/// Returns `true` if the binary was deleted (caller should mark server as
+/// not ready). Returns `false` if no action was needed.
+Future<bool> validateAndCleanIncompatibleBinary(String sttDirPath) async {
+  final gpu = await detectGpu();
+  final serverPath = p.join(
+    sttDirPath,
+    Platform.isWindows ? 'whisper-server.exe' : 'whisper-server',
+  );
+  if (!File(serverPath).existsSync()) return false;
+
+  if (!isServerBinaryCompatible(sttDirPath, gpu)) {
+    _log.info(
+      'Startup validation: deleting incompatible server binary '
+      '(GPU=${gpu.name}, backend=${gpu.optimalBackend})',
+    );
+    await deleteServerBinary(sttDirPath);
+    return true;
+  }
+
+  _log.info(
+    'Startup validation: server binary compatible '
+    '(GPU=${gpu.name}, backend=${gpu.optimalBackend})',
+  );
+  return false;
+}
+
+/// Deletes the whisper-server binary, associated DLLs, and the metadata
+/// file from [sttDirPath].
 ///
 /// Used to force a re-download of the correct binary variant.
 Future<void> deleteServerBinary(String sttDirPath) async {
@@ -195,8 +316,10 @@ Future<void> deleteServerBinary(String sttDirPath) async {
   var deleted = 0;
   for (final entity in dir.listSync()) {
     if (entity is File) {
-      final name = entity.uri.pathSegments.last.toLowerCase();
-      if (name.endsWith('.exe') || name.endsWith('.dll')) {
+      final name = p.basename(entity.path).toLowerCase();
+      if (name.endsWith('.exe') ||
+          name.endsWith('.dll') ||
+          name == _serverInfoFilename) {
         try {
           await entity.delete();
           deleted++;

@@ -4,7 +4,6 @@
 library;
 
 import 'dart:async';
-import 'dart:developer' as dev;
 import 'dart:io';
 
 import 'package:archive/archive.dart';
@@ -15,8 +14,11 @@ import 'package:path/path.dart' as p;
 
 import '../core/config/settings_provider.dart';
 import '../core/app_info.dart';
+import '../core/logging/app_logger.dart';
 import 'hardware_info_service.dart' as hw;
 import 'path_service.dart';
+
+final _log = AppLogger('Download');
 
 // ---------------------------------------------------------------------------
 // Model registry — single source of truth for all downloadable assets
@@ -137,17 +139,17 @@ enum QualityTier { compact, balanced, premium }
 
 /// Returns the ordered list of models belonging to [tier] (best first).
 ///
-/// Within each tier, models are sorted by descending file size so that
-/// [bestModelForTier] always returns the highest-quality option.
+/// Order is explicit — the first entry in each tier is the recommended
+/// default returned by [bestModelForTier].
 List<SttModelInfo> modelsForTier(QualityTier tier) {
   final ids = switch (tier) {
-    QualityTier.compact => {'whisper-base', 'whisper-tiny'},
-    QualityTier.balanced => {'whisper-medium', 'whisper-small'},
-    QualityTier.premium => {'whisper-large-v3-turbo', 'whisper-large-v3'},
+    QualityTier.compact => ['whisper-small', 'whisper-base', 'whisper-tiny'],
+    QualityTier.balanced => ['whisper-medium'],
+    QualityTier.premium => ['whisper-large-v3-turbo', 'whisper-large-v3'],
   };
-  final models = sttModels.where((m) => ids.contains(m.id)).toList()
-    ..sort((a, b) => b.sizeBytes.compareTo(a.sizeBytes));
-  return models;
+  return ids
+      .map((id) => sttModels.firstWhere((m) => m.id == id))
+      .toList();
 }
 
 /// Returns the single best model for [tier].
@@ -181,8 +183,10 @@ QualityTier recommendTier(int vramMB, {hw.GpuVendor? vendor}) {
   }
 
   // Intel/AMD Vulkan or CPU — slower inference, conservative thresholds.
-  if (vramMB >= 4096) return QualityTier.premium;
-  if (vramMB >= 512) return QualityTier.balanced;
+  // Integrated GPUs report shared VRAM (often 4–8 GB) which overstates
+  // real inference headroom. Require ≥8 GB for premium, ≥2 GB for balanced.
+  if (vramMB >= 8192) return QualityTier.premium;
+  if (vramMB >= 2048) return QualityTier.balanced;
   return QualityTier.compact;
 }
 
@@ -202,13 +206,15 @@ String? tierWarning(QualityTier tier, hw.GpuInfo gpu) {
     }
   }
 
-  // Intel/AMD integrated graphics — premium is risky.
-  if (tier == QualityTier.premium &&
-      (gpu.vendor == hw.GpuVendor.intel || gpu.vendor == hw.GpuVendor.amd)) {
+  // Intel/AMD integrated graphics — premium is risky, balanced may be slow.
+  if (gpu.vendor == hw.GpuVendor.intel || gpu.vendor == hw.GpuVendor.amd) {
     final vram = gpu.vramMB ?? 0;
-    if (vram < 4096) {
+    if (tier == QualityTier.premium && vram < 8192) {
       return 'Large models may be slow on integrated graphics. '
           '"Balanced" is recommended for your hardware.';
+    }
+    if (tier == QualityTier.balanced && vram < 4096) {
+      return 'Transcription may be noticeably slower on this hardware.';
     }
   }
 
@@ -332,7 +338,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       final dir = Directory(sttDir());
       if (!dir.existsSync()) {
         dir.createSync(recursive: true);
-        dev.log('Created STT directory: ${dir.path}', name: 'Download');
+        _log.info('Created STT directory: ${dir.path}');
       }
 
       // Phase 1: Ensure whisper-server binary exists.
@@ -347,6 +353,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       }
 
       // Phase 2: Download model file.
+      _log.info('Downloading model: ${model.id} (${model.sizeLabel})');
       state = state.copyWith(
         activeModelId: modelId,
         phase: DownloadPhase.downloading,
@@ -357,12 +364,11 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
 
       final destPath = p.join(sttDir(), model.filename);
       if (File(destPath).existsSync()) {
-        dev.log('Model ${model.id} already exists, verifying…',
-            name: 'Download');
+        _log.info('Model ${model.id} already exists, verifying…');
         state = state.copyWith(phase: DownloadPhase.verifying);
         final ok = await _verifySha256(destPath, model.sha256);
         if (ok) {
-          _markModelDone(model.id);
+          await _markModelDone(model.id);
           return;
         }
         // Hash mismatch — re-download.
@@ -387,7 +393,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         return;
       }
 
-      _markModelDone(model.id);
+      await _markModelDone(model.id);
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
         state = state.copyWith(
@@ -395,12 +401,17 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           activeModelId: null,
         );
       } else {
+        final msg = e.response?.statusCode == 403
+            ? 'GitHub API rate limit reached. Please wait a few minutes.'
+            : 'Download failed: ${e.message}';
+        _log.error(msg);
         state = state.copyWith(
           phase: DownloadPhase.error,
-          errorMessage: 'Download failed: ${e.message}',
+          errorMessage: msg,
         );
       }
     } on Exception catch (e) {
+      _log.error('Download error: $e');
       state = state.copyWith(
         phase: DownloadPhase.error,
         errorMessage: '$e',
@@ -460,9 +471,8 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       }
     }
     final serverExists = File(whisperServerPath()).existsSync();
-    dev.log(
+    _log.info(
       'Scan: ${downloaded.length} models, server=${serverExists ? "ready" : "missing"}',
-      name: 'Download',
     );
     return ModelDownloadState(
       downloadedModels: downloaded,
@@ -479,12 +489,12 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     try {
       await hw.deleteServerBinary(sttDir());
     } catch (e) {
-      dev.log('Failed to delete server binary: $e', name: 'Download');
+      _log.warning('Failed to delete server binary: $e');
     }
     state = state.copyWith(serverReady: false);
   }
 
-  void _markModelDone(String modelId) {
+  Future<void> _markModelDone(String modelId) async {
     state = state.copyWith(
       phase: DownloadPhase.done,
       activeModelId: modelId,
@@ -492,6 +502,15 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       downloadedModels: {...state.downloadedModels, modelId},
       serverReady: true,
     );
+
+    // Auto-activate the downloaded model so the STT service uses it.
+    try {
+      await ref
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(sttModel: modelId));
+    } catch (e) {
+      _log.warning('Failed to persist sttModel=$modelId: $e');
+    }
   }
 
   // -----------------------------------------------------------------------
@@ -510,7 +529,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     // Resume partial download.
     if (tmpFile.existsSync()) {
       startByte = tmpFile.lengthSync();
-      dev.log('Resuming from byte $startByte', name: 'Download');
+      _log.info('Resuming download from byte $startByte');
     }
 
     final response = await _dio.get<ResponseBody>(
@@ -564,7 +583,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   // -----------------------------------------------------------------------
 
   Future<bool> _verifySha256(String filePath, String expectedHash) async {
-    dev.log('Verifying SHA256 of $filePath', name: 'Download');
+    _log.info('Verifying SHA256 of ${p.basename(filePath)}');
     final file = File(filePath);
     if (!file.existsSync()) return false;
 
@@ -572,9 +591,8 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     final actualHash = digest.toString();
     final ok = actualHash == expectedHash;
     if (!ok) {
-      dev.log(
+      _log.warning(
         'SHA256 mismatch: expected=$expectedHash actual=$actualHash',
-        name: 'Download',
       );
     }
     return ok;
@@ -585,83 +603,159 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   // -----------------------------------------------------------------------
 
   Future<void> _downloadWhisperServer() async {
-    // Log detected GPU for download debugging.
     final gpu = await hw.detectGpu();
-    dev.log(
-      'Downloading whisper-server binary… '
+    _log.info(
+      'Downloading whisper-server binary '
       '(gpu=${gpu.vendor.name}, name="${gpu.name}", '
-      'cuda=${gpu.cudaAvailable})',
-      name: 'Download',
+      'vram=${gpu.vramMB ?? "?"}MB, cuda=${gpu.cudaAvailable}, '
+      'vulkan=${gpu.vulkanAvailable})',
     );
 
-    // Determine GPU mode for asset selection.
     final settings =
         ref.read(settingsProvider).value ?? AppSettings.defaults;
     final gpuMode = settings.gpuAcceleration;
 
-    // Try WhisPaste-owned releases first, then upstream.
+    // Source priority: WhisPaste-owned releases (may have Vulkan/custom
+    // builds), then upstream whisper.cpp (has CUDA + CPU/BLAS).
     const repos = [
       ('whispaste', 'whispaste'),
       ('ggml-org', 'whisper.cpp'),
     ];
 
+    String? lastError;
+
     for (final (owner, repo) in repos) {
-      try {
-        final assetUrl = await _findServerAsset(
-          owner: owner,
-          repo: repo,
-          gpuMode: gpuMode,
-          isWhisPaste: owner == 'whispaste',
-        );
-        if (assetUrl == null) continue;
+      // Retry each repo up to 2 times for transient failures.
+      for (var attempt = 1; attempt <= 2; attempt++) {
+        try {
+          final assetUrl = await _findServerAsset(
+            owner: owner,
+            repo: repo,
+            gpuMode: gpuMode,
+            isWhisPaste: owner == 'whispaste',
+          );
+          if (assetUrl == null) break; // No matching asset, try next repo.
 
-        // Download ZIP to temp. Size varies dramatically by backend:
-        // CPU/BLAS ~17 MB, Vulkan ~30 MB, CUDA 12 ~460 MB.
-        final isCuda = assetUrl.contains('cuda') || assetUrl.contains('cublas');
-        final estimatedSize = isCuda ? 460 * 1024 * 1024 : 30 * 1024 * 1024;
-        final zipPath = p.join(sttDir(), '_whisper-server.zip');
-        await _downloadFile(
-          url: assetUrl,
-          destPath: zipPath,
-          expectedSize: estimatedSize,
-        );
+          _log.info(
+            'Downloading from $owner/$repo (attempt $attempt): '
+            '${Uri.parse(assetUrl).pathSegments.last}',
+          );
 
-        state = state.copyWith(phase: DownloadPhase.extracting);
+          // Size varies: CPU/BLAS ~17 MB, Vulkan ~30 MB, CUDA 12 ~460 MB.
+          final isCuda =
+              assetUrl.contains('cuda') || assetUrl.contains('cublas');
+          final estimatedSize =
+              isCuda ? 460 * 1024 * 1024 : 30 * 1024 * 1024;
+          final zipPath = p.join(sttDir(), '_whisper-server.zip');
+          await _downloadFile(
+            url: assetUrl,
+            destPath: zipPath,
+            expectedSize: estimatedSize,
+          );
 
-        // Extract.
-        await _extractServerZip(zipPath, sttDir());
-        await File(zipPath).delete().catchError((_) => File(zipPath));
+          state = state.copyWith(phase: DownloadPhase.extracting);
 
-        state = state.copyWith(serverReady: true);
-        dev.log('whisper-server ready', name: 'Download');
-        return;
-      } on Exception catch (e) {
-        dev.log('Failed from $owner/$repo: $e', name: 'Download');
-        continue;
+          await _extractServerZip(zipPath, sttDir());
+          await File(zipPath).delete().catchError((_) => File(zipPath));
+
+          // Write metadata so startup validation can verify compatibility
+          // without relying on DLL heuristics alone.
+          final assetName = Uri.parse(assetUrl).pathSegments.lastOrNull ?? '';
+          await hw.writeServerBinaryInfo(
+            sttDir(),
+            gpu,
+            sourceRepo: '$owner/$repo',
+            assetName: assetName,
+          );
+
+          state = state.copyWith(serverReady: true);
+          _log.info('whisper-server ready (source=$owner/$repo)');
+          return;
+        } on DioException catch (e) {
+          final status = e.response?.statusCode;
+          lastError = status == 403
+              ? 'GitHub API rate limit exceeded (HTTP 403)'
+              : 'Network error: ${e.message} (HTTP $status)';
+          _log.warning(
+            'Server download failed from $owner/$repo '
+            '(attempt $attempt): $lastError',
+          );
+          if (e.type == DioExceptionType.cancel) rethrow;
+          if (status == 403) break; // Rate limited — skip to next repo.
+          if (attempt < 2) {
+            await Future<void>.delayed(
+              Duration(seconds: 2 * attempt),
+            );
+          }
+        } on Exception catch (e) {
+          lastError = '$e';
+          _log.warning(
+            'Server download failed from $owner/$repo '
+            '(attempt $attempt): $e',
+          );
+          if (attempt < 2) {
+            await Future<void>.delayed(
+              Duration(seconds: 2 * attempt),
+            );
+          }
+        }
       }
     }
 
-    throw Exception('Could not download whisper-server from any source.');
+    _log.error('Could not download whisper-server from any source');
+    throw Exception(lastError ?? 'Could not download whisper-server.');
   }
 
   /// Queries GitHub releases API and finds the best matching asset.
+  ///
+  /// For the WhisPaste repo, queries the dedicated `whisper-server-latest`
+  /// release (built by the `build-whisper-server.yml` workflow). For upstream
+  /// repos, queries the latest release as before.
   Future<String?> _findServerAsset({
     required String owner,
     required String repo,
     required String gpuMode,
     required bool isWhisPaste,
   }) async {
-    final apiUrl =
-        'https://api.github.com/repos/$owner/$repo/releases/latest';
+    // WhisPaste hosts server binaries in a dedicated release tag so they
+    // don't conflict with app releases.
+    final apiUrl = isWhisPaste
+        ? 'https://api.github.com/repos/$owner/$repo/releases/tags/whisper-server-latest'
+        : 'https://api.github.com/repos/$owner/$repo/releases/latest';
 
-    final response = await _dio.get<Map<String, dynamic>>(
-      apiUrl,
-      cancelToken: _cancelToken,
-      options: Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
-    );
+    final Response<Map<String, dynamic>> response;
+    try {
+      response = await _dio.get<Map<String, dynamic>>(
+        apiUrl,
+        cancelToken: _cancelToken,
+        options:
+            Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        _log.info(
+          'No server-binaries release in $owner/$repo '
+          '(tag=whisper-server-latest)',
+        );
+        return null;
+      }
+      rethrow;
+    }
+
+    // Check GitHub rate limit from response headers.
+    final remaining = response.headers['x-ratelimit-remaining']?.firstOrNull;
+    if (remaining != null) {
+      final rem = int.tryParse(remaining) ?? -1;
+      if (rem <= 5) {
+        _log.warning('GitHub API rate limit low: $rem remaining');
+      }
+    }
 
     final assets = (response.data?['assets'] as List<dynamic>?) ?? [];
-    if (assets.isEmpty) return null;
+    if (assets.isEmpty) {
+      _log.info('No assets in $owner/$repo release');
+      return null;
+    }
 
     // Build priority list of asset name patterns based on detected GPU.
     final patterns = await _serverAssetPatterns(gpuMode, isWhisPaste);
@@ -675,21 +769,19 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         final name = (assetMap['name'] as String?) ?? '';
         final lowerName = name.toLowerCase();
         if (lowerName.contains(pattern) && lowerName.contains(archPattern)) {
-          dev.log(
+          _log.info(
             'Selected server asset: $name (pattern=$pattern, '
             'arch=$archPattern, repo=$owner/$repo)',
-            name: 'Download',
           );
           return assetMap['browser_download_url'] as String?;
         }
       }
     }
 
-    dev.log(
+    _log.info(
       'No matching server asset in $owner/$repo '
       '(patterns=$patterns, arch=$archPattern, '
-      'assets=${assets.map((a) => (a as Map)['name']).toList()})',
-      name: 'Download',
+      'available=${assets.map((a) => (a as Map)['name']).toList()})',
     );
     return null;
   }

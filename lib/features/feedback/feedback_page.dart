@@ -1,9 +1,24 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../core/app_info.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/logging/app_logger.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/page_shell.dart';
+
+/// Feedback relay URL — injected at build time via `--dart-define`.
+///
+/// Empty string in development = feedback is not sent (UI-only).
+const _feedbackRelayUrl = String.fromEnvironment(
+  'FEEDBACK_RELAY_URL',
+  defaultValue: '',
+);
 
 /// Feedback page — polished, chat-inspired feedback form.
 ///
@@ -17,10 +32,14 @@ class FeedbackPage extends StatefulWidget {
 }
 
 class _FeedbackPageState extends State<FeedbackPage> {
+  static final _log = AppLogger('FeedbackPage');
+
   int _rating = 0;
   String _category = '';
   final _commentController = TextEditingController();
   bool _submitted = false;
+  bool _submitting = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -164,16 +183,45 @@ class _FeedbackPageState extends State<FeedbackPage> {
 
                   const SizedBox(height: WpSpacing.xxl),
 
+                  // Error message
+                  if (_error != null) ...[
+                    Text(
+                      _error == 'rate_limited'
+                          ? l10n.feedbackErrorRateLimited
+                          : _error == 'network_error'
+                              ? l10n.feedbackErrorNetwork
+                              : l10n.feedbackErrorServer,
+                      style: ts.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: WpSpacing.sm),
+                  ],
+
                   // Submit button
                   SizedBox(
                     width: double.infinity,
                     child: AnimatedOpacity(
                       duration: WpMotion.fast,
-                      opacity: _canSubmit ? 1.0 : 0.5,
+                      opacity: _canSubmit && !_submitting ? 1.0 : 0.5,
                       child: ElevatedButton.icon(
-                        onPressed: _canSubmit ? _submit : null,
-                        icon: const Icon(LucideIcons.send, size: WpIconSize.sm),
-                        label: Text(l10n.feedbackSubmit),
+                        onPressed:
+                            _canSubmit && !_submitting ? _submit : null,
+                        icon: _submitting
+                            ? const SizedBox(
+                                width: WpIconSize.sm,
+                                height: WpIconSize.sm,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(LucideIcons.send, size: WpIconSize.sm),
+                        label: Text(
+                          _submitting
+                              ? l10n.feedbackSubmitting
+                              : l10n.feedbackSubmit,
+                        ),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                             vertical: WpSpacing.md,
@@ -220,17 +268,95 @@ class _FeedbackPageState extends State<FeedbackPage> {
     );
   }
 
-  void _submit() {
-    setState(() => _submitted = true);
+  Future<void> _submit() async {
+    if (!_canSubmit || _submitting) return;
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    try {
+      // Build payload matching the Supabase feedback-relay Edge Function.
+      final textWithCategory = '[$_category] ${_commentController.text.trim()}';
+      final payload = {
+        'rating': _rating,
+        'text': textWithCategory,
+        'app_version': appVersion,
+        'device_id': _deriveDeviceId(),
+      };
+
+      if (_feedbackRelayUrl.isEmpty) {
+        _log.info(
+          'Feedback relay not configured — skipping HTTP POST '
+          '(rating=$_rating category=$_category)',
+        );
+      } else {
+        _log.info('Submitting feedback: rating=$_rating category=$_category');
+        final response = await http
+            .post(
+              Uri.parse(_feedbackRelayUrl),
+              headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': appUserAgent,
+              },
+              body: jsonEncode(payload),
+            )
+            .timeout(const Duration(seconds: 15));
+
+        if (response.statusCode == 429) {
+          _log.info('Feedback rate-limited (429)');
+          setState(() {
+            _submitting = false;
+            _error = 'rate_limited';
+          });
+          return;
+        }
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          _log.warning(
+            'Feedback relay error: ${response.statusCode} ${response.body}',
+          );
+          setState(() {
+            _submitting = false;
+            _error = 'server_error';
+          });
+          return;
+        }
+        _log.info('Feedback submitted successfully');
+      }
+
+      if (mounted) setState(() => _submitted = true);
+    } on Exception catch (e) {
+      _log.warning('Feedback submission failed: $e');
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _error = 'network_error';
+        });
+      }
+    }
   }
 
   void _reset() {
     setState(() {
       _submitted = false;
+      _submitting = false;
+      _error = null;
       _rating = 0;
       _category = '';
       _commentController.clear();
     });
+  }
+
+  static String _deriveDeviceId() {
+    try {
+      final hostname = Platform.localHostname;
+      final bytes = utf8.encode('${hostname}_whispaste');
+      return md5.convert(bytes).toString().substring(0, 12);
+    } on Exception {
+      return 'unknown';
+    }
   }
 }
 
