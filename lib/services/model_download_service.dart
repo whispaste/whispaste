@@ -708,50 +708,50 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
 
   /// Queries GitHub releases API and finds the best matching asset.
   ///
-  /// For the WhisPaste repo, queries the dedicated `whisper-server-latest`
-  /// release (built by the `build-whisper-server.yml` workflow). For upstream
-  /// repos, queries the latest release as before.
+  /// For the WhisPaste repo, queries releases and finds the most recent one
+  /// tagged `whisper-server-*` (built by `build-whisper-server.yml`). Each
+  /// whisper.cpp version gets its own immutable release tag, e.g.
+  /// `whisper-server-v1.8.4`. For upstream repos, queries the latest release.
   Future<String?> _findServerAsset({
     required String owner,
     required String repo,
     required String gpuMode,
     required bool isWhisPaste,
   }) async {
-    // WhisPaste hosts server binaries in a dedicated release tag so they
-    // don't conflict with app releases.
-    final apiUrl = isWhisPaste
-        ? 'https://api.github.com/repos/$owner/$repo/releases/tags/whisper-server-latest'
-        : 'https://api.github.com/repos/$owner/$repo/releases/latest';
+    Map<String, dynamic>? releaseData;
 
-    final Response<Map<String, dynamic>> response;
-    try {
-      response = await _dio.get<Map<String, dynamic>>(
-        apiUrl,
-        cancelToken: _cancelToken,
-        options:
-            Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
-      );
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        _log.info(
-          'No server-binaries release in $owner/$repo '
-          '(tag=whisper-server-latest)',
+    if (isWhisPaste) {
+      // WhisPaste uses versioned tags (whisper-server-v*). Query the
+      // releases list and pick the first one with the right prefix.
+      releaseData = await _findWhisPasteServerRelease(owner, repo);
+      if (releaseData == null) return null;
+    } else {
+      // Upstream: just query the latest release.
+      final apiUrl =
+          'https://api.github.com/repos/$owner/$repo/releases/latest';
+      final Response<Map<String, dynamic>> response;
+      try {
+        response = await _dio.get<Map<String, dynamic>>(
+          apiUrl,
+          cancelToken: _cancelToken,
+          options:
+              Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
         );
-        return null;
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404) {
+          _log.info('No releases in $owner/$repo');
+          return null;
+        }
+        rethrow;
       }
-      rethrow;
+      releaseData = response.data;
     }
 
-    // Check GitHub rate limit from response headers.
-    final remaining = response.headers['x-ratelimit-remaining']?.firstOrNull;
-    if (remaining != null) {
-      final rem = int.tryParse(remaining) ?? -1;
-      if (rem <= 5) {
-        _log.warning('GitHub API rate limit low: $rem remaining');
-      }
-    }
+    // Check GitHub rate limit from response headers (upstream path only;
+    // WhisPaste path handles this in _findWhisPasteServerRelease).
 
-    final assets = (response.data?['assets'] as List<dynamic>?) ?? [];
+    final assets =
+        (releaseData?['assets'] as List<dynamic>?) ?? [];
     if (assets.isEmpty) {
       _log.info('No assets in $owner/$repo release');
       return null;
@@ -784,6 +784,52 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       'available=${assets.map((a) => (a as Map)['name']).toList()})',
     );
     return null;
+  }
+
+  /// Finds the most recent WhisPaste whisper-server release (tag prefix
+  /// `whisper-server-`). Returns the release JSON map or `null`.
+  Future<Map<String, dynamic>?> _findWhisPasteServerRelease(
+    String owner,
+    String repo,
+  ) async {
+    final apiUrl =
+        'https://api.github.com/repos/$owner/$repo/releases?per_page=20';
+    try {
+      final response = await _dio.get<List<dynamic>>(
+        apiUrl,
+        cancelToken: _cancelToken,
+        options:
+            Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
+      );
+
+      final remaining =
+          response.headers['x-ratelimit-remaining']?.firstOrNull;
+      if (remaining != null) {
+        final rem = int.tryParse(remaining) ?? -1;
+        if (rem <= 5) {
+          _log.warning('GitHub API rate limit low: $rem remaining');
+        }
+      }
+
+      final releases = response.data ?? [];
+      for (final release in releases) {
+        final r = release as Map<String, dynamic>;
+        final tag = (r['tag_name'] as String?) ?? '';
+        if (tag.startsWith('whisper-server-')) {
+          _log.info('Found WhisPaste server release: $tag');
+          return r;
+        }
+      }
+
+      _log.info('No whisper-server-* release found in $owner/$repo');
+      return null;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        _log.info('No releases endpoint for $owner/$repo');
+        return null;
+      }
+      rethrow;
+    }
   }
 
   Future<List<String>> _serverAssetPatterns(String gpuMode, bool isWhisPaste) async {
