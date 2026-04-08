@@ -97,7 +97,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           //  TRANSCRIPTION & ENHANCEMENT
           // ═══════════════════════════════════════════
           SpeechRecognitionSection(key: _sectionKeys['stt']),
-          SttModelSection(key: _sectionKeys['sttModel']),
           settingsSectionDivider(context),
           PostProcessingSection(key: _sectionKeys['postprocessing']),
           settingsSectionDivider(context),

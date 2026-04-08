@@ -8,6 +8,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/theme/tokens.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
@@ -22,6 +24,7 @@ class OverlayButtonSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return WpSection(
       title: l10n.settingsOverlayFloatingButton,
@@ -56,6 +59,23 @@ class OverlayButtonSection extends ConsumerWidget {
               },
             ),
           ),
+          // Hint for in-window mode
+          if (settings.overlayModeType == OverlayMode.inWindow)
+            Padding(
+              padding: const EdgeInsets.only(
+                left: WpSpacing.xxl + WpSpacing.md,
+                bottom: WpSpacing.sm,
+              ),
+              child: Text(
+                l10n.settingsOverlayInWindowHint,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? WpColorsDark.textMuted
+                      : WpColorsLight.textMuted,
+                ),
+              ),
+            ),
           // Overlay start position (only relevant for floating mode)
           if (settings.overlayModeType == OverlayMode.floating)
             SettingRow(

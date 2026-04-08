@@ -31,7 +31,9 @@ jobs:
         run: flutter test
 
       - name: Build Windows release
-        run: flutter build windows --release
+        run: >-
+          flutter build windows --release
+          --dart-define=CRASH_RELAY_URL=${{ secrets.CRASH_RELAY_URL }}
 
       - name: Prepare release artifacts
         shell: pwsh
