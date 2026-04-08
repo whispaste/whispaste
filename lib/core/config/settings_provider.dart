@@ -37,7 +37,7 @@ class AppSettings {
     this.deadMicTimeout = 3.0,
     this.autoStopSilence = 0.0,
     // Speech Recognition
-    this.sttProvider = 'On Device (Private)',
+    this.sttProvider = 'On Device',
     this.sttModel = 'whisper-medium',
     this.sttLanguage = 'Auto-detect',
     // Post-Processing
