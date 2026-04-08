@@ -62,6 +62,7 @@ cmd/
 scripts/*
 !scripts/generate-release-notes.ps1
 !scripts/security-scan.ps1
+!scripts/store-screenshots.py
 
 # Internal docs (local only)
 website/design-system/
@@ -69,8 +70,9 @@ website/SEARCH-CONSOLE-SETUP.md
 website/test-results/
 wack-report.xml
 
-# Screenshots (local only)
+# Screenshots (local output only — golden test sources are tracked)
 screenshots/
+!test/screenshots/
 
 # Design source files
 *.afdesign
