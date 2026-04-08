@@ -17,22 +17,23 @@ This document provides comprehensive technical details about the WhisPaste proje
 - **Server-side enforcement only** — premium access, collaborator permissions, sync ownership, and managed cloud usage must be enforced by Supabase-backed auth, RLS, edge functions, rate limits, and server-side request validation. UI locks are not security boundaries.
 - **Secrets stay server-side** — upstream provider keys, service-role credentials, share-token raw values, and other privileged material must never ship in the client or rely on obscurity.
 - **Explicit consent when data leaves the device** — any feature that sends user data through Supabase or WhisPaste-managed services must clearly disclose that behavior and remain opt-in.
-- **Apply hardening retroactively, not only to new features** — the same zero-trust and secure-by-design standard applies to existing crash-report, feedback, analytics, sharing, sync, and future premium-service paths.
+- **Apply hardening retroactively, not only to new features** — the same zero-trust and secure-by-design standard applies to existing feedback, analytics, testimonials surfaces and future premium-service paths (sharing, sync, cloud storage).
 
 ### Edge Function Security Conventions
+
+WhisPaste currently has **two** Supabase Edge Functions: `analytics` (admin-only statistics) and `testimonials` (public read + admin moderation). The old `crash-relay`, `feedback-relay`, and `crash-cleanup` functions were removed — crash reporting uses Sentry, feedback uses direct PostgREST INSERT.
 
 Every Supabase Edge Function MUST follow these patterns:
 
 | Pattern | Rule |
 |---------|------|
 | **Admin auth** | `ADMIN_API_KEY` via `x-api-key` header ONLY. Never accept via query param (logged in access logs). |
-| **Rate limiting** | Per-device AND per-IP as separate queries (both must pass). Never use `.or()` for rate limit filters. |
+| **Rate limiting** | Feedback uses a PostgreSQL trigger (3 per device per 24h). Edge Functions that need rate limiting use per-device AND per-IP as separate queries (both must pass). |
 | **X-Forwarded-For** | Always use the **last** entry (`split(",").pop().trim()`). The first entry is client-controlled; the last is appended by Supabase. |
-| **Discord protection** | Server-side circuit breaker: max 20 Discord posts per minute. Excess reports are stored in DB with status `discord_throttled`. |
-| **Uniform responses** | Public POST endpoints always return `{ "status": "accepted" }` with 202. Never leak internal state (dedup, auto-dismiss, rate limit reason). |
+| **Uniform responses** | Public endpoints return consistent JSON. Never leak internal state (dedup, rate limit reason, stack traces). |
 | **CORS** | Public read endpoints: `Access-Control-Allow-Origin: *`. Admin endpoints: **no CORS origin header** (server-to-server only). |
 | **Security headers** | ALL responses: `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`. |
-| **Input validation** | All string inputs: length-capped, type/severity from allowlists, hashes validated as hex. Use `requireToken`, `requireString`, `optionalString` helpers. |
+| **Input validation** | All string inputs: length-capped, type/severity from allowlists, hashes validated as hex. |
 | **DB layer** | RLS: `USING(false)` deny-all + `REVOKE ALL` on anon/authenticated + service_role bypass. Edge Functions use service_role key server-side. |
 
 ## Product Vision
@@ -876,9 +877,9 @@ WhisPaste is subject to **German and European law**. Every feature, data flow, a
 
 8. **Third-party data processors**: When cloud STT/LLM providers process user audio or text, the user must understand that data leaves the device. The UI must clearly indicate when a cloud provider is active vs. local inference.
 
-9. **Secure storage**: API keys and credentials stored locally must have restrictive file permissions (`0600` on desktop). On mobile, use platform secure storage (Keychain/Keystore). Never log, transmit, or expose credentials.
+9. **Secure storage**: API keys and credentials stored locally use `FlutterSecureStorage` (cross-platform: Keychain on macOS/iOS, Keystore on Android, encrypted storage on Windows/Linux). Never log, transmit, or expose credentials.
 
-10. **No embedded secrets**: Webhook URLs, credentials, and private endpoints must NEVER be hardcoded in the binary. Public relay URLs are allowed, but secrets must stay server-side only.
+10. **No embedded secrets**: Credentials and private endpoints must NEVER be hardcoded in the binary. Only `SUPABASE_URL` and `SUPABASE_ANON_KEY` (public by design) are passed via `--dart-define`. Admin keys and service-role credentials stay server-side only.
 
 ### Checklist for Every New Feature
 
