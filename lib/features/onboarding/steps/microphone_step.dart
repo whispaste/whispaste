@@ -232,9 +232,8 @@ class _MicrophoneStepState extends State<MicrophoneStep>
               child: WpAccentButton(
                 label: l10n.onboardingNext,
                 gradient: accentGradient,
-                // Gate: Next disabled until permission has been attempted
-                onPressed: _permissionStatus == _MicPermission.granted ||
-                        _permissionStatus == _MicPermission.denied
+                // Gate: Next only enabled after mic permission is granted
+                onPressed: _permissionStatus == _MicPermission.granted
                     ? widget.onNext
                     : null,
               ),

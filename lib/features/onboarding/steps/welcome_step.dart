@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../widgets/brand_logo.dart';
 import '../../../widgets/brand_wordmark.dart';
 import '../../../widgets/wp_accent_button.dart';
 
@@ -34,9 +34,7 @@ class WelcomeStep extends ConsumerWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const WpBrandLogo(size: 80, withBackground: true),
-        const SizedBox(height: WpSpacing.md),
-        const WpBrandWordmark(height: 36),
+        const WpBrandWordmark(height: 56),
         const SizedBox(height: WpSpacing.lg),
 
         Text(
@@ -74,7 +72,9 @@ class WelcomeStep extends ConsumerWidget {
         _SegmentedSelector(
           items: [
             _SegmentItem(
-              icon: const Text('EN', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              icon: ClipOval(
+                child: SvgPicture.asset('assets/flags/us.svg', width: 20, height: 20),
+              ),
               label: 'English',
               isActive: settings.locale == 'en',
               onTap: () => ref
@@ -82,7 +82,9 @@ class WelcomeStep extends ConsumerWidget {
                   .updateSettings((s) => s.copyWith(locale: 'en')),
             ),
             _SegmentItem(
-              icon: const Text('DE', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              icon: ClipOval(
+                child: SvgPicture.asset('assets/flags/de.svg', width: 20, height: 20),
+              ),
               label: 'Deutsch',
               isActive: settings.locale == 'de',
               onTap: () => ref
@@ -271,6 +273,15 @@ class _SegmentButtonState extends State<_SegmentButton> {
                       ? widget.textSecondary.withValues(alpha: 0.08)
                       : Colors.transparent,
               borderRadius: WpRadius.borderFull,
+              boxShadow: isActive
+                  ? [
+                      BoxShadow(
+                        color: widget.accent.withValues(alpha: 0.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
