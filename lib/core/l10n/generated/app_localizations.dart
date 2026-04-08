@@ -823,6 +823,12 @@ abstract class L10n {
   /// **'Transcription Complete Sound'**
   String get settingsTranscriptionCompleteSound;
 
+  /// No description provided for @settingsDurationWarningSound.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration Limit Warning'**
+  String get settingsDurationWarningSound;
+
   /// No description provided for @settingsSoundVolume.
   ///
   /// In en, this message translates to:
@@ -1678,13 +1684,13 @@ abstract class L10n {
   /// No description provided for @aboutFlutterGo.
   ///
   /// In en, this message translates to:
-  /// **'Flutter & Go'**
+  /// **'Flutter'**
   String get aboutFlutterGo;
 
   /// No description provided for @aboutFlutterGoDesc.
   ///
   /// In en, this message translates to:
-  /// **'Cross-platform UI with Flutter, performance-critical backend in Go via FFI.'**
+  /// **'Cross-platform UI with Flutter. Local AI inference via whisper.cpp and llama.cpp.'**
   String get aboutFlutterGoDesc;
 
   /// No description provided for @aboutWhisper.

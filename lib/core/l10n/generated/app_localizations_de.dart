@@ -402,6 +402,9 @@ class L10nDe extends L10n {
   String get settingsTranscriptionCompleteSound => 'Transkription-fertig-Ton';
 
   @override
+  String get settingsDurationWarningSound => 'Zeitlimit-Warnung';
+
+  @override
   String get settingsSoundVolume => 'Ton-Lautstärke';
 
   @override
@@ -864,11 +867,11 @@ class L10nDe extends L10n {
   String get aboutBuiltWith => 'Gebaut mit';
 
   @override
-  String get aboutFlutterGo => 'Flutter & Go';
+  String get aboutFlutterGo => 'Flutter';
 
   @override
   String get aboutFlutterGoDesc =>
-      'Plattformübergreifende UI mit Flutter, performancekritisches Backend in Go via FFI.';
+      'Plattformübergreifende UI mit Flutter. Lokale KI-Inferenz über whisper.cpp und llama.cpp.';
 
   @override
   String get aboutWhisper => 'whisper.cpp & OpenAI Whisper';

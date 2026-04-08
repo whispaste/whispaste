@@ -41,6 +41,9 @@ class SoundFeedbackService extends Notifier<void> {
   Future<void> playTranscriptionComplete() =>
       _play('success.wav', _settings.transcriptionCompleteSound);
 
+  Future<void> playDurationWarning() =>
+      _play('warning.wav', _settings.durationWarningSound);
+
   Future<void> playError() => _play('error.wav', true);
 
   // ── Private ────────────────────────────────────────────────────────────────
@@ -62,7 +65,13 @@ class SoundFeedbackService extends Notifier<void> {
         _log.info('SoLoud engine initialized');
       }
       // Preload all sound assets
-      const assets = ['start.wav', 'stop.wav', 'success.wav', 'error.wav'];
+      const assets = [
+        'start.wav',
+        'stop.wav',
+        'success.wav',
+        'error.wav',
+        'warning.wav',
+      ];
       for (final name in assets) {
         try {
           _sources[name] = await _engine.loadAsset('assets/sounds/$name');
@@ -71,7 +80,7 @@ class SoundFeedbackService extends Notifier<void> {
         }
       }
       _initialized = true;
-      _log.info('Sound assets preloaded (${_sources.length}/4)');
+      _log.info('Sound assets preloaded (${_sources.length}/5)');
     } catch (e) {
       _log.warning('SoLoud init failed: $e');
     } finally {
