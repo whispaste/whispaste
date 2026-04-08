@@ -2545,6 +2545,78 @@ abstract class L10n {
   /// **'Save'**
   String get historySaveTranscript;
 
+  /// No description provided for @historyShortcutHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Keyboard Shortcuts'**
+  String get historyShortcutHelp;
+
+  /// No description provided for @historyShortcutGeneral.
+  ///
+  /// In en, this message translates to:
+  /// **'GENERAL'**
+  String get historyShortcutGeneral;
+
+  /// No description provided for @historyShortcutTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Focus tag input'**
+  String get historyShortcutTags;
+
+  /// No description provided for @historyShortcutNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a note'**
+  String get historyShortcutNotes;
+
+  /// No description provided for @historyShortcutPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin / unpin'**
+  String get historyShortcutPin;
+
+  /// No description provided for @historyShortcutClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Save & close'**
+  String get historyShortcutClose;
+
+  /// No description provided for @historyShortcutEditing.
+  ///
+  /// In en, this message translates to:
+  /// **'EDITING'**
+  String get historyShortcutEditing;
+
+  /// No description provided for @historyShortcutToggleEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle edit mode'**
+  String get historyShortcutToggleEdit;
+
+  /// No description provided for @historyShortcutSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save transcript'**
+  String get historyShortcutSave;
+
+  /// No description provided for @historyShortcutBold.
+  ///
+  /// In en, this message translates to:
+  /// **'Bold'**
+  String get historyShortcutBold;
+
+  /// No description provided for @historyShortcutItalic.
+  ///
+  /// In en, this message translates to:
+  /// **'Italic'**
+  String get historyShortcutItalic;
+
+  /// No description provided for @historyShortcutCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy to clipboard'**
+  String get historyShortcutCopy;
+
   /// No description provided for @settingsKeyboardShortcut.
   ///
   /// In en, this message translates to:
