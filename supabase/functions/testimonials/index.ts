@@ -19,6 +19,14 @@ const CORS = {
   "access-control-allow-methods": "GET, POST, OPTIONS",
   "access-control-allow-headers": "x-api-key, content-type",
   "content-type": "application/json",
+  "x-content-type-options": "nosniff",
+};
+
+// Admin responses: no CORS origin, no caching
+const ADMIN_HEADERS = {
+  "content-type": "application/json",
+  "x-content-type-options": "nosniff",
+  "cache-control": "no-store",
 };
 
 const CACHE_HEADERS = {
@@ -43,9 +51,8 @@ function sanitizeText(text: string): string {
     .slice(0, 500); // max 500 chars
 }
 
-function isAdmin(req: Request, url: URL): boolean {
-  const apiKey =
-    req.headers.get("x-api-key") || url.searchParams.get("apiKey");
+function isAdmin(req: Request): boolean {
+  const apiKey = req.headers.get("x-api-key");
   const adminKey = Deno.env.get("ADMIN_API_KEY");
   return !!adminKey && !!apiKey && apiKey === adminKey;
 }
@@ -102,8 +109,8 @@ Deno.serve(async (req) => {
     }
 
     // ── Admin endpoints ──────────────────────────────────────────────
-    if (!isAdmin(req, url)) {
-      return err("forbidden", 403);
+    if (!isAdmin(req)) {
+      return json({ error: "forbidden" }, 403, ADMIN_HEADERS);
     }
 
     // List pending (unapproved 4-5★ feedback for review)
@@ -125,13 +132,13 @@ Deno.serve(async (req) => {
           text: f.feedback_text,
           version: f.app_version,
         })),
-      });
+      }, 200, ADMIN_HEADERS);
     }
 
     // Approve a testimonial
     if (req.method === "POST" && action === "approve") {
       const id = url.searchParams.get("id");
-      if (!id) return err("missing id", 400);
+      if (!id) return json({ error: "missing id" }, 400, ADMIN_HEADERS);
 
       const { data, error: uErr } = await sb
         .from("user_feedback")
@@ -140,18 +147,18 @@ Deno.serve(async (req) => {
         .gte("rating", 4)
         .select("id");
 
-      if (uErr) return err("update_failed", 500);
+      if (uErr) return json({ error: "update_failed" }, 500, ADMIN_HEADERS);
       return json({
         approved: true,
         id,
         matched: data?.length || 0,
-      });
+      }, 200, ADMIN_HEADERS);
     }
 
     // Reject (un-approve) a testimonial
     if (req.method === "POST" && action === "reject") {
       const id = url.searchParams.get("id");
-      if (!id) return err("missing id", 400);
+      if (!id) return json({ error: "missing id" }, 400, ADMIN_HEADERS);
 
       const { data, error: uErr } = await sb
         .from("user_feedback")
@@ -159,15 +166,15 @@ Deno.serve(async (req) => {
         .eq("id", id)
         .select("id");
 
-      if (uErr) return err("update_failed", 500);
+      if (uErr) return json({ error: "update_failed" }, 500, ADMIN_HEADERS);
       return json({
         rejected: true,
         id,
         matched: data?.length || 0,
-      });
+      }, 200, ADMIN_HEADERS);
     }
 
-    return err("unknown action — use approve, reject, or pending", 400);
+    return json({ error: "unknown action — use approve, reject, or pending" }, 400, ADMIN_HEADERS);
   } catch (e) {
     console.error("testimonials error:", e);
     return err("internal_error", 500);
