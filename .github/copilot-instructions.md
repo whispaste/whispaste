@@ -142,16 +142,19 @@ WhisPaste is a **pure Flutter** application:
 
 | Purpose | Package | Platforms |
 |---------|---------|-----------|
+| State management | `flutter_riverpod` | All |
+| SQLite database | `drift` | All |
+| Audio recording | `record` + platform channels | All |
+| Clipboard | `super_clipboard` | All |
+| Icons (primary) | `lucide_icons_flutter` | All |
+| Icons (complementary) | `font_awesome_flutter` | All |
+| Crash reporting | `sentry_flutter` | All |
 | Window management | `window_manager` | Desktop |
 | Window effects (Mica/Acrylic) | `flutter_acrylic` | Desktop |
 | System tray | `tray_manager` | Desktop |
 | Global hotkeys | `hotkey_manager` | Desktop |
-| Audio recording | `record` + platform channels | All |
-| SQLite database | `drift` | All |
-| State management | `riverpod` | All |
-| Clipboard | `super_clipboard` | All |
-| Auto-update | `auto_updater` / `sparkle_flutter` | Desktop |
-| Single instance | `window_single_instance` | Desktop |
+| Floating button window | `desktop_multi_window` | Desktop |
+| Sound effects | `flutter_soloud` | Desktop |
 | Autostart | `launch_at_startup` | Desktop |
 
 ## Project Structure
@@ -161,65 +164,79 @@ whispaste/
 ├── .github/
 │   ├── workflows/           # CI/CD (ci.yml, release.yml, codeql.yml, deploy-pages.yml, build-whisper-server.yml)
 │   └── copilot-instructions.md
-├── .agents/skills/          # Copilot agent skills
+├── .agents/skills/          # Copilot agent skills (supabase-postgres-best-practices, whispaste-bug-analysis)
 ├── lib/                     # Flutter/Dart source (main codebase)
 │   ├── main.dart            # Entry point
 │   ├── app.dart             # MaterialApp, routing, theme
 │   ├── core/
-│   │   ├── theme/           # Design tokens, ThemeData (light + dark)
+│   │   ├── theme/           # Design tokens (tokens.dart), colors (colors.dart), ThemeData
 │   │   ├── l10n/            # Translations (EN + DE, ARB files)
-│   │   ├── config/          # App configuration (SQLite persistence)
-│   │   └── platform/        # Platform channel interfaces
+│   │   ├── config/          # Settings provider, enums, secure key store
+│   │   ├── data/            # Drift database definition (SQLite)
+│   │   ├── logging/         # AppLogger, CrashReporter (Sentry), AppMonitoring
+│   │   ├── multi_window/    # Multi-window messaging
+│   │   ├── recording/       # Recording state machine, audio processing
+│   │   └── app_info.dart    # Version constant (single source of truth)
 │   ├── features/
-│   │   ├── recording/       # Audio capture, VAD, safety guard, state machine
-│   │   ├── transcription/   # STT provider abstraction (local + cloud)
-│   │   ├── postprocessing/  # LLM provider abstraction (local + cloud)
-│   │   ├── history/         # SQLite history, search, CRUD, export
-│   │   ├── settings/        # Settings UI + state
+│   │   ├── about/           # App info, credits, licenses
+│   │   ├── analytics/       # Usage statistics dashboard
+│   │   ├── feedback/        # User feedback (direct PostgREST insert)
+│   │   ├── history/         # SQLite history, search, CRUD, export, tagging
+│   │   ├── onboarding/      # First-run experience, welcome flow
+│   │   ├── recording/       # Recording UI, overlay, controls
 │   │   ├── replacements/    # Voice shortcuts
-│   │   ├── analytics/       # Usage statistics
-│   │   ├── about/           # App info, credits
-│   │   └── feedback/        # User feedback
+│   │   └── settings/        # Settings UI + sections
+│   ├── screens/             # Multi-window screens
+│   │   ├── floating_button_screen.dart
+│   │   └── floating_overlay_screen.dart
 │   ├── widgets/             # Shared widget library
-│   │   ├── sidebar.dart     # Left icon navigation (70px)
+│   │   ├── sidebar.dart     # Left icon navigation (72px)
 │   │   ├── status_bar.dart  # Bottom status bar with chips
+│   │   ├── title_bar.dart   # Custom window title bar
+│   │   ├── page_shell.dart  # Shared page scaffold
 │   │   ├── fab.dart         # Recording FAB with pulse animation
 │   │   ├── section.dart     # Flat content section with header
-│   │   ├── card.dart        # Card (ONLY for actionable items)
-│   │   ├── toggle.dart      # Custom switch
-│   │   ├── dropdown.dart    # Custom styled select
-│   │   ├── slider.dart      # Range input
-│   │   ├── chip.dart        # Status/tag pill
 │   │   ├── dialog.dart      # Centered modal with frosted backdrop
 │   │   ├── toast.dart       # Slide-in notification
-│   │   ├── search_box.dart  # Input with icon + clear
-│   │   └── empty_state.dart # Centered illustration + text + action
+│   │   ├── empty_state.dart # Centered illustration + text + action
+│   │   ├── tag_input.dart   # Progressive-disclosure tag input with suggestions
+│   │   ├── command_palette.dart  # Keyboard command palette
+│   │   ├── hotkey_recorder.dart  # Hotkey capture widget
+│   │   ├── markdown_toolbar.dart # Markdown editing toolbar
+│   │   ├── model_download_card.dart  # AI model download progress card
+│   │   ├── recording_pill.dart   # Recording status indicator
+│   │   ├── floating_button.dart  # Desktop floating dictation button
+│   │   ├── waveform.dart         # Audio waveform visualization
+│   │   ├── waveform_bars.dart    # Bar-style waveform
+│   │   ├── brand_logo.dart       # App logo widget
+│   │   ├── brand_wordmark.dart   # App wordmark widget
+│   │   └── wp_accent_button.dart # Styled accent button
 │   └── services/
 │       ├── audio_service.dart       # Audio capture abstraction
 │       ├── stt_service.dart         # STT subprocess + provider management
-│       ├── llm_service.dart         # LLM subprocess + provider management
-│       ├── gpu_service.dart         # GPU detection
+│       ├── recording_orchestrator.dart  # Recording flow coordination, dead mic guard
+│       ├── model_download_service.dart  # AI model + binary downloads
+│       ├── hardware_info_service.dart   # GPU detection + binary selection
 │       ├── hotkey_service.dart      # Global hotkey registration
 │       ├── tray_service.dart        # System tray icon + menu
-│       ├── clipboard_service.dart   # Clipboard + paste simulation
-│       ├── update_service.dart      # Auto-updater
-│       ├── notification_service.dart
-│       └── crash_service.dart       # Crash reporting (Supabase relay)
-├── test/                    # Flutter widget + integration tests
-├── integration_test/        # End-to-end platform tests
+│       ├── voice_action_service.dart    # Voice shortcuts execution
+│       ├── sound_feedback_service.dart  # UI sound effects (flutter_soloud)
+│       ├── multi_window_service.dart    # Floating button window management
+│       ├── subprocess_guard.dart    # Native subprocess lifecycle management
+│       ├── autostart_service.dart   # OS autostart registration
+│       ├── single_instance_service.dart # Single app instance enforcement
+│       └── path_service.dart        # Platform-specific file paths
+├── test/                    # Flutter widget + unit tests
 ├── assets/
-│   ├── icons/               # App icons (all sizes, all platforms)
-│   ├── fonts/               # Custom fonts (if any)
-│   └── sounds/              # UI sounds (recording start/stop)
-├── installer/               # NSIS installer scripts (Windows legacy)
-├── msix/                    # Windows MSIX packaging
+│   ├── icons/               # App icons (all sizes, all platforms, scale variants)
+│   └── sounds/              # UI sounds (start.wav, stop.wav, success.wav, error.wav, warning.wav)
 ├── scripts/                 # Build & utility scripts
 ├── website/                 # Astro-based project website (separate)
 ├── supabase/                # Supabase Edge Functions + migrations
-│   ├── functions/           # crash-relay, crash-cleanup, analytics, feedback
+│   ├── functions/           # analytics, testimonials
 │   └── migrations/          # Database migrations
 ├── resources/               # App icons and assets (source files)
-├── pubspec.yaml             # Flutter dependencies
+├── pubspec.yaml             # Flutter dependencies (MSIX config also here)
 └── README.md
 ```
 
@@ -243,10 +260,7 @@ flutter build ios --release         # iOS
 flutter test
 
 # Test (specific file)
-flutter test test/features/history/history_test.dart
-
-# Test (integration)
-flutter test integration_test/
+flutter test test/features/history/history_page_test.dart
 
 # Analyze (lint)
 flutter analyze
@@ -277,7 +291,7 @@ Every feature MUST work on all target platforms or gracefully degrade with clear
 | Local LLM (llama.cpp) | ✅ | ✅ | ✅ | ⚠️ Limited | ⚠️ Limited |
 | Cloud STT/LLM | ✅ | ✅ | ✅ | ✅ | ✅ |
 | GPU detection | ✅ nvidia-smi + WMI | ✅ IOKit | ✅ sysfs | ✅ Auto | ✅ Auto |
-| Auto-update | ✅ MSIX/NSIS | ✅ Sparkle | ✅ AppImage | Play Store | App Store |
+| Auto-update | ✅ MSIX | ✅ Sparkle (planned) | ✅ AppImage (planned) | Play Store | App Store |
 | Autostart | ✅ Registry | ✅ launchd | ✅ XDG | N/A | N/A |
 | Single instance | ✅ | ✅ | ✅ | N/A | N/A |
 
@@ -335,9 +349,26 @@ logger.e('Unrecoverable failure: $err');          // Error
 
 **Never log API keys, tokens, or credentials.** Log presence only: `key.isNotEmpty`.
 
+### Crash Reporting
+
+**Sentry** (`sentry_flutter ^8.14.2`) — NOT Supabase relay. Architecture:
+- DSN hardcoded in `lib/core/logging/app_monitoring.dart` (standard practice for public DSNs)
+- PII sanitization via `CrashReporter.beforeSend` — scrubs API keys, tokens, passwords, file paths, usernames
+- GDPR consent gate: nothing sent without `_consentGranted`
+- Device ID: MD5 hash of hostname (not hardware identifier)
+- Breadcrumb context from `AppLogger` ring buffer
+- Build defines: Only `SUPABASE_URL` and `SUPABASE_ANON_KEY` injected via `--dart-define` in CI. No Sentry DSN injection needed.
+
+### Feedback
+
+**Direct Supabase PostgREST INSERT** (anon key) — NOT an Edge Function relay:
+- HTTP POST to `$SUPABASE_URL/rest/v1/user_feedback` with anon key header
+- RLS `WITH CHECK` policy for server-side validation
+- PostgreSQL trigger for rate limiting (3 per device per 24h) — raises `P0001` → PostgREST returns 400
+
 ### Configuration
 
-Config persists as JSON. Accessed through Riverpod providers in Dart:
+Config persists in **SQLite via drift** (not JSON). Accessed through Riverpod providers in Dart:
 
 ```dart
 // ✅ Correct — via provider
@@ -348,12 +379,11 @@ final apiKey = config.apiKey;
 config.apiKey = newValue;
 ```
 
-Config file locations:
-- Windows: `%APPDATA%\WhisPaste\config.json`
-- macOS: `~/Library/Application Support/WhisPaste/config.json`
-- Linux: `~/.config/whispaste/config.json`
-- Android: App internal storage
-- iOS: App documents directory
+Config storage:
+- **Settings**: SQLite key-value table via `drift` ORM (`lib/core/data/database.dart`)
+- **Sensitive keys** (API keys): Platform-native secure storage via `secure_key_store.dart` / `FlutterSecureStorage` (Windows CredentialManager, macOS Keychain, Linux libsecret) — prefixed `wp_*`
+- **Legacy migration**: One-time migration from Go-era `config.json` to SQLite on first Flutter launch
+- **Settings enums**: Type-safe enums in `lib/core/config/settings_enums.dart` (STT/LLM provider types, presets)
 
 ### Error Handling
 
@@ -367,7 +397,7 @@ try {
   // Show user-friendly error in UI
 } catch (e, stack) {
   logger.e('Unexpected error', error: e, stackTrace: stack);
-  crashService.report(e, stack);
+  CrashReporter.captureError(e, stack); // Sentry via crash_reporter.dart
 }
 ```
 
@@ -389,8 +419,8 @@ Use the theme system — never hardcode colors, spacing, or typography:
 ```dart
 // ✅ Correct
 color: Theme.of(context).colorScheme.primary,
-padding: EdgeInsets.all(WhisPasteSpacing.md),
-borderRadius: BorderRadius.circular(WhisPasteRadius.md),
+padding: EdgeInsets.all(WpSpacing.md),
+borderRadius: WpRadius.borderMd,
 
 // ❌ Wrong
 color: Color(0xFF0891B2),
@@ -399,47 +429,86 @@ padding: EdgeInsets.all(16),
 
 ### Design Token Values
 
-#### Colors (Dark Theme — Primary)
+#### Colors (Dark Theme — Primary, class `WpColorsDark`)
 | Token | Value | Usage |
 |-------|-------|-------|
-| `background` | `#0B0E14` | Window background |
-| `surface` | `#12161F` | Sidebar, content base |
-| `surfaceVariant` | `#1A1F2E` | Cards, elevated sections |
-| `primary` | `#22D3EE` | Accent (cyan) |
-| `onPrimary` | `#0B0E14` | Text on accent |
-| `secondary` | `#8B95A8` | Secondary text |
-| `error` | `#F87171` | Errors, destructive |
-| `outline` | `rgba(255,255,255,0.10)` | Borders |
+| `background` | `#131826` | Window background |
+| `surface` | `#171D2C` | Sidebar, content base |
+| `surfaceElevated` | `#1D2538` | Elevated panels |
+| `surfaceVariant` | `#232C40` | Cards, elevated sections |
+| `accent` | `#38D9F0` | Accent (cyan) |
+| `textPrimary` | `#F0F4FA` | Primary text |
+| `textSecondary` | `#ABB8CC` | Secondary text |
+| `textMuted` | `#8A99B2` | Muted text |
+| `error` | `#FF7B7B` | Errors, destructive |
+| `success` | `#36D98B` | Success states |
+| `warning` | `#F5C842` | Warnings |
+| `borderSubtle` | `rgba(255,255,255,0.12)` | Barely visible borders |
+| `borderDefault` | `rgba(255,255,255,0.19)` | Structural borders |
+| `glassTint` | `rgba(255,255,255,0.09)` | Glass panel tint |
 
-#### Colors (Light Theme)
+#### Colors (Light Theme, class `WpColorsLight`)
 | Token | Value | Usage |
 |-------|-------|-------|
-| `background` | `#F1F5F9` | Window background |
-| `surface` | `#FFFFFF` | Content areas |
-| `primary` | `#0891B2` | Accent (darker cyan) |
+| `background` | `#EEF2F6` | Window background |
+| `surface` | `#FAFBFD` | Content areas |
+| `accent` | `#0887A8` | Accent (darker cyan) |
+| `textPrimary` | `#101828` | Primary text |
+| `textSecondary` | `#44556E` | Secondary text |
 
-#### Spacing Scale
-`4px, 8px, 12px, 16px, 20px, 24px, 32px, 48px`
+#### Spacing Scale (`WpSpacing`)
+| Token | Value |
+|-------|-------|
+| `xxs` | 4px |
+| `xs` | 8px |
+| `sm` | 12px |
+| `md` | 16px |
+| `lg` | 20px |
+| `xl` | 24px |
+| `xxl` | 32px |
+| `xxxl` | 48px |
 
-#### Border Radius
+#### Border Radius (`WpRadius`)
 | Token | Value | Usage |
 |-------|-------|-------|
 | `sm` | `6px` | Buttons, inputs, chips |
 | `md` | `10px` | Cards, dialogs |
 | `lg` | `14px` | Large cards, modals |
+| `xl` | `18px` | Extra-large containers |
 | `full` | `9999px` | Pills, avatars, FAB |
 
-#### Typography Scale
-| Level | Size | Weight | Usage |
-|-------|------|--------|-------|
-| Display | 24px | 700 | Page titles |
-| Heading | 18px | 600 | Section headers |
-| Subheading | 15px | 600 | Card titles |
-| Body | 14px | 400 | Default text |
-| Caption | 12px | 400 | Metadata |
-| Micro | 11px | 500 | Status chips |
+Pre-built: `WpRadius.borderSm`, `WpRadius.borderMd`, etc.
+
+#### Typography
+
+Typography is defined via Material `TextTheme` in `theme.dart`, not via separate token classes. Reference text styles through `Theme.of(context).textTheme`.
 
 Font: System font stack (Segoe UI / SF Pro / Roboto).
+
+#### Icon Sizes (`WpIconSize`)
+| Token | Value | Usage |
+|-------|-------|-------|
+| `xs` | 14px | Decorative only |
+| `sm` | 16px | Decorative only |
+| `md` | 20px | Minimum for interactive icons |
+| `lg` | 24px | Standard interactive |
+| `xl` | 32px | Prominent |
+| `xxl` | 48px | Hero |
+
+#### Layout Tokens (`WpLayout`)
+| Token | Value | Usage |
+|-------|-------|-------|
+| `sidebarWidth` | 72px | Collapsed sidebar |
+| `sidebarWidthExpanded` | 220px | Expanded sidebar |
+| `statusBarHeight` | 48px | Bottom status bar |
+| `fabSize` | 56px | Recording FAB |
+| `appBarHeight` | 64px | Top app bar |
+| `minTouchTarget` | 48px | Material 3 minimum touch target |
+| `breakpointMobile` | 600px | Mobile ↔ tablet breakpoint |
+| `breakpointTablet` | 900px | Tablet ↔ desktop breakpoint |
+
+#### Shadow Tokens (`WpShadows`)
+`subtle`, `card`, `elevated`, `fab`, `glassInner` — defined in `tokens.dart`.
 
 ### UI Design DNA — MANDATORY
 
@@ -470,10 +539,10 @@ These techniques make the difference between "fine" and "premium". Apply them co
 
 1. **Subtle warm gradients** — Never use flat solid colors for large surfaces. The frame (sidebar, title bar, status bar) uses a soft top-to-bottom gradient (`frameGradient`). The content panel uses a warm diagonal gradient (`warmSurfaceGradient`). Both are defined in `colors.dart`.
 2. **Hinted glass/frost effects** — Use `WpGlassPanel` or `wpGlassDecoration()` for elevated panels, modals, and overlays. Use `BackdropFilter` with σ ≈ 8–12 and nearly-transparent tints. Glass effects should be *felt*, not *seen* — subtle atmospheric depth, NOT iOS-style heavy blur. Appropriate for: status bar backdrop, modal overlays, floating action panels. NOT for: every card, every section, every container.
-3. **Micro-animations on navigation** — Page transitions use fade + slight upward slide (0.015 offset, 300ms easeOutCubic). Sidebar hover pills animate with 120ms easeOut. Active indicator bar slides. These are mandatory, not optional polish.
-4. **Hover micro-feedback** — Every interactive element (buttons, nav items, chips, rows) must respond to hover with a subtle background change + cursor change. Transition in 120ms. Never "snap" between states.
+3. **Micro-animations on navigation** — Page transitions use fade + slight upward slide (0.015 offset, 300ms easeOutCubic). Sidebar hover pills appear instantly (hover-in is 0ms per `WpMotion.hoverIn`), fade out with 80ms easeOut. Active indicator bar slides. These are mandatory, not optional polish.
+4. **Hover micro-feedback** — Every interactive element (buttons, nav items, chips, rows) must respond to hover with a subtle background change + cursor change. Hover-in is instant (0ms), hover-out fades in 80ms. Never "snap" on exit.
 5. **Depth through layered surfaces** — Frame (darkest) → Content panel (mid) → Elevated cards (lightest). Each layer is visually distinct. Use warm surface gradients, NOT flat colors.
-6. **Sidebar icon sizing** — Icons at 21px in 38×38 pill containers. Not too small (hard to click), not too large (looks clunky). Lucide thin line style reinforces premium feel.
+6. **Sidebar icon sizing** — Icons at 21px in 38×38 pill containers within the 72px sidebar. Not too small (hard to click), not too large (looks clunky). Lucide thin line style reinforces premium feel.
 7. **Onboarding awareness** — When building new features, always consider the first-run experience. How does a new user discover this feature? Progressive disclosure > hidden complexity. Plan for onboarding integration from the start.
 
 #### Accessibility Requirements (CI-enforced)
@@ -491,7 +560,7 @@ This is a **responsive cross-platform app** — design for touch FIRST, then opt
 2. **Use `Flexible`/`Expanded`** — never hardcode widths for content areas (sidebars and fixed panels excepted). For modals/dialogs, use `min(fixedWidth, screenWidth - 32)`.
 3. **Wrap on narrow** — Stats rows, button groups, and chip bars must wrap or scroll when space is tight.
 4. **Test at multiple sizes** — The responsive overflow test covers this, but also visually verify at 320px (phone), 768px (tablet), 1280px (laptop), 1920px (desktop).
-5. **Feel native on EVERY platform** — Bottom tab bar on phones, sidebar on tablet+desktop, adaptive layouts everywhere. Content fills space, panels resize, and layout adapts seamlessly.
+5. **Feel native on EVERY platform** — Currently uses a sidebar-based layout on all screens. Planned: bottom tab bar on phones, sidebar on tablet+desktop. Content fills space, panels resize, and layout adapts seamlessly.
 
 #### Mobile-First Design Rules (MANDATORY)
 
@@ -501,7 +570,7 @@ These rules apply to ALL UI code. They complement the visual identity and access
 2. **No hover-only interactions** — Every `MouseRegion` hover state MUST have a touch equivalent. Actions revealed on hover must be always-visible (with reduced opacity) or accessible via long-press/swipe on touch devices.
 3. **Interactive icons ≥ 20px** — `WpIconSize.md` (20px) is the MINIMUM for any icon the user can tap. `WpIconSize.xs` (14px) and `WpIconSize.sm` (16px) are for decorative/metadata icons ONLY.
 4. **No hardcoded widths for content** — Use `LayoutBuilder`/`MediaQuery` with breakpoints. Fixed widths allowed only for modals/dialogs (with `min(fixedWidth, screenWidth - padding)` pattern).
-5. **Navigation adapts** — Bottom tab bar on screens ≤ 600px, sidebar on screens > 600px.
+5. **Navigation adapts** — Currently uses sidebar on all screen sizes. Bottom tab bar for screens ≤ 600px is a planned enhancement.
 6. **Platform-aware interactions** — Use `Platform.isAndroid || Platform.isIOS` (or `defaultTargetPlatform`) to switch between touch and pointer interaction patterns where needed.
 
 #### The "Wow" Test
@@ -532,7 +601,7 @@ Before shipping any UI change, ask: "Would a user screenshot this and share it b
 
 **Test pyramid**: Unit (broad) → Widget (medium) → Integration (narrow). Test critical business logic, AI pipeline, and widget contracts thoroughly. UI layout and cosmetic details are verified through widget tests and manual review.
 
-**Tests gate CI.** `flutter test` MUST pass for a PR to merge. No `continue-on-error`, no skipping, no excuses.
+**Tests gate CI.** `flutter test` MUST pass on the `dev` branch for merges to `main`. No `continue-on-error`, no skipping, no excuses.
 
 ### Test Strategy
 
@@ -540,36 +609,57 @@ Before shipping any UI change, ask: "Would a user screenshot this and share it b
 |-------|-------|-------|-----------------|
 | **Unit** | Pure logic, models, services, providers | `flutter_test`, `mocktail` | Broad — every service, every provider |
 | **Widget** | Individual widgets in isolation | `flutter_test`, `makeTestable()` helper | Medium — all shared widgets, feature pages |
-| **Integration** | Full app flows, page navigation | `integration_test/`, `patrol` (future) | Narrow — critical user journeys |
+| **Integration** | Full app flows, page navigation | `patrol` (future) | Narrow — critical user journeys |
 
 ### Test Directory Structure
 
 ```
 test/
+  widget_test.dart                  — App smoke test
   core/
+    accessibility/
+      semantics_audit_test.dart     — Accessibility semantics audit
+    config/
+      settings_provider_test.dart   — Config persistence tests
+    design/
+      responsive_overflow_test.dart — Layout overflow at all screen sizes
     theme/
       colors_test.dart              — Theme color contract tests
       tokens_test.dart              — Design token value tests
-    config/
-      config_test.dart              — Config persistence tests
-  widgets/
-    sidebar_test.dart               — Sidebar navigation tests
-    fab_test.dart                   — FAB widget tests
-    empty_state_test.dart           — Empty state rendering
-    section_test.dart               — Section header + content
-    status_bar_test.dart            — Status bar tests
+      theme_provider_test.dart      — Theme provider tests
+      wcag_contrast_test.dart       — WCAG AA contrast enforcement (CI gate)
   features/
+    history/
+      database_test.dart            — History database CRUD
+      export_service_test.dart      — Export format generation
+      history_detail_test.dart      — Detail panel rendering
+      history_page_test.dart        — History list + search
+      keyboard_navigation_test.dart — Keyboard shortcut handling
+      tag_crud_test.dart            — Tag CRUD operations
+      voice_actions_test.dart       — Voice action execution
+    onboarding/
+      welcome_step_test.dart        — Onboarding welcome step
+    recording/
+      recording_state_test.dart     — Recording state machine
     settings/
       settings_page_test.dart       — Settings sections + controls
-    history/
-      history_page_test.dart        — History list + search
-    replacements/
-      replacements_page_test.dart   — Voice shortcuts CRUD
+  services/
+    hardware_info_service_test.dart  — GPU detection + binary selection
+    recording_orchestrator_test.dart — Recording orchestration + dead mic
+    sound_feedback_service_test.dart — Sound effect playback
+    voice_action_service_test.dart   — Voice shortcuts execution
+  widgets/
+    empty_state_test.dart           — Empty state rendering
+    fab_test.dart                   — FAB widget tests
+    page_shell_test.dart            — Page shell scaffold
+    section_test.dart               — Section header + content
+    sidebar_test.dart               — Sidebar navigation tests
+    waveform_test.dart              — Waveform visualization
   fixtures/
     test_helpers.dart               — makeTestable(), shared builders
-  widget_test.dart                  — App smoke test
-integration_test/
-  app_test.dart                     — Full app integration tests
+  screenshots/
+    onboarding_welcome_test.dart    — Screenshot: onboarding
+    store_screenshots_test.dart     — App Store screenshot generation
 ```
 
 ### Test Conventions (MANDATORY)
@@ -579,7 +669,7 @@ integration_test/
 3. **Mocking**: Use `mocktail` — NOT `mockito`. No codegen mocks.
 4. **Shared fixtures**: Reusable test data in `test/fixtures/test_helpers.dart` (DRY)
 5. **Standalone execution**: Every test file runs independently: `flutter test test/path/to/file_test.dart`
-6. **Descriptive names**: `'Dark theme background is warm slate-blue (#0F1117)'`, NOT `'test1'`
+6. **Descriptive names**: `'Dark theme background is warm navy (#131826)'`, NOT `'test1'`
 7. **Group related tests**: Use `group('ThemeName', () { ... })` for organization
 8. **No generated code tests**: Don't test `.g.dart` or `.freezed.dart` files
 9. **Wrap in makeTestable()**: All widget tests use the shared helper for consistent Riverpod + Theme setup
@@ -682,7 +772,7 @@ test('Dark and light themes have distinct backgrounds', () {
 When implementing new features, ensure:
 
 - [ ] User actions wrapped in `try/catch`
-- [ ] `crashService.report(error, stackTrace)` in catch blocks
+- [ ] `CrashReporter.captureError(error, stackTrace)` in catch blocks (Sentry)
 - [ ] Category set appropriately (e.g., `recording`, `stt`, `history`)
 - [ ] Action named specifically (e.g., `save_entry`, not just `save`)
 - [ ] Extras include relevant context (IDs, types, states)
@@ -698,7 +788,7 @@ AI inference is WhisPaste's **core value proposition**. This section is the most
 
 **Local** (Desktop only): whisper.cpp `whisper-server` subprocess
 - CUDA and CPU binaries downloaded from `ggml-org/whisper.cpp` GitHub releases
-- Vulkan binary built by `build-whisper-server.yml` workflow, hosted in WhisPaste repo under the `whisper-server-latest` release tag
+- Vulkan binary built by `build-whisper-server.yml` workflow, hosted in WhisPaste repo under versioned `whisper-server-v*` release tags (e.g., `whisper-server-v1.8.4`) — immutable releases, NOT a reusable `latest` tag
 - Asset selection per GPU vendor (CUDA / Vulkan / OpenBLAS)
 - Models: Whisper Tiny → Large v3 Turbo (31 MB → 547 MB)
 - All models verified via SHA256 before use
@@ -716,18 +806,18 @@ AI inference is WhisPaste's **core value proposition**. This section is the most
 
 ### LLM (Post-Processing / Nachbearbeitung)
 
-**Local** (Desktop only): llama.cpp `llama-server` subprocess
-- Binary downloaded from `ggml-org/llama.cpp` GitHub releases
+> ⚠️ **Partially implemented**: Settings UI, provider scaffolding, and preset definitions exist. However, the actual LLM execution is **not wired yet** — `recording_orchestrator.dart` logs "skipping (not yet implemented)" when post-processing is enabled. Do NOT build features that assume LLM output is available in the pipeline.
+
+**Planned local** (Desktop only): llama.cpp `llama-server` subprocess
+- Binary download from `ggml-org/llama.cpp` GitHub releases
 - Model: Qwen3-1.7B (default, only local model)
 - Asset selection: CUDA 12.x (NVIDIA), Vulkan (AMD/Intel), CPU fallback
 - Context size: 4096 tokens, thread cap: 12
-- 3 presets ONLY: cleanup, concise, translate (no custom presets)
+- 3 presets ONLY: `cleanup` (Clean up), `concise` (Concise), `translate` (Translate) — no custom presets
 
-**Cloud** (All platforms): Provider-based
-- OpenAI (gpt-4o-mini, gpt-4o)
-- Anthropic (claude-haiku, claude-sonnet)
-- Gemini (gemini-2.0-flash, gemini-2.5-pro)
-- Groq (llama-4-scout)
+**Planned cloud** (All platforms): Provider-based
+- OpenAI, Anthropic, Gemini, Groq
+- No hardcoded model names — users configure their preferred model per provider in settings
 - Max 2 models per provider in selection dropdown
 - Interface: `LlmProvider.chatCompletion(messages, options)`
 
@@ -744,7 +834,7 @@ Results cached — detection runs once per app lifecycle.
 
 ### Audio Safety Guard (New in 1.2.0)
 
-**Dead Mic Detection**: After recording starts, monitor audio level for `deadMicTimeout` seconds (default 3). If silence persists (peak < 0.02) → auto-stop + error notification. Once voice detected → disable guard.
+**Dead Mic Detection**: After recording starts, monitor audio level for `deadMicTimeout` seconds (default 3.0). If silence persists (peak < 0.02) → auto-stop + error notification. Once voice detected → disable guard. Implemented in `recording_orchestrator.dart`. User-configurable via Settings slider.
 
 **Auto-Stop on Silence**: After speech detected and silence returns for `autoStopSilence` seconds → auto-stop → transcribe. Default: 0 (disabled, opt-in). Configurable: 0=disabled, 2-10s.
 
@@ -809,17 +899,17 @@ Before implementing any feature that touches user data or external communication
 
 ### API Keys & Credentials
 
-- Desktop: Stored in `config.json` with file permission `0600`
-- Mobile: Stored in platform secure storage (iOS Keychain / Android Keystore)
+- All platforms: Platform-native secure storage via `secure_key_store.dart` / `FlutterSecureStorage` (Windows CredentialManager, macOS Keychain, Linux libsecret, iOS Keychain, Android Keystore) — prefixed `wp_*`
 - Never logged (not even at debug level) — log presence only: `key.isNotEmpty`
 - Never included in error messages
 - Never transmitted to unintended endpoints
 
 ### Crash Logging & Debugging
 
-- Crash reporting goes through a **Supabase Edge Function relay**, not a direct webhook
-- The client ships only the public relay URL. Secrets remain server-side in Supabase
-- Check **both** local logs AND Supabase relay when debugging
+- Crash reporting goes through **Sentry** (`sentry_flutter`) with PII sanitization and GDPR consent gate
+- The client ships the public Sentry DSN (standard practice). No secrets in client code.
+- Feedback goes through **direct Supabase PostgREST INSERT** with anon key
+- Check **both** local logs AND Sentry dashboard when debugging
 - Treat crash reports as primary evidence for root-cause analysis
 
 ### Network Security
@@ -906,25 +996,26 @@ Before every commit:
 
 ## CI/CD Pipeline
 
-### CI (`ci.yml`) — Runs on every push to dev and main
+### CI (`ci.yml`) — Runs on every push to dev/main
 
-1. **Flutter**: `flutter analyze` + `flutter test` + `flutter build` (Windows, macOS, Linux)
-2. **Secret scan**: grep for API key patterns (`sk-`, `AKIA`, `ghp_`, `password=`)
-3. Upload artifacts (14-day retention)
+1. **Windows only**: `flutter analyze --fatal-infos` + `flutter test` + `flutter build windows --debug`
+2. **Verify build**: Checks `.exe` exists and reports size
+3. **Secret scan**: grep for API key patterns (`sk-`, `AKIA`, `ghp_`, `password=`)
+4. No artifact upload — CI is validation only
 
 ### Release (`release.yml`) — Triggered by `v*` tags
 
-1. Version validation: git tag must match `AppVersion` in source
-2. Build Flutter apps (Windows MSIX, macOS DMG, Linux AppImage, Android AAB, iOS IPA)
-3. SHA256 checksum generation
-4. GitHub Release creation with all artifacts
+1. **Build Windows zip**: `flutter build windows --release` with `--dart-define` for Supabase keys
+2. **Build MSIX** (separate job, `continue-on-error: true`): `dart run msix:create --store`
+3. Extract release notes from `CHANGELOG.md`
+4. Create **draft** GitHub Release with Windows zip artifact
+5. Currently **Windows-only** — macOS/Linux/mobile release jobs are planned but not implemented
 
 ### Security Scanning
 
-- **CodeQL**: Automated on push + weekly schedule (Dart)
-- **Secret scan**: Regex patterns in CI
-- **flutter analyze**: Static analysis with all rules enabled
-- **DevSkim + gitleaks**: Multi-language security scanning
+- **CodeQL**: Automated on push + weekly schedule (**JavaScript/TypeScript** — scans Supabase Edge Functions, not Dart)
+- **Secret scan**: Regex patterns in CI job
+- **flutter analyze**: Static analysis with `--fatal-infos` (all rules enabled)
 
 ## Localization (i18n)
 
