@@ -2917,6 +2917,12 @@ abstract class L10n {
   /// **'Dark'**
   String get onboardingThemeDark;
 
+  /// No description provided for @onboardingThemeSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get onboardingThemeSystem;
+
   /// No description provided for @onboardingMicTitle.
   ///
   /// In en, this message translates to:
@@ -2974,7 +2980,7 @@ abstract class L10n {
   /// No description provided for @onboardingMicTestDone.
   ///
   /// In en, this message translates to:
-  /// **'Recording complete! Tap to play back'**
+  /// **'Microphone is working!'**
   String get onboardingMicTestDone;
 
   /// No description provided for @onboardingMicDeviceLabel.
@@ -3078,18 +3084,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Start Dictating'**
   String get onboardingStartDictating;
-
-  /// No description provided for @onboardingPrivacyLocal.
-  ///
-  /// In en, this message translates to:
-  /// **'All processing happens on your device'**
-  String get onboardingPrivacyLocal;
-
-  /// No description provided for @onboardingPrivacyBadge.
-  ///
-  /// In en, this message translates to:
-  /// **'100% Private'**
-  String get onboardingPrivacyBadge;
 
   /// No description provided for @overlayRecording.
   ///
