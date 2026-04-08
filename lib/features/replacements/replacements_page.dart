@@ -610,60 +610,17 @@ class _ReplacementsToggle extends ConsumerWidget {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value;
     final enabled = settings?.textReplacementsEnabled ?? true;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Tooltip(
       message: enabled
           ? l10n.replacementsToggleEnabled
           : l10n.replacementsToggleDisabled,
-      child: InkWell(
-        borderRadius: WpRadius.borderSm,
-        onTap: () => ref
+      child: Switch(
+        value: enabled,
+        onChanged: (v) => ref
             .read(settingsProvider.notifier)
             .updateSettings(
-                (s) => s.copyWith(textReplacementsEnabled: !enabled)),
-        child: AnimatedContainer(
-          duration: WpMotion.fast,
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.xs,
-          ),
-          decoration: BoxDecoration(
-            color: enabled
-                ? (isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle)
-                : Colors.transparent,
-            borderRadius: WpRadius.borderSm,
-            border: Border.all(
-              color: enabled
-                  ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
-                      .withValues(alpha: 0.3)
-                  : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                enabled ? LucideIcons.toggleRight : LucideIcons.toggleLeft,
-                size: WpIconSize.sm,
-                color: enabled
-                    ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
-                    : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted),
-              ),
-              const SizedBox(width: WpSpacing.xs),
-              Text(
-                enabled ? l10n.settingsOn : l10n.settingsOff,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  color: enabled
-                      ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
-                      : (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted),
-                ),
-              ),
-            ],
-          ),
-        ),
+                (s) => s.copyWith(textReplacementsEnabled: v)),
       ),
     );
   }
