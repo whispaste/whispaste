@@ -148,6 +148,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
       return;
     }
     _stuckGuard?.cancel();
+    _log.debug('Phase ${state.phase} → done (text: ${text.length} chars)');
     state = state.copyWith(phase: RecordingPhase.done, transcript: text);
   }
 
@@ -174,8 +175,10 @@ class RecordingNotifier extends Notifier<RecordingState> {
 
   /// Reset from any phase → idle.
   void reset() {
+    final prevPhase = state.phase;
     _cancelTimer();
     _stuckGuard?.cancel();
+    _log.debug('Phase $prevPhase → idle (reset)');
     state = const RecordingState();
   }
 

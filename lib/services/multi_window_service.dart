@@ -119,7 +119,9 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         // is readable. The pill holds for 3s, then we hide the window.
         if (next.phase == RecordingPhase.idle && state.overlayVisible) {
           _overlayDismissTimer?.cancel();
+          _log.debug('Scheduling overlay dismiss in 4s (state → idle)');
           _overlayDismissTimer = Timer(const Duration(seconds: 4), () {
+            _log.debug('Overlay dismiss timer fired (visible=${state.overlayVisible})');
             if (state.overlayVisible) hideOverlay();
           });
         }
@@ -436,7 +438,13 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     required String target,
   }) async {
     try {
-      await controller.invokeMethod('hideWindow');
+      await controller.invokeMethod('hideWindow').timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          _log.warning('invokeMethod(hideWindow) timed out for $target (3s)');
+          return null;
+        },
+      );
     } catch (e) {
       _log.warning('hideWindow failed for $target window: $e');
     }
@@ -592,9 +600,12 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     final ctrl = _overlayController;
     if (ctrl == null) return;
     state = state.copyWith(overlayVisible: false);
-    _log.info('Floating overlay hidden');
     try {
-      await _hideSecondaryWindow(ctrl, target: 'overlay');
+      await _hideSecondaryWindow(ctrl, target: 'overlay')
+          .timeout(const Duration(seconds: 5), onTimeout: () {
+        _log.warning('hideOverlay: _hideSecondaryWindow timed out (5s)');
+      });
+      _log.info('Floating overlay hidden');
     } catch (e) {
       _log.warning('Overlay hide() failed (may already be closed)', e);
       _overlayController = null;

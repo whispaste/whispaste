@@ -24,6 +24,10 @@ class SoundFeedbackService extends Notifier<void> {
   /// Preloaded audio sources keyed by asset name.
   final Map<String, AudioSource> _sources = {};
 
+  /// Track active sound handles to prevent voice pool accumulation.
+  final List<SoundHandle> _activeHandles = [];
+  static const _maxTrackedHandles = 16;
+
   @override
   void build() {
     // Lazy init — engine starts on first sound request.
@@ -110,15 +114,47 @@ class SoundFeedbackService extends Notifier<void> {
         _log.warning('No preloaded source for $assetName');
         return;
       }
-      _engine.play(source, volume: _volume);
+      // Prune finished handles to prevent accumulation.
+      _pruneHandles();
+      final handle = _engine.play(source, volume: _volume);
+      _activeHandles.add(handle);
       _log.debug('Playing $assetName (vol=${_volume.toStringAsFixed(2)})');
     } catch (e) {
       _log.warning('Sound playback error ($assetName): $e');
     }
   }
 
+  /// Remove completed sound handles; stop oldest if pool is full.
+  void _pruneHandles() {
+    try {
+      _activeHandles.removeWhere((h) {
+        try {
+          return !_engine.getIsValidVoiceHandle(h);
+        } catch (_) {
+          return true;
+        }
+      });
+      // If still over limit, stop the oldest handles.
+      while (_activeHandles.length >= _maxTrackedHandles) {
+        try {
+          _engine.stop(_activeHandles.removeAt(0));
+        } catch (_) {}
+      }
+    } catch (e) {
+      _log.debug('Handle prune error: $e');
+      _activeHandles.clear();
+    }
+  }
+
   void _dispose() {
     if (_initialized && _engine.isInitialized) {
+      // Stop all tracked handles first.
+      for (final handle in _activeHandles) {
+        try {
+          _engine.stop(handle);
+        } catch (_) {}
+      }
+      _activeHandles.clear();
       for (final source in _sources.values) {
         try {
           _engine.disposeSource(source);
