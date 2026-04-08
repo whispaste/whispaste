@@ -229,6 +229,24 @@ bool isServerBinaryCompatible(String sttDirPath, GpuInfo gpu) {
       );
       return false;
     }
+
+    // --- Layer 3: Vulkan DLL heuristic --------------------------------------
+    // Vulkan binaries always include ggml-vulkan.dll. If the GPU needs
+    // Vulkan but the DLL is absent, the binary is a CPU-only build.
+    // This catches the case where .server-info.json is missing (e.g. legacy
+    // download) and the binary was fetched from upstream CPU/BLAS.
+    if (gpu.optimalBackend == 'vulkan') {
+      final hasVulkanDll =
+          File(p.join(sttDirPath, 'ggml-vulkan.dll')).existsSync();
+      if (!hasVulkanDll) {
+        _log.warning(
+          'Sub-optimal binary: no ggml-vulkan.dll but GPU needs Vulkan '
+          'backend (${gpu.name}). Binary needs re-download for GPU '
+          'acceleration.',
+        );
+        return false;
+      }
+    }
   }
 
   return true;
