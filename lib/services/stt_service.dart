@@ -651,6 +651,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       '--no-timestamps',
     ];
 
+    // Benchmark: baseline_t0_explicit (no VAD) is most reliable for short
+    // dictations. VAD can swallow leading silence or clip quiet speech.
+    args.add('--no-vad');
+
     final useGpu = _shouldUseGpu(gpuMode);
     if (!useGpu) {
       args.add('--no-gpu');

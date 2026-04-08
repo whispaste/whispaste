@@ -38,8 +38,11 @@ final _screenshots = <_ScreenDef>[
   _ScreenDef(
     name: '01_history',
     builder: () => const HistoryPage(),
-    // HistoryPage's master-detail AnimationController leaves a pending ticker.
-    skip: 'Pending timer from AnimationController — needs fake async wrapper',
+    // HistoryPage's master-detail AnimationController ticker stays alive
+    // after screenshot capture. golden_screenshot enforces !timersPending
+    // internally, so this test must be skipped until a FakeAsync wrapper
+    // is added. Use capture-store-screenshots.py for marketing screenshots.
+    skip: true,
   ),
   _ScreenDef(
     name: '02_settings',
@@ -79,7 +82,7 @@ void _screenshotTest(_ScreenDef screen) {
     for (final goldenDevice in _devices) {
       testGoldens(
         goldenDevice.name,
-        skip: screen.skip != null,
+        skip: screen.skip,
         (tester) async {
           final device = goldenDevice.device;
           final app =
@@ -88,7 +91,7 @@ void _screenshotTest(_ScreenDef screen) {
           // 1. Pump the widget tree first.
           await tester.pumpWidget(app);
 
-          // 2. Load fonts (discovers 'Segoe UI' in tree → replaces with Inter)
+          // 2. Load fonts (discovers 'Segoe UI' in tree -> replaces with Inter)
           //    and precache images.
           await tester.loadAssets();
 
@@ -145,10 +148,14 @@ Widget _buildScreenshotApp({
 }
 
 class _ScreenDef {
-  const _ScreenDef({required this.name, required this.builder, this.skip});
+  const _ScreenDef({
+    required this.name,
+    required this.builder,
+    this.skip = false,
+  });
   final String name;
   final Widget Function() builder;
-  final String? skip;
+  final bool skip;
 }
 
 // ---------------------------------------------------------------------------
