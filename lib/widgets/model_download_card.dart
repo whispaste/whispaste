@@ -149,8 +149,8 @@ class _TierRow extends StatefulWidget {
 class _TierRowState extends State<_TierRow> {
   bool _isHovered = false;
 
-  bool get _isDownloaded => modelsForTier(widget.tier)
-      .any((m) => widget.downloadState.downloadedModels.contains(m.id));
+  bool get _isDownloaded => widget.downloadState.downloadedModels
+      .contains(bestModelForTier(widget.tier).id);
 
   bool get _isActive =>
       widget.downloadState.activeModelId != null &&
