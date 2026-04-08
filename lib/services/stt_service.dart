@@ -226,7 +226,8 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     final lang = language ?? 'auto';
 
     _log.info(
-      'STT inference: port=${state.port} wavBytes=${wavBytes.length} lang=$lang',
+      'STT inference: port=${state.port} model=${state.modelId} '
+      'wavBytes=${wavBytes.length} lang=$lang',
     );
     final stopwatch = Stopwatch()..start();
 
@@ -488,7 +489,8 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     );
 
     _log.info(
-      'Starting whisper-server: threads=$threads gpu=$gpuAcceleration port=$port',
+      'Starting whisper-server: model=$modelId threads=$threads '
+      'gpu=$gpuAcceleration port=$port',
     );
     _log.info('Command: $serverPath ${args.join(' ')}');
 
@@ -585,7 +587,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     _log.info(
       'STT cold start completed in ${coldStart.elapsedMilliseconds}ms '
-      'on port $port',
+      'on port $port (model=$modelId)',
     );
 
     // GPU warmup: send a tiny silent WAV to pre-allocate compute buffers.
