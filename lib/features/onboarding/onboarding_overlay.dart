@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
@@ -96,35 +97,12 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       child: Stack(
         children: [
           // -- Frosted glass backdrop ----------------------------------------
-          // Leave the title bar area (top 64px) passthrough so the window
-          // can still be dragged via WpTitleBar's onPanStart handler.
+          // The entire overlay is draggable so users can move the window
+          // during onboarding (title bar is hidden behind the overlay).
           Positioned.fill(
-            child: Column(
-              children: [
-                // Title bar passthrough zone — gestures reach WpTitleBar
-                const SizedBox(height: WpLayout.appBarHeight),
-                // Barrier + blur below the title bar
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {},
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: ColoredBox(
-                        color: Colors.black.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Apply blur to the title bar zone too (visual only, no gesture block)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: WpLayout.appBarHeight,
-            child: IgnorePointer(
+            child: GestureDetector(
+              onTap: () {},
+              onPanStart: (_) => windowManager.startDragging(),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                 child: ColoredBox(
