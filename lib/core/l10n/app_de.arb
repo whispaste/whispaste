@@ -351,6 +351,10 @@
   "feedbackRatingOkay": "Okay",
   "feedbackRatingHappy": "Zufrieden",
   "feedbackRatingLoveIt": "Liebe es!",
+  "feedbackSubmitting": "Wird gesendet…",
+  "feedbackErrorRateLimited": "Du hast kürzlich bereits Feedback gesendet. Bitte versuche es später erneut.",
+  "feedbackErrorNetwork": "Verbindung zum Server fehlgeschlagen. Bitte prüfe deine Internetverbindung.",
+  "feedbackErrorServer": "Etwas ist schiefgelaufen. Bitte versuche es später erneut.",
 
   "statusBarOnDevice": "Auf dem Gerät",
   "statusBarPostProcessing": "Nachbearbeitung",

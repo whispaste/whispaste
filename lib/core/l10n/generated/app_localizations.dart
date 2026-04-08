@@ -2059,6 +2059,30 @@ abstract class L10n {
   /// **'Love it!'**
   String get feedbackRatingLoveIt;
 
+  /// No description provided for @feedbackSubmitting.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending…'**
+  String get feedbackSubmitting;
+
+  /// No description provided for @feedbackErrorRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'You already sent feedback recently. Please try again later.'**
+  String get feedbackErrorRateLimited;
+
+  /// No description provided for @feedbackErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not connect to the server. Please check your internet connection.'**
+  String get feedbackErrorNetwork;
+
+  /// No description provided for @feedbackErrorServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again later.'**
+  String get feedbackErrorServer;
+
   /// No description provided for @statusBarOnDevice.
   ///
   /// In en, this message translates to:
