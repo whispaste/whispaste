@@ -681,11 +681,11 @@ class L10nDe extends L10n {
   }
 
   @override
-  String get onboardingWelcome => 'Willkommen bei WhisPaste';
+  String get onboardingWelcome => 'Einmal sprechen. Überall einfügen.';
 
   @override
   String get onboardingWelcomeHint =>
-      'Verwandle deine Stimme in Text — schnell, privat und überall einfügbar.';
+      'WhisPaste verwandelt schnelle Gedanken in klaren Text für Nachrichten, Mails, Notizen und Kommentare.';
 
   @override
   String get feedbackTitle => 'Feedback senden';
@@ -1080,6 +1080,21 @@ class L10nDe extends L10n {
 
   @override
   String get feedbackRatingLoveIt => 'Liebe es!';
+
+  @override
+  String get feedbackSubmitting => 'Wird gesendet…';
+
+  @override
+  String get feedbackErrorRateLimited =>
+      'Du hast kürzlich bereits Feedback gesendet. Bitte versuche es später erneut.';
+
+  @override
+  String get feedbackErrorNetwork =>
+      'Verbindung zum Server fehlgeschlagen. Bitte prüfe deine Internetverbindung.';
+
+  @override
+  String get feedbackErrorServer =>
+      'Etwas ist schiefgelaufen. Bitte versuche es später erneut.';
 
   @override
   String get statusBarOnDevice => 'Auf dem Gerät';
@@ -1581,7 +1596,7 @@ class L10nDe extends L10n {
       'Beim Start automatisch nach neuen Versionen suchen';
 
   @override
-  String get onboardingGetStarted => 'Los geht\'s';
+  String get onboardingGetStarted => 'Weiter';
 
   @override
   String get onboardingSkip => 'Überspringen';
@@ -1596,16 +1611,6 @@ class L10nDe extends L10n {
   String onboardingStepOf(int current, int total) {
     return 'Schritt $current von $total';
   }
-
-  @override
-  String get onboardingLanguageTitle => 'Sprache wählen';
-
-  @override
-  String get onboardingLanguageSubtitle =>
-      'Du kannst die Sprache jederzeit in den Einstellungen ändern';
-
-  @override
-  String get onboardingThemeTitle => 'Design wählen';
 
   @override
   String get onboardingThemeLight => 'Hell';

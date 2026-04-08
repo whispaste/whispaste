@@ -226,7 +226,8 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     final lang = language ?? 'auto';
 
     _log.info(
-      'STT inference: port=${state.port} wavBytes=${wavBytes.length} lang=$lang',
+      'STT inference: port=${state.port} model=${state.modelId} '
+      'wavBytes=${wavBytes.length} lang=$lang',
     );
     final stopwatch = Stopwatch()..start();
 
@@ -478,6 +479,23 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     final gpu = await hw.detectGpu();
     _log.info('GPU: ${gpu.name} (${gpu.vendor.name}, backend=${gpu.optimalBackend})');
 
+    // --- Proactive binary compatibility check --------------------------------
+    // Verify the server binary matches the current GPU before attempting to
+    // start it. This catches hardware changes (e.g., new GPU, driver update)
+    // that would otherwise cause a DLL_NOT_FOUND crash at startup.
+    if (!hw.isServerBinaryCompatible(sttDir(), gpu)) {
+      _log.error(
+        'Proactive check: server binary incompatible with current GPU. '
+        'Deleting for re-download.',
+      );
+      await hw.deleteServerBinary(sttDir());
+      _fail(
+        'Incompatible whisper-server for your GPU (${gpu.name}). '
+        'Please re-download the speech model in Settings.',
+      );
+      return;
+    }
+
     // --- Build args (mirrors Go's sttServerArgs) -----------------------------
     final threads = _threadCount(gpuAcceleration);
     final args = _serverArgs(
@@ -488,7 +506,8 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     );
 
     _log.info(
-      'Starting whisper-server: threads=$threads gpu=$gpuAcceleration port=$port',
+      'Starting whisper-server: model=$modelId threads=$threads '
+      'gpu=$gpuAcceleration port=$port',
     );
     _log.info('Command: $serverPath ${args.join(' ')}');
 
@@ -585,7 +604,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     _log.info(
       'STT cold start completed in ${coldStart.elapsedMilliseconds}ms '
-      'on port $port',
+      'on port $port (model=$modelId)',
     );
 
     // GPU warmup: send a tiny silent WAV to pre-allocate compute buffers.

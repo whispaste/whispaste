@@ -248,8 +248,8 @@
       }
     }
   },
-  "onboardingWelcome": "Welcome to WhisPaste",
-  "onboardingWelcomeHint": "Turn your voice into text — fast, private, and ready to paste anywhere.",
+  "onboardingWelcome": "Speak it once. Paste it anywhere.",
+  "onboardingWelcomeHint": "WhisPaste turns quick thoughts into clean text for messages, emails, notes, and comments.",
   "feedbackTitle": "Send Feedback",
   "feedbackHint": "Tell us what you think — we read every message.",
 
@@ -405,6 +405,10 @@
   "feedbackRatingOkay": "Okay",
   "feedbackRatingHappy": "Happy",
   "feedbackRatingLoveIt": "Love it!",
+  "feedbackSubmitting": "Sending…",
+  "feedbackErrorRateLimited": "You already sent feedback recently. Please try again later.",
+  "feedbackErrorNetwork": "Could not connect to the server. Please check your internet connection.",
+  "feedbackErrorServer": "Something went wrong. Please try again later.",
 
   "statusBarOnDevice": "On device",
   "statusBarPostProcessing": "Post-Processing",
@@ -573,15 +577,12 @@
   "settingsCheckUpdates": "Check for Updates",
   "settingsCheckUpdatesSubtitle": "Automatically check for new versions on startup",
 
-  "onboardingGetStarted": "Get Started",
+  "onboardingGetStarted": "Continue",
   "onboardingSkip": "Skip",
   "onboardingNext": "Next",
   "onboardingBack": "Back",
   "onboardingStepOf": "Step {current} of {total}",
   "@onboardingStepOf": { "placeholders": { "current": { "type": "int" }, "total": { "type": "int" } } },
-  "onboardingLanguageTitle": "Choose Your Language",
-  "onboardingLanguageSubtitle": "You can change this later in Settings",
-  "onboardingThemeTitle": "Pick Your Theme",
   "onboardingThemeLight": "Light",
   "onboardingThemeDark": "Dark",
   "onboardingThemeSystem": "System",

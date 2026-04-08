@@ -17,6 +17,7 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/data/database.dart';
 import '../core/recording/recording_state.dart';
+import '../features/analytics/analytics_provider.dart';
 import 'audio_service.dart';
 import 'path_service.dart';
 import 'sound_feedback_service.dart';
@@ -415,6 +416,9 @@ class RecordingOrchestrator extends Notifier<void> {
     );
 
     _log.info('Saved entry $id to history');
+
+    // Refresh analytics dashboard so counters update immediately.
+    ref.invalidate(analyticsProvider);
   }
 
   void _cancelAmplitude() {
