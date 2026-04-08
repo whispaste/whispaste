@@ -1074,6 +1074,21 @@ class L10nEn extends L10n {
   String get feedbackRatingLoveIt => 'Love it!';
 
   @override
+  String get feedbackSubmitting => 'Sending…';
+
+  @override
+  String get feedbackErrorRateLimited =>
+      'You already sent feedback recently. Please try again later.';
+
+  @override
+  String get feedbackErrorNetwork =>
+      'Could not connect to the server. Please check your internet connection.';
+
+  @override
+  String get feedbackErrorServer =>
+      'Something went wrong. Please try again later.';
+
+  @override
   String get statusBarOnDevice => 'On device';
 
   @override
