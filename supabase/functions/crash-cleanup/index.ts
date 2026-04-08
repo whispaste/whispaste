@@ -45,10 +45,15 @@ Deno.serve(async (req) => {
 
   // Fetch channel info only for actions that need it (after auth)
   const whResp = await fetch("https://discord.com/api/v10/webhooks/" + whId + "/" + whToken);
+  if (!whResp.ok) {
+    return json({ error: "webhook_fetch_failed", status: whResp.status }, 502);
+  }
   const whInfo = await whResp.json();
   const channelId = whInfo.channel_id;
 
   if (action === "list") {
+    // NOTE: Listing channel messages requires a Discord Bot token, not a webhook token.
+    // This action is best-effort — it will fail if only a webhook URL is configured.
     const rawLimit = url.searchParams.get("limit") || "50";
     const limit = Math.min(Math.max(1, parseInt(rawLimit, 10) || 50), 100);
     
@@ -64,8 +69,8 @@ Deno.serve(async (req) => {
 
     return json({
       error: "cannot_list_messages",
-      hint: "Need Discord Bot token to list channel messages."
-    }, 403);
+      hint: "Listing messages requires a Discord Bot token. Webhook tokens cannot access channel history."
+    }, 501);
   }
 
   if (action === "delete") {
@@ -89,8 +94,8 @@ Deno.serve(async (req) => {
     if (!hash || !/^[a-f0-9]{64}$/.test(hash)) {
       return json({ error: "invalid hash — must be 64-char hex" }, 400);
     }
-    // Validate version: must be semver-like
-    if (!version || !/^v?\d+\.\d+\.\d+/.test(version)) {
+    // Validate version: must be semver-like (strict boundary)
+    if (!version || !/^v?\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/.test(version)) {
       return json({ error: "invalid version — must be semver format" }, 400);
     }
 
