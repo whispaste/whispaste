@@ -1248,6 +1248,10 @@ class L10nEn extends L10n {
       'Speech engine not found. Please download a speech model in Settings.';
 
   @override
+  String get errorOnboardingNotCompleted =>
+      'Please complete the setup wizard first.';
+
+  @override
   String get errorSttModelNotFound =>
       'Speech model not found. Please download it in Settings.';
 

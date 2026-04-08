@@ -328,6 +328,12 @@ class RecordingOrchestrator extends Notifier<void> {
     final settings =
         ref.read(settingsProvider).value ?? AppSettings.defaults;
 
+    // Block recording while onboarding is active.
+    if (!settings.onboardingCompleted) {
+      _log.warning('Preflight FAIL: onboarding not completed');
+      return 'onboarding_not_completed';
+    }
+
     // Ensure STT directory exists.
     final dir = Directory(sttDir());
     if (!dir.existsSync()) {

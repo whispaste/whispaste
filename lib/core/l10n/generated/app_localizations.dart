@@ -2401,6 +2401,12 @@ abstract class L10n {
   /// **'Speech engine not found. Please download a speech model in Settings.'**
   String get errorSttServerNotFound;
 
+  /// No description provided for @errorOnboardingNotCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Please complete the setup wizard first.'**
+  String get errorOnboardingNotCompleted;
+
   /// No description provided for @errorSttModelNotFound.
   ///
   /// In en, this message translates to:
