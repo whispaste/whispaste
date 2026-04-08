@@ -139,6 +139,10 @@ class SoundFeedbackService extends Notifier<void> {
       _log.debug('Playing $assetName (vol=${_volume.toStringAsFixed(2)})');
     } catch (e) {
       _log.warning('Sound playback error ($assetName): $e');
+      // Invalidate cached state so the next call forces a full re-init.
+      _initialized = false;
+      _sources.clear();
+      _activeHandles.clear();
     }
   }
 
@@ -165,26 +169,24 @@ class SoundFeedbackService extends Notifier<void> {
   }
 
   void _dispose() {
-    if (_initialized && _engine.isInitialized) {
-      // Stop all tracked handles first.
-      for (final handle in _activeHandles) {
-        try {
-          _engine.stop(handle);
-        } catch (_) {}
-      }
-      _activeHandles.clear();
-      for (final source in _sources.values) {
-        try {
-          _engine.disposeSource(source);
-        } catch (_) {}
-      }
-      _sources.clear();
+    // Stop tracked handles and dispose loaded sources.
+    for (final handle in _activeHandles) {
       try {
-        _engine.deinit();
+        _engine.stop(handle);
       } catch (_) {}
-      _initialized = false;
-      _log.info('SoLoud engine disposed');
     }
+    _activeHandles.clear();
+    for (final source in _sources.values) {
+      try {
+        _engine.disposeSource(source);
+      } catch (_) {}
+    }
+    _sources.clear();
+    _initialized = false;
+    // Do NOT deinit the singleton SoLoud engine — it persists across
+    // provider rebuilds. Calling deinit() here and init() in a new
+    // instance can corrupt the temp-dir, causing preload failures.
+    _log.info('SoLoud sources disposed (engine kept alive)');
   }
 }
 

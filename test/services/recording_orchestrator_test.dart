@@ -15,6 +15,7 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/audio_service.dart';
+import 'package:whispaste/services/path_service.dart' show sttDirOverride;
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/stt_service.dart';
 
@@ -180,6 +181,10 @@ void main() {
   late File wavFile;
 
   setUp(() async {
+    // Isolate preflight checks from the real filesystem by pointing
+    // sttDir at an empty scratch directory — no server binary exists here.
+    sttDirOverride = _scratchDir.path;
+
     // Create a fake WAV file the orchestrator can read.
     wavFile = createFakeWav(
       'test_audio_${DateTime.now().millisecondsSinceEpoch}.wav',
@@ -215,6 +220,7 @@ void main() {
   });
 
   tearDown(() {
+    sttDirOverride = null;
     container.dispose();
     if (wavFile.existsSync()) {
       try {
