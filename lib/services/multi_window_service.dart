@@ -184,6 +184,19 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
           _shutdownOverlay();
         }
       });
+
+      // ── Overlay start position live update ──
+      final prevPos = prev?.value?.overlayStartPositionType;
+      if (prevPos != null &&
+          prevPos != settings.overlayStartPositionType &&
+          state.overlayVisible &&
+          _overlayController != null) {
+        _log.info(
+          'Settings → overlay position changed: $prevPos → '
+          '${settings.overlayStartPositionType}',
+        );
+        _repositionOverlay(settings.overlayStartPositionType, settings);
+      }
     });
 
     ref.onDispose(() {
@@ -601,6 +614,42 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         'Floating overlay creation failed — '
         'in-window overlay will be used as fallback',
       );
+    }
+  }
+
+  /// Re-sends the position to an already-visible overlay window.
+  Future<void> _repositionOverlay(
+    OverlayStartPosition pos,
+    AppSettings settings,
+  ) async {
+    final ctrl = _overlayController;
+    if (ctrl == null) return;
+
+    String? posArgs;
+    switch (pos) {
+      case OverlayStartPosition.lastPosition:
+        if (settings.floatingOverlayX >= 0) {
+          posArgs = jsonEncode({
+            'x': settings.floatingOverlayX,
+            'y': settings.floatingOverlayY,
+          });
+        }
+      case OverlayStartPosition.topCenter:
+        posArgs = jsonEncode({'align': 'top-center'});
+      case OverlayStartPosition.bottomCenter:
+        posArgs = jsonEncode({'align': 'bottom-center'});
+    }
+
+    try {
+      await _showSecondaryWindow(
+        ctrl,
+        target: 'overlay',
+        assertTopmost: true,
+        arguments: posArgs,
+      );
+      _log.info('Overlay repositioned to $pos');
+    } catch (e) {
+      _log.warning('Failed to reposition overlay', e);
     }
   }
 

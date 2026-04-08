@@ -128,8 +128,8 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                 Padding(
                   padding: const EdgeInsets.only(right: WpSpacing.xs, top: 10),
                   child: SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 24,
+                    height: 24,
                     child: Checkbox(
                       value: widget.isChecked,
                       onChanged: (_) => widget.onTap(),

@@ -4,6 +4,7 @@
 /// An inline text field sits among the chips for immediate typing.
 /// Supports comma-separated entry, Enter to confirm, Backspace to
 /// remove last tag, and "+N more" collapse when many tags exist.
+/// A "Create" row appears when the typed text is novel.
 library;
 
 import 'dart:math' show max;
@@ -13,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/data/database.dart';
+import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
@@ -148,6 +150,17 @@ class WpTagInputState extends State<WpTagInput> {
         .toList();
   }
 
+  /// Whether the current input text is a novel tag (not matching any existing
+  /// suggestion and not already assigned).
+  bool get _canCreateNewTag {
+    final query = _controller.text.trim().toLowerCase();
+    if (query.isEmpty) return false;
+    if (widget.tags.any((t) => t.name == query)) return false;
+    // Check if any suggestion matches exactly.
+    if (widget.suggestions.any((t) => t.name == query)) return false;
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
@@ -163,6 +176,7 @@ class WpTagInputState extends State<WpTagInput> {
     final borderCol = widget.isDark
         ? WpColorsDark.borderSubtle
         : WpColorsLight.borderSubtle;
+    final l10n = L10n.of(context);
 
     // Collapse tags when not editing.
     final visibleTags = _isAddMode
@@ -170,6 +184,10 @@ class WpTagInputState extends State<WpTagInput> {
         : widget.tags.take(_kMaxVisibleTags).toList();
     final hiddenCount =
         _isAddMode ? 0 : max(0, widget.tags.length - _kMaxVisibleTags);
+
+    final suggestions = _filteredSuggestions;
+    final showCreate = _isAddMode && _canCreateNewTag;
+    final showDropdown = _isAddMode && (suggestions.isNotEmpty || showCreate);
 
     return TapRegion(
       onTapOutside: _isAddMode ? (_) => _closeAddMode() : null,
@@ -211,8 +229,8 @@ class WpTagInputState extends State<WpTagInput> {
             ],
           ),
 
-          // ── Suggestions dropdown ──
-          if (_isAddMode && _filteredSuggestions.isNotEmpty)
+          // ── Suggestions + Create dropdown ──
+          if (showDropdown)
             Padding(
               padding: const EdgeInsets.only(top: WpSpacing.xxs),
               child: Container(
@@ -223,20 +241,27 @@ class WpTagInputState extends State<WpTagInput> {
                   border: Border.all(color: borderCol),
                   boxShadow: WpShadows.card,
                 ),
-                child: ListView.builder(
+                child: ListView(
                   shrinkWrap: true,
                   padding:
                       const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
-                  itemCount: _filteredSuggestions.length,
-                  itemBuilder: (_, i) {
-                    final tag = _filteredSuggestions[i];
-                    return _SuggestionTile(
-                      tag: tag,
-                      isDark: widget.isDark,
-                      count: widget.suggestionCounts[tag.id],
-                      onTap: () => _selectSuggestion(tag),
-                    );
-                  },
+                  children: [
+                    for (final tag in suggestions)
+                      _SuggestionTile(
+                        tag: tag,
+                        isDark: widget.isDark,
+                        count: widget.suggestionCounts[tag.id],
+                        onTap: () => _selectSuggestion(tag),
+                      ),
+                    if (showCreate)
+                      _CreateTagTile(
+                        text: _controller.text.trim().toLowerCase(),
+                        isDark: widget.isDark,
+                        label: l10n.historyCreateTag(
+                            _controller.text.trim().toLowerCase()),
+                        onTap: () => _submit(_controller.text),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -252,9 +277,9 @@ class WpTagInputState extends State<WpTagInput> {
     required Color accent,
     required Color borderCol,
   }) {
-    return SizedBox(
-      width: 140,
-      height: 30,
+    final hasText = _controller.text.trim().isNotEmpty;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 80, maxWidth: 200),
       child: TextField(
         controller: _controller,
         focusNode: _focusNode,
@@ -269,6 +294,21 @@ class WpTagInputState extends State<WpTagInput> {
             horizontal: WpSpacing.xs,
             vertical: WpSpacing.xxs,
           ),
+          suffixIcon: hasText
+              ? GestureDetector(
+                  onTap: () => _submit(_controller.text),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 2),
+                    child: Icon(
+                      LucideIcons.cornerDownLeft,
+                      size: 14,
+                      color: textMuted,
+                    ),
+                  ),
+                )
+              : null,
+          suffixIconConstraints:
+              const BoxConstraints(maxWidth: 32, maxHeight: 32),
           border: UnderlineInputBorder(
             borderSide: BorderSide(color: borderCol),
           ),
@@ -565,6 +605,78 @@ class _SuggestionTileState extends State<_SuggestionTile> {
                     color: textPrimary.withValues(alpha: 0.4),
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// "Create" tile -- shown when typed text is novel
+// ---------------------------------------------------------------------------
+
+class _CreateTagTile extends StatefulWidget {
+  const _CreateTagTile({
+    required this.text,
+    required this.isDark,
+    required this.label,
+    required this.onTap,
+  });
+
+  final String text;
+  final bool isDark;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  State<_CreateTagTile> createState() => _CreateTagTileState();
+}
+
+class _CreateTagTileState extends State<_CreateTagTile> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final textPrimary = widget.isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: WpMotion.fast,
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.sm,
+          ),
+          color: _isHovered ? hoverBg : Colors.transparent,
+          child: Row(
+            children: [
+              Icon(
+                LucideIcons.plus,
+                size: WpIconSize.sm,
+                color: accent,
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
