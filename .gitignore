@@ -39,7 +39,21 @@ website/.astro/
 # Supabase
 supabase/.temp/
 
-# AI agent / skill config (local only — NEVER push to GitHub)
+# ┌─────────────────────────────────────────────────────────────────────┐
+# │  PROTECTED PATHS — DO NOT MODIFY THIS SECTION                      │
+# │  These entries protect internal files from being pushed to GitHub.  │
+# │  The pre-commit hook enforces this section cannot be weakened.      │
+# │  Any change to lines between PROTECTED-START and PROTECTED-END     │
+# │  will be rejected by the hook.                                     │
+# ├─────────────────────────────────────────────────────────────────────┤
+# │  PROTECTED-START                                                    │
+# ├─────────────────────────────────────────────────────────────────────┤
+
+# Internal files — blanket ignore (NEVER track contents)
+.internal/
+docs/
+
+# AI agent / skill config (local only)
 skills-lock.json
 skills.yaml
 .github/copilot-instructions.md
@@ -48,29 +62,25 @@ skills.yaml
 .agents/
 .claude/
 
-# Internal docs (local only)
-docs/AMBOSS_PROJECT_PLAN.md
-docs/SUPABASE-SETUP.md
-docs/STORE-SUBMISSION-GUIDE.md
-docs/competitive-gap-analysis.md
-docs/deep-research-report.md
-docs/seo-guide.md
-docs/video-script.md
-
 # Internal dev tools (local only)
 cmd/
 scripts/*
+!scripts/git-hooks/
 !scripts/generate-release-notes.ps1
 !scripts/security-scan.ps1
 !scripts/store-screenshots.py
 !scripts/capture-store-screenshots.py
 !scripts/premium-screenshots.py
 
-# Internal docs (local only)
+# Internal website files
 website/design-system/
 website/SEARCH-CONSOLE-SETUP.md
 website/test-results/
 wack-report.xml
+
+# ├─────────────────────────────────────────────────────────────────────┤
+# │  PROTECTED-END                                                      │
+# └─────────────────────────────────────────────────────────────────────┘
 
 # Screenshots (local output only — golden test sources are tracked)
 screenshots/
