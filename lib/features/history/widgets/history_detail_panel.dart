@@ -684,10 +684,13 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                 message: l10n.historyEditTranscript,
                                 waitDuration: const Duration(milliseconds: 600),
                                 child: GestureDetector(
+                                  onTap: isTrashView ? null : _toggleEdit,
                                   onDoubleTap: isTrashView ? null : _toggleEdit,
                                   behavior: HitTestBehavior.translucent,
                                   child: MouseRegion(
-                                    cursor: SystemMouseCursors.text,
+                                    cursor: isTrashView
+                                        ? SystemMouseCursors.basic
+                                        : SystemMouseCursors.click,
                                     child: SelectableText(
                                       entry.content,
                                       style: TextStyle(
