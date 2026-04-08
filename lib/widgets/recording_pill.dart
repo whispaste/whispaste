@@ -115,7 +115,7 @@ class _RecordingPillState extends State<RecordingPill>
     with TickerProviderStateMixin {
   // Waveform level history buffer (scrolling bars).
   final List<double> _levelHistory = [];
-  static const int _maxLevelHistory = 24;
+  static const int _maxLevelHistory = 30;
 
   // Pulsing red dot animation.
   late final AnimationController _pulseController;
@@ -349,11 +349,11 @@ class _RecordingPillState extends State<RecordingPill>
   Widget _buildPillInterior(BorderRadius pillRadius) {
     final bgColor = widget.showBackdropFilter
         ? (_isDark
-            ? const Color(0xD9141926)
-            : const Color(0xD9F0F3F7))
+            ? const Color(0xCC141926) // ~80% opacity
+            : const Color(0xCCF0F3F7))
         : (_isDark
-            ? WpColorsDark.background.withValues(alpha: 0.92)
-            : WpColorsLight.background.withValues(alpha: 0.92));
+            ? WpColorsDark.background.withValues(alpha: 0.85)
+            : WpColorsLight.background.withValues(alpha: 0.85));
 
     Widget interior = DecoratedBox(
       decoration: BoxDecoration(
@@ -366,7 +366,7 @@ class _RecordingPillState extends State<RecordingPill>
           Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.md,
-              vertical: WpSpacing.xs,
+              vertical: WpSpacing.sm,
             ),
             child: _buildContent(context),
           ),
@@ -422,7 +422,7 @@ class _RecordingPillState extends State<RecordingPill>
               onPressed: widget.onCancel!,
             ),
           ),
-        const SizedBox(width: WpSpacing.xs),
+        const SizedBox(width: WpSpacing.sm),
 
         // -- Inline privacy badge ---
         if (showBadges) _buildInlinePrivacyBadge(),
@@ -445,7 +445,7 @@ class _RecordingPillState extends State<RecordingPill>
 
         // -- Right: stop button ---
         if (showStop && widget.onStop != null) ...[
-          const SizedBox(width: WpSpacing.xs),
+          const SizedBox(width: WpSpacing.sm),
           _PillStopButton(onPressed: widget.onStop!),
         ],
       ],
@@ -519,7 +519,7 @@ class _RecordingPillState extends State<RecordingPill>
             child: Text(_formatDuration(widget.elapsed)),
           ),
         ),
-        const SizedBox(width: WpSpacing.sm),
+        const SizedBox(width: WpSpacing.md),
 
         // Waveform bars.
         WpWaveformBars(
@@ -527,7 +527,7 @@ class _RecordingPillState extends State<RecordingPill>
           barCount: _maxLevelHistory,
           height: 24,
           barWidth: 2.5,
-          barSpacing: 2,
+          barSpacing: 1.5,
           isActive: true,
         ),
       ],

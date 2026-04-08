@@ -138,6 +138,22 @@ class L10nDe extends L10n {
   String get historyCharacters => 'Zeichen';
 
   @override
+  String historyWordCount(int count) {
+    return '$count Wörter';
+  }
+
+  @override
+  String historyReadingTime(int minutes) {
+    return '$minutes Min. Lesezeit';
+  }
+
+  @override
+  String get historyReadingTimeUnder1 => '< 1 Min. Lesezeit';
+
+  @override
+  String get historyEditing => 'Bearbeitung…';
+
+  @override
   String get historySearchTranscriptions => 'Transkriptionen suchen…';
 
   @override
@@ -450,6 +466,22 @@ class L10nDe extends L10n {
 
   @override
   String get settingsOverlayModeOff => 'Aus';
+
+  @override
+  String get settingsOverlayStartPosition => 'Overlay-Startposition';
+
+  @override
+  String get settingsOverlayStartPositionSubtitle =>
+      'Wo das schwebende Overlay beim Aufnahmestart erscheint';
+
+  @override
+  String get settingsOverlayStartTopCenter => 'Oben mittig';
+
+  @override
+  String get settingsOverlayStartBottomCenter => 'Unten mittig';
+
+  @override
+  String get settingsOverlayStartLastPosition => 'Letzte Position merken';
 
   @override
   String get settingsShowFloatingButton => 'Schwebender Aufnahme-Button';
