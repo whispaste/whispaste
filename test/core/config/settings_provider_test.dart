@@ -70,7 +70,7 @@ void main() {
     expect(settings, isNotNull);
     expect(settings!.themeMode, ThemeMode.dark);
     expect(settings.locale, 'en');
-    expect(settings.showOverlay, true);
+    expect(settings.showOverlay, false);
     expect(container.read(themeModeProvider), ThemeMode.dark);
     expect(container.read(localeProvider), const Locale('en'));
   });
@@ -81,7 +81,7 @@ void main() {
             themeMode: ThemeMode.light,
             locale: 'de',
             sttModel: 'Best Quality (Large)',
-            showOverlay: false,
+            showOverlay: true,
             recordStartSound: false,
           ),
         );
@@ -93,7 +93,7 @@ void main() {
     expect(persisted.themeMode, ThemeMode.light);
     expect(persisted.locale, 'de');
     expect(persisted.sttModel, 'whisper-large-v3');
-    expect(persisted.showOverlay, false);
+    expect(persisted.showOverlay, true);
     expect(persisted.recordStartSound, false);
 
     await container.read(settingsProvider.notifier).resetToDefaults();
@@ -105,7 +105,7 @@ void main() {
     expect(resetState, isNotNull);
     expect(resetState!.themeMode, ThemeMode.dark);
     expect(resetState.locale, 'en');
-    expect(resetState.showOverlay, true);
+    expect(resetState.showOverlay, false);
   });
 
   group('secure API key storage', () {

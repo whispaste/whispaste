@@ -1330,13 +1330,13 @@ abstract class L10n {
   /// No description provided for @onboardingWelcome.
   ///
   /// In en, this message translates to:
-  /// **'Welcome to WhisPaste'**
+  /// **'Speak it once. Paste it anywhere.'**
   String get onboardingWelcome;
 
   /// No description provided for @onboardingWelcomeHint.
   ///
   /// In en, this message translates to:
-  /// **'Turn your voice into text — fast, private, and ready to paste anywhere.'**
+  /// **'WhisPaste turns quick thoughts into clean text for messages, emails, notes, and comments.'**
   String get onboardingWelcomeHint;
 
   /// No description provided for @feedbackTitle.
@@ -2058,6 +2058,30 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Love it!'**
   String get feedbackRatingLoveIt;
+
+  /// No description provided for @feedbackSubmitting.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending…'**
+  String get feedbackSubmitting;
+
+  /// No description provided for @feedbackErrorRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'You already sent feedback recently. Please try again later.'**
+  String get feedbackErrorRateLimited;
+
+  /// No description provided for @feedbackErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not connect to the server. Please check your internet connection.'**
+  String get feedbackErrorNetwork;
+
+  /// No description provided for @feedbackErrorServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again later.'**
+  String get feedbackErrorServer;
 
   /// No description provided for @statusBarOnDevice.
   ///
@@ -2974,7 +2998,7 @@ abstract class L10n {
   /// No description provided for @onboardingGetStarted.
   ///
   /// In en, this message translates to:
-  /// **'Get Started'**
+  /// **'Continue'**
   String get onboardingGetStarted;
 
   /// No description provided for @onboardingSkip.
@@ -3000,24 +3024,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Step {current} of {total}'**
   String onboardingStepOf(int current, int total);
-
-  /// No description provided for @onboardingLanguageTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Choose Your Language'**
-  String get onboardingLanguageTitle;
-
-  /// No description provided for @onboardingLanguageSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'You can change this later in Settings'**
-  String get onboardingLanguageSubtitle;
-
-  /// No description provided for @onboardingThemeTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Pick Your Theme'**
-  String get onboardingThemeTitle;
 
   /// No description provided for @onboardingThemeLight.
   ///
