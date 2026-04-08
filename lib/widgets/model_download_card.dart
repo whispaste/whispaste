@@ -1,5 +1,5 @@
-/// Model download card — shows STT model list with download status, progress,
-/// and one-tap download. Designed to be embedded in the Settings page.
+/// Model download card — shows STT quality tiers with download status,
+/// progress, and one-tap download. Designed to be embedded in the Settings page.
 library;
 
 import 'package:flutter/material.dart';
@@ -9,21 +9,35 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../services/hardware_info_service.dart' as hw;
 import '../services/model_download_service.dart';
 
-/// Inline model manager — lists all available STT models with download
-/// status indicators, progress bars, and action buttons.
-///
-/// UX pattern: "download-on-demand with status badges". Each model shows:
-/// - ✓ Ready (green check) — model file exists on disk
-/// - ↓ Download button — not yet downloaded, shows size
-/// - ⟳ Progress bar — downloading with percentage
-/// - ✗ Error — failed with retry option
-class SttModelManager extends ConsumerWidget {
+/// Tier-based model manager — shows 3 quality tiers (compact, balanced,
+/// premium) instead of raw model names. Auto-recommends based on GPU VRAM.
+class SttModelManager extends ConsumerStatefulWidget {
   const SttModelManager({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SttModelManager> createState() => _SttModelManagerState();
+}
+
+class _SttModelManagerState extends ConsumerState<SttModelManager> {
+  QualityTier? _recommendedTier;
+
+  @override
+  void initState() {
+    super.initState();
+    _detectHardware();
+  }
+
+  Future<void> _detectHardware() async {
+    final gpu = await hw.detectGpu();
+    if (!mounted) return;
+    setState(() => _recommendedTier = recommendTier(gpu.vramMB ?? 0));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final downloadState = ref.watch(modelDownloadProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
@@ -38,35 +52,35 @@ class SttModelManager extends ConsumerWidget {
           l10n: l10n,
         ),
         const SizedBox(height: WpSpacing.sm),
-        // Model list
-        for (final model in sttModels) ...[
-          _ModelRow(
-            model: model,
-            isDownloaded: downloadState.downloadedModels.contains(model.id),
-            isActive:
-                downloadState.activeModelId == model.id && downloadState.isBusy,
-            phase: downloadState.activeModelId == model.id
-                ? downloadState.phase
-                : DownloadPhase.idle,
-            progressPercent: downloadState.activeModelId == model.id
-                ? downloadState.progressPercent
-                : 0,
+        // Tier cards
+        for (final tier in QualityTier.values) ...[
+          _TierRow(
+            tier: tier,
+            isRecommended: tier == _recommendedTier,
+            downloadState: downloadState,
             isDark: isDark,
             l10n: l10n,
             onDownload: downloadState.isBusy
                 ? null
                 : () => ref
                     .read(modelDownloadProvider.notifier)
-                    .downloadModel(model.id),
-            onCancel: downloadState.activeModelId == model.id &&
+                    .downloadModel(bestModelForTier(tier).id),
+            onCancel: _isTierActive(tier, downloadState) &&
                     downloadState.isBusy
                 ? () =>
                     ref.read(modelDownloadProvider.notifier).cancelDownload()
                 : null,
-            onDelete: downloadState.downloadedModels.contains(model.id)
-                ? () => ref
-                    .read(modelDownloadProvider.notifier)
-                    .deleteModel(model.id)
+            onDelete: _isTierDownloaded(tier, downloadState)
+                ? () {
+                    // Delete ALL models in this tier
+                    for (final m in modelsForTier(tier)) {
+                      if (downloadState.downloadedModels.contains(m.id)) {
+                        ref
+                            .read(modelDownloadProvider.notifier)
+                            .deleteModel(m.id);
+                      }
+                    }
+                  }
                 : null,
           ),
         ],
@@ -80,6 +94,275 @@ class SttModelManager extends ConsumerWidget {
           ),
         ],
       ],
+    );
+  }
+
+  /// Whether any model in this tier is currently being downloaded.
+  bool _isTierActive(QualityTier tier, ModelDownloadState state) {
+    if (state.activeModelId == null) return false;
+    return modelsForTier(tier).any((m) => m.id == state.activeModelId);
+  }
+
+  /// Whether any model in this tier is downloaded.
+  bool _isTierDownloaded(QualityTier tier, ModelDownloadState state) {
+    return modelsForTier(tier)
+        .any((m) => state.downloadedModels.contains(m.id));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tier row — shows quality tier with icon, description, status, actions
+// ---------------------------------------------------------------------------
+
+class _TierRow extends StatefulWidget {
+  const _TierRow({
+    required this.tier,
+    required this.isRecommended,
+    required this.downloadState,
+    required this.isDark,
+    required this.l10n,
+    required this.onDownload,
+    required this.onCancel,
+    required this.onDelete,
+  });
+
+  final QualityTier tier;
+  final bool isRecommended;
+  final ModelDownloadState downloadState;
+  final bool isDark;
+  final L10n l10n;
+  final VoidCallback? onDownload;
+  final VoidCallback? onCancel;
+  final VoidCallback? onDelete;
+
+  @override
+  State<_TierRow> createState() => _TierRowState();
+}
+
+class _TierRowState extends State<_TierRow> {
+  bool _isHovered = false;
+
+  bool get _isDownloaded => modelsForTier(widget.tier)
+      .any((m) => widget.downloadState.downloadedModels.contains(m.id));
+
+  bool get _isActive =>
+      widget.downloadState.activeModelId != null &&
+      modelsForTier(widget.tier)
+          .any((m) => m.id == widget.downloadState.activeModelId) &&
+      widget.downloadState.isBusy;
+
+  DownloadPhase get _phase {
+    if (!_isActive) return DownloadPhase.idle;
+    return widget.downloadState.phase;
+  }
+
+  int get _progress {
+    if (!_isActive) return 0;
+    return widget.downloadState.progressPercent;
+  }
+
+  IconData get _tierIcon => switch (widget.tier) {
+        QualityTier.compact => LucideIcons.zap,
+        QualityTier.balanced => LucideIcons.scale,
+        QualityTier.premium => LucideIcons.crown,
+      };
+
+  String _tierLabel(L10n l10n) => switch (widget.tier) {
+        QualityTier.compact => l10n.qualityTierCompactLabel,
+        QualityTier.balanced => l10n.qualityTierBalancedLabel,
+        QualityTier.premium => l10n.qualityTierPremiumLabel,
+      };
+
+  String _tierDesc(L10n l10n) => switch (widget.tier) {
+        QualityTier.compact => l10n.qualityTierCompactDesc,
+        QualityTier.balanced => l10n.qualityTierBalancedDesc,
+        QualityTier.premium => l10n.qualityTierPremiumDesc,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final accent =
+        widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textPrimary =
+        widget.isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final textSecondary = widget.isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+    final textMuted =
+        widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final hoverBg =
+        widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
+    final success =
+        widget.isDark ? WpColorsDark.success : WpColorsLight.success;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: WpMotion.hoverIn,
+        curve: WpMotion.defaultCurve,
+        margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xs, vertical: 1),
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.md,
+          vertical: WpSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: _isHovered ? hoverBg : Colors.transparent,
+          borderRadius: BorderRadius.circular(WpRadius.sm),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                // Tier icon with status indicator
+                _StatusIcon(
+                  isDownloaded: _isDownloaded,
+                  isActive: _isActive,
+                  phase: _phase,
+                  icon: _tierIcon,
+                  accent: accent,
+                  success: success,
+                  muted: textMuted,
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                // Tier info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              _tierLabel(widget.l10n),
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: textPrimary,
+                              ),
+                            ),
+                          ),
+                          if (widget.isRecommended) ...[
+                            const SizedBox(width: WpSpacing.xs),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: accent.withValues(alpha: 0.12),
+                                borderRadius:
+                                    BorderRadius.circular(WpRadius.full),
+                              ),
+                              child: Text(
+                                widget.l10n.qualityTierRecommended,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: accent,
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(width: WpSpacing.sm),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _isDownloaded
+                                  ? success.withValues(alpha: 0.12)
+                                  : textMuted.withValues(alpha: 0.12),
+                              borderRadius:
+                                  BorderRadius.circular(WpRadius.full),
+                            ),
+                            child: Text(
+                              tierSizeLabel(widget.tier),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color:
+                                    _isDownloaded ? success : textMuted,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _tierDesc(widget.l10n),
+                        style: TextStyle(fontSize: 11, color: textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                // Action
+                _buildAction(accent, textMuted),
+              ],
+            ),
+            // Progress bar
+            if (_isActive && _phase == DownloadPhase.downloading)
+              Padding(
+                padding: const EdgeInsets.only(top: WpSpacing.xs),
+                child: _DownloadProgress(
+                  percent: _progress,
+                  accent: accent,
+                  isDark: widget.isDark,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAction(Color accent, Color muted) {
+    if (_isActive &&
+        (_phase == DownloadPhase.downloading ||
+            _phase == DownloadPhase.extracting ||
+            _phase == DownloadPhase.verifying)) {
+      return _ActionChip(
+        label: widget.l10n.actionCancel,
+        icon: LucideIcons.x,
+        color: muted,
+        onTap: widget.onCancel,
+      );
+    }
+
+    if (_isDownloaded) {
+      if (_isHovered) {
+        return _ActionChip(
+          label: widget.l10n.actionDelete,
+          icon: LucideIcons.trash2,
+          color: widget.isDark ? WpColorsDark.error : WpColorsLight.error,
+          onTap: widget.onDelete,
+        );
+      }
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.circleCheck, size: 14, color:
+              widget.isDark ? WpColorsDark.success : WpColorsLight.success),
+          const SizedBox(width: 4),
+          Text(
+            widget.l10n.modelReady,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: widget.isDark ? WpColorsDark.success : WpColorsLight.success,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return _ActionChip(
+      label: widget.l10n.modelDownload,
+      icon: LucideIcons.download,
+      color: accent,
+      onTap: widget.onDownload,
     );
   }
 }
@@ -126,14 +409,6 @@ class _ServerStatusRow extends StatelessWidget {
                 : l10n.modelServerMissing,
             style: TextStyle(fontSize: 12, color: textColor),
           ),
-          const Spacer(),
-          Text(
-            l10n.modelServerWhisper,
-            style: TextStyle(
-              fontSize: 11,
-              color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-            ),
-          ),
         ],
       ),
     );
@@ -141,240 +416,7 @@ class _ServerStatusRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Individual model row
-// ---------------------------------------------------------------------------
-
-class _ModelRow extends StatefulWidget {
-  const _ModelRow({
-    required this.model,
-    required this.isDownloaded,
-    required this.isActive,
-    required this.phase,
-    required this.progressPercent,
-    required this.isDark,
-    required this.l10n,
-    required this.onDownload,
-    required this.onCancel,
-    required this.onDelete,
-  });
-
-  final SttModelInfo model;
-  final bool isDownloaded;
-  final bool isActive;
-  final DownloadPhase phase;
-  final int progressPercent;
-  final bool isDark;
-  final L10n l10n;
-  final VoidCallback? onDownload;
-  final VoidCallback? onCancel;
-  final VoidCallback? onDelete;
-
-  @override
-  State<_ModelRow> createState() => _ModelRowState();
-}
-
-class _ModelRowState extends State<_ModelRow> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent =
-        widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textPrimary =
-        widget.isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final textSecondary =
-        widget.isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
-    final textMuted =
-        widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final hoverBg =
-        widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
-    final success =
-        widget.isDark ? WpColorsDark.success : WpColorsLight.success;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: WpMotion.hoverIn,
-        curve: WpMotion.defaultCurve,
-        margin: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.xs,
-          vertical: 1,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.md,
-          vertical: WpSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: _isHovered ? hoverBg : Colors.transparent,
-          borderRadius: BorderRadius.circular(WpRadius.sm),
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                // Status icon
-                _StatusIcon(
-                  isDownloaded: widget.isDownloaded,
-                  isActive: widget.isActive,
-                  phase: widget.phase,
-                  accent: accent,
-                  success: success,
-                  muted: textMuted,
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                // Model info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              _localizedLabel(widget.model.id, widget.l10n),
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: textPrimary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: WpSpacing.sm),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: widget.isDownloaded
-                                  ? success.withValues(alpha: 0.12)
-                                  : textMuted.withValues(alpha: 0.12),
-                              borderRadius:
-                                  BorderRadius.circular(WpRadius.full),
-                            ),
-                            child: Text(
-                              widget.model.sizeLabel,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color: widget.isDownloaded
-                                    ? success
-                                    : textMuted,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _localizedDescription(widget.model.id, widget.l10n),
-                        style: TextStyle(fontSize: 11, color: textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                // Action button
-                _buildAction(accent, textMuted),
-              ],
-            ),
-            // Progress bar (only when active)
-            if (widget.isActive && widget.phase == DownloadPhase.downloading)
-              Padding(
-                padding: const EdgeInsets.only(top: WpSpacing.xs),
-                child: _DownloadProgress(
-                  percent: widget.progressPercent,
-                  accent: accent,
-                  isDark: widget.isDark,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAction(Color accent, Color muted) {
-    if (widget.isActive && isBusy) {
-      // Cancel button during download
-      return _ActionChip(
-        label: widget.l10n.actionCancel,
-        icon: LucideIcons.x,
-        color: muted,
-        onTap: widget.onCancel,
-      );
-    }
-
-    if (widget.isDownloaded) {
-      // Ready badge + delete on hover
-      if (_isHovered) {
-        return _ActionChip(
-          label: widget.l10n.actionDelete,
-          icon: LucideIcons.trash2,
-          color: widget.isDark ? WpColorsDark.error : WpColorsLight.error,
-          onTap: widget.onDelete,
-        );
-      }
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(LucideIcons.circleCheck, size: 14,
-            color: widget.isDark ? WpColorsDark.success : WpColorsLight.success),
-          const SizedBox(width: 4),
-          Text(
-            widget.l10n.modelReady,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: widget.isDark ? WpColorsDark.success : WpColorsLight.success,
-            ),
-          ),
-        ],
-      );
-    }
-
-    // Download button
-    return _ActionChip(
-      label: widget.l10n.modelDownload,
-      icon: LucideIcons.download,
-      color: accent,
-      onTap: widget.onDownload,
-    );
-  }
-
-  bool get isBusy =>
-      widget.phase == DownloadPhase.downloading ||
-      widget.phase == DownloadPhase.extracting ||
-      widget.phase == DownloadPhase.verifying;
-
-  static String _localizedDescription(String modelId, L10n l10n) {
-    return switch (modelId) {
-      'whisper-tiny' => l10n.modelSizeTiny,
-      'whisper-base' => l10n.modelSizeBase,
-      'whisper-small' => l10n.modelSizeSmall,
-      'whisper-medium' => l10n.modelSizeMedium,
-      'whisper-large-v3-turbo' => l10n.modelSizeLargeTurbo,
-      'whisper-large-v3' => l10n.modelSizeLarge,
-      _ => '',
-    };
-  }
-
-  static String _localizedLabel(String modelId, L10n l10n) {
-    return switch (modelId) {
-      'whisper-tiny' => l10n.settingsQualityFast,
-      'whisper-base' => l10n.settingsQualityBasic,
-      'whisper-small' => l10n.settingsQualityBalanced,
-      'whisper-medium' => l10n.settingsQualityHigh,
-      'whisper-large-v3-turbo' => l10n.settingsQualityBest,
-      'whisper-large-v3' => l10n.settingsQualityMaximum,
-      _ => modelId,
-    };
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Status icon — animated spinner or static icon
+// Status icon — spinner or tier icon
 // ---------------------------------------------------------------------------
 
 class _StatusIcon extends StatelessWidget {
@@ -382,6 +424,7 @@ class _StatusIcon extends StatelessWidget {
     required this.isDownloaded,
     required this.isActive,
     required this.phase,
+    required this.icon,
     required this.accent,
     required this.success,
     required this.muted,
@@ -390,6 +433,7 @@ class _StatusIcon extends StatelessWidget {
   final bool isDownloaded;
   final bool isActive;
   final DownloadPhase phase;
+  final IconData icon;
   final Color accent;
   final Color success;
   final Color muted;
@@ -403,18 +447,11 @@ class _StatusIcon extends StatelessWidget {
       return SizedBox(
         width: 20,
         height: 20,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: accent,
-        ),
+        child: CircularProgressIndicator(strokeWidth: 2, color: accent),
       );
     }
 
-    if (isDownloaded) {
-      return Icon(LucideIcons.brain, size: 20, color: success);
-    }
-
-    return Icon(LucideIcons.brain, size: 20, color: muted);
+    return Icon(icon, size: 20, color: isDownloaded ? success : muted);
   }
 }
 
