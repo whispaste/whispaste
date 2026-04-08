@@ -7,6 +7,13 @@ const CORS_HEADERS = {
   "access-control-allow-headers": "content-type",
 };
 
+const SECURITY_HEADERS = {
+  "content-type": "application/json",
+  ...CORS_HEADERS,
+  "x-content-type-options": "nosniff",
+  "cache-control": "no-store",
+};
+
 const SENSITIVE_PATTERNS = [
   /["']?(api[_-]?key|token|password|authorization)["']?\s*[:=]\s*['"]?[^\s'",}]+/gi,
   /\bbearer\s+\S+/gi,
@@ -19,7 +26,7 @@ const SENSITIVE_PATTERNS = [
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json", ...CORS_HEADERS },
+    headers: SECURITY_HEADERS,
   });
 }
 
@@ -135,34 +142,45 @@ Deno.serve(async (req) => {
   });
 
   // Rate limit: max 1 feedback per device/IP per 24h.
+  // OWASP A02: Use LAST entry from X-Forwarded-For (Supabase appends real IP)
   const forwardedFor = req.headers.get("x-forwarded-for") ?? "";
-  const clientIp = forwardedFor.split(",")[0]?.trim() || "";
+  const forwardedParts = forwardedFor.split(",").map(s => s.trim()).filter(Boolean);
+  const clientIp = forwardedParts.length > 0 ? forwardedParts[forwardedParts.length - 1] : "";
   const ipHash = clientIp ? await sha256(clientIp) : null;
   const deviceIdHash = deviceId
     ? await sha256(deviceId)
     : await sha256(`missing-device:${ipHash ?? "no-ip"}`);
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const rateLimitFilters = [
-    `device_id_hash.eq.${deviceIdHash}`,
-    ipHash ? `ip_hash.eq.${ipHash}` : null,
-  ].filter((value): value is string => value !== null);
+  // Rate limit: per-device AND per-IP independently (both must pass)
+  const { count: deviceFeedbackCount } = await supabase
+    .from("user_feedback")
+    .select("*", { count: "exact", head: true })
+    .eq("device_id_hash", deviceIdHash)
+    .gte("received_at", dayAgo);
+  if ((deviceFeedbackCount ?? 0) >= 1) {
+    return json(
+      { error: "rate_limited", detail: "one feedback per device per 24 hours" },
+      429,
+    );
+  }
 
-  if (rateLimitFilters.length > 0) {
-    const { count } = await supabase
+  if (ipHash) {
+    const { count: ipFeedbackCount } = await supabase
       .from("user_feedback")
       .select("*", { count: "exact", head: true })
-      .or(rateLimitFilters.join(","))
+      .eq("ip_hash", ipHash)
       .gte("received_at", dayAgo);
-    if ((count ?? 0) >= 1) {
+    if ((ipFeedbackCount ?? 0) >= 1) {
       return json(
-        { error: "rate_limited", detail: "one feedback per device or IP per 24 hours" },
+        { error: "rate_limited", detail: "one feedback per IP per 24 hours" },
         429,
       );
     }
   }
 
   // Build Discord embed
+  const feedbackId = crypto.randomUUID();
   const stars = "★".repeat(rating) + "☆".repeat(5 - rating);
   const color =
     rating >= 4 ? 0x10b981 : rating >= 3 ? 0xf59e0b : 0xef4444;
@@ -177,8 +195,6 @@ Deno.serve(async (req) => {
     footer: { text: new Date().toISOString().split("T")[0] },
   };
 
-  // Insert into DB
-  const feedbackId = crypto.randomUUID();
   const { error: insertError } = await supabase
     .from("user_feedback")
     .insert({
@@ -191,6 +207,22 @@ Deno.serve(async (req) => {
       status: "pending",
     });
   if (insertError) return json({ error: "insert_failed" }, 500);
+
+  // Discord posting rate limit: max 20 posts per minute
+  const minuteAgo = new Date(Date.now() - 60_000).toISOString();
+  const { count: recentPosts } = await supabase
+    .from("user_feedback")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "sent")
+    .gte("received_at", minuteAgo);
+
+  if ((recentPosts ?? 0) >= 20) {
+    await supabase
+      .from("user_feedback")
+      .update({ status: "discord_throttled" })
+      .eq("id", feedbackId);
+    return json({ status: "accepted" }, 202);
+  }
 
   // Post to Discord
   const discordURL = webhookURL.includes("?")
@@ -220,5 +252,5 @@ Deno.serve(async (req) => {
     })
     .eq("id", feedbackId);
 
-  return json({ status: "sent", id: feedbackId }, 202);
+  return json({ status: "accepted" }, 202);
 });
