@@ -25,6 +25,7 @@ class HistorySearchToolbar extends StatelessWidget {
     required this.onViewModeChanged,
     required this.multiSelectMode,
     required this.onToggleMultiSelect,
+    this.onEmptyTrash,
   });
 
   final TextEditingController controller;
@@ -37,6 +38,7 @@ class HistorySearchToolbar extends StatelessWidget {
   final ValueChanged<HistoryViewMode> onViewModeChanged;
   final bool multiSelectMode;
   final VoidCallback onToggleMultiSelect;
+  final VoidCallback? onEmptyTrash;
 
   @override
   Widget build(BuildContext context) {
@@ -155,6 +157,43 @@ class HistorySearchToolbar extends StatelessWidget {
                   ),
                 ),
               const SizedBox(width: WpSpacing.xs),
+              // Empty Trash button (only in trash view, when items exist)
+              if (onEmptyTrash != null)
+                Tooltip(
+                  message: l10n.historyEmptyTrash,
+                  child: InkWell(
+                    borderRadius: WpRadius.borderSm,
+                    onTap: onEmptyTrash,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: WpSpacing.sm,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            LucideIcons.trash2,
+                            size: WpIconSize.sm,
+                            color: isDark
+                                ? WpColorsDark.error
+                                : WpColorsLight.error,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            l10n.historyEmptyTrash,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark
+                                  ? WpColorsDark.error
+                                  : WpColorsLight.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               // Multi-select toggle
               Tooltip(
                 message: multiSelectMode ? l10n.historyExitSelection : l10n.historySelectMultiple,
@@ -204,6 +243,8 @@ class HistoryMultiSelectBar extends StatelessWidget {
     required this.isTrashView,
     required this.isArchiveView,
     required this.onCancelSelection,
+    this.onSelectAll,
+    this.totalCount,
     this.onMerge,
     this.onArchive,
     this.onDelete,
@@ -215,6 +256,8 @@ class HistoryMultiSelectBar extends StatelessWidget {
   final bool isTrashView;
   final bool isArchiveView;
   final VoidCallback onCancelSelection;
+  final VoidCallback? onSelectAll;
+  final int? totalCount;
   final VoidCallback? onMerge;
   final VoidCallback? onArchive;
   final VoidCallback? onDelete;
@@ -268,6 +311,29 @@ class HistoryMultiSelectBar extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(width: WpSpacing.sm),
+          // Select All / Deselect All toggle
+          if (onSelectAll != null)
+            InkWell(
+              borderRadius: WpRadius.borderSm,
+              onTap: onSelectAll,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.xs,
+                  vertical: 4,
+                ),
+                child: Text(
+                  totalCount != null && selectedCount >= totalCount!
+                      ? l10n.historyDeselectAll
+                      : l10n.historySelectAll,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: accent,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
           const SizedBox(width: WpSpacing.sm),
           // Action buttons — wrap in Flexible to prevent overflow
           Flexible(

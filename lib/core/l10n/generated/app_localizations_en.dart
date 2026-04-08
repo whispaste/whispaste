@@ -172,6 +172,19 @@ class L10nEn extends L10n {
       'Deleted transcriptions will appear here.\nItems are permanently removed after 30 days.';
 
   @override
+  String get historyEmptyTrash => 'Empty Trash';
+
+  @override
+  String get historyEmptyTrashConfirm => 'Empty trash?';
+
+  @override
+  String get historyEmptyTrashConfirmMessage =>
+      'This will permanently delete all items in the trash. This action cannot be undone.';
+
+  @override
+  String get historyTrashEmptied => 'Trash emptied';
+
+  @override
   String get historyNoArchivedItems => 'No archived items';
 
   @override
