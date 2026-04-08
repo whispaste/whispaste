@@ -115,7 +115,7 @@ class _RecordingPillState extends State<RecordingPill>
     with TickerProviderStateMixin {
   // Waveform level history buffer (scrolling bars).
   final List<double> _levelHistory = [];
-  static const int _maxLevelHistory = 20;
+  static const int _maxLevelHistory = 24;
 
   // Pulsing red dot animation.
   late final AnimationController _pulseController;
@@ -257,7 +257,7 @@ class _RecordingPillState extends State<RecordingPill>
           // Main pill container.
           Container(
             constraints: const BoxConstraints(
-              maxWidth: 520,
+              maxWidth: 480,
               minWidth: 200,
               minHeight: 40,
             ),
@@ -365,8 +365,8 @@ class _RecordingPillState extends State<RecordingPill>
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: 4,
+              horizontal: WpSpacing.md,
+              vertical: WpSpacing.xs,
             ),
             child: _buildContent(context),
           ),
@@ -525,7 +525,7 @@ class _RecordingPillState extends State<RecordingPill>
         WpWaveformBars(
           levels: List.unmodifiable(_levelHistory),
           barCount: _maxLevelHistory,
-          height: 22,
+          height: 24,
           barWidth: 2.5,
           barSpacing: 2,
           isActive: true,
