@@ -17,6 +17,7 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart' show SttServerState;
 import 'path_service.dart';
+import 'subprocess_guard.dart' as guard;
 
 // Re-export so existing importers of stt_service.dart still see SttServerState.
 export '../core/recording/recording_state.dart' show SttServerState;
@@ -317,6 +318,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
         // Process already exited — this is fine.
         _log.debug('Kill whisper-server: $e');
       }
+      guard.deletePid('whisper-server');
     }
   }
 
@@ -499,6 +501,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     }
 
     _process = proc;
+    guard.writePid('whisper-server', proc.pid);
 
     // Log subprocess output for diagnostics.
     // whisper-server writes ALL diagnostic info to stderr (model params,

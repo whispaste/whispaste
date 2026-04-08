@@ -277,7 +277,13 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
 
   @override
   void onWindowClose() async {
-    // Intercept the X button to shut down floating windows before exiting.
+    // Kill native subprocesses FIRST — before windows or Riverpod are torn
+    // down. This is the last reliable point to prevent orphaned processes.
+    try {
+      ref.read(sttServiceProvider.notifier).stop();
+    } catch (_) {}
+
+    // Shut down floating windows before exiting.
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       try {
         await ref.read(multiWindowProvider.notifier).shutdownAll();
