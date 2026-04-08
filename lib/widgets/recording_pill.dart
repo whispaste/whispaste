@@ -246,7 +246,7 @@ class _RecordingPillState extends State<RecordingPill>
 
   @override
   Widget build(BuildContext context) {
-    final pillRadius = BorderRadius.circular(24);
+    final pillRadius = BorderRadius.circular(999);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -257,9 +257,9 @@ class _RecordingPillState extends State<RecordingPill>
           // Main pill container.
           Container(
             constraints: const BoxConstraints(
-              maxWidth: 480,
-              minWidth: 220,
-              minHeight: 48,
+              maxWidth: 520,
+              minWidth: 200,
+              minHeight: 40,
             ),
             decoration: BoxDecoration(
               borderRadius: pillRadius,
@@ -366,21 +366,10 @@ class _RecordingPillState extends State<RecordingPill>
           Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.sm,
-              vertical: WpSpacing.xs,
+              vertical: 4,
             ),
             child: _buildContent(context),
           ),
-          // Badges row (privacy + AI mode) -- visible during active phases.
-          if (widget.phase == RecordingPhase.recording ||
-              widget.phase == RecordingPhase.transcribing ||
-              widget.phase == RecordingPhase.processing)
-            _buildBadgesRow(),
-          // Transcript preview -- transcribing/processing.
-          if ((widget.phase == RecordingPhase.transcribing ||
-                  widget.phase == RecordingPhase.processing) &&
-              widget.transcript != null &&
-              widget.transcript!.isNotEmpty)
-            _buildTranscriptPreview(),
           _buildProgressBar(),
         ],
       ),
@@ -414,6 +403,11 @@ class _RecordingPillState extends State<RecordingPill>
 
     final showStop = phase == RecordingPhase.recording;
 
+    // Show inline badges during active phases.
+    final showBadges = phase == RecordingPhase.recording ||
+        phase == RecordingPhase.transcribing ||
+        phase == RecordingPhase.processing;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -428,7 +422,10 @@ class _RecordingPillState extends State<RecordingPill>
               onPressed: widget.onCancel!,
             ),
           ),
-        const SizedBox(width: WpSpacing.sm),
+        const SizedBox(width: WpSpacing.xs),
+
+        // -- Inline privacy badge ---
+        if (showBadges) _buildInlinePrivacyBadge(),
 
         // -- Center: phase-specific content ---
         Flexible(
@@ -442,7 +439,9 @@ class _RecordingPillState extends State<RecordingPill>
             ),
           ),
         ),
-        const SizedBox(width: WpSpacing.sm),
+
+        // -- Inline AI mode badge ---
+        if (showBadges) _buildInlineAiBadge(),
 
         // -- Right: stop button ---
         if (showStop && widget.onStop != null) ...[
@@ -622,123 +621,70 @@ class _RecordingPillState extends State<RecordingPill>
   }
 
   // ---------------------------------------------------------------------------
-  // Badges row (privacy + AI mode) -- recording only
+  // Inline badges (compact, single-line)
   // ---------------------------------------------------------------------------
 
-  Widget _buildBadgesRow() {
+  Widget _buildInlinePrivacyBadge() {
+    if (widget.isLocalStt == null) return const SizedBox(width: WpSpacing.xs);
+
     final l10n = L10n.of(context);
-    final badges = <Widget>[];
+    final isLocal = widget.isLocalStt!;
+    final color = isLocal
+        ? (_isDark ? WpColorsDark.success : WpColorsLight.success)
+        : (_isDark ? WpColorsDark.accent : WpColorsLight.accent);
+    final icon = isLocal ? LucideIcons.shieldCheck : LucideIcons.cloud;
+    final label = isLocal
+        ? l10n.overlayProcessingLocal
+        : l10n.overlayProcessingCloud;
 
-    // Privacy badge.
-    if (widget.isLocalStt != null) {
-      final isLocal = widget.isLocalStt!;
-      final color = isLocal
-          ? (_isDark ? WpColorsDark.success : WpColorsLight.success)
-          : (_isDark ? WpColorsDark.accent : WpColorsLight.accent);
-      final icon = isLocal ? LucideIcons.shieldCheck : LucideIcons.cloud;
-      final label = isLocal
-          ? l10n.overlayProcessingLocal
-          : l10n.overlayProcessingCloud;
-
-      badges.add(
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.xs,
-            vertical: 2,
-          ),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            borderRadius: WpRadius.borderFull,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: WpIconSize.xs, color: color),
-              const SizedBox(width: WpSpacing.xxs),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
+    return Padding(
+      padding: const EdgeInsets.only(right: WpSpacing.xs),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: WpRadius.borderFull,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 10, color: color),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: color,
               ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // AI mode badge.
-    if (widget.aiMode != null && widget.aiMode!.isNotEmpty) {
-      final accentColor =
-          _isDark ? WpColorsDark.accent : WpColorsLight.accent;
-      final secondaryColor =
-          _isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
-
-      badges.add(
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.xs,
-            vertical: 2,
-          ),
-          decoration: BoxDecoration(
-            color: accentColor.withValues(alpha: 0.12),
-            borderRadius: WpRadius.borderFull,
-          ),
-          child: Text(
-            '\u{1F916} ${widget.aiMode}',
-            style: TextStyle(fontSize: 10, color: secondaryColor),
-          ),
-        ),
-      );
-    }
-
-    if (badges.isEmpty) return const SizedBox.shrink();
-
-    return AnimatedSize(
-      duration: WpMotion.fast,
-      curve: WpMotion.defaultCurve,
-      child: Padding(
-        padding: const EdgeInsets.only(
-          bottom: WpSpacing.xs,
-          left: WpSpacing.md,
-          right: WpSpacing.md,
-        ),
-        child: Wrap(
-          spacing: WpSpacing.xs,
-          runSpacing: WpSpacing.xxs,
-          alignment: WrapAlignment.center,
-          children: badges,
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Transcript preview -- transcribing/processing
-  // ---------------------------------------------------------------------------
+  Widget _buildInlineAiBadge() {
+    if (widget.aiMode == null || widget.aiMode!.isEmpty) {
+      return const SizedBox(width: WpSpacing.xs);
+    }
 
-  Widget _buildTranscriptPreview() {
-    final text = widget.transcript!;
-    final truncated = text.length > 50 ? '${text.substring(0, 50)}\u2026' : text;
-    final mutedColor =
-        _isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accentColor =
+        _isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final secondaryColor =
+        _isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
 
-    return AnimatedSize(
-      duration: WpMotion.smooth,
-      curve: WpMotion.defaultCurve,
-      child: Padding(
-        padding: const EdgeInsets.only(
-          bottom: WpSpacing.xs,
-          left: WpSpacing.md,
-          right: WpSpacing.md,
+    return Padding(
+      padding: const EdgeInsets.only(left: WpSpacing.xs),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+          color: accentColor.withValues(alpha: 0.12),
+          borderRadius: WpRadius.borderFull,
         ),
         child: Text(
-          truncated,
-          style: TextStyle(fontSize: 11, color: mutedColor),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          '\u{1F916} ${widget.aiMode}',
+          style: TextStyle(fontSize: 10, color: secondaryColor),
         ),
       ),
     );

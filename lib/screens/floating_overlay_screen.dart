@@ -136,11 +136,11 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
         } catch (_) {}
       }
       try {
-        // Resize from 1x1 (hidden) -> 520x100 (visible). The window is
+        // Resize from 1x1 (hidden) -> 540x72 (visible). The window is
         // already "shown" from the OS perspective -- we never hide/show,
         // we only resize. This avoids the window_manager Show() bug that
         // breaks transparent frameless window compositing on Windows.
-        const targetSize = Size(520, 100);
+        const targetSize = Size(540, 72);
         await windowManager.setSize(targetSize);
         if (posX != null && posX >= 0 && posY != null && posY >= 0) {
           await windowManager.setPosition(Offset(posX, posY));

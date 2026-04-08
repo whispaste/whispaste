@@ -42,7 +42,7 @@ Works in emails, chat apps, code editors, browsers, terminals — everywhere.
 
 **Transcription** — Cloud providers (OpenAI, Groq, Deepgram) or local Whisper models via [whisper.cpp](https://github.com/ggml-org/whisper.cpp) — fully offline, no API key needed for local mode · [99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py)
 
-**Post-Processing** — 13 AI presets: grammar cleanup, formal email, bullet points, meeting notes, translation, and more · Custom prompts · Runs locally or via cloud APIs (OpenAI, Anthropic, Gemini, Groq)
+**Post-Processing** — 13 AI presets: grammar cleanup, formal email, bullet points, translation, and more · Custom prompts · Runs locally or via cloud APIs (OpenAI, Anthropic, Gemini, Groq)
 
 **Productivity** — Voice shortcuts (spoken triggers → text expansion) · Command palette (`Ctrl+K`) · Audio feedback sounds
 
