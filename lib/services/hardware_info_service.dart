@@ -8,6 +8,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/logging/app_logger.dart';
@@ -115,6 +116,13 @@ GpuInfo? get cachedGpuInfo => _cached;
 
 /// Clears the cached GPU info. Intended for testing only.
 void clearGpuCache() => _cached = null;
+
+// ---------------------------------------------------------------------------
+// Riverpod provider
+// ---------------------------------------------------------------------------
+
+/// Provides GPU info as a [FutureProvider], making it testable and overridable.
+final gpuInfoProvider = FutureProvider<GpuInfo>((ref) => detectGpu());
 
 // ---------------------------------------------------------------------------
 // Asset pattern mapping

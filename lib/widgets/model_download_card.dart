@@ -22,26 +22,13 @@ class SttModelManager extends ConsumerStatefulWidget {
 }
 
 class _SttModelManagerState extends ConsumerState<SttModelManager> {
-  QualityTier? _recommendedTier;
-  hw.GpuInfo? _gpu;
-
-  @override
-  void initState() {
-    super.initState();
-    _detectHardware();
-  }
-
-  Future<void> _detectHardware() async {
-    final gpu = await hw.detectGpu();
-    if (!mounted) return;
-    setState(() {
-      _gpu = gpu;
-      _recommendedTier = recommendTier(gpu.vramMB ?? 0, vendor: gpu.vendor);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
+    final gpuAsync = ref.watch(hw.gpuInfoProvider);
+    final gpu = gpuAsync.value;
+    final recommendedTier = gpu != null
+        ? recommendTier(gpu.vramMB ?? 0, vendor: gpu.vendor)
+        : null;
     final downloadState = ref.watch(modelDownloadProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
@@ -60,8 +47,8 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
         for (final tier in QualityTier.values) ...[
           _TierRow(
             tier: tier,
-            isRecommended: tier == _recommendedTier,
-            warning: _gpu != null ? tierWarning(tier, _gpu!) : null,
+            isRecommended: tier == recommendedTier,
+            warning: gpu != null ? tierWarning(tier, gpu) : null,
             downloadState: downloadState,
             isDark: isDark,
             l10n: l10n,

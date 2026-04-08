@@ -18,6 +18,7 @@ import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/history_page.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
+import 'package:whispaste/services/hardware_info_service.dart' as hw;
 
 // ---------------------------------------------------------------------------
 // Window sizes to test — covers common desktop form factors
@@ -56,6 +57,10 @@ Widget _testShell(Widget page, Size size, {Brightness brightness = Brightness.da
       historyEntriesProvider.overrideWith((ref) => Stream.value(const [])),
       archivedEntriesProvider.overrideWith((ref) => Stream.value(const [])),
       trashEntriesProvider.overrideWith((ref) => Stream.value(const [])),
+      hw.gpuInfoProvider.overrideWith(
+        (ref) async =>
+            const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test'),
+      ),
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,

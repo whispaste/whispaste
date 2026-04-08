@@ -596,6 +596,22 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                             letterSpacing: 0.3,
                           ),
                         ),
+                        const SizedBox(width: WpSpacing.xs),
+                        Tooltip(
+                          message: l10n.historyAddTag,
+                          child: InkWell(
+                            borderRadius: const BorderRadius.all(Radius.circular(999)),
+                            onTap: () => _tagSectionKey.currentState?.focusTagInput(),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2),
+                              child: Icon(
+                                LucideIcons.plus,
+                                size: WpIconSize.xs,
+                                color: accent.withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -664,12 +680,23 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                 ),
                                 onSubmitted: (_) => _saveTranscript(),
                               )
-                            : SelectableText(
-                                entry.content,
-                                style: TextStyle(
-                                  fontSize: 15.5,
-                                  color: textPrimary,
-                                  height: 1.65,
+                            : Tooltip(
+                                message: l10n.historyEditTranscript,
+                                waitDuration: const Duration(milliseconds: 600),
+                                child: GestureDetector(
+                                  onDoubleTap: isTrashView ? null : _toggleEdit,
+                                  behavior: HitTestBehavior.translucent,
+                                  child: MouseRegion(
+                                    cursor: SystemMouseCursors.text,
+                                    child: SelectableText(
+                                      entry.content,
+                                      style: TextStyle(
+                                        fontSize: 15.5,
+                                        color: textPrimary,
+                                        height: 1.65,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                       ),

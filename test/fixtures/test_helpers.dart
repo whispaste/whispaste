@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/services/hardware_info_service.dart';
 
 /// Wraps a widget in [ProviderScope] + [MaterialApp] for testing.
 ///
@@ -25,6 +26,10 @@ Widget makeTestable(
         ref.onDispose(db.close);
         return db;
       }),
+      // Prevent real GPU detection (spawns subprocess → pending timers).
+      gpuInfoProvider.overrideWith(
+        (ref) async => const GpuInfo(vendor: GpuVendor.none, name: 'Test'),
+      ),
       ...overrides,
     ],
     child: MaterialApp(
