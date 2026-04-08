@@ -156,7 +156,7 @@ class _WpTagInputState extends State<WpTagInput> {
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: WpSpacing.xs,
-                      vertical: 4,
+                      vertical: WpSpacing.xxs,
                     ),
                     border: OutlineInputBorder(
                       borderRadius: WpRadius.borderSm,
@@ -265,7 +265,7 @@ class _TagChipState extends State<_TagChip> {
               ),
             ),
             if (_isHovered) ...[
-              const SizedBox(width: 4),
+              const SizedBox(width: WpSpacing.xxs),
               GestureDetector(
                 onTap: widget.onRemove,
                 child: Icon(

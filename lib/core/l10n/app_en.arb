@@ -61,7 +61,7 @@
     }
   },
   "historyReadingTimeUnder1": "< 1 min read",
-  "historyEditing": "Editing…",
+  "historyEditing": "Editing",
   "historySearchTranscriptions": "Search transcriptions…",
   "historyNoResults": "No results",
   "historyNoResultsHint": "No transcriptions match \"{query}\".\nTry a different search term.",
@@ -486,6 +486,7 @@
   "historyTagRemoved": "Tag removed",
   "historyEditTranscript": "Edit transcript",
   "historyTranscriptSaved": "Transcript saved",
+  "historySaveTranscript": "Save",
 
   "settingsKeyboardShortcut": "Keyboard Shortcut",
   "settingsKeyboardShortcutSubtitle": "Global hotkey to start and stop recording",
