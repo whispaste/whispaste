@@ -108,6 +108,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
               isTrashView: isTrashView,
               isArchiveView: isArchiveView,
               onMerge: _selectedIds.length >= 2 ? _mergeSelected : null,
+              onBatchCopy: _selectedIds.isNotEmpty
+                  ? () => _copySelectedEntries(filteredEntries)
+                  : null,
               onArchive: !isTrashView ? _archiveSelected : null,
               onDelete: _deleteSelected,
               onRestore: isTrashView ? _restoreSelected : null,

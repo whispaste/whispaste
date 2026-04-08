@@ -110,7 +110,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     if (!hasPermission) {
       state = const AudioStatus(
         captureState: AudioCaptureState.error,
-        errorMessage: 'Microphone permission denied',
+        errorMessage: 'mic_permission_denied',
       );
       return;
     }
@@ -149,12 +149,12 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
 
     try {
       await recorder.start(_whisperRecordConfig, path: wavPath);
-    } on Exception catch (e) {
+    } on Exception {
       _amplitudeSub?.cancel();
       _amplitudeController?.close();
-      state = AudioStatus(
+      state = const AudioStatus(
         captureState: AudioCaptureState.error,
-        errorMessage: 'Failed to start recording: $e',
+        errorMessage: 'recording_start_failed',
       );
       return;
     }

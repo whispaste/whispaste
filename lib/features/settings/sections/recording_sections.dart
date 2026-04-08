@@ -161,45 +161,6 @@ class RecordingSafetySection extends ConsumerWidget {
                       (s) => s.copyWith(maxRecordDuration: v.round())),
             ),
           ),
-          SettingRow(
-            icon: LucideIcons.scissors,
-            label: l10n.settingsTrimSilence,
-            subtitle: l10n.settingsTrimSilenceSubtitle,
-            trailing: settingsToggle(
-              value: settings.trimSilence,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(trimSilence: v)),
-            ),
-          ),
-          SettingRow(
-            icon: LucideIcons.audioLines,
-            label: l10n.settingsVoiceActivityDetection,
-            subtitle: l10n.settingsVoiceActivityDetectionSubtitle,
-            trailing: settingsToggle(
-              value: settings.useVAD,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(useVAD: v)),
-            ),
-          ),
-          if (settings.useVAD)
-            SettingRow(
-              icon: LucideIcons.slidersHorizontal,
-              label: l10n.settingsVadSensitivity,
-              subtitle: l10n.settingsVadSensitivitySubtitle,
-              trailing: settingsSlider(
-                context: context,
-                value: settings.vadSensitivity,
-                min: 0.0,
-                max: 1.0,
-                divisions: 10,
-                valueLabel: '${(settings.vadSensitivity * 100).round()}%',
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings((s) => s.copyWith(vadSensitivity: v)),
-              ),
-            ),
         ],
       ),
     );

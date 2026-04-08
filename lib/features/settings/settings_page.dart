@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/l10n/generated/app_localizations.dart';
-import '../../core/theme/colors.dart';
-import '../../core/theme/tokens.dart';
+import '../../app.dart';
 import '../../widgets/page_shell.dart';
 import 'sections/cloud_advanced_section.dart';
 import 'sections/feedback_section.dart';
@@ -15,117 +13,119 @@ import 'sections/stt_section.dart';
 import 'settings_widgets.dart';
 
 /// Settings page — thin coordinator that composes extracted section widgets.
-class SettingsPage extends StatelessWidget {
+///
+/// Supports deep-linking: when [settingsScrollTargetProvider] contains a
+/// section id (e.g. `'stt'`, `'postprocessing'`), the page scrolls to
+/// that section on mount and clears the target.
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends ConsumerState<SettingsPage> {
+  final _sectionKeys = <String, GlobalKey>{
+    'audio': GlobalKey(),
+    'recordingSafety': GlobalKey(),
+    'afterTranscription': GlobalKey(),
+    'stt': GlobalKey(),
+    'sttModel': GlobalKey(),
+    'postprocessing': GlobalKey(),
+    'replacements': GlobalKey(),
+    'hotkey': GlobalKey(),
+    'sound': GlobalKey(),
+    'overlay': GlobalKey(),
+    'interface': GlobalKey(),
+    'cloud': GlobalKey(),
+    'advanced': GlobalKey(),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    // Scroll to target section after the first frame renders.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToTargetIfNeeded();
+    });
+  }
+
+  void _scrollToTargetIfNeeded() {
+    final target = ref.read(settingsScrollTargetProvider);
+    if (target == null) return;
+
+    // Clear immediately to avoid repeat scrolls.
+    ref.read(settingsScrollTargetProvider.notifier).set(null);
+
+    final key = _sectionKeys[target];
+    if (key?.currentContext != null) {
+      Scrollable.ensureVisible(
+        key!.currentContext!,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        alignment: 0.0,
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final l10n = L10n.of(context);
+    // Watch for scroll target changes while the page is visible.
+    ref.listen(settingsScrollTargetProvider, (_, target) {
+      if (target != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToTargetIfNeeded();
+        });
+      }
+    });
 
     return WpPageShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Privacy Note ──
-          _PrivacyBanner(isDark: isDark, l10n: l10n),
-          const SizedBox(height: WpSpacing.md),
-
           // ═══════════════════════════════════════════
           //  RECORDING PIPELINE
           // ═══════════════════════════════════════════
-          const AudioSection(),
+          AudioSection(key: _sectionKeys['audio']),
           settingsSectionDivider(context),
-          const RecordingSafetySection(),
+          RecordingSafetySection(key: _sectionKeys['recordingSafety']),
           settingsSectionDivider(context),
-          const AfterTranscriptionSection(),
+          AfterTranscriptionSection(key: _sectionKeys['afterTranscription']),
           settingsSectionDivider(context),
 
           // ═══════════════════════════════════════════
           //  TRANSCRIPTION & ENHANCEMENT
           // ═══════════════════════════════════════════
-          const SpeechRecognitionSection(),
-          const SttModelSection(),
+          SpeechRecognitionSection(key: _sectionKeys['stt']),
+          SttModelSection(key: _sectionKeys['sttModel']),
           settingsSectionDivider(context),
-          const PostProcessingSection(),
+          PostProcessingSection(key: _sectionKeys['postprocessing']),
           settingsSectionDivider(context),
-          const TextReplacementsSection(),
+          TextReplacementsSection(key: _sectionKeys['replacements']),
           settingsSectionDivider(context),
 
           // ═══════════════════════════════════════════
           //  SHORTCUTS & FEEDBACK
           // ═══════════════════════════════════════════
-          const KeyboardShortcutSection(),
+          KeyboardShortcutSection(key: _sectionKeys['hotkey']),
           settingsSectionDivider(context),
-          const SoundFeedbackSection(),
+          SoundFeedbackSection(key: _sectionKeys['sound']),
           settingsSectionDivider(context),
 
           // ═══════════════════════════════════════════
           //  DISPLAY & LAYOUT
           // ═══════════════════════════════════════════
-          const OverlayButtonSection(),
+          OverlayButtonSection(key: _sectionKeys['overlay']),
           settingsSectionDivider(context),
 
           // ═══════════════════════════════════════════
           //  GENERAL
           // ═══════════════════════════════════════════
-          const InterfaceSection(),
+          InterfaceSection(key: _sectionKeys['interface']),
           settingsSectionDivider(context),
-          const CloudProvidersSection(),
+          CloudProvidersSection(key: _sectionKeys['cloud']),
           settingsSectionDivider(context),
-          const AdvancedSection(),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Privacy banner (top of settings page)
-// ---------------------------------------------------------------------------
-
-class _PrivacyBanner extends StatelessWidget {
-  const _PrivacyBanner({required this.isDark, required this.l10n});
-
-  final bool isDark;
-  final L10n l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.md,
-        vertical: WpSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle,
-        borderRadius: WpRadius.borderSm,
-        border: Border.all(
-          color: isDark
-              ? WpColorsDark.accent.withValues(alpha: 0.15)
-              : WpColorsLight.accent.withValues(alpha: 0.15),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            LucideIcons.shieldCheck,
-            size: WpIconSize.sm,
-            color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-          ),
-          const SizedBox(width: WpSpacing.sm),
-          Expanded(
-            child: Text(
-              l10n.settingsPrivacyNote,
-              style: TextStyle(
-                fontSize: 12.5,
-                color: isDark
-                    ? WpColorsDark.textSecondary
-                    : WpColorsLight.textSecondary,
-                height: 1.4,
-              ),
-            ),
-          ),
+          AdvancedSection(key: _sectionKeys['advanced']),
         ],
       ),
     );

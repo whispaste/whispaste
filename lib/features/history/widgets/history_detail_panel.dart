@@ -159,6 +159,8 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           _notesSectionKey.currentState?.startAddingNote();
         },
         const SingleActivator(LogicalKeyboardKey.keyE, control: true): _toggleEdit,
+        const SingleActivator(LogicalKeyboardKey.keyP): onPin,
+        const SingleActivator(LogicalKeyboardKey.keyC, control: true): onCopy,
       },
       child: Focus(
         focusNode: _panelFocusNode,
@@ -464,7 +466,33 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                       ],
                     ),
                   ],
-                  const SizedBox(height: WpSpacing.xxl),
+                  const SizedBox(height: WpSpacing.md),
+                  // Tags — interactive editor
+                  Row(
+                    children: [
+                      Icon(LucideIcons.tags, size: 14, color: textMuted),
+                      const SizedBox(width: WpSpacing.xs),
+                      Text(
+                        l10n.historyTags,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: WpSpacing.xs),
+                  _TagSection(
+                    key: _tagSectionKey,
+                    entryId: entry.id,
+                    tags: tags,
+                    isDark: isDark,
+                    searchQuery: _tagSearchQuery,
+                    onSearchChanged: (q) =>
+                        setState(() => _tagSearchQuery = q),
+                  ),
+                  const SizedBox(height: WpSpacing.md),
                   // Metadata — compact inline chips
                   Wrap(
                     spacing: WpSpacing.xs,
@@ -502,32 +530,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                           ),
                         ),
                     ],
-                  ),
-                  // Tags — interactive editor
-                  const SizedBox(height: WpSpacing.md),
-                  Row(
-                    children: [
-                      Icon(LucideIcons.tags, size: 14, color: textMuted),
-                      const SizedBox(width: WpSpacing.xs),
-                      Text(
-                        l10n.historyTags,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: WpSpacing.xs),
-                  _TagSection(
-                    key: _tagSectionKey,
-                    entryId: entry.id,
-                    tags: tags,
-                    isDark: isDark,
-                    searchQuery: _tagSearchQuery,
-                    onSearchChanged: (q) =>
-                        setState(() => _tagSearchQuery = q),
                   ),
                   // Notes section
                   const SizedBox(height: WpSpacing.lg),
