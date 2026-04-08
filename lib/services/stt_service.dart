@@ -702,13 +702,11 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     if (!useGpu) {
       args.add('--no-gpu');
     } else {
-      // Only enable flash-attn for NVIDIA CUDA — Vulkan doesn't support it.
+      // Only enable flash-attn for NVIDIA CUDA — Vulkan support is
+      // build-dependent and not guaranteed for our bundled binary.
       final gpu = hw.cachedGpuInfo;
       if (gpu != null && gpu.supportsFlashAttn) {
         args.add('--flash-attn');
-      } else if (gpu == null) {
-        // Detection hasn't run yet — skip flash-attn to be safe.
-        _log.debug('GPU info not cached yet, skipping --flash-attn');
       }
     }
 

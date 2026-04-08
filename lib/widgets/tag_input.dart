@@ -65,6 +65,7 @@ class WpTagInputState extends State<WpTagInput> {
   @override
   void initState() {
     super.initState();
+    _focusNode.onKeyEvent = _handleKeyEvent;
   }
 
   @override
@@ -120,6 +121,21 @@ class WpTagInputState extends State<WpTagInput> {
     _controller.clear();
     widget.onSearchChanged?.call('');
     _focusNode.unfocus();
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.escape) {
+        _closeAddMode();
+        return KeyEventResult.handled;
+      } else if (event.logicalKey == LogicalKeyboardKey.backspace &&
+          _controller.text.isEmpty &&
+          widget.tags.isNotEmpty) {
+        widget.onRemove(widget.tags.last.id);
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
   }
 
   List<Tag> get _filteredSuggestions {
@@ -239,49 +255,32 @@ class WpTagInputState extends State<WpTagInput> {
     return SizedBox(
       width: 140,
       height: 30,
-      child: Focus(
-        canRequestFocus: false,
-        onKeyEvent: (node, event) {
-          if (event is KeyDownEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.escape) {
-              _closeAddMode();
-              return KeyEventResult.handled;
-            } else if (event.logicalKey == LogicalKeyboardKey.backspace &&
-                _controller.text.isEmpty &&
-                widget.tags.isNotEmpty) {
-              widget.onRemove(widget.tags.last.id);
-              return KeyEventResult.handled;
-            }
-          }
-          return KeyEventResult.ignored;
-        },
-        child: TextField(
-          controller: _controller,
-          focusNode: _focusNode,
-          autofocus: true,
-          textInputAction: TextInputAction.done,
-          style: TextStyle(fontSize: 13, color: textPrimary),
-          decoration: InputDecoration(
-            hintText: widget.searchHintText,
-            hintStyle: TextStyle(fontSize: 12, color: textMuted),
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.xs,
-              vertical: WpSpacing.xxs,
-            ),
-            border: UnderlineInputBorder(
-              borderSide: BorderSide(color: borderCol),
-            ),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: borderCol),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: accent, width: 1.5),
-            ),
+      child: TextField(
+        controller: _controller,
+        focusNode: _focusNode,
+        autofocus: true,
+        textInputAction: TextInputAction.done,
+        style: TextStyle(fontSize: 13, color: textPrimary),
+        decoration: InputDecoration(
+          hintText: widget.searchHintText,
+          hintStyle: TextStyle(fontSize: 12, color: textMuted),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.xs,
+            vertical: WpSpacing.xxs,
           ),
-          onChanged: _handleInputChanged,
-          onSubmitted: _submit,
+          border: UnderlineInputBorder(
+            borderSide: BorderSide(color: borderCol),
+          ),
+          enabledBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: borderCol),
+          ),
+          focusedBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: accent, width: 1.5),
+          ),
         ),
+        onChanged: _handleInputChanged,
+        onSubmitted: _submit,
       ),
     );
   }

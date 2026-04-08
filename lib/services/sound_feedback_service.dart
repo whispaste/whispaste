@@ -73,7 +73,7 @@ class SoundFeedbackService extends Notifier<void> {
   SoLoud get _engine => SoLoud.instance;
 
   Future<void> _ensureInit() async {
-    if (_initialized) return;
+    if (_initialized && _sources.isNotEmpty) return;
     if (_initializing) return; // prevent re-entrant init
     _initializing = true;
     try {
@@ -89,6 +89,7 @@ class SoundFeedbackService extends Notifier<void> {
         'error.wav',
         'warning.wav',
       ];
+      _sources.clear();
       for (final name in assets) {
         try {
           _sources[name] = await _engine.loadAsset('assets/sounds/$name');
@@ -96,7 +97,24 @@ class SoundFeedbackService extends Notifier<void> {
           _log.warning('Failed to preload $name: $e');
         }
       }
-      _initialized = true;
+      // Recovery: if all preloads failed (e.g. temp dir invalidated),
+      // restart the engine from scratch and retry.
+      if (_sources.isEmpty) {
+        _log.warning('All preloads failed — restarting engine for recovery');
+        try {
+          _engine.deinit();
+        } catch (_) {}
+        await _engine.init(bufferSize: 1024, channels: Channels.mono);
+        for (final name in assets) {
+          try {
+            _sources[name] = await _engine.loadAsset('assets/sounds/$name');
+          } catch (e) {
+            _log.warning('Recovery preload failed for $name: $e');
+          }
+        }
+        _log.info('Recovery preload: ${_sources.length}/5');
+      }
+      _initialized = _sources.isNotEmpty;
       _log.info('Sound assets preloaded (${_sources.length}/5)');
     } catch (e) {
       _log.warning('SoLoud init failed: $e');
