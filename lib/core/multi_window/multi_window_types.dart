@@ -42,6 +42,7 @@ String encodeRecordingState(
   String? aiMode,
   bool? isLocalStt,
   String? hotkeyLabel,
+  bool? isDark,
 }) => jsonEncode({
   'phase': state.phase.name,
   'elapsedMs': state.elapsed.inMilliseconds,
@@ -54,6 +55,7 @@ String encodeRecordingState(
   'aiMode': ?aiMode,
   'isLocalStt': ?isLocalStt,
   'hotkeyLabel': ?hotkeyLabel,
+  'isDark': ?isDark,
 });
 
 /// Deserialises a JSON string back into a [DecodedRecordingState].
@@ -74,6 +76,7 @@ DecodedRecordingState decodeRecordingState(String json) {
       aiMode: map['aiMode'] as String?,
       isLocalStt: map['isLocalStt'] as bool?,
       hotkeyLabel: map['hotkeyLabel'] as String?,
+      isDark: map['isDark'] as bool?,
     );
   } catch (_) {
     return const DecodedRecordingState();
@@ -108,6 +111,7 @@ class DecodedRecordingState extends RecordingState {
     this.aiMode,
     this.isLocalStt,
     this.hotkeyLabel,
+    this.isDark,
   });
 
   final int maxRecordDurationSeconds;
@@ -115,6 +119,9 @@ class DecodedRecordingState extends RecordingState {
   final String? aiMode;
   final bool? isLocalStt;
   final String? hotkeyLabel;
+
+  /// Theme preference from the main window (true = dark, false = light).
+  final bool? isDark;
 }
 
 // ---------------------------------------------------------------------------
