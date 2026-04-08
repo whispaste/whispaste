@@ -2,6 +2,9 @@
 ///
 /// Shows existing tags as removable chips + a text field for adding new ones.
 /// Suggestions come from [frequentTags] and [searchTags] in the database.
+///
+/// Mobile-first: remove icons always visible, touch targets ≥ 48px,
+/// interactive icons ≥ 20px.
 library;
 
 import 'package:flutter/material.dart';
@@ -72,7 +75,6 @@ class _WpTagInputState extends State<WpTagInput> {
   void _submit(String text) {
     final trimmed = text.trim().toLowerCase();
     if (trimmed.isEmpty) return;
-    // Don't add duplicates
     if (widget.tags.any((t) => t.name == trimmed)) {
       _controller.clear();
       return;
@@ -126,58 +128,58 @@ class _WpTagInputState extends State<WpTagInput> {
           runSpacing: WpSpacing.xs,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            // Existing tags as removable chips
             for (final tag in widget.tags)
               _TagChip(
                 tag: tag,
                 isDark: widget.isDark,
                 onRemove: () => widget.onRemove(tag.id),
               ),
-            // Inline text input
-            SizedBox(
-              width: 140,
-              height: 28,
-              child: KeyboardListener(
-                focusNode: FocusNode(),
-                onKeyEvent: (event) {
-                  // Delete last tag on backspace with empty field
-                  if (event is KeyDownEvent &&
-                      event.logicalKey == LogicalKeyboardKey.backspace &&
-                      _controller.text.isEmpty &&
-                      widget.tags.isNotEmpty) {
-                    widget.onRemove(widget.tags.last.id);
-                  }
-                },
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  style: TextStyle(fontSize: 12, color: textPrimary),
-                  decoration: InputDecoration(
-                    hintText: widget.tags.isEmpty ? widget.hintText : '+',
-                    hintStyle: TextStyle(fontSize: 12, color: textMuted),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: WpSpacing.xs,
-                      vertical: WpSpacing.xxs,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: WpRadius.borderSm,
-                      borderSide: BorderSide(color: borderCol),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: WpRadius.borderSm,
-                      borderSide: BorderSide(color: borderCol),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: WpRadius.borderSm,
-                      borderSide: BorderSide(color: accent, width: 1.5),
-                    ),
-                  ),
-                  onChanged: (v) {
-                    widget.onSearchChanged?.call(v.trim());
-                    setState(() {});
+            // Inline text input — flexible width, proper height for touch
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 100, maxWidth: 200),
+              child: SizedBox(
+                height: 36,
+                child: KeyboardListener(
+                  focusNode: FocusNode(),
+                  onKeyEvent: (event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.backspace &&
+                        _controller.text.isEmpty &&
+                        widget.tags.isNotEmpty) {
+                      widget.onRemove(widget.tags.last.id);
+                    }
                   },
-                  onSubmitted: _submit,
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    style: TextStyle(fontSize: 13, color: textPrimary),
+                    decoration: InputDecoration(
+                      hintText: widget.tags.isEmpty ? widget.hintText : '+',
+                      hintStyle: TextStyle(fontSize: 13, color: textMuted),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: WpSpacing.sm,
+                        vertical: WpSpacing.xs,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: WpRadius.borderSm,
+                        borderSide: BorderSide(color: borderCol),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: WpRadius.borderSm,
+                        borderSide: BorderSide(color: borderCol),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: WpRadius.borderSm,
+                        borderSide: BorderSide(color: accent, width: 1.5),
+                      ),
+                    ),
+                    onChanged: (v) {
+                      widget.onSearchChanged?.call(v.trim());
+                      setState(() {});
+                    },
+                    onSubmitted: _submit,
+                  ),
                 ),
               ),
             ),
@@ -188,16 +190,16 @@ class _WpTagInputState extends State<WpTagInput> {
           Padding(
             padding: const EdgeInsets.only(top: WpSpacing.xxs),
             child: Container(
-              constraints: const BoxConstraints(maxHeight: 160),
+              constraints: const BoxConstraints(maxHeight: 200),
               decoration: BoxDecoration(
                 color: surfaceEl,
                 borderRadius: WpRadius.borderSm,
                 border: Border.all(color: borderCol),
-                boxShadow: WpShadows.subtle,
+                boxShadow: WpShadows.card,
               ),
               child: ListView.builder(
                 shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(vertical: 2),
+                padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
                 itemCount: _filteredSuggestions.length,
                 itemBuilder: (_, i) {
                   final tag = _filteredSuggestions[i];
@@ -217,7 +219,7 @@ class _WpTagInputState extends State<WpTagInput> {
 }
 
 // ---------------------------------------------------------------------------
-// Removable tag chip
+// Removable tag chip — remove icon always visible (mobile-first)
 // ---------------------------------------------------------------------------
 
 class _TagChip extends StatefulWidget {
@@ -250,7 +252,7 @@ class _TagChipState extends State<_TagChip> {
         duration: WpMotion.fast,
         padding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.sm,
-          vertical: 3,
+          vertical: WpSpacing.xxs + 2,
         ),
         decoration: BoxDecoration(
           color: accent.withValues(alpha: _isHovered ? 0.18 : 0.1),
@@ -262,22 +264,29 @@ class _TagChipState extends State<_TagChip> {
             Text(
               '#${widget.tag.name}',
               style: TextStyle(
-                fontSize: 12,
-                color: accent.withValues(alpha: 0.85),
+                fontSize: 13,
+                color: accent.withValues(alpha: 0.9),
                 fontWeight: FontWeight.w500,
               ),
             ),
-            if (_isHovered) ...[
-              const SizedBox(width: WpSpacing.xxs),
-              GestureDetector(
-                onTap: widget.onRemove,
-                child: Icon(
-                  LucideIcons.x,
-                  size: 12,
-                  color: accent.withValues(alpha: 0.6),
+            const SizedBox(width: WpSpacing.xxs),
+            // Always visible — opacity increases on hover
+            GestureDetector(
+              onTap: widget.onRemove,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: AnimatedOpacity(
+                  opacity: _isHovered ? 0.9 : 0.4,
+                  duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+                  child: Icon(
+                    LucideIcons.x,
+                    size: WpIconSize.sm,
+                    color: accent,
+                  ),
                 ),
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -314,6 +323,7 @@ class _SuggestionTileState extends State<_SuggestionTile> {
     final textPrimary = widget.isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
+    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final hoverBg =
         widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
 
@@ -323,32 +333,33 @@ class _SuggestionTileState extends State<_SuggestionTile> {
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: WpMotion.fast,
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.sm,
-            vertical: WpSpacing.xs,
+            vertical: WpSpacing.sm,
           ),
           color: _isHovered ? hoverBg : Colors.transparent,
           child: Row(
             children: [
               Icon(
                 LucideIcons.hash,
-                size: 13,
-                color: textPrimary.withValues(alpha: 0.5),
+                size: WpIconSize.sm,
+                color: accent.withValues(alpha: 0.6),
               ),
               const SizedBox(width: WpSpacing.xs),
               Expanded(
                 child: Text(
                   widget.tag.name,
-                  style: TextStyle(fontSize: 12, color: textPrimary),
+                  style: TextStyle(fontSize: 13, color: textPrimary),
                 ),
               ),
               if (widget.count != null && widget.count! > 0)
                 Text(
                   '${widget.count}',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     color: textPrimary.withValues(alpha: 0.4),
                   ),
                 ),

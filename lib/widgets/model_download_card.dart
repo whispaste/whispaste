@@ -307,7 +307,7 @@ class _TierRowState extends State<_TierRow> {
                         Row(
                           children: [
                             Icon(LucideIcons.triangleAlert,
-                                size: 10,
+                                size: WpIconSize.xs,
                                 color: widget.isDark
                                     ? WpColorsDark.warning
                                     : WpColorsLight.warning),
@@ -540,12 +540,12 @@ class _ActionChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(WpRadius.sm),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xs, vertical: WpSpacing.xxs),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: 4),
+            Icon(icon, size: WpIconSize.sm, color: color),
+            const SizedBox(width: WpSpacing.xxs),
             Text(
               label,
               style: TextStyle(
