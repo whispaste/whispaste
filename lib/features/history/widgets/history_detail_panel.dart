@@ -1042,11 +1042,11 @@ class _TagSection extends ConsumerStatefulWidget {
 class _TagSectionState extends ConsumerState<_TagSection> {
   List<Tag> _suggestions = [];
   Map<String, int> _suggestionCounts = {};
-  final FocusNode _tagFocusNode = FocusNode();
+  final GlobalKey<WpTagInputState> _tagInputKey = GlobalKey<WpTagInputState>();
 
-  /// Called by keyboard shortcut (T) to focus the tag input field.
+  /// Called by keyboard shortcut (T) to enter tag add mode.
   void focusTagInput() {
-    _tagFocusNode.requestFocus();
+    _tagInputKey.currentState?.enterAddMode();
   }
 
   @override
@@ -1088,7 +1088,6 @@ class _TagSectionState extends ConsumerState<_TagSection> {
 
   @override
   void dispose() {
-    _tagFocusNode.dispose();
     super.dispose();
   }
 
@@ -1098,12 +1097,13 @@ class _TagSectionState extends ConsumerState<_TagSection> {
     final l10n = L10n.of(context);
 
     return WpTagInput(
+      key: _tagInputKey,
       tags: widget.tags,
       isDark: widget.isDark,
       hintText: l10n.historyAddTag,
+      searchHintText: l10n.historySearchTags,
       suggestions: _suggestions,
       suggestionCounts: _suggestionCounts,
-      focusNode: _tagFocusNode,
       onSearchChanged: (q) {
         widget.onSearchChanged(q);
         _loadSuggestions();

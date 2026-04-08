@@ -2653,6 +2653,18 @@ abstract class L10n {
   /// **'Add tag…'**
   String get historyAddTag;
 
+  /// No description provided for @historySearchTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Search or create…'**
+  String get historySearchTags;
+
+  /// No description provided for @historyNoteEdited.
+  ///
+  /// In en, this message translates to:
+  /// **'edited'**
+  String get historyNoteEdited;
+
   /// No description provided for @historyTagAdded.
   ///
   /// In en, this message translates to:
