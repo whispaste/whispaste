@@ -19,6 +19,7 @@ import '../core/data/database.dart';
 import '../core/recording/recording_state.dart';
 import '../features/analytics/analytics_provider.dart';
 import 'audio_service.dart';
+import 'model_download_service.dart';
 import 'path_service.dart';
 import 'sound_feedback_service.dart';
 import 'stt_service.dart';
@@ -96,6 +97,9 @@ class RecordingOrchestrator extends Notifier<void> {
       // ── Preflight checks ──────────────────────────────────────────────
       final preflightError = _runPreflight();
       if (preflightError != null) {
+        // Try soft handling first (auto-download, info toast).
+        if (_handleSoftPreflight(preflightError)) return;
+        // Hard failure — transition to error state.
         notifier.fail(preflightError);
         return;
       }
@@ -325,6 +329,37 @@ class RecordingOrchestrator extends Notifier<void> {
   /// Returns an error code string if something is missing,
   /// or `null` when everything is ready. Error codes are mapped
   /// to localized messages in the UI layer.
+  /// Handles recoverable preflight failures gracefully instead of entering
+  /// the error phase. Returns `true` if the failure was handled softly
+  /// (recording stays idle, info notification sent), `false` if it's a hard
+  /// error that should use the normal error flow.
+  bool _handleSoftPreflight(String errorCode) {
+    switch (errorCode) {
+      case 'stt_server_not_found':
+        final dl = ref.read(modelDownloadProvider);
+        if (dl.downloadedModels.isNotEmpty) {
+          // Server missing but models exist → auto-download.
+          ref.read(modelDownloadProvider.notifier).ensureServerBinary();
+          ref.read(recordingInfoProvider.notifier).show(
+              'info_engine_auto_download');
+        } else {
+          // No models at all → user needs to go to settings.
+          ref.read(recordingInfoProvider.notifier).show('info_model_missing');
+        }
+        _log.info('Soft preflight: $errorCode handled gracefully');
+        return true;
+
+      case 'stt_model_not_found':
+      case 'stt_model_unknown':
+        ref.read(recordingInfoProvider.notifier).show('info_model_missing');
+        _log.info('Soft preflight: $errorCode handled gracefully');
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
   String? _runPreflight() {
     final settings =
         ref.read(settingsProvider).value ?? AppSettings.defaults;
