@@ -1,6 +1,6 @@
 # Projekt-Plan
 
-> Automatisch gepflegt von Amboss. Letzte Aktualisierung: 2026-04-08 15:26
+> Automatisch gepflegt von Amboss. Letzte Aktualisierung: 2026-04-08 19:17
 
 ## Projekt-Übersicht
 WhisPaste — cross-platform Flutter dictation app (Windows, macOS, Linux, iOS, Android). Speech-to-text via whisper.cpp subprocess, LLM post-processing via llama.cpp/cloud APIs, SQLite via Drift, Riverpod state management. Migrating from Go v1.1.3 to Flutter v1.2.0.
@@ -47,6 +47,11 @@ WhisPaste — cross-platform Flutter dictation app (Windows, macOS, Linux, iOS, 
 
 | Datum | Aufgabe | Größe | Branch | Zusammenfassung |
 |-------|---------|-------|--------|-----------------|
+| 2026-04-08 | cleanup-go-references | M | amboss/welcome-step-redesign | Remove all 22 Go/FFI references from copilot-instructions.md — migration complete, Go codebase fully removed |
+| 2026-04-08 | vulkan-server-build | M | amboss/welcome-step-redesign | Add Vulkan whisper-server CI build workflow + download service routing to dedicated release tag |
+| 2026-04-08 | fix-download-retry | M | amboss/welcome-step-redesign | Add retry with backoff, proper logging, GitHub rate-limit detection for model/server downloads |
+| 2026-04-08 | fix-feedback-relay | M | amboss/welcome-step-redesign | Wire up feedback HTTP POST, add FEEDBACK_RELAY_URL to release.yml, fix analytics refresh, model tier ordering |
+| 2026-04-08 | fix-stt-model-mapping | M | amboss/welcome-step-redesign | Correct STT model tier mapping (small→compact not balanced), add model ID to logs, harden download |
 | 2026-04-08 | zero-trust-supabase-hardening | M | amboss/zero-trust-supabase-hardening | Harden crash/feedback relays for zero-trust: server-side device hashing, safer rate limiting, less trust in client IDs/fingerprints, and documented security boundary |
 | 2026-04-08 | onboarding-ux-overhaul | G | amboss/onboarding-ux-overhaul | 14 fixes: download progress/error/tier bugs, FAB gate, duplicate logo, skip-drag, close button, settings STT unification, country flags, theme toggle shadow, mic step gate |
 | 2026-04-08 | fts5-rebuild-fix | K | main | Remove FTS5 'rebuild' from deleteAllData — contentless FTS5 table forbids it; triggers handle cleanup |
