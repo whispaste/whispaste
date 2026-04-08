@@ -349,6 +349,30 @@ abstract class L10n {
   /// **'Characters'**
   String get historyCharacters;
 
+  /// No description provided for @historyWordCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} words'**
+  String historyWordCount(int count);
+
+  /// No description provided for @historyReadingTime.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min read'**
+  String historyReadingTime(int minutes);
+
+  /// No description provided for @historyReadingTimeUnder1.
+  ///
+  /// In en, this message translates to:
+  /// **'< 1 min read'**
+  String get historyReadingTimeUnder1;
+
+  /// No description provided for @historyEditing.
+  ///
+  /// In en, this message translates to:
+  /// **'Editing…'**
+  String get historyEditing;
+
   /// No description provided for @historySearchTranscriptions.
   ///
   /// In en, this message translates to:
@@ -912,6 +936,36 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Off'**
   String get settingsOverlayModeOff;
+
+  /// No description provided for @settingsOverlayStartPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay start position'**
+  String get settingsOverlayStartPosition;
+
+  /// No description provided for @settingsOverlayStartPositionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Where the floating overlay appears when recording starts'**
+  String get settingsOverlayStartPositionSubtitle;
+
+  /// No description provided for @settingsOverlayStartTopCenter.
+  ///
+  /// In en, this message translates to:
+  /// **'Top center'**
+  String get settingsOverlayStartTopCenter;
+
+  /// No description provided for @settingsOverlayStartBottomCenter.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom center'**
+  String get settingsOverlayStartBottomCenter;
+
+  /// No description provided for @settingsOverlayStartLastPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Remember last position'**
+  String get settingsOverlayStartLastPosition;
 
   /// No description provided for @settingsShowFloatingButton.
   ///

@@ -154,6 +154,27 @@ enum OverlayMode {
 }
 
 // ---------------------------------------------------------------------------
+// Overlay Start Position
+// ---------------------------------------------------------------------------
+
+/// Where the floating overlay initially appears when recording starts.
+enum OverlayStartPosition {
+  topCenter('top-center'),
+  bottomCenter('bottom-center'),
+  lastPosition('last-position');
+
+  const OverlayStartPosition(this.value);
+  final String value;
+
+  static OverlayStartPosition fromValue(String? v) {
+    for (final e in values) {
+      if (e.value == v) return e;
+    }
+    return topCenter;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Floating Button Size
 // ---------------------------------------------------------------------------
 

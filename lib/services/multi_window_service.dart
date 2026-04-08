@@ -516,14 +516,24 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     if (_overlayController == null) {
       await _reconcileExistingWindows();
     }
-    // Build overlay position args from persisted settings.
+    // Build overlay position args based on start position setting.
     String? posArgs;
     final settings = ref.read(settingsProvider).value;
-    if (settings != null && settings.floatingOverlayX >= 0) {
-      posArgs = jsonEncode({
-        'x': settings.floatingOverlayX,
-        'y': settings.floatingOverlayY,
-      });
+    if (settings != null) {
+      final startPos = settings.overlayStartPositionType;
+      switch (startPos) {
+        case OverlayStartPosition.lastPosition:
+          if (settings.floatingOverlayX >= 0) {
+            posArgs = jsonEncode({
+              'x': settings.floatingOverlayX,
+              'y': settings.floatingOverlayY,
+            });
+          }
+        case OverlayStartPosition.topCenter:
+          posArgs = jsonEncode({'align': 'top-center'});
+        case OverlayStartPosition.bottomCenter:
+          posArgs = jsonEncode({'align': 'bottom-center'});
+      }
     }
     if (_overlayController != null) {
       // Window exists — push state first, then show.

@@ -48,6 +48,20 @@
   "historyModel": "Model",
   "historyWords": "Words",
   "historyCharacters": "Characters",
+  "historyWordCount": "{count} words",
+  "@historyWordCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "historyReadingTime": "{minutes} min read",
+  "@historyReadingTime": {
+    "placeholders": {
+      "minutes": {"type": "int"}
+    }
+  },
+  "historyReadingTimeUnder1": "< 1 min read",
+  "historyEditing": "Editing…",
   "historySearchTranscriptions": "Search transcriptions…",
   "historyNoResults": "No results",
   "historyNoResultsHint": "No transcriptions match \"{query}\".\nTry a different search term.",
@@ -154,6 +168,11 @@
   "settingsOverlayModeInWindow": "In main window",
   "settingsOverlayModeFloating": "Floating window (always visible)",
   "settingsOverlayModeOff": "Off",
+  "settingsOverlayStartPosition": "Overlay start position",
+  "settingsOverlayStartPositionSubtitle": "Where the floating overlay appears when recording starts",
+  "settingsOverlayStartTopCenter": "Top center",
+  "settingsOverlayStartBottomCenter": "Bottom center",
+  "settingsOverlayStartLastPosition": "Remember last position",
   "settingsShowFloatingButton": "Floating recording button",
   "settingsShowFloatingButtonSubtitle": "Small always-on-top button for starting or stopping recording from any app",
   "settingsFloatingButtonOpacity": "Floating button opacity",
