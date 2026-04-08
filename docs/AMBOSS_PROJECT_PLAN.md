@@ -1,6 +1,6 @@
 # Projekt-Plan
 
-> Automatisch gepflegt von Amboss. Letzte Aktualisierung: 2026-04-08 11:30
+> Automatisch gepflegt von Amboss. Letzte Aktualisierung: 2026-04-08 11:35
 
 ## Projekt-Übersicht
 WhisPaste — cross-platform Flutter dictation app (Windows, macOS, Linux, iOS, Android). Speech-to-text via whisper.cpp subprocess, LLM post-processing via llama.cpp/cloud APIs, SQLite via Drift, Riverpod state management. Migrating from Go v1.1.3 to Flutter v1.2.0.
@@ -13,7 +13,7 @@ WhisPaste — cross-platform Flutter dictation app (Windows, macOS, Linux, iOS, 
 
 ## Aktuelle Aufgaben & Nächste Schritte
 
-- [ ] Wire up migration toast for first launch after Go→Flutter upgrade (done — integrated in app.dart initState)
+- [x] Wire up migration toast for first launch after Go→Flutter upgrade (integrated in app.dart initState)
 - [ ] Push main to origin (31+ commits ahead)
 - [ ] Manual testing: Factory Reset button, Reset to Defaults, Go migration path
 - [ ] Consider centralizing reset orchestration into a single service (currently split between UI + provider)
@@ -36,4 +36,5 @@ WhisPaste — cross-platform Flutter dictation app (Windows, macOS, Linux, iOS, 
 
 | Datum | Aufgabe | Größe | Branch | Zusammenfassung |
 |-------|---------|-------|--------|-----------------|
+| 2026-04-08 | fts5-rebuild-fix | K | main | Remove FTS5 'rebuild' from deleteAllData — contentless FTS5 table forbids it; triggers handle cleanup |
 | 2026-04-08 | factory-reset-migration | G | main | Factory Reset + Go migration fixes + adversarial review fixes (COALESCE, transaction, provider invalidation, async toast) |
