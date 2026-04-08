@@ -56,6 +56,31 @@ class OverlayButtonSection extends ConsumerWidget {
               },
             ),
           ),
+          // Overlay start position (only relevant for floating mode)
+          if (settings.overlayModeType == OverlayMode.floating)
+            SettingRow(
+              icon: LucideIcons.mapPin,
+              label: l10n.settingsOverlayStartPosition,
+              subtitle: l10n.settingsOverlayStartPositionSubtitle,
+              trailing: settingsDropdown(
+                context: context,
+                value: settings.overlayStartPosition,
+                items: OverlayStartPosition.values.map((e) => e.value).toList(),
+                labels: [
+                  l10n.settingsOverlayStartTopCenter,
+                  l10n.settingsOverlayStartBottomCenter,
+                  l10n.settingsOverlayStartLastPosition,
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings(
+                        (s) => s.copyWith(overlayStartPosition: v),
+                      );
+                },
+              ),
+            ),
           SettingRow(
             icon: LucideIcons.move,
             label: l10n.settingsShowFloatingButton,

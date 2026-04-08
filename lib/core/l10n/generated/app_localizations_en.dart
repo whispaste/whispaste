@@ -138,6 +138,22 @@ class L10nEn extends L10n {
   String get historyCharacters => 'Characters';
 
   @override
+  String historyWordCount(int count) {
+    return '$count words';
+  }
+
+  @override
+  String historyReadingTime(int minutes) {
+    return '$minutes min read';
+  }
+
+  @override
+  String get historyReadingTimeUnder1 => '< 1 min read';
+
+  @override
+  String get historyEditing => 'Editing…';
+
+  @override
   String get historySearchTranscriptions => 'Search transcriptions…';
 
   @override
@@ -448,6 +464,22 @@ class L10nEn extends L10n {
 
   @override
   String get settingsOverlayModeOff => 'Off';
+
+  @override
+  String get settingsOverlayStartPosition => 'Overlay start position';
+
+  @override
+  String get settingsOverlayStartPositionSubtitle =>
+      'Where the floating overlay appears when recording starts';
+
+  @override
+  String get settingsOverlayStartTopCenter => 'Top center';
+
+  @override
+  String get settingsOverlayStartBottomCenter => 'Bottom center';
+
+  @override
+  String get settingsOverlayStartLastPosition => 'Remember last position';
 
   @override
   String get settingsShowFloatingButton => 'Floating recording button';
