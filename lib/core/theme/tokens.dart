@@ -83,7 +83,7 @@ abstract final class WpMotion {
   /// Instant hover transitions — no animation prevents flicker when moving
   /// between adjacent items (Discord / Notion style).
   static const Duration hoverIn = Duration.zero;
-  static const Duration hoverOut = Duration.zero;
+  static const Duration hoverOut = Duration(milliseconds: 80);
 
   static const Curve defaultCurve = Curves.easeOut;
   static const Curve spring = Curves.elasticOut;

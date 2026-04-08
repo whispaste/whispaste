@@ -62,6 +62,10 @@ class HistoryDatabase extends _$HistoryDatabase {
           }
         },
         beforeOpen: (details) async {
+          // Reconcile Go-era schema if DB was created by the old Go backend
+          // (column "text" instead of "content", TEXT timestamps instead of
+          // INTEGER). Must run BEFORE any Drift queries touch the table.
+          await _reconcileGoSchema();
           // One-time backfill: populate DailyStats from existing history
           // entries so that stats are correct for users upgrading from
           // a version that never wrote to DailyStats.
@@ -194,6 +198,31 @@ class HistoryDatabase extends _$HistoryDatabase {
         await tagEntry(entryId, tag.id);
       }
     }
+  }
+
+  /// Safety net: if the DB has Go-era schema (column "text" instead of
+  /// "content", TEXT timestamps instead of INTEGER), reconcile it to match
+  /// the Drift-expected schema.
+  Future<void> _reconcileGoSchema() async {
+    final cols =
+        await customSelect("PRAGMA table_info('history_entries')").get();
+    final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+    if (!colNames.contains('text') || colNames.contains('content')) return;
+
+    debugPrint('Reconciling Go-era schema: "text" → "content"');
+    await customStatement(
+      'ALTER TABLE history_entries RENAME COLUMN "text" TO "content"',
+    );
+    // Go stored ISO 8601 TEXT timestamps; Drift expects Unix epoch integers.
+    await customStatement('''
+      UPDATE history_entries
+      SET timestamp = CAST(strftime('%s', timestamp) AS INTEGER)
+      WHERE typeof(timestamp) = 'text'
+    ''');
+    // Recreate FTS triggers (they reference the "content" column name).
+    await _recreateFtsWithTags();
+    debugPrint('Go-era schema reconciliation complete');
   }
 
   // ---------------------------------------------------------------------------
@@ -1005,32 +1034,42 @@ LazyDatabase _openConnection() {
 
 /// One-time migration: move history.db from the old double-nested
 /// `%APPDATA%\WhisPaste\WhisPaste\` path to the correct single-level
-/// `%APPDATA%\WhisPaste\` path.
+/// `%APPDATA%\WhisPaste\` path. If a Go-era DB already occupies the
+/// target, back it up and prefer the Flutter DB (correct Drift schema).
 Future<void> _migrateFromNestedPath(String correctDir) async {
   if (!Platform.isWindows) return;
   final nestedDb = File(p.join(correctDir, 'WhisPaste', 'history.db'));
+  if (!nestedDb.existsSync()) return;
+
   final targetDb = File(p.join(correctDir, 'history.db'));
-  if (nestedDb.existsSync() && !targetDb.existsSync()) {
-    try {
-      await nestedDb.copy(targetDb.path);
-      // Also migrate WAL/SHM if present.
+  try {
+    // If a DB already exists at the target (likely Go-era), back it up.
+    if (targetDb.existsSync()) {
+      final backup = File(p.join(correctDir, 'history.db.pre-migration'));
+      await targetDb.copy(backup.path);
+      await targetDb.delete();
       for (final suffix in ['-wal', '-shm']) {
-        final src = File('${nestedDb.path}$suffix');
-        if (src.existsSync()) {
-          await src.copy('${targetDb.path}$suffix');
-        }
+        final f = File('${targetDb.path}$suffix');
+        if (f.existsSync()) await f.delete();
       }
-      // Remove old nested directory contents (best-effort).
-      try {
-        final nestedDir = Directory(p.join(correctDir, 'WhisPaste'));
-        await nestedDir.delete(recursive: true);
-      } catch (_) {
-        // Non-critical — old dir may be in use by another instance.
-      }
-      debugPrint('DB migrated from nested WhisPaste/WhisPaste/ path');
-    } catch (e) {
-      debugPrint('DB migration failed (will use existing location): $e');
     }
+
+    // Copy Flutter DB from nested path.
+    await nestedDb.copy(targetDb.path);
+    for (final suffix in ['-wal', '-shm']) {
+      final src = File('${nestedDb.path}$suffix');
+      if (src.existsSync()) await src.copy('${targetDb.path}$suffix');
+    }
+
+    // Remove old nested directory (best-effort).
+    try {
+      await Directory(p.join(correctDir, 'WhisPaste'))
+          .delete(recursive: true);
+    } catch (_) {}
+
+    debugPrint('DB migrated from nested WhisPaste/WhisPaste/ path');
+  } catch (e) {
+    debugPrint('DB migration failed (will use existing location): $e');
   }
 }
 
