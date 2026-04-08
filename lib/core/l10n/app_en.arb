@@ -468,6 +468,7 @@
   "settingsAdvancedModelManagement": "Advanced model settings",
 
   "errorSttServerNotFound": "Speech engine not found. Please download a speech model in Settings.",
+  "errorOnboardingNotCompleted": "Please complete the setup wizard first.",
   "errorSttModelNotFound": "Speech model not found. Please download it in Settings.",
   "errorSttModelUnknown": "Unknown speech model. Please select a valid model in Settings.",
   "errorRecordingFailed": "Could not start recording — please try again",
