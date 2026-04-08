@@ -26,6 +26,7 @@ import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/features/about/about_page.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/audio_service.dart';
+import 'package:whispaste/services/hardware_info_service.dart' as hw;
 
 import 'screenshot_devices.dart';
 
@@ -140,6 +141,10 @@ Widget _buildScreenshotApp({
         modelDownloadProvider.overrideWith(() => _MockModelDownloadNotifier()),
         audioInputDevicesProvider.overrideWith(
           (ref) async => <String>['Default Microphone', 'Headset'],
+        ),
+        hw.gpuInfoProvider.overrideWith(
+          (ref) async =>
+              const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test'),
         ),
       ],
       child: Scaffold(body: child),
