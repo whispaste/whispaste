@@ -305,14 +305,14 @@ void main() {
       expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
     });
 
-    test('returns false when no CUDA DLLs on NVIDIA+CUDA system', () async {
+    test('returns true when metadata matches even without CUDA DLLs', () async {
       File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
-      // Write metadata saying "cuda" but no actual CUDA DLLs.
+      // Write metadata saying "cuda" — backend matches GPU.
       await writeServerBinaryInfo(tmpDir.path, _nvidiaWithCuda);
 
-      // Metadata matches (cuda == cuda) → Layer 1 passes.
-      // But Layer 2 checks DLLs: no CUDA DLLs on NVIDIA+CUDA = sub-optimal.
-      expect(isServerBinaryCompatible(tmpDir.path, _nvidiaWithCuda), isFalse);
+      // Metadata match short-circuits: trust our own download metadata.
+      // Runtime DLL_NOT_FOUND is handled by stt_service if DLLs are missing.
+      expect(isServerBinaryCompatible(tmpDir.path, _nvidiaWithCuda), isTrue);
     });
 
     test('returns true when CUDA DLLs present on NVIDIA system', () async {
@@ -362,13 +362,15 @@ void main() {
       expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
     });
 
-    test('returns false when metadata says vulkan but DLL is missing',
+    test('returns true when metadata says vulkan even without DLL (static link)',
         () async {
       File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
       await writeServerBinaryInfo(tmpDir.path, _intelGpu);
-      // Metadata says vulkan, but ggml-vulkan.dll was never extracted.
-
-      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
+      // Metadata says vulkan, GPU needs vulkan → match.
+      // No ggml-vulkan.dll because Vulkan is statically linked in the binary.
+      // L1 metadata match short-circuits — this is the exact scenario that
+      // previously caused an infinite download-delete loop.
+      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
     });
   });
 

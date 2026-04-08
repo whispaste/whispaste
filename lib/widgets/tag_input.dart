@@ -1,12 +1,12 @@
-/// Compact inline tag editor with progressive-disclosure add mode.
+/// Compact inline tag editor — Notion-style.
 ///
-/// Shows existing tags as removable accent-tinted pills. Tap the "+" pill
-/// or press the T shortcut to enter add mode — an inline search/create
-/// field with type-ahead autocomplete.
-///
-/// Mobile-first: remove icons always visible, generous touch targets,
-/// progressive disclosure hides complexity until needed.
+/// Tags display as removable accent-tinted pills in a single Wrap row.
+/// An inline text field sits among the chips for immediate typing.
+/// Supports comma-separated entry, Enter to confirm, Backspace to
+/// remove last tag, and "+N more" collapse when many tags exist.
 library;
+
+import 'dart:math' show max;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +15,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/data/database.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+
+/// Maximum tags shown when not in add mode.
+const _kMaxVisibleTags = 5;
 
 class WpTagInput extends StatefulWidget {
   const WpTagInput({
@@ -49,7 +52,7 @@ class WpTagInputState extends State<WpTagInput> {
   final _focusNode = FocusNode();
   bool _isAddMode = false;
 
-  /// Called by keyboard shortcut (T) to enter add mode.
+  /// Called externally (clickable header, etc.) to enter add mode.
   void enterAddMode() {
     if (_isAddMode) {
       _focusNode.requestFocus();
@@ -92,6 +95,26 @@ class WpTagInputState extends State<WpTagInput> {
     _focusNode.requestFocus();
   }
 
+  void _handleInputChanged(String value) {
+    // Comma-separated tag entry: split, submit each, clear.
+    if (value.contains(',')) {
+      for (final part in value.split(',')) {
+        final trimmed = part.trim().toLowerCase();
+        if (trimmed.isNotEmpty &&
+            !widget.tags.any((t) => t.name == trimmed)) {
+          widget.onAdd(trimmed);
+        }
+      }
+      _controller.clear();
+      widget.onSearchChanged?.call('');
+      _focusNode.requestFocus();
+      setState(() {});
+      return;
+    }
+    widget.onSearchChanged?.call(value.trim());
+    setState(() {});
+  }
+
   void _closeAddMode() {
     setState(() => _isAddMode = false);
     _controller.clear();
@@ -125,179 +148,140 @@ class WpTagInputState extends State<WpTagInput> {
         ? WpColorsDark.borderSubtle
         : WpColorsLight.borderSubtle;
 
+    // Collapse tags when not editing.
+    final visibleTags = _isAddMode
+        ? widget.tags
+        : widget.tags.take(_kMaxVisibleTags).toList();
+    final hiddenCount =
+        _isAddMode ? 0 : max(0, widget.tags.length - _kMaxVisibleTags);
+
     return TapRegion(
       onTapOutside: _isAddMode ? (_) => _closeAddMode() : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Empty state: clickable placeholder ──
-          if (widget.tags.isEmpty && !_isAddMode)
-            Semantics(
-              button: true,
-              label: widget.hintText,
-              child: GestureDetector(
-                onTap: enterAddMode,
-                behavior: HitTestBehavior.opaque,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 44),
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: WpSpacing.xs),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          LucideIcons.plus,
-                          size: WpIconSize.sm,
-                          color: accent.withValues(alpha: 0.5),
-                        ),
-                        const SizedBox(width: WpSpacing.xxs),
-                        Text(
-                          widget.hintText,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+          // ── Unified tag row: chips + inline input / trigger ──
+          Wrap(
+            spacing: WpSpacing.xs,
+            runSpacing: WpSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (final tag in visibleTags)
+                _TagChip(
+                  tag: tag,
+                  isDark: widget.isDark,
+                  onRemove: () => widget.onRemove(tag.id),
                 ),
-              ),
-            ),
+              if (hiddenCount > 0)
+                _OverflowChip(
+                  count: hiddenCount,
+                  isDark: widget.isDark,
+                  onTap: enterAddMode,
+                ),
+              if (_isAddMode)
+                _buildInlineField(
+                  textPrimary: textPrimary,
+                  textMuted: textMuted,
+                  accent: accent,
+                  borderCol: borderCol,
+                )
+              else
+                _AddTagTrigger(
+                  isDark: widget.isDark,
+                  label: widget.tags.isEmpty ? widget.hintText : null,
+                  onTap: enterAddMode,
+                ),
+            ],
+          ),
 
-          // ── Tag pills + "+" trigger ──
-          if (widget.tags.isNotEmpty || _isAddMode)
-            Wrap(
-              spacing: WpSpacing.xs,
-              runSpacing: WpSpacing.xs,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (final tag in widget.tags)
-                  _TagChip(
-                    tag: tag,
-                    isDark: widget.isDark,
-                    onRemove: () => widget.onRemove(tag.id),
-                  ),
-                if (!_isAddMode && widget.tags.isNotEmpty)
-                  _AddTagPill(
-                    isDark: widget.isDark,
-                    onTap: enterAddMode,
-                    semanticsLabel: widget.hintText,
-                  ),
-              ],
-            ),
-
-          // ── Inline search input (add mode only) ──
-          if (_isAddMode) ...[
-            const SizedBox(height: WpSpacing.xs),
-            SizedBox(
-              height: 40,
-              child: Focus(
-                canRequestFocus: false,
-                onKeyEvent: (node, event) {
-                  if (event is KeyDownEvent) {
-                    if (event.logicalKey == LogicalKeyboardKey.escape) {
-                      _closeAddMode();
-                      return KeyEventResult.handled;
-                    } else if (event.logicalKey ==
-                            LogicalKeyboardKey.backspace &&
-                        _controller.text.isEmpty &&
-                        widget.tags.isNotEmpty) {
-                      widget.onRemove(widget.tags.last.id);
-                      return KeyEventResult.handled;
-                    }
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  autofocus: true,
-                  style: TextStyle(fontSize: 13, color: textPrimary),
-                  decoration: InputDecoration(
-                    hintText: widget.searchHintText,
-                    hintStyle: TextStyle(fontSize: 13, color: textMuted),
-                    prefixIcon: Padding(
-                      padding: const EdgeInsets.only(
-                          left: WpSpacing.sm, right: WpSpacing.xs),
-                      child: Icon(LucideIcons.search,
-                          size: WpIconSize.sm, color: textMuted),
-                    ),
-                    prefixIconConstraints:
-                        const BoxConstraints(minHeight: 0, minWidth: 0),
-                    suffixIcon: Semantics(
-                      button: true,
-                      label: 'Close',
-                      child: GestureDetector(
-                        onTap: _closeAddMode,
-                        child: Padding(
-                          padding: const EdgeInsets.all(WpSpacing.xs),
-                          child: Icon(LucideIcons.x,
-                              size: WpIconSize.sm, color: textMuted),
-                        ),
-                      ),
-                    ),
-                    suffixIconConstraints:
-                        const BoxConstraints(minHeight: 0, minWidth: 0),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: WpSpacing.sm,
-                      vertical: WpSpacing.xs,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: WpRadius.borderSm,
-                      borderSide: BorderSide(color: borderCol),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: WpRadius.borderSm,
-                      borderSide: BorderSide(color: borderCol),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: WpRadius.borderSm,
-                      borderSide: BorderSide(color: accent, width: 1.5),
-                    ),
-                  ),
-                  onChanged: (v) {
-                    widget.onSearchChanged?.call(v.trim());
-                    setState(() {});
+          // ── Suggestions dropdown ──
+          if (_isAddMode && _filteredSuggestions.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: WpSpacing.xxs),
+              child: Container(
+                constraints: const BoxConstraints(maxHeight: 200),
+                decoration: BoxDecoration(
+                  color: surfaceEl,
+                  borderRadius: WpRadius.borderSm,
+                  border: Border.all(color: borderCol),
+                  boxShadow: WpShadows.card,
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding:
+                      const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+                  itemCount: _filteredSuggestions.length,
+                  itemBuilder: (_, i) {
+                    final tag = _filteredSuggestions[i];
+                    return _SuggestionTile(
+                      tag: tag,
+                      isDark: widget.isDark,
+                      count: widget.suggestionCounts[tag.id],
+                      onTap: () => _selectSuggestion(tag),
+                    );
                   },
-                  onSubmitted: _submit,
                 ),
               ),
             ),
-            // Suggestions dropdown
-            if (_filteredSuggestions.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: WpSpacing.xxs),
-                child: Container(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  decoration: BoxDecoration(
-                    color: surfaceEl,
-                    borderRadius: WpRadius.borderSm,
-                    border: Border.all(color: borderCol),
-                    boxShadow: WpShadows.card,
-                  ),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    padding:
-                        const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
-                    itemCount: _filteredSuggestions.length,
-                    itemBuilder: (_, i) {
-                      final tag = _filteredSuggestions[i];
-                      return _SuggestionTile(
-                        tag: tag,
-                        isDark: widget.isDark,
-                        count: widget.suggestionCounts[tag.id],
-                        onTap: () => _selectSuggestion(tag),
-                      );
-                    },
-                  ),
-                ),
-              ),
-          ],
         ],
+      ),
+    );
+  }
+
+  /// Inline text field — sits at the end of the tag Wrap.
+  Widget _buildInlineField({
+    required Color textPrimary,
+    required Color textMuted,
+    required Color accent,
+    required Color borderCol,
+  }) {
+    return SizedBox(
+      width: 140,
+      height: 30,
+      child: Focus(
+        canRequestFocus: false,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent) {
+            if (event.logicalKey == LogicalKeyboardKey.escape) {
+              _closeAddMode();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.backspace &&
+                _controller.text.isEmpty &&
+                widget.tags.isNotEmpty) {
+              widget.onRemove(widget.tags.last.id);
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: TextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          style: TextStyle(fontSize: 13, color: textPrimary),
+          decoration: InputDecoration(
+            hintText: widget.searchHintText,
+            hintStyle: TextStyle(fontSize: 12, color: textMuted),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.xs,
+              vertical: WpSpacing.xxs,
+            ),
+            border: UnderlineInputBorder(
+              borderSide: BorderSide(color: borderCol),
+            ),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: borderCol),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: accent, width: 1.5),
+            ),
+          ),
+          onChanged: _handleInputChanged,
+          onSubmitted: _submit,
+        ),
       ),
     );
   }
@@ -384,35 +368,88 @@ class _TagChipState extends State<_TagChip> {
 }
 
 // ---------------------------------------------------------------------------
-// "+" pill — visually matches tag chips, acts as add-mode trigger
+// "+N" overflow chip — taps to reveal all tags
 // ---------------------------------------------------------------------------
 
-class _AddTagPill extends StatefulWidget {
-  const _AddTagPill({
+class _OverflowChip extends StatelessWidget {
+  const _OverflowChip({
+    required this.count,
     required this.isDark,
     required this.onTap,
-    required this.semanticsLabel,
+  });
+
+  final int count;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textMuted =
+        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+
+    return Semantics(
+      button: true,
+      label: '+$count more tags',
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.xxs,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: WpRadius.borderFull,
+            border: Border.all(
+              color: textMuted.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Text(
+            '+$count',
+            style: TextStyle(
+              fontSize: 12,
+              color: textMuted,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compact add trigger — "+" icon with optional label
+// ---------------------------------------------------------------------------
+
+class _AddTagTrigger extends StatefulWidget {
+  const _AddTagTrigger({
+    required this.isDark,
+    required this.onTap,
+    this.label,
   });
 
   final bool isDark;
   final VoidCallback onTap;
-  final String semanticsLabel;
+  final String? label;
 
   @override
-  State<_AddTagPill> createState() => _AddTagPillState();
+  State<_AddTagTrigger> createState() => _AddTagTriggerState();
 }
 
-class _AddTagPillState extends State<_AddTagPill> {
+class _AddTagTriggerState extends State<_AddTagTrigger> {
   bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
     final accent =
         widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textMuted =
+        widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     return Semantics(
       button: true,
-      label: widget.semanticsLabel,
+      label: widget.label ?? 'Add tag',
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
@@ -420,26 +457,38 @@ class _AddTagPillState extends State<_AddTagPill> {
         child: GestureDetector(
           onTap: widget.onTap,
           behavior: HitTestBehavior.opaque,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-            child: AnimatedContainer(
-              duration: WpMotion.fast,
-              padding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.sm,
-                vertical: WpSpacing.xxs + 2,
+          child: AnimatedContainer(
+            duration: WpMotion.fast,
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.sm,
+              vertical: WpSpacing.xxs,
+            ),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: _isHovered ? 0.08 : 0.0),
+              borderRadius: WpRadius.borderFull,
+              border: Border.all(
+                color: accent.withValues(alpha: _isHovered ? 0.4 : 0.15),
               ),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: _isHovered ? 0.08 : 0.0),
-                borderRadius: WpRadius.borderFull,
-                border: Border.all(
-                  color: accent.withValues(alpha: _isHovered ? 0.4 : 0.2),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  LucideIcons.plus,
+                  size: WpIconSize.xs,
+                  color: accent.withValues(alpha: _isHovered ? 0.7 : 0.4),
                 ),
-              ),
-              child: Icon(
-                LucideIcons.plus,
-                size: WpIconSize.xs,
-                color: accent.withValues(alpha: _isHovered ? 0.7 : 0.4),
-              ),
+                if (widget.label != null) ...[
+                  const SizedBox(width: WpSpacing.xxs),
+                  Text(
+                    widget.label!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textMuted,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
