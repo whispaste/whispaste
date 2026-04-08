@@ -652,8 +652,8 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     ];
 
     // Benchmark: baseline_t0_explicit (no VAD) is most reliable for short
-    // dictations. VAD can swallow leading silence or clip quiet speech.
-    args.add('--no-vad');
+    // dictations. VAD is disabled by default in whisper-server, so no flag
+    // needed. The --no-vad flag is not supported by all server builds.
 
     final useGpu = _shouldUseGpu(gpuMode);
     if (!useGpu) {
