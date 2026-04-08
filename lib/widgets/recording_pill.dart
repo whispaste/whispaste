@@ -648,7 +648,7 @@ class _RecordingPillState extends State<RecordingPill>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 10, color: color),
+            Icon(icon, size: WpIconSize.xs, color: color),
             const SizedBox(width: 3),
             Text(
               label,

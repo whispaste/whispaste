@@ -246,7 +246,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
               // Bottom metadata
               Row(
                 children: [
-                  Icon(LucideIcons.clock, size: 10, color: textMuted),
+                  Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
                   const SizedBox(width: 3),
                   Text(
                     formatHistoryDuration(widget.entry.durationSec),
@@ -270,7 +270,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                   ],
                   const Spacer(),
                   if (!widget.entry.isLocal)
-                    Icon(LucideIcons.cloud, size: 10, color: textMuted),
+                    Icon(LucideIcons.cloud, size: WpIconSize.xs, color: textMuted),
                 ],
               ),
             ],
