@@ -141,7 +141,7 @@ class _SttChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.sm,
-            vertical: 4,
+            vertical: WpSpacing.xxs,
           ),
           decoration: BoxDecoration(
             color: isDark
@@ -278,7 +278,7 @@ class _StatusChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.sm,
-          vertical: 4,
+          vertical: WpSpacing.xxs,
         ),
         decoration: BoxDecoration(
           color: isDark
@@ -290,8 +290,8 @@ class _StatusChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 12, color: cs.secondary),
-              const SizedBox(width: 4),
+              Icon(icon, size: WpIconSize.xs, color: cs.secondary),
+              const SizedBox(width: WpSpacing.xxs),
             ],
             Text(label, style: textStyle),
           ],

@@ -555,7 +555,7 @@ class _ReplacementTileState extends State<_ReplacementTile> {
               const SizedBox(width: WpSpacing.sm),
               Icon(
                 LucideIcons.arrowRight,
-                size: 12,
+                size: WpIconSize.xs,
                 color: widget.isDark
                     ? WpColorsDark.textMuted
                     : WpColorsLight.textMuted,

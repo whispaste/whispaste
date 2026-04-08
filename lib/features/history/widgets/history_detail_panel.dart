@@ -329,8 +329,11 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
 
     final textPrimary =
         isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final textSecondary =
+        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
     final textMuted =
         isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final avatarCol = historyAvatarColor(entry, isDark);
 
     return CallbackShortcuts(
@@ -596,14 +599,15 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                   // Tags — interactive editor
                   Row(
                     children: [
-                      Icon(LucideIcons.tags, size: 14, color: textMuted),
+                      Icon(LucideIcons.tags, size: WpIconSize.sm, color: accent),
                       const SizedBox(width: WpSpacing.xs),
                       Text(
                         l10n.historyTags,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: textMuted,
+                          color: textSecondary,
+                          letterSpacing: 0.3,
                         ),
                       ),
                     ],
@@ -888,9 +892,10 @@ class _HistoryDetailActionState extends State<HistoryDetailAction> {
         onExit: (_) => setState(() => _isHovered = false),
         child: GestureDetector(
           onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
             duration: _isHovered ? Duration.zero : WpMotion.hoverOut,
-            padding: const EdgeInsets.all(WpSpacing.xs),
+            padding: const EdgeInsets.all(WpSpacing.sm),
             decoration: BoxDecoration(
               color: _isHovered
                   ? (widget.isDark
@@ -901,7 +906,7 @@ class _HistoryDetailActionState extends State<HistoryDetailAction> {
                       : WpColorsLight.hoverTransparent),
               borderRadius: WpRadius.borderSm,
             ),
-            child: Icon(widget.icon, size: 16, color: iconColor),
+            child: Icon(widget.icon, size: WpIconSize.md, color: iconColor),
           ),
         ),
       ),
