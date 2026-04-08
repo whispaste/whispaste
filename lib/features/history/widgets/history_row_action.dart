@@ -57,11 +57,11 @@ class _HistoryRowActionState extends State<HistoryRowAction> {
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.xxs,
-              vertical: 2,
+              vertical: WpSpacing.xxs,
             ),
             child: AnimatedContainer(
               duration: WpMotion.fast,
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: _isHovered
                     ? (widget.isDark
@@ -72,7 +72,7 @@ class _HistoryRowActionState extends State<HistoryRowAction> {
                         : WpColorsLight.hoverTransparent),
                 borderRadius: WpRadius.borderSm,
               ),
-              child: Icon(widget.icon, size: 14, color: iconColor),
+              child: Icon(widget.icon, size: 16, color: iconColor),
             ),
           ),
         ),

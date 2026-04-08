@@ -691,7 +691,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                     cursor: isTrashView
                                         ? SystemMouseCursors.basic
                                         : SystemMouseCursors.click,
-                                    child: SelectableText(
+                                    child: Text(
                                       entry.content,
                                       style: TextStyle(
                                         fontSize: 15.5,
