@@ -1,97 +1,103 @@
+const CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "x-api-key, content-type",
+  "content-type": "application/json",
+};
+
+// Admin responses: no CORS origin (browser-based admin requests not supported)
+const SECURITY_HEADERS = {
+  "content-type": "application/json",
+  "x-content-type-options": "nosniff",
+  "cache-control": "no-store",
+};
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: SECURITY_HEADERS });
+}
+
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204 });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
+  // Auth ALL actions — header only, no query param (OWASP A02)
+  const apiKey = req.headers.get("x-api-key");
+  const adminKey = Deno.env.get("ADMIN_API_KEY");
+  if (!adminKey || !apiKey || apiKey !== adminKey) {
+    return json({ error: "forbidden" }, 403);
+  }
 
   const webhookURL = Deno.env.get("CRASH_DISCORD_WEBHOOK_URL");
-  if (!webhookURL) return new Response(JSON.stringify({ error: "no webhook" }), { status: 500 });
+  if (!webhookURL) return json({ error: "no webhook" }, 500);
 
   const match = webhookURL.match(/\/webhooks\/(\d+)\/([A-Za-z0-9_-]+)/);
-  if (!match) return new Response(JSON.stringify({ error: "bad url" }), { status: 500 });
+  if (!match) return json({ error: "bad url" }, 500);
   const [, whId, whToken] = match;
-
-  // Get channel info
-  const whResp = await fetch("https://discord.com/api/v10/webhooks/" + whId + "/" + whToken);
-  const whInfo = await whResp.json();
-  const channelId = whInfo.channel_id;
 
   const url = new URL(req.url);
   const action = url.searchParams.get("action") || "info";
 
-  // Authenticate admin actions (fix, delete) via API key
-  const requiresAuth = action === "fix" || action === "delete";
-  if (requiresAuth) {
-    const apiKey = req.headers.get("x-api-key") || url.searchParams.get("apiKey");
-    const adminKey = Deno.env.get("ADMIN_API_KEY");
-    if (!adminKey || !apiKey || apiKey !== adminKey) {
-      return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { "content-type": "application/json" } });
-    }
+  if (action === "info") {
+    // Return only confirmation that webhook is configured, no Discord metadata
+    return json({ status: "configured" });
   }
 
-  if (action === "info") {
-    return new Response(JSON.stringify({
-      webhook_id: whId,
-      channel_id: channelId,
-      guild_id: whInfo.guild_id,
-      webhook_name: whInfo.name
-    }), { headers: { "content-type": "application/json" } });
-  }
+  // Fetch channel info only for actions that need it (after auth)
+  const whResp = await fetch("https://discord.com/api/v10/webhooks/" + whId + "/" + whToken);
+  const whInfo = await whResp.json();
+  const channelId = whInfo.channel_id;
 
   if (action === "list") {
-    // Try fetching messages via webhook (undocumented, probably fails)
-    // Use bot token if available, otherwise try webhook
-    const limit = url.searchParams.get("limit") || "50";
+    const rawLimit = url.searchParams.get("limit") || "50";
+    const limit = Math.min(Math.max(1, parseInt(rawLimit, 10) || 50), 100);
     
-    // Attempt 1: Use webhook token to list messages (experimental)
     const msgs = await fetch(
-      "https://discord.com/api/v10/channels/" + channelId + "/messages?limit=" + limit,
+      "https://discord.com/api/v10/channels/" + channelId + "/messages?limit=" + String(limit),
       { headers: { "Authorization": "Bot " + whToken } }
     );
     
     if (msgs.ok) {
       const data = await msgs.json();
-      return new Response(JSON.stringify({ source: "bot", messages: data }), { headers: { "content-type": "application/json" } });
-    }
-    
-    // Attempt 2: webhook token as bearer
-    const msgs2 = await fetch(
-      "https://discord.com/api/v10/channels/" + channelId + "/messages?limit=" + limit,
-      { headers: { "Authorization": "Bearer " + whToken } }
-    );
-    if (msgs2.ok) {
-      const data2 = await msgs2.json();
-      return new Response(JSON.stringify({ source: "bearer", messages: data2 }), { headers: { "content-type": "application/json" } });
+      return json({ source: "bot", messages: data });
     }
 
-    return new Response(JSON.stringify({
+    return json({
       error: "cannot_list_messages",
-      channel_id: channelId,
-      bot_status: msgs.status,
-      bearer_status: msgs2.status,
-      hint: "Need Discord Bot token to list channel messages. Webhook tokens cannot list."
-    }), { status: 403, headers: { "content-type": "application/json" } });
+      hint: "Need Discord Bot token to list channel messages."
+    }, 403);
   }
 
   if (action === "delete") {
     const msgId = url.searchParams.get("message_id");
-    if (!msgId) return new Response(JSON.stringify({ error: "missing message_id" }), { status: 400 });
+    if (!msgId || !/^\d{17,20}$/.test(msgId)) {
+      return json({ error: "missing or invalid message_id" }, 400);
+    }
     
     const del = await fetch(
       "https://discord.com/api/v10/webhooks/" + whId + "/" + whToken + "/messages/" + msgId,
       { method: "DELETE" }
     );
-    return new Response(JSON.stringify({ deleted: del.ok, status: del.status, message_id: msgId }), { headers: { "content-type": "application/json" } });
+    return json({ deleted: del.ok, status: del.status, message_id: msgId });
   }
 
   if (action === "fix") {
     const hash = url.searchParams.get("hash");
     const version = url.searchParams.get("version");
-    if (!hash || !version) {
-      return new Response(JSON.stringify({ error: "missing hash or version" }), { status: 400, headers: { "content-type": "application/json" } });
+
+    // Validate hash: must be 64-char hex string
+    if (!hash || !/^[a-f0-9]{64}$/.test(hash)) {
+      return json({ error: "invalid hash — must be 64-char hex" }, 400);
+    }
+    // Validate version: must be semver-like
+    if (!version || !/^v?\d+\.\d+\.\d+/.test(version)) {
+      return json({ error: "invalid version — must be semver format" }, 400);
     }
 
     const supabaseURL = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseURL || !serviceRoleKey) {
-      return new Response(JSON.stringify({ error: "not configured" }), { status: 500 });
+      return json({ error: "not configured" }, 500);
     }
 
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
@@ -99,23 +105,28 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // Mark all reports with this hash as fixed
+    // Mark reports with this hash as fixed (safety cap: 500 rows)
     const { data, error } = await supabase
       .from("crash_report_events")
-      .update({ fixed_in_version: version, dismissed: true })
+      .update({
+        fixed_in_version: version,
+        dismissed: true,
+        fixed_at: new Date().toISOString(),
+      })
       .eq("message_hash", hash)
+      .limit(500)
       .select("id");
 
     if (error) {
-      return new Response(JSON.stringify({ error: "update_failed", detail: error.message }), { status: 500, headers: { "content-type": "application/json" } });
+      return json({ error: "update_failed" }, 500);
     }
 
-    return new Response(JSON.stringify({
+    return json({
       action: "fixed",
       hash,
       version,
       updated_count: data?.length || 0
-    }), { headers: { "content-type": "application/json" } });
+    });
   }
 
   // ── Automated Discord cleanup: delete messages for dismissed/fixed crashes ──
@@ -123,16 +134,10 @@ Deno.serve(async (req) => {
   //                  and marks them as cleaned. Respects Discord rate limits.
   // Optional: retention_days (default 30) — also clean feedback messages older than this
   if (action === "cleanup") {
-    const apiKey = req.headers.get("x-api-key") || url.searchParams.get("apiKey");
-    const adminKey = Deno.env.get("ADMIN_API_KEY");
-    if (!adminKey || !apiKey || apiKey !== adminKey) {
-      return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { "content-type": "application/json" } });
-    }
-
     const supabaseURL = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseURL || !serviceRoleKey) {
-      return new Response(JSON.stringify({ error: "not configured" }), { status: 500 });
+      return json({ error: "not configured" }, 500);
     }
     const { createClient: cc } = await import("https://esm.sh/@supabase/supabase-js@2");
     const sb = cc(supabaseURL, serviceRoleKey, {
@@ -206,14 +211,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({
+    return json({
       action: "cleanup",
       crashes_cleaned: crashesCleaned,
       feedback_cleaned: feedbackCleaned,
       errors: errors.length > 0 ? errors : undefined,
       retention_days: retentionDays,
-    }), { headers: { "content-type": "application/json" } });
+    });
   }
 
-  return new Response(JSON.stringify({ error: "unknown action", actions: ["info", "list", "delete", "fix", "cleanup"] }), { status: 400 });
+  return json({ error: "unknown action", actions: ["info", "list", "delete", "fix", "cleanup"] }, 400);
 });

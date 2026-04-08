@@ -1,5 +1,5 @@
 // Analytics Edge Function — Admin-only crash & feedback statistics.
-// Auth: ADMIN_API_KEY via x-api-key header or apiKey query param.
+// Auth: ADMIN_API_KEY via x-api-key header only (query param removed for OWASP A02).
 //
 // Endpoints:
 //   GET ?type=overview       — high-level counts + trends
@@ -12,17 +12,17 @@
 //   &severity=error|warning|critical   &dismissed=true|false
 //   &version=1.1.3                     &search=keyword
 //
-// OWASP: A01 (auth gated), A05 (parameterized queries), A06 (rate limit via
-//        Supabase edge, payload limits), A10 (no stack traces leaked to
-//        unauthenticated callers — admin-only endpoint).
+// Security: A01 (auth gated), A02 (header-only auth), A05 (parameterized queries),
+//           A10 (no internals leaked).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CORS = {
-  "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, OPTIONS",
   "access-control-allow-headers": "x-api-key, content-type",
   "content-type": "application/json",
+  "x-content-type-options": "nosniff",
+  "cache-control": "no-store",
 };
 
 function json(data: unknown, status = 200) {
@@ -73,16 +73,15 @@ Deno.serve(async (req) => {
     return err("method_not_allowed", 405);
   }
 
-  // ── Auth ─────────────────────────────────────────────────────────
-  const url = new URL(req.url);
-  const apiKey =
-    req.headers.get("x-api-key") || url.searchParams.get("apiKey");
+  // ── Auth — header only, no query param (OWASP A02) ─────────────
+  const apiKey = req.headers.get("x-api-key");
   const adminKey = Deno.env.get("ADMIN_API_KEY");
   if (!adminKey || !apiKey || apiKey !== adminKey) {
     return err("forbidden", 403);
   }
 
   // ── Supabase client ──────────────────────────────────────────────
+  const url = new URL(req.url);
   const supabaseURL = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseURL || !serviceRoleKey) {
