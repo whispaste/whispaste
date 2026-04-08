@@ -33,8 +33,8 @@ jobs:
       - name: Build Windows release
         run: >-
           flutter build windows --release
-          --dart-define=CRASH_RELAY_URL=${{ secrets.CRASH_RELAY_URL }}
-          --dart-define=FEEDBACK_RELAY_URL=${{ secrets.FEEDBACK_RELAY_URL }}
+          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
 
       - name: Prepare release artifacts
         shell: pwsh

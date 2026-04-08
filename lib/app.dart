@@ -321,7 +321,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     final recordingPhase = ref.watch(recordingPhaseProvider);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
 
-    // Sync crash reporting consent with user's settings toggle (Finding 1 fix).
+    // Sync crash reporting consent with user's settings toggle.
     CrashReporter.instance?.consentGranted = settings.errorReporting;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);

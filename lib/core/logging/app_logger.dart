@@ -17,6 +17,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../services/path_service.dart' as paths;
 import 'crash_reporter.dart';
 
@@ -207,13 +208,29 @@ Future<void> configureLogging() async {
       _fileSink?.write(record);
     }
 
-    // Auto-escalate warnings/errors/fatals to crash reporter.
-    if (record.level >= Level.WARNING) {
+    // Feed Sentry breadcrumbs for all INFO+ messages.
+    if (record.level >= Level.INFO) {
+      final sentryLevel = switch (record.level) {
+        Level.WARNING => SentryLevel.warning,
+        Level.SEVERE => SentryLevel.error,
+        Level.SHOUT => SentryLevel.fatal,
+        _ => SentryLevel.info,
+      };
+      Sentry.addBreadcrumb(Breadcrumb(
+        message: '${record.loggerName}: ${record.message}',
+        level: sentryLevel,
+        category: record.loggerName,
+        timestamp: record.time,
+      ));
+    }
+
+    // Auto-escalate errors/fatals to Sentry via crash reporter.
+    // Warnings are breadcrumbs only (above) to avoid noise in Sentry quota.
+    if (record.level >= Level.SEVERE) {
       final severity = switch (record.level) {
-        Level.WARNING => 'warning',
         Level.SEVERE => 'error',
         Level.SHOUT => 'critical',
-        _ => 'info',
+        _ => 'error',
       };
 
       CrashReporter.instance?.captureError(
