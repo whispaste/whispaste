@@ -7,6 +7,7 @@ WhisPaste — cross-platform Flutter dictation app (Windows, macOS, Linux, iOS, 
 
 ## Architektur-Entscheidungen
 
+- 2026-04-08: Zwei-Branch-Strategie (dev + main) — Solo-Entwickler-Workflow. Alle Entwicklung auf `dev`, `main` nur für stabile Releases via Merge. Keine Feature-Branches, keine PRs für eigene Arbeit. Copilot/Amboss pushed immer direkt. branch-hygiene.yml und workflow-lint.yml entfernt (8→6 Workflows). CI läuft auf dev+main.
 - 2026-04-08: Factory Reset as separate option from Reset to Defaults — Reset to Defaults clears settings/keys/analytics only; Factory Reset deletes ALL data, models, logs, and files for a true zero-state.
 - 2026-04-08: Go v1.1.3 → Flutter migration runs in `_reconcileGoSchema()` during Drift's `beforeOpen` — each schema fix is independent (not all-or-nothing), timestamps use COALESCE for NULL safety, migration count exposed for user feedback toast.
 - 2026-04-08: Provider invalidation after factory reset happens in UI layer (cloud_advanced_section.dart), not settings_provider.dart, to avoid circular imports between core/ and features/.
@@ -24,6 +25,7 @@ WhisPaste — cross-platform Flutter dictation app (Windows, macOS, Linux, iOS, 
 - [x] Vulkan whisper-server CI build triggered (workflow run 24149578036)
 - [x] Branch investigation — Premium features (sync/share/cloud) are PLANNED only, not coded
 - [x] Deleted stale `amboss/hw-detection-service` and `amboss/welcome-step-redesign` branches
+- [x] Zwei-Branch-Strategie: dev+main eingeführt, branch-hygiene.yml + workflow-lint.yml gelöscht, CI/CodeQL auf dev+main, Amboss Agent umgeschrieben (keine Feature-Branches/PRs)
 - [ ] Manual testing: Factory Reset button, Reset to Defaults, Go migration path
 - [ ] Manual testing: Full onboarding flow end-to-end (welcome → mic → model download → ready)
 - [ ] Consider centralizing reset orchestration into a single service (currently split between UI + provider)
