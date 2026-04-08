@@ -89,7 +89,7 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "WhisPaste" "\0"
+            VALUE "CompanyName", "" "\0"
             VALUE "FileDescription", "WhisPaste — Dictate anywhere, paste everywhere" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "whispaste" "\0"

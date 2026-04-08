@@ -17,8 +17,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
-import 'package:path_provider/path_provider.dart';
-
+import '../../services/path_service.dart' as paths;
 import 'crash_reporter.dart';
 
 /// Simple semantic logger wrapping [package:logging].
@@ -92,8 +91,8 @@ class _LogFileSink {
   /// Initializes the file sink. Safe to call from main isolate only.
   Future<void> init() async {
     try {
-      final appSupport = await getApplicationSupportDirectory();
-      final logDir = Directory('${appSupport.path}${Platform.pathSeparator}logs');
+      final appDir = paths.appDataDir();
+      final logDir = Directory('$appDir${Platform.pathSeparator}logs');
       if (!logDir.existsSync()) {
         logDir.createSync(recursive: true);
       }

@@ -28,6 +28,7 @@ import 'features/onboarding/onboarding_overlay.dart';
 import 'features/recording/recording_overlay.dart';
 import 'core/recording/recording_state.dart';
 import 'core/logging/crash_reporter.dart';
+import 'core/logging/app_logger.dart';
 import 'services/multi_window_service.dart';
 import 'services/recording_orchestrator.dart';
 import 'services/sound_feedback_service.dart';
@@ -175,7 +176,10 @@ class _AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
+  static final _appLog = AppLogger('AppShell');
   Timer? _windowSaveTimer;
+  Timer? _doneResetTimer;
+  Timer? _watchdogTimer;
   bool _isMaximized = false;
   bool _orchestratorInitialized = false;
 
@@ -187,6 +191,10 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       windowManager.setPreventClose(true);
       windowManager.isMaximized().then((v) => _isMaximized = v);
     }
+    // Watchdog: detect and auto-recover if state stuck in "done" for >15s.
+    _watchdogTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _checkStuckDone();
+    });
   }
 
   @override
@@ -195,7 +203,32 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       windowManager.removeListener(this);
     }
     _windowSaveTimer?.cancel();
+    _doneResetTimer?.cancel();
+    _watchdogTimer?.cancel();
     super.dispose();
+  }
+
+  DateTime? _doneEnteredAt;
+
+  void _checkStuckDone() {
+    try {
+      final state = ref.read(recordingProvider);
+      if (state.isDone) {
+        _doneEnteredAt ??= DateTime.now();
+        final stuck = DateTime.now().difference(_doneEnteredAt!);
+        if (stuck.inSeconds >= 15) {
+          _appLog.warning(
+            'Watchdog: state stuck in done for ${stuck.inSeconds}s — force reset',
+          );
+          ref.read(recordingOrchestratorProvider.notifier).reset();
+          _doneEnteredAt = null;
+        }
+      } else {
+        _doneEnteredAt = null;
+      }
+    } catch (_) {
+      // Provider may not be ready yet during startup.
+    }
   }
 
   /// Debounced save to avoid excessive DB writes during drag/resize.
@@ -328,8 +361,13 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
         );
         // Auto-reset after toast display so FAB returns to idle.
         Future.delayed(const Duration(seconds: 5), () {
-          if (ref.read(recordingProvider).isError) {
-            ref.read(recordingOrchestratorProvider.notifier).reset();
+          try {
+            if (mounted && ref.read(recordingProvider).isError) {
+              _appLog.debug('Error auto-reset timer fired');
+              ref.read(recordingOrchestratorProvider.notifier).reset();
+            }
+          } catch (e) {
+            _appLog.warning('Error auto-reset failed', e);
           }
         });
       } else if (next.isRecording && (prev == null || !prev.isRecording)) {
@@ -338,6 +376,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
           (prev == null || !prev.isTranscribing)) {
         ref.read(soundFeedbackProvider.notifier).playRecordStop();
       } else if (next.isDone && next.transcript != null) {
+        _appLog.debug('State → done, scheduling sound + toast + 2s reset');
         ref.read(soundFeedbackProvider.notifier).playTranscriptionComplete();
         WpToast.show(
           context,
@@ -346,9 +385,21 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
           type: WpToastType.success,
         );
         // Auto-reset after a short delay so the FAB returns to idle.
-        Future.delayed(const Duration(seconds: 2), () {
-          ref.read(recordingOrchestratorProvider.notifier).reset();
+        _doneResetTimer?.cancel();
+        _doneResetTimer = Timer(const Duration(seconds: 2), () {
+          try {
+            _appLog.debug('Done reset timer fired — calling reset()');
+            if (mounted) {
+              ref.read(recordingOrchestratorProvider.notifier).reset();
+              _appLog.debug('Done reset completed');
+            }
+          } catch (e, st) {
+            _appLog.error('Done reset timer error', e, st);
+          }
         });
+      } else if (next.isIdle && prev != null && !prev.isIdle) {
+        _appLog.debug('State → idle (from ${prev.phase})');
+        _doneResetTimer?.cancel();
       }
     });
 

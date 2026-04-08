@@ -11,9 +11,10 @@ import 'dart:math';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import '../../services/path_service.dart' as paths;
 
 import 'tables.dart';
 
@@ -994,10 +995,43 @@ class AnalyticsModelUsage {
 
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    final dir = await getApplicationSupportDirectory();
+    final dir = Directory(paths.appDataDir());
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+    await _migrateFromNestedPath(dir.path);
     final file = File(p.join(dir.path, 'history.db'));
     return NativeDatabase.createInBackground(file);
   });
+}
+
+/// One-time migration: move history.db from the old double-nested
+/// `%APPDATA%\WhisPaste\WhisPaste\` path to the correct single-level
+/// `%APPDATA%\WhisPaste\` path.
+Future<void> _migrateFromNestedPath(String correctDir) async {
+  if (!Platform.isWindows) return;
+  final nestedDb = File(p.join(correctDir, 'WhisPaste', 'history.db'));
+  final targetDb = File(p.join(correctDir, 'history.db'));
+  if (nestedDb.existsSync() && !targetDb.existsSync()) {
+    try {
+      await nestedDb.copy(targetDb.path);
+      // Also migrate WAL/SHM if present.
+      for (final suffix in ['-wal', '-shm']) {
+        final src = File('${nestedDb.path}$suffix');
+        if (src.existsSync()) {
+          await src.copy('${targetDb.path}$suffix');
+        }
+      }
+      // Remove old nested directory contents (best-effort).
+      try {
+        final nestedDir = Directory(p.join(correctDir, 'WhisPaste'));
+        await nestedDir.delete(recursive: true);
+      } catch (_) {
+        // Non-critical — old dir may be in use by another instance.
+      }
+      debugPrint('DB migrated from nested WhisPaste/WhisPaste/ path');
+    } catch (e) {
+      debugPrint('DB migration failed (will use existing location): $e');
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
