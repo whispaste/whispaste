@@ -23,6 +23,7 @@ class SttModelManager extends ConsumerStatefulWidget {
 
 class _SttModelManagerState extends ConsumerState<SttModelManager> {
   QualityTier? _recommendedTier;
+  hw.GpuInfo? _gpu;
 
   @override
   void initState() {
@@ -33,7 +34,10 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
   Future<void> _detectHardware() async {
     final gpu = await hw.detectGpu();
     if (!mounted) return;
-    setState(() => _recommendedTier = recommendTier(gpu.vramMB ?? 0));
+    setState(() {
+      _gpu = gpu;
+      _recommendedTier = recommendTier(gpu.vramMB ?? 0, vendor: gpu.vendor);
+    });
   }
 
   @override
@@ -57,6 +61,7 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
           _TierRow(
             tier: tier,
             isRecommended: tier == _recommendedTier,
+            warning: _gpu != null ? tierWarning(tier, _gpu!) : null,
             downloadState: downloadState,
             isDark: isDark,
             l10n: l10n,
@@ -118,6 +123,7 @@ class _TierRow extends StatefulWidget {
   const _TierRow({
     required this.tier,
     required this.isRecommended,
+    this.warning,
     required this.downloadState,
     required this.isDark,
     required this.l10n,
@@ -128,6 +134,7 @@ class _TierRow extends StatefulWidget {
 
   final QualityTier tier;
   final bool isRecommended;
+  final String? warning;
   final ModelDownloadState downloadState;
   final bool isDark;
   final L10n l10n;
@@ -295,6 +302,30 @@ class _TierRowState extends State<_TierRow> {
                         _tierDesc(widget.l10n),
                         style: TextStyle(fontSize: 11, color: textSecondary),
                       ),
+                      if (widget.warning != null && !_isDownloaded) ...[
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Icon(LucideIcons.triangleAlert,
+                                size: 10,
+                                color: widget.isDark
+                                    ? WpColorsDark.warning
+                                    : WpColorsLight.warning),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                widget.warning!,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: widget.isDark
+                                      ? WpColorsDark.warning
+                                      : WpColorsLight.warning,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
