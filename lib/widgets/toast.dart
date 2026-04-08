@@ -239,7 +239,7 @@ class _ToastCard extends StatelessWidget {
                     color: textPrimary,
                     height: 1.3,
                   ),
-                  maxLines: 3,
+                  maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),

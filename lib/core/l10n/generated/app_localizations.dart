@@ -685,42 +685,6 @@ abstract class L10n {
   /// **'Automatically stop after this many seconds of silence (after speech). 0 = disabled.'**
   String get settingsAutoStopSilenceHint;
 
-  /// No description provided for @settingsTrimSilence.
-  ///
-  /// In en, this message translates to:
-  /// **'Trim Silence'**
-  String get settingsTrimSilence;
-
-  /// No description provided for @settingsTrimSilenceSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Automatically remove leading and trailing silence from recordings'**
-  String get settingsTrimSilenceSubtitle;
-
-  /// No description provided for @settingsVoiceActivityDetection.
-  ///
-  /// In en, this message translates to:
-  /// **'Voice Activity Detection'**
-  String get settingsVoiceActivityDetection;
-
-  /// No description provided for @settingsVoiceActivityDetectionSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Only process audio segments with speech detected'**
-  String get settingsVoiceActivityDetectionSubtitle;
-
-  /// No description provided for @settingsVadSensitivity.
-  ///
-  /// In en, this message translates to:
-  /// **'VAD Sensitivity'**
-  String get settingsVadSensitivity;
-
-  /// No description provided for @settingsVadSensitivitySubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'How sensitive speech detection is (lower = more sensitive)'**
-  String get settingsVadSensitivitySubtitle;
-
   /// No description provided for @settingsPostProcessing.
   ///
   /// In en, this message translates to:
@@ -1141,17 +1105,17 @@ abstract class L10n {
   /// **'Settings reset to defaults'**
   String get settingsResetSuccess;
 
-  /// No description provided for @settingsPrivacyNote.
-  ///
-  /// In en, this message translates to:
-  /// **'Your recordings and text stay on your device by default. Cloud services are only used when you explicitly enable them.'**
-  String get settingsPrivacyNote;
-
   /// No description provided for @settingsOff.
   ///
   /// In en, this message translates to:
   /// **'Off'**
   String get settingsOff;
+
+  /// No description provided for @settingsOn.
+  ///
+  /// In en, this message translates to:
+  /// **'On'**
+  String get settingsOn;
 
   /// No description provided for @settingsThemeDark.
   ///
@@ -1638,6 +1602,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Try a different search term.'**
   String get replacementsNoMatchesHint;
+
+  /// No description provided for @replacementsToggleEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice shortcuts are active'**
+  String get replacementsToggleEnabled;
+
+  /// No description provided for @replacementsToggleDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice shortcuts are disabled'**
+  String get replacementsToggleDisabled;
 
   /// No description provided for @replacementsAddShortcut.
   ///
@@ -2424,6 +2400,54 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Speech engine failed to start'**
   String get errorSttServerFailed;
+
+  /// No description provided for @errorPipelineTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording took too long. Please try a shorter recording.'**
+  String get errorPipelineTimeout;
+
+  /// No description provided for @errorWavFileNotCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save the audio file. Please try again.'**
+  String get errorWavFileNotCreated;
+
+  /// No description provided for @errorWavFileEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No audio was captured. Please check your microphone.'**
+  String get errorWavFileEmpty;
+
+  /// No description provided for @errorSttStartTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech engine is still starting. Please try again in a moment.'**
+  String get errorSttStartTimeout;
+
+  /// No description provided for @errorTranscriptionTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcription took too long. Please try a shorter recording.'**
+  String get errorTranscriptionTimeout;
+
+  /// No description provided for @errorMicPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone access is needed. Please allow it in your system settings.'**
+  String get errorMicPermissionDenied;
+
+  /// No description provided for @errorRecordingStartFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not start recording. Please try again.'**
+  String get errorRecordingStartFailed;
+
+  /// No description provided for @errorGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get errorGeneric;
 
   /// No description provided for @statusSttLoading.
   ///

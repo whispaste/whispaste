@@ -331,27 +331,6 @@ class L10nEn extends L10n {
       'Automatically stop after this many seconds of silence (after speech). 0 = disabled.';
 
   @override
-  String get settingsTrimSilence => 'Trim Silence';
-
-  @override
-  String get settingsTrimSilenceSubtitle =>
-      'Automatically remove leading and trailing silence from recordings';
-
-  @override
-  String get settingsVoiceActivityDetection => 'Voice Activity Detection';
-
-  @override
-  String get settingsVoiceActivityDetectionSubtitle =>
-      'Only process audio segments with speech detected';
-
-  @override
-  String get settingsVadSensitivity => 'VAD Sensitivity';
-
-  @override
-  String get settingsVadSensitivitySubtitle =>
-      'How sensitive speech detection is (lower = more sensitive)';
-
-  @override
   String get settingsPostProcessing => 'Post-Processing';
 
   @override
@@ -574,11 +553,10 @@ class L10nEn extends L10n {
   String get settingsResetSuccess => 'Settings reset to defaults';
 
   @override
-  String get settingsPrivacyNote =>
-      'Your recordings and text stay on your device by default. Cloud services are only used when you explicitly enable them.';
+  String get settingsOff => 'Off';
 
   @override
-  String get settingsOff => 'Off';
+  String get settingsOn => 'On';
 
   @override
   String get settingsThemeDark => 'Dark';
@@ -840,6 +818,12 @@ class L10nEn extends L10n {
 
   @override
   String get replacementsNoMatchesHint => 'Try a different search term.';
+
+  @override
+  String get replacementsToggleEnabled => 'Voice shortcuts are active';
+
+  @override
+  String get replacementsToggleDisabled => 'Voice shortcuts are disabled';
 
   @override
   String get replacementsAddShortcut => 'Add Shortcut';
@@ -1257,6 +1241,37 @@ class L10nEn extends L10n {
 
   @override
   String get errorSttServerFailed => 'Speech engine failed to start';
+
+  @override
+  String get errorPipelineTimeout =>
+      'Recording took too long. Please try a shorter recording.';
+
+  @override
+  String get errorWavFileNotCreated =>
+      'Could not save the audio file. Please try again.';
+
+  @override
+  String get errorWavFileEmpty =>
+      'No audio was captured. Please check your microphone.';
+
+  @override
+  String get errorSttStartTimeout =>
+      'Speech engine is still starting. Please try again in a moment.';
+
+  @override
+  String get errorTranscriptionTimeout =>
+      'Transcription took too long. Please try a shorter recording.';
+
+  @override
+  String get errorMicPermissionDenied =>
+      'Microphone access is needed. Please allow it in your system settings.';
+
+  @override
+  String get errorRecordingStartFailed =>
+      'Could not start recording. Please try again.';
+
+  @override
+  String get errorGeneric => 'Something went wrong. Please try again.';
 
   @override
   String get statusSttLoading => 'Loading model…';

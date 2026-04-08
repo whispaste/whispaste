@@ -199,12 +199,13 @@ class HistoryDatabase extends _$HistoryDatabase {
   // Query helpers
   // ---------------------------------------------------------------------------
 
-  /// All non-deleted, non-archived entries, newest first.
+  /// All non-deleted, non-archived entries, pinned first then newest.
   Future<List<HistoryEntry>> allEntries({int limit = 100, int offset = 0}) {
     return (select(historyEntries)
           ..where((e) => e.deletedAt.isNull() & e.archived.equals(false))
           ..orderBy([
-            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
+            (e) => OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
+            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
           ])
           ..limit(limit, offset: offset))
         .get();
@@ -274,8 +275,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       return (select(historyEntries)
             ..where((e) => e.rowId.isIn(rowIds) & e.deletedAt.isNull())
             ..orderBy([
+              (e) => OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
               (e) =>
-                  OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
+                  OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
             ]))
           .get();
     } catch (_) {

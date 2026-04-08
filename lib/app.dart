@@ -49,6 +49,20 @@ final activePageProvider = NotifierProvider<_ActivePageNotifier, String>(
   _ActivePageNotifier.new,
 );
 
+/// Optional settings section to scroll to after navigating to Settings.
+/// Set before calling setPage('settings') — SettingsPage consumes & clears it.
+class _SettingsScrollTarget extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? target) => state = target;
+}
+
+final settingsScrollTargetProvider =
+    NotifierProvider<_SettingsScrollTarget, String?>(
+  _SettingsScrollTarget.new,
+);
+
 /// Main WhisPaste application widget.
 class WhisPasteApp extends ConsumerWidget {
   const WhisPasteApp({super.key});
@@ -93,8 +107,22 @@ String _localizeError(L10n l10n, String errorCode) {
       return l10n.recordingGuardFailed;
     case 'recording_auto_stopped':
       return l10n.recordingAutoStopped;
+    case 'pipeline_timeout':
+      return l10n.errorPipelineTimeout;
+    case 'wav_file_not_created':
+      return l10n.errorWavFileNotCreated;
+    case 'wav_file_empty':
+      return l10n.errorWavFileEmpty;
+    case 'stt_start_timeout':
+      return l10n.errorSttStartTimeout;
+    case 'transcription_timeout':
+      return l10n.errorTranscriptionTimeout;
+    case 'mic_permission_denied':
+      return l10n.errorMicPermissionDenied;
+    case 'recording_start_failed':
+      return l10n.errorRecordingStartFailed;
     default:
-      return errorCode; // Pass through unknown errors as-is
+      return l10n.errorGeneric;
   }
 }
 
@@ -430,10 +458,18 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                 postProcessingLabel: statusBarModel.postProcessingLabel,
                 sttState: sttStatus.serverState,
                 recordingPhase: recordingPhase,
-                onSttTap: () =>
-                    ref.read(activePageProvider.notifier).setPage('settings'),
-                onPostProcessTap: () =>
-                    ref.read(activePageProvider.notifier).setPage('settings'),
+                onSttTap: () {
+                  ref
+                      .read(settingsScrollTargetProvider.notifier)
+                      .set('stt');
+                  ref.read(activePageProvider.notifier).setPage('settings');
+                },
+                onPostProcessTap: () {
+                  ref
+                      .read(settingsScrollTargetProvider.notifier)
+                      .set('postprocessing');
+                  ref.read(activePageProvider.notifier).setPage('settings');
+                },
               ),
             ],
           ),
