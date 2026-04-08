@@ -10,16 +10,19 @@ WhisPaste — cross-platform Flutter dictation app (Windows, macOS, Linux, iOS, 
 - 2026-04-08: Factory Reset as separate option from Reset to Defaults — Reset to Defaults clears settings/keys/analytics only; Factory Reset deletes ALL data, models, logs, and files for a true zero-state.
 - 2026-04-08: Go v1.1.3 → Flutter migration runs in `_reconcileGoSchema()` during Drift's `beforeOpen` — each schema fix is independent (not all-or-nothing), timestamps use COALESCE for NULL safety, migration count exposed for user feedback toast.
 - 2026-04-08: Provider invalidation after factory reset happens in UI layer (cloud_advanced_section.dart), not settings_provider.dart, to avoid circular imports between core/ and features/.
+- 2026-04-08: Treat every Supabase-backed and premium cloud surface with zero-trust — open-source clients are always potentially inspectable/manipulable, so secrets, entitlement checks, share permissions, and quotas must remain server-enforced.
 
 ## Aktuelle Aufgaben & Nächste Schritte
 
 - [x] Wire up migration toast for first launch after Go→Flutter upgrade (integrated in app.dart initState)
 - [x] Onboarding UX overhaul — quality tiers, download fixes, settings unification, visual polish
+- [x] Zero-trust hardening for existing Supabase crash/feedback relays
 - [ ] Push main to origin (31+ commits ahead)
-- [ ] Merge `amboss/onboarding-ux-overhaul` branch to main (4 commits ahead)
+- [x] Merge `amboss/onboarding-ux-overhaul` branch to main
 - [ ] Manual testing: Factory Reset button, Reset to Defaults, Go migration path
 - [ ] Manual testing: Full onboarding flow end-to-end (welcome → mic → model download → ready)
 - [ ] Consider centralizing reset orchestration into a single service (currently split between UI + provider)
+- [ ] Apply the same zero-trust review to analytics/testimonials and future sync/share/premium services
 
 ## Bekannte Probleme & Technische Schulden
 
@@ -38,11 +41,13 @@ WhisPaste — cross-platform Flutter dictation app (Windows, macOS, Linux, iOS, 
 - `modelsForTier()` must sort descending by `sizeBytes` to return best quality first
 - `recommendTier()` VRAM thresholds: ≥1536MB → premium, ≥512MB → balanced, else compact
 - Flag SVGs for language selector live in `assets/flags/` (us.svg, de.svg)
+- Supabase relays should hash device identifiers server-side, neutralize Discord mentions, and treat client-supplied IDs/fingerprints as advisory at most
 
 ## Letzte Änderungen
 
 | Datum | Aufgabe | Größe | Branch | Zusammenfassung |
 |-------|---------|-------|--------|-----------------|
+| 2026-04-08 | zero-trust-supabase-hardening | M | amboss/zero-trust-supabase-hardening | Harden crash/feedback relays for zero-trust: server-side device hashing, safer rate limiting, less trust in client IDs/fingerprints, and documented security boundary |
 | 2026-04-08 | onboarding-ux-overhaul | G | amboss/onboarding-ux-overhaul | 14 fixes: download progress/error/tier bugs, FAB gate, duplicate logo, skip-drag, close button, settings STT unification, country flags, theme toggle shadow, mic step gate |
 | 2026-04-08 | fts5-rebuild-fix | K | main | Remove FTS5 'rebuild' from deleteAllData — contentless FTS5 table forbids it; triggers handle cleanup |
 | 2026-04-08 | factory-reset-migration | G | main | Factory Reset + Go migration fixes + adversarial review fixes (COALESCE, transaction, provider invalidation, async toast) |
