@@ -74,7 +74,8 @@ type CrashReport = {
   process_name?: string;
   app_version: string;
   build_commit?: string;
-  go_version: string;
+  go_version?: string;
+  runtime_version?: string;
   os: string;
   arch: string;
   device_id: string;
@@ -223,7 +224,7 @@ function sanitizeReport(report: CrashPayload["report"]): CrashReport {
     process_name: optionalString(report.process_name, "report.process_name", 128),
     app_version: requireToken(report.app_version || "dev", "report.app_version", 64),
     build_commit: optionalToken(report.build_commit, "report.build_commit", 64),
-    go_version: requireToken(report.go_version, "report.go_version", 64),
+    go_version: optionalToken(report.go_version || report.runtime_version, "report.runtime_version", 64),
     os: requireToken(report.os, "report.os", 32),
     arch: requireToken(report.arch, "report.arch", 32),
     device_id: requireToken(report.device_id, "report.device_id", 64),
