@@ -53,7 +53,7 @@ WhisPaste is a premium **cross-platform** dictation application optimized for **
 
 **Quality bar**: This is a $20M-caliber product. Every feature, every UI element, every interaction must reflect premium craftsmanship. We ship polished, not "good enough."
 
-**UI philosophy**: This is NOT a boring desktop productivity tool. It must be **fun to use**, emotionally engaging, and visually impressive — the kind of app users show off to friends. Inspired by gaming dashboards and modern chat interfaces while remaining clean and uncluttered. All features must be quickly accessible. Hide complexity behind progressive disclosure — not behind missing functionality. Usability FIRST, beauty SECOND — but beauty is NOT optional.
+**UI philosophy**: This is NOT a boring productivity tool. It must be **fun to use**, emotionally engaging, and visually impressive — the kind of app users show off to friends. Inspired by gaming dashboards and modern chat interfaces while remaining clean and uncluttered. All features must be quickly accessible. Hide complexity behind progressive disclosure — not behind missing functionality. Usability FIRST, beauty SECOND — but beauty is NOT optional. **Design responsive mobile-first with partial desktop optimization** — every UI element must work great on a phone, then be enhanced for larger screens.
 
 **AI is the CORE**: Speech-to-text and post-processing are the **critical** features. They MUST work reliably and performantly on every platform. Every architecture decision must prioritize AI inference performance and reliability.
 
@@ -80,7 +80,7 @@ These rules apply to ALL UI code. Violations will be caught in tests and code re
 
 ### Layout & Components
 - **NOT everything is a card** — Flat content on surfaces, cards ONLY for actionable items (history entries, model download items, onboarding prompts). Analytics dashboards, settings pages, and about pages use flat sections with `WpSection`, NOT card wrappers.
-- **Desktop-native scaling** — Content MUST scale with the window. Use `LayoutBuilder`, `Flexible`, `Expanded` — never hardcoded widths for content areas. The app must look equally good at 1024×768 and 2560×1440.
+- **Responsive mobile-first scaling** — Design for the smallest screen first, then enhance for larger ones. Use `LayoutBuilder`, `Flexible`, `Expanded` — never hardcoded widths for content areas. The app must look equally good from 320px phone to 2560×1440 desktop.
 - **No collapsible sections in settings** — All settings sections are flat and always visible. Use logical grouping and ordering instead of accordion/collapse patterns.
 
 ### Motion & Animations — CRITICAL
@@ -128,7 +128,7 @@ WhisPaste is a **pure Flutter** application:
 
 1. **Pure Dart architecture**: All business logic is in Dart. AI subprocess management (whisper-server, llama-server), GPU detection, audio processing, and download management are implemented directly in Dart services.
 
-2. **Cross-platform FIRST**: Every feature, every widget, every service MUST be designed cross-platform from the start. Where platform-specific code is needed, use Flutter platform channels with implementations for all target platforms.
+2. **Responsive mobile-first**: Every feature, every widget, every service MUST be designed for touch/mobile first, then enhanced for desktop. Where platform-specific code is needed, use Flutter platform channels with implementations for all target platforms. UI must work on 320px phone screens before considering 2560px desktops.
 
 3. **Provider abstraction**: STT and LLM backends are pluggable via provider interfaces. Local inference (whisper.cpp, llama.cpp) and cloud APIs (OpenAI, Groq, Deepgram, Anthropic, Gemini) share the same interface.
 
@@ -479,19 +479,30 @@ These techniques make the difference between "fine" and "premium". Apply them co
 #### Accessibility Requirements (CI-enforced)
 
 1. **WCAG AA contrast** — All text/background color pairs MUST pass WCAG AA: ≥ 4.5:1 for body text, ≥ 3.0:1 for large text. This is enforced by `test/core/theme/wcag_contrast_test.dart` — it runs in CI and will fail the build if any color token pair fails. When changing colors in `colors.dart`, run this test.
-2. **Touch targets** — All interactive elements must have ≥ 44×44 logical pixel hit areas. Small icons get padded containers.
-3. **Responsive overflow** — Every page must render without `RenderFlex overflow` errors from 800×600 to 2560×1440. Enforced by `test/core/design/responsive_overflow_test.dart`.
+2. **Touch targets** — All interactive elements must have ≥ 48×48 logical pixel hit areas (Material 3 standard). Small icons get padded containers. NEVER use `constraints: const BoxConstraints()` on IconButtons — it removes Flutter's built-in minimum size.
+3. **Responsive overflow** — Every page must render without `RenderFlex overflow` errors from 320×568 (iPhone SE) to 2560×1440. Enforced by `test/core/design/responsive_overflow_test.dart`.
 4. **Text overflow** — Use `TextOverflow.ellipsis` on text in constrained `Row` widgets. Wrap flexible text in `Expanded` or `Flexible`.
 
-#### Desktop-Native Scaling
+#### Responsive Scaling (Mobile-First)
 
-This is a **desktop app**, not a web page or mobile app. Content MUST scale fluidly with the window:
+This is a **responsive cross-platform app** — design for touch FIRST, then optimize for desktop. Content MUST scale fluidly across all screen sizes:
 
-1. **Use `LayoutBuilder`** to adapt layouts to available width. Switch between 2-column and stacked at ~900px.
-2. **Use `Flexible`/`Expanded`** — never hardcode widths for content areas (sidebars and fixed panels excepted).
+1. **Use `LayoutBuilder`** to adapt layouts to available width. Breakpoints: ≤600px mobile (1-column), ≤900px tablet (2-column), >900px desktop (full layout). Use `WpLayout.breakpointMobile` and `WpLayout.breakpointTablet` tokens.
+2. **Use `Flexible`/`Expanded`** — never hardcode widths for content areas (sidebars and fixed panels excepted). For modals/dialogs, use `min(fixedWidth, screenWidth - 32)`.
 3. **Wrap on narrow** — Stats rows, button groups, and chip bars must wrap or scroll when space is tight.
-4. **Test at multiple sizes** — The responsive overflow test covers this, but also visually verify at common breakpoints.
-5. **Feel native** — The app should feel like a native desktop application, not a web page in a frame. Content fills space, panels resize, and layout adapts seamlessly.
+4. **Test at multiple sizes** — The responsive overflow test covers this, but also visually verify at 320px (phone), 768px (tablet), 1280px (laptop), 1920px (desktop).
+5. **Feel native on EVERY platform** — Bottom tab bar on phones, sidebar on tablet+desktop, adaptive layouts everywhere. Content fills space, panels resize, and layout adapts seamlessly.
+
+#### Mobile-First Design Rules (MANDATORY)
+
+These rules apply to ALL UI code. They complement the visual identity and accessibility rules above.
+
+1. **Touch targets ≥ 48×48px** — ALL interactive elements (buttons, icons, chips, list items). Never use `constraints: const BoxConstraints()` on IconButtons. Use `WpLayout.minTouchTarget` token.
+2. **No hover-only interactions** — Every `MouseRegion` hover state MUST have a touch equivalent. Actions revealed on hover must be always-visible (with reduced opacity) or accessible via long-press/swipe on touch devices.
+3. **Interactive icons ≥ 20px** — `WpIconSize.md` (20px) is the MINIMUM for any icon the user can tap. `WpIconSize.xs` (14px) and `WpIconSize.sm` (16px) are for decorative/metadata icons ONLY.
+4. **No hardcoded widths for content** — Use `LayoutBuilder`/`MediaQuery` with breakpoints. Fixed widths allowed only for modals/dialogs (with `min(fixedWidth, screenWidth - padding)` pattern).
+5. **Navigation adapts** — Bottom tab bar on screens ≤ 600px, sidebar on screens > 600px.
+6. **Platform-aware interactions** — Use `Platform.isAndroid || Platform.isIOS` (or `defaultTargetPlatform`) to switch between touch and pointer interaction patterns where needed.
 
 #### The "Wow" Test
 Before shipping any UI change, ask: "Would a user screenshot this and share it because it looks cool?" If the answer is "no" or "it's fine", it's not good enough. Push further.

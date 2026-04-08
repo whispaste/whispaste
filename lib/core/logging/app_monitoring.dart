@@ -1,32 +1,27 @@
-/// App-wide monitoring bootstrap — three-tier error capture + crash reporting.
+/// App-wide monitoring bootstrap — Sentry-powered crash reporting.
 ///
-/// Modeled after hellerio's `AppMonitoring.bootstrap()` pattern:
-/// 1. Flutter framework errors → captureFlutterError
-/// 2. Platform dispatcher errors → captureError
-/// 3. Zone errors → captureError
+/// [SentryFlutter.init] provides three-tier error capture:
+/// 1. Flutter framework errors (FlutterError.onError)
+/// 2. Platform dispatcher errors (PlatformDispatcher.onError)
+/// 3. Zone errors (runZonedGuarded wrapper)
 ///
-/// All errors flow to [CrashReporter] which queues to SQLite → Supabase
-/// relay → Discord webhook (no Sentry dependency).
+/// PII sanitization, consent gate, and breadcrumb context via [CrashReporter].
 library;
-
-import 'dart:async';
-import 'dart:developer' as dev;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
+import '../app_info.dart';
 import 'app_logger.dart';
 import 'crash_reporter.dart';
 
-/// Crash relay URL — injected at build time via `--dart-define`.
-///
-/// Empty string in development = local queue only, no network.
-const _crashRelayUrl = String.fromEnvironment(
-  'CRASH_RELAY_URL',
-  defaultValue: '',
-);
+/// Sentry DSN — public identifier, safe to embed in client code.
+/// See: https://docs.sentry.io/concepts/key-terms/dsn-explainer/
+const _sentryDsn =
+    'https://1dc761fb2739811a24425fd32518f611@o4511065943441408.ingest.de.sentry.io/4511185948180560';
 
-/// Bootstraps the entire app inside a guarded error zone.
+/// Bootstraps the entire app inside Sentry's guarded error zone.
 ///
 /// Call this instead of `main()` → `runApp()`. Example:
 /// ```dart
@@ -41,69 +36,41 @@ class AppMonitoring {
 
   static final _log = AppLogger('AppMonitoring');
 
-  /// Full-app bootstrap: logging → crash reporter → error handlers → app.
+  /// Full-app bootstrap: logging → Sentry → crash reporter → app.
   static Future<void> bootstrap({
     required Future<void> Function() appRunner,
   }) async {
-    // 1. Configure logging (breadcrumbs, dev-tools output, file sink, auto-escalation).
+    // 1. Configure logging (breadcrumbs, dev-tools output, file sink).
     await configureLogging();
 
-    // 2. Initialize crash reporter.
-    await CrashReporter.init(relayUrl: _crashRelayUrl, enabled: true);
-    if (_crashRelayUrl.isEmpty) {
-      _log.info(
-        'Flutter crash relay is not configured — reports stay in the local queue only',
-      );
-    }else {
-      _log.info('Flutter crash relay configured');
-    }
+    // 2. Initialize Sentry — wraps appRunner with error zone + handlers.
+    await SentryFlutter.init(
+      (options) {
+        options.dsn = _sentryDsn;
+        options.environment = kReleaseMode ? 'production' : 'development';
+        options.release = 'whispaste@$appVersion';
+        options.dist = _currentArch();
+        options.sendDefaultPii = false;
+        options.attachScreenshot = false;
+        options.beforeSend = CrashReporter.beforeSend;
+        options.tracesSampleRate = kReleaseMode ? 0.1 : 1.0;
+        options.enableAutoPerformanceTracing = true;
+        options.enableAutoNativeBreadcrumbs = true;
+      },
+      appRunner: () async {
+        // 3. Initialize crash reporter (configures Sentry scope context).
+        CrashReporter.init();
+        _log.info('Sentry crash reporting initialized');
 
-    // 3. Install global error handlers BEFORE runApp.
-    _installGlobalErrorHandlers();
-
-    // 4. Run app inside a guarded zone to catch uncaught async errors.
-    await _runGuarded(appRunner);
+        // 4. Run the actual app.
+        await appRunner();
+      },
+    );
   }
 
-  static void _installGlobalErrorHandlers() {
-    // Tier 1: Flutter framework errors (widget build errors, etc.)
-    FlutterError.onError = (details) {
-      // Keep default reporting in debug mode.
-      FlutterError.presentError(details);
-      _log.error(
-        'Flutter error: ${details.exceptionAsString()}',
-        details.exception,
-        details.stack,
-      );
-      CrashReporter.instance?.captureFlutterError(details);
-    };
-
-    // Tier 2: Platform dispatcher errors (isolate crashes, async gaps).
-    PlatformDispatcher.instance.onError = (error, stack) {
-      _log.error('Platform error', error, stack);
-      CrashReporter.instance?.captureError(
-        message: '$error',
-        error: error,
-        stackTrace: stack,
-        severity: 'error',
-        type: 'platform_error',
-      );
-      return true; // Handled — don't crash the app.
-    };
-  }
-
-  /// Runs [appRunner] inside `runZonedGuarded` to catch stray async errors.
-  static Future<void> _runGuarded(Future<void> Function() appRunner) async {
-    await runZonedGuarded(appRunner, (error, stack) {
-      _log.error('Uncaught zone error', error, stack);
-      CrashReporter.instance?.captureError(
-        message: '$error',
-        error: error,
-        stackTrace: stack,
-        severity: 'error',
-        type: 'zone_error',
-      );
-    });
+  static String _currentArch() {
+    const is64 = 0x7FFFFFFFFFFFFFFF > 0;
+    return is64 ? 'x64' : 'x86';
   }
 }
 
@@ -124,12 +91,6 @@ final class CrashProviderObserver extends ProviderObserver {
     StackTrace stackTrace,
   ) {
     final name = context.provider.name ?? '${context.provider.runtimeType}';
-    dev.log(
-      'Provider failed: $name',
-      name: 'Riverpod',
-      error: error,
-      stackTrace: stackTrace,
-    );
     CrashReporter.instance?.captureError(
       message: 'Provider failed: $name: $error',
       error: error,

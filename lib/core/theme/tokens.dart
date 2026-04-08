@@ -96,13 +96,26 @@ abstract final class WpMotion {
 abstract final class WpLayout {
   static const double sidebarWidth = 72;
   static const double sidebarWidthExpanded = 220;
-  static const double statusBarHeight = 42;
+  static const double statusBarHeight = 48;
   static const double fabSize = 56;
   static const double appBarHeight = 64;
+
+  /// Material 3 minimum touch target — all interactive elements must meet this.
+  static const double minTouchTarget = 48;
+
+  /// Responsive breakpoints (mobile-first).
+  static const double breakpointMobile = 600;
+  static const double breakpointTablet = 900;
 }
 
 // ---------------------------------------------------------------------------
 // Icon sizes
+//
+// Usage rules (mobile-first):
+//   xs (14), sm (16) → Decorative/metadata icons ONLY (status dots, timestamps)
+//   md (20)          → MINIMUM for interactive icons (buttons, chips, actions)
+//   lg (24)          → Standard interactive (toolbar buttons, nav icons)
+//   xl (32), xxl (48)→ Prominent / hero icons
 // ---------------------------------------------------------------------------
 abstract final class WpIconSize {
   static const double xs = 14;
