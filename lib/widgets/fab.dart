@@ -46,8 +46,6 @@ class _WpRecordingFabState extends State<WpRecordingFab>
   late final Animation<double> _pulseScale;
   late final Animation<double> _pulseOpacity;
   late final AnimationController _spinController;
-  late final AnimationController _breatheController;
-  late final Animation<double> _breatheAnim;
   // Subtle body scale pulse during recording (complements the ring).
   late final AnimationController _bodyPulseController;
   late final Animation<double> _bodyPulseScale;
@@ -71,14 +69,6 @@ class _WpRecordingFabState extends State<WpRecordingFab>
     _spinController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    );
-    // Subtle idle breathing — very gentle scale oscillation
-    _breatheController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3000),
-    );
-    _breatheAnim = Tween<double>(begin: 1.0, end: 1.03).animate(
-      CurvedAnimation(parent: _breatheController, curve: Curves.easeInOut),
     );
     // Body scale pulse during recording
     _bodyPulseController = AnimationController(
@@ -116,20 +106,12 @@ class _WpRecordingFabState extends State<WpRecordingFab>
       _spinController.stop();
       _spinController.reset();
     }
-    // Breathe: only during idle
-    if (widget.phase == RecordingPhase.idle) {
-      _breatheController.repeat(reverse: true);
-    } else {
-      _breatheController.stop();
-      _breatheController.reset();
-    }
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
     _spinController.dispose();
-    _breatheController.dispose();
     _bodyPulseController.dispose();
     super.dispose();
   }
@@ -191,14 +173,12 @@ class _WpRecordingFabState extends State<WpRecordingFab>
                 animation: Listenable.merge([
                   _pulseController,
                   _spinController,
-                  _breatheAnim,
                   _bodyPulseController,
                 ]),
                 builder: (context, child) {
                   final bodyScale = switch (phase) {
                     RecordingPhase.recording => _bodyPulseScale.value,
                     RecordingPhase.idle when _isHovered => 1.06,
-                    RecordingPhase.idle => _breatheAnim.value,
                     _ => 1.0,
                   };
                   return Stack(
