@@ -886,13 +886,13 @@ abstract class L10n {
   /// No description provided for @settingsOverlayFloatingButton.
   ///
   /// In en, this message translates to:
-  /// **'Overlay & Floating Button'**
+  /// **'Recording Overlay'**
   String get settingsOverlayFloatingButton;
 
   /// No description provided for @settingsOverlayFloatingButtonSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Control how recording status appears outside the main window'**
+  /// **'Control how recording status appears while you dictate'**
   String get settingsOverlayFloatingButtonSubtitle;
 
   /// No description provided for @settingsShowOverlay.

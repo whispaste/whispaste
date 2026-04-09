@@ -435,11 +435,11 @@ class L10nEn extends L10n {
   String get settingsAfterTranscriptionNothing => 'Do Nothing';
 
   @override
-  String get settingsOverlayFloatingButton => 'Overlay & Floating Button';
+  String get settingsOverlayFloatingButton => 'Recording Overlay';
 
   @override
   String get settingsOverlayFloatingButtonSubtitle =>
-      'Control how recording status appears outside the main window';
+      'Control how recording status appears while you dictate';
 
   @override
   String get settingsShowOverlay => 'Recording status display';
