@@ -535,11 +535,15 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           ),
           // Content
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(WpSpacing.xl),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = constraints.maxWidth < WpLayout.breakpointMobile;
+                final contentPad = isCompact ? WpSpacing.md : WpSpacing.xl;
+                return SingleChildScrollView(
+                  padding: EdgeInsets.all(contentPad),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   // ── Context zone: metadata + tags ──
                   Wrap(
                     spacing: WpSpacing.xs,
@@ -822,6 +826,8 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                   const SizedBox(height: 80),
                 ],
               ),
+            );
+          },
             ),
           ),
         ],
