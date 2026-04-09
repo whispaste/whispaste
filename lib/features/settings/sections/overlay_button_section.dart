@@ -25,6 +25,7 @@ class OverlayButtonSection extends ConsumerWidget {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final effectiveMode = settings.effectiveOverlayMode;
 
     return WpSection(
       title: l10n.settingsOverlayFloatingButton,
@@ -38,11 +39,13 @@ class OverlayButtonSection extends ConsumerWidget {
             subtitle: l10n.settingsShowOverlaySubtitle,
             trailing: settingsDropdown(
               context: context,
-              value: settings.overlayMode,
-              items: OverlayMode.values.map((e) => e.value).toList(),
+              // Display effective mode so legacy "floating" shows as "in-window"
+              value: effectiveMode.value,
+              items: const [OverlayMode.inWindow, OverlayMode.off]
+                  .map((e) => e.value)
+                  .toList(),
               labels: [
                 l10n.settingsOverlayModeInWindow,
-                l10n.settingsOverlayModeFloating,
                 l10n.settingsOverlayModeOff,
               ],
               onChanged: (v) {
@@ -60,7 +63,7 @@ class OverlayButtonSection extends ConsumerWidget {
             ),
           ),
           // Hint for in-window mode
-          if (settings.overlayModeType == OverlayMode.inWindow)
+          if (effectiveMode == OverlayMode.inWindow)
             Padding(
               padding: const EdgeInsets.only(
                 left: WpSpacing.xxl + WpSpacing.md,
@@ -74,31 +77,6 @@ class OverlayButtonSection extends ConsumerWidget {
                       ? WpColorsDark.textMuted
                       : WpColorsLight.textMuted,
                 ),
-              ),
-            ),
-          // Overlay start position (only relevant for floating mode)
-          if (settings.overlayModeType == OverlayMode.floating)
-            SettingRow(
-              icon: LucideIcons.mapPin,
-              label: l10n.settingsOverlayStartPosition,
-              subtitle: l10n.settingsOverlayStartPositionSubtitle,
-              trailing: settingsDropdown(
-                context: context,
-                value: settings.overlayStartPosition,
-                items: OverlayStartPosition.values.map((e) => e.value).toList(),
-                labels: [
-                  l10n.settingsOverlayStartTopCenter,
-                  l10n.settingsOverlayStartBottomCenter,
-                  l10n.settingsOverlayStartLastPosition,
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings(
-                        (s) => s.copyWith(overlayStartPosition: v),
-                      );
-                },
               ),
             ),
           SettingRow(
