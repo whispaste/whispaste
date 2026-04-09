@@ -12,6 +12,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app.dart' show activePageProvider;
+import '../core/logging/ui_thread_watchdog.dart';
 import '../services/autostart_service.dart';
 import '../services/hotkey_service.dart';
 import '../services/multi_window_service.dart';
@@ -31,6 +32,19 @@ class ServiceBootstrapWidget extends ConsumerStatefulWidget {
 
 class _ServiceBootstrapState extends ConsumerState<ServiceBootstrapWidget> {
   bool _orchestratorInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start UI thread jank detection.
+    UiThreadWatchdog.instance.start();
+  }
+
+  @override
+  void dispose() {
+    UiThreadWatchdog.instance.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
