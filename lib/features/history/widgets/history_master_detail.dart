@@ -239,7 +239,8 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
                 SizedBox(
                   width: detailW.clamp(0.0, totalWidth - _minMasterWidth),
                   child: detailFraction > 0.05
-                      ? Opacity(
+                      ? ClipRect(
+                          child: Opacity(
                           opacity: detailFraction.clamp(0.0, 1.0),
                           child: AnimatedSwitcher(
                             duration: WpMotion.fast,
@@ -281,7 +282,8 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
                                       widget.selectedEntry ?? _displayedEntry!),
                             ),
                           ),
-                        )
+                        ),
+                      )
                       : const SizedBox.shrink(),
                 ),
               ],
