@@ -61,6 +61,7 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
     // rendering surface is properly allocated, but at 1x1 it is invisible
     // and does not intercept mouse events.
     await windowManager.show();
+    await windowManager.setSkipTaskbar(true);
     await windowManager.setAlwaysOnTop(true);
   });
 

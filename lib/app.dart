@@ -568,6 +568,9 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                 postProcessingLabel: statusBarModel.postProcessingLabel,
                 sttState: sttStatus.serverState,
                 recordingPhase: recordingPhase,
+                afterActionLabel: afterTranscriptionStatusLabel(
+                    settings.afterTranscriptionAction, l10n),
+                afterAction: settings.afterTranscriptionAction,
                 onSttTap: () {
                   ref
                       .read(settingsScrollTargetProvider.notifier)
@@ -579,6 +582,12 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                       .read(settingsScrollTargetProvider.notifier)
                       .set('postprocessing');
                   ref.read(activePageProvider.notifier).setPage('settings');
+                },
+                onAfterActionChanged: (action) {
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings(
+                          (s) => s.copyWith(afterTranscription: action.value));
                 },
               ),
             ],
