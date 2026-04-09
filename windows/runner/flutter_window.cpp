@@ -26,6 +26,10 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
 
+  // Create the native floating button host AFTER plugins are registered.
+  floating_button_host_ = std::make_unique<FloatingButtonHost>(
+      flutter_controller_->engine(), GetHandle());
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -41,6 +45,12 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  // Destroy floating button BEFORE engine teardown (Invariant #4).
+  if (floating_button_host_) {
+    floating_button_host_->Destroy();
+    floating_button_host_.reset();
+  }
+
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

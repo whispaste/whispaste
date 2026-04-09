@@ -1,6 +1,8 @@
 /// Overlay settings section.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -79,6 +81,68 @@ class OverlayButtonSection extends ConsumerWidget {
                 ),
               ),
             ),
+
+          // ── Native floating button (desktop only) ────────────────────
+          if (Platform.isWindows) ...[
+            const Divider(height: 1),
+            SettingRow(
+              icon: LucideIcons.circle,
+              label: l10n.settingsShowFloatingButton,
+              subtitle: l10n.settingsShowFloatingButtonSubtitle,
+              trailing: settingsToggle(
+                value: settings.showFloatingButton,
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWith(showFloatingButton: v),
+                    ),
+              ),
+            ),
+            if (settings.showFloatingButton) ...[
+              SettingRow(
+                icon: LucideIcons.maximize2,
+                label: l10n.settingsFloatingButtonSize,
+                subtitle: l10n.settingsFloatingButtonSizeSubtitle,
+                trailing: settingsDropdown(
+                  context: context,
+                  value: settings.floatingButtonSize,
+                  items: FloatingButtonSize.values
+                      .map((e) => e.value)
+                      .toList(),
+                  labels: FloatingButtonSize.values
+                      .map((e) => '${e.pixels}px')
+                      .toList(),
+                  onChanged: (v) {
+                    if (v == null) return;
+                    ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                          (s) => s.copyWith(floatingButtonSize: v),
+                        );
+                  },
+                ),
+              ),
+              SettingRow(
+                icon: LucideIcons.sun,
+                label: l10n.settingsFloatingButtonOpacity,
+                subtitle: l10n.settingsFloatingButtonOpacitySubtitle,
+                trailing: settingsSlider(
+                  context: context,
+                  value: settings.floatingButtonOpacity,
+                  min: 0.3,
+                  max: 1.0,
+                  divisions: 7,
+                  valueLabel:
+                      '${(settings.floatingButtonOpacity * 100).round()}%',
+                  onChanged: (v) => ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings(
+                        (s) => s.copyWith(floatingButtonOpacity: v),
+                      ),
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );

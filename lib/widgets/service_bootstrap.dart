@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app.dart' show activePageProvider;
 import '../core/logging/ui_thread_watchdog.dart';
 import '../services/autostart_service.dart';
+import '../services/floating_button/floating_button_service.dart';
 import '../services/hotkey_service.dart';
 import '../services/recording_orchestrator.dart';
 import '../services/tray_service.dart';
@@ -73,6 +74,9 @@ class _ServiceBootstrapState extends ConsumerState<ServiceBootstrapWidget> {
 
     // ── Autostart sync ──
     ref.watch(autostartServiceProvider);
+
+    // ── Native floating button (desktop only) ──
+    ref.watch(floatingButtonServiceProvider);
 
     return widget.child;
   }
