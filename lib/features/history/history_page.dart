@@ -194,6 +194,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                         if (entry != null) _deleteEntry(entry);
                       }
                     },
+                    const SingleActivator(LogicalKeyboardKey.backspace): () {
+                      if (_multiSelectMode && _selectedIds.isNotEmpty) {
+                        _deleteSelected();
+                      } else {
+                        final entry = _focusedEntry(flat);
+                        if (entry != null) _deleteEntry(entry);
+                      }
+                    },
                     // Ctrl+A: Select all visible items
                     const SingleActivator(LogicalKeyboardKey.keyA, control: true): () {
                       setState(() {
@@ -221,7 +229,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                         if (entry != null) _copyEntry(entry);
                       }
                     },
-                    const SingleActivator(LogicalKeyboardKey.keyP): () {
+                    // Ctrl+M: Merge selected entries
+                    const SingleActivator(LogicalKeyboardKey.keyM, control: true): () {
+                      if (_multiSelectMode && _selectedIds.length >= 2) {
+                        _mergeSelected();
+                      }
+                    },
+                    // F: Toggle favorite on focused entry
+                    const SingleActivator(LogicalKeyboardKey.keyF): () {
                       final entry = _focusedEntry(flat);
                       if (entry != null) _togglePin(entry);
                     },
@@ -308,6 +323,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                               _lastClickedId = entry.id;
                             });
                           }
+                          // Ensure list focus node has focus so keyboard
+                          // shortcuts work after any click interaction.
+                          // If detail panel opens, it will subsequently
+                          // claim focus (as a descendant, so list shortcuts
+                          // still work via event bubbling).
+                          _listFocusNode.requestFocus();
                         },
                         onCopy: _copyEntry,
                         onPin: _togglePin,
@@ -381,8 +402,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       WpCommand(
         id: 'toggle-pin',
         label: isPinned ? l10n.historyUnpin : l10n.historyPinToTop,
-        icon: isPinned ? LucideIcons.pinOff : LucideIcons.pin,
-        shortcutHint: 'P',
+        icon: isPinned ? LucideIcons.starOff : LucideIcons.star,
+        shortcutHint: 'F',
         onExecute: () => _togglePin(entry),
       ),
       WpCommand(
