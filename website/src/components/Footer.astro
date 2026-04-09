@@ -9,8 +9,8 @@ const { variant = 'landing' } = Astro.props;
   <footer class="py-8 border-t border-white/5" role="contentinfo">
     <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
       <div class="flex items-center gap-2">
-        <img id="footerLogo" src="/app-icon-dark.png" alt="" class="w-6 h-6 opacity-60" />
-        <span>&copy; 2025 <a href="https://github.com/silvio-l" class="hover:text-white transition-colors">Silvio Lindstedt</a></span>
+        <img src="/wordmark-dark.png" alt="" class="h-5 w-auto opacity-60 nav-logo-dark" />
+        <img src="/wordmark-light.png" alt="" class="h-5 w-auto opacity-60 nav-logo-light hidden" />
       </div>
       <nav aria-label="Footer navigation" data-i18n-aria="nav.footerAria" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
         <a href="/impressum/" class="hover:text-white transition-colors" data-i18n="footer.impressum">Legal Notice</a>
@@ -28,7 +28,7 @@ const { variant = 'landing' } = Astro.props;
 ) : (
   <footer class="py-6 border-t border-white/5" role="contentinfo">
     <div class="max-w-4xl mx-auto px-6 text-center text-sm text-gray-500">
-      &copy; 2025 <a href="https://github.com/silvio-l" class="hover:text-white transition-colors">Silvio Lindstedt</a>
+      &copy; 2025 <a href="https://github.com/silvio-l" class="hover:text-white transition-colors">Silvio Lindstedt</a> · <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors">MIT License</a>
     </div>
   </footer>
 )}
