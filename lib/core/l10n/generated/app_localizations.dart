@@ -3558,6 +3558,72 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Exported to {path}'**
   String commandPaletteExported(String path);
+
+  /// No description provided for @updateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available: v{version}'**
+  String updateAvailable(String version);
+
+  /// No description provided for @updateDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading update… {percent}%'**
+  String updateDownloading(int percent);
+
+  /// No description provided for @updateReadyToInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Update ready — click to install'**
+  String get updateReadyToInstall;
+
+  /// No description provided for @updateUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re on the latest version'**
+  String get updateUpToDate;
+
+  /// No description provided for @updateCheckNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Check Now'**
+  String get updateCheckNow;
+
+  /// No description provided for @updateInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Install Update'**
+  String get updateInstall;
+
+  /// No description provided for @updateDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get updateDownload;
+
+  /// No description provided for @updateViewRelease.
+  ///
+  /// In en, this message translates to:
+  /// **'Release Notes'**
+  String get updateViewRelease;
+
+  /// No description provided for @updateError.
+  ///
+  /// In en, this message translates to:
+  /// **'Update check failed'**
+  String get updateError;
+
+  /// No description provided for @updateRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many requests — try again later'**
+  String get updateRateLimited;
+
+  /// No description provided for @updateStatusBarChip.
+  ///
+  /// In en, this message translates to:
+  /// **'v{version} available'**
+  String updateStatusBarChip(String version);
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

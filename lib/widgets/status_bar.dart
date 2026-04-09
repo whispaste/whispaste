@@ -24,10 +24,12 @@ class WpStatusBar extends StatelessWidget {
     this.afterAction,
     this.hotkeyLabel,
     this.hotkeyEnabled = true,
+    this.updateVersion,
     this.onSttTap,
     this.onPostProcessTap,
     this.onAfterActionChanged,
     this.onHotkeyTap,
+    this.onUpdateTap,
   });
 
   /// Active STT mode, e.g. "On device" or "OpenAI".
@@ -55,6 +57,9 @@ class WpStatusBar extends StatelessWidget {
   /// Whether the global hotkey is enabled.
   final bool hotkeyEnabled;
 
+  /// Available update version label, e.g. "1.3.0", or null to hide.
+  final String? updateVersion;
+
   /// Callback when user taps the STT chip (navigate to settings).
   final VoidCallback? onSttTap;
 
@@ -66,6 +71,9 @@ class WpStatusBar extends StatelessWidget {
 
   /// Callback when user taps the hotkey chip (navigate to settings).
   final VoidCallback? onHotkeyTap;
+
+  /// Callback when user taps the update-available chip.
+  final VoidCallback? onUpdateTap;
 
   @override
   Widget build(BuildContext context) {
@@ -132,6 +140,17 @@ class WpStatusBar extends StatelessWidget {
                         tooltip: l10n.statusBarHotkeyTooltip,
                         onTap: onHotkeyTap,
                         dimmed: !hotkeyEnabled,
+                      ),
+                    ],
+                    if (updateVersion != null) ...[
+                      const SizedBox(width: WpSpacing.xs),
+                      _StatusChip(
+                        icon: LucideIcons.download,
+                        label: l10n.updateStatusBarChip(updateVersion!),
+                        textStyle: textStyle,
+                        isDark: isDark,
+                        tooltip: l10n.updateAvailable(updateVersion!),
+                        onTap: onUpdateTap,
                       ),
                     ],
                   ],

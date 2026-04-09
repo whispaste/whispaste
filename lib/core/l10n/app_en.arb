@@ -693,5 +693,32 @@
     "placeholders": {
       "path": { "type": "String" }
     }
+  },
+
+  "updateAvailable": "Update available: v{version}",
+  "@updateAvailable": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+  "updateDownloading": "Downloading update… {percent}%",
+  "@updateDownloading": {
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "updateReadyToInstall": "Update ready — click to install",
+  "updateUpToDate": "You're on the latest version",
+  "updateCheckNow": "Check Now",
+  "updateInstall": "Install Update",
+  "updateDownload": "Download",
+  "updateViewRelease": "Release Notes",
+  "updateError": "Update check failed",
+  "updateRateLimited": "Too many requests — try again later",
+  "updateStatusBarChip": "v{version} available",
+  "@updateStatusBarChip": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
   }
 }

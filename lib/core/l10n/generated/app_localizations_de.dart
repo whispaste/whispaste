@@ -1902,4 +1902,44 @@ class L10nDe extends L10n {
   String commandPaletteExported(String path) {
     return 'Exportiert nach $path';
   }
+
+  @override
+  String updateAvailable(String version) {
+    return 'Update verfügbar: v$version';
+  }
+
+  @override
+  String updateDownloading(int percent) {
+    return 'Update wird heruntergeladen… $percent %';
+  }
+
+  @override
+  String get updateReadyToInstall => 'Update bereit — zum Installieren klicken';
+
+  @override
+  String get updateUpToDate => 'Du verwendest die neueste Version';
+
+  @override
+  String get updateCheckNow => 'Jetzt prüfen';
+
+  @override
+  String get updateInstall => 'Update installieren';
+
+  @override
+  String get updateDownload => 'Herunterladen';
+
+  @override
+  String get updateViewRelease => 'Versionshinweise';
+
+  @override
+  String get updateError => 'Update-Prüfung fehlgeschlagen';
+
+  @override
+  String get updateRateLimited =>
+      'Zu viele Anfragen — versuche es später erneut';
+
+  @override
+  String updateStatusBarChip(String version) {
+    return 'v$version verfügbar';
+  }
 }
