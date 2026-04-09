@@ -172,6 +172,36 @@ import Footer from "../components/Footer.astro";
       });
     }, { passive: true });
 
+    // Fetch GitHub stars (cached in sessionStorage)
+    (async () => {
+      try {
+        const cacheKey = 'wp-gh-stars';
+        const cached = sessionStorage.getItem(cacheKey);
+        let count: number | null = cached ? parseInt(cached, 10) : null;
+
+        if (count === null || isNaN(count)) {
+          const res = await fetch('https://api.github.com/repos/whispaste/whispaste');
+          if (res.ok) {
+            const data = await res.json();
+            count = data.stargazers_count;
+            if (typeof count === 'number') sessionStorage.setItem(cacheKey, String(count));
+          }
+        }
+
+        if (typeof count === 'number' && count > 0) {
+          const badge = document.getElementById('github-stars-badge');
+          const span = document.getElementById('github-stars-count');
+          if (badge && span) {
+            const lang = localStorage.getItem('whispaste-lang') || 'en';
+            span.textContent = lang === 'de'
+              ? `${count} Sterne auf GitHub`
+              : `${count} stars on GitHub`;
+            badge.style.display = '';
+          }
+        }
+      } catch { /* silent — badge stays hidden */ }
+    })();
+
     applyLang();
     updateThemeIcon();
   </script>

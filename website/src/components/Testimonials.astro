@@ -4,7 +4,8 @@
 // Falls back gracefully if the API is unavailable or returns no results.
 ---
 
-<section id="testimonials" class="py-24 sm:py-32 relative scroll-mt-20">
+<!-- Testimonials section: hidden by default, revealed only when real testimonials exist -->
+<section id="testimonials" class="py-24 sm:py-32 relative scroll-mt-20" style="display:none;">
   <div class="max-w-5xl mx-auto px-6">
     <div class="text-center mb-12 scroll-reveal">
       <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="testimonials.label">Testimonials</p>
@@ -12,18 +13,8 @@
       <p class="mt-4 text-gray-400 max-w-xl mx-auto" data-i18n="testimonials.subtitle">Real feedback from real people — no names, no tracking, just honest opinions.</p>
     </div>
 
-    <!-- Loading state -->
-    <div id="testimonials-loading" class="text-center py-12 scroll-reveal">
-      <div class="inline-block w-6 h-6 border-2 border-brand-cyan/30 border-t-brand-cyan rounded-full animate-spin"></div>
-    </div>
-
     <!-- Testimonial grid (populated by JS) -->
-    <div id="testimonials-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 scroll-reveal" style="display:none;"></div>
-
-    <!-- Empty / error state -->
-    <div id="testimonials-empty" class="text-center py-12 text-gray-500" style="display:none;">
-      <p data-i18n="testimonials.empty">No testimonials available yet — be the first to share your experience!</p>
-    </div>
+    <div id="testimonials-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 scroll-reveal"></div>
   </div>
 </section>
 
@@ -68,22 +59,16 @@
   const API_URL = 'https://cnyniyflnefxrwafuqig.supabase.co/functions/v1/testimonials';
 
   async function loadTestimonials() {
-    const loading = document.getElementById('testimonials-loading');
+    const section = document.getElementById('testimonials');
     const grid = document.getElementById('testimonials-grid');
-    const empty = document.getElementById('testimonials-empty');
-    if (!loading || !grid || !empty) return;
+    if (!section || !grid) return;
 
     try {
       const res = await fetch(API_URL + '?limit=6');
       if (!res.ok) throw new Error('API ' + res.status);
       const { testimonials } = await res.json();
 
-      loading.style.display = 'none';
-
-      if (!testimonials || testimonials.length === 0) {
-        empty.style.display = 'block';
-        return;
-      }
+      if (!testimonials || testimonials.length === 0) return;
 
       grid.innerHTML = testimonials.map((t: { rating: number; text: string }) => {
         const r = Math.max(0, Math.min(5, Math.round(t.rating) || 0));
@@ -94,10 +79,9 @@
         </div>
       `}).join('');
 
-      grid.style.display = '';
+      section.style.display = '';
     } catch {
-      loading.style.display = 'none';
-      empty.style.display = 'block';
+      // Silently hide — no testimonials is fine
     }
   }
 
