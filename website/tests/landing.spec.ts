@@ -10,7 +10,7 @@ test('hero CTA contains MS Store badge and GitHub link', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.getByTestId('hero-cta-store')).toBeVisible();
-  await expect(page.getByTestId('hero-cta-store').locator('ms-store-badge')).toHaveCount(1);
+  await expect(page.getByTestId('hero-cta-store').getByTestId('store-button')).toHaveCount(1);
   await expect(page.getByTestId('hero-cta-github')).toHaveAttribute(
     'href',
     'https://github.com/whispaste/whispaste/releases/latest',

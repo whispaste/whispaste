@@ -1,3 +1,6 @@
+---
+import StoreButton from './StoreButton.astro';
+---
 <!-- Pricing Section -->
 <section id="pricing" class="py-24 sm:py-32 relative scroll-mt-20">
   <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(20,184,212,0.05)_0%,_transparent_60%)]"></div>
@@ -33,14 +36,7 @@
         </ul>
 
         <div class="flex flex-col items-center gap-4">
-          <ms-store-badge
-            productid="9NR9PLKRZ6QG"
-            window-mode="full"
-            theme="auto"
-            language="en"
-            animation="on"
-            class="ms-store-badge"
-          ></ms-store-badge>
+          <StoreButton />
           <p class="text-gray-500 text-xs" data-i18n="hero.store.hint">Supports the project – thank you!</p>
           <a
             href="https://github.com/whispaste/whispaste/releases/latest"
