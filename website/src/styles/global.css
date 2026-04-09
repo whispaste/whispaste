@@ -73,8 +73,8 @@ html.light .feature-card:hover { background: rgba(255,255,255,0.9) !important; b
 /* ---- Hero carousel global styles ---- */
 /* Dynamic elements created by JS need global scope */
 .overlay-wave-bar {
-  width: 4px;
-  border-radius: 2px;
+  width: 2.5px;
+  border-radius: 1.5px;
   min-height: 2px;
   flex-shrink: 0;
 }
@@ -150,8 +150,8 @@ html.light .microphone-icon {
   }
 }
 html.light .overlay-pill {
-  background: linear-gradient(180deg, rgba(18, 36, 53, 0.85) 0%, rgba(7, 15, 25, 0.85) 100%);
-  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.19);
+  background: rgba(20, 25, 38, 0.85);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 html.light .typing-cursor {
   background: #0891b2 !important;
