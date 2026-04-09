@@ -22,9 +22,12 @@ class WpStatusBar extends StatelessWidget {
     this.recordingPhase = RecordingPhase.idle,
     this.afterActionLabel,
     this.afterAction,
+    this.hotkeyLabel,
+    this.hotkeyEnabled = true,
     this.onSttTap,
     this.onPostProcessTap,
     this.onAfterActionChanged,
+    this.onHotkeyTap,
   });
 
   /// Active STT mode, e.g. "On device" or "OpenAI".
@@ -46,6 +49,12 @@ class WpStatusBar extends StatelessWidget {
   /// Current after-transcription action value (for menu selection).
   final AfterTranscriptionAction? afterAction;
 
+  /// Formatted hotkey label, e.g. "Ctrl+Shift+D", or null to hide.
+  final String? hotkeyLabel;
+
+  /// Whether the global hotkey is enabled.
+  final bool hotkeyEnabled;
+
   /// Callback when user taps the STT chip (navigate to settings).
   final VoidCallback? onSttTap;
 
@@ -54,6 +63,9 @@ class WpStatusBar extends StatelessWidget {
 
   /// Callback when user selects a different after-transcription action.
   final ValueChanged<AfterTranscriptionAction>? onAfterActionChanged;
+
+  /// Callback when user taps the hotkey chip (navigate to settings).
+  final VoidCallback? onHotkeyTap;
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +118,20 @@ class WpStatusBar extends StatelessWidget {
                         isDark: isDark,
                         l10n: l10n,
                         onChanged: onAfterActionChanged!,
+                      ),
+                    ],
+                    if (hotkeyLabel != null) ...[
+                      const SizedBox(width: WpSpacing.xs),
+                      _StatusChip(
+                        icon: hotkeyEnabled
+                            ? LucideIcons.keyboard
+                            : LucideIcons.keyboardOff,
+                        label: hotkeyLabel!,
+                        textStyle: textStyle,
+                        isDark: isDark,
+                        tooltip: l10n.statusBarHotkeyTooltip,
+                        onTap: onHotkeyTap,
+                        dimmed: !hotkeyEnabled,
                       ),
                     ],
                   ],
@@ -282,6 +308,7 @@ class _StatusChip extends StatelessWidget {
     this.icon,
     this.tooltip,
     this.onTap,
+    this.dimmed = false,
   });
 
   final IconData? icon;
@@ -290,37 +317,41 @@ class _StatusChip extends StatelessWidget {
   final bool isDark;
   final String? tooltip;
   final VoidCallback? onTap;
+  final bool dimmed;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    final chip = InkWell(
-      onTap: onTap,
-      borderRadius: WpRadius.borderFull,
-      mouseCursor: onTap != null
-          ? SystemMouseCursors.click
-          : SystemMouseCursors.basic,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.sm,
-          vertical: WpSpacing.xxs,
-        ),
-        decoration: BoxDecoration(
-          color: isDark
-              ? WpColorsDark.surface.withValues(alpha: 0.5)
-              : WpColorsLight.surfaceVariant,
-          borderRadius: WpRadius.borderFull,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: WpIconSize.xs, color: cs.secondary),
-              const SizedBox(width: WpSpacing.xxs),
+    final chip = Opacity(
+      opacity: dimmed ? 0.5 : 1.0,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: WpRadius.borderFull,
+        mouseCursor: onTap != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.xxs,
+          ),
+          decoration: BoxDecoration(
+            color: isDark
+                ? WpColorsDark.surface.withValues(alpha: 0.5)
+                : WpColorsLight.surfaceVariant,
+            borderRadius: WpRadius.borderFull,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: WpIconSize.xs, color: cs.secondary),
+                const SizedBox(width: WpSpacing.xxs),
+              ],
+              Text(label, style: textStyle),
             ],
-            Text(label, style: textStyle),
-          ],
+          ),
         ),
       ),
     );
