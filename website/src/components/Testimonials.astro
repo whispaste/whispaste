@@ -91,16 +91,10 @@
     return d.innerHTML;
   }
 
-  // Load when section becomes visible (lazy)
-  const observer = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) {
-        observer.disconnect();
-        loadTestimonials();
-      }
-    }
-  }, { rootMargin: '200px' });
-
-  const section = document.getElementById('testimonials');
-  if (section) observer.observe(section);
+  // Load testimonials when page is ready (section starts hidden, revealed only if data exists)
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => loadTestimonials());
+  } else {
+    setTimeout(loadTestimonials, 1000);
+  }
 </script>

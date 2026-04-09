@@ -246,14 +246,15 @@
 
   /* ---- Mockup window chrome ---- */
   .mockup-glow {
-    background: linear-gradient(135deg, rgba(34,211,238,0.25), rgba(14,116,144,0.12), rgba(34,211,238,0.2));
-    box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 80px rgba(34,211,238,0.08);
+    border: 1px solid rgba(56, 217, 240, 0.15);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4);
     border-radius: 16px;
     padding: 1px;
-    transition: box-shadow 0.4s ease;
+    transition: border-color 0.4s ease, box-shadow 0.4s ease;
   }
   .mockup-glow:hover {
-    box-shadow: 0 12px 50px rgba(0,0,0,0.5), 0 0 100px rgba(34,211,238,0.12);
+    border-color: rgba(56, 217, 240, 0.25);
+    box-shadow: 0 12px 50px rgba(0,0,0,0.5);
   }
   .mockup-window {
     background: var(--mockup-bg);
