@@ -2,12 +2,12 @@
 
 ## Supported Versions
 
-WhisPaste is currently in early development. Security updates are applied to the latest release only.
+Security updates are applied to the latest release only.
 
-| Version       | Supported          |
-| ------------- | ------------------ |
-| latest (0.4.x)| :white_check_mark: |
-| < 0.4         | :x:                |
+| Version        | Supported          |
+| -------------- | ------------------ |
+| latest (1.2.x) | :white_check_mark: |
+| < 1.0          | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -38,6 +38,7 @@ The following are in scope for security reports:
 - The auto-update mechanism (download verification, HTTPS enforcement)
 - Local data storage (config, history database, audio cache)
 - API key handling and credential storage
+- Supabase Edge Functions and backend infrastructure
 
 The following are **out of scope**:
 
@@ -49,5 +50,6 @@ The following are **out of scope**:
 
 - All network requests use HTTPS exclusively
 - Auto-update downloads are verified via SHA-256 checksums
-- API keys are stored locally in user-scoped config files, never transmitted to third parties
-- No telemetry or analytics data is collected
+- API keys are stored in platform-native secure storage (OS keychain / credential manager)
+- Crash reporting via Sentry is **consent-gated** — users must opt in; PII is sanitized before transmission
+- No analytics telemetry or tracking is collected

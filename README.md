@@ -88,7 +88,7 @@ flutter build windows    # Build for Windows
 
 - **Local mode** — audio never leaves your device
 - **Cloud mode** — audio goes directly to your selected provider, not through WhisPaste servers
-- **No telemetry**, no tracking, no account required
+- **No tracking**, no account required — optional crash reporting can be turned off
 - **Open source** — audit every line
 
 ## Support
