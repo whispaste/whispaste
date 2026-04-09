@@ -181,12 +181,12 @@ class CrashReporter {
   // -------------------------------------------------------------------------
 
   /// Sentry `beforeSend` callback — drops events with PII or without consent.
+  ///
+  /// Debug-mode events ARE sent (tagged `environment: 'development'`).
+  /// Use Sentry's environment filter to separate dev from production.
   static SentryEvent? beforeSend(SentryEvent event, Hint hint) {
     // Consent gate: drop events when user has opted out.
     if (_instance != null && !_instance!._consentGranted) return null;
-
-    // Don't send in debug mode.
-    if (kDebugMode) return null;
 
     // Drop events containing API keys, tokens, or other secrets.
     final exceptions = event.exceptions;

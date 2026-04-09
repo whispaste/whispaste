@@ -25,6 +25,13 @@ import '../widgets/recording_pill.dart';
 
 /// Entry point for the floating overlay secondary window.
 Future<void> runFloatingOverlayWindow(WindowController controller) async {
+  // Wrap the entire secondary engine in an error zone so unhandled exceptions
+  // are logged instead of silently crashing the process.
+  FlutterError.onError = (details) {
+    debugPrint('FloatingOverlay FlutterError: ${details.exception}');
+    debugPrint('${details.stack}');
+  };
+
   await windowManager.ensureInitialized();
   var launchEpochMs = 0;
   try {

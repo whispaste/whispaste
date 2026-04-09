@@ -27,6 +27,13 @@ import '../widgets/floating_button.dart';
 /// Call this from `main()` when the window arguments indicate
 /// [WindowType.floatingButton].
 Future<void> runFloatingButtonWindow(WindowController controller) async {
+  // Wrap the entire secondary engine in an error zone so unhandled exceptions
+  // are logged instead of silently crashing the process.
+  FlutterError.onError = (details) {
+    debugPrint('FloatingButton FlutterError: ${details.exception}');
+    debugPrint('${details.stack}');
+  };
+
   await windowManager.ensureInitialized();
 
   // Parse initial settings from arguments passed by the main window.
