@@ -82,6 +82,7 @@ Future<void> runFloatingButtonWindow(WindowController controller) async {
       }
     }
     await windowManager.show();
+    await windowManager.setSkipTaskbar(true);
     await windowManager.focus();
   });
 

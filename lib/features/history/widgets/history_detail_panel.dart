@@ -1000,34 +1000,20 @@ class _MetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isDark
-        ? WpColorsDark.surfaceElevated
-        : WpColorsLight.surfaceElevated;
     final fg = isDark
-        ? WpColorsDark.textSecondary
-        : WpColorsLight.textSecondary;
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.sm,
-        vertical: WpSpacing.xxs,
-      ),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: WpRadius.borderFull,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: fg),
-          const SizedBox(width: WpSpacing.xxs),
-          Text(
-            label,
-            style: TextStyle(
-                fontSize: 11, color: fg, fontWeight: FontWeight.w500),
-          ),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: fg),
+        const SizedBox(width: WpSpacing.xxs),
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: fg),
+        ),
+      ],
     );
   }
 }

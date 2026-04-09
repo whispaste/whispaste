@@ -54,15 +54,25 @@ class WpTagInputState extends State<WpTagInput> {
   final _focusNode = FocusNode();
   bool _isAddMode = false;
 
+  /// Index into the combined dropdown list (suggestions + optional "Create").
+  /// -1 means no selection (typed text will be used as-is on Enter).
+  int _selectedIndex = -1;
+
   /// Called externally (clickable header, etc.) to enter add mode.
   void enterAddMode() {
     if (_isAddMode) {
       _focusNode.requestFocus();
       return;
     }
-    setState(() => _isAddMode = true);
+    setState(() {
+      _isAddMode = true;
+      _selectedIndex = -1;
+    });
     widget.onSearchChanged?.call('');
   }
+
+  /// Also callable externally — used by focusTagInput() alias.
+  void focusTagInput() => enterAddMode();
 
   @override
   void initState() {
@@ -87,7 +97,8 @@ class WpTagInputState extends State<WpTagInput> {
     widget.onAdd(trimmed);
     _controller.clear();
     widget.onSearchChanged?.call('');
-    _focusNode.requestFocus(); // Keep add mode open (consistent with suggestion tap)
+    setState(() => _selectedIndex = -1);
+    _focusNode.requestFocus();
   }
 
   void _selectSuggestion(Tag tag) {
@@ -95,6 +106,7 @@ class WpTagInputState extends State<WpTagInput> {
     widget.onAdd(tag.name);
     _controller.clear();
     widget.onSearchChanged?.call('');
+    setState(() => _selectedIndex = -1);
     _focusNode.requestFocus();
   }
 
@@ -111,33 +123,83 @@ class WpTagInputState extends State<WpTagInput> {
       _controller.clear();
       widget.onSearchChanged?.call('');
       _focusNode.requestFocus();
-      setState(() {});
+      setState(() => _selectedIndex = -1);
       return;
     }
     widget.onSearchChanged?.call(value.trim());
-    setState(() {});
+    // Reset selection when input changes — suggestions will differ.
+    setState(() => _selectedIndex = -1);
   }
 
   void _closeAddMode() {
-    setState(() => _isAddMode = false);
+    setState(() {
+      _isAddMode = false;
+      _selectedIndex = -1;
+    });
     _controller.clear();
     widget.onSearchChanged?.call('');
     _focusNode.unfocus();
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is KeyDownEvent) {
-      if (event.logicalKey == LogicalKeyboardKey.escape) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final suggestions = _filteredSuggestions;
+    final showCreate = _isAddMode && _canCreateNewTag;
+    final totalItems = suggestions.length + (showCreate ? 1 : 0);
+
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.escape:
         _closeAddMode();
         return KeyEventResult.handled;
-      } else if (event.logicalKey == LogicalKeyboardKey.backspace &&
-          _controller.text.isEmpty &&
-          widget.tags.isNotEmpty) {
-        widget.onRemove(widget.tags.last.id);
+
+      case LogicalKeyboardKey.backspace:
+        if (_controller.text.isEmpty && widget.tags.isNotEmpty) {
+          widget.onRemove(widget.tags.last.id);
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+
+      case LogicalKeyboardKey.arrowDown:
+        if (totalItems > 0) {
+          setState(() {
+            _selectedIndex = (_selectedIndex + 1).clamp(0, totalItems - 1);
+          });
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+
+      case LogicalKeyboardKey.arrowUp:
+        if (totalItems > 0) {
+          setState(() {
+            _selectedIndex = (_selectedIndex - 1).clamp(-1, totalItems - 1);
+          });
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+
+      case LogicalKeyboardKey.enter:
+      case LogicalKeyboardKey.numpadEnter:
+        if (_selectedIndex >= 0 && _selectedIndex < suggestions.length) {
+          _selectSuggestion(suggestions[_selectedIndex]);
+        } else if (_selectedIndex == suggestions.length && showCreate) {
+          _submit(_controller.text);
+        } else if (_controller.text.trim().isNotEmpty) {
+          // No dropdown selection — check for exact match, else create.
+          final query = _controller.text.trim().toLowerCase();
+          final exact =
+              suggestions.where((s) => s.name == query).firstOrNull;
+          if (exact != null) {
+            _selectSuggestion(exact);
+          } else {
+            _submit(_controller.text);
+          }
+        }
         return KeyEventResult.handled;
-      }
+
+      default:
+        return KeyEventResult.ignored;
     }
-    return KeyEventResult.ignored;
   }
 
   List<Tag> get _filteredSuggestions {
@@ -246,17 +308,20 @@ class WpTagInputState extends State<WpTagInput> {
                   padding:
                       const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
                   children: [
-                    for (final tag in suggestions)
+                    for (var i = 0; i < suggestions.length; i++)
                       _SuggestionTile(
-                        tag: tag,
+                        tag: suggestions[i],
                         isDark: widget.isDark,
-                        count: widget.suggestionCounts[tag.id],
-                        onTap: () => _selectSuggestion(tag),
+                        count: widget.suggestionCounts[suggestions[i].id],
+                        isSelected: i == _selectedIndex,
+                        onTap: () => _selectSuggestion(suggestions[i]),
                       ),
                     if (showCreate)
                       _CreateTagTile(
                         text: _controller.text.trim().toLowerCase(),
                         isDark: widget.isDark,
+                        isSelected:
+                            _selectedIndex == suggestions.length,
                         label: l10n.historyCreateTag(
                             _controller.text.trim().toLowerCase()),
                         onTap: () => _submit(_controller.text),
@@ -270,7 +335,7 @@ class WpTagInputState extends State<WpTagInput> {
     );
   }
 
-  /// Inline text field — sits at the end of the tag Wrap.
+  /// Inline text field — sits at the end of the tag Wrap. Pill-styled.
   Widget _buildInlineField({
     required Color textPrimary,
     required Color textMuted,
@@ -291,14 +356,14 @@ class WpTagInputState extends State<WpTagInput> {
           hintStyle: TextStyle(fontSize: 12, color: textMuted),
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.xs,
-            vertical: WpSpacing.xxs,
+            horizontal: WpSpacing.sm,
+            vertical: WpSpacing.xxs + 2,
           ),
           suffixIcon: hasText
               ? GestureDetector(
                   onTap: () => _submit(_controller.text),
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 2),
+                    padding: const EdgeInsets.only(right: 4),
                     child: Icon(
                       LucideIcons.cornerDownLeft,
                       size: 14,
@@ -309,13 +374,16 @@ class WpTagInputState extends State<WpTagInput> {
               : null,
           suffixIconConstraints:
               const BoxConstraints(maxWidth: 32, maxHeight: 32),
-          border: UnderlineInputBorder(
+          border: OutlineInputBorder(
+            borderRadius: WpRadius.borderFull,
             borderSide: BorderSide(color: borderCol),
           ),
-          enabledBorder: UnderlineInputBorder(
+          enabledBorder: OutlineInputBorder(
+            borderRadius: WpRadius.borderFull,
             borderSide: BorderSide(color: borderCol),
           ),
-          focusedBorder: UnderlineInputBorder(
+          focusedBorder: OutlineInputBorder(
+            borderRadius: WpRadius.borderFull,
             borderSide: BorderSide(color: accent, width: 1.5),
           ),
         ),
@@ -546,12 +614,14 @@ class _SuggestionTile extends StatefulWidget {
     required this.isDark,
     required this.onTap,
     this.count,
+    this.isSelected = false,
   });
 
   final Tag tag;
   final bool isDark;
   final VoidCallback onTap;
   final int? count;
+  final bool isSelected;
 
   @override
   State<_SuggestionTile> createState() => _SuggestionTileState();
@@ -582,7 +652,7 @@ class _SuggestionTileState extends State<_SuggestionTile> {
             horizontal: WpSpacing.sm,
             vertical: WpSpacing.sm,
           ),
-          color: _isHovered ? hoverBg : Colors.transparent,
+          color: (_isHovered || widget.isSelected) ? hoverBg : Colors.transparent,
           child: Row(
             children: [
               Icon(
@@ -623,12 +693,14 @@ class _CreateTagTile extends StatefulWidget {
     required this.isDark,
     required this.label,
     required this.onTap,
+    this.isSelected = false,
   });
 
   final String text;
   final bool isDark;
   final String label;
   final VoidCallback onTap;
+  final bool isSelected;
 
   @override
   State<_CreateTagTile> createState() => _CreateTagTileState();
@@ -658,7 +730,7 @@ class _CreateTagTileState extends State<_CreateTagTile> {
             horizontal: WpSpacing.sm,
             vertical: WpSpacing.sm,
           ),
-          color: _isHovered ? hoverBg : Colors.transparent,
+          color: (_isHovered || widget.isSelected) ? hoverBg : Colors.transparent,
           child: Row(
             children: [
               Icon(
