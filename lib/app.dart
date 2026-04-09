@@ -35,6 +35,9 @@ import 'core/data/database.dart';
 import 'core/logging/crash_reporter.dart';
 import 'services/recording_orchestrator.dart';
 import 'services/stt_service.dart';
+import 'services/update_service.dart';
+import 'services/deploy_channel_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'widgets/toast.dart';
 
 /// Active navigation page state (Riverpod 3.x Notifier).
@@ -249,6 +252,8 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     final navItems = wpNavItems(l10n);
     final sttStatus = ref.watch(sttServiceProvider);
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
+    final updateState = ref.watch(updateProvider);
+    final deployChannel = ref.watch(deployChannelProvider);
 
     const contentRadius = BorderRadius.only(
       topLeft: Radius.circular(WpRadius.xl),
@@ -364,6 +369,10 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                 hotkeyLabel: formatHotkeyShortcut(
                     settings.hotkeyModifiers, settings.hotkeyKey),
                 hotkeyEnabled: settings.hotkeyEnabled,
+                updateVersion:
+                    updateState.phase == UpdatePhase.available
+                        ? updateState.latestVersion
+                        : null,
                 onHotkeyTap: () {
                   ref
                       .read(settingsScrollTargetProvider.notifier)
@@ -387,6 +396,14 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                       .read(settingsProvider.notifier)
                       .updateSettings(
                           (s) => s.copyWith(afterTranscription: action.value));
+                },
+                onUpdateTap: () {
+                  if (deployChannel == DeployChannel.portable) {
+                    final url = updateState.releaseNotesUrl;
+                    if (url != null) launchUrl(Uri.parse(url));
+                  } else {
+                    ref.read(updateProvider.notifier).downloadUpdate();
+                  }
                 },
               ),
             ],
