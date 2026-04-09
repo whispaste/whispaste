@@ -93,149 +93,105 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-          curve: WpMotion.defaultCurve,
-          margin: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.xs,
-            vertical: 1,
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.sm,
-            vertical: WpSpacing.md,
-          ),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: WpRadius.borderMd,
-            // Left accent stripe for selected entry (Discord-style)
-            // Focus ring for keyboard-navigated entry
-            border: widget.isSelected
-                ? Border(
-                    left: BorderSide(color: accent, width: 3),
-                  )
-                : widget.isFocused
-                    ? Border.all(
-                        color: accent.withValues(alpha: 0.5),
-                        width: 1.5,
-                      )
-                    : null,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Multi-select checkbox
-              if (widget.multiSelectMode)
-                Padding(
-                  padding: const EdgeInsets.only(right: WpSpacing.xs, top: 10),
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: Checkbox(
-                      value: widget.isChecked,
-                      onChanged: (_) => widget.onTap(),
-                      activeColor: accent,
-                      side: BorderSide(
-                        color: isDark
-                            ? WpColorsDark.textMuted
-                            : WpColorsLight.textMuted,
-                      ),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ),
-              // Avatar — colored circle with content-type icon
-              HistoryEntryAvatar(
-                color: avatarCol,
-                icon: historyAvatarIcon(widget.entry),
-                isPinned: widget.entry.pinned,
-                isDark: isDark,
-                size: 42,
+        child: Stack(
+          children: [
+            // Main content
+            AnimatedContainer(
+              duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+              curve: WpMotion.defaultCurve,
+              margin: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.xs,
+                vertical: 1,
               ),
-              const SizedBox(width: WpSpacing.sm),
-              // Content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Row 1: Title + time/actions (fixed height — no jiggle)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            widget.entry.title.isNotEmpty
-                                ? widget.entry.title
-                                : l10n.historyUntitledRecording,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w600,
-                              color: textPrimary,
-                            ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: WpRadius.borderMd,
+                // Left accent stripe for selected entry (Discord-style)
+                // Focus ring for keyboard-navigated entry
+                border: widget.isSelected
+                    ? Border(
+                        left: BorderSide(color: accent, width: 3),
+                      )
+                    : widget.isFocused
+                        ? Border.all(
+                            color: accent.withValues(alpha: 0.5),
+                            width: 1.5,
+                          )
+                        : null,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Multi-select checkbox
+                  if (widget.multiSelectMode)
+                    Padding(
+                      padding: const EdgeInsets.only(right: WpSpacing.xs, top: 10),
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Checkbox(
+                          value: widget.isChecked,
+                          onChanged: (_) => widget.onTap(),
+                          activeColor: accent,
+                          side: BorderSide(
+                            color: isDark
+                                ? WpColorsDark.textMuted
+                                : WpColorsLight.textMuted,
                           ),
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
                         ),
-                        // Fixed-height container: cross-fade time ↔ actions
-                        SizedBox(
-                          height: 28,
-                          child: Stack(
-                            alignment: Alignment.centerRight,
-                            children: [
-                              // Time label (fades out on hover)
-                              AnimatedOpacity(
-                                duration: _isHovered
-                                    ? WpMotion.fast
-                                    : WpMotion.hoverOut,
-                                opacity: _isHovered ? 0.0 : 1.0,
-                                child: Text(
-                                  _timeLabel,
-                                  style: TextStyle(
-                                      fontSize: 11, color: textMuted),
-                                ),
-                              ),
-                              // Action buttons (fade in on hover)
-                              IgnorePointer(
-                                ignoring: !_isHovered,
-                                child: AnimatedOpacity(
-                                  duration: _isHovered
-                                      ? WpMotion.fast
-                                      : WpMotion.hoverOut,
-                                  opacity: _isHovered ? 1.0 : 0.0,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      HistoryRowAction(
-                                        icon: LucideIcons.copy,
-                                        tooltip: l10n.historyCopyText,
-                                        isDark: isDark,
-                                        onTap: widget.onCopy,
-                                      ),
-                                      HistoryRowAction(
-                                        icon: widget.entry.pinned
-                                            ? LucideIcons.starOff
-                                            : LucideIcons.star,
-                                        tooltip: widget.entry.pinned
-                                            ? l10n.historyUnpin
-                                            : l10n.historyPinToTop,
-                                        isDark: isDark,
-                                        onTap: widget.onPin,
-                                      ),
-                                      HistoryRowAction(
-                                        icon: LucideIcons.trash2,
-                                        tooltip: l10n.actionDelete,
-                                        isDark: isDark,
-                                        onTap: widget.onDelete,
-                                        isDestructive: true,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
+                  // Avatar — colored circle with content-type icon
+                  HistoryEntryAvatar(
+                    color: avatarCol,
+                    icon: historyAvatarIcon(widget.entry),
+                    isPinned: widget.entry.pinned,
+                    isDark: isDark,
+                    size: 42,
+                  ),
+                  const SizedBox(width: WpSpacing.sm),
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Row 1: Title + time label
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                widget.entry.title.isNotEmpty
+                                    ? widget.entry.title
+                                    : l10n.historyUntitledRecording,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: textPrimary,
+                                ),
+                              ),
+                            ),
+                            // Time label (fades out on hover)
+                            AnimatedOpacity(
+                              duration: _isHovered
+                                  ? WpMotion.fast
+                                  : WpMotion.hoverOut,
+                              opacity: _isHovered ? 0.0 : 1.0,
+                              child: Text(
+                                _timeLabel,
+                                style: TextStyle(
+                                    fontSize: 11, color: textMuted),
+                              ),
+                            ),
+                          ],
+                        ),
                     const SizedBox(height: 3),
                     // Row 2: Content preview — two lines for more context
                     Text(
@@ -296,6 +252,42 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
               ),
             ],
           ),
+        ),
+            // Quick action buttons — positioned over the full item
+            if (_isHovered && !widget.multiSelectMode)
+              Positioned(
+                top: WpSpacing.md,
+                right: WpSpacing.xs + WpSpacing.sm,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    HistoryRowAction(
+                      icon: LucideIcons.copy,
+                      tooltip: l10n.historyCopyText,
+                      isDark: isDark,
+                      onTap: widget.onCopy,
+                    ),
+                    HistoryRowAction(
+                      icon: widget.entry.pinned
+                          ? LucideIcons.starOff
+                          : LucideIcons.star,
+                      tooltip: widget.entry.pinned
+                          ? l10n.historyUnpin
+                          : l10n.historyPinToTop,
+                      isDark: isDark,
+                      onTap: widget.onPin,
+                    ),
+                    HistoryRowAction(
+                      icon: LucideIcons.trash2,
+                      tooltip: l10n.actionDelete,
+                      isDark: isDark,
+                      onTap: widget.onDelete,
+                      isDestructive: true,
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );
