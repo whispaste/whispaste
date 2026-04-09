@@ -1,17 +1,28 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-cyan: #22D3EE;
-  --color-brand-teal: #0E7490;
-  --color-brand-dark: #1E2026;
-  --color-brand-darker: #15171b;
-  --color-brand-card: #252830;
+  --color-brand-cyan: #38D9F0;
+  --color-brand-teal: #14B8D4;
+  --color-brand-dark: #171D2C;
+  --color-brand-darker: #131826;
+  --color-brand-card: #1D2538;
   --color-brand-border: #2e3138;
 }
 
 @layer base {
   html {
     scroll-behavior: smooth;
+  }
+  /* Subtle noise texture for atmospheric depth */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
   }
 }
 
@@ -20,11 +31,17 @@ html.light {
   --color-brand-cyan: #0891B2;
   --color-brand-teal: #0E7490;
   --color-brand-dark: #F8FAFC;
-  --color-brand-darker: #F1F5F9;
+  --color-brand-darker: #EEF2F6;
   --color-brand-card: #FFFFFF;
   --color-brand-border: #E2E8F0;
   color: #1E293B;
 }
+html.light body::before { opacity: 0.015; }
+
+/* Theme-aware wordmark */
+.nav-logo-light { display: none; }
+html.light .nav-logo-dark { display: none !important; }
+html.light .nav-logo-light { display: block !important; }
 
 html.light .text-white { color: #1E293B !important; }
 html.light .text-gray-100 { color: #0F172A !important; }

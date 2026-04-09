@@ -18,12 +18,15 @@ const { variant = "landing" } = Astro.props;
       class="flex items-center gap-2 text-white font-semibold tracking-tight"
     >
       <img
-        id="navLogo"
-        src="/app-icon-dark.png"
+        src="/wordmark-dark.png"
         alt="WhisPaste"
-        class="w-8 h-8"
+        class="h-7 w-auto nav-logo-dark"
       />
-      <span class="text-lg font-semibold tracking-tight">WhisPaste</span>
+      <img
+        src="/wordmark-light.png"
+        alt="WhisPaste"
+        class="h-7 w-auto nav-logo-light hidden"
+      />
     </a>
     {variant === "landing" && (
       <div class="hidden sm:flex items-center gap-6 text-sm text-gray-400">
@@ -54,7 +57,7 @@ const { variant = "landing" } = Astro.props;
         <a href="/sponsor/" class="text-pink-400/70 hover:text-pink-400 transition-colors" aria-label="Support WhisPaste" data-i18n-aria="nav.sponsorAria" title="Sponsor">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
         </a>
-        <a href="/download/"class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-cyan text-brand-darker text-sm font-semibold rounded-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_16px_rgba(34,211,238,0.2)]" data-i18n="nav.download">
+        <a href="/download/"class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-brand-cyan text-brand-darker text-sm font-semibold rounded-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm" data-i18n="nav.download">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
           Download
         </a>
@@ -112,7 +115,7 @@ const { variant = "landing" } = Astro.props;
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
           </a>
         </div>
-        <a href="/download/" class="mobile-nav-link flex items-center justify-center gap-2 mt-1 mb-1 px-6 py-3 bg-brand-cyan text-brand-darker font-semibold rounded-xl transition-all active:scale-[0.98] shadow-[0_0_16px_rgba(34,211,238,0.2)]" data-i18n="nav.download">
+        <a href="/download/" class="mobile-nav-link flex items-center justify-center gap-2 mt-1 mb-1 px-6 py-3 bg-brand-cyan text-brand-darker font-semibold rounded-xl transition-all active:scale-[0.98] shadow-sm" data-i18n="nav.download">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
           Download
         </a>
