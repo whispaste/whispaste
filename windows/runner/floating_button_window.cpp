@@ -17,12 +17,12 @@ namespace {
 // ── Layout constants (logical pixels) ─────────────────────────────────
 constexpr float kPulseMaxScale = 1.8f;
 constexpr float kRingStroke = 2.5f;
-constexpr float kShadowBlur1 = 6.0f;
-constexpr float kShadowOffset1 = 2.0f;
-constexpr BYTE kShadowAlpha1 = 0x26;   // ~15%
-constexpr float kShadowBlur2 = 1.0f;
+constexpr float kShadowBlur1 = 12.0f;
+constexpr float kShadowOffset1 = 4.0f;
+constexpr BYTE kShadowAlpha1 = 0x66;   // 40% — matches WpShadows.fab layer 1
+constexpr float kShadowBlur2 = 2.0f;
 constexpr float kShadowOffset2 = 0.0f;
-constexpr BYTE kShadowAlpha2 = 0x0D;   // ~5%
+constexpr BYTE kShadowAlpha2 = 0x1A;   // 10% — matches WpShadows.fab layer 2
 constexpr float kSafetyPad = 2.0f;
 constexpr float kIconSize = 24.0f;     // Lucide viewbox
 constexpr float kIconStroke = 2.0f;    // Lucide default stroke-width
@@ -483,9 +483,6 @@ void FloatingButtonWindow::Render() {
   if (state_ == FloatingButtonState::kRecording) {
     float t = PingPong(AnimProgress(now, anim_origin_, kBodyPulseMs));
     body_scale = 1.0f + 0.04f * EaseInOut(t);
-  } else if (state_ == FloatingButtonState::kIdle) {
-    float t = PingPong(AnimProgress(now, anim_origin_, kIdleBreatheMs));
-    body_scale = 1.0f + 0.03f * EaseInOut(t);
   }
   PaintBody(g, cx, cy, body_r * body_scale);
 
