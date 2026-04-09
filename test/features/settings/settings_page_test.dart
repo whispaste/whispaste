@@ -18,10 +18,10 @@ void main() {
       expect(find.text('Audio'), findsOneWidget);
     });
 
-    testWidgets('shows Text Replacements section', (tester) async {
+    testWidgets('shows Keyboard Shortcut section', (tester) async {
       await tester.pumpWidget(makeTestable(const SettingsPage()));
       await tester.pumpAndSettle();
-      expect(find.text('Text Replacements'), findsOneWidget);
+      expect(find.text('Keyboard Shortcut'), findsOneWidget);
     });
 
     testWidgets('shows Interface section', (tester) async {

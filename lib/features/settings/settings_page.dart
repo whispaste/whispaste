@@ -7,7 +7,6 @@ import 'sections/cloud_advanced_section.dart';
 import 'sections/feedback_section.dart';
 import 'sections/interface_section.dart';
 import 'sections/overlay_button_section.dart';
-import 'sections/postprocessing_section.dart';
 import 'sections/recording_sections.dart';
 import 'sections/stt_section.dart';
 import 'settings_widgets.dart';
@@ -31,7 +30,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     'afterTranscription': GlobalKey(),
     'stt': GlobalKey(),
     'sttModel': GlobalKey(),
-    'replacements': GlobalKey(),
     'hotkey': GlobalKey(),
     'sound': GlobalKey(),
     'overlay': GlobalKey(),
@@ -96,8 +94,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           //  TRANSCRIPTION & ENHANCEMENT
           // ═══════════════════════════════════════════
           SpeechRecognitionSection(key: _sectionKeys['stt']),
-          settingsSectionDivider(context),
-          TextReplacementsSection(key: _sectionKeys['replacements']),
           settingsSectionDivider(context),
 
           // ═══════════════════════════════════════════

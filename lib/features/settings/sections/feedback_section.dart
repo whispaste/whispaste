@@ -30,37 +30,58 @@ class KeyboardShortcutSection extends ConsumerWidget {
       title: l10n.settingsKeyboardShortcut,
       subtitle: l10n.settingsKeyboardShortcutSubtitle,
       padding: EdgeInsets.zero,
-      child: SettingRow(
-        icon: LucideIcons.keyboard,
-        label: l10n.settingsCurrentHotkey,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            HotkeyDisplay(
-              hotkeyKey: settings.hotkeyKey,
-              hotkeyModifiers: settings.hotkeyModifiers,
+      child: Column(
+        children: [
+          SettingRow(
+            icon: LucideIcons.toggleRight,
+            label: l10n.settingsHotkeyEnabled,
+            trailing: Switch(
+              value: settings.hotkeyEnabled,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings((s) => s.copyWith(hotkeyEnabled: v)),
             ),
-            const SizedBox(width: WpSpacing.sm),
-            OutlinedButton(
-              onPressed: () async {
-                final result = await HotkeyRecorderDialog.show(
-                  context,
-                  initialKey: settings.hotkeyKey,
-                  initialModifiers: settings.hotkeyModifiers,
-                );
-                if (result != null) {
-                  ref.read(settingsProvider.notifier).updateSettings(
-                        (s) => s.copyWith(
-                      hotkeyKey: result.key,
-                      hotkeyModifiers: result.modifiers,
+          ),
+          AnimatedOpacity(
+            opacity: settings.hotkeyEnabled ? 1.0 : 0.4,
+            duration: const Duration(milliseconds: 200),
+            child: IgnorePointer(
+              ignoring: !settings.hotkeyEnabled,
+              child: SettingRow(
+                icon: LucideIcons.keyboard,
+                label: l10n.settingsCurrentHotkey,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    HotkeyDisplay(
+                      hotkeyKey: settings.hotkeyKey,
+                      hotkeyModifiers: settings.hotkeyModifiers,
                     ),
-                  );
-                }
-              },
-              child: Text(l10n.settingsChangeHotkey),
+                    const SizedBox(width: WpSpacing.sm),
+                    OutlinedButton(
+                      onPressed: () async {
+                        final result = await HotkeyRecorderDialog.show(
+                          context,
+                          initialKey: settings.hotkeyKey,
+                          initialModifiers: settings.hotkeyModifiers,
+                        );
+                        if (result != null) {
+                          ref.read(settingsProvider.notifier).updateSettings(
+                                (s) => s.copyWith(
+                              hotkeyKey: result.key,
+                              hotkeyModifiers: result.modifiers,
+                            ),
+                          );
+                        }
+                      },
+                      child: Text(l10n.settingsChangeHotkey),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

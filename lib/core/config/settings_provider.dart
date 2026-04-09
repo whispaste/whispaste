@@ -86,6 +86,7 @@ class AppSettings {
     // Updates
     this.checkUpdates = true,
     // Hotkey
+    this.hotkeyEnabled = true,
     this.hotkeyKey = 'D',
     this.hotkeyModifiers = 'ctrl+shift',
     // Floating Button Position (persisted across sessions)
@@ -184,6 +185,7 @@ class AppSettings {
   final bool checkUpdates;
 
   // Hotkey
+  final bool hotkeyEnabled;
   final String hotkeyKey;
   final String hotkeyModifiers;
 
@@ -341,6 +343,8 @@ class AppSettings {
       ),
       checkUpdates:
           _readBool(values, 'check_updates', defaults.checkUpdates),
+      hotkeyEnabled:
+          _readBool(values, 'hotkey_enabled', defaults.hotkeyEnabled),
       hotkeyKey: values['hotkey_key'] ?? defaults.hotkeyKey,
       hotkeyModifiers:
           values['hotkey_modifiers'] ?? defaults.hotkeyModifiers,
@@ -465,6 +469,7 @@ class AppSettings {
       'vad_sensitivity': '$vadSensitivity',
       'text_replacements_enabled': '$textReplacementsEnabled',
       'check_updates': '$checkUpdates',
+      'hotkey_enabled': '$hotkeyEnabled',
       'hotkey_key': hotkeyKey,
       'hotkey_modifiers': hotkeyModifiers,
       'floating_button_x': '$floatingButtonX',
@@ -527,6 +532,7 @@ class AppSettings {
     double? vadSensitivity,
     bool? textReplacementsEnabled,
     bool? checkUpdates,
+    bool? hotkeyEnabled,
     String? hotkeyKey,
     String? hotkeyModifiers,
     double? floatingButtonX,
@@ -592,6 +598,7 @@ class AppSettings {
       textReplacementsEnabled:
           textReplacementsEnabled ?? this.textReplacementsEnabled,
       checkUpdates: checkUpdates ?? this.checkUpdates,
+      hotkeyEnabled: hotkeyEnabled ?? this.hotkeyEnabled,
       hotkeyKey: hotkeyKey ?? this.hotkeyKey,
       hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
       floatingButtonX: floatingButtonX ?? this.floatingButtonX,
@@ -658,6 +665,7 @@ class AppSettings {
           vadSensitivity == other.vadSensitivity &&
           textReplacementsEnabled == other.textReplacementsEnabled &&
           checkUpdates == other.checkUpdates &&
+          hotkeyEnabled == other.hotkeyEnabled &&
           hotkeyKey == other.hotkeyKey &&
           hotkeyModifiers == other.hotkeyModifiers &&
           floatingButtonX == other.floatingButtonX &&
@@ -694,11 +702,13 @@ class AppSettings {
             errorReporting, gpuAcceleration, autoPasteDelay,
             trimSilence, useVAD, vadSensitivity,
             textReplacementsEnabled, checkUpdates,
-            hotkeyKey, hotkeyModifiers,
+            hotkeyEnabled, hotkeyKey, hotkeyModifiers,
             floatingButtonX, floatingButtonY,
             floatingOverlayX, floatingOverlayY,
-            windowX, windowY, windowWidth, windowHeight,
-            windowMaximized, onboardingCompleted,
+            Object.hash(
+              windowX, windowY, windowWidth, windowHeight,
+              windowMaximized, onboardingCompleted,
+            ),
           ),
         ),
       );
