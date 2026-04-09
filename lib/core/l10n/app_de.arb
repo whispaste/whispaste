@@ -646,5 +646,22 @@
   "updateViewRelease": "Versionshinweise",
   "updateError": "Update-Prüfung fehlgeschlagen",
   "updateRateLimited": "Zu viele Anfragen — versuche es später erneut",
-  "updateStatusBarChip": "v{version} verfügbar"
+  "updateStatusBarChip": "v{version} verfügbar",
+
+  "settingsOverlaySize": "Overlay-Größe",
+  "settingsOverlaySizeSubtitle": "Wähle zwischen detaillierter oder minimaler Anzeige",
+  "settingsOverlaySizeNormal": "Normal",
+  "settingsOverlaySizeCompact": "Kompakt",
+  "settingsOverlayAutoHide": "Automatisches Ausblenden",
+  "settingsOverlayAutoHideSubtitle": "Wie lange das Overlay nach Abschluss sichtbar bleibt",
+  "settingsOverlayAutoHide2s": "2 Sekunden",
+  "settingsOverlayAutoHide5s": "5 Sekunden",
+  "settingsOverlayAutoHide10s": "10 Sekunden",
+  "settingsOverlayAutoHideManual": "Bis manuell geschlossen",
+  "overlayRetry": "Erneut versuchen",
+  "overlayDismiss": "Schließen",
+  "overlayContextCancel": "Aufnahme abbrechen",
+  "overlayContextSwitchNormal": "Zu Normal wechseln",
+  "overlayContextSwitchCompact": "Zu Kompakt wechseln",
+  "overlayContextHide": "Overlay ausblenden"
 }
