@@ -58,7 +58,7 @@ class L10nEn extends L10n {
   String get historySearch => 'Search…';
 
   @override
-  String get historyPinned => 'Pinned';
+  String get historyPinned => 'Favorites';
 
   @override
   String get historyToday => 'Today';
@@ -235,10 +235,10 @@ class L10nEn extends L10n {
   String get historyUntitled => 'Untitled';
 
   @override
-  String get historyPinToTop => 'Pin to top';
+  String get historyPinToTop => 'Add to Favorites';
 
   @override
-  String get historyUnpin => 'Unpin';
+  String get historyUnpin => 'Remove from Favorites';
 
   @override
   String get historyCopyText => 'Copy text';
@@ -1457,7 +1457,7 @@ class L10nEn extends L10n {
   String get historyShortcutNotes => 'Add a note';
 
   @override
-  String get historyShortcutPin => 'Pin / unpin';
+  String get historyShortcutPin => 'Favorite / unfavorite';
 
   @override
   String get historyShortcutClose => 'Save & close';
