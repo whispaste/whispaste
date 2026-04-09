@@ -868,9 +868,9 @@ FloatingButtonWindow::Gradient FloatingButtonWindow::ColorsFor(
               false};
 
     case FloatingButtonState::kDone:
-      return {{255, 0x34, 0xD3, 0x99},
-              {255, (0x34 + 0x10) / 2, (0xD3 + 0xB9) / 2, (0x99 + 0x81) / 2},
-              {255, 0x10, 0xB9, 0x81},
+      return {{255, 0x4A, 0xDE, 0x80},
+              {255, (0x4A + 0x16) / 2, (0xDE + 0xA3) / 2, (0x80 + 0x4A) / 2},
+              {255, 0x16, 0xA3, 0x4A},
               false};
 
     case FloatingButtonState::kError:
