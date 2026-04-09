@@ -384,8 +384,9 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
             padding: const EdgeInsets.fromLTRB(
               WpSpacing.xl, WpSpacing.md, WpSpacing.md, WpSpacing.sm,
             ),
-            child: Row(
-              children: [
+            child: ClipRect(
+              child: Row(
+                children: [
                 HistoryEntryAvatar(
                   color: avatarCol,
                   icon: historyAvatarIcon(entry),
@@ -525,6 +526,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                   onTap: onClose,
                 ),
               ],
+            ),
             ),
           ),
           // Divider
@@ -678,49 +680,54 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                     Row(
                       children: [
                         if (entry.titleEdited || _isEditingTranscript)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: WpSpacing.sm,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _isEditingTranscript
-                                  ? accent.withValues(alpha: 0.15)
-                                  : textMuted.withValues(alpha: 0.1),
-                              borderRadius: WpRadius.borderFull,
-                            ),
-                            child: Text(
-                              _isEditingTranscript
-                                  ? l10n.historyEditing
-                                  : l10n.historyEditTranscript,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: _isEditingTranscript
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                                color: _isEditingTranscript
-                                    ? accent
-                                    : textMuted,
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: WpSpacing.sm,
+                                vertical: 3,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              decoration: BoxDecoration(
+                                color: _isEditingTranscript
+                                    ? accent.withValues(alpha: 0.15)
+                                    : textMuted.withValues(alpha: 0.1),
+                                borderRadius: WpRadius.borderFull,
+                              ),
+                              child: Text(
+                                _isEditingTranscript
+                                    ? l10n.historyEditing
+                                    : l10n.historyEditTranscript,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: _isEditingTranscript
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                  color: _isEditingTranscript
+                                      ? accent
+                                      : textMuted,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
                         const Spacer(),
                         if (entry.content.isNotEmpty || _isEditingTranscript)
-                          Padding(
-                            padding: const EdgeInsets.only(right: WpSpacing.sm),
-                            child: Text(
-                              _wordCountLabel(l10n),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: textMuted,
+                          Flexible(
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: WpSpacing.sm),
+                              child: Text(
+                                _wordCountLabel(l10n),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: textMuted,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        Tooltip(
+                        Flexible(
+                          child: Tooltip(
                           message: _isEditingTranscript
                               ? '${l10n.historySaveTranscript} (Ctrl+S / Ctrl+↵)'
                               : '${l10n.historyEditTranscript} (Ctrl+E)',
@@ -771,6 +778,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                 ),
                               ),
                             ),
+                          ),
                           ),
                         ),
                       ],
