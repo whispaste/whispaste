@@ -14,7 +14,7 @@ import StoreButton from './StoreButton.astro';
         <linearGradient id="wave-grad" x1="0.14" y1="0.79" x2="0.88" y2="0.38">
           <stop offset="0%" stop-color="#155e75"/>
           <stop offset="35%" stop-color="#0891b2"/>
-          <stop offset="70%" stop-color="#22d3ee"/>
+          <stop offset="70%" stop-color="#38D9F0"/>
           <stop offset="100%" stop-color="#67e8f9"/>
         </linearGradient>
       </defs>
@@ -28,12 +28,7 @@ import StoreButton from './StoreButton.astro';
     </svg>
   </div>
 
-  <!-- Radial glow -->
-  <div
-    class="hero-glow absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-brand-cyan/[0.06] rounded-full blur-[120px]"
-  ></div>
-
-  <div class="relative z-10 text-center w-full px-8 sm:px-6 max-w-4xl mx-auto">
+  <divclass="relative z-10 text-center w-full px-8 sm:px-6 max-w-4xl mx-auto">
     <div class="animate-fade-in">
       <div class="mb-4 sm:mb-6 mt-4">
         <img
@@ -137,26 +132,14 @@ import StoreButton from './StoreButton.astro';
       transform: translateY(0);
     }
   }
-  @keyframes glow-pulse {
-    0%,
-    100% {
-      opacity: 0.6;
-    }
-    50% {
-      opacity: 1;
-    }
-  }
   .animate-fade-in {
     animation: fade-in 0.8s ease-out both;
   }
   .animate-fade-in-delay {
     animation: fade-in 0.8s ease-out 0.3s both;
   }
-  .hero-glow {
-    animation: glow-pulse 6s ease-in-out infinite;
-  }
   .hero-gradient {
-    background: linear-gradient(135deg, #22d3ee 0%, #0e7490 50%, #22d3ee 100%);
+    background: linear-gradient(135deg, #38D9F0 0%, #0e7490 50%, #38D9F0 100%);
     background-size: 200% 200%;
     -webkit-background-clip: text;
     background-clip: text;
@@ -199,7 +182,6 @@ import StoreButton from './StoreButton.astro';
 
   /* Reduced motion for hero animations */
   @media (prefers-reduced-motion: reduce) {
-    .hero-glow,
     .hero-gradient,
     .hero-wave,
     .animate-fade-in,
