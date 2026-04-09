@@ -344,7 +344,7 @@ class WpTagInputState extends State<WpTagInput> {
   }) {
     final hasText = _controller.text.trim().isNotEmpty;
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 80, maxWidth: 200),
+      constraints: const BoxConstraints(minWidth: 60, maxWidth: 200),
       child: TextField(
         controller: _controller,
         focusNode: _focusNode,
