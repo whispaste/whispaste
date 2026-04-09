@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --screen-w: 1920px;
+    --screen-h: 1080px;
+    --num-screens: 5;
+    --accent: #38D9F0;
+    --accent-secondary: #0891B2;
+    --bg-dark: #0f1219;
+    --bg-light: #f5f7fa;
+    --text-primary: #f0f4f8;
+    --text-muted: rgba(240, 244, 248, 0.58);
+    --text-primary-light: #111827;
+    --text-muted-light: rgba(17, 24, 39, 0.62);
+    --category-color: #38D9F0;
+    --window-radius: 16px;
+    --window-shadow: 0 34px 84px rgba(0, 0, 0, 0.42);
+    --title-bar-bg: #1a1f2e;
+    --title-bar-bg-light: #e9edf5;
+  }
+
+  body {
+    width: calc(var(--screen-w) * var(--num-screens));
+    height: var(--screen-h);
+    overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg-dark);
+  }
+
+  .panorama {
+    width: 100%;
+    height: 100%;
+    display: flex;
+  }
+
+  .screen {
+    width: var(--screen-w);
+    height: var(--screen-h);
+    flex-shrink: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 54px;
+    overflow: hidden;
+    padding: 56px 72px;
+  }
+
+  .screen.bg-dark {
+    background:
+      radial-gradient(ellipse 760px 540px at 14% 84%, rgba(56, 217, 240, 0.06) 0%, transparent 62%),
+      radial-gradient(ellipse 520px 420px at 88% 18%, rgba(8, 145, 178, 0.04) 0%, transparent 54%),
+      linear-gradient(135deg, #0f1219 0%, #111827 52%, #0f1219 100%);
+  }
+
+  .screen.bg-light {
+    background:
+      radial-gradient(ellipse 760px 540px at 84% 22%, rgba(56, 217, 240, 0.12) 0%, transparent 58%),
+      radial-gradient(ellipse 560px 420px at 16% 82%, rgba(8, 145, 178, 0.08) 0%, transparent 52%),
+      linear-gradient(135deg, #f7f8fc 0%, #eef1f8 52%, #f7f8fc 100%);
+  }
+
+  .text-side {
+    flex: 0 0 31%;
+    max-width: 470px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    z-index: 2;
+  }
+
+  .text-side .category {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--category-color);
+    margin-bottom: 18px;
+  }
+
+  .text-side .headline {
+    font-size: 50px;
+    font-weight: 900;
+    line-height: 1.04;
+    letter-spacing: -0.04em;
+    color: var(--text-primary);
+    margin-bottom: 18px;
+    white-space: pre-line;
+  }
+
+  .text-side .headline em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .text-side .subtitle {
+    font-size: 17px;
+    line-height: 1.56;
+    color: var(--text-muted);
+    max-width: 430px;
+  }
+
+  .screen.bg-light .text-side .headline {
+    color: var(--text-primary-light);
+  }
+
+  .screen.bg-light .text-side .subtitle {
+    color: var(--text-muted-light);
+  }
+
+  .screenshot-side {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    z-index: 1;
+  }
+
+  .window-frame {
+    width: 100%;
+    max-width: 1150px;
+    border-radius: var(--window-radius);
+    overflow: hidden;
+    box-shadow: var(--window-shadow);
+    background: var(--title-bar-bg);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .screen.bg-light .window-frame {
+    background: #ffffff;
+    border-color: rgba(17, 24, 39, 0.08);
+    box-shadow: 0 28px 70px rgba(15, 23, 42, 0.16);
+  }
+
+  .window-title-bar {
+    height: 34px;
+    background: var(--title-bar-bg);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 8px;
+  }
+
+  .screen.bg-light .window-title-bar {
+    background: var(--title-bar-bg-light);
+  }
+
+  .window-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .window-dot.red { background: #ff5f57; }
+  .window-dot.yellow { background: #febc2e; }
+  .window-dot.green { background: #28c840; }
+
+  .window-title-text {
+    flex: 1;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(240, 238, 246, 0.40);
+    margin-right: 56px;
+  }
+
+  .screen.bg-light .window-title-text {
+    color: rgba(17, 24, 39, 0.40);
+  }
+
+  .window-content {
+    width: 100%;
+    line-height: 0;
+  }
+
+  .window-content img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+</style>
+</head>
+<body>
+<div class="panorama">
+  <div id="screen-0" class="screen bg-dark">
+    <div class="text-side">
+      <div id="cat-0" class="category"></div>
+      <div id="hl-0" class="headline"></div>
+      <div id="sub-0" class="subtitle"></div>
+    </div>
+    <div class="screenshot-side">
+      <div class="window-frame">
+        <div class="window-title-bar">
+          <div class="window-dot red"></div>
+          <div class="window-dot yellow"></div>
+          <div class="window-dot green"></div>
+          <div class="window-title-text">WhisPaste</div>
+        </div>
+        <div class="window-content">
+          <img id="ss-0" src="" alt="Workspace overview">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-1" class="screen bg-light">
+    <div class="text-side">
+      <div id="cat-1" class="category"></div>
+      <div id="hl-1" class="headline"></div>
+      <div id="sub-1" class="subtitle"></div>
+    </div>
+    <div class="screenshot-side">
+      <div class="window-frame">
+        <div class="window-title-bar">
+          <div class="window-dot red"></div>
+          <div class="window-dot yellow"></div>
+          <div class="window-dot green"></div>
+          <div class="window-title-text">WhisPaste</div>
+        </div>
+        <div class="window-content">
+          <img id="ss-1" src="" alt="Workspace detail">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-2" class="screen bg-dark">
+    <div class="text-side">
+      <div id="cat-2" class="category"></div>
+      <div id="hl-2" class="headline"></div>
+      <div id="sub-2" class="subtitle"></div>
+    </div>
+    <div class="screenshot-side">
+      <div class="window-frame">
+        <div class="window-title-bar">
+          <div class="window-dot red"></div>
+          <div class="window-dot yellow"></div>
+          <div class="window-dot green"></div>
+          <div class="window-title-text">WhisPaste</div>
+        </div>
+        <div class="window-content">
+          <img id="ss-2" src="" alt="Voice shortcuts">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-3" class="screen bg-light">
+    <div class="text-side">
+      <div id="cat-3" class="category"></div>
+      <div id="hl-3" class="headline"></div>
+      <div id="sub-3" class="subtitle"></div>
+    </div>
+    <div class="screenshot-side">
+      <div class="window-frame">
+        <div class="window-title-bar">
+          <div class="window-dot red"></div>
+          <div class="window-dot yellow"></div>
+          <div class="window-dot green"></div>
+          <div class="window-title-text">WhisPaste</div>
+        </div>
+        <div class="window-content">
+          <img id="ss-3" src="" alt="Hotkey settings">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-4" class="screen bg-dark">
+    <div class="text-side">
+      <div id="cat-4" class="category"></div>
+      <div id="hl-4" class="headline"></div>
+      <div id="sub-4" class="subtitle"></div>
+    </div>
+    <div class="screenshot-side">
+      <div class="window-frame">
+        <div class="window-title-bar">
+          <div class="window-dot red"></div>
+          <div class="window-dot yellow"></div>
+          <div class="window-dot green"></div>
+          <div class="window-title-text">WhisPaste</div>
+        </div>
+        <div class="window-content">
+          <img id="ss-4" src="" alt="Time saved">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

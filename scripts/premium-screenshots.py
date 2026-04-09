@@ -2,7 +2,7 @@
 """
 Premium Store screenshot framing for WhisPaste.
 
-Takes raw UI screenshots from screenshots/ and composites them into
+Takes raw UI screenshots from screenshots/raw/ and composites them into
 professional, Store-ready marketing images with:
   - Gradient backgrounds (dark with brand accent)
   - Rounded corners + drop shadow on the app screenshot
@@ -25,8 +25,9 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent.parent
-SCREENSHOT_DIR = ROOT / "screenshots"
-OUTPUT_DIR = SCREENSHOT_DIR / "store"
+SCREENSHOT_DIR = ROOT / "screenshots" / "raw"
+LEGACY_SCREENSHOT_DIR = ROOT / "screenshots"
+OUTPUT_DIR = ROOT / "screenshots" / "store"
 
 # ── Dimensions ─────────────────────────────────────────────────────────────────
 CANVAS_W, CANVAS_H = 1920, 1080
@@ -48,55 +49,65 @@ GRAD_BOTTOM = (25, 30, 45)      # Slightly lighter navy
 
 # Accent glow colors per screenshot type
 ACCENT_COLORS = {
-    "smartmode": ((0, 180, 220), (20, 80, 160)),    # Cyan → blue
-    "history":   ((0, 180, 220), (0, 120, 180)),     # Cyan → teal
-    "models":    ((100, 80, 220), (40, 100, 200)),   # Purple → blue
-    "analytics": ((0, 200, 150), (0, 120, 180)),     # Emerald → teal
-    "default":   ((0, 180, 220), (20, 80, 160)),     # Cyan → blue
+    "workspace":    ((201, 160, 255), (110, 90, 210)),   # Purple → deep violet
+    "settings":     ((56, 217, 240), (8, 145, 178)),     # Cyan → teal
+    "analytics":    ((54, 217, 139), (56, 217, 240)),    # Green → cyan
+    "replacements": ((255, 138, 101), (201, 160, 255)),  # Orange → purple
+    "recording":    ((239, 68, 68), (255, 138, 101)),    # Red → orange
+    "default":      ((201, 160, 255), (255, 138, 101)),  # Purple → orange
 }
 
 # Text colors
 TEXT_WHITE = (255, 255, 255, 255)
 TEXT_SUBTLE = (180, 190, 210, 200)
-BADGE_BG = (0, 180, 220, 200)  # Cyan badge
+BADGE_BG = (201, 160, 255, 200)  # Purple badge
 
 # ── Screenshot Definitions ─────────────────────────────────────────────────────
 SCREENSHOTS = {
-    "screenshot-02-smartmode": {
-        "accent": "smartmode",
-        "headline_en": "AI-Powered Post-Processing",
-        "headline_de": "KI-gestützte Nachbearbeitung",
-        "subtitle_en": "3 presets transform your voice into polished text — or write your own",
-        "subtitle_de": "3 Vorlagen verwandeln Sprache in perfekte Texte — oder eigene erstellen",
-        "badge_en": "AI Presets",
-        "badge_de": "KI-Vorlagen",
+    "screenshot-01-history": {
+        "accent": "workspace",
+        "headline_en": "Keep your dictation workspace organized",
+        "headline_de": "Halte deinen Diktier-Workspace organisiert",
+        "subtitle_en": "Search, favorite, tag and revisit every capture without losing your flow",
+        "subtitle_de": "Suche, favorisiere, tagge und finde jede Aufnahme wieder, ohne den Fluss zu verlieren",
+        "badge_en": "Workspace",
+        "badge_de": "Workspace",
     },
-    "screenshot-03-history": {
-        "accent": "history",
-        "headline_en": "Your Complete Dictation History",
-        "headline_de": "Dein vollständiger Diktatverlauf",
-        "subtitle_en": "Search, filter, pin, tag and organize all your dictations",
-        "subtitle_de": "Suche, filtere und organisiere alle deine Diktate",
-        "badge_en": "History",
-        "badge_de": "Verlauf",
+    "screenshot-02-replacements": {
+        "accent": "replacements",
+        "headline_en": "Trigger whole phrases with your voice",
+        "headline_de": "Löse ganze Phrasen per Stimme aus",
+        "subtitle_en": "Voice shortcuts insert repeated text in a second and keep repetitive writing light",
+        "subtitle_de": "Sprachkürzel fügen wiederkehrende Texte in einem Moment ein und sparen Tipparbeit",
+        "badge_en": "Voice shortcuts",
+        "badge_de": "Sprachkürzel",
     },
-    "screenshot-05-models": {
-        "accent": "models",
-        "headline_en": "Choose Your Perfect AI Model",
-        "headline_de": "Wähle dein optimales KI-Modell",
-        "subtitle_en": "5 offline models from Tiny to Large — no internet required",
-        "subtitle_de": "5 Offline-Modelle von Tiny bis Large — kein Internet nötig",
-        "badge_en": "100% Offline",
-        "badge_de": "100% Offline",
-    },
-    "screenshot-06-analytics": {
+    "screenshot-03-analytics": {
         "accent": "analytics",
-        "headline_en": "Insights at a Glance",
-        "headline_de": "Statistiken auf einen Blick",
-        "subtitle_en": "Track your productivity with detailed voice transcription analytics",
-        "subtitle_de": "Verfolge deine Produktivität mit detaillierten Statistiken",
-        "badge_en": "Analytics",
-        "badge_de": "Statistik",
+        "headline_en": "See what voice saves you",
+        "headline_de": "Sieh, was dir Stimme spart",
+        "subtitle_en": "Track usage, momentum and your growing habit of speaking instead of typing",
+        "subtitle_de": "Behalte Nutzung, Fortschritt und deine neue Gewohnheit im Blick, öfter zu sprechen statt zu tippen",
+        "badge_en": "Insights",
+        "badge_de": "Einblicke",
+    },
+    "screenshot-06-settings": {
+        "accent": "settings",
+        "headline_en": "Tune the app around your workflow",
+        "headline_de": "Passe die App an deinen Workflow an",
+        "subtitle_en": "Dial in language, hotkey and behavior once, then stay in your flow",
+        "subtitle_de": "Stelle Sprache, Hotkey und Verhalten einmal sauber ein und bleib dann im Flow",
+        "badge_en": "Settings",
+        "badge_de": "Einstellungen",
+    },
+    "screenshot-07-recording": {
+        "accent": "recording",
+        "headline_en": "Start dictation in a heartbeat",
+        "headline_de": "Starte Diktate in einem Augenblick",
+        "subtitle_en": "The recording overlay keeps your next thought one shortcut away",
+        "subtitle_de": "Das Aufnahme-Overlay hält deinen nächsten Gedanken nur einen Hotkey entfernt",
+        "badge_en": "Recording",
+        "badge_de": "Aufnahme",
     },
 }
 
@@ -321,8 +332,10 @@ def process_all(preview: bool = False):
 
     raw_files = sorted(SCREENSHOT_DIR.glob("screenshot-*.png"))
     if not raw_files:
-        print("❌ No raw screenshots found in screenshots/")
-        print("   Run 'python scripts/store-screenshots.py --all' first.")
+        raw_files = sorted(LEGACY_SCREENSHOT_DIR.glob("screenshot-*.png"))
+    if not raw_files:
+        print("❌ No raw screenshots found in screenshots/raw/ or screenshots/")
+        print("   Run 'python scripts/capture-store-screenshots.py --all-pages' first.")
         sys.exit(1)
 
     processed = 0
