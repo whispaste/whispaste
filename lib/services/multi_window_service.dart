@@ -1,19 +1,23 @@
-/// Multi-window management for desktop floating overlay and floating button.
+/// Multi-window management for the desktop floating button.
 ///
-/// Uses `desktop_multi_window` to create secondary always-on-top Flutter
-/// windows. Recording state is pushed from the main window via
-/// [WindowController.invokeMethod]; commands flow back via
-/// [WindowMethodChannel].
+/// Uses `desktop_multi_window` to create a secondary always-on-top Flutter
+/// window for the floating recording button. Recording state is pushed from
+/// the main window via [WindowController.invokeMethod]; commands flow back
+/// via [WindowMethodChannel].
+///
+/// NOTE: The floating OVERLAY window was removed in favor of an in-app
+/// overlay (RecordingOverlay widget). The secondary overlay engine caused
+/// ANGLE/DirectX GPU crashes (Flutter #152299, plugin #352). Only the
+/// floating button still uses a secondary engine — it will be replaced
+/// by a native Win32 overlay in a future phase.
 ///
 /// Robustness guarantees:
-/// - Creation guards prevent concurrent window creation for the same type.
+/// - Creation guard prevents concurrent window creation.
 /// - Readiness probe (up to 6 attempts) verifies engine before use.
 /// - Logged errors on channel failures (no silent catches).
-/// - Fallback to in-window overlay when floating overlay creation fails.
 /// - Shutdown sends 'shutdown' command → secondary hides + goes inert.
 ///   We NEVER call exit(0) from secondary windows because all engines
 ///   share the same OS process — exit(0) would kill the whole app.
-/// - Recording-safe mode changes: overlay is not destroyed during recording.
 library;
 
 import 'dart:async';
@@ -26,7 +30,6 @@ import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../core/config/settings_enums.dart';
 import '../core/config/settings_labels.dart' show formatHotkeyShortcut;
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
@@ -42,16 +45,13 @@ import 'recording_orchestrator.dart';
 
 class MultiWindowState {
   const MultiWindowState({
-    this.overlayVisible = false,
     this.buttonVisible = false,
   });
 
-  final bool overlayVisible;
   final bool buttonVisible;
 
-  MultiWindowState copyWith({bool? overlayVisible, bool? buttonVisible}) =>
+  MultiWindowState copyWith({bool? buttonVisible}) =>
       MultiWindowState(
-        overlayVisible: overlayVisible ?? this.overlayVisible,
         buttonVisible: buttonVisible ?? this.buttonVisible,
       );
 }
@@ -65,23 +65,17 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
 
   // Static registry — survives hot reload (notifier instance recreation).
   // Secondary OS windows run in separate engines and persist across reloads.
-  static WindowController? _overlayController;
   static WindowController? _buttonController;
 
-  // Guards against concurrent creation of the same window type.
-  static bool _creatingOverlay = false;
+  // Guard against concurrent creation of the button window.
   static bool _creatingButton = false;
   static bool _reconcilingWindows = false;
 
-  // Debounce timers — separate for button and overlay to avoid interference.
   Timer? _buttonDebounce;
-  Timer? _overlayDebounce;
-  // Timer for auto-dismissing the floating overlay after completion.
-  Timer? _overlayDismissTimer;
 
   // ── State push throttling ──
   // During recording, audioLevel updates fire ~10/sec. Each triggers a
-  // method channel call per secondary window.  On Windows, these calls go
+  // method channel call to the button window. On Windows, these calls go
   // through SendMessage (synchronous) — if the secondary engine is slow,
   // the main Win32 message loop blocks, causing a UI freeze.
   // We throttle audio-level-only pushes to at most once per 150ms (~7fps)
@@ -91,69 +85,21 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   static const _minStatePushInterval = Duration(milliseconds: 150);
   Timer? _coalescedPushTimer;
 
-  /// Whether recording is currently active (non-idle).
-  bool get _isRecording {
-    try {
-      return ref.read(recordingProvider).phase != RecordingPhase.idle;
-    } catch (_) {
-      return false;
-    }
-  }
-
   @override
   MultiWindowState build() {
     // Register the main window's command handler for secondary -> main calls.
     commandChannel.setMethodCallHandler(_handleCommand);
 
-    // Push recording state to secondary windows + auto-show/hide overlay.
+    // Push recording state to the floating button window.
     ref.listen<RecordingState>(recordingProvider, (prev, next) {
       _pushRecordingState(next);
-
-      // Auto-show floating overlay when recording starts (if mode is floating).
-      final settings = ref.read(settingsProvider).value;
-      if (settings != null &&
-          settings.overlayModeType == OverlayMode.floating) {
-        if (prev?.phase == RecordingPhase.idle &&
-            next.phase == RecordingPhase.recording) {
-          _overlayDismissTimer?.cancel();
-          // Set overlayVisible synchronously BEFORE the async show() to
-          // prevent the in-window overlay fallback from flashing for one
-          // frame while the floating window is opening.
-          if (_overlayController != null) {
-            state = state.copyWith(overlayVisible: true);
-          }
-          // Fire-and-forget — errors must not block the UI thread.
-          showOverlay().catchError((Object e) {
-            _log.warning('Auto-show overlay failed: $e');
-          });
-        }
-        // Auto-hide overlay a few seconds after completion so the done pill
-        // is readable. The pill holds for 3s, then we hide the window.
-        if (next.phase == RecordingPhase.idle && state.overlayVisible) {
-          _overlayDismissTimer?.cancel();
-          _log.debug('Scheduling overlay dismiss in 4s (state → idle)');
-          _overlayDismissTimer = Timer(const Duration(seconds: 4), () {
-            // Guard: only hide if still idle — a new recording may have started.
-            final currentPhase = ref.read(recordingProvider).phase;
-            _log.debug(
-              'Overlay dismiss timer fired '
-              '(visible=${state.overlayVisible}, phase=$currentPhase)',
-            );
-            if (state.overlayVisible &&
-                currentPhase == RecordingPhase.idle) {
-              hideOverlay();
-            }
-          });
-        }
-      }
     });
 
-    // React to settings changes: show/hide button + overlay, push updates.
+    // React to settings changes: show/hide floating button.
     ref.listen<AsyncValue<AppSettings>>(settingsProvider, (prev, next) {
       final settings = next.value;
       if (settings == null) return;
 
-      // ── Floating button (separate debounce) ──
       _buttonDebounce?.cancel();
       _buttonDebounce = Timer(const Duration(milliseconds: 300), () {
         // Suppress floating button during onboarding.
@@ -173,65 +119,16 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
           _pushButtonSettings(settings);
         }
       });
-
-      // ── Floating overlay mode changes (separate debounce) ──
-      _overlayDebounce?.cancel();
-      _overlayDebounce = Timer(const Duration(milliseconds: 300), () {
-        final prevMode = prev?.value?.overlayModeType;
-        if (prevMode == settings.overlayModeType) return;
-        _log.info(
-          'Settings → overlay mode changed: $prevMode → '
-          '${settings.overlayModeType}',
-        );
-
-        if (settings.overlayModeType == OverlayMode.floating) {
-          // Pre-create the overlay window so it's ready instantly.
-          _ensureOverlayCreated().then((_) {
-            // If recording is already active, auto-show the new overlay.
-            if (_isRecording &&
-                _overlayController != null &&
-                !state.overlayVisible) {
-              _log.info(
-                'Recording active during mode switch → '
-                'auto-showing overlay',
-              );
-              showOverlay();
-            }
-          });
-        } else {
-          // Switched away from floating — destroy the overlay window.
-          // Safe during recording: the in-window overlay takes over.
-          _shutdownOverlay();
-        }
-      });
-
-      // ── Overlay start position live update ──
-      final prevPos = prev?.value?.overlayStartPositionType;
-      if (prevPos != null &&
-          prevPos != settings.overlayStartPositionType &&
-          state.overlayVisible &&
-          _overlayController != null) {
-        _log.info(
-          'Settings → overlay position changed: $prevPos → '
-          '${settings.overlayStartPositionType}',
-        );
-        _repositionOverlay(settings.overlayStartPositionType, settings);
-      }
     });
 
     ref.onDispose(() {
       _buttonDebounce?.cancel();
-      _overlayDebounce?.cancel();
-      _overlayDismissTimer?.cancel();
       _coalescedPushTimer?.cancel();
-      // Only clear our handler — do NOT close secondary windows.
-      // They survive hot reload and will be reconnected by the next build().
       commandChannel.setMethodCallHandler(null);
     });
 
     // Recover state from surviving secondary windows (hot reload scenario).
     final initialState = MultiWindowState(
-      overlayVisible: _overlayController != null,
       buttonVisible: _buttonController != null,
     );
 
@@ -281,21 +178,11 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   }
 
   void _applySettingsNow(AppSettings settings) {
-    // Don't show the floating button during onboarding — the overlay blocks
-    // interaction with the main window but the button is a separate OS window.
     if (!settings.onboardingCompleted) return;
 
     if (settings.showFloatingButton && !state.buttonVisible) {
       Future.delayed(const Duration(milliseconds: 500), () {
         if (!state.buttonVisible) showButton();
-      });
-    }
-    // Pre-create the floating overlay window so it's ready when recording
-    // starts. The window stays hidden until showOverlay() is called.
-    if (settings.overlayModeType == OverlayMode.floating &&
-        _overlayController == null) {
-      Future.delayed(const Duration(milliseconds: 800), () {
-        _ensureOverlayCreated();
       });
     }
   }
@@ -314,8 +201,6 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         await showButton();
       } else {
         _pushButtonSettings(settings);
-        // Re-sync recording state so the button reflects reality after
-        // hot reload or window reconciliation.
         _pushRecordingStateTo(_buttonController!, ref.read(recordingProvider));
         if (!state.buttonVisible) {
           await _showSecondaryWindow(_buttonController!, target: 'button');
@@ -325,20 +210,6 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     } else if (_buttonController != null) {
       await hideButton();
     }
-
-    if (settings.overlayModeType == OverlayMode.floating) {
-      await _ensureOverlayCreated();
-      if (_overlayController != null) {
-        _pushRecordingStateTo(_overlayController!, ref.read(recordingProvider));
-        if (_isRecording) {
-          await showOverlay();
-        } else if (state.overlayVisible) {
-          await hideOverlay();
-        }
-      }
-    } else if (_overlayController != null) {
-      await _shutdownOverlay();
-    }
   }
 
   Future<void> _reconcileExistingWindows() async {
@@ -346,40 +217,33 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     _reconcilingWindows = true;
     try {
       final controllers = await WindowController.getAll();
-      final grouped = <String, List<_DiscoveredWindow>>{
-        WindowType.floatingOverlay: <_DiscoveredWindow>[],
-        WindowType.floatingButton: <_DiscoveredWindow>[],
-      };
+      final buttonCandidates = <_DiscoveredWindow>[];
       final stale = <_ParsedWindowCandidate>[];
 
       for (final controller in controllers) {
         final parsed = _ParsedWindowCandidate.tryParse(controller);
         if (parsed == null) continue;
+        // Retire any surviving overlay windows from previous sessions.
+        if (parsed.type == WindowType.floatingOverlay) {
+          _log.info('Retiring orphaned overlay window ${controller.windowId}');
+          await _retireWindow(
+            controller,
+            type: parsed.type,
+            reason: 'overlay windows removed — using in-app overlay',
+          );
+          continue;
+        }
         final probe = await _probeWindow(parsed);
         if (probe == null) {
           stale.add(parsed);
           continue;
         }
-        grouped[probe.type]!.add(probe);
+        buttonCandidates.add(probe);
       }
 
-      final overlayWinner = _selectPreferredWindow(
-        grouped[WindowType.floatingOverlay]!,
-      );
-      final buttonWinner = _selectPreferredWindow(
-        grouped[WindowType.floatingButton]!,
-      );
+      final buttonWinner = _selectPreferredWindow(buttonCandidates);
 
-      for (final candidate in grouped[WindowType.floatingOverlay]!) {
-        if (candidate.controller != overlayWinner?.controller) {
-          await _retireWindow(
-            candidate.controller,
-            type: candidate.type,
-            reason: 'duplicate overlay window',
-          );
-        }
-      }
-      for (final candidate in grouped[WindowType.floatingButton]!) {
+      for (final candidate in buttonCandidates) {
         if (candidate.controller != buttonWinner?.controller) {
           await _retireWindow(
             candidate.controller,
@@ -396,10 +260,8 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         );
       }
 
-      _overlayController = overlayWinner?.controller;
       _buttonController = buttonWinner?.controller;
-      _syncWindowStateFlags(
-        overlayVisible: overlayWinner?.isVisible ?? false,
+      state = state.copyWith(
         buttonVisible: buttonWinner?.isVisible ?? false,
       );
     } catch (e, st) {
@@ -517,27 +379,11 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     } catch (e) {
       _log.warning('hideWindow failed for $target window: $e');
     }
-    // For the overlay, we do NOT call controller.hide() (DMW native). The
-    // overlay uses resize-based visibility (1×1 = hidden, 540×72 = visible)
-    // to work around a window_manager bug where transparent frameless windows
-    // lose their rendering surface after hide → show on Windows.
-    if (target != 'overlay') {
-      try {
-        await controller.hide();
-      } catch (e) {
-        _log.warning('Native hide() failed for $target window: $e');
-      }
+    try {
+      await controller.hide();
+    } catch (e) {
+      _log.warning('Native hide() failed for $target window: $e');
     }
-  }
-
-  void _syncWindowStateFlags({
-    required bool overlayVisible,
-    required bool buttonVisible,
-  }) {
-    state = state.copyWith(
-      overlayVisible: overlayVisible,
-      buttonVisible: buttonVisible,
-    );
   }
 
   /// Pushes appearance settings (size, opacity) to the floating button
@@ -560,185 +406,6 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
 
   bool get _isDesktop =>
       Platform.isWindows || Platform.isMacOS || Platform.isLinux;
-
-  // -- Floating overlay window ----------------------------------------------
-
-  /// Pre-creates the overlay window (hidden) so it's ready instantly.
-  Future<void> _ensureOverlayCreated() async {
-    if (!_isDesktop || _creatingOverlay) return;
-    if (_overlayController == null) {
-      await _reconcileExistingWindows();
-    }
-    if (_overlayController != null) return;
-    _creatingOverlay = true;
-    try {
-      _overlayController = await _createWindow(WindowType.floatingOverlay);
-      if (_overlayController != null) {
-        _log.info('Floating overlay pre-created (hidden)');
-      } else {
-        _log.warning('Floating overlay pre-creation failed');
-      }
-    } finally {
-      _creatingOverlay = false;
-    }
-  }
-
-  /// Shows the floating overlay. Creates the window if it doesn't exist yet.
-  ///
-  /// Push recording state BEFORE showing the window so the overlay renders
-  /// with the correct content on its first visible frame (avoids transparent
-  /// flash while idle state SizedBox.shrink is rendered).
-  Future<void> showOverlay() async {
-    if (!_isDesktop || _creatingOverlay) return;
-    if (_overlayController == null) {
-      await _reconcileExistingWindows();
-    }
-    // Build overlay position args based on start position setting.
-    String? posArgs;
-    final settings = ref.read(settingsProvider).value;
-    if (settings != null) {
-      final startPos = settings.overlayStartPositionType;
-      switch (startPos) {
-        case OverlayStartPosition.lastPosition:
-          if (settings.floatingOverlayX >= 0) {
-            posArgs = jsonEncode({
-              'x': settings.floatingOverlayX,
-              'y': settings.floatingOverlayY,
-            });
-          }
-        case OverlayStartPosition.topCenter:
-          posArgs = jsonEncode({'align': 'top-center'});
-        case OverlayStartPosition.bottomCenter:
-          posArgs = jsonEncode({'align': 'bottom-center'});
-      }
-    }
-    if (_overlayController != null) {
-      // Window exists — push state first, then show.
-      try {
-        _pushRecordingStateTo(_overlayController!, ref.read(recordingProvider));
-        await _showSecondaryWindow(
-          _overlayController!,
-          target: 'overlay',
-          assertTopmost: true,
-          arguments: posArgs,
-        );
-        _log.info('Floating overlay shown (existing window)');
-      } catch (e) {
-        _log.warning('Overlay show() failed — recreating', e);
-        _overlayController = null;
-      }
-    }
-    // Create if not present (first time or after failed show).
-    if (_overlayController == null) {
-      _creatingOverlay = true;
-      try {
-        _overlayController = await _createWindow(WindowType.floatingOverlay);
-        if (_overlayController != null) {
-          try {
-            _pushRecordingStateTo(
-              _overlayController!,
-              ref.read(recordingProvider),
-            );
-            await _showSecondaryWindow(
-              _overlayController!,
-              target: 'overlay',
-              assertTopmost: true,
-              arguments: posArgs,
-            );
-            _log.info('Floating overlay shown (newly created)');
-          } catch (e) {
-            _log.warning('Overlay show() on new window failed', e);
-          }
-        }
-      } finally {
-        _creatingOverlay = false;
-      }
-    }
-    if (_overlayController != null) {
-      state = state.copyWith(overlayVisible: true);
-    } else {
-      _log.warning(
-        'Floating overlay creation failed — '
-        'in-window overlay will be used as fallback',
-      );
-    }
-  }
-
-  /// Re-sends the position to an already-visible overlay window.
-  Future<void> _repositionOverlay(
-    OverlayStartPosition pos,
-    AppSettings settings,
-  ) async {
-    final ctrl = _overlayController;
-    if (ctrl == null) return;
-
-    String? posArgs;
-    switch (pos) {
-      case OverlayStartPosition.lastPosition:
-        if (settings.floatingOverlayX >= 0) {
-          posArgs = jsonEncode({
-            'x': settings.floatingOverlayX,
-            'y': settings.floatingOverlayY,
-          });
-        }
-      case OverlayStartPosition.topCenter:
-        posArgs = jsonEncode({'align': 'top-center'});
-      case OverlayStartPosition.bottomCenter:
-        posArgs = jsonEncode({'align': 'bottom-center'});
-    }
-
-    try {
-      await _showSecondaryWindow(
-        ctrl,
-        target: 'overlay',
-        assertTopmost: true,
-        arguments: posArgs,
-      );
-      _log.info('Overlay repositioned to $pos');
-    } catch (e) {
-      _log.warning('Failed to reposition overlay', e);
-    }
-  }
-
-  /// Hides the overlay window but keeps the controller alive for reuse.
-  Future<void> hideOverlay() async {
-    final ctrl = _overlayController;
-    if (ctrl == null) return;
-    state = state.copyWith(overlayVisible: false);
-    try {
-      await _hideSecondaryWindow(ctrl, target: 'overlay')
-          .timeout(const Duration(seconds: 5), onTimeout: () {
-        _log.warning('hideOverlay: _hideSecondaryWindow timed out (5s)');
-      });
-      _log.info('Floating overlay hidden');
-    } catch (e) {
-      _log.warning('Overlay hide() failed (may already be closed)', e);
-      _overlayController = null;
-    }
-  }
-
-  /// Hides and releases the floating overlay.
-  ///
-  /// The `desktop_multi_window` package has no API to destroy a secondary
-  /// window — only show/hide. We send a 'shutdown' command so the secondary
-  /// engine goes inert (stops heartbeat, ignores future calls), then hide the
-  /// OS window. The engine stays alive but dormant until the process exits.
-  ///
-  /// **CRITICAL**: We do NOT call exit(0) in the secondary engine because all
-  /// windows share the same OS process — exit(0) would kill everything.
-  Future<void> _shutdownOverlay() async {
-    final ctrl = _overlayController;
-    if (ctrl == null) return;
-    _overlayController = null;
-    state = state.copyWith(overlayVisible: false);
-    _log.info('Shutting down floating overlay window (hide + inert)');
-    try {
-      await ctrl.invokeMethod('shutdown');
-    } catch (e) {
-      _log.debug('Overlay shutdown command failed (may already be gone): $e');
-    }
-    await _hideSecondaryWindow(ctrl, target: 'overlay');
-  }
 
   // -- Floating button window -----------------------------------------------
 
@@ -886,10 +553,9 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     if (!isPhaseChange && recState.phase == RecordingPhase.recording) {
       final now = DateTime.now();
       if (now.difference(_lastStatePushTime) < _minStatePushInterval) {
-        // Schedule a coalesced push so we don't drop the latest level.
         _coalescedPushTimer ??= Timer(_minStatePushInterval, () {
           _coalescedPushTimer = null;
-          if (_overlayController != null || _buttonController != null) {
+          if (_buttonController != null) {
             _doPush(ref.read(recordingProvider));
           }
         });
@@ -905,15 +571,8 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   void _doPush(RecordingState recState) {
     _lastStatePushTime = DateTime.now();
     _lastPushedPhase = recState.phase;
-    final encoded = _encodeWithSettings(recState);
-    // Push to all live controllers regardless of visibility flags.
-    // The visibility flags can temporarily go false during window
-    // reconciliation — gating on them would permanently block state sync
-    // until the next explicit show() call.
-    if (_overlayController != null) {
-      _pushEncodedTo(_overlayController!, encoded, 'overlay');
-    }
     if (_buttonController != null) {
+      final encoded = _encodeWithSettings(recState);
       _pushEncodedTo(_buttonController!, encoded, 'button');
     }
   }
@@ -922,11 +581,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     WindowController controller,
     RecordingState recState,
   ) {
-    final target = controller == _overlayController
-        ? 'overlay'
-        : controller == _buttonController
-        ? 'button'
-        : 'secondary';
+    final target = controller == _buttonController ? 'button' : 'secondary';
     _pushEncodedTo(controller, _encodeWithSettings(recState), target);
   }
 
@@ -935,8 +590,6 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     String encoded,
     String target,
   ) {
-    // Fire-and-forget with timeout — a broken secondary window must never
-    // block the main UI thread (the caller is often a synchronous ref.listen).
     controller
         .invokeMethod('updateRecordingState', encoded)
         .timeout(
@@ -947,27 +600,14 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
           },
         )
         .catchError((Object e) {
-      // If the channel is gone, the window was closed/destroyed.
-      // Null-out the controller so we don't keep spamming a dead window.
-      // Catch PlatformException broadly — any platform channel failure
-      // means the window is unresponsive and continuing to push will
-      // only block the main thread further.
       final msg = e.toString();
       if (e is PlatformException ||
           msg.contains('CHANNEL_UNREGISTERED') ||
           msg.contains('not accessible')) {
         _log.warning('$target window channel dead — removing controller');
-        if (target == 'overlay' || target == 'secondary') {
-          if (_overlayController == controller) {
-            _overlayController = null;
-            state = state.copyWith(overlayVisible: false);
-          }
-        }
-        if (target == 'button' || target == 'secondary') {
-          if (_buttonController == controller) {
-            _buttonController = null;
-            state = state.copyWith(buttonVisible: false);
-          }
+        if (_buttonController == controller) {
+          _buttonController = null;
+          state = state.copyWith(buttonVisible: false);
         }
       } else {
         _log.warning('State sync to $target window failed', e);
@@ -1019,64 +659,35 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
             _log.warning('Failed to parse button position', e);
           }
         }
-      case 'saveOverlayPosition':
-        // Persist overlay position from drag in secondary window.
-        final posData = call.arguments;
-        if (posData is String) {
-          try {
-            final pos = jsonDecode(posData) as Map<String, dynamic>;
-            final x = (pos['x'] as num?)?.toDouble() ?? -1.0;
-            final y = (pos['y'] as num?)?.toDouble() ?? -1.0;
-            ref
-                .read(settingsProvider.notifier)
-                .updateSettings(
-                  (s) => s.copyWith(floatingOverlayX: x, floatingOverlayY: y),
-                );
-          } catch (e) {
-            _log.warning('Failed to parse overlay position', e);
-          }
-        }
     }
     return null;
   }
 
-  /// Shuts down all secondary windows with a hard timeout.
-  /// Called before windowManager.destroy() to give floating windows
+  /// Shuts down the floating button window with a hard timeout.
+  /// Called before windowManager.destroy() to give the button window
   /// time to hide and go inert.
   Future<void> _closeAll() async {
-    final overlay = _overlayController;
     final button = _buttonController;
-    _overlayController = null;
     _buttonController = null;
-    state = state.copyWith(overlayVisible: false, buttonVisible: false);
-    _log.info('Shutting down all secondary windows (hide + inert)');
+    state = state.copyWith(buttonVisible: false);
+    _log.info('Shutting down floating button window');
 
-    Future<void> shutdownWindow(WindowController? ctrl, String label) async {
-      if (ctrl == null) return;
+    if (button != null) {
       try {
-        await ctrl.invokeMethod('shutdown').timeout(
+        await button.invokeMethod('shutdown').timeout(
           const Duration(seconds: 1),
           onTimeout: () => null,
         );
       } catch (_) {}
       try {
-        await ctrl.hide().timeout(
+        await button.hide().timeout(
           const Duration(milliseconds: 500),
           onTimeout: () {},
         );
       } catch (_) {}
     }
 
-    // Shut down both windows in parallel with a hard 2s overall timeout.
-    await Future.wait([
-      shutdownWindow(overlay, 'overlay'),
-      shutdownWindow(button, 'button'),
-    ]).timeout(
-      const Duration(seconds: 2),
-      onTimeout: () => [null, null],
-    );
-
-    _log.info('Secondary windows shut down');
+    _log.info('Floating button shut down');
   }
 
   /// Public API for app shutdown — closes all secondary windows with timeout.

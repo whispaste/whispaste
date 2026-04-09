@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -15,8 +14,11 @@ import 'core/theme/theme_provider.dart';
 import 'core/theme/colors.dart';
 import 'core/theme/tokens.dart';
 import 'widgets/sidebar.dart';
+import 'widgets/sidebar_settings_button.dart';
 import 'widgets/status_bar.dart';
 import 'widgets/fab.dart';
+import 'widgets/frame_watermark.dart';
+import 'widgets/recording_indicator_bar.dart';
 import 'widgets/title_bar.dart';
 import 'widgets/service_bootstrap.dart';
 import 'widgets/recording_behavior.dart';
@@ -86,7 +88,9 @@ class WhisPasteApp extends ConsumerWidget {
 }
 
 /// Navigation items — built from localized strings.
-List<WpNavItem> _navItems(L10n l10n) => [
+///
+/// Public so the screenshot integration test can build an identical sidebar.
+List<WpNavItem> wpNavItems(L10n l10n) => [
   WpNavItem(id: 'history', icon: LucideIcons.clock3, label: l10n.navHistory),
   WpNavItem(
     id: 'replacements',
@@ -106,8 +110,9 @@ List<WpNavItem> _navItems(L10n l10n) => [
   ),
 ];
 
-/// Resolves the page title — checks nav items first, falls back for bottom-pinned pages.
-String _pageTitle(String pageId, List<WpNavItem> navItems, L10n l10n) {
+/// Resolves the page title — checks nav items first, falls back for
+/// bottom-pinned pages (e.g. Settings).
+String wpPageTitle(String pageId, List<WpNavItem> navItems, L10n l10n) {
   for (final item in navItems) {
     if (item.id == pageId) return item.label;
   }
@@ -116,7 +121,7 @@ String _pageTitle(String pageId, List<WpNavItem> navItems, L10n l10n) {
 }
 
 /// Map page IDs to their widgets.
-const _pageWidgets = <String, Widget>{
+const wpPageWidgets = <String, Widget>{
   'history': HistoryPage(),
   'settings': SettingsPage(),
   'replacements': ReplacementsPage(),
@@ -248,7 +253,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     CrashReporter.instance?.consentGranted = settings.errorReporting;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
-    final navItems = _navItems(l10n);
+    final navItems = wpNavItems(l10n);
     final sttStatus = ref.watch(sttServiceProvider);
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
 
@@ -281,7 +286,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
             child: const SizedBox.expand(),
           ),
           // Subtle topographic watermark pattern (both themes)
-          Positioned.fill(child: _FrameWatermark(isDark: isDark)),
+          Positioned.fill(child: WpFrameWatermark(isDark: isDark)),
           // Main layout
           Column(
             children: [
@@ -296,7 +301,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                         ref.read(activePageProvider.notifier).setPage(id);
                       },
                       bottomItems: [
-                        _SidebarSettingsButton(
+                        WpSidebarSettingsButton(
                           isActive: activePage == 'settings',
                           onTap: () => ref
                               .read(activePageProvider.notifier)
@@ -312,13 +317,13 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                         child: Column(
                           children: [
                             // Recording indicator — thin pulsing bar
-                            _RecordingIndicatorBar(phase: recordingPhase),
+                            WpRecordingIndicatorBar(phase: recordingPhase),
                             // Page header with smooth title transition
                             AnimatedSwitcher(
                               duration: WpMotion.fast,
                               child: _PageHeader(
                                 key: ValueKey('header-$activePage'),
-                                title: _pageTitle(activePage, navItems, l10n),
+                                title: wpPageTitle(activePage, navItems, l10n),
                               ),
                             ),
                             // Content with page transition animation
@@ -342,7 +347,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                                 child: KeyedSubtree(
                                   key: ValueKey(activePage),
                                   child:
-                                      _pageWidgets[activePage] ??
+                                      wpPageWidgets[activePage] ??
                                       const SizedBox.shrink(),
                                 ),
                               ),
@@ -397,16 +402,11 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
           if (!settings.onboardingCompleted)
             const Positioned.fill(child: OnboardingOverlay()),
 
-          // Recording overlay — shown in-window when:
-          //  1. overlayMode is inWindow, OR
-          //  2. overlayMode is floating but the floating window isn't visible
-          //     AND overlay isn't currently being created (prevents flash
-          //     during async window creation).
-          //  3. overlayMode is off → never show.
-          //  4. error phase → never show (errors are handled via toast).
+          // Recording overlay — shown whenever overlay is enabled and
+          // recording is active (not idle, not error).
           if (recordingPhase != RecordingPhase.idle &&
               recordingPhase != RecordingPhase.error &&
-              settings.overlayModeType == OverlayMode.inWindow)
+              settings.effectiveOverlayMode != OverlayMode.off)
             const Positioned(
               bottom: WpLayout.statusBarHeight + 8,
               left: 0,
@@ -501,257 +501,16 @@ class _ThemeToggle extends ConsumerWidget {
 }
 
 /// Settings shortcut pinned to sidebar bottom — mirrors nav item style.
-class _SidebarSettingsButton extends StatefulWidget {
-  const _SidebarSettingsButton({required this.isActive, required this.onTap});
-
-  final bool isActive;
-  final VoidCallback onTap;
-
-  @override
-  State<_SidebarSettingsButton> createState() => _SidebarSettingsButtonState();
-}
-
-class _SidebarSettingsButtonState extends State<_SidebarSettingsButton> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final l10n = L10n.of(context);
-
-    final Color iconColor;
-    final Color bgColor;
-
-    if (widget.isActive) {
-      iconColor = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-      bgColor = isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
-    } else if (_isHovered) {
-      iconColor = isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-      bgColor = isDark ? WpColorsDark.hover : WpColorsLight.hover;
-    } else {
-      iconColor = isDark ? WpColorsDark.textSecondary : WpColorsLight.textMuted;
-      bgColor = isDark
-          ? WpColorsDark.hoverTransparent
-          : WpColorsLight.hoverTransparent;
-    }
-
-    return Semantics(
-      label: l10n.navSettings,
-      button: true,
-      selected: widget.isActive,
-      child: Tooltip(
-        message: l10n.navSettings,
-        preferBelow: false,
-        waitDuration: const Duration(milliseconds: 400),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _isHovered = true),
-          onExit: (_) => setState(() => _isHovered = false),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: SizedBox(
-              width: WpLayout.sidebarWidth,
-              height: 42,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (widget.isActive)
-                    Positioned(
-                      left: 0,
-                      child: Container(
-                        width: 3,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          gradient: isDark
-                              ? WpColorsDark.accentWarmGradient
-                              : WpColorsLight.accentWarmGradient,
-                          borderRadius: const BorderRadius.only(
-                            topRight: Radius.circular(WpRadius.sm),
-                            bottomRight: Radius.circular(WpRadius.sm),
-                          ),
-                        ),
-                      ),
-                    ),
-                  AnimatedContainer(
-                    duration: WpMotion.hoverIn,
-                    curve: WpMotion.defaultCurve,
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                      borderRadius: BorderRadius.circular(WpRadius.md),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      LucideIcons.settings,
-                      color: iconColor,
-                      size: 21,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+///
+/// Re-exported from [WpSidebarSettingsButton] (lib/widgets/sidebar_settings_button.dart).
+/// Kept as a comment anchor for git-blame readability.
 
 /// Thin animated bar at the top of the content panel.
 ///
-/// Pulses red during recording, amber during transcribing, hidden otherwise.
-/// 3 px tall — visible but non-intrusive, signalling active recording at a
-/// glance without competing with content.
-class _RecordingIndicatorBar extends StatefulWidget {
-  const _RecordingIndicatorBar({required this.phase});
-
-  final RecordingPhase phase;
-
-  @override
-  State<_RecordingIndicatorBar> createState() => _RecordingIndicatorBarState();
-}
-
-class _RecordingIndicatorBarState extends State<_RecordingIndicatorBar>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse;
-  late final Animation<double> _opacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _opacity = Tween<double>(
-      begin: 0.45,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
-    _syncPulse();
-  }
-
-  @override
-  void didUpdateWidget(_RecordingIndicatorBar old) {
-    super.didUpdateWidget(old);
-    if (widget.phase != old.phase) _syncPulse();
-  }
-
-  void _syncPulse() {
-    if (widget.phase == RecordingPhase.recording ||
-        widget.phase == RecordingPhase.transcribing ||
-        widget.phase == RecordingPhase.processing) {
-      _pulse.repeat(reverse: true);
-    } else {
-      _pulse.stop();
-      _pulse.reset();
-    }
-  }
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isActive =
-        widget.phase == RecordingPhase.recording ||
-        widget.phase == RecordingPhase.transcribing ||
-        widget.phase == RecordingPhase.processing;
-
-    final color = widget.phase == RecordingPhase.recording
-        ? const Color(0xFFEF4444)
-        : const Color(0xFFF59E0B);
-
-    return AnimatedContainer(
-      duration: WpMotion.normal,
-      height: isActive ? 3.0 : 0.0,
-      child: isActive
-          ? AnimatedBuilder(
-              animation: _opacity,
-              builder: (context, _) {
-                return Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        color.withValues(alpha: _opacity.value * 0.8),
-                        color.withValues(alpha: _opacity.value),
-                        color.withValues(alpha: _opacity.value * 0.8),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            )
-          : const SizedBox.shrink(),
-    );
-  }
-}
+/// Re-exported from [WpRecordingIndicatorBar] (lib/widgets/recording_indicator_bar.dart).
+/// Kept as a comment anchor for git-blame readability.
 
 /// Subtle topographic contour watermark painted on the frame.
 ///
-/// Draws faint concentric arcs offset to the bottom-right, evoking a
-/// premium dashboard / gaming-launcher feel without competing with
-/// content. Opacity kept at ≈ 3% so it's FELT, not SEEN.
-class _FrameWatermark extends StatelessWidget {
-  const _FrameWatermark({required this.isDark});
-
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _TopoPainter(isDark: isDark),
-      child: const SizedBox.expand(),
-    );
-  }
-}
-
-class _TopoPainter extends CustomPainter {
-  const _TopoPainter({required this.isDark});
-
-  final bool isDark;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.5
-      ..color = isDark
-          ? const Color(0x08FFFFFF) // ~3% white on dark
-          : WpColorsLight.watermark; // ~4% black on light
-
-    // Origin offset to bottom-right so arcs peek from the corner
-    final cx = size.width * 0.85;
-    final cy = size.height * 0.9;
-    final maxR = math.max(size.width, size.height) * 0.7;
-
-    // Draw concentric elliptical arcs
-    for (var r = 40.0; r < maxR; r += 55) {
-      final rect = Rect.fromCenter(
-        center: Offset(cx, cy),
-        width: r * 2.2,
-        height: r * 1.6,
-      );
-      canvas.drawArc(rect, math.pi * 0.8, math.pi * 1.1, false, paint);
-    }
-
-    // Second cluster — subtle, top-left
-    final cx2 = size.width * 0.12;
-    final cy2 = size.height * 0.15;
-    for (var r = 30.0; r < maxR * 0.4; r += 60) {
-      final rect = Rect.fromCenter(
-        center: Offset(cx2, cy2),
-        width: r * 1.8,
-        height: r * 2.0,
-      );
-      canvas.drawArc(rect, -math.pi * 0.3, math.pi * 0.8, false, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _TopoPainter oldDelegate) =>
-      oldDelegate.isDark != isDark;
-}
+/// Re-exported from [WpFrameWatermark] (lib/widgets/frame_watermark.dart).
+/// Kept as a comment anchor for git-blame readability.

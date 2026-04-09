@@ -221,6 +221,14 @@ class AppSettings {
   AfterTranscriptionAction get afterTranscriptionAction =>
       AfterTranscriptionAction.fromValue(afterTranscription);
   OverlayMode get overlayModeType => OverlayMode.fromValue(overlayMode);
+
+  /// Returns the effective overlay mode, mapping legacy `floating` to
+  /// `inWindow` since the secondary-engine floating overlay was removed.
+  OverlayMode get effectiveOverlayMode {
+    final mode = overlayModeType;
+    return mode == OverlayMode.floating ? OverlayMode.inWindow : mode;
+  }
+
   OverlayStartPosition get overlayStartPositionType =>
       OverlayStartPosition.fromValue(overlayStartPosition);
   FloatingButtonSize get floatingButtonSizeType =>
