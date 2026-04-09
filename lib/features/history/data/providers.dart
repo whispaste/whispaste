@@ -4,31 +4,11 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/data/history_providers.dart';
 
-/// Live stream of all non-deleted, non-archived history entries, newest first.
-final historyEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
-  final db = ref.watch(historyDatabaseProvider);
-  return db.watchEntries(limit: 500);
-});
-
-/// Live stream of archived entries.
-final archivedEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
-  final db = ref.watch(historyDatabaseProvider);
-  return db.watchArchived(limit: 500);
-});
-
-/// Live stream of trashed entries.
-final trashEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
-  final db = ref.watch(historyDatabaseProvider);
-  return db.watchTrash(limit: 500);
-});
-
-/// Watch notes for a specific entry.
-final entryNotesProvider =
-    StreamProvider.family<List<EntryNote>, String>((ref, entryId) {
-  final db = ref.watch(historyDatabaseProvider);
-  return db.watchNotesForEntry(entryId);
-});
+// Re-export base data-stream providers from core so existing feature-local
+// imports continue to work without changes.
+export 'package:whispaste/core/data/history_providers.dart';
 
 /// Active filter state for the history page.
 enum HistoryFilter { all, today, week, pinned, archived, trash }

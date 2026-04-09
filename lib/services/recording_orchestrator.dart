@@ -17,7 +17,7 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/data/database.dart';
 import '../core/recording/recording_state.dart';
-import '../features/analytics/analytics_provider.dart';
+import '../core/data/analytics_provider.dart';
 import 'audio_service.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';

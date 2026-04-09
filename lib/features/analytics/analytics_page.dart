@@ -13,7 +13,7 @@ import '../../widgets/dialog.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
 import '../../widgets/toast.dart';
-import 'analytics_provider.dart';
+import '../../core/data/analytics_provider.dart';
 
 // ---------------------------------------------------------------------------
 // Helper data classes (kept local — only used by widgets below)
