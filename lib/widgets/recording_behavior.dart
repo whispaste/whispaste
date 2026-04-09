@@ -149,7 +149,11 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
       tray.updateRecordingState(next, l10n: l10n);
 
       if (next.isError && next.errorMessage != null) {
-        ref.read(soundFeedbackProvider.notifier).playError();
+        try {
+          ref.read(soundFeedbackProvider.notifier).playError();
+        } catch (e) {
+          _log.warning('Error sound playback failed (non-fatal)', e);
+        }
         WpToast.show(
           context,
           message: localizeRecordingError(l10n, next.errorMessage!),
@@ -172,13 +176,25 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
           }
         });
       } else if (next.isRecording && (prev == null || !prev.isRecording)) {
-        ref.read(soundFeedbackProvider.notifier).playRecordStart();
+        try {
+          ref.read(soundFeedbackProvider.notifier).playRecordStart();
+        } catch (e) {
+          _log.warning('Record-start sound failed (non-fatal)', e);
+        }
       } else if (next.isTranscribing &&
           (prev == null || !prev.isTranscribing)) {
-        ref.read(soundFeedbackProvider.notifier).playRecordStop();
+        try {
+          ref.read(soundFeedbackProvider.notifier).playRecordStop();
+        } catch (e) {
+          _log.warning('Record-stop sound failed (non-fatal)', e);
+        }
       } else if (next.isDone && next.transcript != null) {
         _log.debug('State → done, scheduling sound + toast + 2s reset');
-        ref.read(soundFeedbackProvider.notifier).playTranscriptionComplete();
+        try {
+          ref.read(soundFeedbackProvider.notifier).playTranscriptionComplete();
+        } catch (e) {
+          _log.error('Success sound playback failed (non-fatal)', e);
+        }
         WpToast.show(
           context,
           message:

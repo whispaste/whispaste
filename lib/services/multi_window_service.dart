@@ -133,8 +133,16 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
           _overlayDismissTimer?.cancel();
           _log.debug('Scheduling overlay dismiss in 4s (state → idle)');
           _overlayDismissTimer = Timer(const Duration(seconds: 4), () {
-            _log.debug('Overlay dismiss timer fired (visible=${state.overlayVisible})');
-            if (state.overlayVisible) hideOverlay();
+            // Guard: only hide if still idle — a new recording may have started.
+            final currentPhase = ref.read(recordingProvider).phase;
+            _log.debug(
+              'Overlay dismiss timer fired '
+              '(visible=${state.overlayVisible}, phase=$currentPhase)',
+            );
+            if (state.overlayVisible &&
+                currentPhase == RecordingPhase.idle) {
+              hideOverlay();
+            }
           });
         }
       }
