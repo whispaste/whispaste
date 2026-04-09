@@ -4,16 +4,16 @@
   <div class="relative max-w-3xl mx-auto px-6">
     <div class="text-center mb-12 scroll-reveal">
       <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="pricing.label">Pricing</p>
-      <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="pricing.title">Free. Forever. No catch.</h2>
-      <p class="mt-4 text-gray-400 text-lg max-w-2xl mx-auto" data-i18n="pricing.desc">No server costs, no subscription trap. WhisPaste runs on your machine, so there's nothing to charge you for.</p>
+      <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="pricing.title">All features. No subscription.</h2>
+      <p class="mt-4 text-gray-400 text-lg max-w-2xl mx-auto" data-i18n="pricing.desc">Every feature is included, always. Get it from the Store to support the project, or download free from GitHub.</p>
     </div>
 
     <div class="pricing-card relative p-8 sm:p-10 rounded-3xl border border-brand-cyan/20 scroll-reveal">
       <div class="absolute inset-0 rounded-3xl bg-gradient-to-br from-brand-cyan/[0.04] to-transparent pointer-events-none"></div>
       <div class="relative">
         <div class="text-center mb-8">
-          <div class="text-5xl sm:text-6xl font-bold text-white" data-i18n="pricing.price">$0</div>
-          <div class="mt-1 text-gray-400 text-sm" data-i18n="pricing.forever">forever — no trial, no limits</div>
+          <div class="text-3xl sm:text-4xl font-bold text-brand-cyan" data-i18n="pricing.price">Open Source</div>
+          <div class="mt-1 text-gray-400 text-sm" data-i18n="pricing.forever">MIT licensed — every feature for everyone</div>
         </div>
 
         <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 mb-8 list-none p-0 m-0">
@@ -32,14 +32,21 @@
           ))}
         </ul>
 
-        <div class="text-center">
+        <div class="flex flex-col items-center gap-4">
+          <ms-store-badge
+            productid="9NR9PLKRZ6QG"
+            window-mode="full"
+            theme="auto"
+            language="en"
+            animation="on"
+            class="ms-store-badge"
+          ></ms-store-badge>
+          <p class="text-gray-500 text-xs" data-i18n="hero.store.hint">Supports the project – thank you!</p>
           <a
             href="https://github.com/whispaste/whispaste/releases/latest"
-            class="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-brand-cyan text-brand-darker font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm hover:shadow-md"
-          >
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-            <span data-i18n="hero.download">Download for Windows</span>
-          </a>
+            class="text-sm text-gray-400 hover:text-white transition-colors underline underline-offset-2"
+            data-i18n="hero.free.link"
+          >or download free from GitHub</a>
         </div>
       </div>
     </div>
