@@ -121,7 +121,7 @@
                 <!-- Cancel: naked X icon, no circle bg (matches app _PillIconButton) -->
                 <div class="overlay-btn-cancel">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-                    stroke="#8A99B2" stroke-width="2" stroke-linecap="round"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </div>
                 <!-- Privacy badge: shield-check + "Local" (matches app _buildInlinePrivacyBadge) -->
@@ -129,7 +129,7 @@
                   <svg viewBox="0 0 24 24" width="11" height="11" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
-                  <span>Local</span>
+                  <span data-i18n="carousel.overlayLocal">Local</span>
                 </div>
                 <!-- Center: rec dot + timer + waveform (matches app _buildRecordingCenter) -->
                 <div class="overlay-center">
@@ -137,18 +137,19 @@
                   <span class="overlay-text-timer" id="overlay-timer">0:00</span>
                   <div class="overlay-waveform" id="overlay-waveform"></div>
                 </div>
-                <!-- AI mode badge (matches app _buildInlineAiBadge) -->
-                <div class="overlay-badge-ai">
-                  <span>🤖 Dictation</span>
-                </div>
+                <!-- RecordingOverlay passes aiMode: null, so RecordingPill only keeps an 8px spacer here. -->
+                <div class="overlay-ai-gap" aria-hidden="true"></div>
                 <!-- Stop button: red gradient circle + white square (matches app _PillStopButton) -->
                 <div class="overlay-btn-stop">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="white"
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+                    stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg>
                 </div>
               </div>
-              <!-- Progress bar at bottom (matches app _buildProgressBar unlimited mode) -->
-              <div class="overlay-progress-bar"></div>
+              <!-- Progress bar at bottom (matches app finite recording progress state) -->
+              <div class="overlay-progress-bar">
+                <div class="overlay-progress-fill" id="overlay-progress-fill"></div>
+              </div>
             </div>
             <span
               class="text-sm text-gray-400 mt-4"
@@ -356,26 +357,42 @@
   /* Overlay pill (Scene 2) — 1:1 match with Flutter RecordingPill */
   .overlay-pill {
     position: relative;
-    width: clamp(260px, 85vw, 480px);
+    --overlay-bg: rgba(20, 25, 38, 0.8);
+    --overlay-primary: #F0F4FA;
+    --overlay-muted: #8A99B2;
+    --overlay-success: #36D98B;
+    --overlay-success-bg: rgba(54, 217, 139, 0.15);
+    --overlay-progress-track: rgba(138, 153, 178, 0.15);
+    --overlay-wave-bright: rgba(56, 217, 240, 0.85);
+    --overlay-wave-muted: rgba(138, 153, 178, 0.5);
+    display: inline-flex;
+    width: auto;
+    min-width: 200px;
+    max-width: min(480px, 100%);
     border-radius: 999px;
-    background: rgba(20, 25, 38, 0.8);
+    background: var(--overlay-bg);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.1);
-    display: flex;
     flex-direction: column;
     overflow: hidden;
     font-family: "Segoe UI", system-ui, sans-serif;
-    transform: scale(0.85);
-    transform-origin: center;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
-  @media (min-width: 640px) {
-    .overlay-pill {
-      transform: scale(1);
-    }
+  html.light .overlay-pill {
+    --overlay-bg: rgba(240, 243, 247, 0.8);
+    --overlay-primary: #101828;
+    --overlay-muted: #5B697E;
+    --overlay-success: #05875C;
+    --overlay-success-bg: rgba(5, 135, 92, 0.15);
+    --overlay-progress-track: rgba(91, 105, 126, 0.15);
+    --overlay-wave-bright: rgba(8, 135, 168, 0.85);
+    --overlay-wave-muted: rgba(91, 105, 126, 0.5);
   }
   .overlay-pill-row {
     display: flex;
     align-items: center;
     padding: 12px 16px;
+    min-width: 0;
   }
   .overlay-btn-cancel {
     width: 36px;
@@ -386,6 +403,7 @@
     justify-content: center;
     flex-shrink: 0;
     margin-right: 12px;
+    color: var(--overlay-muted);
   }
   .overlay-badge-local {
     display: inline-flex;
@@ -393,31 +411,22 @@
     gap: 3px;
     padding: 1px 5px;
     border-radius: 999px;
-    background: rgba(54, 217, 139, 0.15);
-    color: #36D98B;
+    background: var(--overlay-success-bg);
+    color: var(--overlay-success);
     font-size: 10px;
     font-weight: 600;
     flex-shrink: 0;
     line-height: 1.3;
     margin-right: 8px;
   }
-  .overlay-badge-ai {
-    display: inline-flex;
-    align-items: center;
-    padding: 1px 5px;
-    border-radius: 999px;
-    background: rgba(56, 217, 240, 0.12);
-    color: #ABB8CC;
-    font-size: 10px;
+  .overlay-ai-gap {
+    width: 8px;
     flex-shrink: 0;
-    line-height: 1.3;
-    margin-left: 8px;
   }
   .overlay-center {
     display: flex;
     align-items: center;
-    flex: 1 1 0%;
-    min-width: 0;
+    flex: 1 1 auto;
   }
   .overlay-rec-dot {
     width: 8px;
@@ -435,7 +444,7 @@
   .overlay-text-timer {
     font-size: 15px;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--overlay-primary);
     line-height: 1;
     font-feature-settings: "tnum";
     flex-shrink: 0;
@@ -443,11 +452,11 @@
   }
   .overlay-waveform {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 1.5px;
-    flex: 1 1 0%;
+    padding-inline: 0.75px;
+    flex: 0 0 auto;
     height: 24px;
-    min-width: 0;
   }
   .overlay-btn-stop {
     width: 36px;
@@ -459,11 +468,20 @@
     justify-content: center;
     flex-shrink: 0;
     margin-left: 12px;
+    color: #ffffff;
   }
   .overlay-progress-bar {
     height: 4px;
     width: 100%;
-    background: rgba(56, 217, 240, 0.3);
+    background: var(--overlay-progress-track);
+  }
+  .overlay-progress-fill {
+    width: 0%;
+    height: 100%;
+    background: var(--overlay-primary);
+    transition:
+      width 300ms linear,
+      background-color 120ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   /* Speaking head + microphone icon (Scene 2) */

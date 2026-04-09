@@ -74,9 +74,16 @@ html.light .feature-card:hover { background: rgba(255,255,255,0.9) !important; b
 /* Dynamic elements created by JS need global scope */
 .overlay-wave-bar {
   width: 2.5px;
-  border-radius: 1.5px;
-  min-height: 2px;
+  border-radius: 2px 2px 0 0;
+  min-height: 4px;
   flex-shrink: 0;
+  background: var(--overlay-wave-muted, rgba(138, 153, 178, 0.5));
+  transition:
+    height 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 120ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.overlay-wave-bar[data-bright='true'] {
+  background: var(--overlay-wave-bright, rgba(56, 217, 240, 0.85));
 }
 .typing-cursor {
   display: inline-block;
@@ -150,7 +157,6 @@ html.light .microphone-icon {
   }
 }
 html.light .overlay-pill {
-  background: rgba(20, 25, 38, 0.85);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 html.light .typing-cursor {
@@ -162,6 +168,7 @@ html.light .typing-cursor {
   .overlay-wave-bar,
   .typing-cursor {
     animation: none !important;
+    transition: none !important;
   }
 }
 
