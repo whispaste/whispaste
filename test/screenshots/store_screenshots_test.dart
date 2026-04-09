@@ -19,7 +19,7 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
-import 'package:whispaste/features/analytics/analytics_provider.dart';
+import 'package:whispaste/core/data/analytics_provider.dart';
 import 'package:whispaste/features/history/history_page.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
