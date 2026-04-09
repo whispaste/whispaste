@@ -62,6 +62,12 @@ VIAddVersionKey /LANG=0 "ProductVersion" "${PRODUCT_VERSION}"
 !define MUI_HEADERIMAGE_BITMAP "header.bmp"
 !define MUI_HEADERIMAGE_UNBITMAP "header.bmp"
 
+; Brand colors — safe subset (avoid dark bg on pages with native controls)
+; Install progress log: cyan-on-navy matches our color system
+!define MUI_INSTFILESPAGE_COLORS "38D9F0 131826"
+; License text field: dark navy background
+!define MUI_LICENSEPAGE_BGCOLOR 131826
+
 ; Branded welcome page text
 !define MUI_WELCOMEPAGE_TITLE "$(WELCOME_TITLE)"
 !define MUI_WELCOMEPAGE_TEXT "$(WELCOME_TEXT)"
