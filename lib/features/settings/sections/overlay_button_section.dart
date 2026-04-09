@@ -28,6 +28,7 @@ class OverlayButtonSection extends ConsumerWidget {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final effectiveMode = settings.effectiveOverlayMode;
+    final isDesktop = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
     return WpSection(
       title: l10n.settingsOverlayFloatingButton,
@@ -41,13 +42,15 @@ class OverlayButtonSection extends ConsumerWidget {
             subtitle: l10n.settingsShowOverlaySubtitle,
             trailing: settingsDropdown(
               context: context,
-              // Display effective mode so legacy "floating" shows as "in-window"
               value: effectiveMode.value,
-              items: const [OverlayMode.inWindow, OverlayMode.off]
-                  .map((e) => e.value)
-                  .toList(),
+              items: [
+                OverlayMode.inWindow,
+                if (isDesktop) OverlayMode.floating,
+                OverlayMode.off,
+              ].map((e) => e.value).toList(),
               labels: [
                 l10n.settingsOverlayModeInWindow,
+                if (isDesktop) l10n.settingsOverlayModeFloating,
                 l10n.settingsOverlayModeOff,
               ],
               onChanged: (v) {
@@ -64,6 +67,7 @@ class OverlayButtonSection extends ConsumerWidget {
               },
             ),
           ),
+
           // Hint for in-window mode
           if (effectiveMode == OverlayMode.inWindow)
             Padding(
@@ -81,6 +85,88 @@ class OverlayButtonSection extends ConsumerWidget {
                 ),
               ),
             ),
+
+          // ── Floating overlay settings (desktop only) ──────────────────
+          if (effectiveMode == OverlayMode.floating) ...[
+            const Divider(height: 1),
+            SettingRow(
+              icon: LucideIcons.mapPin,
+              label: l10n.settingsOverlayStartPosition,
+              subtitle: l10n.settingsOverlayStartPositionSubtitle,
+              trailing: settingsDropdown(
+                context: context,
+                value: settings.overlayStartPositionType.value,
+                items: OverlayStartPosition.values
+                    .map((e) => e.value)
+                    .toList(),
+                labels: [
+                  l10n.settingsOverlayStartTopCenter,
+                  l10n.settingsOverlayStartBottomCenter,
+                  l10n.settingsOverlayStartLastPosition,
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings(
+                        (s) => s.copyWith(overlayStartPosition: v),
+                      );
+                },
+              ),
+            ),
+            const Divider(height: 1),
+            SettingRow(
+              icon: LucideIcons.maximize2,
+              label: l10n.settingsOverlaySize,
+              subtitle: l10n.settingsOverlaySizeSubtitle,
+              trailing: settingsDropdown(
+                context: context,
+                value: settings.overlaySizeType.value,
+                items: FloatingOverlaySize.values
+                    .map((e) => e.value)
+                    .toList(),
+                labels: [
+                  l10n.settingsOverlaySizeNormal,
+                  l10n.settingsOverlaySizeCompact,
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings(
+                        (s) => s.copyWith(overlaySize: v),
+                      );
+                },
+              ),
+            ),
+            const Divider(height: 1),
+            SettingRow(
+              icon: LucideIcons.timerReset,
+              label: l10n.settingsOverlayAutoHide,
+              subtitle: l10n.settingsOverlayAutoHideSubtitle,
+              trailing: settingsDropdown(
+                context: context,
+                value: settings.overlayAutoHideType.value,
+                items: OverlayAutoHide.values
+                    .map((e) => e.value)
+                    .toList(),
+                labels: [
+                  l10n.settingsOverlayAutoHide2s,
+                  l10n.settingsOverlayAutoHide5s,
+                  l10n.settingsOverlayAutoHide10s,
+                  l10n.settingsOverlayAutoHideManual,
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings(
+                        (s) => s.copyWith(overlayAutoHide: v),
+                      );
+                },
+              ),
+            ),
+          ],
 
           // ── Native floating button (desktop only) ────────────────────
           if (Platform.isWindows) ...[

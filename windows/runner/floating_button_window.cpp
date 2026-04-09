@@ -3,6 +3,7 @@
 // See plan.md Phase 3.1 for full specification.
 
 #include "floating_button_window.h"
+#include "gdiplus_helper.h"
 
 #include <windowsx.h>  // GET_X_LPARAM, GET_Y_LPARAM
 #include <algorithm>
@@ -39,24 +40,13 @@ constexpr UINT_PTR kTimerId = 0xFB01;  // arbitrary, unique within the window
 // ── Window class name ─────────────────────────────────────────────────
 constexpr const wchar_t kClassName[] = L"WHISPASTE_FLOATING_BTN";
 
-// ── Easing curves ─────────────────────────────────────────────────────
-float EaseOut(float t) {
-  return 1.0f - (1.0f - t) * (1.0f - t);
-}
-
-float EaseInOut(float t) {
-  return t < 0.5f ? 2.0f * t * t : 1.0f - std::powf(-2.0f * t + 2.0f, 2.0f) / 2.0f;
-}
-
-// Ping-pong: 0→1→0 over one full period.
-float PingPong(float t) {
-  return t < 0.5f ? t * 2.0f : 2.0f - t * 2.0f;
-}
-
-// Normalised animation progress [0,1] from tick count.
+// ── Easing curves — delegate to GdiPlusHelper ─────────────────────────
+// Local wrappers kept for brevity at call sites.
+float EaseOut(float t) { return GdiPlusHelper::EaseOut(t); }
+float EaseInOut(float t) { return GdiPlusHelper::EaseInOut(t); }
+float PingPong(float t) { return GdiPlusHelper::PingPong(t); }
 float AnimProgress(DWORD now, DWORD origin, DWORD period_ms) {
-  DWORD elapsed = now - origin;
-  return static_cast<float>(elapsed % period_ms) / period_ms;
+  return GdiPlusHelper::AnimProgress(now, origin, period_ms);
 }
 
 }  // namespace
@@ -67,27 +57,15 @@ int FloatingButtonWindow::gdiplus_ref_count_ = 0;
 ULONG_PTR FloatingButtonWindow::gdiplus_token_ = 0;
 
 // ══════════════════════════════════════════════════════════════════════
-// GDI+ ref-counted startup / shutdown
+// GDI+ ref-counted startup / shutdown — delegates to GdiPlusHelper
 // ══════════════════════════════════════════════════════════════════════
 
 bool FloatingButtonWindow::AddGdiPlusRef() {
-  if (gdiplus_ref_count_++ == 0) {
-    GdiplusStartupInput input;
-    Gdiplus::Status st = GdiplusStartup(&gdiplus_token_, &input, nullptr);
-    if (st != Gdiplus::Ok) {
-      gdiplus_ref_count_--;
-      OutputDebugStringW(L"[FloatingButton] GdiplusStartup failed\n");
-      return false;
-    }
-  }
-  return true;
+  return GdiPlusHelper::AddRef();
 }
 
 void FloatingButtonWindow::ReleaseGdiPlusRef() {
-  if (--gdiplus_ref_count_ == 0) {
-    GdiplusShutdown(gdiplus_token_);
-    gdiplus_token_ = 0;
-  }
+  GdiPlusHelper::Release();
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -903,10 +881,5 @@ FloatingButtonWindow::Gradient FloatingButtonWindow::ColorsFor(
 
 Color FloatingButtonWindow::LerpColor(const Color& a, const Color& b,
                                       float t) {
-  t = std::clamp(t, 0.0f, 1.0f);
-  return Color(
-      static_cast<BYTE>(a.GetA() + (b.GetA() - a.GetA()) * t),
-      static_cast<BYTE>(a.GetR() + (b.GetR() - a.GetR()) * t),
-      static_cast<BYTE>(a.GetG() + (b.GetG() - a.GetG()) * t),
-      static_cast<BYTE>(a.GetB() + (b.GetB() - a.GetB()) * t));
+  return GdiPlusHelper::LerpColor(a, b, t);
 }

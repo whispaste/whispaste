@@ -1922,4 +1922,54 @@ class L10nEn extends L10n {
   String updateStatusBarChip(String version) {
     return 'v$version available';
   }
+
+  @override
+  String get settingsOverlaySize => 'Overlay size';
+
+  @override
+  String get settingsOverlaySizeSubtitle =>
+      'Choose between detailed or minimal display';
+
+  @override
+  String get settingsOverlaySizeNormal => 'Normal';
+
+  @override
+  String get settingsOverlaySizeCompact => 'Compact';
+
+  @override
+  String get settingsOverlayAutoHide => 'Auto-hide delay';
+
+  @override
+  String get settingsOverlayAutoHideSubtitle =>
+      'How long the overlay stays visible after completion';
+
+  @override
+  String get settingsOverlayAutoHide2s => '2 seconds';
+
+  @override
+  String get settingsOverlayAutoHide5s => '5 seconds';
+
+  @override
+  String get settingsOverlayAutoHide10s => '10 seconds';
+
+  @override
+  String get settingsOverlayAutoHideManual => 'Until dismissed';
+
+  @override
+  String get overlayRetry => 'Retry';
+
+  @override
+  String get overlayDismiss => 'Dismiss';
+
+  @override
+  String get overlayContextCancel => 'Cancel recording';
+
+  @override
+  String get overlayContextSwitchNormal => 'Switch to Normal';
+
+  @override
+  String get overlayContextSwitchCompact => 'Switch to Compact';
+
+  @override
+  String get overlayContextHide => 'Hide overlay';
 }

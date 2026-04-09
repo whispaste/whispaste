@@ -30,6 +30,10 @@ bool FlutterWindow::OnCreate() {
   floating_button_host_ = std::make_unique<FloatingButtonHost>(
       flutter_controller_->engine(), GetHandle());
 
+  // Create the native floating overlay host AFTER plugins are registered.
+  floating_overlay_host_ = std::make_unique<FloatingOverlayHost>(
+      flutter_controller_->engine(), GetHandle());
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -45,7 +49,11 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
-  // Destroy floating button BEFORE engine teardown (Invariant #4).
+  // Destroy overlay and button BEFORE engine teardown (Invariant #4).
+  if (floating_overlay_host_) {
+    floating_overlay_host_->Destroy();
+    floating_overlay_host_.reset();
+  }
   if (floating_button_host_) {
     floating_button_host_->Destroy();
     floating_button_host_.reset();

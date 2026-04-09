@@ -720,5 +720,22 @@
     "placeholders": {
       "version": { "type": "String" }
     }
-  }
+  },
+
+  "settingsOverlaySize": "Overlay size",
+  "settingsOverlaySizeSubtitle": "Choose between detailed or minimal display",
+  "settingsOverlaySizeNormal": "Normal",
+  "settingsOverlaySizeCompact": "Compact",
+  "settingsOverlayAutoHide": "Auto-hide delay",
+  "settingsOverlayAutoHideSubtitle": "How long the overlay stays visible after completion",
+  "settingsOverlayAutoHide2s": "2 seconds",
+  "settingsOverlayAutoHide5s": "5 seconds",
+  "settingsOverlayAutoHide10s": "10 seconds",
+  "settingsOverlayAutoHideManual": "Until dismissed",
+  "overlayRetry": "Retry",
+  "overlayDismiss": "Dismiss",
+  "overlayContextCancel": "Cancel recording",
+  "overlayContextSwitchNormal": "Switch to Normal",
+  "overlayContextSwitchCompact": "Switch to Compact",
+  "overlayContextHide": "Hide overlay"
 }

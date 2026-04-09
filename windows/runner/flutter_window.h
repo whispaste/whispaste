@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "floating_button_host.h"
+#include "floating_overlay_host.h"
 #include "win32_window.h"
 
 // A window that does nothing but host a Flutter view.
@@ -32,6 +33,9 @@ class FlutterWindow : public Win32Window {
 
   // Native floating button (runner-owned, destroyed before engine teardown).
   std::unique_ptr<FloatingButtonHost> floating_button_host_;
+
+  // Native floating overlay (runner-owned, destroyed before engine teardown).
+  std::unique_ptr<FloatingOverlayHost> floating_overlay_host_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

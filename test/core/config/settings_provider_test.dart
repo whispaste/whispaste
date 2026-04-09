@@ -202,9 +202,9 @@ void main() {
   });
 
   group('effectiveOverlayMode', () {
-    test('maps legacy "floating" to inWindow', () {
+    test('passes through floating as valid mode', () {
       const s = AppSettings(overlayMode: 'floating');
-      expect(s.effectiveOverlayMode, OverlayMode.inWindow);
+      expect(s.effectiveOverlayMode, OverlayMode.floating);
     });
 
     test('preserves inWindow as-is', () {
@@ -226,8 +226,8 @@ void main() {
       final settings = container.read(settingsProvider).value!;
       // Raw value is still 'floating' in storage
       expect(settings.overlayMode, 'floating');
-      // But effective mode normalizes to inWindow
-      expect(settings.effectiveOverlayMode, OverlayMode.inWindow);
+      // Floating is now a valid mode (native overlay)
+      expect(settings.effectiveOverlayMode, OverlayMode.floating);
     });
   });
 }

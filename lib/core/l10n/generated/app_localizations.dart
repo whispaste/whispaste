@@ -3624,6 +3624,102 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'v{version} available'**
   String updateStatusBarChip(String version);
+
+  /// No description provided for @settingsOverlaySize.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay size'**
+  String get settingsOverlaySize;
+
+  /// No description provided for @settingsOverlaySizeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose between detailed or minimal display'**
+  String get settingsOverlaySizeSubtitle;
+
+  /// No description provided for @settingsOverlaySizeNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get settingsOverlaySizeNormal;
+
+  /// No description provided for @settingsOverlaySizeCompact.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get settingsOverlaySizeCompact;
+
+  /// No description provided for @settingsOverlayAutoHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-hide delay'**
+  String get settingsOverlayAutoHide;
+
+  /// No description provided for @settingsOverlayAutoHideSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How long the overlay stays visible after completion'**
+  String get settingsOverlayAutoHideSubtitle;
+
+  /// No description provided for @settingsOverlayAutoHide2s.
+  ///
+  /// In en, this message translates to:
+  /// **'2 seconds'**
+  String get settingsOverlayAutoHide2s;
+
+  /// No description provided for @settingsOverlayAutoHide5s.
+  ///
+  /// In en, this message translates to:
+  /// **'5 seconds'**
+  String get settingsOverlayAutoHide5s;
+
+  /// No description provided for @settingsOverlayAutoHide10s.
+  ///
+  /// In en, this message translates to:
+  /// **'10 seconds'**
+  String get settingsOverlayAutoHide10s;
+
+  /// No description provided for @settingsOverlayAutoHideManual.
+  ///
+  /// In en, this message translates to:
+  /// **'Until dismissed'**
+  String get settingsOverlayAutoHideManual;
+
+  /// No description provided for @overlayRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get overlayRetry;
+
+  /// No description provided for @overlayDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get overlayDismiss;
+
+  /// No description provided for @overlayContextCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel recording'**
+  String get overlayContextCancel;
+
+  /// No description provided for @overlayContextSwitchNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to Normal'**
+  String get overlayContextSwitchNormal;
+
+  /// No description provided for @overlayContextSwitchCompact.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to Compact'**
+  String get overlayContextSwitchCompact;
+
+  /// No description provided for @overlayContextHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide overlay'**
+  String get overlayContextHide;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
