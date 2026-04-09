@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "floating_button_host.h"
 #include "win32_window.h"
 
 // A window that does nothing but host a Flutter view.
@@ -28,6 +29,9 @@ class FlutterWindow : public Win32Window {
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
+
+  // Native floating button (runner-owned, destroyed before engine teardown).
+  std::unique_ptr<FloatingButtonHost> floating_button_host_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_
