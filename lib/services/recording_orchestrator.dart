@@ -46,6 +46,10 @@ class RecordingOrchestrator extends Notifier<void> {
 
   StreamSubscription<double>? _amplitudeSub;
 
+  /// Prevents concurrent `startRecording()` calls from racing through
+  /// the async preflight.
+  bool _startInFlight = false;
+
   // ── Audio Safety Guard state ──────────────────────────────────────────────
   /// Amplitude threshold below which we consider the signal "silent".
   /// Matches the Go implementation: peak < 0.02 ≈ silent.
@@ -91,11 +95,25 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Starts the recording pipeline.
   Future<void> startRecording() async {
+    // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
+    if (_startInFlight) {
+      _log.debug('startRecording ignored — already in flight');
+      return;
+    }
+    _startInFlight = true;
+
     final notifier = ref.read(recordingProvider.notifier);
 
     try {
       // ── Preflight checks ──────────────────────────────────────────────
-      final preflightError = _runPreflight();
+      final preflightError = await _runPreflight();
+
+      // Re-check phase after async gap — another caller may have started.
+      if (ref.read(recordingProvider).phase != RecordingPhase.idle) {
+        _log.debug('startRecording aborted — phase changed during preflight');
+        return;
+      }
+
       if (preflightError != null) {
         // Try soft handling first (auto-download, info toast).
         if (_handleSoftPreflight(preflightError)) return;
@@ -104,8 +122,10 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       }
 
-      // Transition state: idle → recording.
+      // Transition state: idle → recording (generates sessionId).
       notifier.startRecording();
+      final sid = ref.read(recordingProvider).sessionId ?? '?';
+      _log.info('[$sid] Recording started');
 
       // Start audio capture.
       final audioNotifier = ref.read(audioServiceProvider.notifier);
@@ -134,13 +154,13 @@ class RecordingOrchestrator extends Notifier<void> {
           _evaluateGuard(level);
         },
         onError: (Object e) {
-          _log.warning('Amplitude stream error: $e');
+          _log.warning('[$sid] Amplitude stream error: $e');
         },
       );
-
-      _log.info('Recording started');
     } on Exception catch (e) {
       ref.read(recordingProvider.notifier).fail('$e');
+    } finally {
+      _startInFlight = false;
     }
   }
 
@@ -148,14 +168,27 @@ class RecordingOrchestrator extends Notifier<void> {
   ///
   /// Each major step has its own timeout so a single hung operation cannot
   /// freeze the app.  A 90 s pipeline watchdog acts as a final safety net.
+  ///
+  /// Pipeline timing is logged at completion (or failure) for diagnostics.
   Future<void> stopRecording() async {
     final notifier = ref.read(recordingProvider.notifier);
+    final sid = ref.read(recordingProvider).sessionId ?? '?';
     String? wavPath;
+
+    // ── Pipeline timing ──────────────────────────────────────────────────
+    final pipelineSw = Stopwatch()..start();
+    int? wavReadyMs;
+    int? sttEnsureMs;
+    int? transcribeMs;
+    int? replaceMs;
+    int? saveMs;
+    int? clipboardMs;
+    String pipelineOutcome = 'unknown';
 
     // ── Pipeline watchdog ─────────────────────────────────────────────────
     // Force-fail if the entire stop→done pipeline exceeds 90 s.
     final watchdog = Timer(const Duration(seconds: 90), () {
-      _log.error('Pipeline watchdog triggered after 90s — force-resetting');
+      _log.error('[$sid] Pipeline watchdog triggered after 90s — force-resetting');
       notifier.fail('pipeline_timeout');
     });
 
@@ -168,6 +201,7 @@ class RecordingOrchestrator extends Notifier<void> {
       wavPath = await audioNotifier.stopRecording();
 
       if (wavPath == null) {
+        pipelineOutcome = 'no_audio';
         notifier.fail('no_audio_recorded');
         return;
       }
@@ -178,16 +212,17 @@ class RecordingOrchestrator extends Notifier<void> {
       // On Windows the `record` package can return before the WAV is fully
       // flushed to disk.  Wait up to 2 s for the file to appear.
       final wavFile = File(wavPath);
-      if (!wavFile.existsSync()) {
-        _log.debug('WAV not yet on disk, waiting for flush…');
+      if (!await wavFile.exists()) {
+        _log.debug('[$sid] WAV not yet on disk, waiting for flush…');
         for (var i = 0; i < 8; i++) {
           await Future<void>.delayed(const Duration(milliseconds: 250));
-          if (wavFile.existsSync()) break;
+          if (await wavFile.exists()) break;
         }
       }
-      if (!wavFile.existsSync()) {
+      if (!await wavFile.exists()) {
+        pipelineOutcome = 'wav_not_created';
         notifier.fail('wav_file_not_created');
-        _log.error('WAV file never appeared: $wavPath');
+        _log.error('[$sid] WAV file never appeared: $wavPath');
         return;
       }
 
@@ -195,11 +230,13 @@ class RecordingOrchestrator extends Notifier<void> {
       // second race during the ensureRunning() await.
       final wavBytes = await wavFile.readAsBytes();
       if (wavBytes.isEmpty) {
+        pipelineOutcome = 'wav_empty';
         notifier.fail('wav_file_empty');
-        _log.error('WAV file is empty: $wavPath');
+        _log.error('[$sid] WAV file is empty: $wavPath');
         return;
       }
-      _log.debug('WAV ready: ${wavBytes.length} bytes');
+      wavReadyMs = pipelineSw.elapsedMilliseconds;
+      _log.debug('[$sid] WAV ready: ${wavBytes.length} bytes (${wavReadyMs}ms)');
 
       // Read settings for language hint and model info.
       final settings =
@@ -219,19 +256,24 @@ class RecordingOrchestrator extends Notifier<void> {
 
       // Ensure STT server is ready (with timeout to prevent indefinite hang).
       final sttNotifier = ref.read(sttServiceProvider.notifier);
+      final ensureSw = Stopwatch()..start();
       try {
         await sttNotifier.ensureRunning().timeout(
               const Duration(seconds: 30),
             );
       } on TimeoutException {
+        pipelineOutcome = 'stt_timeout';
         notifier.fail('stt_start_timeout');
-        _log.warning('STT server start timed out after 30s');
+        _log.warning('[$sid] STT server start timed out after 30s');
         return;
       }
+      ensureSw.stop();
+      sttEnsureMs = ensureSw.elapsedMilliseconds;
 
       // Verify server is ready before transcribing.
       final sttStatus = ref.read(sttServiceProvider);
       if (!sttStatus.isReady) {
+        pipelineOutcome = 'stt_failed';
         notifier.fail(
           sttStatus.errorMessage ?? 'stt_server_failed',
         );
@@ -242,7 +284,8 @@ class RecordingOrchestrator extends Notifier<void> {
       // Calculate audio duration for RTF logging (16 kHz, mono, 16-bit + 44-byte header).
       final audioDurMs = ((wavBytes.length - 44) / 32000 * 1000).round();
       _log.info(
-        'Transcribing $wavPath (${wavBytes.length} bytes, ~${audioDurMs}ms audio, lang=$effectiveLang)',
+        '[$sid] Transcribing (${wavBytes.length} bytes, '
+        '~${audioDurMs}ms audio, lang=$effectiveLang)',
       );
 
       final inferSw = Stopwatch()..start();
@@ -257,26 +300,30 @@ class RecordingOrchestrator extends Notifier<void> {
           language: effectiveLang,
         ).timeout(Duration(seconds: timeoutSec));
       } on TimeoutException {
+        pipelineOutcome = 'transcribe_timeout';
         notifier.fail('transcription_timeout');
-        _log.error('Transcription timed out after ${timeoutSec}s');
+        _log.error('[$sid] Transcription timed out after ${timeoutSec}s');
         return;
       }
       inferSw.stop();
+      transcribeMs = inferSw.elapsedMilliseconds;
 
       if (audioDurMs > 0) {
-        final rtf = inferSw.elapsedMilliseconds / audioDurMs;
+        final rtf = transcribeMs / audioDurMs;
         _log.info(
-          'STT timing: inference=${inferSw.elapsedMilliseconds}ms '
+          '[$sid] STT: inference=${transcribeMs}ms '
           'audio=${audioDurMs}ms RTF=${rtf.toStringAsFixed(2)}x',
         );
       }
 
       if (transcript.isEmpty) {
+        pipelineOutcome = 'empty_transcript';
         notifier.fail('transcription_empty');
         return;
       }
 
       // ── Text replacements (voice shortcuts) ─────────────────────────────
+      final replaceSw = Stopwatch()..start();
       var finalText = transcript;
       if (settings.textReplacementsEnabled) {
         try {
@@ -294,40 +341,63 @@ class RecordingOrchestrator extends Notifier<void> {
             }
             if (finalText != transcript) {
               _log.info(
-                'Text replacements applied: ${replacements.length} rules, '
+                '[$sid] Text replacements applied: ${replacements.length} rules, '
                 '${transcript.length}→${finalText.length} chars',
               );
             }
           }
         } on Exception catch (e) {
-          _log.warning('Text replacement failed (non-fatal): $e');
+          _log.warning('[$sid] Text replacement failed (non-fatal): $e');
         }
       }
+      replaceSw.stop();
+      replaceMs = replaceSw.elapsedMilliseconds;
 
       // Save to history database (with replacements applied).
+      final saveSw = Stopwatch()..start();
       await _saveToHistory(finalText, settings);
+      saveSw.stop();
+      saveMs = saveSw.elapsedMilliseconds;
 
       // Copy to clipboard / auto-paste based on user preference.
       // Timeout prevents a locked clipboard from hanging the pipeline.
+      final clipSw = Stopwatch()..start();
       try {
         await _handleAfterTranscription(finalText, settings).timeout(
           const Duration(seconds: 10),
           onTimeout: () {
-            _log.warning('After-transcription action timed out (10s)');
+            _log.warning('[$sid] After-transcription action timed out (10s)');
           },
         );
       } on Exception catch (e) {
-        _log.warning('After-transcription action failed (non-fatal): $e');
+        _log.warning('[$sid] After-transcription action failed (non-fatal): $e');
       }
+      clipSw.stop();
+      clipboardMs = clipSw.elapsedMilliseconds;
 
       // Transition state: transcribing/processing → done.
       notifier.completeTranscription(finalText);
-      _log.info('Pipeline complete: ${finalText.length} chars');
+      pipelineOutcome = 'ok';
     } on Exception catch (e) {
+      pipelineOutcome = 'exception';
       notifier.fail('$e');
-      _log.error('Pipeline error: $e');
+      _log.error('[$sid] Pipeline error: $e');
     } finally {
       watchdog.cancel();
+      pipelineSw.stop();
+
+      // Log structured pipeline summary (success AND failure).
+      _log.info(
+        '[$sid] Pipeline[$pipelineOutcome]: '
+        'total=${pipelineSw.elapsedMilliseconds}ms '
+        'wav=${wavReadyMs ?? "-"}ms '
+        'stt_ensure=${sttEnsureMs ?? "-"}ms '
+        'transcribe=${transcribeMs ?? "-"}ms '
+        'replace=${replaceMs ?? "-"}ms '
+        'save=${saveMs ?? "-"}ms '
+        'clipboard=${clipboardMs ?? "-"}ms',
+      );
+
       // Always clean up the temp WAV file.
       if (wavPath != null) {
         await ref
@@ -383,7 +453,7 @@ class RecordingOrchestrator extends Notifier<void> {
     }
   }
 
-  String? _runPreflight() {
+  Future<String?> _runPreflight() async {
     final settings =
         ref.read(settingsProvider).value ?? AppSettings.defaults;
 
@@ -395,9 +465,9 @@ class RecordingOrchestrator extends Notifier<void> {
 
     // Ensure STT directory exists.
     final dir = Directory(sttDir());
-    if (!dir.existsSync()) {
+    if (!await dir.exists()) {
       try {
-        dir.createSync(recursive: true);
+        await dir.create(recursive: true);
       } on FileSystemException catch (e) {
         _log.warning('Failed to create STT dir: $e');
       }
@@ -405,7 +475,7 @@ class RecordingOrchestrator extends Notifier<void> {
 
     // Check whisper-server binary.
     final serverPath = whisperServerPath();
-    if (!File(serverPath).existsSync()) {
+    if (!await File(serverPath).exists()) {
       _log.warning('Preflight FAIL: whisper-server not found at $serverPath');
       return 'stt_server_not_found';
     }
@@ -416,7 +486,7 @@ class RecordingOrchestrator extends Notifier<void> {
     if (modelPath == null) {
       return 'stt_model_unknown';
     }
-    if (!File(modelPath).existsSync()) {
+    if (!await File(modelPath).exists()) {
       _log.warning('Preflight FAIL: model "$modelId" not found at $modelPath');
       return 'stt_model_not_found';
     }
@@ -612,8 +682,8 @@ class RecordingOrchestrator extends Notifier<void> {
       // Only pre-warm when runtime + model are already downloaded.
       final serverPath = whisperServerPath();
       final modelPath = sttModelPath(settings.effectiveModelId);
-      if (!File(serverPath).existsSync()) return;
-      if (modelPath == null || !File(modelPath).existsSync()) return;
+      if (!await File(serverPath).exists()) return;
+      if (modelPath == null || !await File(modelPath).exists()) return;
 
       await ref.read(sttServiceProvider.notifier).prewarm();
     } on Exception catch (e) {

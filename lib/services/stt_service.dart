@@ -448,14 +448,14 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     }
 
     // --- Validate files exist ------------------------------------------------
-    if (!File(serverPath).existsSync()) {
+    if (!await File(serverPath).exists()) {
       _fail(
         'whisper-server executable not found at $serverPath. '
         'Download the local transcription runtime first.',
       );
       return;
     }
-    if (!File(modelPath).existsSync()) {
+    if (!await File(modelPath).exists()) {
       _fail(
         'STT model file not found at $modelPath. '
         'Download the model first.',
