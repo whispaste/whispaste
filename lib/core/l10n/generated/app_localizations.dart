@@ -2257,6 +2257,12 @@ abstract class L10n {
   /// **'Done'**
   String get statusBarDone;
 
+  /// No description provided for @statusBarHotkeyTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Global hotkey — click to configure'**
+  String get statusBarHotkeyTooltip;
+
   /// No description provided for @modifierCtrl.
   ///
   /// In en, this message translates to:
@@ -2880,6 +2886,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Global hotkey to start and stop recording'**
   String get settingsKeyboardShortcutSubtitle;
+
+  /// No description provided for @settingsHotkeyEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Global Hotkey'**
+  String get settingsHotkeyEnabled;
 
   /// No description provided for @settingsCurrentHotkey.
   ///

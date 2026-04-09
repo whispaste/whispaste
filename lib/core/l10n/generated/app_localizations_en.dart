@@ -1177,6 +1177,9 @@ class L10nEn extends L10n {
   String get statusBarDone => 'Done';
 
   @override
+  String get statusBarHotkeyTooltip => 'Global hotkey — click to configure';
+
+  @override
   String get modifierCtrl => 'Ctrl';
 
   @override
@@ -1515,6 +1518,9 @@ class L10nEn extends L10n {
   @override
   String get settingsKeyboardShortcutSubtitle =>
       'Global hotkey to start and stop recording';
+
+  @override
+  String get settingsHotkeyEnabled => 'Enable Global Hotkey';
 
   @override
   String get settingsCurrentHotkey => 'Current Hotkey';

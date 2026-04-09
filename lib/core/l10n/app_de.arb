@@ -385,6 +385,7 @@
   "statusBarTranscribing": "Transkribieren…",
   "statusBarProcessing": "Verarbeiten…",
   "statusBarDone": "Fertig",
+  "statusBarHotkeyTooltip": "Globaler Hotkey — klicken zum Konfigurieren",
 
   "modifierCtrl": "Strg",
   "modifierShift": "Umschalt",
@@ -502,6 +503,7 @@
 
   "settingsKeyboardShortcut": "Tastenkürzel",
   "settingsKeyboardShortcutSubtitle": "Globaler Hotkey zum Starten und Stoppen der Aufnahme",
+  "settingsHotkeyEnabled": "Globalen Hotkey aktivieren",
   "settingsCurrentHotkey": "Aktueller Hotkey",
   "settingsChangeHotkey": "Ändern",
   "settingsHotkeyRecorderTitle": "Neuen Hotkey aufnehmen",
