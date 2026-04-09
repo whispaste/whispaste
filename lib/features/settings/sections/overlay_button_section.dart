@@ -1,4 +1,4 @@
-/// Overlay & Floating Button settings sections.
+/// Overlay settings section.
 library;
 
 import 'package:flutter/material.dart';
@@ -14,7 +14,7 @@ import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
-// Overlay & Floating Button section
+// Overlay section
 // ---------------------------------------------------------------------------
 
 class OverlayButtonSection extends ConsumerWidget {
@@ -79,51 +79,6 @@ class OverlayButtonSection extends ConsumerWidget {
                 ),
               ),
             ),
-          SettingRow(
-            icon: LucideIcons.move,
-            label: l10n.settingsShowFloatingButton,
-            subtitle: l10n.settingsShowFloatingButtonSubtitle,
-            trailing: settingsToggle(
-              value: settings.showFloatingButton,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(showFloatingButton: v)),
-            ),
-          ),
-          SettingRow(
-            icon: LucideIcons.circleDot,
-            label: l10n.settingsFloatingButtonOpacity,
-            subtitle: l10n.settingsFloatingButtonOpacitySubtitle,
-            trailing: settingsSlider(
-              context: context,
-              value: settings.floatingButtonOpacity,
-              min: 0.1,
-              max: 1.0,
-              divisions: 9,
-              valueLabel: '${(settings.floatingButtonOpacity * 100).round()}%',
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(floatingButtonOpacity: v)),
-            ),
-          ),
-          SettingRow(
-            icon: LucideIcons.maximize2,
-            label: l10n.settingsFloatingButtonSize,
-            subtitle: l10n.settingsFloatingButtonSizeSubtitle,
-            trailing: settingsDropdown(
-              context: context,
-              value: settings.floatingButtonSize,
-              items: const ['Small', 'Normal', 'Large'],
-              labels: [
-                l10n.settingsSizeSmall,
-                l10n.settingsSizeNormal,
-                l10n.settingsSizeLarge,
-              ],
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(floatingButtonSize: v!)),
-            ),
-          ),
         ],
       ),
     );

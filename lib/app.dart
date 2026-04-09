@@ -33,7 +33,6 @@ import 'features/recording/recording_overlay.dart';
 import 'core/recording/recording_state.dart';
 import 'core/data/database.dart';
 import 'core/logging/crash_reporter.dart';
-import 'services/multi_window_service.dart';
 import 'services/recording_orchestrator.dart';
 import 'services/stt_service.dart';
 import 'widgets/toast.dart';
@@ -233,12 +232,6 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       ref.read(sttServiceProvider.notifier).stop();
     } catch (_) {}
 
-    // Shut down floating windows before exiting.
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      try {
-        await ref.read(multiWindowProvider.notifier).shutdownAll();
-      } catch (_) {}
-    }
     await windowManager.destroy();
   }
 
@@ -415,12 +408,9 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
             ),
         ],
       ),
-      // Hide in-window FAB when floating button is active outside the window,
-      // or during onboarding (user can't record yet).
+      // Hide in-window FAB during onboarding (user can't record yet).
       floatingActionButton:
-          !settings.onboardingCompleted ||
-          (settings.showFloatingButton &&
-              ref.watch(multiWindowProvider).buttonVisible)
+          !settings.onboardingCompleted
           ? null
           : Padding(
               padding: const EdgeInsets.only(

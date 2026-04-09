@@ -1,12 +1,11 @@
-/// Shared recording HUD pill widget used by both in-window and floating overlays.
+/// Shared recording HUD pill widget.
 ///
-/// Renders identically in both contexts for visual consistency. All data is
-/// accepted as constructor parameters -- NO Riverpod dependency, making it safe
-/// for use in secondary Flutter engines (desktop_multi_window).
+/// Renders recording status with waveform, timer, and phase text. All data is
+/// accepted as constructor parameters — NO Riverpod dependency, keeping it
+/// self-contained and reusable.
 ///
 /// The in-window overlay wraps this with `showBackdropFilter: true` and feeds
-/// state from Riverpod. The floating overlay uses `isDarkOnly: true` and
-/// `showDragHandle: true`, feeding state decoded from IPC.
+/// state from Riverpod providers.
 library;
 
 import 'dart:ui';

@@ -436,11 +436,11 @@ class L10nDe extends L10n {
   String get settingsAfterTranscriptionNothing => 'Nichts tun';
 
   @override
-  String get settingsOverlayFloatingButton => 'Overlay & Schwebender Button';
+  String get settingsOverlayFloatingButton => 'Aufnahme-Overlay';
 
   @override
   String get settingsOverlayFloatingButtonSubtitle =>
-      'Lege fest, wie der Aufnahmezustand außerhalb des Hauptfensters sichtbar wird';
+      'Lege fest, wie der Aufnahmezustand beim Diktieren angezeigt wird';
 
   @override
   String get settingsShowOverlay => 'Anzeige des Aufnahme-Status';

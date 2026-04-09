@@ -46,9 +46,6 @@ dependencies:
   # Crash reporting
   sentry_flutter: ^8.14.2
 
-  # Multi-window (floating button window)
-  desktop_multi_window: ^0.3.0
-
   # Path utilities
   path_provider: ^2.1.5
   path: ^1.9.1
