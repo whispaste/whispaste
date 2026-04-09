@@ -75,6 +75,11 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
   static const _dividerHitWidth = 8.0;
   static const _dividerVisualWidth = 1.0;
 
+  /// Minimum pixel width before the detail panel actually renders its content.
+  /// Below this threshold, the panel shows nothing to prevent RenderFlex
+  /// overflows during the open/close animation.
+  static const _minDetailRenderWidth = 280.0;
+
   @override
   void initState() {
     super.initState();
@@ -212,13 +217,32 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
         }
 
         // ── Desktop: side-by-side master + detail ──
+        // When detail is open, cap master so the detail gets at least
+        // _minDetailRenderWidth. If there's not enough total space for
+        // both panels, fall back to compact/fullscreen detail.
+        final roomForDetail =
+            totalWidth - _minMasterWidth - _dividerHitWidth;
+        if (roomForDetail < _minDetailRenderWidth &&
+            widget.selectedEntry != null) {
+          // Not enough room for split — show full-screen detail.
+          return _buildDetailPanel(
+            widget.selectedEntry ?? _displayedEntry!,
+          );
+        }
+
         final maxMasterW = totalWidth * _maxMasterFraction;
+        // Ensure master never eats so much that detail can't render.
+        final maxMasterForDetail =
+            totalWidth - _dividerHitWidth - _minDetailRenderWidth;
         return AnimatedBuilder(
           animation: _detailWidth,
           builder: (context, _) {
             final detailFraction = _detailWidth.value;
             final effectiveMaster = _masterWidth.clamp(
-              _minMasterWidth, maxMasterW,
+              _minMasterWidth,
+              detailFraction > 0.05
+                  ? maxMasterForDetail.clamp(_minMasterWidth, maxMasterW)
+                  : maxMasterW,
             );
             final detailW =
                 (totalWidth - effectiveMaster - _dividerHitWidth) *
@@ -241,8 +265,12 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
                         setState(() => _isDragging = true),
                     onHorizontalDragUpdate: (details) {
                       setState(() {
+                        final dragMax = detailFraction > 0.05
+                            ? maxMasterForDetail.clamp(
+                                _minMasterWidth, maxMasterW)
+                            : maxMasterW;
                         _masterWidth = (_masterWidth + details.delta.dx)
-                            .clamp(_minMasterWidth, maxMasterW);
+                            .clamp(_minMasterWidth, dragMax);
                       });
                     },
                     onHorizontalDragEnd: (_) =>
@@ -271,7 +299,8 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
                 ),
                 SizedBox(
                   width: detailW.clamp(0.0, totalWidth - _minMasterWidth),
-                  child: detailFraction > 0.05
+                  child: detailFraction > 0.05 &&
+                          detailW >= _minDetailRenderWidth
                       ? ClipRect(
                           child: Opacity(
                           opacity: detailFraction.clamp(0.0, 1.0),

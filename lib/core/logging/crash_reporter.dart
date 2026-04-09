@@ -67,6 +67,14 @@ class CrashReporter {
   bool _consentGranted = true;
   String _deviceId = '';
 
+  /// Error cascade throttle — prevents exponential error storms
+  /// (e.g., RenderFlex overflow → Sentry tree walk → deactivated widget →
+  /// another Sentry capture → infinite cascade that freezes the UI).
+  static int _errorCount = 0;
+  static DateTime _errorWindowStart = DateTime.now();
+  static const _maxErrorsPerWindow = 10;
+  static const _errorWindowDuration = Duration(seconds: 2);
+
   /// Whether crash reporting consent has been granted.
   /// Gate-controlled: nothing is sent when `false`.
   bool get consentGranted => _consentGranted;
@@ -182,11 +190,25 @@ class CrashReporter {
 
   /// Sentry `beforeSend` callback — drops events with PII or without consent.
   ///
+  /// Includes an error cascade throttle: if more than [_maxErrorsPerWindow]
+  /// errors arrive within [_errorWindowDuration], excess events are dropped.
+  /// This prevents exponential error storms (e.g., RenderFlex overflow →
+  /// Sentry diagnostics → deactivated widget → another capture → freeze).
+  ///
   /// Debug-mode events ARE sent (tagged `environment: 'development'`).
   /// Use Sentry's environment filter to separate dev from production.
   static SentryEvent? beforeSend(SentryEvent event, Hint hint) {
     // Consent gate: drop events when user has opted out.
     if (_instance != null && !_instance!._consentGranted) return null;
+
+    // Error cascade throttle — prevent exponential error storms.
+    final now = DateTime.now();
+    if (now.difference(_errorWindowStart) > _errorWindowDuration) {
+      _errorWindowStart = now;
+      _errorCount = 0;
+    }
+    _errorCount++;
+    if (_errorCount > _maxErrorsPerWindow) return null;
 
     // Drop events containing API keys, tokens, or other secrets.
     final exceptions = event.exceptions;
