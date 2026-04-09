@@ -1,0 +1,376 @@
+---
+/**
+ * Screenshot gallery — horizontal carousel with theme/language toggle.
+ * Shows real integration test captures (full app shell, transparent PNG).
+ */
+
+const screens = [
+  { id: '01_workspace_overview', i18nLabel: 'gallery.workspace', defaultLabel: 'Workspace' },
+  { id: '02_workspace_detail',  i18nLabel: 'gallery.detail',    defaultLabel: 'Detail editor' },
+  { id: '03_voice_shortcuts',   i18nLabel: 'gallery.shortcuts', defaultLabel: 'Voice shortcuts' },
+  { id: '04_settings',          i18nLabel: 'gallery.settings',  defaultLabel: 'Settings' },
+  { id: '05_analytics',         i18nLabel: 'gallery.analytics', defaultLabel: 'Analytics' },
+];
+
+const themes = ['dark', 'light'] as const;
+---
+
+<div class="gallery-root" id="screenshot-gallery">
+  <!-- Controls -->
+  <div class="gallery-controls">
+    <div class="gallery-toggles">
+      <button
+        class="gallery-toggle gallery-toggle--active"
+        data-gallery-theme="dark"
+        aria-pressed="true"
+        data-i18n="gallery.themeDark"
+      >Dark</button>
+      <button
+        class="gallery-toggle"
+        data-gallery-theme="light"
+        aria-pressed="false"
+        data-i18n="gallery.themeLight"
+      >Light</button>
+    </div>
+  </div>
+
+  <!-- Carousel track -->
+  <div class="gallery-viewport" role="region" aria-label="Screenshot gallery" tabindex="0">
+    <button class="gallery-arrow gallery-arrow--prev" aria-label="Previous" data-gallery-prev>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+
+    <div class="gallery-track" id="gallery-track">
+      {screens.map((screen, idx) => (
+        <figure class="gallery-slide" data-slide-index={idx}>
+          <img
+            class="gallery-image"
+            src={`/screenshots/en/dark/${screen.id}.png`}
+            data-gallery-src-template={`/screenshots/{lang}/{theme}/${screen.id}.png`}
+            alt={screen.defaultLabel}
+            width="1904"
+            height="1041"
+            loading={idx === 0 ? 'eager' : 'lazy'}
+            decoding="async"
+          />
+          <figcaption class="gallery-caption" data-i18n={screen.i18nLabel}>
+            {screen.defaultLabel}
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+
+    <button class="gallery-arrow gallery-arrow--next" aria-label="Next" data-gallery-next>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+  </div>
+
+  <!-- Dots -->
+  <div class="gallery-dots" role="tablist">
+    {screens.map((screen, idx) => (
+      <button
+        class={`gallery-dot ${idx === 0 ? 'gallery-dot--active' : ''}`}
+        role="tab"
+        aria-selected={idx === 0 ? 'true' : 'false'}
+        aria-label={screen.defaultLabel}
+        data-gallery-dot={idx}
+      />
+    ))}
+  </div>
+</div>
+
+<style>
+  .gallery-root {
+    max-width: 72rem;
+    margin: 0 auto;
+  }
+
+  .gallery-controls {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+  }
+
+  .gallery-toggles {
+    display: inline-flex;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .gallery-toggle {
+    padding: 0.375rem 1rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s;
+    min-width: 4rem;
+  }
+
+  .gallery-toggle:hover {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .gallery-toggle--active {
+    background: var(--color-brand-cyan);
+    color: #0f1219;
+  }
+
+  html.light .gallery-toggles {
+    border-color: #e2e8f0;
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  html.light .gallery-toggle {
+    color: #64748b;
+  }
+
+  html.light .gallery-toggle:hover {
+    color: #1e293b;
+  }
+
+  html.light .gallery-toggle--active {
+    background: var(--color-brand-cyan);
+    color: #fff;
+  }
+
+  /* Viewport */
+  .gallery-viewport {
+    position: relative;
+    outline: none;
+  }
+
+  .gallery-track {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    gap: 1.5rem;
+    padding: 0 2rem;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .gallery-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .gallery-slide {
+    flex: 0 0 100%;
+    scroll-snap-align: center;
+    margin: 0;
+  }
+
+  .gallery-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
+  }
+
+  html.light .gallery-image {
+    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.12);
+  }
+
+  .gallery-caption {
+    text-align: center;
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  html.light .gallery-caption {
+    color: #64748b;
+  }
+
+  /* Arrows */
+  .gallery-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(15, 18, 25, 0.7);
+    backdrop-filter: blur(12px);
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  .gallery-arrow:hover {
+    background: rgba(56, 217, 240, 0.15);
+    border-color: rgba(56, 217, 240, 0.3);
+  }
+
+  .gallery-arrow--prev {
+    left: 0;
+  }
+
+  .gallery-arrow--next {
+    right: 0;
+  }
+
+  html.light .gallery-arrow {
+    border-color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.85);
+    color: #334155;
+  }
+
+  html.light .gallery-arrow:hover {
+    background: rgba(8, 145, 178, 0.08);
+    border-color: rgba(8, 145, 178, 0.25);
+  }
+
+  /* Dots */
+  .gallery-dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+  }
+
+  .gallery-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+    padding: 0;
+  }
+
+  .gallery-dot:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+
+  .gallery-dot--active {
+    background: var(--color-brand-cyan);
+    transform: scale(1.3);
+  }
+
+  html.light .gallery-dot {
+    background: rgba(0, 0, 0, 0.15);
+  }
+
+  html.light .gallery-dot:hover {
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  html.light .gallery-dot--active {
+    background: var(--color-brand-cyan);
+  }
+
+  @media (max-width: 640px) {
+    .gallery-arrow { display: none; }
+    .gallery-track { padding: 0 1rem; gap: 1rem; }
+  }
+</style>
+
+<script>
+  function initGallery() {
+    const root = document.getElementById('screenshot-gallery');
+    if (!root) return;
+
+    const track = root.querySelector<HTMLElement>('#gallery-track');
+    const slides = root.querySelectorAll<HTMLElement>('.gallery-slide');
+    const dots = root.querySelectorAll<HTMLButtonElement>('.gallery-dot');
+    const prevBtn = root.querySelector<HTMLButtonElement>('[data-gallery-prev]');
+    const nextBtn = root.querySelector<HTMLButtonElement>('[data-gallery-next]');
+    const themeToggles = root.querySelectorAll<HTMLButtonElement>('[data-gallery-theme]');
+
+    if (!track || slides.length === 0) return;
+
+    let currentIndex = 0;
+    let galleryTheme = 'dark';
+
+    function getLang(): string {
+      return document.documentElement.lang === 'de' ? 'de' : 'en';
+    }
+
+    function goTo(index: number) {
+      currentIndex = Math.max(0, Math.min(index, slides.length - 1));
+      slides[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      updateDots();
+    }
+
+    function updateDots() {
+      dots.forEach((dot, i) => {
+        dot.classList.toggle('gallery-dot--active', i === currentIndex);
+        dot.setAttribute('aria-selected', i === currentIndex ? 'true' : 'false');
+      });
+    }
+
+    function updateImages() {
+      const lang = getLang();
+      root.querySelectorAll<HTMLImageElement>('img[data-gallery-src-template]').forEach(img => {
+        const tmpl = img.dataset.gallerySrcTemplate!;
+        img.src = tmpl.replace('{lang}', lang).replace('{theme}', galleryTheme);
+      });
+    }
+
+    // Scroll-snap observer to sync dots
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const idx = parseInt((entry.target as HTMLElement).dataset.slideIndex || '0');
+          currentIndex = idx;
+          updateDots();
+        }
+      });
+    }, { root: track, threshold: 0.6 });
+
+    slides.forEach(slide => observer.observe(slide));
+
+    // Arrow buttons
+    prevBtn?.addEventListener('click', () => goTo(currentIndex - 1));
+    nextBtn?.addEventListener('click', () => goTo(currentIndex + 1));
+
+    // Dots
+    dots.forEach(dot => {
+      dot.addEventListener('click', () => {
+        const idx = parseInt(dot.dataset.galleryDot || '0');
+        goTo(idx);
+      });
+    });
+
+    // Theme toggles
+    themeToggles.forEach(btn => {
+      btn.addEventListener('click', () => {
+        galleryTheme = btn.dataset.galleryTheme || 'dark';
+        themeToggles.forEach(b => {
+          b.classList.toggle('gallery-toggle--active', b === btn);
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        updateImages();
+      });
+    });
+
+    // Keyboard navigation
+    root.querySelector('.gallery-viewport')?.addEventListener('keydown', (e) => {
+      if ((e as KeyboardEvent).key === 'ArrowLeft') { goTo(currentIndex - 1); e.preventDefault(); }
+      if ((e as KeyboardEvent).key === 'ArrowRight') { goTo(currentIndex + 1); e.preventDefault(); }
+    });
+
+    // Language observer
+    const langObs = new MutationObserver(() => updateImages());
+    langObs.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+
+    updateImages();
+  }
+
+  initGallery();
+</script>

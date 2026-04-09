@@ -57,7 +57,7 @@ void main() {
       expect(find.text('Sound & Feedback'), findsOneWidget);
     });
 
-    testWidgets('shows new Overlay & Floating Button section', (tester) async {
+    testWidgets('shows Recording Overlay section', (tester) async {
       await tester.pumpWidget(makeTestable(const SettingsPage()));
       await tester.pumpAndSettle();
       await tester.drag(
@@ -65,7 +65,7 @@ void main() {
         const Offset(0, -800),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Overlay & Floating Button'), findsOneWidget);
+      expect(find.text('Recording Overlay'), findsOneWidget);
     });
 
     testWidgets('shows reset action', (tester) async {
