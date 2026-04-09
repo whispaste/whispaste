@@ -10,6 +10,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +31,11 @@ Future<void> runFloatingOverlayWindow(WindowController controller) async {
   FlutterError.onError = (details) {
     debugPrint('FloatingOverlay FlutterError: ${details.exception}');
     debugPrint('${details.stack}');
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('FloatingOverlay PlatformError: $error');
+    debugPrint('$stack');
+    return true; // handled — prevent process termination
   };
 
   await windowManager.ensureInitialized();
@@ -212,13 +218,20 @@ class _FloatingOverlayAppState extends State<_FloatingOverlayApp>
     return null;
   }
 
-  void _stop() => commandChannel.invokeMethod('stopRecording');
-  void _cancel() => commandChannel.invokeMethod('cancelRecording');
+  void _stop() => commandChannel
+      .invokeMethod('stopRecording')
+      .catchError((e) => debugPrint('FloatingOverlay: stop failed: $e'));
+  void _cancel() => commandChannel
+      .invokeMethod('cancelRecording')
+      .catchError((e) => debugPrint('FloatingOverlay: cancel failed: $e'));
   void _savePosition(Offset pos) {
-    commandChannel.invokeMethod(
-      'saveOverlayPosition',
-      jsonEncode({'x': pos.dx, 'y': pos.dy}),
-    );
+    commandChannel
+        .invokeMethod(
+          'saveOverlayPosition',
+          jsonEncode({'x': pos.dx, 'y': pos.dy}),
+        )
+        .catchError(
+            (e) => debugPrint('FloatingOverlay: savePosition failed: $e'));
   }
 
   @override

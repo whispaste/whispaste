@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
@@ -32,6 +33,11 @@ Future<void> runFloatingButtonWindow(WindowController controller) async {
   FlutterError.onError = (details) {
     debugPrint('FloatingButton FlutterError: ${details.exception}');
     debugPrint('${details.stack}');
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('FloatingButton PlatformError: $error');
+    debugPrint('$stack');
+    return true; // handled — prevent process termination
   };
 
   await windowManager.ensureInitialized();
@@ -268,7 +274,9 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
   }
 
   void _toggleRecording() {
-    commandChannel.invokeMethod('toggleRecording');
+    commandChannel
+        .invokeMethod('toggleRecording')
+        .catchError((e) => debugPrint('FloatingButton: toggle failed: $e'));
   }
 
   void _hideButton() {
@@ -276,7 +284,9 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
   }
 
   void _quitApp() {
-    commandChannel.invokeMethod('quitApp');
+    commandChannel
+        .invokeMethod('quitApp')
+        .catchError((e) => debugPrint('FloatingButton: quit failed: $e'));
   }
 
   /// GlobalKey for the navigator context — needed for `showMenu` after window
@@ -413,7 +423,8 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
       commandChannel.invokeMethod(
         'saveButtonPosition',
         jsonEncode({'x': pos.dx, 'y': pos.dy}),
-      );
+      ).catchError(
+          (e) => debugPrint('FloatingButton: savePosition failed: $e'));
     } catch (e) {
       debugPrint('FloatingButton: failed to save position: $e');
     }
@@ -433,7 +444,10 @@ class _FloatingButtonAppState extends State<_FloatingButtonApp>
       onDragEnd: _savePosition,
       onContextMenuRequest: _openContextMenu,
       onNavigate: (page) {
-        commandChannel.invokeMethod('showMainWindow', page);
+        commandChannel
+            .invokeMethod('showMainWindow', page)
+            .catchError(
+                (e) => debugPrint('FloatingButton: navigate failed: $e'));
       },
       onHide: _hideButton,
       onQuit: _quitApp,
