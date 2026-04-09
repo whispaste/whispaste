@@ -224,13 +224,36 @@ html.light .mockup-nb-checkbox { border-color: rgba(0,0,0,0.15); }
 html.light .mockup-nb-checkbox-checked { background: linear-gradient(135deg, #0891B2, #0E7490); border-color: #0891B2; }
 html.light .mockup-nb-card-selected { border-color: rgba(8,145,178,0.3) !important; background: rgba(8,145,178,0.04) !important; }
 
+/* ---- Download, changelog, sponsor cards (light theme) ---- */
+html.light .download-card {
+  background: rgba(255,255,255,0.7) !important;
+  border-color: #E2E8F0 !important;
+}
+html.light .download-card-recommended {
+  background: rgba(8,145,178,0.04) !important;
+  border-color: rgba(8,145,178,0.25) !important;
+}
+html.light .release-card {
+  background: rgba(255,255,255,0.7) !important;
+  border-color: #E2E8F0 !important;
+}
+html.light .sponsor-card {
+  background: rgba(255,255,255,0.7) !important;
+  border-color: #E2E8F0 !important;
+}
+html.light .sponsor-card:hover {
+  background: rgba(255,255,255,0.9) !important;
+}
+
 /* ---- Flutter design-token alignment ---- */
 /* Border strength: Flutter borderSubtle=12% white, borderDefault=19% white */
 /* Upgrade from 5-8% → 12-19% for structural borders */
 .feature-card,
 .pricing-card,
 .faq-item,
-.download-card {
+.download-card,
+.release-card,
+.sponsor-card {
   border-color: rgba(255, 255, 255, 0.12);
 }
 .feature-card:hover,
@@ -241,7 +264,9 @@ html.light .mockup-nb-card-selected { border-color: rgba(8,145,178,0.3) !importa
 /* Card shadows matching Flutter WpShadows.card */
 .feature-card,
 .pricing-card,
-.download-card {
+.download-card,
+.release-card,
+.sponsor-card {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.1);
 }
 .feature-card:hover,
@@ -253,6 +278,8 @@ html.light .mockup-nb-card-selected { border-color: rgba(8,145,178,0.3) !importa
 .feature-card,
 .pricing-card,
 .download-card,
+.release-card,
+.sponsor-card,
 .faq-item {
   border-radius: 14px;
 }
