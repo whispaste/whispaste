@@ -276,18 +276,36 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       }
 
-      // Save to history database.
-      await _saveToHistory(transcript, settings);
-
-      // ── Post-processing (LLM) ──────────────────────────────────────────
-      final finalText = transcript;
-
-      if (settings.postProcessEnabled) {
-        notifier.startProcessing();
-        _log.info('Post-processing enabled — skipping (not yet implemented)');
-
-        // TODO: Wire actual LLM post-processing via cloud API.
+      // ── Text replacements (voice shortcuts) ─────────────────────────────
+      var finalText = transcript;
+      if (settings.textReplacementsEnabled) {
+        try {
+          final db = ref.read(historyDatabaseProvider);
+          final replacements = await db.readAllReplacements();
+          if (replacements.isNotEmpty) {
+            for (final r in replacements) {
+              // Case-insensitive whole-word replacement.
+              final escaped = RegExp.escape(r.trigger);
+              final pattern = RegExp(
+                r'(?<=\s|^)' + escaped + r'(?=\s|$|[.,;:!?])',
+                caseSensitive: false,
+              );
+              finalText = finalText.replaceAll(pattern, r.replacement);
+            }
+            if (finalText != transcript) {
+              _log.info(
+                'Text replacements applied: ${replacements.length} rules, '
+                '${transcript.length}→${finalText.length} chars',
+              );
+            }
+          }
+        } on Exception catch (e) {
+          _log.warning('Text replacement failed (non-fatal): $e');
+        }
       }
+
+      // Save to history database (with replacements applied).
+      await _saveToHistory(finalText, settings);
 
       // Copy to clipboard / auto-paste based on user preference.
       // Timeout prevents a locked clipboard from hanging the pipeline.
