@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-dark: #0f1219;
+    --bg-accent: #111827;
+    --accent: #38D9F0;
+    --accent-secondary: #0891B2;
+    --text-primary: #f0f4f8;
+    --text-muted: rgba(240, 244, 248, 0.72);
+    --line: rgba(255, 255, 255, 0.08);
+  }
+
+  body {
+    width: 1200px;
+    height: 630px;
+    overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+    background:
+      radial-gradient(circle at 16% 20%, rgba(56, 217, 240, 0.14), transparent 34%),
+      radial-gradient(circle at 84% 72%, rgba(8, 145, 178, 0.12), transparent 32%),
+      linear-gradient(135deg, var(--bg-accent) 0%, #151c2e 40%, var(--bg-dark) 100%);
+    color: var(--text-primary);
+  }
+
+  .canvas {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: 1.02fr 0.98fr;
+    gap: 28px;
+    padding: 52px 54px;
+    position: relative;
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+
+  .brand img {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+  }
+
+  .brand .eyebrow {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .headline {
+    font-size: 72px;
+    font-weight: 900;
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+    max-width: 520px;
+    margin-bottom: 20px;
+  }
+
+  .headline em {
+    color: var(--accent);
+    font-style: normal;
+  }
+
+  .subtitle {
+    font-size: 22px;
+    line-height: 1.45;
+    max-width: 500px;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+  }
+
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+
+  .badge {
+    padding: 10px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 217, 240, 0.28);
+    background: rgba(56, 217, 240, 0.08);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .trust-note {
+    font-size: 15px;
+    color: rgba(240, 238, 246, 0.62);
+  }
+
+  .deck {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+  }
+
+  .glow {
+    position: absolute;
+    inset: 50px 20px;
+    border-radius: 48px;
+    background:
+      radial-gradient(circle at 40% 40%, rgba(56, 217, 240, 0.16), transparent 42%),
+      radial-gradient(circle at 72% 62%, rgba(8, 145, 178, 0.12), transparent 38%);
+    filter: blur(30px);
+    opacity: 0.7;
+  }
+
+  .card {
+    position: absolute;
+    width: 380px;
+    border-radius: 28px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: rgba(26, 26, 36, 0.92);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+  }
+
+  .card::before {
+    content: '';
+    display: block;
+    height: 28px;
+    background: rgba(26, 26, 36, 0.98);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .card::after {
+    content: '';
+    position: absolute;
+    top: 9px;
+    left: 14px;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #ff5f57;
+    box-shadow: 16px 0 0 #febc2e, 32px 0 0 #28c840;
+  }
+
+  .card img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .card-1 {
+    transform: translate(-112px, 72px) rotate(-7deg);
+  }
+
+  .card-2 {
+    transform: translate(12px, -8px) rotate(-1.5deg);
+  }
+
+  .card-3 {
+    transform: translate(140px, 92px) rotate(7deg);
+  }
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="content">
+      <div class="brand">
+        <img id="logo" src="" alt="WhisPaste">
+        <div id="eyebrow" class="eyebrow"></div>
+      </div>
+
+      <div id="headline" class="headline"></div>
+      <div id="subtitle" class="subtitle"></div>
+      <div id="badges" class="badges"></div>
+      <div id="trust-note" class="trust-note"></div>
+    </div>
+
+    <div class="deck">
+      <div class="glow"></div>
+      <div class="card card-1"><img id="card-1" src="" alt="WhisPaste screenshot 1"></div>
+      <div class="card card-2"><img id="card-2" src="" alt="WhisPaste screenshot 2"></div>
+      <div class="card card-3"><img id="card-3" src="" alt="WhisPaste screenshot 3"></div>
+    </div>
+  </div>
+</body>
+</html>
