@@ -1,3 +1,6 @@
+---
+import ScreenshotLightbox from './ScreenshotLightbox.astro';
+---
 <!-- Compact screenshot teaser — links to /screenshots for the full gallery -->
 <section id="app-screenshots" class="relative py-16 sm:py-20 scroll-mt-20">
   <div class="relative max-w-5xl mx-auto px-6">
@@ -12,45 +15,61 @@
         class="text-3xl sm:text-4xl font-bold text-white"
         data-i18n="screenshots.title"
       >
-        This is what WhisPaste looks like
+        Where your voice becomes text
       </h2>
       <p class="mt-3 text-gray-400 text-base" data-i18n="screenshots.desc">
-        Real app views — workspace, detail editor, voice shortcuts, hotkey setup, and stats.
+        Dictate, organize, refine. Here's how it looks in practice.
       </p>
     </div>
 
     <!-- Two hero screenshots: workspace (dark) + detail (light) -->
     <div class="teaser-pair scroll-reveal">
       <figure class="teaser-card teaser-card--primary">
-        <img
-          class="teaser-img"
-          src="/screenshots/en/dark/01_workspace_overview.png"
-          data-screenshot-en="/screenshots/en/dark/01_workspace_overview.png"
-          data-screenshot-de="/screenshots/de/dark/01_workspace_overview.png"
-          data-alt-en="WhisPaste workspace — dark theme"
-          data-alt-de="WhisPaste Workspace — dunkles Design"
-          alt="WhisPaste workspace — dark theme"
-          width="1904"
-          height="1041"
-          loading="eager"
-          decoding="async"
-        />
+        <button
+          class="teaser-thumb-btn"
+          data-teaser-idx="0"
+          aria-label="Your dictations at a glance — click to enlarge"
+          data-aria-label-en="Your dictations at a glance — click to enlarge"
+          data-aria-label-de="Alle Diktate auf einen Blick — klicken zum Vergrößern"
+        >
+          <img
+            class="teaser-img"
+            src="/screenshots/en/dark/01_workspace_overview.png"
+            data-screenshot-en="/screenshots/en/dark/01_workspace_overview.png"
+            data-screenshot-de="/screenshots/de/dark/01_workspace_overview.png"
+            data-alt-en="WhisPaste workspace — dark theme"
+            data-alt-de="WhisPaste Workspace — dunkles Design"
+            alt="WhisPaste workspace — dark theme"
+            width="1904"
+            height="1041"
+            loading="eager"
+            decoding="async"
+          />
+        </button>
       </figure>
 
       <figure class="teaser-card teaser-card--secondary">
-        <img
-          class="teaser-img"
-          src="/screenshots/en/light/02_workspace_detail.png"
-          data-screenshot-en="/screenshots/en/light/02_workspace_detail.png"
-          data-screenshot-de="/screenshots/de/light/02_workspace_detail.png"
-          data-alt-en="WhisPaste detail editor — light theme"
-          data-alt-de="WhisPaste Detail-Editor — helles Design"
-          alt="WhisPaste detail editor — light theme"
-          width="1904"
-          height="1041"
-          loading="lazy"
-          decoding="async"
-        />
+        <button
+          class="teaser-thumb-btn"
+          data-teaser-idx="1"
+          aria-label="Edit and refine each entry — click to enlarge"
+          data-aria-label-en="Edit and refine each entry — click to enlarge"
+          data-aria-label-de="Jeden Eintrag bearbeiten und verfeinern — klicken zum Vergrößern"
+        >
+          <img
+            class="teaser-img"
+            src="/screenshots/en/light/02_workspace_detail.png"
+            data-screenshot-en="/screenshots/en/light/02_workspace_detail.png"
+            data-screenshot-de="/screenshots/de/light/02_workspace_detail.png"
+            data-alt-en="WhisPaste detail editor — light theme"
+            data-alt-de="WhisPaste Detail-Editor — helles Design"
+            alt="WhisPaste detail editor — light theme"
+            width="1904"
+            height="1041"
+            loading="lazy"
+            decoding="async"
+          />
+        </button>
       </figure>
     </div>
 
@@ -60,12 +79,14 @@
         class="inline-flex items-center gap-2 text-brand-cyan hover:underline font-medium text-sm transition-colors"
         data-i18n="screenshots.seeAll"
       >
-        See all screenshots
+        Explore all screens
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
       </a>
     </div>
   </div>
 </section>
+
+<ScreenshotLightbox />
 
 <style>
   .teaser-pair {
@@ -77,7 +98,7 @@
 
   @media (min-width: 768px) {
     .teaser-pair {
-      grid-template-columns: 1.1fr 1fr;
+      grid-template-columns: 1fr 1fr;
       align-items: start;
     }
 
@@ -92,6 +113,18 @@
     overflow: hidden;
   }
 
+  .teaser-thumb-btn {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 14px;
+    overflow: hidden;
+    outline-offset: 3px;
+  }
+
   .teaser-img {
     display: block;
     width: 100%;
@@ -101,13 +134,15 @@
     transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .teaser-card:hover .teaser-img {
+  .teaser-thumb-btn:hover .teaser-img,
+  .teaser-thumb-btn:focus-visible .teaser-img {
     transform: translateY(-4px);
   }
 
   html.light .teaser-img {
     box-shadow: 0 14px 40px rgba(15, 23, 42, 0.1);
   }
+
 </style>
 
 <script>
@@ -119,10 +154,28 @@
       if (nextSrc && img.getAttribute('src') !== nextSrc) img.setAttribute('src', nextSrc);
       if (nextAlt) img.setAttribute('alt', nextAlt);
     });
+    // Sync aria-labels on buttons
+    document.querySelectorAll<HTMLElement>('[data-aria-label-en]').forEach(el => {
+      const label = lang === 'de' ? el.dataset.ariaLabelDe : el.dataset.ariaLabelEn;
+      if (label) el.setAttribute('aria-label', label);
+    });
   }
 
   syncScreenshotLanguage();
   const observer = new MutationObserver(syncScreenshotLanguage);
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
   window.addEventListener('pageshow', syncScreenshotLanguage);
+
+  // Wire teaser thumbnails to shared lightbox (ScreenshotLightbox.astro)
+  document.querySelectorAll<HTMLButtonElement>('.teaser-thumb-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.teaserIdx || '0', 10);
+      const teaserImgs = Array.from(
+        document.querySelectorAll<HTMLImageElement>('.teaser-img')
+      ).map(i => ({ src: i.getAttribute('src') || '', alt: i.getAttribute('alt') || '' }));
+      if ((window as any).openScreenshotLightbox) {
+        (window as any).openScreenshotLightbox(teaserImgs, idx);
+      }
+    });
+  });
 </script>
