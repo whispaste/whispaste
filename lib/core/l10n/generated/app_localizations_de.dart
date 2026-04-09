@@ -869,6 +869,19 @@ class L10nDe extends L10n {
   String get replacementsToggleDisabled => 'Sprachkürzel sind deaktiviert';
 
   @override
+  String get replacementsEnableBannerTitle => 'Sprachkürzel sind deaktiviert';
+
+  @override
+  String get replacementsEnableBannerHint =>
+      'Aktiviere sie, damit Auslöser-Phrasen bei der Diktat-Aufnahme automatisch ersetzt werden.';
+
+  @override
+  String get replacementsEnableAction => 'Aktivieren';
+
+  @override
+  String get replacementsDisableAction => 'Deaktivieren';
+
+  @override
   String get replacementsAddShortcut => 'Shortcut hinzufügen';
 
   @override
