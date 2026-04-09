@@ -18,6 +18,8 @@ import 'widgets/sidebar.dart';
 import 'widgets/status_bar.dart';
 import 'widgets/fab.dart';
 import 'widgets/title_bar.dart';
+import 'widgets/service_bootstrap.dart';
+import 'widgets/recording_behavior.dart';
 import 'features/history/history_page.dart';
 import 'features/settings/settings_page.dart';
 import 'features/replacements/replacements_page.dart';
@@ -29,14 +31,9 @@ import 'features/recording/recording_overlay.dart';
 import 'core/recording/recording_state.dart';
 import 'core/data/database.dart';
 import 'core/logging/crash_reporter.dart';
-import 'core/logging/app_logger.dart';
 import 'services/multi_window_service.dart';
 import 'services/recording_orchestrator.dart';
-import 'services/sound_feedback_service.dart';
 import 'services/stt_service.dart';
-import 'services/tray_service.dart';
-import 'services/hotkey_service.dart';
-import 'services/autostart_service.dart';
 import 'widgets/toast.dart';
 
 /// Active navigation page state (Riverpod 3.x Notifier).
@@ -85,62 +82,6 @@ class WhisPasteApp extends ConsumerWidget {
       supportedLocales: L10n.supportedLocales,
       home: const _AppShell(),
     );
-  }
-}
-
-/// Maps error codes from the recording orchestrator to localized messages.
-String _localizeError(L10n l10n, String errorCode) {
-  switch (errorCode) {
-    case 'stt_server_not_found':
-      return l10n.errorSttServerNotFound;
-    case 'onboarding_not_completed':
-      return l10n.errorOnboardingNotCompleted;
-    case 'stt_model_not_found':
-      return l10n.errorSttModelNotFound;
-    case 'stt_model_unknown':
-      return l10n.errorSttModelUnknown;
-    case 'recording_failed':
-      return l10n.errorRecordingFailed;
-    case 'no_audio_recorded':
-      return l10n.errorNoAudioRecorded;
-    case 'transcription_empty':
-      return l10n.errorTranscriptionEmpty;
-    case 'stt_server_failed':
-      return l10n.errorSttServerFailed;
-    case 'recording_guard_failed':
-      return l10n.recordingGuardFailed;
-    case 'recording_auto_stopped':
-      return l10n.recordingAutoStopped;
-    case 'pipeline_timeout':
-      return l10n.errorPipelineTimeout;
-    case 'wav_file_not_created':
-      return l10n.errorWavFileNotCreated;
-    case 'wav_file_empty':
-      return l10n.errorWavFileEmpty;
-    case 'stt_start_timeout':
-      return l10n.errorSttStartTimeout;
-    case 'transcription_timeout':
-      return l10n.errorTranscriptionTimeout;
-    case 'mic_permission_denied':
-      return l10n.errorMicPermissionDenied;
-    case 'recording_start_failed':
-      return l10n.errorRecordingStartFailed;
-    default:
-      return l10n.errorGeneric;
-  }
-}
-
-/// Maps info codes from the recording pipeline to localized messages.
-String _localizeInfo(L10n l10n, String infoCode) {
-  switch (infoCode) {
-    case 'info_engine_auto_download':
-      return l10n.infoEngineAutoDownload;
-    case 'info_engine_downloading':
-      return l10n.infoEngineDownloading;
-    case 'info_model_missing':
-      return l10n.infoModelMissing;
-    default:
-      return infoCode;
   }
 }
 
@@ -193,12 +134,8 @@ class _AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
-  static final _appLog = AppLogger('AppShell');
   Timer? _windowSaveTimer;
-  Timer? _doneResetTimer;
-  Timer? _watchdogTimer;
   bool _isMaximized = false;
-  bool _orchestratorInitialized = false;
 
   @override
   void initState() {
@@ -208,10 +145,6 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       windowManager.setPreventClose(true);
       windowManager.isMaximized().then((v) => _isMaximized = v);
     }
-    // Watchdog: detect and auto-recover if state stuck in "done" for >15s.
-    _watchdogTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      _checkStuckDone();
-    });
 
     // Show one-time migration toast if Go → Flutter migration happened.
     // Force a DB query first to ensure beforeOpen/migrations have completed.
@@ -240,32 +173,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       windowManager.removeListener(this);
     }
     _windowSaveTimer?.cancel();
-    _doneResetTimer?.cancel();
-    _watchdogTimer?.cancel();
     super.dispose();
-  }
-
-  DateTime? _doneEnteredAt;
-
-  void _checkStuckDone() {
-    try {
-      final state = ref.read(recordingProvider);
-      if (state.isDone) {
-        _doneEnteredAt ??= DateTime.now();
-        final stuck = DateTime.now().difference(_doneEnteredAt!);
-        if (stuck.inSeconds >= 15) {
-          _appLog.warning(
-            'Watchdog: state stuck in done for ${stuck.inSeconds}s — force reset',
-          );
-          ref.read(recordingOrchestratorProvider.notifier).reset();
-          _doneEnteredAt = null;
-        }
-      } else {
-        _doneEnteredAt = null;
-      }
-    } catch (_) {
-      // Provider may not be ready yet during startup.
-    }
   }
 
   /// Debounced save to avoid excessive DB writes during drag/resize.
@@ -344,124 +252,6 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     final sttStatus = ref.watch(sttServiceProvider);
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
 
-    // ── Service eager-init via ref.watch ──
-    // These are keepAlive NotifierProviders (not autoDispose). Riverpod
-    // creates each exactly once; subsequent builds reuse the same instance.
-    // This is intentional: services need to be alive for the entire app
-    // lifetime (tray icon, hotkey listener, STT prewarm, multi-window).
-    // Safe despite being in build() — no re-init on rebuild.
-
-    // Defer recording orchestrator init (and its STT prewarm) until after
-    // the first frame — so the window is interactive immediately.
-    if (!_orchestratorInitialized) {
-      _orchestratorInitialized = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) ref.read(recordingOrchestratorProvider);
-      });
-    } else {
-      ref.watch(recordingOrchestratorProvider);
-    }
-
-    // Eagerly initialise system tray and wire callbacks.
-    ref.watch(trayServiceProvider);
-    final tray = ref.read(trayServiceProvider.notifier);
-    tray.onToggleRecording = () {
-      ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
-    };
-    tray.onNavigate = (page) {
-      ref.read(activePageProvider.notifier).setPage(page);
-    };
-
-    // Eagerly initialise global hotkey (Ctrl+Shift+D → toggle recording).
-    ref.watch(hotkeyServiceProvider);
-    ref.read(hotkeyServiceProvider.notifier).onHotkeyPressed = () {
-      ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
-    };
-
-    // Sync autostart setting with system.
-    ref.watch(autostartServiceProvider);
-
-    // Initialise multi-window service for floating button/overlay (desktop).
-    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
-      ref.watch(multiWindowProvider);
-    }
-
-    // Show error/success feedback via toast when recording state changes.
-    // Also triggers sound feedback for start / stop / complete / error.
-    // Also updates the system tray menu.
-    ref.listen<RecordingState>(recordingProvider, (prev, next) {
-      tray.updateRecordingState(next, l10n: l10n);
-      if (next.isError && next.errorMessage != null) {
-        ref.read(soundFeedbackProvider.notifier).playError();
-        WpToast.show(
-          context,
-          message: _localizeError(l10n, next.errorMessage!),
-          type: WpToastType.error,
-          duration: const Duration(seconds: 5),
-          actionLabel: l10n.actionDismiss,
-          onAction: () {
-            ref.read(recordingOrchestratorProvider.notifier).reset();
-          },
-        );
-        // Auto-reset after toast display so FAB returns to idle.
-        Future.delayed(const Duration(seconds: 5), () {
-          try {
-            if (mounted && ref.read(recordingProvider).isError) {
-              _appLog.debug('Error auto-reset timer fired');
-              ref.read(recordingOrchestratorProvider.notifier).reset();
-            }
-          } catch (e) {
-            _appLog.warning('Error auto-reset failed', e);
-          }
-        });
-      } else if (next.isRecording && (prev == null || !prev.isRecording)) {
-        ref.read(soundFeedbackProvider.notifier).playRecordStart();
-      } else if (next.isTranscribing &&
-          (prev == null || !prev.isTranscribing)) {
-        ref.read(soundFeedbackProvider.notifier).playRecordStop();
-      } else if (next.isDone && next.transcript != null) {
-        _appLog.debug('State → done, scheduling sound + toast + 2s reset');
-        ref.read(soundFeedbackProvider.notifier).playTranscriptionComplete();
-        WpToast.show(
-          context,
-          message:
-              '${l10n.statusTranscriptionDone} — ${next.transcript!.length > 80 ? '${next.transcript!.substring(0, 80)}…' : next.transcript!}',
-          type: WpToastType.success,
-        );
-        // Auto-reset after a short delay so the FAB returns to idle.
-        _doneResetTimer?.cancel();
-        _doneResetTimer = Timer(const Duration(seconds: 2), () {
-          try {
-            _appLog.debug('Done reset timer fired — calling reset()');
-            if (mounted) {
-              ref.read(recordingOrchestratorProvider.notifier).reset();
-              _appLog.debug('Done reset completed');
-            }
-          } catch (e, st) {
-            _appLog.error('Done reset timer error', e, st);
-          }
-        });
-      } else if (next.isIdle && prev != null && !prev.isIdle) {
-        _appLog.debug('State → idle (from ${prev.phase})');
-        _doneResetTimer?.cancel();
-      }
-    });
-
-    // Listen for info notifications (soft preflight, auto-download).
-    ref.listen<String?>(recordingInfoProvider, (prev, next) {
-      if (next != null) {
-        WpToast.show(
-          context,
-          message: _localizeInfo(l10n, next),
-          type: WpToastType.info,
-        );
-        // Clear after showing so it can fire again.
-        Future.microtask(
-          () => ref.read(recordingInfoProvider.notifier).clear(),
-        );
-      }
-    });
-
     const contentRadius = BorderRadius.only(
       topLeft: Radius.circular(WpRadius.xl),
       bottomLeft: Radius.circular(WpRadius.xl),
@@ -475,7 +265,9 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       borderRadius: contentRadius,
     );
 
-    return Scaffold(
+    return ServiceBootstrapWidget(
+      child: RecordingBehaviorWidget(
+        child: Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
@@ -643,7 +435,9 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                 },
               ),
             ),
-    );
+    ),  // Scaffold
+    ),  // RecordingBehaviorWidget
+    );  // ServiceBootstrapWidget
   }
 }
 
