@@ -165,6 +165,27 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
     );
   }
 
+  Widget _buildDetailPanel(HistoryEntry entry) {
+    return HistoryDetailPanel(
+      key: ValueKey(entry.id),
+      entry: entry,
+      isDark: widget.isDark,
+      isTrashView: widget.isTrashView,
+      isArchiveView: widget.isArchiveView,
+      onClose: widget.onCloseDetail,
+      onCopy: () => widget.onCopy(entry),
+      onPin: () => widget.onPin(entry),
+      onDelete: () => widget.onDelete(entry),
+      onArchive: () => widget.onArchive(entry),
+      onRestore: () => widget.onRestore(entry),
+      onDuplicate:
+          widget.onDuplicate == null ? null : () => widget.onDuplicate!(entry),
+      onCopyMarkdown: widget.onCopyMarkdown == null
+          ? null
+          : () => widget.onCopyMarkdown!(entry),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final showDetail =
@@ -177,6 +198,20 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
     return LayoutBuilder(
       builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
+        final isCompact = totalWidth < WpLayout.breakpointMobile;
+
+        // ── Compact / mobile: full-screen detail overlay ──
+        if (isCompact) {
+          final entry = widget.selectedEntry ?? _displayedEntry;
+          if (entry != null && widget.selectedEntry != null) {
+            return _buildDetailPanel(entry);
+          }
+          return _buildMasterBody(
+            selectedId: (widget.selectedEntry ?? _displayedEntry)?.id,
+          );
+        }
+
+        // ── Desktop: side-by-side master + detail ──
         final maxMasterW = totalWidth * _maxMasterFraction;
         return AnimatedBuilder(
           animation: _detailWidth,
@@ -200,9 +235,7 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
                 ),
                 // Draggable divider
                 MouseRegion(
-                  cursor: _isDragging
-                      ? SystemMouseCursors.resizeColumn
-                      : SystemMouseCursors.resizeColumn,
+                  cursor: SystemMouseCursors.resizeColumn,
                   child: GestureDetector(
                     onHorizontalDragStart: (_) =>
                         setState(() => _isDragging = true),
@@ -252,34 +285,8 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
                                 child: child,
                               );
                             },
-                            child: HistoryDetailPanel(
-                              key: ValueKey(
-                                (widget.selectedEntry ?? _displayedEntry!)
-                                    .id),
-                              entry:
-                                  widget.selectedEntry ?? _displayedEntry!,
-                              isDark: widget.isDark,
-                              isTrashView: widget.isTrashView,
-                              isArchiveView: widget.isArchiveView,
-                              onClose: widget.onCloseDetail,
-                              onCopy: () => widget.onCopy(
-                                  widget.selectedEntry ?? _displayedEntry!),
-                              onPin: () => widget.onPin(
-                                  widget.selectedEntry ?? _displayedEntry!),
-                              onDelete: () => widget.onDelete(
-                                  widget.selectedEntry ?? _displayedEntry!),
-                              onArchive: () => widget.onArchive(
-                                  widget.selectedEntry ?? _displayedEntry!),
-                              onRestore: () => widget.onRestore(
-                                  widget.selectedEntry ?? _displayedEntry!),
-                              onDuplicate: widget.onDuplicate == null
-                                  ? null
-                                  : () => widget.onDuplicate!(
-                                      widget.selectedEntry ?? _displayedEntry!),
-                              onCopyMarkdown: widget.onCopyMarkdown == null
-                                  ? null
-                                  : () => widget.onCopyMarkdown!(
-                                      widget.selectedEntry ?? _displayedEntry!),
+                            child: _buildDetailPanel(
+                              widget.selectedEntry ?? _displayedEntry!,
                             ),
                           ),
                         ),
