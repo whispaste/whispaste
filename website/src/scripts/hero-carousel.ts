@@ -86,7 +86,7 @@ const waveBars: {
   amp: number;
 }[] = [];
 if (waveformEl) {
-  for (let i = 0; i < 25; i++) {
+  for (let i = 0; i < 30; i++) {
     const bar = document.createElement("div");
     bar.className = "overlay-wave-bar";
     bar.style.height = "2px";
