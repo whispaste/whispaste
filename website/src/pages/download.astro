@@ -20,9 +20,9 @@ import StoreButton from "../components/StoreButton.astro";
         </div>
 
         <!-- Section 1: Microsoft Store (recommended) -->
-        <div class="download-card rounded-2xl border border-brand-cyan/20 bg-brand-cyan/[0.03] p-6 sm:p-8 mb-6 relative">
+        <div class="download-card download-card-recommended rounded-2xl border border-brand-cyan/20 bg-brand-cyan/[0.03] p-6 sm:p-8 mb-6 relative">
           <div class="absolute -top-3 left-6">
-            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#0b1a2b] ring-1 ring-brand-cyan/30 text-brand-cyan text-xs font-semibold">
+            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full recommended-badge ring-1 ring-brand-cyan/30 text-brand-cyan text-xs font-semibold">
               <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
               <span data-i18n="download.store.recommended">Recommended</span>
             </span>
@@ -93,7 +93,7 @@ import StoreButton from "../components/StoreButton.astro";
           </div>
 
           <!-- SmartScreen guide -->
-          <div class="rounded-xl border border-amber-500/10 bg-amber-500/[0.03] p-5">
+          <div class="smartscreen-box rounded-xl border border-amber-500/10 bg-amber-500/[0.03] p-5">
             <div class="flex items-start gap-3 mb-4">
               <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
               <div>
@@ -165,5 +165,16 @@ import StoreButton from "../components/StoreButton.astro";
 <style>
   .download-card {
     background: linear-gradient(135deg, rgba(29, 37, 56, 0.4) 0%, rgba(23, 29, 44, 0.2) 100%);
+  }
+  .recommended-badge {
+    background: #0b1a2b;
+  }
+  :root.light .recommended-badge {
+    background: rgba(8, 145, 178, 0.08);
+    ring-color: rgba(8, 145, 178, 0.3);
+  }
+  :root.light .smartscreen-box {
+    background: rgba(245, 158, 11, 0.06);
+    border-color: rgba(245, 158, 11, 0.15);
   }
 </style>
