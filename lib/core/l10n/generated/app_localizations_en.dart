@@ -1883,4 +1883,43 @@ class L10nEn extends L10n {
   String commandPaletteExported(String path) {
     return 'Exported to $path';
   }
+
+  @override
+  String updateAvailable(String version) {
+    return 'Update available: v$version';
+  }
+
+  @override
+  String updateDownloading(int percent) {
+    return 'Downloading update… $percent%';
+  }
+
+  @override
+  String get updateReadyToInstall => 'Update ready — click to install';
+
+  @override
+  String get updateUpToDate => 'You\'re on the latest version';
+
+  @override
+  String get updateCheckNow => 'Check Now';
+
+  @override
+  String get updateInstall => 'Install Update';
+
+  @override
+  String get updateDownload => 'Download';
+
+  @override
+  String get updateViewRelease => 'Release Notes';
+
+  @override
+  String get updateError => 'Update check failed';
+
+  @override
+  String get updateRateLimited => 'Too many requests — try again later';
+
+  @override
+  String updateStatusBarChip(String version) {
+    return 'v$version available';
+  }
 }

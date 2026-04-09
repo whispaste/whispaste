@@ -634,5 +634,17 @@
     "placeholders": {
       "path": { "type": "String" }
     }
-  }
+  },
+
+  "updateAvailable": "Update verfügbar: v{version}",
+  "updateDownloading": "Update wird heruntergeladen… {percent} %",
+  "updateReadyToInstall": "Update bereit — zum Installieren klicken",
+  "updateUpToDate": "Du verwendest die neueste Version",
+  "updateCheckNow": "Jetzt prüfen",
+  "updateInstall": "Update installieren",
+  "updateDownload": "Herunterladen",
+  "updateViewRelease": "Versionshinweise",
+  "updateError": "Update-Prüfung fehlgeschlagen",
+  "updateRateLimited": "Zu viele Anfragen — versuche es später erneut",
+  "updateStatusBarChip": "v{version} verfügbar"
 }
