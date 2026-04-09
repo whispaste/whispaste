@@ -105,7 +105,7 @@ class OverlayButtonSection extends ConsumerWidget {
                 subtitle: l10n.settingsFloatingButtonSizeSubtitle,
                 trailing: settingsDropdown(
                   context: context,
-                  value: settings.floatingButtonSize,
+                  value: settings.floatingButtonSizeType.value,
                   items: FloatingButtonSize.values
                       .map((e) => e.value)
                       .toList(),
