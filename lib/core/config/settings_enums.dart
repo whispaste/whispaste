@@ -200,6 +200,49 @@ enum FloatingButtonSize {
 }
 
 // ---------------------------------------------------------------------------
+// Floating Overlay Size
+// ---------------------------------------------------------------------------
+
+/// Display size for the floating overlay window.
+enum FloatingOverlaySize {
+  normal('normal'),
+  compact('compact');
+
+  const FloatingOverlaySize(this.value);
+  final String value;
+
+  static FloatingOverlaySize fromValue(String? v) {
+    for (final e in values) {
+      if (e.value == v) return e;
+    }
+    return normal;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Overlay Auto-Hide Delay
+// ---------------------------------------------------------------------------
+
+/// How long the floating overlay stays visible after completion.
+enum OverlayAutoHide {
+  seconds2('2s', 2),
+  seconds5('5s', 5),
+  seconds10('10s', 10),
+  manual('manual', 0);
+
+  const OverlayAutoHide(this.value, this.seconds);
+  final String value;
+  final int seconds;
+
+  static OverlayAutoHide fromValue(String? v) {
+    for (final e in values) {
+      if (e.value == v) return e;
+    }
+    return seconds5;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // GPU Acceleration
 // ---------------------------------------------------------------------------
 
