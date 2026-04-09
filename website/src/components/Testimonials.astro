@@ -85,12 +85,14 @@
         return;
       }
 
-      grid.innerHTML = testimonials.map((t: { rating: number; text: string }) => `
+      grid.innerHTML = testimonials.map((t: { rating: number; text: string }) => {
+        const r = Math.max(0, Math.min(5, Math.round(t.rating) || 0));
+        return `
         <div class="testimonial-card">
-          <div class="testimonial-stars">${'★'.repeat(t.rating)}${'☆'.repeat(5 - t.rating)}</div>
+          <div class="testimonial-stars">${'★'.repeat(r)}${'☆'.repeat(5 - r)}</div>
           <p class="testimonial-text">"${escapeHtml(t.text)}"</p>
         </div>
-      `).join('');
+      `}).join('');
 
       grid.style.display = '';
     } catch {

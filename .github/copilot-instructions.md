@@ -68,6 +68,32 @@ When writing UI copy, onboarding, landing-page copy, or release notes, optimize 
 - professional usefulness rather than hobbyist tinkering language
 - lightweight, premium workflows instead of enterprise-heavy jargon
 
+## Website & Landing Page Copy Rules — MANDATORY
+
+These rules apply to ALL user-facing text on the website, landing page, download page, and related marketing surfaces. They also apply to in-app text where stated.
+
+### Naming
+- **"Whisper" ≠ "WhisPaste"**: Whisper is the underlying speech recognition technology. Users don't need to know about it. Never use "Whisper" as a synonym for the app in user-facing copy. Say **"WhisPaste"** or describe the benefit (e.g., "built-in speech recognition"). Exception: changelog entries are historical records and may keep the original phrasing.
+- **"Post-Processing"** (EN) / **"Nachbearbeitung"** (DE): The correct feature name. Never say "Smart Mode" in new text.
+
+### Hardware & Platform
+- WhisPaste uses **both CPU and GPU** (NVIDIA CUDA, AMD/Intel Vulkan). Never say "runs on your CPU" alone — it's inaccurate and too technical.
+- For user-facing copy, say **"runs on your computer"**, **"runs locally on your device"**, or similar. If GPU matters contextually, say "including GPU acceleration for faster results."
+- **Desktop platforms**: Windows (released), macOS and Linux (coming soon). **Mobile**: iOS and Android are companion/supplement only — no local transcription on mobile.
+
+### Monetization Model
+- **Store purchase** (Microsoft Store, etc.) = the preferred install path. Supports the project financially. Gets auto-updates and no SmartScreen warnings.
+- **GitHub free download** = always available alternative, but presented **more subtly**. Not the primary CTA.
+- **The app is identical** in both paths — no features are locked, gated, or restricted.
+- This is **NOT freemium**. Never say "premium tier", "paid features", or "free tier". All features are the same.
+- Frame it as: "Support the project by getting it from the Store, or download free from GitHub."
+
+### Copy Quality
+- **No jargon**: Avoid CPU, GPU, Whisper, models, inference, subprocess, binary in user-facing copy. Describe benefits and outcomes.
+- **No AI-sounding text**: Copy must read like a human wrote it. Avoid stilted, overly polished marketing phrases. Prefer conversational, direct language.
+- **Consistency**: Website copy must use the same terminology as the app UI. If the app says "Post-Processing", the website says "Post-Processing" — not "AI cleanup" or "text refinement".
+- **Target audience first**: Every sentence should be immediately clear to a non-technical professional (founder, freelancer, writer, consultant). If a sentence requires developer knowledge to understand, rewrite it.
+
 ## Design System Rules — MANDATORY
 
 These rules apply to ALL UI code. Violations will be caught in tests and code review.
