@@ -79,6 +79,18 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   // Timer for auto-dismissing the floating overlay after completion.
   Timer? _overlayDismissTimer;
 
+  // ── State push throttling ──
+  // During recording, audioLevel updates fire ~10/sec. Each triggers a
+  // method channel call per secondary window.  On Windows, these calls go
+  // through SendMessage (synchronous) — if the secondary engine is slow,
+  // the main Win32 message loop blocks, causing a UI freeze.
+  // We throttle audio-level-only pushes to at most once per 150ms (~7fps)
+  // while still pushing every phase transition immediately.
+  DateTime _lastStatePushTime = DateTime.fromMillisecondsSinceEpoch(0);
+  RecordingPhase? _lastPushedPhase;
+  static const _minStatePushInterval = Duration(milliseconds: 150);
+  Timer? _coalescedPushTimer;
+
   /// Whether recording is currently active (non-idle).
   bool get _isRecording {
     try {
@@ -203,6 +215,7 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
       _buttonDebounce?.cancel();
       _overlayDebounce?.cancel();
       _overlayDismissTimer?.cancel();
+      _coalescedPushTimer?.cancel();
       // Only clear our handler — do NOT close secondary windows.
       // They survive hot reload and will be reconnected by the next build().
       commandChannel.setMethodCallHandler(null);
@@ -218,7 +231,18 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     // refs survive hot reload, but they are not enough to dedupe orphaned
     // secondary engines or recover hidden windows reliably.
     Future.microtask(() async {
-      await _restoreExistingWindows();
+      try {
+        await _restoreExistingWindows().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            _log.warning('Window restoration timed out (10s)');
+            _reconcilingWindows = false;
+          },
+        );
+      } catch (e) {
+        _log.warning('Window restoration failed: $e');
+        _reconcilingWindows = false;
+      }
     });
 
     return initialState;
@@ -383,6 +407,15 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
     try {
       final response = await candidate.controller.invokeMethod(
         'getWindowStatus',
+      ).timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {
+          _log.warning(
+            'Probe timed out for ${candidate.type} '
+            'window ${candidate.controller.windowId}',
+          );
+          return null;
+        },
       );
       if (response is! String) return null;
       final data = jsonDecode(response) as Map<String, dynamic>;
@@ -423,10 +456,16 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   }) async {
     _log.info('Retiring $type window ${controller.windowId} ($reason)');
     try {
-      await controller.invokeMethod('shutdown');
+      await controller.invokeMethod('shutdown').timeout(
+        const Duration(seconds: 1),
+        onTimeout: () => null,
+      );
     } catch (_) {}
     try {
-      await controller.invokeMethod('hideWindow');
+      await controller.invokeMethod('hideWindow').timeout(
+        const Duration(seconds: 1),
+        onTimeout: () => null,
+      );
     } catch (_) {}
     try {
       await controller.hide();
@@ -831,6 +870,33 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
   }
 
   void _pushRecordingState(RecordingState recState) {
+    final isPhaseChange = recState.phase != _lastPushedPhase;
+
+    // Phase transitions are always pushed immediately.
+    // Audio-level-only updates during recording are throttled to prevent
+    // flooding the native message channel (~10/sec → ~7/sec max).
+    if (!isPhaseChange && recState.phase == RecordingPhase.recording) {
+      final now = DateTime.now();
+      if (now.difference(_lastStatePushTime) < _minStatePushInterval) {
+        // Schedule a coalesced push so we don't drop the latest level.
+        _coalescedPushTimer ??= Timer(_minStatePushInterval, () {
+          _coalescedPushTimer = null;
+          if (_overlayController != null || _buttonController != null) {
+            _doPush(ref.read(recordingProvider));
+          }
+        });
+        return;
+      }
+    }
+
+    _coalescedPushTimer?.cancel();
+    _coalescedPushTimer = null;
+    _doPush(recState);
+  }
+
+  void _doPush(RecordingState recState) {
+    _lastStatePushTime = DateTime.now();
+    _lastPushedPhase = recState.phase;
     final encoded = _encodeWithSettings(recState);
     // Push to all live controllers regardless of visibility flags.
     // The visibility flags can temporarily go false during window
