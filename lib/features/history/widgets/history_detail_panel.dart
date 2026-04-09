@@ -68,6 +68,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   void initState() {
     super.initState();
     _transcriptController = TextEditingController(text: widget.entry.content);
+    // Auto-focus panel so its shortcuts AND ancestor list shortcuts both work.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _panelFocusNode.requestFocus();
+    });
   }
 
   @override
@@ -434,8 +438,8 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                     onTap: onCopy,
                   ),
                   HistoryDetailAction(
-                    icon: entry.pinned ? LucideIcons.pinOff : LucideIcons.pin,
-                    tooltip: '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (P)',
+                    icon: entry.pinned ? LucideIcons.starOff : LucideIcons.star,
+                    tooltip: '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (F)',
                     isDark: isDark,
                     onTap: onPin,
                   ),
@@ -444,9 +448,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                     icon: Icon(
                       LucideIcons.ellipsisVertical,
                       size: 18,
-                      color: isDark
-                          ? WpColorsDark.textSecondary
-                          : WpColorsLight.textSecondary,
+                      color: textSecondary,
                     ),
                     tooltip: '',
                     padding: EdgeInsets.zero,
@@ -546,8 +548,9 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                     children: [
                   // ── Context zone: metadata + tags ──
                   Wrap(
-                    spacing: WpSpacing.xs,
+                    spacing: WpSpacing.sm,
                     runSpacing: WpSpacing.xs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       _MetaChip(
                         icon: LucideIcons.clock,
@@ -583,43 +586,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                     ],
                   ),
                   const SizedBox(height: WpSpacing.sm),
-                  // Tags — interactive editor
-                  GestureDetector(
-                    onTap: () => _tagSectionKey.currentState?.focusTagInput(),
-                    behavior: HitTestBehavior.opaque,
-                    child: Row(
-                      children: [
-                        Icon(LucideIcons.tags, size: WpIconSize.sm, color: accent),
-                        const SizedBox(width: WpSpacing.xs),
-                        Text(
-                          l10n.historyTags,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: textSecondary,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                        const SizedBox(width: WpSpacing.xs),
-                        Tooltip(
-                          message: l10n.historyAddTag,
-                          child: InkWell(
-                            borderRadius: const BorderRadius.all(Radius.circular(999)),
-                            onTap: () => _tagSectionKey.currentState?.focusTagInput(),
-                            child: Padding(
-                              padding: const EdgeInsets.all(2),
-                              child: Icon(
-                                LucideIcons.plus,
-                                size: WpIconSize.xs,
-                                color: accent.withValues(alpha: 0.5),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: WpSpacing.xs),
+                  // Tags — label + chips in a single inline flow
                   _TagSection(
                     key: _tagSectionKey,
                     entryId: entry.id,
@@ -674,9 +641,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: WpRadius.borderSm,
                                     borderSide: BorderSide(
-                                      color: isDark
-                                          ? WpColorsDark.accent
-                                          : WpColorsLight.accent,
+                                      color: accent,
                                       width: 1.5,
                                     ),
                                   ),
@@ -689,7 +654,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                 waitDuration: const Duration(milliseconds: 600),
                                 child: GestureDetector(
                                   onTap: isTrashView ? null : _toggleEdit,
-                                  onDoubleTap: isTrashView ? null : _toggleEdit,
                                   behavior: HitTestBehavior.translucent,
                                   child: MouseRegion(
                                     cursor: isTrashView
@@ -714,16 +678,14 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                     Row(
                       children: [
                         if (entry.titleEdited || _isEditingTranscript)
-                          Flexible(
-                            child: Container(
+                          Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: WpSpacing.sm,
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
                               color: _isEditingTranscript
-                                  ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
-                                      .withValues(alpha: 0.15)
+                                  ? accent.withValues(alpha: 0.15)
                                   : textMuted.withValues(alpha: 0.1),
                               borderRadius: WpRadius.borderFull,
                             ),
@@ -737,19 +699,16 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                     ? FontWeight.w600
                                     : FontWeight.normal,
                                 color: _isEditingTranscript
-                                    ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                                    ? accent
                                     : textMuted,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          ),
                         const Spacer(),
-                        // Word count + reading time (always shown when content exists)
                         if (entry.content.isNotEmpty || _isEditingTranscript)
-                          Flexible(
-                            child: Padding(
+                          Padding(
                             padding: const EdgeInsets.only(right: WpSpacing.sm),
                             child: Text(
                               _wordCountLabel(l10n),
@@ -760,7 +719,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                          ),
                           ),
                         Tooltip(
                           message: _isEditingTranscript
@@ -780,8 +738,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: _isEditingTranscript
-                                      ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
-                                          .withValues(alpha: 0.15)
+                                      ? accent.withValues(alpha: 0.15)
                                       : textMuted.withValues(alpha: 0.08),
                                   borderRadius: WpRadius.borderFull,
                                 ),
@@ -794,7 +751,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                           : LucideIcons.pencil,
                                       size: 14,
                                       color: _isEditingTranscript
-                                          ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                                          ? accent
                                           : textMuted,
                                     ),
                                     const SizedBox(width: 6),
@@ -806,7 +763,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500,
                                         color: _isEditingTranscript
-                                            ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                                            ? accent
                                             : textMuted,
                                       ),
                                     ),
@@ -1112,6 +1069,10 @@ class _TagSectionState extends ConsumerState<_TagSection> {
   Widget build(BuildContext context) {
     final notifier = ref.read(historyDetailProvider(widget.entryId).notifier);
     final l10n = L10n.of(context);
+    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textSecondary = widget.isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
 
     return WpTagInput(
       key: _tagInputKey,
@@ -1121,6 +1082,22 @@ class _TagSectionState extends ConsumerState<_TagSection> {
       searchHintText: l10n.historySearchTags,
       suggestions: _suggestions,
       suggestionCounts: _suggestionCounts,
+      inlineLabel: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.tags, size: WpIconSize.sm, color: accent),
+          const SizedBox(width: WpSpacing.xxs),
+          Text(
+            l10n.historyTags,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: textSecondary,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
       onSearchChanged: (q) {
         widget.onSearchChanged(q);
         _loadSuggestions();

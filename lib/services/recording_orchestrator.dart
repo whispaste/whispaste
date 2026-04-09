@@ -111,6 +111,11 @@ class RecordingOrchestrator extends Notifier<void> {
       final audioNotifier = ref.read(audioServiceProvider.notifier);
       await audioNotifier.startRecording();
 
+      // Pre-warm STT server in background while user speaks.
+      Future.microtask(
+        () => ref.read(sttServiceProvider.notifier).ensureRunning(),
+      );
+
       // Verify recording actually started.
       final audioStatus = ref.read(audioServiceProvider);
       if (audioStatus.captureState == AudioCaptureState.error) {

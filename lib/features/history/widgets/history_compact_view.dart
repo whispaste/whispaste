@@ -164,7 +164,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                     ),
                   ),
                 ),
-              // Pin indicator
+              // Favorite indicator
               if (widget.entry.pinned)
                 Container(
                   width: 6,
