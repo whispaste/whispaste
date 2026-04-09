@@ -109,9 +109,11 @@ class OverlayButtonSection extends ConsumerWidget {
                   items: FloatingButtonSize.values
                       .map((e) => e.value)
                       .toList(),
-                  labels: FloatingButtonSize.values
-                      .map((e) => '${e.pixels}px')
-                      .toList(),
+                  labels: [
+                    l10n.settingsSizeSmall,
+                    l10n.settingsSizeNormal,
+                    l10n.settingsSizeLarge,
+                  ],
                   onChanged: (v) {
                     if (v == null) return;
                     ref
