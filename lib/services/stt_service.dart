@@ -295,13 +295,29 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     _cleanupProcess();
     _lastPrompt = null;
 
-    state = const SttStatus();
-    _log.info('Local STT stopped');
+    _transition(const SttStatus());
   }
 
   // -------------------------------------------------------------------------
   // Private
   // -------------------------------------------------------------------------
+
+  /// Centralized state transition with structured lifecycle logging.
+  ///
+  /// Every [SttServerState] change goes through this method so that
+  /// transitions are traceable in logs and Sentry breadcrumbs.
+  void _transition(SttStatus next) {
+    final prev = state.serverState;
+    state = next;
+    if (prev == next.serverState) return;
+
+    final extra = StringBuffer();
+    if (next.port > 0) extra.write(' port=${next.port}');
+    if (next.modelId.isNotEmpty) extra.write(' model=${next.modelId}');
+    if (next.errorMessage != null) extra.write(' error="${next.errorMessage}"');
+
+    _log.info('STT lifecycle: $prev → ${next.serverState}$extra');
+  }
 
   /// Kills the process without touching state or timers.
   void _cleanupProcess() {
@@ -327,13 +343,22 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   /// Fast health check with a tight timeout (< 500 ms). Used on the warm path
   /// to verify the server is still alive without blocking the user.
   Future<bool> _quickHealthCheck(int port) async {
+    final sw = Stopwatch()..start();
     try {
       final uri = Uri.parse('http://127.0.0.1:$port/health');
       final resp = await http.get(uri).timeout(
         const Duration(milliseconds: 500),
       );
-      return resp.statusCode == 200;
-    } on Exception {
+      sw.stop();
+      final ok = resp.statusCode == 200;
+      _log.debug(
+        'Health check: ${ok ? "ok" : "status=${resp.statusCode}"} '
+        '(${sw.elapsedMilliseconds}ms)',
+      );
+      return ok;
+    } on Exception catch (e) {
+      sw.stop();
+      _log.debug('Health check: failed (${sw.elapsedMilliseconds}ms) $e');
       return false;
     }
   }
@@ -436,7 +461,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     required String modelId,
     required String gpuAcceleration,
   }) async {
-    state = const SttStatus(serverState: SttServerState.starting);
+    _transition(const SttStatus(serverState: SttServerState.starting));
 
     // --- Resolve paths -------------------------------------------------------
     final serverPath = whisperServerPath();
@@ -565,22 +590,22 @@ class SttServiceNotifier extends Notifier<SttStatus> {
           }
           _process = null;
           _activeModel = null;
-          state = SttStatus(
+          _transition(SttStatus(
             serverState: SttServerState.error,
             errorMessage: isDllNotFound
                 ? 'Incompatible server binary for your GPU. '
                     'Please re-download the speech model in Settings.'
                 : 'whisper-server exited before becoming ready (code $code)',
-          );
+          ));
         }
       }),
     );
 
-    state = SttStatus(
+    _transition(SttStatus(
       serverState: SttServerState.starting,
       port: port,
       modelId: modelId,
-    );
+    ));
 
     // --- Health poll ---------------------------------------------------------
     final coldStart = Stopwatch()..start();
@@ -612,11 +637,11 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     // first recording into the hidden startup phase.
     await _warmupInference(port);
 
-    state = SttStatus(
+    _transition(SttStatus(
       serverState: SttServerState.ready,
       port: port,
       modelId: modelId,
-    );
+    ));
   }
 
   /// Progressive-backoff health polling (mirrors Go's `waitReady`).
@@ -739,10 +764,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
   void _fail(String message) {
     _log.error('STT error: $message');
-    state = SttStatus(
+    _transition(SttStatus(
       serverState: SttServerState.error,
       errorMessage: message,
-    );
+    ));
   }
 }
 
