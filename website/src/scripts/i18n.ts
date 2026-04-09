@@ -464,12 +464,14 @@ export function applyLang() {
 }
 
 // Expose globally for onclick handlers
-(window as any).toggleLang = toggleLang;
-(window as any).currentLang = currentLang;
-
-// Keep window.currentLang in sync
-const origToggle = toggleLang;
-(window as any).toggleLang = function() {
-  origToggle();
+if (typeof window !== 'undefined') {
+  (window as any).toggleLang = toggleLang;
   (window as any).currentLang = currentLang;
-};
+
+  // Keep window.currentLang in sync
+  const origToggle = toggleLang;
+  (window as any).toggleLang = function() {
+    origToggle();
+    (window as any).currentLang = currentLang;
+  };
+}
