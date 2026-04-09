@@ -1942,4 +1942,54 @@ class L10nDe extends L10n {
   String updateStatusBarChip(String version) {
     return 'v$version verfügbar';
   }
+
+  @override
+  String get settingsOverlaySize => 'Overlay-Größe';
+
+  @override
+  String get settingsOverlaySizeSubtitle =>
+      'Wähle zwischen detaillierter oder minimaler Anzeige';
+
+  @override
+  String get settingsOverlaySizeNormal => 'Normal';
+
+  @override
+  String get settingsOverlaySizeCompact => 'Kompakt';
+
+  @override
+  String get settingsOverlayAutoHide => 'Automatisches Ausblenden';
+
+  @override
+  String get settingsOverlayAutoHideSubtitle =>
+      'Wie lange das Overlay nach Abschluss sichtbar bleibt';
+
+  @override
+  String get settingsOverlayAutoHide2s => '2 Sekunden';
+
+  @override
+  String get settingsOverlayAutoHide5s => '5 Sekunden';
+
+  @override
+  String get settingsOverlayAutoHide10s => '10 Sekunden';
+
+  @override
+  String get settingsOverlayAutoHideManual => 'Bis manuell geschlossen';
+
+  @override
+  String get overlayRetry => 'Erneut versuchen';
+
+  @override
+  String get overlayDismiss => 'Schließen';
+
+  @override
+  String get overlayContextCancel => 'Aufnahme abbrechen';
+
+  @override
+  String get overlayContextSwitchNormal => 'Zu Normal wechseln';
+
+  @override
+  String get overlayContextSwitchCompact => 'Zu Kompakt wechseln';
+
+  @override
+  String get overlayContextHide => 'Overlay ausblenden';
 }
