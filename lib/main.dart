@@ -8,10 +8,12 @@ import 'app.dart';
 import 'core/config/settings_provider.dart';
 import 'core/logging/app_monitoring.dart';
 import 'services/audio_service.dart';
+import 'services/deploy_channel_service.dart';
 import 'services/hardware_info_service.dart' as hw;
 import 'services/path_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/subprocess_guard.dart' as guard;
+import 'services/update_service.dart';
 
 Future<ProviderContainer> bootstrapAppContainer({
   List overrides = const [],
@@ -93,6 +95,15 @@ Future<void> main(List<String> args) async {
     // the incompatible binary is auto-deleted so the next download fetches
     // the correct variant.
     unawaited(hw.validateAndCleanIncompatibleBinary(sttDir()));
+
+    // Check for updates on startup if enabled and not running from Store.
+    final channel = container.read(deployChannelProvider);
+    if (settings.checkUpdates && channel != DeployChannel.store) {
+      // Short delay so the UI renders first.
+      Future<void>.delayed(const Duration(seconds: 3), () {
+        container.read(updateProvider.notifier).checkForUpdate();
+      });
+    }
 
     runApp(
       UncontrolledProviderScope(
