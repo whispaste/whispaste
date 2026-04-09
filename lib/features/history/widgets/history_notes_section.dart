@@ -33,6 +33,7 @@ class HistoryNotesSection extends ConsumerStatefulWidget {
 class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   final _controller = TextEditingController();
   final _editController = TextEditingController();
+  final _addKeyboardFocusNode = FocusNode();
   bool _isAdding = false;
   String? _editingNoteId;
 
@@ -45,6 +46,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   void dispose() {
     _controller.dispose();
     _editController.dispose();
+    _addKeyboardFocusNode.dispose();
     super.dispose();
   }
 
@@ -144,15 +146,19 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                 children: [
                   Icon(LucideIcons.stickyNote, size: WpIconSize.sm, color: accent),
                   const SizedBox(width: WpSpacing.xs),
-                  Text(
-                    noteList.isEmpty
-                        ? l10n.historyAddNote
-                        : '${l10n.historyNotes} (${noteList.length})',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: textSecondary,
-                      letterSpacing: 0.3,
+                  Flexible(
+                    child: Text(
+                      noteList.isEmpty
+                          ? l10n.historyAddNote
+                          : '${l10n.historyNotes} (${noteList.length})',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: textSecondary,
+                        letterSpacing: 0.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: WpSpacing.sm),
@@ -190,7 +196,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                   children: [
                     Expanded(
                       child: KeyboardListener(
-                        focusNode: FocusNode(),
+                        focusNode: _addKeyboardFocusNode,
                         onKeyEvent: (event) {
                           if (event is KeyDownEvent &&
                               event.logicalKey == LogicalKeyboardKey.enter &&
@@ -241,6 +247,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
             for (final note in noteList) ...[
               const SizedBox(height: WpSpacing.xs),
               _NoteItem(
+                key: ValueKey(note.id),
                 note: note,
                 isEditing: _editingNoteId == note.id,
                 editController: _editController,
@@ -269,6 +276,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
 
 class _NoteItem extends StatefulWidget {
   const _NoteItem({
+    super.key,
     required this.note,
     required this.isEditing,
     required this.editController,
@@ -304,6 +312,13 @@ class _NoteItem extends StatefulWidget {
 
 class _NoteItemState extends State<_NoteItem> {
   bool _hovered = false;
+  final _editKeyboardFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _editKeyboardFocusNode.dispose();
+    super.dispose();
+  }
 
   String _formatNoteTimestamp(EntryNote note) {
     final fmt = DateFormat.yMd().add_Hm();
@@ -345,7 +360,7 @@ class _NoteItemState extends State<_NoteItem> {
                 children: [
                   Expanded(
                     child: KeyboardListener(
-                      focusNode: FocusNode(),
+                      focusNode: _editKeyboardFocusNode,
                       onKeyEvent: (event) {
                         if (event is KeyDownEvent &&
                             event.logicalKey == LogicalKeyboardKey.enter &&
