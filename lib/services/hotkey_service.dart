@@ -44,15 +44,23 @@ class HotkeyService extends Notifier<void> {
       if (current == null || previous == null) return;
       final changed =
           previous.hotkeyKey != current.hotkeyKey ||
-          previous.hotkeyModifiers != current.hotkeyModifiers;
+          previous.hotkeyModifiers != current.hotkeyModifiers ||
+          previous.hotkeyEnabled != current.hotkeyEnabled;
       if (changed) {
-        unawaited(_registerFromSettings(current));
+        if (current.hotkeyEnabled) {
+          unawaited(_registerFromSettings(current));
+        } else {
+          unawaited(_unregister());
+          _log.info('Global hotkey disabled by user');
+        }
       }
     });
 
     Future.microtask(() async {
       final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-      await _registerFromSettings(settings);
+      if (settings.hotkeyEnabled) {
+        await _registerFromSettings(settings);
+      }
     });
     ref.onDispose(_destroy);
   }

@@ -363,6 +363,15 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                 afterActionLabel: afterTranscriptionStatusLabel(
                     settings.afterTranscriptionAction, l10n),
                 afterAction: settings.afterTranscriptionAction,
+                hotkeyLabel: formatHotkeyShortcut(
+                    settings.hotkeyModifiers, settings.hotkeyKey),
+                hotkeyEnabled: settings.hotkeyEnabled,
+                onHotkeyTap: () {
+                  ref
+                      .read(settingsScrollTargetProvider.notifier)
+                      .set('hotkey');
+                  ref.read(activePageProvider.notifier).setPage('settings');
+                },
                 onSttTap: () {
                   ref
                       .read(settingsScrollTargetProvider.notifier)

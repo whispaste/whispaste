@@ -439,6 +439,7 @@
   "statusBarTranscribing": "Transcribing…",
   "statusBarProcessing": "Processing…",
   "statusBarDone": "Done",
+  "statusBarHotkeyTooltip": "Global hotkey — click to configure",
 
   "modifierCtrl": "Ctrl",
   "modifierShift": "Shift",
@@ -556,6 +557,7 @@
 
   "settingsKeyboardShortcut": "Keyboard Shortcut",
   "settingsKeyboardShortcutSubtitle": "Global hotkey to start and stop recording",
+  "settingsHotkeyEnabled": "Enable Global Hotkey",
   "settingsCurrentHotkey": "Current Hotkey",
   "settingsChangeHotkey": "Change",
   "settingsHotkeyRecorderTitle": "Record New Hotkey",
