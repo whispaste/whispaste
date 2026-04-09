@@ -1,0 +1,271 @@
+---
+/**
+ * Fullscreen screenshot lightbox with navigation.
+ * Open via: window.openScreenshotLightbox(images, startIndex)
+ * images: Array<{ src: string, alt: string }>
+ */
+---
+
+<div
+  id="screenshot-lightbox"
+  class="lightbox"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Screenshot viewer"
+  data-aria-label-en="Screenshot viewer"
+  data-aria-label-de="Screenshot-Ansicht"
+  hidden
+>
+  <div class="lightbox-backdrop" data-lightbox-close></div>
+
+  <button class="lightbox-close" aria-label="Close" data-aria-label-en="Close" data-aria-label-de="Schließen" data-lightbox-close>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  </button>
+
+  <button class="lightbox-nav lightbox-nav--prev" aria-label="Previous" data-aria-label-en="Previous" data-aria-label-de="Zurück" data-lightbox-prev>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"></polyline>
+    </svg>
+  </button>
+
+  <img class="lightbox-image" id="lightbox-image" src="" alt="" />
+
+  <button class="lightbox-nav lightbox-nav--next" aria-label="Next" data-aria-label-en="Next" data-aria-label-de="Weiter" data-lightbox-next>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </button>
+
+  <div class="lightbox-counter" id="lightbox-counter"></div>
+</div>
+
+<style>
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+
+  .lightbox[data-open] {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .lightbox-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .lightbox-image {
+    position: relative;
+    z-index: 1;
+    max-width: min(92vw, 1400px);
+    max-height: 85vh;
+    border-radius: 12px;
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
+    object-fit: contain;
+    transform: scale(0.92);
+    opacity: 0;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 0.3s ease;
+  }
+
+  .lightbox[data-open] .lightbox-image {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  .lightbox-close {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    z-index: 2;
+    width: 2.75rem;
+    height: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  .lightbox-close:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  .lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+  }
+
+  .lightbox-nav:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  .lightbox-nav:disabled {
+    opacity: 0.2;
+    cursor: default;
+  }
+
+  .lightbox-nav--prev { left: 1rem; }
+  .lightbox-nav--next { right: 1rem; }
+
+  .lightbox-counter {
+    position: absolute;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.05em;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+  }
+
+  @media (max-width: 640px) {
+    .lightbox-nav { display: none; }
+    .lightbox-close { top: 0.75rem; right: 0.75rem; width: 2.25rem; height: 2.25rem; }
+    .lightbox-image { max-width: 96vw; max-height: 80vh; border-radius: 8px; }
+  }
+</style>
+
+<script>
+  interface LightboxImage {
+    src: string;
+    alt: string;
+  }
+
+  function initLightbox() {
+    const root = document.getElementById('screenshot-lightbox');
+    if (!root) return;
+
+    const img = root.querySelector<HTMLImageElement>('#lightbox-image')!;
+    const counter = root.querySelector<HTMLElement>('#lightbox-counter')!;
+    const prevBtn = root.querySelector<HTMLButtonElement>('[data-lightbox-prev]')!;
+    const nextBtn = root.querySelector<HTMLButtonElement>('[data-lightbox-next]')!;
+
+    let images: LightboxImage[] = [];
+    let currentIdx = 0;
+    let previousFocus: HTMLElement | null = null;
+
+    function show(idx: number) {
+      currentIdx = Math.max(0, Math.min(idx, images.length - 1));
+      img.src = images[currentIdx].src;
+      img.alt = images[currentIdx].alt;
+      counter.textContent = `${currentIdx + 1} / ${images.length}`;
+      prevBtn.disabled = currentIdx === 0;
+      nextBtn.disabled = currentIdx === images.length - 1;
+    }
+
+    function syncAriaLabels() {
+      const lang = document.documentElement.lang === 'de' ? 'de' : 'en';
+      root.querySelectorAll<HTMLElement>('[data-aria-label-en]').forEach(el => {
+        const label = lang === 'de' ? el.dataset.ariaLabelDe : el.dataset.ariaLabelEn;
+        if (label) el.setAttribute('aria-label', label);
+      });
+    }
+
+    function open(imgs: LightboxImage[], startIdx: number) {
+      if (!imgs.length) return;
+      images = imgs;
+      previousFocus = document.activeElement as HTMLElement;
+
+      syncAriaLabels();
+      root.hidden = false;
+      // Force reflow so the transition triggers
+      void root.offsetHeight;
+      root.setAttribute('data-open', '');
+      document.body.style.overflow = 'hidden';
+
+      show(startIdx);
+      root.querySelector<HTMLButtonElement>('.lightbox-close')!.focus();
+    }
+
+    function close() {
+      root.removeAttribute('data-open');
+      document.body.style.overflow = '';
+      setTimeout(() => { root.hidden = true; }, 350);
+      previousFocus?.focus();
+    }
+
+    // Close triggers
+    root.querySelectorAll('[data-lightbox-close]').forEach(el => {
+      el.addEventListener('click', close);
+    });
+
+    // Navigation
+    prevBtn.addEventListener('click', () => show(currentIdx - 1));
+    nextBtn.addEventListener('click', () => show(currentIdx + 1));
+
+    // Keyboard — includes focus trap
+    root.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { close(); e.preventDefault(); }
+      if (e.key === 'ArrowLeft') { show(currentIdx - 1); e.preventDefault(); }
+      if (e.key === 'ArrowRight') { show(currentIdx + 1); e.preventDefault(); }
+      if (e.key === 'Tab') {
+        const focusable = Array.from(
+          root.querySelectorAll<HTMLElement>('button:not([disabled]):not([hidden])')
+        ).filter(el => el.offsetParent !== null);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) { last.focus(); e.preventDefault(); }
+        } else {
+          if (document.activeElement === last) { first.focus(); e.preventDefault(); }
+        }
+      }
+    });
+
+    // Swipe support for mobile
+    let touchStartX = 0;
+    root.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
+    root.addEventListener('touchend', (e) => {
+      const diff = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(diff) > 60) {
+        if (diff > 0) show(currentIdx - 1);
+        else show(currentIdx + 1);
+      }
+    }, { passive: true });
+
+    // Global API
+    (window as any).openScreenshotLightbox = open;
+  }
+
+  initLightbox();
+</script>
