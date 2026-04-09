@@ -290,7 +290,7 @@ class _WpRecordingFabState extends State<WpRecordingFab>
       RecordingPhase.done => const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF34D399), Color(0xFF10B981)],
+          colors: [Color(0xFF4ADE80), Color(0xFF16A34A)],
         ),
       RecordingPhase.error => const LinearGradient(
           begin: Alignment.topLeft,
