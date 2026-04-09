@@ -79,7 +79,7 @@ const SCREENS = [
       en: '03_voice_shortcuts_dark_en.png',
       de: '03_voice_shortcuts_dark_de.png',
     },
-    category: { en: 'VOICE SHORTCUTS', de: 'SPRACHKÜRZEL' },
+    category: { en: 'VOICE SHORTCUTS', de: 'SPRACH-SHORTCUTS' },
     headline: {
       en: 'Reuse the phrases\nyou type every day',
       de: 'Nutze die Phrasen\nwieder, die du täglich brauchst',
