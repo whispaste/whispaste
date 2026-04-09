@@ -58,7 +58,7 @@ class AppSettings {
     this.overlayStartPosition = 'top-center',
     this.showFloatingButton = false,
     this.floatingButtonOpacity = 0.9,
-    this.floatingButtonSize = 'Normal',
+    this.floatingButtonSize = 'normal',
     // Cloud Providers (API keys)
     this.openAiApiKey = '',
     this.groqApiKey = '',

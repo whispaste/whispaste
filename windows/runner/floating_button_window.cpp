@@ -17,12 +17,12 @@ namespace {
 // ── Layout constants (logical pixels) ─────────────────────────────────
 constexpr float kPulseMaxScale = 1.8f;
 constexpr float kRingStroke = 2.5f;
-constexpr float kShadowBlur1 = 12.0f;
-constexpr float kShadowOffset1 = 4.0f;
-constexpr BYTE kShadowAlpha1 = 0x66;   // 40%
-constexpr float kShadowBlur2 = 2.0f;
+constexpr float kShadowBlur1 = 6.0f;
+constexpr float kShadowOffset1 = 2.0f;
+constexpr BYTE kShadowAlpha1 = 0x26;   // ~15%
+constexpr float kShadowBlur2 = 1.0f;
 constexpr float kShadowOffset2 = 0.0f;
-constexpr BYTE kShadowAlpha2 = 0x1A;   // 10%
+constexpr BYTE kShadowAlpha2 = 0x0D;   // ~5%
 constexpr float kSafetyPad = 2.0f;
 constexpr float kIconSize = 24.0f;     // Lucide viewbox
 constexpr float kIconStroke = 2.0f;    // Lucide default stroke-width
@@ -650,11 +650,11 @@ void FloatingButtonWindow::PaintPulseRing(Graphics& g, float cx, float cy,
 // ══════════════════════════════════════════════════════════════════════
 
 void FloatingButtonWindow::DrawMicIcon(Graphics& g, Pen& pen) {
-  // Capsule body: (9,2)→(15,12), r=3
+  // Capsule body: top at y=2, sides y=5→12, bottom curve through y=15, r=3
   GraphicsPath body;
-  body.AddArc(9.0f, 2.0f, 6.0f, 6.0f, 180.0f, 180.0f);
-  body.AddLine(15.0f, 5.0f, 15.0f, 9.0f);
-  body.AddArc(9.0f, 6.0f, 6.0f, 6.0f, 0.0f, 180.0f);
+  body.AddArc(9.0f, 2.0f, 6.0f, 6.0f, 180.0f, 180.0f);   // top cap
+  body.AddLine(15.0f, 5.0f, 15.0f, 12.0f);                 // right side
+  body.AddArc(9.0f, 9.0f, 6.0f, 6.0f, 0.0f, 180.0f);      // bottom cap
   body.CloseFigure();
   g.DrawPath(&pen, &body);
 
