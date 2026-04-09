@@ -1458,6 +1458,22 @@ class L10nEn extends L10n {
   String get historySaveTranscript => 'Save';
 
   @override
+  String get historyAiActions => 'AI Actions';
+
+  @override
+  String get historyAiCleanUp => 'Clean up';
+
+  @override
+  String get historyAiShorten => 'Shorten';
+
+  @override
+  String get historyAiTranslate => 'Translate';
+
+  @override
+  String get historyAiComingSoon =>
+      'AI post-processing is coming in a future update';
+
+  @override
   String get historyShortcutHelp => 'Keyboard Shortcuts';
 
   @override

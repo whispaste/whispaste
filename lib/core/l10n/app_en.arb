@@ -535,6 +535,12 @@
   "historyTranscriptSaved": "Transcript saved",
   "historySaveTranscript": "Save",
 
+  "historyAiActions": "AI Actions",
+  "historyAiCleanUp": "Clean up",
+  "historyAiShorten": "Shorten",
+  "historyAiTranslate": "Translate",
+  "historyAiComingSoon": "AI post-processing is coming in a future update",
+
   "historyShortcutHelp": "Keyboard Shortcuts",
   "historyShortcutGeneral": "GENERAL",
   "historyShortcutTags": "Focus tag input",
