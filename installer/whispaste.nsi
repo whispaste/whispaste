@@ -42,7 +42,7 @@ VIProductVersion "${PRODUCT_VERSION_NUMERIC}"
 VIFileVersion "${PRODUCT_VERSION_NUMERIC}"
 VIAddVersionKey /LANG=0 "ProductName" "${PRODUCT_NAME}"
 VIAddVersionKey /LANG=0 "CompanyName" "${PRODUCT_PUBLISHER}"
-VIAddVersionKey /LANG=0 "LegalCopyright" "${PRODUCT_PUBLISHER}"
+VIAddVersionKey /LANG=0 "LegalCopyright" "MIT License — ${PRODUCT_PUBLISHER}"
 VIAddVersionKey /LANG=0 "FileDescription" "${PRODUCT_NAME} Setup"
 VIAddVersionKey /LANG=0 "FileVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey /LANG=0 "ProductVersion" "${PRODUCT_VERSION}"
@@ -81,16 +81,12 @@ LangString SEC_CORE_NAME ${LANG_ENGLISH} "WhisPaste (required)"
 LangString SEC_CORE_NAME ${LANG_GERMAN} "WhisPaste (erforderlich)"
 LangString SEC_DESKTOP_NAME ${LANG_ENGLISH} "Desktop Shortcut"
 LangString SEC_DESKTOP_NAME ${LANG_GERMAN} "Desktop-Verkn${U+00FC}pfung"
-LangString SEC_AUTOSTART_NAME ${LANG_ENGLISH} "Start with Windows"
-LangString SEC_AUTOSTART_NAME ${LANG_GERMAN} "Mit Windows starten"
 
 ; Section descriptions
 LangString SEC_CORE_DESC ${LANG_ENGLISH} "Core application files (required)."
 LangString SEC_CORE_DESC ${LANG_GERMAN} "Kerndateien der Anwendung (erforderlich)."
 LangString SEC_DESKTOP_DESC ${LANG_ENGLISH} "Create a shortcut on the desktop."
 LangString SEC_DESKTOP_DESC ${LANG_GERMAN} "Eine Verkn${U+00FC}pfung auf dem Desktop erstellen."
-LangString SEC_AUTOSTART_DESC ${LANG_ENGLISH} "Start WhisPaste automatically when Windows starts."
-LangString SEC_AUTOSTART_DESC ${LANG_GERMAN} "WhisPaste beim Systemstart automatisch ausf${U+00FC}hren."
 
 ; Finish page
 LangString FINISH_RUN ${LANG_ENGLISH} "Start WhisPaste"
@@ -112,7 +108,7 @@ Section "$(SEC_CORE_NAME)" SecCore
 
   ; Close running app instance (required to replace files)
   nsExec::ExecToLog 'taskkill /F /IM whispaste.exe'
-  Sleep 500
+  Sleep 2000
 
   ; Install entire Flutter build output (exe, DLLs, data/, resources/)
   SetOutPath "$INSTDIR"
@@ -141,6 +137,9 @@ Section "$(SEC_CORE_NAME)" SecCore
   WriteRegDWORD HKCU "${PRODUCT_UNINST_KEY}" "NoModify" 1
   WriteRegDWORD HKCU "${PRODUCT_UNINST_KEY}" "NoRepair" 1
 
+  ; Write install source marker (used by app to detect deploy channel)
+  WriteRegStr HKCU "Software\${PRODUCT_NAME}" "InstallSource" "installer"
+
   ; Compute and store installed size
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
@@ -151,15 +150,10 @@ Section "$(SEC_DESKTOP_NAME)" SecDesktop
   CreateShortCut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\whispaste.exe" "" "$INSTDIR\whispaste.exe" 0
 SectionEnd
 
-Section "$(SEC_AUTOSTART_NAME)" SecAutostart
-  WriteRegStr HKCU "${PRODUCT_AUTORUN_KEY}" "${PRODUCT_NAME}" '"$INSTDIR\whispaste.exe"'
-SectionEnd
-
 ; --- Section Descriptions ---
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SecCore} "$(SEC_CORE_DESC)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "$(SEC_DESKTOP_DESC)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecAutostart} "$(SEC_AUTOSTART_DESC)"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; --- Uninstaller ---
@@ -171,7 +165,7 @@ FunctionEnd
 Section "Uninstall"
   ; Close running app instance
   nsExec::ExecToLog 'taskkill /F /IM whispaste.exe'
-  Sleep 500
+  Sleep 2000
 
   ; Remove Flutter runtime directories
   RMDir /r "$INSTDIR\data"
@@ -190,9 +184,6 @@ Section "Uninstall"
   RMDir "$SMPROGRAMS\${PRODUCT_NAME}"
   Delete "$DESKTOP\${PRODUCT_NAME}.lnk"
 
-  ; Remove AUMID Start Menu shortcut used for toast notifications
-  Delete "$APPDATA\Microsoft\Windows\Start Menu\Programs\${PRODUCT_NAME}.lnk"
-
   ; Remove registry entries
   DeleteRegKey HKCU "${PRODUCT_UNINST_KEY}"
   DeleteRegValue HKCU "${PRODUCT_AUTORUN_KEY}" "${PRODUCT_NAME}"
@@ -203,7 +194,7 @@ Section "Uninstall"
   MessageBox MB_YESNO|MB_ICONQUESTION "$(UNINST_REMOVE_DATA)" IDNO skip_data_removal
     nsExec::ExecToLog 'taskkill /F /IM whisper-server.exe'
     nsExec::ExecToLog 'taskkill /F /IM llama-server.exe'
-    Sleep 500
+    Sleep 2000
     RMDir /r "$APPDATA\${PRODUCT_NAME}"
   skip_data_removal:
 
