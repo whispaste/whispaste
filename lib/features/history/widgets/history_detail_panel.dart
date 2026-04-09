@@ -784,6 +784,9 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                       ],
                     ),
                   ],
+                  // ── AI Actions (post-processing) ──
+                  const SizedBox(height: WpSpacing.md),
+                  _AiActionsRow(isDark: isDark),
                   // ── Notes section ──
                   const SizedBox(height: WpSpacing.lg),
                   HistoryNotesSection(key: _notesSectionKey, entryId: entry.id, isDark: isDark),
@@ -799,6 +802,115 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       ),
     ),
     ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AI Actions row — post-processing buttons (Coming Soon)
+// ---------------------------------------------------------------------------
+
+class _AiActionsRow extends StatelessWidget {
+  const _AiActionsRow({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.historyAiActions,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: textMuted,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: WpSpacing.xs),
+        Wrap(
+          spacing: WpSpacing.xs,
+          runSpacing: WpSpacing.xs,
+          children: [
+            _AiActionChip(
+              icon: LucideIcons.sparkles,
+              label: l10n.historyAiCleanUp,
+              isDark: isDark,
+              onTap: () => WpToast.show(context, message: l10n.historyAiComingSoon),
+            ),
+            _AiActionChip(
+              icon: LucideIcons.arrowDownUp,
+              label: l10n.historyAiShorten,
+              isDark: isDark,
+              onTap: () => WpToast.show(context, message: l10n.historyAiComingSoon),
+            ),
+            _AiActionChip(
+              icon: LucideIcons.languages,
+              label: l10n.historyAiTranslate,
+              isDark: isDark,
+              onTap: () => WpToast.show(context, message: l10n.historyAiComingSoon),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AiActionChip extends StatelessWidget {
+  const _AiActionChip({
+    required this.icon,
+    required this.label,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    return Material(
+      color: Colors.transparent,
+      borderRadius: WpRadius.borderFull,
+      child: InkWell(
+        borderRadius: const BorderRadius.all(Radius.circular(999)),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.sm,
+            vertical: 5,
+          ),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: textMuted.withValues(alpha: 0.2),
+            ),
+            borderRadius: WpRadius.borderFull,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: textMuted),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

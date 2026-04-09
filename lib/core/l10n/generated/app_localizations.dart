@@ -2767,6 +2767,36 @@ abstract class L10n {
   /// **'Save'**
   String get historySaveTranscript;
 
+  /// No description provided for @historyAiActions.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Actions'**
+  String get historyAiActions;
+
+  /// No description provided for @historyAiCleanUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Clean up'**
+  String get historyAiCleanUp;
+
+  /// No description provided for @historyAiShorten.
+  ///
+  /// In en, this message translates to:
+  /// **'Shorten'**
+  String get historyAiShorten;
+
+  /// No description provided for @historyAiTranslate.
+  ///
+  /// In en, this message translates to:
+  /// **'Translate'**
+  String get historyAiTranslate;
+
+  /// No description provided for @historyAiComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'AI post-processing is coming in a future update'**
+  String get historyAiComingSoon;
+
   /// No description provided for @historyShortcutHelp.
   ///
   /// In en, this message translates to:

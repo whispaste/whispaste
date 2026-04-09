@@ -31,7 +31,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     'afterTranscription': GlobalKey(),
     'stt': GlobalKey(),
     'sttModel': GlobalKey(),
-    'postprocessing': GlobalKey(),
     'replacements': GlobalKey(),
     'hotkey': GlobalKey(),
     'sound': GlobalKey(),
@@ -97,8 +96,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           //  TRANSCRIPTION & ENHANCEMENT
           // ═══════════════════════════════════════════
           SpeechRecognitionSection(key: _sectionKeys['stt']),
-          settingsSectionDivider(context),
-          PostProcessingSection(key: _sectionKeys['postprocessing']),
           settingsSectionDivider(context),
           TextReplacementsSection(key: _sectionKeys['replacements']),
           settingsSectionDivider(context),

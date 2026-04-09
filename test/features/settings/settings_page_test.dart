@@ -18,10 +18,10 @@ void main() {
       expect(find.text('Audio'), findsOneWidget);
     });
 
-    testWidgets('shows Post-Processing section', (tester) async {
+    testWidgets('shows Text Replacements section', (tester) async {
       await tester.pumpWidget(makeTestable(const SettingsPage()));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Post-Processing'), findsOneWidget);
+      expect(find.text('Text Replacements'), findsOneWidget);
     });
 
     testWidgets('shows Interface section', (tester) async {

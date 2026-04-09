@@ -481,6 +481,12 @@
   "historyTranscriptSaved": "Transkript gespeichert",
   "historySaveTranscript": "Speichern",
 
+  "historyAiActions": "KI-Aktionen",
+  "historyAiCleanUp": "Bereinigen",
+  "historyAiShorten": "Kürzen",
+  "historyAiTranslate": "Übersetzen",
+  "historyAiComingSoon": "KI-Nachbearbeitung kommt in einem zukünftigen Update",
+
   "historyShortcutHelp": "Tastenkürzel",
   "historyShortcutGeneral": "ALLGEMEIN",
   "historyShortcutTags": "Tag-Eingabe fokussieren",
