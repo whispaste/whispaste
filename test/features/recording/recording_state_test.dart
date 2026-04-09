@@ -357,6 +357,80 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // Session correlation ID
+  // -------------------------------------------------------------------------
+  group('Session correlation ID', () {
+    test('sessionId is null when idle', () {
+      final c = makeContainer();
+      expect(c.read(recordingProvider).sessionId, isNull);
+    });
+
+    test('sessionId is generated on startRecording', () {
+      final c = makeContainer();
+      c.read(recordingProvider.notifier).startRecording();
+      final sid = c.read(recordingProvider).sessionId;
+      expect(sid, isNotNull);
+      expect(sid, isNotEmpty);
+    });
+
+    test('sessionId format is base36-hex', () {
+      final c = makeContainer();
+      c.read(recordingProvider.notifier).startRecording();
+      final sid = c.read(recordingProvider).sessionId!;
+      // Format: <base36-timestamp>-<8-hex-random>
+      expect(sid, contains('-'));
+      final parts = sid.split('-');
+      expect(parts.length, 2);
+      // Second part is 8 hex characters.
+      expect(parts[1].length, 8);
+      expect(RegExp(r'^[0-9a-f]{8}$').hasMatch(parts[1]), isTrue);
+    });
+
+    test('sessionId persists through transcribing and done', () {
+      final c = makeContainer();
+      final n = c.read(recordingProvider.notifier);
+      n.startRecording();
+      final sid = c.read(recordingProvider).sessionId;
+      n.stopRecording();
+      expect(c.read(recordingProvider).sessionId, sid);
+      n.completeTranscription('text');
+      expect(c.read(recordingProvider).sessionId, sid);
+    });
+
+    test('sessionId is cleared on reset', () {
+      final c = makeContainer();
+      final n = c.read(recordingProvider.notifier);
+      n.startRecording();
+      expect(c.read(recordingProvider).sessionId, isNotNull);
+      n.reset();
+      expect(c.read(recordingProvider).sessionId, isNull);
+    });
+
+    test('sessionId is unique across sessions', () {
+      final ids = <String>{};
+      for (var i = 0; i < 20; i++) {
+        final c = ProviderContainer();
+        try {
+          final n = c.read(recordingProvider.notifier);
+          n.startRecording();
+          final sid = c.read(recordingProvider).sessionId!;
+          expect(ids.add(sid), isTrue,
+              reason: 'Session ID $sid was not unique on iteration $i');
+        } finally {
+          c.dispose();
+        }
+      }
+    });
+
+    test('recordingSessionIdProvider reflects sessionId', () {
+      final c = makeContainer();
+      expect(c.read(recordingSessionIdProvider), isNull);
+      c.read(recordingProvider.notifier).startRecording();
+      expect(c.read(recordingSessionIdProvider), isNotNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Full lifecycle
   // -------------------------------------------------------------------------
   group('Full lifecycle', () {
