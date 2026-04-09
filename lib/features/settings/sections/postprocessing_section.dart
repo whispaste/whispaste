@@ -11,42 +11,6 @@ import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
-// Post-Processing section — Coming Soon (backend not yet wired)
-// ---------------------------------------------------------------------------
-
-class PostProcessingSection extends ConsumerWidget {
-  const PostProcessingSection({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = L10n.of(context);
-
-    return Opacity(
-      opacity: 0.5,
-      child: AbsorbPointer(
-        child: WpSection(
-          title: '${l10n.settingsPostProcessing} — ${l10n.settingsComingSoon}',
-          subtitle: l10n.settingsTextEnhancementSubtitle,
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              SettingRow(
-                icon: LucideIcons.sparkles,
-                label: l10n.settingsEnabled,
-                trailing: settingsToggle(
-                  value: false,
-                  onChanged: (_) {},
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Text Replacements section
 // ---------------------------------------------------------------------------
 

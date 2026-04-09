@@ -1475,6 +1475,22 @@ class L10nDe extends L10n {
   String get historySaveTranscript => 'Speichern';
 
   @override
+  String get historyAiActions => 'KI-Aktionen';
+
+  @override
+  String get historyAiCleanUp => 'Bereinigen';
+
+  @override
+  String get historyAiShorten => 'Kürzen';
+
+  @override
+  String get historyAiTranslate => 'Übersetzen';
+
+  @override
+  String get historyAiComingSoon =>
+      'KI-Nachbearbeitung kommt in einem zukünftigen Update';
+
+  @override
   String get historyShortcutHelp => 'Tastenkürzel';
 
   @override
