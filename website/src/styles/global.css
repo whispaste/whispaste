@@ -215,3 +215,36 @@ html.light .mockup-nb-sel-delete { background: rgba(239,68,68,0.06); border-colo
 html.light .mockup-nb-checkbox { border-color: rgba(0,0,0,0.15); }
 html.light .mockup-nb-checkbox-checked { background: linear-gradient(135deg, #0891B2, #0E7490); border-color: #0891B2; }
 html.light .mockup-nb-card-selected { border-color: rgba(8,145,178,0.3) !important; background: rgba(8,145,178,0.04) !important; }
+
+/* ---- Flutter design-token alignment ---- */
+/* Border strength: Flutter borderSubtle=12% white, borderDefault=19% white */
+/* Upgrade from 5-8% → 12-19% for structural borders */
+.feature-card,
+.pricing-card,
+.faq-item,
+.download-card {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.feature-card:hover,
+.pricing-card:hover {
+  border-color: rgba(255, 255, 255, 0.19);
+}
+
+/* Card shadows matching Flutter WpShadows.card */
+.feature-card,
+.pricing-card,
+.download-card {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.1);
+}
+.feature-card:hover,
+.pricing-card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Border radius: Flutter uses 14px (WpRadius.lg) for cards */
+.feature-card,
+.pricing-card,
+.download-card,
+.faq-item {
+  border-radius: 14px;
+}
