@@ -52,6 +52,24 @@ VIAddVersionKey /LANG=0 "ProductVersion" "${PRODUCT_VERSION}"
 !define MUI_ICON "..\resources\app.ico"
 !define MUI_UNICON "..\resources\app.ico"
 
+; Brand bitmaps — WhisPaste navy/cyan design system
+; Welcome/Finish sidebar (164×314): navy gradient + icon + tagline
+!define MUI_WELCOMEFINISHPAGE_BITMAP "welcome.bmp"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP "welcome.bmp"
+; Header logo (150×57): navy gradient + icon, right-aligned
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_RIGHT
+!define MUI_HEADERIMAGE_BITMAP "header.bmp"
+!define MUI_HEADERIMAGE_UNBITMAP "header.bmp"
+
+; Branded welcome page text
+!define MUI_WELCOMEPAGE_TITLE "$(WELCOME_TITLE)"
+!define MUI_WELCOMEPAGE_TEXT "$(WELCOME_TEXT)"
+
+; Branded finish page text
+!define MUI_FINISHPAGE_TITLE "$(FINISH_TITLE)"
+!define MUI_FINISHPAGE_TEXT "$(FINISH_TEXT)"
+
 ; Remember language selection across reinstalls
 !define MUI_LANGDLL_REGISTRY_ROOT "HKCU"
 !define MUI_LANGDLL_REGISTRY_KEY "Software\${PRODUCT_NAME}"
@@ -64,6 +82,8 @@ VIAddVersionKey /LANG=0 "ProductVersion" "${PRODUCT_VERSION}"
 !insertmacro MUI_PAGE_INSTFILES
 !define MUI_FINISHPAGE_RUN "$INSTDIR\whispaste.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "$(FINISH_RUN)"
+!define MUI_FINISHPAGE_LINK "$(FINISH_LINK)"
+!define MUI_FINISHPAGE_LINK_LOCATION "${PRODUCT_WEB_SITE}"
 !insertmacro MUI_PAGE_FINISH
 
 ; Uninstaller pages
@@ -75,6 +95,12 @@ VIAddVersionKey /LANG=0 "ProductVersion" "${PRODUCT_VERSION}"
 !insertmacro MUI_LANGUAGE "German"
 
 ; --- Localized Strings ---
+
+; Welcome page
+LangString WELCOME_TITLE ${LANG_ENGLISH} "Welcome to WhisPaste ${PRODUCT_VERSION}"
+LangString WELCOME_TITLE ${LANG_GERMAN} "Willkommen bei WhisPaste ${PRODUCT_VERSION}"
+LangString WELCOME_TEXT ${LANG_ENGLISH} "This will install WhisPaste — AI-powered dictation for your desktop.$\n$\nDictate anywhere, paste everywhere.$\n$\nClick Next to continue."
+LangString WELCOME_TEXT ${LANG_GERMAN} "WhisPaste wird jetzt installiert — KI-gest${U+00FC}tzte Diktierfunktion f${U+00FC}r Ihren Desktop.$\n$\n${U+00DC}berall diktieren, ${U+00FC}berall einf${U+00FC}gen.$\n$\nKlicken Sie auf Weiter, um fortzufahren."
 
 ; Section names
 LangString SEC_CORE_NAME ${LANG_ENGLISH} "WhisPaste (required)"
@@ -89,8 +115,14 @@ LangString SEC_DESKTOP_DESC ${LANG_ENGLISH} "Create a shortcut on the desktop."
 LangString SEC_DESKTOP_DESC ${LANG_GERMAN} "Eine Verkn${U+00FC}pfung auf dem Desktop erstellen."
 
 ; Finish page
+LangString FINISH_TITLE ${LANG_ENGLISH} "Installation Complete"
+LangString FINISH_TITLE ${LANG_GERMAN} "Installation abgeschlossen"
+LangString FINISH_TEXT ${LANG_ENGLISH} "WhisPaste has been installed on your computer.$\n$\nClick Finish to close this wizard."
+LangString FINISH_TEXT ${LANG_GERMAN} "WhisPaste wurde auf Ihrem Computer installiert.$\n$\nKlicken Sie auf Fertig stellen, um den Assistenten zu schlie${U+00DF}en."
 LangString FINISH_RUN ${LANG_ENGLISH} "Start WhisPaste"
 LangString FINISH_RUN ${LANG_GERMAN} "WhisPaste starten"
+LangString FINISH_LINK ${LANG_ENGLISH} "Visit whispaste.de"
+LangString FINISH_LINK ${LANG_GERMAN} "whispaste.de besuchen"
 
 ; Uninstaller
 LangString UNINST_REMOVE_DATA ${LANG_ENGLISH} "Also remove downloaded models and history?$\n(Located in: $APPDATA\${PRODUCT_NAME})$\n$\nNote: API keys stored in Windows Credential Manager are not removed."
