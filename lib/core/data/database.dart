@@ -378,22 +378,56 @@ class HistoryDatabase extends _$HistoryDatabase {
         .get();
   }
 
-  /// Full-text search via FTS5 with query sanitization.
+  /// Full-text search via FTS5 + normalized tag names + note content.
+  ///
+  /// Merges results from three sources:
+  /// 1. FTS5 on title, content, legacy tags column
+  /// 2. LIKE on normalized tag names (entry_tags → tags)
+  /// 3. LIKE on entry_notes content
   Future<List<HistoryEntry>> searchEntries(String query) async {
     final sanitized = _sanitizeFtsQuery(query);
-    if (sanitized.isEmpty) return [];
+    final rawLower = query.toLowerCase().trim();
+    if (sanitized.isEmpty && rawLower.isEmpty) return [];
 
     try {
-      final ftsResults = await customSelect(
-        'SELECT rowid FROM history_fts WHERE history_fts MATCH ?',
-        variables: [Variable.withString(sanitized)],
-      ).get();
+      final rowIds = <int>{};
 
-      if (ftsResults.isEmpty) return [];
+      // 1. FTS5 full-text search on title, content, legacy tags
+      if (sanitized.isNotEmpty) {
+        final ftsResults = await customSelect(
+          'SELECT rowid FROM history_fts WHERE history_fts MATCH ?',
+          variables: [Variable.withString(sanitized)],
+        ).get();
+        rowIds.addAll(ftsResults.map((r) => r.read<int>('rowid')));
+      }
 
-      final rowIds = ftsResults.map((r) => r.read<int>('rowid')).toList();
+      // 2. Normalized tag name search (partial match via LIKE)
+      if (rawLower.isNotEmpty) {
+        final escapedLike = _escapeLike(rawLower);
+        final tagResults = await customSelect(
+          'SELECT DISTINCT he.rowid FROM history_entries he '
+          'INNER JOIN entry_tags et ON et.entry_id = he.id '
+          'INNER JOIN tags t ON t.id = et.tag_id '
+          r"WHERE he.deleted_at IS NULL AND LOWER(t.name) LIKE ? ESCAPE '\'",
+          variables: [Variable.withString('%$escapedLike%')],
+        ).get();
+        rowIds.addAll(tagResults.map((r) => r.read<int>('rowid')));
+
+        // 3. Note content search
+        final noteResults = await customSelect(
+          'SELECT DISTINCT he.rowid FROM history_entries he '
+          'INNER JOIN entry_notes en ON en.entry_id = he.id '
+          r"WHERE he.deleted_at IS NULL AND LOWER(en.content) LIKE ? ESCAPE '\'",
+          variables: [Variable.withString('%$escapedLike%')],
+        ).get();
+        rowIds.addAll(noteResults.map((r) => r.read<int>('rowid')));
+      }
+
+      if (rowIds.isEmpty) return [];
+
       return (select(historyEntries)
-            ..where((e) => e.rowId.isIn(rowIds) & e.deletedAt.isNull())
+            ..where(
+                (e) => e.rowId.isIn(rowIds.toList()) & e.deletedAt.isNull())
             ..orderBy([
               (e) => OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
               (e) =>
@@ -403,6 +437,14 @@ class HistoryDatabase extends _$HistoryDatabase {
     } catch (_) {
       return [];
     }
+  }
+
+  /// Escapes LIKE special characters (`%`, `_`, `\`).
+  static String _escapeLike(String input) {
+    return input
+        .replaceAll(r'\', r'\\')
+        .replaceAll('%', r'\%')
+        .replaceAll('_', r'\_');
   }
 
   /// Escapes special FTS5 characters and converts to a prefix query.

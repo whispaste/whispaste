@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../core/config/settings_enums.dart' show AfterTranscriptionAction;
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/recording/recording_state.dart'
     show RecordingPhase, SttServerState;
@@ -19,8 +20,11 @@ class WpStatusBar extends StatelessWidget {
     this.postProcessingLabel,
     this.sttState = SttServerState.stopped,
     this.recordingPhase = RecordingPhase.idle,
+    this.afterActionLabel,
+    this.afterAction,
     this.onSttTap,
     this.onPostProcessTap,
+    this.onAfterActionChanged,
   });
 
   /// Active STT mode, e.g. "On device" or "OpenAI".
@@ -36,11 +40,20 @@ class WpStatusBar extends StatelessWidget {
   /// Current phase of the recording lifecycle.
   final RecordingPhase recordingPhase;
 
+  /// Short label for the current after-transcription action, or null to hide.
+  final String? afterActionLabel;
+
+  /// Current after-transcription action value (for menu selection).
+  final AfterTranscriptionAction? afterAction;
+
   /// Callback when user taps the STT chip (navigate to settings).
   final VoidCallback? onSttTap;
 
   /// Callback when user taps the post-processing chip.
   final VoidCallback? onPostProcessTap;
+
+  /// Callback when user selects a different after-transcription action.
+  final ValueChanged<AfterTranscriptionAction>? onAfterActionChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +93,19 @@ class WpStatusBar extends StatelessWidget {
                         isDark: isDark,
                         tooltip: l10n.statusBarPostProcessTooltip,
                         onTap: onPostProcessTap,
+                      ),
+                    ],
+                    if (afterActionLabel != null &&
+                        afterAction != null &&
+                        onAfterActionChanged != null) ...[
+                      const SizedBox(width: WpSpacing.xs),
+                      _AfterActionChip(
+                        label: afterActionLabel!,
+                        current: afterAction!,
+                        textStyle: textStyle,
+                        isDark: isDark,
+                        l10n: l10n,
+                        onChanged: onAfterActionChanged!,
                       ),
                     ],
                   ],
@@ -303,5 +329,106 @@ class _StatusChip extends StatelessWidget {
       return Tooltip(message: tooltip!, child: chip);
     }
     return chip;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// After-transcription action chip — quick-switcher with popup menu
+// ---------------------------------------------------------------------------
+
+class _AfterActionChip extends StatelessWidget {
+  const _AfterActionChip({
+    required this.label,
+    required this.current,
+    required this.textStyle,
+    required this.isDark,
+    required this.l10n,
+    required this.onChanged,
+  });
+
+  final String label;
+  final AfterTranscriptionAction current;
+  final TextStyle textStyle;
+  final bool isDark;
+  final L10n l10n;
+  final ValueChanged<AfterTranscriptionAction> onChanged;
+
+  IconData _iconFor(AfterTranscriptionAction action) => switch (action) {
+        AfterTranscriptionAction.clipboard => LucideIcons.clipboard,
+        AfterTranscriptionAction.paste => LucideIcons.clipboardPaste,
+        AfterTranscriptionAction.clipboardAndPaste =>
+          LucideIcons.clipboardCheck,
+        AfterTranscriptionAction.nothing => LucideIcons.clipboardX,
+      };
+
+  String _labelFor(AfterTranscriptionAction action) => switch (action) {
+        AfterTranscriptionAction.clipboard => l10n.statusBarAfterCopy,
+        AfterTranscriptionAction.paste => l10n.statusBarAfterPaste,
+        AfterTranscriptionAction.clipboardAndPaste => l10n.statusBarAfterBoth,
+        AfterTranscriptionAction.nothing => l10n.statusBarAfterNothing,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return PopupMenuButton<AfterTranscriptionAction>(
+      onSelected: onChanged,
+      initialValue: current,
+      tooltip: l10n.settingsAfterTranscription,
+      position: PopupMenuPosition.over,
+      shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
+      color: isDark ? WpColorsDark.surfaceElevated : WpColorsLight.surface,
+      itemBuilder: (_) => [
+        for (final action in AfterTranscriptionAction.values)
+          PopupMenuItem<AfterTranscriptionAction>(
+            value: action,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _iconFor(action),
+                  size: WpIconSize.sm,
+                  color: action == current
+                      ? cs.primary
+                      : cs.onSurface.withValues(alpha: 0.6),
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                Text(
+                  _labelFor(action),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight:
+                        action == current ? FontWeight.w600 : FontWeight.normal,
+                    color: action == current ? cs.primary : cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.sm,
+          vertical: WpSpacing.xxs,
+        ),
+        decoration: BoxDecoration(
+          color: isDark
+              ? WpColorsDark.surface.withValues(alpha: 0.5)
+              : WpColorsLight.surfaceVariant,
+          borderRadius: WpRadius.borderFull,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(_iconFor(current), size: WpIconSize.xs, color: cs.secondary),
+            const SizedBox(width: WpSpacing.xxs),
+            Text(label, style: textStyle),
+            const SizedBox(width: 2),
+            Icon(LucideIcons.chevronUp, size: 10, color: cs.secondary),
+          ],
+        ),
+      ),
+    );
   }
 }
