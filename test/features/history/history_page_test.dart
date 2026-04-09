@@ -37,7 +37,7 @@ void main() {
       // "Today" appears as filter chip AND date group header
       expect(find.text('Today'), findsWidgets);
       expect(find.text('This Week'), findsWidgets);
-      expect(find.text('Pinned'), findsOneWidget);
+      expect(find.text('Favorites'), findsOneWidget);
     });
 
     testWidgets('shows sample entries on load', (tester) async {
@@ -70,17 +70,17 @@ void main() {
       expect(find.text('Quick reminder'), findsOneWidget);
     });
 
-    testWidgets('filters entries by Pinned', (tester) async {
+    testWidgets('filters entries by Favorites', (tester) async {
       await tester.pumpWidget(
           makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Pinned'));
+      await tester.tap(find.text('Favorites'));
       await tester.pumpAndSettle();
 
-      // Should show pinned entries (e.g. "Meeting notes")
+      // Should show favorited entries (e.g. "Meeting notes")
       expect(find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
-      // Non-pinned entry should be gone
+      // Non-favorited entry should be gone
       expect(find.text('Quick reminder'), findsNothing);
     });
 
