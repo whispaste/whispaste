@@ -1,13 +1,12 @@
-<section id="app-screenshots" class="relative py-24 sm:py-32 scroll-mt-20">
-  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(56,217,240,0.08)_0%,_transparent_62%)]"></div>
-
-  <div class="relative max-w-7xl mx-auto px-6">
-    <div class="max-w-3xl mx-auto text-center mb-14 scroll-reveal">
+<!-- Compact screenshot teaser — links to /screenshots for the full gallery -->
+<section id="app-screenshots" class="relative py-16 sm:py-20 scroll-mt-20">
+  <div class="relative max-w-5xl mx-auto px-6">
+    <div class="max-w-2xl mx-auto text-center mb-10 scroll-reveal">
       <p
         class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3"
         data-i18n="screenshots.label"
       >
-        Real screenshots
+        Screenshots
       </p>
       <h2
         class="text-3xl sm:text-4xl font-bold text-white"
@@ -15,211 +14,115 @@
       >
         This is what WhisPaste looks like
       </h2>
-      <p class="mt-4 text-gray-400 text-lg" data-i18n="screenshots.desc">
+      <p class="mt-3 text-gray-400 text-base" data-i18n="screenshots.desc">
         Real app views — workspace, detail editor, voice shortcuts, hotkey setup, and stats.
       </p>
     </div>
 
-    <div class="screens-grid scroll-reveal">
-      <figure class="screen-card screen-card--primary">
-        <figcaption class="screen-card__label" data-i18n="screenshots.workspace">
-          Workspace
-        </figcaption>
+    <!-- Two hero screenshots: workspace (dark) + detail (light) -->
+    <div class="teaser-pair scroll-reveal">
+      <figure class="teaser-card teaser-card--primary">
         <img
-          class="screen-card__image"
-          src="/screenshots/ui/en/01_workspace_overview_dark_en.png"
-          data-screenshot-en="/screenshots/ui/en/01_workspace_overview_dark_en.png"
-          data-screenshot-de="/screenshots/ui/de/01_workspace_overview_dark_de.png"
-          data-alt-en="WhisPaste workspace screenshot"
-          data-alt-de="WhisPaste Workspace-Screenshot"
-          alt="WhisPaste workspace screenshot"
+          class="teaser-img"
+          src="/screenshots/en/dark/01_workspace_overview.png"
+          data-screenshot-en="/screenshots/en/dark/01_workspace_overview.png"
+          data-screenshot-de="/screenshots/de/dark/01_workspace_overview.png"
+          data-alt-en="WhisPaste workspace — dark theme"
+          data-alt-de="WhisPaste Workspace — dunkles Design"
+          alt="WhisPaste workspace — dark theme"
+          width="1904"
+          height="1041"
           loading="eager"
           decoding="async"
         />
       </figure>
 
-      <figure class="screen-card">
-        <figcaption class="screen-card__label" data-i18n="screenshots.detail">
-          Detail editor
-        </figcaption>
+      <figure class="teaser-card teaser-card--secondary">
         <img
-          class="screen-card__image"
-          src="/screenshots/ui/en/02_workspace_detail_light_en.png"
-          data-screenshot-en="/screenshots/ui/en/02_workspace_detail_light_en.png"
-          data-screenshot-de="/screenshots/ui/de/02_workspace_detail_light_de.png"
-          data-alt-en="WhisPaste detail editor screenshot"
-          data-alt-de="WhisPaste Detailansicht-Screenshot"
-          alt="WhisPaste detail editor screenshot"
-          loading="lazy"
-          decoding="async"
-        />
-      </figure>
-
-      <figure class="screen-card">
-        <figcaption class="screen-card__label" data-i18n="screenshots.shortcuts">
-          Voice shortcuts
-        </figcaption>
-        <img
-          class="screen-card__image"
-          src="/screenshots/ui/en/03_voice_shortcuts_dark_en.png"
-          data-screenshot-en="/screenshots/ui/en/03_voice_shortcuts_dark_en.png"
-          data-screenshot-de="/screenshots/ui/de/03_voice_shortcuts_dark_de.png"
-          data-alt-en="WhisPaste voice shortcuts screenshot"
-          data-alt-de="WhisPaste Sprachkürzel-Screenshot"
-          alt="WhisPaste voice shortcuts screenshot"
-          loading="lazy"
-          decoding="async"
-        />
-      </figure>
-
-      <figure class="screen-card">
-        <figcaption class="screen-card__label" data-i18n="screenshots.hotkey">
-          Hotkey setup
-        </figcaption>
-        <img
-          class="screen-card__image"
-          src="/screenshots/ui/en/04_hotkey_settings_light_en.png"
-          data-screenshot-en="/screenshots/ui/en/04_hotkey_settings_light_en.png"
-          data-screenshot-de="/screenshots/ui/de/04_hotkey_settings_light_de.png"
-          data-alt-en="WhisPaste hotkey settings screenshot"
-          data-alt-de="WhisPaste Hotkey-Einstellungen-Screenshot"
-          alt="WhisPaste hotkey settings screenshot"
-          loading="lazy"
-          decoding="async"
-        />
-      </figure>
-
-      <figure class="screen-card screen-card--wide">
-        <figcaption class="screen-card__label" data-i18n="screenshots.insights">
-          Stats
-        </figcaption>
-        <img
-          class="screen-card__image"
-          src="/screenshots/ui/en/05_time_saved_dark_en.png"
-          data-screenshot-en="/screenshots/ui/en/05_time_saved_dark_en.png"
-          data-screenshot-de="/screenshots/ui/de/05_time_saved_dark_de.png"
-          data-alt-en="WhisPaste analytics screenshot"
-          data-alt-de="WhisPaste Statistik-Screenshot"
-          alt="WhisPaste analytics screenshot"
+          class="teaser-img"
+          src="/screenshots/en/light/02_workspace_detail.png"
+          data-screenshot-en="/screenshots/en/light/02_workspace_detail.png"
+          data-screenshot-de="/screenshots/de/light/02_workspace_detail.png"
+          data-alt-en="WhisPaste detail editor — light theme"
+          data-alt-de="WhisPaste Detail-Editor — helles Design"
+          alt="WhisPaste detail editor — light theme"
+          width="1904"
+          height="1041"
           loading="lazy"
           decoding="async"
         />
       </figure>
     </div>
+
+    <div class="text-center mt-8 scroll-reveal">
+      <a
+        href="/screenshots"
+        class="inline-flex items-center gap-2 text-brand-cyan hover:underline font-medium text-sm transition-colors"
+        data-i18n="screenshots.seeAll"
+      >
+        See all screenshots
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </a>
+    </div>
   </div>
 </section>
 
 <style>
-  .screens-grid {
+  .teaser-pair {
     display: grid;
-    gap: 1.25rem;
+    gap: 1.5rem;
+    max-width: 56rem;
+    margin: 0 auto;
   }
 
-  .screen-card {
-    position: relative;
-    overflow: hidden;
-    border-radius: 28px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: linear-gradient(
-      180deg,
-      rgba(29, 37, 56, 0.84) 0%,
-      rgba(19, 24, 38, 0.94) 100%
-    );
-    padding: 12px;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.26);
-  }
-
-  .screen-card::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    border-radius: inherit;
-    background: linear-gradient(
-      180deg,
-      rgba(56, 217, 240, 0.08) 0%,
-      transparent 34%
-    );
-  }
-
-  .screen-card__label {
-    position: relative;
-    z-index: 1;
-    margin: 0;
-    padding: 6px 8px 14px;
-    color: #38d9f0;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-  }
-
-  .screen-card__image {
-    position: relative;
-    z-index: 1;
-    display: block;
-    width: 100%;
-    height: auto;
-    border-radius: 22px;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: 0 18px 36px rgba(0, 0, 0, 0.3);
-  }
-
-  @media (min-width: 1024px) {
-    .screens-grid {
-      grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr) minmax(0, 1fr);
+  @media (min-width: 768px) {
+    .teaser-pair {
+      grid-template-columns: 1.1fr 1fr;
       align-items: start;
     }
 
-    .screen-card--primary {
-      grid-row: span 2;
-    }
-
-    .screen-card--wide {
-      grid-column: 2 / 4;
+    .teaser-card--secondary {
+      margin-top: 2.5rem;
     }
   }
 
-  html.light .screen-card {
-    border-color: rgba(8, 145, 178, 0.12);
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.92) 0%,
-      rgba(241, 245, 249, 0.96) 100%
-    );
-    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+  .teaser-card {
+    margin: 0;
+    border-radius: 14px;
+    overflow: hidden;
   }
 
-  html.light .screen-card__label {
-    color: #0891b2;
+  .teaser-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.3);
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .teaser-card:hover .teaser-img {
+    transform: translateY(-4px);
+  }
+
+  html.light .teaser-img {
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.1);
   }
 </style>
 
 <script>
   function syncScreenshotLanguage() {
-    const lang = document.documentElement.lang === "de" ? "de" : "en";
-    document.querySelectorAll("img[data-screenshot-en]").forEach((img) => {
-      const nextSrc =
-        lang === "de" ? img.dataset.screenshotDe : img.dataset.screenshotEn;
-      const nextAlt = lang === "de" ? img.dataset.altDe : img.dataset.altEn;
-
-      if (nextSrc && img.getAttribute("src") !== nextSrc) {
-        img.setAttribute("src", nextSrc);
-      }
-
-      if (nextAlt) {
-        img.setAttribute("alt", nextAlt);
-      }
+    const lang = document.documentElement.lang === 'de' ? 'de' : 'en';
+    document.querySelectorAll<HTMLImageElement>('img[data-screenshot-en]').forEach(img => {
+      const nextSrc = lang === 'de' ? img.dataset.screenshotDe : img.dataset.screenshotEn;
+      const nextAlt = lang === 'de' ? img.dataset.altDe : img.dataset.altEn;
+      if (nextSrc && img.getAttribute('src') !== nextSrc) img.setAttribute('src', nextSrc);
+      if (nextAlt) img.setAttribute('alt', nextAlt);
     });
   }
 
   syncScreenshotLanguage();
-
   const observer = new MutationObserver(syncScreenshotLanguage);
-  observer.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["lang"],
-  });
-
-  window.addEventListener("pageshow", syncScreenshotLanguage);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+  window.addEventListener('pageshow', syncScreenshotLanguage);
 </script>

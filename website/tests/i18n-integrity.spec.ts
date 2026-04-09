@@ -128,7 +128,7 @@ test.describe('i18n integrity', () => {
 });
 
 test.describe('screenshot section', () => {
-  test('screenshot section is visible and has images', async ({ page }) => {
+  test('landing teaser is visible and has 2 hero images', async ({ page }) => {
     await page.goto('/');
 
     const section = page.locator('#app-screenshots');
@@ -136,7 +136,7 @@ test.describe('screenshot section', () => {
     await expect(section).toBeVisible();
 
     const images = section.locator('img');
-    await expect(images).toHaveCount(5);
+    await expect(images).toHaveCount(2);
   });
 
   test('screenshot images swap when language is toggled', async ({ page }) => {
@@ -148,5 +148,36 @@ test.describe('screenshot section', () => {
 
     await page.getByTestId('lang-toggle').click();
     await expect(firstImg).toHaveAttribute('src', /\/de\//);
+  });
+
+  test('"See all" link points to gallery page', async ({ page }) => {
+    await page.goto('/');
+    const link = page.locator('#app-screenshots a[href="/screenshots"]');
+    await expect(link).toBeVisible();
+  });
+});
+
+test.describe('gallery page', () => {
+  test('gallery page loads with 5 screenshots', async ({ page }) => {
+    await page.goto('/screenshots');
+    const slides = page.locator('.gallery-slide');
+    await expect(slides).toHaveCount(5);
+  });
+
+  test('gallery arrow navigation advances slide', async ({ page }) => {
+    await page.goto('/screenshots');
+    const nextBtn = page.locator('[data-gallery-next]');
+    await nextBtn.click();
+    const secondDot = page.locator('.gallery-dot').nth(1);
+    await expect(secondDot).toHaveClass(/gallery-dot--active/);
+  });
+
+  test('gallery theme toggle swaps images', async ({ page }) => {
+    await page.goto('/screenshots');
+    const firstImg = page.locator('.gallery-image').first();
+    await expect(firstImg).toHaveAttribute('src', /\/dark\//);
+
+    await page.locator('[data-gallery-theme="light"]').click();
+    await expect(firstImg).toHaveAttribute('src', /\/light\//);
   });
 });
