@@ -6,11 +6,9 @@
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const GOLDENS = path.join(ROOT, 'test', 'screenshots', 'goldens', 'windowsStoreScreenshots');
+const GOLDENS = path.join(ROOT, 'screenshots');
 const OUTPUT = path.join(__dirname, 'output');
 const WEBSITE_SCREENSHOTS_ROOT = path.join(ROOT, 'website', 'public', 'screenshots');
-const WEBSITE_STORE_SCREENSHOTS = path.join(WEBSITE_SCREENSHOTS_ROOT, 'store');
-const WEBSITE_UI_SCREENSHOTS = path.join(WEBSITE_SCREENSHOTS_ROOT, 'ui');
 
 const STORE_SIZES = {
   microsoft: {
@@ -42,8 +40,8 @@ const SCREENS = [
   {
     id: 'workspace-overview',
     screenshot: {
-      en: '01_workspace_overview_dark_en.png',
-      de: '01_workspace_overview_dark_de.png',
+      en: 'en/dark/01_workspace_overview.png',
+      de: 'de/dark/01_workspace_overview.png',
     },
     category: { en: 'WORKSPACE', de: 'WORKSPACE' },
     headline: {
@@ -59,8 +57,8 @@ const SCREENS = [
   {
     id: 'workspace-detail',
     screenshot: {
-      en: '02_workspace_detail_light_en.png',
-      de: '02_workspace_detail_light_de.png',
+      en: 'en/light/02_workspace_detail.png',
+      de: 'de/light/02_workspace_detail.png',
     },
     category: { en: 'DETAIL', de: 'DETAIL' },
     headline: {
@@ -76,8 +74,8 @@ const SCREENS = [
   {
     id: 'voice-shortcuts',
     screenshot: {
-      en: '03_voice_shortcuts_dark_en.png',
-      de: '03_voice_shortcuts_dark_de.png',
+      en: 'en/dark/03_voice_shortcuts.png',
+      de: 'de/dark/03_voice_shortcuts.png',
     },
     category: { en: 'VOICE SHORTCUTS', de: 'SPRACH-SHORTCUTS' },
     headline: {
@@ -93,8 +91,8 @@ const SCREENS = [
   {
     id: 'hotkey-settings',
     screenshot: {
-      en: '04_hotkey_settings_light_en.png',
-      de: '04_hotkey_settings_light_de.png',
+      en: 'en/light/04_settings.png',
+      de: 'de/light/04_settings.png',
     },
     category: { en: 'SETUP', de: 'EINRICHTUNG' },
     headline: {
@@ -110,8 +108,8 @@ const SCREENS = [
   {
     id: 'time-saved',
     screenshot: {
-      en: '05_time_saved_dark_en.png',
-      de: '05_time_saved_dark_de.png',
+      en: 'en/dark/05_analytics.png',
+      de: 'de/dark/05_analytics.png',
     },
     category: { en: 'INSIGHTS', de: 'EINBLICKE' },
     headline: {
