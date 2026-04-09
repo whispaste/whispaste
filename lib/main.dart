@@ -10,7 +10,6 @@ import 'app.dart';
 import 'core/config/settings_provider.dart';
 import 'core/logging/app_monitoring.dart';
 import 'screens/floating_button_screen.dart';
-import 'screens/floating_overlay_screen.dart';
 import 'services/audio_service.dart';
 import 'services/hardware_info_service.dart' as hw;
 import 'services/multi_window_service.dart';
@@ -51,8 +50,13 @@ Future<void> main(List<String> args) async {
           if (type == WindowType.floatingButton) {
             return runFloatingButtonWindow(controller);
           }
+          // Legacy: floating overlay windows are no longer used. If one
+          // was left from a previous session, hide it and go inert.
           if (type == WindowType.floatingOverlay) {
-            return runFloatingOverlayWindow(controller);
+            try {
+              await controller.hide();
+            } catch (_) {}
+            return;
           }
         }
       } catch (_) {
