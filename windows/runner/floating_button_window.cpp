@@ -665,9 +665,8 @@ void FloatingButtonWindow::DrawMicIcon(Graphics& g, Pen& pen) {
   holder.AddLine(5.0f, 12.0f, 5.0f, 10.0f);
   g.DrawPath(&pen, &holder);
 
-  // Stem and base
+  // Stem (no base line — matches Lucide mic v3.1.12)
   g.DrawLine(&pen, 12.0f, 19.0f, 12.0f, 22.0f);
-  g.DrawLine(&pen, 8.0f, 22.0f, 16.0f, 22.0f);
 }
 
 void FloatingButtonWindow::DrawSquareIcon(Graphics& g, Pen& pen) {
