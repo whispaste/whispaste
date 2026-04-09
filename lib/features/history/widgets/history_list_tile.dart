@@ -254,9 +254,13 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                       children: [
                         Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
                         const SizedBox(width: 3),
-                        Text(
-                          _durationLabel,
-                          style: TextStyle(fontSize: 10, color: textMuted),
+                        Flexible(
+                          child: Text(
+                            _durationLabel,
+                            style: TextStyle(fontSize: 10, color: textMuted),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         if (widget.entry.language.isNotEmpty) ...[
                           const SizedBox(width: WpSpacing.xs),

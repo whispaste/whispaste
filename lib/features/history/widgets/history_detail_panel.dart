@@ -710,7 +710,8 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                     Row(
                       children: [
                         if (entry.titleEdited || _isEditingTranscript)
-                          Container(
+                          Flexible(
+                            child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: WpSpacing.sm,
                               vertical: 3,
@@ -735,12 +736,16 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                     ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
                                     : textMuted,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
+                          ),
                           ),
                         const Spacer(),
                         // Word count + reading time (always shown when content exists)
                         if (entry.content.isNotEmpty || _isEditingTranscript)
-                          Padding(
+                          Flexible(
+                            child: Padding(
                             padding: const EdgeInsets.only(right: WpSpacing.sm),
                             child: Text(
                               _wordCountLabel(l10n),
@@ -748,7 +753,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                 fontSize: 11,
                                 color: textMuted,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
+                          ),
                           ),
                         Tooltip(
                           message: _isEditingTranscript
