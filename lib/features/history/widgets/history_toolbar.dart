@@ -117,7 +117,7 @@ class HistorySearchToolbar extends StatelessWidget {
                       const SizedBox(width: WpSpacing.xs),
                       HistoryFilterChip(
                         label: l10n.historyPinned,
-                        icon: LucideIcons.pin,
+                        icon: LucideIcons.star,
                         isActive: activeFilter == HistoryFilter.pinned,
                         onTap: () => onFilterChanged(HistoryFilter.pinned),
                         isDark: isDark,
@@ -348,6 +348,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
                     HistoryMultiSelectAction(
                       icon: LucideIcons.merge,
                       label: l10n.historyMerge,
+                      shortcutHint: 'Ctrl+M',
                       isDark: isDark,
                       onTap: onMerge!,
                     ),
@@ -355,6 +356,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
                     HistoryMultiSelectAction(
                       icon: LucideIcons.copy,
                       label: l10n.historyCopyText,
+                      shortcutHint: 'Ctrl+C',
                       isDark: isDark,
                       onTap: onBatchCopy!,
                     ),
@@ -376,6 +378,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
                     HistoryMultiSelectAction(
                       icon: LucideIcons.trash2,
                       label: isTrashView ? l10n.historyDeleteForever : l10n.actionDelete,
+                      shortcutHint: 'Del',
                       isDark: isDark,
                       onTap: onDelete!,
                       isDestructive: true,
@@ -411,6 +414,7 @@ class HistoryMultiSelectAction extends StatefulWidget {
     required this.label,
     required this.isDark,
     required this.onTap,
+    this.shortcutHint,
     this.isDestructive = false,
   });
 
@@ -418,6 +422,7 @@ class HistoryMultiSelectAction extends StatefulWidget {
   final String label;
   final bool isDark;
   final VoidCallback onTap;
+  final String? shortcutHint;
   final bool isDestructive;
 
   @override
@@ -443,7 +448,9 @@ class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: Tooltip(
-          message: widget.label,
+          message: widget.shortcutHint != null
+              ? '${widget.label} (${widget.shortcutHint})'
+              : widget.label,
           child: InkWell(
             borderRadius: WpRadius.borderSm,
             onTap: widget.onTap,

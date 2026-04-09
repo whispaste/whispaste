@@ -33,6 +33,7 @@ class WpTagInput extends StatefulWidget {
     this.onSearchChanged,
     this.hintText = 'Add tag…',
     this.searchHintText = 'Search or create…',
+    this.inlineLabel,
   });
 
   final List<Tag> tags;
@@ -44,6 +45,9 @@ class WpTagInput extends StatefulWidget {
   final ValueChanged<String>? onSearchChanged;
   final String hintText;
   final String searchHintText;
+
+  /// Optional inline label widget rendered as the first element in the Wrap.
+  final Widget? inlineLabel;
 
   @override
   State<WpTagInput> createState() => WpTagInputState();
@@ -263,6 +267,7 @@ class WpTagInputState extends State<WpTagInput> {
             runSpacing: WpSpacing.xs,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              if (widget.inlineLabel != null) widget.inlineLabel!,
               for (final tag in visibleTags)
                 _TagChip(
                   tag: tag,

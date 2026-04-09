@@ -212,8 +212,8 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                                       ),
                                       HistoryRowAction(
                                         icon: widget.entry.pinned
-                                            ? LucideIcons.pinOff
-                                            : LucideIcons.pin,
+                                            ? LucideIcons.starOff
+                                            : LucideIcons.star,
                                         tooltip: widget.entry.pinned
                                             ? l10n.historyUnpin
                                             : l10n.historyPinToTop,
