@@ -69,6 +69,7 @@ const { variant = "landing" } = Astro.props;
         class="sm:hidden text-gray-400 hover:text-white transition-colors p-1"
         aria-label="Open menu"
         aria-expanded="false"
+        aria-controls="mobileMenu"
       >
         <svg id="menuBtnIcon" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
       </button>
@@ -148,12 +149,14 @@ const { variant = "landing" } = Astro.props;
         var isOpen = !mobileMenu.classList.contains('hidden');
         mobileMenu.classList.toggle('hidden');
         menuBtn.setAttribute('aria-expanded', String(!isOpen));
+        menuBtn.setAttribute('aria-label', isOpen ? 'Open menu' : 'Close menu');
         if (menuIcon) menuIcon.innerHTML = isOpen ? hamburgerSVG : closeSVG;
       });
       mobileMenu.querySelectorAll('.mobile-nav-link').forEach(function (link) {
         link.addEventListener('click', function () {
           mobileMenu.classList.add('hidden');
           menuBtn.setAttribute('aria-expanded', 'false');
+          menuBtn.setAttribute('aria-label', 'Open menu');
           if (menuIcon) menuIcon.innerHTML = hamburgerSVG;
         });
       });
@@ -161,6 +164,7 @@ const { variant = "landing" } = Astro.props;
         if (e.key === 'Escape' && !mobileMenu.classList.contains('hidden')) {
           mobileMenu.classList.add('hidden');
           menuBtn.setAttribute('aria-expanded', 'false');
+          menuBtn.setAttribute('aria-label', 'Open menu');
           if (menuIcon) menuIcon.innerHTML = hamburgerSVG;
           menuBtn.focus();
         }
