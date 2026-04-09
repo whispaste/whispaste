@@ -160,16 +160,18 @@ test.describe('screenshot section', () => {
 test.describe('gallery page', () => {
   test('gallery page loads with 5 screenshots', async ({ page }) => {
     await page.goto('/screenshots');
-    const slides = page.locator('.gallery-slide');
-    await expect(slides).toHaveCount(5);
+    const items = page.locator('.gallery-item');
+    await expect(items).toHaveCount(5);
   });
 
-  test('gallery arrow navigation advances slide', async ({ page }) => {
+  test('clicking a thumbnail opens the lightbox', async ({ page }) => {
     await page.goto('/screenshots');
-    const nextBtn = page.locator('[data-gallery-next]');
-    await nextBtn.click();
-    const secondDot = page.locator('.gallery-dot').nth(1);
-    await expect(secondDot).toHaveClass(/gallery-dot--active/);
+    const firstThumb = page.locator('.gallery-thumb-btn').first();
+    await firstThumb.click();
+    const lightbox = page.locator('#screenshot-lightbox');
+    await expect(lightbox).toHaveAttribute('data-open', '');
+    const counter = page.locator('#lightbox-counter');
+    await expect(counter).toHaveText('1 / 5');
   });
 
   test('gallery theme toggle swaps images', async ({ page }) => {
