@@ -1669,6 +1669,30 @@ abstract class L10n {
   /// **'Voice shortcuts are disabled'**
   String get replacementsToggleDisabled;
 
+  /// No description provided for @replacementsEnableBannerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice shortcuts are turned off'**
+  String get replacementsEnableBannerTitle;
+
+  /// No description provided for @replacementsEnableBannerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable them so trigger phrases are replaced automatically during dictation.'**
+  String get replacementsEnableBannerHint;
+
+  /// No description provided for @replacementsEnableAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get replacementsEnableAction;
+
+  /// No description provided for @replacementsDisableAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable'**
+  String get replacementsDisableAction;
+
   /// No description provided for @replacementsAddShortcut.
   ///
   /// In en, this message translates to:
