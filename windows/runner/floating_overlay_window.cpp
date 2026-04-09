@@ -757,6 +757,18 @@ FloatingOverlayWindow::ThemeColors FloatingOverlayWindow::GetThemeColors() const
 }
 
 FloatingOverlayWindow::AccentGradient FloatingOverlayWindow::GetAccentColors() const {
+  // Interpolate accent colors over kTransitionMs when state changes
+  if (transition_start_ != 0 && prev_snap_.state != snap_.state) {
+    DWORD now = GetTickCount();
+    float progress = std::clamp(
+        static_cast<float>(now - transition_start_) / kTransitionMs, 0.0f, 1.0f);
+    if (progress < 1.0f) {
+      auto prev = AccentColorsFor(prev_snap_.state);
+      auto curr = AccentColorsFor(snap_.state);
+      return {LerpColor(prev.c0, curr.c0, progress),
+              LerpColor(prev.c1, curr.c1, progress)};
+    }
+  }
   auto g = AccentColorsFor(snap_.state);
   return {g.c0, g.c1};
 }
@@ -775,8 +787,10 @@ bool FloatingOverlayWindow::NeedsAnimation() const {
     default: break;
   }
   // Check transition in progress
-  DWORD now = GetTickCount();
-  if (now - transition_start_ < kTransitionMs) return true;
+  if (transition_start_ != 0) {
+    DWORD now = GetTickCount();
+    if (now - transition_start_ < kTransitionMs) return true;
+  }
   return false;
 }
 
@@ -794,6 +808,7 @@ void FloatingOverlayWindow::StopAnimTimer() {
 
 void FloatingOverlayWindow::OnAnimTick() {
   if (shutting_down_ || !hwnd_) return;
+  if (!visible_ && !is_showing_) return;  // skip work when hidden
 
   // Waveform interpolation (smooth bar heights)
   if (snap_.state == OverlayVisualState::kRecording && !snap_.compact) {
@@ -902,7 +917,7 @@ void FloatingOverlayWindow::Render() {
   float scale_factor = 1.0f;
   if (celebration_progress_ >= 0.0f) {
     float t = PingPong(celebration_progress_);
-    scale_factor = 1.0f + 0.02f * EaseInOut(t);
+    scale_factor = 1.0f + 0.05f * EaseInOut(t);
     float cx = content_w / 2.0f;
     float cy = content_h / 2.0f;
     g.TranslateTransform(cx, cy);
