@@ -486,8 +486,9 @@ void FloatingButtonWindow::Render() {
   }
   PaintBody(g, cx, cy, body_r * body_scale);
 
-  // ── Icon ───────────────────────────────────────────────────────────
-  float icon_phys = static_cast<float>(kIconSize * dpi);
+  // ── Icon (scaled proportionally with button size) ───────────────────
+  float icon_ratio = static_cast<float>(logical_size_) / 56.0f;
+  float icon_phys = static_cast<float>(kIconSize * icon_ratio * dpi);
   PaintIcon(g, cx, cy, icon_phys);
 
   // Flush GDI+ writes before handing to GDI.
