@@ -190,8 +190,10 @@ enum FloatingButtonSize {
   final int pixels;
 
   static FloatingButtonSize fromValue(String? v) {
+    if (v == null) return normal;
+    final lower = v.toLowerCase();
     for (final e in values) {
-      if (e.value == v) return e;
+      if (e.value == lower) return e;
     }
     return normal;
   }
