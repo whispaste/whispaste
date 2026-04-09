@@ -48,7 +48,7 @@ html.light .text-gray-100 { color: #0F172A !important; }
 html.light .text-gray-200 { color: #1E293B !important; }
 html.light .text-gray-300 { color: #334155 !important; }
 html.light .text-gray-400 { color: #64748B !important; }
-html.light .text-gray-500 { color: #94A3B8 !important; }
+html.light .text-gray-500 { color: #64748B !important; }
 html.light .border-white\/5, html.light .border-white\/10, html.light .border-white\/20, html.light .border-white\/\[0\.05\], html.light .border-white\/\[0\.06\], html.light .border-white\/\[0\.08\] { border-color: #E2E8F0 !important; }
 html.light .bg-white\/\[0\.02\], html.light .bg-white\/\[0\.03\], html.light .bg-white\/\[0\.04\] { background: rgba(0,0,0,0.02) !important; }
 html.light nav { background: rgba(241,245,249,0.55) !important; border-bottom-color: #E2E8F0 !important; backdrop-filter: blur(24px) saturate(1.5) !important; }
@@ -185,10 +185,10 @@ html.light .mockup-titlebar-text { color: #0F172A; }
 html.light .mockup-nb-body { background: linear-gradient(160deg, #F8FAFC 0%, color-mix(in srgb, #0891B2 5%, #F8FAFC) 50%, #F8FAFC 100%); }
 html.light .mockup-nb-topbar { background: #FFFFFF; border-bottom-color: color-mix(in srgb, #0891B2 15%, #E2E8F0); }
 html.light .mockup-nb-search { background: #F1F5F9; border-color: #E2E8F0; color: #0F172A; }
-html.light .mockup-nb-search-icon { color: #94A3B8; }
+html.light .mockup-nb-search-icon { color: #64748B; }
 html.light .mockup-nb-card { background: #FFFFFF; border-color: #E2E8F0; box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.02); }
 html.light .mockup-nb-card-title { color: #0F172A; }
-html.light .mockup-nb-card-meta { color: #94A3B8; }
+html.light .mockup-nb-card-meta { color: #64748B; }
 html.light .mockup-nb-card-preview { color: #64748B; }
 html.light .mockup-nb-pin-bar { background: linear-gradient(180deg, #22D3EE, #0891B2); }
 html.light .mockup-nb-action-btn-sm { color: #64748B; }
@@ -205,11 +205,11 @@ html.light .mockup-filter-sidebar { background: #FFFFFF; border-right-color: rgb
 html.light .mockup-sort-trigger { color: #64748B; }
 html.light .mockup-filter-item { color: #64748B; }
 html.light .mockup-filter-item-active { background: rgba(8,145,178,0.06); color: #0891B2; border-color: rgba(8,145,178,0.2); }
-html.light .mockup-filter-count { color: #94A3B8; }
+html.light .mockup-filter-count { color: #64748B; }
 html.light .mockup-filter-item-active .mockup-filter-count { color: rgba(8,145,178,0.6); }
 html.light .mockup-nb-selection-bar { background: rgba(8,145,178,0.04); border-bottom-color: rgba(8,145,178,0.2); }
 html.light .mockup-nb-selection-info { color: #0891B2; }
-html.light .mockup-nb-selection-close { color: #94A3B8; }
+html.light .mockup-nb-selection-close { color: #64748B; }
 html.light .mockup-nb-sel-btn { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); color: #0F172A; }
 html.light .mockup-nb-sel-delete { background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.2); color: #DC2626; }
 html.light .mockup-nb-checkbox { border-color: rgba(0,0,0,0.15); }
