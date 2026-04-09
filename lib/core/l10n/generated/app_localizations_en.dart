@@ -862,6 +862,19 @@ class L10nEn extends L10n {
   String get replacementsToggleDisabled => 'Voice shortcuts are disabled';
 
   @override
+  String get replacementsEnableBannerTitle => 'Voice shortcuts are turned off';
+
+  @override
+  String get replacementsEnableBannerHint =>
+      'Enable them so trigger phrases are replaced automatically during dictation.';
+
+  @override
+  String get replacementsEnableAction => 'Enable';
+
+  @override
+  String get replacementsDisableAction => 'Disable';
+
+  @override
   String get replacementsAddShortcut => 'Add Shortcut';
 
   @override
