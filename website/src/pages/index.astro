@@ -11,7 +11,7 @@ import Testimonials from "../components/Testimonials.astro";
 import Footer from "../components/Footer.astro";
 ---
 
-<Layout title="WhisPaste — Hotkey dictation for Windows, private by default">
+<Layout title="WhisPaste — Desktop dictation, private by default">
   <Nav variant="landing" />
   <main id="main-content">
     <Hero />
@@ -30,7 +30,7 @@ import Footer from "../components/Footer.astro";
     "@type": "SoftwareApplication",
     "@id": "https://whispaste.de/#app",
     "name": "WhisPaste",
-    "description": "Hotkey dictation for Windows that brings your voice into any app as text, snippets, or polished output — private by default.",
+    "description": "Desktop dictation app that brings your voice into any app as text — private by default, free & open source.",
     "url": "https://whispaste.de/",
     "applicationCategory": "ProductivityApplication",
     "operatingSystem": "Windows 10, Windows 11",
@@ -95,10 +95,10 @@ import Footer from "../components/Footer.astro";
       },
       {
         "@type": "Question",
-        "name": "Windows only — what about Mac or Linux?",
+        "name": "Is WhisPaste available on Mac or Linux?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Right now, WhisPaste is built for Windows 10 and 11. macOS support is being explored. The core is designed to be portable, but a proper Mac version takes time to do right."
+          "text": "Currently available for Windows. macOS and Linux versions are in active development. A mobile companion app is also planned."
         }
       },
       {
@@ -123,12 +123,20 @@ import Footer from "../components/Footer.astro";
       opacity: 1;
       transform: translateY(0);
     }
+    /* Staggered children in grids */
+    .scroll-reveal.visible > :nth-child(1) { transition-delay: 0ms; }
+    .scroll-reveal.visible > :nth-child(2) { transition-delay: 80ms; }
+    .scroll-reveal.visible > :nth-child(3) { transition-delay: 160ms; }
+    .scroll-reveal.visible > :nth-child(4) { transition-delay: 240ms; }
+    .scroll-reveal.visible > :nth-child(5) { transition-delay: 320ms; }
+    .scroll-reveal.visible > :nth-child(6) { transition-delay: 400ms; }
     @media (prefers-reduced-motion: reduce) {
       .scroll-reveal {
         opacity: 1 !important;
         transform: none !important;
         transition: none !important;
       }
+      .scroll-reveal > * { transition-delay: 0ms !important; }
     }
   </style>
 
