@@ -86,11 +86,11 @@ const waveBars: {
   amp: number;
 }[] = [];
 if (waveformEl) {
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 25; i++) {
     const bar = document.createElement("div");
     bar.className = "overlay-wave-bar";
     bar.style.height = "2px";
-    bar.style.background = "rgba(34,102,136,0.5)";
+    bar.style.background = "rgba(56,217,240,0.3)";
     waveformEl.appendChild(bar);
     waveBars.push({
       el: bar,
@@ -101,17 +101,20 @@ if (waveformEl) {
   }
   let waveRaf: number;
   function animateWave(t: number) {
+    if (reducedMotion) return;
     for (let i = 0; i < waveBars.length; i++) {
       const b = waveBars[i];
       const val = ((Math.sin(t * 0.003 * b.speed + b.phase) + 1) / 2) * b.amp;
-      const h = Math.max(3, Math.round(val * 44));
+      const h = Math.max(2, Math.round(val * 24));
       b.el.style.height = h + "px";
       b.el.style.background =
-        h > 6 ? "rgba(34,211,238,0.88)" : "rgba(34,102,136,0.5)";
+        h > 5 ? "rgba(56,217,240,0.85)" : "rgba(56,217,240,0.3)";
     }
     waveRaf = requestAnimationFrame(animateWave);
   }
-  waveRaf = requestAnimationFrame(animateWave);
+  if (!reducedMotion) {
+    waveRaf = requestAnimationFrame(animateWave);
+  }
 }
 
 // Typing animation for scene 3
