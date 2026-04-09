@@ -144,6 +144,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   _selectedIds.clear();
                   _selectedEntryId = null;
                 });
+                _listFocusNode.requestFocus();
               },
               onSearchChanged: () {
                 ref.read(historySearchProvider.notifier).set(
