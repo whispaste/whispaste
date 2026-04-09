@@ -36,6 +36,25 @@ jobs:
           --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
 
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          # X.X.X.0 format for Windows file properties (strip prerelease suffix)
+          $parts = $version -split '[.\-]'
+          $numeric = "$($parts[0]).$($parts[1]).$($parts[2]).0"
+
+          & "C:\Program Files (x86)\NSIS\makensis.exe" `
+            /DPRODUCT_VERSION=$version `
+            /DPRODUCT_VERSION_NUMERIC=$numeric `
+            installer\whispaste.nsi
+
+          if ($LASTEXITCODE -ne 0) { throw "NSIS build failed" }
+          Write-Host "Built: installer\WhisPaste-Setup.exe"
+
       - name: Prepare release artifacts
         shell: pwsh
         run: |
@@ -43,12 +62,15 @@ jobs:
           $artifactDir = "release-artifacts"
           New-Item -ItemType Directory -Path $artifactDir -Force
 
-          # Copy build output
+          # Portable ZIP from build output
           $buildDir = "build\windows\x64\runner\Release"
           $zipName = "WhisPaste-$version-windows-x64.zip"
           Compress-Archive -Path "$buildDir\*" -DestinationPath "$artifactDir\$zipName"
 
-          Write-Host "Created: $artifactDir\$zipName"
+          # NSIS installer (stable filename for direct download links)
+          Copy-Item "installer\WhisPaste-Setup.exe" "$artifactDir\"
+
+          Write-Host "Release artifacts:"
           Get-ChildItem $artifactDir
 
       - name: Upload artifacts
