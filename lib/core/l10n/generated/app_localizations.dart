@@ -196,7 +196,7 @@ abstract class L10n {
   /// No description provided for @historyPinned.
   ///
   /// In en, this message translates to:
-  /// **'Pinned'**
+  /// **'Favorites'**
   String get historyPinned;
 
   /// No description provided for @historyToday.
@@ -520,13 +520,13 @@ abstract class L10n {
   /// No description provided for @historyPinToTop.
   ///
   /// In en, this message translates to:
-  /// **'Pin to top'**
+  /// **'Add to Favorites'**
   String get historyPinToTop;
 
   /// No description provided for @historyUnpin.
   ///
   /// In en, this message translates to:
-  /// **'Unpin'**
+  /// **'Remove from Favorites'**
   String get historyUnpin;
 
   /// No description provided for @historyCopyText.
@@ -2770,7 +2770,7 @@ abstract class L10n {
   /// No description provided for @historyShortcutPin.
   ///
   /// In en, this message translates to:
-  /// **'Pin / unpin'**
+  /// **'Favorite / unfavorite'**
   String get historyShortcutPin;
 
   /// No description provided for @historyShortcutClose.
