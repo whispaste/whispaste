@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
@@ -9,10 +7,8 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/config/settings_provider.dart';
 import 'core/logging/app_monitoring.dart';
-import 'screens/floating_button_screen.dart';
 import 'services/audio_service.dart';
 import 'services/hardware_info_service.dart' as hw;
-import 'services/multi_window_service.dart';
 import 'services/path_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/subprocess_guard.dart' as guard;
@@ -38,33 +34,6 @@ Future<void> main(List<String> args) async {
   await AppMonitoring.bootstrap(appRunner: () async {
     WidgetsFlutterBinding.ensureInitialized();
 
-    // Secondary window detection: desktop_multi_window passes the window type
-    // via WindowController.fromCurrentEngine().arguments.
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      try {
-        final controller = await WindowController.fromCurrentEngine();
-        final windowArgs = controller.arguments;
-        if (windowArgs.isNotEmpty) {
-          final parsed = jsonDecode(windowArgs) as Map<String, dynamic>;
-          final type = parsed['type'] as String?;
-          if (type == WindowType.floatingButton) {
-            return runFloatingButtonWindow(controller);
-          }
-          // Legacy: floating overlay windows are no longer used. If one
-          // was left from a previous session, hide it and go inert.
-          if (type == WindowType.floatingOverlay) {
-            try {
-              await controller.hide();
-            } catch (_) {}
-            return;
-          }
-        }
-      } catch (_) {
-        // Not a secondary window — continue with main window setup.
-      }
-    }
-
-    // ── Main window path ───────────────────────────────────────────────────
     // Single-instance guard: if another instance is running, signal it and exit.
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       final isPrimary = await SingleInstanceService.ensureSingleInstance();
