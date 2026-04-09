@@ -121,7 +121,7 @@
                 <!-- Cancel: naked X icon, no circle bg (matches app _PillIconButton) -->
                 <div class="overlay-btn-cancel">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-                    stroke="rgba(138,153,178,0.8)" stroke-width="2" stroke-linecap="round"
+                    stroke="#8A99B2" stroke-width="2" stroke-linecap="round"
                     aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </div>
                 <!-- Privacy badge: shield-check + "Local" (matches app _buildInlinePrivacyBadge) -->
@@ -143,8 +143,8 @@
                 </div>
                 <!-- Stop button: red gradient circle + white square (matches app _PillStopButton) -->
                 <div class="overlay-btn-stop">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="white"
-                    aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"></rect></svg>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="white"
+                    aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg>
                 </div>
               </div>
               <!-- Progress bar at bottom (matches app _buildProgressBar unlimited mode) -->
@@ -375,8 +375,7 @@
   .overlay-pill-row {
     display: flex;
     align-items: center;
-    padding: 10px 16px;
-    gap: 8px;
+    padding: 12px 16px;
   }
   .overlay-btn-cancel {
     width: 36px;
@@ -386,6 +385,7 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    margin-right: 12px;
   }
   .overlay-badge-local {
     display: inline-flex;
@@ -399,6 +399,7 @@
     font-weight: 600;
     flex-shrink: 0;
     line-height: 1.3;
+    margin-right: 8px;
   }
   .overlay-badge-ai {
     display: inline-flex;
@@ -410,11 +411,11 @@
     font-size: 10px;
     flex-shrink: 0;
     line-height: 1.3;
+    margin-left: 8px;
   }
   .overlay-center {
     display: flex;
     align-items: center;
-    gap: 8px;
     flex: 1 1 0%;
     min-width: 0;
   }
@@ -425,6 +426,7 @@
     background: #FF5252;
     animation: rec-pulse 0.9s ease-in-out infinite;
     flex-shrink: 0;
+    margin-right: 8px;
   }
   @keyframes rec-pulse {
     0%, 100% { opacity: 0.45; }
@@ -437,6 +439,7 @@
     line-height: 1;
     font-feature-settings: "tnum";
     flex-shrink: 0;
+    margin-right: 16px;
   }
   .overlay-waveform {
     display: flex;
@@ -455,6 +458,7 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    margin-left: 12px;
   }
   .overlay-progress-bar {
     height: 4px;
