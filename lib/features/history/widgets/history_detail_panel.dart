@@ -762,16 +762,20 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                           : textMuted,
                                     ),
                                     const SizedBox(width: 6),
-                                    Text(
-                                      _isEditingTranscript
-                                          ? l10n.historySaveTranscript
-                                          : l10n.historyEditTranscript,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: _isEditingTranscript
-                                            ? accent
-                                            : textMuted,
+                                    Flexible(
+                                      child: Text(
+                                        _isEditingTranscript
+                                            ? l10n.historySaveTranscript
+                                            : l10n.historyEditTranscript,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          color: _isEditingTranscript
+                                              ? accent
+                                              : textMuted,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],

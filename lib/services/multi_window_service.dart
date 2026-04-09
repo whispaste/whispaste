@@ -949,8 +949,12 @@ class MultiWindowNotifier extends Notifier<MultiWindowState> {
         .catchError((Object e) {
       // If the channel is gone, the window was closed/destroyed.
       // Null-out the controller so we don't keep spamming a dead window.
+      // Catch PlatformException broadly — any platform channel failure
+      // means the window is unresponsive and continuing to push will
+      // only block the main thread further.
       final msg = e.toString();
-      if (msg.contains('CHANNEL_UNREGISTERED') ||
+      if (e is PlatformException ||
+          msg.contains('CHANNEL_UNREGISTERED') ||
           msg.contains('not accessible')) {
         _log.warning('$target window channel dead — removing controller');
         if (target == 'overlay' || target == 'secondary') {
