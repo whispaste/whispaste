@@ -234,7 +234,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'screenshots.desc': 'Echte App-Ansichten — Workspace, Detail-Editor, Sprachkürzel, Tastenkürzel und Statistiken.',
     'screenshots.workspace': 'Workspace',
     'screenshots.detail': 'Detail-Editor',
-    'screenshots.shortcuts': 'Sprachkürzel',
+    'screenshots.shortcuts': 'Sprach-Shortcuts',
     'screenshots.hotkey': 'Tastenkürzel',
     'screenshots.insights': 'Statistiken',
     'privacy.label': 'Vertrauen',
