@@ -128,7 +128,7 @@ class HistoryEntryAvatar extends StatelessWidget {
               color: color.withValues(alpha: isDark ? 0.9 : 0.8),
             ),
           ),
-          // Pin badge — small dot in corner
+          // Favorite badge — small dot in corner
           if (isPinned)
             Positioned(
               right: 0,
