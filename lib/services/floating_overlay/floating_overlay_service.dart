@@ -126,12 +126,23 @@ class FloatingOverlayService extends Notifier<void> {
 
     switch (next) {
       case RecordingPhase.idle:
+        // If transitioning from done while the auto-hide timer is still counting
+        // down, let it fire naturally — hiding here would cancel the timer and
+        // the user would never see the configured auto-hide delay.
+        if (prev == RecordingPhase.done && (_autoHideTimer?.isActive ?? false)) {
+          return;
+        }
         _hideOverlay();
 
       case RecordingPhase.recording:
         // New recording session — bump generation to invalidate stale timers.
         _generation++;
         _autoHideTimer?.cancel();
+        // Set start position before sending snapshot so C++ positions the window
+        // before it becomes visible.
+        if (prev == RecordingPhase.idle) {
+          _setStartPosition(settings);
+        }
         _sendSnapshot(settings, next);
 
       case RecordingPhase.transcribing:
@@ -226,12 +237,6 @@ class FloatingOverlayService extends Notifier<void> {
     _controller!.updateSnapshot(snapshot).catchError((e, st) {
       _log.error('Failed to send overlay snapshot', e, st);
     });
-
-    // Set initial position on first show.
-    if (phase == RecordingPhase.recording &&
-        _lastPhase == RecordingPhase.idle) {
-      _setStartPosition(s);
-    }
   }
 
   void _hideOverlay() {
@@ -262,7 +267,9 @@ class FloatingOverlayService extends Notifier<void> {
     final gen = _generation;
     _autoHideTimer = Timer(Duration(seconds: autoHide.seconds), () {
       // Only dismiss if we're still in the same generation (no new recording).
-      if (_generation == gen && _lastPhase == RecordingPhase.done) {
+      // By the time this fires, _lastPhase is already idle (orchestrator reset),
+      // so we can't use it as a guard — the generation is sufficient.
+      if (_generation == gen) {
         _hideOverlay();
       }
     });
@@ -414,7 +421,6 @@ class FloatingOverlayService extends Notifier<void> {
             (s) => s.copyWith(
               floatingOverlayX: x,
               floatingOverlayY: y,
-              overlayStartPosition: OverlayStartPosition.lastPosition.value,
             ),
           );
     } catch (e, st) {

@@ -230,27 +230,6 @@ class AdvancedSection extends ConsumerWidget {
                       (s) => s.copyWith(errorReporting: v)),
             ),
           ),
-          if (settings.afterTranscriptionAction ==
-                  AfterTranscriptionAction.paste ||
-              settings.afterTranscriptionAction ==
-                  AfterTranscriptionAction.clipboardAndPaste)
-            SettingRow(
-              icon: LucideIcons.timer,
-              label: l10n.settingsAutoPasteDelay,
-              subtitle: l10n.settingsAutoPasteDelaySubtitle,
-              trailing: settingsSlider(
-                context: context,
-                value: settings.autoPasteDelay.toDouble(),
-                min: 0,
-                max: 2000,
-                divisions: 20,
-                valueLabel: fmtMs(settings.autoPasteDelay),
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                        (s) => s.copyWith(autoPasteDelay: v.round())),
-              ),
-            ),
           SettingRow(
             icon: LucideIcons.rotateCcw,
             label: l10n.settingsResetToDefaults,
