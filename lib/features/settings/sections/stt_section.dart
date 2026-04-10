@@ -117,6 +117,31 @@ class _SpeechRecognitionSectionState
                   .updateSettings((s) => s.copyWith(sttLanguage: v!)),
             ),
           ),
+
+          // Engine idle timeout (local only)
+          if (isLocal)
+            SettingRow(
+              icon: LucideIcons.timer,
+              label: l10n.settingsSttIdleTimeout,
+              subtitle: l10n.settingsSttIdleTimeoutSubtitle,
+              trailing: settingsDropdown(
+                context: context,
+                value: settings.sttIdleTimeoutMinutes.toString(),
+                items: const ['5', '10', '15', '30', '0'],
+                labels: [
+                  l10n.settingsSttIdleTimeoutMinutes(5),
+                  l10n.settingsSttIdleTimeoutMinutes(10),
+                  l10n.settingsSttIdleTimeoutMinutes(15),
+                  l10n.settingsSttIdleTimeoutMinutes(30),
+                  l10n.settingsSttIdleTimeoutKeepAlive,
+                ],
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWith(sttIdleTimeoutMinutes: int.parse(v!)),
+                    ),
+              ),
+            ),
         ],
       ),
     );

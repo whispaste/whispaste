@@ -780,5 +780,13 @@
   "settingsHistoryAutoTrashDays": "Auto-delete trash after",
   "settingsHistoryAutoTrashNever": "Never",
   "settingsHistoryAutoTrashDaysLabel": "{count, plural, =1{1 day} other{{count} days}}",
-  "@settingsHistoryAutoTrashDaysLabel": { "placeholders": { "count": { "type": "int" } } }
+  "@settingsHistoryAutoTrashDaysLabel": { "placeholders": { "count": { "type": "int" } } },
+
+  "settingsFloatingButtonSection": "Floating Button",
+  "settingsFloatingButtonSectionSubtitle": "Always-on-top recording button for quick access",
+  "settingsSttIdleTimeout": "Engine idle timeout",
+  "settingsSttIdleTimeoutSubtitle": "How long the speech engine stays loaded after use",
+  "settingsSttIdleTimeoutKeepAlive": "Keep alive",
+  "settingsSttIdleTimeoutMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}",
+  "@settingsSttIdleTimeoutMinutes": { "placeholders": { "count": { "type": "int" } } }
 }
