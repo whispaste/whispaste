@@ -401,7 +401,12 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
             _saveTranscript();
           }
         },
-        const SingleActivator(LogicalKeyboardKey.keyC, control: true): onCopy,
+        // Suppress full-entry copy when a text field is focused so native
+        // text selection copy (Ctrl+C) works normally inside the editor.
+        const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
+          if (_isEditingTranscript || _isEditingTitle) return;
+          onCopy();
+        },
         // Markdown formatting shortcuts (active only in edit mode)
         const SingleActivator(LogicalKeyboardKey.keyB, control: true): () {
           if (_isEditingTranscript) _wrapBold();
