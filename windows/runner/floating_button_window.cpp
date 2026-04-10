@@ -18,12 +18,12 @@ namespace {
 // ── Layout constants (logical pixels) ─────────────────────────────────
 constexpr float kPulseMaxScale = 1.8f;
 constexpr float kRingStroke = 2.5f;
-constexpr float kShadowBlur1 = 10.0f;
+constexpr float kShadowBlur1 = 14.0f;
 constexpr float kShadowOffset1 = 3.0f;
-constexpr BYTE kShadowAlpha1 = 0x0C;   // ~4.7% per layer → ~23% composite (12 layers)
+constexpr BYTE kShadowAlpha1 = 0x08;   // ~3% per layer → ~17% composite (12 layers)
 constexpr float kShadowBlur2 = 2.0f;
 constexpr float kShadowOffset2 = 0.0f;
-constexpr BYTE kShadowAlpha2 = 0x06;   // ~2.4% per layer → ~12% composite
+constexpr BYTE kShadowAlpha2 = 0x04;   // ~1.6% per layer → ~8% composite
 constexpr float kSafetyPad = 2.0f;
 constexpr float kIconSize = 24.0f;     // Lucide viewbox
 constexpr float kIconStroke = 2.0f;    // Lucide default stroke-width
