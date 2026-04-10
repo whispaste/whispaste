@@ -771,5 +771,14 @@
   "overlayContextCancel": "Cancel recording",
   "overlayContextSwitchNormal": "Switch to Normal",
   "overlayContextSwitchCompact": "Switch to Compact",
-  "overlayContextHide": "Hide overlay"
+  "overlayContextHide": "Hide overlay",
+
+  "settingsHistory": "History",
+  "settingsHistorySubtitle": "Retention and automatic cleanup",
+  "settingsHistoryMaxEntries": "Maximum entries",
+  "settingsHistoryMaxEntriesUnlimited": "Unlimited",
+  "settingsHistoryAutoTrashDays": "Auto-delete trash after",
+  "settingsHistoryAutoTrashNever": "Never",
+  "settingsHistoryAutoTrashDaysLabel": "{count, plural, =1{1 day} other{{count} days}}",
+  "@settingsHistoryAutoTrashDaysLabel": { "placeholders": { "count": { "type": "int" } } }
 }

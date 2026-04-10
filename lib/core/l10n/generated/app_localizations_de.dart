@@ -2102,4 +2102,34 @@ class L10nDe extends L10n {
 
   @override
   String get overlayContextHide => 'Overlay ausblenden';
+
+  @override
+  String get settingsHistory => 'Verlauf';
+
+  @override
+  String get settingsHistorySubtitle =>
+      'Aufbewahrung und automatische Bereinigung';
+
+  @override
+  String get settingsHistoryMaxEntries => 'Maximale Einträge';
+
+  @override
+  String get settingsHistoryMaxEntriesUnlimited => 'Unbegrenzt';
+
+  @override
+  String get settingsHistoryAutoTrashDays => 'Papierkorb leeren nach';
+
+  @override
+  String get settingsHistoryAutoTrashNever => 'Nie';
+
+  @override
+  String settingsHistoryAutoTrashDaysLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Tage',
+      one: '1 Tag',
+    );
+    return '$_temp0';
+  }
 }
