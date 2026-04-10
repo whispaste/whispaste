@@ -468,6 +468,7 @@
   "modelUse": "Use",
   "modelDownload": "Download",
   "modelDownloading": "Downloading…",
+  "modelDownloadingEngine": "Preparing speech engine…",
   "modelVerifying": "Verifying…",
   "modelExtracting": "Extracting…",
   "modelDeleteConfirm": "Delete this model?",

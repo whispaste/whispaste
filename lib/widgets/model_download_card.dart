@@ -175,11 +175,6 @@ class _TierRowState extends State<_TierRow> {
     return widget.downloadState.phase;
   }
 
-  int get _progress {
-    if (!_isDownloading) return 0;
-    return widget.downloadState.progressPercent;
-  }
-
   IconData get _tierIcon => switch (widget.tier) {
         QualityTier.compact => LucideIcons.zap,
         QualityTier.balanced => LucideIcons.scale,
@@ -375,14 +370,15 @@ class _TierRowState extends State<_TierRow> {
                   _buildAction(accent, textMuted),
                 ],
               ),
-              // Progress bar
-              if (_isDownloading && _phase == DownloadPhase.downloading)
+              // Progress bar + status text
+              if (_isDownloading && widget.downloadState.isBusy)
                 Padding(
                   padding: const EdgeInsets.only(top: WpSpacing.xs),
-                  child: _DownloadProgress(
-                    percent: _progress,
+                  child: _DownloadProgressInfo(
+                    downloadState: widget.downloadState,
                     accent: accent,
                     isDark: widget.isDark,
+                    l10n: widget.l10n,
                   ),
                 ),
             ],
@@ -503,33 +499,127 @@ class _StatusIcon extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Download progress bar
+// Download progress bar with speed/ETA info
 // ---------------------------------------------------------------------------
 
-class _DownloadProgress extends StatelessWidget {
-  const _DownloadProgress({
-    required this.percent,
+class _DownloadProgressInfo extends StatelessWidget {
+  const _DownloadProgressInfo({
+    required this.downloadState,
     required this.accent,
     required this.isDark,
+    required this.l10n,
   });
 
-  final int percent;
+  final ModelDownloadState downloadState;
   final Color accent;
   final bool isDark;
+  final L10n l10n;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(WpRadius.full),
-      child: LinearProgressIndicator(
-        value: percent / 100,
-        minHeight: 3,
-        backgroundColor: isDark
-            ? WpColorsDark.borderSubtle
-            : WpColorsLight.borderSubtle,
-        valueColor: AlwaysStoppedAnimation(accent),
-      ),
+    final phase = downloadState.phase;
+    final isVerifying = phase == DownloadPhase.verifying;
+    final isExtracting = phase == DownloadPhase.extracting;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Progress bar
+        ClipRRect(
+          borderRadius: BorderRadius.circular(WpRadius.full),
+          child: LinearProgressIndicator(
+            value: isVerifying || isExtracting
+                ? null // indeterminate for verification/extraction
+                : downloadState.progressPercent / 100,
+            minHeight: 3,
+            backgroundColor: isDark
+                ? WpColorsDark.borderSubtle
+                : WpColorsLight.borderSubtle,
+            valueColor: AlwaysStoppedAnimation(accent),
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Status text row
+        Text(
+          _statusText(),
+          style: TextStyle(
+            fontSize: 11,
+            color: isDark
+                ? WpColorsDark.textMuted
+                : WpColorsLight.textMuted,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
+  }
+
+  String _statusText() {
+    switch (downloadState.phase) {
+      case DownloadPhase.verifying:
+        return l10n.modelVerifying;
+      case DownloadPhase.extracting:
+        return l10n.modelExtracting;
+      case DownloadPhase.downloading:
+        return _downloadingText();
+      default:
+        return '';
+    }
+  }
+
+  String _downloadingText() {
+    final dl = downloadState.bytesDownloaded;
+    final total = downloadState.totalBytes;
+    final speed = downloadState.speedBytesPerSec;
+    final eta = downloadState.etaSeconds;
+    final label = downloadState.statusLabel;
+
+    final parts = <String>[];
+
+    // Size progress: "156 MB / 350 MB"
+    if (total > 0) {
+      parts.add('${_formatBytes(dl)} / ${_formatBytes(total)}');
+    } else if (dl > 0) {
+      parts.add(_formatBytes(dl));
+    }
+
+    // Speed: "12.3 MB/s"
+    if (speed > 100) {
+      parts.add('${_formatBytes(speed.round())}/s');
+    }
+
+    // ETA: "~2:30"
+    if (eta != null && eta > 0 && eta < 36000) {
+      parts.add('~${_formatDuration(eta)}');
+    }
+
+    final info = parts.join(' · ');
+
+    // Prefix with what's being downloaded
+    if (label == 'engine') {
+      return info.isEmpty
+          ? l10n.modelDownloadingEngine
+          : '${l10n.modelDownloadingEngine} $info';
+    }
+    return info.isEmpty ? l10n.modelDownloading : info;
+  }
+
+  static String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  static String _formatDuration(int seconds) {
+    if (seconds < 60) return '${seconds}s';
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 }
 

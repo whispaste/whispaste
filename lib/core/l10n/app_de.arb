@@ -414,6 +414,7 @@
   "modelUse": "Verwenden",
   "modelDownload": "Laden",
   "modelDownloading": "Wird geladen…",
+  "modelDownloadingEngine": "Sprachmodul wird vorbereitet…",
   "modelVerifying": "Wird überprüft…",
   "modelExtracting": "Wird entpackt…",
   "modelDeleteConfirm": "Modell löschen?",
