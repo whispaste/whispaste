@@ -630,7 +630,7 @@ Before shipping any UI change, ask: "Would a user screenshot this and share it b
 
 **Test pyramid**: Unit (broad) → Widget (medium) → Integration (narrow). Test critical business logic, AI pipeline, and widget contracts thoroughly. UI layout and cosmetic details are verified through widget tests and manual review.
 
-**Tests gate CI.** `flutter test` MUST pass on the `dev` branch for merges to `main`. No `continue-on-error`, no skipping, no excuses.
+**Tests gate CI.** `flutter test` MUST pass on `main` before every push and before any release/version bump. No `continue-on-error`, no skipping, no excuses.
 
 ### Test Strategy
 
@@ -966,19 +966,18 @@ Before implementing any feature that touches user data or external communication
 
 ### Git Branching Strategy — Solo Developer (MANDATORY)
 
-WhisPaste uses a **two-branch model** optimized for solo development:
+WhisPaste uses a **main-only model** optimized for solo development:
 
 | Branch | Purpose | Who commits |
 |--------|---------|-------------|
-| `dev` | Active development. ALL work happens here. | Developer + Copilot |
-| `main` | Stable releases only. Never commit directly. | Merge from dev only |
+| `main` | Active development and stable releases. Every commit must keep the repo green and releasable. | Developer + Copilot |
 
 **Rules:**
-1. **All commits go to `dev`** — never commit directly to `main`.
-2. **No feature branches** — no `feature/*`, no `amboss/*`, no temporary branches. The only branches are `dev` and `main`.
-3. **No PRs for own work** — Copilot and the developer push directly to `dev`. Never use `gh pr create`. PRs exist only for external contributors.
-4. **Release flow**: `git checkout main && git merge dev --no-ff && git tag vX.Y.Z && git push origin main --tags && git checkout dev`
-5. **CI runs on both branches** — every push to `dev` and `main` triggers CI.
+1. **All normal work lands on `main`** — do not keep or recreate a persistent `dev` branch.
+2. **No long-lived side branches for own work** — if temporary isolation is truly needed, ask first and merge/delete it quickly.
+3. **No PRs for own work** — Copilot and the developer work directly on `main`. Never use `gh pr create` unless external collaboration requires it.
+4. **Release flow**: validate on `main`, push `main`, wait for `CI` and `Deploy Landing Page` as applicable, then tag `vX.Y.Z` and monitor `release.yml`.
+5. **CI runs on `main`** — every push to `main` must stay green.
 
 ### Commit Message Format (Conventional Commits)
 
@@ -1011,7 +1010,7 @@ Use the affected area: `design`, `sidebar`, `settings`, `history`, `recording`, 
 2. **Tests with features**: When adding a feature that has testable logic, include tests in the same commit or immediately after.
 3. **Run tests before commit**: `flutter test` must pass before every commit. No committing broken tests.
 4. **Run analyze before commit**: `flutter analyze` must show 0 issues before every commit.
-5. **No WIP commits on main**: Main is the release branch — only merge complete, tested work from dev. All development happens on dev.
+5. **No WIP commits on main**: `main` is both the development and release branch, so every commit must be complete, validated, and safe to keep green.
 6. **Meaningful descriptions**: `"fix stuff"` or `"update"` are not acceptable. Describe WHAT changed and WHY.
 7. **Co-authored-by trailer**: Always include the Copilot co-author trailer.
 
@@ -1025,12 +1024,14 @@ Before every commit:
 
 ## CI/CD Pipeline
 
-### CI (`ci.yml`) — Runs on every push to dev/main
+### CI (`ci.yml`) — Runs on every push to main
 
-1. **Windows only**: `flutter analyze --fatal-infos` + `flutter test` + `flutter build windows --debug`
-2. **Verify build**: Checks `.exe` exists and reports size
-3. **Secret scan**: grep for API key patterns (`sk-`, `AKIA`, `ghp_`, `password=`)
-4. No artifact upload — CI is validation only
+1. **Windows validation**: `flutter analyze --fatal-infos` + `flutter test` + `flutter build windows --debug`
+2. **C++ static analysis**: `scripts\cppcheck.ps1` against `windows/runner`
+3. **Verify build**: Checks `.exe` exists and reports size
+4. **Secret scan**: `scripts\security-scan.ps1`
+5. **Website validation**: `npm ci` + `npm audit --audit-level=high` + `npm run build` + `npm run test:ci`
+6. No artifact upload — CI is validation only
 
 ### Release (`release.yml`) — Triggered by `v*` tags
 
