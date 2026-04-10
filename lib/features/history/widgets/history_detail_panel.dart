@@ -11,6 +11,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../data/history_detail_provider.dart';
+import 'highlighted_text.dart';
 import 'history_helpers.dart';
 import 'history_notes_section.dart';
 import '../../../widgets/tag_input.dart';
@@ -493,8 +494,8 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                               cursor: isTrashView
                                   ? SystemMouseCursors.basic
                                   : SystemMouseCursors.click,
-                              child: Text(
-                                entry.title.isNotEmpty
+                              child: HighlightedText(
+                                text: entry.title.isNotEmpty
                                     ? entry.title
                                     : l10n.historyUntitled,
                                 style: TextStyle(
@@ -502,6 +503,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                   fontWeight: FontWeight.w700,
                                   color: textPrimary,
                                 ),
+                                isDark: isDark,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -767,13 +769,14 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                     cursor: isTrashView
                                         ? SystemMouseCursors.basic
                                         : SystemMouseCursors.click,
-                                    child: Text(
-                                      entry.content,
+                                    child: HighlightedText(
+                                      text: entry.content,
                                       style: TextStyle(
                                         fontSize: 15.5,
                                         color: textPrimary,
                                         height: 1.65,
                                       ),
+                                      isDark: isDark,
                                     ),
                                   ),
                                 ),

@@ -106,10 +106,16 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
                 Text(
                   '${widget.count}',
                   style: TextStyle(
-                    color: fg.withValues(alpha: 0.6),
+                    color: (!widget.isActive && widget.count! > 0)
+                        ? (widget.isDark
+                            ? WpColorsDark.accent
+                            : WpColorsLight.accent)
+                        : fg.withValues(alpha: 0.6),
                     fontSize: 11,
                     height: 1.15,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: (!widget.isActive && widget.count! > 0)
+                        ? FontWeight.w600
+                        : FontWeight.w400,
                   ),
                 ),
               ],
