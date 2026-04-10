@@ -1,6 +1,5 @@
-# CodeQL configuration for WhisPaste (C/C++ analysis)
-# Covers native Win32/GDI+ code: floating FAB, overlay, paste host, helpers.
-# Note: Dart analysis is handled by flutter analyze in ci.yml.
+# CodeQL configuration for WhisPaste C++ analysis.
+# Covers the native Windows runner code and excludes generated build output.
 
 queries:
   - uses: security-and-quality
@@ -9,5 +8,5 @@ paths:
   - windows/runner
 
 paths-ignore:
-  - windows/flutter
   - build
+  - windows/flutter/ephemeral
