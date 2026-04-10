@@ -201,14 +201,12 @@ class FloatingOverlayService extends Notifier<void> {
       errorMessage: recording.errorMessage,
       privacyMode: isLocal ? 'local' : 'cloud',
       showRetry: phase == RecordingPhase.error,
-      doneMessage:
-          phase == RecordingPhase.done && l10n != null
-              ? RecordingPill.doneMessageFor(s.afterTranscription, l10n)
-              : null,
-      processingLabel:
-          phase == RecordingPhase.processing
-              ? (l10n?.overlayRefining ?? 'Refining…')
-              : null,
+      doneMessage: phase == RecordingPhase.done && l10n != null
+          ? RecordingPill.doneMessageFor(s.afterTranscription, l10n)
+          : null,
+      processingLabel: phase == RecordingPhase.processing
+          ? (l10n?.overlayRefining ?? 'Refining…')
+          : null,
     );
 
     _controller!.updateSnapshot(snapshot).catchError((e, st) {
@@ -285,10 +283,9 @@ class FloatingOverlayService extends Notifier<void> {
           OverlayAnchorMode.topLeft,
         );
       } else {
-        final anchor =
-            pos == OverlayStartPosition.bottomCenter
-                ? OverlayAnchorMode.bottomCenter
-                : OverlayAnchorMode.topCenter;
+        final anchor = pos == OverlayStartPosition.bottomCenter
+            ? OverlayAnchorMode.bottomCenter
+            : OverlayAnchorMode.topCenter;
         // x=-1, y=-1 signals C++ to compute centered position.
         await _controller!.setPosition(-1, -1, anchor);
       }
@@ -304,14 +301,16 @@ class FloatingOverlayService extends Notifier<void> {
     final l10n = _l10n;
     if (l10n == null) return;
 
-    _controller!.setContextMenuItems([
-      (id: 'cancel', label: l10n.overlayContextCancel),
-      (id: 'switch_normal', label: l10n.overlayContextSwitchNormal),
-      (id: 'switch_compact', label: l10n.overlayContextSwitchCompact),
-      (id: 'hide', label: l10n.overlayContextHide),
-    ]).catchError((e, st) {
-      _log.error('Failed to send context menu items', e, st);
-    });
+    _controller!
+        .setContextMenuItems([
+          (id: 'cancel', label: l10n.overlayContextCancel),
+          (id: 'switch_normal', label: l10n.overlayContextSwitchNormal),
+          (id: 'switch_compact', label: l10n.overlayContextSwitchCompact),
+          (id: 'hide', label: l10n.overlayContextHide),
+        ])
+        .catchError((e, st) {
+          _log.error('Failed to send context menu items', e, st);
+        });
   }
 
   // ── Event handling ────────────────────────────────────────────────
@@ -365,22 +364,28 @@ class FloatingOverlayService extends Notifier<void> {
 
       case 'switch_normal':
         _log.debug('Context menu: switch to normal');
-        ref.read(settingsProvider.notifier).updateSettings(
-          (s) => s.copyWith(overlaySize: FloatingOverlaySize.normal.value),
-        );
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWith(overlaySize: FloatingOverlaySize.normal.value),
+            );
 
       case 'switch_compact':
         _log.debug('Context menu: switch to compact');
-        ref.read(settingsProvider.notifier).updateSettings(
-          (s) => s.copyWith(overlaySize: FloatingOverlaySize.compact.value),
-        );
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWith(overlaySize: FloatingOverlaySize.compact.value),
+            );
 
       case 'hide':
         _log.debug('Context menu: hide overlay');
         _hideOverlay();
-        ref.read(settingsProvider.notifier).updateSettings(
-          (s) => s.copyWith(overlayMode: OverlayMode.off.value),
-        );
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWith(overlayMode: OverlayMode.off.value),
+            );
 
       default:
         _log.warning('Unknown context menu action: $action');
@@ -389,13 +394,15 @@ class FloatingOverlayService extends Notifier<void> {
 
   Future<void> _savePosition(double x, double y) async {
     try {
-      await ref.read(settingsProvider.notifier).updateSettings(
-        (s) => s.copyWith(
-          floatingOverlayX: x,
-          floatingOverlayY: y,
-          overlayStartPosition: OverlayStartPosition.lastPosition.value,
-        ),
-      );
+      await ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWith(
+              floatingOverlayX: x,
+              floatingOverlayY: y,
+              overlayStartPosition: OverlayStartPosition.lastPosition.value,
+            ),
+          );
     } catch (e, st) {
       _log.error('Failed to save overlay position', e, st);
     }
@@ -414,8 +421,7 @@ class FloatingOverlayService extends Notifier<void> {
 
   String _labelFor(RecordingPhase phase, L10n? l10n) => switch (phase) {
     RecordingPhase.recording => l10n?.overlayRecording ?? 'Recording',
-    RecordingPhase.transcribing =>
-      l10n?.overlayTranscribing ?? 'Transcribing…',
+    RecordingPhase.transcribing => l10n?.overlayTranscribing ?? 'Transcribing…',
     RecordingPhase.processing => l10n?.overlayRefining ?? 'Refining…',
     RecordingPhase.done => l10n?.overlayDoneReady ?? 'Done',
     RecordingPhase.error => l10n?.overlayError ?? 'Error',
@@ -424,7 +430,11 @@ class FloatingOverlayService extends Notifier<void> {
 
   String _hintFor(RecordingPhase phase, AppSettings s, L10n? l10n) {
     if (phase == RecordingPhase.recording && s.hotkeyEnabled) {
-      final hotkey = formatHotkeyShortcut(s.hotkeyModifiers, s.hotkeyKey);
+      final hotkey = formatHotkeyShortcut(
+        s.hotkeyModifiers,
+        s.hotkeyKey,
+        l10n: l10n,
+      );
       return l10n?.overlayKeyboardHint(hotkey) ?? 'Press $hotkey to stop';
     }
     if (phase == RecordingPhase.transcribing) {
@@ -473,6 +483,4 @@ class FloatingOverlayService extends Notifier<void> {
 /// Provider for the floating overlay service (keepAlive — lives for app
 /// lifetime).
 final floatingOverlayServiceProvider =
-    NotifierProvider<FloatingOverlayService, void>(
-      FloatingOverlayService.new,
-    );
+    NotifierProvider<FloatingOverlayService, void>(FloatingOverlayService.new);

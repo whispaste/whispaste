@@ -1195,6 +1195,39 @@ class L10nEn extends L10n {
   String get modifierCmd => 'Cmd';
 
   @override
+  String get shortcutKeySpace => 'Space';
+
+  @override
+  String get shortcutKeyEnter => 'Enter';
+
+  @override
+  String get shortcutKeyEscape => 'Esc';
+
+  @override
+  String get shortcutKeyBackspace => 'Backspace';
+
+  @override
+  String get shortcutKeyTab => 'Tab';
+
+  @override
+  String get shortcutKeyDelete => 'Del';
+
+  @override
+  String get shortcutKeyInsert => 'Insert';
+
+  @override
+  String get shortcutKeyHome => 'Home';
+
+  @override
+  String get shortcutKeyEnd => 'End';
+
+  @override
+  String get shortcutKeyPageUp => 'Page Up';
+
+  @override
+  String get shortcutKeyPageDown => 'Page Down';
+
+  @override
   String get tooltipSwitchToLight => 'Switch to Light Mode';
 
   @override

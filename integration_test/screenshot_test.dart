@@ -26,8 +26,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'package:whispaste/app.dart'
-    show wpNavItems, wpPageTitle;
+import 'package:whispaste/app.dart' show wpNavItems, wpPageTitle;
 import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/analytics_provider.dart';
@@ -123,8 +122,9 @@ void main() {
 
     for (final locale in _locales) {
       for (final themeLabel in ['dark', 'light']) {
-        final themeMode =
-            themeLabel == 'dark' ? ThemeMode.dark : ThemeMode.light;
+        final themeMode = themeLabel == 'dark'
+            ? ThemeMode.dark
+            : ThemeMode.light;
 
         // ignore: avoid_print
         print('\n=== $locale / $themeLabel ===');
@@ -224,11 +224,7 @@ Widget _buildScreenshotApp({
       locale: Locale(locale),
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
-      home: _ScreenshotShell(
-        pageId: pageId,
-        settings: settings,
-        child: child,
-      ),
+      home: _ScreenshotShell(pageId: pageId, settings: settings, child: child),
     ),
   );
 }
@@ -258,8 +254,7 @@ class _ScreenshotShell extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final navItems = wpNavItems(l10n);
-    final statusBarModel =
-        buildStatusBarModel(settings: settings, l10n: l10n);
+    final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
 
     const contentRadius = BorderRadius.only(
       topLeft: Radius.circular(WpRadius.xl),
@@ -317,7 +312,8 @@ class _ScreenshotShell extends StatelessWidget {
                             children: [
                               // Recording indicator — idle = height 0
                               const WpRecordingIndicatorBar(
-                                  phase: RecordingPhase.idle),
+                                phase: RecordingPhase.idle,
+                              ),
                               // Page header
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
@@ -330,9 +326,9 @@ class _ScreenshotShell extends StatelessWidget {
                                   children: [
                                     Text(
                                       wpPageTitle(pageId, navItems, l10n),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineLarge,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.headlineLarge,
                                     ),
                                   ],
                                 ),
@@ -353,10 +349,15 @@ class _ScreenshotShell extends StatelessWidget {
                   sttState: SttServerState.ready,
                   recordingPhase: RecordingPhase.idle,
                   afterActionLabel: afterTranscriptionStatusLabel(
-                      settings.afterTranscriptionAction, l10n),
+                    settings.afterTranscriptionAction,
+                    l10n,
+                  ),
                   afterAction: settings.afterTranscriptionAction,
                   hotkeyLabel: formatHotkeyShortcut(
-                      settings.hotkeyModifiers, settings.hotkeyKey),
+                    settings.hotkeyModifiers,
+                    settings.hotkeyKey,
+                    l10n: l10n,
+                  ),
                   hotkeyEnabled: settings.hotkeyEnabled,
                   onHotkeyTap: () {},
                   onSttTap: () {},
@@ -370,9 +371,7 @@ class _ScreenshotShell extends StatelessWidget {
       ),
       // FAB — idle state with accent gradient
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(
-          bottom: WpLayout.statusBarHeight,
-        ),
+        padding: const EdgeInsets.only(bottom: WpLayout.statusBarHeight),
         child: WpRecordingFab(
           phase: RecordingPhase.idle,
           readiness: RecordingReadiness.ready,
@@ -391,8 +390,9 @@ class _ScreenshotThemeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mutedColor =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final mutedColor = isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
     return IconButton(
       icon: Icon(
         isDark ? LucideIcons.moon : LucideIcons.sun,
@@ -413,8 +413,10 @@ class _ScreenshotThemeToggle extends StatelessWidget {
 
 /// Let animations settle without requiring `pumpAndSettle` (which hangs on
 /// infinite animations like the FAB breathe or Lottie loops).
-Future<void> _settle(WidgetTester tester,
-    [Duration d = const Duration(milliseconds: 500)]) async {
+Future<void> _settle(
+  WidgetTester tester, [
+  Duration d = const Duration(milliseconds: 500),
+]) async {
   await tester.runAsync(() => Future.delayed(d));
   await tester.pump();
 }
@@ -433,8 +435,7 @@ Future<void> _captureScreen(WidgetTester tester, String path) async {
   final bytes = await tester.runAsync<List<int>>(() async {
     final renderView = tester.binding.renderViews.first;
     final layer = renderView.debugLayer! as OffsetLayer;
-    final image =
-        await layer.toImage(renderView.paintBounds, pixelRatio: 1.0);
+    final image = await layer.toImage(renderView.paintBounds, pixelRatio: 1.0);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     if (byteData == null) {
       throw StateError('Failed to convert image to PNG bytes');
@@ -458,8 +459,7 @@ Future<void> _captureScreen(WidgetTester tester, String path) async {
 // Screen arrangement helpers
 // ---------------------------------------------------------------------------
 
-Future<void> _openFirstHistoryEntry(
-    WidgetTester tester, String locale) async {
+Future<void> _openFirstHistoryEntry(WidgetTester tester, String locale) async {
   final firstTitle = locale == 'de'
       ? 'Wöchentliche Standup-Notizen'
       : 'Weekly standup notes';
@@ -470,10 +470,8 @@ Future<void> _openFirstHistoryEntry(
   }
 }
 
-Future<void> _scrollToHotkeySection(
-    WidgetTester tester, String locale) async {
-  final sectionTitle =
-      locale == 'de' ? 'Tastenkürzel' : 'Keyboard Shortcut';
+Future<void> _scrollToHotkeySection(WidgetTester tester, String locale) async {
+  final sectionTitle = locale == 'de' ? 'Tastenkürzel' : 'Keyboard Shortcut';
   final target = find.text(sectionTitle);
   // Find the scrollable that belongs to the content panel (not sidebar)
   final scrollable = find.byType(Scrollable);
@@ -519,10 +517,7 @@ class _ScreenDef {
 // Demo data — localized, realistic entries
 // ---------------------------------------------------------------------------
 
-Future<void> _seedDemoData(
-  HistoryDatabase db, {
-  required String locale,
-}) async {
+Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
   final now = DateTime.now();
   final isGerman = locale == 'de';
 
@@ -535,19 +530,19 @@ Future<void> _seedDemoData(
     final id =
         'tag-${tag.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}';
     tagIds[tag] = id;
-    await db.into(db.tags).insert(
-          TagsCompanion(
-            id: Value(id),
-            name: Value(tag),
-            createdAt: Value(now),
-          ),
+    await db
+        .into(db.tags)
+        .insert(
+          TagsCompanion(id: Value(id), name: Value(tag), createdAt: Value(now)),
         );
   }
 
   final entries = isGerman ? _demoEntriesDe : _demoEntriesEn;
   for (final entry in entries) {
     final ts = now.subtract(Duration(minutes: entry.minutesAgo));
-    await db.into(db.historyEntries).insert(
+    await db
+        .into(db.historyEntries)
+        .insert(
           HistoryEntriesCompanion(
             id: Value(entry.id),
             title: Value(entry.title),
@@ -565,11 +560,10 @@ Future<void> _seedDemoData(
 
     for (final tagName in entry.tags) {
       final tagId = tagIds[tagName]!;
-      await db.into(db.entryTags).insert(
-            EntryTagsCompanion(
-              entryId: Value(entry.id),
-              tagId: Value(tagId),
-            ),
+      await db
+          .into(db.entryTags)
+          .insert(
+            EntryTagsCompanion(entryId: Value(entry.id), tagId: Value(tagId)),
           );
     }
   }
@@ -577,7 +571,9 @@ Future<void> _seedDemoData(
   final replacements = isGerman ? _replacementsDe : _replacementsEn;
   for (var i = 0; i < replacements.length; i++) {
     final (trigger, replacement) = replacements[i];
-    await db.into(db.textReplacements).insert(
+    await db
+        .into(db.textReplacements)
+        .insert(
           TextReplacementsCompanion(
             id: Value('repl-$locale-$i'),
             trigger: Value(trigger),
@@ -755,7 +751,10 @@ const _replacementsDe = <(String, String)>[
   ('telefonnummer', '+49 (151) 123 456 78'),
   ('adresse', 'Musterstraße 42, 10115 Berlin'),
   ('danke', 'Vielen Dank, das weiß ich wirklich zu schätzen!'),
-  ('nachfrage', 'Kurze Nachfrage zu unserem letzten Gespräch — gibt es Neuigkeiten?'),
+  (
+    'nachfrage',
+    'Kurze Nachfrage zu unserem letzten Gespräch — gibt es Neuigkeiten?',
+  ),
   ('kalender', 'Ich schaue kurz in meinen Kalender und melde mich.'),
 ];
 

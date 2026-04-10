@@ -2293,6 +2293,72 @@ abstract class L10n {
   /// **'Cmd'**
   String get modifierCmd;
 
+  /// No description provided for @shortcutKeySpace.
+  ///
+  /// In en, this message translates to:
+  /// **'Space'**
+  String get shortcutKeySpace;
+
+  /// No description provided for @shortcutKeyEnter.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter'**
+  String get shortcutKeyEnter;
+
+  /// No description provided for @shortcutKeyEscape.
+  ///
+  /// In en, this message translates to:
+  /// **'Esc'**
+  String get shortcutKeyEscape;
+
+  /// No description provided for @shortcutKeyBackspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Backspace'**
+  String get shortcutKeyBackspace;
+
+  /// No description provided for @shortcutKeyTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Tab'**
+  String get shortcutKeyTab;
+
+  /// No description provided for @shortcutKeyDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Del'**
+  String get shortcutKeyDelete;
+
+  /// No description provided for @shortcutKeyInsert.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert'**
+  String get shortcutKeyInsert;
+
+  /// No description provided for @shortcutKeyHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get shortcutKeyHome;
+
+  /// No description provided for @shortcutKeyEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'End'**
+  String get shortcutKeyEnd;
+
+  /// No description provided for @shortcutKeyPageUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Page Up'**
+  String get shortcutKeyPageUp;
+
+  /// No description provided for @shortcutKeyPageDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Page Down'**
+  String get shortcutKeyPageDown;
+
   /// No description provided for @tooltipSwitchToLight.
   ///
   /// In en, this message translates to:

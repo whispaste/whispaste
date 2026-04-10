@@ -502,7 +502,7 @@ void FloatingButtonWindow::Render() {
   DeleteObject(dib);
 }
 
-// ── Shadow via gaussian-approximation PathGradientBrush ────────────────
+// ── Shadow via multi-layer concentric circles ─────────────────────────
 
 void FloatingButtonWindow::PaintShadow(Graphics& g, float cx, float cy,
                                        float body_r) {
@@ -510,11 +510,7 @@ void FloatingButtonWindow::PaintShadow(Graphics& g, float cx, float cy,
   auto draw_layer = [&](float blur, float offset_y, BYTE alpha) {
     float b = static_cast<float>(blur * dpi);
     float oy = static_cast<float>(offset_y * dpi);
-    float outer_r = body_r + b;
-    GraphicsPath path;
-    path.AddEllipse(cx - outer_r, cy - outer_r + oy, outer_r * 2, outer_r * 2);
-    float focus = body_r / outer_r;
-    GdiPlusHelper::PaintGaussianShadowCircular(g, &path, focus, alpha);
+    GdiPlusHelper::PaintSoftShadowCircular(g, cx, cy + oy, body_r, b, alpha);
   };
 
   draw_layer(kShadowBlur1, kShadowOffset1, kShadowAlpha1);
