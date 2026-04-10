@@ -24,6 +24,10 @@ class FloatingOverlayHost {
 
   void Destroy();
 
+  // Re-asserts HWND_TOPMOST on the floating overlay window. Called from
+  // FlutterWindow::MessageHandler on WM_SIZE(minimize) and WM_ACTIVATEAPP.
+  void RefreshTopmost();
+
  private:
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue>& call,

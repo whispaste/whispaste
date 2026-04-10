@@ -14,6 +14,7 @@ import 'package:window_manager/window_manager.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart';
+import 'stt_service.dart';
 
 // ---------------------------------------------------------------------------
 // Service
@@ -185,12 +186,16 @@ class TrayService extends Notifier<void> implements TrayListener {
   }
 
   Future<void> _quit() async {
+    // Stop the STT subprocess before destroying to prevent orphaned processes.
+    try {
+      ref.read(sttServiceProvider.notifier).stop();
+    } catch (_) {}
+
     try {
       await trayManager.destroy().timeout(const Duration(seconds: 1));
     } on Exception catch (_) {
       // Best-effort cleanup.
     }
-    // Use windowManager.destroy() for clean exit.
     await windowManager.destroy();
   }
 
