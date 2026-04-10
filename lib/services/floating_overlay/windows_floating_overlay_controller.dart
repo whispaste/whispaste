@@ -65,7 +65,11 @@ class WindowsFloatingOverlayController extends FloatingOverlayController {
     if (_disposed) return;
     _disposed = true;
     _channel.setMethodCallHandler(null);
-    await _channel.invokeMethod('destroy');
+    try {
+      await _channel.invokeMethod('destroy');
+    } on MissingPluginException {
+      // Expected in test environment where no native handler is registered.
+    }
     await _eventController.close();
   }
 
