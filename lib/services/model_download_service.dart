@@ -242,6 +242,10 @@ class ModelDownloadState {
     this.progressPercent = 0,
     this.bytesDownloaded = 0,
     this.totalBytes = 0,
+    this.speedBytesPerSec = 0,
+    this.etaSeconds,
+    this.downloadStartedAt,
+    this.statusLabel,
     this.errorMessage,
     this.downloadedModels = const {},
     this.serverReady = false,
@@ -253,6 +257,19 @@ class ModelDownloadState {
   final int progressPercent;
   final int bytesDownloaded;
   final int totalBytes;
+
+  /// Rolling average download speed in bytes/second.
+  final double speedBytesPerSec;
+
+  /// Estimated seconds remaining (null if unknown size or just started).
+  final int? etaSeconds;
+
+  /// When this download started (for elapsed time tracking).
+  final DateTime? downloadStartedAt;
+
+  /// Short status label for the current operation (e.g. "Downloading model…").
+  final String? statusLabel;
+
   final String? errorMessage;
 
   /// Set of model IDs whose files exist on disk.
@@ -274,6 +291,10 @@ class ModelDownloadState {
     int? progressPercent,
     int? bytesDownloaded,
     int? totalBytes,
+    double? speedBytesPerSec,
+    int? etaSeconds,
+    DateTime? downloadStartedAt,
+    String? statusLabel,
     String? errorMessage,
     Set<String>? downloadedModels,
     bool? serverReady,
@@ -284,6 +305,10 @@ class ModelDownloadState {
       progressPercent: progressPercent ?? this.progressPercent,
       bytesDownloaded: bytesDownloaded ?? this.bytesDownloaded,
       totalBytes: totalBytes ?? this.totalBytes,
+      speedBytesPerSec: speedBytesPerSec ?? this.speedBytesPerSec,
+      etaSeconds: etaSeconds ?? this.etaSeconds,
+      downloadStartedAt: downloadStartedAt ?? this.downloadStartedAt,
+      statusLabel: statusLabel ?? this.statusLabel,
       errorMessage: errorMessage,
       downloadedModels: downloadedModels ?? this.downloadedModels,
       serverReady: serverReady ?? this.serverReady,
@@ -358,6 +383,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           activeModelId: modelId,
           phase: DownloadPhase.downloading,
           progressPercent: 0,
+          downloadStartedAt: DateTime.now(),
+          statusLabel: 'engine',
+          speedBytesPerSec: 0,
           errorMessage: null,
         );
         await _downloadWhisperServer();
@@ -371,12 +399,18 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         progressPercent: 0,
         bytesDownloaded: 0,
         totalBytes: model.sizeBytes,
+        downloadStartedAt: DateTime.now(),
+        statusLabel: 'model',
+        speedBytesPerSec: 0,
       );
 
       final destPath = p.join(sttDir(), model.filename);
       if (File(destPath).existsSync()) {
         _log.info('Model ${model.id} already exists, verifying…');
-        state = state.copyWith(phase: DownloadPhase.verifying);
+        state = state.copyWith(
+          phase: DownloadPhase.verifying,
+          statusLabel: 'verifying',
+        );
         final ok = await _verifySha256(destPath, model.sha256);
         if (ok) {
           await _markModelDone(model.id);
@@ -393,7 +427,11 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       );
 
       // Phase 3: Verify SHA256.
-      state = state.copyWith(phase: DownloadPhase.verifying, progressPercent: 99);
+      state = state.copyWith(
+        phase: DownloadPhase.verifying,
+        progressPercent: 99,
+        statusLabel: 'verifying',
+      );
       final ok = await _verifySha256(destPath, model.sha256);
       if (!ok) {
         await File(destPath).delete().catchError((_) => File(destPath));
@@ -460,6 +498,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       state = state.copyWith(
         phase: DownloadPhase.downloading,
         progressPercent: 0,
+        downloadStartedAt: DateTime.now(),
+        statusLabel: 'engine',
+        speedBytesPerSec: 0,
         errorMessage: null,
       );
 
@@ -612,15 +653,46 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     final sink = tmpFile.openWrite(mode: startByte > 0 ? FileMode.append : FileMode.write);
     int received = startByte;
 
+    // Rolling speed tracker — sample every ~500ms for a smooth 5s window.
+    final speedSamples = <_SpeedSample>[];
+    var lastSpeedUpdate = DateTime.now();
+
     try {
       await for (final chunk in response.data!.stream) {
         sink.add(chunk);
         received += chunk.length;
+
+        final now = DateTime.now();
+        final sinceLastUpdate = now.difference(lastSpeedUpdate);
+
+        // Update speed/ETA at most every 500ms to avoid excessive rebuilds.
+        double speed = state.speedBytesPerSec;
+        int? eta = state.etaSeconds;
+        if (sinceLastUpdate.inMilliseconds >= 500) {
+          lastSpeedUpdate = now;
+          speedSamples.add(_SpeedSample(now, received));
+          // Keep only last 5 seconds of samples.
+          final cutoff = now.subtract(const Duration(seconds: 5));
+          speedSamples.removeWhere((s) => s.time.isBefore(cutoff));
+
+          if (speedSamples.length >= 2) {
+            final first = speedSamples.first;
+            final elapsed = now.difference(first.time).inMilliseconds;
+            if (elapsed > 0) {
+              speed = (received - first.bytes) * 1000 / elapsed;
+              final remaining = totalBytes > 0 ? totalBytes - received : 0;
+              eta = speed > 0 ? (remaining / speed).ceil() : null;
+            }
+          }
+        }
+
         final pct = totalBytes > 0 ? (received * 100 ~/ totalBytes) : 0;
         state = state.copyWith(
           progressPercent: pct.clamp(0, 99),
           bytesDownloaded: received,
           totalBytes: totalBytes,
+          speedBytesPerSec: speed,
+          etaSeconds: totalBytes > 0 ? eta : null,
         );
       }
       await sink.flush();
@@ -946,6 +1018,13 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       throw Exception('whisper-server.exe not found in archive');
     }
   }
+}
+
+/// Speed sample for rolling average calculation.
+class _SpeedSample {
+  const _SpeedSample(this.time, this.bytes);
+  final DateTime time;
+  final int bytes;
 }
 
 // ---------------------------------------------------------------------------

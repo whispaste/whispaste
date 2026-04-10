@@ -1265,6 +1265,9 @@ class L10nDe extends L10n {
   String get modelDownloading => 'Wird geladen…';
 
   @override
+  String get modelDownloadingEngine => 'Sprachmodul wird vorbereitet…';
+
+  @override
   String get modelVerifying => 'Wird überprüft…';
 
   @override
