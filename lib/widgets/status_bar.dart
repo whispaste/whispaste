@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -19,6 +21,7 @@ class WpStatusBar extends StatelessWidget {
     required this.sttModeLabel,
     this.postProcessingLabel,
     this.sttState = SttServerState.stopped,
+    this.sttStartingSince,
     this.recordingPhase = RecordingPhase.idle,
     this.afterActionLabel,
     this.afterAction,
@@ -41,6 +44,9 @@ class WpStatusBar extends StatelessWidget {
 
   /// Current state of the STT server subprocess.
   final SttServerState sttState;
+
+  /// When the STT server entered the starting state (for elapsed display).
+  final DateTime? sttStartingSince;
 
   /// Current phase of the recording lifecycle.
   final RecordingPhase recordingPhase;
@@ -98,6 +104,7 @@ class WpStatusBar extends StatelessWidget {
                     _SttChip(
                       modeLabel: sttModeLabel,
                       state: sttState,
+                      startingSince: sttStartingSince,
                       recordingPhase: recordingPhase,
                       textStyle: textStyle,
                       isDark: isDark,
@@ -177,10 +184,11 @@ class WpStatusBar extends StatelessWidget {
 ///   🟡 On Device — Starting…
 ///   🔴 On Device — Error
 ///   ⚪ On Device — Standby
-class _SttChip extends StatelessWidget {
+class _SttChip extends StatefulWidget {
   const _SttChip({
     required this.modeLabel,
     required this.state,
+    this.startingSince,
     this.recordingPhase = RecordingPhase.idle,
     required this.textStyle,
     required this.isDark,
@@ -190,6 +198,7 @@ class _SttChip extends StatelessWidget {
 
   final String modeLabel;
   final SttServerState state;
+  final DateTime? startingSince;
   final RecordingPhase recordingPhase;
   final TextStyle textStyle;
   final bool isDark;
@@ -197,16 +206,57 @@ class _SttChip extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
+  State<_SttChip> createState() => _SttChipState();
+}
+
+class _SttChipState extends State<_SttChip> {
+  Timer? _elapsedTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(_SttChip old) {
+    super.didUpdateWidget(old);
+    if (old.state != widget.state ||
+        old.startingSince != widget.startingSince) {
+      _syncTicker();
+    }
+  }
+
+  @override
+  void dispose() {
+    _elapsedTicker?.cancel();
+    super.dispose();
+  }
+
+  void _syncTicker() {
+    if (widget.state == SttServerState.starting &&
+        widget.startingSince != null) {
+      _elapsedTicker ??= Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => setState(() {}),
+      );
+    } else {
+      _elapsedTicker?.cancel();
+      _elapsedTicker = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final (Color dotColor, String stateLabel, bool showSpinner) =
         _resolveDisplay();
 
     return Tooltip(
-      message: l10n.statusBarSttTooltip,
+      message: widget.l10n.statusBarSttTooltip,
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         borderRadius: WpRadius.borderFull,
-        mouseCursor: onTap != null
+        mouseCursor: widget.onTap != null
             ? SystemMouseCursors.click
             : SystemMouseCursors.basic,
         child: Container(
@@ -215,7 +265,7 @@ class _SttChip extends StatelessWidget {
             vertical: WpSpacing.xxs,
           ),
           decoration: BoxDecoration(
-            color: isDark
+            color: widget.isDark
                 ? WpColorsDark.surface.withValues(alpha: 0.5)
                 : WpColorsLight.surfaceVariant,
             borderRadius: WpRadius.borderFull,
@@ -243,8 +293,8 @@ class _SttChip extends StatelessWidget {
                 ),
               const SizedBox(width: 6),
               Text(
-                '$modeLabel — $stateLabel',
-                style: textStyle,
+                '${widget.modeLabel} — $stateLabel',
+                style: widget.textStyle,
               ),
             ],
           ),
@@ -257,35 +307,35 @@ class _SttChip extends StatelessWidget {
   /// the recording lifecycle phase over the STT subprocess state.
   (Color, String, bool) _resolveDisplay() {
     // Active recording phases take priority over STT subprocess state.
-    switch (recordingPhase) {
+    switch (widget.recordingPhase) {
       case RecordingPhase.recording:
         return (
-          isDark ? WpColorsDark.error : WpColorsLight.error,
-          l10n.statusBarRecording,
+          widget.isDark ? WpColorsDark.error : WpColorsLight.error,
+          widget.l10n.statusBarRecording,
           true,
         );
       case RecordingPhase.transcribing:
         return (
-          isDark ? WpColorsDark.accent : WpColorsLight.accent,
-          l10n.statusBarTranscribing,
+          widget.isDark ? WpColorsDark.accent : WpColorsLight.accent,
+          widget.l10n.statusBarTranscribing,
           true,
         );
       case RecordingPhase.processing:
         return (
-          isDark ? WpColorsDark.accent : WpColorsLight.accent,
-          l10n.statusBarProcessing,
+          widget.isDark ? WpColorsDark.accent : WpColorsLight.accent,
+          widget.l10n.statusBarProcessing,
           true,
         );
       case RecordingPhase.done:
         return (
-          isDark ? WpColorsDark.success : WpColorsLight.success,
-          l10n.statusBarDone,
+          widget.isDark ? WpColorsDark.success : WpColorsLight.success,
+          widget.l10n.statusBarDone,
           false,
         );
       case RecordingPhase.error:
         return (
-          isDark ? WpColorsDark.error : WpColorsLight.error,
-          l10n.sttStatusError,
+          widget.isDark ? WpColorsDark.error : WpColorsLight.error,
+          widget.l10n.sttStatusError,
           false,
         );
       case RecordingPhase.idle:
@@ -294,28 +344,37 @@ class _SttChip extends StatelessWidget {
     }
 
     // Idle — show STT subprocess state.
-    return switch (state) {
+    return switch (widget.state) {
       SttServerState.stopped => (
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-        l10n.sttStatusStandby,
+        widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+        widget.l10n.sttStatusStandby,
         false,
       ),
       SttServerState.starting => (
-        isDark ? WpColorsDark.accent : WpColorsLight.accent,
-        l10n.sttStatusStarting,
+        widget.isDark ? WpColorsDark.accent : WpColorsLight.accent,
+        _startingLabel(),
         true,
       ),
       SttServerState.ready => (
-        isDark ? WpColorsDark.success : WpColorsLight.success,
-        l10n.sttStatusReady,
+        widget.isDark ? WpColorsDark.success : WpColorsLight.success,
+        widget.l10n.sttStatusReady,
         false,
       ),
       SttServerState.error => (
-        isDark ? WpColorsDark.error : WpColorsLight.error,
-        l10n.sttStatusError,
+        widget.isDark ? WpColorsDark.error : WpColorsLight.error,
+        widget.l10n.sttStatusError,
         false,
       ),
     };
+  }
+
+  /// Returns e.g. "Starting... (15s)" when elapsed time is available.
+  String _startingLabel() {
+    final since = widget.startingSince;
+    if (since == null) return widget.l10n.sttStatusStarting;
+    final elapsed = DateTime.now().difference(since).inSeconds;
+    if (elapsed < 2) return widget.l10n.sttStatusStarting;
+    return '${widget.l10n.sttStatusStarting} (${elapsed}s)';
   }
 }
 
