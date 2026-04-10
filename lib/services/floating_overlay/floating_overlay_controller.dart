@@ -38,6 +38,7 @@ class FloatingOverlaySnapshot {
     this.showRetry = false,
     this.doneMessage,
     this.processingLabel,
+    this.progress = 0.0,
   });
 
   final bool visible;
@@ -54,6 +55,9 @@ class FloatingOverlaySnapshot {
   final String? doneMessage;
   final String? processingLabel;
 
+  /// Recording progress (0.0–1.0). 0 = unlimited/no limit set.
+  final double progress;
+
   Map<String, dynamic> toMap() => {
         'visible': visible,
         'state': state.name,
@@ -68,6 +72,7 @@ class FloatingOverlaySnapshot {
         'showRetry': showRetry,
         'doneMessage': doneMessage,
         'processingLabel': processingLabel,
+        'progress': progress,
       };
 }
 
