@@ -9,6 +9,7 @@ import '../../core/data/database.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../services/model_download_service.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
@@ -31,6 +32,28 @@ class _DurationBucket {
   final String label;
   final int count;
   final double fraction;
+}
+
+/// Maps a raw model ID (e.g. "whisper-small") to a user-facing label
+/// using the tier name as the primary label and the Whisper model name
+/// in parentheses for recognition.
+String _displayNameForModel(String modelId, L10n l10n) {
+  final tier = tierForModel(modelId);
+  if (tier == null) return modelId;
+
+  final tierLabel = switch (tier) {
+    QualityTier.compact => l10n.qualityTierCompactLabel,
+    QualityTier.balanced => l10n.qualityTierBalancedLabel,
+    QualityTier.premium => l10n.qualityTierPremiumLabel,
+  };
+
+  final model = sttModels.cast<SttModelInfo?>().firstWhere(
+        (m) => m!.id == modelId,
+        orElse: () => null,
+      );
+  if (model == null) return tierLabel;
+
+  return l10n.analyticsModelDisplayName(tierLabel, model.label);
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +169,11 @@ class _AnalyticsDashboard extends StatelessWidget {
               ),
               right: _ModelUsagePanel(
                 models: data.modelUsage
-                    .map((m) => _ModelUsage(m.model, m.count, m.fraction))
+                    .map((m) => _ModelUsage(
+                          _displayNameForModel(m.model, l10n),
+                          m.count,
+                          m.fraction,
+                        ))
                     .toList(),
                 isDark: isDark,
               ),
