@@ -102,7 +102,7 @@ float AnimProgress(DWORD now, DWORD origin, DWORD period_ms) {
 static BYTE GaussianAlpha(int i, int total, BYTE peak_alpha) {
   float t = static_cast<float>(i + 1) / total;  // 0..1
   float a = peak_alpha * std::expf(-t * t * 3.0f);
-  return static_cast<BYTE>((std::max)(1.0f, a));
+  return static_cast<BYTE>(std::clamp(std::round(a), 0.0f, 255.0f));
 }
 
 void PaintSoftShadowCircular(Graphics& g, float cx, float cy, float body_r,
