@@ -1128,7 +1128,6 @@ void FloatingOverlayWindow::RenderCompact(Graphics& g, float w, float h) {
   constexpr float kCompactBtnSize = 28.0f;
   constexpr float kCompactStopIcon = 10.0f;
   {
-    auto accent = GetAccentColors();
     GraphicsState saved = g.Save();
     GraphicsPath clipPath;
     GdiPlusHelper::MakeRoundedRect(&clipPath, 0, 0, w, h, r);
@@ -1141,16 +1140,17 @@ void FloatingOverlayWindow::RenderCompact(Graphics& g, float w, float h) {
       case OverlayVisualState::kRecording: {
         if (snap_.progress > 0.0f) {
           float fill_w = w * (std::min)(snap_.progress, 1.0f);
-          Color fill_color = accent.c0;
-          if (snap_.progress >= 0.75f) {
-            float t = (snap_.progress - 0.75f) / 0.25f;
-            t = (std::min)(t, 1.0f);
-            fill_color = LerpColor(accent.c0, Color(255, 0xEF, 0x44, 0x44), t);
+          // Match Flutter _timerColor(): textPrimary → amber @75% → red @90%
+          Color fill_color = tc.text_primary;
+          if (snap_.progress >= 0.90f) {
+            fill_color = Color(255, 0xFF, 0x52, 0x52);
+          } else if (snap_.progress >= 0.75f) {
+            fill_color = Color(255, 0xFF, 0xC1, 0x07);
           }
           SolidBrush fillBrush(fill_color);
           g.FillRectangle(&fillBrush, 0.0f, h - kCompactBarH, fill_w, kCompactBarH);
         } else {
-          Color subtle(0x4D, accent.c0.GetR(), accent.c0.GetG(), accent.c0.GetB());
+          Color subtle(0x4D, tc.accent.GetR(), tc.accent.GetG(), tc.accent.GetB());
           SolidBrush subtleBrush(subtle);
           g.FillRectangle(&subtleBrush, 0.0f, h - kCompactBarH, w, kCompactBarH);
         }
@@ -1257,13 +1257,14 @@ void FloatingOverlayWindow::RenderCompact(Graphics& g, float w, float h) {
           SolidBrush hover(Color(0x1A, 0xFF, 0xFF, 0xFF));
           g.FillPath(&hover, &circle);
         }
-        // White square icon
+        // White square OUTLINE icon (match Lucide square stroke style)
         float icon_inset = (kCompactBtnSize - kCompactStopIcon) / 2.0f;
-        SolidBrush iconBrush(Color(255, 255, 255, 255));
+        Pen iconPen(Color(255, 255, 255, 255), 1.5f);
+        iconPen.SetLineJoin(LineJoinRound);
         GraphicsPath iconPath;
         GdiPlusHelper::MakeRoundedRect(&iconPath, stop_x + icon_inset, stop_y + icon_inset,
                                        kCompactStopIcon, kCompactStopIcon, 1.5f);
-        g.FillPath(&iconBrush, &iconPath);
+        g.DrawPath(&iconPen, &iconPath);
       }
       break;
     }
@@ -1470,8 +1471,9 @@ void FloatingOverlayWindow::PaintCloseButton(Graphics& g, float x, float y,
     g.FillEllipse(&hoverBg, x, y, size, size);
   }
 
-  // ✕ icon (Lucide X proportions: 18px strike zone in 36px button = 50% padding)
-  float pad = size * 0.30f;
+  // ✕ icon (Lucide X: 18px icon centered in 36px button,
+  // lines span 6→18 in 24px viewbox → pad = (9+4.5)/36 = 0.375)
+  float pad = size * 0.375f;
   float x0 = x + pad, y0 = y + pad;
   float x1 = x + size - pad, y1 = y + size - pad;
   Pen pen(tc.close_icon, 1.5f);
@@ -1496,14 +1498,15 @@ void FloatingOverlayWindow::PaintStopButton(Graphics& g, float x, float y) {
     g.FillEllipse(&hoverOverlay, x, y, size, size);
   }
 
-  // White square icon (14px with 2px corner radius, centered)
+  // White square OUTLINE (Lucide square icon — stroked, not filled)
   float sq = kStopIconSize;
   float sx = x + (size - sq) / 2.0f;
   float sy = y + (size - sq) / 2.0f;
   GraphicsPath sqPath;
-  GdiPlusHelper::MakeRoundedRect(&sqPath, sx, sy, sq, sq, 2.0f);
-  SolidBrush white(Color(255, 255, 255, 255));
-  g.FillPath(&white, &sqPath);
+  GdiPlusHelper::MakeRoundedRect(&sqPath, sx, sy, sq, sq, 1.5f);
+  Pen whitePen(Color(255, 255, 255, 255), 1.5f);
+  whitePen.SetLineJoin(LineJoinRound);
+  g.DrawPath(&whitePen, &sqPath);
 }
 
 void FloatingOverlayWindow::PaintBottomProgressBar(Graphics& g, float w,
@@ -1522,24 +1525,23 @@ void FloatingOverlayWindow::PaintBottomProgressBar(Graphics& g, float w,
 
   switch (snap_.state) {
     case OverlayVisualState::kRecording: {
-      auto accent = GetAccentColors();
       if (snap_.progress > 0.0f) {
-        // Recording with time limit — show progress fill
+        // Recording with time limit — match Flutter _timerColor() logic:
+        // 0-74%: textPrimary, >=75%: amber 0xFFC107, >=90%: red 0xFF5252
         float fill_w = w * (std::min)(snap_.progress, 1.0f);
-        Color fill_color = accent.c0;
-        // Transition amber→red when approaching limit (>=75%)
-        if (snap_.progress >= 0.75f) {
-          float t = (snap_.progress - 0.75f) / 0.25f;
-          t = (std::min)(t, 1.0f);
-          fill_color = LerpColor(accent.c0, Color(255, 0xEF, 0x44, 0x44), t);
+        Color fill_color = tc.text_primary;
+        if (snap_.progress >= 0.90f) {
+          fill_color = Color(255, 0xFF, 0x52, 0x52);
+        } else if (snap_.progress >= 0.75f) {
+          fill_color = Color(255, 0xFF, 0xC1, 0x07);
         }
         SolidBrush fillBrush(fill_color);
         g.FillRectangle(&fillBrush, 0.0f, h - kProgressBarH,
                         fill_w, kProgressBarH);
       } else {
         // Unlimited recording — thin accent line at 30% alpha
-        Color subtle(0x4D, accent.c0.GetR(), accent.c0.GetG(),
-                     accent.c0.GetB());
+        Color subtle(0x4D, tc.accent.GetR(), tc.accent.GetG(),
+                     tc.accent.GetB());
         SolidBrush subtleBrush(subtle);
         g.FillRectangle(&subtleBrush, 0.0f, h - kProgressBarH,
                         w, kProgressBarH);
