@@ -51,11 +51,9 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
             downloadState: downloadState,
             isDark: isDark,
             l10n: l10n,
-            onDownload: downloadState.isBusy
+            onSelect: downloadState.isBusy
                 ? null
-                : () => ref
-                    .read(modelDownloadProvider.notifier)
-                    .downloadModel(bestModelForTier(tier).id),
+                : () => _selectTier(tier, downloadState),
             onCancel: _isTierActive(tier, downloadState) &&
                     downloadState.isBusy
                 ? () =>
@@ -63,7 +61,6 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
                 : null,
             onDelete: _isTierDownloaded(tier, downloadState)
                 ? () {
-                    // Delete ALL models in this tier
                     for (final m in modelsForTier(tier)) {
                       if (downloadState.downloadedModels.contains(m.id)) {
                         ref
@@ -72,10 +69,6 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
                       }
                     }
                   }
-                : null,
-            onActivate: _isTierDownloaded(tier, downloadState) &&
-                    tier != currentTier
-                ? () => _activateTier(tier)
                 : null,
           ),
         ],
@@ -92,9 +85,28 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
     );
   }
 
-  /// Activate a downloaded tier as the current model.
-  void _activateTier(QualityTier tier) {
-    final modelId = bestModelForTier(tier).id;
+  /// Select a tier: activate it in settings and auto-download if needed.
+  void _selectTier(QualityTier tier, ModelDownloadState downloadState) {
+    if (_isTierDownloaded(tier, downloadState)) {
+      // Model already available — activate the best downloaded model.
+      _activateTier(tier, downloadState);
+    } else {
+      // Model needs downloading — start download; _markModelDone will
+      // auto-activate in settings once the download succeeds.
+      ref
+          .read(modelDownloadProvider.notifier)
+          .downloadModel(bestModelForTier(tier).id);
+    }
+  }
+
+  /// Activate a tier as the current model.
+  /// Uses the best downloaded model in the tier (not necessarily
+  /// [bestModelForTier], which may not be on disk yet).
+  void _activateTier(QualityTier tier, ModelDownloadState downloadState) {
+    final downloaded = modelsForTier(tier)
+        .where((m) => downloadState.downloadedModels.contains(m.id));
+    final modelId =
+        downloaded.isNotEmpty ? downloaded.first.id : bestModelForTier(tier).id;
     ref
         .read(settingsProvider.notifier)
         .updateSettings((s) => s.copyWith(sttModel: modelId));
@@ -126,10 +138,9 @@ class _TierRow extends StatefulWidget {
     required this.downloadState,
     required this.isDark,
     required this.l10n,
-    required this.onDownload,
+    required this.onSelect,
     required this.onCancel,
     required this.onDelete,
-    this.onActivate,
   });
 
   final QualityTier tier;
@@ -139,10 +150,9 @@ class _TierRow extends StatefulWidget {
   final ModelDownloadState downloadState;
   final bool isDark;
   final L10n l10n;
-  final VoidCallback? onDownload;
+  final VoidCallback? onSelect;
   final VoidCallback? onCancel;
   final VoidCallback? onDelete;
-  final VoidCallback? onActivate;
 
   @override
   State<_TierRow> createState() => _TierRowState();
@@ -154,19 +164,19 @@ class _TierRowState extends State<_TierRow> {
   bool get _isDownloaded => widget.downloadState.downloadedModels
       .contains(bestModelForTier(widget.tier).id);
 
-  bool get _isActive =>
+  bool get _isDownloading =>
       widget.downloadState.activeModelId != null &&
       modelsForTier(widget.tier)
           .any((m) => m.id == widget.downloadState.activeModelId) &&
       widget.downloadState.isBusy;
 
   DownloadPhase get _phase {
-    if (!_isActive) return DownloadPhase.idle;
+    if (!_isDownloading) return DownloadPhase.idle;
     return widget.downloadState.phase;
   }
 
   int get _progress {
-    if (!_isActive) return 0;
+    if (!_isDownloading) return 0;
     return widget.downloadState.progressPercent;
   }
 
@@ -204,155 +214,187 @@ class _TierRowState extends State<_TierRow> {
     final success =
         widget.isDark ? WpColorsDark.success : WpColorsLight.success;
 
+    final bestModel = bestModelForTier(widget.tier);
+
+    final bool isSelectable =
+        widget.onSelect != null && (!widget.isCurrentTier || !_isDownloaded);
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: WpMotion.hoverIn,
-        curve: WpMotion.defaultCurve,
-        margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xs, vertical: 1),
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.md,
-          vertical: WpSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: _isHovered ? hoverBg : Colors.transparent,
-          borderRadius: BorderRadius.circular(WpRadius.sm),
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                // Tier icon with status indicator
-                _StatusIcon(
-                  isDownloaded: _isDownloaded,
-                  isActive: _isActive,
-                  phase: _phase,
-                  icon: _tierIcon,
-                  accent: accent,
-                  success: success,
-                  muted: textMuted,
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                // Tier info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              _tierLabel(widget.l10n),
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: textPrimary,
+      cursor: isSelectable
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: isSelectable ? widget.onSelect : null,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: WpMotion.hoverIn,
+          curve: WpMotion.defaultCurve,
+          margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xs, vertical: 1),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.md,
+            vertical: WpSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: widget.isCurrentTier || _isDownloading
+                ? accent.withValues(alpha: 0.08)
+                : _isHovered && isSelectable
+                    ? hoverBg
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(WpRadius.sm),
+            border: widget.isCurrentTier || _isDownloading
+                ? Border.all(color: accent.withValues(alpha: 0.3))
+                : null,
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  // Tier icon with status indicator
+                  _StatusIcon(
+                    isDownloaded: _isDownloaded,
+                    isActive: _isDownloading,
+                    phase: _phase,
+                    icon: _tierIcon,
+                    accent: accent,
+                    success: success,
+                    muted: textMuted,
+                  ),
+                  const SizedBox(width: WpSpacing.sm),
+                  // Tier info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                _tierLabel(widget.l10n),
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: textPrimary,
+                                ),
                               ),
                             ),
-                          ),
-                          if (widget.isRecommended) ...[
-                            const SizedBox(width: WpSpacing.xs),
+                            const SizedBox(width: WpSpacing.xxs),
+                            Tooltip(
+                              message: widget.l10n.qualityTierModelTooltip(
+                                bestModel.label,
+                                bestModel.sizeLabel,
+                              ),
+                              child: Icon(
+                                LucideIcons.info,
+                                size: 14,
+                                color: textMuted,
+                              ),
+                            ),
+                            if (widget.isRecommended) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: accent.withValues(alpha: 0.12),
+                                  borderRadius:
+                                      BorderRadius.circular(WpRadius.full),
+                                ),
+                                child: Text(
+                                  widget.l10n.qualityTierRecommended,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: accent,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(width: WpSpacing.sm),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
                                 vertical: 1,
                               ),
                               decoration: BoxDecoration(
-                                color: accent.withValues(alpha: 0.12),
+                                color: _isDownloaded
+                                    ? success.withValues(alpha: 0.12)
+                                    : textMuted.withValues(alpha: 0.12),
                                 borderRadius:
                                     BorderRadius.circular(WpRadius.full),
                               ),
                               child: Text(
-                                widget.l10n.qualityTierRecommended,
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                  color: accent,
-                                ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(width: WpSpacing.sm),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _isDownloaded
-                                  ? success.withValues(alpha: 0.12)
-                                  : textMuted.withValues(alpha: 0.12),
-                              borderRadius:
-                                  BorderRadius.circular(WpRadius.full),
-                            ),
-                            child: Text(
-                              tierSizeLabel(widget.tier),
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color:
-                                    _isDownloaded ? success : textMuted,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _tierDesc(widget.l10n),
-                        style: TextStyle(fontSize: 11, color: textSecondary),
-                      ),
-                      if (widget.warning != null && !_isDownloaded) ...[
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            Icon(LucideIcons.triangleAlert,
-                                size: WpIconSize.xs,
-                                color: widget.isDark
-                                    ? WpColorsDark.warning
-                                    : WpColorsLight.warning),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                widget.warning!,
+                                tierSizeLabel(widget.tier),
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: widget.isDark
-                                      ? WpColorsDark.warning
-                                      : WpColorsLight.warning,
+                                  fontWeight: FontWeight.w500,
+                                  color:
+                                      _isDownloaded ? success : textMuted,
                                 ),
                               ),
                             ),
                           ],
                         ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _tierDesc(widget.l10n),
+                          style: TextStyle(fontSize: 11, color: textSecondary),
+                        ),
+                        if (widget.warning != null && !_isDownloaded) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Icon(LucideIcons.triangleAlert,
+                                  size: WpIconSize.xs,
+                                  color: widget.isDark
+                                      ? WpColorsDark.warning
+                                      : WpColorsLight.warning),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  widget.warning!,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: widget.isDark
+                                        ? WpColorsDark.warning
+                                        : WpColorsLight.warning,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
+                  ),
+                  // Action
+                  _buildAction(accent, textMuted),
+                ],
+              ),
+              // Progress bar
+              if (_isDownloading && _phase == DownloadPhase.downloading)
+                Padding(
+                  padding: const EdgeInsets.only(top: WpSpacing.xs),
+                  child: _DownloadProgress(
+                    percent: _progress,
+                    accent: accent,
+                    isDark: widget.isDark,
                   ),
                 ),
-                // Action
-                _buildAction(accent, textMuted),
-              ],
-            ),
-            // Progress bar
-            if (_isActive && _phase == DownloadPhase.downloading)
-              Padding(
-                padding: const EdgeInsets.only(top: WpSpacing.xs),
-                child: _DownloadProgress(
-                  percent: _progress,
-                  accent: accent,
-                  isDark: widget.isDark,
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildAction(Color accent, Color muted) {
-    if (_isActive &&
+    // Active download in this tier → Cancel button
+    if (_isDownloading &&
         (_phase == DownloadPhase.downloading ||
             _phase == DownloadPhase.extracting ||
             _phase == DownloadPhase.verifying)) {
@@ -364,9 +406,10 @@ class _TierRowState extends State<_TierRow> {
       );
     }
 
-    if (_isDownloaded) {
-      // Current active tier — show checkmark.
-      if (widget.isCurrentTier) {
+    if (widget.isCurrentTier) {
+      // Current active tier
+      if (_isDownloaded) {
+        // Downloaded + active → show ready / delete on hover
         if (_isHovered) {
           return _ActionChip(
             label: widget.l10n.actionDelete,
@@ -393,61 +436,29 @@ class _TierRowState extends State<_TierRow> {
           ],
         );
       }
-      // Downloaded but not active — "Use" button on hover, "Ready" otherwise.
-      if (_isHovered) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _ActionChip(
-              label: widget.l10n.modelUse,
-              icon: LucideIcons.check,
-              color: accent,
-              onTap: widget.onActivate,
-            ),
-            const SizedBox(width: WpSpacing.xs),
-            _ActionChip(
-              label: widget.l10n.actionDelete,
-              icon: LucideIcons.trash2,
-              color: widget.isDark ? WpColorsDark.error : WpColorsLight.error,
-              onTap: widget.onDelete,
-            ),
-          ],
+      // Active but not downloaded — show spinner only during active download.
+      if (_isDownloading) {
+        return SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(strokeWidth: 2, color: accent),
         );
       }
-      final readyColor = widget.downloadState.serverReady
-          ? (widget.isDark ? WpColorsDark.success : WpColorsLight.success)
-          : (widget.isDark ? WpColorsDark.warning : WpColorsLight.warning);
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            widget.downloadState.serverReady
-                ? LucideIcons.circleCheck
-                : LucideIcons.loaderCircle,
-            size: 14,
-            color: readyColor,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            widget.downloadState.serverReady
-                ? widget.l10n.modelReady
-                : widget.l10n.modelServerMissing,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: readyColor,
-            ),
-          ),
-        ],
+      // Not downloading (deleted or error) — no action indicator.
+      return const SizedBox.shrink();
+    }
+
+    // Inactive tier — show delete on hover if downloaded
+    if (_isDownloaded && _isHovered) {
+      return _ActionChip(
+        label: widget.l10n.actionDelete,
+        icon: LucideIcons.trash2,
+        color: widget.isDark ? WpColorsDark.error : WpColorsLight.error,
+        onTap: widget.onDelete,
       );
     }
 
-    return _ActionChip(
-      label: widget.l10n.modelDownload,
-      icon: LucideIcons.download,
-      color: accent,
-      onTap: widget.onDownload,
-    );
+    return const SizedBox.shrink();
   }
 }
 

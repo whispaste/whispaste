@@ -355,7 +355,7 @@ class L10nDe extends L10n {
       'Die Audio-Eingabe wird über die Systemeinstellungen verwaltet';
 
   @override
-  String get settingsServiceOnDevicePrivate => 'Auf dem Gerät';
+  String get settingsServiceOnDevicePrivate => 'Lokal auf dem Gerät';
 
   @override
   String get settingsQualityFastTiny => 'Schnell (Tiny)';
@@ -1304,11 +1304,18 @@ class L10nDe extends L10n {
   String get qualityTierActive => 'Aktiv';
 
   @override
-  String get settingsOverlayInWindowHint =>
-      'Nur sichtbar, solange das Hauptfenster geöffnet ist';
+  String qualityTierModelTooltip(String modelName, String size) {
+    return 'Whisper $modelName · $size';
+  }
 
   @override
-  String get settingsQualityFast => 'Schnell';
+  String analyticsModelDisplayName(String tierLabel, String modelLabel) {
+    return '$tierLabel (Whisper $modelLabel)';
+  }
+
+  @override
+  String get settingsOverlayInWindowHint =>
+      'Nur sichtbar, solange das Hauptfenster geöffnet ist';
 
   @override
   String get settingsQualityBasic => 'Standard';
