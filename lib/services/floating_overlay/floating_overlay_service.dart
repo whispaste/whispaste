@@ -115,7 +115,7 @@ class FloatingOverlayService extends Notifier<void> {
 
   // ── Phase transitions ─────────────────────────────────────────────
 
-  void _onPhaseChanged(RecordingPhase prev, RecordingPhase next) {
+  Future<void> _onPhaseChanged(RecordingPhase prev, RecordingPhase next) async {
     if (_controller == null) return;
 
     final settings = ref.read(settingsProvider).value;
@@ -136,12 +136,13 @@ class FloatingOverlayService extends Notifier<void> {
 
       case RecordingPhase.recording:
         // New recording session — bump generation to invalidate stale timers.
+        // These run synchronously before any await, preserving immediate effect.
         _generation++;
         _autoHideTimer?.cancel();
-        // Set start position before sending snapshot so C++ positions the window
-        // before it becomes visible.
+        // Await position so C++ moves the window before the snapshot makes it
+        // visible — without await, the overlay would flash at the old position.
         if (prev == RecordingPhase.idle) {
-          _setStartPosition(settings);
+          await _setStartPosition(settings);
         }
         _sendSnapshot(settings, next);
 
