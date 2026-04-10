@@ -46,6 +46,7 @@ struct OverlaySnapshot {
   std::wstring processing_label;  // "Processing locally…"
   std::wstring privacy_mode;      // "local" or "cloud"
   bool show_retry = false;
+  float progress = 0.0f;         // 0.0–1.0 recording progress (elapsed/limit)
 };
 
 // Context menu item sent from Dart (localized).
@@ -122,7 +123,7 @@ class FloatingOverlayWindow {
   void PaintProgressBar(Gdiplus::Graphics& g, float x, float y, float w,
                         float h);
   void PaintCloseButton(Gdiplus::Graphics& g, float x, float y, float size);
-  void PaintPrivacyBadge(Gdiplus::Graphics& g, float x, float y);
+  float PaintPrivacyBadge(Gdiplus::Graphics& g, float x, float y);
   void PaintErrorButtons(Gdiplus::Graphics& g, float x, float y);
   void PaintStopButton(Gdiplus::Graphics& g, float x, float y);
   void PaintBottomProgressBar(Gdiplus::Graphics& g, float w, float h,
@@ -177,6 +178,9 @@ class FloatingOverlayWindow {
     Gdiplus::Color badge_local_text;
     Gdiplus::Color badge_cloud_bg;
     Gdiplus::Color badge_cloud_text;
+    Gdiplus::Color accent;          // WpColors.accent (cyan)
+    Gdiplus::Color success_color;   // WpColors.success
+    Gdiplus::Color error_color;     // WpColors.error
     Gdiplus::Color retry_bg;
     Gdiplus::Color retry_text;
     Gdiplus::Color dismiss_text;
@@ -228,6 +232,9 @@ class FloatingOverlayWindow {
   // Done celebration
   float celebration_progress_ = -1.0f;  // <0 = inactive
   DWORD celebration_start_ = 0;
+
+  // Transcribing spinner
+  DWORD spinner_origin_ = 0;
 
   // Waveform ring buffer (16 bars)
   static constexpr int kWaveformBars = 16;
