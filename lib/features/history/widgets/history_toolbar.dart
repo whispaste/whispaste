@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/config/settings_labels.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
@@ -45,7 +46,10 @@ class HistorySearchToolbar extends StatelessWidget {
     final l10n = L10n.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl, WpSpacing.sm, WpSpacing.xl, WpSpacing.sm,
+        WpSpacing.xl,
+        WpSpacing.sm,
+        WpSpacing.xl,
+        WpSpacing.sm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -58,8 +62,9 @@ class HistorySearchToolbar extends StatelessWidget {
               prefixIcon: Icon(
                 LucideIcons.search,
                 size: WpIconSize.sm,
-                color:
-                    isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+                color: isDark
+                    ? WpColorsDark.textMuted
+                    : WpColorsLight.textMuted,
               ),
               suffixIcon: controller.text.isNotEmpty
                   ? IconButton(
@@ -196,7 +201,9 @@ class HistorySearchToolbar extends StatelessWidget {
                 ),
               // Multi-select toggle
               Tooltip(
-                message: multiSelectMode ? l10n.historyExitSelection : l10n.historySelectMultiple,
+                message: multiSelectMode
+                    ? l10n.historyExitSelection
+                    : l10n.historySelectMultiple,
                 child: InkWell(
                   borderRadius: WpRadius.borderSm,
                   onTap: onToggleMultiSelect,
@@ -208,10 +215,12 @@ class HistorySearchToolbar extends StatelessWidget {
                           : LucideIcons.listChecks,
                       size: WpIconSize.sm,
                       color: multiSelectMode
-                          ? (isDark ? WpColorsDark.accent : WpColorsLight.accent)
+                          ? (isDark
+                                ? WpColorsDark.accent
+                                : WpColorsLight.accent)
                           : (isDark
-                              ? WpColorsDark.textMuted
-                              : WpColorsLight.textMuted),
+                                ? WpColorsDark.textMuted
+                                : WpColorsLight.textMuted),
                     ),
                   ),
                 ),
@@ -269,8 +278,9 @@ class HistoryMultiSelectBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
     final bg = isDark
         ? WpColorsDark.surfaceElevated
         : WpColorsLight.surfaceElevated;
@@ -283,10 +293,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         border: Border(
-          bottom: BorderSide(
-            color: accent.withValues(alpha: 0.2),
-            width: 1,
-          ),
+          bottom: BorderSide(color: accent.withValues(alpha: 0.2), width: 1),
         ),
       ),
       child: Row(
@@ -348,7 +355,11 @@ class HistoryMultiSelectBar extends StatelessWidget {
                     HistoryMultiSelectAction(
                       icon: LucideIcons.merge,
                       label: l10n.historyMerge,
-                      shortcutHint: 'Ctrl+M',
+                      shortcutHint: formatHotkeyShortcut(
+                        'ctrl',
+                        'm',
+                        l10n: l10n,
+                      ),
                       isDark: isDark,
                       onTap: onMerge!,
                     ),
@@ -356,7 +367,11 @@ class HistoryMultiSelectBar extends StatelessWidget {
                     HistoryMultiSelectAction(
                       icon: LucideIcons.copy,
                       label: l10n.historyCopyText,
-                      shortcutHint: 'Ctrl+C',
+                      shortcutHint: formatHotkeyShortcut(
+                        'ctrl',
+                        'c',
+                        l10n: l10n,
+                      ),
                       isDark: isDark,
                       onTap: onBatchCopy!,
                     ),
@@ -369,16 +384,22 @@ class HistoryMultiSelectBar extends StatelessWidget {
                     ),
                   if (onArchive != null)
                     HistoryMultiSelectAction(
-                      icon: isArchiveView ? LucideIcons.archiveRestore : LucideIcons.archive,
-                      label: isArchiveView ? l10n.historyUnarchive : l10n.historyArchive,
+                      icon: isArchiveView
+                          ? LucideIcons.archiveRestore
+                          : LucideIcons.archive,
+                      label: isArchiveView
+                          ? l10n.historyUnarchive
+                          : l10n.historyArchive,
                       isDark: isDark,
                       onTap: onArchive!,
                     ),
                   if (onDelete != null)
                     HistoryMultiSelectAction(
                       icon: LucideIcons.trash2,
-                      label: isTrashView ? l10n.historyDeleteForever : l10n.actionDelete,
-                      shortcutHint: 'Del',
+                      label: isTrashView
+                          ? l10n.historyDeleteForever
+                          : l10n.actionDelete,
+                      shortcutHint: hotkeyKeyLabel('delete', l10n: l10n),
                       isDark: isDark,
                       onTap: onDelete!,
                       isDestructive: true,
@@ -426,7 +447,8 @@ class HistoryMultiSelectAction extends StatefulWidget {
   final bool isDestructive;
 
   @override
-  State<HistoryMultiSelectAction> createState() => _HistoryMultiSelectActionState();
+  State<HistoryMultiSelectAction> createState() =>
+      _HistoryMultiSelectActionState();
 }
 
 class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
@@ -439,7 +461,9 @@ class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
         : WpColorsLight.textSecondary;
     final hoverColor = widget.isDestructive
         ? (widget.isDark ? WpColorsDark.error : WpColorsLight.error)
-        : (widget.isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary);
+        : (widget.isDark
+              ? WpColorsDark.textPrimary
+              : WpColorsLight.textPrimary);
     final color = _hovered ? hoverColor : textSecondary;
 
     return Padding(
@@ -496,8 +520,9 @@ class HistoryViewModeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor =
-        isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant;
+    final bgColor = isDark
+        ? WpColorsDark.surfaceVariant
+        : WpColorsLight.surfaceVariant;
     return Container(
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
@@ -558,10 +583,7 @@ class _HistoryViewModeButton extends StatelessWidget {
         cursor: SystemMouseCursors.click,
         child: Container(
           padding: const EdgeInsets.all(WpSpacing.xxs),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: WpRadius.borderSm,
-          ),
+          decoration: BoxDecoration(color: bg, borderRadius: WpRadius.borderSm),
           child: Icon(icon, size: WpIconSize.sm, color: color),
         ),
       ),

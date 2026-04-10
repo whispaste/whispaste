@@ -10,10 +10,7 @@ import 'settings_provider.dart';
 /// Only carries essential **runtime** info — static config (overlay mode,
 /// hotkey, after-action) belongs in Settings, not the status bar.
 class StatusBarModel {
-  const StatusBarModel({
-    required this.sttModeLabel,
-    this.postProcessingLabel,
-  });
+  const StatusBarModel({required this.sttModeLabel, this.postProcessingLabel});
 
   /// Active speech-to-text mode, e.g. "On device" or "OpenAI".
   final String sttModeLabel;
@@ -60,11 +57,38 @@ List<String> hotkeyModifierLabels(String modifiers, {L10n? l10n}) {
       .toList();
 }
 
+/// Returns a localized label for the primary key portion of a shortcut.
+String hotkeyKeyLabel(String key, {L10n? l10n}) {
+  final trimmed = key.trim();
+  if (trimmed.isEmpty) return '';
+
+  final normalized = trimmed.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+
+  return switch (normalized) {
+    'space' => l10n?.shortcutKeySpace ?? 'Space',
+    'enter' => l10n?.shortcutKeyEnter ?? 'Enter',
+    'escape' || 'esc' => l10n?.shortcutKeyEscape ?? 'Esc',
+    'backspace' => l10n?.shortcutKeyBackspace ?? 'Backspace',
+    'tab' => l10n?.shortcutKeyTab ?? 'Tab',
+    'delete' || 'del' => l10n?.shortcutKeyDelete ?? 'Del',
+    'insert' || 'ins' => l10n?.shortcutKeyInsert ?? 'Insert',
+    'home' => l10n?.shortcutKeyHome ?? 'Home',
+    'end' => l10n?.shortcutKeyEnd ?? 'End',
+    'pageup' || 'pgup' => l10n?.shortcutKeyPageUp ?? 'Page Up',
+    'pagedown' || 'pgdn' => l10n?.shortcutKeyPageDown ?? 'Page Down',
+    'arrowup' || 'up' => '↑',
+    'arrowdown' || 'down' => '↓',
+    'arrowleft' || 'left' => '←',
+    'arrowright' || 'right' => '→',
+    _ => trimmed.toUpperCase(),
+  };
+}
+
 /// Returns shortcut display parts ordered as modifier chips + primary key.
 List<String> hotkeyDisplayParts(String modifiers, String key, {L10n? l10n}) {
   return [
     ...hotkeyModifierLabels(modifiers, l10n: l10n),
-    if (key.trim().isNotEmpty) key.trim().toUpperCase(),
+    if (key.trim().isNotEmpty) hotkeyKeyLabel(key, l10n: l10n),
   ];
 }
 

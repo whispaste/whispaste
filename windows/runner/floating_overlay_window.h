@@ -124,6 +124,9 @@ class FloatingOverlayWindow {
   void PaintCloseButton(Gdiplus::Graphics& g, float x, float y, float size);
   void PaintPrivacyBadge(Gdiplus::Graphics& g, float x, float y);
   void PaintErrorButtons(Gdiplus::Graphics& g, float x, float y);
+  void PaintStopButton(Gdiplus::Graphics& g, float x, float y);
+  void PaintBottomProgressBar(Gdiplus::Graphics& g, float w, float h,
+                              float radius);
 
   // DirectWrite text rendering
   bool InitDirectWrite();
@@ -143,7 +146,7 @@ class FloatingOverlayWindow {
   void OnShowHideAnimTick();
 
   // ── Hit-testing ──────────────────────────────────────────────────────
-  enum class HitZone { kNone, kClose, kDragHeader, kBody, kRetry, kDismiss };
+  enum class HitZone { kNone, kClose, kDragHeader, kBody, kRetry, kDismiss, kStop };
   HitZone HitTest(int local_x, int local_y) const;
   bool IsInsideRoundedRect(int x, int y) const;
 
@@ -238,8 +241,9 @@ class FloatingOverlayWindow {
   POINT drag_cursor_start_ = {};
   POINT drag_window_start_ = {};
 
-  // Close button hover
+  // Close / stop button hover
   bool close_hover_ = false;
+  bool stop_hover_ = false;
   bool tracking_mouse_ = false;
 
   // DirectWrite

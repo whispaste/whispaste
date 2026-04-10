@@ -47,6 +47,15 @@ constexpr float kDotSize = 8.0f;
 constexpr float kCloseSize = 20.0f;
 constexpr float kBadgeHeight = 18.0f;
 
+// ── Pill mode layout (normal, horizontal) ─────────────────────────────
+constexpr float kPillHeight = 48.0f;
+constexpr float kPillPadH = 14.0f;
+constexpr float kPillGap = 8.0f;
+constexpr float kProgressBarH = 4.0f;
+constexpr float kStopBtnW = 32.0f;
+constexpr float kStopBtnH = 28.0f;
+constexpr float kStopIconSize = 10.0f;
+
 // ── Shadow (WpShadows.elevated) ───────────────────────────────────────
 constexpr float kShadowBlur1 = 16.0f;
 constexpr float kShadowOffsetY1 = 6.0f;
@@ -289,6 +298,10 @@ LRESULT FloatingOverlayWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         if (!shutting_down_ && close_cb_) close_cb_();
         return 0;
       }
+      if (zone == HitZone::kStop) {
+        if (!shutting_down_ && close_cb_) close_cb_();
+        return 0;
+      }
       // Start drag from header or body
       SetCapture(hwnd_);
       GetCursorPos(&drag_cursor_start_);
@@ -326,11 +339,16 @@ LRESULT FloatingOverlayWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
       }
 
-      // Update close hover state
+      // Update hover states
       POINT client = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-      bool was_hover = close_hover_;
-      close_hover_ = (HitTest(client.x, client.y) == HitZone::kClose);
-      if (close_hover_ != was_hover && visible_) Render();
+      HitZone zone = HitTest(client.x, client.y);
+      bool was_close = close_hover_;
+      bool was_stop = stop_hover_;
+      close_hover_ = (zone == HitZone::kClose);
+      stop_hover_ = (zone == HitZone::kStop);
+      if (close_hover_ != was_close || stop_hover_ != was_stop) {
+        if (visible_) Render();
+      }
       return 0;
     }
 
@@ -366,8 +384,9 @@ LRESULT FloatingOverlayWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
 
     case WM_MOUSELEAVE:
       tracking_mouse_ = false;
-      if (close_hover_) {
+      if (close_hover_ || stop_hover_) {
         close_hover_ = false;
+        stop_hover_ = false;
         if (visible_) Render();
       }
       return 0;
@@ -540,27 +559,7 @@ int FloatingOverlayWindow::CalculateWidth() const {
 
 int FloatingOverlayWindow::CalculateHeight() const {
   if (snap_.compact) return static_cast<int>(kCompactHeight);
-
-  float h = kAccentBarHeight + kPaddingTop + kHeaderHeight + kGapAfterHeader;
-
-  switch (snap_.state) {
-    case OverlayVisualState::kRecording:
-      h += kWaveformHeight + kGapAfterViz + kHintHeight;
-      break;
-    case OverlayVisualState::kTranscribing:
-    case OverlayVisualState::kProcessing:
-      h += kShimmerHeight + kGapAfterViz + kHintHeight;
-      break;
-    case OverlayVisualState::kDone:
-      h += kProgressHeight + kGapAfterViz + kHintHeight;
-      break;
-    case OverlayVisualState::kError:
-      h += kErrorMsgHeight + kButtonGap + kButtonHeight;
-      break;
-  }
-
-  h += kPaddingBottom;
-  return static_cast<int>(std::ceil(h));
+  return static_cast<int>(kPillHeight);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -632,7 +631,7 @@ bool FloatingOverlayWindow::IsInsideRoundedRect(int x, int y) const {
   float pad = static_cast<float>(kShadowPad * dpi);
   float w = static_cast<float>(CalculateWidth() * dpi);
   float h = static_cast<float>(CalculateHeight() * dpi);
-  float r = static_cast<float>((snap_.compact ? kCompactRadius : kCornerRadius) * dpi);
+  float r = static_cast<float>((snap_.compact ? kCompactRadius : kPillHeight / 2.0f) * dpi);
 
   float lx = x - pad;
   float ly = y - pad;
@@ -667,41 +666,38 @@ FloatingOverlayWindow::HitZone FloatingOverlayWindow::HitTest(int px,
   float lx = (px - pad) / static_cast<float>(dpi);
   float ly = (py - pad) / static_cast<float>(dpi);
 
-  float content_w = snap_.compact ? kCompactWidth : kNormalWidth;
+  if (snap_.compact) {
+    // Compact mode: close button at right
+    float cx = kCompactWidth - 10.0f - kCloseSize;
+    float cy = (kCompactHeight - 3.0f - kCloseSize) / 2.0f;
+    if (lx >= cx && lx <= cx + kCloseSize &&
+        ly >= cy && ly <= cy + kCloseSize) {
+      return HitZone::kClose;
+    }
+    return HitZone::kBody;
+  }
 
-  // Close button: top-right area
-  float close_x = content_w - kPaddingH - kCloseSize;
-  float close_y = snap_.compact ? (kCompactHeight - kCloseSize) / 2.0f
-                                : kAccentBarHeight + kPaddingTop;
+  // Normal (pill) mode
+  float content_h = kPillHeight - kProgressBarH;
+  float cy = content_h / 2.0f;
+
+  // Close button: left side
+  float close_x = kPillPadH;
+  float close_y = cy - kCloseSize / 2.0f;
   if (lx >= close_x && lx <= close_x + kCloseSize &&
       ly >= close_y && ly <= close_y + kCloseSize) {
-    // In compact mode, only show close on hover
-    if (snap_.compact && !close_hover_) return HitZone::kBody;
     return HitZone::kClose;
   }
 
-  // Error buttons (retry / dismiss) — only in normal error state
-  if (!snap_.compact && snap_.state == OverlayVisualState::kError &&
-      snap_.show_retry) {
-    float btn_y = kAccentBarHeight + kPaddingTop + kHeaderHeight +
-                  kGapAfterHeader + kErrorMsgHeight + kButtonGap;
-    if (ly >= btn_y && ly <= btn_y + kButtonHeight) {
-      float retry_x = kPaddingH;
-      float retry_w = 60.0f;
-      if (lx >= retry_x && lx <= retry_x + retry_w) return HitZone::kRetry;
-
-      float dismiss_x = retry_x + retry_w + kButtonGap;
-      float dismiss_w = 60.0f;
-      if (lx >= dismiss_x && lx <= dismiss_x + dismiss_w)
-        return HitZone::kDismiss;
+  // Stop button: right side (recording only)
+  if (snap_.state == OverlayVisualState::kRecording) {
+    float stop_x = kNormalWidth - kPillPadH - kStopBtnW;
+    float stop_y = cy - kStopBtnH / 2.0f;
+    if (lx >= stop_x && lx <= stop_x + kStopBtnW &&
+        ly >= stop_y && ly <= stop_y + kStopBtnH) {
+      return HitZone::kStop;
     }
   }
-
-  // Drag header: top portion (accent bar + header)
-  float header_bottom = snap_.compact
-      ? kCompactHeight
-      : kAccentBarHeight + kPaddingTop + kHeaderHeight;
-  if (ly < header_bottom) return HitZone::kDragHeader;
 
   return HitZone::kBody;
 }
@@ -963,18 +959,20 @@ void FloatingOverlayWindow::Render() {
   DeleteObject(dib);
 }
 
-// ── Normal mode rendering ─────────────────────────────────────────────
+// ── Normal mode rendering (horizontal pill) ───────────────────────────
 
 void FloatingOverlayWindow::RenderNormal(Graphics& g, float w, float h) {
   ThemeColors tc = GetThemeColors();
-  float r = kCornerRadius;
+  float pill_r = h / 2.0f;
+  float content_h = h - kProgressBarH;
+  float cy = content_h / 2.0f;
 
   // 1. Shadow
-  PaintShadow(g, w, h, r);
+  PaintShadow(g, w, h, pill_r);
 
-  // 2. Background
+  // 2. Background pill
   GraphicsPath bgPath;
-  GdiPlusHelper::MakeRoundedRect(&bgPath, 0, 0, w, h, r);
+  GdiPlusHelper::MakeRoundedRect(&bgPath, 0, 0, w, h, pill_r);
   SolidBrush bgBrush(tc.background);
   g.FillPath(&bgBrush, &bgPath);
 
@@ -982,80 +980,96 @@ void FloatingOverlayWindow::RenderNormal(Graphics& g, float w, float h) {
   Pen borderPen(tc.border, 1.0f);
   g.DrawPath(&borderPen, &bgPath);
 
-  // 4. Accent gradient bar (top, clipped to top corners)
-  PaintAccentBar(g, w, r);
+  // 4. Bottom progress bar (clipped to pill)
+  PaintBottomProgressBar(g, w, h, pill_r);
 
-  // 5. Phase dot + label
-  float row_y = kAccentBarHeight + kPaddingTop;
-  PaintPhaseDot(g, kPaddingH, row_y + (kHeaderHeight - kDotSize) / 2.0f,
-                kDotSize);
+  // 5. Horizontal content layout
+  float x = kPillPadH;
+  bool active = (snap_.state == OverlayVisualState::kRecording ||
+                 snap_.state == OverlayVisualState::kTranscribing ||
+                 snap_.state == OverlayVisualState::kProcessing);
 
-  // Label text (after dot)
-  float label_x = kPaddingH + kDotSize + 8.0f;
-  PaintText(g, snap_.label, label_x, row_y, 120.0f, 14.0f,
-           DWRITE_FONT_WEIGHT_SEMI_BOLD, tc.text_primary);
+  // 5a. Close/cancel button (left)
+  PaintCloseButton(g, x, cy - kCloseSize / 2.0f, kCloseSize);
+  x += kCloseSize + kPillGap;
 
-  // Privacy badge (after label)
-  if (!snap_.privacy_mode.empty()) {
-    PaintPrivacyBadge(g, label_x + 100.0f, row_y);
+  // 5b. Privacy badge (during active states)
+  if (active && !snap_.privacy_mode.empty()) {
+    PaintPrivacyBadge(g, x, cy - kBadgeHeight / 2.0f);
+    x += 48.0f + kPillGap;
   }
 
-  // Timer (right-aligned)
-  float timer_x = w - kPaddingH - kCloseSize - 8.0f - 50.0f;
-  PaintText(g, snap_.elapsed, timer_x, row_y, 50.0f, 14.0f,
-           DWRITE_FONT_WEIGHT_REGULAR, tc.text_muted, true);
-
-  // Close button
-  float close_x = w - kPaddingH - kCloseSize;
-  float close_y = row_y;
-  PaintCloseButton(g, close_x, close_y, kCloseSize);
-
-  // 6. Visualization area
-  float viz_y = row_y + kHeaderHeight + kGapAfterHeader;
-  float viz_w = w - kPaddingH * 2;
-
-  switch (snap_.state) {
-    case OverlayVisualState::kRecording:
-      PaintWaveform(g, kPaddingH, viz_y, viz_w, kWaveformHeight);
-      break;
-    case OverlayVisualState::kTranscribing:
-    case OverlayVisualState::kProcessing:
-      PaintShimmerBar(g, kPaddingH, viz_y, viz_w, kShimmerHeight);
-      break;
-    case OverlayVisualState::kDone:
-      PaintProgressBar(g, kPaddingH, viz_y, viz_w, kProgressHeight);
-      break;
-    case OverlayVisualState::kError:
-      // Error message
-      PaintText(g, snap_.error_message, kPaddingH, viz_y, viz_w, 13.0f,
-               DWRITE_FONT_WEIGHT_MEDIUM,
-               AccentColorsFor(OverlayVisualState::kError).c0);
-      // Buttons
-      if (snap_.show_retry) {
-        PaintErrorButtons(g, kPaddingH,
-                          viz_y + kErrorMsgHeight + kButtonGap);
-      }
-      return;  // Error state has no hint line
+  // 5c. Phase dot (recording/transcribing/processing)
+  if (active) {
+    PaintPhaseDot(g, x, cy - kDotSize / 2.0f, kDotSize);
+    x += kDotSize + 6.0f;
   }
 
-  // 7. Hint / done message
-  float hint_y = viz_y;
+  // 5d. Right boundary (reserve space for stop button)
+  float right_edge = w - kPillPadH;
   if (snap_.state == OverlayVisualState::kRecording)
-    hint_y += kWaveformHeight + kGapAfterViz;
-  else
-    hint_y += kShimmerHeight + kGapAfterViz;
+    right_edge -= kStopBtnW + kPillGap;
 
-  std::wstring hint_text;
-  if (snap_.state == OverlayVisualState::kDone)
-    hint_text = snap_.done_message;
-  else if (!snap_.hint.empty())
-    hint_text = snap_.hint;
-  else if (!snap_.processing_label.empty())
-    hint_text = snap_.processing_label;
+  // 5e. Phase-specific center content
+  switch (snap_.state) {
+    case OverlayVisualState::kRecording: {
+      PaintText(g, snap_.elapsed, x, cy - 7.0f, 52.0f, 14.0f,
+               DWRITE_FONT_WEIGHT_SEMI_BOLD, tc.text_primary, true);
+      x += 52.0f + kPillGap;
+      float wf_w = right_edge - x;
+      if (wf_w > 20.0f) PaintWaveform(g, x, cy - 14.0f, wf_w, 28.0f);
+      break;
+    }
+    case OverlayVisualState::kTranscribing:
+    case OverlayVisualState::kProcessing: {
+      auto accent = GetAccentColors();
+      PaintText(g, snap_.label, x, cy - 6.5f, 110.0f, 13.0f,
+               DWRITE_FONT_WEIGHT_SEMI_BOLD, accent.c0);
+      x += 100.0f + 6.0f;
+      PaintText(g, snap_.elapsed, x, cy - 6.0f, 45.0f, 12.0f,
+               DWRITE_FONT_WEIGHT_REGULAR, tc.text_muted, true);
+      break;
+    }
+    case OverlayVisualState::kDone: {
+      auto da = AccentColorsFor(OverlayVisualState::kDone);
+      float is = 16.0f;
+      float sc = is / 24.0f;
+      float ix = x, iy = cy - is / 2.0f;
+      Pen cp(da.c0, 1.5f);
+      cp.SetLineCap(LineCapRound, LineCapRound, DashCapRound);
+      g.DrawEllipse(&cp, ix + 2 * sc, iy + 2 * sc, 20 * sc, 20 * sc);
+      g.DrawLine(&cp, ix + 9 * sc, iy + 12 * sc,
+                 ix + 11 * sc, iy + 14 * sc);
+      g.DrawLine(&cp, ix + 11 * sc, iy + 14 * sc,
+                 ix + 15 * sc, iy + 10 * sc);
+      x += is + 6.0f;
+      PaintText(g, snap_.done_message, x, cy - 6.5f, right_edge - x, 13.0f,
+               DWRITE_FONT_WEIGHT_SEMI_BOLD, da.c0);
+      break;
+    }
+    case OverlayVisualState::kError: {
+      auto ea = AccentColorsFor(OverlayVisualState::kError);
+      float is = 16.0f;
+      float sc = is / 24.0f;
+      float ix = x, iy = cy - is / 2.0f;
+      Pen ep(ea.c0, 1.5f);
+      ep.SetLineCap(LineCapRound, LineCapRound, DashCapRound);
+      g.DrawEllipse(&ep, ix + 2 * sc, iy + 2 * sc, 20 * sc, 20 * sc);
+      g.DrawLine(&ep, ix + 12 * sc, iy + 8 * sc,
+                 ix + 12 * sc, iy + 12 * sc);
+      SolidBrush db(ea.c0);
+      g.FillEllipse(&db, ix + 11.25f * sc, iy + 15.25f * sc,
+                    1.5f * sc, 1.5f * sc);
+      x += is + 6.0f;
+      PaintText(g, snap_.error_message, x, cy - 6.5f, right_edge - x, 13.0f,
+               DWRITE_FONT_WEIGHT_MEDIUM, ea.c0);
+      break;
+    }
+  }
 
-  if (!hint_text.empty()) {
-    PaintText(g, hint_text, kPaddingH, hint_y, viz_w, 12.0f,
-             DWRITE_FONT_WEIGHT_REGULAR, tc.text_muted);
+  // 5f. Stop button (right side, recording only)
+  if (snap_.state == OverlayVisualState::kRecording) {
+    PaintStopButton(g, w - kPillPadH - kStopBtnW, cy - kStopBtnH / 2.0f);
   }
 }
 
@@ -1148,16 +1162,8 @@ void FloatingOverlayWindow::PaintShadow(Graphics& g, float w, float h,
   ThemeColors tc = GetThemeColors();
 
   auto draw_layer = [&](float blur, float offset_y, const Color& color) {
-    float expand = blur;
-    RectF shadow_rect(-expand, -expand + offset_y, w + expand * 2,
-                      h + expand * 2);
-    GraphicsPath path;
-    GdiPlusHelper::MakeRoundedRect(&path, shadow_rect.X, shadow_rect.Y,
-                                   shadow_rect.Width, shadow_rect.Height,
-                                   radius + blur / 2.0f);
-    float fx = w / (w + expand * 2);
-    float fy = h / (h + expand * 2);
-    GdiPlusHelper::PaintGaussianShadowRect(g, &path, fx, fy, color.GetA());
+    GdiPlusHelper::PaintSoftShadowRect(g, 0, offset_y, w, h, radius, blur,
+                                       color.GetA());
   };
 
   draw_layer(kShadowBlur1, kShadowOffsetY1, tc.shadow1);
@@ -1295,6 +1301,90 @@ void FloatingOverlayWindow::PaintCloseButton(Graphics& g, float x, float y,
   pen.SetLineCap(LineCapRound, LineCapRound, DashCapRound);
   g.DrawLine(&pen, x0, y0, x1, y1);
   g.DrawLine(&pen, x1, y0, x0, y1);
+}
+
+void FloatingOverlayWindow::PaintStopButton(Graphics& g, float x, float y) {
+  auto accent = GetAccentColors();
+  float btn_r = kStopBtnH / 2.0f;
+
+  GraphicsPath btnPath;
+  GdiPlusHelper::MakeRoundedRect(&btnPath, x, y, kStopBtnW, kStopBtnH, btn_r);
+
+  Color bg = accent.c0;
+  if (stop_hover_) {
+    int r = (std::min)(static_cast<int>(accent.c0.GetR()) + 20, 255);
+    int gg = (std::min)(static_cast<int>(accent.c0.GetG()) + 10, 255);
+    bg = Color(255, static_cast<BYTE>(r), static_cast<BYTE>(gg),
+               accent.c0.GetB());
+  }
+  SolidBrush bgBrush(bg);
+  g.FillPath(&bgBrush, &btnPath);
+
+  float sq = kStopIconSize;
+  float sx = x + (kStopBtnW - sq) / 2.0f;
+  float sy = y + (kStopBtnH - sq) / 2.0f;
+  GraphicsPath sqPath;
+  GdiPlusHelper::MakeRoundedRect(&sqPath, sx, sy, sq, sq, 2.0f);
+  SolidBrush white(Color(255, 255, 255, 255));
+  g.FillPath(&white, &sqPath);
+}
+
+void FloatingOverlayWindow::PaintBottomProgressBar(Graphics& g, float w,
+                                                     float h, float radius) {
+  if (snap_.state == OverlayVisualState::kError) return;
+
+  GraphicsState saved = g.Save();
+  GraphicsPath clipPath;
+  GdiPlusHelper::MakeRoundedRect(&clipPath, 0, 0, w, h, radius);
+  Region clipRegion(&clipPath);
+  Region barRect(RectF(0, h - kProgressBarH, w, kProgressBarH));
+  clipRegion.Intersect(&barRect);
+  g.SetClip(&clipRegion);
+
+  auto accent = GetAccentColors();
+
+  switch (snap_.state) {
+    case OverlayVisualState::kRecording:
+      // No progress data in snapshot yet -- recording uses accent strip only
+      break;
+    case OverlayVisualState::kTranscribing:
+    case OverlayVisualState::kProcessing: {
+      ThemeColors tc = GetThemeColors();
+      DWORD now = GetTickCount();
+      float t = AnimProgress(now, anim_origin_, kShimmerMs);
+      float sweep = -0.3f + t * 1.6f;
+
+      Color base(static_cast<BYTE>(tc.shimmer_alpha_lo * 255),
+                 accent.c0.GetR(), accent.c0.GetG(), accent.c0.GetB());
+      SolidBrush baseBrush(base);
+      g.FillRectangle(&baseBrush, 0.0f, h - kProgressBarH, w, kProgressBarH);
+
+      float glow_w = w * 0.3f;
+      float glow_x = sweep * w - glow_w / 2.0f;
+      Color glow_hi(static_cast<BYTE>(tc.shimmer_alpha_hi * 255),
+                    accent.c0.GetR(), accent.c0.GetG(), accent.c0.GetB());
+      Color glow_lo(0, accent.c0.GetR(), accent.c0.GetG(), accent.c0.GetB());
+      LinearGradientBrush glowBrush(PointF(glow_x, 0),
+                                    PointF(glow_x + glow_w, 0),
+                                    glow_lo, glow_lo);
+      Color gc[] = {glow_lo, glow_hi, glow_lo};
+      REAL gp[] = {0.0f, 0.5f, 1.0f};
+      glowBrush.SetInterpolationColors(gc, gp, 3);
+      g.FillRectangle(&glowBrush, glow_x, h - kProgressBarH,
+                      glow_w, kProgressBarH);
+      break;
+    }
+    case OverlayVisualState::kDone: {
+      LinearGradientBrush brush(PointF(0, 0), PointF(w, 0),
+                                accent.c0, accent.c1);
+      g.FillRectangle(&brush, 0.0f, h - kProgressBarH, w, kProgressBarH);
+      break;
+    }
+    default:
+      break;
+  }
+
+  g.Restore(saved);
 }
 
 void FloatingOverlayWindow::PaintPrivacyBadge(Graphics& g, float x, float y) {

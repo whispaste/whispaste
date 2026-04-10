@@ -1204,6 +1204,39 @@ class L10nDe extends L10n {
   String get modifierCmd => 'Befehl';
 
   @override
+  String get shortcutKeySpace => 'Leertaste';
+
+  @override
+  String get shortcutKeyEnter => 'Eingabe';
+
+  @override
+  String get shortcutKeyEscape => 'Esc';
+
+  @override
+  String get shortcutKeyBackspace => 'Backspace';
+
+  @override
+  String get shortcutKeyTab => 'Tab';
+
+  @override
+  String get shortcutKeyDelete => 'Entf';
+
+  @override
+  String get shortcutKeyInsert => 'Einfg';
+
+  @override
+  String get shortcutKeyHome => 'Pos1';
+
+  @override
+  String get shortcutKeyEnd => 'Ende';
+
+  @override
+  String get shortcutKeyPageUp => 'Bild hoch';
+
+  @override
+  String get shortcutKeyPageDown => 'Bild runter';
+
+  @override
   String get tooltipSwitchToLight => 'Zu hellem Modus wechseln';
 
   @override

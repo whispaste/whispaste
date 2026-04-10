@@ -54,7 +54,7 @@ WhisPaste is a premium **cross-platform** dictation application optimized for **
 
 **Quality bar**: This is a $20M-caliber product. Every feature, every UI element, every interaction must reflect premium craftsmanship. We ship polished, not "good enough."
 
-**UI philosophy**: This is NOT a boring productivity tool. It must be **fun to use**, emotionally engaging, and visually impressive — the kind of app users show off to friends. Inspired by gaming dashboards and modern chat interfaces while remaining clean and uncluttered. All features must be quickly accessible. Hide complexity behind progressive disclosure — not behind missing functionality. Usability FIRST, beauty SECOND — but beauty is NOT optional. **Design responsive mobile-first with partial desktop optimization** — every UI element must work great on a phone, then be enhanced for larger screens.
+**UI philosophy**: This is NOT a boring productivity tool. It must be **fun to use**, emotionally engaging, and visually impressive — the kind of app users show off to friends. Inspired by gaming dashboards and modern chat interfaces while remaining clean and uncluttered. All features must be quickly accessible. Hide complexity behind progressive disclosure — not behind missing functionality. Usability FIRST, beauty SECOND — but beauty is NOT optional. **Design responsive mobile-first with partial desktop optimization** — every UI element must work great on a phone, then be enhanced for larger screens. On desktop, that optimization explicitly includes first-class mouse + keyboard navigation, sensible focus/default-action behavior, and shortcut-driven flows that stay fast end-to-end.
 
 **AI is the CORE**: Speech-to-text and post-processing are the **critical** features. They MUST work reliably and performantly on every platform. Every architecture decision must prioritize AI inference performance and reliability.
 
@@ -588,6 +588,7 @@ This is a **responsive cross-platform app** — design for touch FIRST, then opt
 3. **Wrap on narrow** — Stats rows, button groups, and chip bars must wrap or scroll when space is tight.
 4. **Test at multiple sizes** — The responsive overflow test covers this, but also visually verify at 320px (phone), 768px (tablet), 1280px (laptop), 1920px (desktop).
 5. **Feel native on EVERY platform** — Currently uses a sidebar-based layout on all screens. Planned: bottom tab bar on phones, sidebar on tablet+desktop. Content fills space, panels resize, and layout adapts seamlessly.
+6. **Desktop optimization means full input parity** — On desktop, every important flow must work cleanly with mouse and keyboard: visible focus, sensible tab order, Enter/Space activation, default focus on the primary action when expected, and localized shortcut hints that match the current locale.
 
 #### Mobile-First Design Rules (MANDATORY)
 
@@ -599,6 +600,7 @@ These rules apply to ALL UI code. They complement the visual identity and access
 4. **No hardcoded widths for content** — Use `LayoutBuilder`/`MediaQuery` with breakpoints. Fixed widths allowed only for modals/dialogs (with `min(fixedWidth, screenWidth - padding)` pattern).
 5. **Navigation adapts** — Currently uses sidebar on all screen sizes. Bottom tab bar for screens ≤ 600px is a planned enhancement.
 6. **Platform-aware interactions** — Use `Platform.isAndroid || Platform.isIOS` (or `defaultTargetPlatform`) to switch between touch and pointer interaction patterns where needed.
+7. **Settings are behavior contracts** — If the UI exposes a setting (shortcuts, after-transcription behavior, overlays, etc.), the runtime must honor it end-to-end. Never ship UI-only toggles with hardcoded behavior underneath.
 
 #### The "Wow" Test
 Before shipping any UI change, ask: "Would a user screenshot this and share it because it looks cool?" If the answer is "no" or "it's fine", it's not good enough. Push further.
@@ -1070,6 +1072,7 @@ Before every commit:
 - Keep translations concise — mobile space is limited
 - Technical terms may stay in English if commonly used (e.g., "API Key", "GPU")
 - Feature name: **"Post-Processing"** (EN) / **"Nachbearbeitung"** (DE) — never "Smart Mode" or "Text Refinement" in user-facing text
+- Shortcut labels and hotkey hints are user-visible strings too — localize modifiers and special keys consistently (`Strg`, `Umschalt`, `Entf`, etc.) instead of mixing English key names into localized UI
 
 ## Competitor Awareness
 
