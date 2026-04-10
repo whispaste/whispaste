@@ -33,9 +33,9 @@ constexpr float kPaddingBottom = 12.0f;
 constexpr float kHeaderHeight = 20.0f;       // dot + label + timer line
 constexpr float kGapAfterHeader = 10.0f;
 constexpr float kWaveformHeight = 28.0f;
-constexpr float kBarWidth = 4.0f;
-constexpr float kBarGap = 3.0f;
-constexpr float kBarRadius = 2.0f;
+constexpr float kBarWidth = 2.5f;           // match in-app pill
+constexpr float kBarGap = 1.5f;             // match in-app pill
+constexpr float kBarRadius = 1.25f;
 constexpr float kShimmerHeight = 4.0f;
 constexpr float kProgressHeight = 4.0f;
 constexpr float kGapAfterViz = 8.0f;
@@ -810,8 +810,8 @@ void FloatingOverlayWindow::OnAnimTick() {
   if (shutting_down_ || !hwnd_) return;
   if (!visible_ && !is_showing_) return;  // skip work when hidden
 
-  // Waveform interpolation (smooth bar heights)
-  if (snap_.state == OverlayVisualState::kRecording && !snap_.compact) {
+  // Waveform interpolation (smooth bar heights) — both normal and compact
+  if (snap_.state == OverlayVisualState::kRecording) {
     for (int i = 0; i < kWaveformBars; ++i) {
       float target = waveform_levels_[(waveform_write_idx_ + i) % kWaveformBars];
       float diff = target - waveform_display_[i];
@@ -1076,37 +1076,67 @@ void FloatingOverlayWindow::RenderCompact(Graphics& g, float w, float h) {
   Pen borderPen(tc.border, 1.0f);
   g.DrawPath(&borderPen, &bgPath);
 
-  // Left accent bar (vertical, 3px wide, 60% of height)
-  auto accent = GetAccentColors();
-  float bar_h = h * 0.6f;
-  float bar_y = (h - bar_h) / 2.0f;
-  LinearGradientBrush barBrush(PointF(4.0f, bar_y), PointF(4.0f, bar_y + bar_h),
-                               accent.c0, accent.c1);
-  GraphicsPath barPath;
-  GdiPlusHelper::MakeRoundedRect(&barPath, 4.0f, bar_y, 3.0f, bar_h, 1.5f);
-  g.FillPath(&barBrush, &barPath);
+  // Bottom accent phase bar (3px, clipped to bottom corners of pill)
+  {
+    auto accent = GetAccentColors();
+    GraphicsState saved = g.Save();
+    GraphicsPath clipPath;
+    GdiPlusHelper::MakeRoundedRect(&clipPath, 0, h - r * 2, w, r * 2, r);
+    Region clipRegion(&clipPath);
+    Region rectRegion(RectF(0, h - 3.0f, w, 3.0f));
+    clipRegion.Intersect(&rectRegion);
+    g.SetClip(&clipRegion);
+    LinearGradientBrush barBrush(PointF(0, 0), PointF(w, 0),
+                                 accent.c0, accent.c1);
+    g.FillRectangle(&barBrush, 0.0f, h - 3.0f, w, 3.0f);
+    g.Restore(saved);
+  }
 
   // Phase dot
-  float dot_x = 14.0f;
-  float dot_y = (h - kDotSize) / 2.0f;
-  PaintPhaseDot(g, dot_x, dot_y, kDotSize);
+  float content_y = (h - 3.0f - kDotSize) / 2.0f;  // centered in content area
+  float dot_x = 12.0f;
+  PaintPhaseDot(g, dot_x, content_y, kDotSize);
 
   // Label
   float label_x = dot_x + kDotSize + 6.0f;
-  PaintText(g, snap_.label, label_x, 0.0f, 100.0f, 13.0f,
+  float text_y = (h - 3.0f - 13.0f) / 2.0f;  // vertically center text
+  PaintText(g, snap_.label, label_x, text_y, 90.0f, 13.0f,
            DWRITE_FONT_WEIGHT_SEMI_BOLD, tc.text_primary);
 
   // Timer (right of label)
-  float timer_x = label_x + 100.0f + 6.0f;
-  PaintText(g, snap_.elapsed, timer_x, 0.0f, 50.0f, 13.0f,
+  float timer_x = label_x + 90.0f + 4.0f;
+  PaintText(g, snap_.elapsed, timer_x, text_y, 42.0f, 13.0f,
            DWRITE_FONT_WEIGHT_REGULAR, tc.text_muted, true);
 
-  // Close button (only on hover)
-  if (close_hover_) {
-    float cx = w - 10.0f - kCloseSize;
-    float cy = (h - kCloseSize) / 2.0f;
-    PaintCloseButton(g, cx, cy, kCloseSize);
+  // Mini waveform during recording (8 bars, compact)
+  if (snap_.state == OverlayVisualState::kRecording) {
+    float mini_bar_w = 2.5f;
+    float mini_bar_gap = 1.5f;
+    int mini_bars = 8;
+    float wf_x = timer_x + 42.0f + 8.0f;
+    float wf_h = 16.0f;
+    float wf_y = (h - 3.0f - wf_h) / 2.0f;
+
+    for (int i = 0; i < mini_bars; ++i) {
+      // Sample every other bar from the 16-bar buffer
+      int src = (i * 2) % kWaveformBars;
+      float level = waveform_display_[src];
+      float bar_h = 3.0f + level * (wf_h - 3.0f);
+      float bx = wf_x + i * (mini_bar_w + mini_bar_gap);
+      float by = wf_y + (wf_h - bar_h) / 2.0f;
+
+      Color color = (level > 0.30f) ? tc.waveform_active : tc.waveform_muted;
+      SolidBrush brush(color);
+      GraphicsPath barPath;
+      GdiPlusHelper::MakeRoundedRect(&barPath, bx, by, mini_bar_w, bar_h, 1.0f);
+      g.FillPath(&brush, &barPath);
+    }
   }
+
+  // Close button (always visible in compact, but subtle)
+  float cx = w - 10.0f - kCloseSize;
+  float cy = (h - 3.0f - kCloseSize) / 2.0f;
+  PaintCloseButton(g, cx, cy, kCloseSize);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1283,28 +1313,48 @@ void FloatingOverlayWindow::PaintPrivacyBadge(Graphics& g, float x, float y) {
   SolidBrush bgBrush(bg);
   g.FillPath(&bgBrush, &badgePath);
 
-  // Small shield/cloud icon (simplified)
+  // Lucide-style icons (10px bounding box)
   float icon_x = x + 6.0f;
   float icon_y = y + 4.0f;
-  float icon_s = 10.0f;
+  float s = 10.0f;
+  float sx = s / 24.0f;  // Scale from Lucide 24px viewbox
   Pen iconPen(text_color, 1.2f);
   iconPen.SetLineCap(LineCapRound, LineCapRound, DashCapRound);
+  iconPen.SetLineJoin(LineJoinRound);
   if (is_local) {
-    // Simplified shield
-    g.DrawLine(&iconPen, icon_x + icon_s / 2, icon_y,
-               icon_x + icon_s, icon_y + icon_s * 0.3f);
-    g.DrawLine(&iconPen, icon_x + icon_s, icon_y + icon_s * 0.3f,
-               icon_x + icon_s / 2, icon_y + icon_s);
-    g.DrawLine(&iconPen, icon_x + icon_s / 2, icon_y + icon_s,
-               icon_x, icon_y + icon_s * 0.3f);
-    g.DrawLine(&iconPen, icon_x, icon_y + icon_s * 0.3f,
-               icon_x + icon_s / 2, icon_y);
+    // ShieldCheck: pointed shield + checkmark
+    GraphicsPath sp;
+    sp.AddLine(PointF(icon_x+12*sx, icon_y+2*sx),
+               PointF(icon_x+20*sx, icon_y+5*sx));
+    sp.AddLine(PointF(icon_x+20*sx, icon_y+5*sx),
+               PointF(icon_x+20*sx, icon_y+12*sx));
+    sp.AddBezier(PointF(icon_x+20*sx, icon_y+12*sx),
+                 PointF(icon_x+20*sx, icon_y+17*sx),
+                 PointF(icon_x+16*sx, icon_y+20*sx),
+                 PointF(icon_x+12*sx, icon_y+22*sx));
+    sp.AddBezier(PointF(icon_x+12*sx, icon_y+22*sx),
+                 PointF(icon_x+8*sx, icon_y+20*sx),
+                 PointF(icon_x+4*sx, icon_y+17*sx),
+                 PointF(icon_x+4*sx, icon_y+12*sx));
+    sp.AddLine(PointF(icon_x+4*sx, icon_y+12*sx),
+               PointF(icon_x+4*sx, icon_y+5*sx));
+    sp.CloseFigure();
+    g.DrawPath(&iconPen, &sp);
+    // Checkmark
+    g.DrawLine(&iconPen, icon_x+9*sx, icon_y+12*sx,
+               icon_x+11*sx, icon_y+14*sx);
+    g.DrawLine(&iconPen, icon_x+11*sx, icon_y+14*sx,
+               icon_x+15*sx, icon_y+10*sx);
   } else {
-    // Simplified cloud
-    g.DrawArc(&iconPen, icon_x + 1, icon_y + 2, icon_s - 2, icon_s - 4,
-              180.0f, 180.0f);
-    g.DrawLine(&iconPen, icon_x + 1, icon_y + icon_s / 2 + 1,
-               icon_x + icon_s - 1, icon_y + icon_s / 2 + 1);
+    // Cloud: top arc + bumps + flat bottom
+    GraphicsPath cp;
+    cp.AddArc(icon_x+6*sx, icon_y+2*sx, 12*sx, 12*sx, 210, 300);
+    cp.AddArc(icon_x+2*sx, icon_y+8*sx, 8*sx, 10*sx, 180, 120);
+    cp.AddLine(PointF(icon_x+4*sx, icon_y+18*sx),
+               PointF(icon_x+20*sx, icon_y+18*sx));
+    cp.AddArc(icon_x+14*sx, icon_y+8*sx, 8*sx, 10*sx, 300, 120);
+    cp.CloseFigure();
+    g.DrawPath(&iconPen, &cp);
   }
 
   // Badge text
