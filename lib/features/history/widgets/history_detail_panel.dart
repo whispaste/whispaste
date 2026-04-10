@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -441,7 +442,9 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                     onTap: onCopy,
                   ),
                   HistoryDetailAction(
-                    icon: entry.pinned ? LucideIcons.starOff : LucideIcons.star,
+                    faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
+                    icon: entry.pinned ? null : LucideIcons.star,
+                    activeColor: entry.pinned ? Colors.amber.shade600 : null,
                     tooltip: '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (F)',
                     isDark: isDark,
                     onTap: onPin,
@@ -965,18 +968,23 @@ class HistoryPopupMenuRow extends StatelessWidget {
 class HistoryDetailAction extends StatefulWidget {
   const HistoryDetailAction({
     super.key,
-    required this.icon,
+    this.icon,
+    this.faIcon,
     required this.tooltip,
     required this.isDark,
     required this.onTap,
     this.isDestructive = false,
-  });
+    this.activeColor,
+  }) : assert(icon != null || faIcon != null, 'Provide icon or faIcon');
 
-  final IconData icon;
+  final IconData? icon;
+  final FaIconData? faIcon;
   final String tooltip;
   final bool isDark;
   final VoidCallback onTap;
   final bool isDestructive;
+  /// When set, overrides the icon color regardless of hover/active state.
+  final Color? activeColor;
 
   @override
   State<HistoryDetailAction> createState() => _HistoryDetailActionState();
@@ -988,7 +996,9 @@ class _HistoryDetailActionState extends State<HistoryDetailAction> {
   @override
   Widget build(BuildContext context) {
     final Color iconColor;
-    if (widget.isDestructive && _isHovered) {
+    if (widget.activeColor != null) {
+      iconColor = widget.activeColor!;
+    } else if (widget.isDestructive && _isHovered) {
       iconColor = widget.isDark ? WpColorsDark.error : WpColorsLight.error;
     } else if (_isHovered) {
       iconColor = widget.isDark
@@ -1023,7 +1033,9 @@ class _HistoryDetailActionState extends State<HistoryDetailAction> {
                       : WpColorsLight.hoverTransparent),
               borderRadius: WpRadius.borderSm,
             ),
-            child: Icon(widget.icon, size: WpIconSize.md, color: iconColor),
+            child: widget.faIcon != null
+                ? FaIcon(widget.faIcon!, size: WpIconSize.md, color: iconColor)
+                : Icon(widget.icon!, size: WpIconSize.md, color: iconColor),
           ),
         ),
       ),
