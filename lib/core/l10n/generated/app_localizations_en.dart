@@ -2111,4 +2111,32 @@ class L10nEn extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get settingsFloatingButtonSection => 'Floating Button';
+
+  @override
+  String get settingsFloatingButtonSectionSubtitle =>
+      'Always-on-top recording button for quick access';
+
+  @override
+  String get settingsSttIdleTimeout => 'Engine idle timeout';
+
+  @override
+  String get settingsSttIdleTimeoutSubtitle =>
+      'How long the speech engine stays loaded after use';
+
+  @override
+  String get settingsSttIdleTimeoutKeepAlive => 'Keep alive';
+
+  @override
+  String settingsSttIdleTimeoutMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count minutes',
+      one: '1 minute',
+    );
+    return '$_temp0';
+  }
 }

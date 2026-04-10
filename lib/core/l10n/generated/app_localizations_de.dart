@@ -2132,4 +2132,32 @@ class L10nDe extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get settingsFloatingButtonSection => 'Schwebender Button';
+
+  @override
+  String get settingsFloatingButtonSectionSubtitle =>
+      'Immer sichtbarer Aufnahme-Button für schnellen Zugriff';
+
+  @override
+  String get settingsSttIdleTimeout => 'Sprachmodul-Leerlauf';
+
+  @override
+  String get settingsSttIdleTimeoutSubtitle =>
+      'Wie lange das Sprachmodul nach Nutzung geladen bleibt';
+
+  @override
+  String get settingsSttIdleTimeoutKeepAlive => 'Dauerhaft aktiv';
+
+  @override
+  String settingsSttIdleTimeoutMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Minuten',
+      one: '1 Minute',
+    );
+    return '$_temp0';
+  }
 }
