@@ -384,12 +384,12 @@ logger.e('Unrecoverable failure: $err');          // Error
 - GDPR consent gate: nothing sent without `_consentGranted`
 - Device ID: MD5 hash of hostname (not hardware identifier)
 - Breadcrumb context from `AppLogger` ring buffer
-- Build defines: Only `SUPABASE_URL` and `SUPABASE_ANON_KEY` injected via `--dart-define` in CI. No Sentry DSN injection needed.
+- Build defines: Only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` injected via `--dart-define` in CI. No Sentry DSN injection needed.
 
 ### Feedback
 
-**Direct Supabase PostgREST INSERT** (anon key) — NOT an Edge Function relay:
-- HTTP POST to `$SUPABASE_URL/rest/v1/user_feedback` with anon key header
+**Direct Supabase PostgREST INSERT** (publishable key) — NOT an Edge Function relay:
+- HTTP POST to `$SUPABASE_URL/rest/v1/user_feedback` with publishable key header
 - RLS `WITH CHECK` policy for server-side validation
 - PostgreSQL trigger for rate limiting (3 per device per 24h) — raises `P0001` → PostgREST returns 400
 
@@ -907,7 +907,7 @@ WhisPaste is subject to **German and European law**. Every feature, data flow, a
 
 9. **Secure storage**: API keys and credentials stored locally use `FlutterSecureStorage` (cross-platform: Keychain on macOS/iOS, Keystore on Android, encrypted storage on Windows/Linux). Never log, transmit, or expose credentials.
 
-10. **No embedded secrets**: Credentials and private endpoints must NEVER be hardcoded in the binary. Only `SUPABASE_URL` and `SUPABASE_ANON_KEY` (public by design) are passed via `--dart-define`. Admin keys and service-role credentials stay server-side only.
+10. **No embedded secrets**: Credentials and private endpoints must NEVER be hardcoded in the binary. Only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (public by design) are passed via `--dart-define`. Admin keys and service-role credentials stay server-side only.
 
 ### Checklist for Every New Feature
 
@@ -937,7 +937,7 @@ Before implementing any feature that touches user data or external communication
 
 - Crash reporting goes through **Sentry** (`sentry_flutter`) with PII sanitization and GDPR consent gate
 - The client ships the public Sentry DSN (standard practice). No secrets in client code.
-- Feedback goes through **direct Supabase PostgREST INSERT** with anon key
+- Feedback goes through **direct Supabase PostgREST INSERT** with publishable key
 - Check **both** local logs AND Sentry dashboard when debugging
 - Treat crash reports as primary evidence for root-cause analysis
 
