@@ -502,7 +502,7 @@ void FloatingButtonWindow::Render() {
   DeleteObject(dib);
 }
 
-// ── Shadow via PathGradientBrush (radial fade) ────────────────────────
+// ── Shadow via gaussian-approximation PathGradientBrush ────────────────
 
 void FloatingButtonWindow::PaintShadow(Graphics& g, float cx, float cy,
                                        float body_r) {
@@ -513,15 +513,8 @@ void FloatingButtonWindow::PaintShadow(Graphics& g, float cx, float cy,
     float outer_r = body_r + b;
     GraphicsPath path;
     path.AddEllipse(cx - outer_r, cy - outer_r + oy, outer_r * 2, outer_r * 2);
-    PathGradientBrush brush(&path);
-    Color center(alpha, 0, 0, 0);
-    Color edge(0, 0, 0, 0);
-    brush.SetCenterColor(center);
-    int n = 1;
-    brush.SetSurroundColors(&edge, &n);
     float focus = body_r / outer_r;
-    brush.SetFocusScales(focus, focus);
-    g.FillPath(&brush, &path);
+    GdiPlusHelper::PaintGaussianShadowCircular(g, &path, focus, alpha);
   };
 
   draw_layer(kShadowBlur1, kShadowOffset1, kShadowAlpha1);

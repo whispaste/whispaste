@@ -353,6 +353,21 @@ class RecordingOrchestrator extends Notifier<void> {
       replaceSw.stop();
       replaceMs = replaceSw.elapsedMilliseconds;
 
+      // ── Transcription cleanup (always applied) ──────────────────────────
+      // Whisper models often insert extraneous newlines. Collapse them into
+      // single spaces for clean copy/paste results.
+      final rawLen = finalText.length;
+      finalText = finalText
+          .replaceAll(RegExp(r'\r\n|\r'), '\n')
+          .replaceAll(RegExp(r'\n+'), ' ')
+          .replaceAll(RegExp(r' {2,}'), ' ')
+          .trim();
+      if (finalText.length != rawLen) {
+        _log.info(
+          '[$sid] Whitespace cleanup: $rawLen→${finalText.length} chars',
+        );
+      }
+
       // Save to history database (with replacements applied).
       final saveSw = Stopwatch()..start();
       await _saveToHistory(finalText, settings);
