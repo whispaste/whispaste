@@ -2827,6 +2827,72 @@ abstract class L10n {
   /// **'Create \"{tag}\"'**
   String historyCreateTag(Object tag);
 
+  /// No description provided for @historyManageTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage tags'**
+  String get historyManageTags;
+
+  /// No description provided for @tagManageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Tags'**
+  String get tagManageTitle;
+
+  /// No description provided for @tagManageEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No tags created yet.'**
+  String get tagManageEmpty;
+
+  /// No description provided for @tagUsageCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{unused} =1{1 entry} other{{count} entries}}'**
+  String tagUsageCount(int count);
+
+  /// No description provided for @tagDeleteConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete tag?'**
+  String get tagDeleteConfirmTitle;
+
+  /// No description provided for @tagDeleteConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The tag \"{name}\" is used in {count, plural, =1{1 entry} other{{count} entries}}. It will be removed from all of them.'**
+  String tagDeleteConfirmMessage(String name, int count);
+
+  /// No description provided for @tagDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag \"{name}\" deleted'**
+  String tagDeleted(String name);
+
+  /// No description provided for @tagDeleteUnusedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete unused tags?'**
+  String get tagDeleteUnusedTitle;
+
+  /// No description provided for @tagDeleteUnusedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 unused tag} other{{count} unused tags}} will be permanently deleted.'**
+  String tagDeleteUnusedMessage(int count);
+
+  /// No description provided for @tagDeleteUnusedAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {count} unused'**
+  String tagDeleteUnusedAction(int count);
+
+  /// No description provided for @tagDeletedUnused.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 unused tag} other{{count} unused tags}} deleted'**
+  String tagDeletedUnused(int count);
+
   /// No description provided for @historyEditTranscript.
   ///
   /// In en, this message translates to:

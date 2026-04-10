@@ -1492,6 +1492,76 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get historyManageTags => 'Manage tags';
+
+  @override
+  String get tagManageTitle => 'Manage Tags';
+
+  @override
+  String get tagManageEmpty => 'No tags created yet.';
+
+  @override
+  String tagUsageCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+      zero: 'unused',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tagDeleteConfirmTitle => 'Delete tag?';
+
+  @override
+  String tagDeleteConfirmMessage(String name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+    );
+    return 'The tag \"$name\" is used in $_temp0. It will be removed from all of them.';
+  }
+
+  @override
+  String tagDeleted(String name) {
+    return 'Tag \"$name\" deleted';
+  }
+
+  @override
+  String get tagDeleteUnusedTitle => 'Delete unused tags?';
+
+  @override
+  String tagDeleteUnusedMessage(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unused tags',
+      one: '1 unused tag',
+    );
+    return '$_temp0 will be permanently deleted.';
+  }
+
+  @override
+  String tagDeleteUnusedAction(int count) {
+    return 'Delete $count unused';
+  }
+
+  @override
+  String tagDeletedUnused(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unused tags',
+      one: '1 unused tag',
+    );
+    return '$_temp0 deleted';
+  }
+
+  @override
   String get historyEditTranscript => 'Edit transcript';
 
   @override
