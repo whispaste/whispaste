@@ -1,53 +1,34 @@
-<#
-.SYNOPSIS
-    Run cppcheck static analysis on WhisPaste native C++ code.
-.DESCRIPTION
-    Analyzes windows/runner/*.cpp and *.h for bugs, performance issues,
-    and portability problems. Install cppcheck first: choco install cppcheck
-.EXAMPLE
-    .\scripts\cppcheck.ps1
-    .\scripts\cppcheck.ps1 -Strict
-#>
-param(
-    [switch]$Strict  # Treat all warnings as errors
-)
-
 $ErrorActionPreference = 'Stop'
+
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+Set-Location $repoRoot
 
 $cppcheck = Get-Command cppcheck -ErrorAction SilentlyContinue
 if (-not $cppcheck) {
-    Write-Host "cppcheck not found. Install with: choco install cppcheck" -ForegroundColor Red
-    exit 1
+  $defaultPath = 'C:\Program Files\Cppcheck\cppcheck.exe'
+  if (Test-Path $defaultPath) {
+    $cppcheck = @{ Source = $defaultPath }
+  }
 }
 
-$root = Split-Path -Parent $PSScriptRoot
-$target = Join-Path $root "windows\runner"
-Write-Host "Running cppcheck on $target ..." -ForegroundColor Cyan
-
-$enableChecks = "warning,performance,portability"
-if ($Strict) {
-    $enableChecks = "all"
+if (-not $cppcheck) {
+  throw 'cppcheck was not found in PATH. Install it first or let CI install it before calling this script.'
 }
 
-$exitCode = 0
-& cppcheck `
-    --enable=$enableChecks `
-    --std=c++17 `
-    --platform=win64 `
-    --suppress=missingIncludeSystem `
-    --suppress=unmatchedSuppression `
-    --suppress=useStlAlgorithm `
-    --inline-suppr `
-    --error-exitcode=1 `
-    --template="{file}({line}): {severity} ({id}): {message}" `
-    $target
+Write-Host 'Running cppcheck on windows/runner/...'
 
-$exitCode = $LASTEXITCODE
+& $cppcheck.Source `
+  --enable=warning,performance,portability `
+  --std=c++17 `
+  --platform=win64 `
+  --suppress=missingIncludeSystem `
+  --suppress=unmatchedSuppression `
+  --suppress=useStlAlgorithm `
+  --inline-suppr `
+  --error-exitcode=1 `
+  --template='{file}({line}): {severity} ({id}): {message}' `
+  windows/runner/
 
-if ($exitCode -eq 0) {
-    Write-Host "`ncppcheck passed — no issues found." -ForegroundColor Green
-} else {
-    Write-Host "`ncppcheck found issues (exit code $exitCode)." -ForegroundColor Red
+if ($LASTEXITCODE -ne 0) {
+  exit $LASTEXITCODE
 }
-
-exit $exitCode
