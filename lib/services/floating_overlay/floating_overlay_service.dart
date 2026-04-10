@@ -189,6 +189,13 @@ class FloatingOverlayService extends Notifier<void> {
     final recording = ref.read(recordingProvider);
     final isLocal = s.sttProviderType.isLocal;
 
+    // Compute recording progress (0.0 = unlimited, 0.0–1.0 = limited)
+    double progress = 0.0;
+    if (phase == RecordingPhase.recording && s.maxRecordDuration > 0) {
+      progress = elapsed.inSeconds / s.maxRecordDuration;
+      if (progress > 1.0) progress = 1.0;
+    }
+
     final snapshot = FloatingOverlaySnapshot(
       visible: true,
       state: _mapPhase(phase),
@@ -207,6 +214,7 @@ class FloatingOverlayService extends Notifier<void> {
       processingLabel: phase == RecordingPhase.processing
           ? (l10n?.overlayRefining ?? 'Refining…')
           : null,
+      progress: progress,
     );
 
     _controller!.updateSnapshot(snapshot).catchError((e, st) {

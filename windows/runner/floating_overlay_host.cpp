@@ -64,9 +64,9 @@ OverlayVisualState ParseState(const std::string& s) {
 }
 
 OverlayAnchorMode ParseAnchor(const std::string& s) {
-  if (s == "top_center") return OverlayAnchorMode::kTopCenter;
-  if (s == "bottom_center") return OverlayAnchorMode::kBottomCenter;
-  if (s == "custom") return OverlayAnchorMode::kTopLeft;
+  if (s == "top_center" || s == "topCenter") return OverlayAnchorMode::kTopCenter;
+  if (s == "bottom_center" || s == "bottomCenter") return OverlayAnchorMode::kBottomCenter;
+  if (s == "custom" || s == "topLeft") return OverlayAnchorMode::kTopLeft;
   return OverlayAnchorMode::kTopCenter;
 }
 
@@ -85,6 +85,7 @@ OverlaySnapshot ParseSnapshot(const EncodableMap& map) {
   snap.processing_label = Utf8ToWide(GetString(map, "processingLabel"));
   snap.privacy_mode = Utf8ToWide(GetString(map, "privacyMode"));
   snap.show_retry = GetBool(map, "showRetry", false);
+  snap.progress = static_cast<float>(GetDouble(map, "progress", 0.0));
   return snap;
 }
 

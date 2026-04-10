@@ -97,13 +97,20 @@ float AnimProgress(DWORD now, DWORD origin, DWORD period_ms) {
 
 // ── Shadow helpers ──────────────────────────────────────────────────────
 
+// Gaussian-curve alpha for layer |i| of |total| layers.
+// Inner layers stay close to peak_alpha; outer layers fade to near-zero.
+static BYTE GaussianAlpha(int i, int total, BYTE peak_alpha) {
+  float t = static_cast<float>(i + 1) / total;  // 0..1
+  float a = peak_alpha * std::expf(-t * t * 3.0f);
+  return static_cast<BYTE>((std::max)(1.0f, a));
+}
+
 void PaintSoftShadowCircular(Graphics& g, float cx, float cy, float body_r,
                               float blur, BYTE peak_alpha) {
-  constexpr int kLayers = 8;
-  BYTE la = (std::max)(static_cast<BYTE>(1),
-                       static_cast<BYTE>(peak_alpha / kLayers));
-  SolidBrush brush(Color(la, 0, 0, 0));
-  for (int i = 0; i < kLayers; ++i) {
+  constexpr int kLayers = 12;
+  for (int i = kLayers - 1; i >= 0; --i) {
+    BYTE la = GaussianAlpha(i, kLayers, peak_alpha);
+    SolidBrush brush(Color(la, 0, 0, 0));
     float expand = blur * static_cast<float>(i + 1) / kLayers;
     float r = body_r + expand;
     g.FillEllipse(&brush, cx - r, cy - r, r * 2.0f, r * 2.0f);
@@ -112,11 +119,10 @@ void PaintSoftShadowCircular(Graphics& g, float cx, float cy, float body_r,
 
 void PaintSoftShadowRect(Graphics& g, float x, float y, float w, float h,
                           float radius, float blur, BYTE peak_alpha) {
-  constexpr int kLayers = 8;
-  BYTE la = (std::max)(static_cast<BYTE>(1),
-                       static_cast<BYTE>(peak_alpha / kLayers));
-  SolidBrush brush(Color(la, 0, 0, 0));
-  for (int i = 0; i < kLayers; ++i) {
+  constexpr int kLayers = 12;
+  for (int i = kLayers - 1; i >= 0; --i) {
+    BYTE la = GaussianAlpha(i, kLayers, peak_alpha);
+    SolidBrush brush(Color(la, 0, 0, 0));
     float expand = blur * static_cast<float>(i + 1) / kLayers;
     GraphicsPath path;
     MakeRoundedRect(&path, x - expand, y - expand,
