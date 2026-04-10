@@ -6,6 +6,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../data/providers.dart';
+import 'highlighted_text.dart';
 import 'history_date_header.dart';
 import 'history_helpers.dart';
 
@@ -177,12 +178,13 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                 ),
               // Title
               Expanded(
-                child: Text(
-                  widget.entry.title.isNotEmpty
+                child: HighlightedText(
+                  text: widget.entry.title.isNotEmpty
                       ? widget.entry.title
                       : L10n.of(context).historyUntitledRecording,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  isDark: isDark,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
