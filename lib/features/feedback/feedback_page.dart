@@ -194,6 +194,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                     child: TextField(
                       controller: _commentController,
                       maxLines: 5,
+                      maxLength: 1000,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         hintText: _category == 'bug'
