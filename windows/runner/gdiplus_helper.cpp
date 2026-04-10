@@ -95,4 +95,69 @@ float AnimProgress(DWORD now, DWORD origin, DWORD period_ms) {
   return static_cast<float>(elapsed % period_ms) / period_ms;
 }
 
+// ── Shadow helpers ──────────────────────────────────────────────────────
+
+void PaintGaussianShadowCircular(Graphics& g, GraphicsPath* path, float focus,
+                                  BYTE alpha) {
+  PathGradientBrush brush(path);
+
+  Color center(alpha, 0, 0, 0);
+  brush.SetCenterColor(center);
+  int n = 1;
+  Color edge(0, 0, 0, 0);
+  brush.SetSurroundColors(&edge, &n);
+
+  // 5-stop gaussian-like falloff: steep initial drop then long tail to zero.
+  // Positions are 0.0 (center) → 1.0 (path edge).
+  Color colors[] = {
+      Color(alpha, 0, 0, 0),                               // center
+      Color(alpha, 0, 0, 0),                               // body edge
+      Color(static_cast<BYTE>(alpha * 0.30f), 0, 0, 0),   // rapid drop
+      Color(static_cast<BYTE>(alpha * 0.06f), 0, 0, 0),   // almost gone
+      Color(0, 0, 0, 0),                                    // outer edge
+  };
+  REAL positions[] = {
+      0.0f,
+      focus,
+      focus + (1.0f - focus) * 0.35f,
+      focus + (1.0f - focus) * 0.75f,
+      1.0f,
+  };
+  brush.SetInterpolationColors(colors, positions, 5);
+  g.FillPath(&brush, path);
+}
+
+void PaintGaussianShadowRect(Graphics& g, GraphicsPath* path, float fx,
+                              float fy, BYTE alpha) {
+  PathGradientBrush brush(path);
+
+  Color center(alpha, 0, 0, 0);
+  brush.SetCenterColor(center);
+  int n = 1;
+  Color edge(0, 0, 0, 0);
+  brush.SetSurroundColors(&edge, &n);
+
+  // Use average of fx/fy for 1D interpolation color positions.
+  float focus = (fx + fy) / 2.0f;
+
+  Color colors[] = {
+      Color(alpha, 0, 0, 0),
+      Color(alpha, 0, 0, 0),
+      Color(static_cast<BYTE>(alpha * 0.30f), 0, 0, 0),
+      Color(static_cast<BYTE>(alpha * 0.06f), 0, 0, 0),
+      Color(0, 0, 0, 0),
+  };
+  REAL positions[] = {
+      0.0f,
+      focus,
+      focus + (1.0f - focus) * 0.35f,
+      focus + (1.0f - focus) * 0.75f,
+      1.0f,
+  };
+  brush.SetInterpolationColors(colors, positions, 5);
+  // Also set focus scales so the brush shape stays rectangular.
+  brush.SetFocusScales(fx, fy);
+  g.FillPath(&brush, path);
+}
+
 }  // namespace GdiPlusHelper
