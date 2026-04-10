@@ -35,7 +35,7 @@ jobs:
         run: >-
           flutter build windows --release
           --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Install NSIS
         run: choco install nsis -y --no-progress
