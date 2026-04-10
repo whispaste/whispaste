@@ -172,9 +172,13 @@ bool FloatingOverlayWindow::Create(HWND owner) {
   owner_ = owner;
 
   // Start off-screen, invisible. SetPosition will place it correctly.
+  // Pass nullptr as the owner so this window is not an "owned window" in
+  // Win32 terms. Owned windows are automatically minimized/hidden when the
+  // owner minimizes — we want the overlay to stay visible and on top
+  // regardless of the main window's state. owner_ is kept for DPI lookups.
   hwnd_ = CreateWindowExW(
       WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_NOACTIVATE,
-      kClassName, L"", WS_POPUP, -9999, -9999, 1, 1, owner, nullptr,
+      kClassName, L"", WS_POPUP, -9999, -9999, 1, 1, nullptr, nullptr,
       GetModuleHandle(nullptr), this);
 
   if (!hwnd_) {
