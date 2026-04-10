@@ -236,8 +236,8 @@ class FloatingOverlayWindow {
   // Transcribing spinner
   DWORD spinner_origin_ = 0;
 
-  // Waveform ring buffer (16 bars)
-  static constexpr int kWaveformBars = 16;
+  // Waveform ring buffer (30 bars — match Flutter _maxLevelHistory)
+  static constexpr int kWaveformBars = 30;
   float waveform_levels_[kWaveformBars] = {};
   float waveform_display_[kWaveformBars] = {};
   int waveform_write_idx_ = 0;
