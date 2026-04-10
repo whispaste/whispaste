@@ -262,15 +262,16 @@ class RecordingOrchestrator extends Notifier<void> {
         effectiveLang = appLocale; // e.g. "de", "en"
       }
 
-      // Ensure STT server is ready (with timeout to prevent indefinite hang).
+      // Ensure STT server is ready (with generous timeout for cold-starts —
+      // large models on integrated GPUs can take 60–90s to load into VRAM).
       final sttNotifier = ref.read(sttServiceProvider.notifier);
       final ensureSw = Stopwatch()..start();
       try {
-        await sttNotifier.ensureRunning().timeout(const Duration(seconds: 30));
+        await sttNotifier.ensureRunning().timeout(const Duration(seconds: 120));
       } on TimeoutException {
         pipelineOutcome = 'stt_timeout';
         notifier.fail('stt_start_timeout');
-        _log.warning('[$sid] STT server start timed out after 30s');
+        _log.warning('[$sid] STT server start timed out after 120s');
         return;
       }
       ensureSw.stop();
