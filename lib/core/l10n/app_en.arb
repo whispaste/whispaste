@@ -133,7 +133,7 @@
   "settingsStyle": "Style",
   "settingsMicSystemDefault": "System Default",
   "settingsMicSystemHint": "Audio input is managed by your system settings",
-  "settingsServiceOnDevicePrivate": "On Device",
+  "settingsServiceOnDevicePrivate": "Locally on Device",
   "settingsQualityFastTiny": "Fast (Tiny)",
   "settingsQualityBalancedSmall": "Balanced (Small)",
   "settingsQualityHighQualityMedium": "High Quality (Medium)",
@@ -480,9 +480,13 @@
   "qualityTierDownloadAndContinue": "Download & Continue",
   "qualityTierChooseDifferent": "Choose a different quality level",
   "qualityTierActive": "Active",
+  "qualityTierModelTooltip": "Whisper {modelName} · {size}",
+  "@qualityTierModelTooltip": { "placeholders": { "modelName": { "type": "String" }, "size": { "type": "String" } } },
+  "analyticsModelDisplayName": "{tierLabel} (Whisper {modelLabel})",
+  "@analyticsModelDisplayName": { "placeholders": { "tierLabel": { "type": "String" }, "modelLabel": { "type": "String" } } },
   "settingsOverlayInWindowHint": "Only visible while the main window is open",
 
-  "settingsQualityFast": "Fast",
+
   "settingsQualityBasic": "Basic",
   "settingsQualityBalanced": "Balanced",
   "settingsQualityHigh": "High Quality",
