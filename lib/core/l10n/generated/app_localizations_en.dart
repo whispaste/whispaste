@@ -860,6 +860,9 @@ class L10nEn extends L10n {
   String get replacementsNoMatchesHint => 'Try a different search term.';
 
   @override
+  String get replacementsToggleLabel => 'Enable shortcuts';
+
+  @override
   String get replacementsToggleEnabled => 'Voice shortcuts are active';
 
   @override

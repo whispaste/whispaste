@@ -207,7 +207,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
                     const SizedBox(width: WpSpacing.sm),
                     // Enable/disable toggle — label makes purpose immediately clear
                     Text(
-                      l10n.navReplacements,
+                      l10n.replacementsToggleLabel,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(width: WpSpacing.xs),

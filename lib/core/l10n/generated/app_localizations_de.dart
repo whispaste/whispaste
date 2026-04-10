@@ -867,6 +867,9 @@ class L10nDe extends L10n {
   String get replacementsNoMatchesHint => 'Versuche einen anderen Suchbegriff.';
 
   @override
+  String get replacementsToggleLabel => 'Shortcuts aktivieren';
+
+  @override
   String get replacementsToggleEnabled => 'Sprachkürzel sind aktiv';
 
   @override

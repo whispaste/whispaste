@@ -332,6 +332,7 @@
   "replacementsEmptyHint": "Add shortcuts to auto-replace words during dictation.\nExample: \"btw\" → \"by the way\"",
   "replacementsNoMatches": "No matches",
   "replacementsNoMatchesHint": "Try a different search term.",
+  "replacementsToggleLabel": "Enable shortcuts",
   "replacementsToggleEnabled": "Voice shortcuts are active",
   "replacementsToggleDisabled": "Voice shortcuts are disabled",
   "replacementsEnableBannerTitle": "Voice shortcuts are turned off",
