@@ -62,19 +62,19 @@ float AnimProgress(DWORD now, DWORD origin, DWORD period_ms);
 
 // ── Shadow helpers ─────────────────────────────────────────────────────
 
-// Paint a gaussian-approximation shadow using multi-stop interpolation.
+// Paint smooth shadows using multi-layer concentric shapes.
+// Draws N additive layers from body edge outward, creating smooth falloff.
+
 // Circular variant — for round FAB-style shadows.
-// |path| is the outer shadow ellipse, |focus| = body_radius / outer_radius.
-void PaintGaussianShadowCircular(Gdiplus::Graphics& g,
-                                  Gdiplus::GraphicsPath* path, float focus,
-                                  BYTE alpha);
+// |cx|, |cy|: center; |body_r|: body radius; |blur|: spread distance.
+void PaintSoftShadowCircular(Gdiplus::Graphics& g, float cx, float cy,
+                              float body_r, float blur, BYTE peak_alpha);
 
 // Rectangular variant — for rounded-rect overlay shadows.
-// |path| is the outer shadow rounded-rect, |fx|/|fy| are body/outer ratios
-// for width and height respectively.
-void PaintGaussianShadowRect(Gdiplus::Graphics& g,
-                              Gdiplus::GraphicsPath* path, float fx, float fy,
-                              BYTE alpha);
+// |x|, |y|, |w|, |h|: body rect; |radius|: corner radius; |blur|: spread.
+void PaintSoftShadowRect(Gdiplus::Graphics& g, float x, float y, float w,
+                          float h, float radius, float blur,
+                          BYTE peak_alpha);
 
 }  // namespace GdiPlusHelper
 

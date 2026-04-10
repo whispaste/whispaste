@@ -34,6 +34,10 @@ bool FlutterWindow::OnCreate() {
   floating_overlay_host_ = std::make_unique<FloatingOverlayHost>(
       flutter_controller_->engine(), GetHandle());
 
+  // Create the native desktop paste host AFTER plugins are registered.
+  desktop_paste_host_ = std::make_unique<DesktopPasteHost>(
+      flutter_controller_->engine(), GetHandle());
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -57,6 +61,10 @@ void FlutterWindow::OnDestroy() {
   if (floating_button_host_) {
     floating_button_host_->Destroy();
     floating_button_host_.reset();
+  }
+  if (desktop_paste_host_) {
+    desktop_paste_host_->Destroy();
+    desktop_paste_host_.reset();
   }
 
   if (flutter_controller_) {
