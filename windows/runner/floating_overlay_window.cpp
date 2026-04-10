@@ -562,6 +562,11 @@ void FloatingOverlayWindow::BringToTopmost() {
                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
+void FloatingOverlayWindow::RefreshTopmost() {
+  if (!hwnd_ || shutting_down_) return;
+  BringToTopmost();
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // DPI helpers
 // ═══════════════════════════════════════════════════════════════════════
