@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_labels.dart';
@@ -13,7 +14,7 @@ import 'history_helpers.dart';
 // Search & filter toolbar
 // ---------------------------------------------------------------------------
 
-class HistorySearchToolbar extends StatelessWidget {
+class HistorySearchToolbar extends ConsumerWidget {
   const HistorySearchToolbar({
     super.key,
     required this.controller,
@@ -42,8 +43,9 @@ class HistorySearchToolbar extends StatelessWidget {
   final VoidCallback? onEmptyTrash;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
+    final searchCounts = ref.watch(searchCountsProvider);
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         WpSpacing.xl,
@@ -104,6 +106,7 @@ class HistorySearchToolbar extends StatelessWidget {
                         isActive: activeFilter == HistoryFilter.all,
                         onTap: () => onFilterChanged(HistoryFilter.all),
                         isDark: isDark,
+                        count: searchCounts?[HistoryFilter.all],
                       ),
                       const SizedBox(width: WpSpacing.xs),
                       HistoryFilterChip(
@@ -111,6 +114,7 @@ class HistorySearchToolbar extends StatelessWidget {
                         isActive: activeFilter == HistoryFilter.today,
                         onTap: () => onFilterChanged(HistoryFilter.today),
                         isDark: isDark,
+                        count: searchCounts?[HistoryFilter.today],
                       ),
                       const SizedBox(width: WpSpacing.xs),
                       HistoryFilterChip(
@@ -118,6 +122,7 @@ class HistorySearchToolbar extends StatelessWidget {
                         isActive: activeFilter == HistoryFilter.week,
                         onTap: () => onFilterChanged(HistoryFilter.week),
                         isDark: isDark,
+                        count: searchCounts?[HistoryFilter.week],
                       ),
                       const SizedBox(width: WpSpacing.xs),
                       HistoryFilterChip(
@@ -126,6 +131,7 @@ class HistorySearchToolbar extends StatelessWidget {
                         isActive: activeFilter == HistoryFilter.pinned,
                         onTap: () => onFilterChanged(HistoryFilter.pinned),
                         isDark: isDark,
+                        count: searchCounts?[HistoryFilter.pinned],
                       ),
                       const SizedBox(width: WpSpacing.xs),
                       HistoryFilterChip(
@@ -134,6 +140,7 @@ class HistorySearchToolbar extends StatelessWidget {
                         isActive: activeFilter == HistoryFilter.archived,
                         onTap: () => onFilterChanged(HistoryFilter.archived),
                         isDark: isDark,
+                        count: searchCounts?[HistoryFilter.archived],
                       ),
                       const SizedBox(width: WpSpacing.xs),
                       HistoryFilterChip(
@@ -142,6 +149,7 @@ class HistorySearchToolbar extends StatelessWidget {
                         isActive: activeFilter == HistoryFilter.trash,
                         onTap: () => onFilterChanged(HistoryFilter.trash),
                         isDark: isDark,
+                        count: searchCounts?[HistoryFilter.trash],
                       ),
                     ],
                   ),
