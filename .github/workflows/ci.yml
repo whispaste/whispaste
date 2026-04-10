@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -14,12 +14,13 @@ jobs:
     name: Flutter App
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version-file: pubspec.yaml
+          channel: stable
+          flutter-version: 3.41.0
           cache: true
 
       - name: Verify Flutter installation
@@ -35,21 +36,11 @@ jobs:
         run: flutter test
 
       - name: C++ static analysis (cppcheck)
+        shell: pwsh
         run: |
           choco install cppcheck -y --no-progress
           $env:Path = "C:\Program Files\Cppcheck;$env:Path"
-          Write-Host "Running cppcheck on windows/runner/..."
-          cppcheck `
-            --enable=warning,performance,portability `
-            --std=c++17 `
-            --platform=win64 `
-            --suppress=missingIncludeSystem `
-            --suppress=unmatchedSuppression `
-            --suppress=useStlAlgorithm `
-            --inline-suppr `
-            --error-exitcode=1 `
-            --template="{file}({line}): {severity} ({id}): {message}" `
-            windows/runner/
+          .\scripts\cppcheck.ps1
 
       - name: Build Windows (debug)
         run: flutter build windows --debug
@@ -62,16 +53,8 @@ jobs:
           Write-Host "Flutter app size: $([math]::Round($size, 2)) MB"
 
       - name: Secret scan
-        shell: bash
-        run: |
-          echo "Scanning for potential secrets..."
-          if grep -rn --include='*.dart' --include='*.yaml' --include='*.json' --include='*.md' \
-            -E '(sk-[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|password\s*=\s*"[^"]+")' \
-            --exclude-dir=.git --exclude-dir=build --exclude-dir=node_modules . ; then
-            echo "::error::Potential secrets detected in source files!"
-            exit 1
-          fi
-          echo "No secrets found ✓"
+        shell: pwsh
+        run: .\scripts\security-scan.ps1
 
   website:
     name: Website
@@ -80,7 +63,7 @@ jobs:
       run:
         working-directory: website
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
