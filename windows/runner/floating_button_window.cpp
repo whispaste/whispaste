@@ -126,9 +126,13 @@ bool FloatingButtonWindow::Create(HWND owner, double lx, double ly,
   int px = static_cast<int>(std::round(lx * dpi)) - outer / 2;
   int py = static_cast<int>(std::round(ly * dpi)) - outer / 2;
 
+  // Pass nullptr as the owner so this window is not an "owned window" in
+  // Win32 terms. Owned windows are automatically minimized/hidden when the
+  // owner minimizes — we want the floating button to stay visible and on top
+  // regardless of the main window's state. owner_ is kept for DPI lookups.
   hwnd_ = CreateWindowExW(
       WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_NOACTIVATE,
-      kClassName, L"", WS_POPUP, px, py, outer, outer, owner, nullptr,
+      kClassName, L"", WS_POPUP, px, py, outer, outer, nullptr, nullptr,
       GetModuleHandle(nullptr), this);
 
   if (!hwnd_) {
