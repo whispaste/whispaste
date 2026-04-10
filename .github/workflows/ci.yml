@@ -39,8 +39,26 @@ jobs:
         shell: pwsh
         run: |
           choco install cppcheck -y --no-progress
-          $env:Path = "C:\Program Files\Cppcheck;$env:Path"
-          .\scripts\cppcheck.ps1
+          $cppcheck = Get-Command cppcheck -ErrorAction SilentlyContinue
+          if (-not $cppcheck) {
+            $defaultPath = 'C:\Program Files\Cppcheck\cppcheck.exe'
+            if (Test-Path $defaultPath) {
+              $cppcheck = @{ Source = $defaultPath }
+            }
+          }
+          if (-not $cppcheck) { throw 'cppcheck was not found after installation.' }
+          & $cppcheck.Source `
+            --enable=warning,performance,portability `
+            --std=c++17 `
+            --platform=win64 `
+            --suppress=missingIncludeSystem `
+            --suppress=unmatchedSuppression `
+            --suppress=useStlAlgorithm `
+            --inline-suppr `
+            --error-exitcode=1 `
+            --template='{file}({line}): {severity} ({id}): {message}' `
+            windows/runner/
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build Windows (debug)
         run: flutter build windows --debug
@@ -54,7 +72,26 @@ jobs:
 
       - name: Secret scan
         shell: pwsh
-        run: .\scripts\security-scan.ps1
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $repoRoot = (Get-Location).Path
+          $extensions = @('.dart', '.yaml', '.yml', '.json', '.md')
+          $excludedPattern = '\\(\.git|build|node_modules)\\'
+          $pattern = '(sk-[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|password\s*=\s*"[^"]+")'
+          $files = Get-ChildItem -Path $repoRoot -Recurse -File | Where-Object {
+            $extensions -contains $_.Extension -and
+            $_.FullName -notmatch $excludedPattern
+          }
+          Write-Host 'Scanning for potential secrets...'
+          $matches = @($files | Select-String -Pattern $pattern -CaseSensitive)
+          if ($matches.Count -gt 0) {
+            foreach ($match in $matches) {
+              $relativePath = $match.Path.Substring($repoRoot.Length + 1)
+              Write-Host "${relativePath}:$($match.LineNumber): $($match.Line.Trim())"
+            }
+            throw 'Potential secrets detected in source files.'
+          }
+          Write-Host 'No secrets found'
 
   website:
     name: Website
