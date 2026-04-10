@@ -3858,6 +3858,48 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Hide overlay'**
   String get overlayContextHide;
+
+  /// No description provided for @settingsHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get settingsHistory;
+
+  /// No description provided for @settingsHistorySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Retention and automatic cleanup'**
+  String get settingsHistorySubtitle;
+
+  /// No description provided for @settingsHistoryMaxEntries.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum entries'**
+  String get settingsHistoryMaxEntries;
+
+  /// No description provided for @settingsHistoryMaxEntriesUnlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get settingsHistoryMaxEntriesUnlimited;
+
+  /// No description provided for @settingsHistoryAutoTrashDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-delete trash after'**
+  String get settingsHistoryAutoTrashDays;
+
+  /// No description provided for @settingsHistoryAutoTrashNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get settingsHistoryAutoTrashNever;
+
+  /// No description provided for @settingsHistoryAutoTrashDaysLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day} other{{count} days}}'**
+  String settingsHistoryAutoTrashDaysLabel(int count);
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

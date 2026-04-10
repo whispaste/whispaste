@@ -697,5 +697,14 @@
   "overlayContextCancel": "Aufnahme abbrechen",
   "overlayContextSwitchNormal": "Zu Normal wechseln",
   "overlayContextSwitchCompact": "Zu Kompakt wechseln",
-  "overlayContextHide": "Overlay ausblenden"
+  "overlayContextHide": "Overlay ausblenden",
+
+  "settingsHistory": "Verlauf",
+  "settingsHistorySubtitle": "Aufbewahrung und automatische Bereinigung",
+  "settingsHistoryMaxEntries": "Maximale Einträge",
+  "settingsHistoryMaxEntriesUnlimited": "Unbegrenzt",
+  "settingsHistoryAutoTrashDays": "Papierkorb leeren nach",
+  "settingsHistoryAutoTrashNever": "Nie",
+  "settingsHistoryAutoTrashDaysLabel": "{count, plural, =1{1 Tag} other{{count} Tage}}",
+  "@settingsHistoryAutoTrashDaysLabel": { "placeholders": { "count": { "type": "int" } } }
 }

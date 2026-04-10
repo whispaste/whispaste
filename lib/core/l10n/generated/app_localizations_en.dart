@@ -2082,4 +2082,33 @@ class L10nEn extends L10n {
 
   @override
   String get overlayContextHide => 'Hide overlay';
+
+  @override
+  String get settingsHistory => 'History';
+
+  @override
+  String get settingsHistorySubtitle => 'Retention and automatic cleanup';
+
+  @override
+  String get settingsHistoryMaxEntries => 'Maximum entries';
+
+  @override
+  String get settingsHistoryMaxEntriesUnlimited => 'Unlimited';
+
+  @override
+  String get settingsHistoryAutoTrashDays => 'Auto-delete trash after';
+
+  @override
+  String get settingsHistoryAutoTrashNever => 'Never';
+
+  @override
+  String settingsHistoryAutoTrashDaysLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
 }

@@ -570,6 +570,15 @@ class RecordingOrchestrator extends Notifier<void> {
 
     _log.info('Saved entry $id to history');
 
+    // Auto-cleanup: trim oldest non-favorite entries if limit is set.
+    if (settings.historyMaxEntries > 0) {
+      final trimmed = await db.trimToMaxEntries(settings.historyMaxEntries);
+      if (trimmed > 0) {
+        _log.info('Auto-trimmed $trimmed old entries to stay within '
+            '${settings.historyMaxEntries} limit');
+      }
+    }
+
     // Refresh analytics dashboard so counters update immediately.
     ref.invalidate(analyticsProvider);
   }
