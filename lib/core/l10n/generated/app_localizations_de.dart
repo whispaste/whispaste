@@ -1644,6 +1644,37 @@ class L10nDe extends L10n {
   String get historyShortcutCopy => 'In Zwischenablage kopieren';
 
   @override
+  String get historyShortcutEditTitle => 'Titel bearbeiten';
+
+  @override
+  String get historyEditTitle => 'Titel bearbeiten';
+
+  @override
+  String get historyTitlePlaceholder => 'Titel eingeben…';
+
+  @override
+  String get historyTitleSaved => 'Titel gespeichert';
+
+  @override
+  String get historySearchHintCommands => 'Suchen… (#Tag, lang:de)';
+
+  @override
+  String historySearchActiveTag(String tag) {
+    return '#$tag';
+  }
+
+  @override
+  String historySearchActiveLang(String code) {
+    return 'lang:$code';
+  }
+
+  @override
+  String get historySearchSuggestTag => 'Nach Tag filtern';
+
+  @override
+  String get historySearchSuggestLang => 'Nach Sprache filtern';
+
+  @override
   String get settingsKeyboardShortcut => 'Tastenkürzel';
 
   @override

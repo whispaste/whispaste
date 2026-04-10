@@ -535,6 +535,19 @@
   "historyShortcutBold": "Fett",
   "historyShortcutItalic": "Kursiv",
   "historyShortcutCopy": "In Zwischenablage kopieren",
+  "historyShortcutEditTitle": "Titel bearbeiten",
+
+  "historyEditTitle": "Titel bearbeiten",
+  "historyTitlePlaceholder": "Titel eingeben…",
+  "historyTitleSaved": "Titel gespeichert",
+
+  "historySearchHintCommands": "Suchen… (#Tag, lang:de)",
+  "historySearchActiveTag": "#{tag}",
+  "@historySearchActiveTag": { "placeholders": { "tag": { "type": "String" } } },
+  "historySearchActiveLang": "lang:{code}",
+  "@historySearchActiveLang": { "placeholders": { "code": { "type": "String" } } },
+  "historySearchSuggestTag": "Nach Tag filtern",
+  "historySearchSuggestLang": "Nach Sprache filtern",
 
   "settingsKeyboardShortcut": "Tastenkürzel",
   "settingsKeyboardShortcutSubtitle": "Globaler Hotkey zum Starten und Stoppen der Aufnahme",

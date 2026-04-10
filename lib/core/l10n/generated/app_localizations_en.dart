@@ -1626,6 +1626,37 @@ class L10nEn extends L10n {
   String get historyShortcutCopy => 'Copy to clipboard';
 
   @override
+  String get historyShortcutEditTitle => 'Edit title';
+
+  @override
+  String get historyEditTitle => 'Edit title';
+
+  @override
+  String get historyTitlePlaceholder => 'Enter a title…';
+
+  @override
+  String get historyTitleSaved => 'Title saved';
+
+  @override
+  String get historySearchHintCommands => 'Search… (#tag, lang:de)';
+
+  @override
+  String historySearchActiveTag(String tag) {
+    return '#$tag';
+  }
+
+  @override
+  String historySearchActiveLang(String code) {
+    return 'lang:$code';
+  }
+
+  @override
+  String get historySearchSuggestTag => 'Filter by tag';
+
+  @override
+  String get historySearchSuggestLang => 'Filter by language';
+
+  @override
   String get settingsKeyboardShortcut => 'Keyboard Shortcut';
 
   @override

@@ -3019,6 +3019,60 @@ abstract class L10n {
   /// **'Copy to clipboard'**
   String get historyShortcutCopy;
 
+  /// No description provided for @historyShortcutEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit title'**
+  String get historyShortcutEditTitle;
+
+  /// No description provided for @historyEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit title'**
+  String get historyEditTitle;
+
+  /// No description provided for @historyTitlePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a title…'**
+  String get historyTitlePlaceholder;
+
+  /// No description provided for @historyTitleSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Title saved'**
+  String get historyTitleSaved;
+
+  /// No description provided for @historySearchHintCommands.
+  ///
+  /// In en, this message translates to:
+  /// **'Search… (#tag, lang:de)'**
+  String get historySearchHintCommands;
+
+  /// No description provided for @historySearchActiveTag.
+  ///
+  /// In en, this message translates to:
+  /// **'#{tag}'**
+  String historySearchActiveTag(String tag);
+
+  /// No description provided for @historySearchActiveLang.
+  ///
+  /// In en, this message translates to:
+  /// **'lang:{code}'**
+  String historySearchActiveLang(String code);
+
+  /// No description provided for @historySearchSuggestTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by tag'**
+  String get historySearchSuggestTag;
+
+  /// No description provided for @historySearchSuggestLang.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by language'**
+  String get historySearchSuggestLang;
+
   /// No description provided for @settingsKeyboardShortcut.
   ///
   /// In en, this message translates to:
