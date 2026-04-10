@@ -105,6 +105,10 @@ void FloatingButtonHost::Destroy() {
   OutputDebugStringW(L"[FloatingButton] Host destroyed\n");
 }
 
+void FloatingButtonHost::RefreshTopmost() {
+  if (!destroyed_ && window_) window_->RefreshTopmost();
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // Method call handler (Dart → C++)
 // ══════════════════════════════════════════════════════════════════════

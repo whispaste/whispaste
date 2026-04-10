@@ -129,6 +129,10 @@ void FloatingOverlayHost::Destroy() {
   OutputDebugStringW(L"[FloatingOverlay] Host destroyed\n");
 }
 
+void FloatingOverlayHost::RefreshTopmost() {
+  if (!destroyed_ && window_) window_->RefreshTopmost();
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Method call handler (Dart → C++)
 // ═══════════════════════════════════════════════════════════════════════

@@ -219,6 +219,11 @@ void FloatingButtonWindow::BringToTopmost() {
                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
+void FloatingButtonWindow::RefreshTopmost() {
+  if (!hwnd_ || shutting_down_) return;
+  BringToTopmost();
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // Public setters
 // ══════════════════════════════════════════════════════════════════════
