@@ -5,6 +5,7 @@ import '../../app.dart';
 import '../../widgets/page_shell.dart';
 import 'sections/cloud_advanced_section.dart';
 import 'sections/feedback_section.dart';
+import 'sections/history_section.dart';
 import 'sections/interface_section.dart';
 import 'sections/overlay_button_section.dart';
 import 'sections/recording_sections.dart';
@@ -35,6 +36,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     'overlay': GlobalKey(),
     'interface': GlobalKey(),
     'cloud': GlobalKey(),
+    'history': GlobalKey(),
     'advanced': GlobalKey(),
   };
 
@@ -116,6 +118,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           InterfaceSection(key: _sectionKeys['interface']),
           settingsSectionDivider(context),
           CloudProvidersSection(key: _sectionKeys['cloud']),
+          settingsSectionDivider(context),
+          HistorySection(key: _sectionKeys['history']),
           settingsSectionDivider(context),
           AdvancedSection(key: _sectionKeys['advanced']),
         ],

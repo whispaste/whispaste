@@ -89,6 +89,9 @@ class AppSettings {
     this.textReplacementsEnabled = false,
     // Updates
     this.checkUpdates = true,
+    // History Retention
+    this.historyMaxEntries = 0,
+    this.historyAutoTrashDays = 30,
     // Hotkey
     this.hotkeyEnabled = true,
     this.hotkeyKey = 'D',
@@ -199,6 +202,13 @@ class AppSettings {
 
   // Updates
   final bool checkUpdates;
+
+  // History Retention
+  /// Max active (non-trashed) history entries to keep. 0 = unlimited.
+  final int historyMaxEntries;
+
+  /// Days to keep soft-deleted entries before permanent purge. 0 = never purge.
+  final int historyAutoTrashDays;
 
   // Hotkey
   final bool hotkeyEnabled;
@@ -406,6 +416,16 @@ class AppSettings {
         defaults.textReplacementsEnabled,
       ),
       checkUpdates: _readBool(values, 'check_updates', defaults.checkUpdates),
+      historyMaxEntries: _readInt(
+        values,
+        'history_max_entries',
+        defaults.historyMaxEntries,
+      ),
+      historyAutoTrashDays: _readInt(
+        values,
+        'history_auto_trash_days',
+        defaults.historyAutoTrashDays,
+      ),
       hotkeyEnabled: _readBool(
         values,
         'hotkey_enabled',
@@ -539,6 +559,8 @@ class AppSettings {
       'vad_sensitivity': '$vadSensitivity',
       'text_replacements_enabled': '$textReplacementsEnabled',
       'check_updates': '$checkUpdates',
+      'history_max_entries': '$historyMaxEntries',
+      'history_auto_trash_days': '$historyAutoTrashDays',
       'hotkey_enabled': '$hotkeyEnabled',
       'hotkey_key': hotkeyKey,
       'hotkey_modifiers': hotkeyModifiers,
@@ -606,6 +628,8 @@ class AppSettings {
     double? vadSensitivity,
     bool? textReplacementsEnabled,
     bool? checkUpdates,
+    int? historyMaxEntries,
+    int? historyAutoTrashDays,
     bool? hotkeyEnabled,
     String? hotkeyKey,
     String? hotkeyModifiers,
@@ -676,6 +700,8 @@ class AppSettings {
       textReplacementsEnabled:
           textReplacementsEnabled ?? this.textReplacementsEnabled,
       checkUpdates: checkUpdates ?? this.checkUpdates,
+      historyMaxEntries: historyMaxEntries ?? this.historyMaxEntries,
+      historyAutoTrashDays: historyAutoTrashDays ?? this.historyAutoTrashDays,
       hotkeyEnabled: hotkeyEnabled ?? this.hotkeyEnabled,
       hotkeyKey: hotkeyKey ?? this.hotkeyKey,
       hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
@@ -747,6 +773,8 @@ class AppSettings {
           vadSensitivity == other.vadSensitivity &&
           textReplacementsEnabled == other.textReplacementsEnabled &&
           checkUpdates == other.checkUpdates &&
+          historyMaxEntries == other.historyMaxEntries &&
+          historyAutoTrashDays == other.historyAutoTrashDays &&
           hotkeyEnabled == other.hotkeyEnabled &&
           hotkeyKey == other.hotkeyKey &&
           hotkeyModifiers == other.hotkeyModifiers &&
@@ -830,6 +858,8 @@ class AppSettings {
           windowMaximized,
           onboardingCompleted,
           sttIdleTimeoutMinutes,
+          historyMaxEntries,
+          historyAutoTrashDays,
         ),
       ),
     ),

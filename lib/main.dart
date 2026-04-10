@@ -6,6 +6,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'core/config/settings_provider.dart';
+import 'core/data/database.dart';
 import 'core/logging/app_monitoring.dart';
 import 'services/audio_service.dart';
 import 'services/deploy_channel_service.dart';
@@ -95,6 +96,12 @@ Future<void> main(List<String> args) async {
     // the incompatible binary is auto-deleted so the next download fetches
     // the correct variant.
     unawaited(hw.validateAndCleanIncompatibleBinary(sttDir()));
+
+    // Purge old trash entries on startup (fire-and-forget).
+    if (settings.historyAutoTrashDays > 0) {
+      final db = container.read(historyDatabaseProvider);
+      unawaited(db.purgeTrash(days: settings.historyAutoTrashDays));
+    }
 
     // Check for updates on startup if enabled and not running from Store.
     final channel = container.read(deployChannelProvider);

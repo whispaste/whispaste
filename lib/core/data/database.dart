@@ -502,6 +502,38 @@ class HistoryDatabase extends _$HistoryDatabase {
         .go();
   }
 
+  /// Soft-delete the oldest non-favorite, non-trashed entries that exceed
+  /// [max] active entries. Returns the number of entries moved to trash.
+  /// A [max] of 0 is a no-op (unlimited).
+  Future<int> trimToMaxEntries(int max) async {
+    if (max <= 0) return 0;
+
+    // IDs of active (non-trashed) entries, ordered newest-first.
+    // Favorites are excluded — they are never auto-trimmed.
+    final activeQuery = selectOnly(historyEntries)
+      ..addColumns([historyEntries.id])
+      ..where(historyEntries.deletedAt.isNull() &
+          historyEntries.pinned.equals(false))
+      ..orderBy([
+        OrderingTerm(expression: historyEntries.timestamp, mode: OrderingMode.desc),
+        OrderingTerm(expression: historyEntries.id, mode: OrderingMode.desc),
+      ]);
+
+    final rows = await activeQuery.get();
+    if (rows.length <= max) return 0;
+
+    final idsToTrash = rows
+        .skip(max)
+        .map((r) => r.read(historyEntries.id)!)
+        .toList();
+
+    final now = DateTime.now();
+    await (update(historyEntries)..where((e) => e.id.isIn(idsToTrash)))
+        .write(HistoryEntriesCompanion(deletedAt: Value(now)));
+
+    return idsToTrash.length;
+  }
+
   /// Toggle archive status.
   Future<void> toggleArchive(String entryId) async {
     final entry = await (select(historyEntries)
