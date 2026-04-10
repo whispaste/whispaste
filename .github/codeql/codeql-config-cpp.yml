@@ -1,0 +1,12 @@
+# CodeQL configuration for WhisPaste C++ analysis.
+# Covers the native Windows runner code and excludes generated build output.
+
+queries:
+  - uses: security-and-quality
+
+paths:
+  - windows/runner
+
+paths-ignore:
+  - build
+  - windows/flutter/ephemeral
