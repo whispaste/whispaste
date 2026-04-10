@@ -257,7 +257,7 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
             // Quick action buttons — positioned over the full item
             if (_isHovered && !widget.multiSelectMode)
               Positioned(
-                top: WpSpacing.md,
+                top: 6,
                 right: WpSpacing.xs + WpSpacing.sm,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
