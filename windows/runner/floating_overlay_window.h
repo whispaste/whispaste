@@ -102,6 +102,10 @@ class FloatingOverlayWindow {
     context_menu_cb_ = std::move(cb);
   }
 
+  // Re-asserts HWND_TOPMOST z-order. Safe to call at any time (no-op if
+  // window does not exist or is not currently visible).
+  void RefreshTopmost();
+
  private:
   // ── Win32 ────────────────────────────────────────────────────────────
   static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);

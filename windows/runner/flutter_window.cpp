@@ -78,6 +78,15 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // Re-assert TOPMOST on floating windows whenever the main window is
+  // minimized or the application regains foreground. This must happen BEFORE
+  // HandleTopLevelWindowProc because window_manager may consume WM_SIZE.
+  if ((message == WM_SIZE && wparam == SIZE_MINIMIZED) ||
+      (message == WM_ACTIVATEAPP && wparam)) {
+    if (floating_button_host_) floating_button_host_->RefreshTopmost();
+    if (floating_overlay_host_) floating_overlay_host_->RefreshTopmost();
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

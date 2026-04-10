@@ -60,6 +60,10 @@ class FloatingButtonWindow {
     drag_end_cb_ = std::move(cb);
   }
 
+  // Re-asserts HWND_TOPMOST z-order. Call after any event that may disrupt
+  // the floating window's position in the topmost z-order (e.g., minimize).
+  void RefreshTopmost();
+
  private:
   // ── Win32 window ────────────────────────────────────────────────────
   static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);

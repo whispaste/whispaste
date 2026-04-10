@@ -225,8 +225,17 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
 
   @override
   void onWindowClose() async {
-    // Kill native subprocesses FIRST — before windows or Riverpod are torn
-    // down. This is the last reliable point to prevent orphaned processes.
+    final closeToTray =
+        ref.read(settingsProvider).value?.closeToTray ?? true;
+
+    if (closeToTray) {
+      // Just hide — the engine keeps running so floating windows, hotkeys,
+      // and recording all continue to work.
+      await windowManager.hide();
+      return;
+    }
+
+    // User opted for "close = quit": kill subprocesses then destroy.
     try {
       ref.read(sttServiceProvider.notifier).stop();
     } catch (_) {}
