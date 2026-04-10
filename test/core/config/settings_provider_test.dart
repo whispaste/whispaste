@@ -207,9 +207,9 @@ void main() {
       expect(s.effectiveOverlayMode, OverlayMode.floating);
     });
 
-    test('preserves inWindow as-is', () {
+    test('migrates inWindow to floating', () {
       const s = AppSettings(overlayMode: 'in-window');
-      expect(s.effectiveOverlayMode, OverlayMode.inWindow);
+      expect(s.effectiveOverlayMode, OverlayMode.floating);
     });
 
     test('preserves off as-is', () {

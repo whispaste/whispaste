@@ -163,7 +163,6 @@
   "settingsOverlayFloatingButtonSubtitle": "Control how recording status appears while you dictate",
   "settingsShowOverlay": "Recording status display",
   "settingsShowOverlaySubtitle": "Choose where live recording feedback appears while you dictate",
-  "settingsOverlayModeInWindow": "In main window",
   "settingsOverlayModeFloating": "Floating window (always visible)",
   "settingsOverlayModeOff": "Off",
   "settingsOverlayStartPosition": "Overlay start position",
@@ -175,6 +174,8 @@
   "settingsShowFloatingButtonSubtitle": "Small always-on-top button for starting or stopping recording from any app",
   "settingsFloatingButtonOpacity": "Floating button opacity",
   "settingsFloatingButtonOpacitySubtitle": "Only affects the floating button, not the recording overlay",
+  "settingsFloatingOverlayOpacity": "Overlay opacity",
+  "settingsFloatingOverlayOpacitySubtitle": "Transparency of the floating recording overlay",
   "settingsFloatingButtonSize": "Floating button size",
   "settingsFloatingButtonSizeSubtitle": "Choose how prominent the always-on-top button should feel",
   "settingsSizeSmall": "Small",
@@ -419,7 +420,6 @@
 
   "statusBarOnDevice": "On device",
   "statusBarPostProcessing": "Post-Processing",
-  "statusBarOverlayInWindow": "Overlay: Window",
   "statusBarOverlayFloating": "Overlay: Floating",
   "statusBarOverlayOff": "Overlay: Off",
   "statusBarAfterCopy": "After: Copy",
@@ -495,7 +495,6 @@
   "@qualityTierModelTooltip": { "placeholders": { "modelName": { "type": "String" }, "size": { "type": "String" } } },
   "analyticsModelDisplayName": "{tierLabel} (Whisper {modelLabel})",
   "@analyticsModelDisplayName": { "placeholders": { "tierLabel": { "type": "String" }, "modelLabel": { "type": "String" } } },
-  "settingsOverlayInWindowHint": "Only visible while the main window is open",
 
 
   "settingsQualityBasic": "Basic",

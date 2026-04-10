@@ -225,6 +225,15 @@ void FloatingOverlayHost::HandleMethodCall(
     return;
   }
 
+  // ── setOpacity ───────────────────────────────────────────────────────
+  if (method == "setOpacity") {
+    if (window_ && map) {
+      window_->SetOpacity(GetDouble(*map, "opacity", 1.0));
+    }
+    result->Success();
+    return;
+  }
+
   // ── destroy ─────────────────────────────────────────────────────────
   if (method == "destroy") {
     if (window_) {

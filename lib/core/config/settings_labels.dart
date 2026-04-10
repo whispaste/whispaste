@@ -105,7 +105,6 @@ String formatHotkeyShortcut(
 /// Returns a short, localized status label for the active overlay mode.
 String overlayModeStatusLabel(OverlayMode mode, L10n l10n) {
   return switch (mode) {
-    OverlayMode.inWindow => l10n.statusBarOverlayInWindow,
     OverlayMode.floating => l10n.statusBarOverlayFloating,
     OverlayMode.off => l10n.statusBarOverlayOff,
   };

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
-import 'core/config/settings_enums.dart';
 import 'core/config/settings_labels.dart';
 import 'core/config/settings_provider.dart';
 import 'core/l10n/generated/app_localizations.dart';
@@ -29,7 +28,6 @@ import 'features/analytics/analytics_page.dart';
 import 'features/about/about_page.dart';
 import 'features/feedback/feedback_page.dart';
 import 'features/onboarding/onboarding_overlay.dart';
-import 'features/recording/recording_overlay.dart';
 import 'core/recording/recording_state.dart';
 import 'core/data/database.dart';
 import 'core/logging/crash_reporter.dart';
@@ -418,18 +416,6 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
               // Onboarding overlay — shown on first launch
               if (!settings.onboardingCompleted)
                 const Positioned.fill(child: OnboardingOverlay()),
-
-              // Recording overlay — shown whenever overlay is enabled and
-              // recording is active (not idle, not error).
-              if (recordingPhase != RecordingPhase.idle &&
-                  recordingPhase != RecordingPhase.error &&
-                  settings.effectiveOverlayMode != OverlayMode.off)
-                const Positioned(
-                  bottom: WpLayout.statusBarHeight + 8,
-                  left: 0,
-                  right: 0,
-                  child: Center(child: RecordingOverlay()),
-                ),
             ],
           ),
           // Hide in-window FAB during onboarding (user can't record yet).

@@ -85,6 +85,9 @@ class FloatingOverlayWindow {
   // Context menu items (sent once at init, localized by Dart).
   void SetContextMenuItems(std::vector<OverlayContextMenuItem> items);
 
+  /// Set overlay opacity (0.0–1.0). Applied on next render.
+  void SetOpacity(double opacity);
+
   HWND GetHandle() const { return hwnd_; }
   bool IsVisible() const { return visible_; }
 
@@ -264,6 +267,9 @@ class FloatingOverlayWindow {
 
   // Context menu items
   std::vector<OverlayContextMenuItem> context_menu_items_;
+
+  // Opacity (0.0–1.0, default 1.0)
+  double opacity_ = 1.0;
 
   // Callbacks
   DragEndCallback drag_end_cb_;
