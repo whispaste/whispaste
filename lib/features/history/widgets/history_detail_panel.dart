@@ -15,6 +15,7 @@ import 'history_notes_section.dart';
 import '../../../widgets/tag_input.dart';
 import '../../../widgets/markdown_toolbar.dart';
 import '../../../widgets/toast.dart';
+import 'tag_management_dialog.dart';
 
 // ---------------------------------------------------------------------------
 // Detail panel — opens on entry selection (ChatGPT/Notion detail view)
@@ -1202,6 +1203,8 @@ class _TagSectionState extends ConsumerState<_TagSection> {
     final textSecondary = widget.isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
+    final textMuted =
+        widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     return WpTagInput(
       key: _tagInputKey,
@@ -1223,6 +1226,25 @@ class _TagSectionState extends ConsumerState<_TagSection> {
               fontWeight: FontWeight.w600,
               color: textSecondary,
               letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(width: WpSpacing.xxs),
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: IconButton(
+              icon: Icon(LucideIcons.settings, size: 12, color: textMuted),
+              onPressed: () async {
+                final db = ref.read(historyDatabaseProvider);
+                final modified = await showTagManagementDialog(
+                  context: context,
+                  db: db,
+                  isDark: widget.isDark,
+                );
+                if (modified) _loadSuggestions();
+              },
+              tooltip: l10n.historyManageTags,
+              padding: EdgeInsets.zero,
             ),
           ),
         ],
