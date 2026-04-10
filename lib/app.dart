@@ -362,6 +362,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                     sttModeLabel: statusBarModel.sttModeLabel,
                     postProcessingLabel: statusBarModel.postProcessingLabel,
                     sttState: sttStatus.serverState,
+                    sttStartingSince: sttStatus.startingSince,
                     recordingPhase: recordingPhase,
                     afterActionLabel: afterTranscriptionStatusLabel(
                       settings.afterTranscriptionAction,

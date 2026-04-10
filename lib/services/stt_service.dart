@@ -34,12 +34,17 @@ class SttStatus {
     this.port = 0,
     this.modelId = '',
     this.errorMessage,
+    this.startingSince,
   });
 
   final SttServerState serverState;
   final int port;
   final String modelId;
   final String? errorMessage;
+
+  /// When the server entered the [SttServerState.starting] state.
+  /// Used by the status bar to show elapsed warm-up time.
+  final DateTime? startingSince;
 
   bool get isReady => serverState == SttServerState.ready;
 
@@ -50,12 +55,14 @@ class SttStatus {
     int? port,
     String? modelId,
     String? errorMessage,
+    DateTime? startingSince,
   }) {
     return SttStatus(
       serverState: serverState ?? this.serverState,
       port: port ?? this.port,
       modelId: modelId ?? this.modelId,
       errorMessage: errorMessage ?? this.errorMessage,
+      startingSince: startingSince ?? this.startingSince,
     );
   }
 
@@ -89,14 +96,27 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   /// language consistency.
   String? _lastPrompt;
 
-  /// How long the server stays alive after the last transcription before being
-  /// killed to free GPU/VRAM.
-  static const _idleTimeout = Duration(minutes: 5);
+  /// When [_lastPrompt] was set. Cleared after 10 min regardless of
+  /// server keep-alive to avoid stale context poisoning later sessions.
+  DateTime? _lastPromptTime;
+  static const _promptExpiry = Duration(minutes: 10);
+
+  /// Whether the idle timer has already been extended once after a
+  /// transcription (+5 min burst, hard max 2× base timeout).
+  bool _idleExtended = false;
+
+  /// Whether a recording is currently in progress. Used to gate idle timer
+  /// resets so that pre-warm health checks don't inadvertently reset the
+  /// timer when no user activity is happening.
+  bool _isRecordingActive = false;
 
   /// Guards against concurrent [ensureRunning] calls (e.g. rapid
   /// toggle-recording). If a startup is already in flight, subsequent callers
   /// await the same future instead of spawning a second process.
   Completer<void>? _startCompleter;
+
+  /// Debounce timer for model-change pre-warm.
+  Timer? _modelChangeDebounce;
 
   /// Reusable HTTP client with connection pooling (mirrors Go's
   /// `sttInferenceClient`). Localhost — no compression needed.
@@ -107,10 +127,28 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     ref.onDispose(() {
       _idleTimer?.cancel();
       _idleTimer = null;
+      _modelChangeDebounce?.cancel();
+      _modelChangeDebounce = null;
       _cleanupProcess();
       _lastPrompt = null;
+      _lastPromptTime = null;
       _httpClient.close();
     });
+
+    // Watch settings to detect model changes and trigger debounced pre-warm.
+    ref.listen(settingsProvider, (prev, next) {
+      final prevSettings = prev?.value;
+      final nextSettings = next.value;
+      if (prevSettings == null || nextSettings == null) return;
+
+      final prevModel = prevSettings.effectiveModelId;
+      final nextModel = nextSettings.effectiveModelId;
+      if (prevModel == nextModel) return;
+      if (!nextSettings.sttProviderType.isLocal) return;
+
+      _debouncedPrewarmOnModelChange(nextModel);
+    });
+
     return const SttStatus();
   }
 
@@ -196,6 +234,33 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     }
   }
 
+  /// Notifies the STT service that a recording has started.
+  ///
+  /// While recording is active, the idle timer is paused (not reset on
+  /// health checks) so the server won't shut down mid-session.
+  void notifyRecordingStarted() {
+    _isRecordingActive = true;
+    _idleTimer?.cancel();
+    _idleTimer = null;
+  }
+
+  /// Notifies the STT service that a transcription just completed.
+  ///
+  /// Extends the idle timer by +5 min (one-step burst) up to 2× base timeout
+  /// so consecutive short recordings don't trigger a cold restart.
+  void notifyTranscriptionCompleted() {
+    _isRecordingActive = false;
+    _idleExtended = false; // allow one burst extension
+    _resetIdleTimer(extendAfterTranscription: true);
+  }
+
+  /// Notifies the STT service that a recording was cancelled/failed without
+  /// transcription (e.g. dead mic, user cancel).
+  void notifyRecordingStopped() {
+    _isRecordingActive = false;
+    _resetIdleTimer();
+  }
+
   /// Transcribes a WAV file and returns the text.
   ///
   /// Throws [StateError] if the server is not ready.
@@ -248,8 +313,15 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     // Prompt conditioning: pass last transcript for faster decoder
     // convergence and consistent language detection.
-    if (_lastPrompt != null && _lastPrompt!.isNotEmpty) {
+    // Expire stale prompts after 10 min to prevent context poisoning.
+    if (_lastPrompt != null &&
+        _lastPrompt!.isNotEmpty &&
+        _lastPromptTime != null &&
+        DateTime.now().difference(_lastPromptTime!) < _promptExpiry) {
       request.fields['prompt'] = _lastPrompt!;
+    } else if (_lastPrompt != null) {
+      _lastPrompt = null;
+      _lastPromptTime = null;
     }
 
     final streamedResponse = await _httpClient.send(request).timeout(
@@ -282,6 +354,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     if (text.isNotEmpty) {
       _lastPrompt =
           text.length > 200 ? text.substring(text.length - 200) : text;
+      _lastPromptTime = DateTime.now();
     }
 
     return text;
@@ -291,9 +364,14 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   void stop() {
     _idleTimer?.cancel();
     _idleTimer = null;
+    _modelChangeDebounce?.cancel();
+    _modelChangeDebounce = null;
 
     _cleanupProcess();
     _lastPrompt = null;
+    _lastPromptTime = null;
+    _idleExtended = false;
+    _isRecordingActive = false;
 
     _transition(const SttStatus());
   }
@@ -306,8 +384,23 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   ///
   /// Every [SttServerState] change goes through this method so that
   /// transitions are traceable in logs and Sentry breadcrumbs.
+  /// Automatically sets [SttStatus.startingSince] when entering the
+  /// starting state and clears it on any other transition.
   void _transition(SttStatus next) {
     final prev = state.serverState;
+
+    // Attach startingSince timestamp when entering starting state.
+    if (next.serverState == SttServerState.starting &&
+        next.startingSince == null) {
+      next = SttStatus(
+        serverState: next.serverState,
+        port: next.port,
+        modelId: next.modelId,
+        errorMessage: next.errorMessage,
+        startingSince: DateTime.now(),
+      );
+    }
+
     state = next;
     if (prev == next.serverState) return;
 
@@ -365,12 +458,75 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
   /// Resets the idle timer. Called after every [ensureRunning] and
   /// [transcribe] so the server stays alive while in active use.
-  void _resetIdleTimer() {
+  ///
+  /// When [extendAfterTranscription] is true, adds a one-time +5 min burst
+  /// (up to 2× base timeout) to keep the server warm for follow-up dictations.
+  void _resetIdleTimer({bool extendAfterTranscription = false}) {
+    // Don't reset the idle timer during an active recording — the timer is
+    // paused by [notifyRecordingStarted] and will be restarted by
+    // [notifyTranscriptionCompleted] or [notifyRecordingStopped].
+    if (_isRecordingActive) return;
+
     _idleTimer?.cancel();
-    _idleTimer = Timer(_idleTimeout, () {
-      _log.info('STT server idle for ${_idleTimeout.inMinutes} min, '
+    _idleTimer = null;
+
+    final settings =
+        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final baseMinutes = settings.sttIdleTimeoutMinutes;
+
+    // 0 = keep-alive mode — never shut down automatically.
+    if (baseMinutes <= 0) return;
+
+    var timeoutMinutes = baseMinutes;
+
+    // Burst extension: +5 min after transcription (once), hard max 2× base.
+    if (extendAfterTranscription && !_idleExtended) {
+      timeoutMinutes = math.min(baseMinutes + 5, baseMinutes * 2);
+      _idleExtended = true;
+      _log.debug(
+        'Idle timer extended: ${timeoutMinutes}min '
+        '(base=${baseMinutes}min, burst=+5min)',
+      );
+    }
+
+    final timeout = Duration(minutes: timeoutMinutes);
+    _idleTimer = Timer(timeout, () {
+      _log.info('STT server idle for ${timeout.inMinutes} min, '
           'shutting down to free GPU memory');
       stop();
+    });
+  }
+
+  /// Debounced pre-warm triggered when the user changes the STT model in
+  /// settings. Waits 500 ms (in case the user is still browsing models),
+  /// then starts the new model in the background.
+  void _debouncedPrewarmOnModelChange(String newModelId) {
+    _modelChangeDebounce?.cancel();
+    _modelChangeDebounce = Timer(const Duration(milliseconds: 500), () async {
+      _log.info('Model changed to $newModelId, starting debounced pre-warm');
+
+      // Only pre-warm when model file is already downloaded.
+      final modelPath = sttModelPath(newModelId);
+      if (modelPath == null || !await File(modelPath).exists()) {
+        _log.debug('Model file not downloaded yet, skipping pre-warm');
+        return;
+      }
+      final serverPath = whisperServerPath();
+      if (!await File(serverPath).exists()) {
+        _log.debug('Server binary not downloaded yet, skipping pre-warm');
+        return;
+      }
+
+      // Stop current server (different model) and start new one.
+      if (_process != null) {
+        stop();
+      }
+      try {
+        await ensureRunning();
+        _log.info('Pre-warm after model change complete');
+      } on Exception catch (e) {
+        _log.debug('Pre-warm after model change skipped: $e');
+      }
     });
   }
 
