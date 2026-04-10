@@ -39,14 +39,13 @@ jobs:
         shell: pwsh
         run: |
           choco install cppcheck -y --no-progress
-          $cppcheck = Get-Command cppcheck -ErrorAction SilentlyContinue
-          if (-not $cppcheck) {
-            $defaultPath = 'C:\Program Files\Cppcheck\cppcheck.exe'
-            if (Test-Path $defaultPath) {
-              $cppcheck = @{ Source = $defaultPath }
-            }
+          $defaultPath = 'C:\Program Files\Cppcheck\cppcheck.exe'
+          if (-not (Test-Path $defaultPath)) {
+            throw "cppcheck was expected at $defaultPath after Chocolatey installation."
           }
-          if (-not $cppcheck) { throw 'cppcheck was not found after installation.' }
+          $env:Path = "C:\Program Files\Cppcheck;$env:Path"
+          $cppcheck = @{ Source = $defaultPath }
+          Write-Host "Using cppcheck: $($cppcheck.Source)"
           & $cppcheck.Source `
             --enable=warning,performance,portability `
             --std=c++17 `
