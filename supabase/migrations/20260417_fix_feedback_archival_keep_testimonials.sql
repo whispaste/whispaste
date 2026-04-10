@@ -5,8 +5,12 @@
 -- data source for the testimonials Edge Function and must never be deleted.
 --
 -- FIX: Narrow the DELETE to only rows that have NOT been approved for display.
---   - approved_for_display = false → unapproved (pending review) or rejected
---   - approved_for_display = true  → curated testimonial; keep indefinitely
+--   - approved_for_display IS NOT TRUE → unapproved (pending review), rejected,
+--     or NULL (hypothetical — trigger always sets false, but NULL-safe is better)
+--   - approved_for_display = true       → curated testimonial; keep indefinitely
+--
+-- Note: `= false` would miss NULL values (three-valued SQL logic).
+--       `IS NOT TRUE` is the correct NULL-safe predicate here.
 --
 -- Storage impact: testimonials are a tiny fraction of total feedback volume.
 -- A single approved testimonial is ≈1 KB.  Keeping 100 approved testimonials
@@ -24,5 +28,5 @@ SELECT cron.schedule(
   '0 4 * * *',
   $$DELETE FROM public.user_feedback
     WHERE received_at < now() - interval '90 days'
-      AND approved_for_display = false;$$
+      AND approved_for_display IS NOT TRUE;$$
 );
