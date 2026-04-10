@@ -1256,6 +1256,9 @@ class L10nEn extends L10n {
   String get modelDownloading => 'Downloading…';
 
   @override
+  String get modelDownloadingEngine => 'Preparing speech engine…';
+
+  @override
   String get modelVerifying => 'Verifying…';
 
   @override

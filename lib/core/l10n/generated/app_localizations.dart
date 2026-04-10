@@ -2413,6 +2413,12 @@ abstract class L10n {
   /// **'Downloading…'**
   String get modelDownloading;
 
+  /// No description provided for @modelDownloadingEngine.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing speech engine…'**
+  String get modelDownloadingEngine;
+
   /// No description provided for @modelVerifying.
   ///
   /// In en, this message translates to:
