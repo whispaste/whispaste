@@ -532,6 +532,13 @@ void FloatingOverlayWindow::SetContextMenuItems(
   context_menu_items_ = std::move(items);
 }
 
+void FloatingOverlayWindow::SetOpacity(double opacity) {
+  opacity_ = std::clamp(opacity, 0.0, 1.0);
+  if (hwnd_ && visible_) {
+    Render();
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // DPI helpers
 // ═══════════════════════════════════════════════════════════════════════
@@ -969,8 +976,10 @@ void FloatingOverlayWindow::Render() {
   POINT src = {0, 0};
   BLENDFUNCTION blend = {};
   blend.BlendOp = AC_SRC_OVER;
-  blend.SourceConstantAlpha =
-      static_cast<BYTE>(std::clamp(show_hide_progress_, 0.0f, 1.0f) * 255);
+  blend.SourceConstantAlpha = static_cast<BYTE>(
+      std::clamp(show_hide_progress_ * static_cast<float>(opacity_), 0.0f,
+                 1.0f) *
+      255);
   blend.AlphaFormat = AC_SRC_ALPHA;
 
   UpdateLayeredWindow(hwnd_, screen, &dst, &sz, mem, &src, 0, &blend,
@@ -1259,11 +1268,11 @@ void FloatingOverlayWindow::RenderCompact(Graphics& g, float w, float h) {
         }
         // White square OUTLINE icon (match Lucide square stroke style)
         float icon_inset = (kCompactBtnSize - kCompactStopIcon) / 2.0f;
-        Pen iconPen(Color(255, 255, 255, 255), 1.5f);
+        Pen iconPen(Color(255, 255, 255, 255), 2.0f);
         iconPen.SetLineJoin(LineJoinRound);
         GraphicsPath iconPath;
         GdiPlusHelper::MakeRoundedRect(&iconPath, stop_x + icon_inset, stop_y + icon_inset,
-                                       kCompactStopIcon, kCompactStopIcon, 1.5f);
+                                       kCompactStopIcon, kCompactStopIcon, 2.0f);
         g.DrawPath(&iconPen, &iconPath);
       }
       break;
@@ -1476,7 +1485,7 @@ void FloatingOverlayWindow::PaintCloseButton(Graphics& g, float x, float y,
   float pad = size * 0.375f;
   float x0 = x + pad, y0 = y + pad;
   float x1 = x + size - pad, y1 = y + size - pad;
-  Pen pen(tc.close_icon, 1.5f);
+  Pen pen(tc.close_icon, 2.0f);
   pen.SetLineCap(LineCapRound, LineCapRound, DashCapRound);
   g.DrawLine(&pen, x0, y0, x1, y1);
   g.DrawLine(&pen, x1, y0, x0, y1);
@@ -1504,7 +1513,7 @@ void FloatingOverlayWindow::PaintStopButton(Graphics& g, float x, float y) {
   float sy = y + (size - sq) / 2.0f;
   GraphicsPath sqPath;
   GdiPlusHelper::MakeRoundedRect(&sqPath, sx, sy, sq, sq, 1.5f);
-  Pen whitePen(Color(255, 255, 255, 255), 1.5f);
+  Pen whitePen(Color(255, 255, 255, 255), 2.0f);
   whitePen.SetLineJoin(LineJoinRound);
   g.DrawPath(&whitePen, &sqPath);
 }

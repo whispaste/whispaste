@@ -10,8 +10,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/theme/tokens.dart';
+
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
@@ -26,7 +25,6 @@ class OverlayButtonSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final effectiveMode = settings.effectiveOverlayMode;
     final isDesktop = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
@@ -36,57 +34,28 @@ class OverlayButtonSection extends ConsumerWidget {
       padding: EdgeInsets.zero,
       child: Column(
         children: [
-          SettingRow(
-            icon: LucideIcons.layers,
-            label: l10n.settingsShowOverlay,
-            subtitle: l10n.settingsShowOverlaySubtitle,
-            trailing: settingsDropdown(
-              context: context,
-              value: effectiveMode.value,
-              items: [
-                OverlayMode.inWindow,
-                if (isDesktop) OverlayMode.floating,
-                OverlayMode.off,
-              ].map((e) => e.value).toList(),
-              labels: [
-                l10n.settingsOverlayModeInWindow,
-                if (isDesktop) l10n.settingsOverlayModeFloating,
-                l10n.settingsOverlayModeOff,
-              ],
-              onChanged: (v) {
-                if (v == null) return;
-                ref
+          // ── Floating overlay toggle (desktop only) ───────────────────
+          if (isDesktop) ...[
+            SettingRow(
+              icon: LucideIcons.layers,
+              label: l10n.settingsShowOverlay,
+              subtitle: l10n.settingsShowOverlaySubtitle,
+              trailing: settingsToggle(
+                value: effectiveMode == OverlayMode.floating,
+                onChanged: (v) => ref
                     .read(settingsProvider.notifier)
                     .updateSettings(
                       (s) => s.copyWith(
-                        overlayMode: v,
-                        showOverlay:
-                            OverlayMode.fromValue(v) != OverlayMode.off,
+                        overlayMode:
+                            v ? OverlayMode.floating.value : OverlayMode.off.value,
+                        showOverlay: v,
                       ),
-                    );
-              },
-            ),
-          ),
-
-          // Hint for in-window mode
-          if (effectiveMode == OverlayMode.inWindow)
-            Padding(
-              padding: const EdgeInsets.only(
-                left: WpSpacing.xxl + WpSpacing.md,
-                bottom: WpSpacing.sm,
-              ),
-              child: Text(
-                l10n.settingsOverlayInWindowHint,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark
-                      ? WpColorsDark.textMuted
-                      : WpColorsLight.textMuted,
-                ),
+                    ),
               ),
             ),
+          ],
 
-          // ── Floating overlay settings (desktop only) ──────────────────
+          // ── Floating overlay settings (visible when enabled) ─────────
           if (effectiveMode == OverlayMode.floating) ...[
             const Divider(height: 1),
             SettingRow(
@@ -164,6 +133,26 @@ class OverlayButtonSection extends ConsumerWidget {
                         (s) => s.copyWith(overlayAutoHide: v),
                       );
                 },
+              ),
+            ),
+            const Divider(height: 1),
+            SettingRow(
+              icon: LucideIcons.sun,
+              label: l10n.settingsFloatingOverlayOpacity,
+              subtitle: l10n.settingsFloatingOverlayOpacitySubtitle,
+              trailing: settingsSlider(
+                context: context,
+                value: settings.floatingOverlayOpacity,
+                min: 0.3,
+                max: 1.0,
+                divisions: 7,
+                valueLabel:
+                    '${(settings.floatingOverlayOpacity * 100).round()}%',
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWith(floatingOverlayOpacity: v),
+                    ),
               ),
             ),
           ],
