@@ -17,8 +17,11 @@ ALTER TABLE public.user_feedback
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- Revoke and re-grant so the allowed-column list is the sole source of truth.
+-- PostgREST requires table-level INSERT *and* column-level INSERT.
+-- Column-level alone causes 42501; both together are required.
 REVOKE ALL ON public.user_feedback FROM anon;
 
+GRANT INSERT ON public.user_feedback TO anon;
 GRANT INSERT (rating, feedback_text, app_version, device_id_hash, category)
   ON public.user_feedback TO anon;
 

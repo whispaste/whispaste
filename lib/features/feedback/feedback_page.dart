@@ -312,7 +312,14 @@ class _FeedbackPageState extends State<FeedbackPage> {
         );
       } else {
         _log.info('Submitting feedback: rating=$_rating category=$_category');
-        await _submitWithRetry();
+        final payload = {
+          'rating': _rating,
+          'feedback_text': _commentController.text.trim(),
+          'category': _category,
+          'app_version': appVersion,
+          'device_id_hash': _deriveDeviceId(),
+        };
+        await _post(payload);
         _log.info('Feedback submitted successfully');
       }
       if (mounted) setState(() => _submitted = true);
@@ -324,35 +331,15 @@ class _FeedbackPageState extends State<FeedbackPage> {
     }
   }
 
-  /// Attempts [_post] up to twice, with a 2-second delay before the retry.
-  ///
-  /// [_ServerException] (rate-limited, server error) is re-thrown immediately
-  /// and not retried, since a second attempt would only make things worse.
-  Future<void> _submitWithRetry() async {
-    Exception? lastError;
-    for (var attempt = 0; attempt < 2; attempt++) {
-      if (attempt > 0) {
-        await Future.delayed(const Duration(seconds: 2));
-        _log.info('Retrying feedback submission (attempt ${attempt + 1})');
-      }
-      try {
-        await _post();
-        return;
-      } on _ServerException {
-        rethrow;
-      } on Exception catch (e) {
-        lastError = e;
-      }
-    }
-    throw lastError!;
-  }
-
   /// Sends the feedback payload to Supabase via a direct PostgREST INSERT.
+  ///
+  /// No automatic retry — the form is manual and retrying a timed-out POST
+  /// could create a duplicate row. Users can re-submit on error.
   ///
   /// Throws [_ServerException] for rate-limit and server-error responses.
   /// Throws the underlying [Exception] (e.g. [SocketException]) for network
-  /// failures — these are retryable by the caller.
-  Future<void> _post() async {
+  /// failures.
+  Future<void> _post(Map<String, Object?> payload) async {
     final response = await http
         .post(
           Uri.parse('$_supabaseUrl/rest/v1/user_feedback'),
@@ -363,13 +350,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
             'Prefer': 'return=minimal',
             'User-Agent': appUserAgent,
           },
-          body: jsonEncode({
-            'rating': _rating,
-            'feedback_text': _commentController.text.trim(),
-            'category': _category,
-            'app_version': appVersion,
-            'device_id_hash': _deriveDeviceId(),
-          }),
+          body: jsonEncode(payload),
         )
         .timeout(const Duration(seconds: 15));
 
