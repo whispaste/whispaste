@@ -56,6 +56,17 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     return [for (final g in groups) ...g.entries];
   }
 
+  /// Returns true when any text input field in the focus tree currently has
+  /// focus. Used to suppress list-level shortcuts that would otherwise
+  /// intercept normal typing (Delete, Backspace, arrows, etc.).
+  bool _isTextFieldFocused() {
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary == null) return false;
+    return primary.context
+            ?.findAncestorWidgetOfExactType<EditableText>() !=
+        null;
+  }
+
   void _moveFocus(int delta, List<HistoryEntry> flat) {
     if (flat.isEmpty) return;
     final currentIdx =
@@ -174,11 +185,16 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 final flat = _flatEntries(groups);
                 return CallbackShortcuts(
                   bindings: <ShortcutActivator, VoidCallback>{
-                    const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
-                        _moveFocus(1, flat),
-                    const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
-                        _moveFocus(-1, flat),
+                    const SingleActivator(LogicalKeyboardKey.arrowDown): () {
+                      if (_isTextFieldFocused()) return;
+                      _moveFocus(1, flat);
+                    },
+                    const SingleActivator(LogicalKeyboardKey.arrowUp): () {
+                      if (_isTextFieldFocused()) return;
+                      _moveFocus(-1, flat);
+                    },
                     const SingleActivator(LogicalKeyboardKey.enter): () {
+                      if (_isTextFieldFocused()) return;
                       final entry = _focusedEntry(flat);
                       if (entry != null) {
                         setState(() {
@@ -188,6 +204,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       }
                     },
                     const SingleActivator(LogicalKeyboardKey.delete): () {
+                      if (_isTextFieldFocused()) return;
                       if (_multiSelectMode && _selectedIds.isNotEmpty) {
                         _deleteSelected();
                       } else {
@@ -196,6 +213,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       }
                     },
                     const SingleActivator(LogicalKeyboardKey.backspace): () {
+                      if (_isTextFieldFocused()) return;
                       if (_multiSelectMode && _selectedIds.isNotEmpty) {
                         _deleteSelected();
                       } else {
@@ -205,6 +223,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     },
                     // Ctrl+A: Select all visible items
                     const SingleActivator(LogicalKeyboardKey.keyA, control: true): () {
+                      if (_isTextFieldFocused()) return;
                       setState(() {
                         _multiSelectMode = true;
                         _selectedIds
@@ -212,17 +231,19 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                           ..addAll(flat.map((e) => e.id));
                       });
                     },
-                    // Ctrl+Shift+A or Ctrl+D: Deselect all
+                    // Ctrl+Shift+A: Deselect all
                     const SingleActivator(
                       LogicalKeyboardKey.keyA, control: true, shift: true,
                     ): () {
+                      if (_isTextFieldFocused()) return;
                       setState(() {
                         _selectedIds.clear();
                         _multiSelectMode = false;
                       });
                     },
-                    // Ctrl+C: Copy focused/selected entry text
+                    // Ctrl+C: Copy focused/selected entry text (suppressed when editing)
                     const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
+                      if (_isTextFieldFocused()) return;
                       if (_multiSelectMode && _selectedIds.isNotEmpty) {
                         _copySelectedEntries(flat);
                       } else {
@@ -232,16 +253,19 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     },
                     // Ctrl+M: Merge selected entries
                     const SingleActivator(LogicalKeyboardKey.keyM, control: true): () {
+                      if (_isTextFieldFocused()) return;
                       if (_multiSelectMode && _selectedIds.length >= 2) {
                         _mergeSelected();
                       }
                     },
                     // F: Toggle favorite on focused entry
                     const SingleActivator(LogicalKeyboardKey.keyF): () {
+                      if (_isTextFieldFocused()) return;
                       final entry = _focusedEntry(flat);
                       if (entry != null) _togglePin(entry);
                     },
                     const SingleActivator(LogicalKeyboardKey.escape): () {
+                      if (_isTextFieldFocused()) return;
                       if (_multiSelectMode) {
                         setState(() {
                           _selectedIds.clear();
@@ -254,6 +278,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       }
                     },
                     const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
+                      if (_isTextFieldFocused()) return;
                       final entry = selectedEntry ?? _focusedEntry(flat);
                       if (entry != null) _openCommandPalette(entry);
                     },
