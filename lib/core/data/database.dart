@@ -761,6 +761,41 @@ class HistoryDatabase extends _$HistoryDatabase {
         .toList();
   }
 
+  /// All tags with their usage counts (number of linked entries), alphabetically.
+  ///
+  /// Unlike [frequentTagsWithCount], this includes unused tags (count 0)
+  /// and does not limit results.
+  Future<List<(Tag, int)>> allTagsWithCount() async {
+    final count = entryTags.tagId.count();
+    final query = select(tags).join([
+      leftOuterJoin(entryTags, entryTags.tagId.equalsExp(tags.id)),
+    ])
+      ..addColumns([count])
+      ..groupBy([tags.id, tags.name, tags.createdAt])
+      ..orderBy([OrderingTerm.asc(tags.name)]);
+    final rows = await query.get();
+    return rows
+        .map((r) => (r.readTable(tags), r.read(count) ?? 0))
+        .toList();
+  }
+
+  /// Tags with zero linked entries.
+  Future<List<Tag>> unusedTags() async {
+    final all = await allTagsWithCount();
+    return all.where((r) => r.$2 == 0).map((r) => r.$1).toList();
+  }
+
+  /// Deletes all tags that have zero linked entries.
+  /// Returns the number of tags deleted.
+  Future<int> deleteUnusedTags() async {
+    final unused = await unusedTags();
+    if (unused.isEmpty) return 0;
+    for (final tag in unused) {
+      await (delete(tags)..where((t) => t.id.equals(tag.id))).go();
+    }
+    return unused.length;
+  }
+
   /// Prefix search for tag autocomplete.
   Future<List<Tag>> searchTags(String prefix) {
     final normalized = prefix.toLowerCase().trim();
