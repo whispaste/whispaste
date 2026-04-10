@@ -87,7 +87,7 @@ GradientPair AccentColorsFor(OverlayVisualState s) {
     case OverlayVisualState::kRecording:
       return {Color(255, 0xEF, 0x44, 0x44), Color(255, 0xDC, 0x26, 0x26)};
     case OverlayVisualState::kTranscribing:
-      return {Color(255, 0x38, 0xD9, 0xF0), Color(255, 0x14, 0xB8, 0xD4)};
+      return {Color(255, 0xF5, 0x9E, 0x0B), Color(255, 0xD9, 0x77, 0x06)};
     case OverlayVisualState::kProcessing:
       return {Color(255, 0xF5, 0x9E, 0x0B), Color(255, 0xD9, 0x77, 0x06)};
     case OverlayVisualState::kDone:
@@ -95,7 +95,7 @@ GradientPair AccentColorsFor(OverlayVisualState s) {
     case OverlayVisualState::kError:
       return {Color(255, 0xEF, 0x44, 0x44), Color(255, 0xB9, 0x1C, 0x1C)};
   }
-  return {Color(255, 0x38, 0xD9, 0xF0), Color(255, 0x14, 0xB8, 0xD4)};
+  return {Color(255, 0xF5, 0x9E, 0x0B), Color(255, 0xD9, 0x77, 0x06)};
 }
 
 }  // namespace
@@ -1125,15 +1125,9 @@ void FloatingOverlayWindow::PaintShadow(Graphics& g, float w, float h,
     GdiPlusHelper::MakeRoundedRect(&path, shadow_rect.X, shadow_rect.Y,
                                    shadow_rect.Width, shadow_rect.Height,
                                    radius + blur / 2.0f);
-    PathGradientBrush brush(&path);
-    brush.SetCenterColor(color);
-    int n = 1;
-    Color edge(0, 0, 0, 0);
-    brush.SetSurroundColors(&edge, &n);
     float fx = w / (w + expand * 2);
     float fy = h / (h + expand * 2);
-    brush.SetFocusScales(fx, fy);
-    g.FillPath(&brush, &path);
+    GdiPlusHelper::PaintGaussianShadowRect(g, &path, fx, fy, color.GetA());
   };
 
   draw_layer(kShadowBlur1, kShadowOffsetY1, tc.shadow1);
