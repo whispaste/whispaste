@@ -15,6 +15,7 @@ class HistoryFilterChip extends StatefulWidget {
     required this.onTap,
     required this.isDark,
     this.icon,
+    this.count,
   });
 
   final String label;
@@ -22,6 +23,9 @@ class HistoryFilterChip extends StatefulWidget {
   final VoidCallback onTap;
   final bool isDark;
   final IconData? icon;
+
+  /// Number of search hits for this filter. Shown as a badge when non-null.
+  final int? count;
 
   @override
   State<HistoryFilterChip> createState() => _HistoryFilterChipState();
@@ -97,6 +101,18 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
                       widget.isActive ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
+              if (widget.count != null) ...[
+                const SizedBox(width: 4),
+                Text(
+                  '${widget.count}',
+                  style: TextStyle(
+                    color: fg.withValues(alpha: 0.6),
+                    fontSize: 11,
+                    height: 1.15,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
