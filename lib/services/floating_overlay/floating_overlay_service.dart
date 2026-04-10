@@ -13,6 +13,7 @@ import '../../core/recording/recording_helpers.dart';
 import '../recording_orchestrator.dart';
 import 'floating_overlay_controller.dart';
 import 'floating_overlay_events.dart';
+import '../../widgets/recording_behavior.dart' show localizeRecordingError;
 
 final _log = AppLogger('FloatingOverlayService');
 
@@ -208,7 +209,9 @@ class FloatingOverlayService extends Notifier<void> {
       elapsed: phase == RecordingPhase.recording ? _formatElapsed(elapsed) : '',
       hint: _hintFor(phase, s, l10n),
       transcript: recording.transcript,
-      errorMessage: recording.errorMessage,
+      errorMessage: recording.errorMessage != null && l10n != null
+          ? localizeRecordingError(l10n, recording.errorMessage!)
+          : recording.errorMessage,
       privacyMode: isLocal ? 'local' : 'cloud',
       showRetry: phase == RecordingPhase.error,
       doneMessage: phase == RecordingPhase.done && l10n != null

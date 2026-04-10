@@ -228,7 +228,7 @@ class _TierRowState extends State<_TierRow> {
           curve: WpMotion.defaultCurve,
           margin: const EdgeInsets.symmetric(vertical: 1),
           padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.md,
+            horizontal: WpSpacing.sm,
             vertical: WpSpacing.sm,
           ),
           decoration: BoxDecoration(
