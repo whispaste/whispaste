@@ -205,9 +205,11 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
                       ),
                     ),
                     const SizedBox(width: WpSpacing.sm),
-                    // Enable/disable toggle — label makes purpose immediately clear
+                    // Enable/disable toggle — label is context-sensitive
                     Text(
-                      l10n.replacementsToggleLabel,
+                      enabled
+                          ? l10n.replacementsDisableAction
+                          : l10n.replacementsEnableAction,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(width: WpSpacing.xs),
