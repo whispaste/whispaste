@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
@@ -166,13 +167,12 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                 ),
               // Favorite indicator
               if (widget.entry.pinned)
-                Container(
-                  width: 6,
-                  height: 6,
-                  margin: const EdgeInsets.only(right: 6),
-                  decoration: BoxDecoration(
-                    color: accent,
-                    shape: BoxShape.circle,
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: FaIcon(
+                    FontAwesomeIcons.solidStar,
+                    size: 10,
+                    color: Colors.amber.shade600,
                   ),
                 ),
               // Title
