@@ -449,9 +449,6 @@ class L10nEn extends L10n {
       'Choose where live recording feedback appears while you dictate';
 
   @override
-  String get settingsOverlayModeInWindow => 'In main window';
-
-  @override
   String get settingsOverlayModeFloating => 'Floating window (always visible)';
 
   @override
@@ -486,6 +483,13 @@ class L10nEn extends L10n {
   @override
   String get settingsFloatingButtonOpacitySubtitle =>
       'Only affects the floating button, not the recording overlay';
+
+  @override
+  String get settingsFloatingOverlayOpacity => 'Overlay opacity';
+
+  @override
+  String get settingsFloatingOverlayOpacitySubtitle =>
+      'Transparency of the floating recording overlay';
 
   @override
   String get settingsFloatingButtonSize => 'Floating button size';
@@ -1117,9 +1121,6 @@ class L10nEn extends L10n {
   String get statusBarPostProcessing => 'Post-Processing';
 
   @override
-  String get statusBarOverlayInWindow => 'Overlay: Window';
-
-  @override
   String get statusBarOverlayFloating => 'Overlay: Floating';
 
   @override
@@ -1332,10 +1333,6 @@ class L10nEn extends L10n {
   String analyticsModelDisplayName(String tierLabel, String modelLabel) {
     return '$tierLabel (Whisper $modelLabel)';
   }
-
-  @override
-  String get settingsOverlayInWindowHint =>
-      'Only visible while the main window is open';
 
   @override
   String get settingsQualityBasic => 'Basic';

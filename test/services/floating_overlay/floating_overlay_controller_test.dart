@@ -364,6 +364,12 @@ class MockFloatingOverlayController extends FloatingOverlayController {
   }
 
   @override
+  Future<void> setOpacity(double opacity) async {
+    if (isDisposed) return;
+    calls.add('setOpacity($opacity)');
+  }
+
+  @override
   Future<void> dispose() async {
     if (isDisposed) return;
     isDisposed = true;

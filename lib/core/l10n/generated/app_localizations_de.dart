@@ -450,9 +450,6 @@ class L10nDe extends L10n {
       'Wähle, wo du während des Diktierens Live-Feedback zur Aufnahme siehst';
 
   @override
-  String get settingsOverlayModeInWindow => 'Im Hauptfenster';
-
-  @override
   String get settingsOverlayModeFloating =>
       'Schwebendes Fenster (immer sichtbar)';
 
@@ -489,6 +486,13 @@ class L10nDe extends L10n {
   @override
   String get settingsFloatingButtonOpacitySubtitle =>
       'Betrifft nur den schwebenden Button, nicht das Aufnahme-Overlay';
+
+  @override
+  String get settingsFloatingOverlayOpacity => 'Overlay-Deckkraft';
+
+  @override
+  String get settingsFloatingOverlayOpacitySubtitle =>
+      'Transparenz des schwebenden Aufnahme-Overlays';
 
   @override
   String get settingsFloatingButtonSize => 'Größe des schwebenden Buttons';
@@ -1125,9 +1129,6 @@ class L10nDe extends L10n {
   String get statusBarPostProcessing => 'Nachbearbeitung';
 
   @override
-  String get statusBarOverlayInWindow => 'Overlay: Fenster';
-
-  @override
   String get statusBarOverlayFloating => 'Overlay: Schwebend';
 
   @override
@@ -1345,10 +1346,6 @@ class L10nDe extends L10n {
   String analyticsModelDisplayName(String tierLabel, String modelLabel) {
     return '$tierLabel (Whisper $modelLabel)';
   }
-
-  @override
-  String get settingsOverlayInWindowHint =>
-      'Nur sichtbar, solange das Hauptfenster geöffnet ist';
 
   @override
   String get settingsQualityBasic => 'Standard';

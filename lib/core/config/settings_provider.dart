@@ -54,13 +54,14 @@ class AppSettings {
     this.afterTranscription = 'clipboard',
     // Overlay & Floating Button
     this.showOverlay = false,
-    this.overlayMode = 'in-window',
+    this.overlayMode = 'floating',
     this.overlayStartPosition = 'top-center',
     this.overlaySize = 'normal',
     this.overlayAutoHide = '5s',
     this.showFloatingButton = false,
     this.floatingButtonOpacity = 0.9,
     this.floatingButtonSize = 'normal',
+    this.floatingOverlayOpacity = 0.9,
     // Cloud Providers (API keys)
     this.openAiApiKey = '',
     this.groqApiKey = '',
@@ -147,7 +148,7 @@ class AppSettings {
   // Overlay & Floating Button
   final bool showOverlay;
 
-  /// 'in-window', 'floating', or 'off'.
+  /// 'floating' or 'off'.
   final String overlayMode;
 
   /// 'top-center', 'bottom-center', or 'last-position'.
@@ -161,6 +162,7 @@ class AppSettings {
   final bool showFloatingButton;
   final double floatingButtonOpacity;
   final String floatingButtonSize;
+  final double floatingOverlayOpacity;
 
   // Cloud Providers (API keys)
   final String openAiApiKey;
@@ -351,6 +353,11 @@ class AppSettings {
       ),
       floatingButtonSize:
           values['floating_button_size'] ?? defaults.floatingButtonSize,
+      floatingOverlayOpacity: _readDouble(
+        values,
+        'floating_overlay_opacity',
+        defaults.floatingOverlayOpacity,
+      ),
       openAiApiKey: values['openai_api_key'] ?? defaults.openAiApiKey,
       groqApiKey: values['groq_api_key'] ?? defaults.groqApiKey,
       deepgramApiKey: values['deepgram_api_key'] ?? defaults.deepgramApiKey,
@@ -502,6 +509,7 @@ class AppSettings {
       'show_floating_button': '$showFloatingButton',
       'floating_button_opacity': '$floatingButtonOpacity',
       'floating_button_size': floatingButtonSize,
+      'floating_overlay_opacity': '$floatingOverlayOpacity',
       // API keys are stored in secure storage — never persist to SQLite.
       'openai_api_key': '',
       'groq_api_key': '',
@@ -568,6 +576,7 @@ class AppSettings {
     bool? showFloatingButton,
     double? floatingButtonOpacity,
     String? floatingButtonSize,
+    double? floatingOverlayOpacity,
     String? openAiApiKey,
     String? groqApiKey,
     String? deepgramApiKey,
@@ -633,6 +642,8 @@ class AppSettings {
       floatingButtonOpacity:
           floatingButtonOpacity ?? this.floatingButtonOpacity,
       floatingButtonSize: floatingButtonSize ?? this.floatingButtonSize,
+      floatingOverlayOpacity:
+          floatingOverlayOpacity ?? this.floatingOverlayOpacity,
       openAiApiKey: openAiApiKey ?? this.openAiApiKey,
       groqApiKey: groqApiKey ?? this.groqApiKey,
       deepgramApiKey: deepgramApiKey ?? this.deepgramApiKey,
@@ -703,6 +714,7 @@ class AppSettings {
           showFloatingButton == other.showFloatingButton &&
           floatingButtonOpacity == other.floatingButtonOpacity &&
           floatingButtonSize == other.floatingButtonSize &&
+          floatingOverlayOpacity == other.floatingOverlayOpacity &&
           openAiApiKey == other.openAiApiKey &&
           groqApiKey == other.groqApiKey &&
           deepgramApiKey == other.deepgramApiKey &&
@@ -769,6 +781,7 @@ class AppSettings {
       showFloatingButton,
       floatingButtonOpacity,
       floatingButtonSize,
+      floatingOverlayOpacity,
       openAiApiKey,
       groqApiKey,
       deepgramApiKey,
@@ -777,8 +790,8 @@ class AppSettings {
       cloudSttProvider,
       cloudLlmModel,
       smartModePrompt,
-      smartModeTarget,
       Object.hash(
+        smartModeTarget,
         maxRecordDuration,
         closeToTray,
         errorReporting,
