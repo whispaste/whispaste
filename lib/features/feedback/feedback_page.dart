@@ -18,10 +18,11 @@ const _supabaseUrl = String.fromEnvironment(
   defaultValue: '',
 );
 
-/// Supabase anon key — injected at build time via `--dart-define`.
-/// Public key, safe for client-side use (RLS enforces access control).
-const _supabaseAnonKey = String.fromEnvironment(
-  'SUPABASE_ANON_KEY',
+/// Supabase publishable key — injected at build time via `--dart-define`.
+/// Public key (replaces legacy anon key), safe for client-side use.
+/// RLS enforces all access control server-side.
+const _supabasePublishableKey = String.fromEnvironment(
+  'SUPABASE_PUBLISHABLE_KEY',
   defaultValue: '',
 );
 
@@ -306,7 +307,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
     });
 
     try {
-      if (_supabaseUrl.isEmpty || _supabaseAnonKey.isEmpty) {
+      if (_supabaseUrl.isEmpty || _supabasePublishableKey.isEmpty) {
         _log.info(
           'Supabase not configured — skipping feedback submission '
           '(rating=$_rating category=$_category)',
@@ -346,8 +347,8 @@ class _FeedbackPageState extends State<FeedbackPage> {
           Uri.parse('$_supabaseUrl/rest/v1/user_feedback'),
           headers: {
             'Content-Type': 'application/json',
-            'apikey': _supabaseAnonKey,
-            'Authorization': 'Bearer $_supabaseAnonKey',
+            'apikey': _supabasePublishableKey,
+            'Authorization': 'Bearer $_supabasePublishableKey',
             'Prefer': 'return=minimal',
             'User-Agent': appUserAgent,
           },
