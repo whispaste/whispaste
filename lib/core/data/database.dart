@@ -439,6 +439,90 @@ class HistoryDatabase extends _$HistoryDatabase {
     }
   }
 
+  /// Advanced search with exact tag filtering and optional language filter.
+  ///
+  /// - [freeText] is passed to FTS5 + LIKE (same as [searchEntries]).
+  /// - [tagNames] are exact tag name matches (AND semantics — entry must have
+  ///   ALL listed tags).  De-duplicated and lowercased before querying.
+  /// - [langCode] filters by the `language` column (exact match).
+  ///
+  /// When [freeText] is empty and no tags/lang are given, returns all active
+  /// entries sorted by pinned desc, timestamp desc.
+  Future<List<HistoryEntry>> searchEntriesAdvanced({
+    String freeText = '',
+    List<String> tagNames = const [],
+    String? langCode,
+    bool includeDeleted = false,
+    bool includeArchived = false,
+  }) async {
+    try {
+      // Deduplicate tag names
+      final uniqueTags = tagNames
+          .map((t) => t.toLowerCase().trim())
+          .where((t) => t.isNotEmpty)
+          .toSet()
+          .toList();
+
+      Set<String>? freeTextIds;
+
+      // --- Free-text search (FTS5 + tag LIKE + note LIKE) ---
+      if (freeText.isNotEmpty) {
+        final results = await searchEntries(freeText);
+        freeTextIds = results.map((e) => e.id).toSet();
+        if (freeTextIds.isEmpty) return [];
+      }
+
+      // --- Exact tag filtering via GROUP BY / HAVING COUNT ---
+      Set<String>? tagIds;
+      if (uniqueTags.isNotEmpty) {
+        final placeholders = uniqueTags.map((_) => '?').join(', ');
+        final tagResults = await customSelect(
+          'SELECT he.id FROM history_entries he '
+          'INNER JOIN entry_tags et ON et.entry_id = he.id '
+          'INNER JOIN tags t ON t.id = et.tag_id '
+          'WHERE ${includeDeleted ? '1=1' : 'he.deleted_at IS NULL'} '
+          '  AND LOWER(t.name) IN ($placeholders) '
+          'GROUP BY he.id '
+          'HAVING COUNT(DISTINCT LOWER(t.name)) = ${uniqueTags.length}',
+          variables: uniqueTags.map(Variable.withString).toList(),
+        ).get();
+        tagIds = tagResults.map((r) => r.read<String>('id')).toSet();
+        if (tagIds.isEmpty) return [];
+      }
+
+      // Intersect free-text and tag results
+      Set<String>? combinedIds;
+      if (freeTextIds != null && tagIds != null) {
+        combinedIds = freeTextIds.intersection(tagIds);
+      } else {
+        combinedIds = freeTextIds ?? tagIds;
+      }
+
+      final finalQuery = select(historyEntries);
+      if (combinedIds != null) {
+        finalQuery.where((e) => e.id.isIn(combinedIds!.toList()));
+      }
+      if (!includeDeleted) {
+        finalQuery.where((e) => e.deletedAt.isNull());
+      }
+      if (!includeArchived && combinedIds == null) {
+        // Only suppress archived when returning everything (no filter pinpoints it)
+        finalQuery.where((e) => e.archived.equals(false));
+      }
+      if (langCode != null && langCode.isNotEmpty) {
+        finalQuery.where((e) => e.language.equals(langCode));
+      }
+      finalQuery.orderBy([
+        (e) => OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
+        (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+      ]);
+
+      return finalQuery.get();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Escapes LIKE special characters (`%`, `_`, `\`).
   static String _escapeLike(String input) {
     return input
