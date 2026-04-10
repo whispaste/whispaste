@@ -355,7 +355,7 @@ class L10nEn extends L10n {
       'Audio input is managed by your system settings';
 
   @override
-  String get settingsServiceOnDevicePrivate => 'On Device';
+  String get settingsServiceOnDevicePrivate => 'Locally on Device';
 
   @override
   String get settingsQualityFastTiny => 'Fast (Tiny)';
@@ -1291,11 +1291,18 @@ class L10nEn extends L10n {
   String get qualityTierActive => 'Active';
 
   @override
-  String get settingsOverlayInWindowHint =>
-      'Only visible while the main window is open';
+  String qualityTierModelTooltip(String modelName, String size) {
+    return 'Whisper $modelName · $size';
+  }
 
   @override
-  String get settingsQualityFast => 'Fast';
+  String analyticsModelDisplayName(String tierLabel, String modelLabel) {
+    return '$tierLabel (Whisper $modelLabel)';
+  }
+
+  @override
+  String get settingsOverlayInWindowHint =>
+      'Only visible while the main window is open';
 
   @override
   String get settingsQualityBasic => 'Basic';

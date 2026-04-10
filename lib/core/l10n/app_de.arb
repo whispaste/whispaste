@@ -117,7 +117,7 @@
   "settingsStyle": "Stil",
   "settingsMicSystemDefault": "Systemstandard",
   "settingsMicSystemHint": "Die Audio-Eingabe wird über die Systemeinstellungen verwaltet",
-  "settingsServiceOnDevicePrivate": "Auf dem Gerät",
+  "settingsServiceOnDevicePrivate": "Lokal auf dem Gerät",
   "settingsQualityFastTiny": "Schnell (Tiny)",
   "settingsQualityBalancedSmall": "Ausgewogen (Small)",
   "settingsQualityHighQualityMedium": "Hohe Qualität (Medium)",
@@ -426,9 +426,13 @@
   "qualityTierDownloadAndContinue": "Herunterladen & Weiter",
   "qualityTierChooseDifferent": "Andere Qualitätsstufe wählen",
   "qualityTierActive": "Aktiv",
+  "qualityTierModelTooltip": "Whisper {modelName} · {size}",
+  "@qualityTierModelTooltip": { "placeholders": { "modelName": { "type": "String" }, "size": { "type": "String" } } },
+  "analyticsModelDisplayName": "{tierLabel} (Whisper {modelLabel})",
+  "@analyticsModelDisplayName": { "placeholders": { "tierLabel": { "type": "String" }, "modelLabel": { "type": "String" } } },
   "settingsOverlayInWindowHint": "Nur sichtbar, solange das Hauptfenster geöffnet ist",
 
-  "settingsQualityFast": "Schnell",
+
   "settingsQualityBasic": "Standard",
   "settingsQualityBalanced": "Ausgewogen",
   "settingsQualityHigh": "Hohe Qualität",

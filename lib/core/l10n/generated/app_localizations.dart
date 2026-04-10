@@ -730,7 +730,7 @@ abstract class L10n {
   /// No description provided for @settingsServiceOnDevicePrivate.
   ///
   /// In en, this message translates to:
-  /// **'On Device'**
+  /// **'Locally on Device'**
   String get settingsServiceOnDevicePrivate;
 
   /// No description provided for @settingsQualityFastTiny.
@@ -2473,17 +2473,23 @@ abstract class L10n {
   /// **'Active'**
   String get qualityTierActive;
 
+  /// No description provided for @qualityTierModelTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Whisper {modelName} · {size}'**
+  String qualityTierModelTooltip(String modelName, String size);
+
+  /// No description provided for @analyticsModelDisplayName.
+  ///
+  /// In en, this message translates to:
+  /// **'{tierLabel} (Whisper {modelLabel})'**
+  String analyticsModelDisplayName(String tierLabel, String modelLabel);
+
   /// No description provided for @settingsOverlayInWindowHint.
   ///
   /// In en, this message translates to:
   /// **'Only visible while the main window is open'**
   String get settingsOverlayInWindowHint;
-
-  /// No description provided for @settingsQualityFast.
-  ///
-  /// In en, this message translates to:
-  /// **'Fast'**
-  String get settingsQualityFast;
 
   /// No description provided for @settingsQualityBasic.
   ///
