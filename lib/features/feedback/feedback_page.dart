@@ -306,6 +306,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
       _error = null;
     });
 
+    // Capture locale before the first await to avoid using BuildContext across
+    // an async gap (lint: use_build_context_synchronously).
+    final locale = Localizations.localeOf(context).languageCode;
     try {
       if (_supabaseUrl.isEmpty || _supabasePublishableKey.isEmpty) {
         _log.info(
@@ -313,13 +316,14 @@ class _FeedbackPageState extends State<FeedbackPage> {
           '(rating=$_rating category=$_category)',
         );
       } else {
-        _log.info('Submitting feedback: rating=$_rating category=$_category');
+        _log.info('Submitting feedback: rating=$_rating category=$_category locale=$locale');
         final payload = {
           'rating': _rating,
           'feedback_text': _commentController.text.trim(),
           'category': _category,
           'app_version': appVersion,
           'device_id_hash': _deriveDeviceId(),
+          'locale': locale,
         };
         await _post(payload);
         _log.info('Feedback submitted successfully');
