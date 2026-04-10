@@ -15,8 +15,8 @@ import 'settings_widgets.dart';
 /// Settings page — thin coordinator that composes extracted section widgets.
 ///
 /// Supports deep-linking: when [settingsScrollTargetProvider] contains a
-/// section id (e.g. `'stt'`, `'postprocessing'`), the page scrolls to
-/// that section on mount and clears the target.
+/// section id (e.g. `'stt'`, `'hotkey'`), the page scrolls to that section
+/// on mount and clears the target.
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
@@ -26,17 +26,17 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _sectionKeys = <String, GlobalKey>{
-    'audio': GlobalKey(),
-    'recordingSafety': GlobalKey(),
-    'afterTranscription': GlobalKey(),
+    'interface': GlobalKey(),
     'stt': GlobalKey(),
-    'sttModel': GlobalKey(),
+    'audio': GlobalKey(),
+    'afterTranscription': GlobalKey(),
+    'overlay': GlobalKey(),
+    'floatingButton': GlobalKey(),
     'hotkey': GlobalKey(),
     'sound': GlobalKey(),
-    'overlay': GlobalKey(),
-    'interface': GlobalKey(),
-    'cloud': GlobalKey(),
+    'recordingSafety': GlobalKey(),
     'history': GlobalKey(),
+    'cloud': GlobalKey(),
     'advanced': GlobalKey(),
   };
 
@@ -83,23 +83,31 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ═══════════════════════════════════════════
-          //  RECORDING PIPELINE
+          //  GENERAL
           // ═══════════════════════════════════════════
-          AudioSection(key: _sectionKeys['audio']),
+          InterfaceSection(key: _sectionKeys['interface']),
           settingsSectionDivider(context),
-          RecordingSafetySection(key: _sectionKeys['recordingSafety']),
+
+          // ═══════════════════════════════════════════
+          //  CORE WORKFLOW
+          // ═══════════════════════════════════════════
+          SpeechRecognitionSection(key: _sectionKeys['stt']),
+          settingsSectionDivider(context),
+          AudioSection(key: _sectionKeys['audio']),
           settingsSectionDivider(context),
           AfterTranscriptionSection(key: _sectionKeys['afterTranscription']),
           settingsSectionDivider(context),
 
           // ═══════════════════════════════════════════
-          //  TRANSCRIPTION & ENHANCEMENT
+          //  FLOATING UI ELEMENTS
           // ═══════════════════════════════════════════
-          SpeechRecognitionSection(key: _sectionKeys['stt']),
+          OverlaySection(key: _sectionKeys['overlay']),
+          settingsSectionDivider(context),
+          FloatingButtonSection(key: _sectionKeys['floatingButton']),
           settingsSectionDivider(context),
 
           // ═══════════════════════════════════════════
-          //  SHORTCUTS & FEEDBACK
+          //  INTERACTION
           // ═══════════════════════════════════════════
           KeyboardShortcutSection(key: _sectionKeys['hotkey']),
           settingsSectionDivider(context),
@@ -107,19 +115,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           settingsSectionDivider(context),
 
           // ═══════════════════════════════════════════
-          //  DISPLAY & LAYOUT
+          //  DATA MANAGEMENT
           // ═══════════════════════════════════════════
-          OverlayButtonSection(key: _sectionKeys['overlay']),
+          RecordingSafetySection(key: _sectionKeys['recordingSafety']),
+          settingsSectionDivider(context),
+          HistorySection(key: _sectionKeys['history']),
           settingsSectionDivider(context),
 
           // ═══════════════════════════════════════════
-          //  GENERAL
+          //  TECHNICAL / RARELY CHANGED
           // ═══════════════════════════════════════════
-          InterfaceSection(key: _sectionKeys['interface']),
-          settingsSectionDivider(context),
           CloudProvidersSection(key: _sectionKeys['cloud']),
-          settingsSectionDivider(context),
-          HistorySection(key: _sectionKeys['history']),
           settingsSectionDivider(context),
           AdvancedSection(key: _sectionKeys['advanced']),
         ],
