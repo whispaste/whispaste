@@ -21,7 +21,7 @@ namespace {
 constexpr const wchar_t kClassName[] = L"WHISPASTE_FLOATING_OVERLAY";
 
 // ── Layout constants (logical pixels) ─────────────────────────────────
-constexpr float kNormalWidth = 360.0f;
+constexpr float kNormalWidth = 380.0f;
 constexpr float kCompactWidth = 280.0f;
 constexpr float kCompactHeight = 40.0f;
 constexpr float kCornerRadius = 14.0f;       // WpRadius.lg
@@ -32,10 +32,10 @@ constexpr float kPaddingTop = 14.0f;
 constexpr float kPaddingBottom = 12.0f;
 constexpr float kHeaderHeight = 20.0f;       // dot + label + timer line
 constexpr float kGapAfterHeader = 10.0f;
-constexpr float kWaveformHeight = 28.0f;
-constexpr float kBarWidth = 2.5f;           // match in-app pill
-constexpr float kBarGap = 1.5f;             // match in-app pill
-constexpr float kBarRadius = 1.25f;
+constexpr float kWaveformHeight = 24.0f;     // match RecordingPill
+constexpr float kBarWidth = 2.5f;            // match in-app pill
+constexpr float kBarGap = 1.5f;              // match in-app pill
+constexpr float kBarRadius = 2.0f;           // match RecordingPill
 constexpr float kShimmerHeight = 4.0f;
 constexpr float kProgressHeight = 4.0f;
 constexpr float kGapAfterViz = 8.0f;
@@ -44,27 +44,31 @@ constexpr float kErrorMsgHeight = 16.0f;
 constexpr float kButtonHeight = 24.0f;
 constexpr float kButtonGap = 8.0f;
 constexpr float kDotSize = 8.0f;
-constexpr float kCloseSize = 20.0f;
+constexpr float kCloseSize = 36.0f;          // match _PillIconButton 36x36
 constexpr float kBadgeHeight = 18.0f;
 
 // ── Pill mode layout (normal, horizontal) ─────────────────────────────
-constexpr float kPillHeight = 48.0f;
-constexpr float kPillPadH = 14.0f;
-constexpr float kPillGap = 8.0f;
+constexpr float kPillHeight = 64.0f;         // 12+36+12+4 = 64 (match RecordingPill)
+constexpr float kPillPadH = 16.0f;           // WpSpacing.md
+constexpr float kPillGap = 12.0f;            // WpSpacing.sm
 constexpr float kProgressBarH = 4.0f;
-constexpr float kStopBtnW = 32.0f;
-constexpr float kStopBtnH = 28.0f;
-constexpr float kStopIconSize = 10.0f;
+constexpr float kStopBtnSize = 36.0f;        // circle 36x36 (match _PillStopButton)
+constexpr float kStopIconSize = 14.0f;       // white square inside stop button
+constexpr float kSpinnerSize = 16.0f;        // transcribing spinner diameter
+constexpr float kDotTextGap = 8.0f;          // WpSpacing.xs
+constexpr float kTimerWfGap = 16.0f;         // WpSpacing.md
 
 // ── Shadow (WpShadows.elevated) ───────────────────────────────────────
+// NOTE: 12 overlapping GDI+ layers compound via alpha compositing.
+// peak_alpha ≈ 0x08 yields ~17% composite at body edge (matching Flutter).
 constexpr float kShadowBlur1 = 16.0f;
 constexpr float kShadowOffsetY1 = 6.0f;
-constexpr BYTE  kShadowAlpha1Dark = 0x4D;    // 30%
-constexpr BYTE  kShadowAlpha1Light = 0x33;   // 20%
+constexpr BYTE  kShadowAlpha1Dark = 0x08;    // ~3% per layer → ~17% composite
+constexpr BYTE  kShadowAlpha1Light = 0x06;   // ~2.4% per layer → ~12% composite
 constexpr float kShadowBlur2 = 3.0f;
 constexpr float kShadowOffsetY2 = 1.0f;
-constexpr BYTE  kShadowAlpha2Dark = 0x1A;    // 10%
-constexpr BYTE  kShadowAlpha2Light = 0x14;   // 8%
+constexpr BYTE  kShadowAlpha2Dark = 0x04;    // ~1.6% per layer → ~8% composite
+constexpr BYTE  kShadowAlpha2Light = 0x03;   // ~1.2% per layer → ~6% composite
 constexpr float kShadowPad = 24.0f;          // extra space for shadow
 
 // ── Animation durations (ms) ──────────────────────────────────────────
@@ -72,6 +76,7 @@ constexpr DWORD kShowMs = 200;
 constexpr DWORD kHideMs = 150;
 constexpr DWORD kDotPulseMs = 900;           // matching RecordingPill
 constexpr DWORD kShimmerMs = 1200;
+constexpr DWORD kSpinnerMs = 750;              // transcribing spinner rotation
 constexpr DWORD kCelebrationMs = 200;
 constexpr DWORD kTransitionMs = 200;
 constexpr UINT  kTimerIntervalMs = 33;       // ~30 fps
@@ -100,7 +105,7 @@ GradientPair AccentColorsFor(OverlayVisualState s) {
     case OverlayVisualState::kProcessing:
       return {Color(255, 0xF5, 0x9E, 0x0B), Color(255, 0xD9, 0x77, 0x06)};
     case OverlayVisualState::kDone:
-      return {Color(255, 0x4A, 0xDE, 0x80), Color(255, 0x16, 0xA3, 0x4A)};
+      return {Color(255, 0x22, 0xC5, 0x5E), Color(255, 0x16, 0xA3, 0x4A)};
     case OverlayVisualState::kError:
       return {Color(255, 0xEF, 0x44, 0x44), Color(255, 0xB9, 0x1C, 0x1C)};
   }
@@ -237,7 +242,7 @@ bool FloatingOverlayWindow::InitDirectWrite() {
     return SUCCEEDED(hr);
   };
 
-  if (!makeFormat(14.0f, DWRITE_FONT_WEIGHT_SEMI_BOLD, &text_format_label_)) return false;
+  if (!makeFormat(15.0f, DWRITE_FONT_WEIGHT_BOLD, &text_format_label_)) return false;
   if (!makeFormat(14.0f, DWRITE_FONT_WEIGHT_REGULAR, &text_format_timer_)) return false;
   if (!makeFormat(12.0f, DWRITE_FONT_WEIGHT_REGULAR, &text_format_hint_)) return false;
   if (!makeFormat(10.0f, DWRITE_FONT_WEIGHT_SEMI_BOLD, &text_format_badge_)) return false;
@@ -468,6 +473,9 @@ void FloatingOverlayWindow::UpdateSnapshot(const OverlaySnapshot& snapshot) {
     if (state_changed) {
       transition_start_ = GetTickCount();
       anim_origin_ = transition_start_;
+      // Reset spinner when leaving transcribing
+      if (prev_snap_.state == OverlayVisualState::kTranscribing)
+        spinner_origin_ = 0;
       // Start done celebration
       if (snapshot.state == OverlayVisualState::kDone) {
         celebration_start_ = GetTickCount();
@@ -667,12 +675,21 @@ FloatingOverlayWindow::HitZone FloatingOverlayWindow::HitTest(int px,
   float ly = (py - pad) / static_cast<float>(dpi);
 
   if (snap_.compact) {
-    // Compact mode: close button at right
-    float cx = kCompactWidth - 10.0f - kCloseSize;
-    float cy = (kCompactHeight - 3.0f - kCloseSize) / 2.0f;
-    if (lx >= cx && lx <= cx + kCloseSize &&
-        ly >= cy && ly <= cy + kCloseSize) {
+    // Compact mode: close button at left (matching normal)
+    float cx = 10.0f;
+    float cy = (kCompactHeight - 3.0f - 28.0f) / 2.0f;
+    if (lx >= cx && lx <= cx + 28.0f &&
+        ly >= cy && ly <= cy + 28.0f) {
       return HitZone::kClose;
+    }
+    // Stop button at right
+    if (snap_.state == OverlayVisualState::kRecording) {
+      float sx = kCompactWidth - 10.0f - 28.0f;
+      float sy = (kCompactHeight - 3.0f - 28.0f) / 2.0f;
+      if (lx >= sx && lx <= sx + 28.0f &&
+          ly >= sy && ly <= sy + 28.0f) {
+        return HitZone::kStop;
+      }
     }
     return HitZone::kBody;
   }
@@ -681,7 +698,7 @@ FloatingOverlayWindow::HitZone FloatingOverlayWindow::HitTest(int px,
   float content_h = kPillHeight - kProgressBarH;
   float cy = content_h / 2.0f;
 
-  // Close button: left side
+  // Close button: left side (36x36 circle)
   float close_x = kPillPadH;
   float close_y = cy - kCloseSize / 2.0f;
   if (lx >= close_x && lx <= close_x + kCloseSize &&
@@ -689,12 +706,12 @@ FloatingOverlayWindow::HitZone FloatingOverlayWindow::HitTest(int px,
     return HitZone::kClose;
   }
 
-  // Stop button: right side (recording only)
+  // Stop button: right side (36x36 circle, recording only)
   if (snap_.state == OverlayVisualState::kRecording) {
-    float stop_x = kNormalWidth - kPillPadH - kStopBtnW;
-    float stop_y = cy - kStopBtnH / 2.0f;
-    if (lx >= stop_x && lx <= stop_x + kStopBtnW &&
-        ly >= stop_y && ly <= stop_y + kStopBtnH) {
+    float stop_x = kNormalWidth - kPillPadH - kStopBtnSize;
+    float stop_y = cy - kStopBtnSize / 2.0f;
+    if (lx >= stop_x && lx <= stop_x + kStopBtnSize &&
+        ly >= stop_y && ly <= stop_y + kStopBtnSize) {
       return HitZone::kStop;
     }
   }
@@ -709,27 +726,30 @@ FloatingOverlayWindow::HitZone FloatingOverlayWindow::HitTest(int px,
 FloatingOverlayWindow::ThemeColors FloatingOverlayWindow::GetThemeColors() const {
   ThemeColors c;
   if (snap_.is_dark) {
-    c.background = Color(0xF0, 0x17, 0x1D, 0x2C);       // 94% alpha
+    c.background = Color(0xCC, 0x14, 0x19, 0x26);       // 80% alpha (match RecordingPill)
     c.border = Color(0x14, 0xFF, 0xFF, 0xFF);            // 8% white
-    c.text_primary = Color(255, 0xE2, 0xE8, 0xF0);
-    c.text_muted = Color(255, 0x94, 0xA3, 0xB8);
+    c.text_primary = Color(255, 0xF0, 0xF4, 0xFA);      // WpColorsDark.textPrimary
+    c.text_muted = Color(255, 0x8A, 0x99, 0xB2);        // WpColorsDark.textMuted
     c.shadow1 = Color(kShadowAlpha1Dark, 0, 0, 0);
     c.shadow2 = Color(kShadowAlpha2Dark, 0, 0, 0);
     c.close_hover_bg = Color(0x1A, 0xFF, 0xFF, 0xFF);    // 10% white
-    c.close_icon = Color(255, 0x94, 0xA3, 0xB8);
-    c.waveform_active = Color(0xD9, 0xFF, 0xFF, 0xFF);   // 85% white
-    c.waveform_muted = Color(0x66, 0xFF, 0xFF, 0xFF);    // 40% white
-    c.badge_local_bg = Color(0x26, 0x22, 0xC5, 0x5E);    // 15%
-    c.badge_local_text = Color(255, 0x4A, 0xDE, 0x80);
+    c.close_icon = Color(255, 0x8A, 0x99, 0xB2);         // same as textMuted
+    c.waveform_active = Color(0xD9, 0x38, 0xD9, 0xF0);   // 85% accent (match waveform_bars.dart)
+    c.waveform_muted = Color(0x80, 0x8A, 0x99, 0xB2);    // 50% textMuted (match waveform_bars.dart)
+    c.badge_local_bg = Color(0x26, 0x36, 0xD9, 0x8B);    // 15% of success
+    c.badge_local_text = Color(255, 0x36, 0xD9, 0x8B);   // WpColorsDark.success
     c.badge_cloud_bg = Color(0x26, 0x38, 0xD9, 0xF0);    // 15%
     c.badge_cloud_text = Color(255, 0x38, 0xD9, 0xF0);
+    c.accent = Color(255, 0x38, 0xD9, 0xF0);             // WpColorsDark.accent
+    c.success_color = Color(255, 0x36, 0xD9, 0x8B);      // WpColorsDark.success
+    c.error_color = Color(255, 0xFF, 0x7B, 0x7B);        // WpColorsDark.error
     c.retry_bg = Color(0x1A, 0xFF, 0xFF, 0xFF);          // 10% white
-    c.retry_text = Color(255, 0xE2, 0xE8, 0xF0);
-    c.dismiss_text = Color(255, 0x94, 0xA3, 0xB8);
+    c.retry_text = Color(255, 0xF0, 0xF4, 0xFA);         // textPrimary
+    c.dismiss_text = Color(255, 0x8A, 0x99, 0xB2);       // textMuted
     c.shimmer_alpha_lo = 0.15f;
     c.shimmer_alpha_hi = 0.60f;
   } else {
-    c.background = Color(0xF5, 0xFA, 0xFB, 0xFD);       // 96% alpha
+    c.background = Color(0xCC, 0xF0, 0xF3, 0xF7);       // 80% alpha (match RecordingPill)
     c.border = Color(0x14, 0x0F, 0x17, 0x2A);            // 8% dark
     c.text_primary = Color(255, 0x10, 0x18, 0x28);
     c.text_muted = Color(255, 0x5B, 0x69, 0x7E);
@@ -737,12 +757,15 @@ FloatingOverlayWindow::ThemeColors FloatingOverlayWindow::GetThemeColors() const
     c.shadow2 = Color(kShadowAlpha2Light, 0, 0, 0);
     c.close_hover_bg = Color(0x14, 0x00, 0x00, 0x00);    // 8% black
     c.close_icon = Color(255, 0x5B, 0x69, 0x7E);
-    c.waveform_active = Color(0xB3, 0x38, 0xD9, 0xF0);   // 70% accent
-    c.waveform_muted = Color(0x59, 0x38, 0xD9, 0xF0);    // 35% accent
-    c.badge_local_bg = Color(0x1F, 0x22, 0xC5, 0x5E);    // 12%
-    c.badge_local_text = Color(255, 0x16, 0xA3, 0x4A);
-    c.badge_cloud_bg = Color(0x1F, 0x08, 0x91, 0xB2);    // 12%
-    c.badge_cloud_text = Color(255, 0x08, 0x91, 0xB2);
+    c.waveform_active = Color(0xD9, 0x08, 0x87, 0xA8);   // 85% accent (match waveform_bars.dart)
+    c.waveform_muted = Color(0x80, 0x5B, 0x69, 0x7E);    // 50% textMuted (match waveform_bars.dart)
+    c.badge_local_bg = Color(0x26, 0x05, 0x87, 0x5C);    // 15% of WpColorsLight.success
+    c.badge_local_text = Color(255, 0x05, 0x87, 0x5C);   // WpColorsLight.success
+    c.badge_cloud_bg = Color(0x26, 0x08, 0x87, 0xA8);    // 15% of WpColorsLight.accent
+    c.badge_cloud_text = Color(255, 0x08, 0x87, 0xA8);   // WpColorsLight.accent
+    c.accent = Color(255, 0x08, 0x87, 0xA8);             // WpColorsLight.accent
+    c.success_color = Color(255, 0x05, 0x87, 0x5C);      // WpColorsLight.success
+    c.error_color = Color(255, 0xCC, 0x1C, 0x1C);        // WpColorsLight.error
     c.retry_bg = Color(0x1F, 0xEF, 0x44, 0x44);          // 12% red
     c.retry_text = Color(255, 0xDC, 0x26, 0x26);
     c.dismiss_text = Color(255, 0x5B, 0x69, 0x7E);
@@ -989,87 +1012,98 @@ void FloatingOverlayWindow::RenderNormal(Graphics& g, float w, float h) {
                  snap_.state == OverlayVisualState::kTranscribing ||
                  snap_.state == OverlayVisualState::kProcessing);
 
-  // 5a. Close/cancel button (left)
+  // 5a. Close/cancel button (left, 36x36 circle)
   PaintCloseButton(g, x, cy - kCloseSize / 2.0f, kCloseSize);
   x += kCloseSize + kPillGap;
 
   // 5b. Privacy badge (during active states)
   if (active && !snap_.privacy_mode.empty()) {
-    PaintPrivacyBadge(g, x, cy - kBadgeHeight / 2.0f);
-    x += 48.0f + kPillGap;
+    float badge_w = PaintPrivacyBadge(g, x, cy - kBadgeHeight / 2.0f);
+    x += badge_w + kPillGap;
   }
 
-  // 5c. Phase dot (recording/transcribing/processing)
-  if (active) {
-    PaintPhaseDot(g, x, cy - kDotSize / 2.0f, kDotSize);
-    x += kDotSize + 6.0f;
-  }
-
-  // 5d. Right boundary (reserve space for stop button)
+  // 5c. Right boundary (reserve space for stop button during recording)
   float right_edge = w - kPillPadH;
   if (snap_.state == OverlayVisualState::kRecording)
-    right_edge -= kStopBtnW + kPillGap;
+    right_edge -= kStopBtnSize + kPillGap;
 
-  // 5e. Phase-specific center content
+  // 5d. Phase-specific center content
   switch (snap_.state) {
     case OverlayVisualState::kRecording: {
-      PaintText(g, snap_.elapsed, x, cy - 7.0f, 52.0f, 14.0f,
-               DWRITE_FONT_WEIGHT_SEMI_BOLD, tc.text_primary, true);
-      x += 52.0f + kPillGap;
+      // Phase dot
+      PaintPhaseDot(g, x, cy - kDotSize / 2.0f, kDotSize);
+      x += kDotSize + kDotTextGap;
+      // Timer (15px BOLD, tabular figures)
+      PaintText(g, snap_.elapsed, x, cy - 7.5f, 55.0f, 15.0f,
+               DWRITE_FONT_WEIGHT_BOLD, tc.text_primary, true);
+      x += 55.0f + kTimerWfGap;
+      // Waveform (24px height)
       float wf_w = right_edge - x;
-      if (wf_w > 20.0f) PaintWaveform(g, x, cy - 14.0f, wf_w, 28.0f);
+      if (wf_w > 20.0f)
+        PaintWaveform(g, x, cy - kWaveformHeight / 2.0f, wf_w, kWaveformHeight);
       break;
     }
     case OverlayVisualState::kTranscribing:
     case OverlayVisualState::kProcessing: {
-      auto accent = GetAccentColors();
+      // Spinning arc (16x16) — accent color (cyan), not gradient amber
+      if (spinner_origin_ == 0) spinner_origin_ = GetTickCount();
+      float angle = static_cast<float>(
+          ((GetTickCount() - spinner_origin_) % kSpinnerMs) * 360.0 / kSpinnerMs);
+      float spin_y = cy - kSpinnerSize / 2.0f;
+      Pen spinPen(tc.accent, 2.0f);
+      spinPen.SetLineCap(LineCapRound, LineCapRound, DashCapRound);
+      g.DrawArc(&spinPen, x, spin_y, kSpinnerSize, kSpinnerSize,
+                angle, 270.0f);
+      x += kSpinnerSize + kDotTextGap;
+      // Label ("Transcribing..." / "Processing...") — accent color
       PaintText(g, snap_.label, x, cy - 6.5f, 110.0f, 13.0f,
-               DWRITE_FONT_WEIGHT_SEMI_BOLD, accent.c0);
+               DWRITE_FONT_WEIGHT_SEMI_BOLD, tc.accent);
       x += 100.0f + 6.0f;
+      // Elapsed time
       PaintText(g, snap_.elapsed, x, cy - 6.0f, 45.0f, 12.0f,
                DWRITE_FONT_WEIGHT_REGULAR, tc.text_muted, true);
       break;
     }
     case OverlayVisualState::kDone: {
-      auto da = AccentColorsFor(OverlayVisualState::kDone);
+      // Lucide circleCheck icon (16px) — success color
       float is = 16.0f;
       float sc = is / 24.0f;
       float ix = x, iy = cy - is / 2.0f;
-      Pen cp(da.c0, 1.5f);
+      Pen cp(tc.success_color, 1.5f);
       cp.SetLineCap(LineCapRound, LineCapRound, DashCapRound);
       g.DrawEllipse(&cp, ix + 2 * sc, iy + 2 * sc, 20 * sc, 20 * sc);
       g.DrawLine(&cp, ix + 9 * sc, iy + 12 * sc,
                  ix + 11 * sc, iy + 14 * sc);
       g.DrawLine(&cp, ix + 11 * sc, iy + 14 * sc,
                  ix + 15 * sc, iy + 10 * sc);
-      x += is + 6.0f;
+      x += is + kDotTextGap;
       PaintText(g, snap_.done_message, x, cy - 6.5f, right_edge - x, 13.0f,
-               DWRITE_FONT_WEIGHT_SEMI_BOLD, da.c0);
+               DWRITE_FONT_WEIGHT_SEMI_BOLD, tc.success_color);
       break;
     }
     case OverlayVisualState::kError: {
-      auto ea = AccentColorsFor(OverlayVisualState::kError);
+      // Lucide circleAlert icon (16px) — error color
       float is = 16.0f;
       float sc = is / 24.0f;
       float ix = x, iy = cy - is / 2.0f;
-      Pen ep(ea.c0, 1.5f);
+      Pen ep(tc.error_color, 1.5f);
       ep.SetLineCap(LineCapRound, LineCapRound, DashCapRound);
       g.DrawEllipse(&ep, ix + 2 * sc, iy + 2 * sc, 20 * sc, 20 * sc);
       g.DrawLine(&ep, ix + 12 * sc, iy + 8 * sc,
                  ix + 12 * sc, iy + 12 * sc);
-      SolidBrush db(ea.c0);
+      SolidBrush db(tc.error_color);
       g.FillEllipse(&db, ix + 11.25f * sc, iy + 15.25f * sc,
                     1.5f * sc, 1.5f * sc);
-      x += is + 6.0f;
+      x += is + kDotTextGap;
       PaintText(g, snap_.error_message, x, cy - 6.5f, right_edge - x, 13.0f,
-               DWRITE_FONT_WEIGHT_MEDIUM, ea.c0);
+               DWRITE_FONT_WEIGHT_MEDIUM, tc.error_color);
       break;
     }
   }
 
-  // 5f. Stop button (right side, recording only)
+  // 5e. Stop button (right side, recording only — 36x36 circle)
   if (snap_.state == OverlayVisualState::kRecording) {
-    PaintStopButton(g, w - kPillPadH - kStopBtnW, cy - kStopBtnH / 2.0f);
+    PaintStopButton(g, w - kPillPadH - kStopBtnSize, cy - kStopBtnSize / 2.0f);
   }
 }
 
@@ -1081,76 +1115,222 @@ void FloatingOverlayWindow::RenderCompact(Graphics& g, float w, float h) {
 
   PaintShadow(g, w, h, r);
 
-  // Background (pill)
+  // Background (pill shape, same colors/opacity as normal)
   GraphicsPath bgPath;
   GdiPlusHelper::MakeRoundedRect(&bgPath, 0, 0, w, h, r);
   SolidBrush bgBrush(tc.background);
   g.FillPath(&bgBrush, &bgPath);
-
   Pen borderPen(tc.border, 1.0f);
   g.DrawPath(&borderPen, &bgPath);
 
-  // Bottom accent phase bar (3px, clipped to bottom corners of pill)
+  // Bottom progress bar (3px, clipped to pill shape)
+  constexpr float kCompactBarH = 3.0f;
+  constexpr float kCompactBtnSize = 28.0f;
+  constexpr float kCompactStopIcon = 10.0f;
   {
     auto accent = GetAccentColors();
     GraphicsState saved = g.Save();
     GraphicsPath clipPath;
-    GdiPlusHelper::MakeRoundedRect(&clipPath, 0, h - r * 2, w, r * 2, r);
+    GdiPlusHelper::MakeRoundedRect(&clipPath, 0, 0, w, h, r);
     Region clipRegion(&clipPath);
-    Region rectRegion(RectF(0, h - 3.0f, w, 3.0f));
-    clipRegion.Intersect(&rectRegion);
+    Region barRect(RectF(0, h - kCompactBarH, w, kCompactBarH));
+    clipRegion.Intersect(&barRect);
     g.SetClip(&clipRegion);
-    LinearGradientBrush barBrush(PointF(0, 0), PointF(w, 0),
-                                 accent.c0, accent.c1);
-    g.FillRectangle(&barBrush, 0.0f, h - 3.0f, w, 3.0f);
+
+    switch (snap_.state) {
+      case OverlayVisualState::kRecording: {
+        if (snap_.progress > 0.0f) {
+          float fill_w = w * (std::min)(snap_.progress, 1.0f);
+          Color fill_color = accent.c0;
+          if (snap_.progress >= 0.75f) {
+            float t = (snap_.progress - 0.75f) / 0.25f;
+            t = (std::min)(t, 1.0f);
+            fill_color = LerpColor(accent.c0, Color(255, 0xEF, 0x44, 0x44), t);
+          }
+          SolidBrush fillBrush(fill_color);
+          g.FillRectangle(&fillBrush, 0.0f, h - kCompactBarH, fill_w, kCompactBarH);
+        } else {
+          Color subtle(0x4D, accent.c0.GetR(), accent.c0.GetG(), accent.c0.GetB());
+          SolidBrush subtleBrush(subtle);
+          g.FillRectangle(&subtleBrush, 0.0f, h - kCompactBarH, w, kCompactBarH);
+        }
+        break;
+      }
+      case OverlayVisualState::kTranscribing:
+      case OverlayVisualState::kProcessing: {
+        // Shimmer uses theme accent color (cyan)
+        DWORD now = GetTickCount();
+        float t = AnimProgress(now, anim_origin_, kShimmerMs);
+        float sweep = -0.3f + t * 1.6f;
+        Color base(static_cast<BYTE>(tc.shimmer_alpha_lo * 255),
+                   tc.accent.GetR(), tc.accent.GetG(), tc.accent.GetB());
+        SolidBrush baseBrush(base);
+        g.FillRectangle(&baseBrush, 0.0f, h - kCompactBarH, w, kCompactBarH);
+        float glow_w = w * 0.3f;
+        float glow_x = sweep * w - glow_w / 2.0f;
+        Color glow_hi(static_cast<BYTE>(tc.shimmer_alpha_hi * 255),
+                      tc.accent.GetR(), tc.accent.GetG(), tc.accent.GetB());
+        Color glow_lo(0, tc.accent.GetR(), tc.accent.GetG(), tc.accent.GetB());
+        LinearGradientBrush glowBrush(PointF(glow_x, 0), PointF(glow_x + glow_w, 0),
+                                      glow_lo, glow_lo);
+        Color gc[] = {glow_lo, glow_hi, glow_lo};
+        REAL gp[] = {0.0f, 0.5f, 1.0f};
+        glowBrush.SetInterpolationColors(gc, gp, 3);
+        g.FillRectangle(&glowBrush, glow_x, h - kCompactBarH, glow_w, kCompactBarH);
+        break;
+      }
+      case OverlayVisualState::kDone: {
+        // Solid success color at 80% alpha
+        Color success(0xCC, tc.success_color.GetR(), tc.success_color.GetG(),
+                      tc.success_color.GetB());
+        SolidBrush brush(success);
+        g.FillRectangle(&brush, 0.0f, h - kCompactBarH, w, kCompactBarH);
+        break;
+      }
+      default:
+        break;
+    }
     g.Restore(saved);
   }
 
-  // Phase dot
-  float content_y = (h - 3.0f - kDotSize) / 2.0f;  // centered in content area
-  float dot_x = 12.0f;
-  PaintPhaseDot(g, dot_x, content_y, kDotSize);
+  // Content area height (excluding progress bar)
+  float content_h = h - kCompactBarH;
+  float center_y = content_h / 2.0f;
 
-  // Label
-  float label_x = dot_x + kDotSize + 6.0f;
-  float text_y = (h - 3.0f - 13.0f) / 2.0f;  // vertically center text
-  PaintText(g, snap_.label, label_x, text_y, 90.0f, 13.0f,
-           DWRITE_FONT_WEIGHT_SEMI_BOLD, tc.text_primary);
+  // Cancel button — left side, 28×28 circle
+  float close_x = 10.0f;
+  float close_y = center_y - kCompactBtnSize / 2.0f;
+  PaintCloseButton(g, close_x, close_y, kCompactBtnSize);
 
-  // Timer (right of label)
-  float timer_x = label_x + 90.0f + 4.0f;
-  PaintText(g, snap_.elapsed, timer_x, text_y, 42.0f, 13.0f,
-           DWRITE_FONT_WEIGHT_REGULAR, tc.text_muted, true);
+  float x = close_x + kCompactBtnSize + 8.0f;
 
-  // Mini waveform during recording (8 bars, compact)
+  // Phase dot (recording only)
   if (snap_.state == OverlayVisualState::kRecording) {
-    float mini_bar_w = 2.5f;
-    float mini_bar_gap = 1.5f;
-    int mini_bars = 8;
-    float wf_x = timer_x + 42.0f + 8.0f;
-    float wf_h = 16.0f;
-    float wf_y = (h - 3.0f - wf_h) / 2.0f;
-
-    for (int i = 0; i < mini_bars; ++i) {
-      // Sample every other bar from the 16-bar buffer
-      int src = (i * 2) % kWaveformBars;
-      float level = waveform_display_[src];
-      float bar_h = 3.0f + level * (wf_h - 3.0f);
-      float bx = wf_x + i * (mini_bar_w + mini_bar_gap);
-      float by = wf_y + (wf_h - bar_h) / 2.0f;
-
-      Color color = (level > 0.30f) ? tc.waveform_active : tc.waveform_muted;
-      SolidBrush brush(color);
-      GraphicsPath barPath;
-      GdiPlusHelper::MakeRoundedRect(&barPath, bx, by, mini_bar_w, bar_h, 1.0f);
-      g.FillPath(&brush, &barPath);
-    }
+    float dot_y = center_y - kDotSize / 2.0f;
+    PaintPhaseDot(g, x, dot_y, kDotSize);
+    x += kDotSize + 6.0f;
   }
 
-  // Close button (always visible in compact, but subtle)
-  float cx = w - 10.0f - kCloseSize;
-  float cy = (h - 3.0f - kCloseSize) / 2.0f;
-  PaintCloseButton(g, cx, cy, kCloseSize);
+  // Content depends on state
+  switch (snap_.state) {
+    case OverlayVisualState::kRecording: {
+      // Timer
+      float text_y = center_y - 6.5f;
+      PaintText(g, snap_.elapsed, x, text_y, 42.0f, 13.0f,
+               DWRITE_FONT_WEIGHT_BOLD, tc.text_primary, true);
+      x += 42.0f + 6.0f;
+
+      // Mini waveform (8 bars)
+      float wf_h = 16.0f;
+      float wf_y = center_y - wf_h / 2.0f;
+      float mini_bar_w = 2.5f;
+      float mini_bar_gap = 1.5f;
+      int mini_bars = 8;
+      for (int i = 0; i < mini_bars; ++i) {
+        int src = (i * 2) % kWaveformBars;
+        float level = waveform_display_[src];
+        float bar_h = 3.0f + level * (wf_h - 3.0f);
+        float bx = x + i * (mini_bar_w + mini_bar_gap);
+        float by = wf_y + (wf_h - bar_h) / 2.0f;
+        Color color = (level > 0.30f) ? tc.waveform_active : tc.waveform_muted;
+        SolidBrush brush(color);
+        GraphicsPath barPath;
+        GdiPlusHelper::MakeRoundedRect(&barPath, bx, by, mini_bar_w, bar_h, 1.0f);
+        g.FillPath(&brush, &barPath);
+      }
+
+      // Stop button — right side, 28×28 circle
+      float stop_x = w - 10.0f - kCompactBtnSize;
+      float stop_y = center_y - kCompactBtnSize / 2.0f;
+      {
+        auto accent = GetAccentColors();
+        // Red gradient circle
+        LinearGradientBrush bgBrush2(PointF(stop_x, stop_y),
+                                     PointF(stop_x + kCompactBtnSize, stop_y + kCompactBtnSize),
+                                     Color(255, 0xEF, 0x44, 0x44),
+                                     Color(255, 0xDC, 0x26, 0x26));
+        GraphicsPath circle;
+        circle.AddEllipse(stop_x, stop_y, kCompactBtnSize, kCompactBtnSize);
+        g.FillPath(&bgBrush2, &circle);
+        // Hover overlay
+        if (stop_hover_) {
+          SolidBrush hover(Color(0x1A, 0xFF, 0xFF, 0xFF));
+          g.FillPath(&hover, &circle);
+        }
+        // White square icon
+        float icon_inset = (kCompactBtnSize - kCompactStopIcon) / 2.0f;
+        SolidBrush iconBrush(Color(255, 255, 255, 255));
+        GraphicsPath iconPath;
+        GdiPlusHelper::MakeRoundedRect(&iconPath, stop_x + icon_inset, stop_y + icon_inset,
+                                       kCompactStopIcon, kCompactStopIcon, 1.5f);
+        g.FillPath(&iconBrush, &iconPath);
+      }
+      break;
+    }
+    case OverlayVisualState::kTranscribing:
+    case OverlayVisualState::kProcessing: {
+      // Spinning arc (12px) — use theme accent color (not gradient amber)
+      if (spinner_origin_ == 0) spinner_origin_ = GetTickCount();
+      float angle = static_cast<float>(
+          ((GetTickCount() - spinner_origin_) % kSpinnerMs) * 360.0 / kSpinnerMs);
+      float spin_size = 12.0f;
+      float spin_y = center_y - spin_size / 2.0f;
+      Pen spinPen(tc.accent, 1.5f);
+      spinPen.SetLineCap(LineCapRound, LineCapRound, DashCapRound);
+      g.DrawArc(&spinPen, x, spin_y, spin_size, spin_size, angle, 270.0f);
+      x += spin_size + 6.0f;
+      // Label — use accent color
+      float text_y = center_y - 6.5f;
+      std::wstring label = snap_.state == OverlayVisualState::kProcessing
+          ? (snap_.processing_label.empty() ? L"Processing..." : snap_.processing_label)
+          : snap_.label;
+      PaintText(g, label, x, text_y, w - x - 14.0f, 13.0f,
+               DWRITE_FONT_WEIGHT_SEMI_BOLD, tc.accent);
+      break;
+    }
+    case OverlayVisualState::kDone: {
+      // Check circle (12px) — use theme success color
+      float icon_size = 12.0f;
+      float icon_y = center_y - icon_size / 2.0f;
+      Pen checkPen(tc.success_color, 1.5f);
+      checkPen.SetLineCap(LineCapRound, LineCapRound, DashCapRound);
+      g.DrawEllipse(&checkPen, x, icon_y, icon_size, icon_size);
+      float cs = icon_size / 24.0f;
+      g.DrawLine(&checkPen, x + 8 * cs, icon_y + 13 * cs,
+                 x + 11 * cs, icon_y + 16 * cs);
+      g.DrawLine(&checkPen, x + 11 * cs, icon_y + 16 * cs,
+                 x + 16 * cs, icon_y + 10 * cs);
+      x += icon_size + 6.0f;
+      // Done message — use theme success color
+      float text_y = center_y - 6.5f;
+      std::wstring msg = snap_.done_message.empty() ? L"Done" : snap_.done_message;
+      PaintText(g, msg, x, text_y, w - x - 14.0f, 13.0f,
+               DWRITE_FONT_WEIGHT_SEMI_BOLD, tc.success_color);
+      break;
+    }
+    case OverlayVisualState::kError: {
+      // Error icon (12px) — use theme error color
+      float icon_size = 12.0f;
+      float icon_y = center_y - icon_size / 2.0f;
+      Pen errPen(tc.error_color, 1.5f);
+      errPen.SetLineCap(LineCapRound, LineCapRound, DashCapRound);
+      g.DrawEllipse(&errPen, x, icon_y, icon_size, icon_size);
+      float es = icon_size / 24.0f;
+      g.DrawLine(&errPen, x + 12 * es, icon_y + 8 * es,
+                 x + 12 * es, icon_y + 13 * es);
+      SolidBrush dotBrush(tc.error_color);
+      g.FillEllipse(&dotBrush, x + 11 * es, icon_y + 16 * es, 2 * es, 2 * es);
+      x += icon_size + 6.0f;
+      // Error message — use theme error color
+      float text_y = center_y - 6.5f;
+      std::wstring msg = snap_.error_message.empty() ? L"Error" : snap_.error_message;
+      PaintText(g, msg, x, text_y, w - x - 14.0f, 13.0f,
+               DWRITE_FONT_WEIGHT_SEMI_BOLD, tc.error_color);
+      break;
+    }
+    default:
+      break;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1191,8 +1371,6 @@ void FloatingOverlayWindow::PaintAccentBar(Graphics& g, float w,
 
 void FloatingOverlayWindow::PaintPhaseDot(Graphics& g, float x, float y,
                                            float size) {
-  auto accent = GetAccentColors();
-
   BYTE alpha = 255;
   if (snap_.state == OverlayVisualState::kRecording) {
     DWORD now = GetTickCount();
@@ -1200,7 +1378,8 @@ void FloatingOverlayWindow::PaintPhaseDot(Graphics& g, float x, float y,
     alpha = static_cast<BYTE>(115 + 140 * EaseInOut(t));  // 45%–100%
   }
 
-  Color dotColor(alpha, accent.c0.GetR(), accent.c0.GetG(), accent.c0.GetB());
+  // Fixed recording dot color matching Flutter RecordingPill (0xFF5252)
+  Color dotColor(alpha, 0xFF, 0x52, 0x52);
   SolidBrush dotBrush(dotColor);
   g.FillEllipse(&dotBrush, x, y, size, size);
 }
@@ -1285,16 +1464,14 @@ void FloatingOverlayWindow::PaintCloseButton(Graphics& g, float x, float y,
                                               float size) {
   ThemeColors tc = GetThemeColors();
 
-  // Hover background
+  // Circular hover background (36x36 circle)
   if (close_hover_) {
     SolidBrush hoverBg(tc.close_hover_bg);
-    GraphicsPath hoverPath;
-    GdiPlusHelper::MakeRoundedRect(&hoverPath, x, y, size, size, 4.0f);
-    g.FillPath(&hoverBg, &hoverPath);
+    g.FillEllipse(&hoverBg, x, y, size, size);
   }
 
-  // ✕ icon (simple X)
-  float pad = size * 0.3f;
+  // ✕ icon (Lucide X proportions: 18px strike zone in 36px button = 50% padding)
+  float pad = size * 0.30f;
   float x0 = x + pad, y0 = y + pad;
   float x1 = x + size - pad, y1 = y + size - pad;
   Pen pen(tc.close_icon, 1.5f);
@@ -1304,25 +1481,25 @@ void FloatingOverlayWindow::PaintCloseButton(Graphics& g, float x, float y,
 }
 
 void FloatingOverlayWindow::PaintStopButton(Graphics& g, float x, float y) {
+  // 36x36 circle with red gradient (match _PillStopButton)
   auto accent = GetAccentColors();
-  float btn_r = kStopBtnH / 2.0f;
+  float size = kStopBtnSize;
 
-  GraphicsPath btnPath;
-  GdiPlusHelper::MakeRoundedRect(&btnPath, x, y, kStopBtnW, kStopBtnH, btn_r);
+  // Red gradient circle background
+  LinearGradientBrush bgBrush(PointF(x, y), PointF(x + size, y + size),
+                               accent.c0, accent.c1);
+  g.FillEllipse(&bgBrush, x, y, size, size);
 
-  Color bg = accent.c0;
+  // Hover: 10% white overlay
   if (stop_hover_) {
-    int r = (std::min)(static_cast<int>(accent.c0.GetR()) + 20, 255);
-    int gg = (std::min)(static_cast<int>(accent.c0.GetG()) + 10, 255);
-    bg = Color(255, static_cast<BYTE>(r), static_cast<BYTE>(gg),
-               accent.c0.GetB());
+    SolidBrush hoverOverlay(Color(0x1A, 0xFF, 0xFF, 0xFF));
+    g.FillEllipse(&hoverOverlay, x, y, size, size);
   }
-  SolidBrush bgBrush(bg);
-  g.FillPath(&bgBrush, &btnPath);
 
+  // White square icon (14px with 2px corner radius, centered)
   float sq = kStopIconSize;
-  float sx = x + (kStopBtnW - sq) / 2.0f;
-  float sy = y + (kStopBtnH - sq) / 2.0f;
+  float sx = x + (size - sq) / 2.0f;
+  float sy = y + (size - sq) / 2.0f;
   GraphicsPath sqPath;
   GdiPlusHelper::MakeRoundedRect(&sqPath, sx, sy, sq, sq, 2.0f);
   SolidBrush white(Color(255, 255, 255, 255));
@@ -1341,29 +1518,51 @@ void FloatingOverlayWindow::PaintBottomProgressBar(Graphics& g, float w,
   clipRegion.Intersect(&barRect);
   g.SetClip(&clipRegion);
 
-  auto accent = GetAccentColors();
+  ThemeColors tc = GetThemeColors();
 
   switch (snap_.state) {
-    case OverlayVisualState::kRecording:
-      // No progress data in snapshot yet -- recording uses accent strip only
+    case OverlayVisualState::kRecording: {
+      auto accent = GetAccentColors();
+      if (snap_.progress > 0.0f) {
+        // Recording with time limit — show progress fill
+        float fill_w = w * (std::min)(snap_.progress, 1.0f);
+        Color fill_color = accent.c0;
+        // Transition amber→red when approaching limit (>=75%)
+        if (snap_.progress >= 0.75f) {
+          float t = (snap_.progress - 0.75f) / 0.25f;
+          t = (std::min)(t, 1.0f);
+          fill_color = LerpColor(accent.c0, Color(255, 0xEF, 0x44, 0x44), t);
+        }
+        SolidBrush fillBrush(fill_color);
+        g.FillRectangle(&fillBrush, 0.0f, h - kProgressBarH,
+                        fill_w, kProgressBarH);
+      } else {
+        // Unlimited recording — thin accent line at 30% alpha
+        Color subtle(0x4D, accent.c0.GetR(), accent.c0.GetG(),
+                     accent.c0.GetB());
+        SolidBrush subtleBrush(subtle);
+        g.FillRectangle(&subtleBrush, 0.0f, h - kProgressBarH,
+                        w, kProgressBarH);
+      }
       break;
+    }
     case OverlayVisualState::kTranscribing:
     case OverlayVisualState::kProcessing: {
-      ThemeColors tc = GetThemeColors();
+      // Shimmer uses accent color (cyan)
       DWORD now = GetTickCount();
       float t = AnimProgress(now, anim_origin_, kShimmerMs);
       float sweep = -0.3f + t * 1.6f;
 
       Color base(static_cast<BYTE>(tc.shimmer_alpha_lo * 255),
-                 accent.c0.GetR(), accent.c0.GetG(), accent.c0.GetB());
+                 tc.accent.GetR(), tc.accent.GetG(), tc.accent.GetB());
       SolidBrush baseBrush(base);
       g.FillRectangle(&baseBrush, 0.0f, h - kProgressBarH, w, kProgressBarH);
 
       float glow_w = w * 0.3f;
       float glow_x = sweep * w - glow_w / 2.0f;
       Color glow_hi(static_cast<BYTE>(tc.shimmer_alpha_hi * 255),
-                    accent.c0.GetR(), accent.c0.GetG(), accent.c0.GetB());
-      Color glow_lo(0, accent.c0.GetR(), accent.c0.GetG(), accent.c0.GetB());
+                    tc.accent.GetR(), tc.accent.GetG(), tc.accent.GetB());
+      Color glow_lo(0, tc.accent.GetR(), tc.accent.GetG(), tc.accent.GetB());
       LinearGradientBrush glowBrush(PointF(glow_x, 0),
                                     PointF(glow_x + glow_w, 0),
                                     glow_lo, glow_lo);
@@ -1375,8 +1574,10 @@ void FloatingOverlayWindow::PaintBottomProgressBar(Graphics& g, float w,
       break;
     }
     case OverlayVisualState::kDone: {
-      LinearGradientBrush brush(PointF(0, 0), PointF(w, 0),
-                                accent.c0, accent.c1);
+      // Solid success color at 80% alpha (match RecordingPill)
+      Color success(0xCC, tc.success_color.GetR(), tc.success_color.GetG(),
+                    tc.success_color.GetB());
+      SolidBrush brush(success);
       g.FillRectangle(&brush, 0.0f, h - kProgressBarH, w, kProgressBarH);
       break;
     }
@@ -1387,32 +1588,45 @@ void FloatingOverlayWindow::PaintBottomProgressBar(Graphics& g, float w,
   g.Restore(saved);
 }
 
-void FloatingOverlayWindow::PaintPrivacyBadge(Graphics& g, float x, float y) {
+float FloatingOverlayWindow::PaintPrivacyBadge(Graphics& g, float x, float y) {
   ThemeColors tc = GetThemeColors();
 
   bool is_local = (snap_.privacy_mode == L"local");
   Color bg = is_local ? tc.badge_local_bg : tc.badge_cloud_bg;
   Color text_color = is_local ? tc.badge_local_text : tc.badge_cloud_text;
 
-  float badge_w = 48.0f;  // approximate
+  // Measure badge text to determine dynamic width
+  std::wstring badge_text = is_local ? L"Local" : L"Cloud";
+  Font measureFont(L"Segoe UI", 10.0f, FontStyleBold, UnitPixel);
+  RectF measureRect(0, 0, 200.0f, kBadgeHeight);
+  StringFormat sf;
+  sf.SetFormatFlags(StringFormatFlagsNoWrap);
+  RectF textBounds;
+  g.MeasureString(badge_text.c_str(), -1, &measureFont, measureRect,
+                  &sf, &textBounds);
+
+  // Badge: icon(14) + gap(4) + text + padding(5+5)
+  constexpr float kBadgeIconSize = 14.0f;
+  float badge_w = kBadgeIconSize + 4.0f + textBounds.Width + 12.0f;
   float badge_h = kBadgeHeight;
 
+  // Pill background
   GraphicsPath badgePath;
-  GdiPlusHelper::MakeRoundedRect(&badgePath, x, y + 1.0f, badge_w, badge_h,
+  GdiPlusHelper::MakeRoundedRect(&badgePath, x, y, badge_w, badge_h,
                                  badge_h / 2.0f);
   SolidBrush bgBrush(bg);
   g.FillPath(&bgBrush, &badgePath);
 
-  // Lucide-style icons (10px bounding box)
-  float icon_x = x + 6.0f;
-  float icon_y = y + 4.0f;
-  float s = 10.0f;
-  float sx = s / 24.0f;  // Scale from Lucide 24px viewbox
+  // Icon (14px bounding box, Lucide 24px viewbox scaled)
+  float icon_x = x + 5.0f;
+  float icon_y = y + (badge_h - kBadgeIconSize) / 2.0f;
+  float s = kBadgeIconSize;
+  float sx = s / 24.0f;
   Pen iconPen(text_color, 1.2f);
   iconPen.SetLineCap(LineCapRound, LineCapRound, DashCapRound);
   iconPen.SetLineJoin(LineJoinRound);
   if (is_local) {
-    // ShieldCheck: pointed shield + checkmark
+    // ShieldCheck
     GraphicsPath sp;
     sp.AddLine(PointF(icon_x+12*sx, icon_y+2*sx),
                PointF(icon_x+20*sx, icon_y+5*sx));
@@ -1430,13 +1644,12 @@ void FloatingOverlayWindow::PaintPrivacyBadge(Graphics& g, float x, float y) {
                PointF(icon_x+4*sx, icon_y+5*sx));
     sp.CloseFigure();
     g.DrawPath(&iconPen, &sp);
-    // Checkmark
     g.DrawLine(&iconPen, icon_x+9*sx, icon_y+12*sx,
                icon_x+11*sx, icon_y+14*sx);
     g.DrawLine(&iconPen, icon_x+11*sx, icon_y+14*sx,
                icon_x+15*sx, icon_y+10*sx);
   } else {
-    // Cloud: top arc + bumps + flat bottom
+    // Cloud
     GraphicsPath cp;
     cp.AddArc(icon_x+6*sx, icon_y+2*sx, 12*sx, 12*sx, 210, 300);
     cp.AddArc(icon_x+2*sx, icon_y+8*sx, 8*sx, 10*sx, 180, 120);
@@ -1447,10 +1660,12 @@ void FloatingOverlayWindow::PaintPrivacyBadge(Graphics& g, float x, float y) {
     g.DrawPath(&iconPen, &cp);
   }
 
-  // Badge text
-  std::wstring badge_text = is_local ? L"Local" : L"Cloud";
-  PaintText(g, badge_text, x + 18.0f, y + 1.0f, 28.0f, 10.0f,
+  // Badge text (after icon + gap)
+  PaintText(g, badge_text, x + kBadgeIconSize + 4.0f + 5.0f, y + 1.0f,
+           badge_w - kBadgeIconSize - 4.0f - 10.0f, 10.0f,
            DWRITE_FONT_WEIGHT_SEMI_BOLD, text_color);
+
+  return badge_w;
 }
 
 void FloatingOverlayWindow::PaintErrorButtons(Graphics& g, float x, float y) {
