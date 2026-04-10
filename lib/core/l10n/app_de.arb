@@ -283,6 +283,7 @@
   "replacementsEmptyHint": "Füge Shortcuts hinzu, um Wörter beim Diktieren automatisch zu ersetzen.\nBeispiel: \"mfg\" → \"mit freundlichen Grüßen\"",
   "replacementsNoMatches": "Keine Treffer",
   "replacementsNoMatchesHint": "Versuche einen anderen Suchbegriff.",
+  "replacementsToggleLabel": "Shortcuts aktivieren",
   "replacementsToggleEnabled": "Sprachkürzel sind aktiv",
   "replacementsToggleDisabled": "Sprachkürzel sind deaktiviert",
   "replacementsEnableBannerTitle": "Sprachkürzel sind deaktiviert",
