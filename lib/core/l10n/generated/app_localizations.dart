@@ -1663,6 +1663,12 @@ abstract class L10n {
   /// **'Try a different search term.'**
   String get replacementsNoMatchesHint;
 
+  /// No description provided for @replacementsToggleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable shortcuts'**
+  String get replacementsToggleLabel;
+
   /// No description provided for @replacementsToggleEnabled.
   ///
   /// In en, this message translates to:
