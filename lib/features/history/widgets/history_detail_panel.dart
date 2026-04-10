@@ -718,7 +718,8 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                           ),
                         const Spacer(),
                         if (entry.content.isNotEmpty || _isEditingTranscript)
-                          Flexible(
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 120),
                             child: Padding(
                               padding: const EdgeInsets.only(right: WpSpacing.sm),
                               child: Text(
@@ -732,8 +733,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                               ),
                             ),
                           ),
-                        Flexible(
-                          child: Tooltip(
+                        Tooltip(
                           message: _isEditingTranscript
                               ? '${l10n.historySaveTranscript} (Ctrl+S / Ctrl+↵)'
                               : '${l10n.historyEditTranscript} (Ctrl+E)',
@@ -788,7 +788,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                 ),
                               ),
                             ),
-                          ),
                           ),
                         ),
                       ],

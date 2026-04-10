@@ -172,9 +172,6 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
           final enabled = settings?.textReplacementsEnabled ?? true;
           return Column(
             children: [
-              // Activation banner (shown when disabled)
-              if (!enabled)
-                _ReplacementsDisabledBanner(isDark: isDark),
               // Toolbar
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -208,49 +205,20 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
                       ),
                     ),
                     const SizedBox(width: WpSpacing.sm),
-                    // Status indicator (when enabled) — click to disable
-                    if (enabled)
-                      Tooltip(
-                        message: l10n.replacementsDisableAction,
-                        child: InkWell(
-                          borderRadius: WpRadius.borderFull,
-                          onTap: () => ref
-                              .read(settingsProvider.notifier)
-                              .updateSettings(
-                                  (s) => s.copyWith(textReplacementsEnabled: false)),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: WpSpacing.sm,
-                              vertical: WpSpacing.xxs,
-                            ),
-                            decoration: BoxDecoration(
-                              color: (isDark ? WpColorsDark.success : WpColorsLight.success)
-                                  .withValues(alpha: 0.15),
-                              borderRadius: WpRadius.borderFull,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  LucideIcons.circleCheck,
-                                  size: 14,
-                                  color: isDark ? WpColorsDark.success : WpColorsLight.success,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  l10n.replacementsToggleEnabled,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    color: isDark ? WpColorsDark.success : WpColorsLight.success,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                    // Enable/disable toggle — always visible, clear on/off semantics
+                    Tooltip(
+                      message: enabled
+                          ? l10n.replacementsToggleEnabled
+                          : l10n.replacementsToggleDisabled,
+                      child: Switch(
+                        value: enabled,
+                        onChanged: (v) => ref
+                            .read(settingsProvider.notifier)
+                            .updateSettings(
+                                (s) => s.copyWith(textReplacementsEnabled: v)),
                       ),
-                    const SizedBox(width: WpSpacing.sm),
+                    ),
+                    const SizedBox(width: WpSpacing.xs),
                     // Add button
                     ElevatedButton.icon(
                       onPressed: () => _showAddEditDialog(),
@@ -260,9 +228,12 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
                   ],
                 ),
               ),
-              // Content
+              // Content — dimmed when disabled so users can still see their shortcuts
               Expanded(
-                child: all.isEmpty
+                child: AnimatedOpacity(
+                  duration: WpMotion.normal,
+                  opacity: enabled ? 1.0 : 0.5,
+                  child: all.isEmpty
                     ? WpEmptyState(
                         icon: LucideIcons.replace,
                         title: l10n.replacementsEmpty,
@@ -294,6 +265,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
                       );
                     },
                   ),
+                ),
               ),
             ],
           );
@@ -639,77 +611,6 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                 ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Disabled banner — shown when voice shortcuts are turned off
-// ---------------------------------------------------------------------------
-
-class _ReplacementsDisabledBanner extends ConsumerWidget {
-  const _ReplacementsDisabledBanner({required this.isDark});
-
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = L10n.of(context);
-    final warn = isDark ? WpColorsDark.warning : WpColorsLight.warning;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl, WpSpacing.sm, WpSpacing.xl, 0,
-      ),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.md,
-          vertical: WpSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: warn.withValues(alpha: 0.12),
-          borderRadius: WpRadius.borderMd,
-          border: Border.all(color: warn.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          children: [
-            Icon(LucideIcons.triangleAlert, size: 18, color: warn),
-            const SizedBox(width: WpSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.replacementsEnableBannerTitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    l10n.replacementsEnableBannerHint,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: WpSpacing.sm),
-            FilledButton(
-              onPressed: () => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(textReplacementsEnabled: true)),
-              child: Text(l10n.replacementsEnableAction),
-            ),
-          ],
         ),
       ),
     );

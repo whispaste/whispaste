@@ -51,6 +51,7 @@ constexpr float kBadgeHeight = 18.0f;
 constexpr float kPillHeight = 64.0f;         // 12+36+12+4 = 64 (match RecordingPill)
 constexpr float kPillPadH = 16.0f;           // WpSpacing.md
 constexpr float kPillGap = 14.0f;            // WpSpacing.sm + extra breathing room
+constexpr float kWfStopGap = 22.0f;          // extra margin between waveform and stop button
 constexpr float kProgressBarH = 4.0f;
 constexpr float kStopBtnSize = 36.0f;        // circle 36x36 (match _PillStopButton)
 constexpr float kStopIconSize = 14.0f;       // white square inside stop button
@@ -421,6 +422,17 @@ LRESULT FloatingOverlayWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
       if (wp == kTimerId) OnAnimTick();
       return 0;
 
+    // ── Re-assert topmost if z-order was changed externally ──────────
+    case WM_WINDOWPOSCHANGED: {
+      auto* wp_pos = reinterpret_cast<WINDOWPOS*>(lp);
+      if (visible_ && !(wp_pos->flags & SWP_NOZORDER)) {
+        // Only re-assert if we actually lost TOPMOST (prevents re-entry loop)
+        if (!(GetWindowLong(hwnd_, GWL_EXSTYLE) & WS_EX_TOPMOST))
+          BringToTopmost();
+      }
+      return DefWindowProcW(hwnd_, msg, wp, lp);
+    }
+
     case WM_PAINT: {
       PAINTSTRUCT ps;
       BeginPaint(hwnd_, &ps);
@@ -463,6 +475,7 @@ void FloatingOverlayWindow::UpdateSnapshot(const OverlaySnapshot& snapshot) {
     RecalcPosition();
     StartShowAnimation();
     ShowWindow(hwnd_, SW_SHOWNOACTIVATE);
+    BringToTopmost();
     visible_ = true;
     if (NeedsAnimation()) StartAnimTimer();
     Render();
@@ -537,6 +550,12 @@ void FloatingOverlayWindow::SetOpacity(double opacity) {
   if (hwnd_ && visible_) {
     Render();
   }
+}
+
+void FloatingOverlayWindow::BringToTopmost() {
+  if (!hwnd_) return;
+  SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -733,7 +752,7 @@ FloatingOverlayWindow::HitZone FloatingOverlayWindow::HitTest(int px,
 FloatingOverlayWindow::ThemeColors FloatingOverlayWindow::GetThemeColors() const {
   ThemeColors c;
   if (snap_.is_dark) {
-    c.background = Color(0xCC, 0x14, 0x19, 0x26);       // 80% alpha (match RecordingPill)
+    c.background = Color(0xFF, 0x14, 0x19, 0x26);       // 100% alpha — SourceConstantAlpha drives all transparency
     c.border = Color(0x14, 0xFF, 0xFF, 0xFF);            // 8% white
     c.text_primary = Color(255, 0xF0, 0xF4, 0xFA);      // WpColorsDark.textPrimary
     c.text_muted = Color(255, 0x8A, 0x99, 0xB2);        // WpColorsDark.textMuted
@@ -756,7 +775,7 @@ FloatingOverlayWindow::ThemeColors FloatingOverlayWindow::GetThemeColors() const
     c.shimmer_alpha_lo = 0.15f;
     c.shimmer_alpha_hi = 0.60f;
   } else {
-    c.background = Color(0xCC, 0xF0, 0xF3, 0xF7);       // 80% alpha (match RecordingPill)
+    c.background = Color(0xFF, 0xF0, 0xF3, 0xF7);       // 100% alpha — SourceConstantAlpha drives all transparency
     c.border = Color(0x14, 0x0F, 0x17, 0x2A);            // 8% dark
     c.text_primary = Color(255, 0x10, 0x18, 0x28);
     c.text_muted = Color(255, 0x5B, 0x69, 0x7E);
@@ -1034,7 +1053,7 @@ void FloatingOverlayWindow::RenderNormal(Graphics& g, float w, float h) {
   // 5c. Right boundary (reserve space for stop button during recording)
   float right_edge = w - kPillPadH;
   if (snap_.state == OverlayVisualState::kRecording)
-    right_edge -= kStopBtnSize + kPillGap;
+    right_edge -= kStopBtnSize + kWfStopGap;
 
   // 5d. Phase-specific center content
   switch (snap_.state) {
@@ -1046,10 +1065,14 @@ void FloatingOverlayWindow::RenderNormal(Graphics& g, float w, float h) {
       PaintText(g, snap_.elapsed, x, cy - 7.5f, 55.0f, 15.0f,
                DWRITE_FONT_WEIGHT_BOLD, tc.text_primary, true);
       x += 55.0f + kTimerWfGap;
-      // Waveform (24px height)
+      // Waveform (24px height) — clip to allocated area to prevent overflow into stop button
       float wf_w = right_edge - x;
-      if (wf_w > 20.0f)
+      if (wf_w > 20.0f) {
+        GraphicsState gs = g.Save();
+        g.SetClip(RectF(x, cy - kWaveformHeight / 2.0f, wf_w, kWaveformHeight));
         PaintWaveform(g, x, cy - kWaveformHeight / 2.0f, wf_w, kWaveformHeight);
+        g.Restore(gs);
+      }
       break;
     }
     case OverlayVisualState::kTranscribing:

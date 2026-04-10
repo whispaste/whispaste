@@ -106,6 +106,7 @@ class FloatingOverlayWindow {
   // ── Win32 ────────────────────────────────────────────────────────────
   static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
   LRESULT HandleMessage(UINT msg, WPARAM wp, LPARAM lp);
+  void BringToTopmost();
   static bool EnsureClassRegistered();
   static bool class_registered_;
 
