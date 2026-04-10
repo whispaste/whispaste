@@ -92,6 +92,8 @@ class RecordingOrchestrator extends Notifier<void> {
   Future<void> toggleRecording() async {
     final recording = ref.read(recordingProvider);
     if (recording.isIdle) {
+      // Kick off server warm-up before preflight to maximise parallel window.
+      unawaited(_prewarmStt());
       await startRecording();
     } else if (recording.isRecording) {
       await stopRecording();
@@ -133,7 +135,12 @@ class RecordingOrchestrator extends Notifier<void> {
       _log.info('[$sid] Recording started');
 
       // Notify STT service that a recording is active (pauses idle timer).
-      ref.read(sttServiceProvider.notifier).notifyRecordingStarted();
+      final sttNot = ref.read(sttServiceProvider.notifier);
+      sttNot.notifyRecordingStarted();
+
+      // Kick off STT server in parallel — files already confirmed by preflight.
+      // Fires before the two async calls below to maximise warm-up lead time.
+      unawaited(sttNot.ensureRunning());
 
       _hasCapturedPasteTarget = await _capturePasteTarget();
 
@@ -141,15 +148,10 @@ class RecordingOrchestrator extends Notifier<void> {
       final audioNotifier = ref.read(audioServiceProvider.notifier);
       await audioNotifier.startRecording();
 
-      // Pre-warm STT server in background while user speaks.
-      Future.microtask(
-        () => ref.read(sttServiceProvider.notifier).ensureRunning(),
-      );
-
       // Verify recording actually started.
       final audioStatus = ref.read(audioServiceProvider);
       if (audioStatus.captureState == AudioCaptureState.error) {
-        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+        sttNot.notifyRecordingStopped();
         notifier.fail(audioStatus.errorMessage ?? 'recording_failed');
         return;
       }
