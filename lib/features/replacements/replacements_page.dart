@@ -205,7 +205,12 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
                       ),
                     ),
                     const SizedBox(width: WpSpacing.sm),
-                    // Enable/disable toggle — always visible, clear on/off semantics
+                    // Enable/disable toggle — label makes purpose immediately clear
+                    Text(
+                      l10n.navReplacements,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(width: WpSpacing.xs),
                     Tooltip(
                       message: enabled
                           ? l10n.replacementsToggleEnabled
