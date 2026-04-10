@@ -50,26 +50,26 @@ constexpr float kBadgeHeight = 18.0f;
 // ── Pill mode layout (normal, horizontal) ─────────────────────────────
 constexpr float kPillHeight = 64.0f;         // 12+36+12+4 = 64 (match RecordingPill)
 constexpr float kPillPadH = 16.0f;           // WpSpacing.md
-constexpr float kPillGap = 12.0f;            // WpSpacing.sm
+constexpr float kPillGap = 14.0f;            // WpSpacing.sm + extra breathing room
 constexpr float kProgressBarH = 4.0f;
 constexpr float kStopBtnSize = 36.0f;        // circle 36x36 (match _PillStopButton)
 constexpr float kStopIconSize = 14.0f;       // white square inside stop button
 constexpr float kSpinnerSize = 16.0f;        // transcribing spinner diameter
 constexpr float kDotTextGap = 8.0f;          // WpSpacing.xs
-constexpr float kTimerWfGap = 16.0f;         // WpSpacing.md
+constexpr float kTimerWfGap = 18.0f;         // WpSpacing.md + extra breathing room
 
 // ── Shadow (WpShadows.elevated) ───────────────────────────────────────
 // NOTE: 12 overlapping GDI+ layers compound via alpha compositing.
 // peak_alpha ≈ 0x08 yields ~17% composite at body edge (matching Flutter).
-constexpr float kShadowBlur1 = 16.0f;
+constexpr float kShadowBlur1 = 20.0f;
 constexpr float kShadowOffsetY1 = 6.0f;
-constexpr BYTE  kShadowAlpha1Dark = 0x08;    // ~3% per layer → ~17% composite
-constexpr BYTE  kShadowAlpha1Light = 0x06;   // ~2.4% per layer → ~12% composite
+constexpr BYTE  kShadowAlpha1Dark = 0x06;    // ~2.4% per layer → ~12% composite
+constexpr BYTE  kShadowAlpha1Light = 0x04;   // ~1.6% per layer → ~8% composite
 constexpr float kShadowBlur2 = 3.0f;
 constexpr float kShadowOffsetY2 = 1.0f;
-constexpr BYTE  kShadowAlpha2Dark = 0x04;    // ~1.6% per layer → ~8% composite
-constexpr BYTE  kShadowAlpha2Light = 0x03;   // ~1.2% per layer → ~6% composite
-constexpr float kShadowPad = 24.0f;          // extra space for shadow
+constexpr BYTE  kShadowAlpha2Dark = 0x03;    // ~1.2% per layer → ~6% composite
+constexpr BYTE  kShadowAlpha2Light = 0x02;   // ~0.8% per layer → ~4% composite
+constexpr float kShadowPad = 28.0f;          // extra space for wider shadow blur
 
 // ── Animation durations (ms) ──────────────────────────────────────────
 constexpr DWORD kShowMs = 200;
