@@ -5,6 +5,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/recording/recording_helpers.dart' show displayNameForModel;
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
@@ -574,17 +575,21 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                             : l10n.statusCloud,
                         isDark: isDark,
                       ),
-                      if (entry.model.isNotEmpty)
-                        Tooltip(
-                          message: '${l10n.historyModel}: ${entry.model}',
-                          child: _MetaChip(
-                            icon: LucideIcons.cpu,
-                            label: entry.model.length > 20
-                                ? '${entry.model.substring(0, 20)}…'
-                                : entry.model,
-                            isDark: isDark,
-                          ),
-                        ),
+                      if (entry.model.isNotEmpty) ...[
+                        () {
+                          final modelName = displayNameForModel(entry.model, l10n);
+                          return Tooltip(
+                            message: '${l10n.historyModel}: $modelName',
+                            child: _MetaChip(
+                              icon: LucideIcons.cpu,
+                              label: modelName.length > 25
+                                  ? '${modelName.substring(0, 25)}…'
+                                  : modelName,
+                              isDark: isDark,
+                            ),
+                          );
+                        }(),
+                      ],
                     ],
                   ),
                   const SizedBox(height: WpSpacing.sm),

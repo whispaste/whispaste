@@ -231,7 +231,7 @@ class _TierRowState extends State<_TierRow> {
         child: AnimatedContainer(
           duration: WpMotion.hoverIn,
           curve: WpMotion.defaultCurve,
-          margin: const EdgeInsets.symmetric(horizontal: WpSpacing.xs, vertical: 1),
+          margin: const EdgeInsets.symmetric(vertical: 1),
           padding: const EdgeInsets.symmetric(
             horizontal: WpSpacing.md,
             vertical: WpSpacing.sm,
