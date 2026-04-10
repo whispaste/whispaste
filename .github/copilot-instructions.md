@@ -54,7 +54,7 @@ WhisPaste is a premium **cross-platform** dictation application optimized for **
 
 **Quality bar**: This is a $20M-caliber product. Every feature, every UI element, every interaction must reflect premium craftsmanship. We ship polished, not "good enough."
 
-**UI philosophy**: This is NOT a boring productivity tool. It must be **fun to use**, emotionally engaging, and visually impressive — the kind of app users show off to friends. Inspired by gaming dashboards and modern chat interfaces while remaining clean and uncluttered. All features must be quickly accessible. Hide complexity behind progressive disclosure — not behind missing functionality. Usability FIRST, beauty SECOND — but beauty is NOT optional. **Design responsive mobile-first with partial desktop optimization** — every UI element must work great on a phone, then be enhanced for larger screens.
+**UI philosophy**: This is NOT a boring productivity tool. It must be **fun to use**, emotionally engaging, and visually impressive — the kind of app users show off to friends. Inspired by gaming dashboards and modern chat interfaces while remaining clean and uncluttered. All features must be quickly accessible. Hide complexity behind progressive disclosure — not behind missing functionality. Usability FIRST, beauty SECOND — but beauty is NOT optional. **Design responsive mobile-first with partial desktop optimization** — every UI element must work great on a phone, then be enhanced for larger screens. On desktop, that optimization explicitly includes first-class mouse + keyboard navigation, sensible focus/default-action behavior, and shortcut-driven flows that stay fast end-to-end.
 
 **AI is the CORE**: Speech-to-text and post-processing are the **critical** features. They MUST work reliably and performantly on every platform. Every architecture decision must prioritize AI inference performance and reliability.
 
@@ -588,6 +588,7 @@ This is a **responsive cross-platform app** — design for touch FIRST, then opt
 3. **Wrap on narrow** — Stats rows, button groups, and chip bars must wrap or scroll when space is tight.
 4. **Test at multiple sizes** — The responsive overflow test covers this, but also visually verify at 320px (phone), 768px (tablet), 1280px (laptop), 1920px (desktop).
 5. **Feel native on EVERY platform** — Currently uses a sidebar-based layout on all screens. Planned: bottom tab bar on phones, sidebar on tablet+desktop. Content fills space, panels resize, and layout adapts seamlessly.
+6. **Desktop optimization means full input parity** — On desktop, every important flow must work cleanly with mouse and keyboard: visible focus, sensible tab order, Enter/Space activation, default focus on the primary action when expected, and localized shortcut hints that match the current locale.
 
 #### Mobile-First Design Rules (MANDATORY)
 
@@ -599,6 +600,7 @@ These rules apply to ALL UI code. They complement the visual identity and access
 4. **No hardcoded widths for content** — Use `LayoutBuilder`/`MediaQuery` with breakpoints. Fixed widths allowed only for modals/dialogs (with `min(fixedWidth, screenWidth - padding)` pattern).
 5. **Navigation adapts** — Currently uses sidebar on all screen sizes. Bottom tab bar for screens ≤ 600px is a planned enhancement.
 6. **Platform-aware interactions** — Use `Platform.isAndroid || Platform.isIOS` (or `defaultTargetPlatform`) to switch between touch and pointer interaction patterns where needed.
+7. **Settings are behavior contracts** — If the UI exposes a setting (shortcuts, after-transcription behavior, overlays, etc.), the runtime must honor it end-to-end. Never ship UI-only toggles with hardcoded behavior underneath.
 
 #### The "Wow" Test
 Before shipping any UI change, ask: "Would a user screenshot this and share it because it looks cool?" If the answer is "no" or "it's fine", it's not good enough. Push further.
@@ -628,7 +630,7 @@ Before shipping any UI change, ask: "Would a user screenshot this and share it b
 
 **Test pyramid**: Unit (broad) → Widget (medium) → Integration (narrow). Test critical business logic, AI pipeline, and widget contracts thoroughly. UI layout and cosmetic details are verified through widget tests and manual review.
 
-**Tests gate CI.** `flutter test` MUST pass on the `dev` branch for merges to `main`. No `continue-on-error`, no skipping, no excuses.
+**Tests gate CI.** `flutter test` MUST pass on `main` before every push and before any release/version bump. No `continue-on-error`, no skipping, no excuses.
 
 ### Test Strategy
 
@@ -964,19 +966,18 @@ Before implementing any feature that touches user data or external communication
 
 ### Git Branching Strategy — Solo Developer (MANDATORY)
 
-WhisPaste uses a **two-branch model** optimized for solo development:
+WhisPaste uses a **main-only model** optimized for solo development:
 
 | Branch | Purpose | Who commits |
 |--------|---------|-------------|
-| `dev` | Active development. ALL work happens here. | Developer + Copilot |
-| `main` | Stable releases only. Never commit directly. | Merge from dev only |
+| `main` | Active development and stable releases. Every commit must keep the repo green and releasable. | Developer + Copilot |
 
 **Rules:**
-1. **All commits go to `dev`** — never commit directly to `main`.
-2. **No feature branches** — no `feature/*`, no `amboss/*`, no temporary branches. The only branches are `dev` and `main`.
-3. **No PRs for own work** — Copilot and the developer push directly to `dev`. Never use `gh pr create`. PRs exist only for external contributors.
-4. **Release flow**: `git checkout main && git merge dev --no-ff && git tag vX.Y.Z && git push origin main --tags && git checkout dev`
-5. **CI runs on both branches** — every push to `dev` and `main` triggers CI.
+1. **All normal work lands on `main`** — do not keep or recreate a persistent `dev` branch.
+2. **No long-lived side branches for own work** — if temporary isolation is truly needed, ask first and merge/delete it quickly.
+3. **No PRs for own work** — Copilot and the developer work directly on `main`. Never use `gh pr create` unless external collaboration requires it.
+4. **Release flow**: validate on `main`, push `main`, wait for `CI` and `Deploy Landing Page` as applicable, then tag `vX.Y.Z` and monitor `release.yml`.
+5. **CI runs on `main`** — every push to `main` must stay green.
 
 ### Commit Message Format (Conventional Commits)
 
@@ -1009,7 +1010,7 @@ Use the affected area: `design`, `sidebar`, `settings`, `history`, `recording`, 
 2. **Tests with features**: When adding a feature that has testable logic, include tests in the same commit or immediately after.
 3. **Run tests before commit**: `flutter test` must pass before every commit. No committing broken tests.
 4. **Run analyze before commit**: `flutter analyze` must show 0 issues before every commit.
-5. **No WIP commits on main**: Main is the release branch — only merge complete, tested work from dev. All development happens on dev.
+5. **No WIP commits on main**: `main` is both the development and release branch, so every commit must be complete, validated, and safe to keep green.
 6. **Meaningful descriptions**: `"fix stuff"` or `"update"` are not acceptable. Describe WHAT changed and WHY.
 7. **Co-authored-by trailer**: Always include the Copilot co-author trailer.
 
@@ -1023,12 +1024,14 @@ Before every commit:
 
 ## CI/CD Pipeline
 
-### CI (`ci.yml`) — Runs on every push to dev/main
+### CI (`ci.yml`) — Runs on every push to main
 
-1. **Windows only**: `flutter analyze --fatal-infos` + `flutter test` + `flutter build windows --debug`
-2. **Verify build**: Checks `.exe` exists and reports size
-3. **Secret scan**: grep for API key patterns (`sk-`, `AKIA`, `ghp_`, `password=`)
-4. No artifact upload — CI is validation only
+1. **Windows validation**: `flutter analyze --fatal-infos` + `flutter test` + `flutter build windows --debug`
+2. **C++ static analysis**: `scripts\cppcheck.ps1` against `windows/runner`
+3. **Verify build**: Checks `.exe` exists and reports size
+4. **Secret scan**: `scripts\security-scan.ps1`
+5. **Website validation**: `npm ci` + `npm audit --audit-level=high` + `npm run build` + `npm run test:ci`
+6. No artifact upload — CI is validation only
 
 ### Release (`release.yml`) — Triggered by `v*` tags
 
@@ -1070,6 +1073,7 @@ Before every commit:
 - Keep translations concise — mobile space is limited
 - Technical terms may stay in English if commonly used (e.g., "API Key", "GPU")
 - Feature name: **"Post-Processing"** (EN) / **"Nachbearbeitung"** (DE) — never "Smart Mode" or "Text Refinement" in user-facing text
+- Shortcut labels and hotkey hints are user-visible strings too — localize modifiers and special keys consistently (`Strg`, `Umschalt`, `Entf`, etc.) instead of mixing English key names into localized UI
 
 ## Competitor Awareness
 
