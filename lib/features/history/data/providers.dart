@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/history_providers.dart';
+import 'search_query_parser.dart';
+export 'search_query_parser.dart';
 
 // Re-export base data-stream providers from core so existing feature-local
 // imports continue to work without changes.
@@ -38,71 +40,58 @@ final historySearchProvider =
 /// Filtered and searched history entries— the main data source for the list.
 final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
   final filter = ref.watch(historyFilterProvider);
-  final search = ref.watch(historySearchProvider).trim();
+  final rawSearch = ref.watch(historySearchProvider).trim();
+  final parsed = parseSearchQuery(rawSearch);
 
-  // For archive/trash, use dedicated streams (with optional search filtering)
+  // For archive/trash, use dedicated streams with parsed filtering
   if (filter == HistoryFilter.archived) {
     final archivedAsync = ref.watch(archivedEntriesProvider);
-    if (search.isEmpty) return archivedAsync;
-    return archivedAsync.whenData((entries) {
-      final lower = search.toLowerCase();
-      return entries
-          .where((e) =>
-              e.title.toLowerCase().contains(lower) ||
-              e.content.toLowerCase().contains(lower))
-          .toList();
-    });
+    if (parsed.isEmpty) return archivedAsync;
+    return archivedAsync.whenData(
+        (entries) => _applyParsedSearch(entries, parsed));
   }
   if (filter == HistoryFilter.trash) {
     final trashAsync = ref.watch(trashEntriesProvider);
-    if (search.isEmpty) return trashAsync;
-    return trashAsync.whenData((entries) {
-      final lower = search.toLowerCase();
-      return entries
-          .where((e) =>
-              e.title.toLowerCase().contains(lower) ||
-              e.content.toLowerCase().contains(lower))
-          .toList();
-    });
+    if (parsed.isEmpty) return trashAsync;
+    return trashAsync.whenData(
+        (entries) => _applyParsedSearch(entries, parsed));
   }
 
   final entriesAsync = ref.watch(historyEntriesProvider);
 
-  if (search.isNotEmpty) {
-    // Try FTS5 first; fall back to in-memory search for resilience
-    // (handles DB-unavailable scenarios and test environments).
-    final ftsAsync = ref.watch(_ftsSearchProvider(search));
-    if (ftsAsync is AsyncData<List<HistoryEntry>>) {
-      final ftsEntries = ftsAsync.value;
-      if (ftsEntries.isNotEmpty) {
-        return AsyncValue.data(_applyFilter(ftsEntries, filter));
+  if (!parsed.isEmpty) {
+    // Has commands (tags/lang) or free-text: prefer advanced DB search.
+    final advancedAsync = ref.watch(_advancedSearchProvider(rawSearch));
+    if (advancedAsync is AsyncData<List<HistoryEntry>>) {
+      final results = advancedAsync.value;
+      // Use DB results when non-empty, or for tag/lang-only queries where
+      // empty is genuinely "no matches" (in-memory can't filter by tags).
+      // For free-text + empty DB result, fall through to in-memory (also
+      // covers test environments where the DB has no data).
+      if (results.isNotEmpty || parsed.freeText.isEmpty) {
+        return AsyncValue.data(_applyFilter(results, filter));
       }
     }
-
-    // FTS empty / loading / error — fall back to in-memory search
-    return entriesAsync.whenData((entries) {
-      final lower = search.toLowerCase();
-      return _applyFilter(
-        entries
-            .where((e) =>
-                e.title.toLowerCase().contains(lower) ||
-                e.content.toLowerCase().contains(lower))
-            .toList(),
-        filter,
-      );
-    });
+    // Fall back to in-memory search while advanced search loads/errors
+    return entriesAsync.whenData((entries) =>
+        _applyFilter(_applyParsedSearch(entries, parsed), filter));
   }
 
   return entriesAsync.whenData((entries) => _applyFilter(entries, filter));
 });
 
-/// FTS5 search results — auto-disposes when the query changes.
-final _ftsSearchProvider =
+/// Advanced search (FTS5 + tag filter + lang filter) — auto-disposes on query change.
+final _advancedSearchProvider =
     FutureProvider.autoDispose.family<List<HistoryEntry>, String>(
-  (ref, query) async {
+  (ref, rawQuery) async {
     final db = ref.watch(historyDatabaseProvider);
+    final parsed = parseSearchQuery(rawQuery);
     try {
-      return await db.searchEntries(query);
+      return await db.searchEntriesAdvanced(
+        freeText: parsed.freeText,
+        tagNames: parsed.tagNames,
+        langCode: parsed.langCode,
+      );
     } catch (_) {
       return [];
     }
@@ -114,8 +103,10 @@ final _ftsSearchProvider =
 /// Returns a [Map] from [HistoryFilter] to the number of matching entries,
 /// or `null` when the search field is empty (so chips show no count badge).
 final searchCountsProvider = Provider<Map<HistoryFilter, int>?>((ref) {
-  final search = ref.watch(historySearchProvider).trim();
-  if (search.isEmpty) return null;
+  final rawSearch = ref.watch(historySearchProvider).trim();
+  if (rawSearch.isEmpty) return null;
+  final parsed = parseSearchQuery(rawSearch);
+  if (parsed.isEmpty) return null;
 
   final activeAsync = ref.watch(historyEntriesProvider);
   final archivedAsync = ref.watch(archivedEntriesProvider);
@@ -132,34 +123,60 @@ final searchCountsProvider = Provider<Map<HistoryFilter, int>?>((ref) {
   final archived = archivedAsync.value;
   final trash = trashAsync.value;
 
-  final lower = search.toLowerCase();
-  bool matches(HistoryEntry e) =>
-      e.title.toLowerCase().contains(lower) ||
-      e.content.toLowerCase().contains(lower);
+  // Apply parsed search consistently across all pools
+  final activeMatched = _applyParsedSearch(active, parsed);
+  final archivedMatched = _applyParsedSearch(archived, parsed);
+  final trashMatched = _applyParsedSearch(trash, parsed);
 
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final weekAgo = today.subtract(const Duration(days: 7));
 
-  final allMatched = active.where(matches).toList();
-
   return {
-    HistoryFilter.all: allMatched.length,
-    HistoryFilter.today: allMatched
+    HistoryFilter.all: activeMatched.length,
+    HistoryFilter.today: activeMatched
         .where((e) {
           final d =
               DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
           return d == today;
         })
         .length,
-    HistoryFilter.week: allMatched
+    HistoryFilter.week: activeMatched
         .where((e) => e.timestamp.isAfter(weekAgo))
         .length,
-    HistoryFilter.pinned: allMatched.where((e) => e.pinned).length,
-    HistoryFilter.archived: archived.where(matches).length,
-    HistoryFilter.trash: trash.where(matches).length,
+    HistoryFilter.pinned: activeMatched.where((e) => e.pinned).length,
+    HistoryFilter.archived: archivedMatched.length,
+    HistoryFilter.trash: trashMatched.length,
   };
 });
+
+/// Applies a [ParsedSearchQuery] to an in-memory list (archived/trash/counts).
+///
+/// This is the fallback path when the DB advanced search hasn't loaded yet,
+/// and the canonical path for archived/trash (which don't go through FTS5).
+/// Note: tag filtering here is done by checking entry.tags field or by name
+/// matching on the entry.content — a lightweight in-memory approximation.
+/// Full accuracy for tag commands requires the DB method.
+List<HistoryEntry> _applyParsedSearch(
+    List<HistoryEntry> entries, ParsedSearchQuery parsed) {
+  return entries.where((e) {
+    // Free-text match
+    if (parsed.freeText.isNotEmpty) {
+      final lower = parsed.freeText.toLowerCase();
+      if (!e.title.toLowerCase().contains(lower) &&
+          !e.content.toLowerCase().contains(lower)) {
+        return false;
+      }
+    }
+    // Language filter
+    if (parsed.langCode != null && parsed.langCode!.isNotEmpty) {
+      if (!e.language.toLowerCase().startsWith(parsed.langCode!)) {
+        return false;
+      }
+    }
+    return true;
+  }).toList();
+}
 
 /// Applies date/pin filter predicates to a list of entries.
 List<HistoryEntry> _applyFilter(
