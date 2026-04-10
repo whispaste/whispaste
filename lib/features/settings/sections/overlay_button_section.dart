@@ -1,4 +1,4 @@
-/// Overlay settings section.
+/// Overlay & Floating Button settings sections.
 library;
 
 import 'dart:io';
@@ -15,11 +15,11 @@ import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
-// Overlay section
+// Recording Overlay section
 // ---------------------------------------------------------------------------
 
-class OverlayButtonSection extends ConsumerWidget {
-  const OverlayButtonSection({super.key});
+class OverlaySection extends ConsumerWidget {
+  const OverlaySection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -156,69 +156,90 @@ class OverlayButtonSection extends ConsumerWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
 
-          // ── Native floating button (desktop only) ────────────────────
-          if (Platform.isWindows) ...[
-            const Divider(height: 1),
+// ---------------------------------------------------------------------------
+// Floating Button section (Windows only)
+// ---------------------------------------------------------------------------
+
+class FloatingButtonSection extends ConsumerWidget {
+  const FloatingButtonSection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!Platform.isWindows) return const SizedBox.shrink();
+
+    final l10n = L10n.of(context);
+    final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+
+    return WpSection(
+      title: l10n.settingsFloatingButtonSection,
+      subtitle: l10n.settingsFloatingButtonSectionSubtitle,
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          SettingRow(
+            icon: LucideIcons.circle,
+            label: l10n.settingsShowFloatingButton,
+            subtitle: l10n.settingsShowFloatingButtonSubtitle,
+            trailing: settingsToggle(
+              value: settings.showFloatingButton,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWith(showFloatingButton: v),
+                  ),
+            ),
+          ),
+          if (settings.showFloatingButton) ...[
             SettingRow(
-              icon: LucideIcons.circle,
-              label: l10n.settingsShowFloatingButton,
-              subtitle: l10n.settingsShowFloatingButtonSubtitle,
-              trailing: settingsToggle(
-                value: settings.showFloatingButton,
+              icon: LucideIcons.maximize2,
+              label: l10n.settingsFloatingButtonSize,
+              subtitle: l10n.settingsFloatingButtonSizeSubtitle,
+              trailing: settingsDropdown(
+                context: context,
+                value: settings.floatingButtonSizeType.value,
+                items: FloatingButtonSize.values
+                    .map((e) => e.value)
+                    .toList(),
+                labels: [
+                  l10n.settingsSizeSmall,
+                  l10n.settingsSizeNormal,
+                  l10n.settingsSizeLarge,
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings(
+                        (s) => s.copyWith(floatingButtonSize: v),
+                      );
+                },
+              ),
+            ),
+            SettingRow(
+              icon: LucideIcons.sun,
+              label: l10n.settingsFloatingButtonOpacity,
+              subtitle: l10n.settingsFloatingButtonOpacitySubtitle,
+              trailing: settingsSlider(
+                context: context,
+                value: settings.floatingButtonOpacity,
+                min: 0.3,
+                max: 1.0,
+                divisions: 7,
+                valueLabel:
+                    '${(settings.floatingButtonOpacity * 100).round()}%',
                 onChanged: (v) => ref
                     .read(settingsProvider.notifier)
                     .updateSettings(
-                      (s) => s.copyWith(showFloatingButton: v),
+                      (s) => s.copyWith(floatingButtonOpacity: v),
                     ),
               ),
             ),
-            if (settings.showFloatingButton) ...[
-              SettingRow(
-                icon: LucideIcons.maximize2,
-                label: l10n.settingsFloatingButtonSize,
-                subtitle: l10n.settingsFloatingButtonSizeSubtitle,
-                trailing: settingsDropdown(
-                  context: context,
-                  value: settings.floatingButtonSizeType.value,
-                  items: FloatingButtonSize.values
-                      .map((e) => e.value)
-                      .toList(),
-                  labels: [
-                    l10n.settingsSizeSmall,
-                    l10n.settingsSizeNormal,
-                    l10n.settingsSizeLarge,
-                  ],
-                  onChanged: (v) {
-                    if (v == null) return;
-                    ref
-                        .read(settingsProvider.notifier)
-                        .updateSettings(
-                          (s) => s.copyWith(floatingButtonSize: v),
-                        );
-                  },
-                ),
-              ),
-              SettingRow(
-                icon: LucideIcons.sun,
-                label: l10n.settingsFloatingButtonOpacity,
-                subtitle: l10n.settingsFloatingButtonOpacitySubtitle,
-                trailing: settingsSlider(
-                  context: context,
-                  value: settings.floatingButtonOpacity,
-                  min: 0.3,
-                  max: 1.0,
-                  divisions: 7,
-                  valueLabel:
-                      '${(settings.floatingButtonOpacity * 100).round()}%',
-                  onChanged: (v) => ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings(
-                        (s) => s.copyWith(floatingButtonOpacity: v),
-                      ),
-                ),
-              ),
-            ],
           ],
         ],
       ),

@@ -393,7 +393,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                     onPostProcessTap: () {
                       ref
                           .read(settingsScrollTargetProvider.notifier)
-                          .set('postprocessing');
+                          .set('afterTranscription');
                       ref.read(activePageProvider.notifier).setPage('settings');
                     },
                     onAfterActionChanged: (action) {

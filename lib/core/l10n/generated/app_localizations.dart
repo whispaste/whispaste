@@ -3900,6 +3900,42 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 day} other{{count} days}}'**
   String settingsHistoryAutoTrashDaysLabel(int count);
+
+  /// No description provided for @settingsFloatingButtonSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Floating Button'**
+  String get settingsFloatingButtonSection;
+
+  /// No description provided for @settingsFloatingButtonSectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Always-on-top recording button for quick access'**
+  String get settingsFloatingButtonSectionSubtitle;
+
+  /// No description provided for @settingsSttIdleTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Engine idle timeout'**
+  String get settingsSttIdleTimeout;
+
+  /// No description provided for @settingsSttIdleTimeoutSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How long the speech engine stays loaded after use'**
+  String get settingsSttIdleTimeoutSubtitle;
+
+  /// No description provided for @settingsSttIdleTimeoutKeepAlive.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep alive'**
+  String get settingsSttIdleTimeoutKeepAlive;
+
+  /// No description provided for @settingsSttIdleTimeoutMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 minute} other{{count} minutes}}'**
+  String settingsSttIdleTimeoutMinutes(int count);
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

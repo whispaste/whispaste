@@ -706,5 +706,13 @@
   "settingsHistoryAutoTrashDays": "Papierkorb leeren nach",
   "settingsHistoryAutoTrashNever": "Nie",
   "settingsHistoryAutoTrashDaysLabel": "{count, plural, =1{1 Tag} other{{count} Tage}}",
-  "@settingsHistoryAutoTrashDaysLabel": { "placeholders": { "count": { "type": "int" } } }
+  "@settingsHistoryAutoTrashDaysLabel": { "placeholders": { "count": { "type": "int" } } },
+
+  "settingsFloatingButtonSection": "Schwebender Button",
+  "settingsFloatingButtonSectionSubtitle": "Immer sichtbarer Aufnahme-Button für schnellen Zugriff",
+  "settingsSttIdleTimeout": "Sprachmodul-Leerlauf",
+  "settingsSttIdleTimeoutSubtitle": "Wie lange das Sprachmodul nach Nutzung geladen bleibt",
+  "settingsSttIdleTimeoutKeepAlive": "Dauerhaft aktiv",
+  "settingsSttIdleTimeoutMinutes": "{count, plural, =1{1 Minute} other{{count} Minuten}}",
+  "@settingsSttIdleTimeoutMinutes": { "placeholders": { "count": { "type": "int" } } }
 }
