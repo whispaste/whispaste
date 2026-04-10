@@ -10,6 +10,7 @@
 #include <flutter/standard_method_codec.h>
 
 #include <memory>
+#include <optional>
 
 #include "floating_overlay_window.h"
 
@@ -38,6 +39,14 @@ class FloatingOverlayHost {
 
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
   std::unique_ptr<FloatingOverlayWindow> window_;
+
+  // Pending position to apply after lazy window creation.
+  struct PendingPosition {
+    double x;
+    double y;
+    OverlayAnchorMode anchor;
+  };
+  std::optional<PendingPosition> pending_position_;
 };
 
 #endif  // FLOATING_OVERLAY_HOST_H_

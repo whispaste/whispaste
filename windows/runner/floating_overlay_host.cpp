@@ -176,6 +176,13 @@ void FloatingOverlayHost::HandleMethodCall(
             m[EncodableValue("action")] = EncodableValue(action);
             SendEvent("onContextMenu", EncodableValue(m));
           });
+
+      // Apply any position that arrived before the window was created.
+      if (pending_position_) {
+        window_->SetPosition(pending_position_->x, pending_position_->y,
+                             pending_position_->anchor);
+        pending_position_ = std::nullopt;
+      }
     }
 
     if (map) {
@@ -196,10 +203,17 @@ void FloatingOverlayHost::HandleMethodCall(
 
   // ── setPosition ─────────────────────────────────────────────────────
   if (method == "setPosition") {
-    if (window_ && map) {
-      window_->SetPosition(
-          GetDouble(*map, "x", 0.0), GetDouble(*map, "y", 0.0),
-          ParseAnchor(GetString(*map, "anchorMode", "top_center")));
+    if (map) {
+      double x = GetDouble(*map, "x", 0.0);
+      double y = GetDouble(*map, "y", 0.0);
+      OverlayAnchorMode anchor =
+          ParseAnchor(GetString(*map, "anchorMode", "top_center"));
+      if (window_) {
+        window_->SetPosition(x, y, anchor);
+      } else {
+        // Window not yet created — store for application after creation.
+        pending_position_ = {x, y, anchor};
+      }
     }
     result->Success();
     return;
