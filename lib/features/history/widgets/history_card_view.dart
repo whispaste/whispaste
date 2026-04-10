@@ -7,6 +7,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../data/providers.dart';
+import 'highlighted_text.dart';
 import 'history_date_header.dart';
 import 'history_helpers.dart';
 import 'history_row_action.dart';
@@ -186,12 +187,13 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                   ),
                   const SizedBox(width: WpSpacing.xs),
                   Expanded(
-                    child: Text(
-                      widget.entry.title.isNotEmpty
+                    child: HighlightedText(
+                      text: widget.entry.title.isNotEmpty
                           ? widget.entry.title
                           : L10n.of(context).historyUntitledRecording,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      isDark: isDark,
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -232,10 +234,11 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
               const SizedBox(height: WpSpacing.xs),
               // Content preview (3-4 lines)
               Expanded(
-                child: Text(
-                  widget.entry.content,
+                child: HighlightedText(
+                  text: widget.entry.content,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
+                  isDark: isDark,
                   style: TextStyle(
                     fontSize: 13,
                     color: textSecondary,

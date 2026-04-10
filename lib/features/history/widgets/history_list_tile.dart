@@ -6,6 +6,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'highlighted_text.dart';
 import 'history_helpers.dart';
 import 'history_row_action.dart';
 
@@ -166,12 +167,13 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                         Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                widget.entry.title.isNotEmpty
+                              child: HighlightedText(
+                                text: widget.entry.title.isNotEmpty
                                     ? widget.entry.title
                                     : l10n.historyUntitledRecording,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
+                                isDark: isDark,
                                 style: TextStyle(
                                   fontSize: 14.5,
                                   fontWeight: FontWeight.w600,
@@ -195,10 +197,11 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                         ),
                     const SizedBox(height: 3),
                     // Row 2: Content preview — two lines for more context
-                    Text(
-                      widget.entry.content,
+                    HighlightedText(
+                      text: widget.entry.content,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
+                      isDark: isDark,
                       style: TextStyle(
                         fontSize: 14,
                         color: textSecondary,

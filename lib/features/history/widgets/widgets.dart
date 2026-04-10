@@ -1,3 +1,4 @@
+export 'highlighted_text.dart';
 export 'history_card_view.dart';
 export 'history_compact_view.dart';
 export 'history_date_header.dart';
