@@ -132,6 +132,9 @@ class RecordingOrchestrator extends Notifier<void> {
       final sid = ref.read(recordingProvider).sessionId ?? '?';
       _log.info('[$sid] Recording started');
 
+      // Notify STT service that a recording is active (pauses idle timer).
+      ref.read(sttServiceProvider.notifier).notifyRecordingStarted();
+
       _hasCapturedPasteTarget = await _capturePasteTarget();
 
       // Start audio capture.
@@ -146,6 +149,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // Verify recording actually started.
       final audioStatus = ref.read(audioServiceProvider);
       if (audioStatus.captureState == AudioCaptureState.error) {
+        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
         notifier.fail(audioStatus.errorMessage ?? 'recording_failed');
         return;
       }
@@ -163,6 +167,7 @@ class RecordingOrchestrator extends Notifier<void> {
         },
       );
     } on Exception catch (e) {
+      ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
       ref.read(recordingProvider.notifier).fail('$e');
     } finally {
       _startInFlight = false;
@@ -398,10 +403,12 @@ class RecordingOrchestrator extends Notifier<void> {
 
       // Transition state: transcribing/processing → done.
       notifier.completeTranscription(finalText);
+      ref.read(sttServiceProvider.notifier).notifyTranscriptionCompleted();
       pipelineOutcome = 'ok';
     } on Exception catch (e) {
       pipelineOutcome = 'exception';
       notifier.fail('$e');
+      ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
       _log.error('[$sid] Pipeline error: $e');
     } finally {
       watchdog.cancel();
@@ -660,9 +667,11 @@ class RecordingOrchestrator extends Notifier<void> {
       _cancelAmplitude();
       final audioNotifier = ref.read(audioServiceProvider.notifier);
       await audioNotifier.stopRecording();
+      ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
       ref.read(recordingProvider.notifier).fail('recording_guard_failed');
     } on Exception catch (e) {
       _log.warning('Error during dead-mic cleanup: $e');
+      ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
       ref.read(recordingProvider.notifier).fail('recording_guard_failed');
     }
   }

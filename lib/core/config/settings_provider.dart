@@ -40,6 +40,7 @@ class AppSettings {
     this.sttProvider = 'On Device',
     this.sttModel = 'whisper-medium',
     this.sttLanguage = 'Auto-detect',
+    this.sttIdleTimeoutMinutes = 5,
     // Post-Processing
     this.postProcessEnabled = false,
     this.postProcessPreset = 'Clean up',
@@ -127,6 +128,8 @@ class AppSettings {
   final String sttProvider;
   final String sttModel;
   final String sttLanguage;
+  /// Minutes before idle STT server is shut down (0 = keep alive).
+  final int sttIdleTimeoutMinutes;
 
   // Post-Processing
   final bool postProcessEnabled;
@@ -299,6 +302,11 @@ class AppSettings {
       sttProvider: values['stt_provider'] ?? defaults.sttProvider,
       sttModel: _migrateModelId(values['stt_model'] ?? defaults.sttModel),
       sttLanguage: values['stt_language'] ?? defaults.sttLanguage,
+      sttIdleTimeoutMinutes: _readInt(
+        values,
+        'stt_idle_timeout_minutes',
+        defaults.sttIdleTimeoutMinutes,
+      ),
       postProcessEnabled: _readBool(
         values,
         'post_process_enabled',
@@ -492,6 +500,7 @@ class AppSettings {
       'stt_provider': sttProvider,
       'stt_model': sttModel,
       'stt_language': sttLanguage,
+      'stt_idle_timeout_minutes': '$sttIdleTimeoutMinutes',
       'post_process_enabled': '$postProcessEnabled',
       'post_process_preset': postProcessPreset,
       'post_process_provider': postProcessProvider,
@@ -559,6 +568,7 @@ class AppSettings {
     String? sttProvider,
     String? sttModel,
     String? sttLanguage,
+    int? sttIdleTimeoutMinutes,
     bool? postProcessEnabled,
     String? postProcessPreset,
     String? postProcessProvider,
@@ -623,6 +633,8 @@ class AppSettings {
       sttProvider: sttProvider ?? this.sttProvider,
       sttModel: sttModel ?? this.sttModel,
       sttLanguage: sttLanguage ?? this.sttLanguage,
+      sttIdleTimeoutMinutes:
+          sttIdleTimeoutMinutes ?? this.sttIdleTimeoutMinutes,
       postProcessEnabled: postProcessEnabled ?? this.postProcessEnabled,
       postProcessPreset: postProcessPreset ?? this.postProcessPreset,
       postProcessProvider: postProcessProvider ?? this.postProcessProvider,
@@ -697,6 +709,7 @@ class AppSettings {
           sttProvider == other.sttProvider &&
           sttModel == other.sttModel &&
           sttLanguage == other.sttLanguage &&
+          sttIdleTimeoutMinutes == other.sttIdleTimeoutMinutes &&
           postProcessEnabled == other.postProcessEnabled &&
           postProcessPreset == other.postProcessPreset &&
           postProcessProvider == other.postProcessProvider &&
@@ -816,6 +829,7 @@ class AppSettings {
           windowHeight,
           windowMaximized,
           onboardingCompleted,
+          sttIdleTimeoutMinutes,
         ),
       ),
     ),
