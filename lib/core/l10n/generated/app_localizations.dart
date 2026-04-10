@@ -907,12 +907,6 @@ abstract class L10n {
   /// **'Choose where live recording feedback appears while you dictate'**
   String get settingsShowOverlaySubtitle;
 
-  /// No description provided for @settingsOverlayModeInWindow.
-  ///
-  /// In en, this message translates to:
-  /// **'In main window'**
-  String get settingsOverlayModeInWindow;
-
   /// No description provided for @settingsOverlayModeFloating.
   ///
   /// In en, this message translates to:
@@ -978,6 +972,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Only affects the floating button, not the recording overlay'**
   String get settingsFloatingButtonOpacitySubtitle;
+
+  /// No description provided for @settingsFloatingOverlayOpacity.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay opacity'**
+  String get settingsFloatingOverlayOpacity;
+
+  /// No description provided for @settingsFloatingOverlayOpacitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Transparency of the floating recording overlay'**
+  String get settingsFloatingOverlayOpacitySubtitle;
 
   /// No description provided for @settingsFloatingButtonSize.
   ///
@@ -2137,12 +2143,6 @@ abstract class L10n {
   /// **'Post-Processing'**
   String get statusBarPostProcessing;
 
-  /// No description provided for @statusBarOverlayInWindow.
-  ///
-  /// In en, this message translates to:
-  /// **'Overlay: Window'**
-  String get statusBarOverlayInWindow;
-
   /// No description provided for @statusBarOverlayFloating.
   ///
   /// In en, this message translates to:
@@ -2550,12 +2550,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'{tierLabel} (Whisper {modelLabel})'**
   String analyticsModelDisplayName(String tierLabel, String modelLabel);
-
-  /// No description provided for @settingsOverlayInWindowHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Only visible while the main window is open'**
-  String get settingsOverlayInWindowHint;
 
   /// No description provided for @settingsQualityBasic.
   ///

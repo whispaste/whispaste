@@ -147,7 +147,6 @@
   "settingsOverlayFloatingButtonSubtitle": "Lege fest, wie der Aufnahmezustand beim Diktieren angezeigt wird",
   "settingsShowOverlay": "Anzeige des Aufnahme-Status",
   "settingsShowOverlaySubtitle": "Wähle, wo du während des Diktierens Live-Feedback zur Aufnahme siehst",
-  "settingsOverlayModeInWindow": "Im Hauptfenster",
   "settingsOverlayModeFloating": "Schwebendes Fenster (immer sichtbar)",
   "settingsOverlayModeOff": "Aus",
   "settingsOverlayStartPosition": "Overlay-Startposition",
@@ -159,6 +158,8 @@
   "settingsShowFloatingButtonSubtitle": "Kleiner immer sichtbarer Button zum Starten oder Stoppen der Aufnahme aus jeder App",
   "settingsFloatingButtonOpacity": "Deckkraft des schwebenden Buttons",
   "settingsFloatingButtonOpacitySubtitle": "Betrifft nur den schwebenden Button, nicht das Aufnahme-Overlay",
+  "settingsFloatingOverlayOpacity": "Overlay-Deckkraft",
+  "settingsFloatingOverlayOpacitySubtitle": "Transparenz des schwebenden Aufnahme-Overlays",
   "settingsFloatingButtonSize": "Größe des schwebenden Buttons",
   "settingsFloatingButtonSizeSubtitle": "Lege fest, wie präsent der immer sichtbare Button wirken soll",
   "settingsSizeSmall": "Klein",
@@ -365,7 +366,6 @@
 
   "statusBarOnDevice": "Auf dem Gerät",
   "statusBarPostProcessing": "Nachbearbeitung",
-  "statusBarOverlayInWindow": "Overlay: Fenster",
   "statusBarOverlayFloating": "Overlay: Schwebend",
   "statusBarOverlayOff": "Overlay: Aus",
   "statusBarAfterCopy": "Danach: Kopieren",
@@ -441,7 +441,6 @@
   "@qualityTierModelTooltip": { "placeholders": { "modelName": { "type": "String" }, "size": { "type": "String" } } },
   "analyticsModelDisplayName": "{tierLabel} (Whisper {modelLabel})",
   "@analyticsModelDisplayName": { "placeholders": { "tierLabel": { "type": "String" }, "modelLabel": { "type": "String" } } },
-  "settingsOverlayInWindowHint": "Nur sichtbar, solange das Hauptfenster geöffnet ist",
 
 
   "settingsQualityBasic": "Standard",

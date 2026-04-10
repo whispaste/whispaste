@@ -9,7 +9,7 @@ import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/recording/recording_state.dart';
-import '../../widgets/recording_pill.dart';
+import '../../core/recording/recording_helpers.dart';
 import '../recording_orchestrator.dart';
 import 'floating_overlay_controller.dart';
 import 'floating_overlay_events.dart';
@@ -101,6 +101,9 @@ class FloatingOverlayService extends Notifier<void> {
 
     // Send context menu items with localized strings.
     _sendContextMenuItems();
+
+    // Apply opacity setting to native window.
+    _controller!.setOpacity(s.floatingOverlayOpacity);
 
     // If currently in a non-idle phase, re-send snapshot with updated settings.
     final phase = ref.read(recordingPhaseProvider);
@@ -209,7 +212,7 @@ class FloatingOverlayService extends Notifier<void> {
       privacyMode: isLocal ? 'local' : 'cloud',
       showRetry: phase == RecordingPhase.error,
       doneMessage: phase == RecordingPhase.done && l10n != null
-          ? RecordingPill.doneMessageFor(s.afterTranscription, l10n)
+          ? doneMessageFor(s.afterTranscription, l10n)
           : null,
       processingLabel: phase == RecordingPhase.processing
           ? (l10n?.overlayRefining ?? 'Refining…')

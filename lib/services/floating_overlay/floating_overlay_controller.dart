@@ -110,6 +110,9 @@ abstract class FloatingOverlayController {
   /// Stream of events from the native overlay window.
   Stream<FloatingOverlayEvent> get events;
 
+  /// Set overlay opacity (0.0–1.0). Applied immediately on the native window.
+  Future<void> setOpacity(double opacity);
+
   /// Destroy the native window and clean up resources.
   Future<void> dispose();
 }

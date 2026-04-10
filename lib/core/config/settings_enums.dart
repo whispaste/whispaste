@@ -139,7 +139,6 @@ enum AfterTranscriptionAction {
 
 /// Where the recording overlay is displayed.
 enum OverlayMode {
-  inWindow('in-window'),
   floating('floating'),
   off('off');
 
@@ -150,7 +149,9 @@ enum OverlayMode {
     for (final e in values) {
       if (e.value == v) return e;
     }
-    return inWindow;
+    // Migrate legacy 'in-window' → floating
+    if (v == 'in-window') return floating;
+    return floating;
   }
 }
 

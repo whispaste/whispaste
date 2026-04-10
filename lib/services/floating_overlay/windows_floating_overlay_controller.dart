@@ -61,6 +61,12 @@ class WindowsFloatingOverlayController extends FloatingOverlayController {
   }
 
   @override
+  Future<void> setOpacity(double opacity) async {
+    if (_disposed) return;
+    await _channel.invokeMethod('setOpacity', {'opacity': opacity});
+  }
+
+  @override
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
