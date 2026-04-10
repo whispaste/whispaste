@@ -18,12 +18,12 @@ namespace {
 // ── Layout constants (logical pixels) ─────────────────────────────────
 constexpr float kPulseMaxScale = 1.8f;
 constexpr float kRingStroke = 2.5f;
-constexpr float kShadowBlur1 = 12.0f;
-constexpr float kShadowOffset1 = 4.0f;
-constexpr BYTE kShadowAlpha1 = 0x66;   // 40% — matches WpShadows.fab layer 1
+constexpr float kShadowBlur1 = 10.0f;
+constexpr float kShadowOffset1 = 3.0f;
+constexpr BYTE kShadowAlpha1 = 0x30;   // ~19% — subtle elevated shadow
 constexpr float kShadowBlur2 = 2.0f;
 constexpr float kShadowOffset2 = 0.0f;
-constexpr BYTE kShadowAlpha2 = 0x1A;   // 10% — matches WpShadows.fab layer 2
+constexpr BYTE kShadowAlpha2 = 0x0F;   // ~6% — barely perceptible contact shadow
 constexpr float kSafetyPad = 2.0f;
 constexpr float kIconSize = 24.0f;     // Lucide viewbox
 constexpr float kIconStroke = 2.0f;    // Lucide default stroke-width
