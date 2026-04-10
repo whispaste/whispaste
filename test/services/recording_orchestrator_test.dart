@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/native.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
@@ -15,6 +16,7 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/audio_service.dart';
+import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/path_service.dart' show sttDirOverride;
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/stt_service.dart';
@@ -89,10 +91,7 @@ class FakeSttService extends SttServiceNotifier {
   }
 
   @override
-  Future<String> transcribeBytes(
-    List<int> wavBytes, {
-    String? language,
-  }) async {
+  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
     if (transcribeThrows) {
       throw Exception('Transcription failed');
     }
@@ -106,12 +105,12 @@ class FakeSttService extends SttServiceNotifier {
 /// Fake settings notifier — returns test defaults without DB or secure store.
 class FakeSettingsNotifier extends SettingsNotifier {
   FakeSettingsNotifier([AppSettings? settings])
-      : _settings = settings ?? _testDefaults;
+    : _settings = settings ?? _testDefaults;
 
   final AppSettings _settings;
 
-  /// Test defaults with clipboard action disabled to avoid platform channels
-  /// and post-processing disabled (not yet implemented).
+  /// Test defaults keep post-processing disabled to stay focused on the
+  /// transcription pipeline in these unit tests.
   static const _testDefaults = AppSettings(
     afterTranscription: 'nothing',
     postProcessEnabled: false,
@@ -131,8 +130,7 @@ class FakeSecureKeyStore extends SecureKeyStore {
   Future<String?> readKey(String key) async => _store[key];
 
   @override
-  Future<void> writeKey(String key, String value) async =>
-      _store[key] = value;
+  Future<void> writeKey(String key, String value) async => _store[key] = value;
 
   @override
   Future<void> deleteKey(String key) async => _store.remove(key);
@@ -141,14 +139,44 @@ class FakeSecureKeyStore extends SecureKeyStore {
   Future<Map<String, String>> readAllApiKeys() async => {};
 }
 
+/// Fake desktop paste bridge that records capture/paste calls.
+class FakeDesktopPasteController extends DesktopPasteController {
+  int captureCalls = 0;
+  int pasteCalls = 0;
+  Duration? lastDelay;
+  bool pasteResult = true;
+  bool captureResult = true;
+  final captureResults = <bool>[];
+  bool disposed = false;
+
+  @override
+  Future<bool> capturePasteTarget() async {
+    captureCalls += 1;
+    if (captureResults.isNotEmpty) {
+      return captureResults.removeAt(0);
+    }
+    return captureResult;
+  }
+
+  @override
+  Future<bool> pasteClipboard({required Duration delay}) async {
+    pasteCalls += 1;
+    lastDelay = delay;
+    return pasteResult;
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /// Directory for scratch files used during tests.
-final _scratchDir = Directory(
-  'test${Platform.pathSeparator}.scratch',
-);
+final _scratchDir = Directory('test${Platform.pathSeparator}.scratch');
 
 /// Creates a fake WAV file with a minimal RIFF header + padding.
 /// Returns the file with an absolute path.
@@ -159,9 +187,7 @@ File createFakeWav(String name) {
   bytes[1] = 0x49; // I
   bytes[2] = 0x46; // F
   bytes[3] = 0x46; // F
-  final file = File(
-    '${_scratchDir.path}${Platform.pathSeparator}$name',
-  );
+  final file = File('${_scratchDir.path}${Platform.pathSeparator}$name');
   file.parent.createSync(recursive: true);
   file.writeAsBytesSync(bytes);
   return file;
@@ -177,8 +203,26 @@ void main() {
   late ProviderContainer container;
   late FakeAudioService fakeAudio;
   late FakeSttService fakeStt;
+  late FakeDesktopPasteController fakeDesktopPaste;
   late HistoryDatabase db;
   late File wavFile;
+  String? clipboardText;
+
+  ProviderContainer buildContainer(AppSettings settings) {
+    return ProviderContainer(
+      overrides: [
+        historyDatabaseProvider.overrideWith((ref) {
+          ref.onDispose(db.close);
+          return db;
+        }),
+        audioServiceProvider.overrideWith(() => fakeAudio),
+        sttServiceProvider.overrideWith(() => fakeStt),
+        settingsProvider.overrideWith(() => FakeSettingsNotifier(settings)),
+        secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
+        desktopPasteControllerProvider.overrideWith((ref) => fakeDesktopPaste),
+      ],
+    );
+  }
 
   setUp(() async {
     // Isolate preflight checks from the real filesystem by pointing
@@ -190,29 +234,35 @@ void main() {
       'test_audio_${DateTime.now().millisecondsSinceEpoch}.wav',
     );
 
-    fakeAudio = FakeAudioService()
-      ..wavPathToReturn = wavFile.absolute.path;
+    fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
     fakeStt = FakeSttService();
+    fakeDesktopPaste = FakeDesktopPasteController();
     db = HistoryDatabase.forTesting(NativeDatabase.memory());
+    clipboardText = null;
 
-    container = ProviderContainer(
-      overrides: [
-        historyDatabaseProvider.overrideWith((ref) {
-          ref.onDispose(db.close);
-          return db;
-        }),
-        audioServiceProvider.overrideWith(() => fakeAudio),
-        sttServiceProvider.overrideWith(() => fakeStt),
-        settingsProvider.overrideWith(
-          () => FakeSettingsNotifier(const AppSettings(
-            sttModel: 'whisper-small',
-            sttLanguage: 'English',
-            onboardingCompleted: true,
-          )),
-        ),
-        secureKeyStoreProvider
-            .overrideWith((ref) => FakeSecureKeyStore()),
-      ],
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          switch (call.method) {
+            case 'Clipboard.setData':
+              final args = Map<String, dynamic>.from(call.arguments as Map);
+              clipboardText = args['text'] as String?;
+              return null;
+            case 'Clipboard.getData':
+              if (clipboardText == null) return null;
+              return <String, dynamic>{'text': clipboardText};
+            default:
+              return null;
+          }
+        });
+
+    container = buildContainer(
+      const AppSettings(
+        sttModel: 'whisper-small',
+        sttLanguage: 'English',
+        afterTranscription: 'nothing',
+        postProcessEnabled: false,
+        onboardingCompleted: true,
+      ),
     );
 
     // Ensure async providers resolve before tests run.
@@ -222,6 +272,8 @@ void main() {
   tearDown(() {
     sttDirOverride = null;
     container.dispose();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null);
     if (wavFile.existsSync()) {
       try {
         wavFile.deleteSync();
@@ -251,10 +303,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     container.read(recordingProvider.notifier).startRecording();
-    expect(
-      container.read(recordingProvider).phase,
-      RecordingPhase.recording,
-    );
+    expect(container.read(recordingProvider).phase, RecordingPhase.recording);
     return orch;
   }
 
@@ -298,9 +347,7 @@ void main() {
 
       await orch.stopRecording();
 
-      final stats = await db.customSelect(
-        'SELECT * FROM daily_stats',
-      ).get();
+      final stats = await db.customSelect('SELECT * FROM daily_stats').get();
       expect(stats, isNotEmpty);
     });
 
@@ -535,8 +582,7 @@ void main() {
       expect(state.errorMessage, isNull);
     });
 
-    test('toggleRecording from idle with missing binary stays idle',
-        () async {
+    test('toggleRecording from idle with missing binary stays idle', () async {
       container.read(recordingOrchestratorProvider);
       await Future<void>.delayed(Duration.zero);
 
@@ -544,10 +590,7 @@ void main() {
           .read(recordingOrchestratorProvider.notifier)
           .toggleRecording();
 
-      expect(
-        container.read(recordingProvider).phase,
-        RecordingPhase.idle,
-      );
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
     });
   });
 
@@ -591,19 +634,19 @@ void main() {
             return memDb;
           }),
           audioServiceProvider.overrideWith(() {
-            return FakeAudioService()
-              ..wavPathToReturn = wavFile.absolute.path;
+            return FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
           }),
           sttServiceProvider.overrideWith(() => customStt),
           settingsProvider.overrideWith(
-            () => FakeSettingsNotifier(const AppSettings(
-              sttModel: 'whisper-small',
-              sttLanguage: 'English',
-              onboardingCompleted: true,
-            )),
+            () => FakeSettingsNotifier(
+              const AppSettings(
+                sttModel: 'whisper-small',
+                sttLanguage: 'English',
+                onboardingCompleted: true,
+              ),
+            ),
           ),
-          secureKeyStoreProvider
-              .overrideWith((ref) => FakeSecureKeyStore()),
+          secureKeyStoreProvider.overrideWith((ref) => FakeSecureKeyStore()),
         ],
       );
       addTearDown(c2.dispose);
@@ -655,10 +698,7 @@ void main() {
           .read(recordingOrchestratorProvider.notifier)
           .toggleRecording();
 
-      expect(
-        container.read(recordingProvider).phase,
-        RecordingPhase.error,
-      );
+      expect(container.read(recordingProvider).phase, RecordingPhase.error);
     });
   });
 
@@ -674,30 +714,18 @@ void main() {
       wavFile = createFakeWav(
         'test_audio_clip_${DateTime.now().millisecondsSinceEpoch}.wav',
       );
-      fakeAudio = FakeAudioService()
-        ..wavPathToReturn = wavFile.absolute.path;
+      fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
       fakeStt = FakeSttService()..transcriptToReturn = 'Clipboard text';
+      clipboardText = 'Existing clipboard';
 
-      container = ProviderContainer(
-        overrides: [
-          historyDatabaseProvider.overrideWith((ref) {
-            ref.onDispose(db.close);
-            return db;
-          }),
-          audioServiceProvider.overrideWith(() => fakeAudio),
-          sttServiceProvider.overrideWith(() => fakeStt),
-          settingsProvider.overrideWith(
-            () => FakeSettingsNotifier(const AppSettings(
-              sttModel: 'whisper-small',
-              sttLanguage: 'English',
-              afterTranscription: 'clipboard',
-              postProcessEnabled: false,
-              onboardingCompleted: true,
-            )),
-          ),
-          secureKeyStoreProvider
-              .overrideWith((ref) => FakeSecureKeyStore()),
-        ],
+      container = buildContainer(
+        const AppSettings(
+          sttModel: 'whisper-small',
+          sttLanguage: 'English',
+          afterTranscription: 'clipboard',
+          postProcessEnabled: false,
+          onboardingCompleted: true,
+        ),
       );
       await container.read(settingsProvider.future);
 
@@ -716,23 +744,121 @@ void main() {
       final entries = await db.allEntries();
       expect(entries, hasLength(1));
       expect(entries.first.content, 'Clipboard text');
+      expect(clipboardText, 'Clipboard text');
+      expect(fakeDesktopPaste.pasteCalls, 0);
     });
 
     test('pipeline completes with action=nothing (no clipboard)', () async {
       // Default FakeSettingsNotifier uses afterTranscription='nothing'.
+      clipboardText = 'Keep me';
       fakeStt.transcriptToReturn = 'No clipboard';
       final orch = await startRecordingPhase();
 
       await orch.stopRecording();
 
-      expect(
-        container.read(recordingProvider).phase,
-        RecordingPhase.done,
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+      expect(container.read(recordingProvider).transcript, 'No clipboard');
+      expect(clipboardText, 'Keep me');
+      expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+
+    test(
+      'paste action restores previous clipboard text after pasting',
+      () async {
+        container.dispose();
+        db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        wavFile = createFakeWav(
+          'test_audio_paste_${DateTime.now().millisecondsSinceEpoch}.wav',
+        );
+        fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
+        fakeStt = FakeSttService()..transcriptToReturn = 'Paste only';
+        clipboardText = 'Original clipboard';
+
+        container = buildContainer(
+          const AppSettings(
+            sttModel: 'whisper-small',
+            sttLanguage: 'English',
+            afterTranscription: 'paste',
+            autoPasteDelay: 350,
+            postProcessEnabled: false,
+            onboardingCompleted: true,
+          ),
+        );
+        await container.read(settingsProvider.future);
+
+        final orch = await startRecordingPhase();
+        await orch.stopRecording();
+
+        expect(container.read(recordingProvider).phase, RecordingPhase.done);
+        expect(fakeDesktopPaste.pasteCalls, 1);
+        expect(fakeDesktopPaste.lastDelay, const Duration(milliseconds: 350));
+        expect(clipboardText, 'Original clipboard');
+      },
+    );
+
+    test(
+      'paste captures a target before pasting when none is available yet',
+      () async {
+        container.dispose();
+        db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        wavFile = createFakeWav(
+          'test_audio_retry_capture_${DateTime.now().millisecondsSinceEpoch}.wav',
+        );
+        fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
+        fakeStt = FakeSttService()..transcriptToReturn = 'Retry capture';
+        clipboardText = 'Original clipboard';
+
+        container = buildContainer(
+          const AppSettings(
+            sttModel: 'whisper-small',
+            sttLanguage: 'English',
+            afterTranscription: 'paste',
+            autoPasteDelay: 200,
+            postProcessEnabled: false,
+            onboardingCompleted: true,
+          ),
+        );
+        await container.read(settingsProvider.future);
+
+        final orch = await startRecordingPhase();
+        await orch.stopRecording();
+
+        expect(container.read(recordingProvider).phase, RecordingPhase.done);
+        expect(fakeDesktopPaste.captureCalls, 1);
+        expect(fakeDesktopPaste.pasteCalls, 1);
+        expect(clipboardText, 'Original clipboard');
+      },
+    );
+
+    test('clipboard_and_paste keeps transcript on clipboard', () async {
+      container.dispose();
+      db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      wavFile = createFakeWav(
+        'test_audio_both_${DateTime.now().millisecondsSinceEpoch}.wav',
       );
-      expect(
-        container.read(recordingProvider).transcript,
-        'No clipboard',
+      fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
+      fakeStt = FakeSttService()..transcriptToReturn = 'Copy and paste';
+      clipboardText = 'Original clipboard';
+
+      container = buildContainer(
+        const AppSettings(
+          sttModel: 'whisper-small',
+          sttLanguage: 'English',
+          afterTranscription: 'clipboard_and_paste',
+          autoPasteDelay: 125,
+          postProcessEnabled: false,
+          onboardingCompleted: true,
+        ),
       );
+      await container.read(settingsProvider.future);
+
+      final orch = await startRecordingPhase();
+      await orch.stopRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+      expect(fakeDesktopPaste.pasteCalls, 1);
+      expect(fakeDesktopPaste.lastDelay, const Duration(milliseconds: 125));
+      expect(clipboardText, 'Copy and paste');
     });
   });
 
@@ -783,8 +909,7 @@ class _NotReadySttService extends SttServiceNotifier {
   Future<String> transcribeBytes(
     List<int> wavBytes, {
     String? language,
-  }) async =>
-      '';
+  }) async => '';
 
   @override
   Future<void> prewarm() async {}

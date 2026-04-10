@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "desktop_paste_host.h"
 #include "floating_button_host.h"
 #include "floating_overlay_host.h"
 #include "win32_window.h"
@@ -36,6 +37,9 @@ class FlutterWindow : public Win32Window {
 
   // Native floating overlay (runner-owned, destroyed before engine teardown).
   std::unique_ptr<FloatingOverlayHost> floating_overlay_host_;
+
+  // Native desktop paste bridge (runner-owned, destroyed before engine teardown).
+  std::unique_ptr<DesktopPasteHost> desktop_paste_host_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

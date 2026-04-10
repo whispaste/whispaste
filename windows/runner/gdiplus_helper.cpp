@@ -97,67 +97,33 @@ float AnimProgress(DWORD now, DWORD origin, DWORD period_ms) {
 
 // ── Shadow helpers ──────────────────────────────────────────────────────
 
-void PaintGaussianShadowCircular(Graphics& g, GraphicsPath* path, float focus,
-                                  BYTE alpha) {
-  PathGradientBrush brush(path);
-
-  Color center(alpha, 0, 0, 0);
-  brush.SetCenterColor(center);
-  int n = 1;
-  Color edge(0, 0, 0, 0);
-  brush.SetSurroundColors(&edge, &n);
-
-  // 5-stop gaussian-like falloff: steep initial drop then long tail to zero.
-  // Positions are 0.0 (center) → 1.0 (path edge).
-  Color colors[] = {
-      Color(alpha, 0, 0, 0),                               // center
-      Color(alpha, 0, 0, 0),                               // body edge
-      Color(static_cast<BYTE>(alpha * 0.30f), 0, 0, 0),   // rapid drop
-      Color(static_cast<BYTE>(alpha * 0.06f), 0, 0, 0),   // almost gone
-      Color(0, 0, 0, 0),                                    // outer edge
-  };
-  REAL positions[] = {
-      0.0f,
-      focus,
-      focus + (1.0f - focus) * 0.35f,
-      focus + (1.0f - focus) * 0.75f,
-      1.0f,
-  };
-  brush.SetInterpolationColors(colors, positions, 5);
-  g.FillPath(&brush, path);
+void PaintSoftShadowCircular(Graphics& g, float cx, float cy, float body_r,
+                              float blur, BYTE peak_alpha) {
+  constexpr int kLayers = 8;
+  BYTE la = (std::max)(static_cast<BYTE>(1),
+                       static_cast<BYTE>(peak_alpha / kLayers));
+  SolidBrush brush(Color(la, 0, 0, 0));
+  for (int i = 0; i < kLayers; ++i) {
+    float expand = blur * static_cast<float>(i + 1) / kLayers;
+    float r = body_r + expand;
+    g.FillEllipse(&brush, cx - r, cy - r, r * 2.0f, r * 2.0f);
+  }
 }
 
-void PaintGaussianShadowRect(Graphics& g, GraphicsPath* path, float fx,
-                              float fy, BYTE alpha) {
-  PathGradientBrush brush(path);
-
-  Color center(alpha, 0, 0, 0);
-  brush.SetCenterColor(center);
-  int n = 1;
-  Color edge(0, 0, 0, 0);
-  brush.SetSurroundColors(&edge, &n);
-
-  // Use average of fx/fy for 1D interpolation color positions.
-  float focus = (fx + fy) / 2.0f;
-
-  Color colors[] = {
-      Color(alpha, 0, 0, 0),
-      Color(alpha, 0, 0, 0),
-      Color(static_cast<BYTE>(alpha * 0.30f), 0, 0, 0),
-      Color(static_cast<BYTE>(alpha * 0.06f), 0, 0, 0),
-      Color(0, 0, 0, 0),
-  };
-  REAL positions[] = {
-      0.0f,
-      focus,
-      focus + (1.0f - focus) * 0.35f,
-      focus + (1.0f - focus) * 0.75f,
-      1.0f,
-  };
-  brush.SetInterpolationColors(colors, positions, 5);
-  // Also set focus scales so the brush shape stays rectangular.
-  brush.SetFocusScales(fx, fy);
-  g.FillPath(&brush, path);
+void PaintSoftShadowRect(Graphics& g, float x, float y, float w, float h,
+                          float radius, float blur, BYTE peak_alpha) {
+  constexpr int kLayers = 8;
+  BYTE la = (std::max)(static_cast<BYTE>(1),
+                       static_cast<BYTE>(peak_alpha / kLayers));
+  SolidBrush brush(Color(la, 0, 0, 0));
+  for (int i = 0; i < kLayers; ++i) {
+    float expand = blur * static_cast<float>(i + 1) / kLayers;
+    GraphicsPath path;
+    MakeRoundedRect(&path, x - expand, y - expand,
+                    w + expand * 2.0f, h + expand * 2.0f,
+                    radius + expand);
+    g.FillPath(&brush, &path);
+  }
 }
 
 }  // namespace GdiPlusHelper
