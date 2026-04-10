@@ -76,6 +76,7 @@ class _SpeechRecognitionSectionState
           if (isLocal) ...[
             const SizedBox(height: WpSpacing.xs),
             const SttModelManager(),
+            const Divider(height: 24),
           ],
 
           // ----- Cloud mode: inline API key + sub-provider ------------------

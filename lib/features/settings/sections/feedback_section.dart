@@ -187,30 +187,55 @@ class AfterTranscriptionSection extends ConsumerWidget {
       title: l10n.settingsAfterTranscription,
       subtitle: l10n.settingsAfterTranscriptionSubtitle,
       padding: EdgeInsets.zero,
-      child: SettingRow(
-        icon: LucideIcons.clipboardCheck,
-        label: l10n.settingsAfterTranscription,
-        subtitle: l10n.settingsAfterTranscriptionSubtitle,
-        trailing: settingsDropdown(
-          context: context,
-          value: settings.afterTranscription,
-          items: AfterTranscriptionAction.values
-              .map((e) => e.value)
-              .toList(),
-          labels: [
-            l10n.settingsAfterTranscriptionClipboard,
-            l10n.settingsAfterTranscriptionPaste,
-            l10n.settingsAfterTranscriptionBoth,
-            l10n.settingsAfterTranscriptionNothing,
-          ],
-          onChanged: (v) {
-            if (v == null) return;
-            ref
-                .read(settingsProvider.notifier)
-                .updateSettings(
-                    (s) => s.copyWith(afterTranscription: v));
-          },
-        ),
+      child: Column(
+        children: [
+          SettingRow(
+            icon: LucideIcons.clipboardCheck,
+            label: l10n.settingsAfterTranscription,
+            subtitle: l10n.settingsAfterTranscriptionSubtitle,
+            trailing: settingsDropdown(
+              context: context,
+              value: settings.afterTranscription,
+              items: AfterTranscriptionAction.values
+                  .map((e) => e.value)
+                  .toList(),
+              labels: [
+                l10n.settingsAfterTranscriptionClipboard,
+                l10n.settingsAfterTranscriptionPaste,
+                l10n.settingsAfterTranscriptionBoth,
+                l10n.settingsAfterTranscriptionNothing,
+              ],
+              onChanged: (v) {
+                if (v == null) return;
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                        (s) => s.copyWith(afterTranscription: v));
+              },
+            ),
+          ),
+          if (settings.afterTranscriptionAction ==
+                  AfterTranscriptionAction.paste ||
+              settings.afterTranscriptionAction ==
+                  AfterTranscriptionAction.clipboardAndPaste)
+            SettingRow(
+              icon: LucideIcons.timer,
+              label: l10n.settingsAutoPasteDelay,
+              subtitle: l10n.settingsAutoPasteDelaySubtitle,
+              trailing: settingsSlider(
+                context: context,
+                value: settings.autoPasteDelay.toDouble(),
+                min: 0,
+                max: 2000,
+                divisions: 20,
+                valueLabel: fmtMs(settings.autoPasteDelay),
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                        (s) => s.copyWith(autoPasteDelay: v.round())),
+              ),
+            ),
+        ],
       ),
     );
   }
