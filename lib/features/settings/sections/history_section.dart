@@ -15,7 +15,7 @@ class HistorySection extends ConsumerWidget {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final l10n = L10n.of(context);
 
-    const maxEntriesOptions = ['0', '100', '500', '1000', '5000'];
+    const maxEntriesOptions = ['0', '5', '10', '20', '50', '100', '500', '1000', '5000'];
     const autoTrashOptions = ['0', '7', '14', '30', '90'];
 
     String maxEntriesLabel(String v) {
