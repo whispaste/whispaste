@@ -979,6 +979,13 @@ WhisPaste uses a **main-only model** optimized for solo development:
 4. **Release flow**: validate on `main`, push `main`, wait for `CI` and `Deploy Landing Page` as applicable, then tag `vX.Y.Z` and monitor `release.yml`.
 5. **CI runs on `main`** — every push to `main` must stay green.
 
+### Internal-only tooling policy (MANDATORY)
+
+1. **Internal helper assets live under `.internal/`** — diagnostic scripts, audit utilities, scratch tooling, architecture notes, and similar non-product artifacts belong there.
+2. **Do not push internal operational helpers to GitHub** — if a file is only needed for local audits, local release prep, or internal reasoning, keep it in `.internal/`.
+3. **Public workflows must not depend on `.internal/`** — if CI needs simple helper logic, inline it in the workflow or use public actions instead of introducing public-only helper files just for CI plumbing.
+4. **Keep public repo contents intentional** — only track scripts/tools publicly when they are genuinely part of the shipped product, contributor workflow, or public release surface.
+
 ### Commit Message Format (Conventional Commits)
 
 ```
@@ -1027,9 +1034,9 @@ Before every commit:
 ### CI (`ci.yml`) — Runs on every push to main
 
 1. **Windows validation**: `flutter analyze --fatal-infos` + `flutter test` + `flutter build windows --debug`
-2. **C++ static analysis**: `scripts\cppcheck.ps1` against `windows/runner`
+2. **C++ static analysis**: inline `cppcheck` command in `ci.yml` against `windows/runner`
 3. **Verify build**: Checks `.exe` exists and reports size
-4. **Secret scan**: `scripts\security-scan.ps1`
+4. **Secret scan**: inline PowerShell regex scan in `ci.yml`
 5. **Website validation**: `npm ci` + `npm audit --audit-level=high` + `npm run build` + `npm run test:ci`
 6. No artifact upload — CI is validation only
 
@@ -1044,7 +1051,7 @@ Before every commit:
 ### Security Scanning
 
 - **CodeQL**: Automated on push + weekly schedule (**JavaScript/TypeScript** — scans Supabase Edge Functions, not Dart)
-- **Secret scan**: Regex patterns in CI job
+- **Secret scan**: inline regex patterns in the CI job
 - **flutter analyze**: Static analysis with `--fatal-infos` (all rules enabled)
 
 ## Localization (i18n)
