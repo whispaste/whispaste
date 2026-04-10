@@ -60,6 +60,22 @@ float PingPong(float t);
 // Normalised animation progress [0,1] from tick count.
 float AnimProgress(DWORD now, DWORD origin, DWORD period_ms);
 
+// ── Shadow helpers ─────────────────────────────────────────────────────
+
+// Paint a gaussian-approximation shadow using multi-stop interpolation.
+// Circular variant — for round FAB-style shadows.
+// |path| is the outer shadow ellipse, |focus| = body_radius / outer_radius.
+void PaintGaussianShadowCircular(Gdiplus::Graphics& g,
+                                  Gdiplus::GraphicsPath* path, float focus,
+                                  BYTE alpha);
+
+// Rectangular variant — for rounded-rect overlay shadows.
+// |path| is the outer shadow rounded-rect, |fx|/|fy| are body/outer ratios
+// for width and height respectively.
+void PaintGaussianShadowRect(Gdiplus::Graphics& g,
+                              Gdiplus::GraphicsPath* path, float fx, float fy,
+                              BYTE alpha);
+
 }  // namespace GdiPlusHelper
 
 #endif  // GDIPLUS_HELPER_H_

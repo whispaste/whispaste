@@ -379,7 +379,7 @@ void main() {
 
     test('switch_normal maps to FloatingOverlaySize.normal', () {
       const action = 'switch_normal';
-      final size = action == 'switch_normal'
+      const size = action == 'switch_normal'
           ? FloatingOverlaySize.normal
           : FloatingOverlaySize.compact;
       expect(size, FloatingOverlaySize.normal);
@@ -387,7 +387,7 @@ void main() {
 
     test('switch_compact maps to FloatingOverlaySize.compact', () {
       const action = 'switch_compact';
-      final size = action == 'switch_compact'
+      const size = action == 'switch_compact'
           ? FloatingOverlaySize.compact
           : FloatingOverlaySize.normal;
       expect(size, FloatingOverlaySize.compact);
