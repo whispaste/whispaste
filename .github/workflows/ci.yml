@@ -34,6 +34,23 @@ jobs:
       - name: Run tests
         run: flutter test
 
+      - name: C++ static analysis (cppcheck)
+        run: |
+          choco install cppcheck -y --no-progress
+          $env:Path = "C:\Program Files\Cppcheck;$env:Path"
+          Write-Host "Running cppcheck on windows/runner/..."
+          cppcheck `
+            --enable=warning,performance,portability `
+            --std=c++17 `
+            --platform=win64 `
+            --suppress=missingIncludeSystem `
+            --suppress=unmatchedSuppression `
+            --suppress=useStlAlgorithm `
+            --inline-suppr `
+            --error-exitcode=1 `
+            --template="{file}({line}): {severity} ({id}): {message}" `
+            windows/runner/
+
       - name: Build Windows (debug)
         run: flutter build windows --debug
 
