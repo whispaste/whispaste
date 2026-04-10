@@ -38,16 +38,34 @@ final historySearchProvider =
 /// Filtered and searched history entries— the main data source for the list.
 final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
   final filter = ref.watch(historyFilterProvider);
+  final search = ref.watch(historySearchProvider).trim();
 
-  // For archive/trash, use dedicated streams
+  // For archive/trash, use dedicated streams (with optional search filtering)
   if (filter == HistoryFilter.archived) {
-    return ref.watch(archivedEntriesProvider);
+    final archivedAsync = ref.watch(archivedEntriesProvider);
+    if (search.isEmpty) return archivedAsync;
+    return archivedAsync.whenData((entries) {
+      final lower = search.toLowerCase();
+      return entries
+          .where((e) =>
+              e.title.toLowerCase().contains(lower) ||
+              e.content.toLowerCase().contains(lower))
+          .toList();
+    });
   }
   if (filter == HistoryFilter.trash) {
-    return ref.watch(trashEntriesProvider);
+    final trashAsync = ref.watch(trashEntriesProvider);
+    if (search.isEmpty) return trashAsync;
+    return trashAsync.whenData((entries) {
+      final lower = search.toLowerCase();
+      return entries
+          .where((e) =>
+              e.title.toLowerCase().contains(lower) ||
+              e.content.toLowerCase().contains(lower))
+          .toList();
+    });
   }
 
-  final search = ref.watch(historySearchProvider).trim();
   final entriesAsync = ref.watch(historyEntriesProvider);
 
   if (search.isNotEmpty) {
@@ -90,6 +108,58 @@ final _ftsSearchProvider =
     }
   },
 );
+
+/// Per-filter match counts when a search query is active.
+///
+/// Returns a [Map] from [HistoryFilter] to the number of matching entries,
+/// or `null` when the search field is empty (so chips show no count badge).
+final searchCountsProvider = Provider<Map<HistoryFilter, int>?>((ref) {
+  final search = ref.watch(historySearchProvider).trim();
+  if (search.isEmpty) return null;
+
+  final activeAsync = ref.watch(historyEntriesProvider);
+  final archivedAsync = ref.watch(archivedEntriesProvider);
+  final trashAsync = ref.watch(trashEntriesProvider);
+
+  // Wait until all three streams have loaded before surfacing counts.
+  if (activeAsync is! AsyncData<List<HistoryEntry>> ||
+      archivedAsync is! AsyncData<List<HistoryEntry>> ||
+      trashAsync is! AsyncData<List<HistoryEntry>>) {
+    return null;
+  }
+
+  final active = activeAsync.value;
+  final archived = archivedAsync.value;
+  final trash = trashAsync.value;
+
+  final lower = search.toLowerCase();
+  bool matches(HistoryEntry e) =>
+      e.title.toLowerCase().contains(lower) ||
+      e.content.toLowerCase().contains(lower);
+
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final weekAgo = today.subtract(const Duration(days: 7));
+
+  final allMatched = active.where(matches).toList();
+
+  return {
+    HistoryFilter.all: allMatched.length,
+    HistoryFilter.today: allMatched
+        .where((e) {
+          final d =
+              DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
+          return d == today;
+        })
+        .length,
+    HistoryFilter.week: allMatched
+        .where((e) => e.timestamp.isAfter(weekAgo))
+        .length,
+    HistoryFilter.pinned: allMatched.where((e) => e.pinned).length,
+    HistoryFilter.archived: archived.where(matches).length,
+    HistoryFilter.trash: trash.where(matches).length,
+  };
+});
 
 /// Applies date/pin filter predicates to a list of entries.
 List<HistoryEntry> _applyFilter(
