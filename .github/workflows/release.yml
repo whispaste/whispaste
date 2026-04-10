@@ -13,12 +13,13 @@ jobs:
     name: Build Windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version-file: pubspec.yaml
+          channel: stable
+          flutter-version: 3.41.0
           cache: true
 
       - name: Get dependencies
@@ -36,6 +37,25 @@ jobs:
           --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
 
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          # X.X.X.0 format for Windows file properties (strip prerelease suffix)
+          $parts = $version -split '[.\-]'
+          $numeric = "$($parts[0]).$($parts[1]).$($parts[2]).0"
+
+          & "C:\Program Files (x86)\NSIS\makensis.exe" `
+            /DPRODUCT_VERSION=$version `
+            /DPRODUCT_VERSION_NUMERIC=$numeric `
+            installer\whispaste.nsi
+
+          if ($LASTEXITCODE -ne 0) { throw "NSIS build failed" }
+          Write-Host "Built: installer\WhisPaste-Setup.exe"
+
       - name: Prepare release artifacts
         shell: pwsh
         run: |
@@ -43,12 +63,15 @@ jobs:
           $artifactDir = "release-artifacts"
           New-Item -ItemType Directory -Path $artifactDir -Force
 
-          # Copy build output
+          # Portable ZIP from build output
           $buildDir = "build\windows\x64\runner\Release"
           $zipName = "WhisPaste-$version-windows-x64.zip"
           Compress-Archive -Path "$buildDir\*" -DestinationPath "$artifactDir\$zipName"
 
-          Write-Host "Created: $artifactDir\$zipName"
+          # NSIS installer (stable filename for direct download links)
+          Copy-Item "installer\WhisPaste-Setup.exe" "$artifactDir\"
+
+          Write-Host "Release artifacts:"
           Get-ChildItem $artifactDir
 
       - name: Upload artifacts
@@ -61,12 +84,13 @@ jobs:
     name: Build MSIX
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version-file: pubspec.yaml
+          channel: stable
+          flutter-version: 3.41.0
           cache: true
 
       - name: Get dependencies
@@ -88,7 +112,7 @@ jobs:
     needs: [build-windows]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
