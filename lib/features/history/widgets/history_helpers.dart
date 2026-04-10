@@ -110,29 +110,34 @@ class HistoryEntryAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final iconSize = (size * 0.44).roundToDouble();
     return SizedBox(
-      width: size,
-      height: size,
+      width: size + 6,
+      height: size + 6,
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          // Avatar circle
-          Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: isDark ? 0.15 : 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: iconSize,
-              color: color.withValues(alpha: isDark ? 0.9 : 0.8),
+          // Avatar circle — offset slightly to leave room for badge
+          Positioned(
+            left: 0,
+            bottom: 0,
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: isDark ? 0.15 : 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: iconSize,
+                color: color.withValues(alpha: isDark ? 0.9 : 0.8),
+              ),
             ),
           ),
           // Favorite badge — star icon in top-right corner
           if (isPinned)
             Positioned(
-              right: -1,
-              top: -1,
+              right: 0,
+              top: 0,
               child: FaIcon(
                 FontAwesomeIcons.solidStar,
                 size: 11,
