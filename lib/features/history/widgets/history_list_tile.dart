@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
@@ -268,9 +269,9 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                       onTap: widget.onCopy,
                     ),
                     HistoryRowAction(
-                      icon: widget.entry.pinned
-                          ? LucideIcons.starOff
-                          : LucideIcons.star,
+                      faIcon: widget.entry.pinned ? FontAwesomeIcons.solidStar : null,
+                      icon: widget.entry.pinned ? null : LucideIcons.star,
+                      activeColor: widget.entry.pinned ? Colors.amber.shade600 : null,
                       tooltip: widget.entry.pinned
                           ? l10n.historyUnpin
                           : l10n.historyPinToTop,

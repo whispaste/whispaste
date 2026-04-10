@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/theme/colors.dart';
 import 'package:whispaste/core/data/database.dart';
 
 /// View mode for the history page.
@@ -128,22 +128,15 @@ class HistoryEntryAvatar extends StatelessWidget {
               color: color.withValues(alpha: isDark ? 0.9 : 0.8),
             ),
           ),
-          // Favorite badge — small dot in corner
+          // Favorite badge — star icon in top-right corner
           if (isPinned)
             Positioned(
-              right: 0,
-              top: 0,
-              child: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isDark ? WpColorsDark.surface : WpColorsLight.surface,
-                    width: 2,
-                  ),
-                ),
+              right: -1,
+              top: -1,
+              child: FaIcon(
+                FontAwesomeIcons.solidStar,
+                size: 11,
+                color: Colors.amber.shade600,
               ),
             ),
         ],
