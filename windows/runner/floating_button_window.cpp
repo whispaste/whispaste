@@ -197,6 +197,7 @@ void FloatingButtonWindow::Show() {
   ApplyWindowPosition();
   Render();
   ShowWindow(hwnd_, SW_SHOWNOACTIVATE);
+  BringToTopmost();
   visible_ = true;
   if (NeedsAnimation()) StartAnimTimer();
 }
@@ -206,6 +207,12 @@ void FloatingButtonWindow::Hide() {
   StopAnimTimer();
   ShowWindow(hwnd_, SW_HIDE);
   visible_ = false;
+}
+
+void FloatingButtonWindow::BringToTopmost() {
+  if (!hwnd_) return;
+  SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -374,6 +381,17 @@ LRESULT FloatingButtonWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         Render();
       }
       return 0;
+
+    // ── Re-assert topmost if z-order was changed externally ──────────
+    case WM_WINDOWPOSCHANGED: {
+      auto* wp_pos = reinterpret_cast<WINDOWPOS*>(lp);
+      if (visible_ && !(wp_pos->flags & SWP_NOZORDER)) {
+        // Only re-assert if we actually lost TOPMOST (prevents re-entry loop)
+        if (!(GetWindowLong(hwnd_, GWL_EXSTYLE) & WS_EX_TOPMOST))
+          BringToTopmost();
+      }
+      return DefWindowProcW(hwnd_, msg, wp, lp);
+    }
 
     // ── No-op paint (layered windows don't receive WM_PAINT) ──────────
     case WM_PAINT: {
