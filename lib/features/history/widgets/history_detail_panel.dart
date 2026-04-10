@@ -61,8 +61,11 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   String _tagSearchQuery = '';
   bool _isEditingTranscript = false;
   late TextEditingController _transcriptController;
+  bool _isEditingTitle = false;
+  late TextEditingController _titleController;
   final FocusNode _panelFocusNode = FocusNode();
   final FocusNode _editorFocusNode = FocusNode();
+  final FocusNode _titleFocusNode = FocusNode();
   final GlobalKey<_TagSectionState> _tagSectionKey = GlobalKey<_TagSectionState>();
   final GlobalKey<HistoryNotesSectionState> _notesSectionKey =
       GlobalKey<HistoryNotesSectionState>();
@@ -71,6 +74,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   void initState() {
     super.initState();
     _transcriptController = TextEditingController(text: widget.entry.content);
+    _titleController = TextEditingController(text: widget.entry.title);
     // Auto-focus panel so its shortcuts AND ancestor list shortcuts both work.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _panelFocusNode.requestFocus();
@@ -83,14 +87,21 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     if (old.entry.id != widget.entry.id) {
       _transcriptController.text = widget.entry.content;
       _isEditingTranscript = false;
+      _titleController.text = widget.entry.title;
+      _isEditingTitle = false;
+    } else if (!_isEditingTitle) {
+      // Sync title if it changed externally (e.g. list auto-title update)
+      _titleController.text = widget.entry.title;
     }
   }
 
   @override
   void dispose() {
     _transcriptController.dispose();
+    _titleController.dispose();
     _panelFocusNode.dispose();
     _editorFocusNode.dispose();
+    _titleFocusNode.dispose();
     super.dispose();
   }
 
@@ -132,6 +143,25 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       _transcriptController.text = entry.content;
       setState(() => _isEditingTranscript = true);
     }
+  }
+
+  void _startTitleEdit() {
+    if (isTrashView) return;
+    _titleController.text = entry.title;
+    setState(() => _isEditingTitle = true);
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _titleFocusNode.requestFocus());
+  }
+
+  void _saveTitle() {
+    final newTitle = _titleController.text.trim();
+    if (newTitle != entry.title) {
+      ref.read(historyDetailProvider(entry.id).notifier).updateTitle(newTitle);
+      final l10n = L10n.of(context);
+      WpToast.show(context, message: l10n.historyTitleSaved);
+    }
+    setState(() => _isEditingTitle = false);
+    _panelFocusNode.requestFocus();
   }
 
   void _wrapBold() => _wrapEditorSelection('**');
@@ -302,6 +332,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                     ),
                   ),
                   const SizedBox(height: WpSpacing.xs),
+                  shortcutRow('F2', l10n.historyShortcutEditTitle),
                   shortcutRow('Ctrl+E', l10n.historyShortcutToggleEdit),
                   shortcutRow('Ctrl+S', l10n.historyShortcutSave),
                   shortcutRow('Ctrl+↵', l10n.historyShortcutSave),
@@ -343,18 +374,32 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
         const SingleActivator(LogicalKeyboardKey.escape): () {
-          if (_isEditingTranscript) {
+          if (_isEditingTitle) {
+            setState(() => _isEditingTitle = false);
+            _panelFocusNode.requestFocus();
+          } else if (_isEditingTranscript) {
             _saveTranscript();
           } else {
             onClose();
           }
         },
+        const SingleActivator(LogicalKeyboardKey.f2): () {
+          if (!_isTextFieldFocused()) _startTitleEdit();
+        },
         const SingleActivator(LogicalKeyboardKey.keyE, control: true): _toggleEdit,
         const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
-          if (_isEditingTranscript) _saveTranscript();
+          if (_isEditingTitle) {
+            _saveTitle();
+          } else if (_isEditingTranscript) {
+            _saveTranscript();
+          }
         },
         const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
-          if (_isEditingTranscript) _saveTranscript();
+          if (_isEditingTitle) {
+            _saveTitle();
+          } else if (_isEditingTranscript) {
+            _saveTranscript();
+          }
         },
         const SingleActivator(LogicalKeyboardKey.keyC, control: true): onCopy,
         // Markdown formatting shortcuts (active only in edit mode)
@@ -401,16 +446,63 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        entry.title.isNotEmpty ? entry.title : l10n.historyUntitled,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: textPrimary,
+                      if (_isEditingTitle)
+                        TextField(
+                          controller: _titleController,
+                          focusNode: _titleFocusNode,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: textPrimary,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: l10n.historyTitlePlaceholder,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: WpSpacing.xs,
+                              vertical: 4,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: WpRadius.borderSm,
+                              borderSide: BorderSide(color: accent, width: 1.5),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: WpRadius.borderSm,
+                              borderSide: BorderSide(
+                                color: isDark
+                                    ? WpColorsDark.borderSubtle
+                                    : WpColorsLight.borderSubtle,
+                              ),
+                            ),
+                          ),
+                          onSubmitted: (_) => _saveTitle(),
+                          onEditingComplete: _saveTitle,
+                        )
+                      else
+                        Tooltip(
+                          message: isTrashView ? '' : l10n.historyEditTitle,
+                          waitDuration: const Duration(milliseconds: 600),
+                          child: GestureDetector(
+                            onDoubleTap: isTrashView ? null : _startTitleEdit,
+                            child: MouseRegion(
+                              cursor: isTrashView
+                                  ? SystemMouseCursors.basic
+                                  : SystemMouseCursors.click,
+                              child: Text(
+                                entry.title.isNotEmpty
+                                    ? entry.title
+                                    : l10n.historyUntitled,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: textPrimary,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
                       const SizedBox(height: 2),
                       Text(
                         _fullTimestamp(context),
