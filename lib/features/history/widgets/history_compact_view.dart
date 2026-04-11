@@ -15,7 +15,7 @@ import 'history_helpers.dart';
 // ---------------------------------------------------------------------------
 
 class HistoryCompactView extends StatelessWidget {
-  const HistoryCompactView({
+  HistoryCompactView({
     super.key,
     required this.groups,
     required this.isDark,
@@ -34,36 +34,50 @@ class HistoryCompactView extends StatelessWidget {
   final Set<String> selectedIds;
   final String? focusedId;
 
+  /// Flattened index: each element is either a date header or an entry row.
+  late final List<_FlatItem> _flatItems = _buildFlatItems();
+
+  List<_FlatItem> _buildFlatItems() {
+    final result = <_FlatItem>[];
+    for (final group in groups) {
+      result.add(_FlatItem.header(group.labelKey));
+      for (final entry in group.entries) {
+        result.add(_FlatItem.entry(entry));
+      }
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final items = <Widget>[];
-    for (final group in groups) {
-      items.add(HistoryCompactDateHeader(label: resolveDateLabel(group.labelKey, l10n), isDark: isDark));
-      for (final entry in group.entries) {
-        items.add(
-          HistoryCompactRow(
-            entry: entry,
-            isDark: isDark,
-            isSelected: multiSelectMode
-                ? selectedIds.contains(entry.id)
-                : entry.id == selectedId,
-            isFocused: !multiSelectMode && entry.id == focusedId,
-            onTap: () => onEntryTap(entry),
-            multiSelectMode: multiSelectMode,
-            isChecked: selectedIds.contains(entry.id),
-          ),
-        );
-      }
-    }
-
     return ListView.builder(
       padding: const EdgeInsets.only(
         top: WpSpacing.xs,
         bottom: WpSpacing.xxl,
       ),
-      itemCount: items.length,
-      itemBuilder: (_, i) => items[i],
+      itemCount: _flatItems.length,
+      itemBuilder: (_, i) {
+        final item = _flatItems[i];
+        if (item.headerLabel != null) {
+          return HistoryCompactDateHeader(
+            label: resolveDateLabel(item.headerLabel!, l10n),
+            isDark: isDark,
+          );
+        }
+        final entry = item.entry!;
+        return HistoryCompactRow(
+          entry: entry,
+          isDark: isDark,
+          isSelected: multiSelectMode
+              ? selectedIds.contains(entry.id)
+              : entry.id == selectedId,
+          isFocused: !multiSelectMode && entry.id == focusedId,
+          onTap: () => onEntryTap(entry),
+          multiSelectMode: multiSelectMode,
+          isChecked: selectedIds.contains(entry.id),
+        );
+      },
     );
   }
 }
@@ -222,4 +236,14 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
       ),
     );
   }
+}
+
+/// Lightweight union for flattened header/entry items (avoids pre-building
+/// widgets — the actual widget is created lazily inside [ListView.builder]).
+class _FlatItem {
+  const _FlatItem.header(this.headerLabel) : entry = null;
+  const _FlatItem.entry(this.entry) : headerLabel = null;
+
+  final String? headerLabel;
+  final HistoryEntry? entry;
 }
