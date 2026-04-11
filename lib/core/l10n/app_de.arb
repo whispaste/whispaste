@@ -522,6 +522,20 @@
   "historyAiShorten": "Kürzen",
   "historyAiTranslate": "Übersetzen",
   "historyAiComingSoon": "KI-Nachbearbeitung kommt in einem zukünftigen Update",
+  "historyAiProcessing": "Verarbeitung…",
+  "historyAiProcessed": "Text mit KI verarbeitet",
+  "historyAiError": "KI-Verarbeitung fehlgeschlagen",
+  "historyAiSuggestTags": "Vorschlagen",
+  "historyAiSuggestTitle": "Titel vorschlagen",
+  "historyAiTagsSuggested": "{count} Tags vorgeschlagen",
+  "@historyAiTagsSuggested": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "historyAiTitleSuggested": "Titel vorgeschlagen — prüfen und speichern",
+  "historyAiTranslateTo": "Übersetzen nach…",
+  "historyAiBusy": "KI verarbeitet bereits eine andere Anfrage",
 
   "historyShortcutHelp": "Tastenkürzel",
   "historyShortcutGeneral": "ALLGEMEIN",
