@@ -153,6 +153,16 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     // Force a DB query first to ensure beforeOpen/migrations have completed.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+
+      // Reactively sync crash reporting consent whenever settings change.
+      // This replaces the old build()-side-effect approach.
+      ref.listenManual(settingsProvider, (_, next) {
+        final s = next.value;
+        if (s != null) {
+          CrashReporter.instance?.consentGranted = s.errorReporting;
+        }
+      }, fireImmediately: true);
+
       final db = ref.read(historyDatabaseProvider);
       // Ensures Drift's beforeOpen (and _reconcileGoSchema) has run.
       await db.customSelect('SELECT 1').get();
@@ -250,8 +260,6 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     final readiness = ref.watch(recordingReadinessProvider);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
 
-    // Sync crash reporting consent with user's settings toggle.
-    CrashReporter.instance?.consentGranted = settings.errorReporting;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final navItems = wpNavItems(l10n);
