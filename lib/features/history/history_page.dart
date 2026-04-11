@@ -155,6 +155,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   _multiSelectMode = false;
                   _selectedIds.clear();
                   _selectedEntryId = null;
+                  _focusedEntryId = null;
                 });
                 _listFocusNode.requestFocus();
               },
@@ -162,10 +163,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 ref.read(historySearchProvider.notifier).set(
                       _searchController.text,
                     );
-                // Clear selection when search changes (Finding #8)
+                // Clear all selection state when search changes so the detail
+                // panel closes and keyboard navigation resets.
                 setState(() {
                   _selectedIds.clear();
                   _multiSelectMode = false;
+                  _selectedEntryId = null;
+                  _focusedEntryId = null;
                 });
               },
               resultCount: filteredEntries.length,

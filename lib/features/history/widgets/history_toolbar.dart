@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -64,6 +66,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
   _SuggestionType _suggestionType = _SuggestionType.none;
   int _selectedIdx = 0;
   int _tagSuggestionGeneration = 0;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -82,14 +85,18 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     widget.controller.removeListener(_onControllerChange);
     super.dispose();
   }
 
   void _onControllerChange() {
     _updateSuggestions();
-    // propagate text to search provider (same as onChanged)
-    widget.onSearchChanged();
+    // Debounce the search provider update to avoid a DB query per keystroke.
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      widget.onSearchChanged();
+    });
   }
 
   void _updateSuggestions() {
