@@ -90,9 +90,14 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       _isEditingTranscript = false;
       _titleController.text = widget.entry.title;
       _isEditingTitle = false;
-    } else if (!_isEditingTitle) {
-      // Sync title if it changed externally (e.g. list auto-title update)
-      _titleController.text = widget.entry.title;
+    } else {
+      // Sync fields that changed externally (Finding #3 — dual mutation path)
+      if (!_isEditingTitle) {
+        _titleController.text = widget.entry.title;
+      }
+      if (!_isEditingTranscript) {
+        _transcriptController.text = widget.entry.content;
+      }
     }
   }
 
