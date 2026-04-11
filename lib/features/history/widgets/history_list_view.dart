@@ -13,7 +13,7 @@ import 'history_list_tile.dart';
 // ---------------------------------------------------------------------------
 
 class HistoryEntryList extends StatelessWidget {
-  const HistoryEntryList({
+  HistoryEntryList({
     super.key,
     required this.groups,
     required this.isDark,
@@ -40,41 +40,64 @@ class HistoryEntryList extends StatelessWidget {
   final bool isTrashView;
   final String? focusedId;
 
+  /// Flattened index: each element is either a date header or an entry row.
+  late final List<_FlatItem> _flatItems = _buildFlatItems();
+
+  List<_FlatItem> _buildFlatItems() {
+    final result = <_FlatItem>[];
+    for (final group in groups) {
+      result.add(_FlatItem.header(group.labelKey));
+      for (final entry in group.entries) {
+        result.add(_FlatItem.entry(entry));
+      }
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final items = <Widget>[];
-
-    for (final group in groups) {
-      items.add(HistoryDateHeader(label: resolveDateLabel(group.labelKey, l10n), isDark: isDark));
-      for (final entry in group.entries) {
-        items.add(
-          HistoryEntryRow(
-            entry: entry,
-            isDark: isDark,
-            isSelected: multiSelectMode
-                ? selectedIds.contains(entry.id)
-                : entry.id == selectedId,
-            isFocused: !multiSelectMode && entry.id == focusedId,
-            onTap: () => onEntryTap(entry),
-            onCopy: () => onCopy(entry),
-            onPin: () => onPin(entry),
-            onDelete: () => onDelete(entry),
-            multiSelectMode: multiSelectMode,
-            isChecked: selectedIds.contains(entry.id),
-            isTrashView: isTrashView,
-          ),
-        );
-      }
-    }
-
     return ListView.builder(
       padding: const EdgeInsets.only(
         top: WpSpacing.xs,
         bottom: WpSpacing.xxl,
       ),
-      itemCount: items.length,
-      itemBuilder: (_, i) => items[i],
+      itemCount: _flatItems.length,
+      itemBuilder: (_, i) {
+        final item = _flatItems[i];
+        if (item.headerLabel != null) {
+          return HistoryDateHeader(
+            label: resolveDateLabel(item.headerLabel!, l10n),
+            isDark: isDark,
+          );
+        }
+        final entry = item.entry!;
+        return HistoryEntryRow(
+          entry: entry,
+          isDark: isDark,
+          isSelected: multiSelectMode
+              ? selectedIds.contains(entry.id)
+              : entry.id == selectedId,
+          isFocused: !multiSelectMode && entry.id == focusedId,
+          onTap: () => onEntryTap(entry),
+          onCopy: () => onCopy(entry),
+          onPin: () => onPin(entry),
+          onDelete: () => onDelete(entry),
+          multiSelectMode: multiSelectMode,
+          isChecked: selectedIds.contains(entry.id),
+          isTrashView: isTrashView,
+        );
+      },
     );
   }
+}
+
+/// Lightweight union for flattened header/entry items (avoids pre-building
+/// widgets — the actual widget is created lazily inside [ListView.builder]).
+class _FlatItem {
+  const _FlatItem.header(this.headerLabel) : entry = null;
+  const _FlatItem.entry(this.entry) : headerLabel = null;
+
+  final String? headerLabel;
+  final HistoryEntry? entry;
 }

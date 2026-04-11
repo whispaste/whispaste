@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -9,6 +10,12 @@ import 'package:whispaste/core/data/database.dart';
 import 'highlighted_text.dart';
 import 'history_helpers.dart';
 import 'history_row_action.dart';
+
+/// Whether the current platform uses touch as primary input.
+bool get _isTouchPlatform {
+  final p = defaultTargetPlatform;
+  return p == TargetPlatform.android || p == TargetPlatform.iOS;
+}
 
 // ---------------------------------------------------------------------------
 // History entry row — WhatsApp/ChatGPT/Discord-inspired
@@ -257,8 +264,8 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
             ],
           ),
         ),
-            // Quick action buttons — positioned over the full item
-            if (_isHovered && !widget.multiSelectMode)
+            // Quick action buttons — visible on hover (desktop) or always (touch)
+            if ((_isHovered || _isTouchPlatform) && !widget.multiSelectMode)
               Positioned(
                 top: 6,
                 right: WpSpacing.xs + WpSpacing.sm,

@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -11,6 +12,12 @@ import 'highlighted_text.dart';
 import 'history_date_header.dart';
 import 'history_helpers.dart';
 import 'history_row_action.dart';
+
+/// Whether the current platform uses touch as primary input.
+bool get _isTouchPlatform {
+  final p = defaultTargetPlatform;
+  return p == TargetPlatform.android || p == TargetPlatform.iOS;
+}
 
 // ---------------------------------------------------------------------------
 // Card view — responsive grid of entry cards
@@ -56,41 +63,53 @@ class HistoryCardView extends StatelessWidget {
         final cardWidth =
             (availableWidth - gap * (columns - 1)) / columns;
 
-        return ListView(
+        // Flat list: each group → 1 header + 1 wrap widget
+        final flatItems = <_CardFlatItem>[];
+        for (final group in groups) {
+          flatItems.add(_CardFlatItem.header(group.labelKey));
+          flatItems.add(_CardFlatItem.group(group.entries));
+        }
+
+        return ListView.builder(
           padding: const EdgeInsets.only(
             top: WpSpacing.xs,
             bottom: WpSpacing.xxl,
           ),
-          children: [
-            for (final group in groups) ...[
-              HistoryDateHeader(label: resolveDateLabel(group.labelKey, l10n), isDark: isDark),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: sidePad),
-                child: Wrap(
-                  spacing: gap,
-                  runSpacing: gap,
-                  children: [
-                    for (final entry in group.entries)
-                      SizedBox(
-                        width: cardWidth,
-                        child: HistoryEntryCard(
-                          entry: entry,
-                          isDark: isDark,
-                          isSelected: entry.id == selectedId,
-                          isFocused: entry.id == focusedId,
-                          onTap: () => onEntryTap(entry),
-                          onCopy: () => onCopy(entry),
-                          onPin: () => onPin(entry),
-                          onDelete: () => onDelete(entry),
-                           multiSelectMode: multiSelectMode,
-                           isMultiSelected: selectedIds.contains(entry.id),
-                        ),
+          itemCount: flatItems.length,
+          itemBuilder: (_, i) {
+            final item = flatItems[i];
+            if (item.headerLabel != null) {
+              return HistoryDateHeader(
+                label: resolveDateLabel(item.headerLabel!, l10n),
+                isDark: isDark,
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: sidePad),
+              child: Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final entry in item.entries!)
+                    SizedBox(
+                      width: cardWidth,
+                      child: HistoryEntryCard(
+                        entry: entry,
+                        isDark: isDark,
+                        isSelected: entry.id == selectedId,
+                        isFocused: entry.id == focusedId,
+                        onTap: () => onEntryTap(entry),
+                        onCopy: () => onCopy(entry),
+                        onPin: () => onPin(entry),
+                        onDelete: () => onDelete(entry),
+                        multiSelectMode: multiSelectMode,
+                        isMultiSelected: selectedIds.contains(entry.id),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
-            ],
-          ],
+            );
+          },
         );
       },
     );
@@ -201,8 +220,8 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                       ),
                     ),
                   ),
-                  // Hover action buttons — constrained to avoid overflow
-                  if (_isHovered)
+                  // Action buttons — visible on hover (desktop) or always (touch)
+                  if (_isHovered || _isTouchPlatform)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -283,4 +302,14 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
       ),
     );
   }
+}
+
+/// Lightweight union for flattened header / card-group items (avoids eagerly
+/// building the full widget list).
+class _CardFlatItem {
+  const _CardFlatItem.header(this.headerLabel) : entries = null;
+  const _CardFlatItem.group(this.entries) : headerLabel = null;
+
+  final String? headerLabel;
+  final List<HistoryEntry>? entries;
 }
