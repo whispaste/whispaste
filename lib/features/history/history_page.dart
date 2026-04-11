@@ -15,6 +15,7 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'data/history_detail_provider.dart';
 import 'data/providers.dart';
 import 'widgets/widgets.dart';
 
@@ -161,6 +162,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 ref.read(historySearchProvider.notifier).set(
                       _searchController.text,
                     );
+                // Clear selection when search changes (Finding #8)
+                setState(() {
+                  _selectedIds.clear();
+                  _multiSelectMode = false;
+                });
               },
               resultCount: filteredEntries.length,
               viewMode: _viewMode,
@@ -538,16 +544,37 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     );
   }
 
-  void _togglePin(HistoryEntry entry) {
-    ref.read(historyDatabaseProvider).togglePin(entry.id);
+  void _togglePin(HistoryEntry entry) async {
+    try {
+      await ref.read(historyDatabaseProvider).togglePin(entry.id);
+      // Refresh detail panel if this entry is shown (Finding #3)
+      ref.invalidate(historyDetailProvider(entry.id));
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+    }
   }
 
-  void _deleteEntry(HistoryEntry entry) {
+  void _deleteEntry(HistoryEntry entry) async {
     final isTrash = ref.read(historyFilterProvider) == HistoryFilter.trash;
-    if (isTrash) {
-      ref.read(historyDatabaseProvider).permanentDeleteEntry(entry.id);
-    } else {
-      ref.read(historyDatabaseProvider).softDeleteEntry(entry.id);
+    try {
+      if (isTrash) {
+        await ref.read(historyDatabaseProvider).permanentDeleteEntry(entry.id);
+      } else {
+        await ref.read(historyDatabaseProvider).softDeleteEntry(entry.id);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+      return;
     }
     if (_selectedEntryId == entry.id) {
       setState(() => _selectedEntryId = null);
@@ -564,19 +591,42 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     );
   }
 
-  void _archiveEntry(HistoryEntry entry) {
-    ref.read(historyDatabaseProvider).toggleArchive(entry.id);
+  void _archiveEntry(HistoryEntry entry) async {
+    try {
+      await ref.read(historyDatabaseProvider).toggleArchive(entry.id);
+      ref.invalidate(historyDetailProvider(entry.id));
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+      return;
+    }
     if (_selectedEntryId == entry.id) {
       setState(() => _selectedEntryId = null);
     }
   }
 
-  void _restoreEntry(HistoryEntry entry) {
-    ref.read(historyDatabaseProvider).restoreEntry(entry.id);
+  void _restoreEntry(HistoryEntry entry) async {
+    try {
+      await ref.read(historyDatabaseProvider).restoreEntry(entry.id);
+      ref.invalidate(historyDetailProvider(entry.id));
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+    }
   }
 
-  void _duplicateEntry(HistoryEntry entry) {
-    ref.read(historyDatabaseProvider).duplicateEntry(entry.id).then((dup) {
+  void _duplicateEntry(HistoryEntry entry) async {
+    try {
+      final dup =
+          await ref.read(historyDatabaseProvider).duplicateEntry(entry.id);
       if (!mounted || dup == null) return;
       setState(() => _selectedEntryId = dup.id);
       WpToast.show(
@@ -585,7 +635,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         type: WpToastType.success,
         duration: const Duration(seconds: 2),
       );
-    });
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+    }
   }
 
   void _copyAsMarkdown(HistoryEntry entry) {
@@ -655,10 +712,18 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     });
   }
 
-  void _archiveSelected() {
+  void _archiveSelected() async {
     final db = ref.read(historyDatabaseProvider);
-    for (final id in _selectedIds) {
-      db.toggleArchive(id);
+    try {
+      await db.batchArchive(_selectedIds.toList());
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+      return;
     }
     setState(() {
       _selectedIds.clear();
@@ -666,15 +731,23 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     });
   }
 
-  void _deleteSelected() {
+  void _deleteSelected() async {
     final db = ref.read(historyDatabaseProvider);
     final isTrash = ref.read(historyFilterProvider) == HistoryFilter.trash;
-    if (isTrash) {
-      for (final id in _selectedIds) {
-        db.permanentDeleteEntry(id);
+    try {
+      if (isTrash) {
+        await db.batchPermanentDelete(_selectedIds.toList());
+      } else {
+        await db.softDeleteEntries(_selectedIds.toList());
       }
-    } else {
-      db.softDeleteEntries(_selectedIds.toList());
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+      return;
     }
     setState(() {
       _selectedIds.clear();
@@ -682,10 +755,18 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     });
   }
 
-  void _restoreSelected() {
+  void _restoreSelected() async {
     final db = ref.read(historyDatabaseProvider);
-    for (final id in _selectedIds) {
-      db.restoreEntry(id);
+    try {
+      await db.batchRestore(_selectedIds.toList());
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+      return;
     }
     setState(() {
       _selectedIds.clear();
