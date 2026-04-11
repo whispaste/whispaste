@@ -837,54 +837,62 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                     const SizedBox(height: WpSpacing.xs),
                     Row(
                       children: [
-                        if (entry.titleEdited || _isEditingTranscript)
-                          Flexible(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: WpSpacing.sm,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _isEditingTranscript
-                                    ? accent.withValues(alpha: 0.15)
-                                    : textMuted.withValues(alpha: 0.1),
-                                borderRadius: WpRadius.borderFull,
-                              ),
-                              child: Text(
-                                _isEditingTranscript
-                                    ? l10n.historyEditing
-                                    : l10n.historyEditTranscript,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: _isEditingTranscript
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                  color: _isEditingTranscript
-                                      ? accent
-                                      : textMuted,
+                        // Left: metadata fills available space
+                        Expanded(
+                          child: Row(
+                            children: [
+                              if (entry.titleEdited || _isEditingTranscript)
+                                Flexible(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: WpSpacing.sm,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _isEditingTranscript
+                                          ? accent.withValues(alpha: 0.15)
+                                          : textMuted.withValues(alpha: 0.1),
+                                      borderRadius: WpRadius.borderFull,
+                                    ),
+                                    child: Text(
+                                      _isEditingTranscript
+                                          ? l10n.historyEditing
+                                          : l10n.historyEditTranscript,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: _isEditingTranscript
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                        color: _isEditingTranscript
+                                            ? accent
+                                            : textMuted,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        const Spacer(),
-                        if (entry.content.isNotEmpty || _isEditingTranscript)
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 120),
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: WpSpacing.sm),
-                              child: Text(
-                                _wordCountLabel(l10n),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: textMuted,
+                              if ((entry.titleEdited || _isEditingTranscript) &&
+                                  (entry.content.isNotEmpty || _isEditingTranscript))
+                                const SizedBox(width: WpSpacing.xs),
+                              if (entry.content.isNotEmpty || _isEditingTranscript)
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 120),
+                                  child: Text(
+                                    _wordCountLabel(l10n),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: textMuted,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
+                            ],
                           ),
+                        ),
+                        const SizedBox(width: WpSpacing.xs),
+                        // Right: edit/save button — always right-aligned
                         Tooltip(
                           message: _isEditingTranscript
                               ? '${l10n.historySaveTranscript} (Ctrl+S / Ctrl+↵)'
