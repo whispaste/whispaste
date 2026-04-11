@@ -66,6 +66,8 @@ class HistoryDatabase extends _$HistoryDatabase {
           // (column "text" instead of "content", TEXT timestamps instead of
           // INTEGER). Must run BEFORE any Drift queries touch the table.
           await _reconcileGoSchema();
+          // Ensure indexes on entry_tags for fast tag joins.
+          await _ensureEntryTagIndexes();
           // One-time backfill: populate DailyStats from existing history
           // entries so that stats are correct for users upgrading from
           // a version that never wrote to DailyStats.
@@ -312,6 +314,22 @@ class HistoryDatabase extends _$HistoryDatabase {
       await _migrateJsonTags();
     } catch (_) {
       // Tables may not exist yet during initial creation — skip.
+    }
+  }
+
+  /// Creates indexes on entry_tags for faster tag joins (idempotent).
+  Future<void> _ensureEntryTagIndexes() async {
+    try {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_entry_tags_entry_id '
+        'ON entry_tags(entry_id)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_entry_tags_tag_id '
+        'ON entry_tags(tag_id)',
+      );
+    } catch (_) {
+      // Table may not exist yet during initial creation — skip.
     }
   }
 
@@ -634,6 +652,29 @@ class HistoryDatabase extends _$HistoryDatabase {
         .write(HistoryEntriesCompanion(deletedAt: Value(DateTime.now())));
   }
 
+  /// Bulk archive multiple entries.
+  Future<void> batchArchive(List<String> entryIds) async {
+    if (entryIds.isEmpty) return;
+    await (update(historyEntries)..where((e) => e.id.isIn(entryIds)))
+        .write(const HistoryEntriesCompanion(archived: Value(true)));
+  }
+
+  /// Bulk restore entries from archive or trash.
+  Future<void> batchRestore(List<String> entryIds) async {
+    if (entryIds.isEmpty) return;
+    await (update(historyEntries)..where((e) => e.id.isIn(entryIds)))
+        .write(const HistoryEntriesCompanion(
+      archived: Value(false),
+      deletedAt: Value(null),
+    ));
+  }
+
+  /// Bulk permanently delete entries.
+  Future<void> batchPermanentDelete(List<String> entryIds) async {
+    if (entryIds.isEmpty) return;
+    await (delete(historyEntries)..where((e) => e.id.isIn(entryIds))).go();
+  }
+
   /// Merge multiple entries into one. Keeps the oldest timestamp,
   /// concatenates content with dividers, combines tags.
   Future<HistoryEntry?> mergeEntries(List<String> entryIds) async {
@@ -748,36 +789,95 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   /// Watch all non-deleted, non-archived entries as a live stream.
-  Stream<List<HistoryEntry>> watchEntries({int limit = 100}) {
-    return (select(historyEntries)
-          ..where((e) => e.deletedAt.isNull() & e.archived.equals(false))
-          ..orderBy([
-            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
-          ])
-          ..limit(limit))
-        .watch();
+  Stream<List<HistoryEntry>> watchEntries({int? limit}) {
+    final query = select(historyEntries)
+      ..where((e) => e.deletedAt.isNull() & e.archived.equals(false))
+      ..orderBy([
+        (e) => OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
+        (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+      ]);
+    if (limit != null) query.limit(limit);
+    return query.watch();
   }
 
   /// Watch archived entries.
-  Stream<List<HistoryEntry>> watchArchived({int limit = 100}) {
-    return (select(historyEntries)
-          ..where((e) => e.archived.equals(true) & e.deletedAt.isNull())
-          ..orderBy([
-            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
-          ])
-          ..limit(limit))
-        .watch();
+  Stream<List<HistoryEntry>> watchArchived({int? limit}) {
+    final query = select(historyEntries)
+      ..where((e) => e.archived.equals(true) & e.deletedAt.isNull())
+      ..orderBy([
+        (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+      ]);
+    if (limit != null) query.limit(limit);
+    return query.watch();
   }
 
   /// Watch trash entries.
-  Stream<List<HistoryEntry>> watchTrash({int limit = 100}) {
-    return (select(historyEntries)
-          ..where((e) => e.deletedAt.isNotNull())
-          ..orderBy([
-            (e) => OrderingTerm(expression: e.deletedAt, mode: OrderingMode.desc)
-          ])
-          ..limit(limit))
-        .watch();
+  Stream<List<HistoryEntry>> watchTrash({int? limit}) {
+    final query = select(historyEntries)
+      ..where((e) => e.deletedAt.isNotNull())
+      ..orderBy([
+        (e) => OrderingTerm(expression: e.deletedAt, mode: OrderingMode.desc),
+      ]);
+    if (limit != null) query.limit(limit);
+    return query.watch();
+  }
+
+  /// Count active (non-deleted, non-archived) entries.
+  Future<int> countActive() async {
+    final result = await customSelect(
+      'SELECT COUNT(*) AS cnt FROM history_entries '
+      'WHERE deleted_at IS NULL AND archived = 0',
+    ).getSingle();
+    return result.data['cnt'] as int? ?? 0;
+  }
+
+  /// Count archived entries.
+  Future<int> countArchived() async {
+    final result = await customSelect(
+      'SELECT COUNT(*) AS cnt FROM history_entries '
+      'WHERE archived = 1 AND deleted_at IS NULL',
+    ).getSingle();
+    return result.data['cnt'] as int? ?? 0;
+  }
+
+  /// Count trashed entries.
+  Future<int> countTrash() async {
+    final result = await customSelect(
+      'SELECT COUNT(*) AS cnt FROM history_entries WHERE deleted_at IS NOT NULL',
+    ).getSingle();
+    return result.data['cnt'] as int? ?? 0;
+  }
+
+  /// Count entries matching a search query across a specific pool.
+  ///
+  /// [pool] is one of 'active', 'archived', 'trash'.
+  Future<int> countSearchMatches(String query, {String pool = 'active'}) async {
+    if (query.trim().isEmpty) {
+      switch (pool) {
+        case 'archived':
+          return countArchived();
+        case 'trash':
+          return countTrash();
+        default:
+          return countActive();
+      }
+    }
+    final results = await searchEntriesAdvanced(
+      freeText: query,
+      includeArchived: pool == 'archived',
+      includeDeleted: pool == 'trash',
+    );
+    // Filter to the right pool
+    switch (pool) {
+      case 'archived':
+        return results.where((e) => e.archived && e.deletedAt == null).length;
+      case 'trash':
+        return results.where((e) => e.deletedAt != null).length;
+      default:
+        return results
+            .where((e) => !e.archived && e.deletedAt == null)
+            .length;
+    }
   }
 
   // ---------------------------------------------------------------------------
