@@ -12,19 +12,19 @@ import 'database.dart';
 /// Live stream of all non-deleted, non-archived history entries, newest first.
 final historyEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
   final db = ref.watch(historyDatabaseProvider);
-  return db.watchEntries(limit: 500);
+  return db.watchEntries();
 });
 
 /// Live stream of archived entries.
 final archivedEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
   final db = ref.watch(historyDatabaseProvider);
-  return db.watchArchived(limit: 500);
+  return db.watchArchived();
 });
 
 /// Live stream of trashed entries.
 final trashEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
   final db = ref.watch(historyDatabaseProvider);
-  return db.watchTrash(limit: 500);
+  return db.watchTrash();
 });
 
 /// Watch notes for a specific entry.
