@@ -2947,6 +2947,60 @@ abstract class L10n {
   /// **'AI post-processing is coming in a future update'**
   String get historyAiComingSoon;
 
+  /// No description provided for @historyAiProcessing.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing…'**
+  String get historyAiProcessing;
+
+  /// No description provided for @historyAiProcessed.
+  ///
+  /// In en, this message translates to:
+  /// **'Text processed with AI'**
+  String get historyAiProcessed;
+
+  /// No description provided for @historyAiError.
+  ///
+  /// In en, this message translates to:
+  /// **'AI processing failed'**
+  String get historyAiError;
+
+  /// No description provided for @historyAiSuggestTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggest'**
+  String get historyAiSuggestTags;
+
+  /// No description provided for @historyAiSuggestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggest title'**
+  String get historyAiSuggestTitle;
+
+  /// No description provided for @historyAiTagsSuggested.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} tags suggested'**
+  String historyAiTagsSuggested(int count);
+
+  /// No description provided for @historyAiTitleSuggested.
+  ///
+  /// In en, this message translates to:
+  /// **'Title suggested — review and save'**
+  String get historyAiTitleSuggested;
+
+  /// No description provided for @historyAiTranslateTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Translate to…'**
+  String get historyAiTranslateTo;
+
+  /// No description provided for @historyAiBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'AI is already processing another request'**
+  String get historyAiBusy;
+
   /// No description provided for @historyShortcutHelp.
   ///
   /// In en, this message translates to:

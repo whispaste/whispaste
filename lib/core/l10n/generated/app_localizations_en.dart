@@ -1590,6 +1590,35 @@ class L10nEn extends L10n {
       'AI post-processing is coming in a future update';
 
   @override
+  String get historyAiProcessing => 'Processing…';
+
+  @override
+  String get historyAiProcessed => 'Text processed with AI';
+
+  @override
+  String get historyAiError => 'AI processing failed';
+
+  @override
+  String get historyAiSuggestTags => 'Suggest';
+
+  @override
+  String get historyAiSuggestTitle => 'Suggest title';
+
+  @override
+  String historyAiTagsSuggested(int count) {
+    return '$count tags suggested';
+  }
+
+  @override
+  String get historyAiTitleSuggested => 'Title suggested — review and save';
+
+  @override
+  String get historyAiTranslateTo => 'Translate to…';
+
+  @override
+  String get historyAiBusy => 'AI is already processing another request';
+
+  @override
   String get historyShortcutHelp => 'Keyboard Shortcuts';
 
   @override
