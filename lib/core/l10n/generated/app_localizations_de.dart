@@ -1608,6 +1608,36 @@ class L10nDe extends L10n {
       'KI-Nachbearbeitung kommt in einem zukünftigen Update';
 
   @override
+  String get historyAiProcessing => 'Verarbeitung…';
+
+  @override
+  String get historyAiProcessed => 'Text mit KI verarbeitet';
+
+  @override
+  String get historyAiError => 'KI-Verarbeitung fehlgeschlagen';
+
+  @override
+  String get historyAiSuggestTags => 'Vorschlagen';
+
+  @override
+  String get historyAiSuggestTitle => 'Titel vorschlagen';
+
+  @override
+  String historyAiTagsSuggested(int count) {
+    return '$count Tags vorgeschlagen';
+  }
+
+  @override
+  String get historyAiTitleSuggested =>
+      'Titel vorgeschlagen — prüfen und speichern';
+
+  @override
+  String get historyAiTranslateTo => 'Übersetzen nach…';
+
+  @override
+  String get historyAiBusy => 'KI verarbeitet bereits eine andere Anfrage';
+
+  @override
   String get historyShortcutHelp => 'Tastenkürzel';
 
   @override

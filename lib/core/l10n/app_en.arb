@@ -576,6 +576,20 @@
   "historyAiShorten": "Shorten",
   "historyAiTranslate": "Translate",
   "historyAiComingSoon": "AI post-processing is coming in a future update",
+  "historyAiProcessing": "Processing…",
+  "historyAiProcessed": "Text processed with AI",
+  "historyAiError": "AI processing failed",
+  "historyAiSuggestTags": "Suggest",
+  "historyAiSuggestTitle": "Suggest title",
+  "historyAiTagsSuggested": "{count} tags suggested",
+  "@historyAiTagsSuggested": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "historyAiTitleSuggested": "Title suggested — review and save",
+  "historyAiTranslateTo": "Translate to…",
+  "historyAiBusy": "AI is already processing another request",
 
   "historyShortcutHelp": "Keyboard Shortcuts",
   "historyShortcutGeneral": "GENERAL",
