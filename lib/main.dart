@@ -8,6 +8,7 @@ import 'app.dart';
 import 'core/config/settings_provider.dart';
 import 'core/data/database.dart';
 import 'core/logging/app_monitoring.dart';
+import 'core/logging/crash_reporter.dart';
 import 'services/audio_service.dart';
 import 'services/deploy_channel_service.dart';
 import 'services/hardware_info_service.dart' as hw;
@@ -52,6 +53,11 @@ Future<void> main(List<String> args) async {
     );
     final settings =
         container.read(settingsProvider).value ?? AppSettings.defaults;
+
+    // Sync crash reporting consent BEFORE any other work that could throw.
+    // Closes the GDPR window where bootstrap errors could reach Sentry
+    // without user consent (default is true until this runs).
+    CrashReporter.instance?.consentGranted = settings.errorReporting;
 
     // Desktop window setup — use persisted geometry when available.
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
