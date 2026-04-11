@@ -97,6 +97,19 @@ String whisperServerPath() {
   return p.join(sttDir(), name);
 }
 
+/// Override the LLM directory for testing.
+@visibleForTesting
+String? llmDirOverride;
+
+/// Directory containing LLM model files and llama-server.
+String llmDir() => llmDirOverride ?? p.join(appDataDir(), 'models', 'llm');
+
+/// Full path to the llama-server executable.
+String llamaServerPath() {
+  final name = Platform.isWindows ? 'llama-server.exe' : 'llama-server';
+  return p.join(llmDir(), name);
+}
+
 /// Full path to the GGML model file for [modelId].
 ///
 /// Returns `null` if the model ID is not in the lookup table.
@@ -104,4 +117,18 @@ String? sttModelPath(String modelId) {
   final filename = resolveModelFilename(modelId);
   if (filename == null) return null;
   return p.join(sttDir(), filename);
+}
+
+/// LLM model filename lookup.
+const Map<String, String> llmModelFilenames = {
+  'qwen3-1.7b': 'Qwen_Qwen3-1.7B-Q4_K_M.gguf',
+};
+
+/// Full path to the GGUF model file for [modelId].
+///
+/// Returns `null` if the model ID is unknown.
+String? llmModelPath(String modelId) {
+  final filename = llmModelFilenames[modelId];
+  if (filename == null) return null;
+  return p.join(llmDir(), filename);
 }
