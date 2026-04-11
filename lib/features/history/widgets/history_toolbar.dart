@@ -63,6 +63,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
   List<String> _suggestions = [];
   _SuggestionType _suggestionType = _SuggestionType.none;
   int _selectedIdx = 0;
+  int _tagSuggestionGeneration = 0;
 
   @override
   void initState() {
@@ -118,9 +119,10 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
   }
 
   Future<void> _loadTagSuggestions(String prefix) async {
+    final gen = ++_tagSuggestionGeneration;
     final db = ref.read(historyDatabaseProvider);
     final tags = await db.searchTags(prefix);
-    if (!mounted) return;
+    if (!mounted || gen != _tagSuggestionGeneration) return;
     // Filter out tags already in the query
     final parsed = parseSearchQuery(widget.controller.text);
     final existing = parsed.tagNames.toSet();
