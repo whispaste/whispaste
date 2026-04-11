@@ -196,7 +196,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final searchCounts = ref.watch(searchCountsProvider);
+    final searchCounts = ref.watch(searchCountsProvider).value;
     final rawQuery = widget.controller.text;
     final parsed = parseSearchQuery(rawQuery);
     final activeCommands = <String>[];

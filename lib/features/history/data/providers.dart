@@ -43,16 +43,27 @@ final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
   final rawSearch = ref.watch(historySearchProvider).trim();
   final parsed = parseSearchQuery(rawSearch);
 
-  // For archive/trash, use dedicated streams with parsed filtering
+  // For archive/trash with search, use DB-level advanced search (FTS5 + tag join)
+  // instead of in-memory filtering on a capped list.
   if (filter == HistoryFilter.archived) {
+    if (parsed.isEmpty) return ref.watch(archivedEntriesProvider);
+    final advAsync = ref.watch(_archivedSearchProvider(rawSearch));
+    if (advAsync is AsyncData<List<HistoryEntry>>) {
+      return AsyncValue.data(advAsync.value);
+    }
+    // Fall back to in-memory while DB search loads
     final archivedAsync = ref.watch(archivedEntriesProvider);
-    if (parsed.isEmpty) return archivedAsync;
     return archivedAsync.whenData(
         (entries) => _applyParsedSearch(entries, parsed));
   }
   if (filter == HistoryFilter.trash) {
+    if (parsed.isEmpty) return ref.watch(trashEntriesProvider);
+    final advAsync = ref.watch(_trashSearchProvider(rawSearch));
+    if (advAsync is AsyncData<List<HistoryEntry>>) {
+      return AsyncValue.data(advAsync.value);
+    }
+    // Fall back to in-memory while DB search loads
     final trashAsync = ref.watch(trashEntriesProvider);
-    if (parsed.isEmpty) return trashAsync;
     return trashAsync.whenData(
         (entries) => _applyParsedSearch(entries, parsed));
   }
@@ -98,42 +109,95 @@ final _advancedSearchProvider =
   },
 );
 
+/// Advanced search for archived entries (FTS5 + tag join).
+final _archivedSearchProvider =
+    FutureProvider.autoDispose.family<List<HistoryEntry>, String>(
+  (ref, rawQuery) async {
+    final db = ref.watch(historyDatabaseProvider);
+    final parsed = parseSearchQuery(rawQuery);
+    try {
+      final results = await db.searchEntriesAdvanced(
+        freeText: parsed.freeText,
+        tagNames: parsed.tagNames,
+        langCode: parsed.langCode,
+        includeArchived: true,
+      );
+      // Filter to archived-only
+      return results.where((e) => e.archived && e.deletedAt == null).toList();
+    } catch (_) {
+      return [];
+    }
+  },
+);
+
+/// Advanced search for trashed entries (FTS5 + tag join).
+final _trashSearchProvider =
+    FutureProvider.autoDispose.family<List<HistoryEntry>, String>(
+  (ref, rawQuery) async {
+    final db = ref.watch(historyDatabaseProvider);
+    final parsed = parseSearchQuery(rawQuery);
+    try {
+      final results = await db.searchEntriesAdvanced(
+        freeText: parsed.freeText,
+        tagNames: parsed.tagNames,
+        langCode: parsed.langCode,
+        includeDeleted: true,
+      );
+      // Filter to trashed-only
+      return results.where((e) => e.deletedAt != null).toList();
+    } catch (_) {
+      return [];
+    }
+  },
+);
+
 /// Per-filter match counts when a search query is active.
 ///
 /// Returns a [Map] from [HistoryFilter] to the number of matching entries,
 /// or `null` when the search field is empty (so chips show no count badge).
-final searchCountsProvider = Provider<Map<HistoryFilter, int>?>((ref) {
+///
+/// Uses SQL COUNT queries instead of in-memory filtering to avoid the O(n)
+/// per-keystroke overhead and 500-entry cap inaccuracy.
+final searchCountsProvider =
+    FutureProvider<Map<HistoryFilter, int>?>((ref) async {
   final rawSearch = ref.watch(historySearchProvider).trim();
   if (rawSearch.isEmpty) return null;
   final parsed = parseSearchQuery(rawSearch);
   if (parsed.isEmpty) return null;
 
-  final activeAsync = ref.watch(historyEntriesProvider);
-  final archivedAsync = ref.watch(archivedEntriesProvider);
-  final trashAsync = ref.watch(trashEntriesProvider);
+  final db = ref.watch(historyDatabaseProvider);
 
-  // Wait until all three streams have loaded before surfacing counts.
-  if (activeAsync is! AsyncData<List<HistoryEntry>> ||
-      archivedAsync is! AsyncData<List<HistoryEntry>> ||
-      trashAsync is! AsyncData<List<HistoryEntry>>) {
-    return null;
+  // Run all count queries in parallel for responsiveness.
+  final results = await Future.wait([
+    db.countSearchMatches(rawSearch, pool: 'active'),
+    db.countSearchMatches(rawSearch, pool: 'archived'),
+    db.countSearchMatches(rawSearch, pool: 'trash'),
+  ]);
+
+  final activeCount = results[0];
+  final archivedCount = results[1];
+  final trashCount = results[2];
+
+  // For sub-filters (today, week, pinned) we still need the active results
+  // to apply date/pin predicates. Use the advanced search for active pool.
+  List<HistoryEntry> activeMatched;
+  try {
+    final all = await db.searchEntriesAdvanced(
+      freeText: parsed.freeText,
+      tagNames: parsed.tagNames,
+      langCode: parsed.langCode,
+    );
+    activeMatched = all.where((e) => !e.archived && e.deletedAt == null).toList();
+  } catch (_) {
+    activeMatched = [];
   }
-
-  final active = activeAsync.value;
-  final archived = archivedAsync.value;
-  final trash = trashAsync.value;
-
-  // Apply parsed search consistently across all pools
-  final activeMatched = _applyParsedSearch(active, parsed);
-  final archivedMatched = _applyParsedSearch(archived, parsed);
-  final trashMatched = _applyParsedSearch(trash, parsed);
 
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final weekAgo = today.subtract(const Duration(days: 7));
 
   return {
-    HistoryFilter.all: activeMatched.length,
+    HistoryFilter.all: activeCount,
     HistoryFilter.today: activeMatched
         .where((e) {
           final d =
@@ -145,18 +209,15 @@ final searchCountsProvider = Provider<Map<HistoryFilter, int>?>((ref) {
         .where((e) => e.timestamp.isAfter(weekAgo))
         .length,
     HistoryFilter.pinned: activeMatched.where((e) => e.pinned).length,
-    HistoryFilter.archived: archivedMatched.length,
-    HistoryFilter.trash: trashMatched.length,
+    HistoryFilter.archived: archivedCount,
+    HistoryFilter.trash: trashCount,
   };
 });
 
-/// Applies a [ParsedSearchQuery] to an in-memory list (archived/trash/counts).
+/// Applies a [ParsedSearchQuery] to an in-memory list (fallback path).
 ///
-/// This is the fallback path when the DB advanced search hasn't loaded yet,
-/// and the canonical path for archived/trash (which don't go through FTS5).
-/// Note: tag filtering here is done by checking entry.tags field or by name
-/// matching on the entry.content — a lightweight in-memory approximation.
-/// Full accuracy for tag commands requires the DB method.
+/// This is the fallback path when the DB advanced search hasn't loaded yet.
+/// Checks title, content, AND entry.tags JSON field for tag name matches.
 List<HistoryEntry> _applyParsedSearch(
     List<HistoryEntry> entries, ParsedSearchQuery parsed) {
   return entries.where((e) {
@@ -172,6 +233,13 @@ List<HistoryEntry> _applyParsedSearch(
     if (parsed.langCode != null && parsed.langCode!.isNotEmpty) {
       if (!e.language.toLowerCase().startsWith(parsed.langCode!)) {
         return false;
+      }
+    }
+    // Tag filter — check the JSON tags field on the entry
+    if (parsed.tagNames.isNotEmpty) {
+      final entryTags = e.tags.toLowerCase();
+      for (final tag in parsed.tagNames) {
+        if (!entryTags.contains(tag)) return false;
       }
     }
     return true;
