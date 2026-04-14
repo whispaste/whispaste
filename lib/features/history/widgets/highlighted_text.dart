@@ -29,7 +29,13 @@ class HighlightedText extends ConsumerWidget {
     final query = ref.watch(historySearchProvider).trim();
 
     if (query.isEmpty || text.isEmpty) {
-      return Text(text, style: style, maxLines: maxLines, overflow: overflow);
+      // Use zero-width space instead of empty string to prevent RenderParagraph null check crash
+      return Text(
+        text.isEmpty ? '\u200B' : text,
+        style: style,
+        maxLines: maxLines,
+        overflow: overflow,
+      );
     }
 
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
@@ -49,14 +55,16 @@ class HighlightedText extends ConsumerWidget {
       if (idx > start) {
         spans.add(TextSpan(text: text.substring(start, idx)));
       }
-      spans.add(TextSpan(
-        text: text.substring(idx, idx + lowerQuery.length),
-        style: TextStyle(
-          backgroundColor: highlightBg,
-          color: accent,
-          fontWeight: FontWeight.w700,
+      spans.add(
+        TextSpan(
+          text: text.substring(idx, idx + lowerQuery.length),
+          style: TextStyle(
+            backgroundColor: highlightBg,
+            color: accent,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-      ));
+      );
       start = idx + lowerQuery.length;
     }
 
