@@ -253,12 +253,15 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                                 ),
                               ),
                               const SizedBox(width: WpSpacing.xs),
-                              Text(
-                                widget.entry.language.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: textMuted,
-                                  fontWeight: FontWeight.w500,
+                              Flexible(
+                                child: Text(
+                                  widget.entry.language.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: textMuted,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
