@@ -73,8 +73,7 @@ class PostProcessingNotifier extends Notifier<PostProcessingStatus> {
       throw StateError('Post-processing already in progress');
     }
 
-    final settings =
-        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
     final provider = settings.postProcessProviderType;
 
     _log.info(
@@ -82,9 +81,7 @@ class PostProcessingNotifier extends Notifier<PostProcessingStatus> {
       'textLen=${text.length}',
     );
 
-    state = const PostProcessingStatus(
-      state: PostProcessingState.starting,
-    );
+    state = const PostProcessingStatus(state: PostProcessingState.starting);
 
     try {
       final String result;
@@ -121,13 +118,10 @@ class PostProcessingNotifier extends Notifier<PostProcessingStatus> {
       throw StateError('Post-processing already in progress');
     }
 
-    final settings =
-        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
     final provider = settings.postProcessProviderType;
 
-    state = const PostProcessingStatus(
-      state: PostProcessingState.processing,
-    );
+    state = const PostProcessingStatus(state: PostProcessingState.processing);
 
     try {
       final List<String> tags;
@@ -135,7 +129,11 @@ class PostProcessingNotifier extends Notifier<PostProcessingStatus> {
       if (provider.isLocal) {
         tags = await _suggestTagsLocal(text);
       } else {
-        tags = await _suggestTagsCloud(text, settings: settings, provider: provider);
+        tags = await _suggestTagsCloud(
+          text,
+          settings: settings,
+          provider: provider,
+        );
       }
 
       state = const PostProcessingStatus();
@@ -157,13 +155,10 @@ class PostProcessingNotifier extends Notifier<PostProcessingStatus> {
       throw StateError('Post-processing already in progress');
     }
 
-    final settings =
-        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
     final provider = settings.postProcessProviderType;
 
-    state = const PostProcessingStatus(
-      state: PostProcessingState.processing,
-    );
+    state = const PostProcessingStatus(state: PostProcessingState.processing);
 
     try {
       final String title;
@@ -171,7 +166,11 @@ class PostProcessingNotifier extends Notifier<PostProcessingStatus> {
       if (provider.isLocal) {
         title = await _suggestTitleLocal(text);
       } else {
-        title = await _suggestTitleCloud(text, settings: settings, provider: provider);
+        title = await _suggestTitleCloud(
+          text,
+          settings: settings,
+          provider: provider,
+        );
       }
 
       state = const PostProcessingStatus();
@@ -196,24 +195,30 @@ class PostProcessingNotifier extends Notifier<PostProcessingStatus> {
     PostProcessPreset preset, {
     String? targetLang,
   }) async {
-    _ensureLocalModelDownloaded();
+    if (!_ensureLocalModelDownloaded()) {
+      throw Exception(
+        'Local LLM model not downloaded. '
+        'Please download the model in Settings → Models first.',
+      );
+    }
 
-    state = const PostProcessingStatus(
-      state: PostProcessingState.starting,
-    );
+    state = const PostProcessingStatus(state: PostProcessingState.starting);
 
     final llm = ref.read(llmServiceProvider.notifier);
     await llm.ensureRunning();
 
-    state = const PostProcessingStatus(
-      state: PostProcessingState.processing,
-    );
+    state = const PostProcessingStatus(state: PostProcessingState.processing);
 
     return llm.complete(text, preset, targetLang: targetLang);
   }
 
   Future<List<String>> _suggestTagsLocal(String text) async {
-    _ensureLocalModelDownloaded();
+    if (!_ensureLocalModelDownloaded()) {
+      throw Exception(
+        'Local LLM model not downloaded. '
+        'Please download the model in Settings → Models first.',
+      );
+    }
 
     final llm = ref.read(llmServiceProvider.notifier);
     await llm.ensureRunning();
@@ -222,7 +227,12 @@ class PostProcessingNotifier extends Notifier<PostProcessingStatus> {
   }
 
   Future<String> _suggestTitleLocal(String text) async {
-    _ensureLocalModelDownloaded();
+    if (!_ensureLocalModelDownloaded()) {
+      throw Exception(
+        'Local LLM model not downloaded. '
+        'Please download the model in Settings → Models first.',
+      );
+    }
 
     final llm = ref.read(llmServiceProvider.notifier);
     await llm.ensureRunning();
@@ -230,20 +240,15 @@ class PostProcessingNotifier extends Notifier<PostProcessingStatus> {
     return llm.suggestTitle(text);
   }
 
-  void _ensureLocalModelDownloaded() {
+  bool _ensureLocalModelDownloaded() {
     final downloadState = ref.read(modelDownloadProvider);
     if (!downloadState.downloadedLlmModels.contains('qwen3-1.7b')) {
-      throw StateError(
-        'Local LLM model not downloaded. '
-        'Please download the model in Settings → Models first.',
-      );
+      return false;
     }
     if (!downloadState.llmServerReady) {
-      throw StateError(
-        'LLM engine binary not found. '
-        'Please download the engine in Settings → Models first.',
-      );
+      return false;
     }
+    return true;
   }
 
   // -----------------------------------------------------------------------
@@ -257,9 +262,7 @@ class PostProcessingNotifier extends Notifier<PostProcessingStatus> {
     required PostProcessProviderType provider,
     String? targetLang,
   }) async {
-    state = const PostProcessingStatus(
-      state: PostProcessingState.processing,
-    );
+    state = const PostProcessingStatus(state: PostProcessingState.processing);
 
     final cloud = _createCloudProvider(settings, provider);
     return cloud.complete(text, preset, targetLang: targetLang);
@@ -292,8 +295,9 @@ class PostProcessingNotifier extends Notifier<PostProcessingStatus> {
       PostProcessProviderType.anthropic => settings.anthropicApiKey,
       PostProcessProviderType.groq => settings.groqApiKey,
       PostProcessProviderType.gemini => settings.geminiApiKey,
-      PostProcessProviderType.local =>
-        throw ArgumentError('Local provider does not use cloud API'),
+      PostProcessProviderType.local => throw ArgumentError(
+        'Local provider does not use cloud API',
+      ),
     };
 
     return createCloudProvider(
@@ -338,5 +342,5 @@ class PostProcessingNotifier extends Notifier<PostProcessingStatus> {
 /// Global post-processing provider.
 final postProcessingProvider =
     NotifierProvider<PostProcessingNotifier, PostProcessingStatus>(
-  PostProcessingNotifier.new,
-);
+      PostProcessingNotifier.new,
+    );
