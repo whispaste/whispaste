@@ -16,6 +16,59 @@ import '../core/logging/app_logger.dart';
 final _log = AppLogger('HardwareInfo');
 
 // ---------------------------------------------------------------------------
+// VRAM requirements for STT models
+// ---------------------------------------------------------------------------
+
+/// Estimated VRAM requirements for each STT model (in MB).
+/// Models larger than the available VRAM can cause crashes.
+const Map<String, int> sttModelVramMB = {
+  'whisper-tiny': 300,
+  'whisper-base': 500,
+  'whisper-small': 900,
+  'whisper-medium': 1500,
+  'whisper-large-v3-turbo': 2500,
+  'whisper-large-v3': 3500,
+};
+
+/// Finds the best model that fits within the GPU's VRAM.
+///
+/// If [modelId] fits, returns it unchanged.
+/// Otherwise, returns the largest available model that fits in [vramMB].
+/// Returns null if no model fits (fall back to whisper-tiny).
+String findVramSafeModel(String modelId, int? vramMB) {
+  if (vramMB == null) return modelId;
+
+  final modelVram = sttModelVramMB[modelId];
+  if (modelVram == null) return modelId;
+  if (modelVram <= vramMB) return modelId;
+
+  // Model too large — find the largest fitting model.
+  String? bestFit;
+  int bestVram = 0;
+  for (final entry in sttModelVramMB.entries) {
+    if (entry.value <= vramMB && entry.value > bestVram) {
+      bestVram = entry.value;
+      bestFit = entry.key;
+    }
+  }
+
+  if (bestFit != null) {
+    _log.warning(
+      'Model "$modelId" requires ~${modelVram}MB VRAM but only '
+      '${vramMB}MB available. Falling back to "$bestFit" (~${bestVram}MB).',
+    );
+    return bestFit;
+  }
+
+  // Nothing fits — whisper-tiny is the minimum.
+  _log.warning(
+    'No model fits in ${vramMB}MB VRAM. '
+    'Using whisper-tiny (~${sttModelVramMB['whisper-tiny']}MB).',
+  );
+  return 'whisper-tiny';
+}
+
+// ---------------------------------------------------------------------------
 // GPU vendor enum
 // ---------------------------------------------------------------------------
 
@@ -132,7 +185,11 @@ final gpuInfoProvider = FutureProvider<GpuInfo>((ref) => detectGpu());
 ///
 /// [gpuMode] is the user's GPU preference: 'auto', 'enabled', 'disabled'.
 /// [isWhisPaste] selects between WhisPaste and upstream whisper.cpp naming.
-List<String> serverAssetPatterns(GpuInfo gpu, String gpuMode, bool isWhisPaste) {
+List<String> serverAssetPatterns(
+  GpuInfo gpu,
+  String gpuMode,
+  bool isWhisPaste,
+) {
   if (gpuMode == 'disabled') {
     return isWhisPaste ? ['cpu'] : ['blas-bin'];
   }
@@ -192,7 +249,10 @@ const _serverInfoFilename = '.server-info.json';
 /// on a non-NVIDIA system).
 bool isServerBinaryCompatible(String sttDirPath, GpuInfo gpu) {
   final serverFile = File(
-    p.join(sttDirPath, Platform.isWindows ? 'whisper-server.exe' : 'whisper-server'),
+    p.join(
+      sttDirPath,
+      Platform.isWindows ? 'whisper-server.exe' : 'whisper-server',
+    ),
   );
   if (!serverFile.existsSync()) return true; // Nothing to validate.
 
@@ -249,8 +309,9 @@ bool isServerBinaryCompatible(String sttDirPath, GpuInfo gpu) {
     // This catches the case where .server-info.json is missing (e.g. legacy
     // download) and the binary was fetched from upstream CPU/BLAS.
     if (gpu.optimalBackend == 'vulkan') {
-      final hasVulkanDll =
-          File(p.join(sttDirPath, 'ggml-vulkan.dll')).existsSync();
+      final hasVulkanDll = File(
+        p.join(sttDirPath, 'ggml-vulkan.dll'),
+      ).existsSync();
       if (!hasVulkanDll) {
         _log.warning(
           'Sub-optimal binary: no ggml-vulkan.dll but GPU needs Vulkan '
@@ -282,8 +343,10 @@ Future<void> writeServerBinaryInfo(
     'gpu_name': gpu.name,
     'cuda_available': gpu.cudaAvailable,
     'vulkan_available': gpu.vulkanAvailable,
-    if (sourceRepo != null) 'source_repo': sourceRepo, // ignore: use_null_aware_elements
-    if (assetName != null) 'asset_name': assetName, // ignore: use_null_aware_elements
+    if (sourceRepo != null)
+      'source_repo': sourceRepo, // ignore: use_null_aware_elements
+    if (assetName != null)
+      'asset_name': assetName, // ignore: use_null_aware_elements
     'downloaded_at': DateTime.now().toUtc().toIso8601String(),
   };
   try {
@@ -447,11 +510,13 @@ _GpuParsed? _parseWmicList(String output) {
     if (trimmed.isEmpty) {
       // End of a GPU block.
       if (currentName != null && currentName.isNotEmpty) {
-        gpus.add(_GpuParsed(
-          name: currentName,
-          vendor: _classifyVendor(currentName),
-          vramMB: currentVram,
-        ));
+        gpus.add(
+          _GpuParsed(
+            name: currentName,
+            vendor: _classifyVendor(currentName),
+            vramMB: currentVram,
+          ),
+        );
       }
       currentName = null;
       currentVram = null;
@@ -475,11 +540,13 @@ _GpuParsed? _parseWmicList(String output) {
 
   // Flush last block.
   if (currentName != null && currentName.isNotEmpty) {
-    gpus.add(_GpuParsed(
-      name: currentName,
-      vendor: _classifyVendor(currentName),
-      vramMB: currentVram,
-    ));
+    gpus.add(
+      _GpuParsed(
+        name: currentName,
+        vendor: _classifyVendor(currentName),
+        vramMB: currentVram,
+      ),
+    );
   }
 
   if (gpus.isEmpty) return null;
@@ -509,13 +576,15 @@ Future<_GpuParsed?> _powershellGetGpus() async {
       final name = parts[0];
       final vramBytes = parts.length > 1 ? int.tryParse(parts[1]) : null;
 
-      gpus.add(_GpuParsed(
-        name: name,
-        vendor: _classifyVendor(name),
-        vramMB: vramBytes != null && vramBytes > 0
-            ? vramBytes ~/ (1024 * 1024)
-            : null,
-      ));
+      gpus.add(
+        _GpuParsed(
+          name: name,
+          vendor: _classifyVendor(name),
+          vramMB: vramBytes != null && vramBytes > 0
+              ? vramBytes ~/ (1024 * 1024)
+              : null,
+        ),
+      );
     }
 
     if (gpus.isEmpty) return null;
@@ -538,16 +607,15 @@ Future<GpuInfo> _detectMacOS() async {
     if (uname.stdout.toString().trim() == 'arm64') {
       String chipName = 'Apple Silicon';
       try {
-        final sysctl =
-            await Process.run('sysctl', ['-n', 'machdep.cpu.brand_string']);
+        final sysctl = await Process.run('sysctl', [
+          '-n',
+          'machdep.cpu.brand_string',
+        ]);
         final brand = sysctl.stdout.toString().trim();
         if (brand.isNotEmpty) chipName = brand;
       } catch (_) {}
 
-      return GpuInfo(
-        vendor: GpuVendor.apple,
-        name: chipName,
-      );
+      return GpuInfo(vendor: GpuVendor.apple, name: chipName);
     }
   } catch (_) {}
 
