@@ -216,29 +216,126 @@ QualityTier? tierForModel(String modelId) {
 
 /// Auto-recommend a tier based on GPU capabilities.
 ///
-/// NVIDIA with CUDA handles large models well at modest VRAM. Intel/AMD
-/// Vulkan and CPU-only need higher VRAM margins for the same tier.
+/// Thresholds include conservative safety margins because:
+/// - NVIDIA reports total VRAM, but OS overhead (~200-500MB), CUDA runtime,
+///   and concurrent GPU processes consume part of it. Usable VRAM is ~70% of
+///   reported.
+/// - Intel/AMD integrated GPUs report shared system RAM as "VRAM" (e.g. 4-16GB),
+///   but actual GPU-accessible memory is much smaller and shared with the CPU.
+///   Conservative multipliers are applied.
+/// - Apple Silicon has unified memory where "VRAM" = system RAM — generous
+///   thresholds apply.
 QualityTier recommendTier(int vramMB, {hw.GpuVendor? vendor}) {
-  // NVIDIA CUDA — dedicated GPU, excellent inference performance.
-  if (vendor == hw.GpuVendor.nvidia) {
-    if (vramMB >= 2048) return QualityTier.premium;
-    if (vramMB >= 512) return QualityTier.balanced;
-    return QualityTier.compact;
-  }
-
-  // Apple Metal — unified memory, generally performs well.
+  // Apple Silicon — unified memory, generous limits.
   if (vendor == hw.GpuVendor.apple) {
     if (vramMB >= 4096) return QualityTier.premium;
     if (vramMB >= 2048) return QualityTier.balanced;
     return QualityTier.compact;
   }
 
-  // Intel/AMD Vulkan or CPU — slower inference, conservative thresholds.
-  // Integrated GPUs report shared VRAM (often 4–8 GB) which overstates
-  // real inference headroom. Require ≥8 GB for premium, ≥2 GB for balanced.
-  if (vramMB >= 8192) return QualityTier.premium;
-  if (vramMB >= 2048) return QualityTier.balanced;
+  // NVIDIA dedicated GPU — total VRAM * 0.70 = conservative usable estimate.
+  // whisper-large-v3-turbo (2600MB) → needs ~3715MB reported (÷0.70).
+  // whisper-medium (1500MB) → needs ~2150MB reported.
+  if (vendor == hw.GpuVendor.nvidia) {
+    if (vramMB >= 3715) return QualityTier.premium;
+    if (vramMB >= 2150) return QualityTier.balanced;
+    return QualityTier.compact;
+  }
+
+  // Intel/AMD integrated GPUs — shared memory is unreliable.
+  // Treat reported "VRAM" as upper bound, apply aggressive safety margin.
+  // whisper-large-v3-turbo only if ≥12GB reported (very safe for integrated).
+  if (vramMB >= 12288) return QualityTier.premium;
+  if (vramMB >= 4096) return QualityTier.balanced;
   return QualityTier.compact;
+}
+
+/// Returns true if [tier] can run reliably on [gpu] without risk of
+/// GPU memory exhaustion crashes.
+bool tierIsUsableForGpu(QualityTier tier, hw.GpuInfo gpu) {
+  final vram = gpu.vramMB ?? 0;
+
+  // Compact tier always works.
+  if (tier == QualityTier.compact) return true;
+
+  // CPU-only: no GPU acceleration.
+  if (!gpu.hasGpu) return tier == QualityTier.compact;
+
+  // Apple Silicon — generous unified memory.
+  if (gpu.vendor == hw.GpuVendor.apple) {
+    if (tier == QualityTier.premium) return vram >= 4096;
+    if (tier == QualityTier.balanced) return vram >= 2048;
+    return true;
+  }
+
+  // NVIDIA dedicated — conservative usable VRAM estimate.
+  if (gpu.vendor == hw.GpuVendor.nvidia) {
+    final usableVram = (vram * 0.70).round();
+    if (tier == QualityTier.premium) {
+      return (hw.sttModelVramMB['whisper-large-v3-turbo'] ?? 2600) <=
+          usableVram;
+    }
+    if (tier == QualityTier.balanced) {
+      return (hw.sttModelVramMB['whisper-medium'] ?? 1500) <= usableVram;
+    }
+    return true;
+  }
+
+  // Intel/AMD integrated — very conservative.
+  // Real GPU memory is 128MB-2GB even if 4-16GB is reported.
+  if (tier == QualityTier.premium) return vram >= 12288;
+  if (tier == QualityTier.balanced) return vram >= 4096;
+  return true;
+}
+
+/// Returns a human-readable reason why [tier] is disabled for [gpu],
+/// or null if the tier is usable.
+String? tierDisabledReason(QualityTier tier, hw.GpuInfo gpu) {
+  if (tierIsUsableForGpu(tier, gpu)) return null;
+
+  final vram = gpu.vramMB ?? 0;
+
+  if (!gpu.hasGpu) {
+    return tier == QualityTier.premium
+        ? 'Premium requires a dedicated GPU. Your system has no GPU acceleration.'
+        : 'Balanced mode may be slow without a dedicated GPU.';
+  }
+
+  if (gpu.vendor == hw.GpuVendor.nvidia) {
+    final usableVram = (vram * 0.70).round();
+    if (tier == QualityTier.premium) {
+      return 'Premium requires ~2.6 GB usable GPU memory. '
+          'Your NVIDIA GPU has ~${usableVram}MB available after system overhead '
+          '(reported: ${vram}MB). Use Balanced instead.';
+    }
+    if (tier == QualityTier.balanced) {
+      return 'Balanced mode requires ~1.5 GB usable GPU memory. '
+          'Your NVIDIA GPU has ~${usableVram}MB available after system overhead '
+          '(reported: ${vram}MB). Use Compact instead.';
+    }
+  }
+
+  if (gpu.vendor == hw.GpuVendor.intel || gpu.vendor == hw.GpuVendor.amd) {
+    if (tier == QualityTier.premium) {
+      return 'Premium requires a high-end dedicated GPU with ≥12 GB memory. '
+          'Integrated graphics (${vram}MB shared memory) cannot run this model.';
+    }
+    if (tier == QualityTier.balanced) {
+      return 'Balanced mode requires a dedicated GPU with ≥4 GB memory. '
+          'Integrated graphics have limited memory capacity.';
+    }
+  }
+
+  if (gpu.vendor == hw.GpuVendor.apple) {
+    if (tier == QualityTier.premium) {
+      return 'Premium requires a Mac with ≥4 GB unified memory.';
+    }
+    if (tier == QualityTier.balanced) {
+      return 'Balanced mode requires a Mac with ≥2 GB unified memory.';
+    }
+  }
+
+  return 'This quality tier is not available for your hardware configuration.';
 }
 
 /// Returns a user-facing warning when [tier] may perform poorly on [gpu],
