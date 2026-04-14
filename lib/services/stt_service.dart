@@ -348,9 +348,15 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     }
 
     final json = jsonDecode(responseBody) as Map<String, dynamic>;
-    final text = (json['text'] as String? ?? '').trim();
+    var text = (json['text'] as String? ?? '').trim();
+
+    // Lightweight post-transcription repetition filter: collapse 3+
+    // consecutive identical sentences which are a hallucination pattern.
+    text = _collapseRepetitions(text);
 
     // Update prompt for next transcription (last ~200 chars).
+    // If repetition was detected (text was shortened), clear the prompt
+    // to prevent contaminating the next transcription.
     if (text.isNotEmpty) {
       _lastPrompt =
           text.length > 200 ? text.substring(text.length - 200) : text;
@@ -873,6 +879,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       '--port', '$port',
       '--threads', '$threads',
       '--no-timestamps',
+      // Reject high-entropy (uncertain) and low-probability segments to
+      // suppress whisper hallucinations on short or silent audio.
+      '--entropy-thold', '2.6',
+      '--logprob-thold', '-1.0',
     ];
 
     // Benchmark: baseline_t0_explicit (no VAD) is most reliable for short
@@ -916,6 +926,62 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   /// handles actual backend selection (CUDA / Vulkan / CPU).
   bool _shouldUseGpu(String gpuMode) {
     return gpuMode != 'disabled';
+  }
+
+  /// Collapses 3+ consecutive identical sentences — a common whisper
+  /// hallucination pattern on short or silent audio. O(n) string processing,
+  /// typically <1ms on typical transcript lengths.
+  String _collapseRepetitions(String text) {
+    if (text.length < 20) return text; // too short to contain repetitions
+
+    // Split on sentence-ending punctuation while keeping the delimiter.
+    final sentences = <String>[];
+    final buf = StringBuffer();
+    for (var i = 0; i < text.length; i++) {
+      buf.writeCharCode(text.codeUnitAt(i));
+      final c = text[i];
+      if (c == '.' || c == '?' || c == '!') {
+        sentences.add(buf.toString().trim());
+        buf.clear();
+      }
+    }
+    final trailing = buf.toString().trim();
+    if (trailing.isNotEmpty) sentences.add(trailing);
+
+    if (sentences.length < 3) return text;
+
+    // Detect runs of 3+ identical sentences and collapse to one.
+    final result = <String>[];
+    var prevSentence = '';
+    var runCount = 0;
+    var hadRepetition = false;
+
+    for (final s in sentences) {
+      if (s == prevSentence) {
+        runCount++;
+        if (runCount < 3) {
+          result.add(s);
+        } else {
+          hadRepetition = true;
+        }
+      } else {
+        prevSentence = s;
+        runCount = 1;
+        result.add(s);
+      }
+    }
+
+    if (hadRepetition) {
+      _log.warning(
+        'Whisper hallucination detected: collapsed ${sentences.length} '
+        'sentences to ${result.length}',
+      );
+      // Clear prompt to prevent hallucination propagation.
+      _lastPrompt = null;
+      _lastPromptTime = null;
+    }
+
+    return result.join(' ');
   }
 
   void _fail(String message) {
