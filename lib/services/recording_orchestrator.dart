@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
@@ -315,6 +316,18 @@ class RecordingOrchestrator extends Notifier<void> {
         notifier.fail('transcription_timeout');
         _log.error('[$sid] Transcription timed out after ${timeoutSec}s');
         return;
+      } on SocketException catch (_) {
+        pipelineOutcome = 'stt_connection_lost';
+        notifier.fail('stt_server_connection_lost');
+        _log.error('[$sid] STT server connection lost during inference');
+        return;
+      } on http.ClientException catch (_) {
+        pipelineOutcome = 'stt_connection_lost';
+        notifier.fail('stt_server_connection_lost');
+        _log.error(
+          '[$sid] STT server connection lost during inference (ClientException)',
+        );
+        return;
       }
       inferSw.stop();
       transcribeMs = inferSw.elapsedMilliseconds;
@@ -576,8 +589,10 @@ class RecordingOrchestrator extends Notifier<void> {
     if (settings.historyMaxEntries > 0) {
       final trimmed = await db.trimToMaxEntries(settings.historyMaxEntries);
       if (trimmed > 0) {
-        _log.info('Auto-trimmed $trimmed old entries to stay within '
-            '${settings.historyMaxEntries} limit');
+        _log.info(
+          'Auto-trimmed $trimmed old entries to stay within '
+          '${settings.historyMaxEntries} limit',
+        );
       }
     }
 

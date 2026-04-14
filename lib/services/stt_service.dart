@@ -67,8 +67,7 @@ class SttStatus {
   }
 
   @override
-  String toString() =>
-      'SttStatus($serverState, port=$port, model=$modelId)';
+  String toString() => 'SttStatus($serverState, port=$port, model=$modelId)';
 }
 
 // ---------------------------------------------------------------------------
@@ -174,8 +173,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       return _startCompleter!.future;
     }
 
-    final settings =
-        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
     final modelId = settings.effectiveModelId;
 
     // ── Model-change detection ───────────────────────────────────────────
@@ -188,9 +186,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     if (state.isReady && state.modelId == modelId && _process != null) {
       if (await _quickHealthCheck(state.port)) {
         _resetIdleTimer();
-        _log.debug(
-          'STT server already running (warm) on port ${state.port}',
-        );
+        _log.debug('STT server already running (warm) on port ${state.port}');
         return;
       }
       // Health check failed — server crashed silently. Clean up and restart.
@@ -278,10 +274,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   ///
   /// Uses prompt conditioning from the last transcription to improve decoder
   /// convergence speed and language consistency.
-  Future<String> transcribeBytes(
-    List<int> wavBytes, {
-    String? language,
-  }) async {
+  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
     if (!state.isReady) {
       throw StateError('STT server is not running');
     }
@@ -299,11 +292,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     // Build multipart request (mirrors Go's Transcribe).
     final uri = Uri.parse('${state.endpoint}/inference');
     final request = http.MultipartRequest('POST', uri)
-      ..files.add(http.MultipartFile.fromBytes(
-        'file',
-        wavBytes,
-        filename: 'audio.wav',
-      ))
+      ..files.add(
+        http.MultipartFile.fromBytes('file', wavBytes, filename: 'audio.wav'),
+      )
       ..fields['response_format'] = 'json'
       ..fields['temperature'] = '0.0';
 
@@ -324,15 +315,33 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       _lastPromptTime = null;
     }
 
-    final streamedResponse = await _httpClient.send(request).timeout(
-      const Duration(seconds: 300),
-      onTimeout: () => throw TimeoutException(
-        'STT inference timed out after 300s',
-        const Duration(seconds: 300),
-      ),
-    );
-    final responseBody =
-        await streamedResponse.stream.bytesToString();
+    final http.StreamedResponse streamedResponse;
+    try {
+      streamedResponse = await _httpClient
+          .send(request)
+          .timeout(
+            const Duration(seconds: 300),
+            onTimeout: () => throw TimeoutException(
+              'STT inference timed out after 300s',
+              const Duration(seconds: 300),
+            ),
+          );
+    } on SocketException catch (e) {
+      _log.error(
+        'STT server connection lost during inference (SocketException): $e',
+      );
+      throw Exception(
+        'STT server connection lost during inference (server may have crashed)',
+      );
+    } on http.ClientException catch (e) {
+      _log.error(
+        'STT server connection lost during inference (ClientException): $e',
+      );
+      throw Exception(
+        'STT server connection lost during inference (server may have crashed)',
+      );
+    }
+    final responseBody = await streamedResponse.stream.bytesToString();
 
     stopwatch.stop();
     _log.info(
@@ -358,8 +367,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     // If repetition was detected (text was shortened), clear the prompt
     // to prevent contaminating the next transcription.
     if (text.isNotEmpty) {
-      _lastPrompt =
-          text.length > 200 ? text.substring(text.length - 200) : text;
+      _lastPrompt = text.length > 200
+          ? text.substring(text.length - 200)
+          : text;
       _lastPromptTime = DateTime.now();
     }
 
@@ -445,9 +455,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     final sw = Stopwatch()..start();
     try {
       final uri = Uri.parse('http://127.0.0.1:$port/health');
-      final resp = await http.get(uri).timeout(
-        const Duration(milliseconds: 500),
-      );
+      final resp = await http
+          .get(uri)
+          .timeout(const Duration(milliseconds: 500));
       sw.stop();
       final ok = resp.statusCode == 200;
       _log.debug(
@@ -476,8 +486,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     _idleTimer?.cancel();
     _idleTimer = null;
 
-    final settings =
-        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
     final baseMinutes = settings.sttIdleTimeoutMinutes;
 
     // 0 = keep-alive mode — never shut down automatically.
@@ -497,8 +506,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     final timeout = Duration(minutes: timeoutMinutes);
     _idleTimer = Timer(timeout, () {
-      _log.info('STT server idle for ${timeout.inMinutes} min, '
-          'shutting down to free GPU memory');
+      _log.info(
+        'STT server idle for ${timeout.inMinutes} min, '
+        'shutting down to free GPU memory',
+      );
       stop();
     });
   }
@@ -545,11 +556,13 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       final silentWav = _generateSilentWav();
       final uri = Uri.parse('http://127.0.0.1:$port/inference');
       final request = http.MultipartRequest('POST', uri)
-        ..files.add(http.MultipartFile.fromBytes(
-          'file',
-          silentWav,
-          filename: 'warmup.wav',
-        ))
+        ..files.add(
+          http.MultipartFile.fromBytes(
+            'file',
+            silentWav,
+            filename: 'warmup.wav',
+          ),
+        )
         ..fields['response_format'] = 'json'
         ..fields['temperature'] = '0.0';
 
@@ -604,7 +617,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     data.setUint16(22, numChannels, Endian.little);
     data.setUint32(24, sampleRate, Endian.little);
     data.setUint32(
-        28, sampleRate * numChannels * bytesPerSample, Endian.little);
+      28,
+      sampleRate * numChannels * bytesPerSample,
+      Endian.little,
+    );
     data.setUint16(32, numChannels * bytesPerSample, Endian.little);
     data.setUint16(34, bitsPerSample, Endian.little);
 
@@ -653,8 +669,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     // --- Find a free port ----------------------------------------------------
     final int port;
     try {
-      final socket =
-          await ServerSocket.bind('127.0.0.1', 0);
+      final socket = await ServerSocket.bind('127.0.0.1', 0);
       port = socket.port;
       await socket.close();
     } on SocketException catch (e) {
@@ -664,7 +679,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     // --- Detect GPU for optimal configuration --------------------------------
     final gpu = await hw.detectGpu();
-    _log.info('GPU: ${gpu.name} (${gpu.vendor.name}, backend=${gpu.optimalBackend})');
+    _log.info(
+      'GPU: ${gpu.name} (${gpu.vendor.name}, backend=${gpu.optimalBackend})',
+    );
 
     // --- Proactive binary compatibility check --------------------------------
     // Verify the server binary matches the current GPU before attempting to
@@ -717,9 +734,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     // Log subprocess output for diagnostics.
     // whisper-server writes ALL diagnostic info to stderr (model params,
     // device selection, system_info). These are informational, not errors.
-    proc.stdout.transform(const SystemEncoding().decoder).listen(
-      (line) => _log.debug('whisper-server: $line'),
-    );
+    proc.stdout
+        .transform(const SystemEncoding().decoder)
+        .listen((line) => _log.debug('whisper-server: $line'));
     proc.stderr.transform(const SystemEncoding().decoder).listen((line) {
       // Actual errors contain "error" or "failed" — everything else is
       // diagnostic info that whisper.cpp sends to stderr by convention.
@@ -752,22 +769,26 @@ class SttServiceNotifier extends Notifier<SttStatus> {
           }
           _process = null;
           _activeModel = null;
-          _transition(SttStatus(
-            serverState: SttServerState.error,
-            errorMessage: isDllNotFound
-                ? 'Incompatible server binary for your GPU. '
-                    'Please re-download the speech model in Settings.'
-                : 'whisper-server exited before becoming ready (code $code)',
-          ));
+          _transition(
+            SttStatus(
+              serverState: SttServerState.error,
+              errorMessage: isDllNotFound
+                  ? 'Incompatible server binary for your GPU. '
+                        'Please re-download the speech model in Settings.'
+                  : 'whisper-server exited before becoming ready (code $code)',
+            ),
+          );
         }
       }),
     );
 
-    _transition(SttStatus(
-      serverState: SttServerState.starting,
-      port: port,
-      modelId: modelId,
-    ));
+    _transition(
+      SttStatus(
+        serverState: SttServerState.starting,
+        port: port,
+        modelId: modelId,
+      ),
+    );
 
     // --- Health poll ---------------------------------------------------------
     final coldStart = Stopwatch()..start();
@@ -794,16 +815,31 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       'on port $port (model=$modelId)',
     );
 
+    // VRAM safety check: warn if the model is too large for the GPU.
+    // The server is already started with this model; the warning helps
+    // diagnose crashes. On next ensureRunning, a smaller model will be used.
+    if (gpu.vramMB != null) {
+      final requiredVram = hw.sttModelVramMB[_activeModel] ?? 0;
+      if (requiredVram > gpu.vramMB!) {
+        _log.warning(
+          'Model "$_activeModel" requires ~${requiredVram}MB VRAM '
+          'but GPU has ${gpu.vramMB}MB — risk of crash/inference failure.',
+        );
+      }
+    }
+
     // GPU warmup: send a tiny silent WAV to pre-allocate compute buffers.
     // This moves the first-inference GPU allocation penalty from the user's
     // first recording into the hidden startup phase.
     await _warmupInference(port);
 
-    _transition(SttStatus(
-      serverState: SttServerState.ready,
-      port: port,
-      modelId: modelId,
-    ));
+    _transition(
+      SttStatus(
+        serverState: SttServerState.ready,
+        port: port,
+        modelId: modelId,
+      ),
+    );
   }
 
   /// Progressive-backoff health polling (mirrors Go's `waitReady`).
@@ -813,8 +849,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   Future<void> _waitReady(int port, Process proc) async {
     final healthUrl = Uri.parse('http://127.0.0.1:$port/health');
     final client = http.Client();
-    final deadline =
-        DateTime.now().add(const Duration(seconds: 180));
+    final deadline = DateTime.now().add(const Duration(seconds: 180));
     var interval = const Duration(milliseconds: 100);
     const maxInterval = Duration(seconds: 1);
     var iteration = 0;
@@ -842,9 +877,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
           }
         } on Exception {
           if (iteration % 10 == 9) {
-            _log.info(
-              'STT server not reachable yet (${iteration + 1}s)',
-            );
+            _log.info('STT server not reachable yet (${iteration + 1}s)');
           }
         }
 
@@ -861,9 +894,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       client.close();
     }
 
-    throw TimeoutException(
-      'whisper-server did not become ready within 180 s',
-    );
+    throw TimeoutException('whisper-server did not become ready within 180 s');
   }
 
   /// Builds the whisper-server CLI args (mirrors Go's `sttServerArgs`).
@@ -986,10 +1017,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
   void _fail(String message) {
     _log.error('STT error: $message');
-    _transition(SttStatus(
-      serverState: SttServerState.error,
-      errorMessage: message,
-    ));
+    _transition(
+      SttStatus(serverState: SttServerState.error, errorMessage: message),
+    );
   }
 }
 
@@ -1007,7 +1037,6 @@ class _EarlyExitException implements Exception {
 // ---------------------------------------------------------------------------
 
 /// Global STT service provider — manages the whisper-server subprocess.
-final sttServiceProvider =
-    NotifierProvider<SttServiceNotifier, SttStatus>(
+final sttServiceProvider = NotifierProvider<SttServiceNotifier, SttStatus>(
   SttServiceNotifier.new,
 );
