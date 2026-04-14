@@ -879,7 +879,9 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                                 ? SystemMouseCursors.basic
                                                 : SystemMouseCursors.click,
                                             child: HighlightedText(
-                                              text: entry.content,
+                                              text: entry.content.isEmpty
+                                                  ? '\u200B'
+                                                  : entry.content,
                                               style: TextStyle(
                                                 fontSize: 15.5,
                                                 color: textPrimary,
