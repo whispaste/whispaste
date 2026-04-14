@@ -61,8 +61,7 @@ const List<SttModelInfo> sttModels = [
     sizeBytes: 32152673,
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin',
-    sha256:
-        '818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7',
+    sha256: '818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7',
     description: 'Fastest, lower accuracy',
   ),
   SttModelInfo(
@@ -72,8 +71,7 @@ const List<SttModelInfo> sttModels = [
     sizeBytes: 59700000,
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin',
-    sha256:
-        '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898',
+    sha256: '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898',
     description: 'Good balance of speed and accuracy',
   ),
   SttModelInfo(
@@ -83,8 +81,7 @@ const List<SttModelInfo> sttModels = [
     sizeBytes: 190085487,
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin',
-    sha256:
-        'ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb',
+    sha256: 'ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb',
     description: 'Recommended for most users',
   ),
   SttModelInfo(
@@ -94,8 +91,7 @@ const List<SttModelInfo> sttModels = [
     sizeBytes: 539212467,
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin',
-    sha256:
-        '19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f',
+    sha256: '19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f',
     description: 'High accuracy, needs more RAM',
   ),
   SttModelInfo(
@@ -105,8 +101,7 @@ const List<SttModelInfo> sttModels = [
     sizeBytes: 574041195,
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin',
-    sha256:
-        '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2',
+    sha256: '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2',
     description: 'Best speed/quality ratio for large models',
   ),
   SttModelInfo(
@@ -116,8 +111,7 @@ const List<SttModelInfo> sttModels = [
     sizeBytes: 1081140203,
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin',
-    sha256:
-        'd75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1',
+    sha256: 'd75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1',
     description: 'Maximum accuracy, requires GPU',
   ),
 ];
@@ -206,9 +200,7 @@ List<SttModelInfo> modelsForTier(QualityTier tier) {
     QualityTier.balanced => ['whisper-medium'],
     QualityTier.premium => ['whisper-large-v3-turbo', 'whisper-large-v3'],
   };
-  return ids
-      .map((id) => sttModels.firstWhere((m) => m.id == id))
-      .toList();
+  return ids.map((id) => sttModels.firstWhere((m) => m.id == id)).toList();
 }
 
 /// Returns the single best model for [tier].
@@ -394,17 +386,20 @@ class ModelDownloadState {
 class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   CancelToken? _cancelToken;
   bool _autoDownloadAttempted = false;
-  final _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(minutes: 10),
-    headers: {'User-Agent': appUserAgent},
-  ));
+  final _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(minutes: 10),
+      headers: {'User-Agent': appUserAgent},
+    ),
+  );
 
   @override
   ModelDownloadState build() {
     ref.onDispose(() {
       _cancelToken?.cancel('disposed');
-      _dio.close();
+      // Dio instance is kept alive so it can be reused for retry/download
+      // attempts after the notifier is re-initialized (e.g., after app reset).
     });
     // Scan disk for already-downloaded models.
     final initial = _scanExisting();
@@ -516,26 +511,17 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       await _markModelDone(model.id);
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
-        state = state.copyWith(
-          phase: DownloadPhase.idle,
-          activeModelId: null,
-        );
+        state = state.copyWith(phase: DownloadPhase.idle, activeModelId: null);
       } else {
         final msg = e.response?.statusCode == 403
             ? 'GitHub API rate limit reached. Please wait a few minutes.'
             : 'Download failed: ${e.message}';
         _log.error(msg);
-        state = state.copyWith(
-          phase: DownloadPhase.error,
-          errorMessage: msg,
-        );
+        state = state.copyWith(phase: DownloadPhase.error, errorMessage: msg);
       }
     } on Exception catch (e) {
       _log.error('Download error: $e');
-      state = state.copyWith(
-        phase: DownloadPhase.error,
-        errorMessage: '$e',
-      );
+      state = state.copyWith(phase: DownloadPhase.error, errorMessage: '$e');
     }
   }
 
@@ -578,10 +564,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       await _downloadWhisperServer();
 
       // Reset to idle (not done — no model was downloaded).
-      state = state.copyWith(
-        phase: DownloadPhase.idle,
-        progressPercent: 0,
-      );
+      state = state.copyWith(phase: DownloadPhase.idle, progressPercent: 0);
       _log.info('Self-heal complete: whisper-server ready');
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
@@ -591,17 +574,11 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
             ? 'GitHub API rate limit reached.'
             : 'Download failed: ${e.message}';
         _log.warning('Self-heal failed: $msg');
-        state = state.copyWith(
-          phase: DownloadPhase.idle,
-          errorMessage: msg,
-        );
+        state = state.copyWith(phase: DownloadPhase.idle, errorMessage: msg);
       }
     } on Exception catch (e) {
       _log.warning('Self-heal failed: $e');
-      state = state.copyWith(
-        phase: DownloadPhase.idle,
-        errorMessage: '$e',
-      );
+      state = state.copyWith(phase: DownloadPhase.idle, errorMessage: '$e');
     }
   }
 
@@ -726,26 +703,17 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       await _markLlmModelDone(model.id);
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
-        state = state.copyWith(
-          phase: DownloadPhase.idle,
-          activeModelId: null,
-        );
+        state = state.copyWith(phase: DownloadPhase.idle, activeModelId: null);
       } else {
         final msg = e.response?.statusCode == 403
             ? 'GitHub API rate limit reached. Please wait a few minutes.'
             : 'Download failed: ${e.message}';
         _log.error(msg);
-        state = state.copyWith(
-          phase: DownloadPhase.error,
-          errorMessage: msg,
-        );
+        state = state.copyWith(phase: DownloadPhase.error, errorMessage: msg);
       }
     } on Exception catch (e) {
       _log.error('LLM download error: $e');
-      state = state.copyWith(
-        phase: DownloadPhase.error,
-        errorMessage: '$e',
-      );
+      state = state.copyWith(phase: DownloadPhase.error, errorMessage: '$e');
     }
   }
 
@@ -773,10 +741,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
 
       await _downloadLlamaServer();
 
-      state = state.copyWith(
-        phase: DownloadPhase.idle,
-        progressPercent: 0,
-      );
+      state = state.copyWith(phase: DownloadPhase.idle, progressPercent: 0);
       _log.info('llama-server download complete');
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
@@ -786,17 +751,11 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
             ? 'GitHub API rate limit reached.'
             : 'Download failed: ${e.message}';
         _log.warning('llama-server download failed: $msg');
-        state = state.copyWith(
-          phase: DownloadPhase.idle,
-          errorMessage: msg,
-        );
+        state = state.copyWith(phase: DownloadPhase.idle, errorMessage: msg);
       }
     } on Exception catch (e) {
       _log.warning('llama-server download failed: $e');
-      state = state.copyWith(
-        phase: DownloadPhase.idle,
-        errorMessage: '$e',
-      );
+      state = state.copyWith(phase: DownloadPhase.idle, errorMessage: '$e');
     }
   }
 
@@ -949,7 +908,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
 
     final totalBytes = _resolveTotal(response, startByte, expectedSize);
 
-    final sink = tmpFile.openWrite(mode: startByte > 0 ? FileMode.append : FileMode.write);
+    final sink = tmpFile.openWrite(
+      mode: startByte > 0 ? FileMode.append : FileMode.write,
+    );
     int received = startByte;
 
     // Rolling speed tracker — sample every ~500ms for a smooth 5s window.
@@ -1048,16 +1009,12 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       'vulkan=${gpu.vulkanAvailable})',
     );
 
-    final settings =
-        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
     final gpuMode = settings.gpuAcceleration;
 
     // Source priority: WhisPaste-owned releases (may have Vulkan/custom
     // builds), then upstream whisper.cpp (has CUDA + CPU/BLAS).
-    const repos = [
-      ('whispaste', 'whispaste'),
-      ('ggml-org', 'whisper.cpp'),
-    ];
+    const repos = [('whispaste', 'whispaste'), ('ggml-org', 'whisper.cpp')];
 
     String? lastError;
 
@@ -1081,8 +1038,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           // Size varies: CPU/BLAS ~17 MB, Vulkan ~30 MB, CUDA 12 ~460 MB.
           final isCuda =
               assetUrl.contains('cuda') || assetUrl.contains('cublas');
-          final estimatedSize =
-              isCuda ? 460 * 1024 * 1024 : 30 * 1024 * 1024;
+          final estimatedSize = isCuda ? 460 * 1024 * 1024 : 30 * 1024 * 1024;
           final zipPath = p.join(sttDir(), '_whisper-server.zip');
           await _downloadFile(
             url: assetUrl,
@@ -1120,9 +1076,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           if (e.type == DioExceptionType.cancel) rethrow;
           if (status == 403) break; // Rate limited — skip to next repo.
           if (attempt < 2) {
-            await Future<void>.delayed(
-              Duration(seconds: 2 * attempt),
-            );
+            await Future<void>.delayed(Duration(seconds: 2 * attempt));
           }
         } on Exception catch (e) {
           lastError = '$e';
@@ -1131,9 +1085,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
             '(attempt $attempt): $e',
           );
           if (attempt < 2) {
-            await Future<void>.delayed(
-              Duration(seconds: 2 * attempt),
-            );
+            await Future<void>.delayed(Duration(seconds: 2 * attempt));
           }
         }
       }
@@ -1171,8 +1123,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         response = await _dio.get<Map<String, dynamic>>(
           apiUrl,
           cancelToken: _cancelToken,
-          options:
-              Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
+          options: Options(
+            headers: {'Accept': 'application/vnd.github.v3+json'},
+          ),
         );
       } on DioException catch (e) {
         if (e.response?.statusCode == 404) {
@@ -1187,8 +1140,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     // Check GitHub rate limit from response headers (upstream path only;
     // WhisPaste path handles this in _findWhisPasteServerRelease).
 
-    final assets =
-        (releaseData?['assets'] as List<dynamic>?) ?? [];
+    final assets = (releaseData?['assets'] as List<dynamic>?) ?? [];
     if (assets.isEmpty) {
       _log.info('No assets in $owner/$repo release');
       return null;
@@ -1235,12 +1187,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       final response = await _dio.get<List<dynamic>>(
         apiUrl,
         cancelToken: _cancelToken,
-        options:
-            Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
+        options: Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
       );
 
-      final remaining =
-          response.headers['x-ratelimit-remaining']?.firstOrNull;
+      final remaining = response.headers['x-ratelimit-remaining']?.firstOrNull;
       if (remaining != null) {
         final rem = int.tryParse(remaining) ?? -1;
         if (rem <= 5) {
@@ -1269,7 +1219,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     }
   }
 
-  Future<List<String>> _serverAssetPatterns(String gpuMode, bool isWhisPaste) async {
+  Future<List<String>> _serverAssetPatterns(
+    String gpuMode,
+    bool isWhisPaste,
+  ) async {
     final gpu = await hw.detectGpu();
     return hw.serverAssetPatterns(gpu, gpuMode, isWhisPaste);
   }
@@ -1330,8 +1283,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       'vulkan=${gpu.vulkanAvailable})',
     );
 
-    final settings =
-        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
     final gpuMode = settings.gpuAcceleration;
 
     // Only upstream source — llama.cpp releases.
@@ -1353,10 +1305,8 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           '${Uri.parse(assetUrl).pathSegments.last}',
         );
 
-        final isCuda =
-            assetUrl.contains('cuda') || assetUrl.contains('cublas');
-        final estimatedSize =
-            isCuda ? 500 * 1024 * 1024 : 40 * 1024 * 1024;
+        final isCuda = assetUrl.contains('cuda') || assetUrl.contains('cublas');
+        final estimatedSize = isCuda ? 500 * 1024 * 1024 : 40 * 1024 * 1024;
         final zipPath = p.join(llmDir(), '_llama-server.zip');
         await _downloadFile(
           url: assetUrl,
@@ -1384,9 +1334,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           await Future<void>.delayed(Duration(seconds: 2 * attempt));
         }
       } on Exception catch (e) {
-        _log.warning(
-          'llama-server download failed (attempt $attempt): $e',
-        );
+        _log.warning('llama-server download failed (attempt $attempt): $e');
         if (attempt < 2) {
           await Future<void>.delayed(Duration(seconds: 2 * attempt));
         }
@@ -1415,8 +1363,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       }
     }
 
-    final serverExeName =
-        Platform.isWindows ? 'llama-server.exe' : 'llama-server';
+    final serverExeName = Platform.isWindows
+        ? 'llama-server.exe'
+        : 'llama-server';
 
     for (final file in archive) {
       if (file.isFile) {
@@ -1472,5 +1421,5 @@ class _SpeedSample {
 
 final modelDownloadProvider =
     NotifierProvider<ModelDownloadNotifier, ModelDownloadState>(
-  ModelDownloadNotifier.new,
-);
+      ModelDownloadNotifier.new,
+    );
