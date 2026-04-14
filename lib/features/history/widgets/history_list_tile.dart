@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -85,15 +86,18 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
     } else if (_isHovered) {
       bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
     } else {
-      bg = isDark ? WpColorsDark.hoverTransparent : WpColorsLight.hoverTransparent;
+      bg = isDark
+          ? WpColorsDark.hoverTransparent
+          : WpColorsLight.hoverTransparent;
     }
 
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final textSecondary =
-        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     return MouseRegion(
@@ -119,18 +123,15 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
               decoration: BoxDecoration(
                 color: bg,
                 borderRadius: WpRadius.borderMd,
-                // Left accent stripe for selected entry (Discord-style)
-                // Focus ring for keyboard-navigated entry
+                // Use uniform border for selected state (compatible with borderRadius)
                 border: widget.isSelected
-                    ? Border(
-                        left: BorderSide(color: accent, width: 3),
-                      )
+                    ? Border.all(color: accent, width: 2)
                     : widget.isFocused
-                        ? Border.all(
-                            color: accent.withValues(alpha: 0.5),
-                            width: 1.5,
-                          )
-                        : null,
+                    ? Border.all(
+                        color: accent.withValues(alpha: 0.5),
+                        width: 1.5,
+                      )
+                    : null,
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +139,10 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                   // Multi-select checkbox
                   if (widget.multiSelectMode)
                     Padding(
-                      padding: const EdgeInsets.only(right: WpSpacing.xs, top: 10),
+                      padding: const EdgeInsets.only(
+                        right: WpSpacing.xs,
+                        top: 10,
+                      ),
                       child: SizedBox(
                         width: 24,
                         height: 24,
@@ -151,7 +155,8 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                                 ? WpColorsDark.textMuted
                                 : WpColorsLight.textMuted,
                           ),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                           visualDensity: VisualDensity.compact,
                         ),
                       ),
@@ -197,73 +202,90 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                               child: Text(
                                 _timeLabel,
                                 style: TextStyle(
-                                    fontSize: 11, color: textMuted),
+                                  fontSize: 11,
+                                  color: textMuted,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                    const SizedBox(height: 3),
-                    // Row 2: Content preview — two lines for more context
-                    HighlightedText(
-                      text: widget.entry.content,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      isDark: isDark,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: textSecondary,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // Row 3: Subtle inline metadata (duration + language)
-                    Row(
-                      children: [
-                        Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
-                        const SizedBox(width: 3),
-                        Flexible(
-                          child: Text(
-                            _durationLabel,
-                            style: TextStyle(fontSize: 10, color: textMuted),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        const SizedBox(height: 3),
+                        // Row 2: Content preview — two lines for more context
+                        HighlightedText(
+                          text: widget.entry.content,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          isDark: isDark,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: textSecondary,
+                            height: 1.35,
                           ),
                         ),
-                        if (widget.entry.language.isNotEmpty) ...[
-                          const SizedBox(width: WpSpacing.xs),
-                          Text(
-                            '·',
-                            style: TextStyle(
-                                fontSize: 10, color: textMuted),
-                          ),
-                          const SizedBox(width: WpSpacing.xs),
-                          Text(
-                            widget.entry.language.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 10,
+                        const SizedBox(height: 4),
+                        // Row 3: Subtle inline metadata (duration + language)
+                        Row(
+                          children: [
+                            Icon(
+                              LucideIcons.clock,
+                              size: WpIconSize.xs,
                               color: textMuted,
-                              fontWeight: FontWeight.w500,
                             ),
-                          ),
-                        ],
-                        if (!widget.entry.isLocal) ...[
-                          const SizedBox(width: WpSpacing.xs),
-                          Text(
-                            '·',
-                            style: TextStyle(
-                                fontSize: 10, color: textMuted),
-                          ),
-                          const SizedBox(width: WpSpacing.xs),
-                          Icon(LucideIcons.cloud, size: WpIconSize.xs, color: textMuted),
-                        ],
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                _durationLabel,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: textMuted,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (widget.entry.language.isNotEmpty) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              Text(
+                                '·',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: textMuted,
+                                ),
+                              ),
+                              const SizedBox(width: WpSpacing.xs),
+                              Text(
+                                widget.entry.language.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: textMuted,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                            if (!widget.entry.isLocal) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              Text(
+                                '·',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: textMuted,
+                                ),
+                              ),
+                              const SizedBox(width: WpSpacing.xs),
+                              Icon(
+                                LucideIcons.cloud,
+                                size: WpIconSize.xs,
+                                color: textMuted,
+                              ),
+                            ],
+                          ],
+                        ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
             // Quick action buttons — visible on hover (desktop) or always (touch)
             if ((_isHovered || _isTouchPlatform) && !widget.multiSelectMode)
               Positioned(
@@ -279,9 +301,13 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                       onTap: widget.onCopy,
                     ),
                     HistoryRowAction(
-                      faIcon: widget.entry.pinned ? FontAwesomeIcons.solidStar : null,
+                      faIcon: widget.entry.pinned
+                          ? FontAwesomeIcons.solidStar
+                          : null,
                       icon: widget.entry.pinned ? null : LucideIcons.star,
-                      activeColor: widget.entry.pinned ? Colors.amber.shade600 : null,
+                      activeColor: widget.entry.pinned
+                          ? Colors.amber.shade600
+                          : null,
                       tooltip: widget.entry.pinned
                           ? l10n.historyUnpin
                           : l10n.historyPinToTop,
