@@ -35,8 +35,9 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value;
     final currentModelId = settings?.effectiveModelId;
-    final currentTier =
-        currentModelId != null ? tierForModel(currentModelId) : null;
+    final currentTier = currentModelId != null
+        ? tierForModel(currentModelId)
+        : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,17 +48,19 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
             tier: tier,
             isRecommended: tier == recommendedTier,
             isCurrentTier: tier == currentTier,
+            disabledReason: gpu != null ? tierDisabledReason(tier, gpu) : null,
             warning: gpu != null ? tierWarning(tier, gpu) : null,
             downloadState: downloadState,
             isDark: isDark,
             l10n: l10n,
-            onSelect: downloadState.isBusy
+            onSelect:
+                downloadState.isBusy ||
+                    (gpu != null && tierDisabledReason(tier, gpu) != null)
                 ? null
                 : () => _selectTier(tier, downloadState),
-            onCancel: _isTierActive(tier, downloadState) &&
-                    downloadState.isBusy
+            onCancel: _isTierActive(tier, downloadState) && downloadState.isBusy
                 ? () =>
-                    ref.read(modelDownloadProvider.notifier).cancelDownload()
+                      ref.read(modelDownloadProvider.notifier).cancelDownload()
                 : null,
             onDelete: _isTierDownloaded(tier, downloadState)
                 ? () {
@@ -103,10 +106,12 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
   /// Uses the best downloaded model in the tier (not necessarily
   /// [bestModelForTier], which may not be on disk yet).
   void _activateTier(QualityTier tier, ModelDownloadState downloadState) {
-    final downloaded = modelsForTier(tier)
-        .where((m) => downloadState.downloadedModels.contains(m.id));
-    final modelId =
-        downloaded.isNotEmpty ? downloaded.first.id : bestModelForTier(tier).id;
+    final downloaded = modelsForTier(
+      tier,
+    ).where((m) => downloadState.downloadedModels.contains(m.id));
+    final modelId = downloaded.isNotEmpty
+        ? downloaded.first.id
+        : bestModelForTier(tier).id;
     ref
         .read(settingsProvider.notifier)
         .updateSettings((s) => s.copyWith(sttModel: modelId));
@@ -120,8 +125,9 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
 
   /// Whether any model in this tier is downloaded.
   bool _isTierDownloaded(QualityTier tier, ModelDownloadState state) {
-    return modelsForTier(tier)
-        .any((m) => state.downloadedModels.contains(m.id));
+    return modelsForTier(
+      tier,
+    ).any((m) => state.downloadedModels.contains(m.id));
   }
 }
 
@@ -134,6 +140,7 @@ class _TierRow extends StatefulWidget {
     required this.tier,
     required this.isRecommended,
     this.isCurrentTier = false,
+    this.disabledReason,
     this.warning,
     required this.downloadState,
     required this.isDark,
@@ -146,6 +153,7 @@ class _TierRow extends StatefulWidget {
   final QualityTier tier;
   final bool isRecommended;
   final bool isCurrentTier;
+  final String? disabledReason;
   final String? warning;
   final ModelDownloadState downloadState;
   final bool isDark;
@@ -161,13 +169,15 @@ class _TierRow extends StatefulWidget {
 class _TierRowState extends State<_TierRow> {
   bool _isHovered = false;
 
-  bool get _isDownloaded => widget.downloadState.downloadedModels
-      .contains(bestModelForTier(widget.tier).id);
+  bool get _isDownloaded => widget.downloadState.downloadedModels.contains(
+    bestModelForTier(widget.tier).id,
+  );
 
   bool get _isDownloading =>
       widget.downloadState.activeModelId != null &&
-      modelsForTier(widget.tier)
-          .any((m) => m.id == widget.downloadState.activeModelId) &&
+      modelsForTier(
+        widget.tier,
+      ).any((m) => m.id == widget.downloadState.activeModelId) &&
       widget.downloadState.isBusy;
 
   DownloadPhase get _phase {
@@ -176,49 +186,55 @@ class _TierRowState extends State<_TierRow> {
   }
 
   IconData get _tierIcon => switch (widget.tier) {
-        QualityTier.compact => LucideIcons.zap,
-        QualityTier.balanced => LucideIcons.scale,
-        QualityTier.premium => LucideIcons.crown,
-      };
+    QualityTier.compact => LucideIcons.zap,
+    QualityTier.balanced => LucideIcons.scale,
+    QualityTier.premium => LucideIcons.crown,
+  };
 
   String _tierLabel(L10n l10n) => switch (widget.tier) {
-        QualityTier.compact => l10n.qualityTierCompactLabel,
-        QualityTier.balanced => l10n.qualityTierBalancedLabel,
-        QualityTier.premium => l10n.qualityTierPremiumLabel,
-      };
+    QualityTier.compact => l10n.qualityTierCompactLabel,
+    QualityTier.balanced => l10n.qualityTierBalancedLabel,
+    QualityTier.premium => l10n.qualityTierPremiumLabel,
+  };
 
   String _tierDesc(L10n l10n) => switch (widget.tier) {
-        QualityTier.compact => l10n.qualityTierCompactDesc,
-        QualityTier.balanced => l10n.qualityTierBalancedDesc,
-        QualityTier.premium => l10n.qualityTierPremiumDesc,
-      };
+    QualityTier.compact => l10n.qualityTierCompactDesc,
+    QualityTier.balanced => l10n.qualityTierBalancedDesc,
+    QualityTier.premium => l10n.qualityTierPremiumDesc,
+  };
 
   @override
   Widget build(BuildContext context) {
-    final accent =
-        widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textPrimary =
-        widget.isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textPrimary = widget.isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
     final textSecondary = widget.isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
-    final textMuted =
-        widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final hoverBg =
-        widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
-    final success =
-        widget.isDark ? WpColorsDark.success : WpColorsLight.success;
+    final textMuted = widget.isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
+    final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
+    final success = widget.isDark
+        ? WpColorsDark.success
+        : WpColorsLight.success;
 
     final bestModel = bestModelForTier(widget.tier);
 
     final bool isSelectable =
-        widget.onSelect != null && (!widget.isCurrentTier || !_isDownloaded);
+        widget.onSelect != null &&
+        widget.disabledReason == null &&
+        (!widget.isCurrentTier || !_isDownloaded);
+    final bool isDisabled = widget.disabledReason != null;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       cursor: isSelectable
           ? SystemMouseCursors.click
+          : isDisabled
+          ? SystemMouseCursors.forbidden
           : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: isSelectable ? widget.onSelect : null,
@@ -235,8 +251,12 @@ class _TierRowState extends State<_TierRow> {
             color: widget.isCurrentTier || _isDownloading
                 ? accent.withValues(alpha: 0.08)
                 : _isHovered && isSelectable
-                    ? hoverBg
-                    : Colors.transparent,
+                ? hoverBg
+                : isDisabled
+                ? (widget.isDark
+                      ? const Color(0xFF1A1A1A)
+                      : const Color(0xFFF5F5F5))
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(WpRadius.sm),
             border: widget.isCurrentTier || _isDownloading
                 ? Border.all(color: accent.withValues(alpha: 0.3))
@@ -296,8 +316,9 @@ class _TierRowState extends State<_TierRow> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: accent.withValues(alpha: 0.12),
-                                  borderRadius:
-                                      BorderRadius.circular(WpRadius.full),
+                                  borderRadius: BorderRadius.circular(
+                                    WpRadius.full,
+                                  ),
                                 ),
                                 child: Text(
                                   widget.l10n.qualityTierRecommended,
@@ -319,16 +340,16 @@ class _TierRowState extends State<_TierRow> {
                                 color: _isDownloaded
                                     ? success.withValues(alpha: 0.12)
                                     : textMuted.withValues(alpha: 0.12),
-                                borderRadius:
-                                    BorderRadius.circular(WpRadius.full),
+                                borderRadius: BorderRadius.circular(
+                                  WpRadius.full,
+                                ),
                               ),
                               child: Text(
                                 tierSizeLabel(widget.tier),
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w500,
-                                  color:
-                                      _isDownloaded ? success : textMuted,
+                                  color: _isDownloaded ? success : textMuted,
                                 ),
                               ),
                             ),
@@ -343,11 +364,13 @@ class _TierRowState extends State<_TierRow> {
                           const SizedBox(height: 3),
                           Row(
                             children: [
-                              Icon(LucideIcons.triangleAlert,
-                                  size: WpIconSize.xs,
-                                  color: widget.isDark
-                                      ? WpColorsDark.warning
-                                      : WpColorsLight.warning),
+                              Icon(
+                                LucideIcons.triangleAlert,
+                                size: WpIconSize.xs,
+                                color: widget.isDark
+                                    ? WpColorsDark.warning
+                                    : WpColorsLight.warning,
+                              ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
@@ -357,6 +380,32 @@ class _TierRowState extends State<_TierRow> {
                                     color: widget.isDark
                                         ? WpColorsDark.warning
                                         : WpColorsLight.warning,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (widget.disabledReason != null) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Icon(
+                                LucideIcons.lock,
+                                size: WpIconSize.xs,
+                                color: widget.isDark
+                                    ? WpColorsDark.textMuted
+                                    : WpColorsLight.textMuted,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  widget.disabledReason!,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: widget.isDark
+                                        ? WpColorsDark.textMuted
+                                        : WpColorsLight.textMuted,
                                   ),
                                 ),
                               ),
@@ -414,8 +463,9 @@ class _TierRowState extends State<_TierRow> {
             onTap: widget.onDelete,
           );
         }
-        final success =
-            widget.isDark ? WpColorsDark.success : WpColorsLight.success;
+        final success = widget.isDark
+            ? WpColorsDark.success
+            : WpColorsLight.success;
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -545,9 +595,7 @@ class _DownloadProgressInfo extends StatelessWidget {
           _statusText(),
           style: TextStyle(
             fontSize: 11,
-            color: isDark
-                ? WpColorsDark.textMuted
-                : WpColorsLight.textMuted,
+            color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -646,7 +694,10 @@ class _ActionChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(WpRadius.sm),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xs, vertical: WpSpacing.xxs),
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.xs,
+          vertical: WpSpacing.xxs,
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
