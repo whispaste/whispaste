@@ -43,8 +43,8 @@ class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
 
 /// Fake LLM service notifier that simulates a running server.
 class _FakeLlmServiceNotifier extends LlmServiceNotifier {
-  bool _throwOnEnsureRunning = false;
-  String _response = 'Processed text';
+  final bool _throwOnEnsureRunning;
+  final String _response;
 
   _FakeLlmServiceNotifier({
     bool throwOnEnsureRunning = false,
@@ -105,7 +105,7 @@ void main() {
         );
 
         // Model NOT downloaded, server NOT ready
-        final downloadState = ModelDownloadState(
+        const downloadState = ModelDownloadState(
           downloadedLlmModels: {}, // Empty - model not downloaded
           llmServerReady: false,
         );
@@ -142,7 +142,7 @@ void main() {
           postProcessProvider: 'Local',
         );
 
-        final downloadState = ModelDownloadState(
+        const downloadState = ModelDownloadState(
           downloadedLlmModels: {},
           llmServerReady: false,
         );
@@ -178,7 +178,7 @@ void main() {
           postProcessProvider: 'Local',
         );
 
-        final downloadState = ModelDownloadState(
+        const downloadState = ModelDownloadState(
           downloadedLlmModels: {},
           llmServerReady: false,
         );
@@ -214,7 +214,7 @@ void main() {
           postProcessProvider: 'Local',
         );
 
-        final downloadState = ModelDownloadState(
+        const downloadState = ModelDownloadState(
           downloadedLlmModels: {},
           llmServerReady: false,
         );
@@ -256,7 +256,7 @@ void main() {
         );
 
         // Model downloaded but server binary NOT ready
-        final downloadState = ModelDownloadState(
+        const downloadState = ModelDownloadState(
           downloadedLlmModels: {'qwen3-1.7b'}, // Model IS downloaded
           llmServerReady: false, // But server binary is NOT ready
         );
@@ -296,7 +296,7 @@ void main() {
         );
 
         // Model downloaded AND server ready
-        final downloadState = ModelDownloadState(
+        const downloadState = ModelDownloadState(
           downloadedLlmModels: {'qwen3-1.7b'},
           llmServerReady: true,
         );
@@ -328,7 +328,7 @@ void main() {
           postProcessProvider: 'Local',
         );
 
-        final downloadState = ModelDownloadState(
+        const downloadState = ModelDownloadState(
           downloadedLlmModels: {'qwen3-1.7b'},
           llmServerReady: true,
         );
@@ -356,7 +356,7 @@ void main() {
           postProcessProvider: 'Local',
         );
 
-        final downloadState = ModelDownloadState(
+        const downloadState = ModelDownloadState(
           downloadedLlmModels: {'qwen3-1.7b'},
           llmServerReady: true,
         );
@@ -384,7 +384,7 @@ void main() {
           postProcessProvider: 'Local',
         );
 
-        final downloadState = ModelDownloadState(
+        const downloadState = ModelDownloadState(
           downloadedLlmModels: {'qwen3-1.7b'},
           llmServerReady: true,
         );
@@ -435,7 +435,7 @@ void main() {
           postProcessProvider: 'Local',
         );
 
-        final downloadState = ModelDownloadState(
+        const downloadState = ModelDownloadState(
           downloadedLlmModels: {'qwen3-1.7b'},
           llmServerReady: true,
         );
@@ -480,7 +480,7 @@ void main() {
         );
 
         // Even with no local model downloaded, cloud provider should work
-        final downloadState = ModelDownloadState(
+        const downloadState = ModelDownloadState(
           downloadedLlmModels: {},
           llmServerReady: false,
         );
