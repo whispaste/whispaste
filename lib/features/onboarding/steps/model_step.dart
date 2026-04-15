@@ -7,6 +7,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hardware_info_service.dart' as hw;
 import '../../../services/model_download_service.dart';
+import '../../../widgets/tier_safety_presentation.dart';
 import '../../../widgets/wp_accent_button.dart';
 
 /// Onboarding Step 3 — Quality tier selection & download.
@@ -50,7 +51,6 @@ class _ModelStepState extends ConsumerState<ModelStep> {
 
   void _startDownload() {
     final tier = _selectedTier ?? QualityTier.balanced;
-    if (_gpu != null && tierDisabledReason(tier, _gpu!) != null) return;
     final model = bestModelForTier(tier);
     ref.read(modelDownloadProvider.notifier).downloadModel(model.id);
   }
@@ -74,9 +74,9 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         : WpColorsLight.accentWarmGradient;
     final selectedTier =
         _selectedTier ?? _recommendedTier ?? QualityTier.balanced;
-    final selectedDisabledReason = _gpu != null
-        ? tierDisabledReason(selectedTier, _gpu!)
-        : null;
+    final selectedSafety = _gpu != null
+        ? tierSafety(selectedTier, _gpu!)
+        : TierSafety.usable;
 
     final isDownloading =
         dlState.phase == DownloadPhase.downloading ||
@@ -125,9 +125,10 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             isRecommended:
                 _selectedTier == _recommendedTier || _selectedTier == null,
             isSelected: true,
+            safety: selectedSafety,
+            gpu: _gpu,
             isDark: isDark,
             l10n: l10n,
-            disabledReason: selectedDisabledReason,
             onTap: null,
           ),
 
@@ -139,11 +140,13 @@ class _ModelStepState extends ConsumerState<ModelStep> {
               progress: dlState.progressPercent / 100.0,
               isDark: isDark,
               accent: accent,
+              l10n: l10n,
             )
           else if (isError)
             _DownloadError(
               message: dlState.errorMessage,
               isDark: isDark,
+              l10n: l10n,
               onRetry: _startDownload,
             )
           else if (isDone)
@@ -175,9 +178,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                 label:
                     '${l10n.qualityTierDownloadAndContinue} (${tierSizeLabel(selectedTier)})',
                 gradient: accentGradient,
-                onPressed: selectedDisabledReason == null
-                    ? _startDownload
-                    : null,
+                onPressed: _startDownload,
               ),
             ),
 
@@ -185,11 +186,18 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           if (_gpu != null) ...[
             Builder(
               builder: (context) {
-                final warning = tierWarning(selectedTier, _gpu!);
+                final warning = _tierWarningMessage(
+                  l10n: l10n,
+                  tier: selectedTier,
+                  safety: selectedSafety,
+                  gpu: _gpu,
+                );
                 if (warning == null) return const SizedBox.shrink();
-                final warningColor = isDark
-                    ? WpColorsDark.warning
-                    : WpColorsLight.warning;
+                final warningColor = _tierWarningColor(
+                  isDark: isDark,
+                  safety: selectedSafety,
+                );
+                final warningIcon = TierSafetyPresentation.icon(selectedSafety);
                 return Padding(
                   padding: const EdgeInsets.only(top: WpSpacing.sm),
                   child: Container(
@@ -204,11 +212,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          LucideIcons.triangleAlert,
-                          size: 14,
-                          color: warningColor,
-                        ),
+                        Icon(warningIcon, size: 14, color: warningColor),
                         const SizedBox(width: WpSpacing.sm),
                         Expanded(
                           child: Text(
@@ -280,16 +284,13 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                                 tier: tier,
                                 isRecommended: tier == _recommendedTier,
                                 isSelected: false,
+                                safety: _gpu != null
+                                    ? tierSafety(tier, _gpu!)
+                                    : TierSafety.usable,
+                                gpu: _gpu,
                                 isDark: isDark,
                                 l10n: l10n,
-                                disabledReason: _gpu != null
-                                    ? tierDisabledReason(tier, _gpu!)
-                                    : null,
                                 onTap: () {
-                                  if (_gpu != null &&
-                                      tierDisabledReason(tier, _gpu!) != null) {
-                                    return;
-                                  }
                                   setState(() {
                                     _selectedTier = tier;
                                     _showAlternatives = false;
@@ -364,6 +365,22 @@ class _ModelStepState extends ConsumerState<ModelStep> {
   }
 }
 
+String? _tierWarningMessage({
+  required L10n l10n,
+  required QualityTier tier,
+  required TierSafety safety,
+  required hw.GpuInfo? gpu,
+}) => TierSafetyPresentation.message(
+  l10n: l10n,
+  tier: tier,
+  safety: safety,
+  gpu: gpu,
+);
+
+Color _tierWarningColor({required bool isDark, required TierSafety safety}) {
+  return TierSafetyPresentation.color(isDark: isDark, safety: safety);
+}
+
 // ---------------------------------------------------------------------------
 // Tier Card — shows tier name, description, size, recommended badge
 // ---------------------------------------------------------------------------
@@ -373,18 +390,20 @@ class _TierCard extends StatefulWidget {
     required this.tier,
     required this.isRecommended,
     required this.isSelected,
+    required this.safety,
+    required this.gpu,
     required this.isDark,
     required this.l10n,
-    this.disabledReason,
     required this.onTap,
   });
 
   final QualityTier tier;
   final bool isRecommended;
   final bool isSelected;
+  final TierSafety safety;
+  final hw.GpuInfo? gpu;
   final bool isDark;
   final L10n l10n;
-  final String? disabledReason;
   final VoidCallback? onTap;
 
   @override
@@ -415,8 +434,18 @@ class _TierCardState extends State<_TierCard> {
   @override
   Widget build(BuildContext context) {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final bool isDisabled = widget.disabledReason != null;
-    final bool isTappable = widget.onTap != null && !isDisabled;
+    final warningMessage = _tierWarningMessage(
+      l10n: widget.l10n,
+      tier: widget.tier,
+      safety: widget.safety,
+      gpu: widget.gpu,
+    );
+    final warningColor = _tierWarningColor(
+      isDark: widget.isDark,
+      safety: widget.safety,
+    );
+    final warningIcon = TierSafetyPresentation.icon(widget.safety);
+    final bool isTappable = widget.onTap != null;
     final borderColor = widget.isSelected
         ? accent
         : _hovered
@@ -433,19 +462,14 @@ class _TierCardState extends State<_TierCard> {
     final textSecondary = widget.isDark
         ? WpColorsDark.textSecondary
         : WpColorsLight.textSecondary;
-    final textMuted = widget.isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
-    final textColor = isDisabled ? textMuted : textPrimary;
-    final subtitleColor = isDisabled ? textMuted : textSecondary;
-    final iconColor = isDisabled ? textMuted : accent;
+    final textColor = textPrimary;
+    final subtitleColor = textSecondary;
+    final iconColor = accent;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      cursor: isTappable
-          ? SystemMouseCursors.click
-          : SystemMouseCursors.forbidden,
+      cursor: isTappable ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: isTappable ? widget.onTap : null,
         child: AnimatedContainer(
@@ -455,10 +479,6 @@ class _TierCardState extends State<_TierCard> {
           decoration: BoxDecoration(
             color: widget.isSelected
                 ? accent.withValues(alpha: 0.08)
-                : isDisabled
-                ? (widget.isDark
-                      ? const Color(0xFF1A1A1A)
-                      : const Color(0xFFF5F5F5))
                 : _hovered
                 ? accent.withValues(alpha: 0.05)
                 : surface.withValues(alpha: 0.5),
@@ -518,16 +538,19 @@ class _TierCardState extends State<_TierCard> {
                         height: 1.3,
                       ),
                     ),
-                    if (widget.disabledReason != null) ...[
+                    if (warningMessage != null) ...[
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.lock_outline, size: 12, color: textMuted),
+                          Icon(warningIcon, size: 12, color: warningColor),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              widget.disabledReason!,
-                              style: TextStyle(fontSize: 11, color: textMuted),
+                              warningMessage,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: warningColor,
+                              ),
                             ),
                           ),
                         ],
@@ -563,12 +586,14 @@ class _DownloadProgress extends StatelessWidget {
     required this.progress,
     required this.isDark,
     required this.accent,
+    required this.l10n,
   });
 
   final DownloadPhase phase;
   final double progress;
   final bool isDark;
   final Color accent;
+  final L10n l10n;
 
   @override
   Widget build(BuildContext context) {
@@ -578,8 +603,8 @@ class _DownloadProgress extends StatelessWidget {
 
     final label = switch (phase) {
       DownloadPhase.downloading => '${(progress * 100).round()}%',
-      DownloadPhase.extracting => 'Extracting…',
-      DownloadPhase.verifying => 'Verifying…',
+      DownloadPhase.extracting => l10n.modelExtracting,
+      DownloadPhase.verifying => l10n.modelVerifying,
       _ => '',
     };
 
@@ -609,11 +634,13 @@ class _DownloadError extends StatelessWidget {
   const _DownloadError({
     required this.message,
     required this.isDark,
+    required this.l10n,
     required this.onRetry,
   });
 
   final String? message;
   final bool isDark;
+  final L10n l10n;
   final VoidCallback onRetry;
 
   @override
@@ -639,8 +666,7 @@ class _DownloadError extends StatelessWidget {
               const SizedBox(width: WpSpacing.sm),
               Expanded(
                 child: Text(
-                  message ??
-                      'Download failed. Please check your internet connection.',
+                  message ?? l10n.modelDownloadFailed,
                   style: TextStyle(fontSize: 12, color: errorColor),
                 ),
               ),
@@ -654,7 +680,7 @@ class _DownloadError extends StatelessWidget {
             onPressed: onRetry,
             icon: Icon(LucideIcons.refreshCw, size: 14, color: textSecondary),
             label: Text(
-              'Retry',
+              l10n.overlayRetry,
               style: TextStyle(fontSize: 13, color: textSecondary),
             ),
             style: OutlinedButton.styleFrom(

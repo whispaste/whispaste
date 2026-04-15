@@ -288,6 +288,15 @@ class RecordingOrchestrator extends Notifier<void> {
       // Verify server is ready before transcribing.
       final sttStatus = ref.read(sttServiceProvider);
       if (!sttStatus.isReady) {
+        if (sttStatus.errorMessage == 'stt_cuda_oom') {
+          pipelineOutcome = 'stt_cuda_oom';
+          notifier.reset();
+          sttNotifier.notifyRecordingStopped();
+          _log.warning(
+            '[$sid] STT startup hit CUDA OOM — fallback was applied',
+          );
+          return;
+        }
         pipelineOutcome = 'stt_failed';
         notifier.fail(sttStatus.errorMessage ?? 'stt_server_failed');
         return;
@@ -317,11 +326,32 @@ class RecordingOrchestrator extends Notifier<void> {
         _log.error('[$sid] Transcription timed out after ${timeoutSec}s');
         return;
       } on SocketException catch (_) {
+        final sttError = ref.read(sttServiceProvider).errorMessage;
+        if (sttError == 'stt_cuda_oom') {
+          pipelineOutcome = 'stt_cuda_oom';
+          notifier.reset();
+          sttNotifier.notifyRecordingStopped();
+          _log.warning(
+            '[$sid] STT server exited with CUDA OOM during inference',
+          );
+          return;
+        }
         pipelineOutcome = 'stt_connection_lost';
         notifier.fail('stt_server_connection_lost');
         _log.error('[$sid] STT server connection lost during inference');
         return;
       } on http.ClientException catch (_) {
+        final sttError = ref.read(sttServiceProvider).errorMessage;
+        if (sttError == 'stt_cuda_oom') {
+          pipelineOutcome = 'stt_cuda_oom';
+          notifier.reset();
+          sttNotifier.notifyRecordingStopped();
+          _log.warning(
+            '[$sid] STT server exited with CUDA OOM during inference '
+            '(ClientException)',
+          );
+          return;
+        }
         pipelineOutcome = 'stt_connection_lost';
         notifier.fail('stt_server_connection_lost');
         _log.error(
@@ -422,6 +452,13 @@ class RecordingOrchestrator extends Notifier<void> {
       pipelineOutcome = 'ok';
     } on Exception catch (e) {
       pipelineOutcome = 'exception';
+      if ('$e'.contains('stt_cuda_oom')) {
+        pipelineOutcome = 'stt_cuda_oom';
+        notifier.reset();
+        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+        _log.warning('[$sid] Pipeline recovered after CUDA OOM');
+        return;
+      }
       notifier.fail('$e');
       ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
       _log.error('[$sid] Pipeline error: $e');
