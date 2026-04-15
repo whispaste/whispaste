@@ -190,6 +190,24 @@ LlmModelInfo? findLlmModel(String id) {
 /// User-facing quality tiers that abstract away model internals.
 enum QualityTier { compact, balanced, premium }
 
+/// Safety/availability level of a quality tier for a given GPU.
+/// Used to determine UI display (warning vs disabled) and behavior.
+enum TierSafety {
+  /// Tier can run reliably on this GPU.
+  usable,
+
+  /// Tier is usable but will be slow (no GPU acceleration).
+  slowWithoutGpu,
+
+  /// Tier may crash or run poorly due to GPU memory limits.
+  /// User CAN still select it — this is a warning, not a blocker.
+  vramRisky,
+
+  /// Tier is extremely unlikely to work (integrated GPU + large model).
+  /// User CAN still select it with explicit confirmation.
+  vramCritical,
+}
+
 /// Returns the ordered list of models belonging to [tier] (best first).
 ///
 /// Order is explicit — the first entry in each tier is the recommended
@@ -250,123 +268,50 @@ QualityTier recommendTier(int vramMB, {hw.GpuVendor? vendor}) {
   return QualityTier.compact;
 }
 
-/// Returns true if [tier] can run reliably on [gpu] without risk of
-/// GPU memory exhaustion crashes.
-bool tierIsUsableForGpu(QualityTier tier, hw.GpuInfo gpu) {
+/// Returns the safety level of [tier] for [gpu].
+/// This is informational — users can still select any tier.
+TierSafety tierSafety(QualityTier tier, hw.GpuInfo gpu) {
   final vram = gpu.vramMB ?? 0;
 
-  // Compact tier always works.
-  if (tier == QualityTier.compact) return true;
+  // Compact tier always usable.
+  if (tier == QualityTier.compact) return TierSafety.usable;
 
-  // CPU-only: no GPU acceleration.
-  if (!gpu.hasGpu) return tier == QualityTier.compact;
+  // CPU-only: usable but slow.
+  if (!gpu.hasGpu) return TierSafety.slowWithoutGpu;
 
-  // Apple Silicon — generous unified memory.
+  // Apple Silicon — generous thresholds.
   if (gpu.vendor == hw.GpuVendor.apple) {
-    if (tier == QualityTier.premium) return vram >= 4096;
-    if (tier == QualityTier.balanced) return vram >= 2048;
-    return true;
+    if (tier == QualityTier.premium) {
+      return vram >= 4096 ? TierSafety.usable : TierSafety.vramRisky;
+    }
+    return TierSafety.usable;
   }
 
-  // NVIDIA dedicated — conservative usable VRAM estimate.
+  // NVIDIA dedicated GPU.
   if (gpu.vendor == hw.GpuVendor.nvidia) {
     final usableVram = (vram * 0.70).round();
+    final premiumNeeded = hw.sttModelVramMB['whisper-large-v3-turbo'] ?? 2600;
+    final balancedNeeded = hw.sttModelVramMB['whisper-medium'] ?? 1500;
+
     if (tier == QualityTier.premium) {
-      return (hw.sttModelVramMB['whisper-large-v3-turbo'] ?? 2600) <=
-          usableVram;
+      if (premiumNeeded <= usableVram) return TierSafety.usable;
+      return TierSafety.vramRisky;
     }
     if (tier == QualityTier.balanced) {
-      return (hw.sttModelVramMB['whisper-medium'] ?? 1500) <= usableVram;
+      if (balancedNeeded <= usableVram) return TierSafety.usable;
+      return TierSafety.vramRisky;
     }
-    return true;
   }
 
   // Intel/AMD integrated — very conservative.
-  // Real GPU memory is 128MB-2GB even if 4-16GB is reported.
-  if (tier == QualityTier.premium) return vram >= 12288;
-  if (tier == QualityTier.balanced) return vram >= 4096;
-  return true;
-}
-
-/// Returns a human-readable reason why [tier] is disabled for [gpu],
-/// or null if the tier is usable.
-String? tierDisabledReason(QualityTier tier, hw.GpuInfo gpu) {
-  if (tierIsUsableForGpu(tier, gpu)) return null;
-
-  final vram = gpu.vramMB ?? 0;
-
-  if (!gpu.hasGpu) {
-    return tier == QualityTier.premium
-        ? 'Premium requires a dedicated GPU. Your system has no GPU acceleration.'
-        : 'Balanced mode may be slow without a dedicated GPU.';
-  }
-
-  if (gpu.vendor == hw.GpuVendor.nvidia) {
-    final usableVram = (vram * 0.70).round();
-    if (tier == QualityTier.premium) {
-      return 'Premium requires ~2.6 GB usable GPU memory. '
-          'Your NVIDIA GPU has ~${usableVram}MB available after system overhead '
-          '(reported: ${vram}MB). Use Balanced instead.';
-    }
-    if (tier == QualityTier.balanced) {
-      return 'Balanced mode requires ~1.5 GB usable GPU memory. '
-          'Your NVIDIA GPU has ~${usableVram}MB available after system overhead '
-          '(reported: ${vram}MB). Use Compact instead.';
-    }
-  }
-
   if (gpu.vendor == hw.GpuVendor.intel || gpu.vendor == hw.GpuVendor.amd) {
-    if (tier == QualityTier.premium) {
-      return 'Premium requires a high-end dedicated GPU with ≥12 GB memory. '
-          'Integrated graphics (${vram}MB shared memory) cannot run this model.';
-    }
+    if (tier == QualityTier.premium) return TierSafety.vramCritical;
     if (tier == QualityTier.balanced) {
-      return 'Balanced mode requires a dedicated GPU with ≥4 GB memory. '
-          'Integrated graphics have limited memory capacity.';
+      return vram >= 4096 ? TierSafety.vramRisky : TierSafety.vramCritical;
     }
   }
 
-  if (gpu.vendor == hw.GpuVendor.apple) {
-    if (tier == QualityTier.premium) {
-      return 'Premium requires a Mac with ≥4 GB unified memory.';
-    }
-    if (tier == QualityTier.balanced) {
-      return 'Balanced mode requires a Mac with ≥2 GB unified memory.';
-    }
-  }
-
-  return 'This quality tier is not available for your hardware configuration.';
-}
-
-/// Returns a user-facing warning when [tier] may perform poorly on [gpu],
-/// or `null` if no concerns.
-String? tierWarning(QualityTier tier, hw.GpuInfo gpu) {
-  if (tier == QualityTier.compact) return null;
-
-  // CPU-only — large models will be very slow.
-  if (!gpu.hasGpu) {
-    if (tier == QualityTier.premium) {
-      return 'Large models are very slow without GPU acceleration. '
-          'Consider "Balanced" for better performance.';
-    }
-    if (tier == QualityTier.balanced) {
-      return 'Without a GPU, transcription will be noticeably slower.';
-    }
-  }
-
-  // Intel/AMD integrated graphics — premium is risky, balanced may be slow.
-  if (gpu.vendor == hw.GpuVendor.intel || gpu.vendor == hw.GpuVendor.amd) {
-    final vram = gpu.vramMB ?? 0;
-    if (tier == QualityTier.premium && vram < 8192) {
-      return 'Large models may be slow on integrated graphics. '
-          '"Balanced" is recommended for your hardware.';
-    }
-    if (tier == QualityTier.balanced && vram < 4096) {
-      return 'Transcription may be noticeably slower on this hardware.';
-    }
-  }
-
-  return null;
+  return TierSafety.usable;
 }
 
 /// Total download size for [tier]'s best model (human-readable).

@@ -15,8 +15,10 @@ import 'package:http/http.dart' as http;
 
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
-import '../core/recording/recording_state.dart' show SttServerState;
+import '../core/recording/recording_state.dart'
+    show SttServerState, recordingInfoProvider;
 import 'hardware_info_service.dart' as hw;
+import 'model_download_service.dart';
 import 'path_service.dart';
 import 'subprocess_guard.dart' as guard;
 
@@ -85,6 +87,10 @@ class SttStatus {
 /// memory. The server is also restarted transparently when the model changes.
 class SttServiceNotifier extends Notifier<SttStatus> {
   static final _log = AppLogger('SttService');
+  static const _cudaOomErrorCode = 'stt_cuda_oom';
+  static const _infoCudaOomFallbackModel = 'info_stt_cuda_oom_model';
+  static const _infoCudaOomFallbackCpu = 'info_stt_cuda_oom_cpu';
+  static const _maxStderrLines = 50;
 
   Process? _process;
   String? _activeModel;
@@ -731,27 +737,57 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     _process = proc;
     guard.writePid('whisper-server', proc.pid);
 
+    final stderrLines = <String>[];
+    var sawCudaOom = false;
+
+    void rememberStderr(String line) {
+      final normalized = line.trim();
+      if (normalized.isEmpty) return;
+
+      stderrLines.add(normalized);
+      if (stderrLines.length > _maxStderrLines) {
+        stderrLines.removeAt(0);
+      }
+
+      final lower = normalized.toLowerCase();
+      if (_looksLikeCudaOom(lower)) {
+        sawCudaOom = true;
+      }
+
+      if (lower.contains('error') || lower.contains('failed')) {
+        _log.warning('whisper-server: $normalized');
+      } else {
+        _log.debug('whisper-server: $normalized');
+      }
+    }
+
     // Log subprocess output for diagnostics.
     // whisper-server writes ALL diagnostic info to stderr (model params,
     // device selection, system_info). These are informational, not errors.
     proc.stdout
         .transform(const SystemEncoding().decoder)
+        .transform(const LineSplitter())
         .listen((line) => _log.debug('whisper-server: $line'));
-    proc.stderr.transform(const SystemEncoding().decoder).listen((line) {
-      // Actual errors contain "error" or "failed" — everything else is
-      // diagnostic info that whisper.cpp sends to stderr by convention.
-      final lower = line.toLowerCase();
-      if (lower.contains('error') || lower.contains('failed')) {
-        _log.warning('whisper-server: $line');
-      } else {
-        _log.debug('whisper-server: $line');
-      }
-    });
+    proc.stderr
+        .transform(const SystemEncoding().decoder)
+        .transform(const LineSplitter())
+        .listen(rememberStderr);
 
     // Monitor for early exit (mirrors Go's waitCh).
     unawaited(
-      proc.exitCode.then((code) {
+      proc.exitCode.then((code) async {
         if (_process == proc) {
+          guard.deletePid('whisper-server');
+          if (sawCudaOom || _stderrHasCudaOom(stderrLines)) {
+            await _handleCudaOom(
+              proc: proc,
+              failedModelId: modelId,
+              gpu: gpu,
+              stderrLines: stderrLines,
+            );
+            return;
+          }
+
           // Windows STATUS_DLL_NOT_FOUND (0xC0000135) indicates a binary
           // variant mismatch — e.g. CUDA build on a system without NVIDIA.
           final isDllNotFound = Platform.isWindows && code == -1073741515;
@@ -957,6 +993,100 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   /// handles actual backend selection (CUDA / Vulkan / CPU).
   bool _shouldUseGpu(String gpuMode) {
     return gpuMode != 'disabled';
+  }
+
+  bool _looksLikeCudaOom(String message) {
+    final hasGpuContext =
+        message.contains('cuda') ||
+        message.contains('cublas') ||
+        message.contains('ggml_cuda') ||
+        message.contains('gpu');
+
+    return message.contains('cuda out of memory') ||
+        message.contains('cublas_status_alloc_failed') ||
+        (hasGpuContext && message.contains('out of memory')) ||
+        (hasGpuContext && message.contains('failed to allocate'));
+  }
+
+  bool _stderrHasCudaOom(List<String> stderrLines) {
+    for (final line in stderrLines) {
+      if (_looksLikeCudaOom(line.toLowerCase())) return true;
+    }
+    return false;
+  }
+
+  List<String> _fallbackModelCandidates(String modelId) {
+    final currentRequirement = hw.sttModelVramMB[modelId];
+    if (currentRequirement == null) return const [];
+
+    final entries =
+        hw.sttModelVramMB.entries
+            .where((entry) => entry.value < currentRequirement)
+            .toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+
+    return entries.map((entry) => entry.key).toList();
+  }
+
+  Future<void> _handleCudaOom({
+    required Process proc,
+    required String failedModelId,
+    required hw.GpuInfo gpu,
+    required List<String> stderrLines,
+  }) async {
+    if (_process != proc) return;
+
+    _process = null;
+    _activeModel = null;
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    _modelChangeDebounce?.cancel();
+    _modelChangeDebounce = null;
+
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final downloadedModels = ref.read(modelDownloadProvider).downloadedModels;
+    final fallbackCandidates = _fallbackModelCandidates(failedModelId);
+
+    String? fallbackModelId;
+    for (final candidate in fallbackCandidates) {
+      if (downloadedModels.contains(candidate)) {
+        fallbackModelId = candidate;
+        break;
+      }
+    }
+
+    final recommendedModel = fallbackCandidates.isNotEmpty
+        ? fallbackCandidates.first
+        : null;
+
+    _log.error(
+      'whisper-server hit CUDA OOM for model=$failedModelId '
+      'gpu=${gpu.name} stderr=${stderrLines.join(' | ')} '
+      'fallbackModel=${fallbackModelId ?? "none"} '
+      'recommendedSmallerModel=${recommendedModel ?? "none"}',
+    );
+
+    if (fallbackModelId != null &&
+        fallbackModelId != settings.effectiveModelId) {
+      await ref
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(sttModel: fallbackModelId));
+      ref.read(recordingInfoProvider.notifier).show(_infoCudaOomFallbackModel);
+    } else if (settings.gpuAcceleration != 'disabled') {
+      await ref
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(gpuAcceleration: 'disabled'));
+      ref.read(recordingInfoProvider.notifier).show(_infoCudaOomFallbackCpu);
+    } else {
+      ref.read(recordingInfoProvider.notifier).show(_infoCudaOomFallbackCpu);
+    }
+
+    _transition(
+      const SttStatus(
+        serverState: SttServerState.error,
+        errorMessage: _cudaOomErrorCode,
+      ),
+    );
   }
 
   /// Collapses 3+ consecutive identical sentences — a common whisper

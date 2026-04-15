@@ -1344,6 +1344,37 @@ class L10nDe extends L10n {
   String get qualityTierActive => 'Aktiv';
 
   @override
+  String get qualityTierWarningNoGpu =>
+      'Ohne GPU ist diese Qualitätsstufe deutlich langsamer.';
+
+  @override
+  String get qualityTierWarningNvidiaPremium =>
+      'Benötigt möglicherweise mehr GPU-Speicher als verfügbar. Transkription könnte langsam sein oder fehlschlagen.';
+
+  @override
+  String get qualityTierWarningNvidiaBalanced =>
+      'Benötigt möglicherweise mehr GPU-Speicher als verfügbar. Transkription könnte langsam sein.';
+
+  @override
+  String get qualityTierWarningIgpuPremium =>
+      'Integrierte Grafik kann dieses Qualitätsniveau typischerweise nicht ausführen. Transkription wird wahrscheinlich fehlschlagen.';
+
+  @override
+  String get qualityTierWarningIgpuBalanced =>
+      'Integrierte Grafik hat begrenzten Speicher. Transkription könnte langsam sein oder fehlschlagen.';
+
+  @override
+  String get qualityTierWarningApplePremium =>
+      'Erfordert einen Mac mit ausreichend Unified Memory.';
+
+  @override
+  String get qualityTierActionOverride => 'Trotzdem verwenden';
+
+  @override
+  String get qualityTierActionOverrideHint =>
+      'Diese Qualitätsstufe trotz Warnung verwenden';
+
+  @override
   String qualityTierModelTooltip(String modelName, String size) {
     return 'Whisper $modelName · $size';
   }
@@ -1399,8 +1430,24 @@ class L10nDe extends L10n {
       'Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.';
 
   @override
+  String get infoSttCudaOomFallbackModel =>
+      'Qualität reduziert — deiner GPU ist der Speicher ausgegangen. Es wurde auf ein kleineres Modell umgestellt.';
+
+  @override
+  String get infoSttCudaOomFallbackCpu =>
+      'Deiner GPU ist der Speicher ausgegangen. Für mehr Zuverlässigkeit wurde auf CPU-Modus umgestellt.';
+
+  @override
   String get errorSttServerNotFound =>
       'Sprachmodul nicht gefunden. Bitte lade ein Sprachmodell in den Einstellungen herunter.';
+
+  @override
+  String get errorSttServerConnectionLost =>
+      'Sprachmodul wurde unerwartet beendet. Bitte versuche es erneut.';
+
+  @override
+  String get errorSttCudaOom =>
+      'Deiner GPU ist der Speicher ausgegangen. Die Qualität wurde reduziert, damit der nächste Versuch funktionieren sollte.';
 
   @override
   String get errorOnboardingNotCompleted =>
@@ -1461,6 +1508,10 @@ class L10nDe extends L10n {
   @override
   String get errorGeneric =>
       'Etwas ist schiefgelaufen. Bitte versuche es erneut.';
+
+  @override
+  String get modelDownloadFailed =>
+      'Download fehlgeschlagen. Bitte überprüfe deine Internetverbindung.';
 
   @override
   String get statusSttLoading => 'Modell wird geladen…';
