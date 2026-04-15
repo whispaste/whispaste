@@ -284,6 +284,58 @@ void main() {
       expect(tierSizeLabel(QualityTier.balanced), contains('MB'));
       expect(tierSizeLabel(QualityTier.premium), contains('MB'));
     });
+
+    test('tierSafety classifies CPU-only systems as slow but usable', () {
+      const cpuOnly = GpuInfo(vendor: GpuVendor.none, name: 'CPU only');
+
+      expect(tierSafety(QualityTier.compact, cpuOnly), TierSafety.usable);
+      expect(
+        tierSafety(QualityTier.balanced, cpuOnly),
+        TierSafety.slowWithoutGpu,
+      );
+      expect(
+        tierSafety(QualityTier.premium, cpuOnly),
+        TierSafety.slowWithoutGpu,
+      );
+    });
+
+    test('tierSafety classifies low-VRAM NVIDIA tiers as risky', () {
+      const nvidia = GpuInfo(
+        vendor: GpuVendor.nvidia,
+        name: 'RTX Test',
+        vramMB: 3000,
+        cudaAvailable: true,
+      );
+
+      expect(tierSafety(QualityTier.compact, nvidia), TierSafety.usable);
+      expect(tierSafety(QualityTier.balanced, nvidia), TierSafety.usable);
+      expect(tierSafety(QualityTier.premium, nvidia), TierSafety.vramRisky);
+    });
+
+    test('tierSafety classifies integrated GPUs conservatively', () {
+      const igpuLow = GpuInfo(
+        vendor: GpuVendor.intel,
+        name: 'Intel Iris',
+        vramMB: 2048,
+        vulkanAvailable: true,
+      );
+      const igpuHigh = GpuInfo(
+        vendor: GpuVendor.intel,
+        name: 'Intel Iris Pro',
+        vramMB: 6144,
+        vulkanAvailable: true,
+      );
+
+      expect(
+        tierSafety(QualityTier.balanced, igpuLow),
+        TierSafety.vramCritical,
+      );
+      expect(tierSafety(QualityTier.balanced, igpuHigh), TierSafety.vramRisky);
+      expect(
+        tierSafety(QualityTier.premium, igpuHigh),
+        TierSafety.vramCritical,
+      );
+    });
   });
 
   group('ModelDownloadState', () {
