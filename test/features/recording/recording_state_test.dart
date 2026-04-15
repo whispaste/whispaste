@@ -58,20 +58,17 @@ void main() {
     });
 
     test('equality and hashCode', () {
-      const a = RecordingState(
-        phase: RecordingPhase.done,
-        transcript: 'hello',
-      );
-      const b = RecordingState(
-        phase: RecordingPhase.done,
-        transcript: 'hello',
-      );
+      const a = RecordingState(phase: RecordingPhase.done, transcript: 'hello');
+      const b = RecordingState(phase: RecordingPhase.done, transcript: 'hello');
       expect(a, equals(b));
       expect(a.hashCode, b.hashCode);
     });
 
     test('toString contains key fields', () {
-      const s = RecordingState(phase: RecordingPhase.error, errorMessage: 'oh no');
+      const s = RecordingState(
+        phase: RecordingPhase.error,
+        errorMessage: 'oh no',
+      );
       expect(s.toString(), contains('error'));
       expect(s.toString(), contains('oh no'));
     });
@@ -344,7 +341,10 @@ void main() {
       c.read(recordingProvider.notifier).startRecording();
       await Future<void>.delayed(const Duration(milliseconds: 1200));
 
-      expect(c.read(recordingElapsedProvider).inSeconds, greaterThanOrEqualTo(1));
+      expect(
+        c.read(recordingElapsedProvider).inSeconds,
+        greaterThanOrEqualTo(1),
+      );
     });
 
     test('recordingPhaseProvider reflects phase', () {
@@ -353,6 +353,42 @@ void main() {
 
       c.read(recordingProvider.notifier).startRecording();
       expect(c.read(recordingPhaseProvider), RecordingPhase.recording);
+    });
+  });
+
+  group('OomRecoveryNotifier', () {
+    test('starts without a pending recovery', () {
+      final c = makeContainer();
+      final state = c.read(oomRecoveryPendingProvider);
+
+      expect(state.pending, isFalse);
+      expect(state.nextModelId, isNull);
+      expect(state.hasCloudConfigured, isFalse);
+      expect(state.isPermanentFail, isFalse);
+    });
+
+    test('showPending stores recovery context and clear resets it', () {
+      final c = makeContainer();
+      final notifier = c.read(oomRecoveryPendingProvider.notifier);
+
+      notifier.showPending(
+        nextModelId: 'whisper-base',
+        hasCloudConfigured: true,
+        isPermanentFail: false,
+      );
+
+      final pending = c.read(oomRecoveryPendingProvider);
+      expect(pending.pending, isTrue);
+      expect(pending.nextModelId, 'whisper-base');
+      expect(pending.hasCloudConfigured, isTrue);
+      expect(pending.isPermanentFail, isFalse);
+
+      notifier.clear();
+      final cleared = c.read(oomRecoveryPendingProvider);
+      expect(cleared.pending, isFalse);
+      expect(cleared.nextModelId, isNull);
+      expect(cleared.hasCloudConfigured, isFalse);
+      expect(cleared.isPermanentFail, isFalse);
     });
   });
 
@@ -414,8 +450,11 @@ void main() {
           final n = c.read(recordingProvider.notifier);
           n.startRecording();
           final sid = c.read(recordingProvider).sessionId!;
-          expect(ids.add(sid), isTrue,
-              reason: 'Session ID $sid was not unique on iteration $i');
+          expect(
+            ids.add(sid),
+            isTrue,
+            reason: 'Session ID $sid was not unique on iteration $i',
+          );
         } finally {
           c.dispose();
         }

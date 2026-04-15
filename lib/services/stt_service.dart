@@ -15,10 +15,8 @@ import 'package:http/http.dart' as http;
 
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
-import '../core/recording/recording_state.dart'
-    show SttServerState, recordingInfoProvider;
+import '../core/recording/recording_state.dart' show SttServerState;
 import 'hardware_info_service.dart' as hw;
-import 'model_download_service.dart';
 import 'path_service.dart';
 import 'subprocess_guard.dart' as guard;
 
@@ -88,8 +86,6 @@ class SttStatus {
 class SttServiceNotifier extends Notifier<SttStatus> {
   static final _log = AppLogger('SttService');
   static const _cudaOomErrorCode = 'stt_cuda_oom';
-  static const _infoCudaOomFallbackModel = 'info_stt_cuda_oom_model';
-  static const _infoCudaOomFallbackCpu = 'info_stt_cuda_oom_cpu';
   static const _maxStderrLines = 50;
 
   Process? _process;
@@ -775,11 +771,11 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     // Monitor for early exit (mirrors Go's waitCh).
     unawaited(
-      proc.exitCode.then((code) async {
+      proc.exitCode.then((code) {
         if (_process == proc) {
           guard.deletePid('whisper-server');
           if (sawCudaOom || _stderrHasCudaOom(stderrLines)) {
-            await _handleCudaOom(
+            _handleCudaOom(
               proc: proc,
               failedModelId: modelId,
               gpu: gpu,
@@ -1015,25 +1011,12 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     return false;
   }
 
-  List<String> _fallbackModelCandidates(String modelId) {
-    final currentRequirement = hw.sttModelVramMB[modelId];
-    if (currentRequirement == null) return const [];
-
-    final entries =
-        hw.sttModelVramMB.entries
-            .where((entry) => entry.value < currentRequirement)
-            .toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
-
-    return entries.map((entry) => entry.key).toList();
-  }
-
-  Future<void> _handleCudaOom({
+  void _handleCudaOom({
     required Process proc,
     required String failedModelId,
     required hw.GpuInfo gpu,
     required List<String> stderrLines,
-  }) async {
+  }) {
     if (_process != proc) return;
 
     _process = null;
@@ -1043,43 +1026,11 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     _modelChangeDebounce?.cancel();
     _modelChangeDebounce = null;
 
-    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-    final downloadedModels = ref.read(modelDownloadProvider).downloadedModels;
-    final fallbackCandidates = _fallbackModelCandidates(failedModelId);
-
-    String? fallbackModelId;
-    for (final candidate in fallbackCandidates) {
-      if (downloadedModels.contains(candidate)) {
-        fallbackModelId = candidate;
-        break;
-      }
-    }
-
-    final recommendedModel = fallbackCandidates.isNotEmpty
-        ? fallbackCandidates.first
-        : null;
-
     _log.error(
       'whisper-server hit CUDA OOM for model=$failedModelId '
       'gpu=${gpu.name} stderr=${stderrLines.join(' | ')} '
-      'fallbackModel=${fallbackModelId ?? "none"} '
-      'recommendedSmallerModel=${recommendedModel ?? "none"}',
+      'errorCode=$_cudaOomErrorCode',
     );
-
-    if (fallbackModelId != null &&
-        fallbackModelId != settings.effectiveModelId) {
-      await ref
-          .read(settingsProvider.notifier)
-          .updateSettings((s) => s.copyWith(sttModel: fallbackModelId));
-      ref.read(recordingInfoProvider.notifier).show(_infoCudaOomFallbackModel);
-    } else if (settings.gpuAcceleration != 'disabled') {
-      await ref
-          .read(settingsProvider.notifier)
-          .updateSettings((s) => s.copyWith(gpuAcceleration: 'disabled'));
-      ref.read(recordingInfoProvider.notifier).show(_infoCudaOomFallbackCpu);
-    } else {
-      ref.read(recordingInfoProvider.notifier).show(_infoCudaOomFallbackCpu);
-    }
 
     _transition(
       const SttStatus(
