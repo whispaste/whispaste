@@ -1331,6 +1331,37 @@ class L10nEn extends L10n {
   String get qualityTierActive => 'Active';
 
   @override
+  String get qualityTierWarningNoGpu =>
+      'Without a GPU, this quality level will be noticeably slower.';
+
+  @override
+  String get qualityTierWarningNvidiaPremium =>
+      'May require more GPU memory than available. Transcription could be slow or fail on some systems.';
+
+  @override
+  String get qualityTierWarningNvidiaBalanced =>
+      'May require more GPU memory than available. Transcription could be slow.';
+
+  @override
+  String get qualityTierWarningIgpuPremium =>
+      'Integrated graphics typically cannot run this quality level. Transcription will likely fail.';
+
+  @override
+  String get qualityTierWarningIgpuBalanced =>
+      'Integrated graphics have limited memory. Transcription may be slow or fail.';
+
+  @override
+  String get qualityTierWarningApplePremium =>
+      'Requires a Mac with sufficient unified memory.';
+
+  @override
+  String get qualityTierActionOverride => 'Use anyway';
+
+  @override
+  String get qualityTierActionOverrideHint =>
+      'Use this quality level despite the warning';
+
+  @override
   String qualityTierModelTooltip(String modelName, String size) {
     return 'Whisper $modelName · $size';
   }
@@ -1384,8 +1415,24 @@ class L10nEn extends L10n {
       'Please download a speech model in Settings first.';
 
   @override
+  String get infoSttCudaOomFallbackModel =>
+      'Quality reduced — your GPU ran out of memory. Switched to a lighter model.';
+
+  @override
+  String get infoSttCudaOomFallbackCpu =>
+      'Your GPU ran out of memory. Switched to CPU mode for reliability.';
+
+  @override
   String get errorSttServerNotFound =>
       'Speech engine not found. Please download a speech model in Settings.';
+
+  @override
+  String get errorSttServerConnectionLost =>
+      'Speech engine stopped unexpectedly. Please try again.';
+
+  @override
+  String get errorSttCudaOom =>
+      'Your GPU ran out of memory. Quality was reduced so the next try should work.';
 
   @override
   String get errorOnboardingNotCompleted =>
@@ -1443,6 +1490,10 @@ class L10nEn extends L10n {
 
   @override
   String get errorGeneric => 'Something went wrong. Please try again.';
+
+  @override
+  String get modelDownloadFailed =>
+      'Download failed. Please check your internet connection.';
 
   @override
   String get statusSttLoading => 'Loading model…';

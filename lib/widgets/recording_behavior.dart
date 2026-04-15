@@ -43,6 +43,10 @@ String localizeRecordingError(L10n l10n, String errorCode) {
       return l10n.errorTranscriptionEmpty;
     case 'stt_server_failed':
       return l10n.errorSttServerFailed;
+    case 'stt_server_connection_lost':
+      return l10n.errorSttServerConnectionLost;
+    case 'stt_cuda_oom':
+      return l10n.errorSttCudaOom;
     case 'recording_guard_failed':
       return l10n.recordingGuardFailed;
     case 'recording_auto_stopped':
@@ -75,6 +79,10 @@ String localizeRecordingInfo(L10n l10n, String infoCode) {
       return l10n.infoEngineDownloading;
     case 'info_model_missing':
       return l10n.infoModelMissing;
+    case 'info_stt_cuda_oom_model':
+      return l10n.infoSttCudaOomFallbackModel;
+    case 'info_stt_cuda_oom_cpu':
+      return l10n.infoSttCudaOomFallbackCpu;
     default:
       return infoCode;
   }

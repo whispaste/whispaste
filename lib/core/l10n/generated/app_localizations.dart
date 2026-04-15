@@ -2551,6 +2551,54 @@ abstract class L10n {
   /// **'Active'**
   String get qualityTierActive;
 
+  /// No description provided for @qualityTierWarningNoGpu.
+  ///
+  /// In en, this message translates to:
+  /// **'Without a GPU, this quality level will be noticeably slower.'**
+  String get qualityTierWarningNoGpu;
+
+  /// No description provided for @qualityTierWarningNvidiaPremium.
+  ///
+  /// In en, this message translates to:
+  /// **'May require more GPU memory than available. Transcription could be slow or fail on some systems.'**
+  String get qualityTierWarningNvidiaPremium;
+
+  /// No description provided for @qualityTierWarningNvidiaBalanced.
+  ///
+  /// In en, this message translates to:
+  /// **'May require more GPU memory than available. Transcription could be slow.'**
+  String get qualityTierWarningNvidiaBalanced;
+
+  /// No description provided for @qualityTierWarningIgpuPremium.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrated graphics typically cannot run this quality level. Transcription will likely fail.'**
+  String get qualityTierWarningIgpuPremium;
+
+  /// No description provided for @qualityTierWarningIgpuBalanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrated graphics have limited memory. Transcription may be slow or fail.'**
+  String get qualityTierWarningIgpuBalanced;
+
+  /// No description provided for @qualityTierWarningApplePremium.
+  ///
+  /// In en, this message translates to:
+  /// **'Requires a Mac with sufficient unified memory.'**
+  String get qualityTierWarningApplePremium;
+
+  /// No description provided for @qualityTierActionOverride.
+  ///
+  /// In en, this message translates to:
+  /// **'Use anyway'**
+  String get qualityTierActionOverride;
+
+  /// No description provided for @qualityTierActionOverrideHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this quality level despite the warning'**
+  String get qualityTierActionOverrideHint;
+
   /// No description provided for @qualityTierModelTooltip.
   ///
   /// In en, this message translates to:
@@ -2641,11 +2689,35 @@ abstract class L10n {
   /// **'Please download a speech model in Settings first.'**
   String get infoModelMissing;
 
+  /// No description provided for @infoSttCudaOomFallbackModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality reduced — your GPU ran out of memory. Switched to a lighter model.'**
+  String get infoSttCudaOomFallbackModel;
+
+  /// No description provided for @infoSttCudaOomFallbackCpu.
+  ///
+  /// In en, this message translates to:
+  /// **'Your GPU ran out of memory. Switched to CPU mode for reliability.'**
+  String get infoSttCudaOomFallbackCpu;
+
   /// No description provided for @errorSttServerNotFound.
   ///
   /// In en, this message translates to:
   /// **'Speech engine not found. Please download a speech model in Settings.'**
   String get errorSttServerNotFound;
+
+  /// No description provided for @errorSttServerConnectionLost.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech engine stopped unexpectedly. Please try again.'**
+  String get errorSttServerConnectionLost;
+
+  /// No description provided for @errorSttCudaOom.
+  ///
+  /// In en, this message translates to:
+  /// **'Your GPU ran out of memory. Quality was reduced so the next try should work.'**
+  String get errorSttCudaOom;
 
   /// No description provided for @errorOnboardingNotCompleted.
   ///
@@ -2736,6 +2808,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get errorGeneric;
+
+  /// No description provided for @modelDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed. Please check your internet connection.'**
+  String get modelDownloadFailed;
 
   /// No description provided for @statusSttLoading.
   ///

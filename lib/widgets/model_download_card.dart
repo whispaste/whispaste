@@ -12,6 +12,7 @@ import '../core/theme/tokens.dart';
 import '../services/hardware_info_service.dart' as hw;
 import '../services/model_download_service.dart';
 import '../core/config/settings_provider.dart';
+import 'tier_safety_presentation.dart';
 
 /// Tier-based model manager — shows 3 quality tiers (compact, balanced,
 /// premium) instead of raw model names. Auto-recommends based on GPU VRAM.
@@ -48,14 +49,12 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
             tier: tier,
             isRecommended: tier == recommendedTier,
             isCurrentTier: tier == currentTier,
-            disabledReason: gpu != null ? tierDisabledReason(tier, gpu) : null,
-            warning: gpu != null ? tierWarning(tier, gpu) : null,
+            safety: gpu != null ? tierSafety(tier, gpu) : TierSafety.usable,
+            gpu: gpu,
             downloadState: downloadState,
             isDark: isDark,
             l10n: l10n,
-            onSelect:
-                downloadState.isBusy ||
-                    (gpu != null && tierDisabledReason(tier, gpu) != null)
+            onSelect: downloadState.isBusy
                 ? null
                 : () => _selectTier(tier, downloadState),
             onCancel: _isTierActive(tier, downloadState) && downloadState.isBusy
@@ -140,8 +139,8 @@ class _TierRow extends StatefulWidget {
     required this.tier,
     required this.isRecommended,
     this.isCurrentTier = false,
-    this.disabledReason,
-    this.warning,
+    required this.safety,
+    required this.gpu,
     required this.downloadState,
     required this.isDark,
     required this.l10n,
@@ -153,8 +152,8 @@ class _TierRow extends StatefulWidget {
   final QualityTier tier;
   final bool isRecommended;
   final bool isCurrentTier;
-  final String? disabledReason;
-  final String? warning;
+  final TierSafety safety;
+  final hw.GpuInfo? gpu;
   final ModelDownloadState downloadState;
   final bool isDark;
   final L10n l10n;
@@ -221,20 +220,25 @@ class _TierRowState extends State<_TierRow> {
         : WpColorsLight.success;
 
     final bestModel = bestModelForTier(widget.tier);
+    final warningMessage = TierSafetyPresentation.message(
+      l10n: widget.l10n,
+      tier: widget.tier,
+      safety: widget.safety,
+      gpu: widget.gpu,
+    );
+    final warningColor = TierSafetyPresentation.color(
+      isDark: widget.isDark,
+      safety: widget.safety,
+    );
 
     final bool isSelectable =
-        widget.onSelect != null &&
-        widget.disabledReason == null &&
-        (!widget.isCurrentTier || !_isDownloaded);
-    final bool isDisabled = widget.disabledReason != null;
+        widget.onSelect != null && (!widget.isCurrentTier || !_isDownloaded);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       cursor: isSelectable
           ? SystemMouseCursors.click
-          : isDisabled
-          ? SystemMouseCursors.forbidden
           : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: isSelectable ? widget.onSelect : null,
@@ -252,10 +256,6 @@ class _TierRowState extends State<_TierRow> {
                 ? accent.withValues(alpha: 0.08)
                 : _isHovered && isSelectable
                 ? hoverBg
-                : isDisabled
-                ? (widget.isDark
-                      ? const Color(0xFF1A1A1A)
-                      : const Color(0xFFF5F5F5))
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(WpRadius.sm),
             border: widget.isCurrentTier || _isDownloading
@@ -360,52 +360,22 @@ class _TierRowState extends State<_TierRow> {
                           _tierDesc(widget.l10n),
                           style: TextStyle(fontSize: 11, color: textSecondary),
                         ),
-                        if (widget.warning != null && !_isDownloaded) ...[
+                        if (warningMessage != null) ...[
                           const SizedBox(height: 3),
                           Row(
                             children: [
                               Icon(
-                                LucideIcons.triangleAlert,
+                                TierSafetyPresentation.icon(widget.safety),
                                 size: WpIconSize.xs,
-                                color: widget.isDark
-                                    ? WpColorsDark.warning
-                                    : WpColorsLight.warning,
+                                color: warningColor,
                               ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
-                                  widget.warning!,
+                                  warningMessage,
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: widget.isDark
-                                        ? WpColorsDark.warning
-                                        : WpColorsLight.warning,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        if (widget.disabledReason != null) ...[
-                          const SizedBox(height: 3),
-                          Row(
-                            children: [
-                              Icon(
-                                LucideIcons.lock,
-                                size: WpIconSize.xs,
-                                color: widget.isDark
-                                    ? WpColorsDark.textMuted
-                                    : WpColorsLight.textMuted,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  widget.disabledReason!,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: widget.isDark
-                                        ? WpColorsDark.textMuted
-                                        : WpColorsLight.textMuted,
+                                    color: warningColor,
                                   ),
                                 ),
                               ),
