@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    "rules/architecture.md",
+    "rules/security.md",
+    "rules/design.md",
+    "rules/testing.md",
+    "rules/ai-inference.md"
+  ],
+  "agent": {
+    "smith": {
+      "model": "opencode/minimax-m2.5"
+    }
+  }
+}
