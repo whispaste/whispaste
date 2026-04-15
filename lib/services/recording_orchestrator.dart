@@ -46,6 +46,7 @@ import 'stt_service.dart';
 /// reacts automatically. Errors are caught and surfaced via the error phase.
 class RecordingOrchestrator extends Notifier<void> {
   static final _log = AppLogger('RecordingOrchestrator');
+  static const _maxOomRecoveryAttempts = 3;
 
   StreamSubscription<double>? _amplitudeSub;
 
@@ -72,6 +73,10 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Whether the current recording session has a captured desktop paste target.
   bool _hasCapturedPasteTarget = false;
+
+  int _oomAttemptCount = 0;
+
+  int get oomAttemptCount => _oomAttemptCount;
 
   @override
   void build() {
@@ -290,11 +295,7 @@ class RecordingOrchestrator extends Notifier<void> {
       if (!sttStatus.isReady) {
         if (sttStatus.errorMessage == 'stt_cuda_oom') {
           pipelineOutcome = 'stt_cuda_oom';
-          notifier.reset();
-          sttNotifier.notifyRecordingStopped();
-          _log.warning(
-            '[$sid] STT startup hit CUDA OOM — fallback was applied',
-          );
+          _handleOomRecovery();
           return;
         }
         pipelineOutcome = 'stt_failed';
@@ -329,11 +330,7 @@ class RecordingOrchestrator extends Notifier<void> {
         final sttError = ref.read(sttServiceProvider).errorMessage;
         if (sttError == 'stt_cuda_oom') {
           pipelineOutcome = 'stt_cuda_oom';
-          notifier.reset();
-          sttNotifier.notifyRecordingStopped();
-          _log.warning(
-            '[$sid] STT server exited with CUDA OOM during inference',
-          );
+          _handleOomRecovery();
           return;
         }
         pipelineOutcome = 'stt_connection_lost';
@@ -344,12 +341,7 @@ class RecordingOrchestrator extends Notifier<void> {
         final sttError = ref.read(sttServiceProvider).errorMessage;
         if (sttError == 'stt_cuda_oom') {
           pipelineOutcome = 'stt_cuda_oom';
-          notifier.reset();
-          sttNotifier.notifyRecordingStopped();
-          _log.warning(
-            '[$sid] STT server exited with CUDA OOM during inference '
-            '(ClientException)',
-          );
+          _handleOomRecovery();
           return;
         }
         pipelineOutcome = 'stt_connection_lost';
@@ -449,14 +441,13 @@ class RecordingOrchestrator extends Notifier<void> {
       // Transition state: transcribing/processing → done.
       notifier.completeTranscription(finalText);
       ref.read(sttServiceProvider.notifier).notifyTranscriptionCompleted();
+      _oomAttemptCount = 0;
       pipelineOutcome = 'ok';
     } on Exception catch (e) {
       pipelineOutcome = 'exception';
       if ('$e'.contains('stt_cuda_oom')) {
         pipelineOutcome = 'stt_cuda_oom';
-        notifier.reset();
-        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
-        _log.warning('[$sid] Pipeline recovered after CUDA OOM');
+        _handleOomRecovery();
         return;
       }
       notifier.fail('$e');
@@ -489,6 +480,43 @@ class RecordingOrchestrator extends Notifier<void> {
   void reset() {
     _cancelAmplitude();
     ref.read(recordingProvider.notifier).reset();
+  }
+
+  Future<bool> applyOomModelFallback(String modelId) async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    if (modelId.isEmpty || settings.effectiveModelId == modelId) {
+      return false;
+    }
+
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWith(
+            sttProvider: SttProviderType.onDevice.value,
+            sttModel: modelId,
+          ),
+        );
+    _oomAttemptCount += 1;
+    ref.read(oomRecoveryPendingProvider.notifier).clear();
+    ref.read(sttServiceProvider.notifier).stop();
+    return true;
+  }
+
+  Future<SttProviderType?> switchToConfiguredCloudStt() async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final provider = _preferredCloudProvider(settings);
+    if (provider == null) return null;
+
+    await ref.read(settingsProvider.notifier).updateSettings((s) {
+      return s.copyWith(
+        sttProvider: provider.value,
+        cloudSttProvider: _cloudProviderValue(provider),
+      );
+    });
+    _oomAttemptCount = 0;
+    ref.read(oomRecoveryPendingProvider.notifier).clear();
+    ref.read(sttServiceProvider.notifier).stop();
+    return provider;
   }
 
   // -------------------------------------------------------------------------
@@ -530,6 +558,101 @@ class RecordingOrchestrator extends Notifier<void> {
       default:
         return false;
     }
+  }
+
+  void _handleOomRecovery() {
+    final sid = ref.read(recordingProvider).sessionId ?? '?';
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final currentModelId = settings.effectiveModelId;
+    final nextModelId = _nextAvailableFallbackModelId(currentModelId);
+    final hasCloudConfigured = _preferredCloudProvider(settings) != null;
+    final isPermanentFail =
+        nextModelId == null || _oomAttemptCount >= _maxOomRecoveryAttempts;
+
+    ref
+        .read(oomRecoveryPendingProvider.notifier)
+        .showPending(
+          nextModelId: isPermanentFail ? null : nextModelId,
+          hasCloudConfigured: hasCloudConfigured,
+          isPermanentFail: isPermanentFail,
+        );
+    ref.read(recordingProvider.notifier).reset();
+    ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+
+    _log.warning(
+      '[$sid] CUDA OOM detected for model=$currentModelId '
+      'attempts=$_oomAttemptCount/$_maxOomRecoveryAttempts '
+      'nextModel=${isPermanentFail ? "none" : nextModelId} '
+      'hasCloud=$hasCloudConfigured permanent=$isPermanentFail',
+    );
+  }
+
+  String? _nextAvailableFallbackModelId(String currentModelId) {
+    final currentTier = tierForModel(currentModelId);
+    if (currentTier == null) return null;
+
+    final downloadedModels = ref.read(modelDownloadProvider).downloadedModels;
+    final tierModels = modelsForTier(currentTier);
+    final currentIndex = tierModels.indexWhere(
+      (model) => model.id == currentModelId,
+    );
+    if (currentIndex == -1) return null;
+
+    for (var index = currentIndex + 1; index < tierModels.length; index++) {
+      final candidateId = tierModels[index].id;
+      if (downloadedModels.contains(candidateId)) {
+        return candidateId;
+      }
+    }
+
+    for (var tierIndex = currentTier.index - 1; tierIndex >= 0; tierIndex--) {
+      for (final candidate in modelsForTier(QualityTier.values[tierIndex])) {
+        if (downloadedModels.contains(candidate.id)) {
+          return candidate.id;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  SttProviderType? _preferredCloudProvider(AppSettings settings) {
+    final preferredOrder = <SttProviderType>[
+      switch (settings.cloudSttProviderType) {
+        CloudSttProvider.openAI => SttProviderType.openAI,
+        CloudSttProvider.groq => SttProviderType.groq,
+        CloudSttProvider.deepgram => SttProviderType.deepgram,
+      },
+      SttProviderType.openAI,
+      SttProviderType.groq,
+      SttProviderType.deepgram,
+    ];
+
+    for (final provider in preferredOrder) {
+      if (_hasApiKeyForProvider(settings, provider)) {
+        return provider;
+      }
+    }
+
+    return null;
+  }
+
+  bool _hasApiKeyForProvider(AppSettings settings, SttProviderType provider) {
+    return switch (provider) {
+      SttProviderType.openAI => settings.openAiApiKey.trim().isNotEmpty,
+      SttProviderType.groq => settings.groqApiKey.trim().isNotEmpty,
+      SttProviderType.deepgram => settings.deepgramApiKey.trim().isNotEmpty,
+      SttProviderType.onDevice => false,
+    };
+  }
+
+  String _cloudProviderValue(SttProviderType provider) {
+    return switch (provider) {
+      SttProviderType.openAI => CloudSttProvider.openAI.value,
+      SttProviderType.groq => CloudSttProvider.groq.value,
+      SttProviderType.deepgram => CloudSttProvider.deepgram.value,
+      SttProviderType.onDevice => CloudSttProvider.openAI.value,
+    };
   }
 
   Future<String?> _runPreflight() async {

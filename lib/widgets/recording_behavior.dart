@@ -12,12 +12,16 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app.dart' show activePageProvider, settingsScrollTargetProvider;
+import '../core/config/settings_provider.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
+import '../core/recording/recording_helpers.dart';
 import '../core/recording/recording_state.dart';
 import '../services/recording_orchestrator.dart';
 import '../services/sound_feedback_service.dart';
 import '../services/tray_service.dart';
+import 'oom_recovery_dialog.dart';
 import 'toast.dart';
 
 // ---------------------------------------------------------------------------
@@ -109,6 +113,7 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
   Timer? _doneResetTimer;
   Timer? _watchdogTimer;
   DateTime? _doneEnteredAt;
+  bool _oomDialogOpen = false;
 
   @override
   void initState() {
@@ -145,6 +150,89 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
     } catch (_) {
       // Provider may not be ready yet during startup.
     }
+  }
+
+  Future<void> _showPendingOomRecovery(L10n l10n) async {
+    if (!mounted || _oomDialogOpen) return;
+
+    final pending = ref.read(oomRecoveryPendingProvider);
+    if (!pending.pending) return;
+
+    _oomDialogOpen = true;
+    ref.read(oomRecoveryPendingProvider.notifier).clear();
+
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final currentModelName = displayNameForModel(
+      settings.effectiveModelId,
+      l10n,
+    );
+    final nextModelName = pending.nextModelId == null
+        ? null
+        : displayNameForModel(pending.nextModelId!, l10n);
+
+    if (ref.read(recordingOrchestratorProvider.notifier).oomAttemptCount > 0) {
+      WpToast.show(
+        context,
+        message: l10n.oomRecoveryAttemptFailed(currentModelName),
+        type: WpToastType.warning,
+        duration: const Duration(seconds: 4),
+      );
+    }
+
+    try {
+      final choice = await showOomRecoveryDialog(
+        context: context,
+        l10n: l10n,
+        modelName: nextModelName,
+        hasCloudConfigured: pending.hasCloudConfigured,
+        isPermanentFail: pending.isPermanentFail,
+      );
+
+      if (!mounted) return;
+
+      final orchestrator = ref.read(recordingOrchestratorProvider.notifier);
+      switch (choice ?? OomRecoveryChoice.cancel) {
+        case OomRecoveryChoice.trySmallerModel:
+          if (pending.nextModelId == null || nextModelName == null) break;
+          final didSwitch = await orchestrator.applyOomModelFallback(
+            pending.nextModelId!,
+          );
+          if (!mounted || !didSwitch) break;
+          WpToast.show(
+            context,
+            message: l10n.oomRecoveryDowngrading(nextModelName),
+            type: WpToastType.info,
+            duration: const Duration(seconds: 4),
+          );
+          break;
+        case OomRecoveryChoice.switchToCloud:
+          final provider = await orchestrator.switchToConfiguredCloudStt();
+          if (!mounted) break;
+          if (provider != null) {
+            WpToast.show(
+              context,
+              message: l10n.oomRecoverySwitchingCloud,
+              type: WpToastType.info,
+              duration: const Duration(seconds: 4),
+            );
+          } else {
+            _openSettings(pending.hasCloudConfigured ? 'stt' : 'cloud');
+          }
+          break;
+        case OomRecoveryChoice.openSettings:
+          _openSettings(pending.hasCloudConfigured ? 'stt' : 'cloud');
+          break;
+        case OomRecoveryChoice.cancel:
+          break;
+      }
+    } finally {
+      _oomDialogOpen = false;
+    }
+  }
+
+  void _openSettings(String target) {
+    ref.read(settingsScrollTargetProvider.notifier).set(target);
+    ref.read(activePageProvider.notifier).setPage('settings');
   }
 
   @override
@@ -225,6 +313,7 @@ class _RecordingBehaviorState extends ConsumerState<RecordingBehaviorWidget> {
       } else if (next.isIdle && prev != null && !prev.isIdle) {
         _log.debug('State → idle (from ${prev.phase})');
         _doneResetTimer?.cancel();
+        Future.microtask(() => _showPendingOomRecovery(l10n));
       }
     });
 

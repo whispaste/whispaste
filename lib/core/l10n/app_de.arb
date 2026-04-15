@@ -467,6 +467,34 @@
   "infoEngineDownloading": "Sprach-Engine wird vorbereitet. Bitte warte einen Moment.",
   "infoEngineAutoDownload": "Sprach-Engine fehlt — wird automatisch heruntergeladen…",
   "infoModelMissing": "Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.",
+  "oomRecoveryTitle": "Aufnahme fehlgeschlagen — GPU-Speicherproblem",
+  "oomRecoveryMessage": "Deiner GPU ist nicht mehr genügend Speicher verfügbar. Wie möchtest du fortfahren?",
+  "oomRecoveryTrySmaller": "Kleineres Modell versuchen",
+  "oomRecoveryTrySmallerHint": "Zu {model} wechseln und Aufnahme wiederholen",
+  "@oomRecoveryTrySmallerHint": {
+    "placeholders": {
+      "model": { "type": "String" }
+    }
+  },
+  "oomRecoverySwitchCloud": "Zur Cloud wechseln",
+  "oomRecoverySwitchCloudHint": "Cloud-Spracherkennung verwenden",
+  "oomRecoveryCancel": "Abbrechen",
+  "oomRecoveryPermanentTitle": "Lokale Spracherkennung nicht verfügbar",
+  "oomRecoveryPermanentMessage": "Alle lokalen Modelle sind wegen GPU-Speicherlimits fehlgeschlagen. Bitte wechsle in den Einstellungen zu Cloud-Spracherkennung.",
+  "oomRecoveryPermanentCloud": "Einstellungen öffnen",
+  "oomRecoveryDowngrading": "Wechsle zu {model}…",
+  "@oomRecoveryDowngrading": {
+    "placeholders": {
+      "model": { "type": "String" }
+    }
+  },
+  "oomRecoverySwitchingCloud": "Wechsle zu Cloud-Spracherkennung…",
+  "oomRecoveryAttemptFailed": "Modell {model} ist ebenfalls fehlgeschlagen. Nächste Option wird versucht…",
+  "@oomRecoveryAttemptFailed": {
+    "placeholders": {
+      "model": { "type": "String" }
+    }
+  },
   "infoSttCudaOomFallbackModel": "Qualität reduziert — deiner GPU ist der Speicher ausgegangen. Es wurde auf ein kleineres Modell umgestellt.",
   "infoSttCudaOomFallbackCpu": "Deiner GPU ist der Speicher ausgegangen. Für mehr Zuverlässigkeit wurde auf CPU-Modus umgestellt.",
 
