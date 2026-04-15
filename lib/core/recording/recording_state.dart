@@ -88,13 +88,13 @@ class RecordingState {
 
   @override
   int get hashCode => Object.hash(
-        phase,
-        elapsed,
-        audioLevel,
-        transcript,
-        errorMessage,
-        sessionId,
-      );
+    phase,
+    elapsed,
+    audioLevel,
+    transcript,
+    errorMessage,
+    sessionId,
+  );
 
   @override
   String toString() =>
@@ -137,10 +137,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
       return;
     }
     final sid = _generateSessionId();
-    state = RecordingState(
-      phase: RecordingPhase.recording,
-      sessionId: sid,
-    );
+    state = RecordingState(phase: RecordingPhase.recording, sessionId: sid);
     _startTimer();
   }
 
@@ -151,10 +148,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
       return;
     }
     _cancelTimer();
-    state = state.copyWith(
-      phase: RecordingPhase.transcribing,
-      audioLevel: 0.0,
-    );
+    state = state.copyWith(phase: RecordingPhase.transcribing, audioLevel: 0.0);
     _startStuckGuard();
   }
 
@@ -187,10 +181,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
   void fail(String error) {
     _cancelTimer();
     _stuckGuard?.cancel();
-    state = RecordingState(
-      phase: RecordingPhase.error,
-      errorMessage: error,
-    );
+    state = RecordingState(phase: RecordingPhase.error, errorMessage: error);
   }
 
   /// Reset from any phase → idle.
@@ -260,8 +251,9 @@ class RecordingNotifier extends Notifier<RecordingState> {
 // ---------------------------------------------------------------------------
 
 /// Primary recording state provider.
-final recordingProvider =
-    NotifierProvider<RecordingNotifier, RecordingState>(RecordingNotifier.new);
+final recordingProvider = NotifierProvider<RecordingNotifier, RecordingState>(
+  RecordingNotifier.new,
+);
 
 /// Whether the app is currently recording (backward-compatible bool).
 final isRecordingProvider = Provider<bool>((ref) {
@@ -344,5 +336,53 @@ class RecordingInfoNotifier extends Notifier<String?> {
   void clear() => state = null;
 }
 
-final recordingInfoProvider =
-    NotifierProvider<RecordingInfoNotifier, String?>(RecordingInfoNotifier.new);
+final recordingInfoProvider = NotifierProvider<RecordingInfoNotifier, String?>(
+  RecordingInfoNotifier.new,
+);
+
+/// Pending CUDA OOM recovery context for the recording UI.
+typedef OomRecoveryState = ({
+  bool pending,
+  String? nextModelId,
+  bool hasCloudConfigured,
+  bool isPermanentFail,
+});
+
+class OomRecoveryNotifier extends Notifier<OomRecoveryState> {
+  @override
+  OomRecoveryState build() {
+    return (
+      pending: false,
+      nextModelId: null,
+      hasCloudConfigured: false,
+      isPermanentFail: false,
+    );
+  }
+
+  void showPending({
+    required String? nextModelId,
+    required bool hasCloudConfigured,
+    required bool isPermanentFail,
+  }) {
+    state = (
+      pending: true,
+      nextModelId: nextModelId,
+      hasCloudConfigured: hasCloudConfigured,
+      isPermanentFail: isPermanentFail,
+    );
+  }
+
+  void clear() {
+    state = (
+      pending: false,
+      nextModelId: null,
+      hasCloudConfigured: false,
+      isPermanentFail: false,
+    );
+  }
+}
+
+final oomRecoveryPendingProvider =
+    NotifierProvider<OomRecoveryNotifier, OomRecoveryState>(
+      OomRecoveryNotifier.new,
+    );

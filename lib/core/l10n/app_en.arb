@@ -521,6 +521,34 @@
   "infoEngineDownloading": "Speech engine is being prepared. Please wait a moment.",
   "infoEngineAutoDownload": "Speech engine missing — downloading automatically…",
   "infoModelMissing": "Please download a speech model in Settings first.",
+  "oomRecoveryTitle": "Recording failed — GPU memory issue",
+  "oomRecoveryMessage": "Your GPU ran out of memory. Choose how to proceed:",
+  "oomRecoveryTrySmaller": "Try smaller model",
+  "oomRecoveryTrySmallerHint": "Switch to {model} and retry recording",
+  "@oomRecoveryTrySmallerHint": {
+    "placeholders": {
+      "model": { "type": "String" }
+    }
+  },
+  "oomRecoverySwitchCloud": "Switch to Cloud",
+  "oomRecoverySwitchCloudHint": "Use cloud speech recognition instead",
+  "oomRecoveryCancel": "Cancel",
+  "oomRecoveryPermanentTitle": "Local speech recognition unavailable",
+  "oomRecoveryPermanentMessage": "All local models failed due to GPU memory limits. Please switch to cloud speech recognition in settings.",
+  "oomRecoveryPermanentCloud": "Open Settings",
+  "oomRecoveryDowngrading": "Switching to {model}…",
+  "@oomRecoveryDowngrading": {
+    "placeholders": {
+      "model": { "type": "String" }
+    }
+  },
+  "oomRecoverySwitchingCloud": "Switching to cloud speech recognition…",
+  "oomRecoveryAttemptFailed": "Model {model} also failed. Trying next option…",
+  "@oomRecoveryAttemptFailed": {
+    "placeholders": {
+      "model": { "type": "String" }
+    }
+  },
   "infoSttCudaOomFallbackModel": "Quality reduced — your GPU ran out of memory. Switched to a lighter model.",
   "infoSttCudaOomFallbackCpu": "Your GPU ran out of memory. Switched to CPU mode for reliability.",
 
