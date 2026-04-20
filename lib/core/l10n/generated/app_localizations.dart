@@ -2233,6 +2233,12 @@ abstract class L10n {
   /// **'Cmd'**
   String get modifierCmd;
 
+  /// No description provided for @modifierOption.
+  ///
+  /// In en, this message translates to:
+  /// **'Option'**
+  String get modifierOption;
+
   /// No description provided for @shortcutKeySpace.
   ///
   /// In en, this message translates to:

@@ -1173,6 +1173,9 @@ class L10nDe extends L10n {
   String get modifierCmd => 'Befehl';
 
   @override
+  String get modifierOption => 'Option';
+
+  @override
   String get shortcutKeySpace => 'Leertaste';
 
   @override

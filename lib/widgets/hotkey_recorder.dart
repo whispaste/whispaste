@@ -4,6 +4,7 @@
 /// smooth state transitions. Returns [HotkeyResult] on save, null on cancel.
 library;
 
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -58,6 +59,10 @@ class HotkeyRecorderDialog extends StatefulWidget {
   /// The current modifier string (e.g. `'ctrl+shift'`).
   final String initialModifiers;
 
+  /// Platform-aware default modifier string.
+  static String get _defaultModifiers =>
+      Platform.isMacOS ? 'meta+shift' : 'ctrl+shift';
+
   /// Shows the dialog and returns the new [HotkeyResult], or `null` if
   /// the user cancelled.
   static Future<HotkeyResult?> show(
@@ -69,7 +74,7 @@ class HotkeyRecorderDialog extends StatefulWidget {
       context: context,
       builder: (ctx, a) => HotkeyRecorderDialog(
         initialKey: initialKey ?? 'D',
-        initialModifiers: initialModifiers ?? 'ctrl+shift',
+        initialModifiers: initialModifiers ?? _defaultModifiers,
       ),
     );
   }

@@ -282,8 +282,12 @@ class AppSettings {
     _ => 'auto',
   };
 
-  /// Factory-reset defaults.
-  static const AppSettings defaults = AppSettings();
+  /// Platform-aware factory-reset defaults.
+  ///
+  /// On macOS the default hotkey uses ⌘+Shift (meta) instead of Ctrl+Shift.
+  static final AppSettings defaults = AppSettings(
+    hotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
+  );
 
   /// Creates settings from persisted key-value storage.
   factory AppSettings.fromStorageMap(Map<String, String> values) {
@@ -1018,7 +1022,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     final db = ref.read(historyDatabaseProvider);
     await db.resetAppSettings();
     await db.resetDailyStats();
-    state = const AsyncData(AppSettings.defaults);
+    state = AsyncData(AppSettings.defaults);
   }
 
   /// Full factory reset — deletes ALL user data, models, and settings.
@@ -1060,7 +1064,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     _cleanupTempWavFiles();
 
     // 9. Reset in-memory state.
-    state = const AsyncData(AppSettings.defaults);
+    state = AsyncData(AppSettings.defaults);
 
     dev.log('Factory reset complete', name: 'Settings');
   }

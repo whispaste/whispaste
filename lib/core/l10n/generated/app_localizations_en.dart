@@ -1164,6 +1164,9 @@ class L10nEn extends L10n {
   String get modifierCmd => 'Cmd';
 
   @override
+  String get modifierOption => 'Option';
+
+  @override
   String get shortcutKeySpace => 'Space';
 
   @override

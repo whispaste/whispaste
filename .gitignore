@@ -55,6 +55,9 @@ supabase/.temp/
 docs/
 
 # AI agent / skill config (local only)
+AGENTS.md
+opencode.json
+rules/
 skills-lock.json
 skills.yaml
 .github/copilot-instructions.md
