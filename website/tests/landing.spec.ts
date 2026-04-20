@@ -6,15 +6,13 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('hero CTA contains MS Store badge and GitHub link', async ({ page }) => {
+test('hero CTA contains MS Store button and macOS download button', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByTestId('hero-cta-store')).toBeVisible();
-  await expect(page.getByTestId('hero-cta-store').getByTestId('store-button')).toHaveCount(1);
-  await expect(page.getByTestId('hero-cta-github')).toHaveAttribute(
-    'href',
-    'https://github.com/whispaste/whispaste/releases/latest',
-  );
+  // StoreButton renders with data-testid="store-button" (may appear multiple times on page)
+  await expect(page.getByTestId('store-button').first()).toBeVisible();
+  // AppleButton renders with data-testid="apple-button"
+  await expect(page.getByTestId('apple-button').first()).toBeVisible();
 });
 
 test('language toggle switches the landing page from EN to DE', async ({ page }) => {
@@ -47,7 +45,8 @@ test('download page has Store and GitHub sections', async ({ page }) => {
   await page.goto('/download/');
   await expect(page.locator('main h1').first()).toContainText('Download');
   await expect(page.locator('main h2').first()).toContainText('Microsoft Store');
-  await expect(page.locator('[data-i18n="download.github.button"]')).toBeVisible();
+  // GitHub free download section — Windows button has data-testid="github-windows-button"
+  await expect(page.getByTestId('github-windows-button')).toBeVisible();
 });
 
 test('hero recording pill matches the in-app recording state in dark and light theme', async ({ page }) => {

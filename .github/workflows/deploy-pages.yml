@@ -9,11 +9,9 @@ on:
     paths:
       - 'website/**'
       - '.github/workflows/deploy-pages.yml'
-  # Also redeploy on every release tag push so the new version's
-  # release notes become visible immediately after the tag is created.
-  # sync-changelog.mjs checks git tags, so only tagged versions appear.
-  release:
-    types: [published]
+  # Also triggered by release.yml via workflow_dispatch after a tag release,
+  # so the new version's release notes become visible immediately.
+  # (release: published cannot be used — Pages env protection only allows main ref)
   workflow_dispatch:
 
 permissions:

@@ -55,6 +55,9 @@ if (-not $OpenAIKey -and -not $env:OPENAI_API_KEY) {
 }
 
 if (-not $OpenAIKey) { $OpenAIKey = $env:OPENAI_API_KEY }
+# Trim whitespace/newlines — GitHub Actions injects secrets with a trailing newline
+# which makes the Authorization header value invalid ("Bearer sk-...\n").
+if ($OpenAIKey) { $OpenAIKey = $OpenAIKey.Trim() }
 
 if (-not $OpenAIKey) {
     Write-Warning "No OpenAI API key found. Set it in .env, `$env:OPENAI_API_KEY, or -OpenAIKey parameter."
@@ -78,8 +81,13 @@ if ($raw.Length -gt 3000) {
 }
 
 $systemPrompt = @"
-You are a release notes writer for WhisPaste, a premium Windows desktop dictation app.
-Your audience: non-technical Windows users (founders, freelancers, writers, consultants).
+You are a release notes writer for WhisPaste, a premium cross-platform dictation app (Windows and macOS).
+Your audience: non-technical users (founders, freelancers, writers, consultants).
+
+INPUT NOTE: The input contains cumulative changes from ALL patch releases in a minor version series
+(e.g. v1.2.0 + v1.2.1 + v1.2.2). Website, landing-page, CI/CD, and infrastructure changes have
+already been filtered out before reaching you — you will NOT see them. Summarise what changed in
+the APP across the entire minor version series.
 
 RULES:
 - Write in a warm, professional, concise tone — past tense, declarative ("Smart Mode now works...")
@@ -94,9 +102,10 @@ RULES:
   GPU detection, multi-vendor, binary selection, onboarding wizard internals, demo mode
 - NEVER duplicate: each change appears in exactly ONE bullet. No overlap between sections.
 - Focus on USER IMPACT: what changed FOR THE USER, not what changed in the code
+- Consolidate: when patches fix or extend a feature, mention it once as the current state — not as a series of incremental steps
 - Keep it compact: 3-6 bullet points total across all sections
 - Each bullet: one sentence, past tense or "now" phrasing, scannable in 1-2 seconds
-- If a change is purely internal (refactoring, CI, tests, monitoring, onboarding restructure), skip it entirely
+- If a change is purely internal (refactoring, CI, tests, monitoring, architecture, re-releases), skip it entirely
 - Use "Windows taskbar" not "taskbar", "Microsoft Store" not "Store installs"
 - German must use du-Form and feel natural, not like a machine translation
 
@@ -133,7 +142,7 @@ try {
         -Uri "https://api.openai.com/v1/chat/completions" `
         -Method POST `
         -Headers @{
-            "Authorization" = "Bearer $OpenAIKey"
+            "Authorization" = "Bearer $($OpenAIKey.Trim())"
             "Content-Type"  = "application/json"
         } `
         -Body $body `
