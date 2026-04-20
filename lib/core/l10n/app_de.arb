@@ -578,6 +578,7 @@
   "historySearchHelpTags": "Tippe # um nach Tags zu filtern",
   "historySearchHelpLang": "Tippe lang: um nach Sprache zu filtern",
   "historySearchHelpFreeText": "Oder gib einfach ein Stichwort ein",
+  "historySearchQuickTags": "Beliebte Tags",
   "historySortNewest": "Neueste zuerst",
   "historySortOldest": "Älteste zuerst",
   "historySortLongest": "Längste zuerst",
