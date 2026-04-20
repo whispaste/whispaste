@@ -1,5 +1,65 @@
 [
   {
+    "version": "1.2.1",
+    "date": "2026-04-20",
+    "en": {
+      "highlights": [
+        "macOS app now ships with every release as a native ARM64 DMG",
+        "CI pipeline hardened: secret scanning, narrowed permissions, golden test isolation",
+        "Direct download links for Windows (.exe) and macOS (.dmg) on the download page"
+      ],
+      "improvements": [
+        "Release build fixed for macOS — icon font tree-shaking disabled to unblock builds",
+        "macOS Gatekeeper instructions expanded with full step-by-step guide"
+      ]
+    },
+    "de": {
+      "highlights": [
+        "macOS-App wird mit jedem Release als nativer ARM64-DMG ausgeliefert",
+        "CI-Pipeline gehärtet: Secret-Scanning, eingeschränkte Berechtigungen, isolierte Screenshot-Tests",
+        "Direkte Download-Links für Windows (.exe) und macOS (.dmg) auf der Download-Seite"
+      ],
+      "improvements": [
+        "Release-Build für macOS behoben — Icon-Font-Tree-Shaking deaktiviert",
+        "macOS-Gatekeeper-Anleitung mit vollständiger Schritt-für-Schritt-Anleitung erweitert"
+      ]
+    }
+  },
+  {
+    "version": "1.2.0",
+    "date": "2026-04-15",
+    "en": {
+      "highlights": [
+        "Complete rewrite as a native Flutter app — truly cross-platform (Windows and macOS)",
+        "All dictation history stored locally in SQLite — no shared config files, no data loss",
+        "New slim recording pill overlay with live waveform and progress indicator",
+        "Always-on-top floating button for instant dictation from any app",
+        "Premium UI with warm gradients, frosted glass effects, and micro-animations",
+        "469+ automated tests with over 90 percent feature coverage"
+      ],
+      "improvements": [
+        "All Go backend code removed — zero external dependencies",
+        "Riverpod state management for reactive, testable architecture",
+        "CI/CD updated for Flutter-only builds with full macOS support"
+      ]
+    },
+    "de": {
+      "highlights": [
+        "Kompletter Neuschrieb als native Flutter-App — wirklich plattformübergreifend (Windows und macOS)",
+        "Gesamter Diktat-Verlauf lokal in SQLite gespeichert — keine geteilten Konfigdateien, kein Datenverlust",
+        "Neue schlanke Aufnahme-Pille mit Live-Wellenform und Fortschrittsanzeige",
+        "Schwebende Schaltfläche immer im Vordergrund für sofortiges Diktieren aus jeder App",
+        "Premium-UI mit warmen Verläufen, Milchglas-Effekten und Micro-Animationen",
+        "469+ automatisierte Tests mit über 90 Prozent Funktionsabdeckung"
+      ],
+      "improvements": [
+        "Gesamter Go-Backend-Code entfernt — keine externen Abhängigkeiten mehr",
+        "Riverpod State Management für reaktive, testbare Architektur",
+        "CI/CD für reine Flutter-Builds mit vollständiger macOS-Unterstützung aktualisiert"
+      ]
+    }
+  },
+  {
     "version": "1.1.3",
     "date": "2026-04-01",
     "en": {
