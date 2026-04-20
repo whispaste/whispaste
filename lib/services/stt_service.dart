@@ -908,6 +908,11 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     _log.info('Command: $serverPath ${args.join(' ')}');
 
     // --- Start process -------------------------------------------------------
+    // On macOS, ensure quarantine attribute is removed (blocks execution).
+    if (Platform.isMacOS) {
+      await Process.run('xattr', ['-d', 'com.apple.quarantine', serverPath]);
+    }
+
     final Process proc;
     try {
       proc = await Process.start(
