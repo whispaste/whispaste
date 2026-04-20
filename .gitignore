@@ -71,6 +71,7 @@ cmd/
 scripts/*
 !scripts/git-hooks/
 !scripts/generate-release-notes.ps1
+!scripts/extract-cumulative-changelog.mjs
 !scripts/security-scan.ps1
 !scripts/setup-gh-secrets.sh
 !scripts/setup-gh-secrets.ps1
