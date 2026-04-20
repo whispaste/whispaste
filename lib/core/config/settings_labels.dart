@@ -1,6 +1,8 @@
 /// Shared presentation helpers for settings-driven UI labels.
 library;
 
+import 'dart:io';
+
 import '../l10n/generated/app_localizations.dart';
 import 'settings_enums.dart';
 import 'settings_provider.dart';
@@ -31,9 +33,11 @@ StatusBarModel buildStatusBarModel({
 /// Returns display labels for the modifier portion of a shortcut.
 ///
 /// When [l10n] is provided, labels are localized (e.g. "Strg" for German).
+/// On macOS, `meta` shows as "Cmd" and `alt` as "Option".
 /// Without l10n, falls back to English labels.
 List<String> hotkeyModifierLabels(String modifiers, {L10n? l10n}) {
   if (modifiers.isEmpty) return const [];
+  final isMac = _isMacOS;
   return modifiers
       .split('+')
       .map((modifier) => modifier.trim())
@@ -42,14 +46,21 @@ List<String> hotkeyModifierLabels(String modifiers, {L10n? l10n}) {
         (modifier) => switch (modifier.toLowerCase()) {
           'ctrl' || 'control' => l10n?.modifierCtrl ?? 'Ctrl',
           'shift' => l10n?.modifierShift ?? 'Shift',
-          'alt' => l10n?.modifierAlt ?? 'Alt',
-          'meta' || 'win' || 'super' => l10n?.modifierWin ?? 'Win',
+          'alt' => isMac
+              ? (l10n?.modifierOption ?? 'Option')
+              : (l10n?.modifierAlt ?? 'Alt'),
+          'meta' || 'win' || 'super' => isMac
+              ? (l10n?.modifierCmd ?? 'Cmd')
+              : (l10n?.modifierWin ?? 'Win'),
           'cmd' => l10n?.modifierCmd ?? 'Cmd',
           _ => modifier,
         },
       )
       .toList();
 }
+
+/// Cached platform check to avoid repeated dart:io calls.
+bool get _isMacOS => Platform.isMacOS;
 
 /// Returns a localized label for the primary key portion of a shortcut.
 String hotkeyKeyLabel(String key, {L10n? l10n}) {

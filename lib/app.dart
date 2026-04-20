@@ -34,6 +34,7 @@ import 'core/data/database.dart';
 import 'core/logging/crash_reporter.dart';
 import 'services/recording_orchestrator.dart';
 import 'services/stt_service.dart';
+import 'services/tray_service.dart';
 import 'services/update_service.dart';
 import 'services/deploy_channel_service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -243,8 +244,14 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       // Just hide — the engine keeps running so floating windows, hotkeys,
       // and recording all continue to work.
       await windowManager.hide();
-      // On macOS, hide from Dock so only the tray icon remains.
-      unawaited(MacOSLifecycleChannel.setAccessory());
+
+      // On macOS, hide from Dock only when the tray icon is available.
+      // Without a working tray icon the user would be stranded.
+      final trayReady =
+          ref.read(trayServiceProvider.notifier).isInitialized;
+      if (Platform.isMacOS && trayReady) {
+        unawaited(MacOSLifecycleChannel.setAccessory());
+      }
       return;
     }
 

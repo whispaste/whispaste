@@ -436,6 +436,7 @@
   "modifierAlt": "Alt",
   "modifierWin": "Win",
   "modifierCmd": "Cmd",
+  "modifierOption": "Option",
   "shortcutKeySpace": "Space",
   "shortcutKeyEnter": "Enter",
   "shortcutKeyEscape": "Esc",
