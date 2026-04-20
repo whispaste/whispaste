@@ -165,6 +165,9 @@ class L10nDe extends L10n {
   }
 
   @override
+  String get historyClearSearch => 'Suche zurücksetzen';
+
+  @override
   String get historyTrashEmpty => 'Papierkorb ist leer';
 
   @override
@@ -1741,6 +1744,18 @@ class L10nDe extends L10n {
 
   @override
   String get historySearchQuickTags => 'Beliebte Tags';
+
+  @override
+  String get historyRecentSearches => 'Letzte Suchen';
+
+  @override
+  String get historyQuickActions => 'Schnellfilter';
+
+  @override
+  String get historyQuickActionAllLangs => 'Alle Sprachen';
+
+  @override
+  String get historyQuickActionFavorites => 'Nur Favoriten';
 
   @override
   String get historySortNewest => 'Neueste zuerst';
