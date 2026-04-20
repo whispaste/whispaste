@@ -1,7 +1,7 @@
 name: whispaste
 description: "Premium cross-platform dictation with AI post-processing"
 publish_to: 'none'
-version: 1.2.0+1
+version: 1.2.1+1
 
 environment:
   sdk: ^3.11.0
@@ -104,7 +104,7 @@ msix_config:
   display_name: WhisPaste
   publisher_display_name: WhisPaste
   identity_name: WhisPaste
-  msix_version: 1.2.0.0
+  msix_version: 1.2.1.0
   logo_path: assets/icons/app_icon.png
   capabilities: microphone, internetClient
   store: true

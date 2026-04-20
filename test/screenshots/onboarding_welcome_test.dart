@@ -1,3 +1,4 @@
+@Tags(<String>['golden'])
 library;
 
 import 'package:flutter/material.dart';
