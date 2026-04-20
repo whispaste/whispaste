@@ -43,6 +43,7 @@ class AppSettings {
     this.sttModel = 'whisper-medium',
     this.sttLanguage = 'Auto-detect',
     this.sttIdleTimeoutMinutes = 5,
+    this.customVocabulary = '',
     // Sound & Feedback
     this.recordStartSound = true,
     this.recordStopSound = true,
@@ -79,6 +80,7 @@ class AppSettings {
     this.errorReporting = true,
     this.gpuAcceleration = 'auto',
     this.autoPasteDelay = 200,
+    this.autoPasteBlocklist = '',
     // Audio Processing
     this.trimSilence = false,
     this.useVAD = false,
@@ -138,6 +140,10 @@ class AppSettings {
   /// Minutes before idle STT server is shut down (0 = keep alive).
   final int sttIdleTimeoutMinutes;
 
+  /// User-defined vocabulary terms (names, jargon) passed as Whisper prompt
+  /// prefix to improve recognition of domain-specific words.
+  final String customVocabulary;
+
   // Sound & Feedback
   final bool recordStartSound;
   final bool recordStopSound;
@@ -190,6 +196,10 @@ class AppSettings {
   final bool errorReporting;
   final String gpuAcceleration;
   final int autoPasteDelay;
+
+  /// Comma-separated list of app bundle IDs (macOS) or process names (Windows)
+  /// where auto-paste should be suppressed. Clipboard-copy still works.
+  final String autoPasteBlocklist;
 
   // Audio Processing
   final bool trimSilence;
@@ -332,6 +342,7 @@ class AppSettings {
         'stt_idle_timeout_minutes',
         defaults.sttIdleTimeoutMinutes,
       ),
+      customVocabulary: values['custom_vocabulary'] ?? defaults.customVocabulary,
       recordStartSound: _readBool(
         values,
         'record_start_sound',
@@ -406,6 +417,8 @@ class AppSettings {
         'auto_paste_delay',
         defaults.autoPasteDelay,
       ),
+      autoPasteBlocklist:
+          values['auto_paste_blocklist'] ?? defaults.autoPasteBlocklist,
       trimSilence: _readBool(values, 'trim_silence', defaults.trimSilence),
       useVAD: _readBool(values, 'use_vad', defaults.useVAD),
       vadSensitivity: _readDouble(
@@ -524,6 +537,7 @@ class AppSettings {
       'stt_model': sttModel,
       'stt_language': sttLanguage,
       'stt_idle_timeout_minutes': '$sttIdleTimeoutMinutes',
+      'custom_vocabulary': customVocabulary,
       'record_start_sound': '$recordStartSound',
       'record_stop_sound': '$recordStopSound',
       'transcription_complete_sound': '$transcriptionCompleteSound',
@@ -551,6 +565,7 @@ class AppSettings {
       'error_reporting': '$errorReporting',
       'gpu_acceleration': gpuAcceleration,
       'auto_paste_delay': '$autoPasteDelay',
+      'auto_paste_blocklist': autoPasteBlocklist,
       'trim_silence': '$trimSilence',
       'use_vad': '$useVAD',
       'vad_sensitivity': '$vadSensitivity',
@@ -593,6 +608,7 @@ class AppSettings {
     String? sttModel,
     String? sttLanguage,
     int? sttIdleTimeoutMinutes,
+    String? customVocabulary,
     bool? recordStartSound,
     bool? recordStopSound,
     bool? transcriptionCompleteSound,
@@ -619,6 +635,7 @@ class AppSettings {
     bool? errorReporting,
     String? gpuAcceleration,
     int? autoPasteDelay,
+    String? autoPasteBlocklist,
     bool? trimSilence,
     bool? useVAD,
     double? vadSensitivity,
@@ -659,6 +676,7 @@ class AppSettings {
       sttLanguage: sttLanguage ?? this.sttLanguage,
       sttIdleTimeoutMinutes:
           sttIdleTimeoutMinutes ?? this.sttIdleTimeoutMinutes,
+      customVocabulary: customVocabulary ?? this.customVocabulary,
       recordStartSound: recordStartSound ?? this.recordStartSound,
       recordStopSound: recordStopSound ?? this.recordStopSound,
       transcriptionCompleteSound:
@@ -688,6 +706,7 @@ class AppSettings {
       errorReporting: errorReporting ?? this.errorReporting,
       gpuAcceleration: gpuAcceleration ?? this.gpuAcceleration,
       autoPasteDelay: autoPasteDelay ?? this.autoPasteDelay,
+      autoPasteBlocklist: autoPasteBlocklist ?? this.autoPasteBlocklist,
       trimSilence: trimSilence ?? this.trimSilence,
       useVAD: useVAD ?? this.useVAD,
       vadSensitivity: vadSensitivity ?? this.vadSensitivity,
@@ -734,6 +753,7 @@ class AppSettings {
           sttModel == other.sttModel &&
           sttLanguage == other.sttLanguage &&
           sttIdleTimeoutMinutes == other.sttIdleTimeoutMinutes &&
+          customVocabulary == other.customVocabulary &&
           recordStartSound == other.recordStartSound &&
           recordStopSound == other.recordStopSound &&
           transcriptionCompleteSound == other.transcriptionCompleteSound &&
@@ -760,6 +780,7 @@ class AppSettings {
           errorReporting == other.errorReporting &&
           gpuAcceleration == other.gpuAcceleration &&
           autoPasteDelay == other.autoPasteDelay &&
+          autoPasteBlocklist == other.autoPasteBlocklist &&
           trimSilence == other.trimSilence &&
           useVAD == other.useVAD &&
           vadSensitivity == other.vadSensitivity &&
@@ -830,6 +851,7 @@ class AppSettings {
         errorReporting,
         gpuAcceleration,
         autoPasteDelay,
+        autoPasteBlocklist,
         trimSilence,
         useVAD,
         vadSensitivity,
@@ -850,6 +872,7 @@ class AppSettings {
           windowMaximized,
           onboardingCompleted,
           sttIdleTimeoutMinutes,
+          customVocabulary,
           historyMaxEntries,
           historyAutoTrashDays,
           tierBenchmarkRtf,

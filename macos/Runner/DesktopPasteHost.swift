@@ -24,6 +24,9 @@ class DesktopPasteHost {
       let captured = captureTarget()
       result(captured)
 
+    case "getTargetBundleId":
+      result(targetApp?.bundleIdentifier)
+
     case "pasteClipboard":
       guard let args = call.arguments as? [String: Any],
             let delayMs = args["delayMs"] as? Int else {

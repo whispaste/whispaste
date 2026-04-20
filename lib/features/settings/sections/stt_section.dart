@@ -121,6 +121,9 @@ class _SpeechRecognitionSectionState
                   .updateSettings((s) => s.copyWith(sttLanguage: v!)),
             ),
           ),
+
+          // Custom vocabulary
+          _CustomVocabularyField(initialValue: settings.customVocabulary),
         ],
       ),
     );
@@ -240,6 +243,65 @@ class _BenchmarkButton extends ConsumerWidget {
               },
               tooltip: l10n.qualityTierBenchmarkReRun,
             ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Custom Vocabulary text field (debounced save)
+// ---------------------------------------------------------------------------
+
+class _CustomVocabularyField extends ConsumerStatefulWidget {
+  const _CustomVocabularyField({required this.initialValue});
+
+  final String initialValue;
+
+  @override
+  ConsumerState<_CustomVocabularyField> createState() =>
+      _CustomVocabularyFieldState();
+}
+
+class _CustomVocabularyFieldState
+    extends ConsumerState<_CustomVocabularyField> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CustomVocabularyField old) {
+    super.didUpdateWidget(old);
+    if (old.initialValue != widget.initialValue &&
+        _ctrl.text != widget.initialValue) {
+      _ctrl.text = widget.initialValue;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return SettingRow(
+      icon: LucideIcons.bookType,
+      label: l10n.settingsCustomVocabulary,
+      subtitle: l10n.settingsCustomVocabularyHint,
+      trailing: settingsTextField(
+        context: context,
+        controller: _ctrl,
+        hintText: l10n.settingsCustomVocabularyPlaceholder,
+        maxLines: 1,
+        onChanged: (v) => ref
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(customVocabulary: v)),
+      ),
     );
   }
 }
