@@ -14,6 +14,8 @@ class FloatingOverlayHost {
   private var overlayView: FloatingOverlayView?
   private var pendingPosition: NSPoint?
   private var pendingOpacity: CGFloat = 1.0
+  private var pendingAnchorMode: String = "topCenter"
+  private var screenObserver: NSObjectProtocol?
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
@@ -21,6 +23,35 @@ class FloatingOverlayHost {
       binaryMessenger: messenger
     )
     channel.setMethodCallHandler(handle)
+    observeScreenChanges()
+  }
+
+  /// Observes monitor connect/disconnect events and repositions the overlay
+  /// so it stays on-screen — matching the Windows WM_DISPLAYCHANGE behavior.
+  private func observeScreenChanges() {
+    screenObserver = NotificationCenter.default.addObserver(
+      forName: NSApplication.didChangeScreenParametersNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.validateOnScreen()
+    }
+  }
+
+  /// Recalculates the overlay position for the current screen geometry.
+  private func validateOnScreen() {
+    guard let p = panel, p.isVisible else { return }
+    // Re-resolve position using the last anchor mode.
+    let origin = p.frame.origin
+    let resolved = resolvePosition(x: Double(origin.x), y: Double(origin.y), anchorMode: pendingAnchorMode)
+    if resolved != origin {
+      p.setFrameOrigin(resolved)
+      channel.invokeMethod("onDragEnded", arguments: [
+        "x": Double(resolved.x),
+        "y": Double(resolved.y),
+        "anchorMode": pendingAnchorMode,
+      ])
+    }
   }
 
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -50,6 +81,7 @@ class FloatingOverlayHost {
       let x = (args["x"] as? NSNumber)?.doubleValue ?? 0
       let y = (args["y"] as? NSNumber)?.doubleValue ?? 0
       let anchorMode = args["anchorMode"] as? String ?? "topLeft"
+      pendingAnchorMode = anchorMode
       let resolved = resolvePosition(x: x, y: y, anchorMode: anchorMode)
       if let p = panel {
         p.setFrameOrigin(resolved)
@@ -78,6 +110,10 @@ class FloatingOverlayHost {
       result(nil)
 
     case "destroy":
+      if let obs = screenObserver {
+        NotificationCenter.default.removeObserver(obs)
+        screenObserver = nil
+      }
       panel?.close()
       panel = nil
       overlayView = nil
