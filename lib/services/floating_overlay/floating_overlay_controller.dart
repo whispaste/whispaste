@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'floating_overlay_events.dart';
+import 'macos_floating_overlay_controller.dart';
 import 'windows_floating_overlay_controller.dart';
 
 /// Visual state of the overlay (matches C++ OverlayVisualState).
@@ -86,6 +87,7 @@ abstract class FloatingOverlayController {
   /// Create the platform-specific controller, or null if unsupported.
   static FloatingOverlayController? create() {
     if (Platform.isWindows) return WindowsFloatingOverlayController();
+    if (Platform.isMacOS) return MacOSFloatingOverlayController();
     return null;
   }
 

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'macos_desktop_paste_controller.dart';
 import 'windows_desktop_paste_controller.dart';
 
 /// Platform-agnostic interface for desktop clipboard pasting.
@@ -13,6 +14,7 @@ abstract class DesktopPasteController {
   /// Creates the platform-specific controller, or `null` if unsupported.
   static DesktopPasteController? create() {
     if (Platform.isWindows) return WindowsDesktopPasteController();
+    if (Platform.isMacOS) return MacOSDesktopPasteController();
     return null;
   }
 
