@@ -254,10 +254,6 @@ class FloatingOverlayView: NSView {
 
     drawAccentBar(ctx: ctx, pill: pill, radius: radius, accent: accent)
 
-    if recordingState == .transcribing || recordingState == .processing {
-      drawProgressBar(ctx: ctx, pill: pill, accent: accent)
-    }
-
     if isCompact {
       drawCompactContent(ctx: ctx, pill: pill, theme: theme, accent: accent)
     } else {
@@ -298,7 +294,8 @@ class FloatingOverlayView: NSView {
     ctx.addPath(clipPath)
     ctx.clip()
 
-    let barRect = NSRect(x: pill.minX, y: pill.minY, width: pill.width, height: kAccentBarH)
+    // Accent bar at TOP of pill (NSView Y-up: maxY = top)
+    let barRect = NSRect(x: pill.minX, y: pill.maxY - kAccentBarH, width: pill.width, height: kAccentBarH)
     let colorSpace = CGColorSpaceCreateDeviceRGB()
     if let gradient = CGGradient(
       colorsSpace: colorSpace,
@@ -317,94 +314,127 @@ class FloatingOverlayView: NSView {
     ctx.restoreGState()
   }
 
-  // MARK: - Progress Bar
-
-  private func drawProgressBar(ctx: CGContext, pill: NSRect, accent: GradientPair) {
-    let prog = CGFloat(min(max(progressValue, 0), 1))
-    guard prog > 0 else { return }
-
-    let barY = pill.minY + kAccentBarH
-    let barH: CGFloat = 2
-    let barRect = NSRect(x: pill.minX, y: barY, width: pill.width * prog, height: barH)
-    ctx.setFillColor(accent.c0.withAlphaComponent(0.6 * masterOpacity).cgColor)
-    ctx.fill(barRect)
-  }
-
-  // MARK: - Normal Content (380×64)
+  // MARK: - Normal Content (380×64) — matches Windows RenderNormal single-row layout
 
   private func drawNormalContent(ctx: CGContext, pill: NSRect, theme: ThemeColors, accent: GradientPair) {
     let now = CACurrentMediaTime()
-    let midY = pill.midY + 2
-    let closeBtnSize = kCloseSize
-    let closePad: CGFloat = 8
+    // Windows: content_h = pillHeight - progressBarH; cy = content_h / 2
+    let progressBarH: CGFloat = 4
+    let contentH = pill.height - progressBarH
+    let cy = pill.minY + progressBarH + contentH / 2
 
-    let closeCX = pill.minX + closePad + closeBtnSize / 2
-    let closeCY = midY
-    drawCloseButton(ctx: ctx, cx: closeCX, cy: closeCY, size: closeBtnSize, theme: theme)
+    // --- Close button (left, 36×36 circle) ---
+    let closeX = pill.minX + kPadH
+    drawCloseButton(ctx: ctx, cx: closeX + kCloseSize / 2, cy: cy, size: kCloseSize, theme: theme)
+    var x = closeX + kCloseSize + 14 // kPillGap=14
 
-    let contentX = pill.minX + closePad + closeBtnSize + 8
-    let contentMaxX: CGFloat
-
+    // --- Right boundary (reserve for stop button during recording) ---
+    let rightEdge: CGFloat
     if recordingState == .recording || recordingState == .listening {
-      let stopCX = pill.maxX - closePad - kStopBtnSize / 2
-      let stopCY = midY
-      drawStopButton(ctx: ctx, cx: stopCX, cy: stopCY, size: kStopBtnSize, accent: accent)
-      contentMaxX = stopCX - kStopBtnSize / 2 - 8
+      rightEdge = pill.maxX - kPadH - kStopBtnSize - 22 // kWfStopGap=22
     } else {
-      contentMaxX = pill.maxX - kPadH
+      rightEdge = pill.maxX - kPadH
     }
 
-    let dotY = midY + 8
-    drawStateDot(ctx: ctx, x: contentX, cy: dotY, accent: accent, now: now)
+    // --- Phase-specific center content (single horizontal row) ---
+    switch recordingState {
+    case .recording, .listening:
+      // Phase dot (8×8 pulsing)
+      drawStateDot(ctx: ctx, x: x, cy: cy, accent: accent, now: now)
+      x += kDotSize + kDotTextGap
 
-    let labelX = contentX + kDotSize + kDotTextGap
-    let displayLabel = labelText.isEmpty ? stateLabel() : labelText
-    drawText(
-      displayLabel,
-      x: labelX, y: dotY - 6, maxWidth: contentMaxX - labelX - 60,
-      font: .systemFont(ofSize: 12, weight: .semibold),
-      color: theme.text.withAlphaComponent(masterOpacity)
-    )
+      // Timer text (bold 15px, tabular figures)
+      if !elapsedText.isEmpty {
+        drawText(
+          elapsedText,
+          x: x, y: cy - 7.5, maxWidth: 55,
+          font: .monospacedDigitSystemFont(ofSize: 15, weight: .bold),
+          color: theme.text.withAlphaComponent(masterOpacity)
+        )
+      }
+      x += 55 + kTimerWfGap
 
-    if !elapsedText.isEmpty {
+      // Waveform (24px height, fills remaining space)
+      let wfWidth = rightEdge - x
+      if wfWidth > 20 {
+        drawWaveform(ctx: ctx, x: x, cy: cy, maxWidth: wfWidth, accent: accent)
+      }
+
+    case .transcribing, .processing:
+      // Spinner (16×16) — uses theme accent color (cyan), not state color (amber)
+      let themeAccent = isDark
+        ? NSColor(red: 0x38 / 255.0, green: 0xD9 / 255.0, blue: 0xF0 / 255.0, alpha: 1)
+        : NSColor(red: 0x08 / 255.0, green: 0x87 / 255.0, blue: 0xA8 / 255.0, alpha: 1)
+      drawSpinner(ctx: ctx, cx: x + kSpinnerSize / 2, cy: cy, now: now,
+                  color: themeAccent.withAlphaComponent(masterOpacity))
+      x += kSpinnerSize + kDotTextGap
+
+      // Label ("Transcribing…" etc.) — accent color, semibold 13px
+      let displayLabel = labelText.isEmpty ? stateLabel() : labelText
       drawText(
-        elapsedText,
-        x: contentMaxX - 50, y: dotY - 5, maxWidth: 50,
-        font: .monospacedDigitSystemFont(ofSize: 11, weight: .regular),
-        color: theme.secondaryText.withAlphaComponent(masterOpacity),
-        alignment: .right
+        displayLabel,
+        x: x, y: cy - 6.5, maxWidth: 110,
+        font: .systemFont(ofSize: 13, weight: .semibold),
+        color: themeAccent.withAlphaComponent(masterOpacity)
       )
+      x += 100 + 6
+
+      // Elapsed time — muted, 12px
+      if !elapsedText.isEmpty {
+        drawText(
+          elapsedText,
+          x: x, y: cy - 6, maxWidth: 45,
+          font: .monospacedDigitSystemFont(ofSize: 12, weight: .regular),
+          color: theme.secondaryText.withAlphaComponent(masterOpacity)
+        )
+      }
+
+    case .done:
+      // Lucide circleCheck (16px) — success color
+      let successColor = isDark
+        ? NSColor(red: 0x36 / 255.0, green: 0xD9 / 255.0, blue: 0x8B / 255.0, alpha: masterOpacity)
+        : NSColor(red: 0x05 / 255.0, green: 0x87 / 255.0, blue: 0x5C / 255.0, alpha: masterOpacity)
+      drawCheckCircle(ctx: ctx, x: x, cy: cy, size: 16, color: successColor)
+      x += 16 + kDotTextGap
+
+      // Done message — success color, semibold
+      let doneMsg = labelText.isEmpty ? "Done" : labelText
+      drawText(
+        doneMsg,
+        x: x, y: cy - 6.5, maxWidth: rightEdge - x,
+        font: .systemFont(ofSize: 13, weight: .semibold),
+        color: successColor
+      )
+
+    case .error:
+      // Lucide circleAlert (16px) — error color
+      let errorColor = isDark
+        ? NSColor(red: 0xFF / 255.0, green: 0x7B / 255.0, blue: 0x7B / 255.0, alpha: masterOpacity)
+        : NSColor(red: 0xCC / 255.0, green: 0x1C / 255.0, blue: 0x1C / 255.0, alpha: masterOpacity)
+      drawAlertCircle(ctx: ctx, x: x, cy: cy, size: 16, color: errorColor)
+      x += 16 + kDotTextGap
+
+      // Error message
+      let errMsg = errorMessage ?? labelText
+      drawText(
+        errMsg,
+        x: x, y: cy - 6.5, maxWidth: rightEdge - x,
+        font: .systemFont(ofSize: 13, weight: .medium),
+        color: errorColor
+      )
+
+    case .idle:
+      break
     }
 
-    let vizY = midY - 12
-
+    // --- Stop button (right side, recording only — 36×36 gradient circle) ---
     if recordingState == .recording || recordingState == .listening {
-      drawWaveform(ctx: ctx, x: contentX, cy: vizY, maxWidth: contentMaxX - contentX, accent: accent)
-    } else if recordingState == .transcribing || recordingState == .processing {
-      drawSpinner(ctx: ctx, cx: contentX + 8, cy: vizY, now: now, accent: accent)
-      let spinLabel = recordingState == .transcribing ? "Transcribing…" : "Processing…"
-      drawText(
-        spinLabel,
-        x: contentX + 22, y: vizY - 5, maxWidth: contentMaxX - contentX - 30,
-        font: .systemFont(ofSize: 11, weight: .regular),
-        color: theme.secondaryText.withAlphaComponent(0.8 * masterOpacity)
-      )
-    } else if let error = errorMessage, !error.isEmpty {
-      drawText(
-        error,
-        x: contentX, y: vizY - 5, maxWidth: contentMaxX - contentX,
-        font: .systemFont(ofSize: 11, weight: .regular),
-        color: NSColor(red: 0.9, green: 0.3, blue: 0.3, alpha: masterOpacity)
-      )
-    } else if !transcriptText.isEmpty {
-      drawText(
-        transcriptText,
-        x: contentX, y: vizY - 5, maxWidth: contentMaxX - contentX,
-        font: .systemFont(ofSize: 11, weight: .regular),
-        color: theme.text.withAlphaComponent(0.85 * masterOpacity),
-        lineBreak: .byTruncatingTail
-      )
+      let stopX = pill.maxX - kPadH - kStopBtnSize / 2
+      drawStopButton(ctx: ctx, cx: stopX, cy: cy, size: kStopBtnSize, accent: accent)
     }
+
+    // --- Bottom progress bar (inside pill at very bottom) ---
+    drawBottomProgressBar(ctx: ctx, pill: pill, radius: pillRadius, accent: accent)
   }
 
   // MARK: - Compact Content (280×40)
@@ -447,73 +477,124 @@ class FloatingOverlayView: NSView {
   // MARK: - Drawing Helpers
 
   private func drawStateDot(ctx: CGContext, x: CGFloat, cy: CGFloat, accent: GradientPair, now: CFTimeInterval) {
-    let elapsed = now - animOrigin
-    let isActive = recordingState == .recording || recordingState == .listening
-    let pulse = isActive
-      ? CGFloat(0.5 + 0.5 * sin(elapsed * 4.0))
-      : CGFloat(1.0)
+    // Fixed recording dot color matching Flutter RecordingPill (0xFF5252)
+    // Windows: alpha pulses 45%–100% using PingPong + EaseInOut over 900ms
+    var alpha: CGFloat = 1.0
+    if recordingState == .recording || recordingState == .listening {
+      let elapsed = now - animOrigin
+      let period: Double = 0.9 // kDotPulseMs = 900
+      let t = CGFloat(elapsed.truncatingRemainder(dividingBy: period) / period)
+      let pingPong = t < 0.5 ? t * 2 : 2 - t * 2
+      let eased = pingPong * pingPong * (3 - 2 * pingPong) // smoothstep
+      alpha = 0.45 + 0.55 * eased
+    }
 
     let dotRect = NSRect(x: x, y: cy - kDotSize / 2, width: kDotSize, height: kDotSize)
-    ctx.setFillColor(accent.c0.withAlphaComponent(pulse * masterOpacity).cgColor)
+    let dotColor = NSColor(red: 0xFF / 255.0, green: 0x52 / 255.0, blue: 0x52 / 255.0, alpha: alpha * masterOpacity)
+    ctx.setFillColor(dotColor.cgColor)
     ctx.fillEllipse(in: dotRect)
   }
 
   private func drawCloseButton(ctx: CGContext, cx: CGFloat, cy: CGFloat, size: CGFloat, theme: ThemeColors) {
+    // Subtle circle background (matches close button idle state)
     let circleRect = NSRect(x: cx - size / 2, y: cy - size / 2, width: size, height: size)
-    ctx.setFillColor(theme.secondaryText.withAlphaComponent(0.08 * masterOpacity).cgColor)
+    ctx.setFillColor(theme.secondaryText.withAlphaComponent(0.06 * masterOpacity).cgColor)
     ctx.fillEllipse(in: circleRect)
 
-    let inset = size * 0.3
-    ctx.setStrokeColor(theme.secondaryText.withAlphaComponent(0.6 * masterOpacity).cgColor)
-    ctx.setLineWidth(1.5)
+    // ✕ icon — Windows: pad = size * 0.375 (Lucide X spans 6→18 in 24px)
+    let pad = size * 0.375
+    let x0 = cx - size / 2 + pad
+    let y0 = cy - size / 2 + pad
+    let x1 = cx + size / 2 - pad
+    let y1 = cy + size / 2 - pad
+    ctx.setStrokeColor(theme.secondaryText.withAlphaComponent(0.7 * masterOpacity).cgColor)
+    ctx.setLineWidth(2)
     ctx.setLineCap(.round)
-    ctx.move(to: CGPoint(x: cx - inset / 2, y: cy - inset / 2))
-    ctx.addLine(to: CGPoint(x: cx + inset / 2, y: cy + inset / 2))
-    ctx.move(to: CGPoint(x: cx + inset / 2, y: cy - inset / 2))
-    ctx.addLine(to: CGPoint(x: cx - inset / 2, y: cy + inset / 2))
+    ctx.move(to: CGPoint(x: x0, y: y0))
+    ctx.addLine(to: CGPoint(x: x1, y: y1))
+    ctx.move(to: CGPoint(x: x1, y: y0))
+    ctx.addLine(to: CGPoint(x: x0, y: y1))
     ctx.strokePath()
   }
 
   private func drawStopButton(ctx: CGContext, cx: CGFloat, cy: CGFloat, size: CGFloat, accent: GradientPair) {
+    // Windows: solid gradient-filled red circle with white square outline inside
     let circleRect = NSRect(x: cx - size / 2, y: cy - size / 2, width: size, height: size)
-    ctx.setFillColor(accent.c0.withAlphaComponent(0.15 * masterOpacity).cgColor)
-    ctx.fillEllipse(in: circleRect)
 
-    let iconSize = size * 0.36
+    // Gradient circle background (matches _PillStopButton)
+    ctx.saveGState()
+    ctx.addEllipse(in: circleRect)
+    ctx.clip()
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    if let gradient = CGGradient(
+      colorsSpace: colorSpace,
+      colors: [accent.c0.withAlphaComponent(masterOpacity).cgColor,
+               accent.c1.withAlphaComponent(masterOpacity).cgColor] as CFArray,
+      locations: [0, 1]
+    ) {
+      ctx.drawLinearGradient(
+        gradient,
+        start: CGPoint(x: circleRect.minX, y: circleRect.maxY),
+        end: CGPoint(x: circleRect.maxX, y: circleRect.minY),
+        options: []
+      )
+    }
+    ctx.restoreGState()
+
+    // White square OUTLINE (Lucide square — stroked, not filled)
+    let iconSize = size * 0.39 // kStopIconSize=14 / kStopBtnSize=36 ≈ 0.39
     let iconRect = NSRect(x: cx - iconSize / 2, y: cy - iconSize / 2, width: iconSize, height: iconSize)
-    let iconPath = CGPath(roundedRect: iconRect, cornerWidth: 2, cornerHeight: 2, transform: nil)
+    let iconPath = CGPath(roundedRect: iconRect, cornerWidth: 1.5, cornerHeight: 1.5, transform: nil)
     ctx.addPath(iconPath)
-    ctx.setStrokeColor(accent.c0.withAlphaComponent(0.9 * masterOpacity).cgColor)
-    ctx.setLineWidth(1.5)
+    ctx.setStrokeColor(NSColor.white.withAlphaComponent(masterOpacity).cgColor)
+    ctx.setLineWidth(2)
+    ctx.setLineJoin(.round)
     ctx.strokePath()
   }
 
   private func drawWaveform(ctx: CGContext, x: CGFloat, cy: CGFloat, maxWidth: CGFloat, accent: GradientPair) {
     let totalWidth = CGFloat(kBarCount) * kBarWidth + CGFloat(kBarCount - 1) * kBarGap
-    let startX = x
     let maxH: CGFloat = isCompact ? 16 : 24
+    // Center bars in available width (matching Windows)
+    let startX = x + (maxWidth - totalWidth) / 2
 
     guard totalWidth <= maxWidth else { return }
 
-    ctx.setFillColor(accent.c0.withAlphaComponent(0.8 * masterOpacity).cgColor)
+    // Windows waveform colors (dark theme):
+    // active: 85% accent (#38D9F0), muted: 50% textMuted (#8A99B2)
+    let activeColor = isDark
+      ? NSColor(red: 0x38 / 255.0, green: 0xD9 / 255.0, blue: 0xF0 / 255.0, alpha: 0.85 * masterOpacity)
+      : NSColor(red: 0x08 / 255.0, green: 0x87 / 255.0, blue: 0xA8 / 255.0, alpha: 0.85 * masterOpacity)
+    let mutedColor = isDark
+      ? NSColor(red: 0x8A / 255.0, green: 0x99 / 255.0, blue: 0xB2 / 255.0, alpha: 0.5 * masterOpacity)
+      : NSColor(red: 0x5B / 255.0, green: 0x69 / 255.0, blue: 0x7E / 255.0, alpha: 0.5 * masterOpacity)
 
     for i in 0..<kBarCount {
-      let barH = max(2, min(waveDisplay[i], maxH))
+      let level = waveDisplay[i] / maxH // Normalize to 0-1
+      let barH = max(4, waveDisplay[i]) // 4px min (matching Windows)
       let bx = startX + CGFloat(i) * (kBarWidth + kBarGap)
       let by = cy - barH / 2
       let barRect = NSRect(x: bx, y: by, width: kBarWidth, height: barH)
       let barPath = CGPath(roundedRect: barRect, cornerWidth: kBarWidth / 2, cornerHeight: kBarWidth / 2, transform: nil)
+
+      // Color based on level: >0.30 = active, else muted
+      let color = level > 0.30 ? activeColor : mutedColor
+      ctx.setFillColor(color.cgColor)
       ctx.addPath(barPath)
       ctx.fillPath()
     }
   }
 
   private func drawSpinner(ctx: CGContext, cx: CGFloat, cy: CGFloat, now: CFTimeInterval, accent: GradientPair) {
+    drawSpinner(ctx: ctx, cx: cx, cy: cy, now: now, color: accent.c0.withAlphaComponent(0.8 * masterOpacity))
+  }
+
+  private func drawSpinner(ctx: CGContext, cx: CGFloat, cy: CGFloat, now: CFTimeInterval, color: NSColor) {
     let elapsed = now - animOrigin
     let angle = CGFloat(elapsed.truncatingRemainder(dividingBy: 0.75) / 0.75) * .pi * 2
-    let arcLen: CGFloat = .pi * 1.6
+    let arcLen: CGFloat = .pi * 1.5 // 270° (matching Windows)
 
-    ctx.setStrokeColor(accent.c0.withAlphaComponent(0.8 * masterOpacity).cgColor)
+    ctx.setStrokeColor(color.cgColor)
     ctx.setLineWidth(2)
     ctx.setLineCap(.round)
     ctx.addArc(center: CGPoint(x: cx, y: cy), radius: kSpinnerSize / 2, startAngle: angle, endAngle: angle + arcLen, clockwise: false)
@@ -540,6 +621,132 @@ class FloatingOverlayView: NSView {
 
     let textRect = NSRect(x: x, y: y, width: maxWidth, height: font.pointSize + 6)
     (text as NSString).draw(in: textRect, withAttributes: attrs)
+  }
+
+  /// Lucide circle-check icon (matching Windows PaintNormal kDone).
+  private func drawCheckCircle(ctx: CGContext, x: CGFloat, cy: CGFloat, size: CGFloat, color: NSColor) {
+    let sc = size / 24.0
+    let ix = x, iy = cy - size / 2
+    ctx.setStrokeColor(color.cgColor)
+    ctx.setLineWidth(1.5)
+    ctx.setLineCap(.round)
+    // Circle
+    ctx.addEllipse(in: NSRect(x: ix + 2 * sc, y: iy + 2 * sc, width: 20 * sc, height: 20 * sc))
+    ctx.strokePath()
+    // Checkmark: (9,12)→(11,14)→(15,10) in 24×24 space
+    ctx.move(to: CGPoint(x: ix + 9 * sc, y: iy + (24 - 12) * sc))
+    ctx.addLine(to: CGPoint(x: ix + 11 * sc, y: iy + (24 - 14) * sc))
+    ctx.addLine(to: CGPoint(x: ix + 15 * sc, y: iy + (24 - 10) * sc))
+    ctx.strokePath()
+  }
+
+  /// Lucide circle-alert icon (matching Windows PaintNormal kError).
+  private func drawAlertCircle(ctx: CGContext, x: CGFloat, cy: CGFloat, size: CGFloat, color: NSColor) {
+    let sc = size / 24.0
+    let ix = x, iy = cy - size / 2
+    ctx.setStrokeColor(color.cgColor)
+    ctx.setLineWidth(1.5)
+    ctx.setLineCap(.round)
+    // Circle
+    ctx.addEllipse(in: NSRect(x: ix + 2 * sc, y: iy + 2 * sc, width: 20 * sc, height: 20 * sc))
+    ctx.strokePath()
+    // Exclamation line: (12,8)→(12,12) → in Y-up: (12, 16)→(12, 12)
+    ctx.move(to: CGPoint(x: ix + 12 * sc, y: iy + (24 - 8) * sc))
+    ctx.addLine(to: CGPoint(x: ix + 12 * sc, y: iy + (24 - 12) * sc))
+    ctx.strokePath()
+    // Dot at (12, 16) → in Y-up: (12, 8)
+    ctx.setFillColor(color.cgColor)
+    ctx.fillEllipse(in: NSRect(x: ix + 11.25 * sc, y: iy + (24 - 16.75) * sc, width: 1.5 * sc, height: 1.5 * sc))
+  }
+
+  /// Bottom progress bar inside pill (matching Windows PaintBottomProgressBar).
+  private func drawBottomProgressBar(ctx: CGContext, pill: NSRect, radius: CGFloat, accent: GradientPair) {
+    let barH: CGFloat = 4
+    let barY = pill.minY // Bottom of pill in NSView Y-up
+
+    ctx.saveGState()
+    // Clip to pill shape
+    let clipPath = CGPath(roundedRect: pill, cornerWidth: radius, cornerHeight: radius, transform: nil)
+    ctx.addPath(clipPath)
+    ctx.clip()
+
+    // Clip to bar region
+    let barRegion = NSRect(x: pill.minX, y: barY, width: pill.width, height: barH)
+    ctx.clip(to: barRegion)
+
+    switch recordingState {
+    case .recording, .listening:
+      if progressValue > 0 {
+        // Time-limited recording progress bar
+        let prog = CGFloat(min(max(progressValue, 0), 1))
+        let fillW = pill.width * prog
+        var fillColor: NSColor
+        if prog >= 0.90 {
+          fillColor = NSColor(red: 0xFF / 255.0, green: 0x52 / 255.0, blue: 0x52 / 255.0, alpha: masterOpacity)
+        } else if prog >= 0.75 {
+          fillColor = NSColor(red: 0xFF / 255.0, green: 0xC1 / 255.0, blue: 0x07 / 255.0, alpha: masterOpacity)
+        } else {
+          let tc = themeColors(dark: isDark)
+          fillColor = tc.text.withAlphaComponent(masterOpacity)
+        }
+        ctx.setFillColor(fillColor.cgColor)
+        ctx.fill(NSRect(x: pill.minX, y: barY, width: fillW, height: barH))
+      } else {
+        // Unlimited — subtle accent line
+        let themeAccent = isDark
+          ? NSColor(red: 0x38 / 255.0, green: 0xD9 / 255.0, blue: 0xF0 / 255.0, alpha: 0.3 * masterOpacity)
+          : NSColor(red: 0x08 / 255.0, green: 0x87 / 255.0, blue: 0xA8 / 255.0, alpha: 0.3 * masterOpacity)
+        ctx.setFillColor(themeAccent.cgColor)
+        ctx.fill(NSRect(x: pill.minX, y: barY, width: pill.width, height: barH))
+      }
+
+    case .transcribing, .processing:
+      // Shimmer bar (accent color sweep)
+      let elapsed = CACurrentMediaTime() - animOrigin
+      let period: Double = 1.2
+      let t = CGFloat(elapsed.truncatingRemainder(dividingBy: period) / period)
+      let sweep = -0.3 + t * 1.6
+
+      // Base
+      let themeAccent = isDark
+        ? NSColor(red: 0x38 / 255.0, green: 0xD9 / 255.0, blue: 0xF0 / 255.0, alpha: 0.15 * masterOpacity)
+        : NSColor(red: 0x08 / 255.0, green: 0x87 / 255.0, blue: 0xA8 / 255.0, alpha: 0.12 * masterOpacity)
+      ctx.setFillColor(themeAccent.cgColor)
+      ctx.fill(barRegion)
+
+      // Glow sweep
+      let glowW = pill.width * 0.3
+      let glowX = pill.minX + sweep * pill.width - glowW / 2
+      let glowAccent = isDark
+        ? NSColor(red: 0x38 / 255.0, green: 0xD9 / 255.0, blue: 0xF0 / 255.0, alpha: 0.6 * masterOpacity)
+        : NSColor(red: 0x08 / 255.0, green: 0x87 / 255.0, blue: 0xA8 / 255.0, alpha: 0.5 * masterOpacity)
+      let colorSpace = CGColorSpaceCreateDeviceRGB()
+      if let gradient = CGGradient(
+        colorsSpace: colorSpace,
+        colors: [NSColor.clear.cgColor, glowAccent.cgColor, NSColor.clear.cgColor] as CFArray,
+        locations: [0, 0.5, 1]
+      ) {
+        ctx.drawLinearGradient(
+          gradient,
+          start: CGPoint(x: glowX, y: barY),
+          end: CGPoint(x: glowX + glowW, y: barY),
+          options: []
+        )
+      }
+
+    case .done:
+      // Solid green bar
+      let green = isDark
+        ? NSColor(red: 0x16 / 255.0, green: 0xA3 / 255.0, blue: 0x4A / 255.0, alpha: 0.8 * masterOpacity)
+        : NSColor(red: 0x16 / 255.0, green: 0xA3 / 255.0, blue: 0x4A / 255.0, alpha: 0.7 * masterOpacity)
+      ctx.setFillColor(green.cgColor)
+      ctx.fill(barRegion)
+
+    case .error, .idle:
+      break
+    }
+
+    ctx.restoreGState()
   }
 
   private func stateLabel() -> String {
