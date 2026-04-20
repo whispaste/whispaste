@@ -41,6 +41,9 @@ class HistorySearchToolbar extends ConsumerStatefulWidget {
     required this.onViewModeChanged,
     required this.multiSelectMode,
     required this.onToggleMultiSelect,
+    required this.sortOrder,
+    required this.onSortOrderChanged,
+    this.searchFocusNode,
     this.onEmptyTrash,
   });
 
@@ -54,6 +57,9 @@ class HistorySearchToolbar extends ConsumerStatefulWidget {
   final ValueChanged<HistoryViewMode> onViewModeChanged;
   final bool multiSelectMode;
   final VoidCallback onToggleMultiSelect;
+  final HistorySortOrder sortOrder;
+  final ValueChanged<HistorySortOrder> onSortOrderChanged;
+  final FocusNode? searchFocusNode;
   final VoidCallback? onEmptyTrash;
 
   @override
@@ -241,17 +247,19 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
           // ── Search field ────────────────────────────────────────────────
           TextField(
             controller: widget.controller,
+            focusNode: widget.searchFocusNode,
             decoration: InputDecoration(
-              hintText: rawQuery.isEmpty
-                  ? l10n.historySearchTranscriptions
-                  : l10n.historySearchHintCommands,
+              hintText: l10n.historySearchTranscriptions,
               prefixIcon: Icon(
                 LucideIcons.search,
                 size: WpIconSize.sm,
                 color: textMuted,
               ),
-              suffixIcon: rawQuery.isNotEmpty
-                  ? IconButton(
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (rawQuery.isNotEmpty)
+                    IconButton(
                       icon: Icon(
                         LucideIcons.x,
                         size: WpIconSize.sm,
@@ -261,8 +269,10 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                         widget.controller.clear();
                         _clearSuggestions();
                       },
-                    )
-                  : null,
+                    ),
+                  _SearchHelpButton(isDark: widget.isDark),
+                ],
+              ),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: WpSpacing.md,
@@ -494,6 +504,13 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                     ),
                   ),
                 ),
+              ),
+              const SizedBox(width: WpSpacing.xxs),
+              // Sort order dropdown
+              _SortDropdown(
+                sortOrder: widget.sortOrder,
+                isDark: widget.isDark,
+                onChanged: widget.onSortOrderChanged,
               ),
               const SizedBox(width: WpSpacing.xxs),
               // View mode toggle
@@ -907,6 +924,226 @@ class _HistoryViewModeButton extends StatelessWidget {
           child: Icon(icon, size: WpIconSize.sm, color: color),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Search help tooltip button
+// ---------------------------------------------------------------------------
+
+class _SearchHelpButton extends StatelessWidget {
+  const _SearchHelpButton({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textMuted =
+        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textPrimary =
+        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final surface = isDark
+        ? WpColorsDark.surfaceElevated
+        : WpColorsLight.surfaceElevated;
+
+    return IconButton(
+      icon: Icon(LucideIcons.info, size: 15, color: textMuted),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      tooltip: l10n.historySearchHelpTitle,
+      onPressed: () {
+        final renderBox = context.findRenderObject() as RenderBox?;
+        if (renderBox == null) return;
+        final offset = renderBox.localToGlobal(Offset.zero);
+        final size = renderBox.size;
+
+        showMenu<void>(
+          context: context,
+          position: RelativeRect.fromLTRB(
+            offset.dx,
+            offset.dy + size.height,
+            offset.dx + size.width,
+            offset.dy + size.height + 200,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
+          color: surface,
+          items: [
+            PopupMenuItem<void>(
+              enabled: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    l10n.historySearchHelpTitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: WpSpacing.xs),
+                  _HelpRow(
+                    icon: LucideIcons.tag,
+                    text: l10n.historySearchHelpTags,
+                    example: '#meeting',
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: WpSpacing.xxs),
+                  _HelpRow(
+                    icon: LucideIcons.globe,
+                    text: l10n.historySearchHelpLang,
+                    example: 'lang:en',
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: WpSpacing.xxs),
+                  _HelpRow(
+                    icon: LucideIcons.textSearch,
+                    text: l10n.historySearchHelpFreeText,
+                    example: '',
+                    isDark: isDark,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _HelpRow extends StatelessWidget {
+  const _HelpRow({
+    required this.icon,
+    required this.text,
+    required this.example,
+    required this.isDark,
+  });
+
+  final IconData icon;
+  final String text;
+  final String example;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final textMuted =
+        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: textMuted),
+        const SizedBox(width: WpSpacing.xs),
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 12, color: textMuted),
+          ),
+        ),
+        if (example.isNotEmpty) ...[
+          const SizedBox(width: WpSpacing.xs),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              example,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: accent,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sort order dropdown
+// ---------------------------------------------------------------------------
+
+class _SortDropdown extends StatelessWidget {
+  const _SortDropdown({
+    required this.sortOrder,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final HistorySortOrder sortOrder;
+  final bool isDark;
+  final ValueChanged<HistorySortOrder> onChanged;
+
+  IconData get _icon {
+    switch (sortOrder) {
+      case HistorySortOrder.newest:
+        return LucideIcons.arrowDownWideNarrow;
+      case HistorySortOrder.oldest:
+        return LucideIcons.arrowUpNarrowWide;
+      case HistorySortOrder.longest:
+        return LucideIcons.ruler;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textMuted =
+        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+
+    final labels = {
+      HistorySortOrder.newest: l10n.historySortNewest,
+      HistorySortOrder.oldest: l10n.historySortOldest,
+      HistorySortOrder.longest: l10n.historySortLongest,
+    };
+
+    return PopupMenuButton<HistorySortOrder>(
+      icon: Icon(_icon, size: WpIconSize.sm, color: textMuted),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      tooltip: labels[sortOrder] ?? '',
+      onSelected: onChanged,
+      shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
+      itemBuilder: (ctx) => HistorySortOrder.values.map((order) {
+        final isSelected = order == sortOrder;
+        return PopupMenuItem<HistorySortOrder>(
+          value: order,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                order == HistorySortOrder.newest
+                    ? LucideIcons.arrowDownWideNarrow
+                    : order == HistorySortOrder.oldest
+                        ? LucideIcons.arrowUpNarrowWide
+                        : LucideIcons.ruler,
+                size: 14,
+                color: isSelected ? accent : textMuted,
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              Text(
+                labels[order] ?? '',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isSelected ? accent : null,
+                  fontWeight:
+                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

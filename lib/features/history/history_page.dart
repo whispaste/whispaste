@@ -33,8 +33,10 @@ class HistoryPage extends ConsumerStatefulWidget {
 
 class _HistoryPageState extends ConsumerState<HistoryPage> {
   final _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   String? _selectedEntryId;
   HistoryViewMode _viewMode = HistoryViewMode.list;
+  HistorySortOrder _sortOrder = HistorySortOrder.newest;
   bool _multiSelectMode = false;
   final Set<String> _selectedIds = {};
   /// Tracks last clicked entry for Shift+click range selection.
@@ -47,14 +49,48 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _listFocusNode.dispose();
     super.dispose();
   }
 
   /// Builds a flat list of entry IDs from the grouped data for keyboard
-  /// navigation ordering.
+  /// navigation ordering. Applies the current sort order.
   List<HistoryEntry> _flatEntries(List<DateGroup> groups) {
-    return [for (final g in groups) ...g.entries];
+    final flat = [for (final g in groups) ...g.entries];
+    return _applySortOrder(flat);
+  }
+
+  /// Applies the current sort order to a list of entries.
+  List<HistoryEntry> _applySortOrder(List<HistoryEntry> entries) {
+    switch (_sortOrder) {
+      case HistorySortOrder.newest:
+        return entries; // Default order from DB is newest first
+      case HistorySortOrder.oldest:
+        return entries.reversed.toList();
+      case HistorySortOrder.longest:
+        return [...entries]..sort(
+            (a, b) => b.content.length.compareTo(a.content.length));
+    }
+  }
+
+  /// Applies sort order to groups for display.
+  List<DateGroup> _sortGroups(List<DateGroup> groups) {
+    switch (_sortOrder) {
+      case HistorySortOrder.newest:
+        return groups;
+      case HistorySortOrder.oldest:
+        return groups.reversed
+            .map((g) => DateGroup(
+                  labelKey: g.labelKey,
+                  entries: g.entries.reversed.toList(),
+                ))
+            .toList();
+      case HistorySortOrder.longest:
+        final all = [for (final g in groups) ...g.entries];
+        all.sort((a, b) => b.content.length.compareTo(a.content.length));
+        return [DateGroup(labelKey: 'all', entries: all)];
+    }
   }
 
   /// Returns true when any text input field in the focus tree currently has
@@ -109,7 +145,20 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     return WpPageShell(
       scrollable: false,
       padding: EdgeInsets.zero,
-      child: Column(
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          // Ctrl+F / Cmd+F: Focus search field
+          SingleActivator(
+            LogicalKeyboardKey.keyF,
+            control: !Platform.isMacOS,
+            meta: Platform.isMacOS,
+          ): () {
+            _searchFocusNode.requestFocus();
+          },
+        },
+        child: Focus(
+          autofocus: false,
+          child: Column(
         children: [
           // Multi-select action bar (shown when items are selected)
           if (_multiSelectMode && _selectedIds.isNotEmpty)
@@ -147,6 +196,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           if (!_multiSelectMode || _selectedIds.isEmpty)
             HistorySearchToolbar(
               controller: _searchController,
+              searchFocusNode: _searchFocusNode,
               activeFilter: activeFilter,
               isDark: isDark,
               onFilterChanged: (f) {
@@ -180,6 +230,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 _multiSelectMode = !_multiSelectMode;
                 if (!_multiSelectMode) _selectedIds.clear();
               }),
+              sortOrder: _sortOrder,
+              onSortOrderChanged: (s) => setState(() => _sortOrder = s),
               onEmptyTrash: isTrashView && filteredEntries.isNotEmpty
                   ? _emptyTrash
                   : null,
@@ -192,6 +244,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 if (!hasResults) {
                   return _emptyStateForFilter(isDark, activeFilter);
                 }
+                final sortedGroups = _sortGroups(groups);
                 final flat = _flatEntries(groups);
                 return CallbackShortcuts(
                   bindings: <ShortcutActivator, VoidCallback>{
@@ -300,7 +353,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       onTap: () => _listFocusNode.requestFocus(),
                       behavior: HitTestBehavior.translucent,
                       child: HistoryMasterDetail(
-                        groups: groups,
+                        groups: sortedGroups,
                         isDark: isDark,
                         viewMode: _viewMode,
                         selectedEntry: selectedEntry,
@@ -386,6 +439,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             ),
           ),
         ],
+      ),
+      ),
       ),
     );
   }

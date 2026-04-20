@@ -3142,8 +3142,50 @@ abstract class L10n {
   /// No description provided for @historySearchHintCommands.
   ///
   /// In en, this message translates to:
-  /// **'Search… (#tag, lang:de)'**
+  /// **'Search transcriptions…'**
   String get historySearchHintCommands;
+
+  /// No description provided for @historySearchHelpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Tips'**
+  String get historySearchHelpTitle;
+
+  /// No description provided for @historySearchHelpTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Type # to filter by tags'**
+  String get historySearchHelpTags;
+
+  /// No description provided for @historySearchHelpLang.
+  ///
+  /// In en, this message translates to:
+  /// **'Type lang: to filter by language'**
+  String get historySearchHelpLang;
+
+  /// No description provided for @historySearchHelpFreeText.
+  ///
+  /// In en, this message translates to:
+  /// **'Or just type any keyword'**
+  String get historySearchHelpFreeText;
+
+  /// No description provided for @historySortNewest.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest first'**
+  String get historySortNewest;
+
+  /// No description provided for @historySortOldest.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest first'**
+  String get historySortOldest;
+
+  /// No description provided for @historySortLongest.
+  ///
+  /// In en, this message translates to:
+  /// **'Longest first'**
+  String get historySortLongest;
 
   /// No description provided for @historySearchActiveTag.
   ///
