@@ -193,6 +193,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@v5
 
@@ -258,3 +259,10 @@ jobs:
         with:
           environment: production
           release: whispaste@${{ steps.notes.outputs.version }}
+
+      - name: Trigger website redeploy
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          gh workflow run deploy-pages.yml --ref main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
