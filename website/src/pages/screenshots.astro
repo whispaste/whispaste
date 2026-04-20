@@ -1,0 +1,51 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import ScreenshotGallery from "../components/ScreenshotGallery.astro";
+---
+
+<Layout
+  title="Screenshots — WhisPaste"
+  description="See WhisPaste in action — workspace, detail editor, voice shortcuts, settings, and analytics in light and dark theme."
+>
+  <Nav variant="subpage" />
+  <main id="main-content" class="pt-20 pb-16">
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="text-center mb-10">
+        <h1
+          class="text-3xl sm:text-4xl font-bold text-white mb-3"
+          data-i18n="gallery.title"
+        >
+          Every screen, every detail
+        </h1>
+        <p
+          class="text-gray-400 text-lg max-w-2xl mx-auto"
+          data-i18n="gallery.desc"
+        >
+          Five views that show the full workflow — from dictation to polished text. Switch themes to find your style.
+        </p>
+      </div>
+
+      <ScreenshotGallery />
+
+      <div class="text-center mt-14">
+        <a
+          href="/download"
+          class="inline-flex items-center gap-2 px-6 py-3 bg-brand-cyan text-brand-darker font-semibold rounded-xl hover:opacity-90 transition-opacity"
+          data-i18n="gallery.cta"
+        >
+          Get WhisPaste — it's free
+        </a>
+      </div>
+    </div>
+  </main>
+  <Footer variant="subpage" />
+
+  <script>
+    import { applyLang } from '../scripts/i18n';
+    import { updateThemeIcon } from '../scripts/theme';
+    applyLang();
+    updateThemeIcon();
+  </script>
+</Layout>

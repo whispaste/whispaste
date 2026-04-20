@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/database.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/recording/recording_helpers.dart' show displayNameForModel;
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/dialog.dart';
@@ -32,6 +33,13 @@ class _DurationBucket {
   final int count;
   final double fraction;
 }
+
+/// Maps a raw model ID (e.g. "whisper-small") to a user-facing label
+/// using the tier name as the primary label and the Whisper model name
+/// in parentheses for recognition.
+/// Delegates to the shared [displayNameForModel] helper.
+String _displayNameForModel(String modelId, L10n l10n) =>
+    displayNameForModel(modelId, l10n);
 
 // ---------------------------------------------------------------------------
 // Analytics Dashboard Page
@@ -146,7 +154,11 @@ class _AnalyticsDashboard extends StatelessWidget {
               ),
               right: _ModelUsagePanel(
                 models: data.modelUsage
-                    .map((m) => _ModelUsage(m.model, m.count, m.fraction))
+                    .map((m) => _ModelUsage(
+                          _displayNameForModel(m.model, l10n),
+                          m.count,
+                          m.fraction,
+                        ))
                     .toList(),
                 isDark: isDark,
               ),

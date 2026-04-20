@@ -43,7 +43,9 @@ import 'app_logger.dart';
 
 // ignore_for_file: valid_regexps
 final _sensitivePatterns = [
-  RegExp(r'''(?i)["']?(api[_-]?key|token|password|authorization)["']?\s*[:=]\s*['"]?[^\s'",}]+'''),
+  RegExp(
+    r'''(?i)["']?(api[_-]?key|token|password|authorization)["']?\s*[:=]\s*['"]?[^\s'",}]+''',
+  ),
   RegExp(r'(?i)\bbearer\s+\S+'),
   RegExp(r'\bsk-[A-Za-z0-9][A-Za-z0-9_]{5,}\b'),
   RegExp(r'\bgsk_[A-Za-z0-9][A-Za-z0-9_]{5,}\b'),
@@ -221,6 +223,16 @@ class CrashReporter {
     }
     final message = event.message;
     if (message != null && _containsSensitiveData(message.formatted)) {
+      return null;
+    }
+
+    // Filter out user-facing toast messages (not real errors)
+    final messageStr =
+        event.message?.formatted ?? event.throwable?.toString() ?? '';
+    if (messageStr.startsWith('TOAST:') ||
+        messageStr.contains('Kein Audio erkannt') ||
+        messageStr.contains('Etwas ist schiefgelaufen')) {
+      // These are expected UX flows, not errors — suppress from Sentry
       return null;
     }
 

@@ -1,6 +1,8 @@
 /// Shared presentation helpers for settings-driven UI labels.
 library;
 
+import 'dart:io';
+
 import '../l10n/generated/app_localizations.dart';
 import 'settings_enums.dart';
 import 'settings_provider.dart';
@@ -10,16 +12,10 @@ import 'settings_provider.dart';
 /// Only carries essential **runtime** info — static config (overlay mode,
 /// hotkey, after-action) belongs in Settings, not the status bar.
 class StatusBarModel {
-  const StatusBarModel({
-    required this.sttModeLabel,
-    this.postProcessingLabel,
-  });
+  const StatusBarModel({required this.sttModeLabel});
 
   /// Active speech-to-text mode, e.g. "On device" or "OpenAI".
   final String sttModeLabel;
-
-  /// Active post-processing preset label, or `null` when disabled.
-  final String? postProcessingLabel;
 }
 
 /// Builds a consistent [StatusBarModel] from the current [settings].
@@ -31,18 +27,17 @@ StatusBarModel buildStatusBarModel({
     sttModeLabel: settings.sttProviderType.isLocal
         ? l10n.statusBarOnDevice
         : settings.sttProvider,
-    postProcessingLabel: settings.postProcessEnabled
-        ? postProcessingStatusLabel(settings: settings, l10n: l10n)
-        : null,
   );
 }
 
 /// Returns display labels for the modifier portion of a shortcut.
 ///
 /// When [l10n] is provided, labels are localized (e.g. "Strg" for German).
+/// On macOS, `meta` shows as "Cmd" and `alt` as "Option".
 /// Without l10n, falls back to English labels.
 List<String> hotkeyModifierLabels(String modifiers, {L10n? l10n}) {
   if (modifiers.isEmpty) return const [];
+  final isMac = _isMacOS;
   return modifiers
       .split('+')
       .map((modifier) => modifier.trim())
@@ -51,8 +46,12 @@ List<String> hotkeyModifierLabels(String modifiers, {L10n? l10n}) {
         (modifier) => switch (modifier.toLowerCase()) {
           'ctrl' || 'control' => l10n?.modifierCtrl ?? 'Ctrl',
           'shift' => l10n?.modifierShift ?? 'Shift',
-          'alt' => l10n?.modifierAlt ?? 'Alt',
-          'meta' || 'win' || 'super' => l10n?.modifierWin ?? 'Win',
+          'alt' => isMac
+              ? (l10n?.modifierOption ?? 'Option')
+              : (l10n?.modifierAlt ?? 'Alt'),
+          'meta' || 'win' || 'super' => isMac
+              ? (l10n?.modifierCmd ?? 'Cmd')
+              : (l10n?.modifierWin ?? 'Win'),
           'cmd' => l10n?.modifierCmd ?? 'Cmd',
           _ => modifier,
         },
@@ -60,11 +59,41 @@ List<String> hotkeyModifierLabels(String modifiers, {L10n? l10n}) {
       .toList();
 }
 
+/// Cached platform check to avoid repeated dart:io calls.
+bool get _isMacOS => Platform.isMacOS;
+
+/// Returns a localized label for the primary key portion of a shortcut.
+String hotkeyKeyLabel(String key, {L10n? l10n}) {
+  final trimmed = key.trim();
+  if (trimmed.isEmpty) return '';
+
+  final normalized = trimmed.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+
+  return switch (normalized) {
+    'space' => l10n?.shortcutKeySpace ?? 'Space',
+    'enter' => l10n?.shortcutKeyEnter ?? 'Enter',
+    'escape' || 'esc' => l10n?.shortcutKeyEscape ?? 'Esc',
+    'backspace' => l10n?.shortcutKeyBackspace ?? 'Backspace',
+    'tab' => l10n?.shortcutKeyTab ?? 'Tab',
+    'delete' || 'del' => l10n?.shortcutKeyDelete ?? 'Del',
+    'insert' || 'ins' => l10n?.shortcutKeyInsert ?? 'Insert',
+    'home' => l10n?.shortcutKeyHome ?? 'Home',
+    'end' => l10n?.shortcutKeyEnd ?? 'End',
+    'pageup' || 'pgup' => l10n?.shortcutKeyPageUp ?? 'Page Up',
+    'pagedown' || 'pgdn' => l10n?.shortcutKeyPageDown ?? 'Page Down',
+    'arrowup' || 'up' => '↑',
+    'arrowdown' || 'down' => '↓',
+    'arrowleft' || 'left' => '←',
+    'arrowright' || 'right' => '→',
+    _ => trimmed.toUpperCase(),
+  };
+}
+
 /// Returns shortcut display parts ordered as modifier chips + primary key.
 List<String> hotkeyDisplayParts(String modifiers, String key, {L10n? l10n}) {
   return [
     ...hotkeyModifierLabels(modifiers, l10n: l10n),
-    if (key.trim().isNotEmpty) key.trim().toUpperCase(),
+    if (key.trim().isNotEmpty) hotkeyKeyLabel(key, l10n: l10n),
   ];
 }
 
@@ -81,7 +110,6 @@ String formatHotkeyShortcut(
 /// Returns a short, localized status label for the active overlay mode.
 String overlayModeStatusLabel(OverlayMode mode, L10n l10n) {
   return switch (mode) {
-    OverlayMode.inWindow => l10n.statusBarOverlayInWindow,
     OverlayMode.floating => l10n.statusBarOverlayFloating,
     OverlayMode.off => l10n.statusBarOverlayOff,
   };
@@ -97,18 +125,5 @@ String afterTranscriptionStatusLabel(
     AfterTranscriptionAction.paste => l10n.statusBarAfterPaste,
     AfterTranscriptionAction.clipboardAndPaste => l10n.statusBarAfterBoth,
     AfterTranscriptionAction.nothing => l10n.statusBarAfterNothing,
-  };
-}
-
-/// Returns a concise, localized label for the active post-processing preset.
-String postProcessingStatusLabel({
-  required AppSettings settings,
-  required L10n l10n,
-}) {
-  if (!settings.postProcessEnabled) return l10n.settingsOff;
-  return switch (settings.postProcessPresetType) {
-    PostProcessPreset.cleanup => l10n.statusBarPresetCleanup,
-    PostProcessPreset.concise => l10n.statusBarPresetConcise,
-    PostProcessPreset.translate => l10n.statusBarPresetTranslate,
   };
 }

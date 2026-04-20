@@ -16,6 +16,60 @@ import '../core/logging/app_logger.dart';
 final _log = AppLogger('HardwareInfo');
 
 // ---------------------------------------------------------------------------
+// STT model VRAM requirements
+// ---------------------------------------------------------------------------
+
+/// Estimated VRAM requirements for each STT model (in MB).
+/// These are conservative estimates: whisper models need the model weights in
+/// VRAM PLUS scratch space for attention matrices and CUDA runtime overhead.
+/// The actual peak usage can be 1.3–1.5× the model file size.
+const Map<String, int> sttModelVramMB = {
+  'whisper-tiny': 300,
+  'whisper-base': 500,
+  'whisper-small': 900,
+  'whisper-medium': 1500,
+  'whisper-large-v3-turbo': 2600,
+  'whisper-large-v3': 3600,
+};
+
+/// Returns the best available model that fits in the GPU's VRAM.
+///
+/// Returns [modelId] unchanged if it fits. Otherwise returns the largest
+/// model that fits, or `'whisper-tiny'` as absolute fallback.
+String findVramSafeModel(String modelId, int? vramMB) {
+  if (vramMB == null) return modelId;
+
+  final modelVram = sttModelVramMB[modelId];
+  if (modelVram == null) return modelId;
+  if (modelVram <= vramMB) return modelId;
+
+  // Find the largest fitting model.
+  String? bestFit;
+  int bestVram = 0;
+  for (final entry in sttModelVramMB.entries) {
+    if (entry.value <= vramMB && entry.value > bestVram) {
+      bestVram = entry.value;
+      bestFit = entry.key;
+    }
+  }
+
+  if (bestFit != null) {
+    _log.warning(
+      'Model "$modelId" requires ~${modelVram}MB VRAM but only '
+      '${vramMB}MB available. Falling back to "$bestFit" (~${bestVram}MB).',
+    );
+    return bestFit;
+  }
+
+  // Nothing fits — whisper-tiny is the minimum.
+  _log.warning(
+    'No model fits in ${vramMB}MB VRAM. '
+    'Using whisper-tiny (~${sttModelVramMB['whisper-tiny']}MB).',
+  );
+  return 'whisper-tiny';
+}
+
+// ---------------------------------------------------------------------------
 // GPU vendor enum
 // ---------------------------------------------------------------------------
 
@@ -132,7 +186,11 @@ final gpuInfoProvider = FutureProvider<GpuInfo>((ref) => detectGpu());
 ///
 /// [gpuMode] is the user's GPU preference: 'auto', 'enabled', 'disabled'.
 /// [isWhisPaste] selects between WhisPaste and upstream whisper.cpp naming.
-List<String> serverAssetPatterns(GpuInfo gpu, String gpuMode, bool isWhisPaste) {
+List<String> serverAssetPatterns(
+  GpuInfo gpu,
+  String gpuMode,
+  bool isWhisPaste,
+) {
   if (gpuMode == 'disabled') {
     return isWhisPaste ? ['cpu'] : ['blas-bin'];
   }
@@ -192,7 +250,10 @@ const _serverInfoFilename = '.server-info.json';
 /// on a non-NVIDIA system).
 bool isServerBinaryCompatible(String sttDirPath, GpuInfo gpu) {
   final serverFile = File(
-    p.join(sttDirPath, Platform.isWindows ? 'whisper-server.exe' : 'whisper-server'),
+    p.join(
+      sttDirPath,
+      Platform.isWindows ? 'whisper-server.exe' : 'whisper-server',
+    ),
   );
   if (!serverFile.existsSync()) return true; // Nothing to validate.
 
@@ -249,8 +310,9 @@ bool isServerBinaryCompatible(String sttDirPath, GpuInfo gpu) {
     // This catches the case where .server-info.json is missing (e.g. legacy
     // download) and the binary was fetched from upstream CPU/BLAS.
     if (gpu.optimalBackend == 'vulkan') {
-      final hasVulkanDll =
-          File(p.join(sttDirPath, 'ggml-vulkan.dll')).existsSync();
+      final hasVulkanDll = File(
+        p.join(sttDirPath, 'ggml-vulkan.dll'),
+      ).existsSync();
       if (!hasVulkanDll) {
         _log.warning(
           'Sub-optimal binary: no ggml-vulkan.dll but GPU needs Vulkan '
@@ -276,16 +338,16 @@ Future<void> writeServerBinaryInfo(
   String? assetName,
 }) async {
   final infoFile = File(p.join(sttDirPath, _serverInfoFilename));
-  final info = {
+  final info = <String, Object>{
     'backend': gpu.optimalBackend,
     'gpu_vendor': gpu.vendor.name,
     'gpu_name': gpu.name,
     'cuda_available': gpu.cudaAvailable,
     'vulkan_available': gpu.vulkanAvailable,
-    if (sourceRepo != null) 'source_repo': sourceRepo, // ignore: use_null_aware_elements
-    if (assetName != null) 'asset_name': assetName, // ignore: use_null_aware_elements
     'downloaded_at': DateTime.now().toUtc().toIso8601String(),
   };
+  if (sourceRepo != null) info['source_repo'] = sourceRepo;
+  if (assetName != null) info['asset_name'] = assetName;
   try {
     await infoFile.writeAsString(
       const JsonEncoder.withIndent('  ').convert(info),
@@ -350,6 +412,9 @@ Future<void> deleteServerBinary(String sttDirPath) async {
       final name = p.basename(entity.path).toLowerCase();
       if (name.endsWith('.exe') ||
           name.endsWith('.dll') ||
+          name.endsWith('.dylib') ||
+          name.endsWith('.so') ||
+          name == 'whisper-server' ||
           name == _serverInfoFilename) {
         try {
           await entity.delete();
@@ -402,6 +467,10 @@ Future<GpuInfo> _detectWindows() async {
     gpuName = '$gpuName + NVIDIA (discrete)';
   }
 
+  if (vendor == GpuVendor.nvidia) {
+    vramMB = await _windowsNvidiaVramMB() ?? vramMB;
+  }
+
   return GpuInfo(
     vendor: vendor,
     name: gpuName,
@@ -430,6 +499,25 @@ Future<_GpuParsed?> _wmicGetGpus() async {
   }
 }
 
+Future<int?> _windowsNvidiaVramMB() async {
+  try {
+    final result = await Process.run('nvidia-smi', [
+      '--query-gpu=memory.total',
+      '--format=csv,noheader,nounits',
+    ]).timeout(const Duration(seconds: 5));
+
+    if (result.exitCode != 0) return null;
+
+    for (final line in result.stdout.toString().split('\n')) {
+      final mb = int.tryParse(line.trim());
+      if (mb != null && mb > 0) return mb;
+    }
+  } catch (e) {
+    _log.debug('nvidia-smi VRAM query failed: $e');
+  }
+  return null;
+}
+
 /// Parses wmic `/format:list` output.
 ///
 /// Each GPU is a block of key=value lines separated by blank lines:
@@ -447,11 +535,13 @@ _GpuParsed? _parseWmicList(String output) {
     if (trimmed.isEmpty) {
       // End of a GPU block.
       if (currentName != null && currentName.isNotEmpty) {
-        gpus.add(_GpuParsed(
-          name: currentName,
-          vendor: _classifyVendor(currentName),
-          vramMB: currentVram,
-        ));
+        gpus.add(
+          _GpuParsed(
+            name: currentName,
+            vendor: _classifyVendor(currentName),
+            vramMB: currentVram,
+          ),
+        );
       }
       currentName = null;
       currentVram = null;
@@ -475,11 +565,13 @@ _GpuParsed? _parseWmicList(String output) {
 
   // Flush last block.
   if (currentName != null && currentName.isNotEmpty) {
-    gpus.add(_GpuParsed(
-      name: currentName,
-      vendor: _classifyVendor(currentName),
-      vramMB: currentVram,
-    ));
+    gpus.add(
+      _GpuParsed(
+        name: currentName,
+        vendor: _classifyVendor(currentName),
+        vramMB: currentVram,
+      ),
+    );
   }
 
   if (gpus.isEmpty) return null;
@@ -509,13 +601,15 @@ Future<_GpuParsed?> _powershellGetGpus() async {
       final name = parts[0];
       final vramBytes = parts.length > 1 ? int.tryParse(parts[1]) : null;
 
-      gpus.add(_GpuParsed(
-        name: name,
-        vendor: _classifyVendor(name),
-        vramMB: vramBytes != null && vramBytes > 0
-            ? vramBytes ~/ (1024 * 1024)
-            : null,
-      ));
+      gpus.add(
+        _GpuParsed(
+          name: name,
+          vendor: _classifyVendor(name),
+          vramMB: vramBytes != null && vramBytes > 0
+              ? vramBytes ~/ (1024 * 1024)
+              : null,
+        ),
+      );
     }
 
     if (gpus.isEmpty) return null;
@@ -538,8 +632,10 @@ Future<GpuInfo> _detectMacOS() async {
     if (uname.stdout.toString().trim() == 'arm64') {
       String chipName = 'Apple Silicon';
       try {
-        final sysctl =
-            await Process.run('sysctl', ['-n', 'machdep.cpu.brand_string']);
+        final sysctl = await Process.run('sysctl', [
+          '-n',
+          'machdep.cpu.brand_string',
+        ]);
         final brand = sysctl.stdout.toString().trim();
         if (brand.isNotEmpty) chipName = brand;
       } catch (_) {}
@@ -547,6 +643,7 @@ Future<GpuInfo> _detectMacOS() async {
       return GpuInfo(
         vendor: GpuVendor.apple,
         name: chipName,
+        vramMB: await _macUnifiedMemoryMB(),
       );
     }
   } catch (_) {}
@@ -562,12 +659,14 @@ Future<GpuInfo> _detectMacOS() async {
     if (result.exitCode == 0) {
       final output = result.stdout.toString();
       final chipName = _extractMacGpuName(output);
+      final vramMB = _extractMacVramMB(output);
       final lower = output.toLowerCase();
 
       if (lower.contains('amd') || lower.contains('radeon')) {
         return GpuInfo(
           vendor: GpuVendor.amd,
           name: chipName ?? 'AMD GPU',
+          vramMB: vramMB,
           vulkanAvailable: true,
         );
       }
@@ -577,6 +676,38 @@ Future<GpuInfo> _detectMacOS() async {
 
   // Fallback: Intel integrated on Intel Mac.
   return const GpuInfo(vendor: GpuVendor.intel, name: 'Intel (Mac)');
+}
+
+Future<int?> _macUnifiedMemoryMB() async {
+  try {
+    final result = await Process.run('sysctl', ['-n', 'hw.memsize']);
+    if (result.exitCode != 0) return null;
+    final bytes = int.tryParse(result.stdout.toString().trim());
+    if (bytes == null || bytes <= 0) return null;
+    return bytes ~/ (1024 * 1024);
+  } catch (e) {
+    _log.debug('macOS unified memory query failed: $e');
+    return null;
+  }
+}
+
+int? _extractMacVramMB(String profilerOutput) {
+  for (final line in profilerOutput.split('\n')) {
+    final trimmed = line.trim();
+    if (!trimmed.toLowerCase().startsWith('vram')) continue;
+
+    final match = RegExp(
+      r'(\d+)\s*(gb|mb)',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+    if (match == null) continue;
+
+    final amount = int.tryParse(match.group(1) ?? '');
+    final unit = match.group(2)?.toLowerCase();
+    if (amount == null || unit == null) continue;
+    return unit == 'gb' ? amount * 1024 : amount;
+  }
+  return null;
 }
 
 String? _extractMacGpuName(String profilerOutput) {
@@ -607,6 +738,7 @@ Future<GpuInfo> _detectLinux() async {
           return GpuInfo(
             vendor: GpuVendor.nvidia,
             name: await _linuxGpuName() ?? 'NVIDIA GPU',
+            vramMB: await _linuxNvidiaVramMB(),
             cudaAvailable: _linuxHasCuda(),
             vulkanAvailable: true,
           );
@@ -615,6 +747,7 @@ Future<GpuInfo> _detectLinux() async {
           return GpuInfo(
             vendor: GpuVendor.amd,
             name: await _linuxGpuName() ?? 'AMD GPU',
+            vramMB: _linuxAmdVramMB(),
             vulkanAvailable: true,
           );
         }
@@ -638,6 +771,7 @@ Future<GpuInfo> _detectLinux() async {
         return GpuInfo(
           vendor: GpuVendor.nvidia,
           name: 'NVIDIA GPU',
+          vramMB: await _linuxNvidiaVramMB(),
           cudaAvailable: _linuxHasCuda(),
           vulkanAvailable: true,
         );
@@ -645,9 +779,10 @@ Future<GpuInfo> _detectLinux() async {
       if (output.contains('[1002:') ||
           output.contains('amd') ||
           output.contains('radeon')) {
-        return const GpuInfo(
+        return GpuInfo(
           vendor: GpuVendor.amd,
           name: 'AMD GPU',
+          vramMB: _linuxAmdVramMB(),
           vulkanAvailable: true,
         );
       }
@@ -685,6 +820,44 @@ bool _linuxHasCuda() {
   return File('/usr/lib/x86_64-linux-gnu/libcuda.so').existsSync() ||
       File('/usr/lib64/libcuda.so').existsSync() ||
       File('/usr/bin/nvidia-smi').existsSync();
+}
+
+Future<int?> _linuxNvidiaVramMB() async {
+  try {
+    final result = await Process.run('nvidia-smi', [
+      '--query-gpu=memory.total',
+      '--format=csv,noheader,nounits',
+    ]).timeout(const Duration(seconds: 5));
+
+    if (result.exitCode != 0) return null;
+
+    for (final line in result.stdout.toString().split('\n')) {
+      final mb = int.tryParse(line.trim());
+      if (mb != null && mb > 0) return mb;
+    }
+  } catch (e) {
+    _log.debug('Linux nvidia-smi VRAM query failed: $e');
+  }
+  return null;
+}
+
+int? _linuxAmdVramMB() {
+  try {
+    final drmDir = Directory('/sys/class/drm');
+    if (!drmDir.existsSync()) return null;
+
+    for (final card in drmDir.listSync()) {
+      final vramFile = File('${card.path}/device/mem_info_vram_total');
+      if (!vramFile.existsSync()) continue;
+      final bytes = int.tryParse(vramFile.readAsStringSync().trim());
+      if (bytes != null && bytes > 0) {
+        return bytes ~/ (1024 * 1024);
+      }
+    }
+  } catch (e) {
+    _log.debug('Linux AMD VRAM query failed: $e');
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
