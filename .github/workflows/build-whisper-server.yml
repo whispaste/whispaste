@@ -17,11 +17,31 @@ on:
         default: 'v1.8.4'
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: whisper-server-release
+  cancel-in-progress: false
 
 jobs:
+  validate-input:
+    name: Validate tag format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check whisper_tag format
+        run: |
+          TAG="${{ inputs.whisper_tag }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid whisper_tag '$TAG'. Must match vX.Y.Z (e.g. v1.8.4)"
+            exit 1
+          fi
+          echo "Tag '$TAG' is valid"
+
   build-vulkan-windows:
     name: Vulkan – Windows x64
+    needs: validate-input
+    permissions:
+      contents: write
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -133,9 +153,110 @@ jobs:
           "@
 
           # Each whisper.cpp version gets its own immutable release tag.
-          # No delete-and-recreate needed — just create fresh.
-          gh release create $tag $asset `
-            --title $title `
-            --notes $notes `
-            --latest=false
-          Write-Host "Created release $tag with $asset"
+          # Try to upload to existing release first (macOS job may have created it).
+          $existingRelease = gh release view $tag 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $asset --clobber
+            Write-Host "Uploaded $asset to existing release $tag"
+          } else {
+            gh release create $tag $asset `
+              --title $title `
+              --notes $notes `
+              --latest=false
+            Write-Host "Created release $tag with $asset"
+          }
+
+  build-metal-macos:
+    name: Metal – macOS ARM64
+    needs: validate-input
+    permissions:
+      contents: write
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone whisper.cpp
+        run: |
+          git clone --depth 1 --branch ${{ inputs.whisper_tag }} \
+            https://github.com/ggml-org/whisper.cpp.git
+          echo "Cloned whisper.cpp at ${{ inputs.whisper_tag }}"
+
+      - name: Configure CMake
+        run: |
+          cd whisper.cpp
+          cmake -B build \
+            -DGGML_METAL=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DWHISPER_BUILD_TESTS=OFF \
+            -DWHISPER_BUILD_EXAMPLES=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          echo "CMake configured with Metal support"
+
+      - name: Build
+        run: |
+          cd whisper.cpp
+          cmake --build build --config Release -j $(sysctl -n hw.ncpu)
+          echo "Build complete"
+
+      - name: Package
+        run: |
+          STAGING_DIR="whisper-server-metal-arm64"
+          mkdir -p "$STAGING_DIR"
+
+          # Find the server binary (name varies by whisper.cpp version).
+          SERVER_BIN=$(find whisper.cpp/build -type f \( -name "whisper-server" -o -name "server" \) ! -name "*.o" | head -1)
+
+          if [ -z "$SERVER_BIN" ]; then
+            echo "::error::whisper-server not found in build output"
+            find whisper.cpp/build -type f -perm +111 | head -20
+            exit 1
+          fi
+
+          # Always name it whisper-server for consistency.
+          cp "$SERVER_BIN" "$STAGING_DIR/whisper-server"
+          chmod +x "$STAGING_DIR/whisper-server"
+
+          # Copy co-located dylibs (ggml Metal shaders, etc.).
+          BIN_DIR=$(dirname "$SERVER_BIN")
+          cp "$BIN_DIR"/*.dylib "$STAGING_DIR/" 2>/dev/null || true
+
+          # Copy Metal shader library if present.
+          find whisper.cpp/build -name "*.metallib" -exec cp {} "$STAGING_DIR/" \; 2>/dev/null || true
+
+          echo "Package contents:"
+          ls -lh "$STAGING_DIR"
+
+          cd "$STAGING_DIR"
+          zip -r "../whisper-server-metal-arm64.zip" .
+          cd ..
+          echo "Created whisper-server-metal-arm64.zip"
+
+      - name: Upload to server-binaries release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          WHISPER_TAG="${{ inputs.whisper_tag }}"
+          TAG="whisper-server-$WHISPER_TAG"
+          ASSET="whisper-server-metal-arm64.zip"
+          TITLE="Whisper Server ($WHISPER_TAG) – Vulkan + Metal"
+          NOTES="Pre-built whisper-server binaries.
+
+          **Source**: [whisper.cpp $WHISPER_TAG](https://github.com/ggml-org/whisper.cpp/releases/tag/$WHISPER_TAG)
+          **Variants**: Vulkan (Windows x64) + Metal (macOS ARM64)
+
+          > CUDA and CPU binaries are provided by the upstream whisper.cpp project.
+          > This release only contains variants not available upstream."
+
+          # Try to upload to existing release first (Windows job may have created it).
+          if gh release view "$TAG" &>/dev/null; then
+            gh release upload "$TAG" "$ASSET" --clobber
+            # Update title and notes to reflect both platforms.
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES"
+            echo "Uploaded $ASSET to existing release $TAG"
+          else
+            gh release create "$TAG" "$ASSET" \
+              --title "$TITLE" \
+              --notes "$NOTES" \
+              --latest=false
+            echo "Created release $TAG with $ASSET"
+          fi
