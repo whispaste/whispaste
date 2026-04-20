@@ -49,6 +49,12 @@ function minorSeries(version) {
   return `${major}.${minor}`;
 }
 
+/** Returns the display version label "X.Y.x" used in release notes and changelog.json. */
+function displayVersion(version) {
+  const [major, minor] = version.split('.');
+  return `${major}.${minor}.x`;
+}
+
 /** Returns true for patch releases (Z > 0). */
 function isPatch(version) {
   return parseInt(version.split('.')[2] ?? '0') > 0;
@@ -230,15 +236,15 @@ for (const [series, latestVer] of latestPatchPerSeries) {
       continue;
     }
     toAdd.push({
-      version: latestVer,
+      version: displayVersion(latestVer),
       date: new Date().toISOString().slice(0, 10),
       en: { highlights, improvements },
       de: { highlights, improvements }, // placeholder DE — AI/manual update
     });
     changed++;
-  } else if (existingEntry.version !== latestVer) {
+  } else if (existingEntry.version !== displayVersion(latestVer)) {
     // Existing series entry is on an older patch — update with cumulative content
-    console.log(`Updating ${series} series: ${existingEntry.version} → ${latestVer}`);
+    console.log(`Updating ${series} series: ${existingEntry.version} → ${displayVersion(latestVer)}`);
     const { highlights, improvements } = buildCumulativeEntry(
       taggedVersions, series, mdContent
     );
@@ -246,7 +252,7 @@ for (const [series, latestVer] of latestPatchPerSeries) {
       console.log(`  ⚠  No app-visible changes found — keeping previous entry.`);
       continue;
     }
-    toUpdate.push({ series, latestVer, highlights, improvements });
+    toUpdate.push({ series, latestVer: displayVersion(latestVer), highlights, improvements });
     changed++;
   } else {
     console.log(`✓  ${series} series is up to date (${existingEntry.version})`);
