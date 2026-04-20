@@ -112,11 +112,12 @@ jobs:
         run: flutter pub get
 
       - name: Build MSIX
+        id: build_msix
         run: dart run msix:create --store
         continue-on-error: true
 
       - name: Upload MSIX
-        if: success()
+        if: steps.build_msix.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: msix-release
@@ -188,8 +189,14 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-windows, build-macos]
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-windows, build-macos, build-msix]
+    # Run only on tag pushes and only when the mandatory builds succeeded.
+    # MSIX is best-effort — allow it to fail without blocking the release.
+    if: |
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.build-windows.result == 'success' &&
+      needs.build-macos.result == 'success' &&
+      needs.build-msix.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -208,6 +215,14 @@ jobs:
         with:
           name: macos-release
           path: artifacts/
+
+      - name: Download MSIX artifact
+        if: needs.build-msix.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: msix-release
+          path: artifacts/
+        continue-on-error: true
 
       - name: Generate release notes
         id: notes
@@ -244,7 +259,8 @@ jobs:
         with:
           name: WhisPaste v${{ steps.notes.outputs.version }}
           body_path: release-body.md
-          draft: true
+          draft: false
+          make_latest: true
           files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
