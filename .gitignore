@@ -92,7 +92,8 @@ wack-report.xml
 # └─────────────────────────────────────────────────────────────────────┘
 
 # Screenshots (local output only — golden test sources are tracked)
-screenshots/
+# Leading slash anchors to repo root, so website/public/screenshots/ is NOT ignored
+/screenshots/
 !test/screenshots/
 test/screenshots/failures/
 
