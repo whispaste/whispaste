@@ -76,10 +76,10 @@ class FloatingButtonHost {
         var frame = p.frame
         frame.size = NSSize(width: totalSize, height: totalSize)
         p.setFrame(frame, display: true)
-        // Also resize the button view so the rendering updates.
+        // Resize the button view to match — full totalSize so shadow margin is preserved.
         buttonView?.frame = NSRect(
-          x: margin / 2, y: margin / 2,
-          width: size, height: size
+          x: 0, y: 0,
+          width: totalSize, height: totalSize
         )
         buttonView?.needsDisplay = true
       }
