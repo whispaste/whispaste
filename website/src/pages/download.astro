@@ -82,26 +82,50 @@ import StoreButton from "../components/StoreButton.astro";
 
           <div class="flex justify-center mb-4">
             <a
-              href="https://github.com/whispaste/whispaste/releases/latest"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-gray-200 font-medium text-sm transition-all hover:bg-white/[0.08] hover:border-white/20"
-            >
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-              <span data-i18n="download.macos.button">Download for macOS</span>
+              href="https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-macos-arm64.dmg"
             </a>
           </div>
 
           <p class="text-center text-xs text-gray-500 mb-4" data-i18n="download.macos.hint">After downloading, open the DMG and drag WhisPaste to your Applications folder.</p>
 
-          <!-- Gatekeeper guide -->
-          <div class="smartscreen-box rounded-xl border border-amber-500/10 bg-amber-500/[0.03] p-4">
-            <div class="flex items-start gap-3">
+          <!-- Gatekeeper guide — full Apple-style step-by-step -->
+          <div class="smartscreen-box rounded-xl border border-amber-500/10 bg-amber-500/[0.03] p-5">
+            <div class="flex items-start gap-3 mb-4">
               <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
               <div>
                 <h3 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.title">Note: Gatekeeper warning</h3>
-                <p class="text-gray-400 text-xs mt-1 leading-relaxed" data-i18n="download.macos.gatekeeper.desc">macOS may show "WhisPaste can't be opened because it is from an unidentified developer". Right-click the app, select "Open", then click "Open" in the dialog.</p>
+                <p class="text-gray-400 text-xs mt-1 leading-relaxed" data-i18n="download.macos.gatekeeper.step1.desc">After opening the DMG and moving WhisPaste to Applications, macOS may refuse to open it — showing "Apple cannot check it for malicious software."</p>
               </div>
+            </div>
+
+            <div class="space-y-3 ml-8">
+              <div class="flex gap-3">
+                <div class="shrink-0 w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-semibold text-xs">1</div>
+                <div>
+                  <h4 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.step2.title">Open Privacy &amp; Security settings</h4>
+                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step2.desc">Go to Apple menu → System Settings → Privacy &amp; Security. Scroll down to the Security section.</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="shrink-0 w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-semibold text-xs">2</div>
+                <div>
+                  <h4 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.step3.title">Click "Open Anyway"</h4>
+                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step3.desc">You will see a message about WhisPaste. Click "Open Anyway" — this button is available for about one hour after the first launch attempt.</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="shrink-0 w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-semibold text-xs">3</div>
+                <div>
+                  <h4 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.step4.title">Confirm and enter your password</h4>
+                  <p class="text-gray-400 text-xs mt-0.5 leading-relaxed" data-i18n="download.macos.gatekeeper.step4.desc">Click "Open Anyway" again in the confirmation dialog, then enter your Mac login password when prompted.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Why section -->
+            <div class="mt-4 ml-8 pt-4 border-t border-amber-500/10">
+              <h4 class="font-medium text-white/70 text-xs uppercase tracking-wider mb-1" data-i18n="download.macos.gatekeeper.why.title">Why does this happen?</h4>
+              <p class="text-gray-500 text-xs leading-relaxed" data-i18n="download.macos.gatekeeper.why.desc">WhisPaste is open source and built transparently via GitHub Actions, but it is not yet notarized by Apple. This warning appears for any app not downloaded from the Mac App Store. It does not mean the app is unsafe.</p>
             </div>
           </div>
         </div>
@@ -120,13 +144,7 @@ import StoreButton from "../components/StoreButton.astro";
 
           <div class="flex justify-center mb-6">
             <a
-              href="https://github.com/whispaste/whispaste/releases/latest"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-gray-200 font-medium text-sm transition-all hover:bg-white/[0.08] hover:border-white/20"
-            >
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-              <span data-i18n="download.github.button">Download from GitHub</span>
+              href="https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-Setup.exe"
             </a>
           </div>
 
