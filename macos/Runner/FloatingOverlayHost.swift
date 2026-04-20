@@ -97,35 +97,21 @@ class FloatingOverlayHost {
       ensurePanel()
     }
 
-    // Update view properties.
+    // Apply all snapshot fields with defaults, matching the Windows host
+    // which rebuilds the entire OverlaySnapshot from scratch each call.
     if let stateStr = args["state"] as? String,
        let state = OverlayRecordingState(rawValue: stateStr) {
       overlayView?.recordingState = state
     }
-    if let label = args["label"] as? String {
-      overlayView?.labelText = label
-    }
-    if let text = args["transcript"] as? String {
-      overlayView?.transcriptText = text
-    }
-    if let elapsed = args["elapsed"] as? String {
-      overlayView?.elapsedText = elapsed
-    }
-    if let hint = args["hint"] as? String {
-      overlayView?.hintText = hint
-    }
-    if let errorMessage = args["errorMessage"] as? String {
-      overlayView?.errorMessage = errorMessage
-    }
-    if let progress = (args["progress"] as? NSNumber)?.doubleValue {
-      overlayView?.progressValue = progress
-    }
-    if let isDark = args["isDark"] as? Bool {
-      overlayView?.isDark = isDark
-    }
-    if let showRetry = args["showRetry"] as? Bool {
-      overlayView?.showRetry = showRetry
-    }
+    overlayView?.labelText = args["label"] as? String ?? ""
+    overlayView?.transcriptText = args["transcript"] as? String ?? ""
+    overlayView?.elapsedText = args["elapsed"] as? String ?? ""
+    overlayView?.hintText = args["hint"] as? String ?? ""
+    overlayView?.errorMessage = args["errorMessage"] as? String
+    overlayView?.showRetry = args["showRetry"] as? Bool ?? false
+    overlayView?.progressValue = (args["progress"] as? NSNumber)?.doubleValue ?? 0
+    overlayView?.isDark = args["isDark"] as? Bool ?? true
+    overlayView?.isCompact = args["compact"] as? Bool ?? false
 
     // Show or hide.
     if visible {
@@ -138,11 +124,14 @@ class FloatingOverlayHost {
   // MARK: - Panel creation
 
   private func ensurePanel() {
-    let width: CGFloat = 320
-    let height: CGFloat = 180
-    let p = FloatingOverlayPanel(width: width, height: height)
+    // Pill dimensions + shadow padding (28pt each side).
+    let pillW: CGFloat = 380
+    let pillH: CGFloat = 64
+    let p = FloatingOverlayPanel(width: pillW, height: pillH)
+    let totalW = pillW + 56
+    let totalH = pillH + 56
     let view = FloatingOverlayView(
-      frame: NSRect(x: 0, y: 0, width: width, height: height)
+      frame: NSRect(x: 0, y: 0, width: totalW, height: totalH)
     )
 
     view.onDragEnded = { [weak self] dx, dy in

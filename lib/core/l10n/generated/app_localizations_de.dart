@@ -279,6 +279,13 @@ class L10nDe extends L10n {
   String get settingsLaunchAtStartup => 'Beim Start ausführen';
 
   @override
+  String get settingsStartMinimized => 'Minimiert starten';
+
+  @override
+  String get settingsStartMinimizedSubtitle =>
+      'Beim Systemstart im Hintergrund starten';
+
+  @override
   String get settingsShowNotifications => 'Benachrichtigungen anzeigen';
 
   @override

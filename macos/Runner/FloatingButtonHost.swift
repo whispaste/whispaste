@@ -71,9 +71,17 @@ class FloatingButtonHost {
         return
       }
       if let p = panel {
+        let margin: Double = 28 // 14pt each side — must match show()
+        let totalSize = size + margin
         var frame = p.frame
-        frame.size = NSSize(width: size, height: size)
+        frame.size = NSSize(width: totalSize, height: totalSize)
         p.setFrame(frame, display: true)
+        // Also resize the button view so the rendering updates.
+        buttonView?.frame = NSRect(
+          x: margin / 2, y: margin / 2,
+          width: size, height: size
+        )
+        buttonView?.needsDisplay = true
       }
       result(nil)
 

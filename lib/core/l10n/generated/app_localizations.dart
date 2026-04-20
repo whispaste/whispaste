@@ -589,6 +589,18 @@ abstract class L10n {
   /// **'Launch at Startup'**
   String get settingsLaunchAtStartup;
 
+  /// No description provided for @settingsStartMinimized.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Minimized'**
+  String get settingsStartMinimized;
+
+  /// No description provided for @settingsStartMinimizedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start in the background when launched at system boot'**
+  String get settingsStartMinimizedSubtitle;
+
   /// No description provided for @settingsShowNotifications.
   ///
   /// In en, this message translates to:

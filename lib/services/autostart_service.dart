@@ -29,6 +29,7 @@ class AutostartService extends Notifier<bool> {
       appPath: Platform.resolvedExecutable,
       // MSIX Store packages use a different startup mechanism.
       packageName: 'com.whispaste.app',
+      args: ['--autostart'],
     );
   }
 
