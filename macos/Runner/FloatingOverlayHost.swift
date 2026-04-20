@@ -5,10 +5,15 @@ import FlutterMacOS
 ///
 /// Manages the lifecycle of a [FloatingOverlayPanel] and routes
 /// method calls/events between Dart and the native view.
+///
+/// The panel is lazily created on the first `updateSnapshot` call with
+/// `visible: true` — matching the Windows C++ host behavior.
 class FloatingOverlayHost {
   private var channel: FlutterMethodChannel
   private var panel: FloatingOverlayPanel?
   private var overlayView: FloatingOverlayView?
+  private var pendingPosition: NSPoint?
+  private var pendingOpacity: CGFloat = 1.0
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
@@ -20,43 +25,12 @@ class FloatingOverlayHost {
 
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
-    case "show":
-      guard let args = call.arguments as? [String: Any] else {
-        result(nil)
-        return
-      }
-      let x = (args["x"] as? NSNumber)?.doubleValue ?? 100
-      let y = (args["y"] as? NSNumber)?.doubleValue ?? 100
-      let w = (args["width"] as? NSNumber)?.doubleValue ?? 320
-      let h = (args["height"] as? NSNumber)?.doubleValue ?? 180
-      show(x: x, y: y, width: w, height: h)
-      result(nil)
-
-    case "hide":
-      panel?.orderOut(nil)
-      result(nil)
-
     case "updateSnapshot":
       guard let args = call.arguments as? [String: Any] else {
         result(nil)
         return
       }
-      if let stateStr = args["state"] as? String,
-         let state = OverlayRecordingState(rawValue: stateStr) {
-        overlayView?.recordingState = state
-      }
-      if let text = args["transcript"] as? String {
-        overlayView?.transcriptText = text
-      }
-      if let level = (args["audioLevel"] as? NSNumber)?.floatValue {
-        overlayView?.audioLevel = level
-      }
-      if let progress = (args["progress"] as? NSNumber)?.doubleValue {
-        overlayView?.progressValue = progress
-      }
-      if let isDark = args["isDark"] as? Bool {
-        overlayView?.isDark = isDark
-      }
+      handleUpdateSnapshot(args)
       result(nil)
 
     case "setAudioLevel":
@@ -75,7 +49,11 @@ class FloatingOverlayHost {
       }
       let x = (args["x"] as? NSNumber)?.doubleValue ?? 0
       let y = (args["y"] as? NSNumber)?.doubleValue ?? 0
-      panel?.setFrameOrigin(NSPoint(x: x, y: y))
+      if let p = panel {
+        p.setFrameOrigin(NSPoint(x: x, y: y))
+      } else {
+        pendingPosition = NSPoint(x: x, y: y)
+      }
       result(nil)
 
     case "setContextMenuItems":
@@ -93,6 +71,7 @@ class FloatingOverlayHost {
         result(nil)
         return
       }
+      pendingOpacity = CGFloat(opacity)
       overlayView?.masterOpacity = CGFloat(opacity)
       result(nil)
 
@@ -108,39 +87,90 @@ class FloatingOverlayHost {
     }
   }
 
-  private func show(x: Double, y: Double, width: Double, height: Double) {
-    if panel == nil {
-      let p = FloatingOverlayPanel(width: CGFloat(width), height: CGFloat(height))
-      let view = FloatingOverlayView(
-        frame: NSRect(x: 0, y: 0, width: width, height: height)
-      )
+  // MARK: - updateSnapshot (lazy-creates panel, handles visible show/hide)
 
-      view.onDragEnded = { [weak self] dx, dy in
-        self?.channel.invokeMethod("onDragEnded", arguments: ["x": dx, "y": dy])
-      }
-      view.onCloseClicked = { [weak self] in
-        self?.channel.invokeMethod("onCloseClicked", arguments: nil)
-      }
-      view.onBodyClicked = { [weak self] in
-        self?.channel.invokeMethod("onBodyClicked", arguments: nil)
-      }
-      view.onRetryClicked = { [weak self] in
-        self?.channel.invokeMethod("onRetryClicked", arguments: nil)
-      }
-      view.onContextMenu = { [weak self] itemId in
-        self?.channel.invokeMethod("onContextMenu", arguments: ["itemId": itemId])
-      }
+  private func handleUpdateSnapshot(_ args: [String: Any]) {
+    let visible = args["visible"] as? Bool ?? false
 
-      p.contentView = view
-      panel = p
-      overlayView = view
+    // Lazy-create the panel on first visible snapshot.
+    if visible && panel == nil {
+      ensurePanel()
     }
 
-    if let p = panel {
-      let frame = NSRect(x: x, y: y, width: width, height: height)
-      p.setFrame(frame, display: true)
-      overlayView?.frame = NSRect(x: 0, y: 0, width: width, height: height)
+    // Update view properties.
+    if let stateStr = args["state"] as? String,
+       let state = OverlayRecordingState(rawValue: stateStr) {
+      overlayView?.recordingState = state
     }
-    panel?.orderFront(nil)
+    if let label = args["label"] as? String {
+      overlayView?.labelText = label
+    }
+    if let text = args["transcript"] as? String {
+      overlayView?.transcriptText = text
+    }
+    if let elapsed = args["elapsed"] as? String {
+      overlayView?.elapsedText = elapsed
+    }
+    if let hint = args["hint"] as? String {
+      overlayView?.hintText = hint
+    }
+    if let errorMessage = args["errorMessage"] as? String {
+      overlayView?.errorMessage = errorMessage
+    }
+    if let progress = (args["progress"] as? NSNumber)?.doubleValue {
+      overlayView?.progressValue = progress
+    }
+    if let isDark = args["isDark"] as? Bool {
+      overlayView?.isDark = isDark
+    }
+    if let showRetry = args["showRetry"] as? Bool {
+      overlayView?.showRetry = showRetry
+    }
+
+    // Show or hide.
+    if visible {
+      panel?.orderFront(nil)
+    } else {
+      panel?.orderOut(nil)
+    }
+  }
+
+  // MARK: - Panel creation
+
+  private func ensurePanel() {
+    let width: CGFloat = 320
+    let height: CGFloat = 180
+    let p = FloatingOverlayPanel(width: width, height: height)
+    let view = FloatingOverlayView(
+      frame: NSRect(x: 0, y: 0, width: width, height: height)
+    )
+
+    view.onDragEnded = { [weak self] dx, dy in
+      self?.channel.invokeMethod("onDragEnded", arguments: ["x": dx, "y": dy])
+    }
+    view.onCloseClicked = { [weak self] in
+      self?.channel.invokeMethod("onCloseClicked", arguments: nil)
+    }
+    view.onBodyClicked = { [weak self] in
+      self?.channel.invokeMethod("onBodyClicked", arguments: nil)
+    }
+    view.onRetryClicked = { [weak self] in
+      self?.channel.invokeMethod("onRetryClicked", arguments: nil)
+    }
+    view.onContextMenu = { [weak self] itemId in
+      self?.channel.invokeMethod("onContextMenu", arguments: ["action": itemId])
+    }
+
+    view.masterOpacity = pendingOpacity
+
+    p.contentView = view
+    panel = p
+    overlayView = view
+
+    // Apply pending position if one was set before the panel existed.
+    if let pos = pendingPosition {
+      p.setFrameOrigin(pos)
+      pendingPosition = nil
+    }
   }
 }
