@@ -1,7 +1,7 @@
 /// Subprocess lifecycle guard — prevents orphaned native processes.
 ///
-/// Manages PID files for long-lived subprocesses (whisper-server,
-/// llama-server) and kills orphans from previous runs on app startup.
+/// Manages PID files for long-lived subprocesses (whisper-server)
+/// and kills orphans from previous runs on app startup.
 /// WhisPaste is a single-instance app, so any pre-existing subprocess
 /// from a previous session is guaranteed to be an orphan.
 library;
@@ -15,7 +15,7 @@ import '../core/logging/app_logger.dart';
 import 'path_service.dart' as paths;
 
 /// Names of managed subprocesses whose orphans should be cleaned up.
-const _managedProcesses = ['whisper-server', 'llama-server'];
+const _managedProcesses = ['whisper-server'];
 
 final _log = AppLogger('SubprocessGuard');
 
@@ -57,8 +57,8 @@ String _pidPath(String processName) =>
 ///    matching processes (verified by image name to avoid killing unrelated
 ///    processes that reused the PID).
 /// 2. **Process scan**: Find any remaining managed processes by name. Since
-///    WhisPaste is single-instance, any pre-existing whisper-server or
-///    llama-server MUST be an orphan.
+///    WhisPaste is single-instance, any pre-existing whisper-server
+///    MUST be an orphan.
 Future<void> cleanupOrphans() async {
   if (!Platform.isWindows && !Platform.isLinux && !Platform.isMacOS) return;
 
@@ -126,9 +126,13 @@ Future<bool> _isProcessAlive(int pid, String expectedName) async {
     if (Platform.isWindows) {
       final exeName = '$expectedName.exe';
       final result = await Process.run('tasklist', [
-        '/FI', 'PID eq $pid',
-        '/FI', 'IMAGENAME eq $exeName',
-        '/NH', '/FO', 'CSV',
+        '/FI',
+        'PID eq $pid',
+        '/FI',
+        'IMAGENAME eq $exeName',
+        '/NH',
+        '/FO',
+        'CSV',
       ]);
       return result.stdout.toString().contains(exeName);
     }
@@ -142,7 +146,8 @@ Future<bool> _isProcessAlive(int pid, String expectedName) async {
 
 /// Returns PIDs of all running processes matching [name].
 @visibleForTesting
-Future<List<int>> findProcessesByName(String name) => _findProcessesByName(name);
+Future<List<int>> findProcessesByName(String name) =>
+    _findProcessesByName(name);
 
 Future<List<int>> _findProcessesByName(String name) async {
   final pids = <int>[];
@@ -150,8 +155,11 @@ Future<List<int>> _findProcessesByName(String name) async {
     if (Platform.isWindows) {
       final exeName = '$name.exe';
       final result = await Process.run('tasklist', [
-        '/FI', 'IMAGENAME eq $exeName',
-        '/NH', '/FO', 'CSV',
+        '/FI',
+        'IMAGENAME eq $exeName',
+        '/NH',
+        '/FO',
+        'CSV',
       ]);
       // CSV format: "whisper-server.exe","12345","Console","1","123,456 K"
       for (final line in result.stdout.toString().split('\n')) {
