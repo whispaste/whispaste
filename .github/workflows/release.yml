@@ -45,7 +45,14 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
+          # Use tag version when on a tag push; fall back to pubspec.yaml on branch push
+          $refName = "${{ github.ref_name }}"
+          if ($refName -match '^\d+\.\d+\.\d+') {
+            $version = $refName.TrimStart('v')
+          } else {
+            $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
+            $version = ($raw -replace '^\s*version:\s*', '' -replace '\+.*', '').Trim()
+          }
           # X.X.X.0 format for Windows file properties (strip prerelease suffix)
           $parts = $version -split '[.\-]'
           $numeric = "$($parts[0]).$($parts[1]).$($parts[2]).0"
@@ -61,7 +68,13 @@ jobs:
       - name: Prepare release artifacts
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
+          $refName = "${{ github.ref_name }}"
+          if ($refName -match '^\d+\.\d+\.\d+') {
+            $version = $refName.TrimStart('v')
+          } else {
+            $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
+            $version = ($raw -replace '^\s*version:\s*', '' -replace '\+.*', '').Trim()
+          }
           $artifactDir = "release-artifacts"
           New-Item -ItemType Directory -Path $artifactDir -Force
 
@@ -136,7 +149,13 @@ jobs:
 
       - name: Prepare release artifacts
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          # Use tag version when on a tag push; fall back to pubspec.yaml on branch push
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
           ARTIFACT_DIR="release-artifacts"
           mkdir -p "$ARTIFACT_DIR"
 
