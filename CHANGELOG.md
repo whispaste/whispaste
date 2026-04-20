@@ -6,24 +6,16 @@
 
 - **History detail editor**: Enter, Backspace, and Delete keys are no longer intercepted by list-level keyboard shortcuts when a text field has focus. All standard editing operations (line breaks, character deletion, cursor movement) now work correctly in the transcript editor, notes field, and tag input.
 
-### Landing Page
+### macOS
 
-- Replaced the redundant dual-Windows download row in the Hero section with a clean side-by-side layout: Microsoft Store button + macOS download button (matching style and height).
-- New Apple-styled macOS download button component added.
+- macOS app ships as a native ARM64 DMG with every release — direct download and Gatekeeper instructions included.
+- Floating button context menu expanded: open WhisPaste, start recording, view history, open settings, or quit — all accessible via right-click on the floating button.
+- macOS menu bar icon now displays correctly and resolves paths reliably across all bundle layouts.
 
 ## 1.2.1
 
 Re-release of 1.2.0 with consistent version metadata and release pipeline
-stabilization.
-
-### Notes
-
-- Version values are aligned across `pubspec.yaml`, `msix_version`, and
-  `app_info.dart`.
-- CI and release workflows now exclude golden screenshot suites from default
-  test runs (`--exclude-tags=golden`) to keep platform release checks stable.
-- Store screenshot golden tests remain in the repository and can still be run
-  explicitly in dedicated screenshot validation runs.
+stabilization. No user-visible app changes.
 
 ## 1.2.0
 
