@@ -10,6 +10,7 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/data/analytics_provider.dart';
 import '../../../core/data/history_providers.dart';
+import '../../../app.dart' show activePageProvider;
 import '../../../services/hardware_info_service.dart';
 import '../../../services/model_download_service.dart';
 import '../../../services/stt_service.dart';
@@ -266,6 +267,9 @@ class AdvancedSection extends ConsumerWidget {
     ref.invalidate(trashEntriesProvider);
     ref.invalidate(analyticsProvider);
     ref.invalidate(modelDownloadProvider);
+
+    // Navigate back to history page so the onboarding overlay is visible.
+    ref.read(activePageProvider.notifier).setPage('history');
 
     if (!context.mounted) return;
     WpToast.show(
