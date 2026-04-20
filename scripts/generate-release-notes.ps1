@@ -55,6 +55,9 @@ if (-not $OpenAIKey -and -not $env:OPENAI_API_KEY) {
 }
 
 if (-not $OpenAIKey) { $OpenAIKey = $env:OPENAI_API_KEY }
+# Trim whitespace/newlines — GitHub Actions injects secrets with a trailing newline
+# which makes the Authorization header value invalid ("Bearer sk-...\n").
+if ($OpenAIKey) { $OpenAIKey = $OpenAIKey.Trim() }
 
 if (-not $OpenAIKey) {
     Write-Warning "No OpenAI API key found. Set it in .env, `$env:OPENAI_API_KEY, or -OpenAIKey parameter."
@@ -133,7 +136,7 @@ try {
         -Uri "https://api.openai.com/v1/chat/completions" `
         -Method POST `
         -Headers @{
-            "Authorization" = "Bearer $OpenAIKey"
+            "Authorization" = "Bearer $($OpenAIKey.Trim())"
             "Content-Type"  = "application/json"
         } `
         -Body $body `
