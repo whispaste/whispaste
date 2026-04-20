@@ -174,6 +174,11 @@ class _MockController extends FloatingButtonController {
   }
 
   @override
+  Future<void> setContextMenuItems(List<Map<String, String>> items) async {
+    calls.add('setContextMenuItems(${items.length})');
+  }
+
+  @override
   Future<({double x, double y})?> getPosition() async {
     calls.add('getPosition');
     return positionToReturn;

@@ -102,6 +102,15 @@ class FloatingButtonHost {
       let origin = p.frame.origin
       result(["x": origin.x, "y": origin.y])
 
+    case "setContextMenuItems":
+      guard let args = call.arguments as? [String: Any],
+            let items = args["items"] as? [[String: Any]] else {
+        result(nil)
+        return
+      }
+      buttonView?.contextMenuItems = items
+      result(nil)
+
     case "destroy":
       panel?.close()
       panel = nil
@@ -129,6 +138,9 @@ class FloatingButtonHost {
       }
       view.onSecondaryClicked = { [weak self] in
         self?.channel.invokeMethod("onSecondaryClicked", arguments: nil)
+      }
+      view.onContextMenu = { [weak self] id in
+        self?.channel.invokeMethod("onContextMenu", arguments: ["id": id])
       }
       view.onDragEnded = { [weak self] dx, dy in
         self?.channel.invokeMethod("onDragEnded", arguments: ["x": dx, "y": dy])

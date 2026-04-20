@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/config/settings_provider.dart';
+import '../../core/data/database.dart';
+import '../../core/data/history_providers.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/platform/macos_lifecycle_channel.dart';
 import '../../core/recording/recording_state.dart';
@@ -34,6 +37,9 @@ class FloatingButtonService extends Notifier<void> {
   StreamSubscription<FloatingButtonEvent>? _eventSub;
   Timer? _autoResetTimer;
 
+  /// Cached history entries for context menu (last 5).
+  List<({String id, String content})> _menuEntries = [];
+
   @override
   void build() {
     _controller = FloatingButtonController.create();
@@ -62,6 +68,11 @@ class FloatingButtonService extends Notifier<void> {
       _syncPhase(next);
     });
 
+    // Watch history entries for context menu updates.
+    ref.listen(historyEntriesProvider, (_, next) {
+      next.whenData((entries) => _updateContextMenu(entries));
+    });
+
     // Apply initial settings if already loaded.
     final settings = ref.read(settingsProvider);
     settings.whenData((s) => _syncSettings(s));
@@ -79,6 +90,7 @@ class FloatingButtonService extends Notifier<void> {
         final y = s.floatingButtonY;
 
         await _controller!.show(x: x, y: y, size: size);
+        await _controller!.setSize(size);
         await _controller!.setOpacity(s.floatingButtonOpacity);
 
         // Send theme based on current themeMode.
@@ -132,6 +144,10 @@ class FloatingButtonService extends Notifier<void> {
         _log.debug('Floating button secondary click → show main window');
         _bringMainWindowToFront();
 
+      case FloatingButtonContextMenuSelected(id: final id):
+        _log.debug('Context menu item selected: $id');
+        _copyEntryToClipboard(id);
+
       case FloatingButtonDragEnded(x: final x, y: final y):
         _log.debug('Floating button dragged to ($x, $y)');
         _savePosition(x, y);
@@ -156,6 +172,42 @@ class FloatingButtonService extends Notifier<void> {
           );
     } catch (e, st) {
       _log.error('Failed to save floating button position', e, st);
+    }
+  }
+
+  // ── Context menu ──────────────────────────────────────────────────
+
+  void _updateContextMenu(List<HistoryEntry> entries) {
+    if (_controller == null) return;
+
+    // Take the 5 most recent entries.
+    final recent = entries.take(5).toList();
+    _menuEntries = recent
+        .map((e) => (id: e.id, content: e.content))
+        .toList();
+
+    final items = _menuEntries.map((e) {
+      // Truncate label to 50 chars for readability.
+      final label = e.content.length > 50
+          ? '${e.content.substring(0, 47)}...'
+          : e.content;
+      return {'id': e.id, 'label': label};
+    }).toList();
+
+    _controller!.setContextMenuItems(items).catchError((e, st) {
+      _log.error('Failed to update context menu items', e, st);
+    });
+  }
+
+  Future<void> _copyEntryToClipboard(String id) async {
+    final entry = _menuEntries.where((e) => e.id == id).firstOrNull;
+    if (entry == null) return;
+
+    try {
+      await Clipboard.setData(ClipboardData(text: entry.content));
+      _log.info('Copied history entry to clipboard: ${entry.id}');
+    } catch (e, st) {
+      _log.error('Failed to copy to clipboard', e, st);
     }
   }
 }

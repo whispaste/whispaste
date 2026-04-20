@@ -65,6 +65,12 @@ class MacOSFloatingButtonController extends FloatingButtonController {
   }
 
   @override
+  Future<void> setContextMenuItems(List<Map<String, String>> items) async {
+    if (_disposed) return;
+    await _channel.invokeMethod('setContextMenuItems', {'items': items});
+  }
+
+  @override
   Future<({double x, double y})?> getPosition() async {
     if (_disposed) return null;
     final result =
@@ -98,6 +104,12 @@ class MacOSFloatingButtonController extends FloatingButtonController {
         _eventController.add(const FloatingButtonClicked());
       case 'onSecondaryClicked':
         _eventController.add(const FloatingButtonSecondaryClicked());
+      case 'onContextMenu':
+        final args = call.arguments as Map?;
+        final id = args?['id'] as String?;
+        if (id != null) {
+          _eventController.add(FloatingButtonContextMenuSelected(id));
+        }
       case 'onDragEnded':
         final args = call.arguments as Map?;
         if (args != null) {
