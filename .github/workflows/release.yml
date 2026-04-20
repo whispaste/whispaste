@@ -216,8 +216,10 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-          # Extract section from CHANGELOG.md
-          awk "/^## $VERSION/{flag=1; next} /^## /{flag=0} flag" CHANGELOG.md > release-body.md
+          # Build cumulative, app-only release notes for the entire minor series.
+          # For patch releases (Z>0) this merges all X.Y.* patches together and
+          # strips website/CI/landing-page changes — app changes only.
+          node scripts/extract-cumulative-changelog.mjs "$VERSION" > release-body.md
 
           if [ ! -s release-body.md ]; then
             echo "Release $VERSION" > release-body.md
