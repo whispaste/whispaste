@@ -129,11 +129,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: |
-          URL="$(echo "$SUPABASE_URL")"
-          KEY="$(echo "$SUPABASE_PUBLISHABLE_KEY")"
-          flutter build macos --release \
-            "--dart-define=SUPABASE_URL=$URL" \
-            "--dart-define=SUPABASE_PUBLISHABLE_KEY=$KEY"
+          URL="$(printf '%s' "$SUPABASE_URL" | tr -d '\r\n')"
+          KEY="$(printf '%s' "$SUPABASE_PUBLISHABLE_KEY" | tr -d '\r\n')"
+          flutter build macos --release "--dart-define=SUPABASE_URL=$URL" "--dart-define=SUPABASE_PUBLISHABLE_KEY=$KEY"
 
       - name: Prepare release artifacts
         run: |
