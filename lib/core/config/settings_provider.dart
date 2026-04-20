@@ -29,6 +29,7 @@ class AppSettings {
     this.themeMode = ThemeMode.dark,
     this.locale = 'en',
     this.launchAtStartup = false,
+    this.startMinimized = false,
     this.showNotifications = true,
     // Audio
     this.microphone = 'Default',
@@ -117,6 +118,7 @@ class AppSettings {
   final ThemeMode themeMode;
   final String locale;
   final bool launchAtStartup;
+  final bool startMinimized;
   final bool showNotifications;
 
   // Audio
@@ -298,6 +300,11 @@ class AppSettings {
         values,
         'launch_at_startup',
         defaults.launchAtStartup,
+      ),
+      startMinimized: _readBool(
+        values,
+        'start_minimized',
+        defaults.startMinimized,
       ),
       showNotifications: _readBool(
         values,
@@ -506,6 +513,7 @@ class AppSettings {
       'theme_mode': themeMode.name,
       'locale': locale,
       'launch_at_startup': '$launchAtStartup',
+      'start_minimized': '$startMinimized',
       'show_notifications': '$showNotifications',
       'microphone': microphone,
       'input_gain': '$inputGain',
@@ -574,6 +582,7 @@ class AppSettings {
     ThemeMode? themeMode,
     String? locale,
     bool? launchAtStartup,
+    bool? startMinimized,
     bool? showNotifications,
     String? microphone,
     double? inputGain,
@@ -638,6 +647,7 @@ class AppSettings {
       themeMode: themeMode ?? this.themeMode,
       locale: locale ?? this.locale,
       launchAtStartup: launchAtStartup ?? this.launchAtStartup,
+      startMinimized: startMinimized ?? this.startMinimized,
       showNotifications: showNotifications ?? this.showNotifications,
       microphone: microphone ?? this.microphone,
       inputGain: inputGain ?? this.inputGain,
@@ -713,6 +723,7 @@ class AppSettings {
           themeMode == other.themeMode &&
           locale == other.locale &&
           launchAtStartup == other.launchAtStartup &&
+          startMinimized == other.startMinimized &&
           showNotifications == other.showNotifications &&
           microphone == other.microphone &&
           inputGain == other.inputGain &&
@@ -778,6 +789,7 @@ class AppSettings {
     themeMode,
     locale,
     launchAtStartup,
+    startMinimized,
     showNotifications,
     microphone,
     inputGain,

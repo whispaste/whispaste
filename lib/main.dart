@@ -80,8 +80,22 @@ Future<void> main(List<String> args) async {
         if (settings.windowMaximized) {
           await windowManager.maximize();
         }
-        await windowManager.show();
-        await windowManager.focus();
+
+        // Start minimized only when launched via autostart (system boot),
+        // not when the user explicitly opens the app from Dock/Taskbar.
+        final isAutostart = args.contains('--autostart');
+        final shouldMinimize =
+            isAutostart && settings.startMinimized && settings.launchAtStartup;
+
+        if (!shouldMinimize) {
+          await windowManager.show();
+          await windowManager.focus();
+        } else {
+          // Hide to tray — only if tray is expected to work.
+          if (Platform.isMacOS) {
+            await MacOSLifecycleChannel.setAccessory();
+          }
+        }
       });
 
       // When a second instance launches, focus this window.
