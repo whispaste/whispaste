@@ -93,18 +93,19 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     }
   }
 
-  /// Returns true when any text input field in the focus tree currently has
-  /// focus. Used to suppress list-level shortcuts that would otherwise
-  /// intercept normal typing (Delete, Backspace, arrows, etc.).
+  /// Returns true when any text input field currently has keyboard focus.
+  ///
+  /// `EditableText.build()` creates an internal `Focus` widget that overwrites
+  /// the FocusNode context, so `context.widget` ends up being `Focus`, not
+  /// `EditableText`. We check the widget directly AND walk ancestors as a
+  /// fallback to cover both cases.
   bool _isTextFieldFocused() {
     final primary = FocusManager.instance.primaryFocus;
     if (primary == null) return false;
     final context = primary.context;
     if (context == null) return false;
-    // When a TextField is focused, primaryFocus.context.widget IS the
-    // EditableText — findAncestorWidgetOfExactType only walks upward and
-    // would miss it, so we check the widget directly.
-    return context.widget is EditableText;
+    if (context.widget is EditableText) return true;
+    return context.findAncestorWidgetOfExactType<EditableText>() != null;
   }
 
   void _moveFocus(int delta, List<HistoryEntry> flat) {
@@ -250,43 +251,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 final sortedGroups = _sortGroups(groups);
                 final flat = _flatEntries(groups);
                 return CallbackShortcuts(
+                  // Only modifier-combo shortcuts remain here.
+                  // Bare keys (arrows, enter, delete, backspace, escape, F)
+                  // are handled in Focus.onKeyEvent below so they can return
+                  // KeyEventResult.ignored when a text field has focus, allowing
+                  // DefaultTextEditingShortcuts to handle them for text editing.
                   bindings: <ShortcutActivator, VoidCallback>{
-                    const SingleActivator(LogicalKeyboardKey.arrowDown): () {
-                      if (_isTextFieldFocused()) return;
-                      _moveFocus(1, flat);
-                    },
-                    const SingleActivator(LogicalKeyboardKey.arrowUp): () {
-                      if (_isTextFieldFocused()) return;
-                      _moveFocus(-1, flat);
-                    },
-                    const SingleActivator(LogicalKeyboardKey.enter): () {
-                      if (_isTextFieldFocused()) return;
-                      final entry = _focusedEntry(flat);
-                      if (entry != null) {
-                        setState(() {
-                          _selectedEntryId = entry.id;
-                          _lastClickedId = entry.id;
-                        });
-                      }
-                    },
-                    const SingleActivator(LogicalKeyboardKey.delete): () {
-                      if (_isTextFieldFocused()) return;
-                      if (_multiSelectMode && _selectedIds.isNotEmpty) {
-                        _deleteSelected();
-                      } else {
-                        final entry = _focusedEntry(flat);
-                        if (entry != null) _deleteEntry(entry);
-                      }
-                    },
-                    const SingleActivator(LogicalKeyboardKey.backspace): () {
-                      if (_isTextFieldFocused()) return;
-                      if (_multiSelectMode && _selectedIds.isNotEmpty) {
-                        _deleteSelected();
-                      } else {
-                        final entry = _focusedEntry(flat);
-                        if (entry != null) _deleteEntry(entry);
-                      }
-                    },
                     // Ctrl+A: Select all visible items
                     const SingleActivator(LogicalKeyboardKey.keyA, control: true): () {
                       if (_isTextFieldFocused()) return;
@@ -324,25 +294,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                         _mergeSelected();
                       }
                     },
-                    // F: Toggle favorite on focused entry
-                    const SingleActivator(LogicalKeyboardKey.keyF): () {
-                      if (_isTextFieldFocused()) return;
-                      final entry = _focusedEntry(flat);
-                      if (entry != null) _togglePin(entry);
-                    },
-                    const SingleActivator(LogicalKeyboardKey.escape): () {
-                      if (_isTextFieldFocused()) return;
-                      if (_multiSelectMode) {
-                        setState(() {
-                          _selectedIds.clear();
-                          _multiSelectMode = false;
-                        });
-                      } else if (_selectedEntryId != null) {
-                        setState(() => _selectedEntryId = null);
-                      } else if (_focusedEntryId != null) {
-                        setState(() => _focusedEntryId = null);
-                      }
-                    },
                     const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
                       if (_isTextFieldFocused()) return;
                       final entry = selectedEntry ?? _focusedEntry(flat);
@@ -352,6 +303,66 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   child: Focus(
                     focusNode: _listFocusNode,
                     autofocus: true,
+                    // Bare-key shortcuts are handled here via onKeyEvent so that
+                    // KeyEventResult.ignored can be returned when a text field has
+                    // focus. CallbackShortcuts always consumes matched events
+                    // (VoidCallbackAction.consumesKey == true), which would prevent
+                    // DefaultTextEditingShortcuts from processing Backspace/Enter/etc.
+                    onKeyEvent: (node, event) {
+                      if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                      // Pass ALL events through when a text field is focused so
+                      // DefaultTextEditingShortcuts can handle text editing keys.
+                      if (_isTextFieldFocused()) return KeyEventResult.ignored;
+                      final key = event.logicalKey;
+                      if (key == LogicalKeyboardKey.arrowDown) {
+                        _moveFocus(1, flat);
+                        return KeyEventResult.handled;
+                      }
+                      if (key == LogicalKeyboardKey.arrowUp) {
+                        _moveFocus(-1, flat);
+                        return KeyEventResult.handled;
+                      }
+                      if (key == LogicalKeyboardKey.enter) {
+                        final entry = _focusedEntry(flat);
+                        if (entry != null) {
+                          setState(() {
+                            _selectedEntryId = entry.id;
+                            _lastClickedId = entry.id;
+                          });
+                        }
+                        return KeyEventResult.handled;
+                      }
+                      if (key == LogicalKeyboardKey.delete ||
+                          key == LogicalKeyboardKey.backspace) {
+                        if (_multiSelectMode && _selectedIds.isNotEmpty) {
+                          _deleteSelected();
+                        } else {
+                          final entry = _focusedEntry(flat);
+                          if (entry != null) _deleteEntry(entry);
+                        }
+                        return KeyEventResult.handled;
+                      }
+                      // F: Toggle favourite on focused entry
+                      if (key == LogicalKeyboardKey.keyF) {
+                        final entry = _focusedEntry(flat);
+                        if (entry != null) _togglePin(entry);
+                        return KeyEventResult.handled;
+                      }
+                      if (key == LogicalKeyboardKey.escape) {
+                        if (_multiSelectMode) {
+                          setState(() {
+                            _selectedIds.clear();
+                            _multiSelectMode = false;
+                          });
+                        } else if (_selectedEntryId != null) {
+                          setState(() => _selectedEntryId = null);
+                        } else if (_focusedEntryId != null) {
+                          setState(() => _focusedEntryId = null);
+                        }
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
                     child: GestureDetector(
                       onTap: () => _listFocusNode.requestFocus(),
                       behavior: HitTestBehavior.translucent,
