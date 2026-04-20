@@ -72,6 +72,10 @@ scripts/*
 !scripts/git-hooks/
 !scripts/generate-release-notes.ps1
 !scripts/security-scan.ps1
+!scripts/setup-gh-secrets.sh
+!scripts/setup-gh-secrets.ps1
+!scripts/setup-gh-secrets.py
+!scripts/GITHUB-SECRETS-SETUP.md
 !scripts/store-screenshots.py
 !scripts/capture-store-screenshots.py
 !scripts/premium-screenshots.py
