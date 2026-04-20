@@ -17,7 +17,7 @@ import 'history_helpers.dart';
 // Suggestion type for autocomplete
 // ---------------------------------------------------------------------------
 
-enum _SuggestionType { none, tag, lang }
+enum _SuggestionType { none, tag, lang, quickTags }
 
 const _kLangOptions = [
   'de', 'en', 'fr', 'es', 'it', 'pt', 'nl', 'pl', 'ru', 'zh', 'ja', 'ko',
@@ -73,11 +73,13 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
   int _selectedIdx = 0;
   int _tagSuggestionGeneration = 0;
   Timer? _searchDebounce;
+  bool _hasFocus = false;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onControllerChange);
+    widget.searchFocusNode?.addListener(_onFocusChange);
   }
 
   @override
@@ -87,13 +89,34 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
       old.controller.removeListener(_onControllerChange);
       widget.controller.addListener(_onControllerChange);
     }
+    if (old.searchFocusNode != widget.searchFocusNode) {
+      old.searchFocusNode?.removeListener(_onFocusChange);
+      widget.searchFocusNode?.addListener(_onFocusChange);
+    }
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
     widget.controller.removeListener(_onControllerChange);
+    widget.searchFocusNode?.removeListener(_onFocusChange);
     super.dispose();
+  }
+
+  void _onFocusChange() {
+    final focused = widget.searchFocusNode?.hasFocus ?? false;
+    _hasFocus = focused;
+    if (focused && widget.controller.text.isEmpty) {
+      _loadQuickTags();
+    } else if (!focused) {
+      // Delay clear so tap on suggestion can fire first
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (!mounted) return;
+        if (!(widget.searchFocusNode?.hasFocus ?? false)) {
+          _clearSuggestions();
+        }
+      });
+    }
   }
 
   void _onControllerChange() {
@@ -128,7 +151,30 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
       return;
     }
 
+    // Show quick tags if field is empty and focused
+    if (text.isEmpty && _hasFocus) {
+      _loadQuickTags();
+      return;
+    }
+
     _clearSuggestions();
+  }
+
+  Future<void> _loadQuickTags() async {
+    final gen = ++_tagSuggestionGeneration;
+    final db = ref.read(historyDatabaseProvider);
+    final tagsWithCount = await db.allTagsWithCount();
+    if (!mounted || gen != _tagSuggestionGeneration) return;
+    // Show top tags by usage count (max 8)
+    final sorted = [...tagsWithCount]
+      ..sort((a, b) => b.$2.compareTo(a.$2));
+    final topTags = sorted.take(8).map((t) => t.$1.name).toList();
+    if (topTags.isEmpty) return;
+    setState(() {
+      _suggestions = topTags;
+      _suggestionType = _SuggestionType.quickTags;
+      _selectedIdx = 0;
+    });
   }
 
   Future<void> _loadTagSuggestions(String prefix) async {
@@ -178,7 +224,10 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
     final after = text.substring(cursor);
 
     String newBefore;
-    if (_suggestionType == _SuggestionType.tag) {
+    if (_suggestionType == _SuggestionType.quickTags) {
+      // Insert full #tag from the quick-tag picker
+      newBefore = '$before#$suggestion ';
+    } else if (_suggestionType == _SuggestionType.tag) {
       newBefore =
           before.replaceAll(RegExp(r'#[\w-]*$'), '#$suggestion ');
     } else {
@@ -296,15 +345,34 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                       border: Border.all(color: borderCol),
                     ),
                     constraints: const BoxConstraints(maxHeight: 200),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      shrinkWrap: true,
-                      itemCount: _suggestions.length,
-                      itemBuilder: (ctx, i) {
-                        final selected = i == _selectedIdx;
-                        final s = _suggestions[i];
-                        return InkWell(
-                          onTap: () => _selectSuggestion(s),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_suggestionType == _SuggestionType.quickTags)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              WpSpacing.md, WpSpacing.xs, WpSpacing.md, 2,
+                            ),
+                            child: Text(
+                              l10n.historySearchQuickTags,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: textMuted,
+                              ),
+                            ),
+                          ),
+                        Flexible(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            shrinkWrap: true,
+                            itemCount: _suggestions.length,
+                            itemBuilder: (ctx, i) {
+                              final selected = i == _selectedIdx;
+                              final s = _suggestions[i];
+                              return InkWell(
+                                onTap: () => _selectSuggestion(s),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: WpSpacing.md,
@@ -316,17 +384,17 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                             child: Row(
                               children: [
                                 Icon(
-                                  _suggestionType == _SuggestionType.tag
-                                      ? LucideIcons.tag
-                                      : LucideIcons.globe,
+                                  _suggestionType == _SuggestionType.lang
+                                      ? LucideIcons.globe
+                                      : LucideIcons.tag,
                                   size: 13,
                                   color: selected ? accent : textMuted,
                                 ),
                                 const SizedBox(width: WpSpacing.xs),
                                 Text(
-                                  _suggestionType == _SuggestionType.tag
-                                      ? '#$s'
-                                      : 'lang:$s',
+                                  _suggestionType == _SuggestionType.lang
+                                      ? 'lang:$s'
+                                      : '#$s',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: selected ? accent : textMuted,
@@ -341,6 +409,9 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                         );
                       },
                     ),
+                  ),
+                ],
+              ),
                   )
                 : const SizedBox.shrink(),
           ),

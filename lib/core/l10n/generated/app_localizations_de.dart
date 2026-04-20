@@ -1740,6 +1740,9 @@ class L10nDe extends L10n {
   String get historySearchHelpFreeText => 'Oder gib einfach ein Stichwort ein';
 
   @override
+  String get historySearchQuickTags => 'Beliebte Tags';
+
+  @override
   String get historySortNewest => 'Neueste zuerst';
 
   @override
