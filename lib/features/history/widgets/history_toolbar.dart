@@ -10,6 +10,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../data/providers.dart';
+import '../data/recent_searches.dart';
 import 'history_filter_chip.dart';
 import 'history_helpers.dart';
 
@@ -17,7 +18,7 @@ import 'history_helpers.dart';
 // Suggestion type for autocomplete
 // ---------------------------------------------------------------------------
 
-enum _SuggestionType { none, tag, lang, quickTags }
+enum _SuggestionType { none, tag, lang, smartPanel }
 
 const _kLangOptions = [
   'de', 'en', 'fr', 'es', 'it', 'pt', 'nl', 'pl', 'ru', 'zh', 'ja', 'ko',
@@ -69,6 +70,8 @@ class HistorySearchToolbar extends ConsumerStatefulWidget {
 
 class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
   List<String> _suggestions = [];
+  List<String> _recentSearches = [];
+  List<String> _quickTags = [];
   _SuggestionType _suggestionType = _SuggestionType.none;
   int _selectedIdx = 0;
   int _tagSuggestionGeneration = 0;
@@ -107,7 +110,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
     final focused = widget.searchFocusNode?.hasFocus ?? false;
     _hasFocus = focused;
     if (focused && widget.controller.text.isEmpty) {
-      _loadQuickTags();
+      _loadSmartPanel();
     } else if (!focused) {
       // Delay clear so tap on suggestion can fire first
       Future.delayed(const Duration(milliseconds: 200), () {
@@ -125,6 +128,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 250), () {
       widget.onSearchChanged();
+      _saveRecentSearch();
     });
   }
 
@@ -151,28 +155,32 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
       return;
     }
 
-    // Show quick tags if field is empty and focused
+    // Show smart panel if field is empty and focused
     if (text.isEmpty && _hasFocus) {
-      _loadQuickTags();
+      _loadSmartPanel();
       return;
     }
 
     _clearSuggestions();
   }
 
-  Future<void> _loadQuickTags() async {
+  Future<void> _loadSmartPanel() async {
     final gen = ++_tagSuggestionGeneration;
     final db = ref.read(historyDatabaseProvider);
+    final recentList = ref.read(recentSearchesProvider);
     final tagsWithCount = await db.allTagsWithCount();
     if (!mounted || gen != _tagSuggestionGeneration) return;
-    // Show top tags by usage count (max 8)
+    // Top tags by usage count (max 8)
     final sorted = [...tagsWithCount]
       ..sort((a, b) => b.$2.compareTo(a.$2));
     final topTags = sorted.take(8).map((t) => t.$1.name).toList();
-    if (topTags.isEmpty) return;
+    // Only show panel if there's content
+    if (topTags.isEmpty && recentList.isEmpty) return;
     setState(() {
+      _recentSearches = recentList.take(3).toList();
+      _quickTags = topTags;
       _suggestions = topTags;
-      _suggestionType = _SuggestionType.quickTags;
+      _suggestionType = _SuggestionType.smartPanel;
       _selectedIdx = 0;
     });
   }
@@ -206,9 +214,14 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
   }
 
   void _clearSuggestions() {
-    if (_suggestions.isNotEmpty || _suggestionType != _SuggestionType.none) {
+    if (_suggestions.isNotEmpty ||
+        _recentSearches.isNotEmpty ||
+        _quickTags.isNotEmpty ||
+        _suggestionType != _SuggestionType.none) {
       setState(() {
         _suggestions = [];
+        _recentSearches = [];
+        _quickTags = [];
         _suggestionType = _SuggestionType.none;
         _selectedIdx = 0;
       });
@@ -224,8 +237,8 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
     final after = text.substring(cursor);
 
     String newBefore;
-    if (_suggestionType == _SuggestionType.quickTags) {
-      // Insert full #tag from the quick-tag picker
+    if (_suggestionType == _SuggestionType.smartPanel) {
+      // Insert full #tag from the smart panel
       newBefore = '$before#$suggestion ';
     } else if (_suggestionType == _SuggestionType.tag) {
       newBefore =
@@ -243,6 +256,23 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
     // onSearchChanged already called by the controller listener
   }
 
+  /// Replays a recent search query by setting it in the field.
+  void _replayRecentSearch(String query) {
+    widget.controller.value = TextEditingValue(
+      text: query,
+      selection: TextSelection.collapsed(offset: query.length),
+    );
+    _clearSuggestions();
+  }
+
+  /// Persists the current query as a recent search (called on debounce).
+  void _saveRecentSearch() {
+    final query = widget.controller.text.trim();
+    if (query.length >= 2) {
+      ref.read(recentSearchesProvider.notifier).addSearch(query);
+    }
+  }
+
   /// Remove a command token from the raw query.
   void _removeCommand(String token) {
     final current = widget.controller.text;
@@ -254,8 +284,244 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
     // listener fires onSearchChanged automatically
   }
 
-  bool get _hasSuggestions =>
-      _suggestions.isNotEmpty && _suggestionType != _SuggestionType.none;
+  bool get _hasSuggestions {
+    if (_suggestionType == _SuggestionType.none) return false;
+    if (_suggestionType == _SuggestionType.smartPanel) {
+      return _recentSearches.isNotEmpty || _quickTags.isNotEmpty;
+    }
+    return _suggestions.isNotEmpty;
+  }
+
+  // ── Smart panel: multi-section dropdown ────────────────────────────────
+
+  Widget _buildSmartPanel(L10n l10n, Color accent, Color textMuted) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section: Recent Searches
+          if (_recentSearches.isNotEmpty) ...[
+            _sectionHeader(l10n.historyRecentSearches, textMuted),
+            for (final query in _recentSearches)
+              _recentSearchItem(query, accent, textMuted),
+          ],
+          // Section: Popular Tags
+          if (_quickTags.isNotEmpty) ...[
+            if (_recentSearches.isNotEmpty)
+              const SizedBox(height: WpSpacing.xs),
+            _sectionHeader(l10n.historySearchQuickTags, textMuted),
+            for (final tag in _quickTags)
+              _tagItem(tag, accent, textMuted),
+          ],
+          // Section: Quick Actions
+          if (_recentSearches.isNotEmpty || _quickTags.isNotEmpty) ...[
+            const SizedBox(height: WpSpacing.xs),
+            _sectionHeader(l10n.historyQuickActions, textMuted),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.md,
+                vertical: WpSpacing.xxs,
+              ),
+              child: Wrap(
+                spacing: WpSpacing.xs,
+                runSpacing: WpSpacing.xxs,
+                children: [
+                  _quickActionChip(
+                    icon: LucideIcons.globe,
+                    label: l10n.historyQuickActionAllLangs,
+                    accent: accent,
+                    textMuted: textMuted,
+                    onTap: () {
+                      widget.controller.text = 'lang:';
+                      widget.controller.selection =
+                          const TextSelection.collapsed(offset: 5);
+                      _clearSuggestions();
+                    },
+                  ),
+                  _quickActionChip(
+                    icon: LucideIcons.star,
+                    label: l10n.historyQuickActionFavorites,
+                    accent: accent,
+                    textMuted: textMuted,
+                    onTap: () {
+                      widget.onFilterChanged(HistoryFilter.pinned);
+                      _clearSuggestions();
+                      widget.searchFocusNode?.unfocus();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String title, Color textMuted) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.md, WpSpacing.xxs, WpSpacing.md, 2,
+      ),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: textMuted,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+
+  Widget _recentSearchItem(String query, Color accent, Color textMuted) {
+    return InkWell(
+      onTap: () => _replayRecentSearch(query),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.md,
+          vertical: WpSpacing.xxs + 1,
+        ),
+        child: Row(
+          children: [
+            Icon(LucideIcons.clock, size: 13, color: textMuted),
+            const SizedBox(width: WpSpacing.xs),
+            Expanded(
+              child: Text(
+                query,
+                style: TextStyle(fontSize: 13, color: textMuted),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                ref.read(recentSearchesProvider.notifier).removeSearch(query);
+                setState(() {
+                  _recentSearches =
+                      _recentSearches.where((s) => s != query).toList();
+                });
+              },
+              child: Icon(LucideIcons.x, size: 12, color: textMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tagItem(String tag, Color accent, Color textMuted) {
+    return InkWell(
+      onTap: () => _selectSuggestion(tag),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.md,
+          vertical: WpSpacing.xxs + 1,
+        ),
+        child: Row(
+          children: [
+            Icon(LucideIcons.tag, size: 13, color: textMuted),
+            const SizedBox(width: WpSpacing.xs),
+            Text(
+              '#$tag',
+              style: TextStyle(fontSize: 13, color: textMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _quickActionChip({
+    required IconData icon,
+    required String label,
+    required Color accent,
+    required Color textMuted,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: WpRadius.borderFull,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.sm,
+          vertical: WpSpacing.xxs + 1,
+        ),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.08),
+          borderRadius: WpRadius.borderFull,
+          border: Border.all(color: accent.withValues(alpha: 0.20)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: accent),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: accent,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Simple suggestion list (tag/lang autocomplete) ─────────────────────
+
+  Widget _buildSimpleSuggestionList(Color accent, Color textMuted) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      shrinkWrap: true,
+      itemCount: _suggestions.length,
+      itemBuilder: (ctx, i) {
+        final selected = i == _selectedIdx;
+        final s = _suggestions[i];
+        return InkWell(
+          onTap: () => _selectSuggestion(s),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.md,
+              vertical: WpSpacing.xs,
+            ),
+            color: selected
+                ? accent.withValues(alpha: 0.12)
+                : Colors.transparent,
+            child: Row(
+              children: [
+                Icon(
+                  _suggestionType == _SuggestionType.lang
+                      ? LucideIcons.globe
+                      : LucideIcons.tag,
+                  size: 13,
+                  color: selected ? accent : textMuted,
+                ),
+                const SizedBox(width: WpSpacing.xs),
+                Text(
+                  _suggestionType == _SuggestionType.lang
+                      ? 'lang:$s'
+                      : '#$s',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: selected ? accent : textMuted,
+                    fontWeight:
+                        selected ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -344,74 +610,10 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                       borderRadius: WpRadius.borderSm,
                       border: Border.all(color: borderCol),
                     ),
-                    constraints: const BoxConstraints(maxHeight: 200),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (_suggestionType == _SuggestionType.quickTags)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              WpSpacing.md, WpSpacing.xs, WpSpacing.md, 2,
-                            ),
-                            child: Text(
-                              l10n.historySearchQuickTags,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: textMuted,
-                              ),
-                            ),
-                          ),
-                        Flexible(
-                          child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            shrinkWrap: true,
-                            itemCount: _suggestions.length,
-                            itemBuilder: (ctx, i) {
-                              final selected = i == _selectedIdx;
-                              final s = _suggestions[i];
-                              return InkWell(
-                                onTap: () => _selectSuggestion(s),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: WpSpacing.md,
-                              vertical: WpSpacing.xs,
-                            ),
-                            color: selected
-                                ? accent.withValues(alpha: 0.12)
-                                : Colors.transparent,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  _suggestionType == _SuggestionType.lang
-                                      ? LucideIcons.globe
-                                      : LucideIcons.tag,
-                                  size: 13,
-                                  color: selected ? accent : textMuted,
-                                ),
-                                const SizedBox(width: WpSpacing.xs),
-                                Text(
-                                  _suggestionType == _SuggestionType.lang
-                                      ? 'lang:$s'
-                                      : '#$s',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: selected ? accent : textMuted,
-                                    fontWeight: selected
-                                        ? FontWeight.w600
-                                        : FontWeight.normal,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
+                    constraints: const BoxConstraints(maxHeight: 240),
+                    child: _suggestionType == _SuggestionType.smartPanel
+                        ? _buildSmartPanel(l10n, accent, textMuted)
+                        : _buildSimpleSuggestionList(accent, textMuted),
                   )
                 : const SizedBox.shrink(),
           ),
