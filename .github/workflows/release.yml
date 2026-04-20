@@ -204,3 +204,15 @@ jobs:
           files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Sentry release
+        if: env.SENTRY_AUTH_TOKEN != ''
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: silvio-lindstedt-und-maik-g-y2
+          SENTRY_PROJECT: flutter_whispaste
+          SENTRY_URL: https://de.sentry.io
+        with:
+          environment: production
+          version: whispaste@${{ steps.notes.outputs.version }}
