@@ -222,8 +222,31 @@ TierPerformance tierPerformance(
     return TierPerformance.slow;
   }
 
-  // No benchmark yet - return unmeasured to trigger fallback behavior.
-  return TierPerformance.unmeasured;
+  // No benchmark data — estimate from VRAM and vendor heuristics.
+  // Apple Silicon unified memory handles all tiers well.
+  if (gpu.vendor == hw.GpuVendor.apple) {
+    final vram = gpu.vramMB ?? 0;
+    if (vram >= 8192) return TierPerformance.fast;
+    if (vram >= 4096) return TierPerformance.moderate;
+    return TierPerformance.slow;
+  }
+
+  // NVIDIA with CUDA — generally fast.
+  if (gpu.vendor == hw.GpuVendor.nvidia && gpu.cudaAvailable) {
+    final vram = gpu.vramMB ?? 0;
+    if (tier == QualityTier.compact) return TierPerformance.fast;
+    if (tier == QualityTier.balanced && vram >= 4096) {
+      return TierPerformance.fast;
+    }
+    if (tier == QualityTier.premium && vram >= 6144) {
+      return TierPerformance.moderate;
+    }
+    return TierPerformance.slow;
+  }
+
+  // Vulkan / integrated / CPU fallback — conservative estimate.
+  if (tier == QualityTier.compact) return TierPerformance.moderate;
+  return TierPerformance.slow;
 }
 
 /// Recommends the best tier based on benchmark RTF data.
