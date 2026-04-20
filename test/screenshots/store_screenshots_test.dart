@@ -4,6 +4,7 @@
 /// golden_screenshot. The set is intentionally narrative-driven:
 /// workspace overview -> detail editing -> voice shortcuts -> hotkey setup ->
 /// analytics/time saved.
+@Tags(<String>['golden'])
 library;
 
 import 'package:drift/drift.dart' show Value;
