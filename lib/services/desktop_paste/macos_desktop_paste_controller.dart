@@ -16,6 +16,13 @@ class MacOSDesktopPasteController extends DesktopPasteController {
   }
 
   @override
+  Future<String?> getTargetBundleId() async {
+    if (_disposed) return null;
+    final id = await _channel.invokeMethod<String>('getTargetBundleId');
+    return id;
+  }
+
+  @override
   Future<bool> pasteClipboard({required Duration delay}) async {
     if (_disposed) return false;
     final didPaste = await _channel.invokeMethod<bool>('pasteClipboard', {

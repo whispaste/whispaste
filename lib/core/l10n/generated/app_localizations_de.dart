@@ -504,6 +504,17 @@ class L10nDe extends L10n {
   String get settingsRecognitionLanguage => 'Erkennungssprache';
 
   @override
+  String get settingsCustomVocabulary => 'Benutzerdefiniertes Vokabular';
+
+  @override
+  String get settingsCustomVocabularyHint =>
+      'Namen, Fachbegriffe — verbessert die Erkennungsgenauigkeit';
+
+  @override
+  String get settingsCustomVocabularyPlaceholder =>
+      'z.B. WhisPaste, Kubernetes, Dr. Müller';
+
+  @override
   String get settingsAppLanguage => 'App-Sprache';
 
   @override
@@ -1804,6 +1815,17 @@ class L10nDe extends L10n {
   @override
   String get settingsAutoPasteDelaySubtitle =>
       'Wartezeit vor dem Einfügen in das aktive Fenster';
+
+  @override
+  String get settingsAutoPasteBlocklist => 'Auto-Einfüge-Sperrliste';
+
+  @override
+  String get settingsAutoPasteBlocklistSubtitle =>
+      'Kommagetrennte App-Kennungen, bei denen Auto-Einfügen deaktiviert ist';
+
+  @override
+  String get settingsAutoPasteBlocklistPlaceholder =>
+      'z. B. com.apple.Terminal, com.1password';
 
   @override
   String get settingsTextReplacements => 'Textersetzungen';

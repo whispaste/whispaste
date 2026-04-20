@@ -972,6 +972,29 @@ class RecordingOrchestrator extends Notifier<void> {
         return false;
       }
 
+      // Check per-app auto-paste blocklist
+      final blocklist = settings.autoPasteBlocklist.trim();
+      if (blocklist.isNotEmpty) {
+        try {
+          final targetId = await controller.getTargetBundleId();
+          if (targetId != null && targetId.isNotEmpty) {
+            final blocked = blocklist
+                .split(',')
+                .map((e) => e.trim().toLowerCase())
+                .where((e) => e.isNotEmpty)
+                .toSet();
+            if (blocked.contains(targetId.toLowerCase())) {
+              _log.info(
+                'Auto-paste blocked for app: $targetId (in blocklist)',
+              );
+              return false;
+            }
+          }
+        } on MissingPluginException {
+          // getTargetBundleId not implemented on this platform — skip check
+        }
+      }
+
       final didPaste = await controller.pasteClipboard(
         delay: Duration(milliseconds: delayMs),
       );

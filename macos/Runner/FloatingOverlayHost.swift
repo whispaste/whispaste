@@ -49,10 +49,12 @@ class FloatingOverlayHost {
       }
       let x = (args["x"] as? NSNumber)?.doubleValue ?? 0
       let y = (args["y"] as? NSNumber)?.doubleValue ?? 0
+      let anchorMode = args["anchorMode"] as? String ?? "topLeft"
+      let resolved = resolvePosition(x: x, y: y, anchorMode: anchorMode)
       if let p = panel {
-        p.setFrameOrigin(NSPoint(x: x, y: y))
+        p.setFrameOrigin(resolved)
       } else {
-        pendingPosition = NSPoint(x: x, y: y)
+        pendingPosition = resolved
       }
       result(nil)
 
@@ -160,6 +162,45 @@ class FloatingOverlayHost {
     if let pos = pendingPosition {
       p.setFrameOrigin(pos)
       pendingPosition = nil
+    }
+  }
+
+  // MARK: - Position resolution (anchor mode → screen coordinates)
+
+  /// Compute the frame origin for the overlay based on anchor mode.
+  ///
+  /// Mirrors the Windows `RecalcPosition()` logic:
+  /// - topCenter: centered horizontally, 16pt from top of visible frame
+  /// - bottomCenter: centered horizontally, 16pt from bottom of visible frame
+  /// - topLeft: use raw x/y as frame origin
+  private func resolvePosition(x: Double, y: Double, anchorMode: String) -> NSPoint {
+    guard let screen = NSScreen.main else {
+      return NSPoint(x: x, y: y)
+    }
+
+    let visibleFrame = screen.visibleFrame
+    // Panel width/height including shadow padding
+    let pillW = (overlayView?.isCompact ?? false) ? CGFloat(280) : CGFloat(380)
+    let pillH = (overlayView?.isCompact ?? false) ? CGFloat(40) : CGFloat(64)
+    let totalW = pillW + 56
+    let totalH = pillH + 56
+    let margin: CGFloat = 16
+
+    switch anchorMode {
+    case "topCenter":
+      // NSView Y-up: "top" means near maxY of visible frame
+      let px = visibleFrame.origin.x + (visibleFrame.width - totalW) / 2
+      let py = visibleFrame.maxY - totalH - margin
+      return NSPoint(x: px, y: py)
+
+    case "bottomCenter":
+      // NSView Y-up: "bottom" means near minY of visible frame
+      let px = visibleFrame.origin.x + (visibleFrame.width - totalW) / 2
+      let py = visibleFrame.origin.y + margin
+      return NSPoint(x: px, y: py)
+
+    default: // "topLeft" — raw coordinates
+      return NSPoint(x: x, y: y)
     }
   }
 }

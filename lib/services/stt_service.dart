@@ -353,14 +353,26 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     // Prompt conditioning: pass last transcript for faster decoder
     // convergence and consistent language detection.
     // Expire stale prompts after 10 min to prevent context poisoning.
+    // Custom vocabulary is prepended to give Whisper domain-specific hints.
+    final settings = ref.read(settingsProvider).value;
+    final vocab = settings?.customVocabulary.trim() ?? '';
+    String? promptValue;
     if (_lastPrompt != null &&
         _lastPrompt!.isNotEmpty &&
         _lastPromptTime != null &&
         DateTime.now().difference(_lastPromptTime!) < _promptExpiry) {
-      request.fields['prompt'] = _lastPrompt!;
+      promptValue = _lastPrompt!;
     } else if (_lastPrompt != null) {
       _lastPrompt = null;
       _lastPromptTime = null;
+    }
+    // Prepend custom vocabulary so Whisper biases toward those terms.
+    if (vocab.isNotEmpty || (promptValue != null && promptValue.isNotEmpty)) {
+      final parts = [
+        if (vocab.isNotEmpty) vocab,
+        if (promptValue != null && promptValue.isNotEmpty) promptValue,
+      ];
+      request.fields['prompt'] = parts.join(' ');
     }
 
     final http.StreamedResponse streamedResponse;

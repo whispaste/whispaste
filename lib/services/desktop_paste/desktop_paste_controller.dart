@@ -23,6 +23,10 @@ abstract class DesktopPasteController {
   /// Returns `true` when a suitable external target window was captured.
   Future<bool> capturePasteTarget();
 
+  /// Returns the bundle ID (macOS) or process name (Windows) of the captured
+  /// paste target, or `null` if no target was captured.
+  Future<String?> getTargetBundleId();
+
   /// Restores the captured target and sends the paste shortcut.
   ///
   /// Returns `true` when the native bridge reported success.
