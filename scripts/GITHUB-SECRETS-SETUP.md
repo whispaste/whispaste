@@ -60,7 +60,7 @@ python3 scripts/setup-gh-secrets.py --list
 
 | Secret | Used By | Source |
 |--------|---------|--------|
-| `SENTRY_AUTH_TOKEN` | `.github/workflows/release.yml` | https://de.sentry.io → Settings → Auth Tokens |
+| `SENTRY_DSN` | `lib/core/logging/app_monitoring.dart` | Sentry Project Settings → Client Keys (DSN) |
 | `SUPABASE_URL` | `.github/workflows/ci.yml` | Supabase Dashboard → Project Settings → API |
 | `SUPABASE_PUBLISHABLE_KEY` | `.github/workflows/ci.yml` | Supabase Dashboard → Project Settings → API Keys |
 
