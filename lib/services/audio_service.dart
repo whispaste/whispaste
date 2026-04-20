@@ -181,10 +181,15 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
         // Convert dBFS (negative, -∞ to 0) to linear 0.0–1.0.
         // Clamp to a useful range (-60 dB = silence floor).
         final db = amp.current;
-        final linear = db <= -60.0
-            ? 0.0
-            : math.pow(10.0, db / 20.0).toDouble().clamp(0.0, 1.0);
-        _amplitudeController?.add(linear);
+        if (db <= -60.0) {
+          _amplitudeController?.add(0.0);
+          return;
+        }
+        // Linear dB conversion + sqrt boost for visual presence
+        // (matches Windows native SetAudioLevel boost).
+        final raw = math.pow(10.0, db / 20.0).toDouble().clamp(0.0, 1.0);
+        final boosted = (math.sqrt(raw) * 1.5).clamp(0.0, 1.0);
+        _amplitudeController?.add(boosted);
       },
       onError: (Object e) {
         dev.log('Amplitude error: $e', name: 'AudioService');
