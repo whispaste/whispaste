@@ -210,6 +210,7 @@ jobs:
         uses: getsentry/action-release@v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          # Org/Project/URL must match values in lib/core/app_info.dart
           SENTRY_ORG: silvio-lindstedt-und-maik-g-y2
           SENTRY_PROJECT: flutter_whispaste
           SENTRY_URL: https://de.sentry.io
