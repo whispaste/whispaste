@@ -35,7 +35,7 @@ private let kNormalWidth: CGFloat = 380
 private let kNormalHeight: CGFloat = 64
 private let kCompactWidth: CGFloat = 280
 private let kCompactHeight: CGFloat = 40
-private let kCornerRadius: CGFloat = 14
+private let kCornerRadius: CGFloat = 32
 private let kCompactRadius: CGFloat = 20
 private let kAccentBarH: CGFloat = 4
 private let kShadowPad: CGFloat = 28
@@ -102,17 +102,17 @@ private struct ThemeColors {
 private func themeColors(dark: Bool) -> ThemeColors {
   if dark {
     return ThemeColors(
-      surface: NSColor(red: 0x1C / 255.0, green: 0x1C / 255.0, blue: 0x1E / 255.0, alpha: 1),
-      text: NSColor(red: 0xE5 / 255.0, green: 0xE5 / 255.0, blue: 0xEA / 255.0, alpha: 1),
-      secondaryText: NSColor(red: 0x8E / 255.0, green: 0x8E / 255.0, blue: 0x93 / 255.0, alpha: 1),
-      border: NSColor(red: 0x38 / 255.0, green: 0x38 / 255.0, blue: 0x3A / 255.0, alpha: 1)
+      surface: NSColor(red: 0x14 / 255.0, green: 0x19 / 255.0, blue: 0x26 / 255.0, alpha: 1),
+      text: NSColor(red: 0xF0 / 255.0, green: 0xF4 / 255.0, blue: 0xFA / 255.0, alpha: 1),
+      secondaryText: NSColor(red: 0x8A / 255.0, green: 0x99 / 255.0, blue: 0xB2 / 255.0, alpha: 1),
+      border: NSColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.08)
     )
   } else {
     return ThemeColors(
-      surface: NSColor(red: 0xF5 / 255.0, green: 0xF5 / 255.0, blue: 0xF7 / 255.0, alpha: 1),
-      text: NSColor(red: 0x1C / 255.0, green: 0x1C / 255.0, blue: 0x1E / 255.0, alpha: 1),
-      secondaryText: NSColor(red: 0x8E / 255.0, green: 0x8E / 255.0, blue: 0x93 / 255.0, alpha: 1),
-      border: NSColor(red: 0xD1 / 255.0, green: 0xD1 / 255.0, blue: 0xD6 / 255.0, alpha: 1)
+      surface: NSColor(red: 0xF0 / 255.0, green: 0xF3 / 255.0, blue: 0xF7 / 255.0, alpha: 1),
+      text: NSColor(red: 0x10 / 255.0, green: 0x18 / 255.0, blue: 0x28 / 255.0, alpha: 1),
+      secondaryText: NSColor(red: 0x5B / 255.0, green: 0x69 / 255.0, blue: 0x7E / 255.0, alpha: 1),
+      border: NSColor(red: 0x0F / 255.0, green: 0x17 / 255.0, blue: 0x2A / 255.0, alpha: 0.08)
     )
   }
 }
