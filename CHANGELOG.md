@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.2
+
+### Bug Fixes
+
+- **History detail editor**: Enter, Backspace, and Delete keys are no longer intercepted by list-level keyboard shortcuts when a text field has focus. All standard editing operations (line breaks, character deletion, cursor movement) now work correctly in the transcript editor, notes field, and tag input.
+
+### Landing Page
+
+- Replaced the redundant dual-Windows download row in the Hero section with a clean side-by-side layout: Microsoft Store button + macOS download button (matching style and height).
+- New Apple-styled macOS download button component added.
+
 ## 1.2.1
 
 Re-release of 1.2.0 with consistent version metadata and release pipeline
