@@ -395,16 +395,16 @@ class FloatingButtonView: NSView {
     let angle = CGFloat(elapsed.truncatingRemainder(dividingBy: Self.spinnerDuration) / Self.spinnerDuration) * .pi * 2
     let arcLength: CGFloat = .pi * 1.6 // 288°
 
-    ctx.addArc(center: .zero, radius: 9, startAngle: angle, endAngle: angle + arcLength, clockwise: false)
+    // clockwise: true in NSView Y-up = visually clockwise (matching Windows)
+    ctx.addArc(center: .zero, radius: 9, startAngle: angle, endAngle: angle + arcLength, clockwise: true)
     ctx.strokePath()
   }
 
-  /// Lucide check icon.
   /// Lucide check icon — Windows: M20,6 → 9,17 → 4,12.
-  /// Mac centered: (8,-6) → (-3,5) → (-8,0).
+  /// Mac centered (Y-up, negate Y): (8,6) → (-3,-5) → (-8,0).
   private func drawCheckIcon(ctx: CGContext) {
-    ctx.move(to: CGPoint(x: 8, y: -6))
-    ctx.addLine(to: CGPoint(x: -3, y: 5))
+    ctx.move(to: CGPoint(x: 8, y: 6))
+    ctx.addLine(to: CGPoint(x: -3, y: -5))
     ctx.addLine(to: CGPoint(x: -8, y: 0))
     ctx.strokePath()
   }

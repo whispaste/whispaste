@@ -41,7 +41,7 @@ private let kShadowPad: CGFloat = 28
 private let kPadH: CGFloat = 16
 private let kBarWidth: CGFloat = 2.5
 private let kBarGap: CGFloat = 1.5
-private let kBarCount = 12
+private let kBarCount = 30
 private let kCloseSize: CGFloat = 36
 private let kCompactCloseSize: CGFloat = 28
 private let kStopBtnSize: CGFloat = 36
@@ -204,10 +204,12 @@ class FloatingOverlayView: NSView {
 
   private func updateWaveformTarget() {
     let level = CGFloat(min(max(audioLevel, 0), 1))
+    let maxH: CGFloat = isCompact ? 16 : 24
     for i in 0..<kBarCount {
-      let base = level * 24
-      let variation = CGFloat(sin(Double(i) * 0.8 + CACurrentMediaTime() * 3)) * 0.3 + 0.7
-      waveTarget[i] = max(2, base * variation)
+      // Windows: bar_h = 4 + level * (h - 4), with variation per bar
+      let variation = CGFloat(sin(Double(i) * 0.7 + CACurrentMediaTime() * 4)) * 0.3 + 0.7
+      let barLevel = level * variation
+      waveTarget[i] = 4 + barLevel * (maxH - 4)
     }
   }
 
@@ -523,14 +525,18 @@ class FloatingOverlayView: NSView {
   }
 
   private func drawWaveform(ctx: CGContext, x: CGFloat, cy: CGFloat, maxWidth: CGFloat, accent: GradientPair) {
-    let totalWidth = CGFloat(kBarCount) * kBarWidth + CGFloat(kBarCount - 1) * kBarGap
     let maxH: CGFloat = isCompact ? 16 : 24
-    // Center bars in available width (matching Windows)
-    let startX = x + (maxWidth - totalWidth) / 2
+    // Spread bars evenly across available width (matching Windows fill behavior)
+    let barW: CGFloat = kBarWidth
+    let totalBarsWidth = CGFloat(kBarCount) * barW
+    let totalGaps = maxWidth - totalBarsWidth
+    let gap = max(kBarGap, totalGaps / CGFloat(kBarCount - 1))
+    let actualTotal = CGFloat(kBarCount) * barW + CGFloat(kBarCount - 1) * gap
+    let startX = x + (maxWidth - actualTotal) / 2
 
-    guard totalWidth <= maxWidth else { return }
+    guard maxWidth > 20 else { return }
 
-    // Windows waveform colors (dark theme):
+    // Windows waveform colors:
     // active: 85% accent (#38D9F0), muted: 50% textMuted (#8A99B2)
     let activeColor = isDark
       ? NSColor(red: 0x38 / 255.0, green: 0xD9 / 255.0, blue: 0xF0 / 255.0, alpha: 0.85 * masterOpacity)
@@ -540,12 +546,13 @@ class FloatingOverlayView: NSView {
       : NSColor(red: 0x5B / 255.0, green: 0x69 / 255.0, blue: 0x7E / 255.0, alpha: 0.5 * masterOpacity)
 
     for i in 0..<kBarCount {
-      let level = waveDisplay[i] / maxH // Normalize to 0-1
-      let barH = max(4, waveDisplay[i]) // 4px min (matching Windows)
-      let bx = startX + CGFloat(i) * (kBarWidth + kBarGap)
+      // Windows: bar_h = 4 + level * (h - 4), level is 0-1
+      let level = waveDisplay[i] / maxH
+      let barH = max(4, waveDisplay[i])
+      let bx = startX + CGFloat(i) * (barW + gap)
       let by = cy - barH / 2
-      let barRect = NSRect(x: bx, y: by, width: kBarWidth, height: barH)
-      let barPath = CGPath(roundedRect: barRect, cornerWidth: kBarWidth / 2, cornerHeight: kBarWidth / 2, transform: nil)
+      let barRect = NSRect(x: bx, y: by, width: barW, height: barH)
+      let barPath = CGPath(roundedRect: barRect, cornerWidth: barW / 2, cornerHeight: barW / 2, transform: nil)
 
       // Color based on level: >0.30 = active, else muted
       let color = level > 0.30 ? activeColor : mutedColor
@@ -567,7 +574,8 @@ class FloatingOverlayView: NSView {
     ctx.setStrokeColor(color.cgColor)
     ctx.setLineWidth(2)
     ctx.setLineCap(.round)
-    ctx.addArc(center: CGPoint(x: cx, y: cy), radius: kSpinnerSize / 2, startAngle: angle, endAngle: angle + arcLen, clockwise: false)
+    // clockwise: true in NSView Y-up = visually clockwise (matching Windows)
+    ctx.addArc(center: CGPoint(x: cx, y: cy), radius: kSpinnerSize / 2, startAngle: angle, endAngle: angle + arcLen, clockwise: true)
     ctx.strokePath()
   }
 
@@ -589,9 +597,9 @@ class FloatingOverlayView: NSView {
       .paragraphStyle: para,
     ]
 
-    // Vertically center text at cy using font metrics
-    let lineHeight = font.ascender - font.descender + font.leading
-    let textRect = NSRect(x: x, y: cy - lineHeight / 2 + font.descender, width: maxWidth, height: lineHeight)
+    // Vertically center: place text rect so its midpoint aligns with cy
+    let rectH = font.ascender - font.descender + font.leading
+    let textRect = NSRect(x: x, y: cy - rectH / 2, width: maxWidth, height: rectH)
     (text as NSString).draw(in: textRect, withAttributes: attrs)
   }
 
