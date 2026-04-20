@@ -9,7 +9,9 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 // Visual state of the floating button (set from Dart).
 enum class FloatingButtonState {
@@ -26,6 +28,7 @@ enum class FloatingButtonState {
 class FloatingButtonWindow {
  public:
   using ClickCallback = std::function<void()>;
+  using ContextMenuCallback = std::function<void(const std::string& id)>;
   using DragEndCallback =
       std::function<void(double logical_x, double logical_y)>;
 
@@ -55,6 +58,13 @@ class FloatingButtonWindow {
   void SetClickCallback(ClickCallback cb) { click_cb_ = std::move(cb); }
   void SetSecondaryClickCallback(ClickCallback cb) {
     secondary_click_cb_ = std::move(cb);
+  }
+  void SetContextMenuCallback(ContextMenuCallback cb) {
+    context_menu_cb_ = std::move(cb);
+  }
+  void SetContextMenuItems(
+      std::vector<std::pair<std::string, std::wstring>> items) {
+    context_menu_items_ = std::move(items);
   }
   void SetDragEndCallback(DragEndCallback cb) {
     drag_end_cb_ = std::move(cb);
@@ -154,7 +164,11 @@ class FloatingButtonWindow {
   // Callbacks
   ClickCallback click_cb_;
   ClickCallback secondary_click_cb_;
+  ContextMenuCallback context_menu_cb_;
   DragEndCallback drag_end_cb_;
+
+  // Context menu items (id, wideLabel).
+  std::vector<std::pair<std::string, std::wstring>> context_menu_items_;
 };
 
 #endif  // FLOATING_BUTTON_WINDOW_H_

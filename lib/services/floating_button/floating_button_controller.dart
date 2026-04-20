@@ -48,6 +48,13 @@ abstract class FloatingButtonController {
   /// Set master opacity (0.0–1.0).
   Future<void> setOpacity(double opacity);
 
+  /// Set context menu items shown on right-click.
+  ///
+  /// Each item is a map with `id` (String) and `label` (String).
+  /// Pass an empty list to disable the context menu (falls back to
+  /// [FloatingButtonSecondaryClicked] event).
+  Future<void> setContextMenuItems(List<Map<String, String>> items);
+
   /// Get the current position (logical pixels), or null if not created.
   Future<({double x, double y})?> getPosition();
 

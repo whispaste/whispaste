@@ -363,7 +363,23 @@ LRESULT FloatingButtonWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
       return 0;
     }
     case WM_RBUTTONUP: {
-      if (secondary_click_cb_) secondary_click_cb_();
+      if (!context_menu_items_.empty() && context_menu_cb_) {
+        HMENU menu = CreatePopupMenu();
+        for (size_t i = 0; i < context_menu_items_.size(); ++i) {
+          AppendMenuW(menu, MF_STRING, 1000 + i,
+                      context_menu_items_[i].second.c_str());
+        }
+        POINT pt;
+        GetCursorPos(&pt);
+        int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY,
+                                 pt.x, pt.y, 0, hwnd_, nullptr);
+        DestroyMenu(menu);
+        if (cmd >= 1000 && cmd < 1000 + (int)context_menu_items_.size()) {
+          context_menu_cb_(context_menu_items_[cmd - 1000].first);
+        }
+      } else if (secondary_click_cb_) {
+        secondary_click_cb_();
+      }
       return 0;
     }
 
