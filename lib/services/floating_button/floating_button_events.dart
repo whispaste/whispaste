@@ -13,6 +13,12 @@ class FloatingButtonSecondaryClicked extends FloatingButtonEvent {
   const FloatingButtonSecondaryClicked();
 }
 
+/// A context menu item was selected (right-click menu).
+class FloatingButtonContextMenuSelected extends FloatingButtonEvent {
+  const FloatingButtonContextMenuSelected(this.id);
+  final String id;
+}
+
 /// The button was dragged to a new position (logical pixels).
 class FloatingButtonDragEnded extends FloatingButtonEvent {
   const FloatingButtonDragEnded(this.x, this.y);

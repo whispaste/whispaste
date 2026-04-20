@@ -146,6 +146,12 @@ void FloatingButtonHost::HandleMethodCall(
       window_->SetClickCallback([this]() { SendEvent("onClicked"); });
       window_->SetSecondaryClickCallback(
           [this]() { SendEvent("onSecondaryClicked"); });
+      window_->SetContextMenuCallback(
+          [this](const std::string& id) {
+            EncodableMap m;
+            m[EncodableValue("id")] = EncodableValue(id);
+            SendEvent("onContextMenu", EncodableValue(m));
+          });
       window_->SetDragEndCallback(
           [this](double lx, double ly) {
             EncodableMap m;
@@ -223,6 +229,43 @@ void FloatingButtonHost::HandleMethodCall(
   }
 
   // ── getPosition ─────────────────────────────────────────────────────
+  // ── setContextMenuItems ──────────────────────────────────────────────
+  if (method == "setContextMenuItems") {
+    if (window_) {
+      auto* args_map = std::get_if<EncodableMap>(call.arguments());
+      if (args_map) {
+        auto it = args_map->find(EncodableValue("items"));
+        if (it != args_map->end()) {
+          auto* list = std::get_if<flutter::EncodableList>(&it->second);
+          if (list) {
+            std::vector<std::pair<std::string, std::wstring>> items;
+            for (auto& item_val : *list) {
+              auto* item_map = std::get_if<EncodableMap>(&item_val);
+              if (!item_map) continue;
+              auto id_it = item_map->find(EncodableValue("id"));
+              auto label_it = item_map->find(EncodableValue("label"));
+              if (id_it == item_map->end() || label_it == item_map->end())
+                continue;
+              auto* id_str = std::get_if<std::string>(&id_it->second);
+              auto* label_str = std::get_if<std::string>(&label_it->second);
+              if (!id_str || !label_str) continue;
+              // Convert UTF-8 label to wstring.
+              int len = MultiByteToWideChar(CP_UTF8, 0, label_str->c_str(),
+                                            -1, nullptr, 0);
+              std::wstring wlabel(len - 1, 0);
+              MultiByteToWideChar(CP_UTF8, 0, label_str->c_str(), -1,
+                                  wlabel.data(), len);
+              items.emplace_back(*id_str, std::move(wlabel));
+            }
+            window_->SetContextMenuItems(std::move(items));
+          }
+        }
+      }
+    }
+    result->Success();
+    return;
+  }
+
   if (method == "getPosition") {
     if (window_) {
       auto [x, y] = window_->GetPosition();

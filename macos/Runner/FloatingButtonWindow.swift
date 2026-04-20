@@ -119,7 +119,9 @@ class FloatingButtonView: NSView {
 
   var onClicked: (() -> Void)?
   var onSecondaryClicked: (() -> Void)?
+  var onContextMenu: ((_ id: String) -> Void)?
   var onDragEnded: ((_ x: CGFloat, _ y: CGFloat) -> Void)?
+  var contextMenuItems: [[String: Any]] = []
 
   // Animation state
   private var prevState: FloatingButtonVisualState = .idle
@@ -462,7 +464,25 @@ class FloatingButtonView: NSView {
   }
 
   override func rightMouseUp(with event: NSEvent) {
-    onSecondaryClicked?()
+    if contextMenuItems.isEmpty {
+      onSecondaryClicked?()
+      return
+    }
+    let menu = NSMenu()
+    for item in contextMenuItems {
+      guard let id = item["id"] as? String,
+            let label = item["label"] as? String else { continue }
+      let menuItem = NSMenuItem(title: label, action: #selector(contextMenuAction(_:)), keyEquivalent: "")
+      menuItem.target = self
+      menuItem.representedObject = id
+      menu.addItem(menuItem)
+    }
+    NSMenu.popUpContextMenu(menu, with: event, for: self)
+  }
+
+  @objc private func contextMenuAction(_ sender: NSMenuItem) {
+    guard let id = sender.representedObject as? String else { return }
+    onContextMenu?(id)
   }
 
   override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }

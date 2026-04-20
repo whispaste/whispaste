@@ -5,6 +5,8 @@
 /// shows the relevant API key inline for convenience.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -12,6 +14,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/stt_service.dart';
 import '../../../widgets/model_download_card.dart';
@@ -264,6 +267,7 @@ class _CustomVocabularyField extends ConsumerStatefulWidget {
 class _CustomVocabularyFieldState
     extends ConsumerState<_CustomVocabularyField> {
   late final TextEditingController _ctrl;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -282,25 +286,86 @@ class _CustomVocabularyFieldState
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _ctrl.dispose();
     super.dispose();
+  }
+
+  void _save(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 600), () {
+      ref
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(customVocabulary: value));
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    return SettingRow(
-      icon: LucideIcons.bookType,
-      label: l10n.settingsCustomVocabulary,
-      subtitle: l10n.settingsCustomVocabularyHint,
-      trailing: settingsTextField(
-        context: context,
-        controller: _ctrl,
-        hintText: l10n.settingsCustomVocabularyPlaceholder,
-        maxLines: 1,
-        onChanged: (v) => ref
-            .read(settingsProvider.notifier)
-            .updateSettings((s) => s.copyWith(customVocabulary: v)),
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.sm,
+        vertical: WpSpacing.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.bookType, size: WpIconSize.sm, color: cs.secondary),
+              const SizedBox(width: WpSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      l10n.settingsCustomVocabulary,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        l10n.settingsCustomVocabularyHint,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark
+                              ? WpColorsDark.textMuted
+                              : WpColorsLight.textMuted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          TextField(
+            controller: _ctrl,
+            minLines: 2,
+            maxLines: 5,
+            onChanged: _save,
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark
+                  ? WpColorsDark.textPrimary
+                  : WpColorsLight.textPrimary,
+            ),
+            decoration: InputDecoration(
+              hintText: l10n.settingsCustomVocabularyPlaceholder,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.sm,
+                vertical: WpSpacing.sm,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
