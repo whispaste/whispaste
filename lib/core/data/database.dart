@@ -20,16 +20,18 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [
-  HistoryEntries,
-  Projects,
-  DailyStats,
-  EntryNotes,
-  EntryAttachments,
-  TextReplacements,
-  Tags,
-  EntryTags,
-])
+@DriftDatabase(
+  tables: [
+    HistoryEntries,
+    Projects,
+    DailyStats,
+    EntryNotes,
+    EntryAttachments,
+    TextReplacements,
+    Tags,
+    EntryTags,
+  ],
+)
 class HistoryDatabase extends _$HistoryDatabase {
   HistoryDatabase() : super(_openConnection());
 
@@ -37,41 +39,46 @@ class HistoryDatabase extends _$HistoryDatabase {
   HistoryDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          await m.createAll();
-          // Create FTS5 virtual table and sync triggers via raw SQL
-          await _createFts(m);
-          await _createAppSettingsTable();
-        },
-        onUpgrade: (m, from, to) async {
-          if (from < 2) {
-            await _createAppSettingsTable();
-          }
-          if (from < 3) {
-            await m.createTable(textReplacements);
-          }
-          if (from < 4) {
-            await m.createTable(tags);
-            await m.createTable(entryTags);
-            await _recreateFtsWithTags();
-            await _migrateJsonTags();
-          }
-        },
-        beforeOpen: (details) async {
-          // Reconcile Go-era schema if DB was created by the old Go backend
-          // (column "text" instead of "content", TEXT timestamps instead of
-          // INTEGER). Must run BEFORE any Drift queries touch the table.
-          await _reconcileGoSchema();
-          // One-time backfill: populate DailyStats from existing history
-          // entries so that stats are correct for users upgrading from
-          // a version that never wrote to DailyStats.
-          await backfillDailyStats();
-        },
-      );
+    onCreate: (m) async {
+      await m.createAll();
+      // Create FTS5 virtual table and sync triggers via raw SQL
+      await _createFts(m);
+      await _createAppSettingsTable();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await _createAppSettingsTable();
+      }
+      if (from < 3) {
+        await m.createTable(textReplacements);
+      }
+      if (from < 4) {
+        await m.createTable(tags);
+        await m.createTable(entryTags);
+        await _recreateFtsWithTags();
+        await _migrateJsonTags();
+      }
+      if (from < 5) {
+        await _addDailyStatsDurationColumns();
+      }
+    },
+    beforeOpen: (details) async {
+      // Reconcile Go-era schema if DB was created by the old Go backend
+      // (column "text" instead of "content", TEXT timestamps instead of
+      // INTEGER). Must run BEFORE any Drift queries touch the table.
+      await _reconcileGoSchema();
+      // Ensure indexes on entry_tags for fast tag joins.
+      await _ensureEntryTagIndexes();
+      // One-time backfill: populate DailyStats from existing history
+      // entries so that stats are correct for users upgrading from
+      // a version that never wrote to DailyStats.
+      await backfillDailyStats();
+    },
+  );
 
   /// Creates the FTS5 virtual table and triggers for full-text search.
   Future<void> _createFts(Migrator m) async {
@@ -205,8 +212,9 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// Each check is independent so partial migrations (e.g. column already
   /// renamed but timestamps not converted) are handled correctly.
   Future<void> _reconcileGoSchema() async {
-    final cols =
-        await customSelect("PRAGMA table_info('history_entries')").get();
+    final cols = await customSelect(
+      "PRAGMA table_info('history_entries')",
+    ).get();
     final colNames = cols.map((r) => r.data['name'] as String).toSet();
 
     var changed = false;
@@ -264,6 +272,9 @@ class HistoryDatabase extends _$HistoryDatabase {
     // 6. Migrate JSON tags into normalized Tags/EntryTags if needed.
     await _migrateJsonTagsIfNeeded();
 
+    // 7. Ensure daily_stats has duration bucket columns (Go-era DBs lack them).
+    await _addDailyStatsDurationColumns();
+
     if (changed) {
       await _recreateFtsWithTags();
       _goMigrationEntryCount = await _countHistoryEntries();
@@ -271,6 +282,37 @@ class HistoryDatabase extends _$HistoryDatabase {
         '[Migration] Go-era schema reconciliation complete '
         '($_goMigrationEntryCount dictations migrated)',
       );
+    }
+  }
+
+  /// Adds duration bucket columns to daily_stats if missing (v5 migration).
+  ///
+  /// Safe to call multiple times (idempotent). Checks PRAGMA table_info
+  /// before each ALTER TABLE to avoid "duplicate column" errors.
+  Future<void> _addDailyStatsDurationColumns() async {
+    try {
+      final cols = await customSelect("PRAGMA table_info('daily_stats')").get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      final columnsToAdd = [
+        ('dur_under15s', 'INTEGER NOT NULL DEFAULT 0'),
+        ('dur15_to30s', 'INTEGER NOT NULL DEFAULT 0'),
+        ('dur30_to60s', 'INTEGER NOT NULL DEFAULT 0'),
+        ('dur1_to3m', 'INTEGER NOT NULL DEFAULT 0'),
+        ('dur_over3m', 'INTEGER NOT NULL DEFAULT 0'),
+      ];
+
+      for (final (colName, colDef) in columnsToAdd) {
+        if (!colNames.contains(colName)) {
+          debugPrint('[Migration] Adding column "$colName" to daily_stats');
+          await customStatement(
+            'ALTER TABLE daily_stats ADD COLUMN $colName $colDef',
+          );
+        }
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      debugPrint('[Migration] Could not add daily_stats columns: $e');
     }
   }
 
@@ -315,6 +357,22 @@ class HistoryDatabase extends _$HistoryDatabase {
     }
   }
 
+  /// Creates indexes on entry_tags for faster tag joins (idempotent).
+  Future<void> _ensureEntryTagIndexes() async {
+    try {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_entry_tags_entry_id '
+        'ON entry_tags(entry_id)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_entry_tags_tag_id '
+        'ON entry_tags(tag_id)',
+      );
+    } catch (_) {
+      // Table may not exist yet during initial creation — skip.
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Query helpers
   // ---------------------------------------------------------------------------
@@ -325,7 +383,8 @@ class HistoryDatabase extends _$HistoryDatabase {
           ..where((e) => e.deletedAt.isNull() & e.archived.equals(false))
           ..orderBy([
             (e) => OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
-            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+            (e) =>
+                OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
           ])
           ..limit(limit, offset: offset))
         .get();
@@ -334,12 +393,15 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// Pinned entries only (non-deleted, non-archived).
   Future<List<HistoryEntry>> pinnedEntries() {
     return (select(historyEntries)
-          ..where((e) =>
-              e.pinned.equals(true) &
-              e.deletedAt.isNull() &
-              e.archived.equals(false))
+          ..where(
+            (e) =>
+                e.pinned.equals(true) &
+                e.deletedAt.isNull() &
+                e.archived.equals(false),
+          )
           ..orderBy([
-            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
+            (e) =>
+                OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
           ]))
         .get();
   }
@@ -347,10 +409,10 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// Archived entries only (non-deleted).
   Future<List<HistoryEntry>> archivedEntries({int limit = 100}) {
     return (select(historyEntries)
-          ..where((e) =>
-              e.archived.equals(true) & e.deletedAt.isNull())
+          ..where((e) => e.archived.equals(true) & e.deletedAt.isNull())
           ..orderBy([
-            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
+            (e) =>
+                OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
           ])
           ..limit(limit))
         .get();
@@ -361,7 +423,8 @@ class HistoryDatabase extends _$HistoryDatabase {
     return (select(historyEntries)
           ..where((e) => e.deletedAt.isNotNull())
           ..orderBy([
-            (e) => OrderingTerm(expression: e.deletedAt, mode: OrderingMode.desc)
+            (e) =>
+                OrderingTerm(expression: e.deletedAt, mode: OrderingMode.desc),
           ])
           ..limit(limit))
         .get();
@@ -370,10 +433,10 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// Entries in a specific project.
   Future<List<HistoryEntry>> entriesByProject(String projectId) {
     return (select(historyEntries)
-          ..where(
-              (e) => e.projectId.equals(projectId) & e.deletedAt.isNull())
+          ..where((e) => e.projectId.equals(projectId) & e.deletedAt.isNull())
           ..orderBy([
-            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
+            (e) =>
+                OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
           ]))
         .get();
   }
@@ -426,14 +489,100 @@ class HistoryDatabase extends _$HistoryDatabase {
       if (rowIds.isEmpty) return [];
 
       return (select(historyEntries)
-            ..where(
-                (e) => e.rowId.isIn(rowIds.toList()) & e.deletedAt.isNull())
+            ..where((e) => e.rowId.isIn(rowIds.toList()) & e.deletedAt.isNull())
             ..orderBy([
-              (e) => OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
               (e) =>
-                  OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+                  OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
+              (e) => OrderingTerm(
+                expression: e.timestamp,
+                mode: OrderingMode.desc,
+              ),
             ]))
           .get();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Advanced search with exact tag filtering and optional language filter.
+  ///
+  /// - [freeText] is passed to FTS5 + LIKE (same as [searchEntries]).
+  /// - [tagNames] are exact tag name matches (AND semantics — entry must have
+  ///   ALL listed tags).  De-duplicated and lowercased before querying.
+  /// - [langCode] filters by the `language` column (exact match).
+  ///
+  /// When [freeText] is empty and no tags/lang are given, returns all active
+  /// entries sorted by pinned desc, timestamp desc.
+  Future<List<HistoryEntry>> searchEntriesAdvanced({
+    String freeText = '',
+    List<String> tagNames = const [],
+    String? langCode,
+    bool includeDeleted = false,
+    bool includeArchived = false,
+  }) async {
+    try {
+      // Deduplicate tag names
+      final uniqueTags = tagNames
+          .map((t) => t.toLowerCase().trim())
+          .where((t) => t.isNotEmpty)
+          .toSet()
+          .toList();
+
+      Set<String>? freeTextIds;
+
+      // --- Free-text search (FTS5 + tag LIKE + note LIKE) ---
+      if (freeText.isNotEmpty) {
+        final results = await searchEntries(freeText);
+        freeTextIds = results.map((e) => e.id).toSet();
+        if (freeTextIds.isEmpty) return [];
+      }
+
+      // --- Exact tag filtering via GROUP BY / HAVING COUNT ---
+      Set<String>? tagIds;
+      if (uniqueTags.isNotEmpty) {
+        final placeholders = uniqueTags.map((_) => '?').join(', ');
+        final tagResults = await customSelect(
+          'SELECT he.id FROM history_entries he '
+          'INNER JOIN entry_tags et ON et.entry_id = he.id '
+          'INNER JOIN tags t ON t.id = et.tag_id '
+          'WHERE ${includeDeleted ? '1=1' : 'he.deleted_at IS NULL'} '
+          '  AND LOWER(t.name) IN ($placeholders) '
+          'GROUP BY he.id '
+          'HAVING COUNT(DISTINCT LOWER(t.name)) = ${uniqueTags.length}',
+          variables: uniqueTags.map(Variable.withString).toList(),
+        ).get();
+        tagIds = tagResults.map((r) => r.read<String>('id')).toSet();
+        if (tagIds.isEmpty) return [];
+      }
+
+      // Intersect free-text and tag results
+      Set<String>? combinedIds;
+      if (freeTextIds != null && tagIds != null) {
+        combinedIds = freeTextIds.intersection(tagIds);
+      } else {
+        combinedIds = freeTextIds ?? tagIds;
+      }
+
+      final finalQuery = select(historyEntries);
+      if (combinedIds != null) {
+        finalQuery.where((e) => e.id.isIn(combinedIds!.toList()));
+      }
+      if (!includeDeleted) {
+        finalQuery.where((e) => e.deletedAt.isNull());
+      }
+      if (!includeArchived && combinedIds == null) {
+        // Only suppress archived when returning everything (no filter pinpoints it)
+        finalQuery.where((e) => e.archived.equals(false));
+      }
+      if (langCode != null && langCode.isNotEmpty) {
+        finalQuery.where((e) => e.language.equals(langCode));
+      }
+      finalQuery.orderBy([
+        (e) => OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
+        (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+      ]);
+
+      return finalQuery.get();
     } catch (_) {
       return [];
     }
@@ -461,26 +610,30 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Get a single entry by ID (or null if not found).
   Future<HistoryEntry?> getEntry(String entryId) {
-    return (select(historyEntries)..where((e) => e.id.equals(entryId)))
-        .getSingleOrNull();
+    return (select(
+      historyEntries,
+    )..where((e) => e.id.equals(entryId))).getSingleOrNull();
   }
 
   /// Partial update of an existing entry (only writes provided fields).
   Future<int> updateEntry(String entryId, HistoryEntriesCompanion companion) {
-    return (update(historyEntries)..where((e) => e.id.equals(entryId)))
-        .write(companion);
+    return (update(
+      historyEntries,
+    )..where((e) => e.id.equals(entryId))).write(companion);
   }
 
   /// Soft-delete an entry (move to trash).
   Future<int> softDeleteEntry(String entryId) {
-    return (update(historyEntries)..where((e) => e.id.equals(entryId)))
-        .write(HistoryEntriesCompanion(deletedAt: Value(DateTime.now())));
+    return (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
+      HistoryEntriesCompanion(deletedAt: Value(DateTime.now())),
+    );
   }
 
   /// Restore a soft-deleted entry from trash.
   Future<int> restoreEntry(String entryId) {
-    return (update(historyEntries)..where((e) => e.id.equals(entryId)))
-        .write(const HistoryEntriesCompanion(deletedAt: Value(null)));
+    return (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
+      const HistoryEntriesCompanion(deletedAt: Value(null)),
+    );
   }
 
   /// Permanently delete a single entry.
@@ -491,48 +644,119 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// Permanently remove soft-deleted entries older than [days].
   Future<int> purgeTrash({int days = 30}) {
     final cutoff = DateTime.now().subtract(Duration(days: days));
-    return (delete(historyEntries)
-          ..where((e) => e.deletedAt.isNotNull() & e.deletedAt.isSmallerThanValue(cutoff)))
+    return (delete(historyEntries)..where(
+          (e) =>
+              e.deletedAt.isNotNull() & e.deletedAt.isSmallerThanValue(cutoff),
+        ))
         .go();
   }
 
   /// Permanently remove ALL soft-deleted entries (empty trash).
   Future<int> emptyTrash() {
-    return (delete(historyEntries)..where((e) => e.deletedAt.isNotNull()))
-        .go();
+    return (delete(historyEntries)..where((e) => e.deletedAt.isNotNull())).go();
+  }
+
+  /// Soft-delete the oldest non-favorite, non-trashed entries that exceed
+  /// [max] active entries. Returns the number of entries moved to trash.
+  /// A [max] of 0 is a no-op (unlimited).
+  Future<int> trimToMaxEntries(int max) async {
+    if (max <= 0) return 0;
+
+    // IDs of active (non-trashed) entries, ordered newest-first.
+    // Favorites are excluded — they are never auto-trimmed.
+    final activeQuery = selectOnly(historyEntries)
+      ..addColumns([historyEntries.id])
+      ..where(
+        historyEntries.deletedAt.isNull() & historyEntries.pinned.equals(false),
+      )
+      ..orderBy([
+        OrderingTerm(
+          expression: historyEntries.timestamp,
+          mode: OrderingMode.desc,
+        ),
+        OrderingTerm(expression: historyEntries.id, mode: OrderingMode.desc),
+      ]);
+
+    final rows = await activeQuery.get();
+    if (rows.length <= max) return 0;
+
+    final idsToTrash = rows
+        .skip(max)
+        .map((r) => r.read(historyEntries.id)!)
+        .toList();
+
+    final now = DateTime.now();
+    await (update(historyEntries)..where((e) => e.id.isIn(idsToTrash))).write(
+      HistoryEntriesCompanion(deletedAt: Value(now)),
+    );
+
+    return idsToTrash.length;
   }
 
   /// Toggle archive status.
   Future<void> toggleArchive(String entryId) async {
-    final entry = await (select(historyEntries)
-          ..where((e) => e.id.equals(entryId)))
-        .getSingleOrNull();
+    final entry = await (select(
+      historyEntries,
+    )..where((e) => e.id.equals(entryId))).getSingleOrNull();
     if (entry == null) return;
-    await (update(historyEntries)..where((e) => e.id.equals(entryId)))
-        .write(HistoryEntriesCompanion(archived: Value(!entry.archived)));
+    await (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
+      HistoryEntriesCompanion(archived: Value(!entry.archived)),
+    );
   }
 
   /// Bulk soft-delete multiple entries.
   Future<void> softDeleteEntries(List<String> entryIds) async {
-    await (update(historyEntries)..where((e) => e.id.isIn(entryIds)))
-        .write(HistoryEntriesCompanion(deletedAt: Value(DateTime.now())));
+    await (update(historyEntries)..where((e) => e.id.isIn(entryIds))).write(
+      HistoryEntriesCompanion(deletedAt: Value(DateTime.now())),
+    );
+  }
+
+  /// Bulk archive multiple entries.
+  Future<void> batchArchive(List<String> entryIds) async {
+    if (entryIds.isEmpty) return;
+    await (update(historyEntries)..where((e) => e.id.isIn(entryIds))).write(
+      const HistoryEntriesCompanion(archived: Value(true)),
+    );
+  }
+
+  /// Bulk restore entries from archive or trash.
+  Future<void> batchRestore(List<String> entryIds) async {
+    if (entryIds.isEmpty) return;
+    await (update(historyEntries)..where((e) => e.id.isIn(entryIds))).write(
+      const HistoryEntriesCompanion(
+        archived: Value(false),
+        deletedAt: Value(null),
+      ),
+    );
+  }
+
+  /// Bulk permanently delete entries.
+  Future<void> batchPermanentDelete(List<String> entryIds) async {
+    if (entryIds.isEmpty) return;
+    await (delete(historyEntries)..where((e) => e.id.isIn(entryIds))).go();
   }
 
   /// Merge multiple entries into one. Keeps the oldest timestamp,
   /// concatenates content with dividers, combines tags.
   Future<HistoryEntry?> mergeEntries(List<String> entryIds) async {
     if (entryIds.length < 2) return null;
-    final entries = await (select(historyEntries)
-          ..where((e) => e.id.isIn(entryIds))
-          ..orderBy([
-            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.asc)
-          ]))
-        .get();
+    final entries =
+        await (select(historyEntries)
+              ..where((e) => e.id.isIn(entryIds))
+              ..orderBy([
+                (e) => OrderingTerm(
+                  expression: e.timestamp,
+                  mode: OrderingMode.asc,
+                ),
+              ]))
+            .get();
     if (entries.length < 2) return null;
 
     // Merge content
-    final mergedContent =
-        entries.map((e) => e.content.trim()).where((c) => c.isNotEmpty).join('\n\n---\n\n');
+    final mergedContent = entries
+        .map((e) => e.content.trim())
+        .where((c) => c.isNotEmpty)
+        .join('\n\n---\n\n');
 
     // Merge tags (deduplicate)
     final allTags = <String>{};
@@ -541,13 +765,14 @@ class HistoryDatabase extends _$HistoryDatabase {
       final raw = e.tags;
       if (raw.isNotEmpty && raw != '[]') {
         // Simple parse: strip brackets, split by comma
-        for (final t in raw
-            .replaceAll('[', '')
-            .replaceAll(']', '')
-            .replaceAll('"', '')
-            .split(',')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)) {
+        for (final t
+            in raw
+                .replaceAll('[', '')
+                .replaceAll(']', '')
+                .replaceAll('"', '')
+                .split(',')
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)) {
           allTags.add(t);
         }
       }
@@ -580,8 +805,9 @@ class HistoryDatabase extends _$HistoryDatabase {
     await softDeleteEntries(otherIds);
 
     // Return the merged entry
-    return (select(historyEntries)..where((e) => e.id.equals(base.id)))
-        .getSingleOrNull();
+    return (select(
+      historyEntries,
+    )..where((e) => e.id.equals(base.id))).getSingleOrNull();
   }
 
   /// Insert or update an entry.
@@ -591,9 +817,9 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Duplicate an entry with a new ID and "(copy)" title suffix.
   Future<HistoryEntry?> duplicateEntry(String entryId) async {
-    final original = await (select(historyEntries)
-          ..where((e) => e.id.equals(entryId)))
-        .getSingleOrNull();
+    final original = await (select(
+      historyEntries,
+    )..where((e) => e.id.equals(entryId))).getSingleOrNull();
     if (original == null) return null;
 
     final newId = DateTime.now().millisecondsSinceEpoch.toString();
@@ -617,51 +843,110 @@ class HistoryDatabase extends _$HistoryDatabase {
       titleEdited: const Value(false),
     );
     await into(historyEntries).insert(companion);
-    return (select(historyEntries)..where((e) => e.id.equals(newId)))
-        .getSingleOrNull();
+    return (select(
+      historyEntries,
+    )..where((e) => e.id.equals(newId))).getSingleOrNull();
   }
 
   /// Toggle pin status.
   Future<void> togglePin(String entryId) async {
-    final entry = await (select(historyEntries)
-          ..where((e) => e.id.equals(entryId)))
-        .getSingleOrNull();
+    final entry = await (select(
+      historyEntries,
+    )..where((e) => e.id.equals(entryId))).getSingleOrNull();
     if (entry == null) return;
-    await (update(historyEntries)..where((e) => e.id.equals(entryId)))
-        .write(HistoryEntriesCompanion(pinned: Value(!entry.pinned)));
+    await (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
+      HistoryEntriesCompanion(pinned: Value(!entry.pinned)),
+    );
   }
 
   /// Watch all non-deleted, non-archived entries as a live stream.
-  Stream<List<HistoryEntry>> watchEntries({int limit = 100}) {
-    return (select(historyEntries)
-          ..where((e) => e.deletedAt.isNull() & e.archived.equals(false))
-          ..orderBy([
-            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
-          ])
-          ..limit(limit))
-        .watch();
+  Stream<List<HistoryEntry>> watchEntries({int? limit}) {
+    final query = select(historyEntries)
+      ..where((e) => e.deletedAt.isNull() & e.archived.equals(false))
+      ..orderBy([
+        (e) => OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
+        (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+      ]);
+    if (limit != null) query.limit(limit);
+    return query.watch();
   }
 
   /// Watch archived entries.
-  Stream<List<HistoryEntry>> watchArchived({int limit = 100}) {
-    return (select(historyEntries)
-          ..where((e) => e.archived.equals(true) & e.deletedAt.isNull())
-          ..orderBy([
-            (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc)
-          ])
-          ..limit(limit))
-        .watch();
+  Stream<List<HistoryEntry>> watchArchived({int? limit}) {
+    final query = select(historyEntries)
+      ..where((e) => e.archived.equals(true) & e.deletedAt.isNull())
+      ..orderBy([
+        (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+      ]);
+    if (limit != null) query.limit(limit);
+    return query.watch();
   }
 
   /// Watch trash entries.
-  Stream<List<HistoryEntry>> watchTrash({int limit = 100}) {
-    return (select(historyEntries)
-          ..where((e) => e.deletedAt.isNotNull())
-          ..orderBy([
-            (e) => OrderingTerm(expression: e.deletedAt, mode: OrderingMode.desc)
-          ])
-          ..limit(limit))
-        .watch();
+  Stream<List<HistoryEntry>> watchTrash({int? limit}) {
+    final query = select(historyEntries)
+      ..where((e) => e.deletedAt.isNotNull())
+      ..orderBy([
+        (e) => OrderingTerm(expression: e.deletedAt, mode: OrderingMode.desc),
+      ]);
+    if (limit != null) query.limit(limit);
+    return query.watch();
+  }
+
+  /// Count active (non-deleted, non-archived) entries.
+  Future<int> countActive() async {
+    final result = await customSelect(
+      'SELECT COUNT(*) AS cnt FROM history_entries '
+      'WHERE deleted_at IS NULL AND archived = 0',
+    ).getSingle();
+    return result.data['cnt'] as int? ?? 0;
+  }
+
+  /// Count archived entries.
+  Future<int> countArchived() async {
+    final result = await customSelect(
+      'SELECT COUNT(*) AS cnt FROM history_entries '
+      'WHERE archived = 1 AND deleted_at IS NULL',
+    ).getSingle();
+    return result.data['cnt'] as int? ?? 0;
+  }
+
+  /// Count trashed entries.
+  Future<int> countTrash() async {
+    final result = await customSelect(
+      'SELECT COUNT(*) AS cnt FROM history_entries WHERE deleted_at IS NOT NULL',
+    ).getSingle();
+    return result.data['cnt'] as int? ?? 0;
+  }
+
+  /// Count entries matching a search query across a specific pool.
+  ///
+  /// [pool] is one of 'active', 'archived', 'trash'.
+  Future<int> countSearchMatches(String query, {String pool = 'active'}) async {
+    if (query.trim().isEmpty) {
+      switch (pool) {
+        case 'archived':
+          return countArchived();
+        case 'trash':
+          return countTrash();
+        default:
+          return countActive();
+      }
+    }
+    final results = await searchEntriesAdvanced(
+      freeText: query,
+      includeArchived: pool == 'archived',
+      includeDeleted: pool == 'trash',
+    );
+    // Filter to the right pool
+    switch (pool) {
+      case 'archived':
+        return results.where((e) => e.archived && e.deletedAt == null).length;
+      case 'trash':
+        return results.where((e) => e.deletedAt != null).length;
+      default:
+        return results.where((e) => !e.archived && e.deletedAt == null).length;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -671,18 +956,16 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// Creates a tag with the given name (lowercased). Returns existing if duplicate.
   Future<Tag> createTag(String name) async {
     final normalized = name.toLowerCase().trim();
-    final existing = await (select(tags)
-          ..where((t) => t.name.equals(normalized)))
-        .getSingleOrNull();
+    final existing = await (select(
+      tags,
+    )..where((t) => t.name.equals(normalized))).getSingleOrNull();
     if (existing != null) return existing;
 
     final id = _uuid();
     final now = DateTime.now();
-    await into(tags).insert(TagsCompanion.insert(
-      id: id,
-      name: normalized,
-      createdAt: now,
-    ));
+    await into(
+      tags,
+    ).insert(TagsCompanion.insert(id: id, name: normalized, createdAt: now));
     return Tag(id: id, name: normalized, createdAt: now);
   }
 
@@ -695,13 +978,14 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// Renames a tag (lowercased). Fails silently if new name already exists.
   Future<void> renameTag(String tagId, String newName) async {
     final normalized = newName.toLowerCase().trim();
-    final existing = await (select(tags)
-          ..where((t) => t.name.equals(normalized)))
-        .getSingleOrNull();
+    final existing = await (select(
+      tags,
+    )..where((t) => t.name.equals(normalized))).getSingleOrNull();
     if (existing != null && existing.id != tagId) return;
 
-    await (update(tags)..where((t) => t.id.equals(tagId)))
-        .write(TagsCompanion(name: Value(normalized)));
+    await (update(tags)..where((t) => t.id.equals(tagId))).write(
+      TagsCompanion(name: Value(normalized)),
+    );
   }
 
   /// All tags, alphabetically.
@@ -711,36 +995,39 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Tags for a specific entry (via join).
   Future<List<Tag>> tagsForEntry(String entryId) async {
-    final query = select(tags).join([
-      innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id)),
-    ])
-      ..where(entryTags.entryId.equals(entryId))
-      ..orderBy([OrderingTerm.asc(tags.name)]);
+    final query =
+        select(
+            tags,
+          ).join([innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
+          ..where(entryTags.entryId.equals(entryId))
+          ..orderBy([OrderingTerm.asc(tags.name)]);
     final rows = await query.get();
     return rows.map((r) => r.readTable(tags)).toList();
   }
 
   /// Reactive stream of tags for a specific entry.
   Stream<List<Tag>> watchTagsForEntry(String entryId) {
-    final query = select(tags).join([
-      innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id)),
-    ])
-      ..where(entryTags.entryId.equals(entryId))
-      ..orderBy([OrderingTerm.asc(tags.name)]);
+    final query =
+        select(
+            tags,
+          ).join([innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
+          ..where(entryTags.entryId.equals(entryId))
+          ..orderBy([OrderingTerm.asc(tags.name)]);
     return query.watch().map(
-          (rows) => rows.map((r) => r.readTable(tags)).toList(),
-        );
+      (rows) => rows.map((r) => r.readTable(tags)).toList(),
+    );
   }
 
   /// Most-used tags by entry count.
   Future<List<Tag>> frequentTags({int limit = 10}) async {
     final count = entryTags.tagId.count();
-    final query = select(tags).join([
-      innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id)),
-    ])
-      ..groupBy([tags.id, tags.name, tags.createdAt])
-      ..orderBy([OrderingTerm.desc(count)])
-      ..limit(limit);
+    final query =
+        select(
+            tags,
+          ).join([innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
+          ..groupBy([tags.id, tags.name, tags.createdAt])
+          ..orderBy([OrderingTerm.desc(count)])
+          ..limit(limit);
     final rows = await query.get();
     return rows.map((r) => r.readTable(tags)).toList();
   }
@@ -748,17 +1035,50 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// Like [frequentTags] but also returns usage count per tag.
   Future<List<(Tag, int)>> frequentTagsWithCount({int limit = 10}) async {
     final count = entryTags.tagId.count();
-    final query = select(tags).join([
-      innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id)),
-    ])
-      ..addColumns([count])
-      ..groupBy([tags.id, tags.name, tags.createdAt])
-      ..orderBy([OrderingTerm.desc(count)])
-      ..limit(limit);
+    final query =
+        select(
+            tags,
+          ).join([innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
+          ..addColumns([count])
+          ..groupBy([tags.id, tags.name, tags.createdAt])
+          ..orderBy([OrderingTerm.desc(count)])
+          ..limit(limit);
     final rows = await query.get();
-    return rows
-        .map((r) => (r.readTable(tags), r.read(count) ?? 0))
-        .toList();
+    return rows.map((r) => (r.readTable(tags), r.read(count) ?? 0)).toList();
+  }
+
+  /// All tags with their usage counts (number of linked entries), alphabetically.
+  ///
+  /// Unlike [frequentTagsWithCount], this includes unused tags (count 0)
+  /// and does not limit results.
+  Future<List<(Tag, int)>> allTagsWithCount() async {
+    final count = entryTags.tagId.count();
+    final query =
+        select(
+            tags,
+          ).join([leftOuterJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
+          ..addColumns([count])
+          ..groupBy([tags.id, tags.name, tags.createdAt])
+          ..orderBy([OrderingTerm.asc(tags.name)]);
+    final rows = await query.get();
+    return rows.map((r) => (r.readTable(tags), r.read(count) ?? 0)).toList();
+  }
+
+  /// Tags with zero linked entries.
+  Future<List<Tag>> unusedTags() async {
+    final all = await allTagsWithCount();
+    return all.where((r) => r.$2 == 0).map((r) => r.$1).toList();
+  }
+
+  /// Deletes all tags that have zero linked entries.
+  /// Returns the number of tags deleted.
+  Future<int> deleteUnusedTags() async {
+    final unused = await unusedTags();
+    if (unused.isEmpty) return 0;
+    for (final tag in unused) {
+      await (delete(tags)..where((t) => t.id.equals(tag.id))).go();
+    }
+    return unused.length;
   }
 
   /// Prefix search for tag autocomplete.
@@ -781,10 +1101,9 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Remove a tag from an entry.
   Future<void> untagEntry(String entryId, String tagId) {
-    return (delete(entryTags)
-          ..where(
-              (et) => et.entryId.equals(entryId) & et.tagId.equals(tagId)))
-        .go();
+    return (delete(
+      entryTags,
+    )..where((et) => et.entryId.equals(entryId) & et.tagId.equals(tagId))).go();
   }
 
   /// Generates a v4 UUID without external dependencies.
@@ -876,9 +1195,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   // ---------------------------------------------------------------------------
 
   Future<List<Project>> allProjects() {
-    return (select(projects)
-          ..orderBy([(p) => OrderingTerm.asc(p.name)]))
-        .get();
+    return (select(projects)..orderBy([(p) => OrderingTerm.asc(p.name)])).get();
   }
 
   Future<void> upsertProject(ProjectsCompanion project) {
@@ -914,8 +1231,9 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Partial update of an existing note (only writes provided fields).
   Future<int> updateNoteFields(String noteId, EntryNotesCompanion companion) {
-    return (update(entryNotes)..where((n) => n.id.equals(noteId)))
-        .write(companion);
+    return (update(
+      entryNotes,
+    )..where((n) => n.id.equals(noteId))).write(companion);
   }
 
   Future<int> deleteNote(String noteId) {
@@ -962,21 +1280,16 @@ class HistoryDatabase extends _$HistoryDatabase {
       onConflict: DoUpdate(
         (old) => DailyStatsCompanion.custom(
           count: dailyStats.count + const Constant(1),
-          totalDurationSec:
-              dailyStats.totalDurationSec + Variable(durationSec),
+          totalDurationSec: dailyStats.totalDurationSec + Variable(durationSec),
           totalProcessingSec:
               dailyStats.totalProcessingSec + Variable(processingDurationSec),
           totalWords: dailyStats.totalWords + Variable(wordCount),
           totalCostUsd: dailyStats.totalCostUsd + Variable(costUsd),
-          durUnder15s:
-              dailyStats.durUnder15s + Variable(bucket == 0 ? 1 : 0),
-          dur15To30s:
-              dailyStats.dur15To30s + Variable(bucket == 1 ? 1 : 0),
-          dur30To60s:
-              dailyStats.dur30To60s + Variable(bucket == 2 ? 1 : 0),
+          durUnder15s: dailyStats.durUnder15s + Variable(bucket == 0 ? 1 : 0),
+          dur15To30s: dailyStats.dur15To30s + Variable(bucket == 1 ? 1 : 0),
+          dur30To60s: dailyStats.dur30To60s + Variable(bucket == 2 ? 1 : 0),
           dur1To3m: dailyStats.dur1To3m + Variable(bucket == 3 ? 1 : 0),
-          durOver3m:
-              dailyStats.durOver3m + Variable(bucket == 4 ? 1 : 0),
+          durOver3m: dailyStats.durOver3m + Variable(bucket == 4 ? 1 : 0),
         ),
         target: [dailyStats.date, dailyStats.model, dailyStats.isLocal],
       ),
@@ -986,17 +1299,18 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// Backfill DailyStats from existing HistoryEntries (one-time migration).
   Future<void> backfillDailyStats() async {
     // Check if DailyStats already has data — skip if already backfilled.
-    final existing = await (selectOnly(dailyStats)
-          ..addColumns([dailyStats.count.sum()]))
-        .getSingle();
+    final existing = await (selectOnly(
+      dailyStats,
+    )..addColumns([dailyStats.count.sum()])).getSingle();
     final existingCount = existing.read(dailyStats.count.sum()) ?? 0;
     if (existingCount > 0) return;
 
     // Read ALL history entries (including deleted/archived) for backfill.
     final entries = await select(historyEntries).get();
     for (final e in entries) {
-      final words =
-          e.content.trim().isEmpty ? 0 : e.content.trim().split(RegExp(r'\s+')).length;
+      final words = e.content.trim().isEmpty
+          ? 0
+          : e.content.trim().split(RegExp(r'\s+')).length;
       await recordDailyStat(
         timestamp: e.timestamp,
         model: e.model,
@@ -1029,8 +1343,7 @@ class HistoryDatabase extends _$HistoryDatabase {
     final total = dailyStats.count.sum();
     final q = selectOnly(dailyStats)..addColumns([total]);
     if (since != null) {
-      q.where(dailyStats.date
-          .isBiggerOrEqualValue(_dateKey(since)));
+      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
     }
     final row = await q.getSingle();
     return row.read(total) ?? 0;
@@ -1041,8 +1354,7 @@ class HistoryDatabase extends _$HistoryDatabase {
     final total = dailyStats.totalDurationSec.sum();
     final q = selectOnly(dailyStats)..addColumns([total]);
     if (since != null) {
-      q.where(dailyStats.date
-          .isBiggerOrEqualValue(_dateKey(since)));
+      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
     }
     final row = await q.getSingle();
     return row.read(total) ?? 0.0;
@@ -1053,8 +1365,7 @@ class HistoryDatabase extends _$HistoryDatabase {
     final total = dailyStats.totalWords.sum();
     final q = selectOnly(dailyStats)..addColumns([total]);
     if (since != null) {
-      q.where(dailyStats.date
-          .isBiggerOrEqualValue(_dateKey(since)));
+      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
     }
     final row = await q.getSingle();
     return row.read(total) ?? 0;
@@ -1065,8 +1376,7 @@ class HistoryDatabase extends _$HistoryDatabase {
     final total = dailyStats.totalCostUsd.sum();
     final q = selectOnly(dailyStats)..addColumns([total]);
     if (since != null) {
-      q.where(dailyStats.date
-          .isBiggerOrEqualValue(_dateKey(since)));
+      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
     }
     final row = await q.getSingle();
     return row.read(total) ?? 0.0;
@@ -1081,8 +1391,7 @@ class HistoryDatabase extends _$HistoryDatabase {
     final q = selectOnly(dailyStats)..addColumns([total]);
     q.where(dailyStats.isLocal.equals(true));
     if (since != null) {
-      q.where(dailyStats.date
-          .isBiggerOrEqualValue(_dateKey(since)));
+      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
     }
     final row = await q.getSingle();
     final totalSec = row.read(total) ?? 0.0;
@@ -1099,8 +1408,7 @@ class HistoryDatabase extends _$HistoryDatabase {
       ..groupBy([dailyStats.model])
       ..orderBy([OrderingTerm.desc(cnt)]);
     if (since != null) {
-      q.where(dailyStats.date
-          .isBiggerOrEqualValue(_dateKey(since)));
+      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
     }
     final rows = await q.get();
     final total = rows.fold<int>(0, (s, r) => s + (r.read(cnt) ?? 0));
@@ -1153,8 +1461,7 @@ class HistoryDatabase extends _$HistoryDatabase {
     ];
     final q = selectOnly(dailyStats)..addColumns(cols);
     if (since != null) {
-      q.where(dailyStats.date
-          .isBiggerOrEqualValue(_dateKey(since)));
+      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
     }
     final row = await q.getSingle();
     return [
@@ -1229,8 +1536,7 @@ Future<void> _migrateFromNestedPath(String correctDir) async {
 
     // Remove old nested directory (best-effort).
     try {
-      await Directory(p.join(correctDir, 'WhisPaste'))
-          .delete(recursive: true);
+      await Directory(p.join(correctDir, 'WhisPaste')).delete(recursive: true);
     } catch (_) {}
 
     debugPrint('DB migrated from nested WhisPaste/WhisPaste/ path');
@@ -1244,7 +1550,6 @@ Future<void> _migrateFromNestedPath(String correctDir) async {
 // ---------------------------------------------------------------------------
 
 /// Global database provider — single instance across the app.
-// TODO: Replace with real Riverpod provider when history DB is connected
 final historyDatabaseProvider = Provider<HistoryDatabase>((ref) {
   final db = HistoryDatabase();
   ref.onDispose(db.close);

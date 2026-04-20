@@ -173,6 +173,11 @@ Future<void> configureLogging() async {
   _fileSink = _LogFileSink._();
   await _fileSink!.init();
 
+  final path = logFilePath;
+  if (path != null) {
+    debugPrint('Log file: $path');
+  }
+
   Logger.root.onRecord.listen((record) {
     // Format: "[LEVEL] LoggerName: message"
     final line =
@@ -203,8 +208,9 @@ Future<void> configureLogging() async {
       debugPrint(buf.toString());
     }
 
-    // Persistent file: write info+ always (debug and release).
-    if (record.level >= Level.INFO) {
+    // Persistent file: write debug+ in debug mode, info+ in release.
+    const fileThreshold = kReleaseMode ? Level.INFO : Level.FINE;
+    if (record.level >= fileThreshold) {
       _fileSink?.write(record);
     }
 

@@ -12,6 +12,14 @@
 -- - Mark crash_report_events as deprecated (Sentry replaces it)
 
 -- ═══════════════════════════════════════════════════════════════════════════
+-- 0. Enable RLS on user_feedback (was missing from initial table creation)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Without this, all policies on the table are inert and offer no protection.
+ALTER TABLE public.user_feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_feedback FORCE ROW LEVEL SECURITY;
+
+-- ═══════════════════════════════════════════════════════════════════════════
 -- 1. Replace deny-all policy with validated INSERT policy
 -- ═══════════════════════════════════════════════════════════════════════════
 

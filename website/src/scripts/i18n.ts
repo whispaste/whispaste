@@ -8,7 +8,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'hero.store.hint': 'Supports the project – thank you!',
     'hero.free.link': 'or download free from GitHub',
     'hero.installer': 'Installer & more options',
-    'hero.meta': 'Windows · macOS & Linux coming soon · Free & open source',
+    'hero.meta': 'Windows · macOS · Free & open source',
     'hero.trust.anywhere': 'Open source',
     'hero.trust.private': 'Privacy-first',
     'hero.trust.nosub': 'Free to use',
@@ -36,6 +36,25 @@ export const i18n: Record<string, Record<string, string>> = {
     'howitworks.step3.label': 'Step 3',
     'howitworks.step3.title': 'Paste, expand, or polish',
     'howitworks.step3.desc': 'Text appears at the cursor — ready to use, edit, or expand with voice shortcuts.',
+    'screenshots.label': 'Screenshots',
+    'screenshots.title': 'Where your voice becomes text',
+    'screenshots.desc': 'Dictate, organize, refine. Here\u2019s how it looks in practice.',
+    'screenshots.seeAll': 'Explore all screens →',
+    'screenshots.workspace': 'Your dictations at a glance',
+    'screenshots.detail': 'Edit and refine each entry',
+    'screenshots.shortcuts': 'Voice commands that save keystrokes',
+    'screenshots.hotkey': 'Start dictating with one key',
+    'screenshots.insights': 'Track how you use your voice',
+    'gallery.title': 'Every screen, every detail',
+    'gallery.desc': 'Five views that show the full workflow — from dictation to polished text. Switch themes to find your style.',
+    'gallery.themeDark': 'Dark',
+    'gallery.themeLight': 'Light',
+    'gallery.workspace': 'Your dictations at a glance',
+    'gallery.detail': 'Edit and refine each entry',
+    'gallery.shortcuts': 'Voice commands that save keystrokes',
+    'gallery.settings': 'Customize to fit your workflow',
+    'gallery.analytics': 'Track how you use your voice',
+    'gallery.cta': 'Get WhisPaste — it\u2019s free',
     'privacy.label': 'Trust',
     'privacy.title': 'Your voice stays yours',
     'privacy.desc': 'Local when you want it. Cloud only when you choose it. No tracking. No analytics.',
@@ -73,7 +92,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'faq.privacy.q': 'Is my voice data safe?',
     'faq.privacy.a': 'Your audio never leaves your machine in local mode. If you use the cloud path, recordings go directly from your device to the provider you selected — WhisPaste does not proxy or store them. Optional crash reports are transparent and can be turned off any time.',
     'faq.windows.q': 'Is WhisPaste available on Mac or Linux?',
-    'faq.windows.a': 'Currently available for Windows. macOS and Linux versions are in active development.',
+    'faq.windows.a': 'WhisPaste is available for Windows and macOS. A Linux version is planned.',
     'faq.smartscreen.q': 'Why does Windows show a warning when I download?',
     'faq.smartscreen.a': 'Microsoft SmartScreen warns about any new software that hasn\'t built download reputation yet — it doesn\'t mean the app is unsafe. WhisPaste is open source, and every release is built transparently through GitHub Actions. Click "More info" → "Run anyway" to proceed.',
     'testimonials.label': 'Testimonials',
@@ -107,6 +126,12 @@ export const i18n: Record<string, Record<string, string>> = {
     'download.trust.opensource': 'Open source on GitHub',
     'download.trust.cicd': 'Built via GitHub Actions',
     'download.trust.notelemetry': 'No analytics or tracking',
+    'download.macos.title': 'macOS (Apple Silicon)',
+    'download.macos.desc': 'Download the latest macOS release directly from GitHub. Supports Apple M-series chips natively.',
+    'download.macos.button': 'Download for macOS',
+    'download.macos.hint': 'After downloading, open the DMG and drag WhisPaste to your Applications folder.',
+    'download.macos.gatekeeper.title': 'Note: Gatekeeper warning',
+    'download.macos.gatekeeper.desc': 'macOS may show "WhisPaste can\'t be opened because it is from an unidentified developer". Right-click the app, select "Open", then click "Open" in the dialog.',
     'sponsor.title': 'Support WhisPaste',
     'sponsor.desc': 'WhisPaste is free and open source — no ads, no data collection. Your support helps keep it that way.',
     'sponsor.github.title': 'GitHub Sponsors',
@@ -179,6 +204,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'carousel.slide1Aria': 'Slide 1: Press hotkey',
     'carousel.slide2Aria': 'Slide 2: Speak now',
     'carousel.slide3Aria': 'Slide 3: Auto-pasted',
+    'carousel.overlayLocal': 'Local',
     'store.btn.getfrom': 'Get it from',
     'store.btn.msstore': 'Microsoft Store',
     'store.btn.single': 'Get it on Microsoft Store',
@@ -192,7 +218,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'hero.store.hint': 'Unterstützt das Projekt – danke!',
     'hero.free.link': 'oder kostenlos von GitHub laden',
     'hero.installer': 'Installer & weitere Optionen',
-    'hero.meta': 'Windows · macOS & Linux folgen · Kostenlos & Open Source',
+    'hero.meta': 'Windows · macOS · Kostenlos & Open Source',
     'hero.trust.anywhere': 'Open Source',
     'hero.trust.private': 'Privacy-first',
     'hero.trust.nosub': 'Kostenlos nutzbar',
@@ -220,6 +246,25 @@ export const i18n: Record<string, Record<string, string>> = {
     'howitworks.step3.label': 'Schritt 3',
     'howitworks.step3.title': 'Einfügen, anpassen oder verfeinern',
     'howitworks.step3.desc': 'Der Text erscheint am Cursor — direkt einsatzbereit, zum Bearbeiten oder Erweitern mit Sprach-Shortcuts.',
+    'screenshots.label': 'Screenshots',
+    'screenshots.title': 'Wo deine Stimme zu Text wird',
+    'screenshots.desc': 'Diktieren, sortieren, verfeinern. So sieht das in der Praxis aus.',
+    'screenshots.seeAll': 'Alle Ansichten entdecken →',
+    'screenshots.workspace': 'Alle Diktate auf einen Blick',
+    'screenshots.detail': 'Jeden Eintrag bearbeiten und verfeinern',
+    'screenshots.shortcuts': 'Sprachbefehle, die Tippen ersparen',
+    'screenshots.hotkey': 'Mit einer Taste diktieren',
+    'screenshots.insights': 'Verfolge, wie du deine Stimme nutzt',
+    'gallery.title': 'Jeder Screen, jedes Detail',
+    'gallery.desc': 'Fünf Ansichten für den ganzen Workflow — vom Diktat zum fertigen Text. Wechsle das Theme und finde deinen Stil.',
+    'gallery.themeDark': 'Dunkel',
+    'gallery.themeLight': 'Hell',
+    'gallery.workspace': 'Alle Diktate auf einen Blick',
+    'gallery.detail': 'Jeden Eintrag bearbeiten und verfeinern',
+    'gallery.shortcuts': 'Sprachbefehle, die Tippen ersparen',
+    'gallery.settings': 'Anpassbar an deinen Workflow',
+    'gallery.analytics': 'Verfolge, wie du deine Stimme nutzt',
+    'gallery.cta': 'WhisPaste holen — kostenlos',
     'privacy.label': 'Vertrauen',
     'privacy.title': 'Deine Stimme bleibt bei dir',
     'privacy.desc': 'Lokal, wenn du willst. Cloud nur, wenn du sie auswählst. Kein Tracking. Keine Analytics.',
@@ -257,7 +302,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'faq.privacy.q': 'Sind meine Sprachdaten sicher?',
     'faq.privacy.a': 'Im lokalen Modus verlässt dein Audio nie deinen Rechner. Wenn du den Cloud-Weg nutzt, gehen die Aufnahmen direkt von deinem Gerät an den ausgewählten Anbieter — WhisPaste leitet nichts weiter und speichert nichts davon. Optionale Crash-Reports sind transparent und lassen sich jederzeit abschalten.',
     'faq.windows.q': 'Gibt es WhisPaste auch für Mac oder Linux?',
-    'faq.windows.a': 'Aktuell für Windows verfügbar. macOS- und Linux-Versionen sind in aktiver Entwicklung.',
+    'faq.windows.a': 'WhisPaste ist für Windows und macOS verfügbar. Eine Linux-Version ist geplant.',
     'faq.smartscreen.q': 'Warum zeigt Windows beim Download eine Warnung?',
     'faq.smartscreen.a': 'Microsoft SmartScreen warnt bei jeder neuen Software, die noch keine Download-Reputation aufgebaut hat — das bedeutet nicht, dass die App unsicher ist. WhisPaste ist Open Source, und jedes Release wird transparent über GitHub Actions gebaut. Klicke auf „Weitere Informationen" → „Trotzdem ausführen".',
     'testimonials.label': 'Erfahrungsberichte',
@@ -291,6 +336,12 @@ export const i18n: Record<string, Record<string, string>> = {
     'download.trust.opensource': 'Open Source auf GitHub',
     'download.trust.cicd': 'Gebaut über GitHub Actions',
     'download.trust.notelemetry': 'Kein Tracking oder Analytics',
+    'download.macos.title': 'macOS (Apple Silicon)',
+    'download.macos.desc': 'Lade das neueste macOS-Release direkt von GitHub herunter. Unterstützt Apple M-Chips nativ.',
+    'download.macos.button': 'Für macOS herunterladen',
+    'download.macos.hint': 'Nach dem Download das DMG öffnen und WhisPaste in den Programme-Ordner ziehen.',
+    'download.macos.gatekeeper.title': 'Hinweis: Gatekeeper-Warnung',
+    'download.macos.gatekeeper.desc': 'macOS zeigt möglicherweise „WhisPaste kann nicht geöffnet werden, da es von einem nicht identifizierten Entwickler stammt". Rechtsklick auf die App → „Öffnen" → im Dialog „Öffnen" klicken.',
     'sponsor.title': 'WhisPaste unterstützen',
     'sponsor.desc': 'WhisPaste ist kostenlos und Open Source — keine Werbung, keine Datensammlung. Deine Unterstützung hilft, dass das so bleibt.',
     'sponsor.github.title': 'GitHub Sponsors',
@@ -363,6 +414,7 @@ export const i18n: Record<string, Record<string, string>> = {
     'carousel.slide1Aria': 'Folie 1: Tastenkürzel drücken',
     'carousel.slide2Aria': 'Folie 2: Jetzt sprechen',
     'carousel.slide3Aria': 'Folie 3: Automatisch eingefügt',
+    'carousel.overlayLocal': 'Lokal',
     'store.btn.getfrom': 'Hol es im',
     'store.btn.msstore': 'Microsoft Store',
     'store.btn.single': 'Hol es im Microsoft Store',
@@ -446,12 +498,14 @@ export function applyLang() {
 }
 
 // Expose globally for onclick handlers
-(window as any).toggleLang = toggleLang;
-(window as any).currentLang = currentLang;
-
-// Keep window.currentLang in sync
-const origToggle = toggleLang;
-(window as any).toggleLang = function() {
-  origToggle();
+if (typeof window !== 'undefined') {
+  (window as any).toggleLang = toggleLang;
   (window as any).currentLang = currentLang;
-};
+
+  // Keep window.currentLang in sync
+  const origToggle = toggleLang;
+  (window as any).toggleLang = function() {
+    origToggle();
+    (window as any).currentLang = currentLang;
+  };
+}

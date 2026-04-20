@@ -1,0 +1,17 @@
+{
+  "name": "whispaste-appstore-screens",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Store screenshot generator for WhisPaste — Playwright + sharp panorama pipeline",
+  "scripts": {
+    "generate": "node generate.cjs",
+    "generate:all": "node generate.cjs --lang=all",
+    "generate:en": "node generate.cjs --lang=en",
+    "generate:de": "node generate.cjs --lang=de",
+    "generate:og": "node ..\\og-image\\generate.cjs --lang=all"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0",
+    "sharp": "^0.33.0"
+  }
+}

@@ -391,6 +391,12 @@ abstract class L10n {
   /// **'No transcriptions match \"{query}\".\nTry a different search term.'**
   String historyNoResultsHint(String query);
 
+  /// No description provided for @historyClearSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get historyClearSearch;
+
   /// No description provided for @historyTrashEmpty.
   ///
   /// In en, this message translates to:
@@ -589,6 +595,18 @@ abstract class L10n {
   /// **'Launch at Startup'**
   String get settingsLaunchAtStartup;
 
+  /// No description provided for @settingsStartMinimized.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Minimized'**
+  String get settingsStartMinimized;
+
+  /// No description provided for @settingsStartMinimizedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start in the background when launched at system boot'**
+  String get settingsStartMinimizedSubtitle;
+
   /// No description provided for @settingsShowNotifications.
   ///
   /// In en, this message translates to:
@@ -685,24 +703,6 @@ abstract class L10n {
   /// **'Automatically stop after this many seconds of silence (after speech). 0 = disabled.'**
   String get settingsAutoStopSilenceHint;
 
-  /// No description provided for @settingsPostProcessing.
-  ///
-  /// In en, this message translates to:
-  /// **'Post-Processing'**
-  String get settingsPostProcessing;
-
-  /// No description provided for @settingsPostProcessingHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Improve your dictated text automatically using AI.'**
-  String get settingsPostProcessingHint;
-
-  /// No description provided for @settingsTextEnhancementSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Clean up, shorten, or translate dictated text automatically'**
-  String get settingsTextEnhancementSubtitle;
-
   /// No description provided for @settingsEnabled.
   ///
   /// In en, this message translates to:
@@ -730,7 +730,7 @@ abstract class L10n {
   /// No description provided for @settingsServiceOnDevicePrivate.
   ///
   /// In en, this message translates to:
-  /// **'On Device'**
+  /// **'Locally on Device'**
   String get settingsServiceOnDevicePrivate;
 
   /// No description provided for @settingsQualityFastTiny.
@@ -786,24 +786,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Spanish'**
   String get settingsLanguageSpanish;
-
-  /// No description provided for @settingsPresetCleanup.
-  ///
-  /// In en, this message translates to:
-  /// **'Clean up'**
-  String get settingsPresetCleanup;
-
-  /// No description provided for @settingsPresetConcise.
-  ///
-  /// In en, this message translates to:
-  /// **'Make concise'**
-  String get settingsPresetConcise;
-
-  /// No description provided for @settingsPresetTranslate.
-  ///
-  /// In en, this message translates to:
-  /// **'Translate'**
-  String get settingsPresetTranslate;
 
   /// No description provided for @settingsSoundFeedback.
   ///
@@ -886,13 +868,13 @@ abstract class L10n {
   /// No description provided for @settingsOverlayFloatingButton.
   ///
   /// In en, this message translates to:
-  /// **'Overlay & Floating Button'**
+  /// **'Recording Overlay'**
   String get settingsOverlayFloatingButton;
 
   /// No description provided for @settingsOverlayFloatingButtonSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Control how recording status appears outside the main window'**
+  /// **'Control how recording status appears while you dictate'**
   String get settingsOverlayFloatingButtonSubtitle;
 
   /// No description provided for @settingsShowOverlay.
@@ -906,12 +888,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Choose where live recording feedback appears while you dictate'**
   String get settingsShowOverlaySubtitle;
-
-  /// No description provided for @settingsOverlayModeInWindow.
-  ///
-  /// In en, this message translates to:
-  /// **'In main window'**
-  String get settingsOverlayModeInWindow;
 
   /// No description provided for @settingsOverlayModeFloating.
   ///
@@ -979,6 +955,18 @@ abstract class L10n {
   /// **'Only affects the floating button, not the recording overlay'**
   String get settingsFloatingButtonOpacitySubtitle;
 
+  /// No description provided for @settingsFloatingOverlayOpacity.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay opacity'**
+  String get settingsFloatingOverlayOpacity;
+
+  /// No description provided for @settingsFloatingOverlayOpacitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Transparency of the floating recording overlay'**
+  String get settingsFloatingOverlayOpacitySubtitle;
+
   /// No description provided for @settingsFloatingButtonSize.
   ///
   /// In en, this message translates to:
@@ -1020,6 +1008,24 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Recognition Language'**
   String get settingsRecognitionLanguage;
+
+  /// No description provided for @settingsCustomVocabulary.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Vocabulary'**
+  String get settingsCustomVocabulary;
+
+  /// No description provided for @settingsCustomVocabularyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Names, technical terms — improves recognition accuracy'**
+  String get settingsCustomVocabularyHint;
+
+  /// No description provided for @settingsCustomVocabularyPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. WhisPaste, Kubernetes, Dr. Mueller'**
+  String get settingsCustomVocabularyPlaceholder;
 
   /// No description provided for @settingsAppLanguage.
   ///
@@ -1657,6 +1663,12 @@ abstract class L10n {
   /// **'Try a different search term.'**
   String get replacementsNoMatchesHint;
 
+  /// No description provided for @replacementsToggleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable shortcuts'**
+  String get replacementsToggleLabel;
+
   /// No description provided for @replacementsToggleEnabled.
   ///
   /// In en, this message translates to:
@@ -2131,18 +2143,6 @@ abstract class L10n {
   /// **'On device'**
   String get statusBarOnDevice;
 
-  /// No description provided for @statusBarPostProcessing.
-  ///
-  /// In en, this message translates to:
-  /// **'Post-Processing'**
-  String get statusBarPostProcessing;
-
-  /// No description provided for @statusBarOverlayInWindow.
-  ///
-  /// In en, this message translates to:
-  /// **'Overlay: Window'**
-  String get statusBarOverlayInWindow;
-
   /// No description provided for @statusBarOverlayFloating.
   ///
   /// In en, this message translates to:
@@ -2179,24 +2179,6 @@ abstract class L10n {
   /// **'After: Manual'**
   String get statusBarAfterNothing;
 
-  /// No description provided for @statusBarPresetCleanup.
-  ///
-  /// In en, this message translates to:
-  /// **'Clean Up'**
-  String get statusBarPresetCleanup;
-
-  /// No description provided for @statusBarPresetConcise.
-  ///
-  /// In en, this message translates to:
-  /// **'Concise'**
-  String get statusBarPresetConcise;
-
-  /// No description provided for @statusBarPresetTranslate.
-  ///
-  /// In en, this message translates to:
-  /// **'Translate'**
-  String get statusBarPresetTranslate;
-
   /// No description provided for @sttStatusStandby.
   ///
   /// In en, this message translates to:
@@ -2226,12 +2208,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Speech engine and current status'**
   String get statusBarSttTooltip;
-
-  /// No description provided for @statusBarPostProcessTooltip.
-  ///
-  /// In en, this message translates to:
-  /// **'Active post-processing'**
-  String get statusBarPostProcessTooltip;
 
   /// No description provided for @statusBarRecording.
   ///
@@ -2293,6 +2269,78 @@ abstract class L10n {
   /// **'Cmd'**
   String get modifierCmd;
 
+  /// No description provided for @modifierOption.
+  ///
+  /// In en, this message translates to:
+  /// **'Option'**
+  String get modifierOption;
+
+  /// No description provided for @shortcutKeySpace.
+  ///
+  /// In en, this message translates to:
+  /// **'Space'**
+  String get shortcutKeySpace;
+
+  /// No description provided for @shortcutKeyEnter.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter'**
+  String get shortcutKeyEnter;
+
+  /// No description provided for @shortcutKeyEscape.
+  ///
+  /// In en, this message translates to:
+  /// **'Esc'**
+  String get shortcutKeyEscape;
+
+  /// No description provided for @shortcutKeyBackspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Backspace'**
+  String get shortcutKeyBackspace;
+
+  /// No description provided for @shortcutKeyTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Tab'**
+  String get shortcutKeyTab;
+
+  /// No description provided for @shortcutKeyDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Del'**
+  String get shortcutKeyDelete;
+
+  /// No description provided for @shortcutKeyInsert.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert'**
+  String get shortcutKeyInsert;
+
+  /// No description provided for @shortcutKeyHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get shortcutKeyHome;
+
+  /// No description provided for @shortcutKeyEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'End'**
+  String get shortcutKeyEnd;
+
+  /// No description provided for @shortcutKeyPageUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Page Up'**
+  String get shortcutKeyPageUp;
+
+  /// No description provided for @shortcutKeyPageDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Page Down'**
+  String get shortcutKeyPageDown;
+
   /// No description provided for @tooltipSwitchToLight.
   ///
   /// In en, this message translates to:
@@ -2346,6 +2394,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Downloading…'**
   String get modelDownloading;
+
+  /// No description provided for @modelDownloadingEngine.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing speech engine…'**
+  String get modelDownloadingEngine;
 
   /// No description provided for @modelVerifying.
   ///
@@ -2473,17 +2527,65 @@ abstract class L10n {
   /// **'Active'**
   String get qualityTierActive;
 
-  /// No description provided for @settingsOverlayInWindowHint.
+  /// No description provided for @qualityTierInfoSlow.
   ///
   /// In en, this message translates to:
-  /// **'Only visible while the main window is open'**
-  String get settingsOverlayInWindowHint;
+  /// **'Best quality — takes ~{ratio}x longer to process'**
+  String qualityTierInfoSlow(String ratio);
 
-  /// No description provided for @settingsQualityFast.
+  /// No description provided for @qualityTierInfoSlowerThanCompact.
   ///
   /// In en, this message translates to:
-  /// **'Fast'**
-  String get settingsQualityFast;
+  /// **'Best quality — ~{ratio}x slower than Small'**
+  String qualityTierInfoSlowerThanCompact(String ratio);
+
+  /// No description provided for @qualityTierInfoModerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Good balance of speed and quality'**
+  String get qualityTierInfoModerate;
+
+  /// No description provided for @qualityTierBenchmarkReRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-run benchmark'**
+  String get qualityTierBenchmarkReRun;
+
+  /// No description provided for @qualityTierBenchmarkRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Run benchmark'**
+  String get qualityTierBenchmarkRun;
+
+  /// No description provided for @qualityTierInfoBenchmarking.
+  ///
+  /// In en, this message translates to:
+  /// **'Testing performance…'**
+  String get qualityTierInfoBenchmarking;
+
+  /// No description provided for @qualityTierActionOverride.
+  ///
+  /// In en, this message translates to:
+  /// **'Use anyway'**
+  String get qualityTierActionOverride;
+
+  /// No description provided for @qualityTierActionOverrideHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this quality level despite the warning'**
+  String get qualityTierActionOverrideHint;
+
+  /// No description provided for @qualityTierModelTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Whisper {modelName} · {size}'**
+  String qualityTierModelTooltip(String modelName, String size);
+
+  /// No description provided for @analyticsModelDisplayName.
+  ///
+  /// In en, this message translates to:
+  /// **'{tierLabel} (Whisper {modelLabel})'**
+  String analyticsModelDisplayName(String tierLabel, String modelLabel);
 
   /// No description provided for @settingsQualityBasic.
   ///
@@ -2563,11 +2665,113 @@ abstract class L10n {
   /// **'Please download a speech model in Settings first.'**
   String get infoModelMissing;
 
+  /// No description provided for @oomRecoveryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording failed — GPU memory issue'**
+  String get oomRecoveryTitle;
+
+  /// No description provided for @oomRecoveryMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your GPU ran out of memory. Choose how to proceed:'**
+  String get oomRecoveryMessage;
+
+  /// No description provided for @oomRecoveryTrySmaller.
+  ///
+  /// In en, this message translates to:
+  /// **'Try smaller model'**
+  String get oomRecoveryTrySmaller;
+
+  /// No description provided for @oomRecoveryTrySmallerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to {model} and retry recording'**
+  String oomRecoveryTrySmallerHint(String model);
+
+  /// No description provided for @oomRecoverySwitchCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to Cloud'**
+  String get oomRecoverySwitchCloud;
+
+  /// No description provided for @oomRecoverySwitchCloudHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use cloud speech recognition instead'**
+  String get oomRecoverySwitchCloudHint;
+
+  /// No description provided for @oomRecoveryCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get oomRecoveryCancel;
+
+  /// No description provided for @oomRecoveryPermanentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Local speech recognition unavailable'**
+  String get oomRecoveryPermanentTitle;
+
+  /// No description provided for @oomRecoveryPermanentMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'All local models failed due to GPU memory limits. Please switch to cloud speech recognition in settings.'**
+  String get oomRecoveryPermanentMessage;
+
+  /// No description provided for @oomRecoveryPermanentCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get oomRecoveryPermanentCloud;
+
+  /// No description provided for @oomRecoveryDowngrading.
+  ///
+  /// In en, this message translates to:
+  /// **'Switching to {model}…'**
+  String oomRecoveryDowngrading(String model);
+
+  /// No description provided for @oomRecoverySwitchingCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Switching to cloud speech recognition…'**
+  String get oomRecoverySwitchingCloud;
+
+  /// No description provided for @oomRecoveryAttemptFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Model {model} also failed. Trying next option…'**
+  String oomRecoveryAttemptFailed(String model);
+
+  /// No description provided for @infoSttCudaOomFallbackModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality reduced — your GPU ran out of memory. Switched to a lighter model.'**
+  String get infoSttCudaOomFallbackModel;
+
+  /// No description provided for @infoSttCudaOomFallbackCpu.
+  ///
+  /// In en, this message translates to:
+  /// **'Your GPU ran out of memory. Switched to CPU mode for reliability.'**
+  String get infoSttCudaOomFallbackCpu;
+
   /// No description provided for @errorSttServerNotFound.
   ///
   /// In en, this message translates to:
   /// **'Speech engine not found. Please download a speech model in Settings.'**
   String get errorSttServerNotFound;
+
+  /// No description provided for @errorSttServerConnectionLost.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech engine stopped unexpectedly. Please try again.'**
+  String get errorSttServerConnectionLost;
+
+  /// No description provided for @errorSttCudaOom.
+  ///
+  /// In en, this message translates to:
+  /// **'Your GPU ran out of memory. Quality was reduced so the next try should work.'**
+  String get errorSttCudaOom;
 
   /// No description provided for @errorOnboardingNotCompleted.
   ///
@@ -2658,6 +2862,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get errorGeneric;
+
+  /// No description provided for @modelDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed. Please check your internet connection.'**
+  String get modelDownloadFailed;
 
   /// No description provided for @statusSttLoading.
   ///
@@ -2755,6 +2965,72 @@ abstract class L10n {
   /// **'Create \"{tag}\"'**
   String historyCreateTag(Object tag);
 
+  /// No description provided for @historyManageTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage tags'**
+  String get historyManageTags;
+
+  /// No description provided for @tagManageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Tags'**
+  String get tagManageTitle;
+
+  /// No description provided for @tagManageEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No tags created yet.'**
+  String get tagManageEmpty;
+
+  /// No description provided for @tagUsageCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{unused} =1{1 entry} other{{count} entries}}'**
+  String tagUsageCount(int count);
+
+  /// No description provided for @tagDeleteConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete tag?'**
+  String get tagDeleteConfirmTitle;
+
+  /// No description provided for @tagDeleteConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The tag \"{name}\" is used in {count, plural, =1{1 entry} other{{count} entries}}. It will be removed from all of them.'**
+  String tagDeleteConfirmMessage(String name, int count);
+
+  /// No description provided for @tagDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag \"{name}\" deleted'**
+  String tagDeleted(String name);
+
+  /// No description provided for @tagDeleteUnusedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete unused tags?'**
+  String get tagDeleteUnusedTitle;
+
+  /// No description provided for @tagDeleteUnusedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 unused tag} other{{count} unused tags}} will be permanently deleted.'**
+  String tagDeleteUnusedMessage(int count);
+
+  /// No description provided for @tagDeleteUnusedAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {count} unused'**
+  String tagDeleteUnusedAction(int count);
+
+  /// No description provided for @tagDeletedUnused.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 unused tag} other{{count} unused tags}} deleted'**
+  String tagDeletedUnused(int count);
+
   /// No description provided for @historyEditTranscript.
   ///
   /// In en, this message translates to:
@@ -2772,36 +3048,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Save'**
   String get historySaveTranscript;
-
-  /// No description provided for @historyAiActions.
-  ///
-  /// In en, this message translates to:
-  /// **'AI Actions'**
-  String get historyAiActions;
-
-  /// No description provided for @historyAiCleanUp.
-  ///
-  /// In en, this message translates to:
-  /// **'Clean up'**
-  String get historyAiCleanUp;
-
-  /// No description provided for @historyAiShorten.
-  ///
-  /// In en, this message translates to:
-  /// **'Shorten'**
-  String get historyAiShorten;
-
-  /// No description provided for @historyAiTranslate.
-  ///
-  /// In en, this message translates to:
-  /// **'Translate'**
-  String get historyAiTranslate;
-
-  /// No description provided for @historyAiComingSoon.
-  ///
-  /// In en, this message translates to:
-  /// **'AI post-processing is coming in a future update'**
-  String get historyAiComingSoon;
 
   /// No description provided for @historyShortcutHelp.
   ///
@@ -2874,6 +3120,132 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Copy to clipboard'**
   String get historyShortcutCopy;
+
+  /// No description provided for @historyShortcutEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit title'**
+  String get historyShortcutEditTitle;
+
+  /// No description provided for @historyEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit title'**
+  String get historyEditTitle;
+
+  /// No description provided for @historyTitlePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a title…'**
+  String get historyTitlePlaceholder;
+
+  /// No description provided for @historyTitleSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Title saved'**
+  String get historyTitleSaved;
+
+  /// No description provided for @historySearchHintCommands.
+  ///
+  /// In en, this message translates to:
+  /// **'Search transcriptions…'**
+  String get historySearchHintCommands;
+
+  /// No description provided for @historySearchHelpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Tips'**
+  String get historySearchHelpTitle;
+
+  /// No description provided for @historySearchHelpTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Type # to filter by tags'**
+  String get historySearchHelpTags;
+
+  /// No description provided for @historySearchHelpLang.
+  ///
+  /// In en, this message translates to:
+  /// **'Type lang: to filter by language'**
+  String get historySearchHelpLang;
+
+  /// No description provided for @historySearchHelpFreeText.
+  ///
+  /// In en, this message translates to:
+  /// **'Or just type any keyword'**
+  String get historySearchHelpFreeText;
+
+  /// No description provided for @historySearchQuickTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular tags'**
+  String get historySearchQuickTags;
+
+  /// No description provided for @historyRecentSearches.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent searches'**
+  String get historyRecentSearches;
+
+  /// No description provided for @historyQuickActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick filters'**
+  String get historyQuickActions;
+
+  /// No description provided for @historyQuickActionAllLangs.
+  ///
+  /// In en, this message translates to:
+  /// **'All languages'**
+  String get historyQuickActionAllLangs;
+
+  /// No description provided for @historyQuickActionFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites only'**
+  String get historyQuickActionFavorites;
+
+  /// No description provided for @historySortNewest.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest first'**
+  String get historySortNewest;
+
+  /// No description provided for @historySortOldest.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest first'**
+  String get historySortOldest;
+
+  /// No description provided for @historySortLongest.
+  ///
+  /// In en, this message translates to:
+  /// **'Longest first'**
+  String get historySortLongest;
+
+  /// No description provided for @historySearchActiveTag.
+  ///
+  /// In en, this message translates to:
+  /// **'#{tag}'**
+  String historySearchActiveTag(String tag);
+
+  /// No description provided for @historySearchActiveLang.
+  ///
+  /// In en, this message translates to:
+  /// **'lang:{code}'**
+  String historySearchActiveLang(String code);
+
+  /// No description provided for @historySearchSuggestTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by tag'**
+  String get historySearchSuggestTag;
+
+  /// No description provided for @historySearchSuggestLang.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by language'**
+  String get historySearchSuggestLang;
 
   /// No description provided for @settingsKeyboardShortcut.
   ///
@@ -2953,60 +3325,6 @@ abstract class L10n {
   /// **'Cloud speech recognition service'**
   String get settingsDefaultSttProviderSubtitle;
 
-  /// No description provided for @settingsLlmModel.
-  ///
-  /// In en, this message translates to:
-  /// **'LLM Model'**
-  String get settingsLlmModel;
-
-  /// No description provided for @settingsLlmModelSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Model used for cloud post-processing'**
-  String get settingsLlmModelSubtitle;
-
-  /// No description provided for @settingsLlmModelPlaceholder.
-  ///
-  /// In en, this message translates to:
-  /// **'e.g. gpt-4o-mini'**
-  String get settingsLlmModelPlaceholder;
-
-  /// No description provided for @settingsCustomInstructions.
-  ///
-  /// In en, this message translates to:
-  /// **'Custom Instructions'**
-  String get settingsCustomInstructions;
-
-  /// No description provided for @settingsCustomInstructionsSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Custom prompt for AI post-processing'**
-  String get settingsCustomInstructionsSubtitle;
-
-  /// No description provided for @settingsCustomInstructionsPlaceholder.
-  ///
-  /// In en, this message translates to:
-  /// **'e.g. Always use formal language…'**
-  String get settingsCustomInstructionsPlaceholder;
-
-  /// No description provided for @settingsOutputLanguage.
-  ///
-  /// In en, this message translates to:
-  /// **'Output Language'**
-  String get settingsOutputLanguage;
-
-  /// No description provided for @settingsOutputLanguageSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Force output to a specific language'**
-  String get settingsOutputLanguageSubtitle;
-
-  /// No description provided for @settingsOutputLanguageSameAsInput.
-  ///
-  /// In en, this message translates to:
-  /// **'Same as input'**
-  String get settingsOutputLanguageSameAsInput;
-
   /// No description provided for @settingsMaxRecordDuration.
   ///
   /// In en, this message translates to:
@@ -3049,36 +3367,6 @@ abstract class L10n {
   /// **'Help improve WhisPaste by sending anonymous crash reports'**
   String get settingsErrorReportingSubtitle;
 
-  /// No description provided for @settingsGpuAcceleration.
-  ///
-  /// In en, this message translates to:
-  /// **'GPU Acceleration'**
-  String get settingsGpuAcceleration;
-
-  /// No description provided for @settingsGpuAccelerationSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Use graphics card for faster AI processing'**
-  String get settingsGpuAccelerationSubtitle;
-
-  /// No description provided for @settingsGpuAuto.
-  ///
-  /// In en, this message translates to:
-  /// **'Auto-detect'**
-  String get settingsGpuAuto;
-
-  /// No description provided for @settingsGpuEnabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Always On'**
-  String get settingsGpuEnabled;
-
-  /// No description provided for @settingsGpuDisabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Disabled'**
-  String get settingsGpuDisabled;
-
   /// No description provided for @settingsAutoPasteDelay.
   ///
   /// In en, this message translates to:
@@ -3090,6 +3378,24 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Wait time before pasting into the active window'**
   String get settingsAutoPasteDelaySubtitle;
+
+  /// No description provided for @settingsAutoPasteBlocklist.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste Blocklist'**
+  String get settingsAutoPasteBlocklist;
+
+  /// No description provided for @settingsAutoPasteBlocklistSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Comma-separated app identifiers where auto-paste is disabled'**
+  String get settingsAutoPasteBlocklistSubtitle;
+
+  /// No description provided for @settingsAutoPasteBlocklistPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. com.apple.Terminal, com.1password'**
+  String get settingsAutoPasteBlocklistPlaceholder;
 
   /// No description provided for @settingsTextReplacements.
   ///
@@ -3343,12 +3649,6 @@ abstract class L10n {
   /// **'Transcribing…'**
   String get overlayTranscribing;
 
-  /// No description provided for @overlayRefining.
-  ///
-  /// In en, this message translates to:
-  /// **'Refining…'**
-  String get overlayRefining;
-
   /// No description provided for @overlayDone.
   ///
   /// In en, this message translates to:
@@ -3558,6 +3858,246 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Exported to {path}'**
   String commandPaletteExported(String path);
+
+  /// No description provided for @updateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available: v{version}'**
+  String updateAvailable(String version);
+
+  /// No description provided for @updateDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading update… {percent}%'**
+  String updateDownloading(int percent);
+
+  /// No description provided for @updateReadyToInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Update ready — click to install'**
+  String get updateReadyToInstall;
+
+  /// No description provided for @updateUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re on the latest version'**
+  String get updateUpToDate;
+
+  /// No description provided for @updateCheckNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Check Now'**
+  String get updateCheckNow;
+
+  /// No description provided for @updateInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Install Update'**
+  String get updateInstall;
+
+  /// No description provided for @updateDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get updateDownload;
+
+  /// No description provided for @updateViewRelease.
+  ///
+  /// In en, this message translates to:
+  /// **'Release Notes'**
+  String get updateViewRelease;
+
+  /// No description provided for @updateError.
+  ///
+  /// In en, this message translates to:
+  /// **'Update check failed'**
+  String get updateError;
+
+  /// No description provided for @updateRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many requests — try again later'**
+  String get updateRateLimited;
+
+  /// No description provided for @updateStatusBarChip.
+  ///
+  /// In en, this message translates to:
+  /// **'v{version} available'**
+  String updateStatusBarChip(String version);
+
+  /// No description provided for @settingsOverlaySize.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay size'**
+  String get settingsOverlaySize;
+
+  /// No description provided for @settingsOverlaySizeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose between detailed or minimal display'**
+  String get settingsOverlaySizeSubtitle;
+
+  /// No description provided for @settingsOverlaySizeNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get settingsOverlaySizeNormal;
+
+  /// No description provided for @settingsOverlaySizeCompact.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get settingsOverlaySizeCompact;
+
+  /// No description provided for @settingsOverlayAutoHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-hide delay'**
+  String get settingsOverlayAutoHide;
+
+  /// No description provided for @settingsOverlayAutoHideSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How long the overlay stays visible after completion'**
+  String get settingsOverlayAutoHideSubtitle;
+
+  /// No description provided for @settingsOverlayAutoHide2s.
+  ///
+  /// In en, this message translates to:
+  /// **'2 seconds'**
+  String get settingsOverlayAutoHide2s;
+
+  /// No description provided for @settingsOverlayAutoHide5s.
+  ///
+  /// In en, this message translates to:
+  /// **'5 seconds'**
+  String get settingsOverlayAutoHide5s;
+
+  /// No description provided for @settingsOverlayAutoHide10s.
+  ///
+  /// In en, this message translates to:
+  /// **'10 seconds'**
+  String get settingsOverlayAutoHide10s;
+
+  /// No description provided for @settingsOverlayAutoHideManual.
+  ///
+  /// In en, this message translates to:
+  /// **'Until dismissed'**
+  String get settingsOverlayAutoHideManual;
+
+  /// No description provided for @overlayRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get overlayRetry;
+
+  /// No description provided for @overlayDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get overlayDismiss;
+
+  /// No description provided for @overlayContextCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel recording'**
+  String get overlayContextCancel;
+
+  /// No description provided for @overlayContextSwitchNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to Normal'**
+  String get overlayContextSwitchNormal;
+
+  /// No description provided for @overlayContextSwitchCompact.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to Compact'**
+  String get overlayContextSwitchCompact;
+
+  /// No description provided for @overlayContextHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide overlay'**
+  String get overlayContextHide;
+
+  /// No description provided for @settingsHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get settingsHistory;
+
+  /// No description provided for @settingsHistorySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Retention and automatic cleanup'**
+  String get settingsHistorySubtitle;
+
+  /// No description provided for @settingsHistoryMaxEntries.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum entries'**
+  String get settingsHistoryMaxEntries;
+
+  /// No description provided for @settingsHistoryMaxEntriesUnlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get settingsHistoryMaxEntriesUnlimited;
+
+  /// No description provided for @settingsHistoryAutoTrashDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-delete trash after'**
+  String get settingsHistoryAutoTrashDays;
+
+  /// No description provided for @settingsHistoryAutoTrashNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get settingsHistoryAutoTrashNever;
+
+  /// No description provided for @settingsHistoryAutoTrashDaysLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day} other{{count} days}}'**
+  String settingsHistoryAutoTrashDaysLabel(int count);
+
+  /// No description provided for @settingsFloatingButtonSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Floating Button'**
+  String get settingsFloatingButtonSection;
+
+  /// No description provided for @settingsFloatingButtonSectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Always-on-top recording button for quick access'**
+  String get settingsFloatingButtonSectionSubtitle;
+
+  /// No description provided for @settingsSttIdleTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Engine idle timeout'**
+  String get settingsSttIdleTimeout;
+
+  /// No description provided for @settingsSttIdleTimeoutSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How long the speech engine stays loaded after use'**
+  String get settingsSttIdleTimeoutSubtitle;
+
+  /// No description provided for @settingsSttIdleTimeoutKeepAlive.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep alive'**
+  String get settingsSttIdleTimeoutKeepAlive;
+
+  /// No description provided for @settingsSttIdleTimeoutMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 minute} other{{count} minutes}}'**
+  String settingsSttIdleTimeoutMinutes(int count);
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

@@ -35,7 +35,26 @@ jobs:
         run: >-
           flutter build windows --release
           --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          # X.X.X.0 format for Windows file properties (strip prerelease suffix)
+          $parts = $version -split '[.\-]'
+          $numeric = "$($parts[0]).$($parts[1]).$($parts[2]).0"
+
+          & "C:\Program Files (x86)\NSIS\makensis.exe" `
+            /DPRODUCT_VERSION=$version `
+            /DPRODUCT_VERSION_NUMERIC=$numeric `
+            installer\whispaste.nsi
+
+          if ($LASTEXITCODE -ne 0) { throw "NSIS build failed" }
+          Write-Host "Built: installer\WhisPaste-Setup.exe"
 
       - name: Install NSIS
         run: choco install nsis -y --no-progress
@@ -107,17 +126,78 @@ jobs:
           name: msix-release
           path: build/windows/x64/runner/Release/*.msix
 
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.0
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build macOS release
+        run: >-
+          flutter build macos --release
+          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+
+      - name: Prepare release artifacts
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ARTIFACT_DIR="release-artifacts"
+          mkdir -p "$ARTIFACT_DIR"
+
+          APP_PATH="build/macos/Build/Products/Release/whispaste.app"
+
+          # Portable ZIP
+          cd build/macos/Build/Products/Release
+          zip -r "$OLDPWD/$ARTIFACT_DIR/WhisPaste-$VERSION-macos-arm64.zip" whispaste.app
+          cd "$OLDPWD"
+
+          # DMG via create-dmg (best-effort; falls back to zip-only)
+          brew install create-dmg || true
+          create-dmg \
+            --volname "WhisPaste" \
+            --window-size 500 320 \
+            --icon-size 80 \
+            --app-drop-link 380 170 \
+            --icon "whispaste.app" 120 170 \
+            "$ARTIFACT_DIR/WhisPaste-macos-arm64.dmg" \
+            "$APP_PATH" || true
+
+          echo "Release artifacts:"
+          ls -lh "$ARTIFACT_DIR"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: release-artifacts/
+
   create-release:
     name: Create GitHub Release
-    needs: [build-windows]
+    needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - name: Download artifacts
+      - name: Download Windows artifacts
         uses: actions/download-artifact@v4
         with:
           name: windows-release
+          path: artifacts/
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-release
           path: artifacts/
 
       - name: Generate release notes
@@ -143,3 +223,16 @@ jobs:
           files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Sentry release
+        if: env.SENTRY_AUTH_TOKEN != ''
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          # Org/Project/URL must match values in lib/core/app_info.dart
+          SENTRY_ORG: silvio-lindstedt-und-maik-g-y2
+          SENTRY_PROJECT: flutter_whispaste
+          SENTRY_URL: https://de.sentry.io
+        with:
+          environment: production
+          version: whispaste@${{ steps.notes.outputs.version }}

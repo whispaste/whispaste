@@ -10,8 +10,6 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 
-import 'screenshot_devices.dart';
-
 final _screenshots = <_WelcomeShot>[
   const _WelcomeShot(
     name: '05_onboarding_welcome_dark_en',
@@ -23,7 +21,15 @@ final _screenshots = <_WelcomeShot>[
   ),
 ];
 
-const _devices = [WpScreenshotDevices.windowsStore];
+const _devices = [
+  ScreenshotDevice(
+    platform: TargetPlatform.windows,
+    resolution: Size(1366, 768),
+    pixelRatio: 1,
+    goldenSubFolder: 'onboardingWelcomeScreenshots/',
+    frameBuilder: ScreenshotFrame.noFrame,
+  ),
+];
 
 void main() {
   ScreenshotDevice.screenshotsFolder = 'goldens/';
@@ -32,9 +38,8 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
 
     for (final screen in _screenshots) {
-      for (final goldenDevice in _devices) {
-        testGoldens(goldenDevice.name, (tester) async {
-          final device = goldenDevice.device;
+      for (final device in _devices) {
+        testGoldens('windowsStore', (tester) async {
           final app = _buildScreenshotApp(
             device: device,
             settings: screen.settings,

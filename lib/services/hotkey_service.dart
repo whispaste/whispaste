@@ -33,6 +33,9 @@ class HotkeyService extends Notifier<void> {
 
   HotKey? _registeredHotKey;
   bool _initialized = false;
+  DateTime? _lastHotkeyPress;
+
+  static const _debounceMs = 600;
 
   @override
   void build() {
@@ -81,6 +84,13 @@ class HotkeyService extends Notifier<void> {
       await hotKeyManager.register(
         _registeredHotKey!,
         keyDownHandler: (_) {
+          final now = DateTime.now();
+          if (_lastHotkeyPress != null &&
+              now.difference(_lastHotkeyPress!).inMilliseconds < _debounceMs) {
+            _log.debug('Hotkey debounced (within ${_debounceMs}ms window)');
+            return;
+          }
+          _lastHotkeyPress = now;
           _log.info('Global hotkey pressed');
           onHotkeyPressed?.call();
         },

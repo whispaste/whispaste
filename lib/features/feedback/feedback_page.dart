@@ -18,12 +18,36 @@ const _supabaseUrl = String.fromEnvironment(
   defaultValue: '',
 );
 
-/// Supabase anon key — injected at build time via `--dart-define`.
-/// Public key, safe for client-side use (RLS enforces access control).
-const _supabaseAnonKey = String.fromEnvironment(
-  'SUPABASE_ANON_KEY',
+/// Supabase publishable key — injected at build time via `--dart-define`.
+/// Public key (replaces legacy anon key), safe for client-side use.
+/// RLS enforces all access control server-side.
+const _supabasePublishableKey = String.fromEnvironment(
+  'SUPABASE_PUBLISHABLE_KEY',
   defaultValue: '',
 );
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Computes a stable 12-character hex device identifier hash from [hostname].
+///
+/// The result is always exactly 12 lowercase hex characters — matching the
+/// `length(device_id_hash) = 12` constraint in the RLS policy.
+/// Exposed via [visibleForTesting] so unit tests can verify the hash logic
+/// without going through the full widget submit flow.
+@visibleForTesting
+String computeFeedbackDeviceIdHash(String hostname) {
+  final bytes = utf8.encode('${hostname}_whispaste');
+  return md5.convert(bytes).toString().substring(0, 12);
+}
+
+/// Thrown by [_FeedbackPageState._post] for HTTP responses that should not
+/// be retried (rate-limited, server error).
+class _ServerException implements Exception {
+  final String code; // 'rate_limited' | 'server_error'
+  const _ServerException(this.code);
+}
 
 /// Feedback page — polished, chat-inspired feedback form.
 ///
@@ -171,6 +195,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                     child: TextField(
                       controller: _commentController,
                       maxLines: 5,
+                      maxLength: 1000,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         hintText: _category == 'bug'
@@ -281,77 +306,74 @@ class _FeedbackPageState extends State<FeedbackPage> {
       _error = null;
     });
 
+    // Capture locale before the first await to avoid using BuildContext across
+    // an async gap (lint: use_build_context_synchronously).
+    final locale = Localizations.localeOf(context).languageCode;
     try {
-      final payload = {
-        'rating': _rating,
-        'feedback_text': '[$_category] ${_commentController.text.trim()}',
-        'app_version': appVersion,
-        'device_id_hash': _deriveDeviceId(),
-      };
-
-      if (_supabaseUrl.isEmpty || _supabaseAnonKey.isEmpty) {
+      if (_supabaseUrl.isEmpty || _supabasePublishableKey.isEmpty) {
         _log.info(
           'Supabase not configured — skipping feedback submission '
           '(rating=$_rating category=$_category)',
         );
       } else {
-        _log.info('Submitting feedback: rating=$_rating category=$_category');
-        final response = await http
-            .post(
-              Uri.parse('$_supabaseUrl/rest/v1/user_feedback'),
-              headers: {
-                'Content-Type': 'application/json',
-                'apikey': _supabaseAnonKey,
-                'Authorization': 'Bearer $_supabaseAnonKey',
-                'Prefer': 'return=minimal',
-                'User-Agent': appUserAgent,
-              },
-              body: jsonEncode(payload),
-            )
-            .timeout(const Duration(seconds: 15));
-
-        if (response.statusCode == 429) {
-          _log.info('Feedback rate-limited (429)');
-          setState(() {
-            _submitting = false;
-            _error = 'rate_limited';
-          });
-          return;
-        }
-
-        // PG trigger raises P0001 → PostgREST returns 400 with "rate_limited".
-        if (response.statusCode == 400 &&
-            response.body.contains('rate_limited')) {
-          _log.info('Feedback rate-limited by DB trigger');
-          setState(() {
-            _submitting = false;
-            _error = 'rate_limited';
-          });
-          return;
-        }
-
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          _log.warning(
-            'Feedback submission error: ${response.statusCode} ${response.body}',
-          );
-          setState(() {
-            _submitting = false;
-            _error = 'server_error';
-          });
-          return;
-        }
+        _log.info('Submitting feedback: rating=$_rating category=$_category locale=$locale');
+        final payload = {
+          'rating': _rating,
+          'feedback_text': _commentController.text.trim(),
+          'category': _category,
+          'app_version': appVersion,
+          'device_id_hash': _deriveDeviceId(),
+          'locale': locale,
+        };
+        await _post(payload);
         _log.info('Feedback submitted successfully');
       }
-
       if (mounted) setState(() => _submitted = true);
+    } on _ServerException catch (e) {
+      if (mounted) setState(() { _submitting = false; _error = e.code; });
     } on Exception catch (e) {
       _log.warning('Feedback submission failed: $e');
-      if (mounted) {
-        setState(() {
-          _submitting = false;
-          _error = 'network_error';
-        });
-      }
+      if (mounted) setState(() { _submitting = false; _error = 'network_error'; });
+    }
+  }
+
+  /// Sends the feedback payload to Supabase via a direct PostgREST INSERT.
+  ///
+  /// No automatic retry — the form is manual and retrying a timed-out POST
+  /// could create a duplicate row. Users can re-submit on error.
+  ///
+  /// Throws [_ServerException] for rate-limit and server-error responses.
+  /// Throws the underlying [Exception] (e.g. [SocketException]) for network
+  /// failures.
+  Future<void> _post(Map<String, Object?> payload) async {
+    final response = await http
+        .post(
+          Uri.parse('$_supabaseUrl/rest/v1/user_feedback'),
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': _supabasePublishableKey,
+            'Authorization': 'Bearer $_supabasePublishableKey',
+            'Prefer': 'return=minimal',
+            'User-Agent': appUserAgent,
+          },
+          body: jsonEncode(payload),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 429) {
+      _log.info('Feedback rate-limited (429)');
+      throw const _ServerException('rate_limited');
+    }
+    // PG trigger raises P0001 → PostgREST returns 400 with "rate_limited".
+    if (response.statusCode == 400 && response.body.contains('rate_limited')) {
+      _log.info('Feedback rate-limited by DB trigger');
+      throw const _ServerException('rate_limited');
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _log.warning(
+        'Feedback submission error: ${response.statusCode} ${response.body}',
+      );
+      throw const _ServerException('server_error');
     }
   }
 
@@ -368,11 +390,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
 
   static String _deriveDeviceId() {
     try {
-      final hostname = Platform.localHostname;
-      final bytes = utf8.encode('${hostname}_whispaste');
-      return md5.convert(bytes).toString().substring(0, 12);
+      return computeFeedbackDeviceIdHash(Platform.localHostname);
     } on Exception {
-      return 'unknown';
+      return computeFeedbackDeviceIdHash('fallback_device');
     }
   }
 }
