@@ -1,0 +1,160 @@
+---
+// AppleButton.astro — Brand-consistent macOS DMG download button.
+// Mirrors StoreButton layout/sizing for visual parity in the Hero row.
+interface Props {
+  size?: 'default' | 'lg';
+  class?: string;
+}
+
+const DMG_URL =
+  'https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-macos-arm64.dmg';
+
+const { size = 'default', class: className = '' } = Astro.props;
+const isLarge = size === 'lg';
+---
+
+<a
+  href={DMG_URL}
+  class:list={[
+    'wp-apple-btn',
+    { 'wp-apple-btn--lg': isLarge },
+    className,
+  ]}
+  data-testid="apple-button"
+  aria-label={isLarge
+    ? 'Download WhisPaste for macOS (DMG)'
+    : 'Download WhisPaste for macOS'}
+>
+  <!-- Apple logo -->
+  <svg class="wp-apple-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+  </svg>
+
+  {isLarge ? (
+    <span class="wp-apple-btn__text">
+      <span class="wp-apple-btn__label" data-i18n="hero.download.macos.hint">Download for</span>
+      <span class="wp-apple-btn__platform" data-i18n="hero.download.macos.platform">macOS</span>
+    </span>
+  ) : (
+    <span class="wp-apple-btn__text">
+      <span data-i18n="hero.download.macos">Download for macOS</span>
+    </span>
+  )}
+</a>
+
+<style>
+  .wp-apple-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1.5rem;
+    min-height: 44px;
+    border-radius: 14px;
+    border: 1px solid rgba(56, 217, 240, 0.2);
+    background: linear-gradient(135deg, rgba(29, 37, 56, 0.8) 0%, rgba(23, 29, 44, 0.6) 100%);
+    color: #fff;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    cursor: pointer;
+  }
+
+  .wp-apple-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(56, 217, 240, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
+  }
+
+  .wp-apple-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .wp-apple-btn:focus-visible {
+    outline: 2px solid #38D9F0;
+    outline-offset: 2px;
+  }
+
+  /* Large variant */
+  .wp-apple-btn--lg {
+    padding: 0.75rem 2rem;
+    min-height: 52px;
+    gap: 0.875rem;
+  }
+
+  .wp-apple-btn__icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    color: #38D9F0;
+  }
+
+  .wp-apple-btn--lg .wp-apple-btn__icon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .wp-apple-btn__text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+
+  /* Default: single line */
+  .wp-apple-btn:not(.wp-apple-btn--lg) .wp-apple-btn__text {
+    flex-direction: row;
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  /* Large: two lines */
+  .wp-apple-btn--lg .wp-apple-btn__label {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.01em;
+  }
+
+  .wp-apple-btn--lg .wp-apple-btn__platform {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wp-apple-btn {
+      transition: none;
+    }
+    .wp-apple-btn:hover {
+      transform: none;
+    }
+  }
+
+  /* Light theme */
+  :global(.light) .wp-apple-btn,
+  :root.light .wp-apple-btn {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
+    border-color: rgba(8, 145, 178, 0.25);
+    color: #0c1425;
+  }
+
+  :global(.light) .wp-apple-btn:hover,
+  :root.light .wp-apple-btn:hover {
+    border-color: rgba(8, 145, 178, 0.45);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  :global(.light) .wp-apple-btn__icon,
+  :root.light .wp-apple-btn__icon {
+    color: #0891b2;
+  }
+
+  :global(.light) .wp-apple-btn--lg .wp-apple-btn__label,
+  :root.light .wp-apple-btn--lg .wp-apple-btn__label {
+    color: rgba(12, 20, 37, 0.5);
+  }
+
+  :global(.light) .wp-apple-btn--lg .wp-apple-btn__platform,
+  :root.light .wp-apple-btn--lg .wp-apple-btn__platform {
+    color: #0c1425;
+  }
+</style>

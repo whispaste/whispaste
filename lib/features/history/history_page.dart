@@ -99,9 +99,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   bool _isTextFieldFocused() {
     final primary = FocusManager.instance.primaryFocus;
     if (primary == null) return false;
-    return primary.context
-            ?.findAncestorWidgetOfExactType<EditableText>() !=
-        null;
+    final context = primary.context;
+    if (context == null) return false;
+    // When a TextField is focused, primaryFocus.context.widget IS the
+    // EditableText — findAncestorWidgetOfExactType only walks upward and
+    // would miss it, so we check the widget directly.
+    return context.widget is EditableText;
   }
 
   void _moveFocus(int delta, List<HistoryEntry> flat) {
