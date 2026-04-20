@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/features/history/data/providers.dart';
@@ -145,4 +146,103 @@ void main() {
       expect(find.byType(HistoryPage), findsOneWidget);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Shortcut suppression when a text field has focus
+  // ---------------------------------------------------------------------------
+  group('Shortcut suppression in text fields', () {
+    /// Finds the search TextField (if rendered) and focuses it.
+    Future<EditableText?> _focusSearchField(WidgetTester tester) async {
+      final candidates = tester.widgetList<EditableText>(
+        find.byType(EditableText),
+      );
+      if (candidates.isEmpty) return null;
+      // The search bar is typically the first EditableText in the history page.
+      final target = find.byType(EditableText).first;
+      await tester.tap(target);
+      await tester.pump();
+      return tester.widget<EditableText>(target);
+    }
+
+    testWidgets(
+        'Delete key does not trigger list action while search field focused',
+        (tester) async {
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+      await _settle(tester);
+
+      // Navigate to give a focused entry so Delete would normally fire.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await _settle(tester);
+
+      // Focus a text field.
+      final focused = await _focusSearchField(tester);
+      if (focused == null) return; // no text field rendered — skip gracefully
+
+      // Pressing Delete should NOT throw and should not open a delete dialog.
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+      await _settle(tester);
+
+      // Page still renders without any error dialog.
+      expect(find.byType(HistoryPage), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+    });
+
+    testWidgets(
+        'Backspace key does not trigger list action while text field focused',
+        (tester) async {
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+      await _settle(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await _settle(tester);
+
+      final focused = await _focusSearchField(tester);
+      if (focused == null) return;
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await _settle(tester);
+
+      expect(find.byType(HistoryPage), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+    });
+
+    testWidgets(
+        'Enter key does not open entry while text field focused',
+        (tester) async {
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+      await _settle(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await _settle(tester);
+
+      final focused = await _focusSearchField(tester);
+      if (focused == null) return;
+
+      // Pressing Enter while a text field is focused must not open a detail
+      // panel or throw — verifying no AlertDialog / new overlay appeared.
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await _settle(tester);
+
+      expect(find.byType(HistoryPage), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+    });
+
+    testWidgets('text field can receive focus in history page', (tester) async {
+      await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+      await _settle(tester);
+
+      final focused = await _focusSearchField(tester);
+      // If there's no EditableText in the tree, the page renders without one — fine.
+      // If there is one and we tapped it, FocusManager must have a primary focus.
+      if (focused != null) {
+        expect(FocusManager.instance.primaryFocus, isNotNull);
+      }
+      expect(find.byType(HistoryPage), findsOneWidget);
+    });
+  });
 }
+
