@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../app.dart' show activePageProvider;
 import '../../core/config/settings_provider.dart';
 import '../../core/data/database.dart';
 import '../../core/data/history_providers.dart';
@@ -12,6 +13,7 @@ import '../../core/logging/app_logger.dart';
 import '../../core/platform/macos_lifecycle_channel.dart';
 import '../../core/recording/recording_state.dart';
 import '../recording_orchestrator.dart';
+import '../stt_service.dart';
 import 'floating_button_controller.dart';
 import 'floating_button_events.dart';
 
@@ -146,11 +148,35 @@ class FloatingButtonService extends Notifier<void> {
 
       case FloatingButtonContextMenuSelected(id: final id):
         _log.debug('Context menu item selected: $id');
-        _copyEntryToClipboard(id);
+        _handleContextMenuAction(id);
 
       case FloatingButtonDragEnded(x: final x, y: final y):
         _log.debug('Floating button dragged to ($x, $y)');
         _savePosition(x, y);
+    }
+  }
+
+  void _handleContextMenuAction(String id) {
+    switch (id) {
+      case '__open__':
+        _bringMainWindowToFront();
+      case '__new_recording__':
+        _bringMainWindowToFront().then((_) {
+          ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+        });
+      case '__history__':
+        _bringMainWindowToFront().then((_) {
+          ref.read(activePageProvider.notifier).setPage('history');
+        });
+      case '__settings__':
+        _bringMainWindowToFront().then((_) {
+          ref.read(activePageProvider.notifier).setPage('settings');
+        });
+      case '__quit__':
+        _quit();
+      default:
+        // History entry ID → copy to clipboard.
+        _copyEntryToClipboard(id);
     }
   }
 
@@ -163,6 +189,15 @@ class FloatingButtonService extends Notifier<void> {
     } catch (e, st) {
       _log.error('Failed to bring main window to front', e, st);
     }
+  }
+
+  Future<void> _quit() async {
+    try {
+      ref.read(sttServiceProvider.notifier).stop();
+    } catch (_) {
+      // Best-effort shutdown of STT subprocess.
+    }
+    await windowManager.destroy();
   }
 
   Future<void> _savePosition(double x, double y) async {
@@ -186,13 +221,32 @@ class FloatingButtonService extends Notifier<void> {
         .map((e) => (id: e.id, content: e.content))
         .toList();
 
-    final items = _menuEntries.map((e) {
+    // Action items (always shown at top).
+    final actionItems = [
+      {'id': '__open__', 'label': 'Open WhisPaste'},
+      {'id': '__new_recording__', 'label': '⏺  Start Recording'},
+      {'id': '__history__', 'label': 'Show History'},
+      {'id': '__settings__', 'label': 'Settings'},
+      {'id': '__sep1__', 'label': '---'},
+    ];
+
+    // Recent history items.
+    final historyItems = _menuEntries.map((e) {
       // Truncate label to 50 chars for readability.
       final label = e.content.length > 50
           ? '${e.content.substring(0, 47)}...'
           : e.content;
       return {'id': e.id, 'label': label};
     }).toList();
+
+    // Separator + Quit at the bottom.
+    final footerItems = [
+      if (historyItems.isNotEmpty)
+        {'id': '__sep2__', 'label': '---'},
+      {'id': '__quit__', 'label': 'Quit WhisPaste'},
+    ];
+
+    final items = [...actionItems, ...historyItems, ...footerItems];
 
     _controller!.setContextMenuItems(items).catchError((e, st) {
       _log.error('Failed to update context menu items', e, st);

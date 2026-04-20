@@ -7,7 +7,9 @@ library;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -95,7 +97,7 @@ class TrayService extends Notifier<void> implements TrayListener {
 
   Future<void> _init() async {
     try {
-      final iconPath = _resolveIconPath();
+      final iconPath = await _resolveIconPath();
       if (iconPath == null) {
         _log.warning('Tray icon not found — skipping tray setup');
         return;
@@ -144,7 +146,7 @@ class TrayService extends Notifier<void> implements TrayListener {
     trayManager.setContextMenu(menu);
   }
 
-  String? _resolveIconPath() {
+  Future<String?> _resolveIconPath() async {
     final exeDir = File(Platform.resolvedExecutable).parent.path;
 
     // On Windows, prefer a dedicated ICO. PNG tray icons often render as an
@@ -166,27 +168,38 @@ class TrayService extends Notifier<void> implements TrayListener {
       return Platform.resolvedExecutable;
     }
 
-    // macOS / Linux: use PNG from Flutter assets.
+    // macOS / Linux: try known bundle paths first (fast, no I/O allocation).
     if (Platform.isMacOS || Platform.isLinux) {
       final candidates = [
-        // macOS .app bundle: Contents/MacOS/../Resources/<file>
-        '$exeDir/../Resources/app_icon.png',
-        // macOS .app bundle: flutter_assets inside App.framework
-        '$exeDir/../Frameworks/App.framework/Resources/flutter_assets/assets/icons/logo-dark.png',
-        // macOS fallback: flutter_assets directly in Resources
-        '$exeDir/../Resources/flutter_assets/assets/icons/logo-dark.png',
+        // macOS .app bundle: flutter_assets inside App.framework (primary)
+        p.normalize('$exeDir/../Frameworks/App.framework/Resources/flutter_assets/assets/icons/logo-dark.png'),
+        // macOS .app bundle: flutter_assets directly in Resources (fallback)
+        p.normalize('$exeDir/../Resources/flutter_assets/assets/icons/logo-dark.png'),
+        // macOS .app bundle: Resources root (set via Xcode bundle-resource copy)
+        p.normalize('$exeDir/../Resources/tray.png'),
         // Linux: flutter_assets next to executable
-        '$exeDir/data/flutter_assets/assets/icons/logo-dark.png',
+        p.normalize('$exeDir/data/flutter_assets/assets/icons/logo-dark.png'),
       ];
-      for (final path in candidates) {
-        if (File(path).existsSync()) {
-          _log.info('Resolved tray icon: $path');
-          return path;
+      for (final candidate in candidates) {
+        if (File(candidate).existsSync()) {
+          _log.info('Resolved tray icon: $candidate');
+          return candidate;
         }
       }
-      _log.warning(
-        'No tray icon found in candidates: ${candidates.join(', ')}',
-      );
+
+      // Last resort: extract from rootBundle to a temp file.
+      // This is reliable regardless of bundle layout changes across Flutter versions.
+      try {
+        final bytes = await rootBundle.load('assets/icons/logo-dark.png');
+        final tmp = File(
+          p.join(Directory.systemTemp.path, 'whispaste_tray_icon.png'),
+        );
+        await tmp.writeAsBytes(bytes.buffer.asUint8List());
+        _log.info('Extracted tray icon via rootBundle → ${tmp.path}');
+        return tmp.path;
+      } on Exception catch (e) {
+        _log.warning('rootBundle icon extraction failed: $e');
+      }
     }
 
     return null;

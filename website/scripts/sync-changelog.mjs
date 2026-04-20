@@ -5,12 +5,19 @@
  * Usage: node website/scripts/sync-changelog.mjs
  *
  * Reads CHANGELOG.md (repo root) and ensures website/src/data/changelog.json
- * has up-to-date entries for every version found. New versions are prepended
- * with EN content from CHANGELOG.md. DE content is copied from EN as a
- * placeholder — update manually or via translation workflow.
+ * has up-to-date entries for every version found.
+ *
+ * IMPORTANT: Only versions with a corresponding git tag (v{version}) are
+ * included. This prevents unreleased/pre-release CHANGELOG.md entries from
+ * appearing on the website before the release tag is actually pushed.
+ *
+ * Trigger: deploy-pages.yml on main push OR tag push.
+ * Release flow: tag push → release.yml builds → deploy-pages.yml deploys with
+ *               the new version now visible (git tag exists at deploy time).
  */
 
 import { readFileSync, writeFileSync } from 'fs';
+import { execSync } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -18,6 +25,19 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dir, '../../');
 const changelogMd = resolve(repoRoot, 'CHANGELOG.md');
 const changelogJson = resolve(__dir, '../src/data/changelog.json');
+
+/** Returns true if a git tag v{version} exists in the repo. */
+function isTagged(version) {
+  try {
+    const out = execSync(`git tag -l "v${version}"`, {
+      encoding: 'utf8',
+      cwd: repoRoot,
+    }).trim();
+    return out.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 function parseChangelogMd(content) {
   const sections = [];
@@ -52,7 +72,7 @@ function parseChangelogMd(content) {
       }
     }
 
-    // Fallback: if nothing was parsed, use the first few bullet points as highlights
+    // Fallback: if nothing was parsed, use the first few bullet points as highlights.
     if (highlights.length === 0 && improvements.length === 0) {
       for (const line of body.split('\n')) {
         const trimmed = line.trim();
@@ -75,11 +95,20 @@ const existing = JSON.parse(readFileSync(changelogJson, 'utf8'));
 const existingVersions = new Set(existing.map(e => e.version));
 
 let added = 0;
+let skipped = 0;
 const toAdd = [];
 
 for (const { version, highlights, improvements } of parsed) {
   if (existingVersions.has(version)) continue;
-  console.log(`Adding new version: ${version}`);
+
+  // Only include versions that have been formally released (git tag exists).
+  if (!isTagged(version)) {
+    console.log(`⏭  Skipping ${version} — no git tag v${version} found (not yet released)`);
+    skipped++;
+    continue;
+  }
+
+  console.log(`Adding released version: ${version}`);
   toAdd.push({
     version,
     date: new Date().toISOString().slice(0, 10),
@@ -94,5 +123,5 @@ if (added > 0) {
   writeFileSync(changelogJson, JSON.stringify(updated, null, 2) + '\n');
   console.log(`✅ Added ${added} version(s) to changelog.json`);
 } else {
-  console.log('✅ changelog.json is already up to date');
+  console.log(`✅ changelog.json is up to date (${skipped} unreleased version(s) skipped)`);
 }
