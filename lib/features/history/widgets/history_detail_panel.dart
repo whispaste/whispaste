@@ -126,14 +126,18 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   bool get isArchiveView => widget.isArchiveView;
 
   /// Returns true if any text input field currently has focus.
-  /// Uses FocusManager so notes, tag, title, and transcript fields are all
-  /// covered — named FocusNodes alone would miss dynamically created fields.
+  ///
+  /// `EditableText.build()` creates an internal `Focus` widget that overwrites
+  /// the FocusNode context, so `context.widget` ends up being `Focus`, not
+  /// `EditableText`. We check the widget directly AND walk ancestors as a
+  /// fallback to cover both cases.
   bool _isTextFieldFocused() {
     final primary = FocusManager.instance.primaryFocus;
     if (primary == null) return false;
     final context = primary.context;
     if (context == null) return false;
-    return context.widget is EditableText;
+    if (context.widget is EditableText) return true;
+    return context.findAncestorWidgetOfExactType<EditableText>() != null;
   }
 
   void _saveTranscript() {
