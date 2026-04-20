@@ -1014,10 +1014,15 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   /// Clears secure-storage API keys, persisted settings (including window
   /// position/size and floating-button position), and daily analytics stats.
   Future<void> resetToDefaults() async {
-    // Clear secure storage API keys.
-    final secureStore = ref.read(secureKeyStoreProvider);
-    for (final secureKey in apiKeyMapping.values) {
-      await secureStore.deleteKey(secureKey);
+    // Clear secure storage API keys (best-effort — keychain may be locked).
+    try {
+      final secureStore = ref.read(secureKeyStoreProvider);
+      for (final secureKey in apiKeyMapping.values) {
+        await secureStore.deleteKey(secureKey);
+      }
+    } catch (e) {
+      dev.log('resetToDefaults: secure store cleanup failed: $e',
+          name: 'Settings');
     }
     final db = ref.read(historyDatabaseProvider);
     await db.resetAppSettings();
@@ -1032,14 +1037,23 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> factoryReset() async {
     final db = ref.read(historyDatabaseProvider);
 
-    // 1. Clear ALL secure storage API keys.
-    final secureStore = ref.read(secureKeyStoreProvider);
-    for (final secureKey in apiKeyMapping.values) {
-      await secureStore.deleteKey(secureKey);
+    // 1. Clear ALL secure storage API keys (best-effort).
+    try {
+      final secureStore = ref.read(secureKeyStoreProvider);
+      for (final secureKey in apiKeyMapping.values) {
+        await secureStore.deleteKey(secureKey);
+      }
+    } catch (e) {
+      dev.log('Factory reset: secure store cleanup failed: $e',
+          name: 'Settings');
     }
 
     // 2. Delete all database content (history, tags, projects, etc.).
-    await db.deleteAllData();
+    try {
+      await db.deleteAllData();
+    } catch (e) {
+      dev.log('Factory reset: deleteAllData failed: $e', name: 'Settings');
+    }
 
     // 3. Delete downloaded models directory.
     _tryDeleteDir(sttDir());
@@ -1063,7 +1077,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     // 8. Clean up temp WAV files.
     _cleanupTempWavFiles();
 
-    // 9. Reset in-memory state.
+    // 9. Reset in-memory state — triggers onboarding via onboardingCompleted=false.
     state = AsyncData(AppSettings.defaults);
 
     dev.log('Factory reset complete', name: 'Settings');
