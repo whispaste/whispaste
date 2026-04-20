@@ -348,36 +348,36 @@ class FloatingButtonView: NSView {
     ctx.restoreGState()
   }
 
-  /// Lucide mic icon: capsule body + holder arc + stem.
+  /// Lucide mic icon: capsule body (8,2→16,12 rx=4) + holder arc + stem + base.
+  /// Coordinates mapped to a centred ±12 space matching the 24×24 Lucide viewBox.
   private func drawMicIcon(ctx: CGContext) {
-    // Capsule body (rounded rect from -3,-9 to 3,3)
-    let capsuleRect = CGRect(x: -3, y: -2, width: 6, height: 11)
-    let capsulePath = CGPath(roundedRect: capsuleRect, cornerWidth: 3, cornerHeight: 3, transform: nil)
+    // Capsule body — Lucide: rect (8,2)→(16,12), rx=4, mapped to centre-origin
+    let capsuleRect = CGRect(x: -4, y: -1, width: 8, height: 10)
+    let capsulePath = CGPath(roundedRect: capsuleRect, cornerWidth: 4, cornerHeight: 4, transform: nil)
     ctx.addPath(capsulePath)
     ctx.strokePath()
 
-    // Holder arc
-    ctx.addArc(center: CGPoint(x: 0, y: 3), radius: 6, startAngle: 0, endAngle: .pi, clockwise: false)
+    // Holder arc — Lucide: path from (6,11) curving down to (18,11), radius=6
+    ctx.addArc(center: CGPoint(x: 0, y: 1), radius: 6, startAngle: 0, endAngle: .pi, clockwise: false)
     ctx.strokePath()
 
-    // Stem
-    ctx.move(to: CGPoint(x: 0, y: -3))
-    ctx.addLine(to: CGPoint(x: 0, y: -7))
+    // Stem — vertical line from arc bottom to base
+    ctx.move(to: CGPoint(x: 0, y: -5))
+    ctx.addLine(to: CGPoint(x: 0, y: -9))
     ctx.strokePath()
 
-    // Base
-    ctx.move(to: CGPoint(x: -3, y: -7))
-    ctx.addLine(to: CGPoint(x: 3, y: -7))
+    // Base — horizontal line at bottom
+    ctx.move(to: CGPoint(x: -3, y: -9))
+    ctx.addLine(to: CGPoint(x: 3, y: -9))
     ctx.strokePath()
   }
 
-  /// Lucide square icon (stop): rounded rectangle.
+  /// Lucide square icon (stop): stroke-only rounded rectangle matching Dart LucideIcons.square.
   private func drawSquareIcon(ctx: CGContext) {
     let rect = CGRect(x: -6, y: -6, width: 12, height: 12)
     let path = CGPath(roundedRect: rect, cornerWidth: 2, cornerHeight: 2, transform: nil)
-    ctx.setFillColor(NSColor.white.withAlphaComponent(1.0 * masterOpacity).cgColor)
     ctx.addPath(path)
-    ctx.fillPath()
+    ctx.strokePath()
   }
 
   /// Spinner (288° arc, rotating) for transcribing state.
