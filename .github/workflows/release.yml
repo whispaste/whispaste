@@ -257,4 +257,4 @@ jobs:
           SENTRY_URL: https://de.sentry.io
         with:
           environment: production
-          version: whispaste@${{ steps.notes.outputs.version }}
+          release: whispaste@${{ steps.notes.outputs.version }}
