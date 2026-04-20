@@ -501,6 +501,17 @@ class L10nEn extends L10n {
   String get settingsRecognitionLanguage => 'Recognition Language';
 
   @override
+  String get settingsCustomVocabulary => 'Custom Vocabulary';
+
+  @override
+  String get settingsCustomVocabularyHint =>
+      'Names, technical terms — improves recognition accuracy';
+
+  @override
+  String get settingsCustomVocabularyPlaceholder =>
+      'e.g. WhisPaste, Kubernetes, Dr. Mueller';
+
+  @override
   String get settingsAppLanguage => 'App Language';
 
   @override
@@ -1786,6 +1797,17 @@ class L10nEn extends L10n {
   @override
   String get settingsAutoPasteDelaySubtitle =>
       'Wait time before pasting into the active window';
+
+  @override
+  String get settingsAutoPasteBlocklist => 'Auto-Paste Blocklist';
+
+  @override
+  String get settingsAutoPasteBlocklistSubtitle =>
+      'Comma-separated app identifiers where auto-paste is disabled';
+
+  @override
+  String get settingsAutoPasteBlocklistPlaceholder =>
+      'e.g. com.apple.Terminal, com.1password';
 
   @override
   String get settingsTextReplacements => 'Text Replacements';

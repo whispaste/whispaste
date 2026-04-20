@@ -167,6 +167,9 @@ class FakeDesktopPasteController extends DesktopPasteController {
   }
 
   @override
+  Future<String?> getTargetBundleId() async => null;
+
+  @override
   Future<void> dispose() async {
     disposed = true;
   }
