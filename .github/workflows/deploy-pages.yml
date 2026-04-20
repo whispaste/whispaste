@@ -3,11 +3,17 @@ name: Deploy Landing Page
 # Settings → Pages → Source: "GitHub Actions"
 
 on:
+  # Redeploy when website source changes on main.
   push:
     branches: [main]
     paths:
       - 'website/**'
       - '.github/workflows/deploy-pages.yml'
+  # Also redeploy on every release tag push so the new version's
+  # release notes become visible immediately after the tag is created.
+  # sync-changelog.mjs checks git tags, so only tagged versions appear.
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:

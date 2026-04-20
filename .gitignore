@@ -80,6 +80,7 @@ scripts/*
 !scripts/capture-store-screenshots.py
 !scripts/premium-screenshots.py
 !scripts/cppcheck.ps1
+!scripts/install-hooks.sh
 
 # Internal website files
 website/design-system/
