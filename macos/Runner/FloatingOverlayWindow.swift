@@ -37,7 +37,6 @@ private let kCompactWidth: CGFloat = 280
 private let kCompactHeight: CGFloat = 40
 private let kCornerRadius: CGFloat = 32
 private let kCompactRadius: CGFloat = 20
-private let kAccentBarH: CGFloat = 4
 private let kShadowPad: CGFloat = 28
 private let kPadH: CGFloat = 16
 private let kBarWidth: CGFloat = 2.5
@@ -252,7 +251,8 @@ class FloatingOverlayView: NSView {
     ctx.setFillColor(theme.surface.withAlphaComponent(0.96 * masterOpacity).cgColor)
     ctx.fillPath()
 
-    drawAccentBar(ctx: ctx, pill: pill, radius: radius, accent: accent)
+    // Note: Windows does NOT draw an accent bar at the top of the overlay pill.
+    // Only the bottom progress bar is rendered (inside drawNormalContent).
 
     if isCompact {
       drawCompactContent(ctx: ctx, pill: pill, theme: theme, accent: accent)
@@ -282,36 +282,6 @@ class FloatingOverlayView: NSView {
       ctx.setFillColor(shadowColor.cgColor)
       ctx.fillPath()
     }
-  }
-
-  // MARK: - Accent Gradient Bar
-
-  private func drawAccentBar(ctx: CGContext, pill: NSRect, radius: CGFloat, accent: GradientPair) {
-    ctx.saveGState()
-
-    let clipPath = CGMutablePath()
-    clipPath.addRoundedRect(in: pill, cornerWidth: radius, cornerHeight: radius)
-    ctx.addPath(clipPath)
-    ctx.clip()
-
-    // Accent bar at TOP of pill (NSView Y-up: maxY = top)
-    let barRect = NSRect(x: pill.minX, y: pill.maxY - kAccentBarH, width: pill.width, height: kAccentBarH)
-    let colorSpace = CGColorSpaceCreateDeviceRGB()
-    if let gradient = CGGradient(
-      colorsSpace: colorSpace,
-      colors: [accent.c0.withAlphaComponent(masterOpacity).cgColor,
-               accent.c1.withAlphaComponent(masterOpacity).cgColor] as CFArray,
-      locations: [0, 1]
-    ) {
-      ctx.drawLinearGradient(
-        gradient,
-        start: CGPoint(x: barRect.minX, y: barRect.midY),
-        end: CGPoint(x: barRect.maxX, y: barRect.midY),
-        options: []
-      )
-    }
-
-    ctx.restoreGState()
   }
 
   // MARK: - Normal Content (380×64) — matches Windows RenderNormal single-row layout
@@ -347,7 +317,7 @@ class FloatingOverlayView: NSView {
       if !elapsedText.isEmpty {
         drawText(
           elapsedText,
-          x: x, y: cy - 7.5, maxWidth: 55,
+          x: x, cy: cy, maxWidth: 55,
           font: .monospacedDigitSystemFont(ofSize: 15, weight: .bold),
           color: theme.text.withAlphaComponent(masterOpacity)
         )
@@ -373,7 +343,7 @@ class FloatingOverlayView: NSView {
       let displayLabel = labelText.isEmpty ? stateLabel() : labelText
       drawText(
         displayLabel,
-        x: x, y: cy - 6.5, maxWidth: 110,
+        x: x, cy: cy, maxWidth: 110,
         font: .systemFont(ofSize: 13, weight: .semibold),
         color: themeAccent.withAlphaComponent(masterOpacity)
       )
@@ -383,7 +353,7 @@ class FloatingOverlayView: NSView {
       if !elapsedText.isEmpty {
         drawText(
           elapsedText,
-          x: x, y: cy - 6, maxWidth: 45,
+          x: x, cy: cy, maxWidth: 45,
           font: .monospacedDigitSystemFont(ofSize: 12, weight: .regular),
           color: theme.secondaryText.withAlphaComponent(masterOpacity)
         )
@@ -401,7 +371,7 @@ class FloatingOverlayView: NSView {
       let doneMsg = labelText.isEmpty ? "Done" : labelText
       drawText(
         doneMsg,
-        x: x, y: cy - 6.5, maxWidth: rightEdge - x,
+        x: x, cy: cy, maxWidth: rightEdge - x,
         font: .systemFont(ofSize: 13, weight: .semibold),
         color: successColor
       )
@@ -418,7 +388,7 @@ class FloatingOverlayView: NSView {
       let errMsg = errorMessage ?? labelText
       drawText(
         errMsg,
-        x: x, y: cy - 6.5, maxWidth: rightEdge - x,
+        x: x, cy: cy, maxWidth: rightEdge - x,
         font: .systemFont(ofSize: 13, weight: .medium),
         color: errorColor
       )
@@ -467,7 +437,7 @@ class FloatingOverlayView: NSView {
       let displayLabel = labelText.isEmpty ? stateLabel() : labelText
       drawText(
         displayLabel,
-        x: labelX, y: midY - 5, maxWidth: contentMaxX - labelX,
+        x: labelX, cy: midY, maxWidth: contentMaxX - labelX,
         font: .systemFont(ofSize: 10, weight: .semibold),
         color: theme.text.withAlphaComponent(masterOpacity)
       )
@@ -603,7 +573,7 @@ class FloatingOverlayView: NSView {
 
   private func drawText(
     _ text: String,
-    x: CGFloat, y: CGFloat, maxWidth: CGFloat,
+    x: CGFloat, cy: CGFloat, maxWidth: CGFloat,
     font: NSFont,
     color: NSColor,
     alignment: NSTextAlignment = .left,
@@ -619,7 +589,9 @@ class FloatingOverlayView: NSView {
       .paragraphStyle: para,
     ]
 
-    let textRect = NSRect(x: x, y: y, width: maxWidth, height: font.pointSize + 6)
+    // Vertically center text at cy using font metrics
+    let lineHeight = font.ascender - font.descender + font.leading
+    let textRect = NSRect(x: x, y: cy - lineHeight / 2 + font.descender, width: maxWidth, height: lineHeight)
     (text as NSString).draw(in: textRect, withAttributes: attrs)
   }
 
