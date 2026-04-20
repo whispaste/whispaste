@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # ╔═════════════════════════════════════════════════════════════════════╗
 # ║  WhisPaste Pre-Commit Guard                                       ║
 # ║  Prevents internal/sensitive files from being committed.           ║
@@ -115,5 +115,47 @@ for file in $STAGED_FILES; do
     fi
   fi
 done
+
+# ── 4. Flutter analyze (only when Dart/Flutter files are staged) ──────
+
+DART_STAGED=$(echo "$STAGED_FILES" | grep -E '\.dart$|^pubspec\.yaml$' || true)
+
+if [ -n "$DART_STAGED" ]; then
+  echo ""
+  echo "◆ Flutter analyze..."
+  if ! flutter analyze --fatal-infos --fatal-warnings 2>&1; then
+    echo ""
+    echo "╔═══════════════════════════════════════════════════════════╗"
+    echo "║  ❌ BLOCKED: flutter analyze found issues                ║"
+    echo "╚═══════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Fix all issues above before committing."
+    echo "To bypass (DANGEROUS): git commit --no-verify"
+    echo ""
+    exit 1
+  fi
+  echo "  ✓ Flutter analyze: no issues"
+fi
+
+# ── 5. Website build (only when website files are staged) ─────────────
+
+WEBSITE_STAGED=$(echo "$STAGED_FILES" | grep -E '^website/' || true)
+
+if [ -n "$WEBSITE_STAGED" ]; then
+  echo ""
+  echo "◆ Website build check..."
+  if ! (cd website && npm run build 2>&1); then
+    echo ""
+    echo "╔═══════════════════════════════════════════════════════════╗"
+    echo "║  ❌ BLOCKED: website build failed                        ║"
+    echo "╚═══════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Fix build errors above before committing."
+    echo "To bypass (DANGEROUS): git commit --no-verify"
+    echo ""
+    exit 1
+  fi
+  echo "  ✓ Website build: OK"
+fi
 
 exit 0
