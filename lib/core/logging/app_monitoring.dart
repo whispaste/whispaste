@@ -49,7 +49,7 @@ class AppMonitoring {
       (options) {
         options.dsn = _sentryDsn;
         options.environment = kReleaseMode ? 'production' : 'development';
-        options.release = 'whispaste@$appVersion';
+        options.release = sentryRelease;
         options.dist = _currentArch();
         options.sendDefaultPii = false;
         options.attachScreenshot = false;

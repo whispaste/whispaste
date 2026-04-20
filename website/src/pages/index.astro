@@ -3,6 +3,7 @@ import Layout from "../layouts/Layout.astro";
 import Nav from "../components/Nav.astro";
 import Hero from "../components/Hero.astro";
 import HowItWorks from "../components/HowItWorks.astro";
+import AppScreenshots from "../components/AppScreenshots.astro";
 import Privacy from "../components/Privacy.astro";
 import Pricing from "../components/Pricing.astro";
 import Languages from "../components/Languages.astro";
@@ -17,6 +18,7 @@ import Footer from "../components/Footer.astro";
   <main id="main-content">
     <Hero />
     <HowItWorks />
+    <AppScreenshots />
     <Privacy />
     <Pricing />
     <Languages />
@@ -35,7 +37,7 @@ import Footer from "../components/Footer.astro";
     "description": "Desktop dictation app that brings your voice into any app as text — private by default, free & open source.",
     "url": "https://whispaste.de/",
     "applicationCategory": "ProductivityApplication",
-    "operatingSystem": "Windows 10, Windows 11",
+    "operatingSystem": "Windows 10, Windows 11, macOS 13+",
     "offers": {
       "@type": "Offer",
       "price": "0",
@@ -46,7 +48,14 @@ import Footer from "../components/Footer.astro";
       "@type": "Person",
       "name": "Silvio Lindstedt"
     },
-    "downloadUrl": "https://github.com/whispaste/whispaste/releases/latest"
+    "downloadUrl": "https://github.com/whispaste/whispaste/releases/latest",
+    "screenshot": [
+      "https://whispaste.de/screenshots/en/dark/01_workspace_overview.png",
+      "https://whispaste.de/screenshots/en/light/02_workspace_detail.png",
+      "https://whispaste.de/screenshots/en/dark/03_voice_shortcuts.png",
+      "https://whispaste.de/screenshots/en/light/04_settings.png",
+      "https://whispaste.de/screenshots/en/dark/05_analytics.png"
+    ]
   }
   </script>
 
@@ -100,7 +109,7 @@ import Footer from "../components/Footer.astro";
         "name": "Is WhisPaste available on Mac or Linux?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Currently available for Windows. macOS and Linux versions are in active development."
+          "text": "WhisPaste is available for Windows and macOS. A Linux version is planned."
         }
       },
       {

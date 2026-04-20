@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/theme/colors.dart';
 import 'package:whispaste/core/data/database.dart';
 
 /// View mode for the history page.
 enum HistoryViewMode { list, cards, compact }
+
+/// Sort order for history entries.
+enum HistorySortOrder { newest, oldest, longest }
 
 /// Resolves a [DateGroup.labelKey] to a localized string.
 String resolveDateLabel(String key, L10n l10n) {
@@ -19,6 +22,8 @@ String resolveDateLabel(String key, L10n l10n) {
       return l10n.historyThisWeek;
     case 'older':
       return l10n.historyOlder;
+    case 'all':
+      return l10n.historyAll;
     default:
       return key;
   }
@@ -110,40 +115,38 @@ class HistoryEntryAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final iconSize = (size * 0.44).roundToDouble();
     return SizedBox(
-      width: size,
-      height: size,
+      width: size + 6,
+      height: size + 6,
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          // Avatar circle
-          Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: isDark ? 0.15 : 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: iconSize,
-              color: color.withValues(alpha: isDark ? 0.9 : 0.8),
+          // Avatar circle — offset slightly to leave room for badge
+          Positioned(
+            left: 0,
+            bottom: 0,
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: isDark ? 0.15 : 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: iconSize,
+                color: color.withValues(alpha: isDark ? 0.9 : 0.8),
+              ),
             ),
           ),
-          // Favorite badge — small dot in corner
+          // Favorite badge — star icon in top-right corner
           if (isPinned)
             Positioned(
               right: 0,
               top: 0,
-              child: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: isDark ? WpColorsDark.accent : WpColorsLight.accent,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isDark ? WpColorsDark.surface : WpColorsLight.surface,
-                    width: 2,
-                  ),
-                ),
+              child: FaIcon(
+                FontAwesomeIcons.solidStar,
+                size: 11,
+                color: Colors.amber.shade600,
               ),
             ),
         ],

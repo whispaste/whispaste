@@ -24,7 +24,7 @@ class WpBrandWordmark extends StatelessWidget {
     return Image.asset(
       asset,
       height: height,
-      filterQuality: FilterQuality.medium,
+      filterQuality: FilterQuality.high,
       isAntiAlias: true,
     );
   }

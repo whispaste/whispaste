@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
+import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/locale_provider.dart';
 import 'package:whispaste/core/theme/theme_provider.dart';
@@ -197,6 +198,36 @@ void main() {
         await fakeSecureStore.readKey('wp_gemini_api_key'),
         isNull,
       );
+    });
+  });
+
+  group('effectiveOverlayMode', () {
+    test('passes through floating as valid mode', () {
+      const s = AppSettings(overlayMode: 'floating');
+      expect(s.effectiveOverlayMode, OverlayMode.floating);
+    });
+
+    test('migrates inWindow to floating', () {
+      const s = AppSettings(overlayMode: 'in-window');
+      expect(s.effectiveOverlayMode, OverlayMode.floating);
+    });
+
+    test('preserves off as-is', () {
+      const s = AppSettings(overlayMode: 'off');
+      expect(s.effectiveOverlayMode, OverlayMode.off);
+    });
+
+    test('persisted floating does not crash settings load', () async {
+      // Simulate a user who had "floating" persisted from before the migration.
+      await container.read(settingsProvider.notifier).updateSettings(
+            (s) => s.copyWith(overlayMode: 'floating'),
+          );
+
+      final settings = container.read(settingsProvider).value!;
+      // Raw value is still 'floating' in storage
+      expect(settings.overlayMode, 'floating');
+      // Floating is now a valid mode (native overlay)
+      expect(settings.effectiveOverlayMode, OverlayMode.floating);
     });
   });
 }

@@ -92,7 +92,7 @@ Future<bool> showWpConfirmDialog({
 Future<T?> showWpFormDialog<T>({
   required BuildContext context,
   required Widget Function(BuildContext context, Animation<double> animation)
-      builder,
+  builder,
 }) {
   return showGeneralDialog<T>(
     context: context,
@@ -120,10 +120,7 @@ class _WpDialogBarrier extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final opacity = CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOut,
-    );
+    final opacity = CurvedAnimation(parent: animation, curve: Curves.easeOut);
 
     // On Windows frameless windows, BackdropFilter + ImageFilter.blur is
     // broken, so fall back to a solid semi-transparent overlay.
@@ -144,10 +141,11 @@ class _WpDialogBarrier extends StatelessWidget {
                 ? BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                     child: ColoredBox(
-                      color: (isDark
-                              ? const Color(0xFF000000)
-                              : const Color(0xFFFFFFFF))
-                          .withValues(alpha: isDark ? 0.45 : 0.35),
+                      color:
+                          (isDark
+                                  ? const Color(0xFF000000)
+                                  : const Color(0xFFFFFFFF))
+                              .withValues(alpha: isDark ? 0.45 : 0.35),
                     ),
                   )
                 : ColoredBox(color: barrierColor),
@@ -268,15 +266,13 @@ class _WpConfirmContent extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final colorScheme = theme.colorScheme;
 
-    final confirmColor =
-        destructive ? colorScheme.error : colorScheme.primary;
-    final confirmFg =
-        destructive ? colorScheme.onError : colorScheme.onPrimary;
+    final confirmColor = destructive ? colorScheme.error : colorScheme.primary;
+    final confirmFg = destructive ? colorScheme.onError : colorScheme.onPrimary;
 
     final resolvedCancel =
         cancelLabel ?? MaterialLocalizations.of(context).cancelButtonLabel;
-    final resolvedConfirm = confirmLabel ??
-        MaterialLocalizations.of(context).okButtonLabel;
+    final resolvedConfirm =
+        confirmLabel ?? MaterialLocalizations.of(context).okButtonLabel;
 
     return Center(
       child: SlideTransition(
@@ -316,6 +312,7 @@ class _WpConfirmContent extends StatelessWidget {
                     ),
                     const SizedBox(width: WpSpacing.sm),
                     FilledButton(
+                      autofocus: true,
                       onPressed: () => Navigator.of(context).pop(true),
                       style: FilledButton.styleFrom(
                         backgroundColor: confirmColor,

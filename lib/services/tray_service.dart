@@ -13,7 +13,9 @@ import 'package:window_manager/window_manager.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
+import '../core/platform/macos_lifecycle_channel.dart';
 import '../core/recording/recording_state.dart';
+import 'stt_service.dart';
 
 // ---------------------------------------------------------------------------
 // Service
@@ -82,6 +84,9 @@ class TrayService extends Notifier<void> implements TrayListener {
     _l10n = l10n;
     _rebuildMenu(recording);
   }
+
+  /// Whether the tray icon was successfully initialized.
+  bool get isInitialized => _initialized;
 
   // ── Private ───────────────────────────────────────────────────────────────
 
@@ -164,12 +169,24 @@ class TrayService extends Notifier<void> implements TrayListener {
     // macOS / Linux: use PNG from Flutter assets.
     if (Platform.isMacOS || Platform.isLinux) {
       final candidates = [
-        '$exeDir/../Resources/app_icon.png', // macOS bundle
+        // macOS .app bundle: Contents/MacOS/../Resources/<file>
+        '$exeDir/../Resources/app_icon.png',
+        // macOS .app bundle: flutter_assets inside App.framework
+        '$exeDir/../Frameworks/App.framework/Resources/flutter_assets/assets/icons/logo-dark.png',
+        // macOS fallback: flutter_assets directly in Resources
+        '$exeDir/../Resources/flutter_assets/assets/icons/logo-dark.png',
+        // Linux: flutter_assets next to executable
         '$exeDir/data/flutter_assets/assets/icons/logo-dark.png',
       ];
       for (final path in candidates) {
-        if (File(path).existsSync()) return path;
+        if (File(path).existsSync()) {
+          _log.info('Resolved tray icon: $path');
+          return path;
+        }
       }
+      _log.warning(
+        'No tray icon found in candidates: ${candidates.join(', ')}',
+      );
     }
 
     return null;
@@ -177,6 +194,8 @@ class TrayService extends Notifier<void> implements TrayListener {
 
   Future<void> _showWindow() async {
     try {
+      // On macOS, restore Dock presence before showing the window.
+      await MacOSLifecycleChannel.setRegular();
       await windowManager.show();
       await windowManager.focus();
     } on Exception catch (e) {
@@ -185,12 +204,16 @@ class TrayService extends Notifier<void> implements TrayListener {
   }
 
   Future<void> _quit() async {
+    // Stop the STT subprocess before destroying to prevent orphaned processes.
+    try {
+      ref.read(sttServiceProvider.notifier).stop();
+    } catch (_) {}
+
     try {
       await trayManager.destroy().timeout(const Duration(seconds: 1));
     } on Exception catch (_) {
       // Best-effort cleanup.
     }
-    // Use windowManager.destroy() for clean exit.
     await windowManager.destroy();
   }
 

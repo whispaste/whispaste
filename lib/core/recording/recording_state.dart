@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,6 +29,7 @@ class RecordingState {
     this.audioLevel = 0.0,
     this.transcript,
     this.errorMessage,
+    this.sessionId,
   });
 
   final RecordingPhase phase;
@@ -35,6 +37,13 @@ class RecordingState {
   final double audioLevel;
   final String? transcript;
   final String? errorMessage;
+
+  /// Unique correlation ID for this recording session.
+  ///
+  /// Generated when a recording starts, stays constant through the entire
+  /// pipeline (recording → transcribing → done/error), and is included in
+  /// all log entries and Sentry breadcrumbs for traceability.
+  final String? sessionId;
 
   // -- convenience getters --------------------------------------------------
 
@@ -53,6 +62,7 @@ class RecordingState {
     double? audioLevel,
     String? transcript,
     String? errorMessage,
+    String? sessionId,
   }) {
     return RecordingState(
       phase: phase ?? this.phase,
@@ -60,6 +70,7 @@ class RecordingState {
       audioLevel: audioLevel ?? this.audioLevel,
       transcript: transcript ?? this.transcript,
       errorMessage: errorMessage ?? this.errorMessage,
+      sessionId: sessionId ?? this.sessionId,
     );
   }
 
@@ -72,22 +83,25 @@ class RecordingState {
           elapsed == other.elapsed &&
           audioLevel == other.audioLevel &&
           transcript == other.transcript &&
-          errorMessage == other.errorMessage;
+          errorMessage == other.errorMessage &&
+          sessionId == other.sessionId;
 
   @override
   int get hashCode => Object.hash(
-        phase,
-        elapsed,
-        audioLevel,
-        transcript,
-        errorMessage,
-      );
+    phase,
+    elapsed,
+    audioLevel,
+    transcript,
+    errorMessage,
+    sessionId,
+  );
 
   @override
   String toString() =>
       'RecordingState(phase: $phase, elapsed: $elapsed, '
       'audioLevel: ${audioLevel.toStringAsFixed(2)}, '
-      'transcript: $transcript, error: $errorMessage)';
+      'transcript: $transcript, error: $errorMessage, '
+      'session: $sessionId)';
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +136,8 @@ class RecordingNotifier extends Notifier<RecordingState> {
       _log.debug('startRecording ignored – current phase: ${state.phase}');
       return;
     }
-    state = const RecordingState(phase: RecordingPhase.recording);
+    final sid = _generateSessionId();
+    state = RecordingState(phase: RecordingPhase.recording, sessionId: sid);
     _startTimer();
   }
 
@@ -133,14 +148,11 @@ class RecordingNotifier extends Notifier<RecordingState> {
       return;
     }
     _cancelTimer();
-    state = state.copyWith(
-      phase: RecordingPhase.transcribing,
-      audioLevel: 0.0,
-    );
+    state = state.copyWith(phase: RecordingPhase.transcribing, audioLevel: 0.0);
     _startStuckGuard();
   }
 
-  /// Transition transcribing → done with the resulting [text].
+  /// Transition transcribing/processing → done (no LLM post-processing).
   void completeTranscription(String text) {
     if (state.phase != RecordingPhase.transcribing &&
         state.phase != RecordingPhase.processing) {
@@ -154,25 +166,11 @@ class RecordingNotifier extends Notifier<RecordingState> {
     state = state.copyWith(phase: RecordingPhase.done, transcript: text);
   }
 
-  /// Transition transcribing → processing (post-processing via LLM).
-  void startProcessing() {
-    if (state.phase != RecordingPhase.transcribing) {
-      _log.debug('startProcessing ignored – current phase: ${state.phase}');
-      return;
-    }
-    state = state.copyWith(phase: RecordingPhase.processing);
-    // Restart stuck guard for the processing phase.
-    _startStuckGuard();
-  }
-
   /// Transition any phase → error.
   void fail(String error) {
     _cancelTimer();
     _stuckGuard?.cancel();
-    state = RecordingState(
-      phase: RecordingPhase.error,
-      errorMessage: error,
-    );
+    state = RecordingState(phase: RecordingPhase.error, errorMessage: error);
   }
 
   /// Reset from any phase → idle.
@@ -217,11 +215,23 @@ class RecordingNotifier extends Notifier<RecordingState> {
           state.phase == RecordingPhase.processing) {
         _log.error(
           'State machine stuck in ${state.phase} for '
-          '${_stuckTimeout.inMinutes} min — auto-failing',
+          '${_stuckTimeout.inMinutes} min — auto-failing '
+          '(session=${state.sessionId})',
         );
         fail('pipeline_timeout');
       }
     });
+  }
+
+  /// Generates a short, unique-enough correlation ID for log tracing.
+  ///
+  /// Format: `<base36-timestamp>-<hex-random>` e.g. `"m1abc2d-3f7a"`.
+  /// Not cryptographic — just needs to be unique within a user session.
+  static final _rng = math.Random();
+  static String _generateSessionId() {
+    final ts = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+    final rnd = _rng.nextInt(0xFFFFFFFF).toRadixString(16).padLeft(8, '0');
+    return '$ts-$rnd';
   }
 }
 
@@ -230,8 +240,9 @@ class RecordingNotifier extends Notifier<RecordingState> {
 // ---------------------------------------------------------------------------
 
 /// Primary recording state provider.
-final recordingProvider =
-    NotifierProvider<RecordingNotifier, RecordingState>(RecordingNotifier.new);
+final recordingProvider = NotifierProvider<RecordingNotifier, RecordingState>(
+  RecordingNotifier.new,
+);
 
 /// Whether the app is currently recording (backward-compatible bool).
 final isRecordingProvider = Provider<bool>((ref) {
@@ -251,6 +262,11 @@ final recordingElapsedProvider = Provider<Duration>((ref) {
 /// Current recording phase.
 final recordingPhaseProvider = Provider<RecordingPhase>((ref) {
   return ref.watch(recordingProvider.select((s) => s.phase));
+});
+
+/// Current recording session correlation ID (null when idle).
+final recordingSessionIdProvider = Provider<String?>((ref) {
+  return ref.watch(recordingProvider.select((s) => s.sessionId));
 });
 
 // ---------------------------------------------------------------------------
@@ -309,5 +325,53 @@ class RecordingInfoNotifier extends Notifier<String?> {
   void clear() => state = null;
 }
 
-final recordingInfoProvider =
-    NotifierProvider<RecordingInfoNotifier, String?>(RecordingInfoNotifier.new);
+final recordingInfoProvider = NotifierProvider<RecordingInfoNotifier, String?>(
+  RecordingInfoNotifier.new,
+);
+
+/// Pending CUDA OOM recovery context for the recording UI.
+typedef OomRecoveryState = ({
+  bool pending,
+  String? nextModelId,
+  bool hasCloudConfigured,
+  bool isPermanentFail,
+});
+
+class OomRecoveryNotifier extends Notifier<OomRecoveryState> {
+  @override
+  OomRecoveryState build() {
+    return (
+      pending: false,
+      nextModelId: null,
+      hasCloudConfigured: false,
+      isPermanentFail: false,
+    );
+  }
+
+  void showPending({
+    required String? nextModelId,
+    required bool hasCloudConfigured,
+    required bool isPermanentFail,
+  }) {
+    state = (
+      pending: true,
+      nextModelId: nextModelId,
+      hasCloudConfigured: hasCloudConfigured,
+      isPermanentFail: isPermanentFail,
+    );
+  }
+
+  void clear() {
+    state = (
+      pending: false,
+      nextModelId: null,
+      hasCloudConfigured: false,
+      isPermanentFail: false,
+    );
+  }
+}
+
+final oomRecoveryPendingProvider =
+    NotifierProvider<OomRecoveryNotifier, OomRecoveryState>(
+      OomRecoveryNotifier.new,
+    );

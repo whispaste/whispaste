@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../services/deploy_channel_service.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 
@@ -17,6 +18,7 @@ class InterfaceSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final channel = ref.watch(deployChannelProvider);
 
     return WpSection(
       title: l10n.settingsInterface,
@@ -82,6 +84,18 @@ class InterfaceSection extends ConsumerWidget {
                   .updateSettings((s) => s.copyWith(launchAtStartup: v)),
             ),
           ),
+          if (settings.launchAtStartup)
+            SettingRow(
+              icon: LucideIcons.eyeOff,
+              label: l10n.settingsStartMinimized,
+              subtitle: l10n.settingsStartMinimizedSubtitle,
+              trailing: settingsToggle(
+                value: settings.startMinimized,
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(startMinimized: v)),
+              ),
+            ),
           SettingRow(
             icon: LucideIcons.bell,
             label: l10n.settingsShowNotifications,
@@ -105,18 +119,19 @@ class InterfaceSection extends ConsumerWidget {
                       (s) => s.copyWith(closeToTray: v)),
             ),
           ),
-          SettingRow(
-            icon: LucideIcons.refreshCw,
-            label: l10n.settingsCheckUpdates,
-            subtitle: l10n.settingsCheckUpdatesSubtitle,
-            trailing: settingsToggle(
-              value: settings.checkUpdates,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(checkUpdates: v)),
+          if (channel != DeployChannel.store)
+            SettingRow(
+              icon: LucideIcons.refreshCw,
+              label: l10n.settingsCheckUpdates,
+              subtitle: l10n.settingsCheckUpdatesSubtitle,
+              trailing: settingsToggle(
+                value: settings.checkUpdates,
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                        (s) => s.copyWith(checkUpdates: v)),
+              ),
             ),
-          ),
         ],
       ),
     );

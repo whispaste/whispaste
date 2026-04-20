@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   flutter-app:
-    name: Flutter App
+    name: Flutter App (Windows)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -91,6 +91,58 @@ jobs:
             throw 'Potential secrets detected in source files.'
           }
           Write-Host 'No secrets found'
+
+  flutter-app-macos:
+    name: Flutter App (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.0
+          cache: true
+
+      - name: Verify Flutter installation
+        run: flutter --version
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze (lint + static analysis)
+        run: flutter analyze --fatal-infos
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build macOS (debug)
+        run: flutter build macos --debug
+
+      - name: Verify build output
+        run: |
+          APP="build/macos/Build/Products/Debug/whispaste.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::Flutter build failed: $APP not found"
+            exit 1
+          fi
+          SIZE=$(du -sh "$APP" | cut -f1)
+          echo "Flutter app bundle size: $SIZE"
+
+      - name: Secret scan
+        run: |
+          echo 'Scanning for potential secrets...'
+          PATTERN='(sk-[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|password\s*=\s*"[^"]+")'
+          MATCHES=$(grep -rEn "$PATTERN" --include='*.dart' --include='*.swift' \
+            --include='*.yaml' --include='*.json' --include='*.ts' --include='*.js' \
+            --exclude-dir=.git --exclude-dir=build --exclude-dir=node_modules . || true)
+          if [ -n "$MATCHES" ]; then
+            echo "$MATCHES"
+            echo "::error::Potential secrets detected in source files."
+            exit 1
+          fi
+          echo 'No secrets found'
 
   website:
     name: Website
