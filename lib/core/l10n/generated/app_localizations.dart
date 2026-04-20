@@ -391,6 +391,12 @@ abstract class L10n {
   /// **'No transcriptions match \"{query}\".\nTry a different search term.'**
   String historyNoResultsHint(String query);
 
+  /// No description provided for @historyClearSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get historyClearSearch;
+
   /// No description provided for @historyTrashEmpty.
   ///
   /// In en, this message translates to:
@@ -3174,6 +3180,30 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Popular tags'**
   String get historySearchQuickTags;
+
+  /// No description provided for @historyRecentSearches.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent searches'**
+  String get historyRecentSearches;
+
+  /// No description provided for @historyQuickActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick filters'**
+  String get historyQuickActions;
+
+  /// No description provided for @historyQuickActionAllLangs.
+  ///
+  /// In en, this message translates to:
+  /// **'All languages'**
+  String get historyQuickActionAllLangs;
+
+  /// No description provided for @historyQuickActionFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites only'**
+  String get historyQuickActionFavorites;
 
   /// No description provided for @historySortNewest.
   ///
