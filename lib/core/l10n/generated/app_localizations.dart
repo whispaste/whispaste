@@ -1003,6 +1003,24 @@ abstract class L10n {
   /// **'Recognition Language'**
   String get settingsRecognitionLanguage;
 
+  /// No description provided for @settingsCustomVocabulary.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Vocabulary'**
+  String get settingsCustomVocabulary;
+
+  /// No description provided for @settingsCustomVocabularyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Names, technical terms — improves recognition accuracy'**
+  String get settingsCustomVocabularyHint;
+
+  /// No description provided for @settingsCustomVocabularyPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. WhisPaste, Kubernetes, Dr. Mueller'**
+  String get settingsCustomVocabularyPlaceholder;
+
   /// No description provided for @settingsAppLanguage.
   ///
   /// In en, this message translates to:
@@ -3282,6 +3300,24 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Wait time before pasting into the active window'**
   String get settingsAutoPasteDelaySubtitle;
+
+  /// No description provided for @settingsAutoPasteBlocklist.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste Blocklist'**
+  String get settingsAutoPasteBlocklist;
+
+  /// No description provided for @settingsAutoPasteBlocklistSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Comma-separated app identifiers where auto-paste is disabled'**
+  String get settingsAutoPasteBlocklistSubtitle;
+
+  /// No description provided for @settingsAutoPasteBlocklistPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. com.apple.Terminal, com.1password'**
+  String get settingsAutoPasteBlocklistPlaceholder;
 
   /// No description provided for @settingsTextReplacements.
   ///
