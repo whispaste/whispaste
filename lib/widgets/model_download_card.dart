@@ -11,8 +11,9 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/hardware_info_service.dart' as hw;
 import '../services/model_download_service.dart';
+import '../services/stt_service.dart';
 import '../core/config/settings_provider.dart';
-import 'tier_safety_presentation.dart';
+import 'tier_performance_presentation.dart';
 
 /// Tier-based model manager — shows 3 quality tiers (compact, balanced,
 /// premium) instead of raw model names. Auto-recommends based on GPU VRAM.
@@ -40,6 +41,11 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
         ? tierForModel(currentModelId)
         : null;
 
+    // Benchmarking state from STT service
+    final sttStatus = ref.watch(sttServiceProvider);
+    final isBenchmarking = sttStatus.isBenchmarking;
+    final benchmarkingTier = sttStatus.benchmarkingTier;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -49,11 +55,19 @@ class _SttModelManagerState extends ConsumerState<SttModelManager> {
             tier: tier,
             isRecommended: tier == recommendedTier,
             isCurrentTier: tier == currentTier,
-            safety: gpu != null ? tierSafety(tier, gpu) : TierSafety.usable,
+            performance: gpu != null
+                ? tierPerformance(
+                    tier,
+                    gpu,
+                    benchmarkRtf: settings?.tierBenchmarkRtf,
+                  )
+                : TierPerformance.unmeasured,
             gpu: gpu,
             downloadState: downloadState,
             isDark: isDark,
             l10n: l10n,
+            isBenchmarking: isBenchmarking && benchmarkingTier == tier,
+            benchmarkingTier: benchmarkingTier,
             onSelect: downloadState.isBusy
                 ? null
                 : () => _selectTier(tier, downloadState),
@@ -139,7 +153,7 @@ class _TierRow extends StatefulWidget {
     required this.tier,
     required this.isRecommended,
     this.isCurrentTier = false,
-    required this.safety,
+    required this.performance,
     required this.gpu,
     required this.downloadState,
     required this.isDark,
@@ -147,12 +161,14 @@ class _TierRow extends StatefulWidget {
     required this.onSelect,
     required this.onCancel,
     required this.onDelete,
+    this.isBenchmarking = false,
+    this.benchmarkingTier,
   });
 
   final QualityTier tier;
   final bool isRecommended;
   final bool isCurrentTier;
-  final TierSafety safety;
+  final TierPerformance performance;
   final hw.GpuInfo? gpu;
   final ModelDownloadState downloadState;
   final bool isDark;
@@ -160,6 +176,8 @@ class _TierRow extends StatefulWidget {
   final VoidCallback? onSelect;
   final VoidCallback? onCancel;
   final VoidCallback? onDelete;
+  final bool isBenchmarking;
+  final QualityTier? benchmarkingTier;
 
   @override
   State<_TierRow> createState() => _TierRowState();
@@ -220,16 +238,17 @@ class _TierRowState extends State<_TierRow> {
         : WpColorsLight.success;
 
     final bestModel = bestModelForTier(widget.tier);
-    final warningMessage = TierSafetyPresentation.message(
-      l10n: widget.l10n,
-      tier: widget.tier,
-      safety: widget.safety,
-      gpu: widget.gpu,
-    );
-    final warningColor = TierSafetyPresentation.color(
-      isDark: widget.isDark,
-      safety: widget.safety,
-    );
+
+    // Performance info is only shown on the current tier
+    final showPerformanceInfo = widget.isCurrentTier || widget.isBenchmarking;
+    final infoMessage = showPerformanceInfo
+        ? TierPerformancePresentation.message(
+            l10n: widget.l10n,
+            tier: widget.tier,
+            performance: widget.performance,
+          )
+        : null;
+    final infoColor = TierPerformancePresentation.color(isDark: widget.isDark);
 
     final bool isSelectable =
         widget.onSelect != null && (!widget.isCurrentTier || !_isDownloaded);
@@ -360,22 +379,48 @@ class _TierRowState extends State<_TierRow> {
                           _tierDesc(widget.l10n),
                           style: TextStyle(fontSize: 11, color: textSecondary),
                         ),
-                        if (warningMessage != null) ...[
+                        if (widget.isBenchmarking) ...[
                           const SizedBox(height: 3),
                           Row(
                             children: [
-                              Icon(
-                                TierSafetyPresentation.icon(widget.safety),
-                                size: WpIconSize.xs,
-                                color: warningColor,
+                              SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: infoColor,
+                                ),
                               ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
-                                  warningMessage,
+                                  widget.l10n.qualityTierInfoBenchmarking,
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: warningColor,
+                                    color: infoColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else if (infoMessage != null) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Icon(
+                                TierPerformancePresentation.icon(
+                                  widget.performance,
+                                ),
+                                size: WpIconSize.xs,
+                                color: infoColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  infoMessage,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: infoColor,
                                   ),
                                 ),
                               ),

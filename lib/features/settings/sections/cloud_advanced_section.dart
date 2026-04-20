@@ -36,7 +36,6 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
   final _deepgramKeyCtrl = TextEditingController();
   final _anthropicKeyCtrl = TextEditingController();
   final _geminiKeyCtrl = TextEditingController();
-  final _llmModelCtrl = TextEditingController();
 
   bool _showOpenAiKey = false;
   bool _showGroqKey = false;
@@ -51,7 +50,6 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
     _deepgramKeyCtrl.dispose();
     _anthropicKeyCtrl.dispose();
     _geminiKeyCtrl.dispose();
-    _llmModelCtrl.dispose();
     super.dispose();
   }
 
@@ -65,7 +63,6 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
     syncController(_deepgramKeyCtrl, settings.deepgramApiKey);
     syncController(_anthropicKeyCtrl, settings.anthropicApiKey);
     syncController(_geminiKeyCtrl, settings.geminiApiKey);
-    syncController(_llmModelCtrl, settings.cloudLlmModel);
 
     return WpSection(
       title: l10n.settingsCloudProviders,
@@ -80,8 +77,7 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
               context: context,
               controller: _openAiKeyCtrl,
               obscure: !_showOpenAiKey,
-              onToggle: () =>
-                  setState(() => _showOpenAiKey = !_showOpenAiKey),
+              onToggle: () => setState(() => _showOpenAiKey = !_showOpenAiKey),
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
                   .updateSettings((s) => s.copyWith(openAiApiKey: v)),
@@ -125,8 +121,7 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
                   setState(() => _showAnthropicKey = !_showAnthropicKey),
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(anthropicApiKey: v)),
+                  .updateSettings((s) => s.copyWith(anthropicApiKey: v)),
             ),
           ),
           SettingRow(
@@ -136,8 +131,7 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
               context: context,
               controller: _geminiKeyCtrl,
               obscure: !_showGeminiKey,
-              onToggle: () =>
-                  setState(() => _showGeminiKey = !_showGeminiKey),
+              onToggle: () => setState(() => _showGeminiKey = !_showGeminiKey),
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
                   .updateSettings((s) => s.copyWith(geminiApiKey: v)),
@@ -151,29 +145,11 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
               trailing: settingsDropdown(
                 context: context,
                 value: settings.cloudSttProvider,
-                items: CloudSttProvider.values
-                    .map((e) => e.value)
-                    .toList(),
+                items: CloudSttProvider.values.map((e) => e.value).toList(),
                 labels: const ['OpenAI', 'Groq', 'Deepgram'],
                 onChanged: (v) => ref
                     .read(settingsProvider.notifier)
-                    .updateSettings(
-                        (s) => s.copyWith(cloudSttProvider: v!)),
-              ),
-            ),
-          if (!settings.postProcessProviderType.isLocal)
-            SettingRow(
-              icon: LucideIcons.brain,
-              label: l10n.settingsLlmModel,
-              subtitle: l10n.settingsLlmModelSubtitle,
-              trailing: settingsTextField(
-                context: context,
-                controller: _llmModelCtrl,
-                hintText: l10n.settingsLlmModelPlaceholder,
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                        (s) => s.copyWith(cloudLlmModel: v)),
+                    .updateSettings((s) => s.copyWith(cloudSttProvider: v!)),
               ),
             ),
         ],
@@ -200,25 +176,6 @@ class AdvancedSection extends ConsumerWidget {
       child: Column(
         children: [
           SettingRow(
-            icon: LucideIcons.gpu,
-            label: l10n.settingsGpuAcceleration,
-            subtitle: l10n.settingsGpuAccelerationSubtitle,
-            trailing: settingsDropdown(
-              context: context,
-              value: settings.gpuAcceleration,
-              items: const ['auto', 'enabled', 'disabled'],
-              labels: [
-                l10n.settingsGpuAuto,
-                l10n.settingsGpuEnabled,
-                l10n.settingsGpuDisabled,
-              ],
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(gpuAcceleration: v!)),
-            ),
-          ),
-          SettingRow(
             icon: LucideIcons.shieldCheck,
             label: l10n.settingsErrorReporting,
             subtitle: l10n.settingsErrorReportingSubtitle,
@@ -226,8 +183,7 @@ class AdvancedSection extends ConsumerWidget {
               value: settings.errorReporting,
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(errorReporting: v)),
+                  .updateSettings((s) => s.copyWith(errorReporting: v)),
             ),
           ),
           SettingRow(
@@ -245,7 +201,9 @@ class AdvancedSection extends ConsumerWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: Theme.of(context).colorScheme.error,
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.error.withValues(alpha: 0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.error.withValues(alpha: 0.5),
                 ),
               ),
               onPressed: () => _confirmFactoryReset(context, ref),
@@ -278,8 +236,7 @@ class AdvancedSection extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmFactoryReset(
-      BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmFactoryReset(BuildContext context, WidgetRef ref) async {
     final l10n = L10n.of(context);
     final confirmed = await showWpConfirmDialog(
       context: context,

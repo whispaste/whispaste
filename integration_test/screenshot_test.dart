@@ -345,7 +345,6 @@ class _ScreenshotShell extends StatelessWidget {
                 // Status bar — full width on the frame
                 WpStatusBar(
                   sttModeLabel: statusBarModel.sttModeLabel,
-                  postProcessingLabel: statusBarModel.postProcessingLabel,
                   sttState: SttServerState.ready,
                   recordingPhase: RecordingPhase.idle,
                   afterActionLabel: afterTranscriptionStatusLabel(
@@ -361,7 +360,6 @@ class _ScreenshotShell extends StatelessWidget {
                   hotkeyEnabled: settings.hotkeyEnabled,
                   onHotkeyTap: () {},
                   onSttTap: () {},
-                  onPostProcessTap: () {},
                   onAfterActionChanged: (_) {},
                 ),
               ],

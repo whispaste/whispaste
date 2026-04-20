@@ -5,14 +5,12 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../../core/config/settings_enums.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/recording/recording_helpers.dart'
     show displayNameForModel;
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
-import '../../../services/post_processing_service.dart';
 import '../data/history_detail_provider.dart';
 import 'highlighted_text.dart';
 import 'history_helpers.dart';
@@ -66,7 +64,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   late TextEditingController _transcriptController;
   bool _isEditingTitle = false;
   late TextEditingController _titleController;
-  bool _isSuggestingTitle = false;
   final FocusNode _panelFocusNode = FocusNode();
   final FocusNode _editorFocusNode = FocusNode();
   final FocusNode _titleFocusNode = FocusNode();
@@ -183,45 +180,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     }
     setState(() => _isEditingTitle = false);
     _panelFocusNode.requestFocus();
-  }
-
-  Future<void> _suggestTitle(HistoryEntry entry) async {
-    if (_isSuggestingTitle) return;
-    final pp = ref.read(postProcessingProvider.notifier);
-    if (ref.read(postProcessingProvider).isBusy) {
-      // Capture L10n BEFORE async gap
-      final l10n = L10n.of(context);
-      WpToast.show(context, message: l10n.historyAiBusy);
-      return;
-    }
-
-    // Capture L10n and entry data BEFORE async gap
-    final l10n = L10n.of(context);
-    final content = entry.content;
-
-    setState(() => _isSuggestingTitle = true);
-    try {
-      final title = await pp.suggestTitle(content);
-
-      // Check mounted BEFORE using context or setState
-      if (!mounted) return;
-
-      _titleController.text = title;
-      setState(() => _isEditingTitle = true);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _titleFocusNode.requestFocus();
-      });
-      WpToast.show(context, message: l10n.historyAiTitleSuggested);
-    } on Exception catch (e) {
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: '${l10n.historyAiError}: $e',
-        type: WpToastType.error,
-      );
-    } finally {
-      if (mounted) setState(() => _isSuggestingTitle = false);
-    }
   }
 
   void _wrapBold() => _wrapEditorSelection('**');
@@ -595,12 +553,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                                       ),
                                     ),
                                   ),
-                                  if (!isTrashView && !isArchiveView)
-                                    _SuggestTitleButton(
-                                      isLoading: _isSuggestingTitle,
-                                      isDark: isDark,
-                                      onTap: () => _suggestTitle(entry),
-                                    ),
                                 ],
                               ),
                             const SizedBox(height: 2),
@@ -1029,13 +981,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                               ],
                             ),
                           ],
-                          // ── AI Actions (post-processing) ──
-                          const SizedBox(height: WpSpacing.md),
-                          _AiActionsRow(
-                            isDark: isDark,
-                            entryId: entry.id,
-                            content: entry.content,
-                          ),
                           // ── Notes section ──
                           const SizedBox(height: WpSpacing.lg),
                           HistoryNotesSection(
@@ -1053,329 +998,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// AI Actions row — post-processing buttons (live LLM)
-// ---------------------------------------------------------------------------
-
-class _AiActionsRow extends ConsumerStatefulWidget {
-  const _AiActionsRow({
-    required this.isDark,
-    required this.entryId,
-    required this.content,
-  });
-
-  final bool isDark;
-  final String entryId;
-  final String content;
-
-  @override
-  ConsumerState<_AiActionsRow> createState() => _AiActionsRowState();
-}
-
-class _AiActionsRowState extends ConsumerState<_AiActionsRow> {
-  PostProcessPreset? _activePreset;
-
-  Future<void> _process(PostProcessPreset preset, {String? targetLang}) async {
-    if (_activePreset != null) return;
-    final pp = ref.read(postProcessingProvider.notifier);
-    if (ref.read(postProcessingProvider).isBusy) {
-      // Capture L10n BEFORE async gap
-      final l10n = L10n.of(context);
-      WpToast.show(context, message: l10n.historyAiBusy);
-      return;
-    }
-
-    // Capture L10n and entry data BEFORE async gap
-    final l10n = L10n.of(context);
-    final originalText = widget.content;
-    final entryId = widget.entryId;
-
-    setState(() => _activePreset = preset);
-    try {
-      final result = await pp.process(
-        originalText,
-        preset,
-        targetLang: targetLang,
-      );
-
-      // Check mounted BEFORE using context
-      if (!mounted) return;
-
-      await ref
-          .read(historyDetailProvider(entryId).notifier)
-          .updateContent(result);
-
-      if (!mounted) return;
-
-      WpToast.show(
-        context,
-        message: l10n.historyAiProcessed,
-        actionLabel: l10n.undo,
-        onAction: () {
-          ref
-              .read(historyDetailProvider(entryId).notifier)
-              .updateContent(originalText);
-        },
-      );
-    } on Exception catch (e) {
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: '${l10n.historyAiError}: $e',
-        type: WpToastType.error,
-      );
-    } finally {
-      if (mounted) setState(() => _activePreset = null);
-    }
-  }
-
-  Future<void> _onTranslate() async {
-    final lang = await _showLanguagePicker(context, widget.isDark);
-    if (lang == null || !mounted) return;
-    await _process(PostProcessPreset.translate, targetLang: lang);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    final textMuted = widget.isDark
-        ? WpColorsDark.textMuted
-        : WpColorsLight.textMuted;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              l10n.historyAiActions,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: textMuted,
-                letterSpacing: 0.5,
-              ),
-            ),
-            if (_activePreset != null) ...[
-              const SizedBox(width: WpSpacing.xs),
-              Text(
-                l10n.historyAiProcessing,
-                style: TextStyle(fontSize: 11, color: textMuted),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: WpSpacing.xs),
-        Wrap(
-          spacing: WpSpacing.xs,
-          runSpacing: WpSpacing.xs,
-          children: [
-            _AiActionChip(
-              icon: LucideIcons.sparkles,
-              label: l10n.historyAiCleanUp,
-              isDark: widget.isDark,
-              isLoading: _activePreset == PostProcessPreset.cleanup,
-              isDisabled:
-                  _activePreset != null &&
-                  _activePreset != PostProcessPreset.cleanup,
-              onTap: () => _process(PostProcessPreset.cleanup),
-            ),
-            _AiActionChip(
-              icon: LucideIcons.arrowDownUp,
-              label: l10n.historyAiShorten,
-              isDark: widget.isDark,
-              isLoading: _activePreset == PostProcessPreset.concise,
-              isDisabled:
-                  _activePreset != null &&
-                  _activePreset != PostProcessPreset.concise,
-              onTap: () => _process(PostProcessPreset.concise),
-            ),
-            _AiActionChip(
-              icon: LucideIcons.languages,
-              label: l10n.historyAiTranslate,
-              isDark: widget.isDark,
-              isLoading: _activePreset == PostProcessPreset.translate,
-              isDisabled:
-                  _activePreset != null &&
-                  _activePreset != PostProcessPreset.translate,
-              onTap: _onTranslate,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _AiActionChip extends StatelessWidget {
-  const _AiActionChip({
-    required this.icon,
-    required this.label,
-    required this.isDark,
-    required this.onTap,
-    this.isLoading = false,
-    this.isDisabled = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool isDark;
-  final VoidCallback onTap;
-  final bool isLoading;
-  final bool isDisabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final chipColor = isLoading ? accent : textMuted;
-    final opacity = isDisabled ? 0.35 : 1.0;
-
-    return Opacity(
-      opacity: opacity,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: WpRadius.borderFull,
-        child: InkWell(
-          borderRadius: const BorderRadius.all(Radius.circular(999)),
-          onTap: (isLoading || isDisabled) ? null : onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.sm,
-              vertical: 5,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: isLoading
-                    ? accent.withValues(alpha: 0.4)
-                    : textMuted.withValues(alpha: 0.2),
-              ),
-              borderRadius: WpRadius.borderFull,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isLoading)
-                  SizedBox(
-                    width: 13,
-                    height: 13,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: accent,
-                    ),
-                  )
-                else
-                  Icon(icon, size: 13, color: chipColor),
-                const SizedBox(width: 5),
-                Text(label, style: TextStyle(fontSize: 12, color: chipColor)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Language picker dialog for translate preset
-// ---------------------------------------------------------------------------
-
-Future<String?> _showLanguagePicker(BuildContext context, bool isDark) {
-  final l10n = L10n.of(context);
-  final languages = <String, String>{
-    'English': 'English',
-    'German': 'Deutsch',
-    'Spanish': 'Español',
-    'French': 'Français',
-    'Italian': 'Italiano',
-    'Portuguese': 'Português',
-    'Japanese': '日本語',
-    'Chinese': '中文',
-    'Korean': '한국어',
-    'Russian': 'Русский',
-  };
-
-  final surface = isDark
-      ? WpColorsDark.surfaceElevated
-      : WpColorsLight.surfaceElevated;
-  final textPrimary = isDark
-      ? WpColorsDark.textPrimary
-      : WpColorsLight.textPrimary;
-
-  return showDialog<String>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      backgroundColor: surface,
-      title: Text(
-        l10n.historyAiTranslateTo,
-        style: TextStyle(color: textPrimary, fontSize: 16),
-      ),
-      contentPadding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
-      content: SizedBox(
-        width: 260,
-        child: ListView(
-          shrinkWrap: true,
-          children: languages.entries
-              .map(
-                (e) => ListTile(
-                  dense: true,
-                  title: Text(
-                    '${e.key}  ${e.value}',
-                    style: TextStyle(color: textPrimary, fontSize: 14),
-                  ),
-                  onTap: () => Navigator.of(ctx).pop(e.key),
-                ),
-              )
-              .toList(),
-        ),
-      ),
-    ),
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Suggest-title sparkle button
-// ---------------------------------------------------------------------------
-
-class _SuggestTitleButton extends StatelessWidget {
-  const _SuggestTitleButton({
-    required this.isLoading,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  final bool isLoading;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final muted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    return Tooltip(
-      message: L10n.of(context).historyAiSuggestTitle,
-      child: InkWell(
-        borderRadius: WpRadius.borderFull,
-        onTap: isLoading ? null : onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: isLoading
-              ? SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.5,
-                    color: accent,
-                  ),
-                )
-              : Icon(LucideIcons.sparkles, size: 16, color: muted),
         ),
       ),
     );
@@ -1608,8 +1230,6 @@ class _TagSectionState extends ConsumerState<_TagSection> {
   List<Tag> _suggestions = [];
   Map<String, int> _suggestionCounts = {};
   final GlobalKey<WpTagInputState> _tagInputKey = GlobalKey<WpTagInputState>();
-  bool _isSuggestingTags = false;
-  List<String> _aiSuggestedTags = [];
 
   /// Called by keyboard shortcut (T) to enter tag add mode.
   void focusTagInput() {
@@ -1642,56 +1262,6 @@ class _TagSectionState extends ConsumerState<_TagSection> {
           _suggestionCounts = {};
         });
       }
-    }
-  }
-
-  Future<void> _suggestTags() async {
-    if (_isSuggestingTags) return;
-    final pp = ref.read(postProcessingProvider.notifier);
-    if (ref.read(postProcessingProvider).isBusy) {
-      // Capture L10n BEFORE async gap
-      final l10n = L10n.of(context);
-      WpToast.show(context, message: l10n.historyAiBusy);
-      return;
-    }
-
-    // Capture L10n and content BEFORE async gap
-    final l10n = L10n.of(context);
-    final content = widget.content;
-    final existingTags = widget.tags.map((t) => t.name.toLowerCase()).toSet();
-
-    setState(() {
-      _isSuggestingTags = true;
-      _aiSuggestedTags = [];
-    });
-    try {
-      final tags = await pp.suggestTags(content);
-
-      // Check mounted BEFORE using context or setState
-      if (!mounted) return;
-
-      // Filter out tags already assigned
-      final filtered = tags
-          .where((t) => !existingTags.contains(t.toLowerCase()))
-          .toList();
-
-      setState(() => _aiSuggestedTags = filtered);
-
-      if (filtered.isNotEmpty) {
-        WpToast.show(
-          context,
-          message: l10n.historyAiTagsSuggested(filtered.length),
-        );
-      }
-    } on Exception catch (e) {
-      if (!mounted) return;
-      WpToast.show(
-        context,
-        message: '${l10n.historyAiError}: $e',
-        type: WpToastType.error,
-      );
-    } finally {
-      if (mounted) setState(() => _isSuggestingTags = false);
     }
   }
 
@@ -1763,30 +1333,6 @@ class _TagSectionState extends ConsumerState<_TagSection> {
                   padding: EdgeInsets.zero,
                 ),
               ),
-              const SizedBox(width: WpSpacing.xxs),
-              _isSuggestingTags
-                  ? SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: accent,
-                      ),
-                    )
-                  : SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: IconButton(
-                        icon: Icon(
-                          LucideIcons.sparkles,
-                          size: 12,
-                          color: textMuted,
-                        ),
-                        onPressed: _suggestTags,
-                        tooltip: l10n.historyAiSuggestTags,
-                        padding: EdgeInsets.zero,
-                      ),
-                    ),
             ],
           ),
           onSearchChanged: (q) {
@@ -1810,40 +1356,6 @@ class _TagSectionState extends ConsumerState<_TagSection> {
             }
           },
         ),
-        if (_aiSuggestedTags.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(
-              top: WpSpacing.xs,
-              left: WpSpacing.xxs,
-            ),
-            child: Wrap(
-              spacing: WpSpacing.xxs,
-              runSpacing: WpSpacing.xxs,
-              children: _aiSuggestedTags.map((tagName) {
-                return ActionChip(
-                  avatar: Icon(LucideIcons.plus, size: 12, color: accent),
-                  label: Text(
-                    tagName,
-                    style: TextStyle(fontSize: 12, color: textSecondary),
-                  ),
-                  backgroundColor: accent.withValues(alpha: 0.1),
-                  side: BorderSide(color: accent.withValues(alpha: 0.3)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: WpRadius.borderSm,
-                  ),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  onPressed: () {
-                    notifier.addTag(tagName);
-                    setState(() {
-                      _aiSuggestedTags = _aiSuggestedTags
-                          .where((t) => t != tagName)
-                          .toList();
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-          ),
       ],
     );
   }

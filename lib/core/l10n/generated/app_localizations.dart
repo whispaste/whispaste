@@ -685,24 +685,6 @@ abstract class L10n {
   /// **'Automatically stop after this many seconds of silence (after speech). 0 = disabled.'**
   String get settingsAutoStopSilenceHint;
 
-  /// No description provided for @settingsPostProcessing.
-  ///
-  /// In en, this message translates to:
-  /// **'Post-Processing'**
-  String get settingsPostProcessing;
-
-  /// No description provided for @settingsPostProcessingHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Improve your dictated text automatically using AI.'**
-  String get settingsPostProcessingHint;
-
-  /// No description provided for @settingsTextEnhancementSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Clean up, shorten, or translate dictated text automatically'**
-  String get settingsTextEnhancementSubtitle;
-
   /// No description provided for @settingsEnabled.
   ///
   /// In en, this message translates to:
@@ -786,24 +768,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Spanish'**
   String get settingsLanguageSpanish;
-
-  /// No description provided for @settingsPresetCleanup.
-  ///
-  /// In en, this message translates to:
-  /// **'Clean up'**
-  String get settingsPresetCleanup;
-
-  /// No description provided for @settingsPresetConcise.
-  ///
-  /// In en, this message translates to:
-  /// **'Make concise'**
-  String get settingsPresetConcise;
-
-  /// No description provided for @settingsPresetTranslate.
-  ///
-  /// In en, this message translates to:
-  /// **'Translate'**
-  String get settingsPresetTranslate;
 
   /// No description provided for @settingsSoundFeedback.
   ///
@@ -2143,12 +2107,6 @@ abstract class L10n {
   /// **'On device'**
   String get statusBarOnDevice;
 
-  /// No description provided for @statusBarPostProcessing.
-  ///
-  /// In en, this message translates to:
-  /// **'Post-Processing'**
-  String get statusBarPostProcessing;
-
   /// No description provided for @statusBarOverlayFloating.
   ///
   /// In en, this message translates to:
@@ -2185,24 +2143,6 @@ abstract class L10n {
   /// **'After: Manual'**
   String get statusBarAfterNothing;
 
-  /// No description provided for @statusBarPresetCleanup.
-  ///
-  /// In en, this message translates to:
-  /// **'Clean Up'**
-  String get statusBarPresetCleanup;
-
-  /// No description provided for @statusBarPresetConcise.
-  ///
-  /// In en, this message translates to:
-  /// **'Concise'**
-  String get statusBarPresetConcise;
-
-  /// No description provided for @statusBarPresetTranslate.
-  ///
-  /// In en, this message translates to:
-  /// **'Translate'**
-  String get statusBarPresetTranslate;
-
   /// No description provided for @sttStatusStandby.
   ///
   /// In en, this message translates to:
@@ -2232,12 +2172,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Speech engine and current status'**
   String get statusBarSttTooltip;
-
-  /// No description provided for @statusBarPostProcessTooltip.
-  ///
-  /// In en, this message translates to:
-  /// **'Active post-processing'**
-  String get statusBarPostProcessTooltip;
 
   /// No description provided for @statusBarRecording.
   ///
@@ -2551,41 +2485,41 @@ abstract class L10n {
   /// **'Active'**
   String get qualityTierActive;
 
-  /// No description provided for @qualityTierWarningNoGpu.
+  /// No description provided for @qualityTierInfoSlow.
   ///
   /// In en, this message translates to:
-  /// **'Without a GPU, this quality level will be noticeably slower.'**
-  String get qualityTierWarningNoGpu;
+  /// **'Best quality — takes ~{ratio}x longer to process'**
+  String qualityTierInfoSlow(String ratio);
 
-  /// No description provided for @qualityTierWarningNvidiaPremium.
+  /// No description provided for @qualityTierInfoSlowerThanCompact.
   ///
   /// In en, this message translates to:
-  /// **'May require more GPU memory than available. Transcription could be slow or fail on some systems.'**
-  String get qualityTierWarningNvidiaPremium;
+  /// **'Best quality — ~{ratio}x slower than Small'**
+  String qualityTierInfoSlowerThanCompact(String ratio);
 
-  /// No description provided for @qualityTierWarningNvidiaBalanced.
+  /// No description provided for @qualityTierInfoModerate.
   ///
   /// In en, this message translates to:
-  /// **'May require more GPU memory than available. Transcription could be slow.'**
-  String get qualityTierWarningNvidiaBalanced;
+  /// **'Good balance of speed and quality'**
+  String get qualityTierInfoModerate;
 
-  /// No description provided for @qualityTierWarningIgpuPremium.
+  /// No description provided for @qualityTierBenchmarkReRun.
   ///
   /// In en, this message translates to:
-  /// **'Integrated graphics typically cannot run this quality level. Transcription will likely fail.'**
-  String get qualityTierWarningIgpuPremium;
+  /// **'Re-run benchmark'**
+  String get qualityTierBenchmarkReRun;
 
-  /// No description provided for @qualityTierWarningIgpuBalanced.
+  /// No description provided for @qualityTierBenchmarkRun.
   ///
   /// In en, this message translates to:
-  /// **'Integrated graphics have limited memory. Transcription may be slow or fail.'**
-  String get qualityTierWarningIgpuBalanced;
+  /// **'Run benchmark'**
+  String get qualityTierBenchmarkRun;
 
-  /// No description provided for @qualityTierWarningApplePremium.
+  /// No description provided for @qualityTierInfoBenchmarking.
   ///
   /// In en, this message translates to:
-  /// **'Requires a Mac with sufficient unified memory.'**
-  String get qualityTierWarningApplePremium;
+  /// **'Testing performance…'**
+  String get qualityTierInfoBenchmarking;
 
   /// No description provided for @qualityTierActionOverride.
   ///
@@ -2688,6 +2622,84 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Please download a speech model in Settings first.'**
   String get infoModelMissing;
+
+  /// No description provided for @oomRecoveryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording failed — GPU memory issue'**
+  String get oomRecoveryTitle;
+
+  /// No description provided for @oomRecoveryMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your GPU ran out of memory. Choose how to proceed:'**
+  String get oomRecoveryMessage;
+
+  /// No description provided for @oomRecoveryTrySmaller.
+  ///
+  /// In en, this message translates to:
+  /// **'Try smaller model'**
+  String get oomRecoveryTrySmaller;
+
+  /// No description provided for @oomRecoveryTrySmallerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to {model} and retry recording'**
+  String oomRecoveryTrySmallerHint(String model);
+
+  /// No description provided for @oomRecoverySwitchCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to Cloud'**
+  String get oomRecoverySwitchCloud;
+
+  /// No description provided for @oomRecoverySwitchCloudHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use cloud speech recognition instead'**
+  String get oomRecoverySwitchCloudHint;
+
+  /// No description provided for @oomRecoveryCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get oomRecoveryCancel;
+
+  /// No description provided for @oomRecoveryPermanentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Local speech recognition unavailable'**
+  String get oomRecoveryPermanentTitle;
+
+  /// No description provided for @oomRecoveryPermanentMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'All local models failed due to GPU memory limits. Please switch to cloud speech recognition in settings.'**
+  String get oomRecoveryPermanentMessage;
+
+  /// No description provided for @oomRecoveryPermanentCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get oomRecoveryPermanentCloud;
+
+  /// No description provided for @oomRecoveryDowngrading.
+  ///
+  /// In en, this message translates to:
+  /// **'Switching to {model}…'**
+  String oomRecoveryDowngrading(String model);
+
+  /// No description provided for @oomRecoverySwitchingCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Switching to cloud speech recognition…'**
+  String get oomRecoverySwitchingCloud;
+
+  /// No description provided for @oomRecoveryAttemptFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Model {model} also failed. Trying next option…'**
+  String oomRecoveryAttemptFailed(String model);
 
   /// No description provided for @infoSttCudaOomFallbackModel.
   ///
@@ -2995,90 +3007,6 @@ abstract class L10n {
   /// **'Save'**
   String get historySaveTranscript;
 
-  /// No description provided for @historyAiActions.
-  ///
-  /// In en, this message translates to:
-  /// **'AI Actions'**
-  String get historyAiActions;
-
-  /// No description provided for @historyAiCleanUp.
-  ///
-  /// In en, this message translates to:
-  /// **'Clean up'**
-  String get historyAiCleanUp;
-
-  /// No description provided for @historyAiShorten.
-  ///
-  /// In en, this message translates to:
-  /// **'Shorten'**
-  String get historyAiShorten;
-
-  /// No description provided for @historyAiTranslate.
-  ///
-  /// In en, this message translates to:
-  /// **'Translate'**
-  String get historyAiTranslate;
-
-  /// No description provided for @historyAiComingSoon.
-  ///
-  /// In en, this message translates to:
-  /// **'AI post-processing is coming in a future update'**
-  String get historyAiComingSoon;
-
-  /// No description provided for @historyAiProcessing.
-  ///
-  /// In en, this message translates to:
-  /// **'Processing…'**
-  String get historyAiProcessing;
-
-  /// No description provided for @historyAiProcessed.
-  ///
-  /// In en, this message translates to:
-  /// **'Text processed with AI'**
-  String get historyAiProcessed;
-
-  /// No description provided for @historyAiError.
-  ///
-  /// In en, this message translates to:
-  /// **'AI processing failed'**
-  String get historyAiError;
-
-  /// No description provided for @historyAiSuggestTags.
-  ///
-  /// In en, this message translates to:
-  /// **'Suggest'**
-  String get historyAiSuggestTags;
-
-  /// No description provided for @historyAiSuggestTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Suggest title'**
-  String get historyAiSuggestTitle;
-
-  /// No description provided for @historyAiTagsSuggested.
-  ///
-  /// In en, this message translates to:
-  /// **'{count} tags suggested'**
-  String historyAiTagsSuggested(int count);
-
-  /// No description provided for @historyAiTitleSuggested.
-  ///
-  /// In en, this message translates to:
-  /// **'Title suggested — review and save'**
-  String get historyAiTitleSuggested;
-
-  /// No description provided for @historyAiTranslateTo.
-  ///
-  /// In en, this message translates to:
-  /// **'Translate to…'**
-  String get historyAiTranslateTo;
-
-  /// No description provided for @historyAiBusy.
-  ///
-  /// In en, this message translates to:
-  /// **'AI is already processing another request'**
-  String get historyAiBusy;
-
   /// No description provided for @historyShortcutHelp.
   ///
   /// In en, this message translates to:
@@ -3283,60 +3211,6 @@ abstract class L10n {
   /// **'Cloud speech recognition service'**
   String get settingsDefaultSttProviderSubtitle;
 
-  /// No description provided for @settingsLlmModel.
-  ///
-  /// In en, this message translates to:
-  /// **'LLM Model'**
-  String get settingsLlmModel;
-
-  /// No description provided for @settingsLlmModelSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Model used for cloud post-processing'**
-  String get settingsLlmModelSubtitle;
-
-  /// No description provided for @settingsLlmModelPlaceholder.
-  ///
-  /// In en, this message translates to:
-  /// **'e.g. gpt-4o-mini'**
-  String get settingsLlmModelPlaceholder;
-
-  /// No description provided for @settingsCustomInstructions.
-  ///
-  /// In en, this message translates to:
-  /// **'Custom Instructions'**
-  String get settingsCustomInstructions;
-
-  /// No description provided for @settingsCustomInstructionsSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Custom prompt for AI post-processing'**
-  String get settingsCustomInstructionsSubtitle;
-
-  /// No description provided for @settingsCustomInstructionsPlaceholder.
-  ///
-  /// In en, this message translates to:
-  /// **'e.g. Always use formal language…'**
-  String get settingsCustomInstructionsPlaceholder;
-
-  /// No description provided for @settingsOutputLanguage.
-  ///
-  /// In en, this message translates to:
-  /// **'Output Language'**
-  String get settingsOutputLanguage;
-
-  /// No description provided for @settingsOutputLanguageSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Force output to a specific language'**
-  String get settingsOutputLanguageSubtitle;
-
-  /// No description provided for @settingsOutputLanguageSameAsInput.
-  ///
-  /// In en, this message translates to:
-  /// **'Same as input'**
-  String get settingsOutputLanguageSameAsInput;
-
   /// No description provided for @settingsMaxRecordDuration.
   ///
   /// In en, this message translates to:
@@ -3378,36 +3252,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Help improve WhisPaste by sending anonymous crash reports'**
   String get settingsErrorReportingSubtitle;
-
-  /// No description provided for @settingsGpuAcceleration.
-  ///
-  /// In en, this message translates to:
-  /// **'GPU Acceleration'**
-  String get settingsGpuAcceleration;
-
-  /// No description provided for @settingsGpuAccelerationSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Use graphics card for faster AI processing'**
-  String get settingsGpuAccelerationSubtitle;
-
-  /// No description provided for @settingsGpuAuto.
-  ///
-  /// In en, this message translates to:
-  /// **'Auto-detect'**
-  String get settingsGpuAuto;
-
-  /// No description provided for @settingsGpuEnabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Always On'**
-  String get settingsGpuEnabled;
-
-  /// No description provided for @settingsGpuDisabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Disabled'**
-  String get settingsGpuDisabled;
 
   /// No description provided for @settingsAutoPasteDelay.
   ///
@@ -3672,12 +3516,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Transcribing…'**
   String get overlayTranscribing;
-
-  /// No description provided for @overlayRefining.
-  ///
-  /// In en, this message translates to:
-  /// **'Refining…'**
-  String get overlayRefining;
 
   /// No description provided for @overlayDone.
   ///

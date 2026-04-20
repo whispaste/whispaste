@@ -1,6 +1,6 @@
 # WhisPaste — AI Agent Guidelines
 
-WhisPaste is a premium cross-platform dictation app (Flutter, Windows/macOS/Linux/iOS/Android). Local AI: whisper.cpp (STT) + llama.cpp (LLM). State: Riverpod, DB: Drift, Cloud: Supabase.
+WhisPaste is a premium cross-platform dictation app (Flutter, Windows/macOS/Linux/iOS/Android). Local AI: whisper.cpp (STT). State: Riverpod, DB: Drift, Cloud: Supabase.
 
 **License**: MIT | **Repo**: public on GitHub
 
@@ -8,11 +8,11 @@ WhisPaste is a premium cross-platform dictation app (Flutter, Windows/macOS/Linu
 
 ## Git Workflow
 
-- Branch from `dev`, commit to `dev` only (never main)
-- Naming: `feat/<desc>`, `fix/<issue>`, `refactor/<area>`
-- Commits: Conventional Commits (`feat(scope): desc`, `fix(scope): desc`)
-- Sentry issues referenced in commit messages when resolving bugs
-- Commit push: immediately after commit
+- Branches: only `main` and `dev`
+- Development happens on `dev`, commits pushed to remote
+- Stable releases merged to `main`, then `main` pushed to remote
+- Merge: dev → main only
+- Commits: Conventional Commits (feat, fix, refactor, docs, test, chore)
 
 ## Build & Test
 
@@ -71,9 +71,8 @@ dart format lib/ test/
 ## Error Handling
 
 - All AI operations in try/catch with user-friendly UI feedback
-- Sentry for crash reporting (DSN in app_monitoring.dart, GDPR-gated)
 - Specific error codes → localized messages via `localizeRecordingError/L10n`
-- No swallowed exceptions — log + report + inform user
+- No swallowed exceptions — log + inform user
 
 ## Skills Available
 
@@ -98,7 +97,7 @@ See `rules/` for deep-dives:
 - [ ] `flutter analyze` passes (no errors)
 - [ ] `flutter test` passes (or pre-existing failures documented)
 - [ ] `flutter build windows --release` succeeds
-- [ ] No hardcoded English strings in UI
+- [ ] No hardcoded English or German strings in UI
 - [ ] No console.log / debug code left
 - [ ] No secrets/API keys committed
 - [ ] New features have tests

@@ -331,17 +331,6 @@ class L10nDe extends L10n {
       'Automatisch stoppen nach dieser Anzahl Sekunden Stille (nach Sprache). 0 = deaktiviert.';
 
   @override
-  String get settingsPostProcessing => 'Nachbearbeitung';
-
-  @override
-  String get settingsPostProcessingHint =>
-      'Diktierten Text automatisch mit KI verbessern.';
-
-  @override
-  String get settingsTextEnhancementSubtitle =>
-      'Diktierten Text automatisch bereinigen, kürzen oder übersetzen';
-
-  @override
   String get settingsEnabled => 'Aktiviert';
 
   @override
@@ -383,15 +372,6 @@ class L10nDe extends L10n {
 
   @override
   String get settingsLanguageSpanish => 'Spanisch';
-
-  @override
-  String get settingsPresetCleanup => 'Bereinigen';
-
-  @override
-  String get settingsPresetConcise => 'Kürzen';
-
-  @override
-  String get settingsPresetTranslate => 'Übersetzen';
 
   @override
   String get settingsSoundFeedback => 'Ton & Feedback';
@@ -1129,9 +1109,6 @@ class L10nDe extends L10n {
   String get statusBarOnDevice => 'Auf dem Gerät';
 
   @override
-  String get statusBarPostProcessing => 'Nachbearbeitung';
-
-  @override
   String get statusBarOverlayFloating => 'Overlay: Schwebend';
 
   @override
@@ -1150,15 +1127,6 @@ class L10nDe extends L10n {
   String get statusBarAfterNothing => 'Danach: Manuell';
 
   @override
-  String get statusBarPresetCleanup => 'Bereinigen';
-
-  @override
-  String get statusBarPresetConcise => 'Kompakt';
-
-  @override
-  String get statusBarPresetTranslate => 'Übersetzen';
-
-  @override
   String get sttStatusStandby => 'Bereitschaft';
 
   @override
@@ -1172,9 +1140,6 @@ class L10nDe extends L10n {
 
   @override
   String get statusBarSttTooltip => 'Sprach-Engine und aktueller Status';
-
-  @override
-  String get statusBarPostProcessTooltip => 'Aktive Nachbearbeitung';
 
   @override
   String get statusBarRecording => 'Aufnahme…';
@@ -1344,28 +1309,27 @@ class L10nDe extends L10n {
   String get qualityTierActive => 'Aktiv';
 
   @override
-  String get qualityTierWarningNoGpu =>
-      'Ohne GPU ist diese Qualitätsstufe deutlich langsamer.';
+  String qualityTierInfoSlow(String ratio) {
+    return 'Beste Qualität — dauert ~${ratio}x länger';
+  }
 
   @override
-  String get qualityTierWarningNvidiaPremium =>
-      'Benötigt möglicherweise mehr GPU-Speicher als verfügbar. Transkription könnte langsam sein oder fehlschlagen.';
+  String qualityTierInfoSlowerThanCompact(String ratio) {
+    return 'Beste Qualität — dauert ~${ratio}x länger als Small';
+  }
 
   @override
-  String get qualityTierWarningNvidiaBalanced =>
-      'Benötigt möglicherweise mehr GPU-Speicher als verfügbar. Transkription könnte langsam sein.';
+  String get qualityTierInfoModerate =>
+      'Gutes Gleichgewicht zwischen Geschwindigkeit und Qualität';
 
   @override
-  String get qualityTierWarningIgpuPremium =>
-      'Integrierte Grafik kann dieses Qualitätsniveau typischerweise nicht ausführen. Transkription wird wahrscheinlich fehlschlagen.';
+  String get qualityTierBenchmarkReRun => 'Benchmark erneut ausführen';
 
   @override
-  String get qualityTierWarningIgpuBalanced =>
-      'Integrierte Grafik hat begrenzten Speicher. Transkription könnte langsam sein oder fehlschlagen.';
+  String get qualityTierBenchmarkRun => 'Benchmark starten';
 
   @override
-  String get qualityTierWarningApplePremium =>
-      'Erfordert einen Mac mit ausreichend Unified Memory.';
+  String get qualityTierInfoBenchmarking => 'Teste Leistung…';
 
   @override
   String get qualityTierActionOverride => 'Trotzdem verwenden';
@@ -1428,6 +1392,55 @@ class L10nDe extends L10n {
   @override
   String get infoModelMissing =>
       'Bitte lade zuerst ein Sprachmodell in den Einstellungen herunter.';
+
+  @override
+  String get oomRecoveryTitle =>
+      'Aufnahme fehlgeschlagen — GPU-Speicherproblem';
+
+  @override
+  String get oomRecoveryMessage =>
+      'Deiner GPU ist nicht mehr genügend Speicher verfügbar. Wie möchtest du fortfahren?';
+
+  @override
+  String get oomRecoveryTrySmaller => 'Kleineres Modell versuchen';
+
+  @override
+  String oomRecoveryTrySmallerHint(String model) {
+    return 'Zu $model wechseln und Aufnahme wiederholen';
+  }
+
+  @override
+  String get oomRecoverySwitchCloud => 'Zur Cloud wechseln';
+
+  @override
+  String get oomRecoverySwitchCloudHint => 'Cloud-Spracherkennung verwenden';
+
+  @override
+  String get oomRecoveryCancel => 'Abbrechen';
+
+  @override
+  String get oomRecoveryPermanentTitle =>
+      'Lokale Spracherkennung nicht verfügbar';
+
+  @override
+  String get oomRecoveryPermanentMessage =>
+      'Alle lokalen Modelle sind wegen GPU-Speicherlimits fehlgeschlagen. Bitte wechsle in den Einstellungen zu Cloud-Spracherkennung.';
+
+  @override
+  String get oomRecoveryPermanentCloud => 'Einstellungen öffnen';
+
+  @override
+  String oomRecoveryDowngrading(String model) {
+    return 'Wechsle zu $model…';
+  }
+
+  @override
+  String get oomRecoverySwitchingCloud => 'Wechsle zu Cloud-Spracherkennung…';
+
+  @override
+  String oomRecoveryAttemptFailed(String model) {
+    return 'Modell $model ist ebenfalls fehlgeschlagen. Nächste Option wird versucht…';
+  }
 
   @override
   String get infoSttCudaOomFallbackModel =>
@@ -1643,52 +1656,6 @@ class L10nDe extends L10n {
   String get historySaveTranscript => 'Speichern';
 
   @override
-  String get historyAiActions => 'KI-Aktionen';
-
-  @override
-  String get historyAiCleanUp => 'Bereinigen';
-
-  @override
-  String get historyAiShorten => 'Kürzen';
-
-  @override
-  String get historyAiTranslate => 'Übersetzen';
-
-  @override
-  String get historyAiComingSoon =>
-      'KI-Nachbearbeitung kommt in einem zukünftigen Update';
-
-  @override
-  String get historyAiProcessing => 'Verarbeitung…';
-
-  @override
-  String get historyAiProcessed => 'Text mit KI verarbeitet';
-
-  @override
-  String get historyAiError => 'KI-Verarbeitung fehlgeschlagen';
-
-  @override
-  String get historyAiSuggestTags => 'Vorschlagen';
-
-  @override
-  String get historyAiSuggestTitle => 'Titel vorschlagen';
-
-  @override
-  String historyAiTagsSuggested(int count) {
-    return '$count Tags vorgeschlagen';
-  }
-
-  @override
-  String get historyAiTitleSuggested =>
-      'Titel vorgeschlagen — prüfen und speichern';
-
-  @override
-  String get historyAiTranslateTo => 'Übersetzen nach…';
-
-  @override
-  String get historyAiBusy => 'KI verarbeitet bereits eine andere Anfrage';
-
-  @override
   String get historyShortcutHelp => 'Tastenkürzel';
 
   @override
@@ -1798,36 +1765,6 @@ class L10nDe extends L10n {
       'Cloud-Spracherkennungsdienst';
 
   @override
-  String get settingsLlmModel => 'LLM-Modell';
-
-  @override
-  String get settingsLlmModelSubtitle => 'Modell für die Cloud-Nachbearbeitung';
-
-  @override
-  String get settingsLlmModelPlaceholder => 'z.B. gpt-4o-mini';
-
-  @override
-  String get settingsCustomInstructions => 'Eigene Anweisungen';
-
-  @override
-  String get settingsCustomInstructionsSubtitle =>
-      'Eigener Prompt für die KI-Nachbearbeitung';
-
-  @override
-  String get settingsCustomInstructionsPlaceholder =>
-      'z.B. Verwende immer formelle Sprache…';
-
-  @override
-  String get settingsOutputLanguage => 'Ausgabesprache';
-
-  @override
-  String get settingsOutputLanguageSubtitle =>
-      'Erzwinge Ausgabe in einer bestimmten Sprache';
-
-  @override
-  String get settingsOutputLanguageSameAsInput => 'Wie Eingabe';
-
-  @override
   String get settingsMaxRecordDuration => 'Maximale Aufnahmedauer';
 
   @override
@@ -1850,22 +1787,6 @@ class L10nDe extends L10n {
   @override
   String get settingsErrorReportingSubtitle =>
       'Hilf WhisPaste zu verbessern, indem du anonyme Absturzberichte sendest';
-
-  @override
-  String get settingsGpuAcceleration => 'GPU-Beschleunigung';
-
-  @override
-  String get settingsGpuAccelerationSubtitle =>
-      'Grafikkarte für schnellere KI-Verarbeitung nutzen';
-
-  @override
-  String get settingsGpuAuto => 'Automatisch';
-
-  @override
-  String get settingsGpuEnabled => 'Immer an';
-
-  @override
-  String get settingsGpuDisabled => 'Deaktiviert';
 
   @override
   String get settingsAutoPasteDelay => 'Auto-Einfüge-Verzögerung';
@@ -2013,9 +1934,6 @@ class L10nDe extends L10n {
 
   @override
   String get overlayTranscribing => 'Wird transkribiert…';
-
-  @override
-  String get overlayRefining => 'Wird verfeinert…';
 
   @override
   String get overlayDone => 'Kopiert';
