@@ -382,6 +382,7 @@
   "modifierAlt": "Alt",
   "modifierWin": "Win",
   "modifierCmd": "Befehl",
+  "modifierOption": "Option",
   "shortcutKeySpace": "Leertaste",
   "shortcutKeyEnter": "Eingabe",
   "shortcutKeyEscape": "Esc",

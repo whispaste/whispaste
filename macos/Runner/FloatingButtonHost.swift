@@ -107,9 +107,13 @@ class FloatingButtonHost {
   }
 
   private func show(x: Double, y: Double, size: Double) {
+    // Add shadow margin so the view has room for multi-layer soft shadows
+    let margin: Double = 28 // 14pt each side
+    let totalSize = size + margin
+
     if panel == nil {
-      let p = FloatingButtonPanel(size: CGFloat(size))
-      let view = FloatingButtonView(frame: NSRect(x: 0, y: 0, width: size, height: size))
+      let p = FloatingButtonPanel(size: CGFloat(totalSize))
+      let view = FloatingButtonView(frame: NSRect(x: 0, y: 0, width: totalSize, height: totalSize))
 
       // Wire native → Dart events.
       view.onClicked = { [weak self] in
@@ -127,7 +131,9 @@ class FloatingButtonHost {
       buttonView = view
     }
 
-    panel?.setFrameOrigin(NSPoint(x: x, y: y))
+    // Offset by half-margin so the logical center aligns with (x,y)
+    let offset = margin / 2
+    panel?.setFrameOrigin(NSPoint(x: x - offset, y: y - offset))
     panel?.orderFront(nil)
   }
 }
