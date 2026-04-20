@@ -126,21 +126,14 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   bool get isArchiveView => widget.isArchiveView;
 
   /// Returns true if any text input field currently has focus.
-  /// Used to prevent single-key shortcuts from intercepting typed characters.
+  /// Uses FocusManager so notes, tag, title, and transcript fields are all
+  /// covered — named FocusNodes alone would miss dynamically created fields.
   bool _isTextFieldFocused() {
-    try {
-      final primary = FocusManager.instance.primaryFocus;
-      if (primary == null || primary.context == null) return false;
-
-      // Guard against deactivated widget context
-      if (!mounted) return false;
-
-      return primary.context!.findAncestorWidgetOfExactType<EditableText>() !=
-          null;
-    } catch (_) {
-      // Context may be deactivated — suppress and return false
-      return false;
-    }
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary == null) return false;
+    final context = primary.context;
+    if (context == null) return false;
+    return context.widget is EditableText;
   }
 
   void _saveTranscript() {
@@ -409,8 +402,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
         const SingleActivator(LogicalKeyboardKey.f2): () {
           if (!_isTextFieldFocused()) _startTitleEdit();
         },
-        const SingleActivator(LogicalKeyboardKey.keyE, control: true):
-            _toggleEdit,
+        const SingleActivator(LogicalKeyboardKey.keyE, control: true): () {
+          if (_isTextFieldFocused()) return;
+          _toggleEdit();
+        },
         const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
           if (_isEditingTitle) {
             _saveTitle();
