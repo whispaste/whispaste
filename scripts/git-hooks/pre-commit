@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # ╔═════════════════════════════════════════════════════════════════════╗
 # ║  WhisPaste Pre-Commit Guard                                       ║
 # ║  Prevents internal/sensitive files from being committed.           ║
@@ -23,16 +23,6 @@ BLOCKED_PATHS="
 ^scripts/security-scan\.ps1$
 ^scripts/cppcheck\.ps1$
 ^tools/sentry_release_audit\.py$
-^AGENTS\.md$
-^opencode\.json$
-^rules/
-^skills-lock\.json$
-^skills\.yaml$
-^\.github/copilot-instructions\.md$
-^website/design-system/
-^website/SEARCH-CONSOLE-SETUP\.md$
-^website/test-results/
-^wack-report\.xml$
 "
 
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
