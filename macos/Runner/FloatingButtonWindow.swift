@@ -312,7 +312,9 @@ class FloatingButtonView: NSView {
   // MARK: - Icon Drawing (Lucide-quality paths in 24×24 space)
 
   private func drawIcon(ctx: CGContext, center: CGPoint, radius: CGFloat, now: CFTimeInterval) {
-    let iconScale = radius * 0.55 / 12.0 // Map 24×24 space to actual size
+    // Match Windows: icon_ratio = logical_size / 56; icon = 24 * icon_ratio
+    // logical_size = radius * 2; scale = (radius*2/56) for the 24-unit space
+    let iconScale = (radius * 2) / 56.0
     let iconColor = NSColor.white.withAlphaComponent(1.0 * masterOpacity)
 
     ctx.saveGState()
@@ -348,73 +350,84 @@ class FloatingButtonView: NSView {
     ctx.restoreGState()
   }
 
-  /// Lucide mic icon: capsule body (8,2→16,12 rx=4) + holder arc + stem + base.
-  /// Coordinates mapped to a centred ±12 space matching the 24×24 Lucide viewBox.
+  /// Lucide mic icon — matches Windows DrawMicIcon() in 24×24 space.
+  ///
+  /// Windows coordinates (origin top-left, Y-down) mapped to centred ±12
+  /// (origin center, Y-up): x_mac = x_win − 12, y_mac = 12 − y_win.
   private func drawMicIcon(ctx: CGContext) {
-    // Capsule body — Lucide: rect (8,2)→(16,12), rx=4, mapped to centre-origin
-    let capsuleRect = CGRect(x: -4, y: -1, width: 8, height: 10)
-    let capsulePath = CGPath(roundedRect: capsuleRect, cornerWidth: 4, cornerHeight: 4, transform: nil)
+    // Capsule body: Windows rect (9,2)→(15,15), rx=3.
+    // Mac centered: (-3, -3, 6, 13), cornerRadius 3.
+    let capsuleRect = CGRect(x: -3, y: -3, width: 6, height: 13)
+    let capsulePath = CGPath(roundedRect: capsuleRect, cornerWidth: 3, cornerHeight: 3, transform: nil)
     ctx.addPath(capsulePath)
     ctx.strokePath()
 
-    // Holder arc — Lucide: path from (6,11) curving down to (18,11), radius=6
-    ctx.addArc(center: CGPoint(x: 0, y: 1), radius: 6, startAngle: 0, endAngle: .pi, clockwise: false)
+    // Holder arc with vertical arms — U-shape cupping the capsule.
+    // Left arm: (-7, 2) → (-7, 0)
+    ctx.move(to: CGPoint(x: -7, y: 2))
+    ctx.addLine(to: CGPoint(x: -7, y: 0))
+    // Arc from left through bottom to right: center (0,0), r=7.
+    // In CG Y-up, clockwise:false = visually CW → goes through (0,-7).
+    ctx.addArc(center: .zero, radius: 7, startAngle: .pi, endAngle: 0, clockwise: false)
+    // Right arm: (7, 0) → (7, 2)
+    ctx.addLine(to: CGPoint(x: 7, y: 2))
     ctx.strokePath()
 
-    // Stem — vertical line from arc bottom to base
-    ctx.move(to: CGPoint(x: 0, y: -5))
-    ctx.addLine(to: CGPoint(x: 0, y: -9))
-    ctx.strokePath()
-
-    // Base — horizontal line at bottom
-    ctx.move(to: CGPoint(x: -3, y: -9))
-    ctx.addLine(to: CGPoint(x: 3, y: -9))
+    // Stem — no base line (matches Lucide mic v3.1.12 / Windows).
+    ctx.move(to: CGPoint(x: 0, y: -7))
+    ctx.addLine(to: CGPoint(x: 0, y: -10))
     ctx.strokePath()
   }
 
-  /// Lucide square icon (stop): stroke-only rounded rectangle matching Dart LucideIcons.square.
+  /// Lucide square icon (stop): stroke-only rounded rectangle.
+  /// Windows: (3,3) 18×18, rx=2 → Mac centered: (-9,-9, 18, 18), corner 2.
   private func drawSquareIcon(ctx: CGContext) {
-    let rect = CGRect(x: -6, y: -6, width: 12, height: 12)
+    let rect = CGRect(x: -9, y: -9, width: 18, height: 18)
     let path = CGPath(roundedRect: rect, cornerWidth: 2, cornerHeight: 2, transform: nil)
     ctx.addPath(path)
     ctx.strokePath()
   }
 
   /// Spinner (288° arc, rotating) for transcribing state.
+  /// Windows: arc at (3,3,18,18) → center (0,0), radius 9.
   private func drawSpinnerIcon(ctx: CGContext, now: CFTimeInterval) {
     let elapsed = now - animOrigin
     let angle = CGFloat(elapsed.truncatingRemainder(dividingBy: Self.spinnerDuration) / Self.spinnerDuration) * .pi * 2
     let arcLength: CGFloat = .pi * 1.6 // 288°
 
-    ctx.addArc(center: .zero, radius: 8, startAngle: angle, endAngle: angle + arcLength, clockwise: false)
+    ctx.addArc(center: .zero, radius: 9, startAngle: angle, endAngle: angle + arcLength, clockwise: false)
     ctx.strokePath()
   }
 
   /// Lucide check icon.
+  /// Lucide check icon — Windows: M20,6 → 9,17 → 4,12.
+  /// Mac centered: (8,-6) → (-3,5) → (-8,0).
   private func drawCheckIcon(ctx: CGContext) {
-    ctx.move(to: CGPoint(x: -6, y: 0))
-    ctx.addLine(to: CGPoint(x: -2, y: -5))
-    ctx.addLine(to: CGPoint(x: 8, y: 6))
+    ctx.move(to: CGPoint(x: 8, y: -6))
+    ctx.addLine(to: CGPoint(x: -3, y: 5))
+    ctx.addLine(to: CGPoint(x: -8, y: 0))
     ctx.strokePath()
   }
 
   /// Lucide alert-triangle icon.
+  /// Windows: triangle (12,3)→(2,21)→(22,21), excl (12,9)→(12,13), dot (11,16,2,2).
+  /// Mac centered: triangle (0,9)→(-10,-9)→(10,-9), excl (0,3)→(0,-1), dot (-1,-6,2,2).
   private func drawAlertIcon(ctx: CGContext) {
     // Triangle
     ctx.move(to: CGPoint(x: 0, y: 9))
-    ctx.addLine(to: CGPoint(x: -9, y: -6))
-    ctx.addLine(to: CGPoint(x: 9, y: -6))
+    ctx.addLine(to: CGPoint(x: -10, y: -9))
+    ctx.addLine(to: CGPoint(x: 10, y: -9))
     ctx.closePath()
     ctx.strokePath()
 
     // Exclamation line
-    ctx.move(to: CGPoint(x: 0, y: 5))
-    ctx.addLine(to: CGPoint(x: 0, y: 0))
+    ctx.move(to: CGPoint(x: 0, y: 3))
+    ctx.addLine(to: CGPoint(x: 0, y: -1))
     ctx.strokePath()
 
     // Dot
     ctx.setFillColor(NSColor.white.withAlphaComponent(1.0 * masterOpacity).cgColor)
-    ctx.fillEllipse(in: CGRect(x: -1, y: -4, width: 2, height: 2))
+    ctx.fillEllipse(in: CGRect(x: -1, y: -6, width: 2, height: 2))
   }
 
   // MARK: - Mouse Events
