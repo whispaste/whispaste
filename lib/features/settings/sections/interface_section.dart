@@ -84,6 +84,18 @@ class InterfaceSection extends ConsumerWidget {
                   .updateSettings((s) => s.copyWith(launchAtStartup: v)),
             ),
           ),
+          if (settings.launchAtStartup)
+            SettingRow(
+              icon: LucideIcons.eyeOff,
+              label: l10n.settingsStartMinimized,
+              subtitle: l10n.settingsStartMinimizedSubtitle,
+              trailing: settingsToggle(
+                value: settings.startMinimized,
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(startMinimized: v)),
+              ),
+            ),
           SettingRow(
             icon: LucideIcons.bell,
             label: l10n.settingsShowNotifications,

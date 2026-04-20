@@ -94,6 +94,8 @@
   "settingsInterfaceSubtitle": "Aussehen und Verhalten",
   "settingsTheme": "Design",
   "settingsLaunchAtStartup": "Beim Start ausführen",
+  "settingsStartMinimized": "Minimiert starten",
+  "settingsStartMinimizedSubtitle": "Beim Systemstart im Hintergrund starten",
   "settingsShowNotifications": "Benachrichtigungen anzeigen",
   "settingsAudio": "Audio",
   "settingsAudioSubtitle": "Mikrofon und Aufnahme",

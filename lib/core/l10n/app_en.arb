@@ -110,6 +110,8 @@
   "settingsInterfaceSubtitle": "Appearance and behavior",
   "settingsTheme": "Theme",
   "settingsLaunchAtStartup": "Launch at Startup",
+  "settingsStartMinimized": "Start Minimized",
+  "settingsStartMinimizedSubtitle": "Start in the background when launched at system boot",
   "settingsShowNotifications": "Show Notifications",
   "settingsAudio": "Audio",
   "settingsAudioSubtitle": "Microphone and recording",

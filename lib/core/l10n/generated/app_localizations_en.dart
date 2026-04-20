@@ -279,6 +279,13 @@ class L10nEn extends L10n {
   String get settingsLaunchAtStartup => 'Launch at Startup';
 
   @override
+  String get settingsStartMinimized => 'Start Minimized';
+
+  @override
+  String get settingsStartMinimizedSubtitle =>
+      'Start in the background when launched at system boot';
+
+  @override
   String get settingsShowNotifications => 'Show Notifications';
 
   @override
