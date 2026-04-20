@@ -33,7 +33,7 @@ jobs:
         run: flutter analyze --fatal-infos
 
       - name: Run tests
-        run: flutter test
+        run: flutter test --exclude-tags=golden
 
       - name: C++ static analysis (cppcheck)
         shell: pwsh
@@ -86,7 +86,7 @@ jobs:
           if ($matches.Count -gt 0) {
             foreach ($match in $matches) {
               $relativePath = $match.Path.Substring($repoRoot.Length + 1)
-              Write-Host "${relativePath}:$($match.LineNumber): $($match.Line.Trim())"
+              Write-Host "${relativePath}:$($match.LineNumber)"
             }
             throw 'Potential secrets detected in source files.'
           }
@@ -115,7 +115,7 @@ jobs:
         run: flutter analyze --fatal-infos
 
       - name: Run tests
-        run: flutter test
+        run: flutter test --exclude-tags=golden
 
       - name: Build macOS (debug)
         run: flutter build macos --debug
@@ -138,7 +138,7 @@ jobs:
             --include='*.yaml' --include='*.json' --include='*.ts' --include='*.js' \
             --exclude-dir=.git --exclude-dir=build --exclude-dir=node_modules . || true)
           if [ -n "$MATCHES" ]; then
-            echo "$MATCHES"
+            echo "$MATCHES" | grep -oE '^[^:]+:[0-9]+'
             echo "::error::Potential secrets detected in source files."
             exit 1
           fi

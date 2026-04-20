@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.1
+
+Re-release of 1.2.0 with consistent version metadata and release pipeline
+stabilization.
+
+### Notes
+
+- Version values are aligned across `pubspec.yaml`, `msix_version`, and
+  `app_info.dart`.
+- CI and release workflows now exclude golden screenshot suites from default
+  test runs (`--exclude-tags=golden`) to keep platform release checks stable.
+- Store screenshot golden tests remain in the repository and can still be run
+  explicitly in dedicated screenshot validation runs.
+
 ## 1.2.0
 
 Complete rewrite: WhisPaste is now a native **Flutter** application replacing the previous Go+WebView2 architecture.
