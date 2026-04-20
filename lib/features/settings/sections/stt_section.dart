@@ -13,6 +13,7 @@ import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/stt_service.dart';
 import '../../../widgets/model_download_card.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
@@ -76,6 +77,9 @@ class _SpeechRecognitionSectionState
           if (isLocal) ...[
             const SizedBox(height: WpSpacing.xs),
             const SttModelManager(),
+            const SizedBox(height: WpSpacing.xs),
+            // Re-run benchmark button
+            _BenchmarkButton(l10n: l10n, ref: ref),
             const Divider(height: 24),
           ],
 
@@ -85,8 +89,7 @@ class _SpeechRecognitionSectionState
               provider: settings.sttProviderType,
               apiKeyCtrl: _apiKeyCtrl,
               showKey: _showKey,
-              onToggleVisibility: () =>
-                  setState(() => _showKey = !_showKey),
+              onToggleVisibility: () => setState(() => _showKey = !_showKey),
               ref: ref,
               settings: settings,
             ),
@@ -118,7 +121,6 @@ class _SpeechRecognitionSectionState
                   .updateSettings((s) => s.copyWith(sttLanguage: v!)),
             ),
           ),
-
         ],
       ),
     );
@@ -152,29 +154,32 @@ class _CloudSttInlineKey extends StatelessWidget {
     final l10n = L10n.of(context);
 
     // Map provider → key value and label
-    final (String label, String keyValue, void Function(String) onChanged) =
-        switch (provider) {
+    final (
+      String label,
+      String keyValue,
+      void Function(String) onChanged,
+    ) = switch (provider) {
       SttProviderType.openAI => (
-          l10n.settingsOpenAiApiKey,
-          settings.openAiApiKey,
-          (String v) => ref
-              .read(settingsProvider.notifier)
-              .updateSettings((s) => s.copyWith(openAiApiKey: v)),
-        ),
+        l10n.settingsOpenAiApiKey,
+        settings.openAiApiKey,
+        (String v) => ref
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(openAiApiKey: v)),
+      ),
       SttProviderType.groq => (
-          l10n.settingsGroqApiKey,
-          settings.groqApiKey,
-          (String v) => ref
-              .read(settingsProvider.notifier)
-              .updateSettings((s) => s.copyWith(groqApiKey: v)),
-        ),
+        l10n.settingsGroqApiKey,
+        settings.groqApiKey,
+        (String v) => ref
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(groqApiKey: v)),
+      ),
       SttProviderType.deepgram => (
-          l10n.settingsDeepgramApiKey,
-          settings.deepgramApiKey,
-          (String v) => ref
-              .read(settingsProvider.notifier)
-              .updateSettings((s) => s.copyWith(deepgramApiKey: v)),
-        ),
+        l10n.settingsDeepgramApiKey,
+        settings.deepgramApiKey,
+        (String v) => ref
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(deepgramApiKey: v)),
+      ),
       _ => ('', '', (String _) {}),
     };
 
@@ -192,6 +197,49 @@ class _CloudSttInlineKey extends StatelessWidget {
         onToggle: onToggleVisibility,
         onChanged: onChanged,
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Re-run benchmark button — appears below the model manager in local mode
+// ---------------------------------------------------------------------------
+
+class _BenchmarkButton extends ConsumerWidget {
+  const _BenchmarkButton({required this.l10n, required this.ref});
+
+  final L10n l10n;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sttStatus = ref.watch(sttServiceProvider);
+    final isBenchmarking = sttStatus.isBenchmarking;
+
+    return SettingRow(
+      icon: LucideIcons.timer,
+      label: isBenchmarking
+          ? l10n.qualityTierInfoBenchmarking
+          : l10n.qualityTierBenchmarkReRun,
+      trailing: isBenchmarking
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : IconButton(
+              icon: const Icon(LucideIcons.refreshCw, size: 16),
+              onPressed: () {
+                ref.read(sttServiceProvider.notifier).runBenchmark();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(l10n.qualityTierInfoBenchmarking),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+              tooltip: l10n.qualityTierBenchmarkReRun,
+            ),
     );
   }
 }

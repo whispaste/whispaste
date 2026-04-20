@@ -7,7 +7,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hardware_info_service.dart' as hw;
 import '../../../services/model_download_service.dart';
-import '../../../widgets/tier_safety_presentation.dart';
+import '../../../widgets/tier_performance_presentation.dart';
 import '../../../widgets/wp_accent_button.dart';
 
 /// Onboarding Step 3 — Quality tier selection & download.
@@ -74,9 +74,9 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         : WpColorsLight.accentWarmGradient;
     final selectedTier =
         _selectedTier ?? _recommendedTier ?? QualityTier.balanced;
-    final selectedSafety = _gpu != null
-        ? tierSafety(selectedTier, _gpu!)
-        : TierSafety.usable;
+    final selectedPerformance = _gpu != null
+        ? tierPerformance(selectedTier, _gpu!)
+        : TierPerformance.unmeasured;
 
     final isDownloading =
         dlState.phase == DownloadPhase.downloading ||
@@ -125,7 +125,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             isRecommended:
                 _selectedTier == _recommendedTier || _selectedTier == null,
             isSelected: true,
-            safety: selectedSafety,
+            performance: selectedPerformance,
             gpu: _gpu,
             isDark: isDark,
             l10n: l10n,
@@ -186,38 +186,38 @@ class _ModelStepState extends ConsumerState<ModelStep> {
           if (_gpu != null) ...[
             Builder(
               builder: (context) {
-                final warning = _tierWarningMessage(
+                final infoMessage = _tierPerformanceMessage(
                   l10n: l10n,
                   tier: selectedTier,
-                  safety: selectedSafety,
-                  gpu: _gpu,
+                  performance: selectedPerformance,
                 );
-                if (warning == null) return const SizedBox.shrink();
-                final warningColor = _tierWarningColor(
+                if (infoMessage == null) return const SizedBox.shrink();
+                final infoColor = TierPerformancePresentation.color(
                   isDark: isDark,
-                  safety: selectedSafety,
                 );
-                final warningIcon = TierSafetyPresentation.icon(selectedSafety);
+                final infoIcon = TierPerformancePresentation.icon(
+                  selectedPerformance,
+                );
                 return Padding(
                   padding: const EdgeInsets.only(top: WpSpacing.sm),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(WpSpacing.sm),
                     decoration: BoxDecoration(
-                      color: warningColor.withValues(alpha: 0.08),
+                      color: infoColor.withValues(alpha: 0.08),
                       borderRadius: WpRadius.borderMd,
                       border: Border.all(
-                        color: warningColor.withValues(alpha: 0.2),
+                        color: infoColor.withValues(alpha: 0.2),
                       ),
                     ),
                     child: Row(
                       children: [
-                        Icon(warningIcon, size: 14, color: warningColor),
+                        Icon(infoIcon, size: 14, color: infoColor),
                         const SizedBox(width: WpSpacing.sm),
                         Expanded(
                           child: Text(
-                            warning,
-                            style: TextStyle(fontSize: 12, color: warningColor),
+                            infoMessage,
+                            style: TextStyle(fontSize: 12, color: infoColor),
                           ),
                         ),
                       ],
@@ -284,9 +284,9 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                                 tier: tier,
                                 isRecommended: tier == _recommendedTier,
                                 isSelected: false,
-                                safety: _gpu != null
-                                    ? tierSafety(tier, _gpu!)
-                                    : TierSafety.usable,
+                                performance: _gpu != null
+                                    ? tierPerformance(tier, _gpu!)
+                                    : TierPerformance.unmeasured,
                                 gpu: _gpu,
                                 isDark: isDark,
                                 l10n: l10n,
@@ -365,20 +365,18 @@ class _ModelStepState extends ConsumerState<ModelStep> {
   }
 }
 
-String? _tierWarningMessage({
+String? _tierPerformanceMessage({
   required L10n l10n,
   required QualityTier tier,
-  required TierSafety safety,
-  required hw.GpuInfo? gpu,
-}) => TierSafetyPresentation.message(
+  required TierPerformance performance,
+}) => TierPerformancePresentation.message(
   l10n: l10n,
   tier: tier,
-  safety: safety,
-  gpu: gpu,
+  performance: performance,
 );
 
-Color _tierWarningColor({required bool isDark, required TierSafety safety}) {
-  return TierSafetyPresentation.color(isDark: isDark, safety: safety);
+Color _tierInfoColor({required bool isDark}) {
+  return TierPerformancePresentation.color(isDark: isDark);
 }
 
 // ---------------------------------------------------------------------------
@@ -390,7 +388,7 @@ class _TierCard extends StatefulWidget {
     required this.tier,
     required this.isRecommended,
     required this.isSelected,
-    required this.safety,
+    required this.performance,
     required this.gpu,
     required this.isDark,
     required this.l10n,
@@ -400,7 +398,7 @@ class _TierCard extends StatefulWidget {
   final QualityTier tier;
   final bool isRecommended;
   final bool isSelected;
-  final TierSafety safety;
+  final TierPerformance performance;
   final hw.GpuInfo? gpu;
   final bool isDark;
   final L10n l10n;
@@ -434,17 +432,13 @@ class _TierCardState extends State<_TierCard> {
   @override
   Widget build(BuildContext context) {
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final warningMessage = _tierWarningMessage(
+    final infoMessage = _tierPerformanceMessage(
       l10n: widget.l10n,
       tier: widget.tier,
-      safety: widget.safety,
-      gpu: widget.gpu,
+      performance: widget.performance,
     );
-    final warningColor = _tierWarningColor(
-      isDark: widget.isDark,
-      safety: widget.safety,
-    );
-    final warningIcon = TierSafetyPresentation.icon(widget.safety);
+    final infoColor = _tierInfoColor(isDark: widget.isDark);
+    final infoIcon = TierPerformancePresentation.icon(widget.performance);
     final bool isTappable = widget.onTap != null;
     final borderColor = widget.isSelected
         ? accent
@@ -538,19 +532,16 @@ class _TierCardState extends State<_TierCard> {
                         height: 1.3,
                       ),
                     ),
-                    if (warningMessage != null) ...[
+                    if (infoMessage != null) ...[
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(warningIcon, size: 12, color: warningColor),
+                          Icon(infoIcon, size: 12, color: infoColor),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              warningMessage,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: warningColor,
-                              ),
+                              infoMessage,
+                              style: TextStyle(fontSize: 11, color: infoColor),
                             ),
                           ),
                         ],

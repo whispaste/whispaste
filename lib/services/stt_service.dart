@@ -17,6 +17,7 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart' show SttServerState;
 import 'hardware_info_service.dart' as hw;
+import 'model_download_service.dart';
 import 'path_service.dart';
 import 'subprocess_guard.dart' as guard;
 
@@ -35,6 +36,8 @@ class SttStatus {
     this.modelId = '',
     this.errorMessage,
     this.startingSince,
+    this.isBenchmarking = false,
+    this.benchmarkingTier,
   });
 
   final SttServerState serverState;
@@ -46,6 +49,12 @@ class SttStatus {
   /// Used by the status bar to show elapsed warm-up time.
   final DateTime? startingSince;
 
+  /// Whether a benchmark is currently running for this model.
+  final bool isBenchmarking;
+
+  /// Which tier is currently being benchmarked, if any.
+  final QualityTier? benchmarkingTier;
+
   bool get isReady => serverState == SttServerState.ready;
 
   String get endpoint => 'http://127.0.0.1:$port';
@@ -56,6 +65,9 @@ class SttStatus {
     String? modelId,
     String? errorMessage,
     DateTime? startingSince,
+    bool? isBenchmarking,
+    QualityTier? benchmarkingTier,
+    bool clearBenchmarkingTier = false,
   }) {
     return SttStatus(
       serverState: serverState ?? this.serverState,
@@ -63,11 +75,16 @@ class SttStatus {
       modelId: modelId ?? this.modelId,
       errorMessage: errorMessage ?? this.errorMessage,
       startingSince: startingSince ?? this.startingSince,
+      isBenchmarking: isBenchmarking ?? this.isBenchmarking,
+      benchmarkingTier: clearBenchmarkingTier
+          ? null
+          : (benchmarkingTier ?? this.benchmarkingTier),
     );
   }
 
   @override
-  String toString() => 'SttStatus($serverState, port=$port, model=$modelId)';
+  String toString() =>
+      'SttStatus($serverState, port=$port, model=$modelId, benchmarking=$isBenchmarking)';
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +246,35 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       _log.info('STT server pre-warmed on port ${state.port}');
     } on Exception catch (e) {
       _log.debug('Pre-warm skipped: $e');
+    }
+  }
+
+  /// Runs a fresh benchmark for the currently active model.
+  ///
+  /// Stops the current server, starts it again, and runs the benchmark.
+  /// Used by the settings UI to let users re-measure performance.
+  Future<void> runBenchmark() async {
+    final currentModelId = state.modelId;
+    if (currentModelId.isEmpty) {
+      _log.debug('Cannot run benchmark: no model is currently active');
+      return;
+    }
+
+    _log.info('Starting re-benchmark for model: $currentModelId');
+
+    // Stop current server if running
+    stop();
+
+    // Start and benchmark
+    try {
+      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+      await _start(
+        modelId: currentModelId,
+        gpuAcceleration: settings.gpuAcceleration,
+      );
+      _log.info('Re-benchmark completed for $currentModelId');
+    } on Exception catch (e) {
+      _log.debug('Re-benchmark failed: $e');
     }
   }
 
@@ -583,6 +629,150 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     }
   }
 
+  /// Runs a quick benchmark using the silent WAV to measure RTF.
+  /// Stores results in settings for tier recommendations.
+  Future<void> _runBenchmark(int port, String modelId) async {
+    final tier = tierForModel(modelId);
+
+    // Mark benchmarking as started
+    state = state.copyWith(isBenchmarking: true, benchmarkingTier: tier);
+
+    final sw = Stopwatch()..start();
+    try {
+      // Use a slightly longer silent sample for more accurate measurement
+      final benchmarkWav = _generateBenchmarkWav();
+      final uri = Uri.parse('http://127.0.0.1:$port/inference');
+      final request = http.MultipartRequest('POST', uri)
+        ..files.add(
+          http.MultipartFile.fromBytes(
+            'file',
+            benchmarkWav,
+            filename: 'benchmark.wav',
+          ),
+        )
+        ..fields['response_format'] = 'json'
+        ..fields['temperature'] = '0.0';
+
+      final response = await _httpClient
+          .send(request)
+          .timeout(const Duration(seconds: 30));
+      await response.stream.drain<void>();
+      sw.stop();
+
+      final processingTimeMs = sw.elapsedMilliseconds;
+      // Benchmark audio is 3 seconds (see _generateBenchmarkWav)
+      const audioDurationMs = 3000;
+      final rtf = processingTimeMs / audioDurationMs;
+
+      _log.info(
+        'Benchmark completed for $modelId: ${processingTimeMs}ms '
+        '(RTF=$rtf)',
+      );
+
+      // Store benchmark result in settings via callback/provider update
+      // This will be implemented in the settings provider
+      _storeBenchmarkResult(modelId, rtf);
+    } on Exception catch (e) {
+      sw.stop();
+      _log.debug('Benchmark failed: $e');
+      // Non-fatal - benchmark is best-effort
+    } finally {
+      // Mark benchmarking as done
+      state = state.copyWith(
+        isBenchmarking: false,
+        clearBenchmarkingTier: true,
+      );
+    }
+  }
+
+  /// Stores benchmark result. Called by _runBenchmark.
+  Future<void> _storeBenchmarkResult(String modelId, double rtf) async {
+    try {
+      final tier = tierForModel(modelId);
+      if (tier == null) return;
+
+      final currentSettings = ref.read(settingsProvider).value;
+      final currentRtfMap = Map<QualityTier, double>.from(
+        currentSettings?.tierBenchmarkRtf ?? {},
+      );
+      currentRtfMap[tier] = rtf;
+
+      // Generate hardware ID from GPU info
+      final gpuInfo = await ref.read(hw.gpuInfoProvider.future);
+      final hwId = gpuInfo.vendor == hw.GpuVendor.none
+          ? 'cpu'
+          : '${gpuInfo.vendor.name}_${gpuInfo.vramMB ?? 0}';
+
+      await ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWith(
+              tierBenchmarkRtf: currentRtfMap,
+              benchmarkHardwareId: hwId,
+              benchmarkTimestamp: DateTime.now(),
+            ),
+          );
+
+      _log.info('Benchmark stored: $modelId → tier=$tier, RTF=$rtf');
+    } catch (e) {
+      _log.debug('Failed to store benchmark: $e');
+      // Non-fatal - benchmark is best-effort
+    }
+  }
+
+  /// Generates a 3-second silent WAV for benchmarking (48 k samples × 2 bytes + header).
+  static Uint8List _generateBenchmarkWav() {
+    const sampleRate = 16000;
+    const durationSeconds = 3;
+    const durationSamples = sampleRate * durationSeconds;
+    const bitsPerSample = 16;
+    const numChannels = 1;
+    const bytesPerSample = bitsPerSample ~/ 8;
+    const dataSize = durationSamples * numChannels * bytesPerSample;
+    const headerSize = 44;
+
+    final buffer = Uint8List(headerSize + dataSize);
+    final data = ByteData.sublistView(buffer);
+
+    // RIFF header
+    buffer[0] = 0x52; // R
+    buffer[1] = 0x49; // I
+    buffer[2] = 0x46; // F
+    buffer[3] = 0x46; // F
+    data.setUint32(4, headerSize + dataSize - 8, Endian.little);
+    buffer[8] = 0x57; // W
+    buffer[9] = 0x41; // A
+    buffer[10] = 0x56; // V
+    buffer[11] = 0x45; // E
+
+    // fmt chunk
+    buffer[12] = 0x66; // f
+    buffer[13] = 0x6D; // m
+    buffer[14] = 0x74; // t
+    buffer[15] = 0x20; // ' '
+    data.setUint32(16, 16, Endian.little); // chunk size
+    data.setUint16(20, 1, Endian.little); // PCM format
+    data.setUint16(22, numChannels, Endian.little);
+    data.setUint32(24, sampleRate, Endian.little);
+    data.setUint32(
+      28,
+      sampleRate * numChannels * bytesPerSample,
+      Endian.little,
+    );
+    data.setUint16(32, numChannels * bytesPerSample, Endian.little);
+    data.setUint16(34, bitsPerSample, Endian.little);
+
+    // data chunk
+    buffer[36] = 0x64; // d
+    buffer[37] = 0x61; // a
+    buffer[38] = 0x74; // t
+    buffer[39] = 0x61; // a
+    data.setUint32(40, dataSize, Endian.little);
+    // Remaining bytes are already 0 (silence).
+
+    return buffer;
+  }
+
   /// Generates a minimal silent WAV (0.25 s, 16 kHz, mono, 16-bit PCM).
   ///
   /// 4 000 samples × 2 bytes = 8 000 data bytes + 44-byte header = 8 044 bytes.
@@ -864,6 +1054,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     // This moves the first-inference GPU allocation penalty from the user's
     // first recording into the hidden startup phase.
     await _warmupInference(port);
+
+    // Run benchmark silently after warmup to measure actual performance.
+    // This provides real RTF data for tier recommendations.
+    unawaited(_runBenchmark(port, modelId));
 
     _transition(
       SttStatus(

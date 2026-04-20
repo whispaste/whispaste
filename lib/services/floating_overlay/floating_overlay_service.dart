@@ -129,7 +129,8 @@ class FloatingOverlayService extends Notifier<void> {
         // If transitioning from done while the auto-hide timer is still counting
         // down, let it fire naturally — hiding here would cancel the timer and
         // the user would never see the configured auto-hide delay.
-        if (prev == RecordingPhase.done && (_autoHideTimer?.isActive ?? false)) {
+        if (prev == RecordingPhase.done &&
+            (_autoHideTimer?.isActive ?? false)) {
           return;
         }
         _hideOverlay();
@@ -229,9 +230,7 @@ class FloatingOverlayService extends Notifier<void> {
       doneMessage: phase == RecordingPhase.done && l10n != null
           ? doneMessageFor(s.afterTranscription, l10n)
           : null,
-      processingLabel: phase == RecordingPhase.processing
-          ? (l10n?.overlayRefining ?? 'Refining…')
-          : null,
+      processingLabel: null,
       progress: progress,
     );
 
@@ -419,10 +418,7 @@ class FloatingOverlayService extends Notifier<void> {
       await ref
           .read(settingsProvider.notifier)
           .updateSettings(
-            (s) => s.copyWith(
-              floatingOverlayX: x,
-              floatingOverlayY: y,
-            ),
+            (s) => s.copyWith(floatingOverlayX: x, floatingOverlayY: y),
           );
     } catch (e, st) {
       _log.error('Failed to save overlay position', e, st);
@@ -443,7 +439,7 @@ class FloatingOverlayService extends Notifier<void> {
   String _labelFor(RecordingPhase phase, L10n? l10n) => switch (phase) {
     RecordingPhase.recording => l10n?.overlayRecording ?? 'Recording',
     RecordingPhase.transcribing => l10n?.overlayTranscribing ?? 'Transcribing…',
-    RecordingPhase.processing => l10n?.overlayRefining ?? 'Refining…',
+    RecordingPhase.processing => l10n?.overlayTranscribing ?? 'Transcribing…',
     RecordingPhase.done => l10n?.overlayDoneReady ?? 'Done',
     RecordingPhase.error => l10n?.overlayError ?? 'Error',
     RecordingPhase.idle => '',
