@@ -5,7 +5,7 @@
 library;
 
 /// App version string (semver). Must match pubspec.yaml.
-const appVersion = '1.2.2';
+const appVersion = '1.2.3';
 
 /// App name for display.
 const appName = 'WhisPaste';

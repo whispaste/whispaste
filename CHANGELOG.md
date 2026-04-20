@@ -1,10 +1,12 @@
 # Changelog
 
-## 1.2.2
+## 1.2.3
 
 ### Bug Fixes
 
 - **History detail editor**: Enter, Backspace, and Delete keys are no longer intercepted by list-level keyboard shortcuts when a text field has focus. All standard editing operations (line breaks, character deletion, cursor movement) now work correctly in the transcript editor, notes field, and tag input.
+
+## 1.2.2
 
 ### macOS
 
