@@ -1,6 +1,6 @@
-/// Model download service — manages downloading STT/LLM models and server
-/// binaries from HuggingFace and GitHub with progress, SHA256 verification,
-/// and resume support.
+/// Model download service — manages downloading STT models and the
+/// whisper-server binary from HuggingFace and GitHub with progress,
+/// SHA256 verification, and resume support.
 library;
 
 import 'dart:async';
@@ -125,87 +125,26 @@ SttModelInfo? findSttModel(String id) {
 }
 
 // ---------------------------------------------------------------------------
-// LLM Model registry
-// ---------------------------------------------------------------------------
-
-/// Metadata for a downloadable LLM model.
-class LlmModelInfo {
-  const LlmModelInfo({
-    required this.id,
-    required this.label,
-    required this.filename,
-    required this.sizeBytes,
-    required this.url,
-    this.sha256,
-    this.description = '',
-  });
-
-  final String id;
-  final String label;
-  final String filename;
-  final int sizeBytes;
-  final String url;
-
-  /// SHA256 hash. Null means skip verification (e.g. for frequently-requantized
-  /// community models where the hash changes per rebuild).
-  final String? sha256;
-  final String description;
-
-  String get sizeLabel {
-    if (sizeBytes >= 1024 * 1024 * 1024) {
-      return '${(sizeBytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-    }
-    return '${(sizeBytes / (1024 * 1024)).round()} MB';
-  }
-}
-
-/// All available LLM models.
-///
-/// Currently only Qwen3-1.7B Q4_K_M — the optimal local model for
-/// short-form post-processing (119 languages, MMLU 66.9%, Apache 2.0).
-const List<LlmModelInfo> llmModels = [
-  LlmModelInfo(
-    id: 'qwen3-1.7b',
-    label: 'Qwen3 1.7B',
-    filename: 'Qwen_Qwen3-1.7B-Q4_K_M.gguf',
-    sizeBytes: 1283000000, // ~1.28 GB
-    url:
-        'https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-GGUF/resolve/main/Qwen_Qwen3-1.7B-Q4_K_M.gguf',
-    description: 'Fast local post-processing (1.3 GB, 119 languages)',
-  ),
-];
-
-/// Looks up an LLM model by ID. Returns null if not found.
-LlmModelInfo? findLlmModel(String id) {
-  for (final m in llmModels) {
-    if (m.id == id) return m;
-  }
-  return null;
-}
-
-// ---------------------------------------------------------------------------
 // Quality Tiers — user-facing abstraction over raw model names
 // ---------------------------------------------------------------------------
 
 /// User-facing quality tiers that abstract away model internals.
 enum QualityTier { compact, balanced, premium }
 
-/// Safety/availability level of a quality tier for a given GPU.
-/// Used to determine UI display (warning vs disabled) and behavior.
-enum TierSafety {
-  /// Tier can run reliably on this GPU.
-  usable,
+/// Performance level of a quality tier based on real-time benchmark.
+/// Used to determine UI display (info messages) and tier recommendations.
+enum TierPerformance {
+  /// Fast: benchmark RTF < 0.3 - excellent real-time performance.
+  fast,
 
-  /// Tier is usable but will be slow (no GPU acceleration).
-  slowWithoutGpu,
+  /// Moderate: benchmark RTF 0.3-0.8 - good balance, slight delay.
+  moderate,
 
-  /// Tier may crash or run poorly due to GPU memory limits.
-  /// User CAN still select it — this is a warning, not a blocker.
-  vramRisky,
+  /// Slow: benchmark RTF > 0.8 - noticeable processing time.
+  slow,
 
-  /// Tier is extremely unlikely to work (integrated GPU + large model).
-  /// User CAN still select it with explicit confirmation.
-  vramCritical,
+  /// No benchmark data yet - use VRAM fallback for recommendations.
+  unmeasured,
 }
 
 /// Returns the ordered list of models belonging to [tier] (best first).
@@ -268,50 +207,45 @@ QualityTier recommendTier(int vramMB, {hw.GpuVendor? vendor}) {
   return QualityTier.compact;
 }
 
-/// Returns the safety level of [tier] for [gpu].
-/// This is informational — users can still select any tier.
-TierSafety tierSafety(QualityTier tier, hw.GpuInfo gpu) {
-  final vram = gpu.vramMB ?? 0;
-
-  // Compact tier always usable.
-  if (tier == QualityTier.compact) return TierSafety.usable;
-
-  // CPU-only: usable but slow.
-  if (!gpu.hasGpu) return TierSafety.slowWithoutGpu;
-
-  // Apple Silicon — generous thresholds.
-  if (gpu.vendor == hw.GpuVendor.apple) {
-    if (tier == QualityTier.premium) {
-      return vram >= 4096 ? TierSafety.usable : TierSafety.vramRisky;
-    }
-    return TierSafety.usable;
+/// Returns the performance level of [tier] based on benchmark RTF data.
+/// Falls back to VRAM-based estimation if no benchmark available.
+TierPerformance tierPerformance(
+  QualityTier tier,
+  hw.GpuInfo gpu, {
+  Map<QualityTier, double>? benchmarkRtf,
+}) {
+  // If we have benchmark data, use it directly.
+  if (benchmarkRtf != null && benchmarkRtf.containsKey(tier)) {
+    final rtf = benchmarkRtf[tier]!;
+    if (rtf < 0.3) return TierPerformance.fast;
+    if (rtf < 0.8) return TierPerformance.moderate;
+    return TierPerformance.slow;
   }
 
-  // NVIDIA dedicated GPU.
-  if (gpu.vendor == hw.GpuVendor.nvidia) {
-    final usableVram = (vram * 0.70).round();
-    final premiumNeeded = hw.sttModelVramMB['whisper-large-v3-turbo'] ?? 2600;
-    final balancedNeeded = hw.sttModelVramMB['whisper-medium'] ?? 1500;
+  // No benchmark yet - return unmeasured to trigger fallback behavior.
+  return TierPerformance.unmeasured;
+}
 
-    if (tier == QualityTier.premium) {
-      if (premiumNeeded <= usableVram) return TierSafety.usable;
-      return TierSafety.vramRisky;
-    }
-    if (tier == QualityTier.balanced) {
-      if (balancedNeeded <= usableVram) return TierSafety.usable;
-      return TierSafety.vramRisky;
-    }
-  }
+/// Recommends the best tier based on benchmark RTF data.
+/// Returns the fastest tier with RTF < 0.8, or premium if none qualify.
+/// Returns null if no benchmark data available.
+QualityTier? recommendTierFromBenchmark(Map<QualityTier, double> rtfMap) {
+  if (rtfMap.isEmpty) return null;
 
-  // Intel/AMD integrated — very conservative.
-  if (gpu.vendor == hw.GpuVendor.intel || gpu.vendor == hw.GpuVendor.amd) {
-    if (tier == QualityTier.premium) return TierSafety.vramCritical;
-    if (tier == QualityTier.balanced) {
-      return vram >= 4096 ? TierSafety.vramRisky : TierSafety.vramCritical;
+  // Try tiers in order of quality, return first one that's fast enough.
+  for (final tier in [
+    QualityTier.compact,
+    QualityTier.balanced,
+    QualityTier.premium,
+  ]) {
+    final rtf = rtfMap[tier];
+    if (rtf != null && rtf < 0.8) {
+      return tier;
     }
   }
 
-  return TierSafety.usable;
+  // All tiers are slow - still recommend premium as best available.
+  return QualityTier.premium;
 }
 
 /// Total download size for [tier]'s best model (human-readable).
@@ -342,8 +276,6 @@ class ModelDownloadState {
     this.errorMessage,
     this.downloadedModels = const {},
     this.serverReady = false,
-    this.downloadedLlmModels = const {},
-    this.llmServerReady = false,
   });
 
   /// Currently downloading model ID (null when idle).
@@ -373,12 +305,6 @@ class ModelDownloadState {
   /// Whether whisper-server binary is present.
   final bool serverReady;
 
-  /// Set of LLM model IDs whose files exist on disk.
-  final Set<String> downloadedLlmModels;
-
-  /// Whether llama-server binary is present.
-  final bool llmServerReady;
-
   bool get isDownloading => phase == DownloadPhase.downloading;
   bool get isError => phase == DownloadPhase.error;
   bool get isBusy =>
@@ -399,8 +325,6 @@ class ModelDownloadState {
     String? errorMessage,
     Set<String>? downloadedModels,
     bool? serverReady,
-    Set<String>? downloadedLlmModels,
-    bool? llmServerReady,
   }) {
     return ModelDownloadState(
       activeModelId: activeModelId ?? this.activeModelId,
@@ -415,8 +339,6 @@ class ModelDownloadState {
       errorMessage: errorMessage,
       downloadedModels: downloadedModels ?? this.downloadedModels,
       serverReady: serverReady ?? this.serverReady,
-      downloadedLlmModels: downloadedLlmModels ?? this.downloadedLlmModels,
-      llmServerReady: llmServerReady ?? this.llmServerReady,
     );
   }
 }
@@ -643,198 +565,6 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     state = _scanExisting();
   }
 
-  // -----------------------------------------------------------------------
-  // LLM — Public API
-  // -----------------------------------------------------------------------
-
-  /// Downloads an LLM model file. If llama-server is missing, downloads
-  /// that first.
-  Future<void> downloadLlmModel(String modelId) async {
-    if (state.isBusy) return;
-
-    final model = findLlmModel(modelId);
-    if (model == null) {
-      state = state.copyWith(
-        phase: DownloadPhase.error,
-        errorMessage: 'Unknown LLM model: $modelId',
-      );
-      return;
-    }
-
-    _cancelToken = CancelToken();
-
-    try {
-      final dir = Directory(llmDir());
-      if (!dir.existsSync()) {
-        dir.createSync(recursive: true);
-        _log.info('Created LLM directory: ${dir.path}');
-      }
-
-      // Phase 1: Ensure llama-server binary exists.
-      if (!state.llmServerReady) {
-        state = state.copyWith(
-          activeModelId: modelId,
-          phase: DownloadPhase.downloading,
-          progressPercent: 0,
-          downloadStartedAt: DateTime.now(),
-          statusLabel: 'llm-engine',
-          speedBytesPerSec: 0,
-          errorMessage: null,
-        );
-        await _downloadLlamaServer();
-      }
-
-      // Phase 2: Download model file.
-      _log.info('Downloading LLM model: ${model.id} (${model.sizeLabel})');
-      state = state.copyWith(
-        activeModelId: modelId,
-        phase: DownloadPhase.downloading,
-        progressPercent: 0,
-        bytesDownloaded: 0,
-        totalBytes: model.sizeBytes,
-        downloadStartedAt: DateTime.now(),
-        statusLabel: 'llm-model',
-        speedBytesPerSec: 0,
-      );
-
-      final destPath = p.join(llmDir(), model.filename);
-      if (File(destPath).existsSync()) {
-        _log.info('LLM model ${model.id} already exists, verifying…');
-        if (model.sha256 != null) {
-          state = state.copyWith(
-            phase: DownloadPhase.verifying,
-            statusLabel: 'verifying',
-          );
-          final ok = await _verifySha256(destPath, model.sha256!);
-          if (ok) {
-            await _markLlmModelDone(model.id);
-            return;
-          }
-          await File(destPath).delete();
-        } else {
-          // No SHA256 — trust existing file.
-          await _markLlmModelDone(model.id);
-          return;
-        }
-      }
-
-      await _downloadFile(
-        url: model.url,
-        destPath: destPath,
-        expectedSize: model.sizeBytes,
-      );
-
-      // Phase 3: Verify SHA256 if available.
-      if (model.sha256 != null) {
-        state = state.copyWith(
-          phase: DownloadPhase.verifying,
-          progressPercent: 99,
-          statusLabel: 'verifying',
-        );
-        final ok = await _verifySha256(destPath, model.sha256!);
-        if (!ok) {
-          await File(destPath).delete().catchError((_) => File(destPath));
-          state = state.copyWith(
-            phase: DownloadPhase.error,
-            errorMessage: 'SHA256 verification failed — file may be corrupt.',
-          );
-          return;
-        }
-      }
-
-      await _markLlmModelDone(model.id);
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.cancel) {
-        state = state.copyWith(phase: DownloadPhase.idle, activeModelId: null);
-      } else {
-        final msg = e.response?.statusCode == 403
-            ? 'GitHub API rate limit reached. Please wait a few minutes.'
-            : 'Download failed: ${e.message}';
-        _log.error(msg);
-        state = state.copyWith(phase: DownloadPhase.error, errorMessage: msg);
-      }
-    } on Exception catch (e) {
-      _log.error('LLM download error: $e');
-      state = state.copyWith(phase: DownloadPhase.error, errorMessage: '$e');
-    }
-  }
-
-  /// Ensures the llama-server binary exists, downloading it if missing.
-  Future<void> ensureLlamaServerBinary() async {
-    if (state.llmServerReady || state.isBusy) return;
-
-    _cancelToken = CancelToken();
-    _log.info('Downloading llama-server binary');
-
-    try {
-      final dir = Directory(llmDir());
-      if (!dir.existsSync()) {
-        dir.createSync(recursive: true);
-      }
-
-      state = state.copyWith(
-        phase: DownloadPhase.downloading,
-        progressPercent: 0,
-        downloadStartedAt: DateTime.now(),
-        statusLabel: 'llm-engine',
-        speedBytesPerSec: 0,
-        errorMessage: null,
-      );
-
-      await _downloadLlamaServer();
-
-      state = state.copyWith(phase: DownloadPhase.idle, progressPercent: 0);
-      _log.info('llama-server download complete');
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.cancel) {
-        state = state.copyWith(phase: DownloadPhase.idle);
-      } else {
-        final msg = e.response?.statusCode == 403
-            ? 'GitHub API rate limit reached.'
-            : 'Download failed: ${e.message}';
-        _log.warning('llama-server download failed: $msg');
-        state = state.copyWith(phase: DownloadPhase.idle, errorMessage: msg);
-      }
-    } on Exception catch (e) {
-      _log.warning('llama-server download failed: $e');
-      state = state.copyWith(phase: DownloadPhase.idle, errorMessage: '$e');
-    }
-  }
-
-  /// Deletes a downloaded LLM model file.
-  Future<void> deleteLlmModel(String modelId) async {
-    final model = findLlmModel(modelId);
-    if (model == null) return;
-
-    final file = File(p.join(llmDir(), model.filename));
-    if (file.existsSync()) {
-      await file.delete();
-    }
-    state = state.copyWith(
-      downloadedLlmModels: {...state.downloadedLlmModels}..remove(modelId),
-    );
-  }
-
-  /// Marks the llama-server binary as incompatible and deletes it.
-  Future<void> invalidateLlamaServerBinary() async {
-    try {
-      final dir = Directory(llmDir());
-      if (dir.existsSync()) {
-        for (final f in dir.listSync()) {
-          if (f is File) {
-            final name = p.basename(f.path).toLowerCase();
-            if (name.startsWith('llama-server') || name.endsWith('.dll')) {
-              await f.delete();
-            }
-          }
-        }
-      }
-    } catch (e) {
-      _log.warning('Failed to delete llama-server binary: $e');
-    }
-    state = state.copyWith(llmServerReady: false);
-  }
-
   ModelDownloadState _scanExisting() {
     final downloaded = <String>{};
     final dir = Directory(sttDir());
@@ -854,34 +584,12 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     }
     final serverExists = File(whisperServerPath()).existsSync();
 
-    // Scan LLM models + binary.
-    final downloadedLlm = <String>{};
-    final llmDirectory = Directory(llmDir());
-    if (!llmDirectory.existsSync()) {
-      try {
-        llmDirectory.createSync(recursive: true);
-      } on FileSystemException {
-        // Best-effort.
-      }
-    }
-    if (llmDirectory.existsSync()) {
-      for (final model in llmModels) {
-        if (File(p.join(llmDirectory.path, model.filename)).existsSync()) {
-          downloadedLlm.add(model.id);
-        }
-      }
-    }
-    final llmServerExists = File(llamaServerPath()).existsSync();
-
     _log.info(
-      'Scan: ${downloaded.length} STT models, server=${serverExists ? "ready" : "missing"}, '
-      '${downloadedLlm.length} LLM models, llama=${llmServerExists ? "ready" : "missing"}',
+      'Scan: ${downloaded.length} STT models, server=${serverExists ? "ready" : "missing"}',
     );
     return ModelDownloadState(
       downloadedModels: downloaded,
       serverReady: serverExists,
-      downloadedLlmModels: downloadedLlm,
-      llmServerReady: llmServerExists,
     );
   }
 
@@ -1269,7 +977,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     return hw.serverAssetPatterns(gpu, gpuMode, isWhisPaste);
   }
 
-  /// Extracts whisper-server.exe and DLLs from a ZIP archive.
+  /// Extracts whisper-server binary and libraries from a ZIP archive.
+  ///
+  /// Platform-aware: on Windows extracts `.exe`/`.dll`, on macOS/Linux
+  /// extracts extensionless executables and `.dylib`/`.so` libraries.
   Future<void> _extractServerZip(String zipPath, String destDir) async {
     final bytes = await File(zipPath).readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
@@ -1280,7 +991,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       for (final f in destDirObj.listSync()) {
         if (f is File) {
           final name = p.basename(f.path).toLowerCase();
-          if (name == 'whisper-server.exe' || name.endsWith('.dll')) {
+          if (_isServerFile(name)) {
             await f.delete();
           }
         }
@@ -1290,163 +1001,67 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     for (final file in archive) {
       if (file.isFile) {
         final name = p.basename(file.name).toLowerCase();
-        if (name.endsWith('.exe') || name.endsWith('.dll')) {
+        if (_isExtractableServerFile(name)) {
           // Zip Slip protection.
           final outPath = p.join(destDir, p.basename(file.name));
           if (!p.isWithin(destDir, outPath)) continue;
 
-          // Rename server.exe → whisper-server.exe if needed.
+          // Rename bare server binary → whisper-server if needed.
           String finalName = p.basename(file.name);
-          if (finalName.toLowerCase() == 'server.exe') {
-            finalName = 'whisper-server.exe';
+          if (Platform.isWindows) {
+            if (finalName.toLowerCase() == 'server.exe') {
+              finalName = 'whisper-server.exe';
+            }
+          } else {
+            if (finalName.toLowerCase() == 'server') {
+              finalName = 'whisper-server';
+            }
           }
           final finalPath = p.join(destDir, finalName);
           final outFile = File(finalPath);
           await outFile.writeAsBytes(file.content as List<int>);
         }
+      }
+    }
+
+    // On Unix, make the binary executable.
+    if (!Platform.isWindows) {
+      final serverPath = whisperServerPath();
+      if (File(serverPath).existsSync()) {
+        await Process.run('chmod', ['+x', serverPath]);
       }
     }
 
     // Verify extraction produced the expected binary.
-    if (!File(p.join(destDir, 'whisper-server.exe')).existsSync()) {
-      throw Exception('whisper-server.exe not found in archive');
+    final expectedPath = whisperServerPath();
+    if (!File(expectedPath).existsSync()) {
+      throw Exception(
+        '${p.basename(expectedPath)} not found in archive',
+      );
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Private — llama-server binary download
-  // -----------------------------------------------------------------------
-
-  Future<void> _downloadLlamaServer() async {
-    final gpu = await hw.detectGpu();
-    _log.info(
-      'Downloading llama-server binary '
-      '(gpu=${gpu.vendor.name}, cuda=${gpu.cudaAvailable}, '
-      'vulkan=${gpu.vulkanAvailable})',
-    );
-
-    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-    final gpuMode = settings.gpuAcceleration;
-
-    // Only upstream source — llama.cpp releases.
-    const owner = 'ggml-org';
-    const repo = 'llama.cpp';
-
-    for (var attempt = 1; attempt <= 2; attempt++) {
-      try {
-        final assetUrl = await _findServerAsset(
-          owner: owner,
-          repo: repo,
-          gpuMode: gpuMode,
-          isWhisPaste: false,
-        );
-        if (assetUrl == null) break;
-
-        _log.info(
-          'Downloading llama-server from $owner/$repo (attempt $attempt): '
-          '${Uri.parse(assetUrl).pathSegments.last}',
-        );
-
-        final isCuda = assetUrl.contains('cuda') || assetUrl.contains('cublas');
-        final estimatedSize = isCuda ? 500 * 1024 * 1024 : 40 * 1024 * 1024;
-        final zipPath = p.join(llmDir(), '_llama-server.zip');
-        await _downloadFile(
-          url: assetUrl,
-          destPath: zipPath,
-          expectedSize: estimatedSize,
-        );
-
-        state = state.copyWith(phase: DownloadPhase.extracting);
-
-        await _extractLlamaServerZip(zipPath, llmDir());
-        await File(zipPath).delete().catchError((_) => File(zipPath));
-
-        state = state.copyWith(llmServerReady: true);
-        _log.info('llama-server ready');
-        return;
-      } on DioException catch (e) {
-        final status = e.response?.statusCode;
-        _log.warning(
-          'llama-server download failed (attempt $attempt): '
-          '${e.message} (HTTP $status)',
-        );
-        if (e.type == DioExceptionType.cancel) rethrow;
-        if (status == 403) break;
-        if (attempt < 2) {
-          await Future<void>.delayed(Duration(seconds: 2 * attempt));
-        }
-      } on Exception catch (e) {
-        _log.warning('llama-server download failed (attempt $attempt): $e');
-        if (attempt < 2) {
-          await Future<void>.delayed(Duration(seconds: 2 * attempt));
-        }
-      }
-    }
-
-    _log.error('Could not download llama-server');
-    throw Exception('Could not download llama-server.');
+  /// Whether [name] (lowercase) is an old server file to clean before
+  /// re-extraction.
+  static bool _isServerFile(String name) {
+    if (name == 'whisper-server.exe' || name == 'whisper-server') return true;
+    if (name.endsWith('.dll') || name.endsWith('.dylib')) return true;
+    if (name.endsWith('.so')) return true;
+    if (name.endsWith('.metallib')) return true;
+    return false;
   }
 
-  /// Extracts llama-server binary and DLLs from a ZIP archive.
-  Future<void> _extractLlamaServerZip(String zipPath, String destDir) async {
-    final bytes = await File(zipPath).readAsBytes();
-    final archive = ZipDecoder().decodeBytes(bytes);
-
-    // Clean old llama-server files.
-    final destDirObj = Directory(destDir);
-    if (destDirObj.existsSync()) {
-      for (final f in destDirObj.listSync()) {
-        if (f is File) {
-          final name = p.basename(f.path).toLowerCase();
-          if (name.startsWith('llama-server') || name.endsWith('.dll')) {
-            await f.delete();
-          }
-        }
-      }
+  /// Whether [name] (lowercase) should be extracted from the ZIP.
+  static bool _isExtractableServerFile(String name) {
+    if (Platform.isWindows) {
+      return name.endsWith('.exe') || name.endsWith('.dll');
     }
-
-    final serverExeName = Platform.isWindows
-        ? 'llama-server.exe'
-        : 'llama-server';
-
-    for (final file in archive) {
-      if (file.isFile) {
-        final name = p.basename(file.name).toLowerCase();
-        if (name.endsWith('.exe') ||
-            name.endsWith('.dll') ||
-            name.endsWith('.so') ||
-            name.endsWith('.dylib') ||
-            name == 'llama-server') {
-          final outPath = p.join(destDir, p.basename(file.name));
-          if (!p.isWithin(destDir, outPath)) continue;
-
-          // Rename to llama-server if the archive uses a different name.
-          String finalName = p.basename(file.name);
-          if (finalName.toLowerCase().contains('llama-server')) {
-            finalName = finalName.toLowerCase().startsWith('llama-server')
-                ? (Platform.isWindows ? 'llama-server.exe' : 'llama-server')
-                : finalName;
-          }
-          final finalPath = p.join(destDir, finalName);
-          final outFile = File(finalPath);
-          await outFile.writeAsBytes(file.content as List<int>);
-        }
-      }
-    }
-
-    if (!File(p.join(destDir, serverExeName)).existsSync()) {
-      throw Exception('$serverExeName not found in archive');
-    }
-  }
-
-  Future<void> _markLlmModelDone(String modelId) async {
-    state = state.copyWith(
-      phase: DownloadPhase.done,
-      activeModelId: modelId,
-      progressPercent: 100,
-      downloadedLlmModels: {...state.downloadedLlmModels, modelId},
-      llmServerReady: true,
-    );
+    // macOS / Linux: executables have no extension, shared libs are .dylib/.so.
+    if (name.endsWith('.dylib') || name.endsWith('.so')) return true;
+    if (name.endsWith('.metallib')) return true;
+    // Extract extensionless files (the server binary itself).
+    if (!name.contains('.')) return true;
+    return false;
   }
 }
 

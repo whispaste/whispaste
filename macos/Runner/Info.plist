@@ -28,5 +28,7 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>WhisPaste needs microphone access for speech-to-text dictation.</string>
 </dict>
 </plist>

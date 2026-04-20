@@ -171,7 +171,7 @@ class FloatingButtonSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!Platform.isWindows) return const SizedBox.shrink();
+    if (!(Platform.isWindows || Platform.isMacOS)) return const SizedBox.shrink();
 
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;

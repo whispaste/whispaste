@@ -19,7 +19,7 @@ class WpTitleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (Platform.isMacOS) return const SizedBox.shrink();
+    if (Platform.isMacOS) return _MacOSTitleBar(actions: actions);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -185,6 +185,48 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
             _isMaximized ? LucideIcons.minimize2 : LucideIcons.maximize2,
             size: 14,
             color: _isHovered ? hoverFg : mutedColor,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// macOS title bar with drag support and traffic-light clearance.
+///
+/// The native traffic lights sit at ~14px inset. A 56px left padding
+/// clears them plus a comfortable margin. No custom window controls
+/// are rendered — macOS traffic lights handle minimize/maximize/close.
+class _MacOSTitleBar extends StatelessWidget {
+  const _MacOSTitleBar({required this.actions});
+
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (_) => windowManager.startDragging(),
+      onDoubleTap: () async {
+        // macOS convention: double-tap title bar toggles zoom.
+        if (await windowManager.isMaximized()) {
+          await windowManager.unmaximize();
+        } else {
+          await windowManager.maximize();
+        }
+      },
+      child: SizedBox(
+        height: WpLayout.appBarHeight,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
+          child: Row(
+            children: [
+              // Clear native traffic lights (~68px + margin).
+              const SizedBox(width: 56),
+              const WpBrandWordmark(height: 34),
+              const Spacer(),
+              ...actions,
+            ],
           ),
         ),
       ),
