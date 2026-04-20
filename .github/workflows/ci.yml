@@ -122,7 +122,7 @@ jobs:
 
       - name: Verify build output
         run: |
-          APP="build/macos/Build/Products/Debug/WhisPaste.app"
+          APP="build/macos/Build/Products/Debug/whispaste.app"
           if [ ! -d "$APP" ]; then
             echo "::error::Flutter build failed: $APP not found"
             exit 1

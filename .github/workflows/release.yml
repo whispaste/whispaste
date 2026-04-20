@@ -135,11 +135,11 @@ jobs:
           ARTIFACT_DIR="release-artifacts"
           mkdir -p "$ARTIFACT_DIR"
 
-          APP_PATH="build/macos/Build/Products/Release/WhisPaste.app"
+          APP_PATH="build/macos/Build/Products/Release/whispaste.app"
 
           # Portable ZIP
           cd build/macos/Build/Products/Release
-          zip -r "$OLDPWD/$ARTIFACT_DIR/WhisPaste-$VERSION-macos-arm64.zip" WhisPaste.app
+          zip -r "$OLDPWD/$ARTIFACT_DIR/WhisPaste-$VERSION-macos-arm64.zip" whispaste.app
           cd "$OLDPWD"
 
           # DMG via create-dmg (best-effort; falls back to zip-only)
@@ -149,7 +149,7 @@ jobs:
             --window-size 500 320 \
             --icon-size 80 \
             --app-drop-link 380 170 \
-            --icon "WhisPaste.app" 120 170 \
+            --icon "whispaste.app" 120 170 \
             "$ARTIFACT_DIR/WhisPaste-macos-arm64.dmg" \
             "$APP_PATH" || true
 
