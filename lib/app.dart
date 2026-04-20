@@ -28,6 +28,7 @@ import 'features/analytics/analytics_page.dart';
 import 'features/about/about_page.dart';
 import 'features/feedback/feedback_page.dart';
 import 'features/onboarding/onboarding_overlay.dart';
+import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/recording/recording_state.dart';
 import 'core/data/database.dart';
 import 'core/logging/crash_reporter.dart';
@@ -242,6 +243,8 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       // Just hide — the engine keeps running so floating windows, hotkeys,
       // and recording all continue to work.
       await windowManager.hide();
+      // On macOS, hide from Dock so only the tray icon remains.
+      unawaited(MacOSLifecycleChannel.setAccessory());
       return;
     }
 
@@ -377,7 +380,6 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                   // Status bar — sits on the frame, full width
                   WpStatusBar(
                     sttModeLabel: statusBarModel.sttModeLabel,
-                    postProcessingLabel: statusBarModel.postProcessingLabel,
                     sttState: sttStatus.serverState,
                     sttStartingSince: sttStatus.startingSince,
                     recordingPhase: recordingPhase,
@@ -405,12 +407,6 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                       ref
                           .read(settingsScrollTargetProvider.notifier)
                           .set('stt');
-                      ref.read(activePageProvider.notifier).setPage('settings');
-                    },
-                    onPostProcessTap: () {
-                      ref
-                          .read(settingsScrollTargetProvider.notifier)
-                          .set('afterTranscription');
                       ref.read(activePageProvider.notifier).setPage('settings');
                     },
                     onAfterActionChanged: (action) {

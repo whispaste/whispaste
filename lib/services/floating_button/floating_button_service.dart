@@ -6,6 +6,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/platform/macos_lifecycle_channel.dart';
 import '../../core/recording/recording_state.dart';
 import '../recording_orchestrator.dart';
 import 'floating_button_controller.dart';
@@ -139,6 +140,8 @@ class FloatingButtonService extends Notifier<void> {
 
   Future<void> _bringMainWindowToFront() async {
     try {
+      // On macOS, restore Dock presence before showing the window.
+      await MacOSLifecycleChannel.setRegular();
       await windowManager.show();
       await windowManager.focus();
     } catch (e, st) {

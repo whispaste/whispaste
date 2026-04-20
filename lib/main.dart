@@ -9,6 +9,7 @@ import 'core/config/settings_provider.dart';
 import 'core/data/database.dart';
 import 'core/logging/app_monitoring.dart';
 import 'core/logging/crash_reporter.dart';
+import 'core/platform/macos_lifecycle_channel.dart';
 import 'services/audio_service.dart';
 import 'services/deploy_channel_service.dart';
 import 'services/hardware_info_service.dart' as hw;
@@ -85,6 +86,7 @@ Future<void> main(List<String> args) async {
 
       // When a second instance launches, focus this window.
       SingleInstanceService.onSecondInstanceLaunched = () async {
+        await MacOSLifecycleChannel.setRegular();
         await windowManager.show();
         await windowManager.focus();
       };

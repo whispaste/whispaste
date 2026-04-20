@@ -13,6 +13,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
+import '../core/platform/macos_lifecycle_channel.dart';
 import '../core/recording/recording_state.dart';
 import 'stt_service.dart';
 
@@ -178,6 +179,8 @@ class TrayService extends Notifier<void> implements TrayListener {
 
   Future<void> _showWindow() async {
     try {
+      // On macOS, restore Dock presence before showing the window.
+      await MacOSLifecycleChannel.setRegular();
       await windowManager.show();
       await windowManager.focus();
     } on Exception catch (e) {
