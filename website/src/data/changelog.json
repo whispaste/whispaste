@@ -1,46 +1,22 @@
 [
   {
-    "version": "1.2.1",
-    "date": "2026-04-20",
-    "en": {
-      "highlights": [
-        "macOS app now ships with every release as a native ARM64 DMG",
-        "CI pipeline hardened: secret scanning, narrowed permissions, golden test isolation",
-        "Direct download links for Windows (.exe) and macOS (.dmg) on the download page"
-      ],
-      "improvements": [
-        "Release build fixed for macOS — icon font tree-shaking disabled to unblock builds",
-        "macOS Gatekeeper instructions expanded with full step-by-step guide"
-      ]
-    },
-    "de": {
-      "highlights": [
-        "macOS-App wird mit jedem Release als nativer ARM64-DMG ausgeliefert",
-        "CI-Pipeline gehärtet: Secret-Scanning, eingeschränkte Berechtigungen, isolierte Screenshot-Tests",
-        "Direkte Download-Links für Windows (.exe) und macOS (.dmg) auf der Download-Seite"
-      ],
-      "improvements": [
-        "Release-Build für macOS behoben — Icon-Font-Tree-Shaking deaktiviert",
-        "macOS-Gatekeeper-Anleitung mit vollständiger Schritt-für-Schritt-Anleitung erweitert"
-      ]
-    }
-  },
-  {
-    "version": "1.2.0",
-    "date": "2026-04-15",
+    "version": "1.2.x",
+    "date": "2026-04-21",
     "en": {
       "highlights": [
         "Complete rewrite as a native Flutter app — truly cross-platform (Windows and macOS)",
         "All dictation history stored locally in SQLite — no shared config files, no data loss",
         "New slim recording pill overlay with live waveform and progress indicator",
-        "Always-on-top floating button for instant dictation from any app",
+        "Always-on-top floating button for instant dictation from any app, with expanded context menu (open, record, history, settings, quit)",
         "Premium UI with warm gradients, frosted glass effects, and micro-animations",
-        "469+ automated tests with over 90 percent feature coverage"
+        "macOS app ships as a native ARM64 DMG with every release",
+        "History transcript editor now fully supports all text editing keys — Enter, Backspace, Delete, and cursor navigation work correctly when focused"
       ],
       "improvements": [
         "All Go backend code removed — zero external dependencies",
         "Riverpod state management for reactive, testable architecture",
-        "CI/CD updated for Flutter-only builds with full macOS support"
+        "469+ automated tests with over 90 percent feature coverage",
+        "macOS menu bar icon resolves correctly across all bundle layouts"
       ]
     },
     "de": {
@@ -48,131 +24,86 @@
         "Kompletter Neuschrieb als native Flutter-App — wirklich plattformübergreifend (Windows und macOS)",
         "Gesamter Diktat-Verlauf lokal in SQLite gespeichert — keine geteilten Konfigdateien, kein Datenverlust",
         "Neue schlanke Aufnahme-Pille mit Live-Wellenform und Fortschrittsanzeige",
-        "Schwebende Schaltfläche immer im Vordergrund für sofortiges Diktieren aus jeder App",
+        "Schwebende Schaltfläche immer im Vordergrund für sofortiges Diktieren aus jeder App, mit erweitertem Kontextmenü (öffnen, aufnehmen, Verlauf, Einstellungen, beenden)",
         "Premium-UI mit warmen Verläufen, Milchglas-Effekten und Micro-Animationen",
-        "469+ automatisierte Tests mit über 90 Prozent Funktionsabdeckung"
+        "macOS-App wird mit jedem Release als nativer ARM64-DMG ausgeliefert",
+        "Transkript-Editor im Verlauf unterstützt jetzt alle Texteingabe-Tasten vollständig — Enter, Backspace, Entfernen und Cursor-Navigation funktionieren korrekt im Fokus"
       ],
       "improvements": [
         "Gesamter Go-Backend-Code entfernt — keine externen Abhängigkeiten mehr",
         "Riverpod State Management für reaktive, testbare Architektur",
-        "CI/CD für reine Flutter-Builds mit vollständiger macOS-Unterstützung aktualisiert"
+        "469+ automatisierte Tests mit über 90 Prozent Funktionsabdeckung",
+        "macOS-Menüleisten-Icon wird jetzt in allen Bundle-Layouts korrekt aufgelöst"
       ]
     }
   },
   {
-    "version": "1.1.3",
+    "version": "1.1.x",
     "date": "2026-04-01",
-    "en": {
-      "highlights": [
-        "Redesigned dashboard, Smart Mode, and Voice Snippets screens with cleaner layout",
-        "Smart Mode and Voice Snippets now have separate AI provider settings",
-        "Unified silence removal replaces two confusing toggles with one smart setting",
-        "Smooth page transitions and micro-animations for a premium feel",
-        "Auto-generated tags now use Title Case and filter out system labels"
-      ],
-      "improvements": [
-        "Settings reorganized with clearer sections and more descriptive labels",
-        "Replaced technical jargon with everyday language throughout the app",
-        "Fixed race condition during rapid page switching"
-      ]
-    },
-    "de": {
-      "highlights": [
-        "Dashboard, Smart Mode und Sprach-Snippets mit aufgeräumterem Layout überarbeitet",
-        "Smart Mode und Sprach-Snippets haben jetzt getrennte KI-Anbieter-Einstellungen",
-        "Stille-Erkennung vereinfacht — ein smarter Schalter statt zwei verwirrender Optionen",
-        "Sanfte Seitenübergänge und Micro-Animationen für ein hochwertigeres Gefühl",
-        "Automatisch generierte Tags nutzen jetzt Großschreibung und filtern System-Labels"
-      ],
-      "improvements": [
-        "Einstellungen in klarere Bereiche mit verständlicheren Beschreibungen aufgeteilt",
-        "Fachbegriffe durch alltagstaugliche Sprache in der gesamten App ersetzt",
-        "Race-Condition beim schnellen Seitenwechsel behoben"
-      ]
-    }
-  },
-  {
-    "version": "1.1.2",
-    "date": "2026-03-28",
-    "en": {
-      "highlights": [
-        "Smart Mode now works reliably with all local AI models, including smaller ones",
-        "The app icon displays cleanly in the Windows taskbar — no more blue corners on rounded icons",
-        "Dictation now pastes correctly into the new Outlook app on Windows 11",
-        "Custom templates can be edited and deleted again without issues",
-        "The recording interface is smoother with a clearer result display"
-      ],
-      "improvements": [
-        "The app detects potential problems earlier and reports them before you notice",
-        "Local AI processing is more stable and recovers gracefully from errors",
-        "Stronger privacy protections and security hardening throughout the app"
-      ]
-    },
-    "de": {
-      "highlights": [
-        "Smart Mode funktioniert jetzt zuverlässig mit allen lokalen KI-Modellen, auch kleineren",
-        "Das App-Icon wird sauber in der Windows-Taskleiste angezeigt — keine blauen Ecken mehr",
-        "Diktate werden jetzt korrekt in das neue Outlook unter Windows 11 eingefügt",
-        "Benutzerdefinierte Vorlagen lassen sich wieder problemlos bearbeiten und löschen",
-        "Die Aufnahmeoberfläche läuft flüssiger mit klarerer Ergebnisanzeige"
-      ],
-      "improvements": [
-        "Die App erkennt mögliche Probleme früher und meldet sie, bevor du sie bemerkst",
-        "Lokale KI-Verarbeitung ist stabiler und erholt sich besser von Fehlern",
-        "Stärkerer Datenschutz und Sicherheitshärtung in der gesamten App"
-      ]
-    }
-  },
-  {
-    "version": "1.1.1",
-    "date": "2026-03-15",
-    "en": {
-      "highlights": [
-        "New onboarding wizard guides you through setup in just a few steps",
-        "GPU acceleration support for NVIDIA, AMD, and Intel graphics cards",
-        "Multiple cloud providers now available: choose between local, OpenAI, Groq, or Deepgram for transcription"
-      ],
-      "improvements": [
-        "Faster model downloads with resume support for interrupted connections",
-        "Improved setup experience with automatic hardware detection"
-      ]
-    },
-    "de": {
-      "highlights": [
-        "Neuer Einrichtungsassistent führt dich in wenigen Schritten durch das Setup",
-        "GPU-Beschleunigung für NVIDIA-, AMD- und Intel-Grafikkarten",
-        "Mehrere Cloud-Anbieter verfügbar: wähle zwischen lokal, OpenAI, Groq oder Deepgram für die Transkription"
-      ],
-      "improvements": [
-        "Schnellere Modell-Downloads mit Fortsetzung bei unterbrochenen Verbindungen",
-        "Verbesserte Einrichtung mit automatischer Hardware-Erkennung"
-      ]
-    }
-  },
-  {
-    "version": "1.1.0",
-    "date": "2026-03-01",
     "en": {
       "highlights": [
         "Smart Mode: AI-powered post-processing transforms raw dictation into polished, context-aware text",
         "Voice Snippets: save and recall frequently used phrases with a single command",
-        "Full history with search: find any past dictation instantly"
+        "GPU acceleration for NVIDIA, AMD, and Intel graphics cards — faster local transcription",
+        "Multiple cloud providers available: choose between local, OpenAI, Groq, or Deepgram",
+        "Redesigned dashboard, Smart Mode, and Voice Snippets with a cleaner layout and smooth animations",
+        "Auto-generated tags now use Title Case and filter out system labels",
+        "Dictation pastes correctly into the new Outlook app on Windows 11"
       ],
       "improvements": [
-        "New design with premium look and feel throughout the app",
-        "Available on the Microsoft Store for easy installation and auto-updates"
+        "New onboarding wizard guides you through setup in just a few steps",
+        "Unified silence removal setting — one smart toggle instead of two confusing options",
+        "Settings reorganized with clearer sections and everyday language throughout",
+        "Faster model downloads with resume support for interrupted connections",
+        "Fixed a race condition when switching pages quickly"
       ]
     },
     "de": {
       "highlights": [
         "Smart Mode: KI-gestützte Nachbearbeitung verwandelt rohe Diktate in polierten, kontextbewussten Text",
         "Sprach-Snippets: häufig genutzte Phrasen speichern und mit einem Befehl abrufen",
-        "Vollständiger Verlauf mit Suche: jedes vergangene Diktat sofort finden"
+        "GPU-Beschleunigung für NVIDIA-, AMD- und Intel-Grafikkarten — schnellere lokale Transkription",
+        "Mehrere Cloud-Anbieter verfügbar: wähle zwischen lokal, OpenAI, Groq oder Deepgram",
+        "Dashboard, Smart Mode und Sprach-Snippets mit aufgeräumterem Layout und sanften Animationen überarbeitet",
+        "Automatisch generierte Tags nutzen jetzt Großschreibung und filtern System-Labels heraus",
+        "Diktate werden jetzt korrekt in das neue Outlook unter Windows 11 eingefügt"
       ],
       "improvements": [
-        "Neues Design mit Premium-Look in der gesamten App",
-        "Im Microsoft Store verfügbar für einfache Installation und Auto-Updates"
+        "Neuer Einrichtungsassistent führt dich in wenigen Schritten durch das Setup",
+        "Stille-Erkennung vereinfacht — ein smarter Schalter statt zwei verwirrender Optionen",
+        "Einstellungen in klarere Bereiche mit alltagstauglicher Sprache aufgeteilt",
+        "Schnellere Modell-Downloads mit Fortsetzung bei unterbrochenen Verbindungen",
+        "Race-Condition beim schnellen Seitenwechsel behoben"
+      ]
+    }
+  },
+  {
+    "version": "1.0.x",
+    "date": "2026-03-01",
+    "en": {
+      "highlights": [
+        "Available on the Microsoft Store for easy installation and auto-updates",
+        "Full dictation history with search — find any past dictation instantly",
+        "New premium design throughout the app"
+      ],
+      "improvements": [
+        "Stronger privacy protections and security hardening",
+        "The app icon displays cleanly in the Windows taskbar",
+        "Local AI processing is more stable and recovers gracefully from errors"
+      ]
+    },
+    "de": {
+      "highlights": [
+        "Im Microsoft Store verfügbar für einfache Installation und automatische Updates",
+        "Vollständiger Diktat-Verlauf mit Suche — jedes vergangene Diktat sofort finden",
+        "Neues Premium-Design in der gesamten App"
+      ],
+      "improvements": [
+        "Stärkerer Datenschutz und Sicherheitshärtung",
+        "Das App-Icon wird sauber in der Windows-Taskleiste angezeigt",
+        "Lokale KI-Verarbeitung ist stabiler und erholt sich besser von Fehlern"
       ]
     }
   }
 ]
+
