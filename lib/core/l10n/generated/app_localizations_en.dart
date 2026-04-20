@@ -331,17 +331,6 @@ class L10nEn extends L10n {
       'Automatically stop after this many seconds of silence (after speech). 0 = disabled.';
 
   @override
-  String get settingsPostProcessing => 'Post-Processing';
-
-  @override
-  String get settingsPostProcessingHint =>
-      'Improve your dictated text automatically using AI.';
-
-  @override
-  String get settingsTextEnhancementSubtitle =>
-      'Clean up, shorten, or translate dictated text automatically';
-
-  @override
   String get settingsEnabled => 'Enabled';
 
   @override
@@ -383,15 +372,6 @@ class L10nEn extends L10n {
 
   @override
   String get settingsLanguageSpanish => 'Spanish';
-
-  @override
-  String get settingsPresetCleanup => 'Clean up';
-
-  @override
-  String get settingsPresetConcise => 'Make concise';
-
-  @override
-  String get settingsPresetTranslate => 'Translate';
 
   @override
   String get settingsSoundFeedback => 'Sound & Feedback';
@@ -1121,9 +1101,6 @@ class L10nEn extends L10n {
   String get statusBarOnDevice => 'On device';
 
   @override
-  String get statusBarPostProcessing => 'Post-Processing';
-
-  @override
   String get statusBarOverlayFloating => 'Overlay: Floating';
 
   @override
@@ -1142,15 +1119,6 @@ class L10nEn extends L10n {
   String get statusBarAfterNothing => 'After: Manual';
 
   @override
-  String get statusBarPresetCleanup => 'Clean Up';
-
-  @override
-  String get statusBarPresetConcise => 'Concise';
-
-  @override
-  String get statusBarPresetTranslate => 'Translate';
-
-  @override
   String get sttStatusStandby => 'Standby';
 
   @override
@@ -1164,9 +1132,6 @@ class L10nEn extends L10n {
 
   @override
   String get statusBarSttTooltip => 'Speech engine and current status';
-
-  @override
-  String get statusBarPostProcessTooltip => 'Active post-processing';
 
   @override
   String get statusBarRecording => 'Recording…';
@@ -1331,28 +1296,26 @@ class L10nEn extends L10n {
   String get qualityTierActive => 'Active';
 
   @override
-  String get qualityTierWarningNoGpu =>
-      'Without a GPU, this quality level will be noticeably slower.';
+  String qualityTierInfoSlow(String ratio) {
+    return 'Best quality — takes ~${ratio}x longer to process';
+  }
 
   @override
-  String get qualityTierWarningNvidiaPremium =>
-      'May require more GPU memory than available. Transcription could be slow or fail on some systems.';
+  String qualityTierInfoSlowerThanCompact(String ratio) {
+    return 'Best quality — ~${ratio}x slower than Small';
+  }
 
   @override
-  String get qualityTierWarningNvidiaBalanced =>
-      'May require more GPU memory than available. Transcription could be slow.';
+  String get qualityTierInfoModerate => 'Good balance of speed and quality';
 
   @override
-  String get qualityTierWarningIgpuPremium =>
-      'Integrated graphics typically cannot run this quality level. Transcription will likely fail.';
+  String get qualityTierBenchmarkReRun => 'Re-run benchmark';
 
   @override
-  String get qualityTierWarningIgpuBalanced =>
-      'Integrated graphics have limited memory. Transcription may be slow or fail.';
+  String get qualityTierBenchmarkRun => 'Run benchmark';
 
   @override
-  String get qualityTierWarningApplePremium =>
-      'Requires a Mac with sufficient unified memory.';
+  String get qualityTierInfoBenchmarking => 'Testing performance…';
 
   @override
   String get qualityTierActionOverride => 'Use anyway';
@@ -1413,6 +1376,56 @@ class L10nEn extends L10n {
   @override
   String get infoModelMissing =>
       'Please download a speech model in Settings first.';
+
+  @override
+  String get oomRecoveryTitle => 'Recording failed — GPU memory issue';
+
+  @override
+  String get oomRecoveryMessage =>
+      'Your GPU ran out of memory. Choose how to proceed:';
+
+  @override
+  String get oomRecoveryTrySmaller => 'Try smaller model';
+
+  @override
+  String oomRecoveryTrySmallerHint(String model) {
+    return 'Switch to $model and retry recording';
+  }
+
+  @override
+  String get oomRecoverySwitchCloud => 'Switch to Cloud';
+
+  @override
+  String get oomRecoverySwitchCloudHint =>
+      'Use cloud speech recognition instead';
+
+  @override
+  String get oomRecoveryCancel => 'Cancel';
+
+  @override
+  String get oomRecoveryPermanentTitle =>
+      'Local speech recognition unavailable';
+
+  @override
+  String get oomRecoveryPermanentMessage =>
+      'All local models failed due to GPU memory limits. Please switch to cloud speech recognition in settings.';
+
+  @override
+  String get oomRecoveryPermanentCloud => 'Open Settings';
+
+  @override
+  String oomRecoveryDowngrading(String model) {
+    return 'Switching to $model…';
+  }
+
+  @override
+  String get oomRecoverySwitchingCloud =>
+      'Switching to cloud speech recognition…';
+
+  @override
+  String oomRecoveryAttemptFailed(String model) {
+    return 'Model $model also failed. Trying next option…';
+  }
 
   @override
   String get infoSttCudaOomFallbackModel =>
@@ -1625,51 +1638,6 @@ class L10nEn extends L10n {
   String get historySaveTranscript => 'Save';
 
   @override
-  String get historyAiActions => 'AI Actions';
-
-  @override
-  String get historyAiCleanUp => 'Clean up';
-
-  @override
-  String get historyAiShorten => 'Shorten';
-
-  @override
-  String get historyAiTranslate => 'Translate';
-
-  @override
-  String get historyAiComingSoon =>
-      'AI post-processing is coming in a future update';
-
-  @override
-  String get historyAiProcessing => 'Processing…';
-
-  @override
-  String get historyAiProcessed => 'Text processed with AI';
-
-  @override
-  String get historyAiError => 'AI processing failed';
-
-  @override
-  String get historyAiSuggestTags => 'Suggest';
-
-  @override
-  String get historyAiSuggestTitle => 'Suggest title';
-
-  @override
-  String historyAiTagsSuggested(int count) {
-    return '$count tags suggested';
-  }
-
-  @override
-  String get historyAiTitleSuggested => 'Title suggested — review and save';
-
-  @override
-  String get historyAiTranslateTo => 'Translate to…';
-
-  @override
-  String get historyAiBusy => 'AI is already processing another request';
-
-  @override
   String get historyShortcutHelp => 'Keyboard Shortcuts';
 
   @override
@@ -1779,36 +1747,6 @@ class L10nEn extends L10n {
       'Cloud speech recognition service';
 
   @override
-  String get settingsLlmModel => 'LLM Model';
-
-  @override
-  String get settingsLlmModelSubtitle => 'Model used for cloud post-processing';
-
-  @override
-  String get settingsLlmModelPlaceholder => 'e.g. gpt-4o-mini';
-
-  @override
-  String get settingsCustomInstructions => 'Custom Instructions';
-
-  @override
-  String get settingsCustomInstructionsSubtitle =>
-      'Custom prompt for AI post-processing';
-
-  @override
-  String get settingsCustomInstructionsPlaceholder =>
-      'e.g. Always use formal language…';
-
-  @override
-  String get settingsOutputLanguage => 'Output Language';
-
-  @override
-  String get settingsOutputLanguageSubtitle =>
-      'Force output to a specific language';
-
-  @override
-  String get settingsOutputLanguageSameAsInput => 'Same as input';
-
-  @override
   String get settingsMaxRecordDuration => 'Max Recording Duration';
 
   @override
@@ -1831,22 +1769,6 @@ class L10nEn extends L10n {
   @override
   String get settingsErrorReportingSubtitle =>
       'Help improve WhisPaste by sending anonymous crash reports';
-
-  @override
-  String get settingsGpuAcceleration => 'GPU Acceleration';
-
-  @override
-  String get settingsGpuAccelerationSubtitle =>
-      'Use graphics card for faster AI processing';
-
-  @override
-  String get settingsGpuAuto => 'Auto-detect';
-
-  @override
-  String get settingsGpuEnabled => 'Always On';
-
-  @override
-  String get settingsGpuDisabled => 'Disabled';
 
   @override
   String get settingsAutoPasteDelay => 'Auto-Paste Delay';
@@ -1993,9 +1915,6 @@ class L10nEn extends L10n {
 
   @override
   String get overlayTranscribing => 'Transcribing…';
-
-  @override
-  String get overlayRefining => 'Refining…';
 
   @override
   String get overlayDone => 'Copied';

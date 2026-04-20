@@ -12,14 +12,13 @@ import '../core/theme/tokens.dart';
 
 /// Bottom status bar — sits on the app frame, full width.
 ///
-/// Shows only essential runtime state: STT engine status and active
-/// post-processing. Static configuration (overlay mode, hotkey, after-action)
+/// Shows only essential runtime state: STT engine status.
+/// Static configuration (overlay mode, hotkey, after-action)
 /// belongs in Settings, not the status bar.
 class WpStatusBar extends StatelessWidget {
   const WpStatusBar({
     super.key,
     required this.sttModeLabel,
-    this.postProcessingLabel,
     this.sttState = SttServerState.stopped,
     this.sttStartingSince,
     this.recordingPhase = RecordingPhase.idle,
@@ -29,7 +28,6 @@ class WpStatusBar extends StatelessWidget {
     this.hotkeyEnabled = true,
     this.updateVersion,
     this.onSttTap,
-    this.onPostProcessTap,
     this.onAfterActionChanged,
     this.onHotkeyTap,
     this.onUpdateTap,
@@ -37,10 +35,6 @@ class WpStatusBar extends StatelessWidget {
 
   /// Active STT mode, e.g. "On device" or "OpenAI".
   final String sttModeLabel;
-
-  /// Active post-processing preset label, or `null` when disabled.
-  /// When null, the chip is hidden entirely — no visual noise.
-  final String? postProcessingLabel;
 
   /// Current state of the STT server subprocess.
   final SttServerState sttState;
@@ -68,9 +62,6 @@ class WpStatusBar extends StatelessWidget {
 
   /// Callback when user taps the STT chip (navigate to settings).
   final VoidCallback? onSttTap;
-
-  /// Callback when user taps the post-processing chip.
-  final VoidCallback? onPostProcessTap;
 
   /// Callback when user selects a different after-transcription action.
   final ValueChanged<AfterTranscriptionAction>? onAfterActionChanged;
@@ -111,17 +102,6 @@ class WpStatusBar extends StatelessWidget {
                       l10n: l10n,
                       onTap: onSttTap,
                     ),
-                    if (postProcessingLabel != null) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      _StatusChip(
-                        icon: LucideIcons.sparkles,
-                        label: postProcessingLabel!,
-                        textStyle: textStyle,
-                        isDark: isDark,
-                        tooltip: l10n.statusBarPostProcessTooltip,
-                        onTap: onPostProcessTap,
-                      ),
-                    ],
                     if (afterActionLabel != null &&
                         afterAction != null &&
                         onAfterActionChanged != null) ...[
@@ -463,19 +443,18 @@ class _AfterActionChip extends StatelessWidget {
   final ValueChanged<AfterTranscriptionAction> onChanged;
 
   IconData _iconFor(AfterTranscriptionAction action) => switch (action) {
-        AfterTranscriptionAction.clipboard => LucideIcons.clipboard,
-        AfterTranscriptionAction.paste => LucideIcons.clipboardPaste,
-        AfterTranscriptionAction.clipboardAndPaste =>
-          LucideIcons.clipboardCheck,
-        AfterTranscriptionAction.nothing => LucideIcons.clipboardX,
-      };
+    AfterTranscriptionAction.clipboard => LucideIcons.clipboard,
+    AfterTranscriptionAction.paste => LucideIcons.clipboardPaste,
+    AfterTranscriptionAction.clipboardAndPaste => LucideIcons.clipboardCheck,
+    AfterTranscriptionAction.nothing => LucideIcons.clipboardX,
+  };
 
   String _labelFor(AfterTranscriptionAction action) => switch (action) {
-        AfterTranscriptionAction.clipboard => l10n.statusBarAfterCopy,
-        AfterTranscriptionAction.paste => l10n.statusBarAfterPaste,
-        AfterTranscriptionAction.clipboardAndPaste => l10n.statusBarAfterBoth,
-        AfterTranscriptionAction.nothing => l10n.statusBarAfterNothing,
-      };
+    AfterTranscriptionAction.clipboard => l10n.statusBarAfterCopy,
+    AfterTranscriptionAction.paste => l10n.statusBarAfterPaste,
+    AfterTranscriptionAction.clipboardAndPaste => l10n.statusBarAfterBoth,
+    AfterTranscriptionAction.nothing => l10n.statusBarAfterNothing,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -507,8 +486,9 @@ class _AfterActionChip extends StatelessWidget {
                   _labelFor(action),
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight:
-                        action == current ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight: action == current
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                     color: action == current ? cs.primary : cs.onSurface,
                   ),
                 ),

@@ -10,13 +10,10 @@ import 'settings_provider.dart';
 /// Only carries essential **runtime** info — static config (overlay mode,
 /// hotkey, after-action) belongs in Settings, not the status bar.
 class StatusBarModel {
-  const StatusBarModel({required this.sttModeLabel, this.postProcessingLabel});
+  const StatusBarModel({required this.sttModeLabel});
 
   /// Active speech-to-text mode, e.g. "On device" or "OpenAI".
   final String sttModeLabel;
-
-  /// Active post-processing preset label, or `null` when disabled.
-  final String? postProcessingLabel;
 }
 
 /// Builds a consistent [StatusBarModel] from the current [settings].
@@ -28,9 +25,6 @@ StatusBarModel buildStatusBarModel({
     sttModeLabel: settings.sttProviderType.isLocal
         ? l10n.statusBarOnDevice
         : settings.sttProvider,
-    postProcessingLabel: settings.postProcessEnabled
-        ? postProcessingStatusLabel(settings: settings, l10n: l10n)
-        : null,
   );
 }
 
@@ -120,18 +114,5 @@ String afterTranscriptionStatusLabel(
     AfterTranscriptionAction.paste => l10n.statusBarAfterPaste,
     AfterTranscriptionAction.clipboardAndPaste => l10n.statusBarAfterBoth,
     AfterTranscriptionAction.nothing => l10n.statusBarAfterNothing,
-  };
-}
-
-/// Returns a concise, localized label for the active post-processing preset.
-String postProcessingStatusLabel({
-  required AppSettings settings,
-  required L10n l10n,
-}) {
-  if (!settings.postProcessEnabled) return l10n.settingsOff;
-  return switch (settings.postProcessPresetType) {
-    PostProcessPreset.cleanup => l10n.statusBarPresetCleanup,
-    PostProcessPreset.concise => l10n.statusBarPresetConcise,
-    PostProcessPreset.translate => l10n.statusBarPresetTranslate,
   };
 }

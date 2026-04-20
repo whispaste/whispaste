@@ -54,64 +54,6 @@ enum CloudSttProvider {
 }
 
 // ---------------------------------------------------------------------------
-// Post-Processing Provider
-// ---------------------------------------------------------------------------
-
-/// LLM provider for post-processing.
-enum PostProcessProviderType {
-  local('Local'),
-  openAI('OpenAI'),
-  anthropic('Anthropic'),
-  groq('Groq'),
-  gemini('Gemini');
-
-  const PostProcessProviderType(this.value);
-  final String value;
-
-  static PostProcessProviderType fromValue(String? v) {
-    for (final e in values) {
-      if (e.value == v) return e;
-    }
-    return local;
-  }
-
-  bool get isLocal => this == local;
-}
-
-// ---------------------------------------------------------------------------
-// Post-Processing Preset
-// ---------------------------------------------------------------------------
-
-/// Built-in post-processing presets.
-enum PostProcessPreset {
-  cleanup('Clean up', 'cleanup'),
-  concise('Concise', 'concise'),
-  translate('Translate', 'translate');
-
-  const PostProcessPreset(this.displayValue, this.key);
-
-  /// Display name shown in UI dropdowns.
-  final String displayValue;
-
-  /// Persisted key stored in settings.
-  final String key;
-
-  static PostProcessPreset fromDisplayValue(String? v) {
-    for (final e in values) {
-      if (e.displayValue == v) return e;
-    }
-    return cleanup;
-  }
-
-  static PostProcessPreset fromKey(String? v) {
-    for (final e in values) {
-      if (e.key == v) return e;
-    }
-    return cleanup;
-  }
-}
-
-// ---------------------------------------------------------------------------
 // After Transcription Action
 // ---------------------------------------------------------------------------
 

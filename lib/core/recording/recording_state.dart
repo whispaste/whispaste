@@ -152,7 +152,7 @@ class RecordingNotifier extends Notifier<RecordingState> {
     _startStuckGuard();
   }
 
-  /// Transition transcribing → done with the resulting [text].
+  /// Transition transcribing/processing → done (no LLM post-processing).
   void completeTranscription(String text) {
     if (state.phase != RecordingPhase.transcribing &&
         state.phase != RecordingPhase.processing) {
@@ -164,17 +164,6 @@ class RecordingNotifier extends Notifier<RecordingState> {
     _stuckGuard?.cancel();
     _log.debug('Phase ${state.phase} → done (text: ${text.length} chars)');
     state = state.copyWith(phase: RecordingPhase.done, transcript: text);
-  }
-
-  /// Transition transcribing → processing (post-processing via LLM).
-  void startProcessing() {
-    if (state.phase != RecordingPhase.transcribing) {
-      _log.debug('startProcessing ignored – current phase: ${state.phase}');
-      return;
-    }
-    state = state.copyWith(phase: RecordingPhase.processing);
-    // Restart stuck guard for the processing phase.
-    _startStuckGuard();
   }
 
   /// Transition any phase → error.

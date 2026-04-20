@@ -18,6 +18,7 @@ import 'package:path/path.dart' as p;
 
 import '../data/database.dart';
 import '../../services/path_service.dart';
+import '../../services/model_download_service.dart' show QualityTier;
 import 'secure_key_store.dart';
 import 'settings_enums.dart';
 
@@ -41,10 +42,6 @@ class AppSettings {
     this.sttModel = 'whisper-medium',
     this.sttLanguage = 'Auto-detect',
     this.sttIdleTimeoutMinutes = 5,
-    // Post-Processing
-    this.postProcessEnabled = false,
-    this.postProcessPreset = 'Clean up',
-    this.postProcessProvider = 'Local',
     // Sound & Feedback
     this.recordStartSound = true,
     this.recordStopSound = true,
@@ -110,6 +107,10 @@ class AppSettings {
     this.windowMaximized = false,
     // Onboarding
     this.onboardingCompleted = false,
+    // Benchmark data for tier recommendations
+    this.tierBenchmarkRtf,
+    this.benchmarkHardwareId,
+    this.benchmarkTimestamp,
   });
 
   // Interface
@@ -131,13 +132,9 @@ class AppSettings {
   final String sttProvider;
   final String sttModel;
   final String sttLanguage;
+
   /// Minutes before idle STT server is shut down (0 = keep alive).
   final int sttIdleTimeoutMinutes;
-
-  // Post-Processing
-  final bool postProcessEnabled;
-  final String postProcessPreset;
-  final String postProcessProvider;
 
   // Sound & Feedback
   final bool recordStartSound;
@@ -233,6 +230,17 @@ class AppSettings {
   // Onboarding
   final bool onboardingCompleted;
 
+  // Benchmark data for tier performance recommendations
+  /// Real-time factor (RTF) for each quality tier from last benchmark.
+  /// RTF = processing_time / audio_duration. Lower is better.
+  final Map<QualityTier, double>? tierBenchmarkRtf;
+
+  /// Hardware ID (hash) that the benchmark was run on.
+  final String? benchmarkHardwareId;
+
+  /// When the benchmark was last run.
+  final DateTime? benchmarkTimestamp;
+
   // ---------------------------------------------------------------------------
   // Typed accessors — prefer these over raw string comparisons.
   // ---------------------------------------------------------------------------
@@ -240,10 +248,6 @@ class AppSettings {
   SttProviderType get sttProviderType => SttProviderType.fromValue(sttProvider);
   CloudSttProvider get cloudSttProviderType =>
       CloudSttProvider.fromValue(cloudSttProvider);
-  PostProcessProviderType get postProcessProviderType =>
-      PostProcessProviderType.fromValue(postProcessProvider);
-  PostProcessPreset get postProcessPresetType =>
-      PostProcessPreset.fromDisplayValue(postProcessPreset);
   AfterTranscriptionAction get afterTranscriptionAction =>
       AfterTranscriptionAction.fromValue(afterTranscription);
   OverlayMode get overlayModeType => OverlayMode.fromValue(overlayMode);
@@ -317,15 +321,6 @@ class AppSettings {
         'stt_idle_timeout_minutes',
         defaults.sttIdleTimeoutMinutes,
       ),
-      postProcessEnabled: _readBool(
-        values,
-        'post_process_enabled',
-        defaults.postProcessEnabled,
-      ),
-      postProcessPreset:
-          values['post_process_preset'] ?? defaults.postProcessPreset,
-      postProcessProvider:
-          values['post_process_provider'] ?? defaults.postProcessProvider,
       recordStartSound: _readBool(
         values,
         'record_start_sound',
@@ -383,9 +378,6 @@ class AppSettings {
       geminiApiKey: values['gemini_api_key'] ?? defaults.geminiApiKey,
       cloudSttProvider:
           values['cloud_stt_provider'] ?? defaults.cloudSttProvider,
-      cloudLlmModel: values['cloud_llm_model'] ?? defaults.cloudLlmModel,
-      smartModePrompt: values['smart_mode_prompt'] ?? defaults.smartModePrompt,
-      smartModeTarget: values['smart_mode_target'] ?? defaults.smartModeTarget,
       maxRecordDuration: _readInt(
         values,
         'max_record_duration',
@@ -467,6 +459,10 @@ class AppSettings {
         'onboarding_completed',
         defaults.onboardingCompleted,
       ),
+      // Benchmark data
+      tierBenchmarkRtf: _readBenchmarkRtf(values['tier_benchmark_rtf']),
+      benchmarkHardwareId: values['benchmark_hardware_id'],
+      benchmarkTimestamp: _readDateTime(values['benchmark_timestamp']),
     );
   }
 
@@ -478,8 +474,6 @@ class AppSettings {
     final modelId = json['local_model_id'] as String? ?? 'whisper-small';
     final lang = json['transcription_language'] as String? ?? 'auto';
     final gpu = json['gpu_acceleration'] as String? ?? 'auto';
-    final smart = json['smart_mode'] as bool? ?? false;
-    final smartPreset = json['smart_mode_preset'] as String? ?? '';
     final autoPaste = json['auto_paste'] as bool? ?? true;
     final sounds = json['play_sounds'] as bool? ?? true;
     final maxSec = json['max_record_sec'] as int? ?? 120;
@@ -492,9 +486,6 @@ class AppSettings {
           : defaults.sttProvider,
       sttModel: _settingModelFromConfig(modelId),
       sttLanguage: _settingLanguageFromConfig(lang),
-      postProcessEnabled: smart,
-      postProcessPreset: _settingPresetFromConfig(smartPreset),
-      postProcessProvider: PostProcessProviderType.local.value,
       recordStartSound: sounds,
       recordStopSound: sounds,
       transcriptionCompleteSound: sounds,
@@ -521,9 +512,6 @@ class AppSettings {
       'stt_model': sttModel,
       'stt_language': sttLanguage,
       'stt_idle_timeout_minutes': '$sttIdleTimeoutMinutes',
-      'post_process_enabled': '$postProcessEnabled',
-      'post_process_preset': postProcessPreset,
-      'post_process_provider': postProcessProvider,
       'record_start_sound': '$recordStartSound',
       'record_stop_sound': '$recordStopSound',
       'transcription_complete_sound': '$transcriptionCompleteSound',
@@ -546,9 +534,6 @@ class AppSettings {
       'anthropic_api_key': '',
       'gemini_api_key': '',
       'cloud_stt_provider': cloudSttProvider,
-      'cloud_llm_model': cloudLlmModel,
-      'smart_mode_prompt': smartModePrompt,
-      'smart_mode_target': smartModeTarget,
       'max_record_duration': '$maxRecordDuration',
       'close_to_tray': '$closeToTray',
       'error_reporting': '$errorReporting',
@@ -574,6 +559,10 @@ class AppSettings {
       'window_height': '$windowHeight',
       'window_maximized': '$windowMaximized',
       'onboarding_completed': '$onboardingCompleted',
+      // Benchmark data
+      'tier_benchmark_rtf': _writeBenchmarkRtf(tierBenchmarkRtf),
+      'benchmark_hardware_id': benchmarkHardwareId ?? '',
+      'benchmark_timestamp': benchmarkTimestamp?.toIso8601String() ?? '',
     };
   }
 
@@ -591,9 +580,6 @@ class AppSettings {
     String? sttModel,
     String? sttLanguage,
     int? sttIdleTimeoutMinutes,
-    bool? postProcessEnabled,
-    String? postProcessPreset,
-    String? postProcessProvider,
     bool? recordStartSound,
     bool? recordStopSound,
     bool? transcriptionCompleteSound,
@@ -615,9 +601,6 @@ class AppSettings {
     String? anthropicApiKey,
     String? geminiApiKey,
     String? cloudSttProvider,
-    String? cloudLlmModel,
-    String? smartModePrompt,
-    String? smartModeTarget,
     int? maxRecordDuration,
     bool? closeToTray,
     bool? errorReporting,
@@ -643,6 +626,9 @@ class AppSettings {
     double? windowHeight,
     bool? windowMaximized,
     bool? onboardingCompleted,
+    Map<QualityTier, double>? tierBenchmarkRtf,
+    String? benchmarkHardwareId,
+    DateTime? benchmarkTimestamp,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -659,9 +645,6 @@ class AppSettings {
       sttLanguage: sttLanguage ?? this.sttLanguage,
       sttIdleTimeoutMinutes:
           sttIdleTimeoutMinutes ?? this.sttIdleTimeoutMinutes,
-      postProcessEnabled: postProcessEnabled ?? this.postProcessEnabled,
-      postProcessPreset: postProcessPreset ?? this.postProcessPreset,
-      postProcessProvider: postProcessProvider ?? this.postProcessProvider,
       recordStartSound: recordStartSound ?? this.recordStartSound,
       recordStopSound: recordStopSound ?? this.recordStopSound,
       transcriptionCompleteSound:
@@ -686,9 +669,6 @@ class AppSettings {
       anthropicApiKey: anthropicApiKey ?? this.anthropicApiKey,
       geminiApiKey: geminiApiKey ?? this.geminiApiKey,
       cloudSttProvider: cloudSttProvider ?? this.cloudSttProvider,
-      cloudLlmModel: cloudLlmModel ?? this.cloudLlmModel,
-      smartModePrompt: smartModePrompt ?? this.smartModePrompt,
-      smartModeTarget: smartModeTarget ?? this.smartModeTarget,
       maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
       closeToTray: closeToTray ?? this.closeToTray,
       errorReporting: errorReporting ?? this.errorReporting,
@@ -715,6 +695,9 @@ class AppSettings {
       windowHeight: windowHeight ?? this.windowHeight,
       windowMaximized: windowMaximized ?? this.windowMaximized,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      tierBenchmarkRtf: tierBenchmarkRtf ?? this.tierBenchmarkRtf,
+      benchmarkHardwareId: benchmarkHardwareId ?? this.benchmarkHardwareId,
+      benchmarkTimestamp: benchmarkTimestamp ?? this.benchmarkTimestamp,
     );
   }
 
@@ -736,9 +719,6 @@ class AppSettings {
           sttModel == other.sttModel &&
           sttLanguage == other.sttLanguage &&
           sttIdleTimeoutMinutes == other.sttIdleTimeoutMinutes &&
-          postProcessEnabled == other.postProcessEnabled &&
-          postProcessPreset == other.postProcessPreset &&
-          postProcessProvider == other.postProcessProvider &&
           recordStartSound == other.recordStartSound &&
           recordStopSound == other.recordStopSound &&
           transcriptionCompleteSound == other.transcriptionCompleteSound &&
@@ -760,9 +740,6 @@ class AppSettings {
           anthropicApiKey == other.anthropicApiKey &&
           geminiApiKey == other.geminiApiKey &&
           cloudSttProvider == other.cloudSttProvider &&
-          cloudLlmModel == other.cloudLlmModel &&
-          smartModePrompt == other.smartModePrompt &&
-          smartModeTarget == other.smartModeTarget &&
           maxRecordDuration == other.maxRecordDuration &&
           closeToTray == other.closeToTray &&
           errorReporting == other.errorReporting &&
@@ -787,7 +764,10 @@ class AppSettings {
           windowWidth == other.windowWidth &&
           windowHeight == other.windowHeight &&
           windowMaximized == other.windowMaximized &&
-          onboardingCompleted == other.onboardingCompleted;
+          onboardingCompleted == other.onboardingCompleted &&
+          tierBenchmarkRtf == other.tierBenchmarkRtf &&
+          benchmarkHardwareId == other.benchmarkHardwareId &&
+          benchmarkTimestamp == other.benchmarkTimestamp;
 
   @override
   int get hashCode => Object.hash(
@@ -803,9 +783,6 @@ class AppSettings {
     sttProvider,
     sttModel,
     sttLanguage,
-    postProcessEnabled,
-    postProcessPreset,
-    postProcessProvider,
     recordStartSound,
     recordStopSound,
     transcriptionCompleteSound,
@@ -829,7 +806,6 @@ class AppSettings {
       anthropicApiKey,
       geminiApiKey,
       cloudSttProvider,
-      cloudLlmModel,
       smartModePrompt,
       Object.hash(
         smartModeTarget,
@@ -860,6 +836,9 @@ class AppSettings {
           sttIdleTimeoutMinutes,
           historyMaxEntries,
           historyAutoTrashDays,
+          tierBenchmarkRtf,
+          benchmarkHardwareId,
+          benchmarkTimestamp,
         ),
       ),
     ),
@@ -888,6 +867,38 @@ int _readInt(Map<String, String> values, String key, int fallback) {
   return int.tryParse(values[key] ?? '') ?? fallback;
 }
 
+Map<QualityTier, double>? _readBenchmarkRtf(String? value) {
+  if (value == null || value.isEmpty) return null;
+  try {
+    final json = jsonDecode(value) as Map<String, dynamic>;
+    final result = <QualityTier, double>{};
+    for (final entry in json.entries) {
+      final tier = QualityTier.values.firstWhere(
+        (t) => t.name == entry.key,
+        orElse: () => throw FormatException('Unknown tier: ${entry.key}'),
+      );
+      result[tier] = (entry.value as num).toDouble();
+    }
+    return result;
+  } catch (_) {
+    return null;
+  }
+}
+
+String _writeBenchmarkRtf(Map<QualityTier, double>? rtfMap) {
+  if (rtfMap == null || rtfMap.isEmpty) return '';
+  final json = <String, double>{};
+  for (final entry in rtfMap.entries) {
+    json[entry.key.name] = entry.value;
+  }
+  return jsonEncode(json);
+}
+
+DateTime? _readDateTime(String? value) {
+  if (value == null || value.isEmpty) return null;
+  return DateTime.tryParse(value);
+}
+
 String _settingModelFromConfig(String modelId) {
   // Now settings store actual model IDs directly.
   return modelId.isEmpty ? 'whisper-medium' : modelId;
@@ -912,10 +923,6 @@ String _settingLanguageFromConfig(String languageCode) {
     'es' => 'Spanish',
     _ => 'Auto-detect',
   };
-}
-
-String _settingPresetFromConfig(String preset) {
-  return PostProcessPreset.fromKey(preset).displayValue;
 }
 
 /// Central settings notifier — loads from and persists to Drift/SQLite.
