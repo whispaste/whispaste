@@ -28,7 +28,13 @@ const _githubOwner = 'whispaste';
 const _githubRepo = 'whispaste';
 const _releasesApiUrl =
     'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases/latest';
-const _setupAssetName = 'WhisPaste-Setup.exe';
+
+/// Returns the platform-specific installer asset name to search for.
+String get _setupAssetName {
+  if (Platform.isMacOS) return 'WhisPaste-macos-arm64.dmg';
+  if (Platform.isLinux) return 'WhisPaste-linux-x64.tar.gz';
+  return 'WhisPaste-Setup.exe'; // Windows
+}
 
 // ---------------------------------------------------------------------------
 // Update state
@@ -232,8 +238,9 @@ class UpdateNotifier extends Notifier<UpdateState> {
     }
 
     final channel = ref.read(deployChannelProvider);
-    if (channel != DeployChannel.installer) {
+    if (channel != DeployChannel.installer && !Platform.isMacOS) {
       // Portable channel can't auto-install; just open the release page.
+      // macOS always downloads the DMG regardless of deploy channel.
       return;
     }
 
@@ -323,12 +330,24 @@ class UpdateNotifier extends Notifier<UpdateState> {
     _log.info('Launching installer: $installerPath');
 
     try {
-      // Detach the installer process so it survives our exit.
-      await Process.start(
-        installerPath,
-        [], // interactive mode — user sees the wizard
-        mode: ProcessStartMode.detached,
-      );
+      if (Platform.isMacOS) {
+        // Open the DMG — macOS mounts it and the user drags to Applications.
+        // Don't exit: user needs to complete drag-install manually.
+        await Process.start(
+          'open',
+          [installerPath],
+          mode: ProcessStartMode.detached,
+        );
+        state = state.copyWith(phase: UpdatePhase.idle);
+        return;
+      } else {
+        // Windows: launch the NSIS installer which handles everything.
+        await Process.start(
+          installerPath,
+          [], // interactive mode — user sees the wizard
+          mode: ProcessStartMode.detached,
+        );
+      }
 
       // Give the installer a moment to start before we exit.
       await Future<void>.delayed(const Duration(milliseconds: 500));

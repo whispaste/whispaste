@@ -1,0 +1,133 @@
+import Cocoa
+import FlutterMacOS
+
+/// MethodChannel host for the floating button on macOS.
+///
+/// Manages the lifecycle of a [FloatingButtonPanel] and routes
+/// method calls between Dart and the native panel/view.
+class FloatingButtonHost {
+  private var channel: FlutterMethodChannel
+  private var panel: FloatingButtonPanel?
+  private var buttonView: FloatingButtonView?
+
+  init(messenger: FlutterBinaryMessenger) {
+    channel = FlutterMethodChannel(
+      name: "com.whispaste.floating_button",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler(handle)
+  }
+
+  private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    switch call.method {
+    case "show":
+      guard let args = call.arguments as? [String: Any] else {
+        result(nil)
+        return
+      }
+      let x = (args["x"] as? NSNumber)?.doubleValue ?? 200
+      let y = (args["y"] as? NSNumber)?.doubleValue ?? 200
+      let size = (args["size"] as? NSNumber)?.doubleValue ?? 56
+      show(x: x, y: y, size: size)
+      result(nil)
+
+    case "hide":
+      panel?.orderOut(nil)
+      result(nil)
+
+    case "setState":
+      guard let args = call.arguments as? [String: Any],
+            let stateName = args["state"] as? String,
+            let state = FloatingButtonVisualState(rawValue: stateName) else {
+        result(nil)
+        return
+      }
+      buttonView?.visualState = state
+      result(nil)
+
+    case "setTheme":
+      guard let args = call.arguments as? [String: Any],
+            let isDark = args["isDark"] as? Bool else {
+        result(nil)
+        return
+      }
+      buttonView?.isDark = isDark
+      result(nil)
+
+    case "setPosition":
+      guard let args = call.arguments as? [String: Any] else {
+        result(nil)
+        return
+      }
+      let x = (args["x"] as? NSNumber)?.doubleValue ?? 0
+      let y = (args["y"] as? NSNumber)?.doubleValue ?? 0
+      panel?.setFrameOrigin(NSPoint(x: x, y: y))
+      result(nil)
+
+    case "setSize":
+      guard let args = call.arguments as? [String: Any],
+            let size = (args["size"] as? NSNumber)?.doubleValue else {
+        result(nil)
+        return
+      }
+      if let p = panel {
+        var frame = p.frame
+        frame.size = NSSize(width: size, height: size)
+        p.setFrame(frame, display: true)
+      }
+      result(nil)
+
+    case "setOpacity":
+      guard let args = call.arguments as? [String: Any],
+            let opacity = (args["opacity"] as? NSNumber)?.doubleValue else {
+        result(nil)
+        return
+      }
+      buttonView?.masterOpacity = CGFloat(opacity)
+      result(nil)
+
+    case "getPosition":
+      guard let p = panel else {
+        result(nil)
+        return
+      }
+      let origin = p.frame.origin
+      result(["x": origin.x, "y": origin.y])
+
+    case "destroy":
+      panel?.close()
+      panel = nil
+      buttonView = nil
+      channel.setMethodCallHandler(nil)
+      result(nil)
+
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func show(x: Double, y: Double, size: Double) {
+    if panel == nil {
+      let p = FloatingButtonPanel(size: CGFloat(size))
+      let view = FloatingButtonView(frame: NSRect(x: 0, y: 0, width: size, height: size))
+
+      // Wire native → Dart events.
+      view.onClicked = { [weak self] in
+        self?.channel.invokeMethod("onClicked", arguments: nil)
+      }
+      view.onSecondaryClicked = { [weak self] in
+        self?.channel.invokeMethod("onSecondaryClicked", arguments: nil)
+      }
+      view.onDragEnded = { [weak self] dx, dy in
+        self?.channel.invokeMethod("onDragEnded", arguments: ["x": dx, "y": dy])
+      }
+
+      p.contentView = view
+      panel = p
+      buttonView = view
+    }
+
+    panel?.setFrameOrigin(NSPoint(x: x, y: y))
+    panel?.orderFront(nil)
+  }
+}

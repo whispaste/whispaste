@@ -412,6 +412,9 @@ Future<void> deleteServerBinary(String sttDirPath) async {
       final name = p.basename(entity.path).toLowerCase();
       if (name.endsWith('.exe') ||
           name.endsWith('.dll') ||
+          name.endsWith('.dylib') ||
+          name.endsWith('.so') ||
+          name == 'whisper-server' ||
           name == _serverInfoFilename) {
         try {
           await entity.delete();

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'floating_button_events.dart';
+import 'macos_floating_button_controller.dart';
 import 'windows_floating_button_controller.dart';
 
 /// Visual state of the floating button (matches C++ FloatingButtonState).
@@ -22,6 +23,7 @@ abstract class FloatingButtonController {
   /// Create the platform-specific controller, or null if unsupported.
   static FloatingButtonController? create() {
     if (Platform.isWindows) return WindowsFloatingButtonController();
+    if (Platform.isMacOS) return MacOSFloatingButtonController();
     return null;
   }
 
