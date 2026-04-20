@@ -327,8 +327,10 @@ class FloatingButtonView: NSView {
     ctx.setLineJoin(.round)
 
     switch visualState {
-    case .idle, .recording:
+    case .idle:
       drawMicIcon(ctx: ctx)
+    case .recording:
+      drawSquareIcon(ctx: ctx)
     case .transcribing:
       drawSpinnerIcon(ctx: ctx, now: now)
     case .done:
@@ -368,6 +370,15 @@ class FloatingButtonView: NSView {
     ctx.move(to: CGPoint(x: -3, y: -7))
     ctx.addLine(to: CGPoint(x: 3, y: -7))
     ctx.strokePath()
+  }
+
+  /// Lucide square icon (stop): rounded rectangle.
+  private func drawSquareIcon(ctx: CGContext) {
+    let rect = CGRect(x: -6, y: -6, width: 12, height: 12)
+    let path = CGPath(roundedRect: rect, cornerWidth: 2, cornerHeight: 2, transform: nil)
+    ctx.setFillColor(NSColor.white.withAlphaComponent(0.95 * masterOpacity).cgColor)
+    ctx.addPath(path)
+    ctx.fillPath()
   }
 
   /// Spinner (288° arc, rotating) for transcribing state.

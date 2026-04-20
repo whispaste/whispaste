@@ -1047,11 +1047,15 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       }
     }
 
-    // On Unix, make the binary executable.
+    // On Unix, make the binary executable and remove quarantine.
     if (!Platform.isWindows) {
       final serverPath = whisperServerPath();
       if (File(serverPath).existsSync()) {
         await Process.run('chmod', ['+x', serverPath]);
+        // macOS quarantines downloaded files, blocking execution.
+        if (Platform.isMacOS) {
+          await Process.run('xattr', ['-d', 'com.apple.quarantine', serverPath]);
+        }
       }
     }
 
