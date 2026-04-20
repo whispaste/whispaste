@@ -165,6 +165,9 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get historyClearSearch => 'Clear search';
+
+  @override
   String get historyTrashEmpty => 'Trash is empty';
 
   @override
@@ -1723,6 +1726,18 @@ class L10nEn extends L10n {
 
   @override
   String get historySearchQuickTags => 'Popular tags';
+
+  @override
+  String get historyRecentSearches => 'Recent searches';
+
+  @override
+  String get historyQuickActions => 'Quick filters';
+
+  @override
+  String get historyQuickActionAllLangs => 'All languages';
+
+  @override
+  String get historyQuickActionFavorites => 'Favorites only';
 
   @override
   String get historySortNewest => 'Newest first';
