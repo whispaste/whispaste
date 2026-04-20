@@ -92,8 +92,23 @@ String appDataDir() {
 String sttDir() => sttDirOverride ?? p.join(appDataDir(), 'models', 'stt');
 
 /// Full path to the whisper-server executable.
+///
+/// On macOS, checks the app bundle first (`Contents/Helpers/whisper-server`)
+/// for App Store builds where the binary is bundled at build time. Falls back
+/// to the downloaded path in Application Support.
 String whisperServerPath() {
   final name = Platform.isWindows ? 'whisper-server.exe' : 'whisper-server';
+
+  // Check app bundle first (macOS App Store distribution bundles the binary).
+  if (Platform.isMacOS) {
+    final exe = Platform.resolvedExecutable;
+    final contentsDir = p.dirname(p.dirname(exe)); // .app/Contents/
+    final bundledPath = p.join(contentsDir, 'Helpers', name);
+    if (File(bundledPath).existsSync()) {
+      return bundledPath;
+    }
+  }
+
   return p.join(sttDir(), name);
 }
 
