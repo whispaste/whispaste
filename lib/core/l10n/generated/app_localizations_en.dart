@@ -1707,7 +1707,28 @@ class L10nEn extends L10n {
   String get historyTitleSaved => 'Title saved';
 
   @override
-  String get historySearchHintCommands => 'Search… (#tag, lang:de)';
+  String get historySearchHintCommands => 'Search transcriptions…';
+
+  @override
+  String get historySearchHelpTitle => 'Search Tips';
+
+  @override
+  String get historySearchHelpTags => 'Type # to filter by tags';
+
+  @override
+  String get historySearchHelpLang => 'Type lang: to filter by language';
+
+  @override
+  String get historySearchHelpFreeText => 'Or just type any keyword';
+
+  @override
+  String get historySortNewest => 'Newest first';
+
+  @override
+  String get historySortOldest => 'Oldest first';
+
+  @override
+  String get historySortLongest => 'Longest first';
 
   @override
   String historySearchActiveTag(String tag) {

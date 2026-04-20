@@ -8,6 +8,9 @@ import 'package:whispaste/core/data/database.dart';
 /// View mode for the history page.
 enum HistoryViewMode { list, cards, compact }
 
+/// Sort order for history entries.
+enum HistorySortOrder { newest, oldest, longest }
+
 /// Resolves a [DateGroup.labelKey] to a localized string.
 String resolveDateLabel(String key, L10n l10n) {
   switch (key) {
@@ -19,6 +22,8 @@ String resolveDateLabel(String key, L10n l10n) {
       return l10n.historyThisWeek;
     case 'older':
       return l10n.historyOlder;
+    case 'all':
+      return l10n.historyAll;
     default:
       return key;
   }
