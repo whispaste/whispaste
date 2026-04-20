@@ -1550,7 +1550,6 @@ Future<void> _migrateFromNestedPath(String correctDir) async {
 // ---------------------------------------------------------------------------
 
 /// Global database provider — single instance across the app.
-// TODO: Replace with real Riverpod provider when history DB is connected
 final historyDatabaseProvider = Provider<HistoryDatabase>((ref) {
   final db = HistoryDatabase();
   ref.onDispose(db.close);

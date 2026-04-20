@@ -5,7 +5,7 @@ import Footer from "../components/Footer.astro";
 import StoreButton from "../components/StoreButton.astro";
 ---
 
-<Layout title="Download WhisPaste" description="Download WhisPaste for Windows — via Microsoft Store or free from GitHub. macOS & Linux coming soon.">
+<Layout title="Download WhisPaste" description="Download WhisPaste for Windows and macOS — via Microsoft Store, DMG, or free from GitHub.">
 
   <div class="min-h-screen flex flex-col">
     <Nav variant="subpage" />
@@ -68,7 +68,45 @@ import StoreButton from "../components/StoreButton.astro";
           </div>
         </div>
 
-        <!-- Section 2: Free from GitHub -->
+        <!-- Section 2: macOS -->
+        <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6">
+          <div class="flex items-start gap-3 mb-5">
+            <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-gray-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            </div>
+            <div>
+              <h2 class="text-xl font-semibold text-white" data-i18n="download.macos.title">macOS (Apple Silicon)</h2>
+              <p class="text-gray-400 text-sm mt-1" data-i18n="download.macos.desc">Download the latest macOS release directly from GitHub. Supports Apple M-series chips natively.</p>
+            </div>
+          </div>
+
+          <div class="flex justify-center mb-4">
+            <a
+              href="https://github.com/whispaste/whispaste/releases/latest"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-gray-200 font-medium text-sm transition-all hover:bg-white/[0.08] hover:border-white/20"
+            >
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              <span data-i18n="download.macos.button">Download for macOS</span>
+            </a>
+          </div>
+
+          <p class="text-center text-xs text-gray-500 mb-4" data-i18n="download.macos.hint">After downloading, open the DMG and drag WhisPaste to your Applications folder.</p>
+
+          <!-- Gatekeeper guide -->
+          <div class="smartscreen-box rounded-xl border border-amber-500/10 bg-amber-500/[0.03] p-4">
+            <div class="flex items-start gap-3">
+              <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+              <div>
+                <h3 class="font-medium text-white text-sm" data-i18n="download.macos.gatekeeper.title">Note: Gatekeeper warning</h3>
+                <p class="text-gray-400 text-xs mt-1 leading-relaxed" data-i18n="download.macos.gatekeeper.desc">macOS may show "WhisPaste can't be opened because it is from an unidentified developer". Right-click the app, select "Open", then click "Open" in the dialog.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Free from GitHub (Windows) -->
         <div class="download-card rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8 mb-6">
           <div class="flex items-start gap-3 mb-5">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
@@ -84,7 +122,7 @@ import StoreButton from "../components/StoreButton.astro";
             <a
               href="https://github.com/whispaste/whispaste/releases/latest"
               target="_blank"
-              rel="noopener"
+              rel="noopener noreferrer"
               class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-gray-200 font-medium text-sm transition-all hover:bg-white/[0.08] hover:border-white/20"
             >
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
