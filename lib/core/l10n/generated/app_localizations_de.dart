@@ -1725,7 +1725,28 @@ class L10nDe extends L10n {
   String get historyTitleSaved => 'Titel gespeichert';
 
   @override
-  String get historySearchHintCommands => 'Suchen… (#Tag, lang:de)';
+  String get historySearchHintCommands => 'Transkriptionen suchen…';
+
+  @override
+  String get historySearchHelpTitle => 'Suchtipps';
+
+  @override
+  String get historySearchHelpTags => 'Tippe # um nach Tags zu filtern';
+
+  @override
+  String get historySearchHelpLang => 'Tippe lang: um nach Sprache zu filtern';
+
+  @override
+  String get historySearchHelpFreeText => 'Oder gib einfach ein Stichwort ein';
+
+  @override
+  String get historySortNewest => 'Neueste zuerst';
+
+  @override
+  String get historySortOldest => 'Älteste zuerst';
+
+  @override
+  String get historySortLongest => 'Längste zuerst';
 
   @override
   String historySearchActiveTag(String tag) {
