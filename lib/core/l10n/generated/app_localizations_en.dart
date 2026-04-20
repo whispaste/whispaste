@@ -1722,6 +1722,9 @@ class L10nEn extends L10n {
   String get historySearchHelpFreeText => 'Or just type any keyword';
 
   @override
+  String get historySearchQuickTags => 'Popular tags';
+
+  @override
   String get historySortNewest => 'Newest first';
 
   @override
