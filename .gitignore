@@ -20,6 +20,7 @@ build/
 # IDE
 .idea/
 .vscode/
+!.vscode/launch.json.example
 *.swp
 *.swo
 *~
@@ -54,6 +55,9 @@ supabase/.temp/
 docs/
 
 # AI agent / skill config (local only)
+AGENTS.md
+opencode.json
+rules/
 skills-lock.json
 skills.yaml
 .github/copilot-instructions.md
@@ -68,6 +72,10 @@ scripts/*
 !scripts/git-hooks/
 !scripts/generate-release-notes.ps1
 !scripts/security-scan.ps1
+!scripts/setup-gh-secrets.sh
+!scripts/setup-gh-secrets.ps1
+!scripts/setup-gh-secrets.py
+!scripts/GITHUB-SECRETS-SETUP.md
 !scripts/store-screenshots.py
 !scripts/capture-store-screenshots.py
 !scripts/premium-screenshots.py
