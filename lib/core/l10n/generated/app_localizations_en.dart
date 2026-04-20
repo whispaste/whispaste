@@ -165,6 +165,9 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get historyClearSearch => 'Clear search';
+
+  @override
   String get historyTrashEmpty => 'Trash is empty';
 
   @override
@@ -279,6 +282,13 @@ class L10nEn extends L10n {
   String get settingsLaunchAtStartup => 'Launch at Startup';
 
   @override
+  String get settingsStartMinimized => 'Start Minimized';
+
+  @override
+  String get settingsStartMinimizedSubtitle =>
+      'Start in the background when launched at system boot';
+
+  @override
   String get settingsShowNotifications => 'Show Notifications';
 
   @override
@@ -331,17 +341,6 @@ class L10nEn extends L10n {
       'Automatically stop after this many seconds of silence (after speech). 0 = disabled.';
 
   @override
-  String get settingsPostProcessing => 'Post-Processing';
-
-  @override
-  String get settingsPostProcessingHint =>
-      'Improve your dictated text automatically using AI.';
-
-  @override
-  String get settingsTextEnhancementSubtitle =>
-      'Clean up, shorten, or translate dictated text automatically';
-
-  @override
   String get settingsEnabled => 'Enabled';
 
   @override
@@ -355,7 +354,7 @@ class L10nEn extends L10n {
       'Audio input is managed by your system settings';
 
   @override
-  String get settingsServiceOnDevicePrivate => 'On Device';
+  String get settingsServiceOnDevicePrivate => 'Locally on Device';
 
   @override
   String get settingsQualityFastTiny => 'Fast (Tiny)';
@@ -383,15 +382,6 @@ class L10nEn extends L10n {
 
   @override
   String get settingsLanguageSpanish => 'Spanish';
-
-  @override
-  String get settingsPresetCleanup => 'Clean up';
-
-  @override
-  String get settingsPresetConcise => 'Make concise';
-
-  @override
-  String get settingsPresetTranslate => 'Translate';
 
   @override
   String get settingsSoundFeedback => 'Sound & Feedback';
@@ -435,11 +425,11 @@ class L10nEn extends L10n {
   String get settingsAfterTranscriptionNothing => 'Do Nothing';
 
   @override
-  String get settingsOverlayFloatingButton => 'Overlay & Floating Button';
+  String get settingsOverlayFloatingButton => 'Recording Overlay';
 
   @override
   String get settingsOverlayFloatingButtonSubtitle =>
-      'Control how recording status appears outside the main window';
+      'Control how recording status appears while you dictate';
 
   @override
   String get settingsShowOverlay => 'Recording status display';
@@ -447,9 +437,6 @@ class L10nEn extends L10n {
   @override
   String get settingsShowOverlaySubtitle =>
       'Choose where live recording feedback appears while you dictate';
-
-  @override
-  String get settingsOverlayModeInWindow => 'In main window';
 
   @override
   String get settingsOverlayModeFloating => 'Floating window (always visible)';
@@ -488,6 +475,13 @@ class L10nEn extends L10n {
       'Only affects the floating button, not the recording overlay';
 
   @override
+  String get settingsFloatingOverlayOpacity => 'Overlay opacity';
+
+  @override
+  String get settingsFloatingOverlayOpacitySubtitle =>
+      'Transparency of the floating recording overlay';
+
+  @override
   String get settingsFloatingButtonSize => 'Floating button size';
 
   @override
@@ -508,6 +502,17 @@ class L10nEn extends L10n {
 
   @override
   String get settingsRecognitionLanguage => 'Recognition Language';
+
+  @override
+  String get settingsCustomVocabulary => 'Custom Vocabulary';
+
+  @override
+  String get settingsCustomVocabularyHint =>
+      'Names, technical terms — improves recognition accuracy';
+
+  @override
+  String get settingsCustomVocabularyPlaceholder =>
+      'e.g. WhisPaste, Kubernetes, Dr. Mueller';
 
   @override
   String get settingsAppLanguage => 'App Language';
@@ -856,6 +861,9 @@ class L10nEn extends L10n {
   String get replacementsNoMatchesHint => 'Try a different search term.';
 
   @override
+  String get replacementsToggleLabel => 'Enable shortcuts';
+
+  @override
   String get replacementsToggleEnabled => 'Voice shortcuts are active';
 
   @override
@@ -1114,12 +1122,6 @@ class L10nEn extends L10n {
   String get statusBarOnDevice => 'On device';
 
   @override
-  String get statusBarPostProcessing => 'Post-Processing';
-
-  @override
-  String get statusBarOverlayInWindow => 'Overlay: Window';
-
-  @override
   String get statusBarOverlayFloating => 'Overlay: Floating';
 
   @override
@@ -1138,15 +1140,6 @@ class L10nEn extends L10n {
   String get statusBarAfterNothing => 'After: Manual';
 
   @override
-  String get statusBarPresetCleanup => 'Clean Up';
-
-  @override
-  String get statusBarPresetConcise => 'Concise';
-
-  @override
-  String get statusBarPresetTranslate => 'Translate';
-
-  @override
   String get sttStatusStandby => 'Standby';
 
   @override
@@ -1160,9 +1153,6 @@ class L10nEn extends L10n {
 
   @override
   String get statusBarSttTooltip => 'Speech engine and current status';
-
-  @override
-  String get statusBarPostProcessTooltip => 'Active post-processing';
 
   @override
   String get statusBarRecording => 'Recording…';
@@ -1195,6 +1185,42 @@ class L10nEn extends L10n {
   String get modifierCmd => 'Cmd';
 
   @override
+  String get modifierOption => 'Option';
+
+  @override
+  String get shortcutKeySpace => 'Space';
+
+  @override
+  String get shortcutKeyEnter => 'Enter';
+
+  @override
+  String get shortcutKeyEscape => 'Esc';
+
+  @override
+  String get shortcutKeyBackspace => 'Backspace';
+
+  @override
+  String get shortcutKeyTab => 'Tab';
+
+  @override
+  String get shortcutKeyDelete => 'Del';
+
+  @override
+  String get shortcutKeyInsert => 'Insert';
+
+  @override
+  String get shortcutKeyHome => 'Home';
+
+  @override
+  String get shortcutKeyEnd => 'End';
+
+  @override
+  String get shortcutKeyPageUp => 'Page Up';
+
+  @override
+  String get shortcutKeyPageDown => 'Page Down';
+
+  @override
   String get tooltipSwitchToLight => 'Switch to Light Mode';
 
   @override
@@ -1220,6 +1246,9 @@ class L10nEn extends L10n {
 
   @override
   String get modelDownloading => 'Downloading…';
+
+  @override
+  String get modelDownloadingEngine => 'Preparing speech engine…';
 
   @override
   String get modelVerifying => 'Verifying…';
@@ -1291,11 +1320,43 @@ class L10nEn extends L10n {
   String get qualityTierActive => 'Active';
 
   @override
-  String get settingsOverlayInWindowHint =>
-      'Only visible while the main window is open';
+  String qualityTierInfoSlow(String ratio) {
+    return 'Best quality — takes ~${ratio}x longer to process';
+  }
 
   @override
-  String get settingsQualityFast => 'Fast';
+  String qualityTierInfoSlowerThanCompact(String ratio) {
+    return 'Best quality — ~${ratio}x slower than Small';
+  }
+
+  @override
+  String get qualityTierInfoModerate => 'Good balance of speed and quality';
+
+  @override
+  String get qualityTierBenchmarkReRun => 'Re-run benchmark';
+
+  @override
+  String get qualityTierBenchmarkRun => 'Run benchmark';
+
+  @override
+  String get qualityTierInfoBenchmarking => 'Testing performance…';
+
+  @override
+  String get qualityTierActionOverride => 'Use anyway';
+
+  @override
+  String get qualityTierActionOverrideHint =>
+      'Use this quality level despite the warning';
+
+  @override
+  String qualityTierModelTooltip(String modelName, String size) {
+    return 'Whisper $modelName · $size';
+  }
+
+  @override
+  String analyticsModelDisplayName(String tierLabel, String modelLabel) {
+    return '$tierLabel (Whisper $modelLabel)';
+  }
 
   @override
   String get settingsQualityBasic => 'Basic';
@@ -1341,8 +1402,74 @@ class L10nEn extends L10n {
       'Please download a speech model in Settings first.';
 
   @override
+  String get oomRecoveryTitle => 'Recording failed — GPU memory issue';
+
+  @override
+  String get oomRecoveryMessage =>
+      'Your GPU ran out of memory. Choose how to proceed:';
+
+  @override
+  String get oomRecoveryTrySmaller => 'Try smaller model';
+
+  @override
+  String oomRecoveryTrySmallerHint(String model) {
+    return 'Switch to $model and retry recording';
+  }
+
+  @override
+  String get oomRecoverySwitchCloud => 'Switch to Cloud';
+
+  @override
+  String get oomRecoverySwitchCloudHint =>
+      'Use cloud speech recognition instead';
+
+  @override
+  String get oomRecoveryCancel => 'Cancel';
+
+  @override
+  String get oomRecoveryPermanentTitle =>
+      'Local speech recognition unavailable';
+
+  @override
+  String get oomRecoveryPermanentMessage =>
+      'All local models failed due to GPU memory limits. Please switch to cloud speech recognition in settings.';
+
+  @override
+  String get oomRecoveryPermanentCloud => 'Open Settings';
+
+  @override
+  String oomRecoveryDowngrading(String model) {
+    return 'Switching to $model…';
+  }
+
+  @override
+  String get oomRecoverySwitchingCloud =>
+      'Switching to cloud speech recognition…';
+
+  @override
+  String oomRecoveryAttemptFailed(String model) {
+    return 'Model $model also failed. Trying next option…';
+  }
+
+  @override
+  String get infoSttCudaOomFallbackModel =>
+      'Quality reduced — your GPU ran out of memory. Switched to a lighter model.';
+
+  @override
+  String get infoSttCudaOomFallbackCpu =>
+      'Your GPU ran out of memory. Switched to CPU mode for reliability.';
+
+  @override
   String get errorSttServerNotFound =>
       'Speech engine not found. Please download a speech model in Settings.';
+
+  @override
+  String get errorSttServerConnectionLost =>
+      'Speech engine stopped unexpectedly. Please try again.';
+
+  @override
+  String get errorSttCudaOom =>
+      'Your GPU ran out of memory. Quality was reduced so the next try should work.';
 
   @override
   String get errorOnboardingNotCompleted =>
@@ -1402,6 +1529,10 @@ class L10nEn extends L10n {
   String get errorGeneric => 'Something went wrong. Please try again.';
 
   @override
+  String get modelDownloadFailed =>
+      'Download failed. Please check your internet connection.';
+
+  @override
   String get statusSttLoading => 'Loading model…';
 
   @override
@@ -1452,6 +1583,76 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get historyManageTags => 'Manage tags';
+
+  @override
+  String get tagManageTitle => 'Manage Tags';
+
+  @override
+  String get tagManageEmpty => 'No tags created yet.';
+
+  @override
+  String tagUsageCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+      zero: 'unused',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tagDeleteConfirmTitle => 'Delete tag?';
+
+  @override
+  String tagDeleteConfirmMessage(String name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+    );
+    return 'The tag \"$name\" is used in $_temp0. It will be removed from all of them.';
+  }
+
+  @override
+  String tagDeleted(String name) {
+    return 'Tag \"$name\" deleted';
+  }
+
+  @override
+  String get tagDeleteUnusedTitle => 'Delete unused tags?';
+
+  @override
+  String tagDeleteUnusedMessage(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unused tags',
+      one: '1 unused tag',
+    );
+    return '$_temp0 will be permanently deleted.';
+  }
+
+  @override
+  String tagDeleteUnusedAction(int count) {
+    return 'Delete $count unused';
+  }
+
+  @override
+  String tagDeletedUnused(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unused tags',
+      one: '1 unused tag',
+    );
+    return '$_temp0 deleted';
+  }
+
+  @override
   String get historyEditTranscript => 'Edit transcript';
 
   @override
@@ -1459,22 +1660,6 @@ class L10nEn extends L10n {
 
   @override
   String get historySaveTranscript => 'Save';
-
-  @override
-  String get historyAiActions => 'AI Actions';
-
-  @override
-  String get historyAiCleanUp => 'Clean up';
-
-  @override
-  String get historyAiShorten => 'Shorten';
-
-  @override
-  String get historyAiTranslate => 'Translate';
-
-  @override
-  String get historyAiComingSoon =>
-      'AI post-processing is coming in a future update';
 
   @override
   String get historyShortcutHelp => 'Keyboard Shortcuts';
@@ -1511,6 +1696,73 @@ class L10nEn extends L10n {
 
   @override
   String get historyShortcutCopy => 'Copy to clipboard';
+
+  @override
+  String get historyShortcutEditTitle => 'Edit title';
+
+  @override
+  String get historyEditTitle => 'Edit title';
+
+  @override
+  String get historyTitlePlaceholder => 'Enter a title…';
+
+  @override
+  String get historyTitleSaved => 'Title saved';
+
+  @override
+  String get historySearchHintCommands => 'Search transcriptions…';
+
+  @override
+  String get historySearchHelpTitle => 'Search Tips';
+
+  @override
+  String get historySearchHelpTags => 'Type # to filter by tags';
+
+  @override
+  String get historySearchHelpLang => 'Type lang: to filter by language';
+
+  @override
+  String get historySearchHelpFreeText => 'Or just type any keyword';
+
+  @override
+  String get historySearchQuickTags => 'Popular tags';
+
+  @override
+  String get historyRecentSearches => 'Recent searches';
+
+  @override
+  String get historyQuickActions => 'Quick filters';
+
+  @override
+  String get historyQuickActionAllLangs => 'All languages';
+
+  @override
+  String get historyQuickActionFavorites => 'Favorites only';
+
+  @override
+  String get historySortNewest => 'Newest first';
+
+  @override
+  String get historySortOldest => 'Oldest first';
+
+  @override
+  String get historySortLongest => 'Longest first';
+
+  @override
+  String historySearchActiveTag(String tag) {
+    return '#$tag';
+  }
+
+  @override
+  String historySearchActiveLang(String code) {
+    return 'lang:$code';
+  }
+
+  @override
+  String get historySearchSuggestTag => 'Filter by tag';
+
+  @override
+  String get historySearchSuggestLang => 'Filter by language';
 
   @override
   String get settingsKeyboardShortcut => 'Keyboard Shortcut';
@@ -1555,36 +1807,6 @@ class L10nEn extends L10n {
       'Cloud speech recognition service';
 
   @override
-  String get settingsLlmModel => 'LLM Model';
-
-  @override
-  String get settingsLlmModelSubtitle => 'Model used for cloud post-processing';
-
-  @override
-  String get settingsLlmModelPlaceholder => 'e.g. gpt-4o-mini';
-
-  @override
-  String get settingsCustomInstructions => 'Custom Instructions';
-
-  @override
-  String get settingsCustomInstructionsSubtitle =>
-      'Custom prompt for AI post-processing';
-
-  @override
-  String get settingsCustomInstructionsPlaceholder =>
-      'e.g. Always use formal language…';
-
-  @override
-  String get settingsOutputLanguage => 'Output Language';
-
-  @override
-  String get settingsOutputLanguageSubtitle =>
-      'Force output to a specific language';
-
-  @override
-  String get settingsOutputLanguageSameAsInput => 'Same as input';
-
-  @override
   String get settingsMaxRecordDuration => 'Max Recording Duration';
 
   @override
@@ -1609,27 +1831,22 @@ class L10nEn extends L10n {
       'Help improve WhisPaste by sending anonymous crash reports';
 
   @override
-  String get settingsGpuAcceleration => 'GPU Acceleration';
-
-  @override
-  String get settingsGpuAccelerationSubtitle =>
-      'Use graphics card for faster AI processing';
-
-  @override
-  String get settingsGpuAuto => 'Auto-detect';
-
-  @override
-  String get settingsGpuEnabled => 'Always On';
-
-  @override
-  String get settingsGpuDisabled => 'Disabled';
-
-  @override
   String get settingsAutoPasteDelay => 'Auto-Paste Delay';
 
   @override
   String get settingsAutoPasteDelaySubtitle =>
       'Wait time before pasting into the active window';
+
+  @override
+  String get settingsAutoPasteBlocklist => 'Auto-Paste Blocklist';
+
+  @override
+  String get settingsAutoPasteBlocklistSubtitle =>
+      'Comma-separated app identifiers where auto-paste is disabled';
+
+  @override
+  String get settingsAutoPasteBlocklistPlaceholder =>
+      'e.g. com.apple.Terminal, com.1password';
 
   @override
   String get settingsTextReplacements => 'Text Replacements';
@@ -1771,9 +1988,6 @@ class L10nEn extends L10n {
   String get overlayTranscribing => 'Transcribing…';
 
   @override
-  String get overlayRefining => 'Refining…';
-
-  @override
   String get overlayDone => 'Copied';
 
   @override
@@ -1882,5 +2096,151 @@ class L10nEn extends L10n {
   @override
   String commandPaletteExported(String path) {
     return 'Exported to $path';
+  }
+
+  @override
+  String updateAvailable(String version) {
+    return 'Update available: v$version';
+  }
+
+  @override
+  String updateDownloading(int percent) {
+    return 'Downloading update… $percent%';
+  }
+
+  @override
+  String get updateReadyToInstall => 'Update ready — click to install';
+
+  @override
+  String get updateUpToDate => 'You\'re on the latest version';
+
+  @override
+  String get updateCheckNow => 'Check Now';
+
+  @override
+  String get updateInstall => 'Install Update';
+
+  @override
+  String get updateDownload => 'Download';
+
+  @override
+  String get updateViewRelease => 'Release Notes';
+
+  @override
+  String get updateError => 'Update check failed';
+
+  @override
+  String get updateRateLimited => 'Too many requests — try again later';
+
+  @override
+  String updateStatusBarChip(String version) {
+    return 'v$version available';
+  }
+
+  @override
+  String get settingsOverlaySize => 'Overlay size';
+
+  @override
+  String get settingsOverlaySizeSubtitle =>
+      'Choose between detailed or minimal display';
+
+  @override
+  String get settingsOverlaySizeNormal => 'Normal';
+
+  @override
+  String get settingsOverlaySizeCompact => 'Compact';
+
+  @override
+  String get settingsOverlayAutoHide => 'Auto-hide delay';
+
+  @override
+  String get settingsOverlayAutoHideSubtitle =>
+      'How long the overlay stays visible after completion';
+
+  @override
+  String get settingsOverlayAutoHide2s => '2 seconds';
+
+  @override
+  String get settingsOverlayAutoHide5s => '5 seconds';
+
+  @override
+  String get settingsOverlayAutoHide10s => '10 seconds';
+
+  @override
+  String get settingsOverlayAutoHideManual => 'Until dismissed';
+
+  @override
+  String get overlayRetry => 'Retry';
+
+  @override
+  String get overlayDismiss => 'Dismiss';
+
+  @override
+  String get overlayContextCancel => 'Cancel recording';
+
+  @override
+  String get overlayContextSwitchNormal => 'Switch to Normal';
+
+  @override
+  String get overlayContextSwitchCompact => 'Switch to Compact';
+
+  @override
+  String get overlayContextHide => 'Hide overlay';
+
+  @override
+  String get settingsHistory => 'History';
+
+  @override
+  String get settingsHistorySubtitle => 'Retention and automatic cleanup';
+
+  @override
+  String get settingsHistoryMaxEntries => 'Maximum entries';
+
+  @override
+  String get settingsHistoryMaxEntriesUnlimited => 'Unlimited';
+
+  @override
+  String get settingsHistoryAutoTrashDays => 'Auto-delete trash after';
+
+  @override
+  String get settingsHistoryAutoTrashNever => 'Never';
+
+  @override
+  String settingsHistoryAutoTrashDaysLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsFloatingButtonSection => 'Floating Button';
+
+  @override
+  String get settingsFloatingButtonSectionSubtitle =>
+      'Always-on-top recording button for quick access';
+
+  @override
+  String get settingsSttIdleTimeout => 'Engine idle timeout';
+
+  @override
+  String get settingsSttIdleTimeoutSubtitle =>
+      'How long the speech engine stays loaded after use';
+
+  @override
+  String get settingsSttIdleTimeoutKeepAlive => 'Keep alive';
+
+  @override
+  String settingsSttIdleTimeoutMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count minutes',
+      one: '1 minute',
+    );
+    return '$_temp0';
   }
 }

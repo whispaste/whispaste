@@ -7,9 +7,9 @@ no app launch, no display required, CI-friendly.
 
 Usage:
     python scripts/store-screenshots.py
-    python scripts/store-screenshots.py --output screenshots/
+    python scripts/store-screenshots.py --output screenshots/store
 
-Output: screenshots/ directory with PNG files ready for MS Store upload.
+Output: screenshots/store directory with PNG files ready for MS Store upload.
 """
 
 import argparse
@@ -20,7 +20,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 GOLDENS_DIR = ROOT / "test" / "screenshots" / "goldens" / "windowsStoreScreenshots"
-DEFAULT_OUTPUT = ROOT / "screenshots"
+DEFAULT_OUTPUT = ROOT / "screenshots" / "store"
+
+
+def clean_pngs(directory: Path) -> None:
+    """Delete PNG files in a directory without touching subdirectories."""
+    if not directory.exists():
+        return
+    for png in directory.glob("*.png"):
+        png.unlink()
 
 
 def find_flutter() -> str:
@@ -35,6 +43,7 @@ def find_flutter() -> str:
 def run_golden_tests(flutter: str) -> bool:
     """Run golden screenshot tests to generate/refresh PNGs."""
     print("Running golden screenshot tests...")
+    clean_pngs(GOLDENS_DIR)
     result = subprocess.run(
         [flutter, "test", "--update-goldens", "test/screenshots/"],
         cwd=str(ROOT),
@@ -46,6 +55,7 @@ def run_golden_tests(flutter: str) -> bool:
 def collect_screenshots(output_dir: Path) -> list[Path]:
     """Copy generated goldens to the output directory with Store naming."""
     output_dir.mkdir(parents=True, exist_ok=True)
+    clean_pngs(output_dir)
     collected = []
 
     if not GOLDENS_DIR.exists():

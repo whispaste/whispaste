@@ -1,22 +1,22 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'core/config/settings_provider.dart';
+import 'core/data/database.dart';
 import 'core/logging/app_monitoring.dart';
-import 'screens/floating_button_screen.dart';
-import 'screens/floating_overlay_screen.dart';
+import 'core/logging/crash_reporter.dart';
+import 'core/platform/macos_lifecycle_channel.dart';
 import 'services/audio_service.dart';
+import 'services/deploy_channel_service.dart';
 import 'services/hardware_info_service.dart' as hw;
-import 'services/multi_window_service.dart';
 import 'services/path_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/subprocess_guard.dart' as guard;
+import 'services/update_service.dart';
 
 Future<ProviderContainer> bootstrapAppContainer({
   List overrides = const [],
@@ -39,28 +39,6 @@ Future<void> main(List<String> args) async {
   await AppMonitoring.bootstrap(appRunner: () async {
     WidgetsFlutterBinding.ensureInitialized();
 
-    // Secondary window detection: desktop_multi_window passes the window type
-    // via WindowController.fromCurrentEngine().arguments.
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      try {
-        final controller = await WindowController.fromCurrentEngine();
-        final windowArgs = controller.arguments;
-        if (windowArgs.isNotEmpty) {
-          final parsed = jsonDecode(windowArgs) as Map<String, dynamic>;
-          final type = parsed['type'] as String?;
-          if (type == WindowType.floatingButton) {
-            return runFloatingButtonWindow(controller);
-          }
-          if (type == WindowType.floatingOverlay) {
-            return runFloatingOverlayWindow(controller);
-          }
-        }
-      } catch (_) {
-        // Not a secondary window — continue with main window setup.
-      }
-    }
-
-    // ── Main window path ───────────────────────────────────────────────────
     // Single-instance guard: if another instance is running, signal it and exit.
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       final isPrimary = await SingleInstanceService.ensureSingleInstance();
@@ -76,6 +54,11 @@ Future<void> main(List<String> args) async {
     );
     final settings =
         container.read(settingsProvider).value ?? AppSettings.defaults;
+
+    // Sync crash reporting consent BEFORE any other work that could throw.
+    // Closes the GDPR window where bootstrap errors could reach Sentry
+    // without user consent (default is true until this runs).
+    CrashReporter.instance?.consentGranted = settings.errorReporting;
 
     // Desktop window setup — use persisted geometry when available.
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
@@ -97,12 +80,27 @@ Future<void> main(List<String> args) async {
         if (settings.windowMaximized) {
           await windowManager.maximize();
         }
-        await windowManager.show();
-        await windowManager.focus();
+
+        // Start minimized only when launched via autostart (system boot),
+        // not when the user explicitly opens the app from Dock/Taskbar.
+        final isAutostart = args.contains('--autostart');
+        final shouldMinimize =
+            isAutostart && settings.startMinimized && settings.launchAtStartup;
+
+        if (!shouldMinimize) {
+          await windowManager.show();
+          await windowManager.focus();
+        } else {
+          // Hide to tray — only if tray is expected to work.
+          if (Platform.isMacOS) {
+            await MacOSLifecycleChannel.setAccessory();
+          }
+        }
       });
 
       // When a second instance launches, focus this window.
       SingleInstanceService.onSecondInstanceLaunched = () async {
+        await MacOSLifecycleChannel.setRegular();
         await windowManager.show();
         await windowManager.focus();
       };
@@ -120,6 +118,21 @@ Future<void> main(List<String> args) async {
     // the incompatible binary is auto-deleted so the next download fetches
     // the correct variant.
     unawaited(hw.validateAndCleanIncompatibleBinary(sttDir()));
+
+    // Purge old trash entries on startup (fire-and-forget).
+    if (settings.historyAutoTrashDays > 0) {
+      final db = container.read(historyDatabaseProvider);
+      unawaited(db.purgeTrash(days: settings.historyAutoTrashDays));
+    }
+
+    // Check for updates on startup if enabled and not running from Store.
+    final channel = container.read(deployChannelProvider);
+    if (settings.checkUpdates && channel != DeployChannel.store) {
+      // Short delay so the UI renders first.
+      Future<void>.delayed(const Duration(seconds: 3), () {
+        container.read(updateProvider.notifier).checkForUpdate();
+      });
+    }
 
     runApp(
       UncontrolledProviderScope(

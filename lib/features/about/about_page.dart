@@ -12,6 +12,8 @@ import '../../core/app_info.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../services/deploy_channel_service.dart';
+import '../../services/update_service.dart';
 import '../../widgets/brand_wordmark.dart';
 import '../../widgets/page_shell.dart';
 
@@ -26,6 +28,8 @@ class AboutPage extends ConsumerWidget {
     final ts = Theme.of(context).textTheme;
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final channel = ref.watch(deployChannelProvider);
+    final updateState = ref.watch(updateProvider);
     final hotkeyLabel = formatHotkeyShortcut(
       settings.hotkeyModifiers,
       settings.hotkeyKey,
@@ -84,6 +88,29 @@ class AboutPage extends ConsumerWidget {
                 url: 'https://github.com/whispaste/whispaste/issues',
                 isDark: isDark,
               ),
+              if (channel != DeployChannel.store)
+                _UpdateCheckAction(
+                  updateState: updateState,
+                  channel: channel,
+                  isDark: isDark,
+                  l10n: l10n,
+                  onTap: () {
+                    final notifier = ref.read(updateProvider.notifier);
+                    if (updateState.phase == UpdatePhase.available) {
+                      if (channel == DeployChannel.portable) {
+                        // Portable can't auto-install; open release page.
+                        final url = updateState.releaseNotesUrl;
+                        if (url != null) launchUrl(Uri.parse(url));
+                      } else {
+                        notifier.downloadUpdate();
+                      }
+                    } else if (updateState.phase == UpdatePhase.readyToInstall) {
+                      notifier.installUpdate();
+                    } else {
+                      notifier.checkForUpdate();
+                    }
+                  },
+                ),
             ],
           ),
           const SizedBox(height: WpSpacing.xxxl),
@@ -370,6 +397,127 @@ class _QuickActionState extends State<_QuickAction> {
         ),
       ),
     );
+  }
+}
+
+// ─── Update check action ────────────────────────────────────────────────────
+
+class _UpdateCheckAction extends StatefulWidget {
+  const _UpdateCheckAction({
+    required this.updateState,
+    required this.channel,
+    required this.isDark,
+    required this.l10n,
+    required this.onTap,
+  });
+  final UpdateState updateState;
+  final DeployChannel channel;
+  final bool isDark;
+  final L10n l10n;
+  final VoidCallback onTap;
+
+  @override
+  State<_UpdateCheckAction> createState() => _UpdateCheckActionState();
+}
+
+class _UpdateCheckActionState extends State<_UpdateCheckAction> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final (IconData icon, String label) = _resolveDisplay();
+
+    return Semantics(
+      button: true,
+      label: label,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.updateState.isBusy ? null : widget.onTap,
+          child: AnimatedContainer(
+            duration: _hovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.md,
+              vertical: WpSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: _hovered
+                  ? (widget.isDark ? WpColorsDark.hover : WpColorsLight.hover)
+                  : (widget.isDark
+                        ? WpColorsDark.surfaceVariant
+                        : WpColorsLight.surfaceVariant),
+              borderRadius: WpRadius.borderFull,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.updateState.isBusy)
+                  SizedBox(
+                    width: WpIconSize.sm,
+                    height: WpIconSize.sm,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: widget.isDark
+                          ? WpColorsDark.accent
+                          : WpColorsLight.accent,
+                    ),
+                  )
+                else
+                  Icon(
+                    icon,
+                    size: WpIconSize.sm,
+                    color: widget.isDark
+                        ? WpColorsDark.accent
+                        : WpColorsLight.accent,
+                  ),
+                const SizedBox(width: WpSpacing.xs),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: widget.isDark
+                        ? WpColorsDark.textPrimary
+                        : WpColorsLight.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  (IconData, String) _resolveDisplay() {
+    final l10n = widget.l10n;
+    return switch (widget.updateState.phase) {
+      UpdatePhase.idle => (LucideIcons.refreshCw, l10n.updateCheckNow),
+      UpdatePhase.checking => (LucideIcons.refreshCw, l10n.updateCheckNow),
+      UpdatePhase.available => widget.channel == DeployChannel.portable
+          ? (
+              LucideIcons.externalLink,
+              l10n.updateViewRelease,
+            )
+          : (
+              LucideIcons.download,
+              l10n.updateAvailable(widget.updateState.latestVersion ?? ''),
+            ),
+      UpdatePhase.downloading => (
+        LucideIcons.download,
+        l10n.updateDownloading(
+          (widget.updateState.progressPercent * 100).round(),
+        ),
+      ),
+      UpdatePhase.readyToInstall => (
+        LucideIcons.packageCheck,
+        l10n.updateInstall,
+      ),
+      UpdatePhase.upToDate => (LucideIcons.circleCheck, l10n.updateUpToDate),
+      UpdatePhase.error => (LucideIcons.triangleAlert, l10n.updateError),
+    };
   }
 }
 

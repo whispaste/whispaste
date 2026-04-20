@@ -1,14 +1,12 @@
 /// Store screenshot tests for WhisPaste.
 ///
-/// Generates high-quality PNGs for Microsoft Store and GitHub listings
-/// using golden_screenshot — no app launch needed, runs headless in CI.
-///
-/// Usage:
-///   flutter test --update-goldens test/screenshots/
-///
-/// Output: test/screenshots/goldens/ directory with PNG files.
+/// Generates high-quality PNGs for store listings and website galleries using
+/// golden_screenshot. The set is intentionally narrative-driven:
+/// workspace overview -> detail editing -> voice shortcuts -> hotkey setup ->
+/// analytics/time saved.
 library;
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,17 +14,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:golden_screenshot/golden_screenshot.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/data/analytics_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
-import 'package:whispaste/core/data/analytics_provider.dart';
-import 'package:whispaste/features/history/history_page.dart';
-import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
-import 'package:whispaste/features/about/about_page.dart';
-import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/features/history/history_page.dart';
+import 'package:whispaste/features/replacements/replacements_page.dart';
+import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
+import 'package:whispaste/services/model_download_service.dart';
 
 import 'screenshot_devices.dart';
 
@@ -34,32 +32,42 @@ import 'screenshot_devices.dart';
 // Configuration
 // ---------------------------------------------------------------------------
 
-/// Screenshots to generate. Each entry produces one golden per device.
+const _locales = ['en', 'de'];
+
 final _screenshots = <_ScreenDef>[
   _ScreenDef(
-    name: '01_history',
+    name: '01_workspace_overview_dark',
+    themeMode: ThemeMode.dark,
     builder: () => const HistoryPage(),
-    // HistoryPage's master-detail AnimationController ticker stays alive
-    // after screenshot capture. golden_screenshot enforces !timersPending
-    // internally, so this test must be skipped until a FakeAsync wrapper
-    // is added. Use capture-store-screenshots.py for marketing screenshots.
-    skip: true,
+    needsDemoData: true,
   ),
   _ScreenDef(
-    name: '02_settings',
+    name: '02_workspace_detail_light',
+    themeMode: ThemeMode.light,
+    builder: () => const HistoryPage(),
+    needsDemoData: true,
+    arrange: _openFirstHistoryEntry,
+  ),
+  _ScreenDef(
+    name: '03_voice_shortcuts_dark',
+    themeMode: ThemeMode.dark,
+    builder: () => const ReplacementsPage(),
+    needsDemoData: true,
+    textReplacementsEnabled: true,
+  ),
+  _ScreenDef(
+    name: '04_hotkey_settings_light',
+    themeMode: ThemeMode.light,
     builder: () => const SettingsPage(),
+    arrange: _scrollToHotkeySection,
   ),
   _ScreenDef(
-    name: '03_analytics',
+    name: '05_time_saved_dark',
+    themeMode: ThemeMode.dark,
     builder: () => const AnalyticsPage(),
-  ),
-  _ScreenDef(
-    name: '04_about',
-    builder: () => const AboutPage(),
   ),
 ];
 
-/// Devices to screenshot for. Only Windows Store for now.
 const _devices = [WpScreenshotDevices.windowsStore];
 
 // ---------------------------------------------------------------------------
@@ -73,37 +81,54 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
 
     for (final screen in _screenshots) {
-      _screenshotTest(screen);
+      for (final locale in _locales) {
+        _screenshotTest(screen, locale);
+      }
     }
   });
 }
 
-void _screenshotTest(_ScreenDef screen) {
-  group(screen.name, () {
+void _screenshotTest(_ScreenDef screen, String locale) {
+  group(screen.fileName(locale), () {
     for (final goldenDevice in _devices) {
       testGoldens(
         goldenDevice.name,
-        skip: screen.skip,
         (tester) async {
           final device = goldenDevice.device;
-          final app =
-              _buildScreenshotApp(device: device, child: screen.builder());
+          final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+          final settings = AppSettings.defaults.copyWith(
+            locale: locale,
+            themeMode: screen.themeMode,
+            textReplacementsEnabled: screen.textReplacementsEnabled,
+            hotkeyEnabled: true,
+            hotkeyKey: 'D',
+            hotkeyModifiers: 'ctrl+shift',
+          );
 
-          // 1. Pump the widget tree first.
+          if (screen.needsDemoData) {
+            await _seedDemoData(db, locale: locale);
+          }
+
+          final app = _buildScreenshotApp(
+            device: device,
+            db: db,
+            settings: settings,
+            child: screen.builder(),
+          );
+
           await tester.pumpWidget(app);
-
-          // 2. Load fonts (discovers 'Segoe UI' in tree -> replaces with Inter)
-          //    and precache images.
           await tester.loadAssets();
-
-          // 3. Re-pump with loaded fonts so text renders correctly.
           await tester.pumpFrames(app, const Duration(seconds: 1));
 
-          // 4. Capture the screenshot.
-          await tester.expectScreenshot(device, screen.name);
+          if (screen.arrange != null) {
+            await screen.arrange!(tester, locale);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 450));
+          }
 
-          // 5. Drain pending timers.
-          await tester.pumpAndSettle(const Duration(seconds: 2));
+          await tester.expectScreenshot(device, screen.fileName(locale));
+          await tester.pumpAndSettle(const Duration(seconds: 1));
+          await db.close();
         },
       );
     }
@@ -114,33 +139,28 @@ void _screenshotTest(_ScreenDef screen) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Builds the full screenshot widget tree with provider overrides and theme.
 Widget _buildScreenshotApp({
   required ScreenshotDevice device,
+  required HistoryDatabase db,
+  required AppSettings settings,
   required Widget child,
 }) {
   return ScreenshotApp(
     device: device,
-    theme: wpDarkTheme(),
+    theme: wpLightTheme(),
     darkTheme: wpDarkTheme(),
-    themeMode: ThemeMode.dark,
+    themeMode: settings.themeMode,
     localizationsDelegates: L10n.localizationsDelegates,
     supportedLocales: L10n.supportedLocales,
-    locale: const Locale('en'),
+    locale: Locale(settings.locale),
     home: ProviderScope(
       overrides: [
-        historyDatabaseProvider.overrideWith((ref) {
-          final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-          ref.onDispose(db.close);
-          return db;
-        }),
-        settingsProvider.overrideWith(() => _MockSettingsNotifier()),
-        analyticsProvider.overrideWith(
-          (ref) async => _sampleAnalytics,
-        ),
+        historyDatabaseProvider.overrideWithValue(db),
+        settingsProvider.overrideWith(() => _MockSettingsNotifier(settings)),
+        analyticsProvider.overrideWith((ref) async => _sampleAnalytics),
         modelDownloadProvider.overrideWith(() => _MockModelDownloadNotifier()),
         audioInputDevicesProvider.overrideWith(
-          (ref) async => <String>['Default Microphone', 'Headset'],
+          (ref) async => <String>['USB Microphone', 'Desk Mic'],
         ),
         hw.gpuInfoProvider.overrideWith(
           (ref) async =>
@@ -152,15 +172,277 @@ Widget _buildScreenshotApp({
   );
 }
 
+Future<void> _openFirstHistoryEntry(WidgetTester tester, String locale) async {
+  final firstTitle = locale == 'de'
+      ? 'Wöchentliche Standup-Notizen'
+      : 'Weekly standup notes';
+  await tester.tap(find.text(firstTitle).first);
+}
+
+Future<void> _scrollToHotkeySection(WidgetTester tester, String locale) async {
+  final sectionTitle =
+      locale == 'de' ? 'Tastenkürzel' : 'Keyboard Shortcut';
+  await tester.dragUntilVisible(
+    find.text(sectionTitle),
+    find.byType(Scrollable).first,
+    const Offset(0, -320),
+  );
+}
+
 class _ScreenDef {
   const _ScreenDef({
     required this.name,
+    required this.themeMode,
     required this.builder,
-    this.skip = false,
+    this.needsDemoData = false,
+    this.textReplacementsEnabled = false,
+    this.arrange,
   });
+
   final String name;
+  final ThemeMode themeMode;
   final Widget Function() builder;
-  final bool skip;
+  final bool needsDemoData;
+  final bool textReplacementsEnabled;
+  final Future<void> Function(WidgetTester tester, String locale)? arrange;
+
+  String fileName(String locale) => '${name}_$locale';
+}
+
+// ---------------------------------------------------------------------------
+// Demo data — localized, realistic entries that make screenshots look populated
+// ---------------------------------------------------------------------------
+
+Future<void> _seedDemoData(
+  HistoryDatabase db, {
+  required String locale,
+}) async {
+  final now = DateTime.now();
+  final isGerman = locale == 'de';
+
+  final tagLabels = isGerman
+      ? ['Arbeit', 'Privat', 'Meeting', 'Idee', 'E-Mail']
+      : ['Work', 'Personal', 'Meeting', 'Idea', 'Email'];
+
+  final tagIds = <String, String>{};
+  for (final tag in tagLabels) {
+    final id = 'tag-${tag.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}';
+    tagIds[tag] = id;
+    await db.into(db.tags).insert(
+          TagsCompanion(
+            id: Value(id),
+            name: Value(tag),
+            createdAt: Value(now),
+          ),
+        );
+  }
+
+  final entries = isGerman ? _demoEntriesDe : _demoEntriesEn;
+  for (final entry in entries) {
+    final ts = now.subtract(Duration(minutes: entry.minutesAgo));
+    await db.into(db.historyEntries).insert(
+          HistoryEntriesCompanion(
+            id: Value(entry.id),
+            title: Value(entry.title),
+            content: Value(entry.content),
+            timestamp: Value(ts),
+            durationSec: Value(entry.durationSec),
+            processingDurationSec: const Value(0.8),
+            language: Value(locale),
+            model: Value(entry.model),
+            isLocal: const Value(true),
+            pinned: Value(entry.pinned),
+            source: const Value('dictation'),
+          ),
+        );
+
+    for (final tagName in entry.tags) {
+      final tagId = tagIds[tagName]!;
+      await db.into(db.entryTags).insert(
+            EntryTagsCompanion(
+              entryId: Value(entry.id),
+              tagId: Value(tagId),
+            ),
+          );
+    }
+  }
+
+  final replacements = isGerman ? _replacementsDe : _replacementsEn;
+  for (var i = 0; i < replacements.length; i++) {
+    final (trigger, replacement) = replacements[i];
+    await db.into(db.textReplacements).insert(
+          TextReplacementsCompanion(
+            id: Value('repl-$locale-$i'),
+            trigger: Value(trigger),
+            replacement: Value(replacement),
+            createdAt: Value(now),
+          ),
+        );
+  }
+}
+
+const _demoEntriesEn = <_DemoEntry>[
+  _DemoEntry(
+    id: 'demo-1',
+    title: 'Weekly standup notes',
+    content:
+        'The backend team shipped the new auth flow. Frontend is on track for '
+        'the design review on Thursday. Mobile team needs one more day for the '
+        'push notification integration. No blockers reported.',
+    durationSec: 42.3,
+    minutesAgo: 15,
+    tags: ['Work', 'Meeting'],
+    model: 'Whisper Large v3',
+    pinned: true,
+  ),
+  _DemoEntry(
+    id: 'demo-2',
+    title: 'Email to client — project update',
+    content:
+        'Hi Sarah, quick update on the project. We are ahead of schedule on '
+        'the dashboard redesign and the new analytics view should be ready '
+        'for testing by next Monday. I will send the staging link right away.',
+    durationSec: 28.7,
+    minutesAgo: 45,
+    tags: ['Work', 'Email'],
+    model: 'Whisper Large v3',
+  ),
+  _DemoEntry(
+    id: 'demo-3',
+    title: 'Product idea — voice shortcuts',
+    content:
+        'Voice shortcuts could expand into full phrases. Saying "sign off" '
+        'would insert the email signature automatically and save time on '
+        'repetitive writing throughout the day.',
+    durationSec: 18.5,
+    minutesAgo: 120,
+    tags: ['Idea'],
+    model: 'Whisper Medium',
+    pinned: true,
+  ),
+  _DemoEntry(
+    id: 'demo-4',
+    title: 'Grocery list for the weekend',
+    content:
+        'Avocados, sourdough bread, cherry tomatoes, mozzarella, fresh basil, '
+        'olive oil, pasta, chicken breast, garlic, onions, and dark chocolate.',
+    durationSec: 12.1,
+    minutesAgo: 180,
+    tags: ['Personal'],
+    model: 'Whisper Medium',
+  ),
+  _DemoEntry(
+    id: 'demo-5',
+    title: 'Meeting recap — Q2 planning',
+    content:
+        'Key takeaways: revenue target is fifteen percent growth, three new '
+        'engineering hires approved, and the September launch date is locked. '
+        'Follow up with design on the brand refresh.',
+    durationSec: 55.8,
+    minutesAgo: 360,
+    tags: ['Work', 'Meeting'],
+    model: 'Whisper Large v3',
+  ),
+];
+
+const _demoEntriesDe = <_DemoEntry>[
+  _DemoEntry(
+    id: 'demo-1',
+    title: 'Wöchentliche Standup-Notizen',
+    content:
+        'Das Backend-Team hat den neuen Login-Ablauf ausgeliefert. Das '
+        'Frontend liegt für das Design-Review am Donnerstag im Plan. Mobile '
+        'braucht noch einen Tag für die Push-Integration. Keine Blocker.',
+    durationSec: 42.3,
+    minutesAgo: 15,
+    tags: ['Arbeit', 'Meeting'],
+    model: 'Whisper Large v3',
+    pinned: true,
+  ),
+  _DemoEntry(
+    id: 'demo-2',
+    title: 'E-Mail an Kundin — Projektupdate',
+    content:
+        'Hi Sarah, hier ein kurzes Update zum Projekt. Beim Dashboard-Redesign '
+        'liegen wir vor dem Plan und die neue Statistikansicht sollte bis '
+        'Montag testbar sein. Den Staging-Link schicke ich dir direkt danach.',
+    durationSec: 28.7,
+    minutesAgo: 45,
+    tags: ['Arbeit', 'E-Mail'],
+    model: 'Whisper Large v3',
+  ),
+  _DemoEntry(
+    id: 'demo-3',
+    title: 'Produktidee — Sprachkürzel',
+    content:
+        'Sprachkürzel könnten ganze Phrasen einfügen. Wenn ich '
+        '"Grußformel" sage, wird automatisch meine Abschlussformel '
+        'eingesetzt. Das spart täglich Tipparbeit.',
+    durationSec: 18.5,
+    minutesAgo: 120,
+    tags: ['Idee'],
+    model: 'Whisper Medium',
+    pinned: true,
+  ),
+  _DemoEntry(
+    id: 'demo-4',
+    title: 'Einkaufsliste für das Wochenende',
+    content:
+        'Avocados, Sauerteigbrot, Cherrytomaten, Mozzarella, frisches Basilikum, '
+        'Olivenöl, Pasta, Hähnchen, Knoblauch, Zwiebeln und dunkle Schokolade.',
+    durationSec: 12.1,
+    minutesAgo: 180,
+    tags: ['Privat'],
+    model: 'Whisper Medium',
+  ),
+  _DemoEntry(
+    id: 'demo-5',
+    title: 'Meeting-Zusammenfassung — Q2-Planung',
+    content:
+        'Wichtigste Punkte: fünfzehn Prozent Wachstumsziel, drei neue Stellen '
+        'im Engineering und der September-Launch bleibt gesetzt. Bitte mit dem '
+        'Design-Team das Marken-Refresh nachziehen.',
+    durationSec: 55.8,
+    minutesAgo: 360,
+    tags: ['Arbeit', 'Meeting'],
+    model: 'Whisper Large v3',
+  ),
+];
+
+const _replacementsEn = <(String, String)>[
+  ('sign off', 'Best regards,\nAlex'),
+  ('my email', 'alex@whispaste.dev'),
+  ('meeting link', 'https://meet.example.com/team-sync'),
+  ('brb', 'Be right back, give me just a moment.'),
+];
+
+const _replacementsDe = <(String, String)>[
+  ('grußformel', 'Viele Grüße,\nAlex'),
+  ('meine mail', 'alex@whispaste.dev'),
+  ('meeting link', 'https://meet.example.com/team-sync'),
+  ('bin gleich zurück', 'Bin gleich wieder da, gib mir bitte einen Moment.'),
+];
+
+class _DemoEntry {
+  const _DemoEntry({
+    required this.id,
+    required this.title,
+    required this.content,
+    required this.durationSec,
+    required this.minutesAgo,
+    required this.tags,
+    required this.model,
+    this.pinned = false,
+  });
+
+  final String id;
+  final String title;
+  final String content;
+  final double durationSec;
+  final int minutesAgo;
+  final List<String> tags;
+  final String model;
+  final bool pinned;
 }
 
 // ---------------------------------------------------------------------------
@@ -168,8 +450,12 @@ class _ScreenDef {
 // ---------------------------------------------------------------------------
 
 class _MockSettingsNotifier extends SettingsNotifier {
+  _MockSettingsNotifier(this._settings);
+
+  final AppSettings _settings;
+
   @override
-  Future<AppSettings> build() async => AppSettings.defaults;
+  Future<AppSettings> build() async => _settings;
 }
 
 class _MockModelDownloadNotifier extends ModelDownloadNotifier {
@@ -177,7 +463,6 @@ class _MockModelDownloadNotifier extends ModelDownloadNotifier {
   ModelDownloadState build() => const ModelDownloadState();
 }
 
-/// Sample analytics data that makes the dashboard look populated.
 const _sampleAnalytics = AnalyticsData(
   totalRecordings: 847,
   totalDurationMinutes: 423,

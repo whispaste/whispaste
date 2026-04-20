@@ -1,6 +1,6 @@
-/// Model download service — manages downloading STT/LLM models and server
-/// binaries from HuggingFace and GitHub with progress, SHA256 verification,
-/// and resume support.
+/// Model download service — manages downloading STT models and the
+/// whisper-server binary from HuggingFace and GitHub with progress,
+/// SHA256 verification, and resume support.
 library;
 
 import 'dart:async';
@@ -61,8 +61,7 @@ const List<SttModelInfo> sttModels = [
     sizeBytes: 32152673,
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin',
-    sha256:
-        '818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7',
+    sha256: '818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7',
     description: 'Fastest, lower accuracy',
   ),
   SttModelInfo(
@@ -72,8 +71,7 @@ const List<SttModelInfo> sttModels = [
     sizeBytes: 59700000,
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin',
-    sha256:
-        '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898',
+    sha256: '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898',
     description: 'Good balance of speed and accuracy',
   ),
   SttModelInfo(
@@ -83,8 +81,7 @@ const List<SttModelInfo> sttModels = [
     sizeBytes: 190085487,
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin',
-    sha256:
-        'ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb',
+    sha256: 'ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb',
     description: 'Recommended for most users',
   ),
   SttModelInfo(
@@ -94,8 +91,7 @@ const List<SttModelInfo> sttModels = [
     sizeBytes: 539212467,
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin',
-    sha256:
-        '19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f',
+    sha256: '19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f',
     description: 'High accuracy, needs more RAM',
   ),
   SttModelInfo(
@@ -105,8 +101,7 @@ const List<SttModelInfo> sttModels = [
     sizeBytes: 574041195,
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin',
-    sha256:
-        '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2',
+    sha256: '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2',
     description: 'Best speed/quality ratio for large models',
   ),
   SttModelInfo(
@@ -116,8 +111,7 @@ const List<SttModelInfo> sttModels = [
     sizeBytes: 1081140203,
     url:
         'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin',
-    sha256:
-        'd75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1',
+    sha256: 'd75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1',
     description: 'Maximum accuracy, requires GPU',
   ),
 ];
@@ -137,6 +131,22 @@ SttModelInfo? findSttModel(String id) {
 /// User-facing quality tiers that abstract away model internals.
 enum QualityTier { compact, balanced, premium }
 
+/// Performance level of a quality tier based on real-time benchmark.
+/// Used to determine UI display (info messages) and tier recommendations.
+enum TierPerformance {
+  /// Fast: benchmark RTF < 0.3 - excellent real-time performance.
+  fast,
+
+  /// Moderate: benchmark RTF 0.3-0.8 - good balance, slight delay.
+  moderate,
+
+  /// Slow: benchmark RTF > 0.8 - noticeable processing time.
+  slow,
+
+  /// No benchmark data yet - use VRAM fallback for recommendations.
+  unmeasured,
+}
+
 /// Returns the ordered list of models belonging to [tier] (best first).
 ///
 /// Order is explicit — the first entry in each tier is the recommended
@@ -147,9 +157,7 @@ List<SttModelInfo> modelsForTier(QualityTier tier) {
     QualityTier.balanced => ['whisper-medium'],
     QualityTier.premium => ['whisper-large-v3-turbo', 'whisper-large-v3'],
   };
-  return ids
-      .map((id) => sttModels.firstWhere((m) => m.id == id))
-      .toList();
+  return ids.map((id) => sttModels.firstWhere((m) => m.id == id)).toList();
 }
 
 /// Returns the single best model for [tier].
@@ -165,60 +173,102 @@ QualityTier? tierForModel(String modelId) {
 
 /// Auto-recommend a tier based on GPU capabilities.
 ///
-/// NVIDIA with CUDA handles large models well at modest VRAM. Intel/AMD
-/// Vulkan and CPU-only need higher VRAM margins for the same tier.
+/// Thresholds include conservative safety margins because:
+/// - NVIDIA reports total VRAM, but OS overhead (~200-500MB), CUDA runtime,
+///   and concurrent GPU processes consume part of it. Usable VRAM is ~70% of
+///   reported.
+/// - Intel/AMD integrated GPUs report shared system RAM as "VRAM" (e.g. 4-16GB),
+///   but actual GPU-accessible memory is much smaller and shared with the CPU.
+///   Conservative multipliers are applied.
+/// - Apple Silicon has unified memory where "VRAM" = system RAM — generous
+///   thresholds apply.
 QualityTier recommendTier(int vramMB, {hw.GpuVendor? vendor}) {
-  // NVIDIA CUDA — dedicated GPU, excellent inference performance.
-  if (vendor == hw.GpuVendor.nvidia) {
-    if (vramMB >= 2048) return QualityTier.premium;
-    if (vramMB >= 512) return QualityTier.balanced;
-    return QualityTier.compact;
-  }
-
-  // Apple Metal — unified memory, generally performs well.
+  // Apple Silicon — unified memory, generous limits.
   if (vendor == hw.GpuVendor.apple) {
     if (vramMB >= 4096) return QualityTier.premium;
     if (vramMB >= 2048) return QualityTier.balanced;
     return QualityTier.compact;
   }
 
-  // Intel/AMD Vulkan or CPU — slower inference, conservative thresholds.
-  // Integrated GPUs report shared VRAM (often 4–8 GB) which overstates
-  // real inference headroom. Require ≥8 GB for premium, ≥2 GB for balanced.
-  if (vramMB >= 8192) return QualityTier.premium;
-  if (vramMB >= 2048) return QualityTier.balanced;
+  // NVIDIA dedicated GPU — total VRAM * 0.70 = conservative usable estimate.
+  // whisper-large-v3-turbo (2600MB) → needs ~3715MB reported (÷0.70).
+  // whisper-medium (1500MB) → needs ~2150MB reported.
+  if (vendor == hw.GpuVendor.nvidia) {
+    if (vramMB >= 3715) return QualityTier.premium;
+    if (vramMB >= 2150) return QualityTier.balanced;
+    return QualityTier.compact;
+  }
+
+  // Intel/AMD integrated GPUs — shared memory is unreliable.
+  // Treat reported "VRAM" as upper bound, apply aggressive safety margin.
+  // whisper-large-v3-turbo only if ≥12GB reported (very safe for integrated).
+  if (vramMB >= 12288) return QualityTier.premium;
+  if (vramMB >= 4096) return QualityTier.balanced;
   return QualityTier.compact;
 }
 
-/// Returns a user-facing warning when [tier] may perform poorly on [gpu],
-/// or `null` if no concerns.
-String? tierWarning(QualityTier tier, hw.GpuInfo gpu) {
-  if (tier == QualityTier.compact) return null;
-
-  // CPU-only — large models will be very slow.
-  if (!gpu.hasGpu) {
-    if (tier == QualityTier.premium) {
-      return 'Large models are very slow without GPU acceleration. '
-          'Consider "Balanced" for better performance.';
-    }
-    if (tier == QualityTier.balanced) {
-      return 'Without a GPU, transcription will be noticeably slower.';
-    }
+/// Returns the performance level of [tier] based on benchmark RTF data.
+/// Falls back to VRAM-based estimation if no benchmark available.
+TierPerformance tierPerformance(
+  QualityTier tier,
+  hw.GpuInfo gpu, {
+  Map<QualityTier, double>? benchmarkRtf,
+}) {
+  // If we have benchmark data, use it directly.
+  if (benchmarkRtf != null && benchmarkRtf.containsKey(tier)) {
+    final rtf = benchmarkRtf[tier]!;
+    if (rtf < 0.3) return TierPerformance.fast;
+    if (rtf < 0.8) return TierPerformance.moderate;
+    return TierPerformance.slow;
   }
 
-  // Intel/AMD integrated graphics — premium is risky, balanced may be slow.
-  if (gpu.vendor == hw.GpuVendor.intel || gpu.vendor == hw.GpuVendor.amd) {
+  // No benchmark data — estimate from VRAM and vendor heuristics.
+  // Apple Silicon unified memory handles all tiers well.
+  if (gpu.vendor == hw.GpuVendor.apple) {
     final vram = gpu.vramMB ?? 0;
-    if (tier == QualityTier.premium && vram < 8192) {
-      return 'Large models may be slow on integrated graphics. '
-          '"Balanced" is recommended for your hardware.';
+    if (vram >= 8192) return TierPerformance.fast;
+    if (vram >= 4096) return TierPerformance.moderate;
+    return TierPerformance.slow;
+  }
+
+  // NVIDIA with CUDA — generally fast.
+  if (gpu.vendor == hw.GpuVendor.nvidia && gpu.cudaAvailable) {
+    final vram = gpu.vramMB ?? 0;
+    if (tier == QualityTier.compact) return TierPerformance.fast;
+    if (tier == QualityTier.balanced && vram >= 4096) {
+      return TierPerformance.fast;
     }
-    if (tier == QualityTier.balanced && vram < 4096) {
-      return 'Transcription may be noticeably slower on this hardware.';
+    if (tier == QualityTier.premium && vram >= 6144) {
+      return TierPerformance.moderate;
+    }
+    return TierPerformance.slow;
+  }
+
+  // Vulkan / integrated / CPU fallback — conservative estimate.
+  if (tier == QualityTier.compact) return TierPerformance.moderate;
+  return TierPerformance.slow;
+}
+
+/// Recommends the best tier based on benchmark RTF data.
+/// Returns the fastest tier with RTF < 0.8, or premium if none qualify.
+/// Returns null if no benchmark data available.
+QualityTier? recommendTierFromBenchmark(Map<QualityTier, double> rtfMap) {
+  if (rtfMap.isEmpty) return null;
+
+  // Try tiers in order of quality, return first one that's fast enough.
+  for (final tier in [
+    QualityTier.compact,
+    QualityTier.balanced,
+    QualityTier.premium,
+  ]) {
+    final rtf = rtfMap[tier];
+    if (rtf != null && rtf < 0.8) {
+      return tier;
     }
   }
 
-  return null;
+  // All tiers are slow - still recommend premium as best available.
+  return QualityTier.premium;
 }
 
 /// Total download size for [tier]'s best model (human-readable).
@@ -242,6 +292,10 @@ class ModelDownloadState {
     this.progressPercent = 0,
     this.bytesDownloaded = 0,
     this.totalBytes = 0,
+    this.speedBytesPerSec = 0,
+    this.etaSeconds,
+    this.downloadStartedAt,
+    this.statusLabel,
     this.errorMessage,
     this.downloadedModels = const {},
     this.serverReady = false,
@@ -253,9 +307,22 @@ class ModelDownloadState {
   final int progressPercent;
   final int bytesDownloaded;
   final int totalBytes;
+
+  /// Rolling average download speed in bytes/second.
+  final double speedBytesPerSec;
+
+  /// Estimated seconds remaining (null if unknown size or just started).
+  final int? etaSeconds;
+
+  /// When this download started (for elapsed time tracking).
+  final DateTime? downloadStartedAt;
+
+  /// Short status label for the current operation (e.g. "Downloading model…").
+  final String? statusLabel;
+
   final String? errorMessage;
 
-  /// Set of model IDs whose files exist on disk.
+  /// Set of STT model IDs whose files exist on disk.
   final Set<String> downloadedModels;
 
   /// Whether whisper-server binary is present.
@@ -274,6 +341,10 @@ class ModelDownloadState {
     int? progressPercent,
     int? bytesDownloaded,
     int? totalBytes,
+    double? speedBytesPerSec,
+    int? etaSeconds,
+    DateTime? downloadStartedAt,
+    String? statusLabel,
     String? errorMessage,
     Set<String>? downloadedModels,
     bool? serverReady,
@@ -284,6 +355,10 @@ class ModelDownloadState {
       progressPercent: progressPercent ?? this.progressPercent,
       bytesDownloaded: bytesDownloaded ?? this.bytesDownloaded,
       totalBytes: totalBytes ?? this.totalBytes,
+      speedBytesPerSec: speedBytesPerSec ?? this.speedBytesPerSec,
+      etaSeconds: etaSeconds ?? this.etaSeconds,
+      downloadStartedAt: downloadStartedAt ?? this.downloadStartedAt,
+      statusLabel: statusLabel ?? this.statusLabel,
       errorMessage: errorMessage,
       downloadedModels: downloadedModels ?? this.downloadedModels,
       serverReady: serverReady ?? this.serverReady,
@@ -298,17 +373,20 @@ class ModelDownloadState {
 class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   CancelToken? _cancelToken;
   bool _autoDownloadAttempted = false;
-  final _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(minutes: 10),
-    headers: {'User-Agent': appUserAgent},
-  ));
+  final _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(minutes: 10),
+      headers: {'User-Agent': appUserAgent},
+    ),
+  );
 
   @override
   ModelDownloadState build() {
     ref.onDispose(() {
       _cancelToken?.cancel('disposed');
-      _dio.close();
+      // Dio instance is kept alive so it can be reused for retry/download
+      // attempts after the notifier is re-initialized (e.g., after app reset).
     });
     // Scan disk for already-downloaded models.
     final initial = _scanExisting();
@@ -358,6 +436,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           activeModelId: modelId,
           phase: DownloadPhase.downloading,
           progressPercent: 0,
+          downloadStartedAt: DateTime.now(),
+          statusLabel: 'engine',
+          speedBytesPerSec: 0,
           errorMessage: null,
         );
         await _downloadWhisperServer();
@@ -371,12 +452,18 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         progressPercent: 0,
         bytesDownloaded: 0,
         totalBytes: model.sizeBytes,
+        downloadStartedAt: DateTime.now(),
+        statusLabel: 'model',
+        speedBytesPerSec: 0,
       );
 
       final destPath = p.join(sttDir(), model.filename);
       if (File(destPath).existsSync()) {
         _log.info('Model ${model.id} already exists, verifying…');
-        state = state.copyWith(phase: DownloadPhase.verifying);
+        state = state.copyWith(
+          phase: DownloadPhase.verifying,
+          statusLabel: 'verifying',
+        );
         final ok = await _verifySha256(destPath, model.sha256);
         if (ok) {
           await _markModelDone(model.id);
@@ -393,7 +480,11 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       );
 
       // Phase 3: Verify SHA256.
-      state = state.copyWith(phase: DownloadPhase.verifying, progressPercent: 99);
+      state = state.copyWith(
+        phase: DownloadPhase.verifying,
+        progressPercent: 99,
+        statusLabel: 'verifying',
+      );
       final ok = await _verifySha256(destPath, model.sha256);
       if (!ok) {
         await File(destPath).delete().catchError((_) => File(destPath));
@@ -407,26 +498,17 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       await _markModelDone(model.id);
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
-        state = state.copyWith(
-          phase: DownloadPhase.idle,
-          activeModelId: null,
-        );
+        state = state.copyWith(phase: DownloadPhase.idle, activeModelId: null);
       } else {
         final msg = e.response?.statusCode == 403
             ? 'GitHub API rate limit reached. Please wait a few minutes.'
             : 'Download failed: ${e.message}';
         _log.error(msg);
-        state = state.copyWith(
-          phase: DownloadPhase.error,
-          errorMessage: msg,
-        );
+        state = state.copyWith(phase: DownloadPhase.error, errorMessage: msg);
       }
     } on Exception catch (e) {
       _log.error('Download error: $e');
-      state = state.copyWith(
-        phase: DownloadPhase.error,
-        errorMessage: '$e',
-      );
+      state = state.copyWith(phase: DownloadPhase.error, errorMessage: '$e');
     }
   }
 
@@ -460,16 +542,16 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       state = state.copyWith(
         phase: DownloadPhase.downloading,
         progressPercent: 0,
+        downloadStartedAt: DateTime.now(),
+        statusLabel: 'engine',
+        speedBytesPerSec: 0,
         errorMessage: null,
       );
 
       await _downloadWhisperServer();
 
       // Reset to idle (not done — no model was downloaded).
-      state = state.copyWith(
-        phase: DownloadPhase.idle,
-        progressPercent: 0,
-      );
+      state = state.copyWith(phase: DownloadPhase.idle, progressPercent: 0);
       _log.info('Self-heal complete: whisper-server ready');
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
@@ -479,17 +561,11 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
             ? 'GitHub API rate limit reached.'
             : 'Download failed: ${e.message}';
         _log.warning('Self-heal failed: $msg');
-        state = state.copyWith(
-          phase: DownloadPhase.idle,
-          errorMessage: msg,
-        );
+        state = state.copyWith(phase: DownloadPhase.idle, errorMessage: msg);
       }
     } on Exception catch (e) {
       _log.warning('Self-heal failed: $e');
-      state = state.copyWith(
-        phase: DownloadPhase.idle,
-        errorMessage: '$e',
-      );
+      state = state.copyWith(phase: DownloadPhase.idle, errorMessage: '$e');
     }
   }
 
@@ -512,15 +588,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     state = _scanExisting();
   }
 
-  // -----------------------------------------------------------------------
-  // Private — scanning
-  // -----------------------------------------------------------------------
-
   ModelDownloadState _scanExisting() {
     final downloaded = <String>{};
     final dir = Directory(sttDir());
     if (!dir.existsSync()) {
-      // Create on first access so downloads never fail on missing dir.
       try {
         dir.createSync(recursive: true);
       } on FileSystemException {
@@ -535,8 +606,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       }
     }
     final serverExists = File(whisperServerPath()).existsSync();
+
     _log.info(
-      'Scan: ${downloaded.length} models, server=${serverExists ? "ready" : "missing"}',
+      'Scan: ${downloaded.length} STT models, server=${serverExists ? "ready" : "missing"}',
     );
     return ModelDownloadState(
       downloadedModels: downloaded,
@@ -609,18 +681,51 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
 
     final totalBytes = _resolveTotal(response, startByte, expectedSize);
 
-    final sink = tmpFile.openWrite(mode: startByte > 0 ? FileMode.append : FileMode.write);
+    final sink = tmpFile.openWrite(
+      mode: startByte > 0 ? FileMode.append : FileMode.write,
+    );
     int received = startByte;
+
+    // Rolling speed tracker — sample every ~500ms for a smooth 5s window.
+    final speedSamples = <_SpeedSample>[];
+    var lastSpeedUpdate = DateTime.now();
 
     try {
       await for (final chunk in response.data!.stream) {
         sink.add(chunk);
         received += chunk.length;
+
+        final now = DateTime.now();
+        final sinceLastUpdate = now.difference(lastSpeedUpdate);
+
+        // Update speed/ETA at most every 500ms to avoid excessive rebuilds.
+        double speed = state.speedBytesPerSec;
+        int? eta = state.etaSeconds;
+        if (sinceLastUpdate.inMilliseconds >= 500) {
+          lastSpeedUpdate = now;
+          speedSamples.add(_SpeedSample(now, received));
+          // Keep only last 5 seconds of samples.
+          final cutoff = now.subtract(const Duration(seconds: 5));
+          speedSamples.removeWhere((s) => s.time.isBefore(cutoff));
+
+          if (speedSamples.length >= 2) {
+            final first = speedSamples.first;
+            final elapsed = now.difference(first.time).inMilliseconds;
+            if (elapsed > 0) {
+              speed = (received - first.bytes) * 1000 / elapsed;
+              final remaining = totalBytes > 0 ? totalBytes - received : 0;
+              eta = speed > 0 ? (remaining / speed).ceil() : null;
+            }
+          }
+        }
+
         final pct = totalBytes > 0 ? (received * 100 ~/ totalBytes) : 0;
         state = state.copyWith(
           progressPercent: pct.clamp(0, 99),
           bytesDownloaded: received,
           totalBytes: totalBytes,
+          speedBytesPerSec: speed,
+          etaSeconds: totalBytes > 0 ? eta : null,
         );
       }
       await sink.flush();
@@ -677,16 +782,12 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       'vulkan=${gpu.vulkanAvailable})',
     );
 
-    final settings =
-        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
     final gpuMode = settings.gpuAcceleration;
 
     // Source priority: WhisPaste-owned releases (may have Vulkan/custom
     // builds), then upstream whisper.cpp (has CUDA + CPU/BLAS).
-    const repos = [
-      ('whispaste', 'whispaste'),
-      ('ggml-org', 'whisper.cpp'),
-    ];
+    const repos = [('whispaste', 'whispaste'), ('ggml-org', 'whisper.cpp')];
 
     String? lastError;
 
@@ -710,8 +811,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           // Size varies: CPU/BLAS ~17 MB, Vulkan ~30 MB, CUDA 12 ~460 MB.
           final isCuda =
               assetUrl.contains('cuda') || assetUrl.contains('cublas');
-          final estimatedSize =
-              isCuda ? 460 * 1024 * 1024 : 30 * 1024 * 1024;
+          final estimatedSize = isCuda ? 460 * 1024 * 1024 : 30 * 1024 * 1024;
           final zipPath = p.join(sttDir(), '_whisper-server.zip');
           await _downloadFile(
             url: assetUrl,
@@ -749,9 +849,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           if (e.type == DioExceptionType.cancel) rethrow;
           if (status == 403) break; // Rate limited — skip to next repo.
           if (attempt < 2) {
-            await Future<void>.delayed(
-              Duration(seconds: 2 * attempt),
-            );
+            await Future<void>.delayed(Duration(seconds: 2 * attempt));
           }
         } on Exception catch (e) {
           lastError = '$e';
@@ -760,9 +858,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
             '(attempt $attempt): $e',
           );
           if (attempt < 2) {
-            await Future<void>.delayed(
-              Duration(seconds: 2 * attempt),
-            );
+            await Future<void>.delayed(Duration(seconds: 2 * attempt));
           }
         }
       }
@@ -800,8 +896,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         response = await _dio.get<Map<String, dynamic>>(
           apiUrl,
           cancelToken: _cancelToken,
-          options:
-              Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
+          options: Options(
+            headers: {'Accept': 'application/vnd.github.v3+json'},
+          ),
         );
       } on DioException catch (e) {
         if (e.response?.statusCode == 404) {
@@ -816,8 +913,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     // Check GitHub rate limit from response headers (upstream path only;
     // WhisPaste path handles this in _findWhisPasteServerRelease).
 
-    final assets =
-        (releaseData?['assets'] as List<dynamic>?) ?? [];
+    final assets = (releaseData?['assets'] as List<dynamic>?) ?? [];
     if (assets.isEmpty) {
       _log.info('No assets in $owner/$repo release');
       return null;
@@ -864,12 +960,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       final response = await _dio.get<List<dynamic>>(
         apiUrl,
         cancelToken: _cancelToken,
-        options:
-            Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
+        options: Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
       );
 
-      final remaining =
-          response.headers['x-ratelimit-remaining']?.firstOrNull;
+      final remaining = response.headers['x-ratelimit-remaining']?.firstOrNull;
       if (remaining != null) {
         final rem = int.tryParse(remaining) ?? -1;
         if (rem <= 5) {
@@ -898,12 +992,18 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     }
   }
 
-  Future<List<String>> _serverAssetPatterns(String gpuMode, bool isWhisPaste) async {
+  Future<List<String>> _serverAssetPatterns(
+    String gpuMode,
+    bool isWhisPaste,
+  ) async {
     final gpu = await hw.detectGpu();
     return hw.serverAssetPatterns(gpu, gpuMode, isWhisPaste);
   }
 
-  /// Extracts whisper-server.exe and DLLs from a ZIP archive.
+  /// Extracts whisper-server binary and libraries from a ZIP archive.
+  ///
+  /// Platform-aware: on Windows extracts `.exe`/`.dll`, on macOS/Linux
+  /// extracts extensionless executables and `.dylib`/`.so` libraries.
   Future<void> _extractServerZip(String zipPath, String destDir) async {
     final bytes = await File(zipPath).readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
@@ -914,7 +1014,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       for (final f in destDirObj.listSync()) {
         if (f is File) {
           final name = p.basename(f.path).toLowerCase();
-          if (name == 'whisper-server.exe' || name.endsWith('.dll')) {
+          if (_isServerFile(name)) {
             await f.delete();
           }
         }
@@ -924,15 +1024,21 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     for (final file in archive) {
       if (file.isFile) {
         final name = p.basename(file.name).toLowerCase();
-        if (name.endsWith('.exe') || name.endsWith('.dll')) {
+        if (_isExtractableServerFile(name)) {
           // Zip Slip protection.
           final outPath = p.join(destDir, p.basename(file.name));
           if (!p.isWithin(destDir, outPath)) continue;
 
-          // Rename server.exe → whisper-server.exe if needed.
+          // Rename bare server binary → whisper-server if needed.
           String finalName = p.basename(file.name);
-          if (finalName.toLowerCase() == 'server.exe') {
-            finalName = 'whisper-server.exe';
+          if (Platform.isWindows) {
+            if (finalName.toLowerCase() == 'server.exe') {
+              finalName = 'whisper-server.exe';
+            }
+          } else {
+            if (finalName.toLowerCase() == 'server') {
+              finalName = 'whisper-server';
+            }
           }
           final finalPath = p.join(destDir, finalName);
           final outFile = File(finalPath);
@@ -941,11 +1047,56 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       }
     }
 
+    // On Unix, make the binary executable and remove quarantine.
+    if (!Platform.isWindows) {
+      final serverPath = whisperServerPath();
+      if (File(serverPath).existsSync()) {
+        await Process.run('chmod', ['+x', serverPath]);
+        // macOS quarantines downloaded files, blocking execution.
+        if (Platform.isMacOS) {
+          await Process.run('xattr', ['-d', 'com.apple.quarantine', serverPath]);
+        }
+      }
+    }
+
     // Verify extraction produced the expected binary.
-    if (!File(p.join(destDir, 'whisper-server.exe')).existsSync()) {
-      throw Exception('whisper-server.exe not found in archive');
+    final expectedPath = whisperServerPath();
+    if (!File(expectedPath).existsSync()) {
+      throw Exception(
+        '${p.basename(expectedPath)} not found in archive',
+      );
     }
   }
+
+  /// Whether [name] (lowercase) is an old server file to clean before
+  /// re-extraction.
+  static bool _isServerFile(String name) {
+    if (name == 'whisper-server.exe' || name == 'whisper-server') return true;
+    if (name.endsWith('.dll') || name.endsWith('.dylib')) return true;
+    if (name.endsWith('.so')) return true;
+    if (name.endsWith('.metallib')) return true;
+    return false;
+  }
+
+  /// Whether [name] (lowercase) should be extracted from the ZIP.
+  static bool _isExtractableServerFile(String name) {
+    if (Platform.isWindows) {
+      return name.endsWith('.exe') || name.endsWith('.dll');
+    }
+    // macOS / Linux: executables have no extension, shared libs are .dylib/.so.
+    if (name.endsWith('.dylib') || name.endsWith('.so')) return true;
+    if (name.endsWith('.metallib')) return true;
+    // Extract extensionless files (the server binary itself).
+    if (!name.contains('.')) return true;
+    return false;
+  }
+}
+
+/// Speed sample for rolling average calculation.
+class _SpeedSample {
+  const _SpeedSample(this.time, this.bytes);
+  final DateTime time;
+  final int bytes;
 }
 
 // ---------------------------------------------------------------------------
@@ -954,5 +1105,5 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
 
 final modelDownloadProvider =
     NotifierProvider<ModelDownloadNotifier, ModelDownloadState>(
-  ModelDownloadNotifier.new,
-);
+      ModelDownloadNotifier.new,
+    );

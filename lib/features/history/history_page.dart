@@ -15,6 +15,7 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'data/history_detail_provider.dart';
 import 'data/providers.dart';
 import 'widgets/widgets.dart';
 
@@ -32,8 +33,10 @@ class HistoryPage extends ConsumerStatefulWidget {
 
 class _HistoryPageState extends ConsumerState<HistoryPage> {
   final _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   String? _selectedEntryId;
   HistoryViewMode _viewMode = HistoryViewMode.list;
+  HistorySortOrder _sortOrder = HistorySortOrder.newest;
   bool _multiSelectMode = false;
   final Set<String> _selectedIds = {};
   /// Tracks last clicked entry for Shift+click range selection.
@@ -46,14 +49,59 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _listFocusNode.dispose();
     super.dispose();
   }
 
   /// Builds a flat list of entry IDs from the grouped data for keyboard
-  /// navigation ordering.
+  /// navigation ordering. Applies the current sort order.
   List<HistoryEntry> _flatEntries(List<DateGroup> groups) {
-    return [for (final g in groups) ...g.entries];
+    final flat = [for (final g in groups) ...g.entries];
+    return _applySortOrder(flat);
+  }
+
+  /// Applies the current sort order to a list of entries.
+  List<HistoryEntry> _applySortOrder(List<HistoryEntry> entries) {
+    switch (_sortOrder) {
+      case HistorySortOrder.newest:
+        return entries; // Default order from DB is newest first
+      case HistorySortOrder.oldest:
+        return entries.reversed.toList();
+      case HistorySortOrder.longest:
+        return [...entries]..sort(
+            (a, b) => b.content.length.compareTo(a.content.length));
+    }
+  }
+
+  /// Applies sort order to groups for display.
+  List<DateGroup> _sortGroups(List<DateGroup> groups) {
+    switch (_sortOrder) {
+      case HistorySortOrder.newest:
+        return groups;
+      case HistorySortOrder.oldest:
+        return groups.reversed
+            .map((g) => DateGroup(
+                  labelKey: g.labelKey,
+                  entries: g.entries.reversed.toList(),
+                ))
+            .toList();
+      case HistorySortOrder.longest:
+        final all = [for (final g in groups) ...g.entries];
+        all.sort((a, b) => b.content.length.compareTo(a.content.length));
+        return [DateGroup(labelKey: 'all', entries: all)];
+    }
+  }
+
+  /// Returns true when any text input field in the focus tree currently has
+  /// focus. Used to suppress list-level shortcuts that would otherwise
+  /// intercept normal typing (Delete, Backspace, arrows, etc.).
+  bool _isTextFieldFocused() {
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary == null) return false;
+    return primary.context
+            ?.findAncestorWidgetOfExactType<EditableText>() !=
+        null;
   }
 
   void _moveFocus(int delta, List<HistoryEntry> flat) {
@@ -97,7 +145,20 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     return WpPageShell(
       scrollable: false,
       padding: EdgeInsets.zero,
-      child: Column(
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          // Ctrl+F / Cmd+F: Focus search field
+          SingleActivator(
+            LogicalKeyboardKey.keyF,
+            control: !Platform.isMacOS,
+            meta: Platform.isMacOS,
+          ): () {
+            _searchFocusNode.requestFocus();
+          },
+        },
+        child: Focus(
+          autofocus: false,
+          child: Column(
         children: [
           // Multi-select action bar (shown when items are selected)
           if (_multiSelectMode && _selectedIds.isNotEmpty)
@@ -135,6 +196,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           if (!_multiSelectMode || _selectedIds.isEmpty)
             HistorySearchToolbar(
               controller: _searchController,
+              searchFocusNode: _searchFocusNode,
               activeFilter: activeFilter,
               isDark: isDark,
               onFilterChanged: (f) {
@@ -143,6 +205,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   _multiSelectMode = false;
                   _selectedIds.clear();
                   _selectedEntryId = null;
+                  _focusedEntryId = null;
                 });
                 _listFocusNode.requestFocus();
               },
@@ -150,6 +213,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 ref.read(historySearchProvider.notifier).set(
                       _searchController.text,
                     );
+                // Clear all selection state when search changes so the detail
+                // panel closes and keyboard navigation resets.
+                setState(() {
+                  _selectedIds.clear();
+                  _multiSelectMode = false;
+                  _selectedEntryId = null;
+                  _focusedEntryId = null;
+                });
               },
               resultCount: filteredEntries.length,
               viewMode: _viewMode,
@@ -159,6 +230,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 _multiSelectMode = !_multiSelectMode;
                 if (!_multiSelectMode) _selectedIds.clear();
               }),
+              sortOrder: _sortOrder,
+              onSortOrderChanged: (s) => setState(() => _sortOrder = s),
               onEmptyTrash: isTrashView && filteredEntries.isNotEmpty
                   ? _emptyTrash
                   : null,
@@ -171,14 +244,20 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 if (!hasResults) {
                   return _emptyStateForFilter(isDark, activeFilter);
                 }
+                final sortedGroups = _sortGroups(groups);
                 final flat = _flatEntries(groups);
                 return CallbackShortcuts(
                   bindings: <ShortcutActivator, VoidCallback>{
-                    const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
-                        _moveFocus(1, flat),
-                    const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
-                        _moveFocus(-1, flat),
+                    const SingleActivator(LogicalKeyboardKey.arrowDown): () {
+                      if (_isTextFieldFocused()) return;
+                      _moveFocus(1, flat);
+                    },
+                    const SingleActivator(LogicalKeyboardKey.arrowUp): () {
+                      if (_isTextFieldFocused()) return;
+                      _moveFocus(-1, flat);
+                    },
                     const SingleActivator(LogicalKeyboardKey.enter): () {
+                      if (_isTextFieldFocused()) return;
                       final entry = _focusedEntry(flat);
                       if (entry != null) {
                         setState(() {
@@ -188,6 +267,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       }
                     },
                     const SingleActivator(LogicalKeyboardKey.delete): () {
+                      if (_isTextFieldFocused()) return;
                       if (_multiSelectMode && _selectedIds.isNotEmpty) {
                         _deleteSelected();
                       } else {
@@ -196,6 +276,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       }
                     },
                     const SingleActivator(LogicalKeyboardKey.backspace): () {
+                      if (_isTextFieldFocused()) return;
                       if (_multiSelectMode && _selectedIds.isNotEmpty) {
                         _deleteSelected();
                       } else {
@@ -205,6 +286,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     },
                     // Ctrl+A: Select all visible items
                     const SingleActivator(LogicalKeyboardKey.keyA, control: true): () {
+                      if (_isTextFieldFocused()) return;
                       setState(() {
                         _multiSelectMode = true;
                         _selectedIds
@@ -212,17 +294,19 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                           ..addAll(flat.map((e) => e.id));
                       });
                     },
-                    // Ctrl+Shift+A or Ctrl+D: Deselect all
+                    // Ctrl+Shift+A: Deselect all
                     const SingleActivator(
                       LogicalKeyboardKey.keyA, control: true, shift: true,
                     ): () {
+                      if (_isTextFieldFocused()) return;
                       setState(() {
                         _selectedIds.clear();
                         _multiSelectMode = false;
                       });
                     },
-                    // Ctrl+C: Copy focused/selected entry text
+                    // Ctrl+C: Copy focused/selected entry text (suppressed when editing)
                     const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
+                      if (_isTextFieldFocused()) return;
                       if (_multiSelectMode && _selectedIds.isNotEmpty) {
                         _copySelectedEntries(flat);
                       } else {
@@ -232,16 +316,19 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     },
                     // Ctrl+M: Merge selected entries
                     const SingleActivator(LogicalKeyboardKey.keyM, control: true): () {
+                      if (_isTextFieldFocused()) return;
                       if (_multiSelectMode && _selectedIds.length >= 2) {
                         _mergeSelected();
                       }
                     },
                     // F: Toggle favorite on focused entry
                     const SingleActivator(LogicalKeyboardKey.keyF): () {
+                      if (_isTextFieldFocused()) return;
                       final entry = _focusedEntry(flat);
                       if (entry != null) _togglePin(entry);
                     },
                     const SingleActivator(LogicalKeyboardKey.escape): () {
+                      if (_isTextFieldFocused()) return;
                       if (_multiSelectMode) {
                         setState(() {
                           _selectedIds.clear();
@@ -254,6 +341,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       }
                     },
                     const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
+                      if (_isTextFieldFocused()) return;
                       final entry = selectedEntry ?? _focusedEntry(flat);
                       if (entry != null) _openCommandPalette(entry);
                     },
@@ -265,7 +353,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       onTap: () => _listFocusNode.requestFocus(),
                       behavior: HitTestBehavior.translucent,
                       child: HistoryMasterDetail(
-                        groups: groups,
+                        groups: sortedGroups,
                         isDark: isDark,
                         viewMode: _viewMode,
                         selectedEntry: selectedEntry,
@@ -351,6 +439,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             ),
           ),
         ],
+      ),
+      ),
       ),
     );
   }
@@ -479,6 +569,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         icon: LucideIcons.searchX,
         title: l10n.historyNoResults,
         hint: l10n.historyNoResultsHint(_searchController.text),
+        actionLabel: l10n.historyClearSearch,
+        onAction: () {
+          _searchController.clear();
+        },
       );
     }
     if (activeFilter == HistoryFilter.trash) {
@@ -513,16 +607,37 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     );
   }
 
-  void _togglePin(HistoryEntry entry) {
-    ref.read(historyDatabaseProvider).togglePin(entry.id);
+  void _togglePin(HistoryEntry entry) async {
+    try {
+      await ref.read(historyDatabaseProvider).togglePin(entry.id);
+      // Refresh detail panel if this entry is shown (Finding #3)
+      ref.invalidate(historyDetailProvider(entry.id));
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+    }
   }
 
-  void _deleteEntry(HistoryEntry entry) {
+  void _deleteEntry(HistoryEntry entry) async {
     final isTrash = ref.read(historyFilterProvider) == HistoryFilter.trash;
-    if (isTrash) {
-      ref.read(historyDatabaseProvider).permanentDeleteEntry(entry.id);
-    } else {
-      ref.read(historyDatabaseProvider).softDeleteEntry(entry.id);
+    try {
+      if (isTrash) {
+        await ref.read(historyDatabaseProvider).permanentDeleteEntry(entry.id);
+      } else {
+        await ref.read(historyDatabaseProvider).softDeleteEntry(entry.id);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+      return;
     }
     if (_selectedEntryId == entry.id) {
       setState(() => _selectedEntryId = null);
@@ -539,19 +654,42 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     );
   }
 
-  void _archiveEntry(HistoryEntry entry) {
-    ref.read(historyDatabaseProvider).toggleArchive(entry.id);
+  void _archiveEntry(HistoryEntry entry) async {
+    try {
+      await ref.read(historyDatabaseProvider).toggleArchive(entry.id);
+      ref.invalidate(historyDetailProvider(entry.id));
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+      return;
+    }
     if (_selectedEntryId == entry.id) {
       setState(() => _selectedEntryId = null);
     }
   }
 
-  void _restoreEntry(HistoryEntry entry) {
-    ref.read(historyDatabaseProvider).restoreEntry(entry.id);
+  void _restoreEntry(HistoryEntry entry) async {
+    try {
+      await ref.read(historyDatabaseProvider).restoreEntry(entry.id);
+      ref.invalidate(historyDetailProvider(entry.id));
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+    }
   }
 
-  void _duplicateEntry(HistoryEntry entry) {
-    ref.read(historyDatabaseProvider).duplicateEntry(entry.id).then((dup) {
+  void _duplicateEntry(HistoryEntry entry) async {
+    try {
+      final dup =
+          await ref.read(historyDatabaseProvider).duplicateEntry(entry.id);
       if (!mounted || dup == null) return;
       setState(() => _selectedEntryId = dup.id);
       WpToast.show(
@@ -560,7 +698,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         type: WpToastType.success,
         duration: const Duration(seconds: 2),
       );
-    });
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+    }
   }
 
   void _copyAsMarkdown(HistoryEntry entry) {
@@ -630,10 +775,18 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     });
   }
 
-  void _archiveSelected() {
+  void _archiveSelected() async {
     final db = ref.read(historyDatabaseProvider);
-    for (final id in _selectedIds) {
-      db.toggleArchive(id);
+    try {
+      await db.batchArchive(_selectedIds.toList());
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+      return;
     }
     setState(() {
       _selectedIds.clear();
@@ -641,15 +794,23 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     });
   }
 
-  void _deleteSelected() {
+  void _deleteSelected() async {
     final db = ref.read(historyDatabaseProvider);
     final isTrash = ref.read(historyFilterProvider) == HistoryFilter.trash;
-    if (isTrash) {
-      for (final id in _selectedIds) {
-        db.permanentDeleteEntry(id);
+    try {
+      if (isTrash) {
+        await db.batchPermanentDelete(_selectedIds.toList());
+      } else {
+        await db.softDeleteEntries(_selectedIds.toList());
       }
-    } else {
-      db.softDeleteEntries(_selectedIds.toList());
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+      return;
     }
     setState(() {
       _selectedIds.clear();
@@ -657,10 +818,18 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     });
   }
 
-  void _restoreSelected() {
+  void _restoreSelected() async {
     final db = ref.read(historyDatabaseProvider);
-    for (final id in _selectedIds) {
-      db.restoreEntry(id);
+    try {
+      await db.batchRestore(_selectedIds.toList());
+    } catch (e) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+      return;
     }
     setState(() {
       _selectedIds.clear();

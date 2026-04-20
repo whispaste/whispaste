@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -10,35 +12,35 @@ import '../core/theme/tokens.dart';
 
 /// Bottom status bar — sits on the app frame, full width.
 ///
-/// Shows only essential runtime state: STT engine status and active
-/// post-processing. Static configuration (overlay mode, hotkey, after-action)
+/// Shows only essential runtime state: STT engine status.
+/// Static configuration (overlay mode, hotkey, after-action)
 /// belongs in Settings, not the status bar.
 class WpStatusBar extends StatelessWidget {
   const WpStatusBar({
     super.key,
     required this.sttModeLabel,
-    this.postProcessingLabel,
     this.sttState = SttServerState.stopped,
+    this.sttStartingSince,
     this.recordingPhase = RecordingPhase.idle,
     this.afterActionLabel,
     this.afterAction,
     this.hotkeyLabel,
     this.hotkeyEnabled = true,
+    this.updateVersion,
     this.onSttTap,
-    this.onPostProcessTap,
     this.onAfterActionChanged,
     this.onHotkeyTap,
+    this.onUpdateTap,
   });
 
   /// Active STT mode, e.g. "On device" or "OpenAI".
   final String sttModeLabel;
 
-  /// Active post-processing preset label, or `null` when disabled.
-  /// When null, the chip is hidden entirely — no visual noise.
-  final String? postProcessingLabel;
-
   /// Current state of the STT server subprocess.
   final SttServerState sttState;
+
+  /// When the STT server entered the starting state (for elapsed display).
+  final DateTime? sttStartingSince;
 
   /// Current phase of the recording lifecycle.
   final RecordingPhase recordingPhase;
@@ -55,17 +57,20 @@ class WpStatusBar extends StatelessWidget {
   /// Whether the global hotkey is enabled.
   final bool hotkeyEnabled;
 
+  /// Available update version label, e.g. "1.3.0", or null to hide.
+  final String? updateVersion;
+
   /// Callback when user taps the STT chip (navigate to settings).
   final VoidCallback? onSttTap;
-
-  /// Callback when user taps the post-processing chip.
-  final VoidCallback? onPostProcessTap;
 
   /// Callback when user selects a different after-transcription action.
   final ValueChanged<AfterTranscriptionAction>? onAfterActionChanged;
 
   /// Callback when user taps the hotkey chip (navigate to settings).
   final VoidCallback? onHotkeyTap;
+
+  /// Callback when user taps the update-available chip.
+  final VoidCallback? onUpdateTap;
 
   @override
   Widget build(BuildContext context) {
@@ -90,23 +95,13 @@ class WpStatusBar extends StatelessWidget {
                     _SttChip(
                       modeLabel: sttModeLabel,
                       state: sttState,
+                      startingSince: sttStartingSince,
                       recordingPhase: recordingPhase,
                       textStyle: textStyle,
                       isDark: isDark,
                       l10n: l10n,
                       onTap: onSttTap,
                     ),
-                    if (postProcessingLabel != null) ...[
-                      const SizedBox(width: WpSpacing.xs),
-                      _StatusChip(
-                        icon: LucideIcons.sparkles,
-                        label: postProcessingLabel!,
-                        textStyle: textStyle,
-                        isDark: isDark,
-                        tooltip: l10n.statusBarPostProcessTooltip,
-                        onTap: onPostProcessTap,
-                      ),
-                    ],
                     if (afterActionLabel != null &&
                         afterAction != null &&
                         onAfterActionChanged != null) ...[
@@ -134,6 +129,17 @@ class WpStatusBar extends StatelessWidget {
                         dimmed: !hotkeyEnabled,
                       ),
                     ],
+                    if (updateVersion != null) ...[
+                      const SizedBox(width: WpSpacing.xs),
+                      _StatusChip(
+                        icon: LucideIcons.download,
+                        label: l10n.updateStatusBarChip(updateVersion!),
+                        textStyle: textStyle,
+                        isDark: isDark,
+                        tooltip: l10n.updateAvailable(updateVersion!),
+                        onTap: onUpdateTap,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -158,10 +164,11 @@ class WpStatusBar extends StatelessWidget {
 ///   🟡 On Device — Starting…
 ///   🔴 On Device — Error
 ///   ⚪ On Device — Standby
-class _SttChip extends StatelessWidget {
+class _SttChip extends StatefulWidget {
   const _SttChip({
     required this.modeLabel,
     required this.state,
+    this.startingSince,
     this.recordingPhase = RecordingPhase.idle,
     required this.textStyle,
     required this.isDark,
@@ -171,6 +178,7 @@ class _SttChip extends StatelessWidget {
 
   final String modeLabel;
   final SttServerState state;
+  final DateTime? startingSince;
   final RecordingPhase recordingPhase;
   final TextStyle textStyle;
   final bool isDark;
@@ -178,16 +186,57 @@ class _SttChip extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
+  State<_SttChip> createState() => _SttChipState();
+}
+
+class _SttChipState extends State<_SttChip> {
+  Timer? _elapsedTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(_SttChip old) {
+    super.didUpdateWidget(old);
+    if (old.state != widget.state ||
+        old.startingSince != widget.startingSince) {
+      _syncTicker();
+    }
+  }
+
+  @override
+  void dispose() {
+    _elapsedTicker?.cancel();
+    super.dispose();
+  }
+
+  void _syncTicker() {
+    if (widget.state == SttServerState.starting &&
+        widget.startingSince != null) {
+      _elapsedTicker ??= Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => setState(() {}),
+      );
+    } else {
+      _elapsedTicker?.cancel();
+      _elapsedTicker = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final (Color dotColor, String stateLabel, bool showSpinner) =
         _resolveDisplay();
 
     return Tooltip(
-      message: l10n.statusBarSttTooltip,
+      message: widget.l10n.statusBarSttTooltip,
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         borderRadius: WpRadius.borderFull,
-        mouseCursor: onTap != null
+        mouseCursor: widget.onTap != null
             ? SystemMouseCursors.click
             : SystemMouseCursors.basic,
         child: Container(
@@ -196,7 +245,7 @@ class _SttChip extends StatelessWidget {
             vertical: WpSpacing.xxs,
           ),
           decoration: BoxDecoration(
-            color: isDark
+            color: widget.isDark
                 ? WpColorsDark.surface.withValues(alpha: 0.5)
                 : WpColorsLight.surfaceVariant,
             borderRadius: WpRadius.borderFull,
@@ -224,8 +273,8 @@ class _SttChip extends StatelessWidget {
                 ),
               const SizedBox(width: 6),
               Text(
-                '$modeLabel — $stateLabel',
-                style: textStyle,
+                '${widget.modeLabel} — $stateLabel',
+                style: widget.textStyle,
               ),
             ],
           ),
@@ -238,35 +287,35 @@ class _SttChip extends StatelessWidget {
   /// the recording lifecycle phase over the STT subprocess state.
   (Color, String, bool) _resolveDisplay() {
     // Active recording phases take priority over STT subprocess state.
-    switch (recordingPhase) {
+    switch (widget.recordingPhase) {
       case RecordingPhase.recording:
         return (
-          isDark ? WpColorsDark.error : WpColorsLight.error,
-          l10n.statusBarRecording,
+          widget.isDark ? WpColorsDark.error : WpColorsLight.error,
+          widget.l10n.statusBarRecording,
           true,
         );
       case RecordingPhase.transcribing:
         return (
-          isDark ? WpColorsDark.accent : WpColorsLight.accent,
-          l10n.statusBarTranscribing,
+          widget.isDark ? WpColorsDark.accent : WpColorsLight.accent,
+          widget.l10n.statusBarTranscribing,
           true,
         );
       case RecordingPhase.processing:
         return (
-          isDark ? WpColorsDark.accent : WpColorsLight.accent,
-          l10n.statusBarProcessing,
+          widget.isDark ? WpColorsDark.accent : WpColorsLight.accent,
+          widget.l10n.statusBarProcessing,
           true,
         );
       case RecordingPhase.done:
         return (
-          isDark ? WpColorsDark.success : WpColorsLight.success,
-          l10n.statusBarDone,
+          widget.isDark ? WpColorsDark.success : WpColorsLight.success,
+          widget.l10n.statusBarDone,
           false,
         );
       case RecordingPhase.error:
         return (
-          isDark ? WpColorsDark.error : WpColorsLight.error,
-          l10n.sttStatusError,
+          widget.isDark ? WpColorsDark.error : WpColorsLight.error,
+          widget.l10n.sttStatusError,
           false,
         );
       case RecordingPhase.idle:
@@ -275,28 +324,37 @@ class _SttChip extends StatelessWidget {
     }
 
     // Idle — show STT subprocess state.
-    return switch (state) {
+    return switch (widget.state) {
       SttServerState.stopped => (
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
-        l10n.sttStatusStandby,
+        widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
+        widget.l10n.sttStatusStandby,
         false,
       ),
       SttServerState.starting => (
-        isDark ? WpColorsDark.accent : WpColorsLight.accent,
-        l10n.sttStatusStarting,
+        widget.isDark ? WpColorsDark.accent : WpColorsLight.accent,
+        _startingLabel(),
         true,
       ),
       SttServerState.ready => (
-        isDark ? WpColorsDark.success : WpColorsLight.success,
-        l10n.sttStatusReady,
+        widget.isDark ? WpColorsDark.success : WpColorsLight.success,
+        widget.l10n.sttStatusReady,
         false,
       ),
       SttServerState.error => (
-        isDark ? WpColorsDark.error : WpColorsLight.error,
-        l10n.sttStatusError,
+        widget.isDark ? WpColorsDark.error : WpColorsLight.error,
+        widget.l10n.sttStatusError,
         false,
       ),
     };
+  }
+
+  /// Returns e.g. "Starting... (15s)" when elapsed time is available.
+  String _startingLabel() {
+    final since = widget.startingSince;
+    if (since == null) return widget.l10n.sttStatusStarting;
+    final elapsed = DateTime.now().difference(since).inSeconds;
+    if (elapsed < 2) return widget.l10n.sttStatusStarting;
+    return '${widget.l10n.sttStatusStarting} (${elapsed}s)';
   }
 }
 
@@ -385,19 +443,18 @@ class _AfterActionChip extends StatelessWidget {
   final ValueChanged<AfterTranscriptionAction> onChanged;
 
   IconData _iconFor(AfterTranscriptionAction action) => switch (action) {
-        AfterTranscriptionAction.clipboard => LucideIcons.clipboard,
-        AfterTranscriptionAction.paste => LucideIcons.clipboardPaste,
-        AfterTranscriptionAction.clipboardAndPaste =>
-          LucideIcons.clipboardCheck,
-        AfterTranscriptionAction.nothing => LucideIcons.clipboardX,
-      };
+    AfterTranscriptionAction.clipboard => LucideIcons.clipboard,
+    AfterTranscriptionAction.paste => LucideIcons.clipboardPaste,
+    AfterTranscriptionAction.clipboardAndPaste => LucideIcons.clipboardCheck,
+    AfterTranscriptionAction.nothing => LucideIcons.clipboardX,
+  };
 
   String _labelFor(AfterTranscriptionAction action) => switch (action) {
-        AfterTranscriptionAction.clipboard => l10n.statusBarAfterCopy,
-        AfterTranscriptionAction.paste => l10n.statusBarAfterPaste,
-        AfterTranscriptionAction.clipboardAndPaste => l10n.statusBarAfterBoth,
-        AfterTranscriptionAction.nothing => l10n.statusBarAfterNothing,
-      };
+    AfterTranscriptionAction.clipboard => l10n.statusBarAfterCopy,
+    AfterTranscriptionAction.paste => l10n.statusBarAfterPaste,
+    AfterTranscriptionAction.clipboardAndPaste => l10n.statusBarAfterBoth,
+    AfterTranscriptionAction.nothing => l10n.statusBarAfterNothing,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -429,8 +486,9 @@ class _AfterActionChip extends StatelessWidget {
                   _labelFor(action),
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight:
-                        action == current ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight: action == current
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                     color: action == current ? cs.primary : cs.onSurface,
                   ),
                 ),

@@ -18,6 +18,7 @@ import 'package:path/path.dart' as p;
 
 import '../data/database.dart';
 import '../../services/path_service.dart';
+import '../../services/model_download_service.dart' show QualityTier;
 import 'secure_key_store.dart';
 import 'settings_enums.dart';
 
@@ -28,6 +29,7 @@ class AppSettings {
     this.themeMode = ThemeMode.dark,
     this.locale = 'en',
     this.launchAtStartup = false,
+    this.startMinimized = false,
     this.showNotifications = true,
     // Audio
     this.microphone = 'Default',
@@ -40,10 +42,8 @@ class AppSettings {
     this.sttProvider = 'On Device',
     this.sttModel = 'whisper-medium',
     this.sttLanguage = 'Auto-detect',
-    // Post-Processing
-    this.postProcessEnabled = false,
-    this.postProcessPreset = 'Clean up',
-    this.postProcessProvider = 'Local',
+    this.sttIdleTimeoutMinutes = 5,
+    this.customVocabulary = '',
     // Sound & Feedback
     this.recordStartSound = true,
     this.recordStopSound = true,
@@ -54,11 +54,14 @@ class AppSettings {
     this.afterTranscription = 'clipboard',
     // Overlay & Floating Button
     this.showOverlay = false,
-    this.overlayMode = 'in-window',
+    this.overlayMode = 'floating',
     this.overlayStartPosition = 'top-center',
+    this.overlaySize = 'normal',
+    this.overlayAutoHide = '5s',
     this.showFloatingButton = false,
     this.floatingButtonOpacity = 0.9,
-    this.floatingButtonSize = 'Normal',
+    this.floatingButtonSize = 'normal',
+    this.floatingOverlayOpacity = 0.9,
     // Cloud Providers (API keys)
     this.openAiApiKey = '',
     this.groqApiKey = '',
@@ -77,6 +80,7 @@ class AppSettings {
     this.errorReporting = true,
     this.gpuAcceleration = 'auto',
     this.autoPasteDelay = 200,
+    this.autoPasteBlocklist = '',
     // Audio Processing
     this.trimSilence = false,
     this.useVAD = false,
@@ -85,6 +89,9 @@ class AppSettings {
     this.textReplacementsEnabled = false,
     // Updates
     this.checkUpdates = true,
+    // History Retention
+    this.historyMaxEntries = 0,
+    this.historyAutoTrashDays = 30,
     // Hotkey
     this.hotkeyEnabled = true,
     this.hotkeyKey = 'D',
@@ -103,12 +110,17 @@ class AppSettings {
     this.windowMaximized = false,
     // Onboarding
     this.onboardingCompleted = false,
+    // Benchmark data for tier recommendations
+    this.tierBenchmarkRtf,
+    this.benchmarkHardwareId,
+    this.benchmarkTimestamp,
   });
 
   // Interface
   final ThemeMode themeMode;
   final String locale;
   final bool launchAtStartup;
+  final bool startMinimized;
   final bool showNotifications;
 
   // Audio
@@ -125,10 +137,12 @@ class AppSettings {
   final String sttModel;
   final String sttLanguage;
 
-  // Post-Processing
-  final bool postProcessEnabled;
-  final String postProcessPreset;
-  final String postProcessProvider;
+  /// Minutes before idle STT server is shut down (0 = keep alive).
+  final int sttIdleTimeoutMinutes;
+
+  /// User-defined vocabulary terms (names, jargon) passed as Whisper prompt
+  /// prefix to improve recognition of domain-specific words.
+  final String customVocabulary;
 
   // Sound & Feedback
   final bool recordStartSound;
@@ -138,18 +152,28 @@ class AppSettings {
   final double soundVolume;
 
   // After Transcription
-  /// What happens after transcription: 'clipboard', 'paste', 'nothing'
+  /// What happens after transcription: 'clipboard', 'paste',
+  /// 'clipboard_and_paste', or 'nothing'
   final String afterTranscription;
 
   // Overlay & Floating Button
   final bool showOverlay;
-  /// 'in-window', 'floating', or 'off'.
+
+  /// 'floating' or 'off'.
   final String overlayMode;
+
   /// 'top-center', 'bottom-center', or 'last-position'.
   final String overlayStartPosition;
+
+  /// 'normal' or 'compact'.
+  final String overlaySize;
+
+  /// '2s', '5s', '10s', or 'manual'.
+  final String overlayAutoHide;
   final bool showFloatingButton;
   final double floatingButtonOpacity;
   final String floatingButtonSize;
+  final double floatingOverlayOpacity;
 
   // Cloud Providers (API keys)
   final String openAiApiKey;
@@ -173,6 +197,10 @@ class AppSettings {
   final String gpuAcceleration;
   final int autoPasteDelay;
 
+  /// Comma-separated list of app bundle IDs (macOS) or process names (Windows)
+  /// where auto-paste should be suppressed. Clipboard-copy still works.
+  final String autoPasteBlocklist;
+
   // Audio Processing
   final bool trimSilence;
   final bool useVAD;
@@ -183,6 +211,13 @@ class AppSettings {
 
   // Updates
   final bool checkUpdates;
+
+  // History Retention
+  /// Max active (non-trashed) history entries to keep. 0 = unlimited.
+  final int historyMaxEntries;
+
+  /// Days to keep soft-deleted entries before permanent purge. 0 = never purge.
+  final int historyAutoTrashDays;
 
   // Hotkey
   final bool hotkeyEnabled;
@@ -207,6 +242,17 @@ class AppSettings {
   // Onboarding
   final bool onboardingCompleted;
 
+  // Benchmark data for tier performance recommendations
+  /// Real-time factor (RTF) for each quality tier from last benchmark.
+  /// RTF = processing_time / audio_duration. Lower is better.
+  final Map<QualityTier, double>? tierBenchmarkRtf;
+
+  /// Hardware ID (hash) that the benchmark was run on.
+  final String? benchmarkHardwareId;
+
+  /// When the benchmark was last run.
+  final DateTime? benchmarkTimestamp;
+
   // ---------------------------------------------------------------------------
   // Typed accessors — prefer these over raw string comparisons.
   // ---------------------------------------------------------------------------
@@ -214,15 +260,20 @@ class AppSettings {
   SttProviderType get sttProviderType => SttProviderType.fromValue(sttProvider);
   CloudSttProvider get cloudSttProviderType =>
       CloudSttProvider.fromValue(cloudSttProvider);
-  PostProcessProviderType get postProcessProviderType =>
-      PostProcessProviderType.fromValue(postProcessProvider);
-  PostProcessPreset get postProcessPresetType =>
-      PostProcessPreset.fromDisplayValue(postProcessPreset);
   AfterTranscriptionAction get afterTranscriptionAction =>
       AfterTranscriptionAction.fromValue(afterTranscription);
   OverlayMode get overlayModeType => OverlayMode.fromValue(overlayMode);
+
+  /// Returns the effective overlay mode. Now that the native floating overlay
+  /// is implemented, `floating` is passed through directly.
+  OverlayMode get effectiveOverlayMode => overlayModeType;
+
   OverlayStartPosition get overlayStartPositionType =>
       OverlayStartPosition.fromValue(overlayStartPosition);
+  FloatingOverlaySize get overlaySizeType =>
+      FloatingOverlaySize.fromValue(overlaySize);
+  OverlayAutoHide get overlayAutoHideType =>
+      OverlayAutoHide.fromValue(overlayAutoHide);
   FloatingButtonSize get floatingButtonSizeType =>
       FloatingButtonSize.fromValue(floatingButtonSize);
   GpuAcceleration get gpuAccelerationType =>
@@ -243,41 +294,65 @@ class AppSettings {
     _ => 'auto',
   };
 
-  /// Factory-reset defaults.
-  static const AppSettings defaults = AppSettings();
+  /// Platform-aware factory-reset defaults.
+  ///
+  /// On macOS the default hotkey uses ⌘+Shift (meta) instead of Ctrl+Shift.
+  static final AppSettings defaults = AppSettings(
+    hotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
+  );
 
   /// Creates settings from persisted key-value storage.
   factory AppSettings.fromStorageMap(Map<String, String> values) {
     return AppSettings(
       themeMode: _themeModeFromString(values['theme_mode'] ?? 'dark'),
       locale: values['locale'] ?? 'en',
-      launchAtStartup:
-          _readBool(values, 'launch_at_startup', defaults.launchAtStartup),
-      showNotifications:
-          _readBool(values, 'show_notifications', defaults.showNotifications),
+      launchAtStartup: _readBool(
+        values,
+        'launch_at_startup',
+        defaults.launchAtStartup,
+      ),
+      startMinimized: _readBool(
+        values,
+        'start_minimized',
+        defaults.startMinimized,
+      ),
+      showNotifications: _readBool(
+        values,
+        'show_notifications',
+        defaults.showNotifications,
+      ),
       microphone: values['microphone'] ?? defaults.microphone,
       inputGain: _readDouble(values, 'input_gain', defaults.inputGain),
       pushToTalk: _readBool(values, 'push_to_talk', defaults.pushToTalk),
-      deadMicTimeout:
-          _readDouble(values, 'dead_mic_timeout', defaults.deadMicTimeout),
-      autoStopSilence:
-          _readDouble(values, 'auto_stop_silence', defaults.autoStopSilence),
+      deadMicTimeout: _readDouble(
+        values,
+        'dead_mic_timeout',
+        defaults.deadMicTimeout,
+      ),
+      autoStopSilence: _readDouble(
+        values,
+        'auto_stop_silence',
+        defaults.autoStopSilence,
+      ),
       sttProvider: values['stt_provider'] ?? defaults.sttProvider,
       sttModel: _migrateModelId(values['stt_model'] ?? defaults.sttModel),
       sttLanguage: values['stt_language'] ?? defaults.sttLanguage,
-      postProcessEnabled: _readBool(
+      sttIdleTimeoutMinutes: _readInt(
         values,
-        'post_process_enabled',
-        defaults.postProcessEnabled,
+        'stt_idle_timeout_minutes',
+        defaults.sttIdleTimeoutMinutes,
       ),
-      postProcessPreset:
-          values['post_process_preset'] ?? defaults.postProcessPreset,
-      postProcessProvider:
-          values['post_process_provider'] ?? defaults.postProcessProvider,
-      recordStartSound:
-          _readBool(values, 'record_start_sound', defaults.recordStartSound),
-      recordStopSound:
-          _readBool(values, 'record_stop_sound', defaults.recordStopSound),
+      customVocabulary: values['custom_vocabulary'] ?? defaults.customVocabulary,
+      recordStartSound: _readBool(
+        values,
+        'record_start_sound',
+        defaults.recordStartSound,
+      ),
+      recordStopSound: _readBool(
+        values,
+        'record_stop_sound',
+        defaults.recordStopSound,
+      ),
       transcriptionCompleteSound: _readBool(
         values,
         'transcription_complete_sound',
@@ -292,12 +367,15 @@ class AppSettings {
       afterTranscription:
           values['after_transcription'] ?? defaults.afterTranscription,
       showOverlay: _readBool(values, 'show_overlay', defaults.showOverlay),
-      overlayMode: values['overlay_mode'] ??
+      overlayMode:
+          values['overlay_mode'] ??
           (_readBool(values, 'show_overlay', defaults.showOverlay)
               ? defaults.overlayMode
               : OverlayMode.off.value),
       overlayStartPosition:
           values['overlay_start_position'] ?? defaults.overlayStartPosition,
+      overlaySize: values['overlay_size'] ?? defaults.overlaySize,
+      overlayAutoHide: values['overlay_auto_hide'] ?? defaults.overlayAutoHide,
       showFloatingButton: _readBool(
         values,
         'show_floating_button',
@@ -310,44 +388,67 @@ class AppSettings {
       ),
       floatingButtonSize:
           values['floating_button_size'] ?? defaults.floatingButtonSize,
+      floatingOverlayOpacity: _readDouble(
+        values,
+        'floating_overlay_opacity',
+        defaults.floatingOverlayOpacity,
+      ),
       openAiApiKey: values['openai_api_key'] ?? defaults.openAiApiKey,
       groqApiKey: values['groq_api_key'] ?? defaults.groqApiKey,
       deepgramApiKey: values['deepgram_api_key'] ?? defaults.deepgramApiKey,
-      anthropicApiKey:
-          values['anthropic_api_key'] ?? defaults.anthropicApiKey,
+      anthropicApiKey: values['anthropic_api_key'] ?? defaults.anthropicApiKey,
       geminiApiKey: values['gemini_api_key'] ?? defaults.geminiApiKey,
       cloudSttProvider:
           values['cloud_stt_provider'] ?? defaults.cloudSttProvider,
-      cloudLlmModel: values['cloud_llm_model'] ?? defaults.cloudLlmModel,
-      smartModePrompt:
-          values['smart_mode_prompt'] ?? defaults.smartModePrompt,
-      smartModeTarget:
-          values['smart_mode_target'] ?? defaults.smartModeTarget,
-      maxRecordDuration:
-          _readInt(values, 'max_record_duration', defaults.maxRecordDuration),
+      maxRecordDuration: _readInt(
+        values,
+        'max_record_duration',
+        defaults.maxRecordDuration,
+      ),
       closeToTray: _readBool(values, 'close_to_tray', defaults.closeToTray),
-      errorReporting:
-          _readBool(values, 'error_reporting', defaults.errorReporting),
-      gpuAcceleration:
-          values['gpu_acceleration'] ?? defaults.gpuAcceleration,
-      autoPasteDelay:
-          _readInt(values, 'auto_paste_delay', defaults.autoPasteDelay),
+      errorReporting: _readBool(
+        values,
+        'error_reporting',
+        defaults.errorReporting,
+      ),
+      gpuAcceleration: values['gpu_acceleration'] ?? defaults.gpuAcceleration,
+      autoPasteDelay: _readInt(
+        values,
+        'auto_paste_delay',
+        defaults.autoPasteDelay,
+      ),
+      autoPasteBlocklist:
+          values['auto_paste_blocklist'] ?? defaults.autoPasteBlocklist,
       trimSilence: _readBool(values, 'trim_silence', defaults.trimSilence),
       useVAD: _readBool(values, 'use_vad', defaults.useVAD),
-      vadSensitivity:
-          _readDouble(values, 'vad_sensitivity', defaults.vadSensitivity),
+      vadSensitivity: _readDouble(
+        values,
+        'vad_sensitivity',
+        defaults.vadSensitivity,
+      ),
       textReplacementsEnabled: _readBool(
         values,
         'text_replacements_enabled',
         defaults.textReplacementsEnabled,
       ),
-      checkUpdates:
-          _readBool(values, 'check_updates', defaults.checkUpdates),
-      hotkeyEnabled:
-          _readBool(values, 'hotkey_enabled', defaults.hotkeyEnabled),
+      checkUpdates: _readBool(values, 'check_updates', defaults.checkUpdates),
+      historyMaxEntries: _readInt(
+        values,
+        'history_max_entries',
+        defaults.historyMaxEntries,
+      ),
+      historyAutoTrashDays: _readInt(
+        values,
+        'history_auto_trash_days',
+        defaults.historyAutoTrashDays,
+      ),
+      hotkeyEnabled: _readBool(
+        values,
+        'hotkey_enabled',
+        defaults.hotkeyEnabled,
+      ),
       hotkeyKey: values['hotkey_key'] ?? defaults.hotkeyKey,
-      hotkeyModifiers:
-          values['hotkey_modifiers'] ?? defaults.hotkeyModifiers,
+      hotkeyModifiers: values['hotkey_modifiers'] ?? defaults.hotkeyModifiers,
       floatingButtonX: _readDouble(
         values,
         'floating_button_x',
@@ -370,17 +471,22 @@ class AppSettings {
       ),
       windowX: _readDouble(values, 'window_x', defaults.windowX),
       windowY: _readDouble(values, 'window_y', defaults.windowY),
-      windowWidth:
-          _readDouble(values, 'window_width', defaults.windowWidth),
-      windowHeight:
-          _readDouble(values, 'window_height', defaults.windowHeight),
-      windowMaximized:
-          _readBool(values, 'window_maximized', defaults.windowMaximized),
+      windowWidth: _readDouble(values, 'window_width', defaults.windowWidth),
+      windowHeight: _readDouble(values, 'window_height', defaults.windowHeight),
+      windowMaximized: _readBool(
+        values,
+        'window_maximized',
+        defaults.windowMaximized,
+      ),
       onboardingCompleted: _readBool(
         values,
         'onboarding_completed',
         defaults.onboardingCompleted,
       ),
+      // Benchmark data
+      tierBenchmarkRtf: _readBenchmarkRtf(values['tier_benchmark_rtf']),
+      benchmarkHardwareId: values['benchmark_hardware_id'],
+      benchmarkTimestamp: _readDateTime(values['benchmark_timestamp']),
     );
   }
 
@@ -392,8 +498,6 @@ class AppSettings {
     final modelId = json['local_model_id'] as String? ?? 'whisper-small';
     final lang = json['transcription_language'] as String? ?? 'auto';
     final gpu = json['gpu_acceleration'] as String? ?? 'auto';
-    final smart = json['smart_mode'] as bool? ?? false;
-    final smartPreset = json['smart_mode_preset'] as String? ?? '';
     final autoPaste = json['auto_paste'] as bool? ?? true;
     final sounds = json['play_sounds'] as bool? ?? true;
     final maxSec = json['max_record_sec'] as int? ?? 120;
@@ -406,9 +510,6 @@ class AppSettings {
           : defaults.sttProvider,
       sttModel: _settingModelFromConfig(modelId),
       sttLanguage: _settingLanguageFromConfig(lang),
-      postProcessEnabled: smart,
-      postProcessPreset: _settingPresetFromConfig(smartPreset),
-      postProcessProvider: PostProcessProviderType.local.value,
       recordStartSound: sounds,
       recordStopSound: sounds,
       transcriptionCompleteSound: sounds,
@@ -425,6 +526,7 @@ class AppSettings {
       'theme_mode': themeMode.name,
       'locale': locale,
       'launch_at_startup': '$launchAtStartup',
+      'start_minimized': '$startMinimized',
       'show_notifications': '$showNotifications',
       'microphone': microphone,
       'input_gain': '$inputGain',
@@ -434,9 +536,8 @@ class AppSettings {
       'stt_provider': sttProvider,
       'stt_model': sttModel,
       'stt_language': sttLanguage,
-      'post_process_enabled': '$postProcessEnabled',
-      'post_process_preset': postProcessPreset,
-      'post_process_provider': postProcessProvider,
+      'stt_idle_timeout_minutes': '$sttIdleTimeoutMinutes',
+      'custom_vocabulary': customVocabulary,
       'record_start_sound': '$recordStartSound',
       'record_stop_sound': '$recordStopSound',
       'transcription_complete_sound': '$transcriptionCompleteSound',
@@ -446,9 +547,12 @@ class AppSettings {
       'show_overlay': '$showOverlay',
       'overlay_mode': overlayMode,
       'overlay_start_position': overlayStartPosition,
+      'overlay_size': overlaySize,
+      'overlay_auto_hide': overlayAutoHide,
       'show_floating_button': '$showFloatingButton',
       'floating_button_opacity': '$floatingButtonOpacity',
       'floating_button_size': floatingButtonSize,
+      'floating_overlay_opacity': '$floatingOverlayOpacity',
       // API keys are stored in secure storage — never persist to SQLite.
       'openai_api_key': '',
       'groq_api_key': '',
@@ -456,19 +560,19 @@ class AppSettings {
       'anthropic_api_key': '',
       'gemini_api_key': '',
       'cloud_stt_provider': cloudSttProvider,
-      'cloud_llm_model': cloudLlmModel,
-      'smart_mode_prompt': smartModePrompt,
-      'smart_mode_target': smartModeTarget,
       'max_record_duration': '$maxRecordDuration',
       'close_to_tray': '$closeToTray',
       'error_reporting': '$errorReporting',
       'gpu_acceleration': gpuAcceleration,
       'auto_paste_delay': '$autoPasteDelay',
+      'auto_paste_blocklist': autoPasteBlocklist,
       'trim_silence': '$trimSilence',
       'use_vad': '$useVAD',
       'vad_sensitivity': '$vadSensitivity',
       'text_replacements_enabled': '$textReplacementsEnabled',
       'check_updates': '$checkUpdates',
+      'history_max_entries': '$historyMaxEntries',
+      'history_auto_trash_days': '$historyAutoTrashDays',
       'hotkey_enabled': '$hotkeyEnabled',
       'hotkey_key': hotkeyKey,
       'hotkey_modifiers': hotkeyModifiers,
@@ -482,6 +586,10 @@ class AppSettings {
       'window_height': '$windowHeight',
       'window_maximized': '$windowMaximized',
       'onboarding_completed': '$onboardingCompleted',
+      // Benchmark data
+      'tier_benchmark_rtf': _writeBenchmarkRtf(tierBenchmarkRtf),
+      'benchmark_hardware_id': benchmarkHardwareId ?? '',
+      'benchmark_timestamp': benchmarkTimestamp?.toIso8601String() ?? '',
     };
   }
 
@@ -489,6 +597,7 @@ class AppSettings {
     ThemeMode? themeMode,
     String? locale,
     bool? launchAtStartup,
+    bool? startMinimized,
     bool? showNotifications,
     String? microphone,
     double? inputGain,
@@ -498,9 +607,8 @@ class AppSettings {
     String? sttProvider,
     String? sttModel,
     String? sttLanguage,
-    bool? postProcessEnabled,
-    String? postProcessPreset,
-    String? postProcessProvider,
+    int? sttIdleTimeoutMinutes,
+    String? customVocabulary,
     bool? recordStartSound,
     bool? recordStopSound,
     bool? transcriptionCompleteSound,
@@ -510,28 +618,31 @@ class AppSettings {
     bool? showOverlay,
     String? overlayMode,
     String? overlayStartPosition,
+    String? overlaySize,
+    String? overlayAutoHide,
     bool? showFloatingButton,
     double? floatingButtonOpacity,
     String? floatingButtonSize,
+    double? floatingOverlayOpacity,
     String? openAiApiKey,
     String? groqApiKey,
     String? deepgramApiKey,
     String? anthropicApiKey,
     String? geminiApiKey,
     String? cloudSttProvider,
-    String? cloudLlmModel,
-    String? smartModePrompt,
-    String? smartModeTarget,
     int? maxRecordDuration,
     bool? closeToTray,
     bool? errorReporting,
     String? gpuAcceleration,
     int? autoPasteDelay,
+    String? autoPasteBlocklist,
     bool? trimSilence,
     bool? useVAD,
     double? vadSensitivity,
     bool? textReplacementsEnabled,
     bool? checkUpdates,
+    int? historyMaxEntries,
+    int? historyAutoTrashDays,
     bool? hotkeyEnabled,
     String? hotkeyKey,
     String? hotkeyModifiers,
@@ -545,11 +656,15 @@ class AppSettings {
     double? windowHeight,
     bool? windowMaximized,
     bool? onboardingCompleted,
+    Map<QualityTier, double>? tierBenchmarkRtf,
+    String? benchmarkHardwareId,
+    DateTime? benchmarkTimestamp,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
       locale: locale ?? this.locale,
       launchAtStartup: launchAtStartup ?? this.launchAtStartup,
+      startMinimized: startMinimized ?? this.startMinimized,
       showNotifications: showNotifications ?? this.showNotifications,
       microphone: microphone ?? this.microphone,
       inputGain: inputGain ?? this.inputGain,
@@ -559,45 +674,47 @@ class AppSettings {
       sttProvider: sttProvider ?? this.sttProvider,
       sttModel: sttModel ?? this.sttModel,
       sttLanguage: sttLanguage ?? this.sttLanguage,
-      postProcessEnabled: postProcessEnabled ?? this.postProcessEnabled,
-      postProcessPreset: postProcessPreset ?? this.postProcessPreset,
-      postProcessProvider: postProcessProvider ?? this.postProcessProvider,
+      sttIdleTimeoutMinutes:
+          sttIdleTimeoutMinutes ?? this.sttIdleTimeoutMinutes,
+      customVocabulary: customVocabulary ?? this.customVocabulary,
       recordStartSound: recordStartSound ?? this.recordStartSound,
       recordStopSound: recordStopSound ?? this.recordStopSound,
       transcriptionCompleteSound:
           transcriptionCompleteSound ?? this.transcriptionCompleteSound,
-      durationWarningSound:
-          durationWarningSound ?? this.durationWarningSound,
+      durationWarningSound: durationWarningSound ?? this.durationWarningSound,
       soundVolume: soundVolume ?? this.soundVolume,
       afterTranscription: afterTranscription ?? this.afterTranscription,
       showOverlay: showOverlay ?? this.showOverlay,
       overlayMode: overlayMode ?? this.overlayMode,
-      overlayStartPosition:
-          overlayStartPosition ?? this.overlayStartPosition,
+      overlayStartPosition: overlayStartPosition ?? this.overlayStartPosition,
+      overlaySize: overlaySize ?? this.overlaySize,
+      overlayAutoHide: overlayAutoHide ?? this.overlayAutoHide,
       showFloatingButton: showFloatingButton ?? this.showFloatingButton,
       floatingButtonOpacity:
           floatingButtonOpacity ?? this.floatingButtonOpacity,
       floatingButtonSize: floatingButtonSize ?? this.floatingButtonSize,
+      floatingOverlayOpacity:
+          floatingOverlayOpacity ?? this.floatingOverlayOpacity,
       openAiApiKey: openAiApiKey ?? this.openAiApiKey,
       groqApiKey: groqApiKey ?? this.groqApiKey,
       deepgramApiKey: deepgramApiKey ?? this.deepgramApiKey,
       anthropicApiKey: anthropicApiKey ?? this.anthropicApiKey,
       geminiApiKey: geminiApiKey ?? this.geminiApiKey,
       cloudSttProvider: cloudSttProvider ?? this.cloudSttProvider,
-      cloudLlmModel: cloudLlmModel ?? this.cloudLlmModel,
-      smartModePrompt: smartModePrompt ?? this.smartModePrompt,
-      smartModeTarget: smartModeTarget ?? this.smartModeTarget,
       maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
       closeToTray: closeToTray ?? this.closeToTray,
       errorReporting: errorReporting ?? this.errorReporting,
       gpuAcceleration: gpuAcceleration ?? this.gpuAcceleration,
       autoPasteDelay: autoPasteDelay ?? this.autoPasteDelay,
+      autoPasteBlocklist: autoPasteBlocklist ?? this.autoPasteBlocklist,
       trimSilence: trimSilence ?? this.trimSilence,
       useVAD: useVAD ?? this.useVAD,
       vadSensitivity: vadSensitivity ?? this.vadSensitivity,
       textReplacementsEnabled:
           textReplacementsEnabled ?? this.textReplacementsEnabled,
       checkUpdates: checkUpdates ?? this.checkUpdates,
+      historyMaxEntries: historyMaxEntries ?? this.historyMaxEntries,
+      historyAutoTrashDays: historyAutoTrashDays ?? this.historyAutoTrashDays,
       hotkeyEnabled: hotkeyEnabled ?? this.hotkeyEnabled,
       hotkeyKey: hotkeyKey ?? this.hotkeyKey,
       hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
@@ -611,6 +728,9 @@ class AppSettings {
       windowHeight: windowHeight ?? this.windowHeight,
       windowMaximized: windowMaximized ?? this.windowMaximized,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      tierBenchmarkRtf: tierBenchmarkRtf ?? this.tierBenchmarkRtf,
+      benchmarkHardwareId: benchmarkHardwareId ?? this.benchmarkHardwareId,
+      benchmarkTimestamp: benchmarkTimestamp ?? this.benchmarkTimestamp,
     );
   }
 
@@ -622,6 +742,7 @@ class AppSettings {
           themeMode == other.themeMode &&
           locale == other.locale &&
           launchAtStartup == other.launchAtStartup &&
+          startMinimized == other.startMinimized &&
           showNotifications == other.showNotifications &&
           microphone == other.microphone &&
           inputGain == other.inputGain &&
@@ -631,9 +752,8 @@ class AppSettings {
           sttProvider == other.sttProvider &&
           sttModel == other.sttModel &&
           sttLanguage == other.sttLanguage &&
-          postProcessEnabled == other.postProcessEnabled &&
-          postProcessPreset == other.postProcessPreset &&
-          postProcessProvider == other.postProcessProvider &&
+          sttIdleTimeoutMinutes == other.sttIdleTimeoutMinutes &&
+          customVocabulary == other.customVocabulary &&
           recordStartSound == other.recordStartSound &&
           recordStopSound == other.recordStopSound &&
           transcriptionCompleteSound == other.transcriptionCompleteSound &&
@@ -643,28 +763,31 @@ class AppSettings {
           showOverlay == other.showOverlay &&
           overlayMode == other.overlayMode &&
           overlayStartPosition == other.overlayStartPosition &&
+          overlaySize == other.overlaySize &&
+          overlayAutoHide == other.overlayAutoHide &&
           showFloatingButton == other.showFloatingButton &&
           floatingButtonOpacity == other.floatingButtonOpacity &&
           floatingButtonSize == other.floatingButtonSize &&
+          floatingOverlayOpacity == other.floatingOverlayOpacity &&
           openAiApiKey == other.openAiApiKey &&
           groqApiKey == other.groqApiKey &&
           deepgramApiKey == other.deepgramApiKey &&
           anthropicApiKey == other.anthropicApiKey &&
           geminiApiKey == other.geminiApiKey &&
           cloudSttProvider == other.cloudSttProvider &&
-          cloudLlmModel == other.cloudLlmModel &&
-          smartModePrompt == other.smartModePrompt &&
-          smartModeTarget == other.smartModeTarget &&
           maxRecordDuration == other.maxRecordDuration &&
           closeToTray == other.closeToTray &&
           errorReporting == other.errorReporting &&
           gpuAcceleration == other.gpuAcceleration &&
           autoPasteDelay == other.autoPasteDelay &&
+          autoPasteBlocklist == other.autoPasteBlocklist &&
           trimSilence == other.trimSilence &&
           useVAD == other.useVAD &&
           vadSensitivity == other.vadSensitivity &&
           textReplacementsEnabled == other.textReplacementsEnabled &&
           checkUpdates == other.checkUpdates &&
+          historyMaxEntries == other.historyMaxEntries &&
+          historyAutoTrashDays == other.historyAutoTrashDays &&
           hotkeyEnabled == other.hotkeyEnabled &&
           hotkeyKey == other.hotkeyKey &&
           hotkeyModifiers == other.hotkeyModifiers &&
@@ -677,41 +800,88 @@ class AppSettings {
           windowWidth == other.windowWidth &&
           windowHeight == other.windowHeight &&
           windowMaximized == other.windowMaximized &&
-          onboardingCompleted == other.onboardingCompleted;
+          onboardingCompleted == other.onboardingCompleted &&
+          tierBenchmarkRtf == other.tierBenchmarkRtf &&
+          benchmarkHardwareId == other.benchmarkHardwareId &&
+          benchmarkTimestamp == other.benchmarkTimestamp;
 
   @override
   int get hashCode => Object.hash(
-        themeMode, locale, launchAtStartup, showNotifications,
-        microphone, inputGain, pushToTalk,
-        deadMicTimeout, autoStopSilence,
-        sttProvider, sttModel, sttLanguage,
-        postProcessEnabled, postProcessPreset, postProcessProvider,
-        recordStartSound, recordStopSound, transcriptionCompleteSound,
-        durationWarningSound,
-        // Object.hash supports max 20 positional args; nest for rest.
+    themeMode,
+    locale,
+    launchAtStartup,
+    startMinimized,
+    showNotifications,
+    microphone,
+    inputGain,
+    pushToTalk,
+    deadMicTimeout,
+    autoStopSilence,
+    sttProvider,
+    sttModel,
+    sttLanguage,
+    recordStartSound,
+    recordStopSound,
+    transcriptionCompleteSound,
+    durationWarningSound,
+    // Object.hash supports max 20 positional args; nest for rest.
+    Object.hash(
+      soundVolume,
+      afterTranscription,
+      showOverlay,
+      overlayMode,
+      overlayStartPosition,
+      overlaySize,
+      overlayAutoHide,
+      showFloatingButton,
+      floatingButtonOpacity,
+      floatingButtonSize,
+      floatingOverlayOpacity,
+      openAiApiKey,
+      groqApiKey,
+      deepgramApiKey,
+      anthropicApiKey,
+      geminiApiKey,
+      cloudSttProvider,
+      smartModePrompt,
+      Object.hash(
+        smartModeTarget,
+        maxRecordDuration,
+        closeToTray,
+        errorReporting,
+        gpuAcceleration,
+        autoPasteDelay,
+        autoPasteBlocklist,
+        trimSilence,
+        useVAD,
+        vadSensitivity,
+        textReplacementsEnabled,
+        checkUpdates,
+        hotkeyEnabled,
+        hotkeyKey,
+        hotkeyModifiers,
+        floatingButtonX,
+        floatingButtonY,
+        floatingOverlayX,
+        floatingOverlayY,
         Object.hash(
-          soundVolume, afterTranscription,
-          showOverlay, overlayMode, overlayStartPosition, showFloatingButton,
-          floatingButtonOpacity, floatingButtonSize,
-          openAiApiKey, groqApiKey, deepgramApiKey,
-          anthropicApiKey, geminiApiKey,
-          cloudSttProvider, cloudLlmModel,
-          smartModePrompt, smartModeTarget,
-          maxRecordDuration, closeToTray,
-          Object.hash(
-            errorReporting, gpuAcceleration, autoPasteDelay,
-            trimSilence, useVAD, vadSensitivity,
-            textReplacementsEnabled, checkUpdates,
-            hotkeyEnabled, hotkeyKey, hotkeyModifiers,
-            floatingButtonX, floatingButtonY,
-            floatingOverlayX, floatingOverlayY,
-            Object.hash(
-              windowX, windowY, windowWidth, windowHeight,
-              windowMaximized, onboardingCompleted,
-            ),
-          ),
+          windowX,
+          windowY,
+          windowWidth,
+          windowHeight,
+          windowMaximized,
+          onboardingCompleted,
+          sttIdleTimeoutMinutes,
+          customVocabulary,
+          historyMaxEntries,
+          historyAutoTrashDays,
+          tierBenchmarkRtf,
+          benchmarkHardwareId,
+          benchmarkTimestamp,
         ),
-      );
+      ),
+    ),
+  );
 }
 
 ThemeMode _themeModeFromString(String name) {
@@ -722,30 +892,50 @@ ThemeMode _themeModeFromString(String name) {
   };
 }
 
-bool _readBool(
-  Map<String, String> values,
-  String key,
-  bool fallback,
-) {
+bool _readBool(Map<String, String> values, String key, bool fallback) {
   final value = values[key];
   if (value == null) return fallback;
   return value == 'true';
 }
 
-double _readDouble(
-  Map<String, String> values,
-  String key,
-  double fallback,
-) {
+double _readDouble(Map<String, String> values, String key, double fallback) {
   return double.tryParse(values[key] ?? '') ?? fallback;
 }
 
-int _readInt(
-  Map<String, String> values,
-  String key,
-  int fallback,
-) {
+int _readInt(Map<String, String> values, String key, int fallback) {
   return int.tryParse(values[key] ?? '') ?? fallback;
+}
+
+Map<QualityTier, double>? _readBenchmarkRtf(String? value) {
+  if (value == null || value.isEmpty) return null;
+  try {
+    final json = jsonDecode(value) as Map<String, dynamic>;
+    final result = <QualityTier, double>{};
+    for (final entry in json.entries) {
+      final tier = QualityTier.values.firstWhere(
+        (t) => t.name == entry.key,
+        orElse: () => throw FormatException('Unknown tier: ${entry.key}'),
+      );
+      result[tier] = (entry.value as num).toDouble();
+    }
+    return result;
+  } catch (_) {
+    return null;
+  }
+}
+
+String _writeBenchmarkRtf(Map<QualityTier, double>? rtfMap) {
+  if (rtfMap == null || rtfMap.isEmpty) return '';
+  final json = <String, double>{};
+  for (final entry in rtfMap.entries) {
+    json[entry.key.name] = entry.value;
+  }
+  return jsonEncode(json);
+}
+
+DateTime? _readDateTime(String? value) {
+  if (value == null || value.isEmpty) return null;
+  return DateTime.tryParse(value);
 }
 
 String _settingModelFromConfig(String modelId) {
@@ -772,10 +962,6 @@ String _settingLanguageFromConfig(String languageCode) {
     'es' => 'Spanish',
     _ => 'Auto-detect',
   };
-}
-
-String _settingPresetFromConfig(String preset) {
-  return PostProcessPreset.fromKey(preset).displayValue;
 }
 
 /// Central settings notifier — loads from and persists to Drift/SQLite.
@@ -816,8 +1002,10 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     secureKeysFuture = Future.microtask(() async {
       try {
         await _migrateApiKeys(values, secureStore, db);
-        final merged =
-            await _mergeSecureKeys(state.value ?? settings, secureStore);
+        final merged = await _mergeSecureKeys(
+          state.value ?? settings,
+          secureStore,
+        );
         if (state.value != merged) {
           state = AsyncData(merged);
         }
@@ -840,17 +1028,18 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     await _syncApiKeysToSecureStorage(current, updated, secureStore);
 
     // Persist all non-key settings to SQLite (toStorageMap writes '' for keys).
-    await ref.read(historyDatabaseProvider).writeAppSettings(
-          updated.toStorageMap(),
-        );
+    await ref
+        .read(historyDatabaseProvider)
+        .writeAppSettings(updated.toStorageMap());
   }
 
   /// Toggle between dark and light theme.
   Future<void> toggleDarkLight() async {
     await updateSettings(
       (s) => s.copyWith(
-        themeMode:
-            s.themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark,
+        themeMode: s.themeMode == ThemeMode.dark
+            ? ThemeMode.light
+            : ThemeMode.dark,
       ),
     );
   }
@@ -860,15 +1049,20 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   /// Clears secure-storage API keys, persisted settings (including window
   /// position/size and floating-button position), and daily analytics stats.
   Future<void> resetToDefaults() async {
-    // Clear secure storage API keys.
-    final secureStore = ref.read(secureKeyStoreProvider);
-    for (final secureKey in apiKeyMapping.values) {
-      await secureStore.deleteKey(secureKey);
+    // Clear secure storage API keys (best-effort — keychain may be locked).
+    try {
+      final secureStore = ref.read(secureKeyStoreProvider);
+      for (final secureKey in apiKeyMapping.values) {
+        await secureStore.deleteKey(secureKey);
+      }
+    } catch (e) {
+      dev.log('resetToDefaults: secure store cleanup failed: $e',
+          name: 'Settings');
     }
     final db = ref.read(historyDatabaseProvider);
     await db.resetAppSettings();
     await db.resetDailyStats();
-    state = const AsyncData(AppSettings.defaults);
+    state = AsyncData(AppSettings.defaults);
   }
 
   /// Full factory reset — deletes ALL user data, models, and settings.
@@ -878,14 +1072,23 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> factoryReset() async {
     final db = ref.read(historyDatabaseProvider);
 
-    // 1. Clear ALL secure storage API keys.
-    final secureStore = ref.read(secureKeyStoreProvider);
-    for (final secureKey in apiKeyMapping.values) {
-      await secureStore.deleteKey(secureKey);
+    // 1. Clear ALL secure storage API keys (best-effort).
+    try {
+      final secureStore = ref.read(secureKeyStoreProvider);
+      for (final secureKey in apiKeyMapping.values) {
+        await secureStore.deleteKey(secureKey);
+      }
+    } catch (e) {
+      dev.log('Factory reset: secure store cleanup failed: $e',
+          name: 'Settings');
     }
 
     // 2. Delete all database content (history, tags, projects, etc.).
-    await db.deleteAllData();
+    try {
+      await db.deleteAllData();
+    } catch (e) {
+      dev.log('Factory reset: deleteAllData failed: $e', name: 'Settings');
+    }
 
     // 3. Delete downloaded models directory.
     _tryDeleteDir(sttDir());
@@ -909,8 +1112,8 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     // 8. Clean up temp WAV files.
     _cleanupTempWavFiles();
 
-    // 9. Reset in-memory state.
-    state = const AsyncData(AppSettings.defaults);
+    // 9. Reset in-memory state — triggers onboarding via onboardingCompleted=false.
+    state = AsyncData(AppSettings.defaults);
 
     dev.log('Factory reset complete', name: 'Settings');
   }
@@ -920,8 +1123,10 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       final dir = Directory(path);
       if (dir.existsSync()) dir.deleteSync(recursive: true);
     } catch (e) {
-      dev.log('Factory reset: failed to delete dir $path: $e',
-          name: 'Settings');
+      dev.log(
+        'Factory reset: failed to delete dir $path: $e',
+        name: 'Settings',
+      );
     }
   }
 
@@ -930,8 +1135,10 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       final file = File(path);
       if (file.existsSync()) file.deleteSync();
     } catch (e) {
-      dev.log('Factory reset: failed to delete file $path: $e',
-          name: 'Settings');
+      dev.log(
+        'Factory reset: failed to delete file $path: $e',
+        name: 'Settings',
+      );
     }
   }
 
@@ -947,8 +1154,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
         }
       }
     } catch (e) {
-      dev.log('Factory reset: failed to clean temp WAVs: $e',
-          name: 'Settings');
+      dev.log('Factory reset: failed to clean temp WAVs: $e', name: 'Settings');
     }
   }
 
@@ -964,8 +1170,10 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       final contents = file.readAsStringSync();
       final raw = jsonDecode(contents);
       if (raw is! Map<String, dynamic>) {
-        dev.log('Go config JSON is not an object, skipping migration',
-            name: 'Settings');
+        dev.log(
+          'Go config JSON is not an object, skipping migration',
+          name: 'Settings',
+        );
         return null;
       }
       dev.log('Migrating Go config.json → Flutter settings', name: 'Settings');
@@ -974,8 +1182,10 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       // Catches StateError (missing APPDATA), FormatException (bad JSON),
       // FileSystemException (I/O failure), TypeError (unexpected JSON shape),
       // and anything else.  Migration is best-effort — never crash the app.
-      dev.log('Go config migration failed, using defaults: $e',
-          name: 'Settings');
+      dev.log(
+        'Go config migration failed, using defaults: $e',
+        name: 'Settings',
+      );
       return null;
     }
   }
@@ -1043,11 +1253,26 @@ Future<void> _syncApiKeysToSecureStorage(
   SecureKeyStore secureStore,
 ) async {
   final pairs = <String, _KeyPair>{
-    'wp_openai_api_key': (old: oldSettings.openAiApiKey, cur: newSettings.openAiApiKey),
-    'wp_groq_api_key': (old: oldSettings.groqApiKey, cur: newSettings.groqApiKey),
-    'wp_deepgram_api_key': (old: oldSettings.deepgramApiKey, cur: newSettings.deepgramApiKey),
-    'wp_anthropic_api_key': (old: oldSettings.anthropicApiKey, cur: newSettings.anthropicApiKey),
-    'wp_gemini_api_key': (old: oldSettings.geminiApiKey, cur: newSettings.geminiApiKey),
+    'wp_openai_api_key': (
+      old: oldSettings.openAiApiKey,
+      cur: newSettings.openAiApiKey,
+    ),
+    'wp_groq_api_key': (
+      old: oldSettings.groqApiKey,
+      cur: newSettings.groqApiKey,
+    ),
+    'wp_deepgram_api_key': (
+      old: oldSettings.deepgramApiKey,
+      cur: newSettings.deepgramApiKey,
+    ),
+    'wp_anthropic_api_key': (
+      old: oldSettings.anthropicApiKey,
+      cur: newSettings.anthropicApiKey,
+    ),
+    'wp_gemini_api_key': (
+      old: oldSettings.geminiApiKey,
+      cur: newSettings.geminiApiKey,
+    ),
   };
 
   for (final entry in pairs.entries) {
@@ -1063,5 +1288,6 @@ Future<void> _syncApiKeysToSecureStorage(
 typedef _KeyPair = ({String old, String cur});
 
 /// Central settings provider — single source of truth for all app settings.
-final settingsProvider =
-    AsyncNotifierProvider<SettingsNotifier, AppSettings>(SettingsNotifier.new);
+final settingsProvider = AsyncNotifierProvider<SettingsNotifier, AppSettings>(
+  SettingsNotifier.new,
+);

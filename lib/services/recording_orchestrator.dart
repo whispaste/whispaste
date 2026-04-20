@@ -7,18 +7,21 @@ library;
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
-import '../core/logging/app_logger.dart';
 import '../core/data/database.dart';
+import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart';
 import '../core/data/analytics_provider.dart';
 import 'audio_service.dart';
+import 'desktop_paste/desktop_paste_controller.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
 import 'sound_feedback_service.dart';
@@ -43,8 +46,13 @@ import 'stt_service.dart';
 /// reacts automatically. Errors are caught and surfaced via the error phase.
 class RecordingOrchestrator extends Notifier<void> {
   static final _log = AppLogger('RecordingOrchestrator');
+  static const _maxOomRecoveryAttempts = 3;
 
   StreamSubscription<double>? _amplitudeSub;
+
+  /// Prevents concurrent `startRecording()` calls from racing through
+  /// the async preflight.
+  bool _startInFlight = false;
 
   // ── Audio Safety Guard state ──────────────────────────────────────────────
   /// Amplitude threshold below which we consider the signal "silent".
@@ -62,6 +70,13 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Whether the 90% duration warning has been played.
   bool _durationWarningFired = false;
+
+  /// Whether the current recording session has a captured desktop paste target.
+  bool _hasCapturedPasteTarget = false;
+
+  int _oomAttemptCount = 0;
+
+  int get oomAttemptCount => _oomAttemptCount;
 
   @override
   void build() {
@@ -83,6 +98,8 @@ class RecordingOrchestrator extends Notifier<void> {
   Future<void> toggleRecording() async {
     final recording = ref.read(recordingProvider);
     if (recording.isIdle) {
+      // Kick off server warm-up before preflight to maximise parallel window.
+      unawaited(_prewarmStt());
       await startRecording();
     } else if (recording.isRecording) {
       await stopRecording();
@@ -91,11 +108,25 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Starts the recording pipeline.
   Future<void> startRecording() async {
+    // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
+    if (_startInFlight) {
+      _log.debug('startRecording ignored — already in flight');
+      return;
+    }
+    _startInFlight = true;
+
     final notifier = ref.read(recordingProvider.notifier);
 
     try {
       // ── Preflight checks ──────────────────────────────────────────────
-      final preflightError = _runPreflight();
+      final preflightError = await _runPreflight();
+
+      // Re-check phase after async gap — another caller may have started.
+      if (ref.read(recordingProvider).phase != RecordingPhase.idle) {
+        _log.debug('startRecording aborted — phase changed during preflight');
+        return;
+      }
+
       if (preflightError != null) {
         // Try soft handling first (auto-download, info toast).
         if (_handleSoftPreflight(preflightError)) return;
@@ -104,24 +135,30 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       }
 
-      // Transition state: idle → recording.
+      // Transition state: idle → recording (generates sessionId).
       notifier.startRecording();
+      final sid = ref.read(recordingProvider).sessionId ?? '?';
+      _log.info('[$sid] Recording started');
+
+      // Notify STT service that a recording is active (pauses idle timer).
+      final sttNot = ref.read(sttServiceProvider.notifier);
+      sttNot.notifyRecordingStarted();
+
+      // Kick off STT server in parallel — files already confirmed by preflight.
+      // Fires before the two async calls below to maximise warm-up lead time.
+      unawaited(sttNot.ensureRunning());
+
+      _hasCapturedPasteTarget = await _capturePasteTarget();
 
       // Start audio capture.
       final audioNotifier = ref.read(audioServiceProvider.notifier);
       await audioNotifier.startRecording();
 
-      // Pre-warm STT server in background while user speaks.
-      Future.microtask(
-        () => ref.read(sttServiceProvider.notifier).ensureRunning(),
-      );
-
       // Verify recording actually started.
       final audioStatus = ref.read(audioServiceProvider);
       if (audioStatus.captureState == AudioCaptureState.error) {
-        notifier.fail(
-          audioStatus.errorMessage ?? 'recording_failed',
-        );
+        sttNot.notifyRecordingStopped();
+        notifier.fail(audioStatus.errorMessage ?? 'recording_failed');
         return;
       }
 
@@ -134,13 +171,14 @@ class RecordingOrchestrator extends Notifier<void> {
           _evaluateGuard(level);
         },
         onError: (Object e) {
-          _log.warning('Amplitude stream error: $e');
+          _log.warning('[$sid] Amplitude stream error: $e');
         },
       );
-
-      _log.info('Recording started');
     } on Exception catch (e) {
+      ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
       ref.read(recordingProvider.notifier).fail('$e');
+    } finally {
+      _startInFlight = false;
     }
   }
 
@@ -148,14 +186,29 @@ class RecordingOrchestrator extends Notifier<void> {
   ///
   /// Each major step has its own timeout so a single hung operation cannot
   /// freeze the app.  A 90 s pipeline watchdog acts as a final safety net.
+  ///
+  /// Pipeline timing is logged at completion (or failure) for diagnostics.
   Future<void> stopRecording() async {
     final notifier = ref.read(recordingProvider.notifier);
+    final sid = ref.read(recordingProvider).sessionId ?? '?';
     String? wavPath;
+
+    // ── Pipeline timing ──────────────────────────────────────────────────
+    final pipelineSw = Stopwatch()..start();
+    int? wavReadyMs;
+    int? sttEnsureMs;
+    int? transcribeMs;
+    int? replaceMs;
+    int? saveMs;
+    int? clipboardMs;
+    String pipelineOutcome = 'unknown';
 
     // ── Pipeline watchdog ─────────────────────────────────────────────────
     // Force-fail if the entire stop→done pipeline exceeds 90 s.
     final watchdog = Timer(const Duration(seconds: 90), () {
-      _log.error('Pipeline watchdog triggered after 90s — force-resetting');
+      _log.error(
+        '[$sid] Pipeline watchdog triggered after 90s — force-resetting',
+      );
       notifier.fail('pipeline_timeout');
     });
 
@@ -168,6 +221,7 @@ class RecordingOrchestrator extends Notifier<void> {
       wavPath = await audioNotifier.stopRecording();
 
       if (wavPath == null) {
+        pipelineOutcome = 'no_audio';
         notifier.fail('no_audio_recorded');
         return;
       }
@@ -178,16 +232,17 @@ class RecordingOrchestrator extends Notifier<void> {
       // On Windows the `record` package can return before the WAV is fully
       // flushed to disk.  Wait up to 2 s for the file to appear.
       final wavFile = File(wavPath);
-      if (!wavFile.existsSync()) {
-        _log.debug('WAV not yet on disk, waiting for flush…');
+      if (!await wavFile.exists()) {
+        _log.debug('[$sid] WAV not yet on disk, waiting for flush…');
         for (var i = 0; i < 8; i++) {
           await Future<void>.delayed(const Duration(milliseconds: 250));
-          if (wavFile.existsSync()) break;
+          if (await wavFile.exists()) break;
         }
       }
-      if (!wavFile.existsSync()) {
+      if (!await wavFile.exists()) {
+        pipelineOutcome = 'wav_not_created';
         notifier.fail('wav_file_not_created');
-        _log.error('WAV file never appeared: $wavPath');
+        _log.error('[$sid] WAV file never appeared: $wavPath');
         return;
       }
 
@@ -195,15 +250,18 @@ class RecordingOrchestrator extends Notifier<void> {
       // second race during the ensureRunning() await.
       final wavBytes = await wavFile.readAsBytes();
       if (wavBytes.isEmpty) {
+        pipelineOutcome = 'wav_empty';
         notifier.fail('wav_file_empty');
-        _log.error('WAV file is empty: $wavPath');
+        _log.error('[$sid] WAV file is empty: $wavPath');
         return;
       }
-      _log.debug('WAV ready: ${wavBytes.length} bytes');
+      wavReadyMs = pipelineSw.elapsedMilliseconds;
+      _log.debug(
+        '[$sid] WAV ready: ${wavBytes.length} bytes (${wavReadyMs}ms)',
+      );
 
       // Read settings for language hint and model info.
-      final settings =
-          ref.read(settingsProvider).value ?? AppSettings.defaults;
+      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
       final language = settings.sttLanguageCode;
 
       // When language is empty or "auto", fall back to the app's UI locale
@@ -217,24 +275,31 @@ class RecordingOrchestrator extends Notifier<void> {
         effectiveLang = appLocale; // e.g. "de", "en"
       }
 
-      // Ensure STT server is ready (with timeout to prevent indefinite hang).
+      // Ensure STT server is ready (with generous timeout for cold-starts —
+      // large models on integrated GPUs can take 60–90s to load into VRAM).
       final sttNotifier = ref.read(sttServiceProvider.notifier);
+      final ensureSw = Stopwatch()..start();
       try {
-        await sttNotifier.ensureRunning().timeout(
-              const Duration(seconds: 30),
-            );
+        await sttNotifier.ensureRunning().timeout(const Duration(seconds: 120));
       } on TimeoutException {
+        pipelineOutcome = 'stt_timeout';
         notifier.fail('stt_start_timeout');
-        _log.warning('STT server start timed out after 30s');
+        _log.warning('[$sid] STT server start timed out after 120s');
         return;
       }
+      ensureSw.stop();
+      sttEnsureMs = ensureSw.elapsedMilliseconds;
 
       // Verify server is ready before transcribing.
       final sttStatus = ref.read(sttServiceProvider);
       if (!sttStatus.isReady) {
-        notifier.fail(
-          sttStatus.errorMessage ?? 'stt_server_failed',
-        );
+        if (sttStatus.errorMessage == 'stt_cuda_oom') {
+          pipelineOutcome = 'stt_cuda_oom';
+          _handleOomRecovery();
+          return;
+        }
+        pipelineOutcome = 'stt_failed';
+        notifier.fail(sttStatus.errorMessage ?? 'stt_server_failed');
         return;
       }
 
@@ -242,7 +307,8 @@ class RecordingOrchestrator extends Notifier<void> {
       // Calculate audio duration for RTF logging (16 kHz, mono, 16-bit + 44-byte header).
       final audioDurMs = ((wavBytes.length - 44) / 32000 * 1000).round();
       _log.info(
-        'Transcribing $wavPath (${wavBytes.length} bytes, ~${audioDurMs}ms audio, lang=$effectiveLang)',
+        '[$sid] Transcribing (${wavBytes.length} bytes, '
+        '~${audioDurMs}ms audio, lang=$effectiveLang)',
       );
 
       final inferSw = Stopwatch()..start();
@@ -252,31 +318,58 @@ class RecordingOrchestrator extends Notifier<void> {
       final timeoutSec = 60 + (audioDurMs / 1000 * 0.8).round();
       String transcript;
       try {
-        transcript = await sttNotifier.transcribeBytes(
-          wavBytes,
-          language: effectiveLang,
-        ).timeout(Duration(seconds: timeoutSec));
+        transcript = await sttNotifier
+            .transcribeBytes(wavBytes, language: effectiveLang)
+            .timeout(Duration(seconds: timeoutSec));
       } on TimeoutException {
+        pipelineOutcome = 'transcribe_timeout';
         notifier.fail('transcription_timeout');
-        _log.error('Transcription timed out after ${timeoutSec}s');
+        _log.error('[$sid] Transcription timed out after ${timeoutSec}s');
+        return;
+      } on SocketException catch (_) {
+        final sttError = ref.read(sttServiceProvider).errorMessage;
+        if (sttError == 'stt_cuda_oom') {
+          pipelineOutcome = 'stt_cuda_oom';
+          _handleOomRecovery();
+          return;
+        }
+        pipelineOutcome = 'stt_connection_lost';
+        notifier.fail('stt_server_connection_lost');
+        _log.error('[$sid] STT server connection lost during inference');
+        return;
+      } on http.ClientException catch (_) {
+        final sttError = ref.read(sttServiceProvider).errorMessage;
+        if (sttError == 'stt_cuda_oom') {
+          pipelineOutcome = 'stt_cuda_oom';
+          _handleOomRecovery();
+          return;
+        }
+        pipelineOutcome = 'stt_connection_lost';
+        notifier.fail('stt_server_connection_lost');
+        _log.error(
+          '[$sid] STT server connection lost during inference (ClientException)',
+        );
         return;
       }
       inferSw.stop();
+      transcribeMs = inferSw.elapsedMilliseconds;
 
       if (audioDurMs > 0) {
-        final rtf = inferSw.elapsedMilliseconds / audioDurMs;
+        final rtf = transcribeMs / audioDurMs;
         _log.info(
-          'STT timing: inference=${inferSw.elapsedMilliseconds}ms '
+          '[$sid] STT: inference=${transcribeMs}ms '
           'audio=${audioDurMs}ms RTF=${rtf.toStringAsFixed(2)}x',
         );
       }
 
       if (transcript.isEmpty) {
+        pipelineOutcome = 'empty_transcript';
         notifier.fail('transcription_empty');
         return;
       }
 
       // ── Text replacements (voice shortcuts) ─────────────────────────────
+      final replaceSw = Stopwatch()..start();
       var finalText = transcript;
       if (settings.textReplacementsEnabled) {
         try {
@@ -294,45 +387,91 @@ class RecordingOrchestrator extends Notifier<void> {
             }
             if (finalText != transcript) {
               _log.info(
-                'Text replacements applied: ${replacements.length} rules, '
+                '[$sid] Text replacements applied: ${replacements.length} rules, '
                 '${transcript.length}→${finalText.length} chars',
               );
             }
           }
         } on Exception catch (e) {
-          _log.warning('Text replacement failed (non-fatal): $e');
+          _log.warning('[$sid] Text replacement failed (non-fatal): $e');
         }
+      }
+      replaceSw.stop();
+      replaceMs = replaceSw.elapsedMilliseconds;
+
+      // ── Transcription cleanup (always applied) ──────────────────────────
+      // Whisper models often insert extraneous newlines. Collapse them into
+      // single spaces for clean copy/paste results.
+      final rawLen = finalText.length;
+      finalText = finalText
+          .replaceAll(RegExp(r'\r\n|\r'), '\n')
+          .replaceAll(RegExp(r'\n+'), ' ')
+          .replaceAll(RegExp(r' {2,}'), ' ')
+          .trim();
+      if (finalText.length != rawLen) {
+        _log.info(
+          '[$sid] Whitespace cleanup: $rawLen→${finalText.length} chars',
+        );
       }
 
       // Save to history database (with replacements applied).
+      final saveSw = Stopwatch()..start();
       await _saveToHistory(finalText, settings);
+      saveSw.stop();
+      saveMs = saveSw.elapsedMilliseconds;
 
       // Copy to clipboard / auto-paste based on user preference.
       // Timeout prevents a locked clipboard from hanging the pipeline.
+      final clipSw = Stopwatch()..start();
       try {
         await _handleAfterTranscription(finalText, settings).timeout(
           const Duration(seconds: 10),
           onTimeout: () {
-            _log.warning('After-transcription action timed out (10s)');
+            _log.warning('[$sid] After-transcription action timed out (10s)');
           },
         );
       } on Exception catch (e) {
-        _log.warning('After-transcription action failed (non-fatal): $e');
+        _log.warning(
+          '[$sid] After-transcription action failed (non-fatal): $e',
+        );
       }
+      clipSw.stop();
+      clipboardMs = clipSw.elapsedMilliseconds;
 
       // Transition state: transcribing/processing → done.
       notifier.completeTranscription(finalText);
-      _log.info('Pipeline complete: ${finalText.length} chars');
+      ref.read(sttServiceProvider.notifier).notifyTranscriptionCompleted();
+      _oomAttemptCount = 0;
+      pipelineOutcome = 'ok';
     } on Exception catch (e) {
+      pipelineOutcome = 'exception';
+      if ('$e'.contains('stt_cuda_oom')) {
+        pipelineOutcome = 'stt_cuda_oom';
+        _handleOomRecovery();
+        return;
+      }
       notifier.fail('$e');
-      _log.error('Pipeline error: $e');
+      ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+      _log.error('[$sid] Pipeline error: $e');
     } finally {
       watchdog.cancel();
+      pipelineSw.stop();
+
+      // Log structured pipeline summary (success AND failure).
+      _log.info(
+        '[$sid] Pipeline[$pipelineOutcome]: '
+        'total=${pipelineSw.elapsedMilliseconds}ms '
+        'wav=${wavReadyMs ?? "-"}ms '
+        'stt_ensure=${sttEnsureMs ?? "-"}ms '
+        'transcribe=${transcribeMs ?? "-"}ms '
+        'replace=${replaceMs ?? "-"}ms '
+        'save=${saveMs ?? "-"}ms '
+        'clipboard=${clipboardMs ?? "-"}ms',
+      );
+
       // Always clean up the temp WAV file.
       if (wavPath != null) {
-        await ref
-            .read(audioServiceProvider.notifier)
-            .cleanupFile(wavPath);
+        await ref.read(audioServiceProvider.notifier).cleanupFile(wavPath);
       }
     }
   }
@@ -341,6 +480,43 @@ class RecordingOrchestrator extends Notifier<void> {
   void reset() {
     _cancelAmplitude();
     ref.read(recordingProvider.notifier).reset();
+  }
+
+  Future<bool> applyOomModelFallback(String modelId) async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    if (modelId.isEmpty || settings.effectiveModelId == modelId) {
+      return false;
+    }
+
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWith(
+            sttProvider: SttProviderType.onDevice.value,
+            sttModel: modelId,
+          ),
+        );
+    _oomAttemptCount += 1;
+    ref.read(oomRecoveryPendingProvider.notifier).clear();
+    ref.read(sttServiceProvider.notifier).stop();
+    return true;
+  }
+
+  Future<SttProviderType?> switchToConfiguredCloudStt() async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final provider = _preferredCloudProvider(settings);
+    if (provider == null) return null;
+
+    await ref.read(settingsProvider.notifier).updateSettings((s) {
+      return s.copyWith(
+        sttProvider: provider.value,
+        cloudSttProvider: _cloudProviderValue(provider),
+      );
+    });
+    _oomAttemptCount = 0;
+    ref.read(oomRecoveryPendingProvider.notifier).clear();
+    ref.read(sttServiceProvider.notifier).stop();
+    return provider;
   }
 
   // -------------------------------------------------------------------------
@@ -363,8 +539,9 @@ class RecordingOrchestrator extends Notifier<void> {
         if (dl.downloadedModels.isNotEmpty) {
           // Server missing but models exist → auto-download.
           ref.read(modelDownloadProvider.notifier).ensureServerBinary();
-          ref.read(recordingInfoProvider.notifier).show(
-              'info_engine_auto_download');
+          ref
+              .read(recordingInfoProvider.notifier)
+              .show('info_engine_auto_download');
         } else {
           // No models at all → user needs to go to settings.
           ref.read(recordingInfoProvider.notifier).show('info_model_missing');
@@ -383,9 +560,103 @@ class RecordingOrchestrator extends Notifier<void> {
     }
   }
 
-  String? _runPreflight() {
-    final settings =
-        ref.read(settingsProvider).value ?? AppSettings.defaults;
+  void _handleOomRecovery() {
+    final sid = ref.read(recordingProvider).sessionId ?? '?';
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final currentModelId = settings.effectiveModelId;
+    final nextModelId = _nextAvailableFallbackModelId(currentModelId);
+    final hasCloudConfigured = _preferredCloudProvider(settings) != null;
+    final isPermanentFail =
+        nextModelId == null || _oomAttemptCount >= _maxOomRecoveryAttempts;
+
+    ref
+        .read(oomRecoveryPendingProvider.notifier)
+        .showPending(
+          nextModelId: isPermanentFail ? null : nextModelId,
+          hasCloudConfigured: hasCloudConfigured,
+          isPermanentFail: isPermanentFail,
+        );
+    ref.read(recordingProvider.notifier).reset();
+    ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
+
+    _log.warning(
+      '[$sid] CUDA OOM detected for model=$currentModelId '
+      'attempts=$_oomAttemptCount/$_maxOomRecoveryAttempts '
+      'nextModel=${isPermanentFail ? "none" : nextModelId} '
+      'hasCloud=$hasCloudConfigured permanent=$isPermanentFail',
+    );
+  }
+
+  String? _nextAvailableFallbackModelId(String currentModelId) {
+    final currentTier = tierForModel(currentModelId);
+    if (currentTier == null) return null;
+
+    final downloadedModels = ref.read(modelDownloadProvider).downloadedModels;
+    final tierModels = modelsForTier(currentTier);
+    final currentIndex = tierModels.indexWhere(
+      (model) => model.id == currentModelId,
+    );
+    if (currentIndex == -1) return null;
+
+    for (var index = currentIndex + 1; index < tierModels.length; index++) {
+      final candidateId = tierModels[index].id;
+      if (downloadedModels.contains(candidateId)) {
+        return candidateId;
+      }
+    }
+
+    for (var tierIndex = currentTier.index - 1; tierIndex >= 0; tierIndex--) {
+      for (final candidate in modelsForTier(QualityTier.values[tierIndex])) {
+        if (downloadedModels.contains(candidate.id)) {
+          return candidate.id;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  SttProviderType? _preferredCloudProvider(AppSettings settings) {
+    final preferredOrder = <SttProviderType>[
+      switch (settings.cloudSttProviderType) {
+        CloudSttProvider.openAI => SttProviderType.openAI,
+        CloudSttProvider.groq => SttProviderType.groq,
+        CloudSttProvider.deepgram => SttProviderType.deepgram,
+      },
+      SttProviderType.openAI,
+      SttProviderType.groq,
+      SttProviderType.deepgram,
+    ];
+
+    for (final provider in preferredOrder) {
+      if (_hasApiKeyForProvider(settings, provider)) {
+        return provider;
+      }
+    }
+
+    return null;
+  }
+
+  bool _hasApiKeyForProvider(AppSettings settings, SttProviderType provider) {
+    return switch (provider) {
+      SttProviderType.openAI => settings.openAiApiKey.trim().isNotEmpty,
+      SttProviderType.groq => settings.groqApiKey.trim().isNotEmpty,
+      SttProviderType.deepgram => settings.deepgramApiKey.trim().isNotEmpty,
+      SttProviderType.onDevice => false,
+    };
+  }
+
+  String _cloudProviderValue(SttProviderType provider) {
+    return switch (provider) {
+      SttProviderType.openAI => CloudSttProvider.openAI.value,
+      SttProviderType.groq => CloudSttProvider.groq.value,
+      SttProviderType.deepgram => CloudSttProvider.deepgram.value,
+      SttProviderType.onDevice => CloudSttProvider.openAI.value,
+    };
+  }
+
+  Future<String?> _runPreflight() async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
 
     // Block recording while onboarding is active.
     if (!settings.onboardingCompleted) {
@@ -395,9 +666,9 @@ class RecordingOrchestrator extends Notifier<void> {
 
     // Ensure STT directory exists.
     final dir = Directory(sttDir());
-    if (!dir.existsSync()) {
+    if (!await dir.exists()) {
       try {
-        dir.createSync(recursive: true);
+        await dir.create(recursive: true);
       } on FileSystemException catch (e) {
         _log.warning('Failed to create STT dir: $e');
       }
@@ -405,7 +676,7 @@ class RecordingOrchestrator extends Notifier<void> {
 
     // Check whisper-server binary.
     final serverPath = whisperServerPath();
-    if (!File(serverPath).existsSync()) {
+    if (!await File(serverPath).exists()) {
       _log.warning('Preflight FAIL: whisper-server not found at $serverPath');
       return 'stt_server_not_found';
     }
@@ -416,7 +687,7 @@ class RecordingOrchestrator extends Notifier<void> {
     if (modelPath == null) {
       return 'stt_model_unknown';
     }
-    if (!File(modelPath).existsSync()) {
+    if (!await File(modelPath).exists()) {
       _log.warning('Preflight FAIL: model "$modelId" not found at $modelPath');
       return 'stt_model_not_found';
     }
@@ -425,10 +696,7 @@ class RecordingOrchestrator extends Notifier<void> {
     return null;
   }
 
-  Future<void> _saveToHistory(
-    String transcript,
-    AppSettings settings,
-  ) async {
+  Future<void> _saveToHistory(String transcript, AppSettings settings) async {
     final db = ref.read(historyDatabaseProvider);
     final now = DateTime.now();
     final recording = ref.read(recordingProvider);
@@ -449,17 +717,19 @@ class RecordingOrchestrator extends Notifier<void> {
         ? 0
         : transcript.trim().split(RegExp(r'\s+')).length;
 
-    await db.upsertEntry(HistoryEntriesCompanion(
-      id: Value(id),
-      content: Value(transcript),
-      title: Value(title),
-      timestamp: Value(now),
-      durationSec: Value(durationSec),
-      language: Value(settings.sttLanguageCode),
-      model: Value(settings.effectiveModelId),
-      isLocal: const Value(true),
-      source: const Value('dictation'),
-    ));
+    await db.upsertEntry(
+      HistoryEntriesCompanion(
+        id: Value(id),
+        content: Value(transcript),
+        title: Value(title),
+        timestamp: Value(now),
+        durationSec: Value(durationSec),
+        language: Value(settings.sttLanguageCode),
+        model: Value(settings.effectiveModelId),
+        isLocal: const Value(true),
+        source: const Value('dictation'),
+      ),
+    );
 
     // Persist analytics independently from history — these counters survive
     // history entry deletion.
@@ -474,6 +744,17 @@ class RecordingOrchestrator extends Notifier<void> {
     );
 
     _log.info('Saved entry $id to history');
+
+    // Auto-cleanup: trim oldest non-favorite entries if limit is set.
+    if (settings.historyMaxEntries > 0) {
+      final trimmed = await db.trimToMaxEntries(settings.historyMaxEntries);
+      if (trimmed > 0) {
+        _log.info(
+          'Auto-trimmed $trimmed old entries to stay within '
+          '${settings.historyMaxEntries} limit',
+        );
+      }
+    }
 
     // Refresh analytics dashboard so counters update immediately.
     ref.invalidate(analyticsProvider);
@@ -503,8 +784,7 @@ class RecordingOrchestrator extends Notifier<void> {
     final recording = ref.read(recordingProvider);
     if (!recording.isRecording) return;
 
-    final settings =
-        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
 
     // ── Max recording duration ──────────────────────────────────────────
     final maxDuration = settings.maxRecordDuration;
@@ -518,8 +798,7 @@ class RecordingOrchestrator extends Notifier<void> {
       }
 
       // ── Duration warning at 90% ────────────────────────────────────────
-      if (!_durationWarningFired &&
-          elapsed >= (maxDuration * 0.9).round()) {
+      if (!_durationWarningFired && elapsed >= (maxDuration * 0.9).round()) {
         _durationWarningFired = true;
         _playDurationWarning(settings);
       }
@@ -541,12 +820,12 @@ class RecordingOrchestrator extends Notifier<void> {
 
     // ── Dead-mic detection ───────────────────────────────────────────────
     if (!_speechDetected && settings.deadMicTimeout > 0) {
-      final threshold =
-          (settings.deadMicTimeout * samplesPerSecond).round();
+      final threshold = (settings.deadMicTimeout * samplesPerSecond).round();
       if (_silentSamples >= threshold) {
         _guardFired = true;
         _log.warning(
-            'Dead-mic guard triggered after ${settings.deadMicTimeout}s');
+          'Dead-mic guard triggered after ${settings.deadMicTimeout}s',
+        );
         // Auto-stop with error — runs asynchronously.
         _handleDeadMic();
         return;
@@ -555,12 +834,12 @@ class RecordingOrchestrator extends Notifier<void> {
 
     // ── Auto-stop on silence (only after speech detected) ────────────────
     if (_speechDetected && settings.autoStopSilence > 0) {
-      final threshold =
-          (settings.autoStopSilence * samplesPerSecond).round();
+      final threshold = (settings.autoStopSilence * samplesPerSecond).round();
       if (_silentSamples >= threshold) {
         _guardFired = true;
         _log.info(
-            'Auto-stop triggered after ${settings.autoStopSilence}s silence');
+          'Auto-stop triggered after ${settings.autoStopSilence}s silence',
+        );
         // Auto-stop and transcribe — runs asynchronously.
         _handleAutoStop();
         return;
@@ -574,9 +853,11 @@ class RecordingOrchestrator extends Notifier<void> {
       _cancelAmplitude();
       final audioNotifier = ref.read(audioServiceProvider.notifier);
       await audioNotifier.stopRecording();
+      ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
       ref.read(recordingProvider.notifier).fail('recording_guard_failed');
     } on Exception catch (e) {
       _log.warning('Error during dead-mic cleanup: $e');
+      ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
       ref.read(recordingProvider.notifier).fail('recording_guard_failed');
     }
   }
@@ -605,19 +886,150 @@ class RecordingOrchestrator extends Notifier<void> {
   /// instant. Runs in the background — failures are silently logged.
   Future<void> _prewarmStt() async {
     try {
-      final settings =
-          ref.read(settingsProvider).value ?? AppSettings.defaults;
+      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
       if (!settings.sttProviderType.isLocal) return;
 
       // Only pre-warm when runtime + model are already downloaded.
       final serverPath = whisperServerPath();
       final modelPath = sttModelPath(settings.effectiveModelId);
-      if (!File(serverPath).existsSync()) return;
-      if (modelPath == null || !File(modelPath).existsSync()) return;
+      if (!await File(serverPath).exists()) return;
+      if (modelPath == null || !await File(modelPath).exists()) return;
 
       await ref.read(sttServiceProvider.notifier).prewarm();
     } on Exception catch (e) {
       _log.warning('STT pre-warm failed (non-fatal): $e');
+    }
+  }
+
+  Future<bool> _capturePasteTarget() async {
+    final controller = ref.read(desktopPasteControllerProvider);
+    if (controller == null) return false;
+
+    try {
+      return await controller.capturePasteTarget();
+    } on MissingPluginException {
+      _log.warning(
+        'Desktop paste controller missing native implementation for this platform',
+      );
+      return false;
+    } on Exception catch (e) {
+      _log.warning('Paste target capture failed: $e');
+      return false;
+    }
+  }
+
+  Future<String?> _captureClipboardText() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain).timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {
+          _log.warning('Clipboard.getData timed out after 2s');
+          return null;
+        },
+      );
+      return data?.text;
+    } on Exception catch (e) {
+      _log.warning('Clipboard snapshot failed: $e');
+      return null;
+    }
+  }
+
+  Future<bool> _copyTranscriptToClipboard(String transcript) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: transcript)).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          _log.warning('Clipboard.setData timed out after 5s');
+        },
+      );
+      _log.info('Transcript copied to clipboard (${transcript.length} chars)');
+      return true;
+    } on Exception catch (e) {
+      _log.warning('Clipboard copy failed: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _pasteClipboard(AppSettings settings) async {
+    final controller = ref.read(desktopPasteControllerProvider);
+    if (controller == null) {
+      _log.warning(
+        'Auto-paste requested but no desktop paste controller is available',
+      );
+      return false;
+    }
+
+    final delayMs = settings.autoPasteDelay < 0 ? 0 : settings.autoPasteDelay;
+
+    try {
+      if (!_hasCapturedPasteTarget) {
+        _hasCapturedPasteTarget = await _capturePasteTarget();
+      }
+      if (!_hasCapturedPasteTarget) {
+        _log.warning(
+          'Auto-paste requested but no target window could be captured',
+        );
+        return false;
+      }
+
+      // Check per-app auto-paste blocklist
+      final blocklist = settings.autoPasteBlocklist.trim();
+      if (blocklist.isNotEmpty) {
+        try {
+          final targetId = await controller.getTargetBundleId();
+          if (targetId != null && targetId.isNotEmpty) {
+            final blocked = blocklist
+                .split(',')
+                .map((e) => e.trim().toLowerCase())
+                .where((e) => e.isNotEmpty)
+                .toSet();
+            if (blocked.contains(targetId.toLowerCase())) {
+              _log.info(
+                'Auto-paste blocked for app: $targetId (in blocklist)',
+              );
+              return false;
+            }
+          }
+        } on MissingPluginException {
+          // getTargetBundleId not implemented on this platform — skip check
+        }
+      }
+
+      final didPaste = await controller.pasteClipboard(
+        delay: Duration(milliseconds: delayMs),
+      );
+      if (!didPaste) {
+        _log.warning(
+          'Desktop paste bridge reported an unsuccessful paste attempt',
+        );
+      }
+      return didPaste;
+    } on MissingPluginException {
+      _log.warning(
+        'Desktop paste controller missing native implementation for this platform',
+      );
+      return false;
+    } on Exception catch (e) {
+      _log.warning('Desktop paste failed: $e');
+      return false;
+    }
+  }
+
+  Duration _clipboardRestoreDelay(AppSettings settings) {
+    final restoreMs = math.max(500, settings.autoPasteDelay + 350);
+    return Duration(milliseconds: restoreMs);
+  }
+
+  Future<void> _restoreClipboardText(String? previousText) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: previousText ?? '')).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          _log.warning('Clipboard restore timed out after 5s');
+        },
+      );
+    } on Exception catch (e) {
+      _log.warning('Clipboard restore failed: $e');
     }
   }
 
@@ -629,23 +1041,29 @@ class RecordingOrchestrator extends Notifier<void> {
   ) async {
     final action = settings.afterTranscriptionAction;
 
-    if (action == AfterTranscriptionAction.nothing) return;
+    switch (action) {
+      case AfterTranscriptionAction.nothing:
+        return;
+      case AfterTranscriptionAction.clipboard:
+        await _copyTranscriptToClipboard(transcript);
+        return;
+      case AfterTranscriptionAction.paste:
+        final previousClipboardText = await _captureClipboardText();
+        final copied = await _copyTranscriptToClipboard(transcript);
+        if (!copied) return;
 
-    // clipboard, paste, and clipboardAndPaste all start by copying.
-    try {
-      await Clipboard.setData(ClipboardData(text: transcript)).timeout(
-        const Duration(seconds: 5),
-        onTimeout: () {
-          _log.warning('Clipboard.setData timed out after 5s');
-        },
-      );
-      _log.info('Transcript copied to clipboard (${transcript.length} chars)');
-    } on Exception catch (e) {
-      _log.warning('Clipboard copy failed: $e');
+        final didPaste = await _pasteClipboard(settings);
+        if (didPaste) {
+          await Future<void>.delayed(_clipboardRestoreDelay(settings));
+          await _restoreClipboardText(previousClipboardText);
+        }
+        return;
+      case AfterTranscriptionAction.clipboardAndPaste:
+        final copied = await _copyTranscriptToClipboard(transcript);
+        if (!copied) return;
+        await _pasteClipboard(settings);
+        return;
     }
-
-    // TODO: 'paste' mode — simulate Ctrl+V via platform channel.
-    // Requires Windows SendInput bridge. Will be wired in a follow-up.
   }
 }
 
@@ -659,6 +1077,4 @@ class RecordingOrchestrator extends Notifier<void> {
 /// All observable state lives in [recordingProvider], [audioServiceProvider],
 /// and [sttServiceProvider].
 final recordingOrchestratorProvider =
-    NotifierProvider<RecordingOrchestrator, void>(
-  RecordingOrchestrator.new,
-);
+    NotifierProvider<RecordingOrchestrator, void>(RecordingOrchestrator.new);

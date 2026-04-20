@@ -1,11 +1,10 @@
 name: Build Whisper Server
 
-# Builds whisper-server from whisper.cpp with Vulkan GPU acceleration.
-# Upstream only provides CUDA and CPU binaries — this workflow fills the
-# Vulkan gap for Intel/AMD GPUs.
+# Builds whisper-server from whisper.cpp for Windows (Vulkan) and macOS (Metal).
+# Upstream only provides CUDA and CPU binaries — this workflow fills the gaps.
 #
-# The resulting binary is uploaded to a dedicated GitHub release tagged
-# "whisper-server-latest". The WhisPaste download service queries this
+# The resulting binaries are uploaded to a dedicated GitHub release tagged
+# "whisper-server-<version>". The WhisPaste download service queries this
 # release tag to find the correct server binary for the detected GPU.
 
 on:
@@ -15,13 +14,37 @@ on:
         description: 'whisper.cpp release tag (e.g., v1.8.4)'
         required: true
         default: 'v1.8.4'
+      build_suffix:
+        description: 'Optional suffix for re-releases (e.g., .1 or -2). Leave empty for first build.'
+        required: false
+        default: ''
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: whisper-server-release
+  cancel-in-progress: false
 
 jobs:
+  validate-input:
+    name: Validate tag format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check whisper_tag format
+        run: |
+          TAG="${{ inputs.whisper_tag }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.\-][0-9a-zA-Z]+)*$ ]]; then
+            echo "::error::Invalid whisper_tag '$TAG'. Must match vX.Y.Z (e.g. v1.8.4)"
+            exit 1
+          fi
+          echo "Tag '$TAG' is valid"
+
   build-vulkan-windows:
     name: Vulkan – Windows x64
+    needs: validate-input
+    permissions:
+      contents: write
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -113,29 +136,137 @@ jobs:
           Compress-Archive -Path "$stagingDir\*" -DestinationPath "whisper-server-vulkan-x64.zip"
           Write-Host "Created whisper-server-vulkan-x64.zip"
 
-      - name: Upload to server-binaries release
-        shell: pwsh
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: whisper-server-vulkan-x64
+          path: whisper-server-vulkan-x64.zip
+          retention-days: 1
+
+  build-metal-macos:
+    name: Metal – macOS ARM64
+    needs: validate-input
+    permissions:
+      contents: write
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone whisper.cpp
+        run: |
+          git clone --depth 1 --branch ${{ inputs.whisper_tag }} \
+            https://github.com/ggml-org/whisper.cpp.git
+          echo "Cloned whisper.cpp at ${{ inputs.whisper_tag }}"
+
+      - name: Configure CMake
+        run: |
+          cd whisper.cpp
+          cmake -B build \
+            -DGGML_METAL=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DWHISPER_BUILD_TESTS=OFF \
+            -DWHISPER_BUILD_EXAMPLES=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          echo "CMake configured with Metal support"
+
+      - name: Build
+        run: |
+          cd whisper.cpp
+          cmake --build build --config Release -j $(sysctl -n hw.ncpu)
+          echo "Build complete"
+
+      - name: Package
+        run: |
+          STAGING_DIR="whisper-server-metal-arm64"
+          mkdir -p "$STAGING_DIR"
+
+          # Find the server binary (name varies by whisper.cpp version).
+          SERVER_BIN=$(find whisper.cpp/build -type f \( -name "whisper-server" -o -name "server" \) ! -name "*.o" | head -1)
+
+          if [ -z "$SERVER_BIN" ]; then
+            echo "::error::whisper-server not found in build output"
+            find whisper.cpp/build -type f -perm +111 | head -20
+            exit 1
+          fi
+
+          # Always name it whisper-server for consistency.
+          cp "$SERVER_BIN" "$STAGING_DIR/whisper-server"
+          chmod +x "$STAGING_DIR/whisper-server"
+
+          # Copy co-located dylibs (ggml Metal shaders, etc.).
+          BIN_DIR=$(dirname "$SERVER_BIN")
+          cp "$BIN_DIR"/*.dylib "$STAGING_DIR/" 2>/dev/null || true
+
+          # Copy Metal shader library if present.
+          find whisper.cpp/build -name "*.metallib" -exec cp {} "$STAGING_DIR/" \; 2>/dev/null || true
+
+          echo "Package contents:"
+          ls -lh "$STAGING_DIR"
+
+          cd "$STAGING_DIR"
+          zip -r "../whisper-server-metal-arm64.zip" .
+          cd ..
+          echo "Created whisper-server-metal-arm64.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: whisper-server-metal-arm64
+          path: whisper-server-metal-arm64.zip
+          retention-days: 1
+
+  publish-release:
+    name: Publish release
+    needs: [build-vulkan-windows, build-metal-macos]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -lhR assets/
+
+      - name: Delete previous release if exists
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          $whisperTag = "${{ inputs.whisper_tag }}"
-          $tag = "whisper-server-$whisperTag"
-          $asset = "whisper-server-vulkan-x64.zip"
-          $title = "Whisper Server ($whisperTag) – Vulkan"
-          $notes = @"
-          Pre-built whisper-server binary with Vulkan GPU acceleration.
+          TAG="whisper-server-${{ inputs.whisper_tag }}${{ inputs.build_suffix }}"
+          if gh release view "$TAG" &>/dev/null; then
+            echo "Deleting existing release $TAG..."
+            gh release delete "$TAG" --yes --cleanup-tag
+            sleep 5
+          fi
+          # Also delete orphan tag if present.
+          git push origin ":refs/tags/$TAG" 2>/dev/null || true
 
-          **Source**: [whisper.cpp $whisperTag](https://github.com/ggml-org/whisper.cpp/releases/tag/$whisperTag)
-          **Variant**: Vulkan (Intel/AMD GPUs on Windows x64)
+      - name: Create tag
+        run: |
+          TAG="whisper-server-${{ inputs.whisper_tag }}${{ inputs.build_suffix }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f "$TAG" -m "Whisper Server ${{ inputs.whisper_tag }}"
+          git push origin "$TAG" --force
 
-          > CUDA and CPU binaries are provided by the upstream whisper.cpp project.
-          > This release only contains variants not available upstream.
-          "@
+      - name: Create release with assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: whisper-server-${{ inputs.whisper_tag }}${{ inputs.build_suffix }}
+          name: "Whisper Server (${{ inputs.whisper_tag }}) – Vulkan + Metal"
+          body: |
+            Pre-built whisper-server binaries.
 
-          # Each whisper.cpp version gets its own immutable release tag.
-          # No delete-and-recreate needed — just create fresh.
-          gh release create $tag $asset `
-            --title $title `
-            --notes $notes `
-            --latest=false
-          Write-Host "Created release $tag with $asset"
+            **Source**: [whisper.cpp ${{ inputs.whisper_tag }}](https://github.com/ggml-org/whisper.cpp/releases/tag/${{ inputs.whisper_tag }})
+            **Variants**: Vulkan (Windows x64) + Metal (macOS ARM64)
+
+            > CUDA and CPU binaries are provided by the upstream whisper.cpp project.
+            > This release only contains variants not available upstream.
+          files: assets/*.zip
+          make_latest: false

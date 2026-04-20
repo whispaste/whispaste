@@ -58,20 +58,17 @@ void main() {
     });
 
     test('equality and hashCode', () {
-      const a = RecordingState(
-        phase: RecordingPhase.done,
-        transcript: 'hello',
-      );
-      const b = RecordingState(
-        phase: RecordingPhase.done,
-        transcript: 'hello',
-      );
+      const a = RecordingState(phase: RecordingPhase.done, transcript: 'hello');
+      const b = RecordingState(phase: RecordingPhase.done, transcript: 'hello');
       expect(a, equals(b));
       expect(a.hashCode, b.hashCode);
     });
 
     test('toString contains key fields', () {
-      const s = RecordingState(phase: RecordingPhase.error, errorMessage: 'oh no');
+      const s = RecordingState(
+        phase: RecordingPhase.error,
+        errorMessage: 'oh no',
+      );
       expect(s.toString(), contains('error'));
       expect(s.toString(), contains('oh no'));
     });
@@ -113,6 +110,9 @@ void main() {
 
     test('fail transitions any phase → error', () {
       for (final startPhase in RecordingPhase.values) {
+        // processing is unreachable — startProcessing() was removed (LLM cleanup)
+        if (startPhase == RecordingPhase.processing) continue;
+
         final c = ProviderContainer();
 
         try {
@@ -131,12 +131,11 @@ void main() {
               n.startRecording();
               n.stopRecording();
               n.completeTranscription('text');
-            case RecordingPhase.processing:
-              n.startRecording();
-              n.stopRecording();
-              n.startProcessing();
             case RecordingPhase.error:
               n.fail('prior error');
+            // processing: unreachable without startProcessing() — dead code
+            default:
+              break;
           }
           expect(c.read(recordingProvider).phase, startPhase);
 
@@ -152,6 +151,9 @@ void main() {
 
     test('reset returns to idle from any phase', () {
       for (final startPhase in RecordingPhase.values) {
+        // processing is unreachable — startProcessing() was removed (LLM cleanup)
+        if (startPhase == RecordingPhase.processing) continue;
+
         final c = ProviderContainer();
 
         try {
@@ -169,12 +171,11 @@ void main() {
               n.startRecording();
               n.stopRecording();
               n.completeTranscription('text');
-            case RecordingPhase.processing:
-              n.startRecording();
-              n.stopRecording();
-              n.startProcessing();
             case RecordingPhase.error:
               n.fail('err');
+            // processing: unreachable without startProcessing() — dead code
+            default:
+              break;
           }
           expect(c.read(recordingProvider).phase, startPhase);
 
@@ -344,7 +345,10 @@ void main() {
       c.read(recordingProvider.notifier).startRecording();
       await Future<void>.delayed(const Duration(milliseconds: 1200));
 
-      expect(c.read(recordingElapsedProvider).inSeconds, greaterThanOrEqualTo(1));
+      expect(
+        c.read(recordingElapsedProvider).inSeconds,
+        greaterThanOrEqualTo(1),
+      );
     });
 
     test('recordingPhaseProvider reflects phase', () {
@@ -353,6 +357,119 @@ void main() {
 
       c.read(recordingProvider.notifier).startRecording();
       expect(c.read(recordingPhaseProvider), RecordingPhase.recording);
+    });
+  });
+
+  group('OomRecoveryNotifier', () {
+    test('starts without a pending recovery', () {
+      final c = makeContainer();
+      final state = c.read(oomRecoveryPendingProvider);
+
+      expect(state.pending, isFalse);
+      expect(state.nextModelId, isNull);
+      expect(state.hasCloudConfigured, isFalse);
+      expect(state.isPermanentFail, isFalse);
+    });
+
+    test('showPending stores recovery context and clear resets it', () {
+      final c = makeContainer();
+      final notifier = c.read(oomRecoveryPendingProvider.notifier);
+
+      notifier.showPending(
+        nextModelId: 'whisper-base',
+        hasCloudConfigured: true,
+        isPermanentFail: false,
+      );
+
+      final pending = c.read(oomRecoveryPendingProvider);
+      expect(pending.pending, isTrue);
+      expect(pending.nextModelId, 'whisper-base');
+      expect(pending.hasCloudConfigured, isTrue);
+      expect(pending.isPermanentFail, isFalse);
+
+      notifier.clear();
+      final cleared = c.read(oomRecoveryPendingProvider);
+      expect(cleared.pending, isFalse);
+      expect(cleared.nextModelId, isNull);
+      expect(cleared.hasCloudConfigured, isFalse);
+      expect(cleared.isPermanentFail, isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Session correlation ID
+  // -------------------------------------------------------------------------
+  group('Session correlation ID', () {
+    test('sessionId is null when idle', () {
+      final c = makeContainer();
+      expect(c.read(recordingProvider).sessionId, isNull);
+    });
+
+    test('sessionId is generated on startRecording', () {
+      final c = makeContainer();
+      c.read(recordingProvider.notifier).startRecording();
+      final sid = c.read(recordingProvider).sessionId;
+      expect(sid, isNotNull);
+      expect(sid, isNotEmpty);
+    });
+
+    test('sessionId format is base36-hex', () {
+      final c = makeContainer();
+      c.read(recordingProvider.notifier).startRecording();
+      final sid = c.read(recordingProvider).sessionId!;
+      // Format: <base36-timestamp>-<8-hex-random>
+      expect(sid, contains('-'));
+      final parts = sid.split('-');
+      expect(parts.length, 2);
+      // Second part is 8 hex characters.
+      expect(parts[1].length, 8);
+      expect(RegExp(r'^[0-9a-f]{8}$').hasMatch(parts[1]), isTrue);
+    });
+
+    test('sessionId persists through transcribing and done', () {
+      final c = makeContainer();
+      final n = c.read(recordingProvider.notifier);
+      n.startRecording();
+      final sid = c.read(recordingProvider).sessionId;
+      n.stopRecording();
+      expect(c.read(recordingProvider).sessionId, sid);
+      n.completeTranscription('text');
+      expect(c.read(recordingProvider).sessionId, sid);
+    });
+
+    test('sessionId is cleared on reset', () {
+      final c = makeContainer();
+      final n = c.read(recordingProvider.notifier);
+      n.startRecording();
+      expect(c.read(recordingProvider).sessionId, isNotNull);
+      n.reset();
+      expect(c.read(recordingProvider).sessionId, isNull);
+    });
+
+    test('sessionId is unique across sessions', () {
+      final ids = <String>{};
+      for (var i = 0; i < 20; i++) {
+        final c = ProviderContainer();
+        try {
+          final n = c.read(recordingProvider.notifier);
+          n.startRecording();
+          final sid = c.read(recordingProvider).sessionId!;
+          expect(
+            ids.add(sid),
+            isTrue,
+            reason: 'Session ID $sid was not unique on iteration $i',
+          );
+        } finally {
+          c.dispose();
+        }
+      }
+    });
+
+    test('recordingSessionIdProvider reflects sessionId', () {
+      final c = makeContainer();
+      expect(c.read(recordingSessionIdProvider), isNull);
+      c.read(recordingProvider.notifier).startRecording();
+      expect(c.read(recordingSessionIdProvider), isNotNull);
     });
   });
 

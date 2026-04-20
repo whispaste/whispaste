@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
@@ -10,18 +11,23 @@ import '../../../core/theme/tokens.dart';
 class HistoryRowAction extends StatefulWidget {
   const HistoryRowAction({
     super.key,
-    required this.icon,
+    this.icon,
+    this.faIcon,
     required this.tooltip,
     required this.isDark,
     required this.onTap,
     this.isDestructive = false,
-  });
+    this.activeColor,
+  }) : assert(icon != null || faIcon != null, 'Provide icon or faIcon');
 
-  final IconData icon;
+  final IconData? icon;
+  final FaIconData? faIcon;
   final String tooltip;
   final bool isDark;
   final VoidCallback onTap;
   final bool isDestructive;
+  /// When set, overrides the icon color regardless of hover/active state.
+  final Color? activeColor;
 
   @override
   State<HistoryRowAction> createState() => _HistoryRowActionState();
@@ -33,7 +39,9 @@ class _HistoryRowActionState extends State<HistoryRowAction> {
   @override
   Widget build(BuildContext context) {
     final Color iconColor;
-    if (widget.isDestructive && _isHovered) {
+    if (widget.activeColor != null) {
+      iconColor = widget.activeColor!;
+    } else if (widget.isDestructive && _isHovered) {
       iconColor = widget.isDark ? WpColorsDark.error : WpColorsLight.error;
     } else if (_isHovered) {
       iconColor = widget.isDark
@@ -72,7 +80,9 @@ class _HistoryRowActionState extends State<HistoryRowAction> {
                         : WpColorsLight.hoverTransparent),
                 borderRadius: WpRadius.borderSm,
               ),
-              child: Icon(widget.icon, size: 16, color: iconColor),
+              child: widget.faIcon != null
+                  ? FaIcon(widget.faIcon!, size: 16, color: iconColor)
+                  : Icon(widget.icon!, size: 16, color: iconColor),
             ),
           ),
         ),
