@@ -167,7 +167,6 @@ class FloatingButtonView: NSView {
     // State-specific continuous animations
     switch visualState {
     case .recording, .transcribing: return true
-    case .idle: return true // idle breathe
     default: return false
     }
   }
@@ -204,12 +203,12 @@ class FloatingButtonView: NSView {
       colors = curColors
     }
 
-    // Idle breathe scale
+    // Body breathe scale (recording only — idle uses hover scale in Dart FAB)
     var bodyScale: CGFloat = 1.0
-    if visualState == .idle || visualState == .recording {
+    if visualState == .recording {
       let tBreathe = CGFloat(now - animOrigin).truncatingRemainder(dividingBy: CGFloat(Self.breatheDuration)) / CGFloat(Self.breatheDuration)
       let breatheT = easeInOut(tBreathe < 0.5 ? tBreathe * 2 : 2 - tBreathe * 2)
-      bodyScale = visualState == .recording ? 1.0 + 0.04 * breatheT : 1.0 + 0.015 * breatheT
+      bodyScale = 1.0 + 0.04 * breatheT
     }
 
     // Pulse ring during recording
@@ -276,7 +275,7 @@ class FloatingButtonView: NSView {
     ctx.addEllipse(in: circleRect)
     ctx.clip()
 
-    // 3-stop linear gradient (top to bottom)
+    // 3-stop linear gradient (top-left to bottom-right, matching Dart FAB)
     let cgColors = [
       colors.top.withAlphaComponent(masterOpacity).cgColor,
       colors.mid.withAlphaComponent(masterOpacity).cgColor,
@@ -285,8 +284,8 @@ class FloatingButtonView: NSView {
     let locations: [CGFloat] = [0, 0.5, 1]
     if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
                                   colors: cgColors, locations: locations) {
-      let startPoint = CGPoint(x: center.x, y: center.y + radius)
-      let endPoint = CGPoint(x: center.x, y: center.y - radius)
+      let startPoint = CGPoint(x: center.x - radius, y: center.y + radius)
+      let endPoint = CGPoint(x: center.x + radius, y: center.y - radius)
       ctx.drawLinearGradient(gradient, start: startPoint, end: endPoint, options: [])
     }
 
@@ -314,7 +313,7 @@ class FloatingButtonView: NSView {
 
   private func drawIcon(ctx: CGContext, center: CGPoint, radius: CGFloat, now: CFTimeInterval) {
     let iconScale = radius * 0.55 / 12.0 // Map 24×24 space to actual size
-    let iconColor = NSColor.white.withAlphaComponent(0.95 * masterOpacity)
+    let iconColor = NSColor.white.withAlphaComponent(1.0 * masterOpacity)
 
     ctx.saveGState()
     ctx.translateBy(x: center.x, y: center.y)
@@ -376,7 +375,7 @@ class FloatingButtonView: NSView {
   private func drawSquareIcon(ctx: CGContext) {
     let rect = CGRect(x: -6, y: -6, width: 12, height: 12)
     let path = CGPath(roundedRect: rect, cornerWidth: 2, cornerHeight: 2, transform: nil)
-    ctx.setFillColor(NSColor.white.withAlphaComponent(0.95 * masterOpacity).cgColor)
+    ctx.setFillColor(NSColor.white.withAlphaComponent(1.0 * masterOpacity).cgColor)
     ctx.addPath(path)
     ctx.fillPath()
   }
@@ -414,7 +413,7 @@ class FloatingButtonView: NSView {
     ctx.strokePath()
 
     // Dot
-    ctx.setFillColor(NSColor.white.withAlphaComponent(0.95 * masterOpacity).cgColor)
+    ctx.setFillColor(NSColor.white.withAlphaComponent(1.0 * masterOpacity).cgColor)
     ctx.fillEllipse(in: CGRect(x: -1, y: -4, width: 2, height: 2))
   }
 
