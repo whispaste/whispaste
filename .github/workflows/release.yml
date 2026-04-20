@@ -34,7 +34,7 @@ jobs:
       - name: Build Windows release
         shell: pwsh
         run: |
-          flutter build windows --release `
+          flutter build windows --release --no-tree-shake-icons `
             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" `
             --dart-define=SUPABASE_PUBLISHABLE_KEY="${{ secrets.SUPABASE_PUBLISHABLE_KEY }}"
 
@@ -131,7 +131,7 @@ jobs:
         run: |
           URL="$(printf '%s' "$SUPABASE_URL" | tr -d '\r\n')"
           KEY="$(printf '%s' "$SUPABASE_PUBLISHABLE_KEY" | tr -d '\r\n')"
-          flutter build macos --release "--dart-define=SUPABASE_URL=$URL" "--dart-define=SUPABASE_PUBLISHABLE_KEY=$KEY"
+          flutter build macos --release --no-tree-shake-icons "--dart-define=SUPABASE_URL=$URL" "--dart-define=SUPABASE_PUBLISHABLE_KEY=$KEY"
 
       - name: Prepare release artifacts
         run: |
