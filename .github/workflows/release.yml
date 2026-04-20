@@ -195,6 +195,20 @@ jobs:
             echo "Release $VERSION" > release-body.md
           fi
 
+      - name: AI-enhance release notes
+        shell: pwsh
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          pwsh scripts/generate-release-notes.ps1 `
+            -RawChangelog "release-body.md" `
+            -Version "${{ steps.notes.outputs.version }}" `
+            -OutputDir "."
+          if (Test-Path "release-notes-en.md") {
+            Copy-Item "release-notes-en.md" "release-body.md" -Force
+            Write-Host "AI-generated release notes applied"
+          }
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
