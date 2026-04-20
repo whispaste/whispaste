@@ -9,6 +9,7 @@ class FloatingButtonHost {
   private var channel: FlutterMethodChannel
   private var panel: FloatingButtonPanel?
   private var buttonView: FloatingButtonView?
+  private var screenObserver: NSObjectProtocol?
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
@@ -16,6 +17,49 @@ class FloatingButtonHost {
       binaryMessenger: messenger
     )
     channel.setMethodCallHandler(handle)
+    observeScreenChanges()
+  }
+
+  /// Observes monitor connect/disconnect events and repositions the button
+  /// so it stays on-screen — matching the Windows WM_DISPLAYCHANGE behavior.
+  private func observeScreenChanges() {
+    screenObserver = NotificationCenter.default.addObserver(
+      forName: NSApplication.didChangeScreenParametersNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.validatePosition()
+    }
+  }
+
+  /// Clamps the button position to the current visible screen area.
+  private func validatePosition() {
+    guard let p = panel, p.isVisible else { return }
+    guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
+    let visibleFrame = screen.visibleFrame
+    var origin = p.frame.origin
+    let size = p.frame.size
+
+    // Clamp horizontal
+    if origin.x + size.width < visibleFrame.minX + 10 {
+      origin.x = visibleFrame.minX
+    } else if origin.x > visibleFrame.maxX - 10 {
+      origin.x = visibleFrame.maxX - size.width
+    }
+
+    // Clamp vertical
+    if origin.y + size.height < visibleFrame.minY + 10 {
+      origin.y = visibleFrame.minY
+    } else if origin.y > visibleFrame.maxY - 10 {
+      origin.y = visibleFrame.maxY - size.height
+    }
+
+    if origin != p.frame.origin {
+      p.setFrameOrigin(origin)
+      // Notify Dart about the corrected position so it can persist it.
+      let adjusted = p.frame.origin
+      channel.invokeMethod("onDragEnded", arguments: ["x": adjusted.x, "y": adjusted.y])
+    }
   }
 
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -112,6 +156,10 @@ class FloatingButtonHost {
       result(nil)
 
     case "destroy":
+      if let obs = screenObserver {
+        NotificationCenter.default.removeObserver(obs)
+        screenObserver = nil
+      }
       panel?.close()
       panel = nil
       buttonView = nil
