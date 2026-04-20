@@ -470,8 +470,12 @@ class FloatingButtonView: NSView {
     }
     let menu = NSMenu()
     for item in contextMenuItems {
-      guard let id = item["id"] as? String,
-            let label = item["label"] as? String else { continue }
+      guard let label = item["label"] as? String else { continue }
+      if label == "---" {
+        menu.addItem(NSMenuItem.separator())
+        continue
+      }
+      guard let id = item["id"] as? String else { continue }
       let menuItem = NSMenuItem(title: label, action: #selector(contextMenuAction(_:)), keyEquivalent: "")
       menuItem.target = self
       menuItem.representedObject = id
