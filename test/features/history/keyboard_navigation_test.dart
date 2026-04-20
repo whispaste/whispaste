@@ -152,7 +152,7 @@ void main() {
   // ---------------------------------------------------------------------------
   group('Shortcut suppression in text fields', () {
     /// Finds the search TextField (if rendered) and focuses it.
-    Future<EditableText?> _focusSearchField(WidgetTester tester) async {
+    Future<EditableText?> focusSearchField(WidgetTester tester) async {
       final candidates = tester.widgetList<EditableText>(
         find.byType(EditableText),
       );
@@ -176,7 +176,7 @@ void main() {
       await _settle(tester);
 
       // Focus a text field.
-      final focused = await _focusSearchField(tester);
+      final focused = await focusSearchField(tester);
       if (focused == null) return; // no text field rendered — skip gracefully
 
       // Pressing Delete should NOT throw and should not open a delete dialog.
@@ -198,7 +198,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await _settle(tester);
 
-      final focused = await _focusSearchField(tester);
+      final focused = await focusSearchField(tester);
       if (focused == null) return;
 
       await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
@@ -218,7 +218,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await _settle(tester);
 
-      final focused = await _focusSearchField(tester);
+      final focused = await focusSearchField(tester);
       if (focused == null) return;
 
       // Pressing Enter while a text field is focused must not open a detail
@@ -235,7 +235,7 @@ void main() {
           makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
       await _settle(tester);
 
-      final focused = await _focusSearchField(tester);
+      final focused = await focusSearchField(tester);
       // If there's no EditableText in the tree, the page renders without one — fine.
       // If there is one and we tapped it, FocusManager must have a primary focus.
       if (focused != null) {
