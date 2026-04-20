@@ -25,7 +25,7 @@ class FloatingOverlayPanel: NSPanel {
 
 /// Recording state the overlay displays.
 enum OverlayRecordingState: String {
-  case idle, listening, recording, transcribing, done, error
+  case idle, listening, recording, transcribing, processing, done, error
 }
 
 /// Main view for the floating overlay.
@@ -36,7 +36,12 @@ class FloatingOverlayView: NSView {
   // MARK: - Public State
 
   var recordingState: OverlayRecordingState = .idle { didSet { needsDisplay = true } }
+  var labelText: String = "" { didSet { needsDisplay = true } }
   var transcriptText: String = "" { didSet { needsDisplay = true } }
+  var elapsedText: String = "" { didSet { needsDisplay = true } }
+  var hintText: String = "" { didSet { needsDisplay = true } }
+  var errorMessage: String? { didSet { needsDisplay = true } }
+  var showRetry: Bool = false { didSet { needsDisplay = true } }
   var audioLevel: Float = 0 { didSet { needsDisplay = true } }
   var progressValue: Double = 0 { didSet { needsDisplay = true } }
   var masterOpacity: CGFloat = 1.0 { didSet { needsDisplay = true } }
@@ -80,18 +85,30 @@ class FloatingOverlayView: NSView {
     // State bar at top.
     drawStateBar(in: ctx)
 
+    // Label and elapsed text below state bar.
+    drawLabel()
+
     // Audio level indicator.
     if recordingState == .recording || recordingState == .listening {
       drawAudioLevel(in: ctx)
     }
 
-    // Progress bar for transcribing.
-    if recordingState == .transcribing {
+    // Progress bar for transcribing/processing.
+    if recordingState == .transcribing || recordingState == .processing {
       drawProgressBar(in: ctx)
     }
 
-    // Transcript text.
-    drawTranscript()
+    // Transcript or error text.
+    if let error = errorMessage, !error.isEmpty {
+      drawErrorMessage(error)
+    } else {
+      drawTranscript()
+    }
+
+    // Retry button for error state.
+    if showRetry {
+      drawRetryButton(in: ctx)
+    }
 
     // Close button (top-right).
     drawCloseButton(in: ctx)
@@ -117,7 +134,7 @@ class FloatingOverlayView: NSView {
         : NSColor(red: 0.7, green: 0.7, blue: 0.75, alpha: masterOpacity)
     case .recording:
       NSColor(red: 0.9, green: 0.2, blue: 0.2, alpha: masterOpacity)
-    case .transcribing:
+    case .transcribing, .processing:
       NSColor(red: 0.95, green: 0.7, blue: 0.15, alpha: masterOpacity)
     case .done:
       NSColor(red: 0.2, green: 0.78, blue: 0.35, alpha: masterOpacity)
@@ -131,7 +148,7 @@ class FloatingOverlayView: NSView {
 
   private func drawAudioLevel(in ctx: CGContext) {
     let barX: CGFloat = 16
-    let barY: CGFloat = bounds.height - 28
+    let barY: CGFloat = bounds.height - 50
     let maxWidth: CGFloat = bounds.width - 32
     let barH: CGFloat = 6
     let level = CGFloat(min(max(audioLevel, 0), 1))
@@ -149,7 +166,7 @@ class FloatingOverlayView: NSView {
 
   private func drawProgressBar(in ctx: CGContext) {
     let barX: CGFloat = 16
-    let barY: CGFloat = bounds.height - 28
+    let barY: CGFloat = bounds.height - 50
     let maxWidth: CGFloat = bounds.width - 32
     let barH: CGFloat = 4
 
@@ -161,6 +178,80 @@ class FloatingOverlayView: NSView {
     let progRect = NSRect(x: barX, y: barY, width: maxWidth * prog, height: barH)
     ctx.setFillColor(NSColor(red: 0.95, green: 0.7, blue: 0.15, alpha: 0.8 * masterOpacity).cgColor)
     ctx.fill(progRect)
+  }
+
+  private func drawLabel() {
+    guard !labelText.isEmpty else { return }
+
+    let labelColor = isDark
+      ? NSColor.white.withAlphaComponent(0.95 * masterOpacity)
+      : NSColor.black.withAlphaComponent(0.90 * masterOpacity)
+
+    let attrs: [NSAttributedString.Key: Any] = [
+      .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
+      .foregroundColor: labelColor,
+    ]
+
+    let labelRect = NSRect(x: 16, y: bounds.height - 24, width: bounds.width - 80, height: 16)
+    (labelText as NSString).draw(in: labelRect, withAttributes: attrs)
+
+    // Elapsed text to the right of label.
+    if !elapsedText.isEmpty {
+      let elapsedColor = isDark
+        ? NSColor.white.withAlphaComponent(0.5 * masterOpacity)
+        : NSColor.black.withAlphaComponent(0.5 * masterOpacity)
+
+      let elapsedAttrs: [NSAttributedString.Key: Any] = [
+        .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular),
+        .foregroundColor: elapsedColor,
+      ]
+
+      let elapsedRect = NSRect(x: bounds.width - 80, y: bounds.height - 24, width: 60, height: 16)
+      (elapsedText as NSString).draw(in: elapsedRect, withAttributes: elapsedAttrs)
+    }
+  }
+
+  private func drawErrorMessage(_ message: String) {
+    let textColor = NSColor(red: 0.9, green: 0.3, blue: 0.3, alpha: masterOpacity)
+
+    let paragraphStyle = NSMutableParagraphStyle()
+    paragraphStyle.lineBreakMode = .byWordWrapping
+
+    let attrs: [NSAttributedString.Key: Any] = [
+      .font: NSFont.systemFont(ofSize: 12, weight: .regular),
+      .foregroundColor: textColor,
+      .paragraphStyle: paragraphStyle,
+    ]
+
+    let textRect = NSRect(x: 16, y: 12, width: bounds.width - 32, height: bounds.height - 60)
+    (message as NSString).draw(in: textRect, withAttributes: attrs)
+  }
+
+  private func drawRetryButton(in ctx: CGContext) {
+    let btnW: CGFloat = 60
+    let btnH: CGFloat = 24
+    let btnX = bounds.width - btnW - 12
+    let btnY: CGFloat = 10
+    let btnRect = NSRect(x: btnX, y: btnY, width: btnW, height: btnH)
+
+    let bgColor = NSColor(red: 0.9, green: 0.3, blue: 0.3, alpha: 0.2 * masterOpacity)
+    let cornerPath = CGPath(roundedRect: btnRect, cornerWidth: 4, cornerHeight: 4, transform: nil)
+    ctx.addPath(cornerPath)
+    ctx.setFillColor(bgColor.cgColor)
+    ctx.fillPath()
+
+    let textColor = isDark
+      ? NSColor.white.withAlphaComponent(0.8 * masterOpacity)
+      : NSColor.black.withAlphaComponent(0.8 * masterOpacity)
+
+    let attrs: [NSAttributedString.Key: Any] = [
+      .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+      .foregroundColor: textColor,
+    ]
+    let textSize = ("Retry" as NSString).size(withAttributes: attrs)
+    let textX = btnX + (btnW - textSize.width) / 2
+    let textY = btnY + (btnH - textSize.height) / 2
+    ("Retry" as NSString).draw(at: NSPoint(x: textX, y: textY), withAttributes: attrs)
   }
 
   private func drawTranscript() {
@@ -213,6 +304,17 @@ class FloatingOverlayView: NSView {
     )
   }
 
+  private var retryButtonRect: NSRect {
+    let btnW: CGFloat = 60
+    let btnH: CGFloat = 24
+    return NSRect(
+      x: bounds.width - btnW - 12,
+      y: 6,
+      width: btnW,
+      height: btnH + 8
+    )
+  }
+
   // MARK: - Mouse Events
 
   override func mouseDown(with event: NSEvent) {
@@ -220,8 +322,7 @@ class FloatingOverlayView: NSView {
     dragStart = event.locationInWindow
 
     let local = convert(event.locationInWindow, from: nil)
-    if closeButtonRect.contains(local) {
-      // Will handle in mouseUp.
+    if closeButtonRect.contains(local) || (showRetry && retryButtonRect.contains(local)) {
       return
     }
   }
@@ -245,6 +346,8 @@ class FloatingOverlayView: NSView {
 
     if closeButtonRect.contains(local) && !isDragging {
       onCloseClicked?()
+    } else if showRetry && retryButtonRect.contains(local) && !isDragging {
+      onRetryClicked?()
     } else if isDragging, let panel = window {
       let origin = panel.frame.origin
       onDragEnded?(origin.x, origin.y)
@@ -260,7 +363,7 @@ class FloatingOverlayView: NSView {
     let menu = NSMenu()
     for item in contextMenuItems {
       guard let id = item["id"] as? String,
-            let title = item["title"] as? String else { continue }
+            let title = item["label"] as? String else { continue }
       let menuItem = NSMenuItem(title: title, action: #selector(contextMenuAction(_:)), keyEquivalent: "")
       menuItem.target = self
       menuItem.representedObject = id
