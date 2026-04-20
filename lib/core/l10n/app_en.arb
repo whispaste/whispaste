@@ -632,6 +632,7 @@
   "historySearchHelpTags": "Type # to filter by tags",
   "historySearchHelpLang": "Type lang: to filter by language",
   "historySearchHelpFreeText": "Or just type any keyword",
+  "historySearchQuickTags": "Popular tags",
   "historySortNewest": "Newest first",
   "historySortOldest": "Oldest first",
   "historySortLongest": "Longest first",

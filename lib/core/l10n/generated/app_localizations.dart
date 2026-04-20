@@ -3169,6 +3169,12 @@ abstract class L10n {
   /// **'Or just type any keyword'**
   String get historySearchHelpFreeText;
 
+  /// No description provided for @historySearchQuickTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular tags'**
+  String get historySearchQuickTags;
+
   /// No description provided for @historySortNewest.
   ///
   /// In en, this message translates to:
