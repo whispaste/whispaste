@@ -111,12 +111,30 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Set MSIX version from tag
+        shell: pwsh
+        run: |
+          $refName = "${{ github.ref_name }}"
+          if ($refName -match '^\d+\.\d+\.\d+') {
+            $version = $refName.TrimStart('v')
+          } else {
+            $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
+            $version = ($raw -replace '^\s*version:\s*', '' -replace '\+.*', '').Trim()
+          }
+          $parts = $version -split '[.\-]'
+          $numericVersion = "$($parts[0]).$($parts[1]).$($parts[2]).0"
+          # Patch msix_version in pubspec.yaml to match release tag
+          (Get-Content pubspec.yaml) -replace 'msix_version:.*', "msix_version: $numericVersion" |
+            Set-Content pubspec.yaml
+          Write-Host "MSIX version set to $numericVersion"
+
       - name: Build MSIX
-        run: dart run msix:create --store
+        id: build_msix
+        run: dart run msix:create
         continue-on-error: true
 
       - name: Upload MSIX
-        if: success()
+        if: steps.build_msix.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: msix-release
@@ -188,8 +206,14 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-windows, build-macos]
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-windows, build-macos, build-msix]
+    # Run only on tag pushes and only when the mandatory builds succeeded.
+    # MSIX is best-effort — allow it to fail without blocking the release.
+    if: |
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.build-windows.result == 'success' &&
+      needs.build-macos.result == 'success' &&
+      needs.build-msix.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -208,6 +232,14 @@ jobs:
         with:
           name: macos-release
           path: artifacts/
+
+      - name: Download MSIX artifact
+        if: needs.build-msix.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: msix-release
+          path: artifacts/
+        continue-on-error: true
 
       - name: Generate release notes
         id: notes
@@ -244,7 +276,8 @@ jobs:
         with:
           name: WhisPaste v${{ steps.notes.outputs.version }}
           body_path: release-body.md
-          draft: true
+          draft: false
+          make_latest: true
           files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
