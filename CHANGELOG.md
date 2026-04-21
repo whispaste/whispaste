@@ -1,11 +1,11 @@
 # Changelog
 
-## 1.2.5
+## 1.2.6
 
 ### Improvements
 
-- MSIX package for Microsoft Store deployment now included in release artifacts.
-- Windows MSIX correctly signed with Partner Center publisher identity for Store submission.
+- MSIX package for Microsoft Store now included in release artifacts with correct Partner Center publisher identity.
+- MSIX build failure now properly blocks the release workflow instead of being silently ignored.
 
 ## 1.2.3
 
