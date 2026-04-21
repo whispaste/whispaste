@@ -124,31 +124,10 @@
   .card {
     position: absolute;
     width: 380px;
-    border-radius: 28px;
+    border-radius: 12px;
     overflow: hidden;
     border: 1px solid var(--line);
-    background: rgba(26, 26, 36, 0.92);
     box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
-  }
-
-  .card::before {
-    content: '';
-    display: block;
-    height: 28px;
-    background: rgba(26, 26, 36, 0.98);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  .card::after {
-    content: '';
-    position: absolute;
-    top: 9px;
-    left: 14px;
-    width: 10px;
-    height: 10px;
-    border-radius: 999px;
-    background: #ff5f57;
-    box-shadow: 16px 0 0 #febc2e, 32px 0 0 #28c840;
   }
 
   .card img {
