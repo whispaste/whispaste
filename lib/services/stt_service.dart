@@ -38,6 +38,7 @@ class SttStatus {
     this.startingSince,
     this.isBenchmarking = false,
     this.benchmarkingTier,
+    this.cpuFallbackActive = false,
   });
 
   final SttServerState serverState;
@@ -55,6 +56,10 @@ class SttStatus {
   /// Which tier is currently being benchmarked, if any.
   final QualityTier? benchmarkingTier;
 
+  /// True when the GPU crashed and the server restarted on CPU automatically.
+  /// Resets when the user changes the GPU setting or active model.
+  final bool cpuFallbackActive;
+
   bool get isReady => serverState == SttServerState.ready;
 
   String get endpoint => 'http://127.0.0.1:$port';
@@ -68,6 +73,7 @@ class SttStatus {
     bool? isBenchmarking,
     QualityTier? benchmarkingTier,
     bool clearBenchmarkingTier = false,
+    bool? cpuFallbackActive,
   }) {
     return SttStatus(
       serverState: serverState ?? this.serverState,
@@ -79,12 +85,14 @@ class SttStatus {
       benchmarkingTier: clearBenchmarkingTier
           ? null
           : (benchmarkingTier ?? this.benchmarkingTier),
+      cpuFallbackActive: cpuFallbackActive ?? this.cpuFallbackActive,
     );
   }
 
   @override
   String toString() =>
-      'SttStatus($serverState, port=$port, model=$modelId, benchmarking=$isBenchmarking)';
+      'SttStatus($serverState, port=$port, model=$modelId, '
+      'benchmarking=$isBenchmarking, cpuFallback=$cpuFallbackActive)';
 }
 
 // ---------------------------------------------------------------------------
@@ -133,6 +141,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   /// await the same future instead of spawning a second process.
   Completer<void>? _startCompleter;
 
+  /// When true, the GPU crashed with a fatal error and [_start] should use CPU.
+  /// Reset when the user explicitly changes the GPU setting or active model.
+  bool _gpuFallbackActive = false;
+
   /// Debounce timer for model-change pre-warm.
   Timer? _modelChangeDebounce;
 
@@ -158,6 +170,13 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       final prevSettings = prev?.value;
       final nextSettings = next.value;
       if (prevSettings == null || nextSettings == null) return;
+
+      // Reset CPU fallback when the user explicitly changes GPU mode or model
+      // so that GPU is retried under the new configuration.
+      if (prevSettings.gpuAcceleration != nextSettings.gpuAcceleration ||
+          prevSettings.effectiveModelId != nextSettings.effectiveModelId) {
+        _gpuFallbackActive = false;
+      }
 
       final prevModel = prevSettings.effectiveModelId;
       final nextModel = nextSettings.effectiveModelId;
@@ -226,7 +245,11 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     _startCompleter = Completer<void>();
     try {
-      await _start(modelId: modelId, gpuAcceleration: settings.gpuAcceleration);
+      await _start(
+        modelId: modelId,
+        gpuAcceleration:
+            _gpuFallbackActive ? 'disabled' : settings.gpuAcceleration,
+      );
       _startCompleter?.complete();
     } on Exception catch (e) {
       _startCompleter?.completeError(e);
@@ -270,7 +293,8 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
       await _start(
         modelId: currentModelId,
-        gpuAcceleration: settings.gpuAcceleration,
+        gpuAcceleration:
+            _gpuFallbackActive ? 'disabled' : settings.gpuAcceleration,
       );
       _log.info('Re-benchmark completed for $currentModelId');
     } on Exception catch (e) {
@@ -1040,11 +1064,25 @@ class SttServiceNotifier extends Notifier<SttStatus> {
             // correct variant based on GPU detection.
             unawaited(hw.deleteServerBinary(sttDir()));
           } else if (isCudaFatalAbort) {
+            if (!_gpuFallbackActive) {
+              // First GPU fatal crash: silently activate CPU fallback.
+              // The next ensureRunning() call will start the server on CPU.
+              _gpuFallbackActive = true;
+              _log.warning(
+                'GPU fatal abort (code $code / 0xC0000409) on "${gpu.name}" '
+                '— CPU fallback activated; next recording uses CPU backend.',
+              );
+              _process = null;
+              _activeModel = null;
+              // Transition to stopped so ensureRunning() restarts cleanly
+              // on the next recording without showing an error.
+              _transition(const SttStatus(serverState: SttServerState.stopped));
+              return;
+            }
+            // CPU fallback was already active — this is a real failure.
             _log.error(
-              'whisper-server crashed with CUDA fatal abort (code $code / '
-              '0xC0000409). GPU "${gpu.name}" may not support the requested '
-              'compute feature (flash-attn requires sm_75+) or VRAM is '
-              'insufficient for the selected model.',
+              'whisper-server GPU fatal abort (code $code / 0xC0000409) on '
+              '"${gpu.name}" and CPU fallback also failed.',
             );
           } else if (isModelLoadError) {
             // exit code 3 = whisper_init_from_file failed; this is most
@@ -1094,10 +1132,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
                   ? 'Incompatible server binary for your GPU. '
                         'Please re-download the speech model in Settings.'
                   : isCudaFatalAbort
-                  ? 'GPU crashed during inference (code $code). '
-                        'Your GPU (${gpu.name}) may not support the active '
-                        'settings — try a smaller model or disable GPU in '
-                        'Settings.'
+                  // CPU fallback was active but also crashed.
+                  ? 'Speech engine failed on both GPU and CPU (code $code). '
+                        'Please restart the app or re-download the model.'
                   : isModelLoadError
                   ? 'STT model file is corrupted. '
                         'Please re-download the model in Settings.'
@@ -1125,9 +1162,13 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       _fail('whisper-server not ready: $e');
       return;
     } on _EarlyExitException catch (e) {
-      // Process already gone — stop() would fail, just reset state.
       _process = null;
       _activeModel = null;
+      // Suppress the stale EarlyExitException ONLY for the GPU _start() that
+      // was interrupted when the fallback activated (exit handler already
+      // transitioned state to stopped). CPU _start() failures must not be
+      // suppressed, so we gate on gpuAcceleration != 'disabled'.
+      if (_gpuFallbackActive && gpuAcceleration != 'disabled') return;
       _fail(e.message);
       return;
     }
@@ -1168,6 +1209,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
         serverState: SttServerState.ready,
         port: port,
         modelId: modelId,
+        cpuFallbackActive: _gpuFallbackActive,
       ),
     );
   }
