@@ -363,6 +363,10 @@ def _place_on_canvas(img: Image.Image, x: int, y: int, cw: int, ch: int) -> Imag
 
 def process_all(preview: bool = False):
     """Process all raw screenshots into premium versions."""
+    # Clean output dir entirely before regenerating (no stale files left behind).
+    if OUTPUT_DIR.exists() and not preview:
+        for f in OUTPUT_DIR.glob("*.png"):
+            f.unlink()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     raw_files = sorted(SCREENSHOT_DIR.glob("screenshot-*.png"))
