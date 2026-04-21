@@ -111,9 +111,26 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Set MSIX version from tag
+        shell: pwsh
+        run: |
+          $refName = "${{ github.ref_name }}"
+          if ($refName -match '^\d+\.\d+\.\d+') {
+            $version = $refName.TrimStart('v')
+          } else {
+            $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
+            $version = ($raw -replace '^\s*version:\s*', '' -replace '\+.*', '').Trim()
+          }
+          $parts = $version -split '[.\-]'
+          $numericVersion = "$($parts[0]).$($parts[1]).$($parts[2]).0"
+          # Patch msix_version in pubspec.yaml to match release tag
+          (Get-Content pubspec.yaml) -replace 'msix_version:.*', "msix_version: $numericVersion" |
+            Set-Content pubspec.yaml
+          Write-Host "MSIX version set to $numericVersion"
+
       - name: Build MSIX
         id: build_msix
-        run: dart run msix:create --store
+        run: dart run msix:create
         continue-on-error: true
 
       - name: Upload MSIX
