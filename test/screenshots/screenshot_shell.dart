@@ -154,8 +154,11 @@ class _ScreenshotTitleBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
         child: Row(
           children: [
-            // macOS: reserve space for native traffic-light buttons (68px).
-            if (isMacOS) const SizedBox(width: 68),
+            // macOS: traffic-light dot row (close/minimise/maximise).
+            if (isMacOS)
+              const _MacTrafficLights()
+            else
+              const SizedBox(width: WpSpacing.sm),
             const WpBrandWordmark(height: 34),
             const Spacer(),
             // Windows: static window control buttons.
@@ -179,6 +182,48 @@ class _ScreenshotTitleBar extends StatelessWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// macOS traffic-light buttons (close / minimise / maximise).
+// ---------------------------------------------------------------------------
+
+class _MacTrafficLights extends StatelessWidget {
+  const _MacTrafficLights();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(left: 14, right: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _TrafficDot(color: Color(0xFFFF5F57)),
+          SizedBox(width: 6),
+          _TrafficDot(color: Color(0xFFFEBC2E)),
+          SizedBox(width: 6),
+          _TrafficDot(color: Color(0xFF28C840)),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrafficDot extends StatelessWidget {
+  const _TrafficDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      );
+}
+
+// ---------------------------------------------------------------------------
+// Windows static title-bar buttons.
+// ---------------------------------------------------------------------------
 
 class _StaticWindowButton extends StatelessWidget {
   const _StaticWindowButton({required this.icon, required this.isDark});

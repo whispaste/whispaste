@@ -81,7 +81,10 @@ final _screenshots = <_ScreenDef>[
   ),
 ];
 
-const _devices = [WpScreenshotDevices.windowsStore];
+const _devices = [
+  WpScreenshotDevices.windowsStore,
+  WpScreenshotDevices.macStore,
+];
 
 // ---------------------------------------------------------------------------
 // Test suite

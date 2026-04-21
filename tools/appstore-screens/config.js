@@ -18,14 +18,18 @@ const STORE_SIZES = {
     height: 1080,
     label: 'Microsoft Store',
     orientation: 'landscape',
+    // Goldens base path under website/public/screenshots/ (empty = root)
+    goldenBase: '',
   },
   mac: {
-    // Mac App Store accepts 1920×1080 for macOS desktop apps.
-    // The panorama is rendered at this resolution and sliced per-screen.
-    width: 1920,
-    height: 1080,
+    // Mac App Store: minimum 1280×800 (16:10), max 2560×1600.
+    // 1440×900 matches the 13" MacBook Air/Pro display exactly.
+    width: 1440,
+    height: 900,
     label: 'Mac App Store',
     orientation: 'landscape',
+    // Mac goldens live under macStoreScreenshots/ subdir
+    goldenBase: 'mac/',
   },
   iphone_6_9: {
     width: 1320,
@@ -33,6 +37,7 @@ const STORE_SIZES = {
     label: 'Apple App Store 6.9"',
     orientation: 'portrait',
     enabled: false,
+    goldenBase: '',
   },
   play_phone: {
     width: 1080,
@@ -40,6 +45,7 @@ const STORE_SIZES = {
     label: 'Google Play Phone',
     orientation: 'portrait',
     enabled: false,
+    goldenBase: '',
   },
 };
 
