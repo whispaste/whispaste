@@ -1,9 +1,15 @@
 /// Store screenshot tests for WhisPaste.
 ///
 /// Generates high-quality PNGs for store listings and website galleries using
-/// golden_screenshot. The set is intentionally narrative-driven:
-/// workspace overview -> detail editing -> voice shortcuts -> hotkey setup ->
-/// analytics/time saved.
+/// golden_screenshot. Each screenshot renders the FULL app window — title bar,
+/// navigation sidebar, content panel and status bar — via [WpScreenshotShell].
+///
+/// Narrative flow:
+///   01 workspace overview (dark/EN+DE)
+///   02 workspace detail / open entry (light/EN+DE)
+///   03 voice shortcuts (dark/EN+DE)
+///   04 settings / hotkey section (light/EN+DE)
+///   05 analytics (dark/EN+DE)
 @Tags(<String>['golden'])
 library;
 
@@ -28,6 +34,7 @@ import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 
 import 'screenshot_devices.dart';
+import 'screenshot_shell.dart';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -38,12 +45,14 @@ const _locales = ['en', 'de'];
 final _screenshots = <_ScreenDef>[
   _ScreenDef(
     name: '01_workspace_overview_dark',
+    activePageId: 'history',
     themeMode: ThemeMode.dark,
     builder: () => const HistoryPage(),
     needsDemoData: true,
   ),
   _ScreenDef(
     name: '02_workspace_detail_light',
+    activePageId: 'history',
     themeMode: ThemeMode.light,
     builder: () => const HistoryPage(),
     needsDemoData: true,
@@ -51,19 +60,22 @@ final _screenshots = <_ScreenDef>[
   ),
   _ScreenDef(
     name: '03_voice_shortcuts_dark',
+    activePageId: 'replacements',
     themeMode: ThemeMode.dark,
     builder: () => const ReplacementsPage(),
     needsDemoData: true,
     textReplacementsEnabled: true,
   ),
   _ScreenDef(
-    name: '04_hotkey_settings_light',
+    name: '04_settings_light',
+    activePageId: 'settings',
     themeMode: ThemeMode.light,
     builder: () => const SettingsPage(),
     arrange: _scrollToHotkeySection,
   ),
   _ScreenDef(
-    name: '05_time_saved_dark',
+    name: '05_analytics_dark',
+    activePageId: 'analytics',
     themeMode: ThemeMode.dark,
     builder: () => const AnalyticsPage(),
   ),
@@ -114,12 +126,29 @@ void _screenshotTest(_ScreenDef screen, String locale) {
             device: device,
             db: db,
             settings: settings,
+            activePageId: screen.activePageId,
             child: screen.builder(),
           );
 
           await tester.pumpWidget(app);
-          await tester.loadAssets();
+          // Let providers resolve and build real content before scanning fonts.
           await tester.pumpFrames(app, const Duration(seconds: 1));
+          // Load fonts after the widget tree is settled so icon fonts used by
+          // the actual content (Lucide, FontAwesome) are found in the scan.
+          // Explicitly include icon font families as safety net for cases where
+          // icons are not yet in the visible tree portion.
+          await tester.loadAssets(
+            alsoLoadTheseFonts: const [
+              'packages/lucide_icons_flutter/Lucide',
+              'packages/font_awesome_flutter/FontAwesomeSolid',
+              'packages/font_awesome_flutter/FontAwesomeRegular',
+              'packages/font_awesome_flutter/FontAwesomeBrands',
+              'MaterialIcons',
+              'Segoe UI',
+            ],
+          );
+          // One additional frame so widgets re-render with the loaded fonts.
+          await tester.pump();
 
           if (screen.arrange != null) {
             await screen.arrange!(tester, locale);
@@ -144,6 +173,7 @@ Widget _buildScreenshotApp({
   required ScreenshotDevice device,
   required HistoryDatabase db,
   required AppSettings settings,
+  required String activePageId,
   required Widget child,
 }) {
   return ScreenshotApp(
@@ -168,7 +198,10 @@ Widget _buildScreenshotApp({
               const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test'),
         ),
       ],
-      child: Scaffold(body: child),
+      child: WpScreenshotShell(
+        activePageId: activePageId,
+        child: child,
+      ),
     ),
   );
 }
@@ -193,6 +226,7 @@ Future<void> _scrollToHotkeySection(WidgetTester tester, String locale) async {
 class _ScreenDef {
   const _ScreenDef({
     required this.name,
+    required this.activePageId,
     required this.themeMode,
     required this.builder,
     this.needsDemoData = false,
@@ -201,6 +235,7 @@ class _ScreenDef {
   });
 
   final String name;
+  final String activePageId;
   final ThemeMode themeMode;
   final Widget Function() builder;
   final bool needsDemoData;
