@@ -15,6 +15,7 @@ const isLarge = size === 'lg';
 
 <a
   href={DMG_URL}
+  onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
   class:list={[
     'wp-apple-btn',
     { 'wp-apple-btn--lg': isLarge },

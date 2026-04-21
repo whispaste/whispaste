@@ -17,6 +17,7 @@ const isLarge = size === 'lg';
   href={STORE_URL}
   target="_blank"
   rel="noopener"
+  onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
   class:list={[
     'wp-store-btn',
     { 'wp-store-btn--lg': isLarge },

@@ -24,6 +24,7 @@ import 'audio_service.dart';
 import 'desktop_paste/desktop_paste_controller.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
+import 'review_prompt_service.dart';
 import 'sound_feedback_service.dart';
 import 'stt_service.dart';
 
@@ -441,6 +442,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // Transition state: transcribing/processing → done.
       notifier.completeTranscription(finalText);
       ref.read(sttServiceProvider.notifier).notifyTranscriptionCompleted();
+      unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
       _oomAttemptCount = 0;
       pipelineOutcome = 'ok';
     } on Exception catch (e) {

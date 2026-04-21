@@ -834,5 +834,13 @@
   "settingsSttIdleTimeoutSubtitle": "How long the speech engine stays loaded after use",
   "settingsSttIdleTimeoutKeepAlive": "Keep alive",
   "settingsSttIdleTimeoutMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}",
-  "@settingsSttIdleTimeoutMinutes": { "placeholders": { "count": { "type": "int" } } }
+  "@settingsSttIdleTimeoutMinutes": { "placeholders": { "count": { "type": "int" } } },
+
+  "reviewPromptTitle": "Are you enjoying WhisPaste?",
+  "reviewPromptBody": "Your rating helps others discover it and keeps development going.",
+  "reviewPromptYes": "Loving it!",
+  "reviewPromptNotNow": "Not now",
+  "reviewPromptNever": "Never ask again",
+  "reviewPromptStarGitHub": "⭐ Star on GitHub",
+  "reviewPromptRateStore": "★ Rate on the Store"
 }
