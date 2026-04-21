@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.4
+
+### Improvements
+
+- Release now includes MSIX package for Windows, enabling direct Microsoft Store deployment and enterprise sideloading.
+
 ## 1.2.3
 
 ### Bug Fixes
