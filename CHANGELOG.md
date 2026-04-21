@@ -1,10 +1,11 @@
 # Changelog
 
-## 1.2.4
+## 1.2.5
 
 ### Improvements
 
-- Release now includes MSIX package for Windows, enabling direct Microsoft Store deployment and enterprise sideloading.
+- MSIX package for Microsoft Store deployment now included in release artifacts.
+- Windows MSIX correctly signed with Partner Center publisher identity for Store submission.
 
 ## 1.2.3
 
