@@ -146,10 +146,9 @@ jobs:
         id: build_msix
         if: steps.msix_config.outputs.skip != 'true'
         run: dart run msix:create --store
-        continue-on-error: true
 
       - name: Upload MSIX
-        if: steps.msix_config.outputs.skip != 'true' && steps.build_msix.outcome == 'success'
+        if: steps.msix_config.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: msix-release
@@ -222,13 +221,12 @@ jobs:
   create-release:
     name: Create GitHub Release
     needs: [build-windows, build-macos, build-msix]
-    # Run only on tag pushes and only when the mandatory builds succeeded.
-    # MSIX is best-effort — allow it to fail without blocking the release.
+    # All three builds must succeed for a release.
     if: |
       startsWith(github.ref, 'refs/tags/v') &&
       needs.build-windows.result == 'success' &&
       needs.build-macos.result == 'success' &&
-      needs.build-msix.result != 'cancelled'
+      needs.build-msix.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -254,7 +252,6 @@ jobs:
         with:
           name: msix-release
           path: artifacts/
-        continue-on-error: true
 
       - name: Generate release notes
         id: notes
