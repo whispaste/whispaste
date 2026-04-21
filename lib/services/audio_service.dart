@@ -175,20 +175,22 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     // Subscribe to amplitude before starting (the stream auto-starts).
     _amplitudeSub?.cancel();
     _amplitudeSub = recorder
-        .onAmplitudeChanged(const Duration(milliseconds: 100))
+        .onAmplitudeChanged(const Duration(milliseconds: 80))
         .listen(
       (amp) {
         // Convert dBFS (negative, -∞ to 0) to linear 0.0–1.0.
-        // Clamp to a useful range (-60 dB = silence floor).
+        // Clamp to a useful range: -60 dB silence floor.
+        // macOS AVFoundation reports lower amplitudes than Windows WASAPI,
+        // so boost multiplier is set high enough to cover both platforms.
         final db = amp.current;
         if (db <= -60.0) {
           _amplitudeController?.add(0.0);
           return;
         }
-        // Linear dB conversion + sqrt boost for visual presence
-        // (matches Windows native SetAudioLevel boost).
         final raw = math.pow(10.0, db / 20.0).toDouble().clamp(0.0, 1.0);
-        final boosted = (math.sqrt(raw) * 1.5).clamp(0.0, 1.0);
+        // sqrt expansion + 1.8x boost for consistent visual presence
+        // across Windows (WASAPI) and macOS (AVFoundation).
+        final boosted = (math.sqrt(raw) * 1.8).clamp(0.0, 1.0);
         _amplitudeController?.add(boosted);
       },
       onError: (Object e) {
