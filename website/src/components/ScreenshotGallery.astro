@@ -15,21 +15,42 @@ const screens = [
 ---
 
 <div class="gallery-root" id="screenshot-gallery">
-  <!-- Theme toggle -->
+  <!-- Controls: platform + theme toggles -->
   <div class="gallery-controls">
-    <div class="gallery-toggles">
-      <button
-        class="gallery-toggle gallery-toggle--active"
-        data-gallery-theme="dark"
-        aria-pressed="true"
-        data-i18n="gallery.themeDark"
-      >Dark</button>
-      <button
-        class="gallery-toggle"
-        data-gallery-theme="light"
-        aria-pressed="false"
-        data-i18n="gallery.themeLight"
-      >Light</button>
+    <div class="gallery-control-row">
+      <!-- Platform toggle -->
+      <div class="gallery-toggles" role="group" aria-label="Platform">
+        <button
+          class="gallery-toggle gallery-toggle--active"
+          data-gallery-platform="windows"
+          aria-pressed="true"
+          data-i18n="gallery.platformWindows"
+        >Windows</button>
+        <button
+          class="gallery-toggle"
+          data-gallery-platform="macos"
+          aria-pressed="false"
+          data-i18n="gallery.platformMac"
+        >macOS</button>
+      </div>
+
+      <div class="gallery-control-divider" aria-hidden="true"></div>
+
+      <!-- Theme toggle -->
+      <div class="gallery-toggles" role="group" aria-label="Theme">
+        <button
+          class="gallery-toggle gallery-toggle--active"
+          data-gallery-theme="dark"
+          aria-pressed="true"
+          data-i18n="gallery.themeDark"
+        >Dark</button>
+        <button
+          class="gallery-toggle"
+          data-gallery-theme="light"
+          aria-pressed="false"
+          data-i18n="gallery.themeLight"
+        >Light</button>
+      </div>
     </div>
   </div>
 
@@ -40,7 +61,7 @@ const screens = [
         <button
           class="gallery-thumb-btn"
           data-gallery-idx={idx}
-          data-gallery-src-template={`/screenshots/{lang}/{theme}/${screen.id}.png`}
+          data-gallery-id={screen.id}
           aria-label={`${screen.defaultLabel} — click to enlarge`}
           data-aria-label-en={`${screen.defaultLabel} — click to enlarge`}
           data-aria-label-de={`${screen.deLabel} — klicken zum Vergrößern`}
@@ -50,12 +71,12 @@ const screens = [
           <img
             class="gallery-image"
             src={`/screenshots/en/dark/${screen.id}.png`}
-            data-gallery-src-template={`/screenshots/{lang}/{theme}/${screen.id}.png`}
+            data-gallery-id={screen.id}
             alt={screen.defaultLabel}
             data-alt-en={screen.defaultLabel}
             data-alt-de={screen.deLabel}
-            width="1366"
-            height="768"
+            width="1920"
+            height="1080"
             loading={idx === 0 ? 'eager' : 'lazy'}
             decoding="async"
           />
@@ -89,6 +110,25 @@ const screens = [
     display: flex;
     justify-content: center;
     margin-bottom: 2rem;
+  }
+
+  .gallery-control-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .gallery-control-divider {
+    width: 1px;
+    height: 1.25rem;
+    background: rgba(255, 255, 255, 0.12);
+    margin: 0 0.25rem;
+  }
+
+  html.light .gallery-control-divider {
+    background: #e2e8f0;
   }
 
   .gallery-toggles {
@@ -245,29 +285,46 @@ const screens = [
 </style>
 
 <script>
+  import { detectPlatform } from '../scripts/platform';
+
   function initGallery() {
     const root = document.getElementById('screenshot-gallery');
     if (!root) return;
 
     const themeToggles = root.querySelectorAll<HTMLButtonElement>('[data-gallery-theme]');
+    const platformToggles = root.querySelectorAll<HTMLButtonElement>('[data-gallery-platform]');
     const thumbButtons = root.querySelectorAll<HTMLButtonElement>('.gallery-thumb-btn');
 
     let galleryTheme = 'dark';
+    let galleryPlatform: 'windows' | 'macos' =
+      detectPlatform() === 'macos' ? 'macos' : 'windows';
 
     function getLang(): string {
       return document.documentElement.lang === 'de' ? 'de' : 'en';
     }
 
+    function buildSrc(id: string, lang: string, theme: string): string {
+      const prefix = galleryPlatform === 'macos' ? 'mac/' : '';
+      return `/screenshots/${prefix}${lang}/${theme}/${id}.png`;
+    }
+
+    function syncPlatformToggles() {
+      platformToggles.forEach(btn => {
+        const active = btn.dataset.galleryPlatform === galleryPlatform;
+        btn.classList.toggle('gallery-toggle--active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    }
+
     function updateImages() {
       const lang = getLang();
-      root.querySelectorAll<HTMLImageElement>('img[data-gallery-src-template]').forEach(img => {
-        const tmpl = img.dataset.gallerySrcTemplate!;
-        const newSrc = tmpl.replace('{lang}', lang).replace('{theme}', galleryTheme);
-        if (img.src !== newSrc) img.src = newSrc;
+      root.querySelectorAll<HTMLImageElement>('img[data-gallery-id]').forEach(img => {
+        const id = img.dataset.galleryId!;
+        const newSrc = buildSrc(id, lang, galleryTheme);
+        if (img.getAttribute('src') !== newSrc) img.src = newSrc;
         const alt = lang === 'de' ? img.dataset.altDe : img.dataset.altEn;
         if (alt) img.alt = alt;
       });
-      // Sync aria-labels on buttons
       root.querySelectorAll<HTMLElement>('[data-aria-label-en]').forEach(el => {
         const label = lang === 'de' ? el.dataset.ariaLabelDe : el.dataset.ariaLabelEn;
         if (label) el.setAttribute('aria-label', label);
@@ -277,10 +334,22 @@ const screens = [
     function buildLightboxImages(): Array<{ src: string; alt: string }> {
       const lang = getLang();
       return Array.from(root.querySelectorAll<HTMLImageElement>('.gallery-image')).map(img => ({
-        src: img.dataset.gallerySrcTemplate!.replace('{lang}', lang).replace('{theme}', galleryTheme),
+        src: buildSrc(img.dataset.galleryId!, lang, galleryTheme),
         alt: img.alt,
       }));
     }
+
+    // Initialise platform toggle state
+    syncPlatformToggles();
+
+    // Platform toggles
+    platformToggles.forEach(btn => {
+      btn.addEventListener('click', () => {
+        galleryPlatform = (btn.dataset.galleryPlatform as 'windows' | 'macos') || 'windows';
+        syncPlatformToggles();
+        updateImages();
+      });
+    });
 
     // Theme toggles
     themeToggles.forEach(btn => {
