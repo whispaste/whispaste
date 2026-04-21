@@ -12,7 +12,7 @@ const sharp = require('sharp');
 
 const {
   STORE_SIZES,
-  PRIMARY_STORE,
+  ENABLED_STORES,
   FUTURE_STORES,
   SCREENS,
   OUTPUT,
@@ -23,6 +23,7 @@ const {
 } = require('./config');
 
 const TEMPLATE_PATH = path.resolve(__dirname, 'template.html');
+const PRIMARY_STORE = ENABLED_STORES[0];
 const SCREEN_WIDTH = STORE_SIZES[PRIMARY_STORE].width;
 const SCREEN_HEIGHT = STORE_SIZES[PRIMARY_STORE].height;
 const NUM_SCREENS = SCREENS.length;
@@ -151,8 +152,9 @@ async function renderPanorama(lang) {
   }
 }
 
-async function sliceMicrosoftScreens(panoramaPath, lang) {
-  const outputDir = path.join(OUTPUT, lang, PRIMARY_STORE);
+async function sliceForStore(panoramaPath, lang, storeId) {
+  const store = STORE_SIZES[storeId];
+  const outputDir = path.join(OUTPUT, lang, storeId);
   cleanDir(outputDir);
 
   const storeFiles = [];
@@ -160,17 +162,23 @@ async function sliceMicrosoftScreens(panoramaPath, lang) {
     const number = String(index + 1).padStart(2, '0');
     const outputPath = path.join(outputDir, `${number}_${SCREENS[index].id}.png`);
 
-    await sharp(panoramaPath)
-      .extract({
-        left: index * SCREEN_WIDTH,
-        top: 0,
-        width: SCREEN_WIDTH,
-        height: SCREEN_HEIGHT,
-      })
-      .png()
-      .toFile(outputPath);
+    let pipeline = sharp(panoramaPath).extract({
+      left: index * SCREEN_WIDTH,
+      top: 0,
+      width: SCREEN_WIDTH,
+      height: SCREEN_HEIGHT,
+    });
 
-    console.log(`  🖼️  ${path.basename(outputPath)} (${SCREEN_WIDTH}×${SCREEN_HEIGHT})`);
+    // Resize when the store requires different dimensions than the base render.
+    if (store.width !== SCREEN_WIDTH || store.height !== SCREEN_HEIGHT) {
+      pipeline = pipeline.resize(store.width, store.height, { fit: 'cover' });
+    }
+
+    await pipeline.png().toFile(outputPath);
+
+    console.log(
+      `  🖼️  [${storeId}] ${path.basename(outputPath)} (${store.width}×${store.height})`,
+    );
     storeFiles.push(outputPath);
   }
 
@@ -205,14 +213,19 @@ async function generateScreenshots(lang, copyWebsite) {
   console.log(`\n🎨 Generating ${lang.toUpperCase()} screenshots...`);
 
   const panoramaPath = await renderPanorama(lang);
-  const files = await sliceMicrosoftScreens(panoramaPath, lang);
+
+  let primaryFiles = [];
+  for (const storeId of ENABLED_STORES) {
+    const files = await sliceForStore(panoramaPath, lang, storeId);
+    if (storeId === PRIMARY_STORE) primaryFiles = files;
+  }
 
   if (copyWebsite) {
-    copyStoreScreensToWebsite(lang, files);
+    copyStoreScreensToWebsite(lang, primaryFiles);
     copyUiScreensToWebsite(lang);
   }
 
-  console.log(`✅ ${lang.toUpperCase()} done — ${files.length} screenshots`);
+  console.log(`✅ ${lang.toUpperCase()} done — ${ENABLED_STORES.length} store(s), ${primaryFiles.length} screenshots each`);
 }
 
 async function main() {
@@ -235,9 +248,7 @@ async function main() {
   console.log('🚀 WhisPaste Store Screenshot Generator');
   console.log(`   Screens: ${NUM_SCREENS}`);
   console.log(`   Languages: ${langs.join(', ')}`);
-  console.log(
-    `   Primary format: ${STORE_SIZES[PRIMARY_STORE].label} (${SCREEN_WIDTH}×${SCREEN_HEIGHT})`,
-  );
+  console.log(`   Stores: ${ENABLED_STORES.map((id) => `${STORE_SIZES[id].label} (${STORE_SIZES[id].width}×${STORE_SIZES[id].height})`).join(', ')}`);
 
   if (FUTURE_STORES.length > 0) {
     const stores = FUTURE_STORES
