@@ -2243,4 +2243,26 @@ class L10nEn extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get reviewPromptTitle => 'Are you enjoying WhisPaste?';
+
+  @override
+  String get reviewPromptBody =>
+      'Your rating helps others discover it and keeps development going.';
+
+  @override
+  String get reviewPromptYes => 'Loving it!';
+
+  @override
+  String get reviewPromptNotNow => 'Not now';
+
+  @override
+  String get reviewPromptNever => 'Never ask again';
+
+  @override
+  String get reviewPromptStarGitHub => '⭐ Star on GitHub';
+
+  @override
+  String get reviewPromptRateStore => '★ Rate on the Store';
 }
