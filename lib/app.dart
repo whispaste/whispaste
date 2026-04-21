@@ -260,6 +260,13 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       ref.read(sttServiceProvider.notifier).stop();
     } catch (_) {}
 
+    try {
+      await ref
+          .read(historyDatabaseProvider)
+          .close()
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {}
+
     await windowManager.destroy();
   }
 
