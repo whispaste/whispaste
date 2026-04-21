@@ -63,8 +63,8 @@ import AppleButton from './AppleButton.astro';
 >
   <!-- Primary row: Microsoft Store (Windows) + macOS side by side -->
   <div class="flex flex-wrap items-stretch justify-center gap-3">
-    <StoreButton size="lg" />
-    <AppleButton size="lg" />
+    <div data-platform-btn="windows"><StoreButton size="lg" /></div>
+    <div data-platform-btn="macos"><AppleButton size="lg" /></div>
   </div>
 
   <p class="text-xs text-gray-500 flex items-center gap-1">
