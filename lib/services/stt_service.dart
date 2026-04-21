@@ -38,6 +38,7 @@ class SttStatus {
     this.startingSince,
     this.isBenchmarking = false,
     this.benchmarkingTier,
+    this.cpuFallbackActive = false,
   });
 
   final SttServerState serverState;
@@ -55,6 +56,10 @@ class SttStatus {
   /// Which tier is currently being benchmarked, if any.
   final QualityTier? benchmarkingTier;
 
+  /// True when the GPU crashed and the server restarted on CPU automatically.
+  /// Resets when the user changes the GPU setting or active model.
+  final bool cpuFallbackActive;
+
   bool get isReady => serverState == SttServerState.ready;
 
   String get endpoint => 'http://127.0.0.1:$port';
@@ -68,6 +73,7 @@ class SttStatus {
     bool? isBenchmarking,
     QualityTier? benchmarkingTier,
     bool clearBenchmarkingTier = false,
+    bool? cpuFallbackActive,
   }) {
     return SttStatus(
       serverState: serverState ?? this.serverState,
@@ -79,12 +85,14 @@ class SttStatus {
       benchmarkingTier: clearBenchmarkingTier
           ? null
           : (benchmarkingTier ?? this.benchmarkingTier),
+      cpuFallbackActive: cpuFallbackActive ?? this.cpuFallbackActive,
     );
   }
 
   @override
   String toString() =>
-      'SttStatus($serverState, port=$port, model=$modelId, benchmarking=$isBenchmarking)';
+      'SttStatus($serverState, port=$port, model=$modelId, '
+      'benchmarking=$isBenchmarking, cpuFallback=$cpuFallbackActive)';
 }
 
 // ---------------------------------------------------------------------------
@@ -133,6 +141,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   /// await the same future instead of spawning a second process.
   Completer<void>? _startCompleter;
 
+  /// When true, the GPU crashed with a fatal error and [_start] should use CPU.
+  /// Reset when the user explicitly changes the GPU setting or active model.
+  bool _gpuFallbackActive = false;
+
   /// Debounce timer for model-change pre-warm.
   Timer? _modelChangeDebounce;
 
@@ -158,6 +170,13 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       final prevSettings = prev?.value;
       final nextSettings = next.value;
       if (prevSettings == null || nextSettings == null) return;
+
+      // Reset CPU fallback when the user explicitly changes GPU mode or model
+      // so that GPU is retried under the new configuration.
+      if (prevSettings.gpuAcceleration != nextSettings.gpuAcceleration ||
+          prevSettings.effectiveModelId != nextSettings.effectiveModelId) {
+        _gpuFallbackActive = false;
+      }
 
       final prevModel = prevSettings.effectiveModelId;
       final nextModel = nextSettings.effectiveModelId;
@@ -226,7 +245,11 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     _startCompleter = Completer<void>();
     try {
-      await _start(modelId: modelId, gpuAcceleration: settings.gpuAcceleration);
+      await _start(
+        modelId: modelId,
+        gpuAcceleration:
+            _gpuFallbackActive ? 'disabled' : settings.gpuAcceleration,
+      );
       _startCompleter?.complete();
     } on Exception catch (e) {
       _startCompleter?.completeError(e);
@@ -270,7 +293,8 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
       await _start(
         modelId: currentModelId,
-        gpuAcceleration: settings.gpuAcceleration,
+        gpuAcceleration:
+            _gpuFallbackActive ? 'disabled' : settings.gpuAcceleration,
       );
       _log.info('Re-benchmark completed for $currentModelId');
     } on Exception catch (e) {
@@ -862,10 +886,34 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       );
       return;
     }
-    if (!await File(modelPath).exists()) {
+    final modelFile = File(modelPath);
+    if (!await modelFile.exists()) {
       _fail(
         'STT model file not found at $modelPath. '
         'Download the model first.',
+      );
+      return;
+    }
+    // Guard against partial or corrupted model downloads: even a 0-byte file
+    // passes the exists() check but causes whisper-server to exit with code 3.
+    // The smallest valid quantised model (whisper-tiny q5_1) is ~37 MB.
+    const minModelBytes = 10 * 1024 * 1024; // 10 MB safety floor
+    final modelFileSize = await modelFile.length();
+    if (modelFileSize < minModelBytes) {
+      _log.error(
+        'STT model file appears corrupted: $modelPath '
+        '($modelFileSize bytes, expected >$minModelBytes).',
+      );
+      unawaited(
+        modelFile.delete().catchError((Object e) {
+          _log.warning('Failed to delete corrupt model file: $e');
+          return modelFile;
+        }),
+      );
+      _fail(
+        'STT model file is incomplete or corrupted '
+        '(${(modelFileSize / 1024).round()} KB). '
+        'Please re-download the model in Settings.',
       );
       return;
     }
@@ -994,6 +1042,18 @@ class SttServiceNotifier extends Notifier<SttStatus> {
           // Windows STATUS_DLL_NOT_FOUND (0xC0000135) indicates a binary
           // variant mismatch — e.g. CUDA build on a system without NVIDIA.
           final isDllNotFound = Platform.isWindows && code == -1073741515;
+
+          // Windows 0xC0000409 (STATUS_STACK_BUFFER_OVERRUN): fatal CUDA abort.
+          // Occurs when a GPU feature unsupported by the hardware is invoked at
+          // runtime — most commonly flash-attn on pre-Turing GPUs (sm_30/50/61).
+          // Also triggered by VRAM exhaustion on cards with very limited memory.
+          final isCudaFatalAbort = Platform.isWindows && code == -1073740791;
+
+          // Exit code 3 from whisper-server = model file could not be loaded.
+          // Possible causes: corrupted/partial download that passed exists()
+          // check, or a file-format version mismatch with the bundled binary.
+          final isModelLoadError = code == 3;
+
           if (isDllNotFound) {
             _log.error(
               'whisper-server crashed: missing DLL (exit code $code). '
@@ -1003,6 +1063,63 @@ class SttServiceNotifier extends Notifier<SttStatus> {
             // Delete the wrong binary so the next download fetches the
             // correct variant based on GPU detection.
             unawaited(hw.deleteServerBinary(sttDir()));
+          } else if (isCudaFatalAbort) {
+            if (!_gpuFallbackActive) {
+              // First GPU fatal crash: silently activate CPU fallback.
+              // The next ensureRunning() call will start the server on CPU.
+              _gpuFallbackActive = true;
+              _log.warning(
+                'GPU fatal abort (code $code / 0xC0000409) on "${gpu.name}" '
+                '— CPU fallback activated; next recording uses CPU backend.',
+              );
+              _process = null;
+              _activeModel = null;
+              // Transition to stopped so ensureRunning() restarts cleanly
+              // on the next recording without showing an error.
+              _transition(const SttStatus(serverState: SttServerState.stopped));
+              return;
+            }
+            // CPU fallback was already active — this is a real failure.
+            _log.error(
+              'whisper-server GPU fatal abort (code $code / 0xC0000409) on '
+              '"${gpu.name}" and CPU fallback also failed.',
+            );
+          } else if (isModelLoadError) {
+            // exit code 3 = whisper_init_from_file failed; this is most
+            // commonly caused by a partial/corrupted download.
+            // Only auto-delete when the file is demonstrably undersized (<10MB)
+            // to avoid removing a valid multi-GB model due to transient I/O
+            // or permission errors.
+            final badPath = sttModelPath(modelId);
+            if (badPath != null) {
+              unawaited(() async {
+                try {
+                  final badFile = File(badPath);
+                  if (await badFile.exists()) {
+                    final sz = await badFile.length();
+                    if (sz < 10 * 1024 * 1024) {
+                      await badFile.delete();
+                      _log.error(
+                        'whisper-server failed to load model (code $code). '
+                        'Corrupt file deleted for re-download.',
+                      );
+                      return;
+                    }
+                  }
+                } catch (e) {
+                  _log.warning('Could not inspect/delete bad model file: $e');
+                }
+                _log.error(
+                  'whisper-server failed to load model (code $code). '
+                  'Model file may be corrupted — please re-download.',
+                );
+              }());
+            } else {
+              _log.error(
+                'whisper-server failed to load model (code $code). '
+                'Model file may be corrupted — please re-download.',
+              );
+            }
           } else {
             _log.error('whisper-server exited unexpectedly (code $code)');
           }
@@ -1014,6 +1131,13 @@ class SttServiceNotifier extends Notifier<SttStatus> {
               errorMessage: isDllNotFound
                   ? 'Incompatible server binary for your GPU. '
                         'Please re-download the speech model in Settings.'
+                  : isCudaFatalAbort
+                  // CPU fallback was active but also crashed.
+                  ? 'Speech engine failed on both GPU and CPU (code $code). '
+                        'Please restart the app or re-download the model.'
+                  : isModelLoadError
+                  ? 'STT model file is corrupted. '
+                        'Please re-download the model in Settings.'
                   : 'whisper-server exited before becoming ready (code $code)',
             ),
           );
@@ -1038,9 +1162,13 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       _fail('whisper-server not ready: $e');
       return;
     } on _EarlyExitException catch (e) {
-      // Process already gone — stop() would fail, just reset state.
       _process = null;
       _activeModel = null;
+      // Suppress the stale EarlyExitException ONLY for the GPU _start() that
+      // was interrupted when the fallback activated (exit handler already
+      // transitioned state to stopped). CPU _start() failures must not be
+      // suppressed, so we gate on gpuAcceleration != 'disabled'.
+      if (_gpuFallbackActive && gpuAcceleration != 'disabled') return;
       _fail(e.message);
       return;
     }
@@ -1081,6 +1209,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
         serverState: SttServerState.ready,
         port: port,
         modelId: modelId,
+        cpuFallbackActive: _gpuFallbackActive,
       ),
     );
   }

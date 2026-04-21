@@ -4,6 +4,7 @@ import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
 import StoreButton from "../components/StoreButton.astro";
 import AppleButton from "../components/AppleButton.astro";
+import DownloadSupportModal from "../components/DownloadSupportModal.astro";
 ---
 
 <Layout title="Download WhisPaste" description="Download WhisPaste for Windows and macOS — via Microsoft Store, DMG, or free from GitHub.">
@@ -215,6 +216,7 @@ import AppleButton from "../components/AppleButton.astro";
     </main>
     <Footer variant="subpage" />
   </div>
+  <DownloadSupportModal />
 
   <script>
     import { applyLang } from '../scripts/i18n';

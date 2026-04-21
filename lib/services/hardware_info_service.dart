@@ -120,8 +120,33 @@ class GpuInfo {
   /// Whether any GPU is available for acceleration.
   bool get hasGpu => vendor != GpuVendor.none;
 
-  /// Whether flash attention is supported (CUDA-only currently).
-  bool get supportsFlashAttn => vendor == GpuVendor.nvidia && cudaAvailable;
+  /// Whether flash attention is supported.
+  ///
+  /// Flash Attention in whisper.cpp requires CUDA compute capability sm_75+
+  /// (Turing architecture, 2018+). Older NVIDIA cards (Kepler sm_30, Maxwell
+  /// sm_50, Pascal sm_61) will crash with an illegal instruction or fatal
+  /// abort when `--flash-attn` is passed.
+  ///
+  /// Heuristic: RTX branding guarantees Turing+. GTX 16xx (1630/1650/1660)
+  /// are Turing-architecture cards sold under the GTX label. Professional
+  /// datacenter cards (A-series, T4, L-series, H-series) are Ampere+.
+  /// All other GTX cards are Maxwell/Pascal and must not use flash-attn.
+  bool get supportsFlashAttn {
+    if (vendor != GpuVendor.nvidia || !cudaAvailable) return false;
+    final upper = name.toUpperCase();
+    // RTX branding: Turing (20xx), Ampere (30xx), Ada (40xx), Blackwell (50xx)
+    if (upper.contains('RTX')) return true;
+    // GTX 16xx series: Turing architecture with GTX branding (1630/1650/1660)
+    if (RegExp(r'GTX\s*16\d\d').hasMatch(upper)) return true;
+    // NVIDIA datacenter/professional Turing+ cards
+    if (RegExp(r'\b(T4|A10G?|A16|A30|A40|A100|A800|L4|L40S?|H100|H200)\b')
+        .hasMatch(upper)) {
+      return true;
+    }
+    // All other GTX cards (6xx Kepler, 7xx Kepler/Maxwell, 9xx Maxwell,
+    // 10xx Pascal) do not support flash attention.
+    return false;
+  }
 
   @override
   String toString() =>
