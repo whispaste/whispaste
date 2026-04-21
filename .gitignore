@@ -78,6 +78,7 @@ scripts/*
 !scripts/setup-gh-secrets.py
 !scripts/GITHUB-SECRETS-SETUP.md
 !scripts/generate-screenshots.py
+!scripts/generate-store-icons.py
 !scripts/store-screenshots.py
 !scripts/capture-store-screenshots.py
 !scripts/premium-screenshots.py
@@ -102,6 +103,8 @@ test/screenshots/failures/
 
 # Store screenshot tool output (generated, not tracked)
 tools/appstore-screens/output/
+# Store icon generator output (generated, not tracked)
+tools/store-icons/output/
 website/public/screenshots/store/
 website/public/screenshots/ui/
 

@@ -207,6 +207,21 @@ def step_node(node: str, script: str, label: str) -> bool:
     return True
 
 
+def step_store_icons() -> int:
+    """Run generate-store-icons.py to produce all platform store logos."""
+    print("\n🏷️  Generating store icons (MS Store, Mac App Store, iOS, Google Play)...")
+    icon_script = ROOT / "scripts" / "generate-store-icons.py"
+    result = subprocess.run(
+        [sys.executable, str(icon_script), "--clean"],
+        cwd=str(ROOT),
+    )
+    if result.returncode != 0:
+        print("\n❌ Store icon generation failed — check output above.")
+        return 0
+    icons_out = ROOT / "tools" / "store-icons" / "output"
+    return sum(1 for _ in icons_out.rglob("*.png"))
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -225,6 +240,11 @@ def main() -> None:
         "--no-composites",
         action="store_true",
         help="Skip Node.js composite/OG-image generation (goldens + website copy only)",
+    )
+    parser.add_argument(
+        "--no-icons",
+        action="store_true",
+        help="Skip store icon generation (MS Store / Mac / iOS / Google Play logos)",
     )
     parser.add_argument(
         "--no-clean",
@@ -264,6 +284,12 @@ def main() -> None:
     else:
         print("\n⏭  Skipping composites (--no-composites)")
 
+    icon_count = 0
+    if not args.no_icons:
+        icon_count = step_store_icons()
+    else:
+        print("\n⏭  Skipping store icons (--no-icons)")
+
     print()
     print("=" * 60)
     print("  ✅ Done!")
@@ -276,6 +302,8 @@ def main() -> None:
         print(f"  🪟 {ms_count * 2} MS Store composites → tools/appstore-screens/output/{{en,de}}/microsoft/")
         print(f"  🍎 {mac_count * 2} Mac App Store composites → tools/appstore-screens/output/{{en,de}}/mac/")
         print(f"  🖼️  2 OG images → website/public/og-image{{,-de}}.png")
+    if icon_count:
+        print(f"  🏷️  {icon_count} store logo icons → tools/store-icons/output/")
     print("=" * 60)
 
 
