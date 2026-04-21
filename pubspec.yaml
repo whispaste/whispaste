@@ -103,8 +103,8 @@ flutter:
 msix_config:
   display_name: WhisPaste
   publisher_display_name: WhisPaste
-  identity_name: WhisPaste
+  identity_name: com.whispaste.app
+  publisher: CN=WhisPaste
   msix_version: 1.2.3.0
   logo_path: assets/icons/app_icon.png
   capabilities: microphone, internetClient
-  store: true
