@@ -1,9 +1,12 @@
 /**
  * WhisPaste — Store Screenshot Generator
  *
- * Builds the decorated Microsoft Store screenshots from real localized UI
- * screenshots, then copies both store composites and raw UI screens into the
- * website's public assets.
+ * Builds decorated store screenshots from real localized UI screenshots,
+ * then copies composites and raw UI screens into the website's public assets.
+ *
+ * Each enabled store renders its own panorama at its own dimensions and
+ * uses its own golden screenshot set (per `goldenBase` in config.js), so
+ * Microsoft Store gets Windows chrome and Mac App Store gets macOS chrome.
  */
 const { chromium } = require('playwright');
 const path = require('path');
@@ -23,9 +26,6 @@ const {
 } = require('./config');
 
 const TEMPLATE_PATH = path.resolve(__dirname, 'template.html');
-const PRIMARY_STORE = ENABLED_STORES[0];
-const SCREEN_WIDTH = STORE_SIZES[PRIMARY_STORE].width;
-const SCREEN_HEIGHT = STORE_SIZES[PRIMARY_STORE].height;
 const NUM_SCREENS = SCREENS.length;
 
 function ensureDir(dir) {
@@ -58,30 +58,44 @@ function toDataUri(filePath) {
   return `data:image/png;base64,${buffer.toString('base64')}`;
 }
 
-function screenshotPathFor(screen, lang) {
-  const screenshotName = screen.screenshot[lang];
-  return path.join(GOLDENS, screenshotName);
+/**
+ * Resolves the golden screenshot path for a given screen, language, and store.
+ *
+ * Mac goldens live under `mac/` while Windows goldens are at the root.
+ */
+function screenshotPathFor(screen, lang, storeId) {
+  const store = STORE_SIZES[storeId];
+  const base = store.goldenBase || '';
+  return path.join(GOLDENS, base + screen.screenshot[lang]);
 }
 
 function verifySourceImages() {
-  for (const lang of ['en', 'de']) {
-    for (const screen of SCREENS) {
-      const filePath = screenshotPathFor(screen, lang);
-      if (!fs.existsSync(filePath)) {
-        throw new Error(
-          `Missing golden screenshot: ${filePath}\nRun: flutter test --update-goldens test/screenshots/`,
-        );
+  for (const storeId of ENABLED_STORES) {
+    for (const lang of ['en', 'de']) {
+      for (const screen of SCREENS) {
+        const filePath = screenshotPathFor(screen, lang, storeId);
+        if (!fs.existsSync(filePath)) {
+          throw new Error(
+            `Missing golden screenshot for store="${storeId}" lang="${lang}":\n  ${filePath}\nRun: flutter test --update-goldens test/screenshots/`,
+          );
+        }
       }
     }
   }
 }
 
-async function renderPanorama(lang) {
+/**
+ * Renders a full-width panorama (all screens side-by-side) at the store's
+ * native resolution and injects the store's CSS variables so layout is exact.
+ */
+async function renderPanorama(lang, storeId) {
+  const store = STORE_SIZES[storeId];
+  const { width: W, height: H } = store;
   const browser = await chromium.launch();
 
   try {
     const page = await browser.newPage({
-      viewport: { width: SCREEN_WIDTH * NUM_SCREENS, height: SCREEN_HEIGHT },
+      viewport: { width: W * NUM_SCREENS, height: H },
       deviceScaleFactor: 1,
     });
 
@@ -89,9 +103,15 @@ async function renderPanorama(lang) {
       waitUntil: 'networkidle',
     });
 
+    // Inject store-specific CSS variables so the template layout matches the
+    // target resolution exactly (template.html has fallback defaults).
+    await page.addStyleTag({
+      content: `:root { --screen-w: ${W}px; --screen-h: ${H}px; }`,
+    });
+
     const imageMap = {};
     for (const screen of SCREENS) {
-      imageMap[screen.id] = toDataUri(screenshotPathFor(screen, lang));
+      imageMap[screen.id] = toDataUri(screenshotPathFor(screen, lang, storeId));
     }
 
     await page.evaluate(
@@ -139,11 +159,11 @@ async function renderPanorama(lang) {
 
     const panoramaDir = path.join(OUTPUT, 'panorama');
     ensureDir(panoramaDir);
-    const panoramaPath = path.join(panoramaDir, `panorama-${lang}.png`);
+    const panoramaPath = path.join(panoramaDir, `panorama-${storeId}-${lang}.png`);
 
     await page.screenshot({ path: panoramaPath, type: 'png' });
     console.log(
-      `  📸 Panorama: panorama-${lang}.png (${SCREEN_WIDTH * NUM_SCREENS}×${SCREEN_HEIGHT})`,
+      `  📸 Panorama [${storeId}/${lang}]: ${W * NUM_SCREENS}×${H}`,
     );
 
     return panoramaPath;
@@ -152,8 +172,15 @@ async function renderPanorama(lang) {
   }
 }
 
+/**
+ * Slices the panorama into individual per-screen images.
+ *
+ * Since each panorama is already rendered at the store's native resolution,
+ * no resize is needed — each slice is exactly `W × H`.
+ */
 async function sliceForStore(panoramaPath, lang, storeId) {
   const store = STORE_SIZES[storeId];
+  const { width: W, height: H } = store;
   const outputDir = path.join(OUTPUT, lang, storeId);
   cleanDir(outputDir);
 
@@ -162,23 +189,12 @@ async function sliceForStore(panoramaPath, lang, storeId) {
     const number = String(index + 1).padStart(2, '0');
     const outputPath = path.join(outputDir, `${number}_${SCREENS[index].id}.png`);
 
-    let pipeline = sharp(panoramaPath).extract({
-      left: index * SCREEN_WIDTH,
-      top: 0,
-      width: SCREEN_WIDTH,
-      height: SCREEN_HEIGHT,
-    });
+    await sharp(panoramaPath)
+      .extract({ left: index * W, top: 0, width: W, height: H })
+      .png()
+      .toFile(outputPath);
 
-    // Resize when the store requires different dimensions than the base render.
-    if (store.width !== SCREEN_WIDTH || store.height !== SCREEN_HEIGHT) {
-      pipeline = pipeline.resize(store.width, store.height, { fit: 'cover' });
-    }
-
-    await pipeline.png().toFile(outputPath);
-
-    console.log(
-      `  🖼️  [${storeId}] ${path.basename(outputPath)} (${store.width}×${store.height})`,
-    );
+    console.log(`  🖼️  [${storeId}] ${path.basename(outputPath)} (${W}×${H})`);
     storeFiles.push(outputPath);
   }
 
@@ -189,13 +205,15 @@ function copyUiScreensToWebsite(lang) {
   const langDir = path.join(WEBSITE_UI_SCREENSHOTS, lang);
   cleanDir(langDir);
 
+  // Use the first enabled store (microsoft = Windows) for the website UI shots.
+  const primaryStore = ENABLED_STORES[0];
   for (const screen of SCREENS) {
-    const sourcePath = screenshotPathFor(screen, lang);
+    const sourcePath = screenshotPathFor(screen, lang, primaryStore);
     const fileName = path.basename(sourcePath);
     fs.copyFileSync(sourcePath, path.join(langDir, fileName));
   }
 
-  console.log(`📋 Copied ${SCREENS.length} raw UI screenshots to website/public/screenshots/ui/${lang}/`);
+  console.log(`📋 Copied ${SCREENS.length} raw UI screenshots → website/public/screenshots/ui/${lang}/`);
 }
 
 function copyStoreScreensToWebsite(lang, files) {
@@ -206,26 +224,20 @@ function copyStoreScreensToWebsite(lang, files) {
     fs.copyFileSync(filePath, path.join(langDir, path.basename(filePath)));
   }
 
-  console.log(`📋 Copied ${files.length} store screenshots to website/public/screenshots/store/${lang}/`);
+  console.log(`📋 Copied ${files.length} store screenshots → website/public/screenshots/store/${lang}/`);
 }
 
-async function generateScreenshots(lang, copyWebsite) {
-  console.log(`\n🎨 Generating ${lang.toUpperCase()} screenshots...`);
+async function generateForStore(storeId, lang, copyWebsite) {
+  const panoramaPath = await renderPanorama(lang, storeId);
+  const files = await sliceForStore(panoramaPath, lang, storeId);
 
-  const panoramaPath = await renderPanorama(lang);
-
-  let primaryFiles = [];
-  for (const storeId of ENABLED_STORES) {
-    const files = await sliceForStore(panoramaPath, lang, storeId);
-    if (storeId === PRIMARY_STORE) primaryFiles = files;
-  }
-
-  if (copyWebsite) {
-    copyStoreScreensToWebsite(lang, primaryFiles);
+  // Copy only the primary store's screenshots to the website.
+  if (copyWebsite && storeId === ENABLED_STORES[0]) {
+    copyStoreScreensToWebsite(lang, files);
     copyUiScreensToWebsite(lang);
   }
 
-  console.log(`✅ ${lang.toUpperCase()} done — ${ENABLED_STORES.length} store(s), ${primaryFiles.length} screenshots each`);
+  return files;
 }
 
 async function main() {
@@ -261,7 +273,11 @@ async function main() {
   }
 
   for (const lang of langs) {
-    await generateScreenshots(lang, copyWebsite);
+    console.log(`\n🎨 Generating ${lang.toUpperCase()} screenshots...`);
+    for (const storeId of ENABLED_STORES) {
+      await generateForStore(storeId, lang, copyWebsite);
+    }
+    console.log(`✅ ${lang.toUpperCase()} done`);
   }
 
   console.log('\n🎉 All done!');
