@@ -111,6 +111,10 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
           fontSize: 13,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.1,
+          // Explicit fontFamily ensures buttons render correctly in tests.
+          // Flutter's _ButtonStyleButton replaces DefaultTextStyle entirely,
+          // so the ThemeData.fontFamily cascade is severed without this.
+          fontFamily: 'Segoe UI',
         ),
       ),
     ),
@@ -124,7 +128,11 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
           vertical: WpSpacing.xs,
         ),
         shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
-        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        textStyle: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          fontFamily: 'Segoe UI',
+        ),
       ),
     ),
 

@@ -99,6 +99,10 @@ wack-report.xml
 !test/screenshots/
 test/screenshots/failures/
 
+# Store screenshot tool output (generated, not tracked)
+tools/appstore-screens/output/
+tools/og-image/output/
+
 # Sentry native build artifacts
 .sentry-native/
 
