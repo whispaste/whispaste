@@ -177,8 +177,8 @@ class _WaveformPainter extends CustomPainter {
       final fastWave =
           math.sin((phaseC[i] + tick * 5.3) * math.pi * 2) * 0.10;
 
-      // Combined modulation: 0.40 base + up to ±0.60 from waves.
-      final modulation = (0.40 + slowWave + midWave + fastWave).clamp(0.0, 1.0);
+      // Combined modulation: 0.10 base + up to ±0.60 from waves.
+      final modulation = (0.10 + slowWave + midWave + fastWave).clamp(0.0, 1.0);
 
       // Final bar height blends audio level with organic motion.
       final level = (boostedLevel * taper * modulation).clamp(0.0, 1.0);

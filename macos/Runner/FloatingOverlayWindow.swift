@@ -155,6 +155,7 @@ class FloatingOverlayView: NSView {
   // Waveform bars — 12 bars with smooth interpolation.
   private var waveTarget: [CGFloat] = Array(repeating: 0, count: kBarCount)
   private var waveDisplay: [CGFloat] = Array(repeating: 0, count: kBarCount)
+  private var currentAudioLevel: CGFloat = 0
 
   // MARK: - Lifecycle
 
@@ -179,7 +180,25 @@ class FloatingOverlayView: NSView {
   }
 
   private func tick() {
-    // Interpolate waveform bars toward targets.
+    let now = CACurrentMediaTime()
+    let maxH: CGFloat = isCompact ? 16 : 24
+    let minH: CGFloat = 1.0
+
+    // Recompute waveform targets every frame using two-oscillator synthesis.
+    // This gives organic, always-moving bars even at low audio levels.
+    if recordingState == .recording || recordingState == .listening {
+      for i in 0..<kBarCount {
+        let phase1 = Double(i) * 0.71
+        let phase2 = Double(i) * 1.37
+        let slow = sin(phase1 + now * 2.5)
+        let fast = sin(phase2 + now * 7.1)
+        let wave = slow * 0.65 + fast * 0.35
+        let norm = (wave + 1.0) / 2.0
+        waveTarget[i] = minH + CGFloat(norm) * currentAudioLevel * (maxH - minH)
+      }
+    }
+
+    // Smooth lerp toward targets.
     var changed = false
     for i in 0..<kBarCount {
       let diff = waveTarget[i] - waveDisplay[i]
@@ -203,14 +222,7 @@ class FloatingOverlayView: NSView {
   }
 
   private func updateWaveformTarget() {
-    let level = CGFloat(min(max(audioLevel, 0), 1))
-    let maxH: CGFloat = isCompact ? 16 : 24
-    for i in 0..<kBarCount {
-      // Windows: bar_h = 4 + level * (h - 4), with variation per bar
-      let variation = CGFloat(sin(Double(i) * 0.7 + CACurrentMediaTime() * 4)) * 0.3 + 0.7
-      let barLevel = level * variation
-      waveTarget[i] = 4 + barLevel * (maxH - 4)
-    }
+    currentAudioLevel = CGFloat(min(max(audioLevel, 0), 1))
   }
 
   private func resizePill() {

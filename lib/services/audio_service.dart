@@ -188,9 +188,10 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
           return;
         }
         final raw = math.pow(10.0, db / 20.0).toDouble().clamp(0.0, 1.0);
-        // sqrt expansion + 1.8x boost for consistent visual presence
-        // across Windows (WASAPI) and macOS (AVFoundation).
-        final boosted = (math.sqrt(raw) * 1.8).clamp(0.0, 1.0);
+        // sqrt expansion + platform-aware boost for consistent visual presence:
+        // macOS (AVFoundation) reports lower amplitudes than Windows (WASAPI)
+        // so we use a smaller multiplier on macOS to avoid over-boosting.
+        final boosted = (math.sqrt(raw) * (Platform.isMacOS ? 1.2 : 1.8)).clamp(0.0, 1.0);
         _amplitudeController?.add(boosted);
       },
       onError: (Object e) {

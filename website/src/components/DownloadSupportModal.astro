@@ -1,0 +1,259 @@
+---
+// DownloadSupportModal.astro — appears ~1.5s after a download button is clicked.
+// Uses native <dialog> for free focus-trap and Escape-key handling.
+---
+
+<dialog 
+  id="dl-support-modal" 
+  aria-labelledby="dlm-title"
+  class="dlm-dialog"
+>
+  <div class="dlm-card">
+    <!-- Close button (autofocus for immediate keyboard escape) -->
+    <button class="dlm-close" id="dlm-close" autofocus aria-label="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <!-- Success header -->
+    <div class="dlm-icon" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+    </div>
+    <h2 class="dlm-title" id="dlm-title" data-i18n="downloadModal.heading">Your download is starting!</h2>
+    <p class="dlm-body" data-i18n="downloadModal.body">WhisPaste is free — here's how to help it grow:</p>
+
+    <!-- Action list -->
+    <ul class="dlm-actions" role="list">
+      <li>
+        <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="dlm-action-link">
+          <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span data-i18n="downloadModal.starGitHub">⭐ Star on GitHub</span>
+          <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </li>
+      <li data-platform-btn="windows">
+        <a href="https://apps.microsoft.com/detail/9p22jvkrq2v0?hl=en-us&gl=US#activetab=pivot:reviewsTab" target="_blank" rel="noopener" class="dlm-action-link">
+          <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span data-i18n="downloadModal.rateMsStore">★ Rate on Microsoft Store</span>
+          <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </li>
+      <li data-platform-btn="macos">
+        <a href="https://apps.apple.com/app/whispaste" target="_blank" rel="noopener" class="dlm-action-link">
+          <svg class="dlm-action-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span data-i18n="downloadModal.rateAppStore">★ Rate on Mac App Store</span>
+          <svg class="dlm-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </li>
+    </ul>
+
+    <!-- Muted sponsor row -->
+    <p class="dlm-sponsor">
+      <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" class="dlm-sponsor-link" data-i18n="downloadModal.support">Or sponsor us on GitHub / buy a coffee on Ko-fi</a>
+    </p>
+
+    <!-- Dismiss -->
+    <button class="dlm-later" id="dlm-later" data-i18n="downloadModal.maybeLater">Maybe later</button>
+  </div>
+</dialog>
+
+<style>
+  .dlm-dialog {
+    padding: 0;
+    border: none;
+    background: transparent;
+    max-width: min(420px, calc(100vw - 2rem));
+    width: 100%;
+  }
+
+  .dlm-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  .dlm-card {
+    position: relative;
+    background: #0e1521;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 2rem;
+    text-align: center;
+    animation: dlm-slide-up 300ms ease-out;
+  }
+
+  @keyframes dlm-slide-up {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dlm-card { animation: none; }
+  }
+
+  .dlm-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: rgba(255,255,255,0.04);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: rgba(255,255,255,0.5);
+    transition: background 0.15s, color 0.15s;
+  }
+  .dlm-close:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .dlm-close:focus-visible { outline: 2px solid #38D9F0; outline-offset: 2px; }
+
+  .dlm-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(56, 217, 240, 0.1);
+    border: 1px solid rgba(56, 217, 240, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    color: #38D9F0;
+  }
+
+  .dlm-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 0.5rem;
+    line-height: 1.3;
+  }
+
+  .dlm-body {
+    font-size: 0.875rem;
+    color: rgba(255,255,255,0.5);
+    margin: 0 0 1.25rem;
+    line-height: 1.5;
+  }
+
+  .dlm-actions {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: left;
+  }
+
+  .dlm-action-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.02);
+    color: rgba(255,255,255,0.75);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .dlm-action-link:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.15);
+    color: #fff;
+  }
+  .dlm-action-link:focus-visible { outline: 2px solid #38D9F0; outline-offset: 2px; }
+
+  .dlm-action-icon { width: 14px; height: 14px; flex-shrink: 0; color: #F59E0B; }
+  .dlm-arrow { width: 14px; height: 14px; flex-shrink: 0; color: rgba(255,255,255,0.3); margin-left: auto; }
+
+  .dlm-sponsor {
+    margin: 0.75rem 0;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.3);
+  }
+  .dlm-sponsor-link {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: rgba(255,255,255,0.15);
+  }
+  .dlm-sponsor-link:hover { color: rgba(255,255,255,0.55); }
+
+  .dlm-later {
+    display: block;
+    width: 100%;
+    padding: 0.5rem;
+    background: none;
+    border: none;
+    font-size: 0.8125rem;
+    color: rgba(255,255,255,0.3);
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .dlm-later:hover { color: rgba(255,255,255,0.6); }
+  .dlm-later:focus-visible { outline: 2px solid #38D9F0; outline-offset: 2px; }
+
+  /* Light theme */
+  :root.light .dlm-card {
+    background: #fff;
+    border-color: rgba(0,0,0,0.08);
+  }
+  :root.light .dlm-title { color: #0c1425; }
+  :root.light .dlm-body { color: rgba(12,20,37,0.55); }
+  :root.light .dlm-action-link {
+    border-color: rgba(0,0,0,0.08);
+    background: rgba(0,0,0,0.02);
+    color: rgba(12,20,37,0.7);
+  }
+  :root.light .dlm-action-link:hover {
+    background: rgba(0,0,0,0.04);
+    border-color: rgba(0,0,0,0.15);
+    color: #0c1425;
+  }
+  :root.light .dlm-sponsor { color: rgba(12,20,37,0.3); }
+  :root.light .dlm-later { color: rgba(12,20,37,0.3); }
+  :root.light .dlm-later:hover { color: rgba(12,20,37,0.6); }
+  :root.light .dlm-close { background: rgba(0,0,0,0.04); color: rgba(12,20,37,0.4); }
+  :root.light .dlm-close:hover { background: rgba(0,0,0,0.08); color: #0c1425; }
+</style>
+
+<script>
+  (function () {
+    const modal = document.getElementById('dl-support-modal') as HTMLDialogElement | null;
+    if (!modal) return;
+
+    const SESSION_KEY = 'wp_dl_modal_shown';
+
+    function show() {
+      if (sessionStorage.getItem(SESSION_KEY)) return;
+      sessionStorage.setItem(SESSION_KEY, '1');
+      modal.showModal();
+    }
+
+    function close() {
+      modal.close();
+    }
+
+    document.getElementById('dlm-close')?.addEventListener('click', close);
+    document.getElementById('dlm-later')?.addEventListener('click', close);
+
+    // Close on backdrop click (native dialog doesn't do this by default)
+    modal.addEventListener('click', (e) => {
+      const rect = modal.getBoundingClientRect();
+      const clickedBackdrop =
+        e.clientX < rect.left || e.clientX > rect.right ||
+        e.clientY < rect.top || e.clientY > rect.bottom;
+      if (clickedBackdrop) close();
+    });
+
+    // Listen for download events from store/apple buttons
+    document.addEventListener('download:triggered', () => {
+      setTimeout(show, 1500);
+    });
+  })();
+</script>

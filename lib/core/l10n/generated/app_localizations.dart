@@ -4098,6 +4098,48 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 minute} other{{count} minutes}}'**
   String settingsSttIdleTimeoutMinutes(int count);
+
+  /// No description provided for @reviewPromptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you enjoying WhisPaste?'**
+  String get reviewPromptTitle;
+
+  /// No description provided for @reviewPromptBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your rating helps others discover it and keeps development going.'**
+  String get reviewPromptBody;
+
+  /// No description provided for @reviewPromptYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Loving it!'**
+  String get reviewPromptYes;
+
+  /// No description provided for @reviewPromptNotNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get reviewPromptNotNow;
+
+  /// No description provided for @reviewPromptNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never ask again'**
+  String get reviewPromptNever;
+
+  /// No description provided for @reviewPromptStarGitHub.
+  ///
+  /// In en, this message translates to:
+  /// **'⭐ Star on GitHub'**
+  String get reviewPromptStarGitHub;
+
+  /// No description provided for @reviewPromptRateStore.
+  ///
+  /// In en, this message translates to:
+  /// **'★ Rate on the Store'**
+  String get reviewPromptRateStore;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
