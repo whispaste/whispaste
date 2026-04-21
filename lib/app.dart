@@ -39,6 +39,7 @@ import 'services/update_service.dart';
 import 'services/deploy_channel_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'widgets/toast.dart';
+import 'widgets/review_prompt_dialog.dart';
 
 /// Active navigation page state (Riverpod 3.x Notifier).
 class _ActivePageNotifier extends Notifier<String> {
@@ -298,7 +299,8 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
       borderRadius: contentRadius,
     );
 
-    return ServiceBootstrapWidget(
+    return ReviewPromptWatcher(
+      child: ServiceBootstrapWidget(
       child: RecordingBehaviorWidget(
         child: Scaffold(
           backgroundColor: Colors.transparent,
@@ -473,7 +475,8 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
                 ),
         ), // Scaffold
       ), // RecordingBehaviorWidget
-    ); // ServiceBootstrapWidget
+    ), // ServiceBootstrapWidget
+    ); // ReviewPromptWatcher
   }
 }
 
