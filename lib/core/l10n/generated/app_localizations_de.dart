@@ -2264,4 +2264,26 @@ class L10nDe extends L10n {
     );
     return '$_temp0';
   }
+
+  @override
+  String get reviewPromptTitle => 'Gefällt dir WhisPaste?';
+
+  @override
+  String get reviewPromptBody =>
+      'Deine Bewertung hilft anderen, die App zu finden, und unterstützt die Weiterentwicklung.';
+
+  @override
+  String get reviewPromptYes => 'Sehr gern!';
+
+  @override
+  String get reviewPromptNotNow => 'Nicht jetzt';
+
+  @override
+  String get reviewPromptNever => 'Nicht mehr fragen';
+
+  @override
+  String get reviewPromptStarGitHub => '⭐ Auf GitHub einen Stern geben';
+
+  @override
+  String get reviewPromptRateStore => '★ Im Store bewerten';
 }
