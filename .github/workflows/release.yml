@@ -111,9 +111,18 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Set MSIX version from tag
+      - name: Configure MSIX for MS Store
+        id: msix_config
         shell: pwsh
+        env:
+          MSIX_PUBLISHER: ${{ secrets.MSIX_PUBLISHER }}
         run: |
+          if (-not $env:MSIX_PUBLISHER) {
+            Write-Warning "MSIX_PUBLISHER secret not set — skipping MSIX build"
+            echo "skip=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
           $refName = "${{ github.ref_name }}"
           if ($refName -match '^\d+\.\d+\.\d+') {
             $version = $refName.TrimStart('v')
@@ -123,18 +132,24 @@ jobs:
           }
           $parts = $version -split '[.\-]'
           $numericVersion = "$($parts[0]).$($parts[1]).$($parts[2]).0"
-          # Patch msix_version in pubspec.yaml to match release tag
-          (Get-Content pubspec.yaml) -replace 'msix_version:.*', "msix_version: $numericVersion" |
-            Set-Content pubspec.yaml
-          Write-Host "MSIX version set to $numericVersion"
 
-      - name: Build MSIX
+          # Inject publisher and version; enable store mode for Partner Center upload
+          $content = Get-Content pubspec.yaml
+          $content = $content -replace 'msix_version:.*', "msix_version: $numericVersion"
+          $content = $content -replace 'publisher:.*', "publisher: $env:MSIX_PUBLISHER"
+          $content | Set-Content pubspec.yaml
+
+          Write-Host "MSIX configured: version=$numericVersion publisher=$env:MSIX_PUBLISHER"
+          echo "skip=false" >> $env:GITHUB_OUTPUT
+
+      - name: Build MSIX (Store)
         id: build_msix
-        run: dart run msix:create
+        if: steps.msix_config.outputs.skip != 'true'
+        run: dart run msix:create --store
         continue-on-error: true
 
       - name: Upload MSIX
-        if: steps.build_msix.outcome == 'success'
+        if: steps.msix_config.outputs.skip != 'true' && steps.build_msix.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: msix-release
