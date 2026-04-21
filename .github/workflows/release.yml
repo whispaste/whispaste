@@ -111,7 +111,7 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Configure MSIX for MS Store
+      - name: Configure MSIX publisher and version
         id: msix_config
         shell: pwsh
         env:
@@ -124,7 +124,7 @@ jobs:
           }
 
           $refName = "${{ github.ref_name }}"
-          if ($refName -match '^\d+\.\d+\.\d+') {
+          if ($refName -match '^v?\d+\.\d+\.\d+') {
             $version = $refName.TrimStart('v')
           } else {
             $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
@@ -133,16 +133,16 @@ jobs:
           $parts = $version -split '[.\-]'
           $numericVersion = "$($parts[0]).$($parts[1]).$($parts[2]).0"
 
-          # Inject publisher and version; enable store mode for Partner Center upload
           $content = Get-Content pubspec.yaml
           $content = $content -replace 'msix_version:.*', "msix_version: $numericVersion"
-          $content = $content -replace 'publisher:.*', "publisher: $env:MSIX_PUBLISHER"
+          # Replace only the `publisher:` line, not `publisher_display_name:`
+          $content = $content -replace '(?m)^(\s*)publisher:\s.*', "`${1}publisher: $env:MSIX_PUBLISHER"
           $content | Set-Content pubspec.yaml
 
           Write-Host "MSIX configured: version=$numericVersion publisher=$env:MSIX_PUBLISHER"
           echo "skip=false" >> $env:GITHUB_OUTPUT
 
-      - name: Build MSIX (Store)
+      - name: Build MSIX
         id: build_msix
         if: steps.msix_config.outputs.skip != 'true'
         run: dart run msix:create --store
