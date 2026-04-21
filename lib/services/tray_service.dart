@@ -13,6 +13,7 @@ import 'package:path/path.dart' as p;
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../core/data/database.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/platform/macos_lifecycle_channel.dart';
@@ -227,6 +228,17 @@ class TrayService extends Notifier<void> implements TrayListener {
     } on Exception catch (_) {
       // Best-effort cleanup.
     }
+
+    // Close Drift DB before engine teardown — prevents SIGABRT from
+    // sqlite3LeaveMutexAndCloseZombie when open stream statements survive
+    // into Dart isolate shutdown.
+    try {
+      await ref
+          .read(historyDatabaseProvider)
+          .close()
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {}
+
     await windowManager.destroy();
   }
 

@@ -173,7 +173,7 @@ class FloatingButtonService extends Notifier<void> {
           ref.read(activePageProvider.notifier).setPage('settings');
         });
       case '__quit__':
-        _quit();
+        unawaited(_quit());
       default:
         // History entry ID → copy to clipboard.
         _copyEntryToClipboard(id);
@@ -197,6 +197,18 @@ class FloatingButtonService extends Notifier<void> {
     } catch (_) {
       // Best-effort shutdown of STT subprocess.
     }
+
+    // Explicitly close the Drift database before engine teardown.
+    // Without this, open SQLite prepared statements (Drift stream watchers)
+    // survive into the Dart isolate shutdown phase, causing
+    // sqlite3LeaveMutexAndCloseZombie to assert and send SIGABRT.
+    try {
+      await ref
+          .read(historyDatabaseProvider)
+          .close()
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {}
+
     await windowManager.destroy();
   }
 
