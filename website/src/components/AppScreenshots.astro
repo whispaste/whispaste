@@ -37,11 +37,13 @@ import ScreenshotLightbox from './ScreenshotLightbox.astro';
             src="/screenshots/en/dark/01_workspace_overview.png"
             data-screenshot-en="/screenshots/en/dark/01_workspace_overview.png"
             data-screenshot-de="/screenshots/de/dark/01_workspace_overview.png"
+            data-screenshot-mac-en="/screenshots/mac/en/dark/01_workspace_overview.png"
+            data-screenshot-mac-de="/screenshots/mac/de/dark/01_workspace_overview.png"
             data-alt-en="WhisPaste workspace — dark theme"
             data-alt-de="WhisPaste Workspace — dunkles Design"
             alt="WhisPaste workspace — dark theme"
-            width="1366"
-            height="768"
+            width="1920"
+            height="1080"
             loading="eager"
             decoding="async"
           />
@@ -61,11 +63,13 @@ import ScreenshotLightbox from './ScreenshotLightbox.astro';
             src="/screenshots/en/light/02_workspace_detail.png"
             data-screenshot-en="/screenshots/en/light/02_workspace_detail.png"
             data-screenshot-de="/screenshots/de/light/02_workspace_detail.png"
+            data-screenshot-mac-en="/screenshots/mac/en/light/02_workspace_detail.png"
+            data-screenshot-mac-de="/screenshots/mac/de/light/02_workspace_detail.png"
             data-alt-en="WhisPaste detail editor — light theme"
             data-alt-de="WhisPaste Detail-Editor — helles Design"
             alt="WhisPaste detail editor — light theme"
-            width="1366"
-            height="768"
+            width="1920"
+            height="1080"
             loading="lazy"
             decoding="async"
           />
@@ -146,10 +150,15 @@ import ScreenshotLightbox from './ScreenshotLightbox.astro';
 </style>
 
 <script>
-  function syncScreenshotLanguage() {
+  function syncScreenshots() {
     const lang = document.documentElement.lang === 'de' ? 'de' : 'en';
+    const os = document.documentElement.dataset.os ?? '';
     document.querySelectorAll<HTMLImageElement>('img[data-screenshot-en]').forEach(img => {
-      const nextSrc = lang === 'de' ? img.dataset.screenshotDe : img.dataset.screenshotEn;
+      let nextSrc: string | undefined;
+      if (os === 'macos') {
+        nextSrc = lang === 'de' ? img.dataset.screenshotMacDe : img.dataset.screenshotMacEn;
+      }
+      nextSrc ??= lang === 'de' ? img.dataset.screenshotDe : img.dataset.screenshotEn;
       const nextAlt = lang === 'de' ? img.dataset.altDe : img.dataset.altEn;
       if (nextSrc && img.getAttribute('src') !== nextSrc) img.setAttribute('src', nextSrc);
       if (nextAlt) img.setAttribute('alt', nextAlt);
@@ -161,10 +170,10 @@ import ScreenshotLightbox from './ScreenshotLightbox.astro';
     });
   }
 
-  syncScreenshotLanguage();
-  const observer = new MutationObserver(syncScreenshotLanguage);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
-  window.addEventListener('pageshow', syncScreenshotLanguage);
+  syncScreenshots();
+  const observer = new MutationObserver(syncScreenshots);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang', 'data-os'] });
+  window.addEventListener('pageshow', syncScreenshots);
 
   // Wire teaser thumbnails to shared lightbox (ScreenshotLightbox.astro)
   document.querySelectorAll<HTMLButtonElement>('.teaser-thumb-btn').forEach(btn => {
