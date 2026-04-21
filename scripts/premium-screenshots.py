@@ -20,6 +20,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -36,11 +37,42 @@ SHADOW_RADIUS = 30
 SHADOW_OFFSET = (0, 8)
 SHADOW_COLOR = (0, 0, 0, 120)
 
-# ── Fonts ──────────────────────────────────────────────────────────────────────
-FONT_DIR = Path("C:/Windows/Fonts")
-FONT_HEADLINE = str(FONT_DIR / "segoeuib.ttf")   # Segoe UI Bold
-FONT_SUBTITLE = str(FONT_DIR / "segoeuil.ttf")   # Segoe UI Light
-FONT_BADGE    = str(FONT_DIR / "segoeuib.ttf")   # Segoe UI Bold
+# ── Fonts (cross-platform) ─────────────────────────────────────────────────────
+def _resolve_font(*candidates: str) -> Optional[str]:
+    """Return the first existing font path from the candidates list."""
+    for path in candidates:
+        if Path(path).exists():
+            return path
+    return None
+
+
+_BOLD_FONT = _resolve_font(
+    # Windows
+    r"C:\Windows\Fonts\segoeuib.ttf",
+    r"C:\Windows\Fonts\arialbd.ttf",
+    # macOS
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    "/Library/Fonts/Arial Bold.ttf",
+    # Linux
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+)
+
+_LIGHT_FONT = _resolve_font(
+    # Windows
+    r"C:\Windows\Fonts\segoeuil.ttf",
+    r"C:\Windows\Fonts\arial.ttf",
+    # macOS
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
+    "/Library/Fonts/Arial.ttf",
+    # Linux
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+)
+
+FONT_HEADLINE = _BOLD_FONT
+FONT_SUBTITLE = _LIGHT_FONT
+FONT_BADGE    = _BOLD_FONT
 
 # ── Brand Colors ───────────────────────────────────────────────────────────────
 # Dark gradient base colors (matches WhisPaste dark theme)
@@ -279,13 +311,16 @@ def compose_premium_screenshot(raw_path: str, config: dict, lang: str) -> Image.
     badge_text = config.get(badge_key, "")
 
     try:
-        font_h = ImageFont.truetype(FONT_HEADLINE, 38)
-        font_s = ImageFont.truetype(FONT_SUBTITLE, 20)
-        font_b = ImageFont.truetype(FONT_BADGE, 13)
+        if FONT_HEADLINE and FONT_SUBTITLE and FONT_BADGE:
+            font_h = ImageFont.truetype(FONT_HEADLINE, 38)
+            font_s = ImageFont.truetype(FONT_SUBTITLE, 20)
+            font_b = ImageFont.truetype(FONT_BADGE, 13)
+        else:
+            raise OSError("No suitable font found on this platform")
     except (IOError, OSError):
-        font_h = ImageFont.load_default()
-        font_s = ImageFont.load_default()
-        font_b = ImageFont.load_default()
+        font_h = ImageFont.load_default(size=38)
+        font_s = ImageFont.load_default(size=20)
+        font_b = ImageFont.load_default(size=13)
 
     # Badge (above headline)
     badge_y = 30
