@@ -6,13 +6,15 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('hero CTA contains MS Store button and macOS download button', async ({ page }) => {
+test('hero CTA contains platform download button(s)', async ({ page }) => {
   await page.goto('/');
 
-  // StoreButton renders with data-testid="store-button" (may appear multiple times on page)
-  await expect(page.getByTestId('store-button').first()).toBeVisible();
-  // AppleButton renders with data-testid="apple-button"
-  await expect(page.getByTestId('apple-button').first()).toBeVisible();
+  // At least one download button must be visible (platform-adaptive: one or both shown)
+  const storeBtn = page.getByTestId('store-button').first();
+  const appleBtn = page.getByTestId('apple-button').first();
+  const storeVisible = await storeBtn.isVisible();
+  const appleVisible = await appleBtn.isVisible();
+  expect(storeVisible || appleVisible).toBe(true);
 });
 
 test('language toggle switches the landing page from EN to DE', async ({ page }) => {

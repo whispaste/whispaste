@@ -60,6 +60,23 @@ const ogImageURL = new URL(ogImage, 'https://whispaste.de');
         else if (!t && window.matchMedia('(prefers-color-scheme: light)').matches) document.documentElement.classList.add('light');
       })();
     </script>
+    <script is:inline>
+      (function(){
+        var ua = navigator.userAgent;
+        var uad = navigator.userAgentData;
+        var os = '';
+        if (uad && uad.platform) {
+          var p = uad.platform.toLowerCase();
+          if (p === 'macos') os = 'macos';
+          else if (p === 'windows') os = 'windows';
+        } else if (/Macintosh|MacIntel|Mac OS X/.test(ua) && !/iPhone|iPad|iPod/.test(ua)) {
+          os = 'macos';
+        } else if (/Windows/.test(ua)) {
+          os = 'windows';
+        }
+        if (os) document.documentElement.dataset.os = os;
+      })();
+    </script>
   </head>
   <body class="antialiased">
     <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-brand-cyan focus:text-brand-darker focus:rounded-lg focus:font-semibold focus:shadow-lg" data-i18n="nav.skip">
