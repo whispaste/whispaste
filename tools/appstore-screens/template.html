@@ -22,8 +22,6 @@
     --category-color: #38D9F0;
     --window-radius: 16px;
     --window-shadow: 0 34px 84px rgba(0, 0, 0, 0.42);
-    --title-bar-bg: #1a1f2e;
-    --title-bar-bg-light: #e9edf5;
   }
 
   body {
@@ -128,50 +126,14 @@
     border-radius: var(--window-radius);
     overflow: hidden;
     box-shadow: var(--window-shadow);
-    background: var(--title-bar-bg);
+    background: #1a1f2e;
     border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
   .screen.bg-light .window-frame {
-    background: #ffffff;
+    background: #f5f7fa;
     border-color: rgba(17, 24, 39, 0.08);
     box-shadow: 0 28px 70px rgba(15, 23, 42, 0.16);
-  }
-
-  .window-title-bar {
-    height: 34px;
-    background: var(--title-bar-bg);
-    display: flex;
-    align-items: center;
-    padding: 0 14px;
-    gap: 8px;
-  }
-
-  .screen.bg-light .window-title-bar {
-    background: var(--title-bar-bg-light);
-  }
-
-  .window-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-  }
-
-  .window-dot.red { background: #ff5f57; }
-  .window-dot.yellow { background: #febc2e; }
-  .window-dot.green { background: #28c840; }
-
-  .window-title-text {
-    flex: 1;
-    text-align: center;
-    font-size: 12px;
-    font-weight: 700;
-    color: rgba(240, 238, 246, 0.40);
-    margin-right: 56px;
-  }
-
-  .screen.bg-light .window-title-text {
-    color: rgba(17, 24, 39, 0.40);
   }
 
   .window-content {
@@ -196,12 +158,6 @@
     </div>
     <div class="screenshot-side">
       <div class="window-frame">
-        <div class="window-title-bar">
-          <div class="window-dot red"></div>
-          <div class="window-dot yellow"></div>
-          <div class="window-dot green"></div>
-          <div class="window-title-text">WhisPaste</div>
-        </div>
         <div class="window-content">
           <img id="ss-0" src="" alt="Workspace overview">
         </div>
@@ -217,12 +173,6 @@
     </div>
     <div class="screenshot-side">
       <div class="window-frame">
-        <div class="window-title-bar">
-          <div class="window-dot red"></div>
-          <div class="window-dot yellow"></div>
-          <div class="window-dot green"></div>
-          <div class="window-title-text">WhisPaste</div>
-        </div>
         <div class="window-content">
           <img id="ss-1" src="" alt="Workspace detail">
         </div>
@@ -238,12 +188,6 @@
     </div>
     <div class="screenshot-side">
       <div class="window-frame">
-        <div class="window-title-bar">
-          <div class="window-dot red"></div>
-          <div class="window-dot yellow"></div>
-          <div class="window-dot green"></div>
-          <div class="window-title-text">WhisPaste</div>
-        </div>
         <div class="window-content">
           <img id="ss-2" src="" alt="Voice shortcuts">
         </div>
@@ -259,12 +203,6 @@
     </div>
     <div class="screenshot-side">
       <div class="window-frame">
-        <div class="window-title-bar">
-          <div class="window-dot red"></div>
-          <div class="window-dot yellow"></div>
-          <div class="window-dot green"></div>
-          <div class="window-title-text">WhisPaste</div>
-        </div>
         <div class="window-content">
           <img id="ss-3" src="" alt="Hotkey settings">
         </div>
@@ -280,12 +218,6 @@
     </div>
     <div class="screenshot-side">
       <div class="window-frame">
-        <div class="window-title-bar">
-          <div class="window-dot red"></div>
-          <div class="window-dot yellow"></div>
-          <div class="window-dot green"></div>
-          <div class="window-title-text">WhisPaste</div>
-        </div>
         <div class="window-content">
           <img id="ss-4" src="" alt="Time saved">
         </div>

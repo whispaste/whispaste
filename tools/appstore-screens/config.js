@@ -19,6 +19,14 @@ const STORE_SIZES = {
     label: 'Microsoft Store',
     orientation: 'landscape',
   },
+  mac: {
+    // Mac App Store accepts 1920×1080 for macOS desktop apps.
+    // The panorama is rendered at this resolution and sliced per-screen.
+    width: 1920,
+    height: 1080,
+    label: 'Mac App Store',
+    orientation: 'landscape',
+  },
   iphone_6_9: {
     width: 1320,
     height: 2868,
@@ -35,7 +43,7 @@ const STORE_SIZES = {
   },
 };
 
-const PRIMARY_STORE = 'microsoft';
+const ENABLED_STORES = ['microsoft', 'mac'];
 const FUTURE_STORES = ['iphone_6_9', 'play_phone'];
 
 const SCREENS = [
@@ -160,7 +168,7 @@ const ASSET_PATHS = {
 
 module.exports = {
   STORE_SIZES,
-  PRIMARY_STORE,
+  ENABLED_STORES,
   FUTURE_STORES,
   SCREENS,
   DESIGN,

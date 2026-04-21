@@ -8,7 +8,9 @@
     "generate:all": "node generate.cjs --lang=all",
     "generate:en": "node generate.cjs --lang=en",
     "generate:de": "node generate.cjs --lang=de",
-    "generate:og": "node ..\\og-image\\generate.cjs --lang=all"
+    "generate:og": "node generate-og.cjs --lang=all",
+    "generate:og:en": "node generate-og.cjs --lang=en",
+    "generate:og:de": "node generate-og.cjs --lang=de"
   },
   "dependencies": {
     "playwright": "^1.52.0",
