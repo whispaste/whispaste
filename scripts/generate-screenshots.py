@@ -26,8 +26,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-GOLDENS_DIR = ROOT / "test" / "screenshots" / "goldens" / "windowsStoreScreenshots"
+WINDOWS_GOLDENS_DIR = ROOT / "test" / "screenshots" / "goldens" / "windowsStoreScreenshots"
+MAC_GOLDENS_DIR = ROOT / "test" / "screenshots" / "goldens" / "macStoreScreenshots"
 WEBSITE_DIR = ROOT / "website" / "public" / "screenshots"
+WEBSITE_MAC_DIR = WEBSITE_DIR / "mac"
 APPSTORE_SCREENS_DIR = ROOT / "tools" / "appstore-screens"
 APPSTORE_OUTPUT_DIR = APPSTORE_SCREENS_DIR / "output"
 TEST_PATH = "test/screenshots/store_screenshots_test.dart"
@@ -83,15 +85,27 @@ def clean_dir_recursive(directory: Path) -> int:
 
 
 def clean_website_screenshots(web_dir: Path) -> int:
-    """Delete all PNG files inside the locale/theme subdirectory tree."""
+    """Delete all PNG files inside the locale/theme subdirectory tree.
+
+    Handles both 2-level (locale/theme) and 3-level (platform/locale/theme)
+    structures so that the mac/ subdirectory is cleaned properly.
+    """
     removed = 0
-    for locale_dir in web_dir.iterdir():
-        if not locale_dir.is_dir():
+    for locale_or_platform_dir in web_dir.iterdir():
+        if not locale_or_platform_dir.is_dir():
             continue
-        for theme_dir in locale_dir.iterdir():
-            if not theme_dir.is_dir():
+        for next_dir in locale_or_platform_dir.iterdir():
+            if not next_dir.is_dir():
                 continue
-            removed += clean_dir(theme_dir)
+            # 2-level: web_dir/{locale}/{theme}/
+            inner = list(next_dir.iterdir())
+            if any(f.is_file() and f.suffix == '.png' for f in inner):
+                removed += clean_dir(next_dir)
+            else:
+                # 3-level: web_dir/{platform}/{locale}/{theme}/
+                for theme_dir in inner:
+                    if theme_dir.is_dir():
+                        removed += clean_dir(theme_dir)
     return removed
 
 
@@ -119,7 +133,8 @@ def parse_golden_name(filename: str):
 def step_clean() -> None:
     """Remove all stale outputs before regenerating."""
     print("🧹 Cleaning output directories...")
-    n = clean_dir(GOLDENS_DIR)
+    n = clean_dir(WINDOWS_GOLDENS_DIR)
+    n += clean_dir(MAC_GOLDENS_DIR)
     print(f"   goldens:          {n} files removed")
     n = clean_website_screenshots(WEBSITE_DIR)
     print(f"   website/screenshots: {n} files removed")
@@ -141,25 +156,37 @@ def step_generate(flutter: str) -> bool:
 
 
 def step_copy_website() -> list[Path]:
-    """Copy goldens to website/public/screenshots/{locale}/{theme}/{base}.png.
+    """Copy goldens to website/public/screenshots/.
+
+    Windows goldens → {locale}/{theme}/{base}.png
+    Mac goldens     → mac/{locale}/{theme}/{base}.png
 
     Each golden is copied to BOTH dark and light theme folders so the
     website gallery works regardless of theme toggle.
     """
-    copied = []
-    for png in sorted(GOLDENS_DIR.glob("*.png")):
+    copied: list[Path] = []
+    copied.extend(_copy_goldens(WINDOWS_GOLDENS_DIR, WEBSITE_DIR))
+    copied.extend(_copy_goldens(MAC_GOLDENS_DIR, WEBSITE_MAC_DIR))
+    return copied
+
+
+def _copy_goldens(goldens_dir: Path, dest_root: Path) -> list[Path]:
+    """Copy goldens from goldens_dir into dest_root/{locale}/{theme}/{base}.png."""
+    copied: list[Path] = []
+    for png in sorted(goldens_dir.glob("*.png")):
         parsed = parse_golden_name(png.name)
         if parsed is None:
             print(f"   ⚠ Could not parse '{png.name}' — skipped")
             continue
         base, _native_theme, locale = parsed
         for theme in ("dark", "light"):
-            dest = WEBSITE_DIR / locale / theme / f"{base}.png"
+            dest = dest_root / locale / theme / f"{base}.png"
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(png, dest)
             size_kb = dest.stat().st_size / 1024
             copied.append(dest)
-            print(f"   {locale}/{theme}/{base}.png  ({size_kb:.0f} KB)")
+            rel = dest.relative_to(dest_root.parent.parent.parent)
+            print(f"   {rel}  ({size_kb:.0f} KB)")
     return copied
 
 
@@ -221,7 +248,7 @@ def main() -> None:
     else:
         print("\n⏭  Skipping golden regen (--no-regen)")
 
-    if not GOLDENS_DIR.exists() or not any(GOLDENS_DIR.glob("*.png")):
+    if not WINDOWS_GOLDENS_DIR.exists() or not any(WINDOWS_GOLDENS_DIR.glob("*.png")):
         print("\n❌ No goldens found. Run without --no-regen first.")
         sys.exit(1)
 
