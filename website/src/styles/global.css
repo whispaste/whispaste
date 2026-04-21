@@ -38,6 +38,10 @@ html.light {
 }
 html.light body::before { opacity: 0.015; }
 
+/* Platform-adaptive download buttons (FOUC-free: data-os set by inline script) */
+[data-os="windows"] [data-platform-btn="macos"] { display: none; }
+[data-os="macos"] [data-platform-btn="windows"] { display: none; }
+
 /* Theme-aware wordmark */
 .nav-logo-light { display: none; }
 html.light .nav-logo-dark { display: none !important; }
