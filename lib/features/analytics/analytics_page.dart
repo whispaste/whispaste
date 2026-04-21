@@ -680,6 +680,10 @@ class _BarChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _BarChartPainter old) =>
       old.values != values ||
       old.barColor != barColor ||
+      old.barColorEnd != barColorEnd ||
+      old.gridColor != gridColor ||
+      old.labelColor != labelColor ||
+      old.labelFontFamily != labelFontFamily ||
       old.animationValue != animationValue;
 }
 
