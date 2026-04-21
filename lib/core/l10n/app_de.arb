@@ -760,5 +760,13 @@
   "settingsSttIdleTimeoutSubtitle": "Wie lange das Sprachmodul nach Nutzung geladen bleibt",
   "settingsSttIdleTimeoutKeepAlive": "Dauerhaft aktiv",
   "settingsSttIdleTimeoutMinutes": "{count, plural, =1{1 Minute} other{{count} Minuten}}",
-  "@settingsSttIdleTimeoutMinutes": { "placeholders": { "count": { "type": "int" } } }
+  "@settingsSttIdleTimeoutMinutes": { "placeholders": { "count": { "type": "int" } } },
+
+  "reviewPromptTitle": "Gefällt dir WhisPaste?",
+  "reviewPromptBody": "Deine Bewertung hilft anderen, die App zu finden, und unterstützt die Weiterentwicklung.",
+  "reviewPromptYes": "Sehr gern!",
+  "reviewPromptNotNow": "Nicht jetzt",
+  "reviewPromptNever": "Nicht mehr fragen",
+  "reviewPromptStarGitHub": "⭐ Auf GitHub einen Stern geben",
+  "reviewPromptRateStore": "★ Im Store bewerten"
 }
