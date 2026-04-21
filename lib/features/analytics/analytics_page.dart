@@ -576,6 +576,11 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
                 labelColor: isDark
                     ? WpColorsDark.textMuted
                     : WpColorsLight.textMuted,
+                // CustomPainter TextPainter bypasses widget font inheritance.
+                // Pass fontFamily explicitly so labels render with the correct
+                // typeface in tests and on all platforms.
+                labelFontFamily:
+                    Theme.of(context).textTheme.labelSmall?.fontFamily,
                 animationValue: _curve.value,
               ),
             ),
@@ -594,6 +599,7 @@ class _BarChartPainter extends CustomPainter {
     required this.barColorEnd,
     required this.gridColor,
     required this.labelColor,
+    this.labelFontFamily,
     this.animationValue = 1.0,
   });
 
@@ -603,6 +609,7 @@ class _BarChartPainter extends CustomPainter {
   final Color barColorEnd;
   final Color gridColor;
   final Color labelColor;
+  final String? labelFontFamily;
   final double animationValue;
 
   @override
@@ -654,7 +661,11 @@ class _BarChartPainter extends CustomPainter {
       final tp = TextPainter(
         text: TextSpan(
           text: labels[i],
-          style: TextStyle(fontSize: 10, color: labelColor),
+          style: TextStyle(
+            fontSize: 10,
+            color: labelColor,
+            fontFamily: labelFontFamily,
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();

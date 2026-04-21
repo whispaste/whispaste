@@ -6,9 +6,11 @@
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const GOLDENS = path.join(ROOT, 'screenshots');
+const GOLDENS = path.join(ROOT, 'website', 'public', 'screenshots');
 const OUTPUT = path.join(__dirname, 'output');
 const WEBSITE_SCREENSHOTS_ROOT = path.join(ROOT, 'website', 'public', 'screenshots');
+const WEBSITE_STORE_SCREENSHOTS = path.join(WEBSITE_SCREENSHOTS_ROOT, 'store');
+const WEBSITE_UI_SCREENSHOTS = path.join(WEBSITE_SCREENSHOTS_ROOT, 'ui');
 
 const STORE_SIZES = {
   microsoft: {
