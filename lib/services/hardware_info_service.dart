@@ -27,6 +27,17 @@ final _log = AppLogger('HardwareInfo');
 /// least the balanced STT model without memory pressure.
 const int kMinRamMB = 8192;
 
+/// Effective check threshold used in the startup preflight (in MB).
+///
+/// Windows and Linux report visible RAM, which is always slightly less than
+/// physical RAM (BIOS holes, iGPU reservations, etc.). A machine with exactly
+/// 8 GB of DIMMs typically reports 7617–7900 MB as `TotalVisibleMemorySize`.
+/// Using 7500 MB as the check threshold avoids false-positives on legitimate
+/// 8 GB machines while still blocking systems with less than ~7.3 GB physical.
+///
+/// macOS is safe: `sysctl hw.memsize` returns raw physical bytes.
+const int kRamCheckThresholdMB = 7500;
+
 // ---------------------------------------------------------------------------
 // STT model VRAM requirements
 // ---------------------------------------------------------------------------
@@ -752,17 +763,25 @@ Future<int?> detectRamMB() async {
 
 Future<int?> _unixRamMB() async {
   if (Platform.isMacOS) {
-    // sysctl -n hw.memsize → total physical bytes (e.g. 17179869184 = 16 GB)
-    final r = await Process.run('sysctl', ['-n', 'hw.memsize'])
+    // Use absolute path to avoid PATH hijack — /usr/sbin/sysctl is canonical.
+    // hw.memsize returns total physical bytes (e.g. 17179869184 = 16 GB).
+    final r = await Process.run('/usr/sbin/sysctl', ['-n', 'hw.memsize'])
         .timeout(const Duration(seconds: 5));
     if (r.exitCode != 0) return null;
     return parseSysctlMemsizeMb(r.stdout.toString());
   } else {
-    // Linux: /proc/meminfo line "MemTotal:   16384000 kB"
-    final r = await Process.run('grep', ['MemTotal', '/proc/meminfo'])
-        .timeout(const Duration(seconds: 5));
-    if (r.exitCode != 0) return null;
-    return parseLinuxMemTotalMb(r.stdout.toString());
+    // Linux: read /proc/meminfo directly — no subprocess, no PATH dependency.
+    try {
+      final lines = await File('/proc/meminfo').readAsLines();
+      for (final line in lines) {
+        if (line.startsWith('MemTotal:')) {
+          return parseLinuxMemTotalMb(line);
+        }
+      }
+    } catch (e) {
+      _log.debug('Linux /proc/meminfo read failed: $e');
+    }
+    return null;
   }
 }
 
