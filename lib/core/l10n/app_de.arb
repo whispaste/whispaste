@@ -771,12 +771,16 @@
   "reviewPromptRateStore": "★ Im Store bewerten",
 
   "insufficientRamTitle": "Zu wenig Arbeitsspeicher",
-  "insufficientRamBody": "WhisPaste benötigt mindestens 8 GB Arbeitsspeicher. Dein System hat {detectedGb} GB.\n\nMit weniger Arbeitsspeicher kann die KI-Transkription möglicherweise nicht geladen werden oder stürzt ab.",
+  "insufficientRamBody": "WhisPaste benötigt mindestens {requiredGb}\u202fGB Arbeitsspeicher. Dein System hat {detectedGb}\u202fGB.\n\nMit weniger Arbeitsspeicher kann die KI-Transkription möglicherweise nicht geladen werden oder stürzt ab.",
   "@insufficientRamBody": {
     "placeholders": {
       "detectedGb": {
         "type": "double",
-        "format": "decimalPattern"
+        "format": "decimalPattern",
+        "decimalDigits": 1
+      },
+      "requiredGb": {
+        "type": "int"
       }
     }
   },

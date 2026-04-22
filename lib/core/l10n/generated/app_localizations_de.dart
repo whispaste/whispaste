@@ -2291,12 +2291,12 @@ class L10nDe extends L10n {
   String get insufficientRamTitle => 'Zu wenig Arbeitsspeicher';
 
   @override
-  String insufficientRamBody(double detectedGb) {
+  String insufficientRamBody(double detectedGb, int requiredGb) {
     final intl.NumberFormat detectedGbNumberFormat =
         intl.NumberFormat.decimalPattern(localeName);
     final String detectedGbString = detectedGbNumberFormat.format(detectedGb);
 
-    return 'WhisPaste benötigt mindestens 8 GB Arbeitsspeicher. Dein System hat $detectedGbString GB.\n\nMit weniger Arbeitsspeicher kann die KI-Transkription möglicherweise nicht geladen werden oder stürzt ab.';
+    return 'WhisPaste benötigt mindestens $requiredGb GB Arbeitsspeicher. Dein System hat $detectedGbString GB.\n\nMit weniger Arbeitsspeicher kann die KI-Transkription möglicherweise nicht geladen werden oder stürzt ab.';
   }
 
   @override

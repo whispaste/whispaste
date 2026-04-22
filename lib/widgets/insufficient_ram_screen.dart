@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -5,9 +6,12 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
+import '../core/logging/app_logger.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/hardware_info_service.dart' as hw;
+
+final _log = AppLogger('InsufficientRamScreen');
 
 /// Full-screen blocking error shown when system RAM is below [hw.kMinRamMB].
 ///
@@ -86,7 +90,7 @@ class _ErrorCard extends StatelessWidget {
         const SizedBox(height: WpSpacing.lg),
 
         Text(
-          l10n.insufficientRamBody(detectedGb),
+          l10n.insufficientRamBody(detectedGb, hw.kMinRamMB ~/ 1024),
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 14,
@@ -282,7 +286,7 @@ class _QuitButtonState extends State<_QuitButton> {
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: GestureDetector(
-          onTap: () => exit(0),
+          onTap: () => exit(1),
           child: AnimatedContainer(
             duration: WpMotion.fast,
             decoration: BoxDecoration(
@@ -328,10 +332,14 @@ class _LearnMoreLinkState extends State<_LearnMoreLink> {
   bool _hovered = false;
 
   Future<void> _open() async {
-    await launchUrl(
-      Uri.parse(InsufficientRamScreen._learnMoreUrl),
-      mode: LaunchMode.externalApplication,
-    );
+    try {
+      await launchUrl(
+        Uri.parse(InsufficientRamScreen._learnMoreUrl),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      _log.warning('Could not open system requirements URL: $e');
+    }
   }
 
   @override
@@ -344,7 +352,7 @@ class _LearnMoreLinkState extends State<_LearnMoreLink> {
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: GestureDetector(
-          onTap: _open,
+          onTap: () => unawaited(_open()),
           child: AnimatedDefaultTextStyle(
             duration: WpMotion.fast,
             style: TextStyle(
