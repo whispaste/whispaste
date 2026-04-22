@@ -2270,12 +2270,12 @@ class L10nEn extends L10n {
   String get insufficientRamTitle => 'Not Enough Memory';
 
   @override
-  String insufficientRamBody(double detectedGb) {
+  String insufficientRamBody(double detectedGb, int requiredGb) {
     final intl.NumberFormat detectedGbNumberFormat =
         intl.NumberFormat.decimalPattern(localeName);
     final String detectedGbString = detectedGbNumberFormat.format(detectedGb);
 
-    return 'WhisPaste requires at least 8 GB of RAM to run. Your system has $detectedGbString GB.\n\nWith less memory, the AI transcription engine may fail to load or crash mid-session.';
+    return 'WhisPaste requires at least $requiredGb GB of RAM to run. Your system has $detectedGbString GB.\n\nWith less memory, the AI transcription engine may fail to load or crash mid-session.';
   }
 
   @override
