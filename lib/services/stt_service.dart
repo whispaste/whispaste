@@ -145,6 +145,11 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   /// Reset when the user explicitly changes the GPU setting or active model.
   bool _gpuFallbackActive = false;
 
+  /// Model IDs that exited with code 3 (failed to load) on the last attempt.
+  /// Used to fail fast on subsequent [ensureRunning] calls instead of looping.
+  /// Cleared when the user changes model/GPU settings or re-downloads a model.
+  final Set<String> _modelLoadFailedIds = {};
+
   /// Debounce timer for model-change pre-warm.
   Timer? _modelChangeDebounce;
 
@@ -171,11 +176,12 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       final nextSettings = next.value;
       if (prevSettings == null || nextSettings == null) return;
 
-      // Reset CPU fallback when the user explicitly changes GPU mode or model
-      // so that GPU is retried under the new configuration.
+      // Reset CPU fallback and model-load-failure guard when the user explicitly
+      // changes GPU mode or model so that the new configuration is retried.
       if (prevSettings.gpuAcceleration != nextSettings.gpuAcceleration ||
           prevSettings.effectiveModelId != nextSettings.effectiveModelId) {
         _gpuFallbackActive = false;
+        _modelLoadFailedIds.remove(prevSettings.effectiveModelId);
       }
 
       final prevModel = prevSettings.effectiveModelId;
@@ -184,6 +190,18 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       if (!nextSettings.sttProviderType.isLocal) return;
 
       _debouncedPrewarmOnModelChange(nextModel);
+    });
+
+    // Clear load-failure flag when a model is (re-)downloaded so the server
+    // is allowed to start again with the fresh file.
+    ref.listen(modelDownloadProvider, (prev, next) {
+      if (prev == null) return;
+      final newlyDownloaded = next.downloadedModels.difference(
+        prev.downloadedModels,
+      );
+      for (final id in newlyDownloaded) {
+        _modelLoadFailedIds.remove(id);
+      }
     });
 
     return const SttStatus();
@@ -238,6 +256,17 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     }
 
     // ── Cold path — start a new server ───────────────────────────────────
+    // Fail fast if this model previously exited with code 3 (failed to load)
+    // to prevent an infinite retry loop after a corrupted/incompatible model.
+    // Cleared when the user re-downloads the model or changes configuration.
+    if (_modelLoadFailedIds.contains(modelId)) {
+      _fail(
+        'STT model file is corrupted. '
+        'Please re-download the model in Settings.',
+      );
+      return;
+    }
+
     // Gate concurrent callers through a single Completer.
     if (state.serverState != SttServerState.stopped) {
       stop();
@@ -1090,6 +1119,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
             // Only auto-delete when the file is demonstrably undersized (<10MB)
             // to avoid removing a valid multi-GB model due to transient I/O
             // or permission errors.
+            //
+            // Mark the model as load-failed so ensureRunning() fails fast on
+            // subsequent calls, preventing an infinite retry loop.
+            _modelLoadFailedIds.add(modelId);
             final badPath = sttModelPath(modelId);
             if (badPath != null) {
               unawaited(() async {
@@ -1169,6 +1202,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       // transitioned state to stopped). CPU _start() failures must not be
       // suppressed, so we gate on gpuAcceleration != 'disabled'.
       if (_gpuFallbackActive && gpuAcceleration != 'disabled') return;
+      // If the onExit handler already transitioned to error state (e.g., code 3
+      // model load failure), don't overwrite it with a generic fallback message.
+      if (state.serverState == SttServerState.error) return;
       _fail(e.message);
       return;
     }
