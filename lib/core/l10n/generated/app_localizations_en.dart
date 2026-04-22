@@ -2265,4 +2265,31 @@ class L10nEn extends L10n {
 
   @override
   String get reviewPromptRateStore => '★ Rate on the Store';
+
+  @override
+  String get insufficientRamTitle => 'Not Enough Memory';
+
+  @override
+  String insufficientRamBody(double detectedGb, int requiredGb) {
+    final intl.NumberFormat detectedGbNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String detectedGbString = detectedGbNumberFormat.format(detectedGb);
+
+    return 'WhisPaste requires at least $requiredGb GB of RAM to run. Your system has $detectedGbString GB.\n\nWith less memory, the AI transcription engine may fail to load or crash mid-session.';
+  }
+
+  @override
+  String get insufficientRamQuit => 'Quit WhisPaste';
+
+  @override
+  String get insufficientRamLearnMore => 'System requirements';
+
+  @override
+  String get insufficientRamSystemCheck => 'System Check';
+
+  @override
+  String get insufficientRamYourSystem => 'Your system';
+
+  @override
+  String get insufficientRamRequired => 'Required';
 }

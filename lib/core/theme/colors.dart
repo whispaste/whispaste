@@ -48,6 +48,13 @@ abstract final class WpColorsDark {
   static const Color warning = Color(0xFFF5C842);
   static const Color error = Color(0xFFFF7B7B);
 
+  /// Orange-600 — used for RAM/hardware preflight warnings.
+  static const Color warningOrange = Color(0xFFEA580C);
+
+  /// Solid red shades for destructive action buttons (e.g. quit CTA).
+  static const Color errorRed = Color(0xFFDC2626);
+  static const Color errorRedHover = Color(0xFFB91C1C);
+
   /// Visible gradient for premium card/container backgrounds
   static const LinearGradient surfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
