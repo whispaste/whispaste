@@ -8,12 +8,35 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/logging/app_logger.dart';
 
 final _log = AppLogger('HardwareInfo');
+
+// ---------------------------------------------------------------------------
+// RAM requirement
+// ---------------------------------------------------------------------------
+
+/// Minimum system RAM required to run WhisPaste reliably (in MB).
+///
+/// Enforced at startup: the app shows a blocking screen and refuses to
+/// proceed on systems below this threshold. 8 GB is required to load at
+/// least the balanced STT model without memory pressure.
+const int kMinRamMB = 8192;
+
+/// Effective check threshold used in the startup preflight (in MB).
+///
+/// Windows and Linux report visible RAM, which is always slightly less than
+/// physical RAM (BIOS holes, iGPU reservations, etc.). A machine with exactly
+/// 8 GB of DIMMs typically reports 7617–7900 MB as `TotalVisibleMemorySize`.
+/// Using 7500 MB as the check threshold avoids false-positives on legitimate
+/// 8 GB machines while still blocking systems with less than ~7.3 GB physical.
+///
+/// macOS is safe: `sysctl hw.memsize` returns raw physical bytes.
+const int kRamCheckThresholdMB = 7500;
 
 // ---------------------------------------------------------------------------
 // STT model VRAM requirements
@@ -714,6 +737,122 @@ Future<int?> _macUnifiedMemoryMB() async {
     _log.debug('macOS unified memory query failed: $e');
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// RAM detection (cross-platform)
+// ---------------------------------------------------------------------------
+
+/// Detects total physical system RAM in MB.
+///
+/// Uses platform-native commands (same pattern as GPU detection).
+/// Returns `null` when detection fails — callers should treat `null` as
+/// "unknown" and NOT block the app (fail-open to avoid false positives).
+Future<int?> detectRamMB() async {
+  try {
+    if (Platform.isMacOS || Platform.isLinux) {
+      return await _unixRamMB();
+    } else if (Platform.isWindows) {
+      return await _windowsRamMB();
+    }
+  } catch (e) {
+    _log.warning('RAM detection failed: $e');
+  }
+  return null;
+}
+
+Future<int?> _unixRamMB() async {
+  if (Platform.isMacOS) {
+    // Use absolute path to avoid PATH hijack — /usr/sbin/sysctl is canonical.
+    // hw.memsize returns total physical bytes (e.g. 17179869184 = 16 GB).
+    final r = await Process.run('/usr/sbin/sysctl', ['-n', 'hw.memsize'])
+        .timeout(const Duration(seconds: 5));
+    if (r.exitCode != 0) return null;
+    return parseSysctlMemsizeMb(r.stdout.toString());
+  } else {
+    // Linux: read /proc/meminfo directly — no subprocess, no PATH dependency.
+    try {
+      final lines = await File('/proc/meminfo').readAsLines();
+      for (final line in lines) {
+        if (line.startsWith('MemTotal:')) {
+          return parseLinuxMemTotalMb(line);
+        }
+      }
+    } catch (e) {
+      _log.debug('Linux /proc/meminfo read failed: $e');
+    }
+    return null;
+  }
+}
+
+Future<int?> _windowsRamMB() async {
+  // PowerShell: TotalVisibleMemorySize is in KB.
+  // Note: non-zero exit (e.g. execution policy) falls through to wmic.
+  try {
+    final r = await Process.run('powershell', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      r'(Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize',
+    ]).timeout(const Duration(seconds: 10));
+    if (r.exitCode == 0) {
+      final kb = int.tryParse(r.stdout.toString().trim());
+      if (kb != null && kb > 0) return kb ~/ 1024;
+    }
+  } catch (_) {}
+
+  // Fallback: wmic (deprecated but more widely available).
+  try {
+    final r = await Process.run(
+      'wmic',
+      ['os', 'get', 'TotalVisibleMemorySize', '/Value'],
+    ).timeout(const Duration(seconds: 5));
+    if (r.exitCode == 0) {
+      final result = parseWmicOsMemoryMb(r.stdout.toString());
+      if (result != null) return result;
+    }
+  } catch (_) {}
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Pure RAM parsing helpers — exported for unit testing.
+// ---------------------------------------------------------------------------
+
+/// Parses `sysctl -n hw.memsize` stdout into MB.
+///
+/// Returns `null` for empty, non-numeric, or non-positive output.
+@visibleForTesting
+int? parseSysctlMemsizeMb(String output) {
+  final bytes = int.tryParse(output.trim());
+  if (bytes == null || bytes <= 0) return null;
+  return bytes ~/ (1024 * 1024);
+}
+
+/// Parses a Linux `/proc/meminfo` snippet containing a `MemTotal:` line into MB.
+///
+/// Returns `null` when the line is absent or the value cannot be parsed.
+@visibleForTesting
+int? parseLinuxMemTotalMb(String memInfoOutput) {
+  final match = RegExp(r'MemTotal:\s+(\d+)').firstMatch(memInfoOutput);
+  if (match == null) return null;
+  final kb = int.tryParse(match.group(1) ?? '');
+  if (kb == null || kb <= 0) return null;
+  return kb ~/ 1024;
+}
+
+/// Parses `wmic os get TotalVisibleMemorySize /Value` stdout into MB.
+///
+/// Returns `null` when the key is absent or the value cannot be parsed.
+@visibleForTesting
+int? parseWmicOsMemoryMb(String wmicOutput) {
+  final match =
+      RegExp(r'TotalVisibleMemorySize=(\d+)').firstMatch(wmicOutput);
+  if (match == null) return null;
+  final kb = int.tryParse(match.group(1) ?? '');
+  if (kb == null || kb <= 0) return null;
+  return kb ~/ 1024;
 }
 
 int? _extractMacVramMB(String profilerOutput) {
