@@ -7,9 +7,13 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/config/settings_provider.dart';
 import 'core/data/database.dart';
+import 'core/l10n/generated/app_localizations.dart';
+import 'core/l10n/locale_provider.dart';
 import 'core/logging/app_monitoring.dart';
 import 'core/logging/crash_reporter.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
+import 'core/theme/theme.dart';
+import 'core/theme/theme_provider.dart';
 import 'services/audio_service.dart';
 import 'services/deploy_channel_service.dart';
 import 'services/hardware_info_service.dart' as hw;
@@ -17,6 +21,7 @@ import 'services/path_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/subprocess_guard.dart' as guard;
 import 'services/update_service.dart';
+import 'widgets/insufficient_ram_screen.dart';
 
 Future<ProviderContainer> bootstrapAppContainer({
   List overrides = const [],
@@ -109,6 +114,23 @@ Future<void> main(List<String> args) async {
     // Clean up stale WAV files from previous sessions (fire-and-forget).
     unawaited(AudioServiceNotifier.cleanupStaleFiles());
 
+    // RAM preflight — fail fast if system is below the 8 GB minimum.
+    // Only runs on desktop (mobile/web have different resource models).
+    // Fail-open: if detection returns null, proceed normally.
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      final ramMB = await hw.detectRamMB();
+      if (ramMB != null && ramMB < hw.kMinRamMB) {
+        final detectedGb = ramMB / 1024.0;
+        runApp(
+          UncontrolledProviderScope(
+            container: container,
+            child: _InsufficientRamApp(detectedGb: detectedGb),
+          ),
+        );
+        return;
+      }
+    }
+
     // Kill orphaned whisper-server / llama-server from crashed sessions.
     unawaited(guard.cleanupOrphans());
 
@@ -141,4 +163,32 @@ Future<void> main(List<String> args) async {
       ),
     );
   });
+}
+
+/// Minimal app shown when RAM is below the 8 GB minimum.
+///
+/// Uses the full theme stack so the error screen is visually consistent
+/// with the rest of the app.
+class _InsufficientRamApp extends ConsumerWidget {
+  const _InsufficientRamApp({required this.detectedGb});
+
+  final double detectedGb;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final locale = ref.watch(localeProvider);
+
+    return MaterialApp(
+      title: 'WhisPaste',
+      debugShowCheckedModeBanner: false,
+      theme: wpLightTheme(),
+      darkTheme: wpDarkTheme(),
+      themeMode: themeMode,
+      locale: locale,
+      localizationsDelegates: L10n.localizationsDelegates,
+      supportedLocales: L10n.supportedLocales,
+      home: InsufficientRamScreen(detectedGb: detectedGb),
+    );
+  }
 }

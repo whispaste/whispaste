@@ -768,5 +768,21 @@
   "reviewPromptNotNow": "Nicht jetzt",
   "reviewPromptNever": "Nicht mehr fragen",
   "reviewPromptStarGitHub": "⭐ Auf GitHub einen Stern geben",
-  "reviewPromptRateStore": "★ Im Store bewerten"
+  "reviewPromptRateStore": "★ Im Store bewerten",
+
+  "insufficientRamTitle": "Zu wenig Arbeitsspeicher",
+  "insufficientRamBody": "WhisPaste benötigt mindestens 8 GB Arbeitsspeicher. Dein System hat {detectedGb} GB.\n\nMit weniger Arbeitsspeicher kann die KI-Transkription möglicherweise nicht geladen werden oder stürzt ab.",
+  "@insufficientRamBody": {
+    "placeholders": {
+      "detectedGb": {
+        "type": "double",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "insufficientRamQuit": "WhisPaste beenden",
+  "insufficientRamLearnMore": "Systemanforderungen",
+  "insufficientRamSystemCheck": "Systemprüfung",
+  "insufficientRamYourSystem": "Dein System",
+  "insufficientRamRequired": "Mindestens"
 }
