@@ -13,7 +13,6 @@ import 'core/logging/app_monitoring.dart';
 import 'core/logging/crash_reporter.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/theme/theme.dart';
-import 'core/theme/theme_provider.dart';
 import 'services/audio_service.dart';
 import 'services/deploy_channel_service.dart';
 import 'services/hardware_info_service.dart' as hw;
@@ -117,9 +116,12 @@ Future<void> main(List<String> args) async {
     // RAM preflight — fail fast if system is below the 8 GB minimum.
     // Only runs on desktop (mobile/web have different resource models).
     // Fail-open: if detection returns null, proceed normally.
+    // kRamCheckThresholdMB (7500) accounts for OS memory reservations on
+    // Windows/Linux; kMinRamMB (8192) is the user-facing requirement shown
+    // in the error UI.
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
       final ramMB = await hw.detectRamMB();
-      if (ramMB != null && ramMB < hw.kMinRamMB) {
+      if (ramMB != null && ramMB < hw.kRamCheckThresholdMB) {
         final detectedGb = ramMB / 1024.0;
         runApp(
           UncontrolledProviderScope(
@@ -167,8 +169,8 @@ Future<void> main(List<String> args) async {
 
 /// Minimal app shown when RAM is below the 8 GB minimum.
 ///
-/// Uses the full theme stack so the error screen is visually consistent
-/// with the rest of the app.
+/// Always uses the dark theme — the screen uses [WpColorsDark] tokens.
+/// Locale is respected so EN/DE strings load correctly.
 class _InsufficientRamApp extends ConsumerWidget {
   const _InsufficientRamApp({required this.detectedGb});
 
@@ -176,15 +178,12 @@ class _InsufficientRamApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
     final locale = ref.watch(localeProvider);
 
     return MaterialApp(
       title: 'WhisPaste',
       debugShowCheckedModeBanner: false,
-      theme: wpLightTheme(),
-      darkTheme: wpDarkTheme(),
-      themeMode: themeMode,
+      theme: wpDarkTheme(),
       locale: locale,
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,

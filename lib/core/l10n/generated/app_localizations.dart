@@ -4150,8 +4150,8 @@ abstract class L10n {
   /// No description provided for @insufficientRamBody.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste requires at least 8 GB of RAM to run. Your system has {detectedGb} GB.\n\nWith less memory, the AI transcription engine may fail to load or crash mid-session.'**
-  String insufficientRamBody(double detectedGb);
+  /// **'WhisPaste requires at least {requiredGb} GB of RAM to run. Your system has {detectedGb} GB.\n\nWith less memory, the AI transcription engine may fail to load or crash mid-session.'**
+  String insufficientRamBody(double detectedGb, int requiredGb);
 
   /// No description provided for @insufficientRamQuit.
   ///
