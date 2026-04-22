@@ -4140,6 +4140,48 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'★ Rate on the Store'**
   String get reviewPromptRateStore;
+
+  /// No description provided for @insufficientRamTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Not Enough Memory'**
+  String get insufficientRamTitle;
+
+  /// No description provided for @insufficientRamBody.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste requires at least 8 GB of RAM to run. Your system has {detectedGb} GB.\n\nWith less memory, the AI transcription engine may fail to load or crash mid-session.'**
+  String insufficientRamBody(double detectedGb);
+
+  /// No description provided for @insufficientRamQuit.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit WhisPaste'**
+  String get insufficientRamQuit;
+
+  /// No description provided for @insufficientRamLearnMore.
+  ///
+  /// In en, this message translates to:
+  /// **'System requirements'**
+  String get insufficientRamLearnMore;
+
+  /// No description provided for @insufficientRamSystemCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'System Check'**
+  String get insufficientRamSystemCheck;
+
+  /// No description provided for @insufficientRamYourSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'Your system'**
+  String get insufficientRamYourSystem;
+
+  /// No description provided for @insufficientRamRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Required'**
+  String get insufficientRamRequired;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

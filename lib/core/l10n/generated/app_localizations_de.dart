@@ -2286,4 +2286,31 @@ class L10nDe extends L10n {
 
   @override
   String get reviewPromptRateStore => '★ Im Store bewerten';
+
+  @override
+  String get insufficientRamTitle => 'Zu wenig Arbeitsspeicher';
+
+  @override
+  String insufficientRamBody(double detectedGb) {
+    final intl.NumberFormat detectedGbNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String detectedGbString = detectedGbNumberFormat.format(detectedGb);
+
+    return 'WhisPaste benötigt mindestens 8 GB Arbeitsspeicher. Dein System hat $detectedGbString GB.\n\nMit weniger Arbeitsspeicher kann die KI-Transkription möglicherweise nicht geladen werden oder stürzt ab.';
+  }
+
+  @override
+  String get insufficientRamQuit => 'WhisPaste beenden';
+
+  @override
+  String get insufficientRamLearnMore => 'Systemanforderungen';
+
+  @override
+  String get insufficientRamSystemCheck => 'Systemprüfung';
+
+  @override
+  String get insufficientRamYourSystem => 'Dein System';
+
+  @override
+  String get insufficientRamRequired => 'Mindestens';
 }

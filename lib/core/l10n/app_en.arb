@@ -842,5 +842,21 @@
   "reviewPromptNotNow": "Not now",
   "reviewPromptNever": "Never ask again",
   "reviewPromptStarGitHub": "⭐ Star on GitHub",
-  "reviewPromptRateStore": "★ Rate on the Store"
+  "reviewPromptRateStore": "★ Rate on the Store",
+
+  "insufficientRamTitle": "Not Enough Memory",
+  "insufficientRamBody": "WhisPaste requires at least 8 GB of RAM to run. Your system has {detectedGb} GB.\n\nWith less memory, the AI transcription engine may fail to load or crash mid-session.",
+  "@insufficientRamBody": {
+    "placeholders": {
+      "detectedGb": {
+        "type": "double",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "insufficientRamQuit": "Quit WhisPaste",
+  "insufficientRamLearnMore": "System requirements",
+  "insufficientRamSystemCheck": "System Check",
+  "insufficientRamYourSystem": "Your system",
+  "insufficientRamRequired": "Required"
 }
