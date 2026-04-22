@@ -242,6 +242,15 @@ class RecordingOrchestrator extends Notifier<void> {
       }
       if (!await wavFile.exists()) {
         pipelineOutcome = 'wav_not_created';
+        // If STT is in error state, the pipeline abort was caused by the STT
+        // failure — show the STT error message rather than a misleading
+        // "could not save audio file" toast.
+        final sttStatus = ref.read(sttServiceProvider);
+        if (!sttStatus.isReady) {
+          notifier.fail(sttStatus.errorMessage ?? 'stt_server_failed');
+          _log.error('[$sid] WAV file never appeared (STT failed): $wavPath');
+          return;
+        }
         notifier.fail('wav_file_not_created');
         _log.error('[$sid] WAV file never appeared: $wavPath');
         return;
