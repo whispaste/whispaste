@@ -1,5 +1,25 @@
 [
   {
+    "version": "1.2.9",
+    "date": "2026-04-22",
+    "en": {
+      "highlights": [
+        "Model load failures (code 3) no longer cause an infinite retry loop — WhisPaste now fails fast with a clear re-download prompt",
+        "Duplicate 'Something went wrong' toast eliminated after corrupted model detection",
+        "Recording pipeline abort now shows the correct STT error instead of a misleading 'Could not save audio file' message"
+      ],
+      "improvements": []
+    },
+    "de": {
+      "highlights": [
+        "Fehler beim Laden von Modellen (Code 3) führen nicht mehr zu einer endlosen Wiederholungsschleife — WhisPaste bricht jetzt mit einer klaren Meldung ab",
+        "Doppelter 'Etwas ist schiefgelaufen'-Toast nach korrupter Modellerkennung entfernt",
+        "Pipeline-Abbruch zeigt jetzt die korrekte STT-Fehlermeldung statt der irreführenden 'Audio-Datei konnte nicht gespeichert werden'-Meldung"
+      ],
+      "improvements": []
+    }
+  },
+  {
     "version": "1.2.x",
     "date": "2026-04-21",
     "en": {
