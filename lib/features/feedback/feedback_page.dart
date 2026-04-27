@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/app_info.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
@@ -40,6 +41,24 @@ const _supabasePublishableKey = String.fromEnvironment(
 String computeFeedbackDeviceIdHash(String hostname) {
   final bytes = utf8.encode('${hostname}_whispaste');
   return md5.convert(bytes).toString().substring(0, 12);
+}
+
+const _kLastFeedbackKey = 'feedback_last_submitted_ms';
+const _kClientRateLimitHours = 24;
+
+/// Returns true if the user has submitted feedback within the last 24 hours.
+/// Prevents unnecessary network calls before the server-side check.
+Future<bool> _isClientRateLimited() async {
+  final prefs = await SharedPreferences.getInstance();
+  final lastMs = prefs.getInt(_kLastFeedbackKey);
+  if (lastMs == null) return false;
+  final elapsed = DateTime.now().millisecondsSinceEpoch - lastMs;
+  return elapsed < const Duration(hours: _kClientRateLimitHours).inMilliseconds;
+}
+
+Future<void> _recordFeedbackSubmission() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setInt(_kLastFeedbackKey, DateTime.now().millisecondsSinceEpoch);
 }
 
 /// Thrown by [_FeedbackPageState._post] for HTTP responses that should not
@@ -310,6 +329,13 @@ class _FeedbackPageState extends State<FeedbackPage> {
     // an async gap (lint: use_build_context_synchronously).
     final locale = Localizations.localeOf(context).languageCode;
     try {
+      // Client-side rate limit check — avoids unnecessary network round-trips.
+      if (await _isClientRateLimited()) {
+        _log.info('Feedback blocked by client-side rate limit (24h cooldown)');
+        if (mounted) setState(() { _submitting = false; _error = 'rate_limited'; });
+        return;
+      }
+
       if (_supabaseUrl.isEmpty || _supabasePublishableKey.isEmpty) {
         _log.info(
           'Supabase not configured — skipping feedback submission '
@@ -328,6 +354,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
         await _post(payload);
         _log.info('Feedback submitted successfully');
       }
+      await _recordFeedbackSubmission();
       if (mounted) setState(() => _submitted = true);
     } on _ServerException catch (e) {
       if (mounted) setState(() { _submitting = false; _error = e.code; });
