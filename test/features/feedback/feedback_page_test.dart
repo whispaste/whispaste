@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -45,6 +46,10 @@ void main() {
   // FeedbackPage widget tests
   // ───────────────────────────────────────────────────────────────────────
   group('FeedbackPage widget', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
     testWidgets('renders without error', (tester) async {
       await tester.pumpWidget(makeTestable(const FeedbackPage()));
       await tester.pumpAndSettle();
