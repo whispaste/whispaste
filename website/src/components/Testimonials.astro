@@ -1,22 +1,62 @@
 ---
-// Testimonials.astro — Displays approved user testimonials from the public API.
-// Fetches at client-side (static site) from the testimonials Edge Function.
-// Falls back gracefully if the API is unavailable or returns no results.
+// Testimonials.astro — Fetches approved testimonials at BUILD TIME (SSG).
+// Zero runtime Edge Function calls — data is baked into static HTML.
+// Testimonials update automatically on each site redeploy.
+
+const API_URL = 'https://cnyniyflnefxrwafuqig.supabase.co/functions/v1/testimonials';
+
+interface Testimonial {
+  rating: number;
+  text: string;
+}
+
+let testimonials: Testimonial[] = [];
+
+try {
+  const res = await fetch(API_URL + '?limit=6');
+  if (res.ok) {
+    const data = await res.json();
+    testimonials = (data.testimonials || []).filter(
+      (t: Testimonial) => t.text && t.rating >= 1
+    );
+  }
+} catch {
+  // Build continues without testimonials — section stays hidden
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 ---
 
-<!-- Testimonials section: hidden by default, revealed only when real testimonials exist -->
-<section id="testimonials" class="py-24 sm:py-32 relative scroll-mt-20" style="display:none;">
-  <div class="max-w-5xl mx-auto px-6">
-    <div class="text-center mb-12 scroll-reveal">
-      <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="testimonials.label">Testimonials</p>
-      <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="testimonials.title">What our users say</h2>
-      <p class="mt-4 text-gray-400 max-w-xl mx-auto" data-i18n="testimonials.subtitle">Real feedback from real people — no names, no tracking, just honest opinions.</p>
-    </div>
+{testimonials.length > 0 && (
+  <section id="testimonials" class="py-24 sm:py-32 relative scroll-mt-20">
+    <div class="max-w-5xl mx-auto px-6">
+      <div class="text-center mb-12 scroll-reveal">
+        <p class="text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3" data-i18n="testimonials.label">Testimonials</p>
+        <h2 class="text-3xl sm:text-4xl font-bold text-white" data-i18n="testimonials.title">What our users say</h2>
+        <p class="mt-4 text-gray-400 max-w-xl mx-auto" data-i18n="testimonials.subtitle">Real feedback from real people — no names, no tracking, just honest opinions.</p>
+      </div>
 
-    <!-- Testimonial grid (populated by JS) -->
-    <div id="testimonials-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 scroll-reveal"></div>
-  </div>
-</section>
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 scroll-reveal">
+        {testimonials.map((t) => {
+          const r = Math.max(0, Math.min(5, Math.round(t.rating) || 0));
+          return (
+            <div class="testimonial-card">
+              <div class="testimonial-stars">{'★'.repeat(r)}{'☆'.repeat(5 - r)}</div>
+              <p class="testimonial-text" set:html={`"${escapeHtml(t.text)}"`} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </section>
+)}
 
 <style>
   .testimonial-card {
@@ -54,47 +94,3 @@
     color: rgba(0, 0, 0, 0.6);
   }
 </style>
-
-<script>
-  const API_URL = 'https://cnyniyflnefxrwafuqig.supabase.co/functions/v1/testimonials';
-
-  async function loadTestimonials() {
-    const section = document.getElementById('testimonials');
-    const grid = document.getElementById('testimonials-grid');
-    if (!section || !grid) return;
-
-    try {
-      const res = await fetch(API_URL + '?limit=6');
-      if (!res.ok) throw new Error('API ' + res.status);
-      const { testimonials } = await res.json();
-
-      if (!testimonials || testimonials.length === 0) return;
-
-      grid.innerHTML = testimonials.map((t: { rating: number; text: string }) => {
-        const r = Math.max(0, Math.min(5, Math.round(t.rating) || 0));
-        return `
-        <div class="testimonial-card">
-          <div class="testimonial-stars">${'★'.repeat(r)}${'☆'.repeat(5 - r)}</div>
-          <p class="testimonial-text">"${escapeHtml(t.text)}"</p>
-        </div>
-      `}).join('');
-
-      section.style.display = '';
-    } catch {
-      // Silently hide — no testimonials is fine
-    }
-  }
-
-  function escapeHtml(s: string): string {
-    const d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
-  }
-
-  // Load testimonials when page is ready (section starts hidden, revealed only if data exists)
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(() => loadTestimonials());
-  } else {
-    setTimeout(loadTestimonials, 1000);
-  }
-</script>
