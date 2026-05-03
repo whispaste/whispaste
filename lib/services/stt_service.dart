@@ -19,6 +19,7 @@ import '../core/recording/recording_state.dart' show SttServerState;
 import 'hardware_info_service.dart' as hw;
 import 'model_download_service.dart';
 import 'path_service.dart';
+import 'process_runner.dart';
 import 'subprocess_guard.dart' as guard;
 
 // Re-export so existing importers of stt_service.dart still see SttServerState.
@@ -155,10 +156,16 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
   /// Reusable HTTP client with connection pooling (mirrors Go's
   /// `sttInferenceClient`). Localhost — no compression needed.
-  final http.Client _httpClient = http.Client();
+  late final http.Client _httpClient;
+
+  /// Injectable process runner for the whisper-server subprocess.
+  late final ProcessRunner _processRunner;
 
   @override
   SttStatus build() {
+    _httpClient = ref.read(sttHttpClientProvider);
+    _processRunner = ref.read(processRunnerProvider);
+
     ref.onDispose(() {
       _idleTimer?.cancel();
       _idleTimer = null;
@@ -568,7 +575,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     final sw = Stopwatch()..start();
     try {
       final uri = Uri.parse('http://127.0.0.1:$port/health');
-      final resp = await http
+      final resp = await _httpClient
           .get(uri)
           .timeout(const Duration(milliseconds: 500));
       sw.stop();
@@ -1004,11 +1011,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
     final Process proc;
     try {
-      proc = await Process.start(
-        serverPath,
-        args,
-        mode: ProcessStartMode.normal,
-      );
+      proc = await _processRunner.start(serverPath, args);
     } on ProcessException catch (e) {
       _fail('Failed to start whisper-server: $e');
       return;
@@ -1497,3 +1500,13 @@ class _EarlyExitException implements Exception {
 final sttServiceProvider = NotifierProvider<SttServiceNotifier, SttStatus>(
   SttServiceNotifier.new,
 );
+
+/// Overrideable [ProcessRunner] for the whisper-server subprocess.
+/// Tests replace this with a fake to avoid spawning real processes.
+final processRunnerProvider = Provider<ProcessRunner>(
+  (_) => const SystemProcessRunner(),
+);
+
+/// Overrideable [http.Client] for STT HTTP calls.
+/// Tests replace this with a mock client.
+final sttHttpClientProvider = Provider<http.Client>((_) => http.Client());

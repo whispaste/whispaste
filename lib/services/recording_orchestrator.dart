@@ -7,26 +7,25 @@ library;
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
-import '../core/data/database.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart';
 import '../core/data/analytics_provider.dart';
 import 'audio_service.dart';
-import 'desktop_paste/desktop_paste_controller.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
 import 'review_prompt_service.dart';
 import 'sound_feedback_service.dart';
+import 'paste/paster.dart';
+import 'recording_store.dart';
 import 'stt_service.dart';
+import 'transcription/transcriber.dart';
 
 // ---------------------------------------------------------------------------
 // Orchestrator
@@ -71,9 +70,6 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Whether the 90% duration warning has been played.
   bool _durationWarningFired = false;
-
-  /// Whether the current recording session has a captured desktop paste target.
-  bool _hasCapturedPasteTarget = false;
 
   int _oomAttemptCount = 0;
 
@@ -149,7 +145,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // Fires before the two async calls below to maximise warm-up lead time.
       unawaited(sttNot.ensureRunning());
 
-      _hasCapturedPasteTarget = await _capturePasteTarget();
+      await ref.read(pasterProvider)?.prime();
 
       // Start audio capture.
       final audioNotifier = ref.read(audioServiceProvider.notifier);
@@ -285,24 +281,29 @@ class RecordingOrchestrator extends Notifier<void> {
         effectiveLang = appLocale; // e.g. "de", "en"
       }
 
-      // Ensure STT server is ready (with generous timeout for cold-starts —
+      // Ensure STT backend is ready (with generous timeout for cold-starts —
       // large models on integrated GPUs can take 60–90s to load into VRAM).
-      final sttNotifier = ref.read(sttServiceProvider.notifier);
+      final transcriber = ref.read(transcriberProvider);
       final ensureSw = Stopwatch()..start();
       try {
-        await sttNotifier.ensureRunning().timeout(const Duration(seconds: 120));
+        await transcriber.prepare().timeout(const Duration(seconds: 120));
       } on TimeoutException {
         pipelineOutcome = 'stt_timeout';
         notifier.fail('stt_start_timeout');
         _log.warning('[$sid] STT server start timed out after 120s');
         return;
+      } on TranscriberException catch (e) {
+        pipelineOutcome = 'stt_start_error';
+        notifier.fail(e.message);
+        _log.warning('[$sid] STT prepare failed: ${e.message}');
+        return;
       }
       ensureSw.stop();
       sttEnsureMs = ensureSw.elapsedMilliseconds;
 
-      // Verify server is ready before transcribing.
+      // Verify local server is ready before transcribing (on-device only).
       final sttStatus = ref.read(sttServiceProvider);
-      if (!sttStatus.isReady) {
+      if (!sttStatus.isReady && settings.sttProviderType.isLocal) {
         if (sttStatus.errorMessage == 'stt_cuda_oom') {
           pipelineOutcome = 'stt_cuda_oom';
           _handleOomRecovery();
@@ -328,8 +329,8 @@ class RecordingOrchestrator extends Notifier<void> {
       final timeoutSec = 60 + (audioDurMs / 1000 * 0.8).round();
       String transcript;
       try {
-        transcript = await sttNotifier
-            .transcribeBytes(wavBytes, language: effectiveLang)
+        transcript = await transcriber
+            .transcribe(wavBytes, language: effectiveLang)
             .timeout(Duration(seconds: timeoutSec));
       } on TimeoutException {
         pipelineOutcome = 'transcribe_timeout';
@@ -360,6 +361,11 @@ class RecordingOrchestrator extends Notifier<void> {
           '[$sid] STT server connection lost during inference (ClientException)',
         );
         return;
+      } on TranscriberException catch (e) {
+        pipelineOutcome = 'transcribe_error';
+        notifier.fail(e.message);
+        _log.error('[$sid] Transcription failed: ${e.message}');
+        return;
       }
       inferSw.stop();
       transcribeMs = inferSw.elapsedMilliseconds;
@@ -378,34 +384,9 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       }
 
-      // ── Text replacements (voice shortcuts) ─────────────────────────────
+      // ── Transcription cleanup (always applied) ──────────────────────────
       final replaceSw = Stopwatch()..start();
       var finalText = transcript;
-      if (settings.textReplacementsEnabled) {
-        try {
-          final db = ref.read(historyDatabaseProvider);
-          final replacements = await db.readAllReplacements();
-          if (replacements.isNotEmpty) {
-            for (final r in replacements) {
-              // Case-insensitive whole-word replacement.
-              final escaped = RegExp.escape(r.trigger);
-              final pattern = RegExp(
-                r'(?<=\s|^)' + escaped + r'(?=\s|$|[.,;:!?])',
-                caseSensitive: false,
-              );
-              finalText = finalText.replaceAll(pattern, r.replacement);
-            }
-            if (finalText != transcript) {
-              _log.info(
-                '[$sid] Text replacements applied: ${replacements.length} rules, '
-                '${transcript.length}→${finalText.length} chars',
-              );
-            }
-          }
-        } on Exception catch (e) {
-          _log.warning('[$sid] Text replacement failed (non-fatal): $e');
-        }
-      }
       replaceSw.stop();
       replaceMs = replaceSw.elapsedMilliseconds;
 
@@ -426,9 +407,19 @@ class RecordingOrchestrator extends Notifier<void> {
 
       // Save to history database (with replacements applied).
       final saveSw = Stopwatch()..start();
-      await _saveToHistory(finalText, settings);
+      final savedTranscript = await _saveToHistory(
+        finalText,
+        Duration(milliseconds: audioDurMs),
+        settings,
+        transcribeMs ~/ 1000,
+      );
       saveSw.stop();
       saveMs = saveSw.elapsedMilliseconds;
+
+      // Use the processed transcript (after replacements) for paste.
+      if (savedTranscript != null && savedTranscript != finalText) {
+        finalText = savedTranscript;
+      }
 
       // Copy to clipboard / auto-paste based on user preference.
       // Timeout prevents a locked clipboard from hanging the pipeline.
@@ -707,68 +698,49 @@ class RecordingOrchestrator extends Notifier<void> {
     return null;
   }
 
-  Future<void> _saveToHistory(String transcript, AppSettings settings) async {
-    final db = ref.read(historyDatabaseProvider);
-    final now = DateTime.now();
-    final recording = ref.read(recordingProvider);
+  Future<String?> _saveToHistory(
+    String transcript,
+    Duration audioDuration,
+    AppSettings settings,
+    int processingDurationSec,
+  ) async {
+    try {
+      final store = ref.read(recordingStoreProvider);
+      final wordCount = transcript.trim().isEmpty
+          ? 0
+          : transcript.trim().split(RegExp(r'\s+')).length;
 
-    final id = '${now.millisecondsSinceEpoch}';
-    final durationSec = recording.elapsed.inSeconds.toDouble();
+      final saved = await store.save(
+        RecordingInput(
+          transcript: transcript,
+          audioDuration: audioDuration,
+          modelId: settings.effectiveModelId,
+          isLocal: settings.sttProviderType.isLocal,
+          languageCode: settings.sttLanguageCode,
+          applyTextReplacements: settings.textReplacementsEnabled,
+          historyMaxEntries: settings.historyMaxEntries,
+          wordCount: wordCount,
+          processingDurationSec: processingDurationSec,
+        ),
+      );
 
-    // Auto-generate a short title from the first ~60 chars.
-    var title = transcript.trim();
-    if (title.length > 60) {
-      // Cut at the last word boundary within 60 chars.
-      final cut = title.substring(0, 60);
-      final lastSpace = cut.lastIndexOf(' ');
-      title = lastSpace > 20 ? '${cut.substring(0, lastSpace)}…' : '$cut…';
-    }
+      _log.info('Saved entry ${saved.entryId} to history');
 
-    final wordCount = transcript.trim().isEmpty
-        ? 0
-        : transcript.trim().split(RegExp(r'\s+')).length;
-
-    await db.upsertEntry(
-      HistoryEntriesCompanion(
-        id: Value(id),
-        content: Value(transcript),
-        title: Value(title),
-        timestamp: Value(now),
-        durationSec: Value(durationSec),
-        language: Value(settings.sttLanguageCode),
-        model: Value(settings.effectiveModelId),
-        isLocal: const Value(true),
-        source: const Value('dictation'),
-      ),
-    );
-
-    // Persist analytics independently from history — these counters survive
-    // history entry deletion.
-    await db.recordDailyStat(
-      timestamp: now,
-      model: settings.effectiveModelId,
-      isLocal: true,
-      durationSec: durationSec,
-      processingDurationSec: 0,
-      wordCount: wordCount,
-      costUsd: 0,
-    );
-
-    _log.info('Saved entry $id to history');
-
-    // Auto-cleanup: trim oldest non-favorite entries if limit is set.
-    if (settings.historyMaxEntries > 0) {
-      final trimmed = await db.trimToMaxEntries(settings.historyMaxEntries);
-      if (trimmed > 0) {
+      if (saved.trimmedCount > 0) {
         _log.info(
-          'Auto-trimmed $trimmed old entries to stay within '
+          'Auto-trimmed ${saved.trimmedCount} old entries to stay within '
           '${settings.historyMaxEntries} limit',
         );
       }
-    }
 
-    // Refresh analytics dashboard so counters update immediately.
-    ref.invalidate(analyticsProvider);
+      // Refresh analytics dashboard so counters update immediately.
+      ref.invalidate(analyticsProvider);
+
+      return saved.processedTranscript;
+    } on Exception catch (e) {
+      _log.error('Failed to save to history: $e');
+      return null;
+    }
   }
 
   void _cancelAmplitude() {
@@ -912,39 +884,6 @@ class RecordingOrchestrator extends Notifier<void> {
     }
   }
 
-  Future<bool> _capturePasteTarget() async {
-    final controller = ref.read(desktopPasteControllerProvider);
-    if (controller == null) return false;
-
-    try {
-      return await controller.capturePasteTarget();
-    } on MissingPluginException {
-      _log.warning(
-        'Desktop paste controller missing native implementation for this platform',
-      );
-      return false;
-    } on Exception catch (e) {
-      _log.warning('Paste target capture failed: $e');
-      return false;
-    }
-  }
-
-  Future<String?> _captureClipboardText() async {
-    try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain).timeout(
-        const Duration(seconds: 2),
-        onTimeout: () {
-          _log.warning('Clipboard.getData timed out after 2s');
-          return null;
-        },
-      );
-      return data?.text;
-    } on Exception catch (e) {
-      _log.warning('Clipboard snapshot failed: $e');
-      return null;
-    }
-  }
-
   Future<bool> _copyTranscriptToClipboard(String transcript) async {
     try {
       await Clipboard.setData(ClipboardData(text: transcript)).timeout(
@@ -958,89 +897,6 @@ class RecordingOrchestrator extends Notifier<void> {
     } on Exception catch (e) {
       _log.warning('Clipboard copy failed: $e');
       return false;
-    }
-  }
-
-  Future<bool> _pasteClipboard(AppSettings settings) async {
-    final controller = ref.read(desktopPasteControllerProvider);
-    if (controller == null) {
-      _log.warning(
-        'Auto-paste requested but no desktop paste controller is available',
-      );
-      return false;
-    }
-
-    final delayMs = settings.autoPasteDelay < 0 ? 0 : settings.autoPasteDelay;
-
-    try {
-      if (!_hasCapturedPasteTarget) {
-        _hasCapturedPasteTarget = await _capturePasteTarget();
-      }
-      if (!_hasCapturedPasteTarget) {
-        _log.warning(
-          'Auto-paste requested but no target window could be captured',
-        );
-        return false;
-      }
-
-      // Check per-app auto-paste blocklist
-      final blocklist = settings.autoPasteBlocklist.trim();
-      if (blocklist.isNotEmpty) {
-        try {
-          final targetId = await controller.getTargetBundleId();
-          if (targetId != null && targetId.isNotEmpty) {
-            final blocked = blocklist
-                .split(',')
-                .map((e) => e.trim().toLowerCase())
-                .where((e) => e.isNotEmpty)
-                .toSet();
-            if (blocked.contains(targetId.toLowerCase())) {
-              _log.info(
-                'Auto-paste blocked for app: $targetId (in blocklist)',
-              );
-              return false;
-            }
-          }
-        } on MissingPluginException {
-          // getTargetBundleId not implemented on this platform — skip check
-        }
-      }
-
-      final didPaste = await controller.pasteClipboard(
-        delay: Duration(milliseconds: delayMs),
-      );
-      if (!didPaste) {
-        _log.warning(
-          'Desktop paste bridge reported an unsuccessful paste attempt',
-        );
-      }
-      return didPaste;
-    } on MissingPluginException {
-      _log.warning(
-        'Desktop paste controller missing native implementation for this platform',
-      );
-      return false;
-    } on Exception catch (e) {
-      _log.warning('Desktop paste failed: $e');
-      return false;
-    }
-  }
-
-  Duration _clipboardRestoreDelay(AppSettings settings) {
-    final restoreMs = math.max(500, settings.autoPasteDelay + 350);
-    return Duration(milliseconds: restoreMs);
-  }
-
-  Future<void> _restoreClipboardText(String? previousText) async {
-    try {
-      await Clipboard.setData(ClipboardData(text: previousText ?? '')).timeout(
-        const Duration(seconds: 5),
-        onTimeout: () {
-          _log.warning('Clipboard restore timed out after 5s');
-        },
-      );
-    } on Exception catch (e) {
-      _log.warning('Clipboard restore failed: $e');
     }
   }
 
@@ -1059,21 +915,44 @@ class RecordingOrchestrator extends Notifier<void> {
         await _copyTranscriptToClipboard(transcript);
         return;
       case AfterTranscriptionAction.paste:
-        final previousClipboardText = await _captureClipboardText();
-        final copied = await _copyTranscriptToClipboard(transcript);
-        if (!copied) return;
-
-        final didPaste = await _pasteClipboard(settings);
-        if (didPaste) {
-          await Future<void>.delayed(_clipboardRestoreDelay(settings));
-          await _restoreClipboardText(previousClipboardText);
-        }
+        await _pasteTranscript(transcript, settings);
         return;
       case AfterTranscriptionAction.clipboardAndPaste:
-        final copied = await _copyTranscriptToClipboard(transcript);
-        if (!copied) return;
-        await _pasteClipboard(settings);
+        await _copyTranscriptToClipboard(transcript);
+        await _pasteTranscript(transcript, settings);
         return;
+    }
+  }
+
+  Future<bool> _pasteTranscript(String transcript, AppSettings settings) async {
+    final paster = ref.read(pasterProvider);
+    if (paster == null) return false;
+
+    // Capture the paste target if it hasn't been primed yet (e.g. when this
+    // is the first recording, or recording was started externally).
+    await paster.prime();
+
+    final outcome = await paster.paste(
+      transcript,
+      PasteOptions(
+        autoPasteDelayMs: settings.autoPasteDelay,
+        blocklist: settings.autoPasteBlocklist,
+      ),
+    );
+
+    switch (outcome) {
+      case PasteOutcome.success:
+        _log.info('Pasted transcript (${transcript.length} chars)');
+        return true;
+      case PasteOutcome.blocked:
+        _log.info('Auto-paste blocked for current app (in blocklist)');
+        return false;
+      case PasteOutcome.platformUnavailable:
+        _log.warning('Desktop paste not available on this platform');
+        return false;
+      case PasteOutcome.failed:
+        _log.warning('Paste failed');
+        return false;
     }
   }
 }
