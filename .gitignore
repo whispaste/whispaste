@@ -1,5 +1,6 @@
 # Secrets
 .env
+.mcp.json
 
 # Flutter
 .dart_tool/
