@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
@@ -36,6 +38,7 @@ class HistoryEntryRow extends StatefulWidget {
     this.isChecked = false,
     this.isTrashView = false,
     this.isFocused = false,
+    this.onTagTap,
   });
 
   final HistoryEntry entry;
@@ -49,6 +52,7 @@ class HistoryEntryRow extends StatefulWidget {
   final bool isChecked;
   final bool isTrashView;
   final bool isFocused;
+  final void Function(String tag)? onTagTap;
 
   @override
   State<HistoryEntryRow> createState() => _HistoryEntryRowState();
@@ -69,6 +73,22 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
     final mins = secs ~/ 60;
     final rem = secs % 60;
     return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
+  }
+
+  int get _wordCount {
+    final t = widget.entry.content.trim();
+    if (t.isEmpty) return 0;
+    return t.split(RegExp(r'\s+')).length;
+  }
+
+  List<String> get _entryTags {
+    final raw = widget.entry.tags.trim();
+    if (raw == '[]' || raw.isEmpty) return const [];
+    try {
+      return List<String>.from(jsonDecode(raw) as List);
+    } catch (_) {
+      return const [];
+    }
   }
 
   @override
@@ -243,6 +263,16 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            if (_wordCount > 0) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              Text(
+                                '· ~$_wordCount w',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: textMuted,
+                                ),
+                              ),
+                            ],
                             if (widget.entry.language.isNotEmpty) ...[
                               const SizedBox(width: WpSpacing.xs),
                               Text(
@@ -283,14 +313,59 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                             ],
                           ],
                         ),
+                        // Tag chips — only rendered when entry has tags
+                        if (_entryTags.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 2,
+                            children: [
+                              for (final tag in _entryTags.take(3))
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => widget.onTagTap?.call(tag),
+                                  child: MouseRegion(
+                                    cursor: widget.onTagTap != null
+                                        ? SystemMouseCursors.click
+                                        : MouseCursor.defer,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: accent.withValues(
+                                            alpha: isDark ? 0.12 : 0.10),
+                                        borderRadius: WpRadius.borderSm,
+                                      ),
+                                      child: Text(
+                                        '#$tag',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: accent.withValues(alpha: 0.9),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              if (_entryTags.length > 3)
+                                Text(
+                                  '+${_entryTags.length - 3}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: textMuted,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-            // Quick action buttons — visible on hover (desktop) or always (touch)
-            if ((_isHovered || _isTouchPlatform) && !widget.multiSelectMode)
+            // Quick action buttons — visible on hover/focus (desktop) or always (touch)
+            if ((_isHovered || _isTouchPlatform || widget.isFocused) && !widget.multiSelectMode)
               Positioned(
                 top: 6,
                 right: WpSpacing.xs + WpSpacing.sm,
