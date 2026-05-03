@@ -521,77 +521,139 @@ class AppSettings {
   }
 
   /// Serializes settings into a string map for SQLite persistence.
-  Map<String, String> toStorageMap() {
-    return {
-      'theme_mode': themeMode.name,
-      'locale': locale,
-      'launch_at_startup': '$launchAtStartup',
-      'start_minimized': '$startMinimized',
-      'show_notifications': '$showNotifications',
-      'microphone': microphone,
-      'input_gain': '$inputGain',
-      'push_to_talk': '$pushToTalk',
-      'dead_mic_timeout': '$deadMicTimeout',
-      'auto_stop_silence': '$autoStopSilence',
-      'stt_provider': sttProvider,
-      'stt_model': sttModel,
-      'stt_language': sttLanguage,
-      'stt_idle_timeout_minutes': '$sttIdleTimeoutMinutes',
-      'custom_vocabulary': customVocabulary,
-      'record_start_sound': '$recordStartSound',
-      'record_stop_sound': '$recordStopSound',
-      'transcription_complete_sound': '$transcriptionCompleteSound',
-      'duration_warning_sound': '$durationWarningSound',
-      'sound_volume': '$soundVolume',
-      'after_transcription': afterTranscription,
-      'show_overlay': '$showOverlay',
-      'overlay_mode': overlayMode,
-      'overlay_start_position': overlayStartPosition,
-      'overlay_size': overlaySize,
-      'overlay_auto_hide': overlayAutoHide,
-      'show_floating_button': '$showFloatingButton',
-      'floating_button_opacity': '$floatingButtonOpacity',
-      'floating_button_size': floatingButtonSize,
-      'floating_overlay_opacity': '$floatingOverlayOpacity',
-      // API keys are stored in secure storage — never persist to SQLite.
-      'openai_api_key': '',
-      'groq_api_key': '',
-      'deepgram_api_key': '',
-      'anthropic_api_key': '',
-      'gemini_api_key': '',
-      'cloud_stt_provider': cloudSttProvider,
-      'max_record_duration': '$maxRecordDuration',
-      'close_to_tray': '$closeToTray',
-      'error_reporting': '$errorReporting',
-      'gpu_acceleration': gpuAcceleration,
-      'auto_paste_delay': '$autoPasteDelay',
-      'auto_paste_blocklist': autoPasteBlocklist,
-      'trim_silence': '$trimSilence',
-      'use_vad': '$useVAD',
-      'vad_sensitivity': '$vadSensitivity',
-      'text_replacements_enabled': '$textReplacementsEnabled',
-      'check_updates': '$checkUpdates',
-      'history_max_entries': '$historyMaxEntries',
-      'history_auto_trash_days': '$historyAutoTrashDays',
-      'hotkey_enabled': '$hotkeyEnabled',
-      'hotkey_key': hotkeyKey,
-      'hotkey_modifiers': hotkeyModifiers,
-      'floating_button_x': '$floatingButtonX',
-      'floating_button_y': '$floatingButtonY',
-      'floating_overlay_x': '$floatingOverlayX',
-      'floating_overlay_y': '$floatingOverlayY',
-      'window_x': '$windowX',
-      'window_y': '$windowY',
-      'window_width': '$windowWidth',
-      'window_height': '$windowHeight',
-      'window_maximized': '$windowMaximized',
-      'onboarding_completed': '$onboardingCompleted',
-      // Benchmark data
-      'tier_benchmark_rtf': _writeBenchmarkRtf(tierBenchmarkRtf),
-      'benchmark_hardware_id': benchmarkHardwareId ?? '',
-      'benchmark_timestamp': benchmarkTimestamp?.toIso8601String() ?? '',
-    };
-  }
+  Map<String, String> toStorageMap() => {
+    'schema_version': '2',
+    ..._interfaceToMap(),
+    ..._audioToMap(),
+    ..._recordingSafetyToMap(),
+    ..._sttToMap(),
+    ..._soundToMap(),
+    ..._afterTranscriptionToMap(),
+    ..._overlayToMap(),
+    ..._cloudProvidersToMap(),
+    ..._behaviorToMap(),
+    ..._audioProcessingToMap(),
+    ..._updatesToMap(),
+    ..._historyToMap(),
+    ..._hotkeyToMap(),
+    ..._windowToMap(),
+    ..._onboardingToMap(),
+    ..._benchmarkToMap(),
+  };
+
+  Map<String, String> _interfaceToMap() => {
+    'theme_mode': themeMode.name,
+    'locale': locale,
+    'launch_at_startup': '$launchAtStartup',
+    'start_minimized': '$startMinimized',
+    'show_notifications': '$showNotifications',
+  };
+
+  Map<String, String> _audioToMap() => {
+    'microphone': microphone,
+    'input_gain': '$inputGain',
+    'push_to_talk': '$pushToTalk',
+  };
+
+  Map<String, String> _recordingSafetyToMap() => {
+    'dead_mic_timeout': '$deadMicTimeout',
+    'auto_stop_silence': '$autoStopSilence',
+  };
+
+  Map<String, String> _sttToMap() => {
+    'stt_provider': sttProvider,
+    'stt_model': sttModel,
+    'stt_language': sttLanguage,
+    'stt_idle_timeout_minutes': '$sttIdleTimeoutMinutes',
+    'custom_vocabulary': customVocabulary,
+  };
+
+  Map<String, String> _soundToMap() => {
+    'record_start_sound': '$recordStartSound',
+    'record_stop_sound': '$recordStopSound',
+    'transcription_complete_sound': '$transcriptionCompleteSound',
+    'duration_warning_sound': '$durationWarningSound',
+    'sound_volume': '$soundVolume',
+  };
+
+  Map<String, String> _afterTranscriptionToMap() => {
+    'after_transcription': afterTranscription,
+  };
+
+  Map<String, String> _overlayToMap() => {
+    'show_overlay': '$showOverlay',
+    'overlay_mode': overlayMode,
+    'overlay_start_position': overlayStartPosition,
+    'overlay_size': overlaySize,
+    'overlay_auto_hide': overlayAutoHide,
+    'show_floating_button': '$showFloatingButton',
+    'floating_button_opacity': '$floatingButtonOpacity',
+    'floating_button_size': floatingButtonSize,
+    'floating_overlay_opacity': '$floatingOverlayOpacity',
+  };
+
+  Map<String, String> _cloudProvidersToMap() => {
+    // API keys are stored in secure storage — never persist to SQLite.
+    'openai_api_key': '',
+    'groq_api_key': '',
+    'deepgram_api_key': '',
+    'anthropic_api_key': '',
+    'gemini_api_key': '',
+    'cloud_stt_provider': cloudSttProvider,
+  };
+
+  Map<String, String> _behaviorToMap() => {
+    'max_record_duration': '$maxRecordDuration',
+    'close_to_tray': '$closeToTray',
+    'error_reporting': '$errorReporting',
+    'gpu_acceleration': gpuAcceleration,
+    'auto_paste_delay': '$autoPasteDelay',
+    'auto_paste_blocklist': autoPasteBlocklist,
+  };
+
+  Map<String, String> _audioProcessingToMap() => {
+    'trim_silence': '$trimSilence',
+    'use_vad': '$useVAD',
+    'vad_sensitivity': '$vadSensitivity',
+    'text_replacements_enabled': '$textReplacementsEnabled',
+  };
+
+  Map<String, String> _updatesToMap() => {
+    'check_updates': '$checkUpdates',
+  };
+
+  Map<String, String> _historyToMap() => {
+    'history_max_entries': '$historyMaxEntries',
+    'history_auto_trash_days': '$historyAutoTrashDays',
+  };
+
+  Map<String, String> _hotkeyToMap() => {
+    'hotkey_enabled': '$hotkeyEnabled',
+    'hotkey_key': hotkeyKey,
+    'hotkey_modifiers': hotkeyModifiers,
+  };
+
+  Map<String, String> _windowToMap() => {
+    'floating_button_x': '$floatingButtonX',
+    'floating_button_y': '$floatingButtonY',
+    'floating_overlay_x': '$floatingOverlayX',
+    'floating_overlay_y': '$floatingOverlayY',
+    'window_x': '$windowX',
+    'window_y': '$windowY',
+    'window_width': '$windowWidth',
+    'window_height': '$windowHeight',
+    'window_maximized': '$windowMaximized',
+  };
+
+  Map<String, String> _onboardingToMap() => {
+    'onboarding_completed': '$onboardingCompleted',
+  };
+
+  Map<String, String> _benchmarkToMap() => {
+    'tier_benchmark_rtf': _writeBenchmarkRtf(tierBenchmarkRtf),
+    'benchmark_hardware_id': benchmarkHardwareId ?? '',
+    'benchmark_timestamp': benchmarkTimestamp?.toIso8601String() ?? '',
+  };
 
   AppSettings copyWith({
     ThemeMode? themeMode,

@@ -1,9 +1,18 @@
 ---
 // Testimonials.astro — Fetches approved testimonials at BUILD TIME (SSG).
-// Zero runtime Edge Function calls — data is baked into static HTML.
-// Testimonials update automatically on each site redeploy.
+// Uses PostgREST directly (no Edge Function) — zero invocations against the
+// Supabase free-tier limit. Data is baked into static HTML at deploy time.
 
-const API_URL = 'https://cnyniyflnefxrwafuqig.supabase.co/functions/v1/testimonials';
+// Supabase anon key: safe to embed in SSG source (public by design — security
+// enforced by the public_testimonials view + RLS, not by key secrecy).
+const SUPABASE_URL = 'https://cnyniyflnefxrwafuqig.supabase.co';
+const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNueW5peWZsbmVmeHJ3YWZ1cWlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5Njc0OTIsImV4cCI6MjA5MDU0MzQ5Mn0.f3xBLIwq1a4LMwV9cmpebzLoYzNJfxxiOTWBl7Pxl3w';
+
+// PostgREST endpoint for the public_testimonials view (rating, text only — no PII).
+const API_URL =
+  `${SUPABASE_URL}/rest/v1/public_testimonials` +
+  `?select=rating,text&order=received_at.desc&limit=6`;
 
 interface Testimonial {
   rating: number;
@@ -13,10 +22,16 @@ interface Testimonial {
 let testimonials: Testimonial[] = [];
 
 try {
-  const res = await fetch(API_URL + '?limit=6');
+  const res = await fetch(API_URL, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+  });
   if (res.ok) {
     const data = await res.json();
-    testimonials = (data.testimonials || []).filter(
+    // PostgREST returns an array directly (no wrapper object).
+    testimonials = (Array.isArray(data) ? data : []).filter(
       (t: Testimonial) => t.text && t.rating >= 1
     );
   }
