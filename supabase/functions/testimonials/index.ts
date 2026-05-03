@@ -1,7 +1,8 @@
-// Testimonials Edge Function — Public + Admin endpoints.
+// Testimonials Edge Function — Admin endpoints only.
 //
-// Public (no auth):
-//   GET /testimonials            — approved testimonials (rating, text only)
+// Public GET is retired: the website now fetches via PostgREST
+// (/rest/v1/public_testimonials) — zero Edge Function invocations.
+// Stray public GET calls are answered instantly from memory (no DB query).
 //
 // Admin (ADMIN_API_KEY):
 //   POST /testimonials?action=approve&id=UUID
@@ -74,39 +75,18 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const action = url.searchParams.get("action");
 
+  // ── Public GET: retired — PostgREST view is canonical now ─────────
+  // Website uses /rest/v1/public_testimonials (no Edge Function call).
+  // Stray GET requests (bots, old caches) are answered instantly from
+  // memory — no DB client, no query, no cost beyond the invocation itself.
+  if (req.method === "GET" && !action) {
+    return json({ testimonials: [], count: 0 }, 200, CACHE_HEADERS);
+  }
+
   const sb = getSupabase();
   if (!sb) return err("not_configured", 500);
 
   try {
-    // ── Public GET: approved testimonials ────────────────────────────
-    if (req.method === "GET" && !action) {
-      const limit = Math.min(
-        parseInt(url.searchParams.get("limit") || "12"),
-        50
-      );
-
-      const { data, error: qErr } = await sb
-        .from("user_feedback")
-        .select("rating, feedback_text")
-        .eq("approved_for_display", true)
-        .gte("rating", 4)
-        .not("feedback_text", "is", null)
-        .order("received_at", { ascending: false })
-        .limit(limit);
-
-      if (qErr) {
-        console.error("testimonials query error:", qErr);
-        return err("internal_error", 500);
-      }
-
-      // GDPR: expose ONLY rating + sanitized text
-      const testimonials = (data || []).map((f) => ({
-        rating: f.rating,
-        text: sanitizeText(f.feedback_text),
-      }));
-
-      return json({ testimonials, count: testimonials.length }, 200, CACHE_HEADERS);
-    }
 
     // ── Admin endpoints ──────────────────────────────────────────────
     if (!isAdmin(req)) {
