@@ -39,10 +39,16 @@ class DriftRecordingStore implements RecordingStore {
       }
     }
 
-    // 2. Derive title (first 60 chars of processed transcript).
-    final title = processedTranscript.length > 60
-        ? '${processedTranscript.substring(0, 60)}…'
-        : processedTranscript;
+    // 2. Derive title: trim, then cut at last word boundary within 60 chars.
+    final trimmed = processedTranscript.trim();
+    final String title;
+    if (trimmed.length <= 60) {
+      title = trimmed;
+    } else {
+      final cut = trimmed.substring(0, 60);
+      final lastSpace = cut.lastIndexOf(' ');
+      title = lastSpace > 20 ? '${cut.substring(0, lastSpace)}…' : '$cut…';
+    }
 
     // 3. Save history entry.
     await _db.upsertEntry(

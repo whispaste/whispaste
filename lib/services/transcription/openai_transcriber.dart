@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,10 +12,12 @@ import 'transcriber.dart';
 /// Requires `openAiApiKey` to be set in secure storage.
 class OpenAiTranscriber implements Transcriber {
   OpenAiTranscriber({required this.ref, http.Client? httpClient})
-      : _client = httpClient ?? http.Client();
+      : _client = httpClient ?? http.Client(),
+        _ownsClient = httpClient == null;
 
   final Ref ref;
   final http.Client _client;
+  final bool _ownsClient;
 
   static const _endpoint = 'https://api.openai.com/v1/audio/transcriptions';
   static const _model = 'whisper-1';
@@ -59,6 +62,11 @@ class OpenAiTranscriber implements Transcriber {
     final http.StreamedResponse streamed;
     try {
       streamed = await _client.send(request).timeout(_timeout);
+    } on TimeoutException {
+      throw const TranscriberException(
+        'OpenAI request timed out.',
+        reason: TranscriberFailureReason.timeout,
+      );
     } on Exception catch (e) {
       throw TranscriberException(
         'Network error: $e',
@@ -91,5 +99,7 @@ class OpenAiTranscriber implements Transcriber {
   }
 
   @override
-  void release() {} // stateless
+  void release() {
+    if (_ownsClient) _client.close();
+  }
 }

@@ -35,6 +35,7 @@ class HistoryMasterDetail extends StatefulWidget {
     this.onDuplicate,
     this.onCopyMarkdown,
     this.focusedId,
+    this.onTagTap,
   });
 
   final List<DateGroup> groups;
@@ -55,6 +56,7 @@ class HistoryMasterDetail extends StatefulWidget {
   final ValueChanged<HistoryEntry>? onDuplicate;
   final ValueChanged<HistoryEntry>? onCopyMarkdown;
   final String? focusedId;
+  final void Function(String tag)? onTagTap;
 
   @override
   State<HistoryMasterDetail> createState() => _HistoryMasterDetailState();
@@ -135,6 +137,7 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
           multiSelectMode: widget.multiSelectMode,
           selectedIds: widget.selectedIds,
           isTrashView: widget.isTrashView,
+          onTagTap: widget.onTagTap,
         );
       case HistoryViewMode.cards:
         body = HistoryCardView(
