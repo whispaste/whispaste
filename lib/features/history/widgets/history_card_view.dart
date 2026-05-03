@@ -153,6 +153,12 @@ class HistoryEntryCard extends StatefulWidget {
 class _HistoryEntryCardState extends State<HistoryEntryCard> {
   bool _isHovered = false;
 
+  int get _wordCount {
+    final t = widget.entry.content.trim();
+    if (t.isEmpty) return 0;
+    return t.split(RegExp(r'\s+')).length;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
@@ -220,8 +226,8 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                       ),
                     ),
                   ),
-                  // Action buttons — visible on hover (desktop) or always (touch)
-                  if (_isHovered || _isTouchPlatform)
+                  // Action buttons — visible on hover/focus (desktop) or always (touch)
+                  if (_isHovered || _isTouchPlatform || widget.isFocused)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -275,6 +281,13 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                     formatHistoryDuration(widget.entry.durationSec),
                     style: TextStyle(fontSize: 10, color: textMuted),
                   ),
+                  if (_wordCount > 0) ...[
+                    const SizedBox(width: WpSpacing.xs),
+                    Text(
+                      '· ~$_wordCount w',
+                      style: TextStyle(fontSize: 10, color: textMuted),
+                    ),
+                  ],
                   if (widget.entry.language.isNotEmpty) ...[
                     const SizedBox(width: WpSpacing.xs),
                     Text(

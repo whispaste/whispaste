@@ -32,7 +32,7 @@ try {
     const data = await res.json();
     // PostgREST returns an array directly (no wrapper object).
     testimonials = (Array.isArray(data) ? data : []).filter(
-      (t: Testimonial) => t.text && t.rating >= 1
+      (t: Testimonial) => t.text && t.rating >= 4
     );
   }
 } catch {

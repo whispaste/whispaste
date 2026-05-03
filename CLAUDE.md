@@ -389,7 +389,7 @@ Set via `gh secret set SECRET_NAME -b "value"` or the setup script.
 
 - **Branches**: `main` (stable) and `dev` (development only)
 - **Commits**: Conventional Commits (feat, fix, refactor, docs, test, chore)
-- **Merge**: `dev` → `main` only, via releases
+- **Merge**: `dev` → `main` directly — **never create GitHub Pull Requests**. This is a solo project; PRs add friction with no benefit. Use `git merge` or push directly to `main` after tagging.
 - **Hooks**: Pre-commit checks (run `scripts/install-hooks.sh` once after clone)
   - Protected files not staged
   - No secrets in committed files

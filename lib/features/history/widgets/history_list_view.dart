@@ -26,6 +26,7 @@ class HistoryEntryList extends StatelessWidget {
     required this.selectedIds,
     required this.isTrashView,
     this.focusedId,
+    this.onTagTap,
   });
 
   final List<DateGroup> groups;
@@ -39,6 +40,7 @@ class HistoryEntryList extends StatelessWidget {
   final Set<String> selectedIds;
   final bool isTrashView;
   final String? focusedId;
+  final void Function(String tag)? onTagTap;
 
   /// Flattened index: each element is either a date header or an entry row.
   late final List<_FlatItem> _flatItems = _buildFlatItems();
@@ -86,6 +88,7 @@ class HistoryEntryList extends StatelessWidget {
           multiSelectMode: multiSelectMode,
           isChecked: selectedIds.contains(entry.id),
           isTrashView: isTrashView,
+          onTagTap: onTagTap,
         );
       },
     );

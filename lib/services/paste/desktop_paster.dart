@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -66,7 +68,8 @@ class DesktopPaster implements Paster {
     }
 
     // 4. Trigger native paste shortcut.
-    final delay = Duration(milliseconds: options.autoPasteDelayMs);
+    final delayMs = options.autoPasteDelayMs.clamp(0, 30000);
+    final delay = Duration(milliseconds: delayMs);
     bool pasted = false;
     try {
       pasted = await _controller.pasteClipboard(delay: delay);
@@ -78,8 +81,10 @@ class DesktopPaster implements Paster {
 
     if (!pasted) return PasteOutcome.failed;
 
-    // 5. Wait before restoring clipboard so the paste has time to land.
-    await Future<void>.delayed(delay);
+    // 5. Wait before restoring clipboard.
+    // Minimum 500 ms so the OS paste has landed before we overwrite it.
+    final restoreMs = math.max(500, delayMs + 350);
+    await Future<void>.delayed(Duration(milliseconds: restoreMs));
 
     // 6. Restore previous clipboard contents.
     try {
