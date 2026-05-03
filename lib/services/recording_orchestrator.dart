@@ -291,11 +291,13 @@ class RecordingOrchestrator extends Notifier<void> {
         pipelineOutcome = 'stt_timeout';
         notifier.fail('stt_start_timeout');
         _log.warning('[$sid] STT server start timed out after 120s');
+        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
         return;
       } on TranscriberException catch (e) {
         pipelineOutcome = 'stt_start_error';
         notifier.fail(e.message);
         _log.warning('[$sid] STT prepare failed: ${e.message}');
+        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
         return;
       }
       ensureSw.stop();
@@ -336,6 +338,7 @@ class RecordingOrchestrator extends Notifier<void> {
         pipelineOutcome = 'transcribe_timeout';
         notifier.fail('transcription_timeout');
         _log.error('[$sid] Transcription timed out after ${timeoutSec}s');
+        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
         return;
       } on SocketException catch (_) {
         final sttError = ref.read(sttServiceProvider).errorMessage;
@@ -347,6 +350,7 @@ class RecordingOrchestrator extends Notifier<void> {
         pipelineOutcome = 'stt_connection_lost';
         notifier.fail('stt_server_connection_lost');
         _log.error('[$sid] STT server connection lost during inference');
+        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
         return;
       } on http.ClientException catch (_) {
         final sttError = ref.read(sttServiceProvider).errorMessage;
@@ -360,11 +364,13 @@ class RecordingOrchestrator extends Notifier<void> {
         _log.error(
           '[$sid] STT server connection lost during inference (ClientException)',
         );
+        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
         return;
       } on TranscriberException catch (e) {
         pipelineOutcome = 'transcribe_error';
         notifier.fail(e.message);
         _log.error('[$sid] Transcription failed: ${e.message}');
+        ref.read(sttServiceProvider.notifier).notifyRecordingStopped();
         return;
       }
       inferSw.stop();
