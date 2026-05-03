@@ -299,6 +299,17 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       final entry = selectedEntry ?? _focusedEntry(flat);
                       if (entry != null) _openCommandPalette(entry);
                     },
+                    // Ctrl+Enter: open detail panel for focused entry
+                    const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
+                      if (_isTextFieldFocused()) return;
+                      final entry = _focusedEntry(flat);
+                      if (entry != null) {
+                        setState(() {
+                          _selectedEntryId = entry.id;
+                          _lastClickedId = entry.id;
+                        });
+                      }
+                    },
                   },
                   child: Focus(
                     focusNode: _listFocusNode,
@@ -324,12 +335,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                       }
                       if (key == LogicalKeyboardKey.enter) {
                         final entry = _focusedEntry(flat);
-                        if (entry != null) {
-                          setState(() {
-                            _selectedEntryId = entry.id;
-                            _lastClickedId = entry.id;
-                          });
-                        }
+                        if (entry != null) _copyEntry(entry);
                         return KeyEventResult.handled;
                       }
                       if (key == LogicalKeyboardKey.delete ||
@@ -442,6 +448,17 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                         onCopyMarkdown: _copyAsMarkdown,
                         onCloseDetail: () =>
                             setState(() => _selectedEntryId = null),
+                        onTagTap: (tag) {
+                          _searchController.text = '#$tag';
+                          ref
+                              .read(historySearchProvider.notifier)
+                              .set('#$tag');
+                          _searchFocusNode.unfocus();
+                          setState(() {
+                            _selectedEntryId = null;
+                            _focusedEntryId = null;
+                          });
+                        },
                       ),
                     ),
                   ),
