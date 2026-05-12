@@ -866,5 +866,8 @@
   "insufficientRamLearnMore": "System requirements",
   "insufficientRamSystemCheck": "System Check",
   "insufficientRamYourSystem": "Your system",
-  "insufficientRamRequired": "Required"
+  "insufficientRamRequired": "Required",
+
+  "hotkeyRegistrationFailed": "Hotkey registration failed — please re-bind your shortcut in Settings.",
+  "hotkeyRegistrationFailedDefaultActive": "Hotkey registration failed — using Ctrl+Shift+Space as fallback. Please re-bind in Settings."
 }
