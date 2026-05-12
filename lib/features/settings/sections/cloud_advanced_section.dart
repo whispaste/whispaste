@@ -35,22 +35,16 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
   final _openAiKeyCtrl = TextEditingController();
   final _groqKeyCtrl = TextEditingController();
   final _deepgramKeyCtrl = TextEditingController();
-  final _anthropicKeyCtrl = TextEditingController();
-  final _geminiKeyCtrl = TextEditingController();
 
   bool _showOpenAiKey = false;
   bool _showGroqKey = false;
   bool _showDeepgramKey = false;
-  bool _showAnthropicKey = false;
-  bool _showGeminiKey = false;
 
   @override
   void dispose() {
     _openAiKeyCtrl.dispose();
     _groqKeyCtrl.dispose();
     _deepgramKeyCtrl.dispose();
-    _anthropicKeyCtrl.dispose();
-    _geminiKeyCtrl.dispose();
     super.dispose();
   }
 
@@ -62,8 +56,6 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
     syncController(_openAiKeyCtrl, settings.openAiApiKey);
     syncController(_groqKeyCtrl, settings.groqApiKey);
     syncController(_deepgramKeyCtrl, settings.deepgramApiKey);
-    syncController(_anthropicKeyCtrl, settings.anthropicApiKey);
-    syncController(_geminiKeyCtrl, settings.geminiApiKey);
 
     return WpSection(
       title: l10n.settingsCloudProviders,
@@ -109,33 +101,6 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
                   .updateSettings((s) => s.copyWith(deepgramApiKey: v)),
-            ),
-          ),
-          SettingRow(
-            icon: LucideIcons.keyRound,
-            label: l10n.settingsAnthropicApiKey,
-            trailing: settingsApiKeyField(
-              context: context,
-              controller: _anthropicKeyCtrl,
-              obscure: !_showAnthropicKey,
-              onToggle: () =>
-                  setState(() => _showAnthropicKey = !_showAnthropicKey),
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(anthropicApiKey: v)),
-            ),
-          ),
-          SettingRow(
-            icon: LucideIcons.keyRound,
-            label: l10n.settingsGeminiApiKey,
-            trailing: settingsApiKeyField(
-              context: context,
-              controller: _geminiKeyCtrl,
-              obscure: !_showGeminiKey,
-              onToggle: () => setState(() => _showGeminiKey = !_showGeminiKey),
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(geminiApiKey: v)),
             ),
           ),
           if (!settings.sttProviderType.isLocal)

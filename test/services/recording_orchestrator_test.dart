@@ -965,46 +965,43 @@ void main() {
       },
     );
 
-    test(
-      'voice-note lock: second concurrent tryAcquireStartLock() is denied '
-      'while first holds the lock (AC4 — voice-note button path)',
-      () async {
-        // This test covers AC4 for the voice-note button path.
-        // It exercises the shared _startInFlight lock directly, which is the
-        // mechanism VoiceNoteButton._startVoiceNote() relies on to prevent
-        // two concurrent voice-note taps from starting two capture sessions.
-        //
-        // Dart is single-threaded, so "concurrent" is modelled by acquiring
-        // the lock in tap-1, then verifying tap-2 is denied before tap-1
-        // releases — the same sequence that occurs when two UI taps arrive
-        // in the same event-loop turn.
-        final orch = container.read(recordingOrchestratorProvider.notifier);
-        await Future<void>.delayed(Duration.zero);
+    test('voice-note lock: second concurrent tryAcquireStartLock() is denied '
+        'while first holds the lock (AC4 — voice-note button path)', () async {
+      // This test covers AC4 for the voice-note button path.
+      // It exercises the shared _startInFlight lock directly, which is the
+      // mechanism VoiceNoteButton._startVoiceNote() relies on to prevent
+      // two concurrent voice-note taps from starting two capture sessions.
+      //
+      // Dart is single-threaded, so "concurrent" is modelled by acquiring
+      // the lock in tap-1, then verifying tap-2 is denied before tap-1
+      // releases — the same sequence that occurs when two UI taps arrive
+      // in the same event-loop turn.
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
 
-        // Tap-1 acquires the lock.
-        final acquired1 = orch.tryAcquireStartLock();
-        expect(acquired1, isTrue, reason: 'First tap should acquire the lock');
+      // Tap-1 acquires the lock.
+      final acquired1 = orch.tryAcquireStartLock();
+      expect(acquired1, isTrue, reason: 'First tap should acquire the lock');
 
-        // While tap-1 holds the lock, tap-2 must be denied.
-        final acquired2 = orch.tryAcquireStartLock();
-        expect(
-          acquired2,
-          isFalse,
-          reason: 'Second concurrent tap must be suppressed (lock held)',
-        );
+      // While tap-1 holds the lock, tap-2 must be denied.
+      final acquired2 = orch.tryAcquireStartLock();
+      expect(
+        acquired2,
+        isFalse,
+        reason: 'Second concurrent tap must be suppressed (lock held)',
+      );
 
-        // Tap-1 releases. Now a third tap (e.g. after tap-1 finishes) must
-        // succeed — verifies the lock is properly reusable.
-        orch.releaseStartLock();
-        final acquired3 = orch.tryAcquireStartLock();
-        expect(
-          acquired3,
-          isTrue,
-          reason: 'New tap after release must be able to acquire the lock',
-        );
-        orch.releaseStartLock();
-      },
-    );
+      // Tap-1 releases. Now a third tap (e.g. after tap-1 finishes) must
+      // succeed — verifies the lock is properly reusable.
+      orch.releaseStartLock();
+      final acquired3 = orch.tryAcquireStartLock();
+      expect(
+        acquired3,
+        isTrue,
+        reason: 'New tap after release must be able to acquire the lock',
+      );
+      orch.releaseStartLock();
+    });
   });
 
   // =========================================================================

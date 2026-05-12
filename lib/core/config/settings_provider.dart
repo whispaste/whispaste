@@ -66,14 +66,8 @@ class AppSettings {
     this.openAiApiKey = '',
     this.groqApiKey = '',
     this.deepgramApiKey = '',
-    this.anthropicApiKey = '',
-    this.geminiApiKey = '',
     // Cloud Provider Details
     this.cloudSttProvider = 'openai',
-    this.cloudLlmModel = '',
-    // Post-Processing Advanced
-    this.smartModePrompt = '',
-    this.smartModeTarget = '',
     // Behavior
     this.maxRecordDuration = 120,
     this.closeToTray = true,
@@ -179,16 +173,9 @@ class AppSettings {
   final String openAiApiKey;
   final String groqApiKey;
   final String deepgramApiKey;
-  final String anthropicApiKey;
-  final String geminiApiKey;
 
   // Cloud Provider Details
   final String cloudSttProvider;
-  final String cloudLlmModel;
-
-  // Post-Processing Advanced
-  final String smartModePrompt;
-  final String smartModeTarget;
 
   // Behavior
   final int maxRecordDuration;
@@ -397,8 +384,6 @@ class AppSettings {
       openAiApiKey: values['openai_api_key'] ?? defaults.openAiApiKey,
       groqApiKey: values['groq_api_key'] ?? defaults.groqApiKey,
       deepgramApiKey: values['deepgram_api_key'] ?? defaults.deepgramApiKey,
-      anthropicApiKey: values['anthropic_api_key'] ?? defaults.anthropicApiKey,
-      geminiApiKey: values['gemini_api_key'] ?? defaults.geminiApiKey,
       cloudSttProvider:
           values['cloud_stt_provider'] ?? defaults.cloudSttProvider,
       maxRecordDuration: _readInt(
@@ -598,8 +583,6 @@ class AppSettings {
     'openai_api_key': '',
     'groq_api_key': '',
     'deepgram_api_key': '',
-    'anthropic_api_key': '',
-    'gemini_api_key': '',
     'cloud_stt_provider': cloudSttProvider,
   };
 
@@ -688,8 +671,6 @@ class AppSettings {
     String? openAiApiKey,
     String? groqApiKey,
     String? deepgramApiKey,
-    String? anthropicApiKey,
-    String? geminiApiKey,
     String? cloudSttProvider,
     int? maxRecordDuration,
     bool? closeToTray,
@@ -759,8 +740,6 @@ class AppSettings {
       openAiApiKey: openAiApiKey ?? this.openAiApiKey,
       groqApiKey: groqApiKey ?? this.groqApiKey,
       deepgramApiKey: deepgramApiKey ?? this.deepgramApiKey,
-      anthropicApiKey: anthropicApiKey ?? this.anthropicApiKey,
-      geminiApiKey: geminiApiKey ?? this.geminiApiKey,
       cloudSttProvider: cloudSttProvider ?? this.cloudSttProvider,
       maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
       closeToTray: closeToTray ?? this.closeToTray,
@@ -833,8 +812,6 @@ class AppSettings {
           openAiApiKey == other.openAiApiKey &&
           groqApiKey == other.groqApiKey &&
           deepgramApiKey == other.deepgramApiKey &&
-          anthropicApiKey == other.anthropicApiKey &&
-          geminiApiKey == other.geminiApiKey &&
           cloudSttProvider == other.cloudSttProvider &&
           maxRecordDuration == other.maxRecordDuration &&
           closeToTray == other.closeToTray &&
@@ -901,12 +878,8 @@ class AppSettings {
       openAiApiKey,
       groqApiKey,
       deepgramApiKey,
-      anthropicApiKey,
-      geminiApiKey,
       cloudSttProvider,
-      smartModePrompt,
       Object.hash(
-        smartModeTarget,
         maxRecordDuration,
         closeToTray,
         errorReporting,
@@ -1267,8 +1240,6 @@ Future<void> _migrateApiKeys(
     'openai_api_key': 'wp_openai_api_key',
     'groq_api_key': 'wp_groq_api_key',
     'deepgram_api_key': 'wp_deepgram_api_key',
-    'anthropic_api_key': 'wp_anthropic_api_key',
-    'gemini_api_key': 'wp_gemini_api_key',
   };
 
   var migrated = false;
@@ -1306,8 +1277,6 @@ Future<AppSettings> _mergeSecureKeys(
     openAiApiKey: keys['wp_openai_api_key'] ?? settings.openAiApiKey,
     groqApiKey: keys['wp_groq_api_key'] ?? settings.groqApiKey,
     deepgramApiKey: keys['wp_deepgram_api_key'] ?? settings.deepgramApiKey,
-    anthropicApiKey: keys['wp_anthropic_api_key'] ?? settings.anthropicApiKey,
-    geminiApiKey: keys['wp_gemini_api_key'] ?? settings.geminiApiKey,
   );
 }
 
@@ -1329,14 +1298,6 @@ Future<void> _syncApiKeysToSecureStorage(
     'wp_deepgram_api_key': (
       old: oldSettings.deepgramApiKey,
       cur: newSettings.deepgramApiKey,
-    ),
-    'wp_anthropic_api_key': (
-      old: oldSettings.anthropicApiKey,
-      cur: newSettings.anthropicApiKey,
-    ),
-    'wp_gemini_api_key': (
-      old: oldSettings.geminiApiKey,
-      cur: newSettings.geminiApiKey,
     ),
   };
 

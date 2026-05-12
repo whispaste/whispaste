@@ -1069,12 +1069,6 @@ abstract class L10n {
   /// **'Deepgram API Key'**
   String get settingsDeepgramApiKey;
 
-  /// No description provided for @settingsAnthropicApiKey.
-  ///
-  /// In en, this message translates to:
-  /// **'Anthropic API Key'**
-  String get settingsAnthropicApiKey;
-
   /// No description provided for @settingsAdvanced.
   ///
   /// In en, this message translates to:
@@ -3342,12 +3336,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Clear'**
   String get settingsHotkeyRecorderClear;
-
-  /// No description provided for @settingsGeminiApiKey.
-  ///
-  /// In en, this message translates to:
-  /// **'Gemini API Key'**
-  String get settingsGeminiApiKey;
 
   /// No description provided for @settingsDefaultSttProvider.
   ///
