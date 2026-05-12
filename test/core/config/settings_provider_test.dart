@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/locale_provider.dart';
 import 'package:whispaste/core/theme/theme_provider.dart';
 import 'package:whispaste/core/data/database.dart';
@@ -133,7 +134,7 @@ void main() {
     test('migrates plaintext keys from SQLite to secure storage', () async {
       // Simulate legacy data: write a key directly to SQLite.
       final legacyMap = const AppSettings(
-        openAiApiKey: 'sk-legacy',
+        cloudProvider: CloudProviderSettings(openAiApiKey: 'sk-legacy'),
       ).toStorageMap();
       // Force the legacy key into the map (toStorageMap now writes '').
       legacyMap['openai_api_key'] = 'sk-legacy';
@@ -195,17 +196,17 @@ void main() {
 
   group('effectiveOverlayMode', () {
     test('passes through floating as valid mode', () {
-      const s = AppSettings(overlayMode: 'floating');
+      const s = AppSettings(overlay: OverlaySettings(overlayMode: 'floating'));
       expect(s.effectiveOverlayMode, OverlayMode.floating);
     });
 
     test('migrates inWindow to floating', () {
-      const s = AppSettings(overlayMode: 'in-window');
+      const s = AppSettings(overlay: OverlaySettings(overlayMode: 'in-window'));
       expect(s.effectiveOverlayMode, OverlayMode.floating);
     });
 
     test('preserves off as-is', () {
-      const s = AppSettings(overlayMode: 'off');
+      const s = AppSettings(overlay: OverlaySettings(overlayMode: 'off'));
       expect(s.effectiveOverlayMode, OverlayMode.off);
     });
 
