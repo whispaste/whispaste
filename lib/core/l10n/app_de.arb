@@ -174,7 +174,6 @@
   "settingsOpenAiApiKey": "OpenAI API-Schlüssel",
   "settingsGroqApiKey": "Groq API-Schlüssel",
   "settingsDeepgramApiKey": "Deepgram API-Schlüssel",
-  "settingsAnthropicApiKey": "Anthropic API-Schlüssel",
   "settingsAdvanced": "Erweitert",
   "settingsResetToDefaults": "Auf Standardwerte zurücksetzen",
   "settingsResetTitle": "Einstellungen zurücksetzen",
@@ -611,7 +610,6 @@
   "settingsHotkeyRecorderSave": "Speichern",
   "settingsHotkeyRecorderClear": "Zurücksetzen",
 
-  "settingsGeminiApiKey": "Gemini API-Schlüssel",
   "settingsDefaultSttProvider": "Standard Cloud-STT",
   "settingsDefaultSttProviderSubtitle": "Cloud-Spracherkennungsdienst",
 

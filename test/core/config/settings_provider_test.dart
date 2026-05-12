@@ -179,17 +179,17 @@ void main() {
           .read(settingsProvider.notifier)
           .updateSettings(
             (s) =>
-                s.copyWith(anthropicApiKey: 'ant-key', geminiApiKey: 'gem-key'),
+                s.copyWith(openAiApiKey: 'sk-test', deepgramApiKey: 'dg-key'),
           );
 
       // Keys exist in secure storage.
-      expect(await fakeSecureStore.readKey('wp_anthropic_api_key'), 'ant-key');
+      expect(await fakeSecureStore.readKey('wp_openai_api_key'), 'sk-test');
 
       await container.read(settingsProvider.notifier).resetToDefaults();
 
       // Keys are gone from secure storage.
-      expect(await fakeSecureStore.readKey('wp_anthropic_api_key'), isNull);
-      expect(await fakeSecureStore.readKey('wp_gemini_api_key'), isNull);
+      expect(await fakeSecureStore.readKey('wp_openai_api_key'), isNull);
+      expect(await fakeSecureStore.readKey('wp_deepgram_api_key'), isNull);
     });
   });
 

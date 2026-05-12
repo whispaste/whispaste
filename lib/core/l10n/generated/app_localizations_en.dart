@@ -536,9 +536,6 @@ class L10nEn extends L10n {
   String get settingsDeepgramApiKey => 'Deepgram API Key';
 
   @override
-  String get settingsAnthropicApiKey => 'Anthropic API Key';
-
-  @override
   String get settingsAdvanced => 'Advanced';
 
   @override
@@ -1819,9 +1816,6 @@ class L10nEn extends L10n {
 
   @override
   String get settingsHotkeyRecorderClear => 'Clear';
-
-  @override
-  String get settingsGeminiApiKey => 'Gemini API Key';
 
   @override
   String get settingsDefaultSttProvider => 'Default Cloud STT';
