@@ -73,7 +73,7 @@ flutter run -d windows
 ├── assets/             # Icons, fonts, sounds
 ├── windows/            # Windows platform runner
 ├── website/            # Astro-based project website
-└── supabase/           # Edge Functions & migrations
+└── supabase/           # Database migrations (PostgREST + RLS only, no Edge Functions)
 ```
 
 ### Commands
