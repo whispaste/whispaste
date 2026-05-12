@@ -66,6 +66,7 @@ skills.yaml
 .agent/
 .agents/
 .claude/
+.scratch/
 
 # Internal dev tools (local only)
 cmd/
