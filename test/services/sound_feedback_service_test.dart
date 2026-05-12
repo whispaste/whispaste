@@ -21,6 +21,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/services/sound_feedback_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -210,7 +211,9 @@ void main() {
 
     test('multiple containers are independent', () async {
       final c1 = buildContainer();
-      final c2 = buildContainer(settings: const AppSettings(soundVolume: 42.0));
+      final c2 = buildContainer(
+        settings: const AppSettings(sound: SoundSettings(soundVolume: 42.0)),
+      );
       addTearDown(c1.dispose);
       addTearDown(c2.dispose);
 
@@ -287,7 +290,9 @@ void main() {
     test('playRecordStart is wired to recordStartSound setting', () async {
       // When disabled: playRecordStart returns early (before engine access).
       final container = buildContainer(
-        settings: const AppSettings(recordStartSound: false),
+        settings: const AppSettings(
+          sound: SoundSettings(recordStartSound: false),
+        ),
       );
       addTearDown(container.dispose);
       await container.read(settingsProvider.future);
@@ -298,7 +303,9 @@ void main() {
 
     test('playRecordStop is wired to recordStopSound setting', () async {
       final container = buildContainer(
-        settings: const AppSettings(recordStopSound: false),
+        settings: const AppSettings(
+          sound: SoundSettings(recordStopSound: false),
+        ),
       );
       addTearDown(container.dispose);
       await container.read(settingsProvider.future);
@@ -310,7 +317,9 @@ void main() {
       'playTranscriptionComplete is wired to transcriptionCompleteSound',
       () async {
         final container = buildContainer(
-          settings: const AppSettings(transcriptionCompleteSound: false),
+          settings: const AppSettings(
+            sound: SoundSettings(transcriptionCompleteSound: false),
+          ),
         );
         addTearDown(container.dispose);
         await container.read(settingsProvider.future);
@@ -325,9 +334,11 @@ void main() {
       // Disable every per-event toggle — error should still work.
       final container = buildContainer(
         settings: const AppSettings(
-          recordStartSound: false,
-          recordStopSound: false,
-          transcriptionCompleteSound: false,
+          sound: SoundSettings(
+            recordStartSound: false,
+            recordStopSound: false,
+            transcriptionCompleteSound: false,
+          ),
         ),
       );
       addTearDown(container.dispose);
@@ -342,9 +353,11 @@ void main() {
       () async {
         final container = buildContainer(
           settings: const AppSettings(
-            recordStartSound: false,
-            recordStopSound: false,
-            transcriptionCompleteSound: false,
+            sound: SoundSettings(
+              recordStartSound: false,
+              recordStopSound: false,
+              transcriptionCompleteSound: false,
+            ),
           ),
         );
         addTearDown(container.dispose);
@@ -365,9 +378,11 @@ void main() {
       // Only recordStartSound enabled.
       final container = buildContainer(
         settings: const AppSettings(
-          recordStartSound: true,
-          recordStopSound: false,
-          transcriptionCompleteSound: false,
+          sound: SoundSettings(
+            recordStartSound: true,
+            recordStopSound: false,
+            transcriptionCompleteSound: false,
+          ),
         ),
       );
       addTearDown(container.dispose);
@@ -435,7 +450,7 @@ void main() {
     test('volume 0 still calls play (just silently)', () {
       // Volume 0 maps to 0.0 — the play call still goes through,
       // the engine just plays at zero volume.
-      const settings = AppSettings(soundVolume: 0.0);
+      const settings = AppSettings(sound: SoundSettings(soundVolume: 0.0));
       // Verify the mapping is 0.0, not some sentinel that skips playback.
       expect((settings.soundVolume / 100.0).clamp(0.0, 1.0), 0.0);
       // recordStartSound is still true — the play method should be invoked.
@@ -444,13 +459,17 @@ void main() {
 
     test('settings with extreme volume values', () {
       // Verify settings can hold extreme values without error.
-      const extremeHigh = AppSettings(soundVolume: 999999.0);
+      const extremeHigh = AppSettings(
+        sound: SoundSettings(soundVolume: 999999.0),
+      );
       expect(
         (extremeHigh.soundVolume / 100.0).clamp(0.0, 1.0),
         closeTo(1.0, 0.001),
       );
 
-      const extremeLow = AppSettings(soundVolume: -999999.0);
+      const extremeLow = AppSettings(
+        sound: SoundSettings(soundVolume: -999999.0),
+      );
       expect(
         (extremeLow.soundVolume / 100.0).clamp(0.0, 1.0),
         closeTo(0.0, 0.001),
@@ -461,7 +480,9 @@ void main() {
       // This verifies the service accesses settings via ref.read(),
       // so it always gets the current value (not a stale cached one).
       final container = buildContainer(
-        settings: const AppSettings(recordStartSound: true),
+        settings: const AppSettings(
+          sound: SoundSettings(recordStartSound: true),
+        ),
       );
       addTearDown(container.dispose);
       await container.read(settingsProvider.future);

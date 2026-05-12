@@ -6,6 +6,13 @@
 /// (cross-platform path helpers). The Go config dependency has been removed;
 /// a one-time migration reads the legacy file directly if no Flutter settings
 /// exist yet.
+///
+/// **Section architecture (issue 12)**: [AppSettings] is an aggregate of 16
+/// immutable section classes defined in [settings_sections.dart].  Every
+/// previous top-level field is preserved as a `@Deprecated` getter that
+/// delegates to the appropriate section, so existing call-sites continue to
+/// compile without modification.  New code should use the section fields
+/// directly (e.g. `settings.stt.model`) and mutate via [copyWithSections].
 library;
 
 import 'dart:convert';
@@ -21,257 +28,314 @@ import '../../services/path_service.dart';
 import '../../services/model_download_service.dart' show QualityTier;
 import 'secure_key_store.dart';
 import 'settings_enums.dart';
+import 'settings_sections.dart';
 
-/// All persisted app settings in one immutable data class.
+/// All persisted app settings in one immutable aggregate.
+///
+/// Fields are grouped into 16 immutable section objects.  Every legacy
+/// top-level field is available as a `@Deprecated` getter for backward
+/// compatibility until all call-sites are migrated to the section API.
 class AppSettings {
   const AppSettings({
-    // Interface
-    this.themeMode = ThemeMode.dark,
-    this.locale = 'en',
-    this.launchAtStartup = false,
-    this.startMinimized = false,
-    this.showNotifications = true,
-    // Audio
-    this.microphone = 'Default',
-    this.inputGain = 100.0,
-    this.pushToTalk = false,
-    // Recording Safety
-    this.deadMicTimeout = 3.0,
-    this.autoStopSilence = 0.0,
-    // Speech Recognition
-    this.sttProvider = 'On Device',
-    this.sttModel = 'whisper-medium',
-    this.sttLanguage = 'Auto-detect',
-    this.sttIdleTimeoutMinutes = 5,
-    this.customVocabulary = '',
-    // Sound & Feedback
-    this.recordStartSound = true,
-    this.recordStopSound = true,
-    this.transcriptionCompleteSound = true,
-    this.durationWarningSound = true,
-    this.soundVolume = 80.0,
-    // After Transcription
-    this.afterTranscription = 'clipboard',
-    // Overlay & Floating Button
-    this.showOverlay = false,
-    this.overlayMode = 'floating',
-    this.overlayStartPosition = 'top-center',
-    this.overlaySize = 'normal',
-    this.overlayAutoHide = '5s',
-    this.showFloatingButton = false,
-    this.floatingButtonOpacity = 0.9,
-    this.floatingButtonSize = 'normal',
-    this.floatingOverlayOpacity = 0.9,
-    // Cloud Providers (API keys)
-    this.openAiApiKey = '',
-    this.deepgramApiKey = '',
-    // Cloud Provider Details
-    this.cloudSttProvider = 'openai',
-    // Behavior
-    this.maxRecordDuration = 120,
-    this.closeToTray = true,
-    this.errorReporting = true,
-    this.gpuAcceleration = 'auto',
-    this.autoPasteDelay = 200,
-    this.autoPasteBlocklist = '',
-    // Audio Processing
-    this.trimSilence = false,
-    this.useVAD = false,
-    this.vadSensitivity = 0.5,
-    // Text Replacements
-    this.textReplacementsEnabled = false,
-    // Updates
-    this.checkUpdates = true,
-    // History Retention
-    this.historyMaxEntries = 0,
-    this.historyAutoTrashDays = 30,
-    // Hotkey
-    this.hotkeyEnabled = true,
-    this.hotkeyKey = 'D',
-    this.hotkeyModifiers = 'ctrl+shift',
-    // Floating Button Position (persisted across sessions)
-    this.floatingButtonX = -1.0,
-    this.floatingButtonY = -1.0,
-    // Floating Overlay Position (persisted across sessions; -1 = not set)
-    this.floatingOverlayX = -1.0,
-    this.floatingOverlayY = -1.0,
-    // Main Window State (persisted across sessions; -1 = not set)
-    this.windowX = -1.0,
-    this.windowY = -1.0,
-    this.windowWidth = 1100.0,
-    this.windowHeight = 750.0,
-    this.windowMaximized = false,
-    // Onboarding
-    this.onboardingCompleted = false,
-    // Benchmark data for tier recommendations
-    this.tierBenchmarkRtf,
-    this.benchmarkHardwareId,
-    this.benchmarkTimestamp,
+    this.interface_ = const InterfaceSettings(),
+    this.audioInput = const AudioInputSettings(),
+    this.recordingSafety = const RecordingSafetySettings(),
+    this.stt = const SttSettings(),
+    this.sound = const SoundSettings(),
+    this.afterTranscriptionSection = const AfterTranscriptionSettings(),
+    this.overlay = const OverlaySettings(),
+    this.cloudProvider = const CloudProviderSettings(),
+    this.behavior = const BehaviorSettings(),
+    this.audioProcessing = const AudioProcessingSettings(),
+    this.updates = const UpdateSettings(),
+    this.history = const HistorySettings(),
+    this.hotkey = const HotkeySettings(),
+    this.windowPosition = const WindowPositionSettings(),
+    this.onboarding = const OnboardingSettings(),
+    this.benchmark = const BenchmarkSettings(),
   });
 
-  // Interface
-  final ThemeMode themeMode;
-  final String locale;
-  final bool launchAtStartup;
-  final bool startMinimized;
-  final bool showNotifications;
+  // ---------------------------------------------------------------------------
+  // Section fields
+  // ---------------------------------------------------------------------------
 
-  // Audio
-  final String microphone;
-  final double inputGain;
-  final bool pushToTalk;
+  /// Interface settings (theme, locale, startup).
+  final InterfaceSettings interface_;
 
-  // Recording Safety
-  final double deadMicTimeout;
-  final double autoStopSilence;
+  /// Audio input settings (microphone, gain, push-to-talk).
+  final AudioInputSettings audioInput;
 
-  // Speech Recognition
-  final String sttProvider;
-  final String sttModel;
-  final String sttLanguage;
+  /// Recording safety settings (dead-mic timeout, auto-stop silence).
+  final RecordingSafetySettings recordingSafety;
 
-  /// Minutes before idle STT server is shut down (0 = keep alive).
-  final int sttIdleTimeoutMinutes;
+  /// Speech-to-text settings (provider, model, language, idle timeout).
+  final SttSettings stt;
 
-  /// User-defined vocabulary terms (names, jargon) passed as Whisper prompt
-  /// prefix to improve recognition of domain-specific words.
-  final String customVocabulary;
+  /// Sound feedback settings (start/stop sounds, volume).
+  final SoundSettings sound;
 
-  // Sound & Feedback
-  final bool recordStartSound;
-  final bool recordStopSound;
-  final bool transcriptionCompleteSound;
-  final bool durationWarningSound;
-  final double soundVolume;
+  /// After-transcription action settings.
+  final AfterTranscriptionSettings afterTranscriptionSection;
 
-  // After Transcription
-  /// What happens after transcription: 'clipboard', 'paste',
-  /// 'clipboard_and_paste', or 'nothing'
-  final String afterTranscription;
+  /// Overlay & floating button settings.
+  final OverlaySettings overlay;
 
-  // Overlay & Floating Button
-  final bool showOverlay;
+  /// Cloud provider & API key settings.
+  final CloudProviderSettings cloudProvider;
 
-  /// 'floating' or 'off'.
-  final String overlayMode;
+  /// General behavior settings (tray, error reporting, GPU, paste).
+  final BehaviorSettings behavior;
 
-  /// 'top-center', 'bottom-center', or 'last-position'.
-  final String overlayStartPosition;
+  /// Audio processing settings (trim silence, VAD).
+  final AudioProcessingSettings audioProcessing;
 
-  /// 'normal' or 'compact'.
-  final String overlaySize;
+  /// Update check settings.
+  final UpdateSettings updates;
 
-  /// '2s', '5s', '10s', or 'manual'.
-  final String overlayAutoHide;
-  final bool showFloatingButton;
-  final double floatingButtonOpacity;
-  final String floatingButtonSize;
-  final double floatingOverlayOpacity;
+  /// History retention settings.
+  final HistorySettings history;
 
-  // Cloud Providers (API keys)
-  final String openAiApiKey;
-  final String deepgramApiKey;
+  /// Hotkey settings.
+  final HotkeySettings hotkey;
 
-  // Cloud Provider Details
-  final String cloudSttProvider;
+  /// Window & overlay position settings.
+  final WindowPositionSettings windowPosition;
 
-  // Behavior
-  final int maxRecordDuration;
-  final bool closeToTray;
-  final bool errorReporting;
-  final String gpuAcceleration;
-  final int autoPasteDelay;
+  /// Onboarding completion state.
+  final OnboardingSettings onboarding;
 
-  /// Comma-separated list of app bundle IDs (macOS) or process names (Windows)
-  /// where auto-paste should be suppressed. Clipboard-copy still works.
-  final String autoPasteBlocklist;
+  /// Benchmark data for tier performance recommendations.
+  final BenchmarkSettings benchmark;
 
-  // Audio Processing
-  final bool trimSilence;
-  final bool useVAD;
-  final double vadSensitivity;
+  // ---------------------------------------------------------------------------
+  // @Deprecated shims — delegate to sections.
+  // Remove once all call-sites migrate to the section API.
+  // ---------------------------------------------------------------------------
 
-  // Text Replacements
-  final bool textReplacementsEnabled;
+  @Deprecated('Use interface_.themeMode instead')
+  ThemeMode get themeMode => interface_.themeMode;
 
-  // Updates
-  final bool checkUpdates;
+  @Deprecated('Use interface_.locale instead')
+  String get locale => interface_.locale;
 
-  // History Retention
-  /// Max active (non-trashed) history entries to keep. 0 = unlimited.
-  final int historyMaxEntries;
+  @Deprecated('Use interface_.launchAtStartup instead')
+  bool get launchAtStartup => interface_.launchAtStartup;
 
-  /// Days to keep soft-deleted entries before permanent purge. 0 = never purge.
-  final int historyAutoTrashDays;
+  @Deprecated('Use interface_.startMinimized instead')
+  bool get startMinimized => interface_.startMinimized;
 
-  // Hotkey
-  final bool hotkeyEnabled;
-  final String hotkeyKey;
-  final String hotkeyModifiers;
+  @Deprecated('Use interface_.showNotifications instead')
+  bool get showNotifications => interface_.showNotifications;
 
-  // Floating Button Position (persisted across sessions; -1 = not set)
-  final double floatingButtonX;
-  final double floatingButtonY;
+  @Deprecated('Use audioInput.microphone instead')
+  String get microphone => audioInput.microphone;
 
-  // Floating Overlay Position (persisted across sessions; -1 = not set)
-  final double floatingOverlayX;
-  final double floatingOverlayY;
+  @Deprecated('Use audioInput.inputGain instead')
+  double get inputGain => audioInput.inputGain;
 
-  // Main Window State (persisted across sessions; -1 = not set)
-  final double windowX;
-  final double windowY;
-  final double windowWidth;
-  final double windowHeight;
-  final bool windowMaximized;
+  @Deprecated('Use audioInput.pushToTalk instead')
+  bool get pushToTalk => audioInput.pushToTalk;
 
-  // Onboarding
-  final bool onboardingCompleted;
+  @Deprecated('Use recordingSafety.deadMicTimeout instead')
+  double get deadMicTimeout => recordingSafety.deadMicTimeout;
 
-  // Benchmark data for tier performance recommendations
-  /// Real-time factor (RTF) for each quality tier from last benchmark.
-  /// RTF = processing_time / audio_duration. Lower is better.
-  final Map<QualityTier, double>? tierBenchmarkRtf;
+  @Deprecated('Use recordingSafety.autoStopSilence instead')
+  double get autoStopSilence => recordingSafety.autoStopSilence;
 
-  /// Hardware ID (hash) that the benchmark was run on.
-  final String? benchmarkHardwareId;
+  @Deprecated('Use stt.provider instead')
+  String get sttProvider => stt.provider;
 
-  /// When the benchmark was last run.
-  final DateTime? benchmarkTimestamp;
+  @Deprecated('Use stt.model instead')
+  String get sttModel => stt.model;
+
+  @Deprecated('Use stt.language instead')
+  String get sttLanguage => stt.language;
+
+  @Deprecated('Use stt.idleTimeoutMinutes instead')
+  int get sttIdleTimeoutMinutes => stt.idleTimeoutMinutes;
+
+  @Deprecated('Use stt.customVocabulary instead')
+  String get customVocabulary => stt.customVocabulary;
+
+  @Deprecated('Use sound.recordStartSound instead')
+  bool get recordStartSound => sound.recordStartSound;
+
+  @Deprecated('Use sound.recordStopSound instead')
+  bool get recordStopSound => sound.recordStopSound;
+
+  @Deprecated('Use sound.transcriptionCompleteSound instead')
+  bool get transcriptionCompleteSound => sound.transcriptionCompleteSound;
+
+  @Deprecated('Use sound.durationWarningSound instead')
+  bool get durationWarningSound => sound.durationWarningSound;
+
+  @Deprecated('Use sound.soundVolume instead')
+  double get soundVolume => sound.soundVolume;
+
+  @Deprecated('Use afterTranscriptionSection.afterTranscription instead')
+  String get afterTranscription => afterTranscriptionSection.afterTranscription;
+
+  @Deprecated('Use overlay.showOverlay instead')
+  bool get showOverlay => overlay.showOverlay;
+
+  @Deprecated('Use overlay.overlayMode instead')
+  String get overlayMode => overlay.overlayMode;
+
+  @Deprecated('Use overlay.overlayStartPosition instead')
+  String get overlayStartPosition => overlay.overlayStartPosition;
+
+  @Deprecated('Use overlay.overlaySize instead')
+  String get overlaySize => overlay.overlaySize;
+
+  @Deprecated('Use overlay.overlayAutoHide instead')
+  String get overlayAutoHide => overlay.overlayAutoHide;
+
+  @Deprecated('Use overlay.showFloatingButton instead')
+  bool get showFloatingButton => overlay.showFloatingButton;
+
+  @Deprecated('Use overlay.floatingButtonOpacity instead')
+  double get floatingButtonOpacity => overlay.floatingButtonOpacity;
+
+  @Deprecated('Use overlay.floatingButtonSize instead')
+  String get floatingButtonSize => overlay.floatingButtonSize;
+
+  @Deprecated('Use overlay.floatingOverlayOpacity instead')
+  double get floatingOverlayOpacity => overlay.floatingOverlayOpacity;
+
+  @Deprecated('Use cloudProvider.openAiApiKey instead')
+  String get openAiApiKey => cloudProvider.openAiApiKey;
+
+  @Deprecated('Use cloudProvider.deepgramApiKey instead')
+  String get deepgramApiKey => cloudProvider.deepgramApiKey;
+
+  @Deprecated('Use cloudProvider.cloudSttProvider instead')
+  String get cloudSttProvider => cloudProvider.cloudSttProvider;
+
+  @Deprecated('Use behavior.maxRecordDuration instead')
+  int get maxRecordDuration => behavior.maxRecordDuration;
+
+  @Deprecated('Use behavior.closeToTray instead')
+  bool get closeToTray => behavior.closeToTray;
+
+  @Deprecated('Use behavior.errorReporting instead')
+  bool get errorReporting => behavior.errorReporting;
+
+  @Deprecated('Use behavior.gpuAcceleration instead')
+  String get gpuAcceleration => behavior.gpuAcceleration;
+
+  @Deprecated('Use behavior.autoPasteDelay instead')
+  int get autoPasteDelay => behavior.autoPasteDelay;
+
+  @Deprecated('Use behavior.autoPasteBlocklist instead')
+  String get autoPasteBlocklist => behavior.autoPasteBlocklist;
+
+  @Deprecated('Use audioProcessing.trimSilence instead')
+  bool get trimSilence => audioProcessing.trimSilence;
+
+  @Deprecated('Use audioProcessing.useVAD instead')
+  bool get useVAD => audioProcessing.useVAD;
+
+  @Deprecated('Use audioProcessing.vadSensitivity instead')
+  double get vadSensitivity => audioProcessing.vadSensitivity;
+
+  @Deprecated('Use behavior.textReplacementsEnabled instead')
+  bool get textReplacementsEnabled => behavior.textReplacementsEnabled;
+
+  @Deprecated('Use updates.checkUpdates instead')
+  bool get checkUpdates => updates.checkUpdates;
+
+  @Deprecated('Use history.historyMaxEntries instead')
+  int get historyMaxEntries => history.historyMaxEntries;
+
+  @Deprecated('Use history.historyAutoTrashDays instead')
+  int get historyAutoTrashDays => history.historyAutoTrashDays;
+
+  @Deprecated('Use hotkey.hotkeyEnabled instead')
+  bool get hotkeyEnabled => hotkey.hotkeyEnabled;
+
+  @Deprecated('Use hotkey.hotkeyKey instead')
+  String get hotkeyKey => hotkey.hotkeyKey;
+
+  @Deprecated('Use hotkey.hotkeyModifiers instead')
+  String get hotkeyModifiers => hotkey.hotkeyModifiers;
+
+  @Deprecated('Use windowPosition.floatingButtonX instead')
+  double get floatingButtonX => windowPosition.floatingButtonX;
+
+  @Deprecated('Use windowPosition.floatingButtonY instead')
+  double get floatingButtonY => windowPosition.floatingButtonY;
+
+  @Deprecated('Use windowPosition.floatingOverlayX instead')
+  double get floatingOverlayX => windowPosition.floatingOverlayX;
+
+  @Deprecated('Use windowPosition.floatingOverlayY instead')
+  double get floatingOverlayY => windowPosition.floatingOverlayY;
+
+  @Deprecated('Use windowPosition.windowX instead')
+  double get windowX => windowPosition.windowX;
+
+  @Deprecated('Use windowPosition.windowY instead')
+  double get windowY => windowPosition.windowY;
+
+  @Deprecated('Use windowPosition.windowWidth instead')
+  double get windowWidth => windowPosition.windowWidth;
+
+  @Deprecated('Use windowPosition.windowHeight instead')
+  double get windowHeight => windowPosition.windowHeight;
+
+  @Deprecated('Use windowPosition.windowMaximized instead')
+  bool get windowMaximized => windowPosition.windowMaximized;
+
+  @Deprecated('Use onboarding.onboardingCompleted instead')
+  bool get onboardingCompleted => onboarding.onboardingCompleted;
+
+  @Deprecated('Use benchmark.tierBenchmarkRtf instead')
+  Map<QualityTier, double>? get tierBenchmarkRtf => benchmark.tierBenchmarkRtf;
+
+  @Deprecated('Use benchmark.benchmarkHardwareId instead')
+  String? get benchmarkHardwareId => benchmark.benchmarkHardwareId;
+
+  @Deprecated('Use benchmark.benchmarkTimestamp instead')
+  DateTime? get benchmarkTimestamp => benchmark.benchmarkTimestamp;
 
   // ---------------------------------------------------------------------------
   // Typed accessors — prefer these over raw string comparisons.
   // ---------------------------------------------------------------------------
 
-  SttProviderType get sttProviderType => SttProviderType.fromValue(sttProvider);
+  SttProviderType get sttProviderType =>
+      SttProviderType.fromValue(stt.provider);
   CloudSttProvider get cloudSttProviderType =>
-      CloudSttProvider.fromValue(cloudSttProvider);
+      CloudSttProvider.fromValue(cloudProvider.cloudSttProvider);
   AfterTranscriptionAction get afterTranscriptionAction =>
-      AfterTranscriptionAction.fromValue(afterTranscription);
-  OverlayMode get overlayModeType => OverlayMode.fromValue(overlayMode);
+      AfterTranscriptionAction.fromValue(
+        afterTranscriptionSection.afterTranscription,
+      );
+  OverlayMode get overlayModeType => OverlayMode.fromValue(overlay.overlayMode);
 
   /// Returns the effective overlay mode. Now that the native floating overlay
   /// is implemented, `floating` is passed through directly.
   OverlayMode get effectiveOverlayMode => overlayModeType;
 
   OverlayStartPosition get overlayStartPositionType =>
-      OverlayStartPosition.fromValue(overlayStartPosition);
+      OverlayStartPosition.fromValue(overlay.overlayStartPosition);
   FloatingOverlaySize get overlaySizeType =>
-      FloatingOverlaySize.fromValue(overlaySize);
+      FloatingOverlaySize.fromValue(overlay.overlaySize);
   OverlayAutoHide get overlayAutoHideType =>
-      OverlayAutoHide.fromValue(overlayAutoHide);
+      OverlayAutoHide.fromValue(overlay.overlayAutoHide);
   FloatingButtonSize get floatingButtonSizeType =>
-      FloatingButtonSize.fromValue(floatingButtonSize);
+      FloatingButtonSize.fromValue(overlay.floatingButtonSize);
   GpuAcceleration get gpuAccelerationType =>
-      GpuAcceleration.fromValue(gpuAcceleration);
+      GpuAcceleration.fromValue(behavior.gpuAcceleration);
 
   /// Resolved model ID — falls back to `whisper-medium` if empty.
-  String get effectiveModelId => sttModel.isEmpty ? 'whisper-medium' : sttModel;
+  String get effectiveModelId =>
+      stt.model.isEmpty ? 'whisper-medium' : stt.model;
 
   /// STT language code for the whisper server (e.g. `en`, `de`, `auto`).
   ///
-  /// Converts the user-facing display value stored in [sttLanguage] to the
+  /// Converts the user-facing display value stored in [stt.language] to the
   /// short code expected by whisper-server's `language` parameter.
-  String get sttLanguageCode => switch (sttLanguage) {
+  String get sttLanguageCode => switch (stt.language) {
     'English' => 'en',
     'German' => 'de',
     'French' => 'fr',
@@ -283,193 +347,28 @@ class AppSettings {
   ///
   /// On macOS the default hotkey uses ⌘+Shift (meta) instead of Ctrl+Shift.
   static final AppSettings defaults = AppSettings(
-    hotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
+    hotkey: buildDefaultHotkeySettings(),
   );
 
   /// Creates settings from persisted key-value storage.
   factory AppSettings.fromStorageMap(Map<String, String> values) {
     return AppSettings(
-      themeMode: _themeModeFromString(values['theme_mode'] ?? 'dark'),
-      locale: values['locale'] ?? 'en',
-      launchAtStartup: _readBool(
-        values,
-        'launch_at_startup',
-        defaults.launchAtStartup,
-      ),
-      startMinimized: _readBool(
-        values,
-        'start_minimized',
-        defaults.startMinimized,
-      ),
-      showNotifications: _readBool(
-        values,
-        'show_notifications',
-        defaults.showNotifications,
-      ),
-      microphone: values['microphone'] ?? defaults.microphone,
-      inputGain: _readDouble(values, 'input_gain', defaults.inputGain),
-      pushToTalk: _readBool(values, 'push_to_talk', defaults.pushToTalk),
-      deadMicTimeout: _readDouble(
-        values,
-        'dead_mic_timeout',
-        defaults.deadMicTimeout,
-      ),
-      autoStopSilence: _readDouble(
-        values,
-        'auto_stop_silence',
-        defaults.autoStopSilence,
-      ),
-      sttProvider: values['stt_provider'] ?? defaults.sttProvider,
-      sttModel: _migrateModelId(values['stt_model'] ?? defaults.sttModel),
-      sttLanguage: values['stt_language'] ?? defaults.sttLanguage,
-      sttIdleTimeoutMinutes: _readInt(
-        values,
-        'stt_idle_timeout_minutes',
-        defaults.sttIdleTimeoutMinutes,
-      ),
-      customVocabulary:
-          values['custom_vocabulary'] ?? defaults.customVocabulary,
-      recordStartSound: _readBool(
-        values,
-        'record_start_sound',
-        defaults.recordStartSound,
-      ),
-      recordStopSound: _readBool(
-        values,
-        'record_stop_sound',
-        defaults.recordStopSound,
-      ),
-      transcriptionCompleteSound: _readBool(
-        values,
-        'transcription_complete_sound',
-        defaults.transcriptionCompleteSound,
-      ),
-      durationWarningSound: _readBool(
-        values,
-        'duration_warning_sound',
-        defaults.durationWarningSound,
-      ),
-      soundVolume: _readDouble(values, 'sound_volume', defaults.soundVolume),
-      afterTranscription:
-          values['after_transcription'] ?? defaults.afterTranscription,
-      showOverlay: _readBool(values, 'show_overlay', defaults.showOverlay),
-      overlayMode:
-          values['overlay_mode'] ??
-          (_readBool(values, 'show_overlay', defaults.showOverlay)
-              ? defaults.overlayMode
-              : OverlayMode.off.value),
-      overlayStartPosition:
-          values['overlay_start_position'] ?? defaults.overlayStartPosition,
-      overlaySize: values['overlay_size'] ?? defaults.overlaySize,
-      overlayAutoHide: values['overlay_auto_hide'] ?? defaults.overlayAutoHide,
-      showFloatingButton: _readBool(
-        values,
-        'show_floating_button',
-        defaults.showFloatingButton,
-      ),
-      floatingButtonOpacity: _readDouble(
-        values,
-        'floating_button_opacity',
-        defaults.floatingButtonOpacity,
-      ),
-      floatingButtonSize:
-          values['floating_button_size'] ?? defaults.floatingButtonSize,
-      floatingOverlayOpacity: _readDouble(
-        values,
-        'floating_overlay_opacity',
-        defaults.floatingOverlayOpacity,
-      ),
-      openAiApiKey: values['openai_api_key'] ?? defaults.openAiApiKey,
-      deepgramApiKey: values['deepgram_api_key'] ?? defaults.deepgramApiKey,
-      cloudSttProvider:
-          values['cloud_stt_provider'] ?? defaults.cloudSttProvider,
-      maxRecordDuration: _readInt(
-        values,
-        'max_record_duration',
-        defaults.maxRecordDuration,
-      ),
-      closeToTray: _readBool(values, 'close_to_tray', defaults.closeToTray),
-      errorReporting: _readBool(
-        values,
-        'error_reporting',
-        defaults.errorReporting,
-      ),
-      gpuAcceleration: values['gpu_acceleration'] ?? defaults.gpuAcceleration,
-      autoPasteDelay: _readInt(
-        values,
-        'auto_paste_delay',
-        defaults.autoPasteDelay,
-      ),
-      autoPasteBlocklist:
-          values['auto_paste_blocklist'] ?? defaults.autoPasteBlocklist,
-      trimSilence: _readBool(values, 'trim_silence', defaults.trimSilence),
-      useVAD: _readBool(values, 'use_vad', defaults.useVAD),
-      vadSensitivity: _readDouble(
-        values,
-        'vad_sensitivity',
-        defaults.vadSensitivity,
-      ),
-      textReplacementsEnabled: _readBool(
-        values,
-        'text_replacements_enabled',
-        defaults.textReplacementsEnabled,
-      ),
-      checkUpdates: _readBool(values, 'check_updates', defaults.checkUpdates),
-      historyMaxEntries: _readInt(
-        values,
-        'history_max_entries',
-        defaults.historyMaxEntries,
-      ),
-      historyAutoTrashDays: _readInt(
-        values,
-        'history_auto_trash_days',
-        defaults.historyAutoTrashDays,
-      ),
-      hotkeyEnabled: _readBool(
-        values,
-        'hotkey_enabled',
-        defaults.hotkeyEnabled,
-      ),
-      hotkeyKey: values['hotkey_key'] ?? defaults.hotkeyKey,
-      hotkeyModifiers: values['hotkey_modifiers'] ?? defaults.hotkeyModifiers,
-      floatingButtonX: _readDouble(
-        values,
-        'floating_button_x',
-        defaults.floatingButtonX,
-      ),
-      floatingButtonY: _readDouble(
-        values,
-        'floating_button_y',
-        defaults.floatingButtonY,
-      ),
-      floatingOverlayX: _readDouble(
-        values,
-        'floating_overlay_x',
-        defaults.floatingOverlayX,
-      ),
-      floatingOverlayY: _readDouble(
-        values,
-        'floating_overlay_y',
-        defaults.floatingOverlayY,
-      ),
-      windowX: _readDouble(values, 'window_x', defaults.windowX),
-      windowY: _readDouble(values, 'window_y', defaults.windowY),
-      windowWidth: _readDouble(values, 'window_width', defaults.windowWidth),
-      windowHeight: _readDouble(values, 'window_height', defaults.windowHeight),
-      windowMaximized: _readBool(
-        values,
-        'window_maximized',
-        defaults.windowMaximized,
-      ),
-      onboardingCompleted: _readBool(
-        values,
-        'onboarding_completed',
-        defaults.onboardingCompleted,
-      ),
-      // Benchmark data
-      tierBenchmarkRtf: _readBenchmarkRtf(values['tier_benchmark_rtf']),
-      benchmarkHardwareId: values['benchmark_hardware_id'],
-      benchmarkTimestamp: _readDateTime(values['benchmark_timestamp']),
+      interface_: InterfaceSettings.fromMap(values),
+      audioInput: AudioInputSettings.fromMap(values),
+      recordingSafety: RecordingSafetySettings.fromMap(values),
+      stt: SttSettings.fromMap(values),
+      sound: SoundSettings.fromMap(values),
+      afterTranscriptionSection: AfterTranscriptionSettings.fromMap(values),
+      overlay: OverlaySettings.fromMap(values),
+      cloudProvider: CloudProviderSettings.fromMap(values),
+      behavior: BehaviorSettings.fromMap(values),
+      audioProcessing: AudioProcessingSettings.fromMap(values),
+      updates: UpdateSettings.fromMap(values),
+      history: HistorySettings.fromMap(values),
+      hotkey: HotkeySettings.fromMap(values),
+      windowPosition: WindowPositionSettings.fromMap(values),
+      onboarding: OnboardingSettings.fromMap(values),
+      benchmark: BenchmarkSettings.fromMap(values),
     );
   }
 
@@ -487,152 +386,112 @@ class AppSettings {
     final gain = (json['input_gain'] as num?)?.toDouble() ?? 1.0;
 
     return AppSettings(
-      inputGain: gain * 100.0,
-      sttProvider: useLocal
-          ? SttProviderType.onDevice.value
-          : defaults.sttProvider,
-      sttModel: _settingModelFromConfig(modelId),
-      sttLanguage: _settingLanguageFromConfig(lang),
-      recordStartSound: sounds,
-      recordStopSound: sounds,
-      transcriptionCompleteSound: sounds,
-      durationWarningSound: sounds,
-      afterTranscription: autoPaste ? 'clipboard' : 'nothing',
-      maxRecordDuration: maxSec,
-      gpuAcceleration: gpu,
+      audioInput: AudioInputSettings(inputGain: gain * 100.0),
+      stt: SttSettings(
+        provider: useLocal
+            ? SttProviderType.onDevice.value
+            : defaults.stt.provider,
+        model: _settingModelFromConfig(modelId),
+        language: _settingLanguageFromConfig(lang),
+      ),
+      sound: SoundSettings(
+        recordStartSound: sounds,
+        recordStopSound: sounds,
+        transcriptionCompleteSound: sounds,
+        durationWarningSound: sounds,
+      ),
+      afterTranscriptionSection: AfterTranscriptionSettings(
+        afterTranscription: autoPaste ? 'clipboard' : 'nothing',
+      ),
+      behavior: BehaviorSettings(
+        maxRecordDuration: maxSec,
+        gpuAcceleration: gpu,
+      ),
     );
   }
 
   /// Serializes settings into a string map for SQLite persistence.
   Map<String, String> toStorageMap() => {
     'schema_version': '2',
-    ..._interfaceToMap(),
-    ..._audioToMap(),
-    ..._recordingSafetyToMap(),
-    ..._sttToMap(),
-    ..._soundToMap(),
-    ..._afterTranscriptionToMap(),
-    ..._overlayToMap(),
-    ..._cloudProvidersToMap(),
-    ..._behaviorToMap(),
-    ..._audioProcessingToMap(),
-    ..._updatesToMap(),
-    ..._historyToMap(),
-    ..._hotkeyToMap(),
-    ..._windowToMap(),
-    ..._onboardingToMap(),
-    ..._benchmarkToMap(),
+    ...interface_.toMap(),
+    ...audioInput.toMap(),
+    ...recordingSafety.toMap(),
+    ...stt.toMap(),
+    ...sound.toMap(),
+    ...afterTranscriptionSection.toMap(),
+    ...overlay.toMap(),
+    ...cloudProvider.toMap(),
+    ...behavior.toMap(),
+    ...audioProcessing.toMap(),
+    ...updates.toMap(),
+    ...history.toMap(),
+    ...hotkey.toMap(),
+    ...windowPosition.toMap(),
+    ...onboarding.toMap(),
+    ...benchmark.toMap(),
   };
 
-  Map<String, String> _interfaceToMap() => {
-    'theme_mode': themeMode.name,
-    'locale': locale,
-    'launch_at_startup': '$launchAtStartup',
-    'start_minimized': '$startMinimized',
-    'show_notifications': '$showNotifications',
-  };
+  // ---------------------------------------------------------------------------
+  // copyWithSections — the new 16-param section-based API.
+  // ---------------------------------------------------------------------------
 
-  Map<String, String> _audioToMap() => {
-    'microphone': microphone,
-    'input_gain': '$inputGain',
-    'push_to_talk': '$pushToTalk',
-  };
+  /// Returns a copy of this [AppSettings] with one or more sections replaced.
+  ///
+  /// This is the preferred mutation API for new code:
+  /// ```dart
+  /// final updated = settings.copyWithSections(
+  ///   stt: settings.stt.copyWith(model: 'whisper-large-v3'),
+  /// );
+  /// ```
+  AppSettings copyWithSections({
+    InterfaceSettings? interface_,
+    AudioInputSettings? audioInput,
+    RecordingSafetySettings? recordingSafety,
+    SttSettings? stt,
+    SoundSettings? sound,
+    AfterTranscriptionSettings? afterTranscriptionSection,
+    OverlaySettings? overlay,
+    CloudProviderSettings? cloudProvider,
+    BehaviorSettings? behavior,
+    AudioProcessingSettings? audioProcessing,
+    UpdateSettings? updates,
+    HistorySettings? history,
+    HotkeySettings? hotkey,
+    WindowPositionSettings? windowPosition,
+    OnboardingSettings? onboarding,
+    BenchmarkSettings? benchmark,
+  }) {
+    return AppSettings(
+      interface_: interface_ ?? this.interface_,
+      audioInput: audioInput ?? this.audioInput,
+      recordingSafety: recordingSafety ?? this.recordingSafety,
+      stt: stt ?? this.stt,
+      sound: sound ?? this.sound,
+      afterTranscriptionSection:
+          afterTranscriptionSection ?? this.afterTranscriptionSection,
+      overlay: overlay ?? this.overlay,
+      cloudProvider: cloudProvider ?? this.cloudProvider,
+      behavior: behavior ?? this.behavior,
+      audioProcessing: audioProcessing ?? this.audioProcessing,
+      updates: updates ?? this.updates,
+      history: history ?? this.history,
+      hotkey: hotkey ?? this.hotkey,
+      windowPosition: windowPosition ?? this.windowPosition,
+      onboarding: onboarding ?? this.onboarding,
+      benchmark: benchmark ?? this.benchmark,
+    );
+  }
 
-  Map<String, String> _recordingSafetyToMap() => {
-    'dead_mic_timeout': '$deadMicTimeout',
-    'auto_stop_silence': '$autoStopSilence',
-  };
+  // ---------------------------------------------------------------------------
+  // copyWith — backward-compatible 49-param API.
+  // Preserved so existing callers continue to compile without modification.
+  // New code should use [copyWithSections] instead.
+  // ---------------------------------------------------------------------------
 
-  Map<String, String> _sttToMap() => {
-    'stt_provider': sttProvider,
-    'stt_model': sttModel,
-    'stt_language': sttLanguage,
-    'stt_idle_timeout_minutes': '$sttIdleTimeoutMinutes',
-    'custom_vocabulary': customVocabulary,
-  };
-
-  Map<String, String> _soundToMap() => {
-    'record_start_sound': '$recordStartSound',
-    'record_stop_sound': '$recordStopSound',
-    'transcription_complete_sound': '$transcriptionCompleteSound',
-    'duration_warning_sound': '$durationWarningSound',
-    'sound_volume': '$soundVolume',
-  };
-
-  Map<String, String> _afterTranscriptionToMap() => {
-    'after_transcription': afterTranscription,
-  };
-
-  Map<String, String> _overlayToMap() => {
-    'show_overlay': '$showOverlay',
-    'overlay_mode': overlayMode,
-    'overlay_start_position': overlayStartPosition,
-    'overlay_size': overlaySize,
-    'overlay_auto_hide': overlayAutoHide,
-    'show_floating_button': '$showFloatingButton',
-    'floating_button_opacity': '$floatingButtonOpacity',
-    'floating_button_size': floatingButtonSize,
-    'floating_overlay_opacity': '$floatingOverlayOpacity',
-  };
-
-  Map<String, String> _cloudProvidersToMap() => {
-    // API keys are stored in secure storage — never persist to SQLite.
-    'openai_api_key': '',
-    'deepgram_api_key': '',
-    'cloud_stt_provider': cloudSttProvider,
-  };
-
-  Map<String, String> _behaviorToMap() => {
-    'max_record_duration': '$maxRecordDuration',
-    'close_to_tray': '$closeToTray',
-    'error_reporting': '$errorReporting',
-    'gpu_acceleration': gpuAcceleration,
-    'auto_paste_delay': '$autoPasteDelay',
-    'auto_paste_blocklist': autoPasteBlocklist,
-  };
-
-  Map<String, String> _audioProcessingToMap() => {
-    'trim_silence': '$trimSilence',
-    'use_vad': '$useVAD',
-    'vad_sensitivity': '$vadSensitivity',
-    'text_replacements_enabled': '$textReplacementsEnabled',
-  };
-
-  Map<String, String> _updatesToMap() => {'check_updates': '$checkUpdates'};
-
-  Map<String, String> _historyToMap() => {
-    'history_max_entries': '$historyMaxEntries',
-    'history_auto_trash_days': '$historyAutoTrashDays',
-  };
-
-  Map<String, String> _hotkeyToMap() => {
-    'hotkey_enabled': '$hotkeyEnabled',
-    'hotkey_key': hotkeyKey,
-    'hotkey_modifiers': hotkeyModifiers,
-  };
-
-  Map<String, String> _windowToMap() => {
-    'floating_button_x': '$floatingButtonX',
-    'floating_button_y': '$floatingButtonY',
-    'floating_overlay_x': '$floatingOverlayX',
-    'floating_overlay_y': '$floatingOverlayY',
-    'window_x': '$windowX',
-    'window_y': '$windowY',
-    'window_width': '$windowWidth',
-    'window_height': '$windowHeight',
-    'window_maximized': '$windowMaximized',
-  };
-
-  Map<String, String> _onboardingToMap() => {
-    'onboarding_completed': '$onboardingCompleted',
-  };
-
-  Map<String, String> _benchmarkToMap() => {
-    'tier_benchmark_rtf': _writeBenchmarkRtf(tierBenchmarkRtf),
-    'benchmark_hardware_id': benchmarkHardwareId ?? '',
-    'benchmark_timestamp': benchmarkTimestamp?.toIso8601String() ?? '',
-  };
-
+  @Deprecated(
+    'Use copyWithSections() for new callers. '
+    'Existing call sites (including snapshot tests) will migrate gradually.',
+  )
   AppSettings copyWith({
     ThemeMode? themeMode,
     String? locale,
@@ -698,73 +557,96 @@ class AppSettings {
     DateTime? benchmarkTimestamp,
   }) {
     return AppSettings(
-      themeMode: themeMode ?? this.themeMode,
-      locale: locale ?? this.locale,
-      launchAtStartup: launchAtStartup ?? this.launchAtStartup,
-      startMinimized: startMinimized ?? this.startMinimized,
-      showNotifications: showNotifications ?? this.showNotifications,
-      microphone: microphone ?? this.microphone,
-      inputGain: inputGain ?? this.inputGain,
-      pushToTalk: pushToTalk ?? this.pushToTalk,
-      deadMicTimeout: deadMicTimeout ?? this.deadMicTimeout,
-      autoStopSilence: autoStopSilence ?? this.autoStopSilence,
-      sttProvider: sttProvider ?? this.sttProvider,
-      sttModel: sttModel ?? this.sttModel,
-      sttLanguage: sttLanguage ?? this.sttLanguage,
-      sttIdleTimeoutMinutes:
-          sttIdleTimeoutMinutes ?? this.sttIdleTimeoutMinutes,
-      customVocabulary: customVocabulary ?? this.customVocabulary,
-      recordStartSound: recordStartSound ?? this.recordStartSound,
-      recordStopSound: recordStopSound ?? this.recordStopSound,
-      transcriptionCompleteSound:
-          transcriptionCompleteSound ?? this.transcriptionCompleteSound,
-      durationWarningSound: durationWarningSound ?? this.durationWarningSound,
-      soundVolume: soundVolume ?? this.soundVolume,
-      afterTranscription: afterTranscription ?? this.afterTranscription,
-      showOverlay: showOverlay ?? this.showOverlay,
-      overlayMode: overlayMode ?? this.overlayMode,
-      overlayStartPosition: overlayStartPosition ?? this.overlayStartPosition,
-      overlaySize: overlaySize ?? this.overlaySize,
-      overlayAutoHide: overlayAutoHide ?? this.overlayAutoHide,
-      showFloatingButton: showFloatingButton ?? this.showFloatingButton,
-      floatingButtonOpacity:
-          floatingButtonOpacity ?? this.floatingButtonOpacity,
-      floatingButtonSize: floatingButtonSize ?? this.floatingButtonSize,
-      floatingOverlayOpacity:
-          floatingOverlayOpacity ?? this.floatingOverlayOpacity,
-      openAiApiKey: openAiApiKey ?? this.openAiApiKey,
-      deepgramApiKey: deepgramApiKey ?? this.deepgramApiKey,
-      cloudSttProvider: cloudSttProvider ?? this.cloudSttProvider,
-      maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
-      closeToTray: closeToTray ?? this.closeToTray,
-      errorReporting: errorReporting ?? this.errorReporting,
-      gpuAcceleration: gpuAcceleration ?? this.gpuAcceleration,
-      autoPasteDelay: autoPasteDelay ?? this.autoPasteDelay,
-      autoPasteBlocklist: autoPasteBlocklist ?? this.autoPasteBlocklist,
-      trimSilence: trimSilence ?? this.trimSilence,
-      useVAD: useVAD ?? this.useVAD,
-      vadSensitivity: vadSensitivity ?? this.vadSensitivity,
-      textReplacementsEnabled:
-          textReplacementsEnabled ?? this.textReplacementsEnabled,
-      checkUpdates: checkUpdates ?? this.checkUpdates,
-      historyMaxEntries: historyMaxEntries ?? this.historyMaxEntries,
-      historyAutoTrashDays: historyAutoTrashDays ?? this.historyAutoTrashDays,
-      hotkeyEnabled: hotkeyEnabled ?? this.hotkeyEnabled,
-      hotkeyKey: hotkeyKey ?? this.hotkeyKey,
-      hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
-      floatingButtonX: floatingButtonX ?? this.floatingButtonX,
-      floatingButtonY: floatingButtonY ?? this.floatingButtonY,
-      floatingOverlayX: floatingOverlayX ?? this.floatingOverlayX,
-      floatingOverlayY: floatingOverlayY ?? this.floatingOverlayY,
-      windowX: windowX ?? this.windowX,
-      windowY: windowY ?? this.windowY,
-      windowWidth: windowWidth ?? this.windowWidth,
-      windowHeight: windowHeight ?? this.windowHeight,
-      windowMaximized: windowMaximized ?? this.windowMaximized,
-      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
-      tierBenchmarkRtf: tierBenchmarkRtf ?? this.tierBenchmarkRtf,
-      benchmarkHardwareId: benchmarkHardwareId ?? this.benchmarkHardwareId,
-      benchmarkTimestamp: benchmarkTimestamp ?? this.benchmarkTimestamp,
+      interface_: interface_.copyWith(
+        themeMode: themeMode,
+        locale: locale,
+        launchAtStartup: launchAtStartup,
+        startMinimized: startMinimized,
+        showNotifications: showNotifications,
+      ),
+      audioInput: audioInput.copyWith(
+        microphone: microphone,
+        inputGain: inputGain,
+        pushToTalk: pushToTalk,
+      ),
+      recordingSafety: recordingSafety.copyWith(
+        deadMicTimeout: deadMicTimeout,
+        autoStopSilence: autoStopSilence,
+      ),
+      stt: stt.copyWith(
+        provider: sttProvider,
+        model: sttModel,
+        language: sttLanguage,
+        idleTimeoutMinutes: sttIdleTimeoutMinutes,
+        customVocabulary: customVocabulary,
+      ),
+      sound: sound.copyWith(
+        recordStartSound: recordStartSound,
+        recordStopSound: recordStopSound,
+        transcriptionCompleteSound: transcriptionCompleteSound,
+        durationWarningSound: durationWarningSound,
+        soundVolume: soundVolume,
+      ),
+      afterTranscriptionSection: afterTranscriptionSection.copyWith(
+        afterTranscription: afterTranscription,
+      ),
+      overlay: overlay.copyWith(
+        showOverlay: showOverlay,
+        overlayMode: overlayMode,
+        overlayStartPosition: overlayStartPosition,
+        overlaySize: overlaySize,
+        overlayAutoHide: overlayAutoHide,
+        showFloatingButton: showFloatingButton,
+        floatingButtonOpacity: floatingButtonOpacity,
+        floatingButtonSize: floatingButtonSize,
+        floatingOverlayOpacity: floatingOverlayOpacity,
+      ),
+      cloudProvider: cloudProvider.copyWith(
+        openAiApiKey: openAiApiKey,
+        deepgramApiKey: deepgramApiKey,
+        cloudSttProvider: cloudSttProvider,
+      ),
+      behavior: behavior.copyWith(
+        maxRecordDuration: maxRecordDuration,
+        closeToTray: closeToTray,
+        errorReporting: errorReporting,
+        gpuAcceleration: gpuAcceleration,
+        autoPasteDelay: autoPasteDelay,
+        autoPasteBlocklist: autoPasteBlocklist,
+        textReplacementsEnabled: textReplacementsEnabled,
+      ),
+      audioProcessing: audioProcessing.copyWith(
+        trimSilence: trimSilence,
+        useVAD: useVAD,
+        vadSensitivity: vadSensitivity,
+      ),
+      updates: updates.copyWith(checkUpdates: checkUpdates),
+      history: history.copyWith(
+        historyMaxEntries: historyMaxEntries,
+        historyAutoTrashDays: historyAutoTrashDays,
+      ),
+      hotkey: hotkey.copyWith(
+        hotkeyEnabled: hotkeyEnabled,
+        hotkeyKey: hotkeyKey,
+        hotkeyModifiers: hotkeyModifiers,
+      ),
+      windowPosition: windowPosition.copyWith(
+        floatingButtonX: floatingButtonX,
+        floatingButtonY: floatingButtonY,
+        floatingOverlayX: floatingOverlayX,
+        floatingOverlayY: floatingOverlayY,
+        windowX: windowX,
+        windowY: windowY,
+        windowWidth: windowWidth,
+        windowHeight: windowHeight,
+        windowMaximized: windowMaximized,
+      ),
+      onboarding: onboarding.copyWith(onboardingCompleted: onboardingCompleted),
+      benchmark: benchmark.copyWith(
+        tierBenchmarkRtf: tierBenchmarkRtf,
+        benchmarkHardwareId: benchmarkHardwareId,
+        benchmarkTimestamp: benchmarkTimestamp,
+      ),
     );
   }
 
@@ -773,211 +655,47 @@ class AppSettings {
       identical(this, other) ||
       other is AppSettings &&
           runtimeType == other.runtimeType &&
-          themeMode == other.themeMode &&
-          locale == other.locale &&
-          launchAtStartup == other.launchAtStartup &&
-          startMinimized == other.startMinimized &&
-          showNotifications == other.showNotifications &&
-          microphone == other.microphone &&
-          inputGain == other.inputGain &&
-          pushToTalk == other.pushToTalk &&
-          deadMicTimeout == other.deadMicTimeout &&
-          autoStopSilence == other.autoStopSilence &&
-          sttProvider == other.sttProvider &&
-          sttModel == other.sttModel &&
-          sttLanguage == other.sttLanguage &&
-          sttIdleTimeoutMinutes == other.sttIdleTimeoutMinutes &&
-          customVocabulary == other.customVocabulary &&
-          recordStartSound == other.recordStartSound &&
-          recordStopSound == other.recordStopSound &&
-          transcriptionCompleteSound == other.transcriptionCompleteSound &&
-          durationWarningSound == other.durationWarningSound &&
-          soundVolume == other.soundVolume &&
-          afterTranscription == other.afterTranscription &&
-          showOverlay == other.showOverlay &&
-          overlayMode == other.overlayMode &&
-          overlayStartPosition == other.overlayStartPosition &&
-          overlaySize == other.overlaySize &&
-          overlayAutoHide == other.overlayAutoHide &&
-          showFloatingButton == other.showFloatingButton &&
-          floatingButtonOpacity == other.floatingButtonOpacity &&
-          floatingButtonSize == other.floatingButtonSize &&
-          floatingOverlayOpacity == other.floatingOverlayOpacity &&
-          openAiApiKey == other.openAiApiKey &&
-          deepgramApiKey == other.deepgramApiKey &&
-          cloudSttProvider == other.cloudSttProvider &&
-          maxRecordDuration == other.maxRecordDuration &&
-          closeToTray == other.closeToTray &&
-          errorReporting == other.errorReporting &&
-          gpuAcceleration == other.gpuAcceleration &&
-          autoPasteDelay == other.autoPasteDelay &&
-          autoPasteBlocklist == other.autoPasteBlocklist &&
-          trimSilence == other.trimSilence &&
-          useVAD == other.useVAD &&
-          vadSensitivity == other.vadSensitivity &&
-          textReplacementsEnabled == other.textReplacementsEnabled &&
-          checkUpdates == other.checkUpdates &&
-          historyMaxEntries == other.historyMaxEntries &&
-          historyAutoTrashDays == other.historyAutoTrashDays &&
-          hotkeyEnabled == other.hotkeyEnabled &&
-          hotkeyKey == other.hotkeyKey &&
-          hotkeyModifiers == other.hotkeyModifiers &&
-          floatingButtonX == other.floatingButtonX &&
-          floatingButtonY == other.floatingButtonY &&
-          floatingOverlayX == other.floatingOverlayX &&
-          floatingOverlayY == other.floatingOverlayY &&
-          windowX == other.windowX &&
-          windowY == other.windowY &&
-          windowWidth == other.windowWidth &&
-          windowHeight == other.windowHeight &&
-          windowMaximized == other.windowMaximized &&
-          onboardingCompleted == other.onboardingCompleted &&
-          tierBenchmarkRtf == other.tierBenchmarkRtf &&
-          benchmarkHardwareId == other.benchmarkHardwareId &&
-          benchmarkTimestamp == other.benchmarkTimestamp;
+          interface_ == other.interface_ &&
+          audioInput == other.audioInput &&
+          recordingSafety == other.recordingSafety &&
+          stt == other.stt &&
+          sound == other.sound &&
+          afterTranscriptionSection == other.afterTranscriptionSection &&
+          overlay == other.overlay &&
+          cloudProvider == other.cloudProvider &&
+          behavior == other.behavior &&
+          audioProcessing == other.audioProcessing &&
+          updates == other.updates &&
+          history == other.history &&
+          hotkey == other.hotkey &&
+          windowPosition == other.windowPosition &&
+          onboarding == other.onboarding &&
+          benchmark == other.benchmark;
 
   @override
   int get hashCode => Object.hash(
-    themeMode,
-    locale,
-    launchAtStartup,
-    startMinimized,
-    showNotifications,
-    microphone,
-    inputGain,
-    pushToTalk,
-    deadMicTimeout,
-    autoStopSilence,
-    sttProvider,
-    sttModel,
-    sttLanguage,
-    recordStartSound,
-    recordStopSound,
-    transcriptionCompleteSound,
-    durationWarningSound,
-    // Object.hash supports max 20 positional args; nest for rest.
-    Object.hash(
-      soundVolume,
-      afterTranscription,
-      showOverlay,
-      overlayMode,
-      overlayStartPosition,
-      overlaySize,
-      overlayAutoHide,
-      showFloatingButton,
-      floatingButtonOpacity,
-      floatingButtonSize,
-      floatingOverlayOpacity,
-      openAiApiKey,
-      deepgramApiKey,
-      cloudSttProvider,
-      Object.hash(
-        maxRecordDuration,
-        closeToTray,
-        errorReporting,
-        gpuAcceleration,
-        autoPasteDelay,
-        autoPasteBlocklist,
-        trimSilence,
-        useVAD,
-        vadSensitivity,
-        textReplacementsEnabled,
-        checkUpdates,
-        hotkeyEnabled,
-        hotkeyKey,
-        hotkeyModifiers,
-        floatingButtonX,
-        floatingButtonY,
-        floatingOverlayX,
-        floatingOverlayY,
-        Object.hash(
-          windowX,
-          windowY,
-          windowWidth,
-          windowHeight,
-          windowMaximized,
-          onboardingCompleted,
-          sttIdleTimeoutMinutes,
-          customVocabulary,
-          historyMaxEntries,
-          historyAutoTrashDays,
-          tierBenchmarkRtf,
-          benchmarkHardwareId,
-          benchmarkTimestamp,
-        ),
-      ),
-    ),
+    interface_,
+    audioInput,
+    recordingSafety,
+    stt,
+    sound,
+    afterTranscriptionSection,
+    overlay,
+    cloudProvider,
+    behavior,
+    audioProcessing,
+    updates,
+    history,
+    hotkey,
+    windowPosition,
+    onboarding,
+    benchmark,
   );
-}
-
-ThemeMode _themeModeFromString(String name) {
-  return switch (name) {
-    'light' => ThemeMode.light,
-    'system' => ThemeMode.system,
-    _ => ThemeMode.dark,
-  };
-}
-
-bool _readBool(Map<String, String> values, String key, bool fallback) {
-  final value = values[key];
-  if (value == null) return fallback;
-  return value == 'true';
-}
-
-double _readDouble(Map<String, String> values, String key, double fallback) {
-  return double.tryParse(values[key] ?? '') ?? fallback;
-}
-
-int _readInt(Map<String, String> values, String key, int fallback) {
-  return int.tryParse(values[key] ?? '') ?? fallback;
-}
-
-Map<QualityTier, double>? _readBenchmarkRtf(String? value) {
-  if (value == null || value.isEmpty) return null;
-  try {
-    final json = jsonDecode(value) as Map<String, dynamic>;
-    final result = <QualityTier, double>{};
-    for (final entry in json.entries) {
-      final tier = QualityTier.values.firstWhere(
-        (t) => t.name == entry.key,
-        orElse: () => throw FormatException('Unknown tier: ${entry.key}'),
-      );
-      result[tier] = (entry.value as num).toDouble();
-    }
-    return result;
-  } catch (_) {
-    return null;
-  }
-}
-
-String _writeBenchmarkRtf(Map<QualityTier, double>? rtfMap) {
-  if (rtfMap == null || rtfMap.isEmpty) return '';
-  final json = <String, double>{};
-  for (final entry in rtfMap.entries) {
-    json[entry.key.name] = entry.value;
-  }
-  return jsonEncode(json);
-}
-
-DateTime? _readDateTime(String? value) {
-  if (value == null || value.isEmpty) return null;
-  return DateTime.tryParse(value);
 }
 
 String _settingModelFromConfig(String modelId) {
   // Now settings store actual model IDs directly.
   return modelId.isEmpty ? 'whisper-medium' : modelId;
-}
-
-/// Migrates legacy display-name model values to proper IDs.
-String _migrateModelId(String raw) {
-  return switch (raw) {
-    'Fast (Tiny)' => 'whisper-tiny',
-    'Balanced (Small)' => 'whisper-small',
-    'High Quality (Medium)' => 'whisper-medium',
-    'Best Quality (Large)' => 'whisper-large-v3',
-    _ => raw, // already a model ID or unknown → keep as-is
-  };
 }
 
 String _settingLanguageFromConfig(String languageCode) {
@@ -1070,7 +788,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> toggleDarkLight() async {
     await updateSettings(
       (s) => s.copyWith(
-        themeMode: s.themeMode == ThemeMode.dark
+        themeMode: s.interface_.themeMode == ThemeMode.dark
             ? ThemeMode.light
             : ThemeMode.dark,
       ),

@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/audio_service.dart';
@@ -111,7 +112,11 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 
   final AppSettings _settings;
 
-  static const _defaults = AppSettings(afterTranscription: 'nothing');
+  static const _defaults = AppSettings(
+    afterTranscriptionSection: AfterTranscriptionSettings(
+      afterTranscription: 'nothing',
+    ),
+  );
 
   @override
   Future<AppSettings> build() async => _settings;
@@ -275,10 +280,11 @@ void main() {
 
     container = buildContainer(
       const AppSettings(
-        sttModel: 'whisper-small',
-        sttLanguage: 'English',
-        afterTranscription: 'nothing',
-        onboardingCompleted: true,
+        stt: SttSettings(model: 'whisper-small', language: 'English'),
+        afterTranscriptionSection: AfterTranscriptionSettings(
+          afterTranscription: 'nothing',
+        ),
+        onboarding: OnboardingSettings(onboardingCompleted: true),
       ),
     );
 
@@ -371,13 +377,16 @@ void main() {
       () async {
         final c = await buildGuardContainer(
           const AppSettings(
-            sttModel: 'whisper-small',
-            sttLanguage: 'English',
-            afterTranscription: 'nothing',
-            onboardingCompleted: true,
-            deadMicTimeout: 1.0, // 10 samples → dead-mic
-            autoStopSilence: 0,
-            maxRecordDuration: 0,
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            recordingSafety: RecordingSafetySettings(
+              deadMicTimeout: 1.0, // 10 samples → dead-mic
+              autoStopSilence: 0,
+            ),
+            behavior: BehaviorSettings(maxRecordDuration: 0),
           ),
         );
         addTearDown(c.dispose);
@@ -405,13 +414,16 @@ void main() {
       () async {
         final c = await buildGuardContainer(
           const AppSettings(
-            sttModel: 'whisper-small',
-            sttLanguage: 'English',
-            afterTranscription: 'nothing',
-            onboardingCompleted: true,
-            deadMicTimeout: 1.0,
-            autoStopSilence: 0,
-            maxRecordDuration: 0,
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            recordingSafety: RecordingSafetySettings(
+              deadMicTimeout: 1.0,
+              autoStopSilence: 0,
+            ),
+            behavior: BehaviorSettings(maxRecordDuration: 0),
           ),
         );
         addTearDown(c.dispose);
@@ -437,13 +449,16 @@ void main() {
       () async {
         final c = await buildGuardContainer(
           const AppSettings(
-            sttModel: 'whisper-small',
-            sttLanguage: 'English',
-            afterTranscription: 'nothing',
-            onboardingCompleted: true,
-            deadMicTimeout: 0,
-            autoStopSilence: 1.0, // 10 samples → auto-stop
-            maxRecordDuration: 0,
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            recordingSafety: RecordingSafetySettings(
+              deadMicTimeout: 0,
+              autoStopSilence: 1.0, // 10 samples → auto-stop
+            ),
+            behavior: BehaviorSettings(maxRecordDuration: 0),
           ),
         );
         addTearDown(c.dispose);
@@ -480,13 +495,16 @@ void main() {
       () async {
         final c = await buildGuardContainer(
           const AppSettings(
-            sttModel: 'whisper-small',
-            sttLanguage: 'English',
-            afterTranscription: 'nothing',
-            onboardingCompleted: true,
-            deadMicTimeout: 0,
-            autoStopSilence: 1.0,
-            maxRecordDuration: 0,
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            recordingSafety: RecordingSafetySettings(
+              deadMicTimeout: 0,
+              autoStopSilence: 1.0,
+            ),
+            behavior: BehaviorSettings(maxRecordDuration: 0),
           ),
         );
         addTearDown(c.dispose);
@@ -516,13 +534,16 @@ void main() {
       () async {
         final c = await buildGuardContainer(
           const AppSettings(
-            sttModel: 'whisper-small',
-            sttLanguage: 'English',
-            afterTranscription: 'nothing',
-            onboardingCompleted: true,
-            deadMicTimeout: 0,
-            autoStopSilence: 0,
-            maxRecordDuration: 2, // 2-second limit
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            recordingSafety: RecordingSafetySettings(
+              deadMicTimeout: 0,
+              autoStopSilence: 0,
+            ),
+            behavior: BehaviorSettings(maxRecordDuration: 2), // 2-second limit
           ),
         );
         addTearDown(c.dispose);
@@ -562,14 +583,19 @@ void main() {
         // limit (guard hasn't fully fired) and then transitions after the limit.
         final c = await buildGuardContainer(
           const AppSettings(
-            sttModel: 'whisper-small',
-            sttLanguage: 'English',
-            afterTranscription: 'nothing',
-            onboardingCompleted: true,
-            deadMicTimeout: 0,
-            autoStopSilence: 0,
-            maxRecordDuration: 2,
-            durationWarningSound: false, // silence sound output in tests
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            recordingSafety: RecordingSafetySettings(
+              deadMicTimeout: 0,
+              autoStopSilence: 0,
+            ),
+            behavior: BehaviorSettings(maxRecordDuration: 2),
+            sound: SoundSettings(
+              durationWarningSound: false, // silence sound output in tests
+            ),
           ),
         );
         addTearDown(c.dispose);
@@ -642,13 +668,16 @@ void main() {
 
       final guardContainer = buildContainer(
         const AppSettings(
-          sttModel: 'whisper-small',
-          sttLanguage: 'English',
-          afterTranscription: 'nothing',
-          onboardingCompleted: true,
-          deadMicTimeout: 0,
-          autoStopSilence: 1.0, // 10 samples → auto-stop
-          maxRecordDuration: 0,
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'nothing',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          recordingSafety: RecordingSafetySettings(
+            deadMicTimeout: 0,
+            autoStopSilence: 1.0, // 10 samples → auto-stop
+          ),
+          behavior: BehaviorSettings(maxRecordDuration: 0),
         ),
       );
       addTearDown(guardContainer.dispose);
