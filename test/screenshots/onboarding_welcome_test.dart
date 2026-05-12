@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:golden_screenshot/golden_screenshot.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
@@ -14,11 +15,15 @@ import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 final _screenshots = <_WelcomeShot>[
   const _WelcomeShot(
     name: '05_onboarding_welcome_dark_en',
-    settings: AppSettings(themeMode: ThemeMode.dark, locale: 'en'),
+    settings: AppSettings(
+      interface_: InterfaceSettings(themeMode: ThemeMode.dark, locale: 'en'),
+    ),
   ),
   const _WelcomeShot(
     name: '06_onboarding_welcome_light_de',
-    settings: AppSettings(themeMode: ThemeMode.light, locale: 'de'),
+    settings: AppSettings(
+      interface_: InterfaceSettings(themeMode: ThemeMode.light, locale: 'de'),
+    ),
   ),
 ];
 

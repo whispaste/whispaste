@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/audio_service.dart';
@@ -122,7 +123,11 @@ class FakeSettingsNotifier extends SettingsNotifier {
 
   /// Test defaults keep post-processing disabled to stay focused on the
   /// transcription pipeline in these unit tests.
-  static const _testDefaults = AppSettings(afterTranscription: 'nothing');
+  static const _testDefaults = AppSettings(
+    afterTranscriptionSection: AfterTranscriptionSettings(
+      afterTranscription: 'nothing',
+    ),
+  );
 
   @override
   Future<AppSettings> build() async => _settings;
@@ -292,10 +297,11 @@ void main() {
 
     container = buildContainer(
       const AppSettings(
-        sttModel: 'whisper-small',
-        sttLanguage: 'English',
-        afterTranscription: 'nothing',
-        onboardingCompleted: true,
+        stt: SttSettings(model: 'whisper-small', language: 'English'),
+        afterTranscriptionSection: AfterTranscriptionSettings(
+          afterTranscription: 'nothing',
+        ),
+        onboarding: OnboardingSettings(onboardingCompleted: true),
       ),
     );
 
@@ -674,9 +680,8 @@ void main() {
           settingsProvider.overrideWith(
             () => FakeSettingsNotifier(
               const AppSettings(
-                sttModel: 'whisper-small',
-                sttLanguage: 'English',
-                onboardingCompleted: true,
+                stt: SttSettings(model: 'whisper-small', language: 'English'),
+                onboarding: OnboardingSettings(onboardingCompleted: true),
               ),
             ),
           ),
@@ -721,9 +726,8 @@ void main() {
             settingsProvider.overrideWith(
               () => FakeSettingsNotifier(
                 const AppSettings(
-                  sttModel: 'whisper-small',
-                  sttLanguage: 'English',
-                  onboardingCompleted: true,
+                  stt: SttSettings(model: 'whisper-small', language: 'English'),
+                  onboarding: OnboardingSettings(onboardingCompleted: true),
                 ),
               ),
             ),
@@ -773,12 +777,16 @@ void main() {
       () async {
         final c2 = buildContainer(
           const AppSettings(
-            sttModel: 'whisper-large-v3',
-            sttLanguage: 'English',
-            sttProvider: 'On Device',
-            cloudSttProvider: 'deepgram',
-            deepgramApiKey: 'dg-test-key',
-            onboardingCompleted: true,
+            stt: SttSettings(
+              model: 'whisper-large-v3',
+              language: 'English',
+              provider: 'On Device',
+            ),
+            cloudProvider: CloudProviderSettings(
+              cloudSttProvider: 'deepgram',
+              deepgramApiKey: 'dg-test-key',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
           ),
         );
         addTearDown(c2.dispose);
@@ -1022,10 +1030,11 @@ void main() {
 
       container = buildContainer(
         const AppSettings(
-          sttModel: 'whisper-small',
-          sttLanguage: 'English',
-          afterTranscription: 'clipboard',
-          onboardingCompleted: true,
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
         ),
       );
       await container.read(settingsProvider.future);
@@ -1077,11 +1086,12 @@ void main() {
 
         container = buildContainer(
           const AppSettings(
-            sttModel: 'whisper-small',
-            sttLanguage: 'English',
-            afterTranscription: 'paste',
-            autoPasteDelay: 350,
-            onboardingCompleted: true,
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'paste',
+            ),
+            behavior: BehaviorSettings(autoPasteDelay: 350),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
           ),
         );
         await container.read(settingsProvider.future);
@@ -1110,11 +1120,12 @@ void main() {
 
         container = buildContainer(
           const AppSettings(
-            sttModel: 'whisper-small',
-            sttLanguage: 'English',
-            afterTranscription: 'paste',
-            autoPasteDelay: 200,
-            onboardingCompleted: true,
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'paste',
+            ),
+            behavior: BehaviorSettings(autoPasteDelay: 200),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
           ),
         );
         await container.read(settingsProvider.future);
@@ -1141,11 +1152,12 @@ void main() {
 
       container = buildContainer(
         const AppSettings(
-          sttModel: 'whisper-small',
-          sttLanguage: 'English',
-          afterTranscription: 'clipboard_and_paste',
-          autoPasteDelay: 125,
-          onboardingCompleted: true,
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard_and_paste',
+          ),
+          behavior: BehaviorSettings(autoPasteDelay: 125),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
         ),
       );
       await container.read(settingsProvider.future);
