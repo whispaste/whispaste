@@ -11,7 +11,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Maps AppSettings field names to their secure-storage key names.
 const apiKeyMapping = <String, String>{
   'openAiApiKey': 'wp_openai_api_key',
-  'groqApiKey': 'wp_groq_api_key',
   'deepgramApiKey': 'wp_deepgram_api_key',
 };
 

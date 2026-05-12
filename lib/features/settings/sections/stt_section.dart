@@ -56,7 +56,7 @@ class _SpeechRecognitionSectionState
       padding: EdgeInsets.zero,
       child: Column(
         children: [
-          // Provider selector (On-device / OpenAI / Groq / Deepgram)
+          // Provider selector (On-device / OpenAI / Deepgram)
           SettingRow(
             icon: LucideIcons.cpu,
             label: l10n.settingsService,
@@ -67,7 +67,6 @@ class _SpeechRecognitionSectionState
               labels: [
                 l10n.settingsServiceOnDevicePrivate,
                 'OpenAI',
-                'Groq',
                 'Deepgram',
               ],
               onChanged: (v) => ref
@@ -171,13 +170,6 @@ class _CloudSttInlineKey extends StatelessWidget {
         (String v) => ref
             .read(settingsProvider.notifier)
             .updateSettings((s) => s.copyWith(openAiApiKey: v)),
-      ),
-      SttProviderType.groq => (
-        l10n.settingsGroqApiKey,
-        settings.groqApiKey,
-        (String v) => ref
-            .read(settingsProvider.notifier)
-            .updateSettings((s) => s.copyWith(groqApiKey: v)),
       ),
       SttProviderType.deepgram => (
         l10n.settingsDeepgramApiKey,

@@ -33,17 +33,14 @@ class CloudProvidersSection extends ConsumerStatefulWidget {
 
 class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
   final _openAiKeyCtrl = TextEditingController();
-  final _groqKeyCtrl = TextEditingController();
   final _deepgramKeyCtrl = TextEditingController();
 
   bool _showOpenAiKey = false;
-  bool _showGroqKey = false;
   bool _showDeepgramKey = false;
 
   @override
   void dispose() {
     _openAiKeyCtrl.dispose();
-    _groqKeyCtrl.dispose();
     _deepgramKeyCtrl.dispose();
     super.dispose();
   }
@@ -54,7 +51,6 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
 
     syncController(_openAiKeyCtrl, settings.openAiApiKey);
-    syncController(_groqKeyCtrl, settings.groqApiKey);
     syncController(_deepgramKeyCtrl, settings.deepgramApiKey);
 
     return WpSection(
@@ -74,19 +70,6 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
                   .updateSettings((s) => s.copyWith(openAiApiKey: v)),
-            ),
-          ),
-          SettingRow(
-            icon: LucideIcons.keyRound,
-            label: l10n.settingsGroqApiKey,
-            trailing: settingsApiKeyField(
-              context: context,
-              controller: _groqKeyCtrl,
-              obscure: !_showGroqKey,
-              onToggle: () => setState(() => _showGroqKey = !_showGroqKey),
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(groqApiKey: v)),
             ),
           ),
           SettingRow(
@@ -112,7 +95,7 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
                 context: context,
                 value: settings.cloudSttProvider,
                 items: CloudSttProvider.values.map((e) => e.value).toList(),
-                labels: const ['OpenAI', 'Groq', 'Deepgram'],
+                labels: const ['OpenAI', 'Deepgram'],
                 onChanged: (v) => ref
                     .read(settingsProvider.notifier)
                     .updateSettings((s) => s.copyWith(cloudSttProvider: v!)),

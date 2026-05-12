@@ -12,7 +12,6 @@ library;
 enum SttProviderType {
   onDevice('On Device'),
   openAI('OpenAI'),
-  groq('Groq'),
   deepgram('Deepgram');
 
   const SttProviderType(this.value);
@@ -23,6 +22,8 @@ enum SttProviderType {
   /// Look up by persisted [value]. Falls back to [onDevice].
   static SttProviderType fromValue(String? v) {
     if (v == 'On Device (Private)') return onDevice; // legacy migration
+    // Groq was removed in v1.2.13 — treat any legacy 'Groq' value as onDevice.
+    if (v == 'Groq') return onDevice;
     for (final e in values) {
       if (e.value == v) return e;
     }
@@ -39,13 +40,14 @@ enum SttProviderType {
 /// Cloud STT backend.
 enum CloudSttProvider {
   openAI('openai'),
-  groq('groq'),
   deepgram('deepgram');
 
   const CloudSttProvider(this.value);
   final String value;
 
   static CloudSttProvider fromValue(String? v) {
+    // Groq was removed in v1.2.13 — fall back to openAI for any legacy value.
+    if (v == 'groq') return openAI;
     for (final e in values) {
       if (e.value == v) return e;
     }

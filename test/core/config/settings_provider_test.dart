@@ -133,10 +133,10 @@ void main() {
     test('migrates plaintext keys from SQLite to secure storage', () async {
       // Simulate legacy data: write a key directly to SQLite.
       final legacyMap = const AppSettings(
-        groqApiKey: 'gsk-legacy',
+        openAiApiKey: 'sk-legacy',
       ).toStorageMap();
       // Force the legacy key into the map (toStorageMap now writes '').
-      legacyMap['groq_api_key'] = 'gsk-legacy';
+      legacyMap['openai_api_key'] = 'sk-legacy';
       await db.writeAppSettings(legacyMap);
 
       // Re-create the container to trigger a fresh build() + migration.
@@ -163,15 +163,15 @@ void main() {
 
       // Key is available in settings (re-read after deferred merge).
       final settings = container2.read(settingsProvider).value!;
-      expect(settings.groqApiKey, 'gsk-legacy');
+      expect(settings.openAiApiKey, 'sk-legacy');
 
       // Key is now in secure storage.
-      final secureValue = await fakeSecureStore.readKey('wp_groq_api_key');
-      expect(secureValue, 'gsk-legacy');
+      final secureValue = await fakeSecureStore.readKey('wp_openai_api_key');
+      expect(secureValue, 'sk-legacy');
 
       // Key was cleared from SQLite.
       final sqliteValues = await db2.readAppSettings();
-      expect(sqliteValues['groq_api_key'], '');
+      expect(sqliteValues['openai_api_key'], '');
     });
 
     test('resetToDefaults clears API keys from secure storage', () async {

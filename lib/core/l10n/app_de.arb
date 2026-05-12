@@ -172,8 +172,7 @@
   "settingsCloudProviders": "Cloud-Anbieter",
   "settingsCloudProvidersSubtitle": "API-Schlüssel für Online-Dienste",
   "settingsOpenAiApiKey": "OpenAI API-Schlüssel",
-  "settingsGroqApiKey": "Groq API-Schlüssel",
-  "settingsDeepgramApiKey": "Deepgram API-Schlüssel",
+"settingsDeepgramApiKey": "Deepgram API-Schlüssel",
   "settingsAdvanced": "Erweitert",
   "settingsResetToDefaults": "Auf Standardwerte zurücksetzen",
   "settingsResetTitle": "Einstellungen zurücksetzen",
@@ -185,6 +184,7 @@
   "settingsFactoryResetMessage": "Damit werden ALLE Daten unwiderruflich gelöscht: Diktatverlauf, Tags, Projekte, Sprachkürzel, heruntergeladene Modelle, Protokolle und Einstellungen. Die App wird in den Ausgangszustand zurückversetzt.\n\nDies kann nicht rückgängig gemacht werden.",
   "settingsFactoryResetConfirm": "Alles löschen",
   "settingsFactoryResetSuccess": "App wurde vollständig zurückgesetzt",
+  "groqRemovedToast": "Groq STT wurde entfernt — Provider auf On-Device zurückgesetzt.",
   "migrationComplete": "{count, plural, one{1 Diktat von WhisPaste 1.x migriert} other{{count} Diktate von WhisPaste 1.x migriert}}",
   "@migrationComplete": {
     "placeholders": {
@@ -320,7 +320,7 @@
   "aboutPrivacyFirstDesc": "Lokale KI-Inferenz standardmäßig — deine Stimme verlässt dein Gerät nie, es sei denn, du wählst einen Cloud-Anbieter.",
   "aboutPrivacy": "Datenschutz & Daten",
   "aboutPrivacyLocal": "Alle Transkriptionen und der Verlauf werden lokal auf deinem Gerät gespeichert — niemals auf externen Servern.",
-  "aboutPrivacyCloud": "Cloud-Anbieter (OpenAI, Groq, Deepgram, Anthropic, Gemini) erhalten nur Audio oder Text, wenn du sie aktiv nutzt. Deren Datenschutzrichtlinien gelten.",
+  "aboutPrivacyCloud": "Cloud-Anbieter (OpenAI, Deepgram, Anthropic, Gemini) erhalten nur Audio oder Text, wenn du sie aktiv nutzt. Deren Datenschutzrichtlinien gelten.",
   "aboutPrivacyNoTracking": "Keine Analysen, kein Tracking, keine Benutzerkonten. Update-Prüfungen kontaktieren GitHub (nur Version + IP).",
   "aboutKeyboardShortcuts": "Tastenkürzel",
   "aboutShortcutRecord": "Aufnahme starten / stoppen",

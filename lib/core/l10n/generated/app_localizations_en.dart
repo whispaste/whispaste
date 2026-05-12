@@ -530,9 +530,6 @@ class L10nEn extends L10n {
   String get settingsOpenAiApiKey => 'OpenAI API Key';
 
   @override
-  String get settingsGroqApiKey => 'Groq API Key';
-
-  @override
   String get settingsDeepgramApiKey => 'Deepgram API Key';
 
   @override
@@ -569,6 +566,10 @@ class L10nEn extends L10n {
 
   @override
   String get settingsFactoryResetSuccess => 'App has been completely reset';
+
+  @override
+  String get groqRemovedToast =>
+      'Groq STT was removed — provider reset to On-Device.';
 
   @override
   String migrationComplete(int count) {
@@ -980,7 +981,7 @@ class L10nEn extends L10n {
 
   @override
   String get aboutPrivacyCloud =>
-      'Cloud providers (OpenAI, Groq, Deepgram, Anthropic, Gemini) only receive audio or text when you actively use them. Their privacy policies apply.';
+      'Cloud providers (OpenAI, Deepgram, Anthropic, Gemini) only receive audio or text when you actively use them. Their privacy policies apply.';
 
   @override
   String get aboutPrivacyNoTracking =>
