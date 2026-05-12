@@ -540,9 +540,6 @@ class L10nDe extends L10n {
   String get settingsDeepgramApiKey => 'Deepgram API-Schlüssel';
 
   @override
-  String get settingsAnthropicApiKey => 'Anthropic API-Schlüssel';
-
-  @override
   String get settingsAdvanced => 'Erweitert';
 
   @override
@@ -1837,9 +1834,6 @@ class L10nDe extends L10n {
 
   @override
   String get settingsHotkeyRecorderClear => 'Zurücksetzen';
-
-  @override
-  String get settingsGeminiApiKey => 'Gemini API-Schlüssel';
 
   @override
   String get settingsDefaultSttProvider => 'Standard Cloud-STT';

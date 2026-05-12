@@ -13,8 +13,6 @@ const apiKeyMapping = <String, String>{
   'openAiApiKey': 'wp_openai_api_key',
   'groqApiKey': 'wp_groq_api_key',
   'deepgramApiKey': 'wp_deepgram_api_key',
-  'anthropicApiKey': 'wp_anthropic_api_key',
-  'geminiApiKey': 'wp_gemini_api_key',
 };
 
 class SecureKeyStore {

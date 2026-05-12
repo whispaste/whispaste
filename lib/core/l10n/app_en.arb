@@ -190,7 +190,6 @@
   "settingsOpenAiApiKey": "OpenAI API Key",
   "settingsGroqApiKey": "Groq API Key",
   "settingsDeepgramApiKey": "Deepgram API Key",
-  "settingsAnthropicApiKey": "Anthropic API Key",
   "settingsAdvanced": "Advanced",
   "settingsResetToDefaults": "Reset to Defaults",
   "settingsResetTitle": "Reset Settings",
@@ -665,7 +664,6 @@
   "settingsHotkeyRecorderSave": "Save",
   "settingsHotkeyRecorderClear": "Clear",
 
-  "settingsGeminiApiKey": "Gemini API Key",
   "settingsDefaultSttProvider": "Default Cloud STT",
   "settingsDefaultSttProviderSubtitle": "Cloud speech recognition service",
 
