@@ -1057,11 +1057,35 @@ abstract class L10n {
   /// **'OpenAI API Key'**
   String get settingsOpenAiApiKey;
 
+  /// No description provided for @settingsOpenAiFreeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Get an API key → platform.openai.com/api-keys'**
+  String get settingsOpenAiFreeHint;
+
+  /// No description provided for @settingsOpenAiFreeHintUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'https://platform.openai.com/api-keys'**
+  String get settingsOpenAiFreeHintUrl;
+
   /// No description provided for @settingsDeepgramApiKey.
   ///
   /// In en, this message translates to:
   /// **'Deepgram API Key'**
   String get settingsDeepgramApiKey;
+
+  /// No description provided for @settingsDeepgramFreeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'\$200 free credit, no credit card → console.deepgram.com'**
+  String get settingsDeepgramFreeHint;
+
+  /// No description provided for @settingsDeepgramFreeHintUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'https://console.deepgram.com'**
+  String get settingsDeepgramFreeHintUrl;
 
   /// No description provided for @settingsAdvanced.
   ///
