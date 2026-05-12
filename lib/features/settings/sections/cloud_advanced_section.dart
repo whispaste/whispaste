@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
@@ -17,6 +18,8 @@ import '../../../services/stt_service.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/theme/tokens.dart';
 import '../settings_widgets.dart';
 
 // ---------------------------------------------------------------------------
@@ -72,6 +75,11 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
                   .updateSettings((s) => s.copyWith(openAiApiKey: v)),
             ),
           ),
+          _ProviderHintRow(
+            key: const Key('openai-hint'),
+            label: l10n.settingsOpenAiFreeHint,
+            url: l10n.settingsOpenAiFreeHintUrl,
+          ),
           SettingRow(
             icon: LucideIcons.keyRound,
             label: l10n.settingsDeepgramApiKey,
@@ -85,6 +93,11 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
                   .read(settingsProvider.notifier)
                   .updateSettings((s) => s.copyWith(deepgramApiKey: v)),
             ),
+          ),
+          _ProviderHintRow(
+            key: const Key('deepgram-hint'),
+            label: l10n.settingsDeepgramFreeHint,
+            url: l10n.settingsDeepgramFreeHintUrl,
           ),
           if (!settings.sttProviderType.isLocal)
             SettingRow(
@@ -102,6 +115,53 @@ class _CloudProvidersSectionState extends ConsumerState<CloudProvidersSection> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Provider hint row — compact clickable link below an API-key field
+// ---------------------------------------------------------------------------
+
+class _ProviderHintRow extends StatelessWidget {
+  const _ProviderHintRow({super.key, required this.label, required this.url});
+
+  final String label;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final linkColor = isDark ? WpColorsDark.accent : WpColorsLight.accent;
+
+    return SizedBox(
+      height: WpLayout.minTouchTarget,
+      child: GestureDetector(
+        onTap: () =>
+            launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.md,
+            vertical: WpSpacing.xs,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                LucideIcons.externalLink,
+                size: WpIconSize.xs,
+                color: linkColor,
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              Text(
+                label,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: linkColor),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
