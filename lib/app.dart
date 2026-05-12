@@ -238,8 +238,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
 
   @override
   void onWindowClose() async {
-    final closeToTray =
-        ref.read(settingsProvider).value?.closeToTray ?? true;
+    final closeToTray = ref.read(settingsProvider).value?.closeToTray ?? true;
 
     if (closeToTray) {
       // Just hide — the engine keeps running so floating windows, hotkeys,
@@ -248,8 +247,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
 
       // On macOS, hide from Dock only when the tray icon is available.
       // Without a working tray icon the user would be stranded.
-      final trayReady =
-          ref.read(trayServiceProvider.notifier).isInitialized;
+      final trayReady = ref.read(trayServiceProvider.notifier).isInitialized;
       if (Platform.isMacOS && trayReady) {
         unawaited(MacOSLifecycleChannel.setAccessory());
       }
@@ -301,181 +299,188 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
 
     return ReviewPromptWatcher(
       child: ServiceBootstrapWidget(
-      child: RecordingBehaviorWidget(
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: Stack(
-            children: [
-              // Frame background — gradient for premium unified feel
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: isDark
-                      ? WpColorsDark.frameGradient
-                      : WpColorsLight.frameGradient,
+        child: RecordingBehaviorWidget(
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Stack(
+              children: [
+                // Frame background — gradient for premium unified feel
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: isDark
+                        ? WpColorsDark.frameGradient
+                        : WpColorsLight.frameGradient,
+                  ),
+                  child: const SizedBox.expand(),
                 ),
-                child: const SizedBox.expand(),
-              ),
-              // Subtle topographic watermark pattern (both themes)
-              Positioned.fill(child: WpFrameWatermark(isDark: isDark)),
-              // Main layout
-              Column(
-                children: [
-                  const WpTitleBar(actions: [_ThemeToggle()]),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        WpSidebar(
-                          items: navItems,
-                          activeId: activePage,
-                          onItemTap: (id) {
-                            ref.read(activePageProvider.notifier).setPage(id);
-                          },
-                          bottomItems: [
-                            WpSidebarSettingsButton(
-                              isActive: activePage == 'settings',
-                              onTap: () => ref
-                                  .read(activePageProvider.notifier)
-                                  .setPage('settings'),
-                            ),
-                          ],
-                        ),
-                        // Content area — rounded panel with warm gradient
-                        Expanded(
-                          child: Container(
-                            decoration: contentDecoration,
-                            clipBehavior: Clip.antiAlias,
-                            child: Column(
-                              children: [
-                                // Recording indicator — thin pulsing bar
-                                WpRecordingIndicatorBar(phase: recordingPhase),
-                                // Page header with smooth title transition
-                                AnimatedSwitcher(
-                                  duration: WpMotion.fast,
-                                  child: _PageHeader(
-                                    key: ValueKey('header-$activePage'),
-                                    title: wpPageTitle(
-                                      activePage,
-                                      navItems,
-                                      l10n,
+                // Subtle topographic watermark pattern (both themes)
+                Positioned.fill(child: WpFrameWatermark(isDark: isDark)),
+                // Main layout
+                Column(
+                  children: [
+                    const WpTitleBar(actions: [_ThemeToggle()]),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          WpSidebar(
+                            items: navItems,
+                            activeId: activePage,
+                            onItemTap: (id) {
+                              ref.read(activePageProvider.notifier).setPage(id);
+                            },
+                            bottomItems: [
+                              WpSidebarSettingsButton(
+                                isActive: activePage == 'settings',
+                                onTap: () => ref
+                                    .read(activePageProvider.notifier)
+                                    .setPage('settings'),
+                              ),
+                            ],
+                          ),
+                          // Content area — rounded panel with warm gradient
+                          Expanded(
+                            child: Container(
+                              decoration: contentDecoration,
+                              clipBehavior: Clip.antiAlias,
+                              child: Column(
+                                children: [
+                                  // Recording indicator — thin pulsing bar
+                                  WpRecordingIndicatorBar(
+                                    phase: recordingPhase,
+                                  ),
+                                  // Page header with smooth title transition
+                                  AnimatedSwitcher(
+                                    duration: WpMotion.fast,
+                                    child: _PageHeader(
+                                      key: ValueKey('header-$activePage'),
+                                      title: wpPageTitle(
+                                        activePage,
+                                        navItems,
+                                        l10n,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                // Content with page transition animation
-                                Expanded(
-                                  child: AnimatedSwitcher(
-                                    duration: WpMotion.smooth,
-                                    switchInCurve: Curves.easeOutCubic,
-                                    switchOutCurve: Curves.easeInCubic,
-                                    transitionBuilder: (child, animation) {
-                                      return FadeTransition(
-                                        opacity: animation,
-                                        child: SlideTransition(
-                                          position: Tween<Offset>(
-                                            begin: const Offset(0.0, 0.015),
-                                            end: Offset.zero,
-                                          ).animate(animation),
-                                          child: child,
-                                        ),
-                                      );
-                                    },
-                                    child: KeyedSubtree(
-                                      key: ValueKey(activePage),
-                                      child:
-                                          wpPageWidgets[activePage] ??
-                                          const SizedBox.shrink(),
+                                  // Content with page transition animation
+                                  Expanded(
+                                    child: AnimatedSwitcher(
+                                      duration: WpMotion.smooth,
+                                      switchInCurve: Curves.easeOutCubic,
+                                      switchOutCurve: Curves.easeInCubic,
+                                      transitionBuilder: (child, animation) {
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: SlideTransition(
+                                            position: Tween<Offset>(
+                                              begin: const Offset(0.0, 0.015),
+                                              end: Offset.zero,
+                                            ).animate(animation),
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: KeyedSubtree(
+                                        key: ValueKey(activePage),
+                                        child:
+                                            wpPageWidgets[activePage] ??
+                                            const SizedBox.shrink(),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  // Status bar — sits on the frame, full width
-                  WpStatusBar(
-                    sttModeLabel: statusBarModel.sttModeLabel,
-                    sttState: sttStatus.serverState,
-                    sttStartingSince: sttStatus.startingSince,
-                    recordingPhase: recordingPhase,
-                    afterActionLabel: afterTranscriptionStatusLabel(
-                      settings.afterTranscriptionAction,
-                      l10n,
+                    // Status bar — sits on the frame, full width
+                    WpStatusBar(
+                      sttModeLabel: statusBarModel.sttModeLabel,
+                      sttState: sttStatus.serverState,
+                      sttStartingSince: sttStatus.startingSince,
+                      recordingPhase: recordingPhase,
+                      afterActionLabel: afterTranscriptionStatusLabel(
+                        settings.afterTranscriptionAction,
+                        l10n,
+                      ),
+                      afterAction: settings.afterTranscriptionAction,
+                      hotkeyLabel: formatHotkeyShortcut(
+                        settings.hotkeyModifiers,
+                        settings.hotkeyKey,
+                        l10n: l10n,
+                      ),
+                      hotkeyEnabled: settings.hotkeyEnabled,
+                      updateVersion: updateState.phase == UpdatePhase.available
+                          ? updateState.latestVersion
+                          : null,
+                      onHotkeyTap: () {
+                        ref
+                            .read(settingsScrollTargetProvider.notifier)
+                            .set('hotkey');
+                        ref
+                            .read(activePageProvider.notifier)
+                            .setPage('settings');
+                      },
+                      onSttTap: () {
+                        ref
+                            .read(settingsScrollTargetProvider.notifier)
+                            .set('stt');
+                        ref
+                            .read(activePageProvider.notifier)
+                            .setPage('settings');
+                      },
+                      onAfterActionChanged: (action) {
+                        ref
+                            .read(settingsProvider.notifier)
+                            .updateSettings(
+                              (s) =>
+                                  s.copyWith(afterTranscription: action.value),
+                            );
+                      },
+                      onUpdateTap: () {
+                        if (deployChannel == DeployChannel.portable) {
+                          final url = updateState.releaseNotesUrl;
+                          if (url != null) launchUrl(Uri.parse(url));
+                        } else {
+                          ref.read(updateProvider.notifier).downloadUpdate();
+                        }
+                      },
                     ),
-                    afterAction: settings.afterTranscriptionAction,
-                    hotkeyLabel: formatHotkeyShortcut(
-                      settings.hotkeyModifiers,
-                      settings.hotkeyKey,
-                      l10n: l10n,
+                  ],
+                ),
+                // Onboarding overlay — shown on first launch
+                if (!settings.onboardingCompleted)
+                  const Positioned.fill(child: OnboardingOverlay()),
+              ],
+            ),
+            // Hide in-window FAB during onboarding (user can't record yet).
+            floatingActionButton: !settings.onboardingCompleted
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(
+                      bottom: WpLayout.statusBarHeight,
+                      right: 0,
                     ),
-                    hotkeyEnabled: settings.hotkeyEnabled,
-                    updateVersion: updateState.phase == UpdatePhase.available
-                        ? updateState.latestVersion
-                        : null,
-                    onHotkeyTap: () {
-                      ref
-                          .read(settingsScrollTargetProvider.notifier)
-                          .set('hotkey');
-                      ref.read(activePageProvider.notifier).setPage('settings');
-                    },
-                    onSttTap: () {
-                      ref
-                          .read(settingsScrollTargetProvider.notifier)
-                          .set('stt');
-                      ref.read(activePageProvider.notifier).setPage('settings');
-                    },
-                    onAfterActionChanged: (action) {
-                      ref
-                          .read(settingsProvider.notifier)
-                          .updateSettings(
-                            (s) => s.copyWith(afterTranscription: action.value),
-                          );
-                    },
-                    onUpdateTap: () {
-                      if (deployChannel == DeployChannel.portable) {
-                        final url = updateState.releaseNotesUrl;
-                        if (url != null) launchUrl(Uri.parse(url));
-                      } else {
-                        ref.read(updateProvider.notifier).downloadUpdate();
-                      }
-                    },
-                  ),
-                ],
-              ),
-              // Onboarding overlay — shown on first launch
-              if (!settings.onboardingCompleted)
-                const Positioned.fill(child: OnboardingOverlay()),
-            ],
-          ),
-          // Hide in-window FAB during onboarding (user can't record yet).
-          floatingActionButton: !settings.onboardingCompleted
-              ? null
-              : Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: WpLayout.statusBarHeight,
-                    right: 0,
-                  ),
-                  child: WpRecordingFab(
-                    phase: recordingPhase,
-                    readiness: readiness,
-                    onPressed: () {
-                      if (readiness != RecordingReadiness.ready) {
-                        // Still tappable — triggers soft preflight for info toast.
+                    child: WpRecordingFab(
+                      phase: recordingPhase,
+                      readiness: readiness,
+                      onPressed: () {
+                        if (readiness != RecordingReadiness.ready) {
+                          // Still tappable — triggers soft preflight for info toast.
+                          ref
+                              .read(recordingOrchestratorProvider.notifier)
+                              .toggleRecording();
+                          return;
+                        }
                         ref
                             .read(recordingOrchestratorProvider.notifier)
                             .toggleRecording();
-                        return;
-                      }
-                      ref
-                          .read(recordingOrchestratorProvider.notifier)
-                          .toggleRecording();
-                    },
+                      },
+                    ),
                   ),
-                ),
-        ), // Scaffold
-      ), // RecordingBehaviorWidget
-    ), // ServiceBootstrapWidget
+          ), // Scaffold
+        ), // RecordingBehaviorWidget
+      ), // ServiceBootstrapWidget
     ); // ReviewPromptWatcher
   }
 }

@@ -52,10 +52,7 @@ class HistoryCompactView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     return ListView.builder(
-      padding: const EdgeInsets.only(
-        top: WpSpacing.xs,
-        bottom: WpSpacing.xxl,
-      ),
+      padding: const EdgeInsets.only(top: WpSpacing.xs, bottom: WpSpacing.xxl),
       itemCount: _flatItems.length,
       itemBuilder: (_, i) {
         final item = _flatItems[i];
@@ -116,10 +113,10 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     final Color bg;
@@ -130,7 +127,9 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
     } else if (_isHovered) {
       bg = isDark ? WpColorsDark.hover : WpColorsLight.hover;
     } else {
-      bg = isDark ? WpColorsDark.hoverTransparent : WpColorsLight.hoverTransparent;
+      bg = isDark
+          ? WpColorsDark.hoverTransparent
+          : WpColorsLight.hoverTransparent;
     }
 
     return MouseRegion(
@@ -151,10 +150,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
             color: bg,
             borderRadius: WpRadius.borderSm,
             border: widget.isFocused
-                ? Border.all(
-                    color: accent.withValues(alpha: 0.5),
-                    width: 1.5,
-                  )
+                ? Border.all(color: accent.withValues(alpha: 0.5), width: 1.5)
                 : null,
           ),
           child: Row(

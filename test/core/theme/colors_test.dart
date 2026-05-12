@@ -60,7 +60,10 @@ void main() {
     });
 
     test('border colors have increasing opacity: subtle < default', () {
-      expect(WpColorsDark.borderSubtle.a, lessThan(WpColorsDark.borderDefault.a));
+      expect(
+        WpColorsDark.borderSubtle.a,
+        lessThan(WpColorsDark.borderDefault.a),
+      );
     });
   });
 

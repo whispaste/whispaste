@@ -46,9 +46,7 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
       fg = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     } else if (_isHovered) {
       bg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
-      fg = widget.isDark
-          ? WpColorsDark.textPrimary
-          : WpColorsLight.textPrimary;
+      fg = widget.isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
     } else {
       bg = widget.isDark
           ? WpColorsDark.surfaceVariant
@@ -77,10 +75,11 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
             borderRadius: WpRadius.borderFull,
             border: widget.isActive
                 ? Border.all(
-                    color: (widget.isDark
-                            ? WpColorsDark.accent
-                            : WpColorsLight.accent)
-                        .withValues(alpha: 0.3),
+                    color:
+                        (widget.isDark
+                                ? WpColorsDark.accent
+                                : WpColorsLight.accent)
+                            .withValues(alpha: 0.3),
                   )
                 : null,
           ),
@@ -97,8 +96,9 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
                   color: fg,
                   fontSize: 13,
                   height: 1.15,
-                  fontWeight:
-                      widget.isActive ? FontWeight.w600 : FontWeight.w500,
+                  fontWeight: widget.isActive
+                      ? FontWeight.w600
+                      : FontWeight.w500,
                 ),
               ),
               if (widget.count != null) ...[
@@ -108,8 +108,8 @@ class _HistoryFilterChipState extends State<HistoryFilterChip> {
                   style: TextStyle(
                     color: (!widget.isActive && widget.count! > 0)
                         ? (widget.isDark
-                            ? WpColorsDark.accent
-                            : WpColorsLight.accent)
+                              ? WpColorsDark.accent
+                              : WpColorsLight.accent)
                         : fg.withValues(alpha: 0.6),
                     fontSize: 11,
                     height: 1.15,

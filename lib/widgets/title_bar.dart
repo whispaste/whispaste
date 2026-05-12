@@ -107,8 +107,8 @@ class _WindowButtonState extends State<_WindowButton> {
             color: _isHovered
                 ? hoverBg
                 : (widget.isDark
-                    ? WpColorsDark.hoverTransparent
-                    : WpColorsLight.hoverTransparent),
+                      ? WpColorsDark.hoverTransparent
+                      : WpColorsLight.hoverTransparent),
             borderRadius: BorderRadius.circular(WpRadius.sm),
           ),
           alignment: Alignment.center,
@@ -176,8 +176,8 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
             color: _isHovered
                 ? hoverBg
                 : (widget.isDark
-                    ? WpColorsDark.hoverTransparent
-                    : WpColorsLight.hoverTransparent),
+                      ? WpColorsDark.hoverTransparent
+                      : WpColorsLight.hoverTransparent),
             borderRadius: BorderRadius.circular(WpRadius.sm),
           ),
           alignment: Alignment.center,

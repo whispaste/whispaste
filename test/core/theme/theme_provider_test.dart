@@ -35,14 +35,14 @@ void main() {
     });
 
     test('changes when settings theme changes', () async {
-      await container.read(settingsProvider.notifier).updateSettings(
-            (s) => s.copyWith(themeMode: ThemeMode.light),
-          );
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(themeMode: ThemeMode.light));
       expect(container.read(themeModeProvider), ThemeMode.light);
 
-      await container.read(settingsProvider.notifier).updateSettings(
-            (s) => s.copyWith(themeMode: ThemeMode.system),
-          );
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(themeMode: ThemeMode.system));
       expect(container.read(themeModeProvider), ThemeMode.system);
     });
 
@@ -57,9 +57,9 @@ void main() {
     });
 
     test('toggleDarkLight from system goes to dark', () async {
-      await container.read(settingsProvider.notifier).updateSettings(
-            (s) => s.copyWith(themeMode: ThemeMode.system),
-          );
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(themeMode: ThemeMode.system));
       // system != dark, so toggle goes to light? No — toggle checks == dark.
       // system is NOT dark, so next = dark.
       await container.read(settingsProvider.notifier).toggleDarkLight();
@@ -93,16 +93,16 @@ void main() {
     });
 
     test('returns false for light mode', () async {
-      await container.read(settingsProvider.notifier).updateSettings(
-            (s) => s.copyWith(themeMode: ThemeMode.light),
-          );
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(themeMode: ThemeMode.light));
       expect(container.read(isDarkModeProvider), false);
     });
 
     test('returns true for system mode (defaults to dark)', () async {
-      await container.read(settingsProvider.notifier).updateSettings(
-            (s) => s.copyWith(themeMode: ThemeMode.system),
-          );
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(themeMode: ThemeMode.system));
       expect(container.read(isDarkModeProvider), true);
     });
   });

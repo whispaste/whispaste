@@ -60,10 +60,7 @@ class HistoryEntryList extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     return ListView.builder(
-      padding: const EdgeInsets.only(
-        top: WpSpacing.xs,
-        bottom: WpSpacing.xxl,
-      ),
+      padding: const EdgeInsets.only(top: WpSpacing.xs, bottom: WpSpacing.xxl),
       itemCount: _flatItems.length,
       itemBuilder: (_, i) {
         final item = _flatItems[i];

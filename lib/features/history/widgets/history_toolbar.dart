@@ -21,8 +21,28 @@ import 'history_helpers.dart';
 enum _SuggestionType { none, tag, lang, smartPanel }
 
 const _kLangOptions = [
-  'de', 'en', 'fr', 'es', 'it', 'pt', 'nl', 'pl', 'ru', 'zh', 'ja', 'ko',
-  'ar', 'tr', 'sv', 'da', 'fi', 'nb', 'cs', 'sk', 'hu', 'ro',
+  'de',
+  'en',
+  'fr',
+  'es',
+  'it',
+  'pt',
+  'nl',
+  'pl',
+  'ru',
+  'zh',
+  'ja',
+  'ko',
+  'ar',
+  'tr',
+  'sv',
+  'da',
+  'fi',
+  'nb',
+  'cs',
+  'sk',
+  'hu',
+  'ro',
 ];
 
 // ---------------------------------------------------------------------------
@@ -136,8 +156,9 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
     if (!mounted) return;
     final text = widget.controller.text;
     final sel = widget.controller.selection;
-    final cursor =
-        sel.isValid ? sel.baseOffset.clamp(0, text.length) : text.length;
+    final cursor = sel.isValid
+        ? sel.baseOffset.clamp(0, text.length)
+        : text.length;
     final before = text.substring(0, cursor);
 
     // Detect #tag trigger
@@ -148,8 +169,10 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
     }
 
     // Detect lang: trigger
-    final langMatch =
-        RegExp(r'\blang:([\w-]*)$', caseSensitive: false).firstMatch(before);
+    final langMatch = RegExp(
+      r'\blang:([\w-]*)$',
+      caseSensitive: false,
+    ).firstMatch(before);
     if (langMatch != null) {
       _updateLangSuggestions(langMatch.group(1)!.toLowerCase());
       return;
@@ -171,8 +194,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
     final tagsWithCount = await db.allTagsWithCount();
     if (!mounted || gen != _tagSuggestionGeneration) return;
     // Top tags by usage count (max 8)
-    final sorted = [...tagsWithCount]
-      ..sort((a, b) => b.$2.compareTo(a.$2));
+    final sorted = [...tagsWithCount]..sort((a, b) => b.$2.compareTo(a.$2));
     final topTags = sorted.take(8).map((t) => t.$1.name).toList();
     // Only show panel if there's content
     if (topTags.isEmpty && recentList.isEmpty) return;
@@ -193,8 +215,10 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
     // Filter out tags already in the query
     final parsed = parseSearchQuery(widget.controller.text);
     final existing = parsed.tagNames.toSet();
-    final filtered =
-        tags.map((t) => t.name).where((n) => !existing.contains(n)).toList();
+    final filtered = tags
+        .map((t) => t.name)
+        .where((n) => !existing.contains(n))
+        .toList();
     setState(() {
       _suggestions = filtered;
       _suggestionType = _SuggestionType.tag;
@@ -231,8 +255,9 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
   void _selectSuggestion(String suggestion) {
     final text = widget.controller.text;
     final sel = widget.controller.selection;
-    final cursor =
-        sel.isValid ? sel.baseOffset.clamp(0, text.length) : text.length;
+    final cursor = sel.isValid
+        ? sel.baseOffset.clamp(0, text.length)
+        : text.length;
     final before = text.substring(0, cursor);
     final after = text.substring(cursor);
 
@@ -241,11 +266,12 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
       // Insert full #tag from the smart panel
       newBefore = '$before#$suggestion ';
     } else if (_suggestionType == _SuggestionType.tag) {
-      newBefore =
-          before.replaceAll(RegExp(r'#[\w-]*$'), '#$suggestion ');
+      newBefore = before.replaceAll(RegExp(r'#[\w-]*$'), '#$suggestion ');
     } else {
       newBefore = before.replaceAll(
-          RegExp(r'\blang:[\w-]*$', caseSensitive: false), 'lang:$suggestion ');
+        RegExp(r'\blang:[\w-]*$', caseSensitive: false),
+        'lang:$suggestion ',
+      );
     }
     final newText = newBefore + after;
     widget.controller.value = TextEditingValue(
@@ -312,8 +338,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
             if (_recentSearches.isNotEmpty)
               const SizedBox(height: WpSpacing.xs),
             _sectionHeader(l10n.historySearchQuickTags, textMuted),
-            for (final tag in _quickTags)
-              _tagItem(tag, accent, textMuted),
+            for (final tag in _quickTags) _tagItem(tag, accent, textMuted),
           ],
           // Section: Quick Actions
           if (_recentSearches.isNotEmpty || _quickTags.isNotEmpty) ...[
@@ -363,7 +388,10 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
   Widget _sectionHeader(String title, Color textMuted) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WpSpacing.md, WpSpacing.xxs, WpSpacing.md, 2,
+        WpSpacing.md,
+        WpSpacing.xxs,
+        WpSpacing.md,
+        2,
       ),
       child: Text(
         title,
@@ -401,8 +429,9 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
               onTap: () {
                 ref.read(recentSearchesProvider.notifier).removeSearch(query);
                 setState(() {
-                  _recentSearches =
-                      _recentSearches.where((s) => s != query).toList();
+                  _recentSearches = _recentSearches
+                      .where((s) => s != query)
+                      .toList();
                 });
               },
               child: Icon(LucideIcons.x, size: 12, color: textMuted),
@@ -425,10 +454,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
           children: [
             Icon(LucideIcons.tag, size: 13, color: textMuted),
             const SizedBox(width: WpSpacing.xs),
-            Text(
-              '#$tag',
-              style: TextStyle(fontSize: 13, color: textMuted),
-            ),
+            Text('#$tag', style: TextStyle(fontSize: 13, color: textMuted)),
           ],
         ),
       ),
@@ -505,14 +531,11 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                 ),
                 const SizedBox(width: WpSpacing.xs),
                 Text(
-                  _suggestionType == _SuggestionType.lang
-                      ? 'lang:$s'
-                      : '#$s',
+                  _suggestionType == _SuggestionType.lang ? 'lang:$s' : '#$s',
                   style: TextStyle(
                     fontSize: 13,
                     color: selected ? accent : textMuted,
-                    fontWeight:
-                        selected ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ],
@@ -537,10 +560,10 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
       activeCommands.add('lang:${parsed.langCode}');
     }
 
-    final accent =
-        widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textMuted =
-        widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textMuted = widget.isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
     final surface = widget.isDark
         ? WpColorsDark.surfaceElevated
         : WpColorsLight.surfaceElevated;
@@ -649,8 +672,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                       HistoryFilterChip(
                         label: l10n.historyAll,
                         isActive: widget.activeFilter == HistoryFilter.all,
-                        onTap: () =>
-                            widget.onFilterChanged(HistoryFilter.all),
+                        onTap: () => widget.onFilterChanged(HistoryFilter.all),
                         isDark: widget.isDark,
                         count: searchCounts?[HistoryFilter.all],
                       ),
@@ -667,8 +689,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                       HistoryFilterChip(
                         label: l10n.historyThisWeek,
                         isActive: widget.activeFilter == HistoryFilter.week,
-                        onTap: () =>
-                            widget.onFilterChanged(HistoryFilter.week),
+                        onTap: () => widget.onFilterChanged(HistoryFilter.week),
                         isDark: widget.isDark,
                         count: searchCounts?[HistoryFilter.week],
                       ),
@@ -676,8 +697,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                       HistoryFilterChip(
                         label: l10n.historyPinned,
                         icon: LucideIcons.star,
-                        isActive:
-                            widget.activeFilter == HistoryFilter.pinned,
+                        isActive: widget.activeFilter == HistoryFilter.pinned,
                         onTap: () =>
                             widget.onFilterChanged(HistoryFilter.pinned),
                         isDark: widget.isDark,
@@ -687,8 +707,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                       HistoryFilterChip(
                         label: l10n.historyArchived,
                         icon: LucideIcons.archive,
-                        isActive:
-                            widget.activeFilter == HistoryFilter.archived,
+                        isActive: widget.activeFilter == HistoryFilter.archived,
                         onTap: () =>
                             widget.onFilterChanged(HistoryFilter.archived),
                         isDark: widget.isDark,
@@ -698,8 +717,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                       HistoryFilterChip(
                         label: l10n.historyTrash,
                         icon: LucideIcons.trash2,
-                        isActive:
-                            widget.activeFilter == HistoryFilter.trash,
+                        isActive: widget.activeFilter == HistoryFilter.trash,
                         onTap: () =>
                             widget.onFilterChanged(HistoryFilter.trash),
                         isDark: widget.isDark,
@@ -771,9 +789,7 @@ class _HistorySearchToolbarState extends ConsumerState<HistorySearchToolbar> {
                           ? LucideIcons.checkCheck
                           : LucideIcons.listChecks,
                       size: WpIconSize.sm,
-                      color: widget.multiSelectMode
-                          ? accent
-                          : textMuted,
+                      color: widget.multiSelectMode ? accent : textMuted,
                     ),
                   ),
                 ),
@@ -1213,10 +1229,10 @@ class _SearchHelpButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
     final surface = isDark
         ? WpColorsDark.surfaceElevated
         : WpColorsLight.surfaceElevated;
@@ -1303,8 +1319,7 @@ class _HelpRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     return Row(
@@ -1313,10 +1328,7 @@ class _HelpRow extends StatelessWidget {
         Icon(icon, size: 12, color: textMuted),
         const SizedBox(width: WpSpacing.xs),
         Flexible(
-          child: Text(
-            text,
-            style: TextStyle(fontSize: 12, color: textMuted),
-          ),
+          child: Text(text, style: TextStyle(fontSize: 12, color: textMuted)),
         ),
         if (example.isNotEmpty) ...[
           const SizedBox(width: WpSpacing.xs),
@@ -1370,8 +1382,7 @@ class _SortDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     final labels = {
@@ -1398,8 +1409,8 @@ class _SortDropdown extends StatelessWidget {
                 order == HistorySortOrder.newest
                     ? LucideIcons.arrowDownWideNarrow
                     : order == HistorySortOrder.oldest
-                        ? LucideIcons.arrowUpNarrowWide
-                        : LucideIcons.ruler,
+                    ? LucideIcons.arrowUpNarrowWide
+                    : LucideIcons.ruler,
                 size: 14,
                 color: isSelected ? accent : textMuted,
               ),
@@ -1409,8 +1420,7 @@ class _SortDropdown extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   color: isSelected ? accent : null,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ],

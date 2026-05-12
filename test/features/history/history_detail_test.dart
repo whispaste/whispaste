@@ -21,15 +21,17 @@ void main() {
     db = HistoryDatabase.forTesting(NativeDatabase.memory());
 
     // Seed an entry for the notifier to load.
-    await db.upsertEntry(HistoryEntriesCompanion.insert(
-      id: entryId,
-      timestamp: DateTime(2025, 6, 1, 12, 0),
-      content: const Value('Original transcript content'),
-      title: const Value('Original Title'),
-      model: const Value('whisper-small'),
-      isLocal: const Value(true),
-      durationSec: const Value(10.0),
-    ));
+    await db.upsertEntry(
+      HistoryEntriesCompanion.insert(
+        id: entryId,
+        timestamp: DateTime(2025, 6, 1, 12, 0),
+        content: const Value('Original transcript content'),
+        title: const Value('Original Title'),
+        model: const Value('whisper-small'),
+        isLocal: const Value(true),
+        durationSec: const Value(10.0),
+      ),
+    );
 
     container = ProviderContainer(
       overrides: [
@@ -60,8 +62,7 @@ void main() {
 
   group('Initial load', () {
     test('loads entry, empty tags, and empty notes', () async {
-      final state =
-          await container.read(historyDetailProvider(entryId).future);
+      final state = await container.read(historyDetailProvider(entryId).future);
 
       expect(state.entry.id, entryId);
       expect(state.entry.content, 'Original transcript content');
@@ -182,20 +183,24 @@ void main() {
     test('multiple notes are returned ordered by createdAt desc', () async {
       // Insert notes directly with explicit timestamps to avoid
       // Windows DateTime.now() resolution issues (~16ms granularity).
-      await db.upsertNote(EntryNotesCompanion(
-        id: const Value('note-old'),
-        entryId: const Value(entryId),
-        content: const Value('First note'),
-        createdAt: Value(DateTime(2025, 6, 1, 10, 0)),
-        updatedAt: Value(DateTime(2025, 6, 1, 10, 0)),
-      ));
-      await db.upsertNote(EntryNotesCompanion(
-        id: const Value('note-new'),
-        entryId: const Value(entryId),
-        content: const Value('Second note'),
-        createdAt: Value(DateTime(2025, 6, 1, 11, 0)),
-        updatedAt: Value(DateTime(2025, 6, 1, 11, 0)),
-      ));
+      await db.upsertNote(
+        EntryNotesCompanion(
+          id: const Value('note-old'),
+          entryId: const Value(entryId),
+          content: const Value('First note'),
+          createdAt: Value(DateTime(2025, 6, 1, 10, 0)),
+          updatedAt: Value(DateTime(2025, 6, 1, 10, 0)),
+        ),
+      );
+      await db.upsertNote(
+        EntryNotesCompanion(
+          id: const Value('note-new'),
+          entryId: const Value(entryId),
+          content: const Value('Second note'),
+          createdAt: Value(DateTime(2025, 6, 1, 11, 0)),
+          updatedAt: Value(DateTime(2025, 6, 1, 11, 0)),
+        ),
+      );
 
       await loadNotifier();
       final state = container.read(historyDetailProvider(entryId));
@@ -279,10 +284,11 @@ void main() {
       await notifier.addTag('middle');
 
       final state = container.read(historyDetailProvider(entryId));
-      expect(
-        state.value!.tags.map((t) => t.name).toList(),
-        ['alpha', 'middle', 'zebra'],
-      );
+      expect(state.value!.tags.map((t) => t.name).toList(), [
+        'alpha',
+        'middle',
+        'zebra',
+      ]);
     });
   });
 
@@ -402,14 +408,15 @@ void main() {
       await loadNotifier();
 
       // External mutation using full companion (required for upsert).
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: entryId,
-        timestamp: DateTime(2025, 6, 1, 12, 0),
-        content: const Value('Externally updated'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: entryId,
+          timestamp: DateTime(2025, 6, 1, 12, 0),
+          content: const Value('Externally updated'),
+        ),
+      );
 
-      final notifier =
-          container.read(historyDetailProvider(entryId).notifier);
+      final notifier = container.read(historyDetailProvider(entryId).notifier);
       await notifier.refresh();
 
       final state = container.read(historyDetailProvider(entryId));

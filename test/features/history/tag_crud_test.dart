@@ -20,13 +20,19 @@ void main() {
   tearDown(() => db.close());
 
   /// Helper: insert a minimal history entry.
-  Future<void> insertEntry(String id, {String content = '', String title = ''}) {
-    return db.upsertEntry(HistoryEntriesCompanion.insert(
-      id: id,
-      timestamp: DateTime(2025, 6, 1),
-      content: Value(content),
-      title: Value(title),
-    ));
+  Future<void> insertEntry(
+    String id, {
+    String content = '',
+    String title = '',
+  }) {
+    return db.upsertEntry(
+      HistoryEntriesCompanion.insert(
+        id: id,
+        timestamp: DateTime(2025, 6, 1),
+        content: Value(content),
+        title: Value(title),
+      ),
+    );
   }
 
   // =========================================================================
@@ -122,7 +128,10 @@ void main() {
 
       // Both tags still exist with original names.
       final all = await db.allTags();
-      expect(all.map((t) => t.name).toList(), containsAll(['source', 'target']));
+      expect(
+        all.map((t) => t.name).toList(),
+        containsAll(['source', 'target']),
+      );
     });
 
     test('allows renaming to same name (no-op but valid)', () async {
@@ -269,7 +278,11 @@ void main() {
       await db.tagEntry('e1', rare.id);
 
       final frequent = await db.frequentTags(limit: 10);
-      expect(frequent.map((t) => t.name).toList(), ['popular', 'moderate', 'rare']);
+      expect(frequent.map((t) => t.name).toList(), [
+        'popular',
+        'moderate',
+        'rare',
+      ]);
     });
 
     test('respects limit parameter', () async {
@@ -304,7 +317,10 @@ void main() {
       await db.createTag('dart');
 
       final results = await db.searchTags('fl');
-      expect(results.map((t) => t.name).toList(), containsAll(['flutter', 'flow']));
+      expect(
+        results.map((t) => t.name).toList(),
+        containsAll(['flutter', 'flow']),
+      );
       expect(results, hasLength(2));
     });
 
@@ -368,13 +384,15 @@ void main() {
 
   group('FTS5 tag search', () {
     test('searchEntries finds entries by tags JSON column', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'fts-tag-1',
-        timestamp: DateTime(2025, 6, 1),
-        title: const Value('Some note'),
-        content: const Value('Generic content'),
-        tags: const Value('["urgent","followup"]'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'fts-tag-1',
+          timestamp: DateTime(2025, 6, 1),
+          title: const Value('Some note'),
+          content: const Value('Generic content'),
+          tags: const Value('["urgent","followup"]'),
+        ),
+      );
 
       final results = await db.searchEntries('urgent');
       expect(results, hasLength(1));
@@ -382,13 +400,15 @@ void main() {
     });
 
     test('searchEntries matches tag that is not in title or content', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'fts-tag-2',
-        timestamp: DateTime(2025, 6, 1),
-        title: const Value('Meeting Notes'),
-        content: const Value('Discussed Q3 goals'),
-        tags: const Value('["quarterly-review"]'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'fts-tag-2',
+          timestamp: DateTime(2025, 6, 1),
+          title: const Value('Meeting Notes'),
+          content: const Value('Discussed Q3 goals'),
+          tags: const Value('["quarterly-review"]'),
+        ),
+      );
 
       final results = await db.searchEntries('quarterly');
       expect(results, hasLength(1));
@@ -396,12 +416,14 @@ void main() {
     });
 
     test('searchEntries still works for title/content without tags', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'fts-tag-3',
-        timestamp: DateTime(2025, 6, 1),
-        title: const Value('Architecture discussion'),
-        content: const Value('Talked about microservices'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'fts-tag-3',
+          timestamp: DateTime(2025, 6, 1),
+          title: const Value('Architecture discussion'),
+          content: const Value('Talked about microservices'),
+        ),
+      );
 
       final resultsByTitle = await db.searchEntries('architecture');
       expect(resultsByTitle, hasLength(1));

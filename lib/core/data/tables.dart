@@ -25,15 +25,13 @@ class HistoryEntries extends Table {
   TextColumn get languageHint => text().withDefault(const Constant(''))();
   TextColumn get tags => text().withDefault(const Constant('[]'))();
   BoolColumn get pinned => boolean().withDefault(const Constant(false))();
-  TextColumn get source =>
-      text().withDefault(const Constant('dictation'))();
+  TextColumn get source => text().withDefault(const Constant('dictation'))();
   TextColumn get model => text().withDefault(const Constant(''))();
   BoolColumn get isLocal => boolean().withDefault(const Constant(false))();
   RealColumn get costUsd => real().withDefault(const Constant(0.0))();
   TextColumn get projectId => text().withDefault(const Constant(''))();
   BoolColumn get archived => boolean().withDefault(const Constant(false))();
-  BoolColumn get titleEdited =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get titleEdited => boolean().withDefault(const Constant(false))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
 
   @override
@@ -58,13 +56,11 @@ class DailyStats extends Table {
   TextColumn get model => text()();
   BoolColumn get isLocal => boolean()();
   IntColumn get count => integer().withDefault(const Constant(0))();
-  RealColumn get totalDurationSec =>
-      real().withDefault(const Constant(0.0))();
+  RealColumn get totalDurationSec => real().withDefault(const Constant(0.0))();
   RealColumn get totalProcessingSec =>
       real().withDefault(const Constant(0.0))();
   IntColumn get totalWords => integer().withDefault(const Constant(0))();
-  RealColumn get totalCostUsd =>
-      real().withDefault(const Constant(0.0))();
+  RealColumn get totalCostUsd => real().withDefault(const Constant(0.0))();
   IntColumn get durUnder15s => integer().withDefault(const Constant(0))();
   IntColumn get dur15To30s => integer().withDefault(const Constant(0))();
   IntColumn get dur30To60s => integer().withDefault(const Constant(0))();

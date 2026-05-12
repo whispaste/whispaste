@@ -72,8 +72,9 @@ void main() {
       expect(find.byIcon(LucideIcons.triangleAlert), findsOneWidget);
     });
 
-    testWidgets('onPressed callback fires on tap in idle state',
-        (tester) async {
+    testWidgets('onPressed callback fires on tap in idle state', (
+      tester,
+    ) async {
       var pressed = false;
 
       await tester.pumpWidget(
@@ -116,8 +117,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('FAB container has the expected circular shape',
-        (tester) async {
+    testWidgets('FAB container has the expected circular shape', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         makeTestable(
           WpRecordingFab(phase: RecordingPhase.idle, onPressed: () {}),
@@ -125,10 +127,12 @@ void main() {
       );
 
       final container = tester.widget<AnimatedContainer>(
-        find.descendant(
-          of: find.byType(WpRecordingFab),
-          matching: find.byType(AnimatedContainer),
-        ).last,
+        find
+            .descendant(
+              of: find.byType(WpRecordingFab),
+              matching: find.byType(AnimatedContainer),
+            )
+            .last,
       );
       final decoration = container.decoration as BoxDecoration?;
       expect(decoration?.shape, BoxShape.circle);

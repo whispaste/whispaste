@@ -26,6 +26,7 @@ class HistoryRowAction extends StatefulWidget {
   final bool isDark;
   final VoidCallback onTap;
   final bool isDestructive;
+
   /// When set, overrides the icon color regardless of hover/active state.
   final Color? activeColor;
 
@@ -73,11 +74,11 @@ class _HistoryRowActionState extends State<HistoryRowAction> {
               decoration: BoxDecoration(
                 color: _isHovered
                     ? (widget.isDark
-                        ? WpColorsDark.active
-                        : WpColorsLight.active)
+                          ? WpColorsDark.active
+                          : WpColorsLight.active)
                     : (widget.isDark
-                        ? WpColorsDark.hoverTransparent
-                        : WpColorsLight.hoverTransparent),
+                          ? WpColorsDark.hoverTransparent
+                          : WpColorsLight.hoverTransparent),
                 borderRadius: WpRadius.borderSm,
               ),
               child: widget.faIcon != null

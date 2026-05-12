@@ -27,11 +27,7 @@ enum _MicPhase {
 /// Grants OS permission and immediately auto-tests the mic with a brief
 /// amplitude capture. The user sees one seamless flow: tap → verify → done.
 class MicrophoneStep extends StatefulWidget {
-  const MicrophoneStep({
-    super.key,
-    required this.onNext,
-    required this.onBack,
-  });
+  const MicrophoneStep({super.key, required this.onNext, required this.onBack});
 
   final VoidCallback onNext;
   final VoidCallback onBack;
@@ -107,16 +103,19 @@ class _MicrophoneStepState extends State<MicrophoneStep>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
 
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final textSecondary =
-        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final accentGradient = isDark
         ? WpColorsDark.accentWarmGradient
         : WpColorsLight.accentWarmGradient;
-    final surfaceVariant =
-        isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant;
+    final surfaceVariant = isDark
+        ? WpColorsDark.surfaceVariant
+        : WpColorsLight.surfaceVariant;
     final successColor = isDark ? WpColorsDark.success : WpColorsLight.success;
 
     return Column(
@@ -184,8 +183,8 @@ class _MicrophoneStepState extends State<MicrophoneStep>
                   ],
                 )
               : _phase == _MicPhase.requesting
-                  ? const SizedBox.shrink(key: ValueKey('requesting'))
-                  : const SizedBox.shrink(key: ValueKey('done')),
+              ? const SizedBox.shrink(key: ValueKey('requesting'))
+              : const SizedBox.shrink(key: ValueKey('done')),
         ),
         const SizedBox(height: WpSpacing.xxl),
 
@@ -222,8 +221,7 @@ class _MicrophoneStepState extends State<MicrophoneStep>
     required Color successColor,
     required L10n l10n,
   }) {
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     switch (_phase) {
       case _MicPhase.idle:
@@ -252,8 +250,7 @@ class _MicrophoneStepState extends State<MicrophoneStep>
             SizedBox(
               width: WpIconSize.xxl,
               height: WpIconSize.xxl,
-              child:
-                  CircularProgressIndicator(strokeWidth: 2.5, color: accent),
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: accent),
             ),
             const SizedBox(height: WpSpacing.sm),
             Text(
@@ -331,10 +328,7 @@ class _MicrophoneStepState extends State<MicrophoneStep>
           curve: Curves.elasticOut,
           builder: (_, value, child) => Transform.scale(
             scale: 0.5 + (value * 0.5),
-            child: Opacity(
-              opacity: value.clamp(0.0, 1.0),
-              child: child,
-            ),
+            child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -346,8 +340,11 @@ class _MicrophoneStepState extends State<MicrophoneStep>
                   shape: BoxShape.circle,
                   color: successColor.withValues(alpha: 0.12),
                 ),
-                child: Icon(LucideIcons.circleCheck,
-                    size: WpIconSize.xxl, color: successColor),
+                child: Icon(
+                  LucideIcons.circleCheck,
+                  size: WpIconSize.xxl,
+                  color: successColor,
+                ),
               ),
               const SizedBox(height: WpSpacing.sm),
               Text(
@@ -402,9 +399,9 @@ class _WaveformBars extends StatelessWidget {
             final base = 0.25 + 0.15 * math.sin(phase * 1.7 + i);
             final animatedHeight = isActive
                 ? base +
-                    (1.0 - base) *
-                        animation.value *
-                        (0.5 + 0.5 * math.sin(phase + animation.value * 3))
+                      (1.0 - base) *
+                          animation.value *
+                          (0.5 + 0.5 * math.sin(phase + animation.value * 3))
                 : base;
 
             return Padding(

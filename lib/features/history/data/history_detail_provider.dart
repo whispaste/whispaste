@@ -32,12 +32,11 @@ class HistoryDetailState {
     HistoryEntry? entry,
     List<Tag>? tags,
     List<EntryNote>? notes,
-  }) =>
-      HistoryDetailState(
-        entry: entry ?? this.entry,
-        tags: tags ?? this.tags,
-        notes: notes ?? this.notes,
-      );
+  }) => HistoryDetailState(
+    entry: entry ?? this.entry,
+    tags: tags ?? this.tags,
+    notes: notes ?? this.notes,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -72,24 +71,28 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
   Future<void> updateContent(String newContent) async {
     final current = state.asData?.value;
     if (current == null) return;
-    await _db.updateEntry(_entryId, HistoryEntriesCompanion(
-      content: Value(newContent),
-    ));
-    state = AsyncValue.data(current.copyWith(
-      entry: await _db.getEntry(_entryId) ?? current.entry,
-    ));
+    await _db.updateEntry(
+      _entryId,
+      HistoryEntriesCompanion(content: Value(newContent)),
+    );
+    state = AsyncValue.data(
+      current.copyWith(entry: await _db.getEntry(_entryId) ?? current.entry),
+    );
   }
 
   Future<void> updateTitle(String newTitle) async {
     final current = state.asData?.value;
     if (current == null) return;
-    await _db.updateEntry(_entryId, HistoryEntriesCompanion(
-      title: Value(newTitle),
-      titleEdited: const Value(true),
-    ));
-    state = AsyncValue.data(current.copyWith(
-      entry: await _db.getEntry(_entryId) ?? current.entry,
-    ));
+    await _db.updateEntry(
+      _entryId,
+      HistoryEntriesCompanion(
+        title: Value(newTitle),
+        titleEdited: const Value(true),
+      ),
+    );
+    state = AsyncValue.data(
+      current.copyWith(entry: await _db.getEntry(_entryId) ?? current.entry),
+    );
   }
 
   // ── Notes ─────────────────────────────────────────────────────────────
@@ -98,13 +101,15 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
     final current = state.asData?.value;
     if (current == null || content.trim().isEmpty) return;
     final now = DateTime.now();
-    await _db.upsertNote(EntryNotesCompanion(
-      id: Value(_uuid()),
-      entryId: Value(_entryId),
-      content: Value(content.trim()),
-      createdAt: Value(now),
-      updatedAt: Value(now),
-    ));
+    await _db.upsertNote(
+      EntryNotesCompanion(
+        id: Value(_uuid()),
+        entryId: Value(_entryId),
+        content: Value(content.trim()),
+        createdAt: Value(now),
+        updatedAt: Value(now),
+      ),
+    );
     final notes = await _db.notesForEntry(_entryId);
     state = AsyncValue.data(current.copyWith(notes: notes));
   }
@@ -120,10 +125,13 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
   Future<void> updateNote(String noteId, String newContent) async {
     final current = state.asData?.value;
     if (current == null) return;
-    await _db.updateNoteFields(noteId, EntryNotesCompanion(
-      content: Value(newContent.trim()),
-      updatedAt: Value(DateTime.now()),
-    ));
+    await _db.updateNoteFields(
+      noteId,
+      EntryNotesCompanion(
+        content: Value(newContent.trim()),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
     final notes = await _db.notesForEntry(_entryId);
     state = AsyncValue.data(current.copyWith(notes: notes));
   }
@@ -222,5 +230,5 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
 /// is closed (no listeners).
 final historyDetailProvider = AsyncNotifierProvider.autoDispose
     .family<HistoryDetailNotifier, HistoryDetailState, String>(
-  HistoryDetailNotifier.new,
-);
+      HistoryDetailNotifier.new,
+    );

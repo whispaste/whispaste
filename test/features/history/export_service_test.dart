@@ -42,7 +42,11 @@ void main() {
   group('ExportService', () {
     test('exports TXT format', () async {
       final path = '${tempDir.path}/test.txt';
-      final bytes = await ExportService.export(_sampleEntries, ExportFormat.txt, path);
+      final bytes = await ExportService.export(
+        _sampleEntries,
+        ExportFormat.txt,
+        path,
+      );
 
       expect(bytes, greaterThan(0));
       final content = File(path).readAsStringSync();
@@ -53,7 +57,11 @@ void main() {
 
     test('exports Markdown format', () async {
       final path = '${tempDir.path}/test.md';
-      final bytes = await ExportService.export(_sampleEntries, ExportFormat.md, path);
+      final bytes = await ExportService.export(
+        _sampleEntries,
+        ExportFormat.md,
+        path,
+      );
 
       expect(bytes, greaterThan(0));
       final content = File(path).readAsStringSync();
@@ -64,7 +72,11 @@ void main() {
 
     test('exports JSON format', () async {
       final path = '${tempDir.path}/test.json';
-      final bytes = await ExportService.export(_sampleEntries, ExportFormat.json, path);
+      final bytes = await ExportService.export(
+        _sampleEntries,
+        ExportFormat.json,
+        path,
+      );
 
       expect(bytes, greaterThan(0));
       final content = File(path).readAsStringSync();
@@ -79,7 +91,11 @@ void main() {
 
     test('exports CSV format with header', () async {
       final path = '${tempDir.path}/test.csv';
-      final bytes = await ExportService.export(_sampleEntries, ExportFormat.csv, path);
+      final bytes = await ExportService.export(
+        _sampleEntries,
+        ExportFormat.csv,
+        path,
+      );
 
       expect(bytes, greaterThan(0));
       final lines = File(path).readAsLinesSync();
@@ -89,7 +105,11 @@ void main() {
 
     test('exports DOCX as valid ZIP', () async {
       final path = '${tempDir.path}/test.docx';
-      final bytes = await ExportService.export(_sampleEntries, ExportFormat.docx, path);
+      final bytes = await ExportService.export(
+        _sampleEntries,
+        ExportFormat.docx,
+        path,
+      );
 
       expect(bytes, greaterThan(0));
       final fileBytes = File(path).readAsBytesSync();
@@ -105,15 +125,17 @@ void main() {
     });
 
     test('defaultFilename uses entry title for single entry', () {
-      final name = ExportService.defaultFilename(
-        [_sampleEntries.first],
-        ExportFormat.md,
-      );
+      final name = ExportService.defaultFilename([
+        _sampleEntries.first,
+      ], ExportFormat.md);
       expect(name, equals('Meeting notes.md'));
     });
 
     test('defaultFilename uses generic name for multiple entries', () {
-      final name = ExportService.defaultFilename(_sampleEntries, ExportFormat.json);
+      final name = ExportService.defaultFilename(
+        _sampleEntries,
+        ExportFormat.json,
+      );
       expect(name, equals('whispaste-export.json'));
     });
 

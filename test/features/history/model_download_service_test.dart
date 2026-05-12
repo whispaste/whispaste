@@ -290,10 +290,7 @@ void main() {
         name: 'Apple M5',
         vramMB: 16384,
       );
-      expect(
-        tierPerformance(QualityTier.premium, apple),
-        TierPerformance.fast,
-      );
+      expect(tierPerformance(QualityTier.premium, apple), TierPerformance.fast);
     });
 
     test(

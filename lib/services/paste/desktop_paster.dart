@@ -50,9 +50,9 @@ class DesktopPaster implements Paster {
     // 2. Save current clipboard contents so we can restore after paste.
     String? previousClipboard;
     try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain).timeout(
-        const Duration(seconds: 2),
-      );
+      final data = await Clipboard.getData(
+        Clipboard.kTextPlain,
+      ).timeout(const Duration(seconds: 2));
       previousClipboard = data?.text;
     } on Exception {
       // Best-effort snapshot; failure here is non-fatal.
@@ -60,9 +60,9 @@ class DesktopPaster implements Paster {
 
     // 3. Write transcript to clipboard.
     try {
-      await Clipboard.setData(ClipboardData(text: text)).timeout(
-        const Duration(seconds: 5),
-      );
+      await Clipboard.setData(
+        ClipboardData(text: text),
+      ).timeout(const Duration(seconds: 5));
     } on Exception {
       return PasteOutcome.failed;
     }
@@ -88,15 +88,15 @@ class DesktopPaster implements Paster {
 
     // 6. Restore previous clipboard contents.
     try {
-      await Clipboard.setData(ClipboardData(text: previousClipboard ?? ''))
-          .timeout(const Duration(seconds: 5));
+      await Clipboard.setData(
+        ClipboardData(text: previousClipboard ?? ''),
+      ).timeout(const Duration(seconds: 5));
     } on Exception {
       // Non-fatal — clipboard restore is best-effort.
     }
 
     return PasteOutcome.success;
   }
-
 }
 
 final pasterProvider = Provider<Paster?>((ref) {

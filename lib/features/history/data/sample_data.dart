@@ -32,7 +32,8 @@ List<HistoryEntry> generateSampleEntries() {
     _entry(
       id: 'sample-2',
       title: 'Quick reminder',
-      content: 'Pick up groceries on the way home. Milk, bread, avocados, '
+      content:
+          'Pick up groceries on the way home. Milk, bread, avocados, '
           'and that new pasta sauce Sarah recommended.',
       timestamp: today.add(const Duration(hours: 10, minutes: 5)),
       durationSec: 12.0,
@@ -66,8 +67,9 @@ List<HistoryEntry> generateSampleEntries() {
           'recordings and personal notes, we have a responsibility to ensure '
           'that data stays where users expect it. Local-first processing '
           'is not just a technical choice, it is an ethical one.',
-      timestamp:
-          today.subtract(const Duration(days: 1, hours: -16, minutes: -30)),
+      timestamp: today.subtract(
+        const Duration(days: 1, hours: -16, minutes: -30),
+      ),
       durationSec: 240.0,
       processingDurationSec: 3.2,
       language: 'en',
@@ -84,8 +86,9 @@ List<HistoryEntry> generateSampleEntries() {
           'the chart colors could use more contrast for accessibility, and '
           'the export button should be more prominent — it took me a while '
           'to find it.',
-      timestamp:
-          today.subtract(const Duration(days: 1, hours: -11, minutes: -45)),
+      timestamp: today.subtract(
+        const Duration(days: 1, hours: -11, minutes: -45),
+      ),
       durationSec: 38.0,
       language: 'en',
       model: 'large-v3',

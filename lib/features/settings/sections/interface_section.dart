@@ -48,9 +48,9 @@ class InterfaceSection extends ConsumerWidget {
                   'system' => ThemeMode.system,
                   _ => ThemeMode.dark,
                 };
-                ref.read(settingsProvider.notifier).updateSettings(
-                  (s) => s.copyWith(themeMode: mode),
-                );
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(themeMode: mode));
               },
             ),
           ),
@@ -67,9 +67,9 @@ class InterfaceSection extends ConsumerWidget {
               ],
               onChanged: (v) {
                 if (v != null) {
-                  ref.read(settingsProvider.notifier).updateSettings(
-                    (s) => s.copyWith(locale: v),
-                  );
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateSettings((s) => s.copyWith(locale: v));
                 }
               },
             ),
@@ -103,8 +103,7 @@ class InterfaceSection extends ConsumerWidget {
               value: settings.showNotifications,
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(showNotifications: v)),
+                  .updateSettings((s) => s.copyWith(showNotifications: v)),
             ),
           ),
           SettingRow(
@@ -115,8 +114,7 @@ class InterfaceSection extends ConsumerWidget {
               value: settings.closeToTray,
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(closeToTray: v)),
+                  .updateSettings((s) => s.copyWith(closeToTray: v)),
             ),
           ),
           if (channel != DeployChannel.store)
@@ -128,8 +126,7 @@ class InterfaceSection extends ConsumerWidget {
                 value: settings.checkUpdates,
                 onChanged: (v) => ref
                     .read(settingsProvider.notifier)
-                    .updateSettings(
-                        (s) => s.copyWith(checkUpdates: v)),
+                    .updateSettings((s) => s.copyWith(checkUpdates: v)),
               ),
             ),
         ],

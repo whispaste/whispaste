@@ -35,11 +35,7 @@ class MacOSFloatingOverlayController extends FloatingOverlayController {
   }
 
   @override
-  Future<void> setPosition(
-    double x,
-    double y,
-    OverlayAnchorMode anchor,
-  ) async {
+  Future<void> setPosition(double x, double y, OverlayAnchorMode anchor) async {
     if (_disposed) return;
     await _channel.invokeMethod('setPosition', {
       'x': x,

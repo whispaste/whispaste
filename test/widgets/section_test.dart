@@ -51,10 +51,7 @@ void main() {
         makeTestable(
           WpSection(
             title: 'Section',
-            trailing: IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () {},
-            ),
+            trailing: IconButton(icon: const Icon(Icons.add), onPressed: () {}),
             child: const Text('Content'),
           ),
         ),

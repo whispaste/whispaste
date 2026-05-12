@@ -1515,6 +1515,30 @@ class L10nDe extends L10n {
       'Sprachmodul konnte nicht gestartet werden';
 
   @override
+  String get errorSttModelIncompatibleRuntime =>
+      'Das Sprachmodell ist mit der installierten Laufzeitumgebung nicht kompatibel. Bitte lade das Sprachmodell in den Einstellungen neu herunter.';
+
+  @override
+  String get errorSttModelCorruptedRedownloading =>
+      'Das Sprachmodell scheint beschädigt zu sein — eine neue Kopie wird automatisch heruntergeladen.';
+
+  @override
+  String get errorSttDllMissing =>
+      'Eine erforderliche Systemkomponente fehlt. Erneuter Versuch im CPU-Modus.';
+
+  @override
+  String get errorSttGpuFatal =>
+      'GPU-Beschleunigung fehlgeschlagen. Erneuter Versuch im CPU-Modus.';
+
+  @override
+  String get errorSttHeapCorruption =>
+      'Ein Speicherfehler ist aufgetreten. Erneuter Versuch im CPU-Modus.';
+
+  @override
+  String get errorSttCpuFallbackFailed =>
+      'Das Sprachmodul ist sowohl auf der GPU als auch auf der CPU fehlgeschlagen. Bitte starte die App neu oder lade das Modell neu herunter.';
+
+  @override
   String get errorPipelineTimeout =>
       'Aufnahme hat zu lange gedauert. Bitte versuche eine kürzere Aufnahme.';
 

@@ -119,8 +119,7 @@ class WpTagInputState extends State<WpTagInput> {
     if (value.contains(',')) {
       for (final part in value.split(',')) {
         final trimmed = part.trim().toLowerCase();
-        if (trimmed.isNotEmpty &&
-            !widget.tags.any((t) => t.name == trimmed)) {
+        if (trimmed.isNotEmpty && !widget.tags.any((t) => t.name == trimmed)) {
           widget.onAdd(trimmed);
         }
       }
@@ -191,8 +190,7 @@ class WpTagInputState extends State<WpTagInput> {
         } else if (_controller.text.trim().isNotEmpty) {
           // No dropdown selection — check for exact match, else create.
           final query = _controller.text.trim().toLowerCase();
-          final exact =
-              suggestions.where((s) => s.name == query).firstOrNull;
+          final exact = suggestions.where((s) => s.name == query).firstOrNull;
           if (exact != null) {
             _selectSuggestion(exact);
           } else {
@@ -248,8 +246,9 @@ class WpTagInputState extends State<WpTagInput> {
     final visibleTags = _isAddMode
         ? widget.tags
         : widget.tags.take(_kMaxVisibleTags).toList();
-    final hiddenCount =
-        _isAddMode ? 0 : max(0, widget.tags.length - _kMaxVisibleTags);
+    final hiddenCount = _isAddMode
+        ? 0
+        : max(0, widget.tags.length - _kMaxVisibleTags);
 
     final suggestions = _filteredSuggestions;
     final showCreate = _isAddMode && _canCreateNewTag;
@@ -310,8 +309,7 @@ class WpTagInputState extends State<WpTagInput> {
                 ),
                 child: ListView(
                   shrinkWrap: true,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+                  padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
                   children: [
                     for (var i = 0; i < suggestions.length; i++)
                       _SuggestionTile(
@@ -325,10 +323,10 @@ class WpTagInputState extends State<WpTagInput> {
                       _CreateTagTile(
                         text: _controller.text.trim().toLowerCase(),
                         isDark: widget.isDark,
-                        isSelected:
-                            _selectedIndex == suggestions.length,
+                        isSelected: _selectedIndex == suggestions.length,
                         label: l10n.historyCreateTag(
-                            _controller.text.trim().toLowerCase()),
+                          _controller.text.trim().toLowerCase(),
+                        ),
                         onTap: () => _submit(_controller.text),
                       ),
                   ],
@@ -377,8 +375,10 @@ class WpTagInputState extends State<WpTagInput> {
                   ),
                 )
               : null,
-          suffixIconConstraints:
-              const BoxConstraints(maxWidth: 32, maxHeight: 32),
+          suffixIconConstraints: const BoxConstraints(
+            maxWidth: 32,
+            maxHeight: 32,
+          ),
           border: OutlineInputBorder(
             borderRadius: WpRadius.borderFull,
             borderSide: BorderSide(color: borderCol),
@@ -423,8 +423,7 @@ class _TagChipState extends State<_TagChip> {
 
   @override
   Widget build(BuildContext context) {
-    final accent =
-        widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -461,8 +460,7 @@ class _TagChipState extends State<_TagChip> {
                   padding: const EdgeInsets.all(2),
                   child: AnimatedOpacity(
                     opacity: _isHovered ? 0.9 : 0.35,
-                    duration:
-                        _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+                    duration: _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
                     child: Icon(
                       LucideIcons.x,
                       size: WpIconSize.xs,
@@ -496,8 +494,7 @@ class _OverflowChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     return Semantics(
       button: true,
@@ -512,9 +509,7 @@ class _OverflowChip extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             borderRadius: WpRadius.borderFull,
-            border: Border.all(
-              color: textMuted.withValues(alpha: 0.2),
-            ),
+            border: Border.all(color: textMuted.withValues(alpha: 0.2)),
           ),
           child: Text(
             '+$count',
@@ -535,11 +530,7 @@ class _OverflowChip extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _AddTagTrigger extends StatefulWidget {
-  const _AddTagTrigger({
-    required this.isDark,
-    required this.onTap,
-    this.label,
-  });
+  const _AddTagTrigger({required this.isDark, required this.onTap, this.label});
 
   final bool isDark;
   final VoidCallback onTap;
@@ -554,10 +545,10 @@ class _AddTagTriggerState extends State<_AddTagTrigger> {
 
   @override
   Widget build(BuildContext context) {
-    final accent =
-        widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textMuted =
-        widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final textMuted = widget.isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
 
     return Semantics(
       button: true,
@@ -594,10 +585,7 @@ class _AddTagTriggerState extends State<_AddTagTrigger> {
                   const SizedBox(width: WpSpacing.xxs),
                   Text(
                     widget.label!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: textMuted,
-                    ),
+                    style: TextStyle(fontSize: 12, color: textMuted),
                   ),
                 ],
               ],
@@ -641,8 +629,7 @@ class _SuggestionTileState extends State<_SuggestionTile> {
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final hoverBg =
-        widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
+    final hoverBg = widget.isDark ? WpColorsDark.hover : WpColorsLight.hover;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -657,7 +644,9 @@ class _SuggestionTileState extends State<_SuggestionTile> {
             horizontal: WpSpacing.sm,
             vertical: WpSpacing.sm,
           ),
-          color: (_isHovered || widget.isSelected) ? hoverBg : Colors.transparent,
+          color: (_isHovered || widget.isSelected)
+              ? hoverBg
+              : Colors.transparent,
           child: Row(
             children: [
               Icon(
@@ -735,14 +724,12 @@ class _CreateTagTileState extends State<_CreateTagTile> {
             horizontal: WpSpacing.sm,
             vertical: WpSpacing.sm,
           ),
-          color: (_isHovered || widget.isSelected) ? hoverBg : Colors.transparent,
+          color: (_isHovered || widget.isSelected)
+              ? hoverBg
+              : Colors.transparent,
           child: Row(
             children: [
-              Icon(
-                LucideIcons.plus,
-                size: WpIconSize.sm,
-                color: accent,
-              ),
+              Icon(LucideIcons.plus, size: WpIconSize.sm, color: accent),
               const SizedBox(width: WpSpacing.xs),
               Expanded(
                 child: Text(

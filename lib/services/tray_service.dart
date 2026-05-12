@@ -173,9 +173,13 @@ class TrayService extends Notifier<void> implements TrayListener {
     if (Platform.isMacOS || Platform.isLinux) {
       final candidates = [
         // macOS .app bundle: flutter_assets inside App.framework (primary)
-        p.normalize('$exeDir/../Frameworks/App.framework/Resources/flutter_assets/assets/icons/logo-dark.png'),
+        p.normalize(
+          '$exeDir/../Frameworks/App.framework/Resources/flutter_assets/assets/icons/logo-dark.png',
+        ),
         // macOS .app bundle: flutter_assets directly in Resources (fallback)
-        p.normalize('$exeDir/../Resources/flutter_assets/assets/icons/logo-dark.png'),
+        p.normalize(
+          '$exeDir/../Resources/flutter_assets/assets/icons/logo-dark.png',
+        ),
         // macOS .app bundle: Resources root (set via Xcode bundle-resource copy)
         p.normalize('$exeDir/../Resources/tray.png'),
         // Linux: flutter_assets next to executable

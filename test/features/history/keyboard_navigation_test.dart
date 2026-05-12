@@ -10,10 +10,8 @@ import '../../fixtures/test_helpers.dart';
 /// Provider overrides that supply sample data via stream providers.
 List<Object> _sampleOverrides() {
   final all = generateSampleEntries();
-  final active =
-      all.where((e) => e.deletedAt == null && !e.archived).toList();
-  final archived =
-      all.where((e) => e.archived && e.deletedAt == null).toList();
+  final active = all.where((e) => e.deletedAt == null && !e.archived).toList();
+  final archived = all.where((e) => e.archived && e.deletedAt == null).toList();
   final trash = all.where((e) => e.deletedAt != null).toList();
   return [
     historyEntriesProvider.overrideWith((ref) => Stream.value(active)),
@@ -34,7 +32,8 @@ void main() {
   group('Keyboard Navigation', () {
     testWidgets('renders HistoryPage with sample data', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await _settle(tester);
 
       expect(find.byType(HistoryPage), findsOneWidget);
@@ -42,7 +41,8 @@ void main() {
 
     testWidgets('Arrow Down moves focus', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await _settle(tester);
 
       // Send arrow down — should set focus to first entry
@@ -58,7 +58,8 @@ void main() {
 
     testWidgets('Arrow Up moves focus', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await _settle(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
@@ -73,7 +74,8 @@ void main() {
 
     testWidgets('Escape clears state without crash', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await _settle(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
@@ -86,7 +88,8 @@ void main() {
 
     testWidgets('P key does not crash without focus', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await _settle(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
@@ -97,7 +100,8 @@ void main() {
 
     testWidgets('Delete key does not crash without focus', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await _settle(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.delete);
@@ -108,7 +112,8 @@ void main() {
 
     testWidgets('Enter key does not crash without focus', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await _settle(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -119,7 +124,8 @@ void main() {
 
     testWidgets('Multiple arrow keys navigate correctly', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await _settle(tester);
 
       for (var i = 0; i < 5; i++) {
@@ -136,8 +142,13 @@ void main() {
     });
 
     testWidgets('works in light theme', (tester) async {
-      await tester.pumpWidget(makeTestable(const HistoryPage(),
-          brightness: Brightness.light, overrides: _sampleOverrides()));
+      await tester.pumpWidget(
+        makeTestable(
+          const HistoryPage(),
+          brightness: Brightness.light,
+          overrides: _sampleOverrides(),
+        ),
+      );
       await _settle(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
@@ -165,54 +176,59 @@ void main() {
     }
 
     testWidgets(
-        'Delete key does not trigger list action while search field focused',
-        (tester) async {
-      await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
-      await _settle(tester);
+      'Delete key does not trigger list action while search field focused',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+        );
+        await _settle(tester);
 
-      // Navigate to give a focused entry so Delete would normally fire.
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await _settle(tester);
+        // Navigate to give a focused entry so Delete would normally fire.
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await _settle(tester);
 
-      // Focus a text field.
-      final focused = await focusSearchField(tester);
-      if (focused == null) return; // no text field rendered — skip gracefully
+        // Focus a text field.
+        final focused = await focusSearchField(tester);
+        if (focused == null) return; // no text field rendered — skip gracefully
 
-      // Pressing Delete should NOT throw and should not open a delete dialog.
-      await tester.sendKeyEvent(LogicalKeyboardKey.delete);
-      await _settle(tester);
+        // Pressing Delete should NOT throw and should not open a delete dialog.
+        await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+        await _settle(tester);
 
-      // Page still renders without any error dialog.
-      expect(find.byType(HistoryPage), findsOneWidget);
-      expect(find.byType(AlertDialog), findsNothing);
-    });
-
-    testWidgets(
-        'Backspace key does not trigger list action while text field focused',
-        (tester) async {
-      await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
-      await _settle(tester);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await _settle(tester);
-
-      final focused = await focusSearchField(tester);
-      if (focused == null) return;
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-      await _settle(tester);
-
-      expect(find.byType(HistoryPage), findsOneWidget);
-      expect(find.byType(AlertDialog), findsNothing);
-    });
+        // Page still renders without any error dialog.
+        expect(find.byType(HistoryPage), findsOneWidget);
+        expect(find.byType(AlertDialog), findsNothing);
+      },
+    );
 
     testWidgets(
-        'Enter key does not open entry while text field focused',
-        (tester) async {
+      'Backspace key does not trigger list action while text field focused',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+        );
+        await _settle(tester);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await _settle(tester);
+
+        final focused = await focusSearchField(tester);
+        if (focused == null) return;
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+        await _settle(tester);
+
+        expect(find.byType(HistoryPage), findsOneWidget);
+        expect(find.byType(AlertDialog), findsNothing);
+      },
+    );
+
+    testWidgets('Enter key does not open entry while text field focused', (
+      tester,
+    ) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await _settle(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
@@ -232,7 +248,8 @@ void main() {
 
     testWidgets('text field can receive focus in history page', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await _settle(tester);
 
       final focused = await focusSearchField(tester);
@@ -245,4 +262,3 @@ void main() {
     });
   });
 }
-
