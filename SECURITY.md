@@ -38,7 +38,7 @@ The following are in scope for security reports:
 - The auto-update mechanism (download verification, HTTPS enforcement)
 - Local data storage (config, history database, audio cache)
 - API key handling and credential storage
-- Supabase Edge Functions and backend infrastructure
+- Supabase backend infrastructure (PostgREST endpoints, RLS policies, database)
 
 The following are **out of scope**:
 

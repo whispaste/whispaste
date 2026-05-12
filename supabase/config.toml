@@ -1,5 +1,7 @@
-[functions.analytics]
-verify_jwt = false
-
-[functions.testimonials]
-verify_jwt = false
+# No Edge Functions deployed. All Supabase access is via PostgREST + RLS:
+#   App  → POST /rest/v1/user_feedback        (rate-limited feedback INSERT)
+#   Site → GET  /rest/v1/public_testimonials  (build-time SSG read)
+#
+# Edge Functions were removed in May 2026 to keep invocations at zero against
+# the free tier. Use the Supabase Dashboard (Table Editor / SQL Editor) for
+# admin tasks such as approving testimonials or inspecting feedback.
