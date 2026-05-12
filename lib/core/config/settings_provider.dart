@@ -64,7 +64,6 @@ class AppSettings {
     this.floatingOverlayOpacity = 0.9,
     // Cloud Providers (API keys)
     this.openAiApiKey = '',
-    this.groqApiKey = '',
     this.deepgramApiKey = '',
     // Cloud Provider Details
     this.cloudSttProvider = 'openai',
@@ -171,7 +170,6 @@ class AppSettings {
 
   // Cloud Providers (API keys)
   final String openAiApiKey;
-  final String groqApiKey;
   final String deepgramApiKey;
 
   // Cloud Provider Details
@@ -382,7 +380,6 @@ class AppSettings {
         defaults.floatingOverlayOpacity,
       ),
       openAiApiKey: values['openai_api_key'] ?? defaults.openAiApiKey,
-      groqApiKey: values['groq_api_key'] ?? defaults.groqApiKey,
       deepgramApiKey: values['deepgram_api_key'] ?? defaults.deepgramApiKey,
       cloudSttProvider:
           values['cloud_stt_provider'] ?? defaults.cloudSttProvider,
@@ -581,7 +578,6 @@ class AppSettings {
   Map<String, String> _cloudProvidersToMap() => {
     // API keys are stored in secure storage — never persist to SQLite.
     'openai_api_key': '',
-    'groq_api_key': '',
     'deepgram_api_key': '',
     'cloud_stt_provider': cloudSttProvider,
   };
@@ -669,7 +665,6 @@ class AppSettings {
     String? floatingButtonSize,
     double? floatingOverlayOpacity,
     String? openAiApiKey,
-    String? groqApiKey,
     String? deepgramApiKey,
     String? cloudSttProvider,
     int? maxRecordDuration,
@@ -738,7 +733,6 @@ class AppSettings {
       floatingOverlayOpacity:
           floatingOverlayOpacity ?? this.floatingOverlayOpacity,
       openAiApiKey: openAiApiKey ?? this.openAiApiKey,
-      groqApiKey: groqApiKey ?? this.groqApiKey,
       deepgramApiKey: deepgramApiKey ?? this.deepgramApiKey,
       cloudSttProvider: cloudSttProvider ?? this.cloudSttProvider,
       maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
@@ -810,7 +804,6 @@ class AppSettings {
           floatingButtonSize == other.floatingButtonSize &&
           floatingOverlayOpacity == other.floatingOverlayOpacity &&
           openAiApiKey == other.openAiApiKey &&
-          groqApiKey == other.groqApiKey &&
           deepgramApiKey == other.deepgramApiKey &&
           cloudSttProvider == other.cloudSttProvider &&
           maxRecordDuration == other.maxRecordDuration &&
@@ -876,7 +869,6 @@ class AppSettings {
       floatingButtonSize,
       floatingOverlayOpacity,
       openAiApiKey,
-      groqApiKey,
       deepgramApiKey,
       cloudSttProvider,
       Object.hash(
@@ -1036,6 +1028,13 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     secureKeysFuture = Future.microtask(() async {
       try {
         await _migrateApiKeys(values, secureStore, db);
+        // Groq removal (v1.2.13): delete any residual wp_groq_api_key from
+        // secure storage so no stale credentials remain on device.
+        try {
+          await secureStore.deleteKey('wp_groq_api_key');
+        } catch (_) {
+          // Best-effort — keychain may be locked or key absent.
+        }
         final merged = await _mergeSecureKeys(
           state.value ?? settings,
           secureStore,
@@ -1238,7 +1237,6 @@ Future<void> _migrateApiKeys(
   // SQLite key → secure-storage key mapping.
   const sqliteToSecure = {
     'openai_api_key': 'wp_openai_api_key',
-    'groq_api_key': 'wp_groq_api_key',
     'deepgram_api_key': 'wp_deepgram_api_key',
   };
 
@@ -1275,7 +1273,6 @@ Future<AppSettings> _mergeSecureKeys(
 
   return settings.copyWith(
     openAiApiKey: keys['wp_openai_api_key'] ?? settings.openAiApiKey,
-    groqApiKey: keys['wp_groq_api_key'] ?? settings.groqApiKey,
     deepgramApiKey: keys['wp_deepgram_api_key'] ?? settings.deepgramApiKey,
   );
 }
@@ -1290,10 +1287,6 @@ Future<void> _syncApiKeysToSecureStorage(
     'wp_openai_api_key': (
       old: oldSettings.openAiApiKey,
       cur: newSettings.openAiApiKey,
-    ),
-    'wp_groq_api_key': (
-      old: oldSettings.groqApiKey,
-      cur: newSettings.groqApiKey,
     ),
     'wp_deepgram_api_key': (
       old: oldSettings.deepgramApiKey,

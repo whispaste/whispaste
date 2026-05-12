@@ -180,6 +180,18 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
           duration: const Duration(seconds: 8),
         );
       }
+
+      // Show one-time toast when a user's Groq STT provider was reset
+      // to On-Device after the Groq removal in v1.2.13.
+      if (db.consumeGroqMigrationFlag()) {
+        final l10n = L10n.of(context);
+        WpToast.show(
+          context,
+          message: l10n.groqRemovedToast,
+          type: WpToastType.info,
+          duration: const Duration(seconds: 8),
+        );
+      }
     });
   }
 

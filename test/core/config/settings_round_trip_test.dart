@@ -41,12 +41,12 @@ void main() {
     test('API keys are serialised as empty strings (not stored in SQLite)', () {
       final settings = AppSettings.defaults.copyWith(
         openAiApiKey: 'sk-secret',
-        groqApiKey: 'gsk-secret',
+        deepgramApiKey: 'dg-secret',
       );
       final map = settings.toStorageMap();
       // API keys must NOT appear in the SQLite map as plaintext
       expect(map['openai_api_key'] ?? '', isEmpty);
-      expect(map['groq_api_key'] ?? '', isEmpty);
+      expect(map['deepgram_api_key'] ?? '', isEmpty);
     });
 
     test('unknown keys in map are ignored (forward-compat)', () {
