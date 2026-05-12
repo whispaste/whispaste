@@ -776,8 +776,8 @@ void main() {
             sttModel: 'whisper-large-v3',
             sttLanguage: 'English',
             sttProvider: 'On Device',
-            cloudSttProvider: 'groq',
-            groqApiKey: 'groq-test-key',
+            cloudSttProvider: 'deepgram',
+            deepgramApiKey: 'dg-test-key',
             onboardingCompleted: true,
           ),
         );
@@ -788,9 +788,9 @@ void main() {
         final provider = await orch.switchToConfiguredCloudStt();
         final settings = await c2.read(settingsProvider.future);
 
-        expect(provider, SttProviderType.groq);
-        expect(settings.sttProviderType, SttProviderType.groq);
-        expect(settings.cloudSttProviderType, CloudSttProvider.groq);
+        expect(provider, SttProviderType.deepgram);
+        expect(settings.sttProviderType, SttProviderType.deepgram);
+        expect(settings.cloudSttProviderType, CloudSttProvider.deepgram);
         expect(orch.oomAttemptCount, 0);
       },
     );

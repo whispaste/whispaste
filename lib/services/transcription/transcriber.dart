@@ -1,4 +1,4 @@
-/// Abstraction over all STT backends (local whisper-server, OpenAI, Groq, Deepgram).
+/// Abstraction over all STT backends (local whisper-server, OpenAI, Deepgram).
 ///
 /// [RecordingOrchestrator] calls [prepare] once before recording starts,
 /// [transcribe] to convert WAV bytes to text, and [release] when done.
@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/config/settings_enums.dart';
 import '../../core/config/settings_provider.dart';
 import 'deepgram_transcriber.dart';
-import 'groq_transcriber.dart';
 import 'local_transcriber.dart';
 import 'openai_transcriber.dart';
 
@@ -46,7 +45,6 @@ final transcriberProvider = Provider<Transcriber>((ref) {
 
   return switch (providerType) {
     SttProviderType.openAI => OpenAiTranscriber(ref: ref),
-    SttProviderType.groq => GroqTranscriber(ref: ref),
     SttProviderType.deepgram => DeepgramTranscriber(ref: ref),
     SttProviderType.onDevice => LocalTranscriber(ref: ref),
   };
