@@ -124,6 +124,12 @@ class CrashReporter {
   // -------------------------------------------------------------------------
 
   /// Captures an error via Sentry. Non-blocking, fire-and-forget.
+  ///
+  /// [fingerprint] follows the Sentry SDK convention: a non-empty list of
+  /// strings that controls how Sentry groups events into issues. Pass a
+  /// unique value per logical error type (e.g. `['toast-no-audio-detected']`)
+  /// to prevent unrelated toasts or guard-fires from collapsing into a single
+  /// catch-all issue. When `null`, Sentry's default grouping applies.
   void captureError({
     required String message,
     Object? error,
@@ -132,6 +138,7 @@ class CrashReporter {
     String type = 'error',
     String? processName,
     Map<String, dynamic>? extras,
+    List<String>? fingerprint,
   }) {
     if (!_consentGranted) return;
 
@@ -153,6 +160,9 @@ class CrashReporter {
           if (extras != null) {
             scope.setContexts('extras', extras);
           }
+          if (fingerprint != null && fingerprint.isNotEmpty) {
+            scope.fingerprint = fingerprint;
+          }
           // Attach recent log breadcrumbs for context.
           for (final line in getRecentBreadcrumbs().reversed.take(10)) {
             scope.addBreadcrumb(Breadcrumb(message: line));
@@ -168,6 +178,9 @@ class CrashReporter {
           if (processName != null) scope.setTag('process', processName);
           if (extras != null) {
             scope.setContexts('extras', extras);
+          }
+          if (fingerprint != null && fingerprint.isNotEmpty) {
+            scope.fingerprint = fingerprint;
           }
         },
       );
