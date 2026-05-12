@@ -87,7 +87,9 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 
     // Cards
     cardTheme: CardThemeData(
-      color: isDark ? WpColorsDark.surfaceElevated : WpColorsLight.surfaceElevated,
+      color: isDark
+          ? WpColorsDark.surfaceElevated
+          : WpColorsLight.surfaceElevated,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: WpRadius.borderMd,
@@ -141,7 +143,10 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
       style: IconButton.styleFrom(
         foregroundColor: colorScheme.onSurface,
         padding: const EdgeInsets.all(WpSpacing.xs),
-        minimumSize: const Size(WpLayout.minTouchTarget, WpLayout.minTouchTarget),
+        minimumSize: const Size(
+          WpLayout.minTouchTarget,
+          WpLayout.minTouchTarget,
+        ),
         shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
       ),
     ),
@@ -149,7 +154,9 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     // Input fields
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant,
+      fillColor: isDark
+          ? WpColorsDark.surfaceVariant
+          : WpColorsLight.surfaceVariant,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.md,
         vertical: WpSpacing.sm,
@@ -196,7 +203,9 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     // Tooltip
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
-        color: isDark ? WpColorsDark.surfaceElevated : WpColorsLight.textPrimary,
+        color: isDark
+            ? WpColorsDark.surfaceElevated
+            : WpColorsLight.textPrimary,
         borderRadius: WpRadius.borderSm,
         border: Border.all(
           color: isDark ? WpColorsDark.borderDefault : Colors.transparent,
@@ -217,8 +226,9 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
     // Scrollbar
     scrollbarTheme: ScrollbarThemeData(
       thumbColor: WidgetStateProperty.all(
-        (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted)
-            .withValues(alpha: 0.3),
+        (isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted).withValues(
+          alpha: 0.3,
+        ),
       ),
       radius: const Radius.circular(WpRadius.full),
       thickness: WidgetStateProperty.resolveWith((states) {
@@ -229,7 +239,9 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 
     // Snackbar
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: isDark ? WpColorsDark.surfaceElevated : colorScheme.surface,
+      backgroundColor: isDark
+          ? WpColorsDark.surfaceElevated
+          : colorScheme.surface,
       contentTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 13),
       shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
       behavior: SnackBarBehavior.floating,
@@ -238,7 +250,9 @@ ThemeData _buildTheme(ColorScheme colorScheme, {required bool isDark}) {
 
     // Dialog
     dialogTheme: DialogThemeData(
-      backgroundColor: isDark ? WpColorsDark.surfaceElevated : colorScheme.surface,
+      backgroundColor: isDark
+          ? WpColorsDark.surfaceElevated
+          : colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: WpRadius.borderLg),
       elevation: 8,
       titleTextStyle: TextStyle(

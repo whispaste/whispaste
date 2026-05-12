@@ -342,7 +342,8 @@ class AppSettings {
         'stt_idle_timeout_minutes',
         defaults.sttIdleTimeoutMinutes,
       ),
-      customVocabulary: values['custom_vocabulary'] ?? defaults.customVocabulary,
+      customVocabulary:
+          values['custom_vocabulary'] ?? defaults.customVocabulary,
       recordStartSound: _readBool(
         values,
         'record_start_sound',
@@ -618,9 +619,7 @@ class AppSettings {
     'text_replacements_enabled': '$textReplacementsEnabled',
   };
 
-  Map<String, String> _updatesToMap() => {
-    'check_updates': '$checkUpdates',
-  };
+  Map<String, String> _updatesToMap() => {'check_updates': '$checkUpdates'};
 
   Map<String, String> _historyToMap() => {
     'history_max_entries': '$historyMaxEntries',
@@ -1118,8 +1117,10 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
         await secureStore.deleteKey(secureKey);
       }
     } catch (e) {
-      dev.log('resetToDefaults: secure store cleanup failed: $e',
-          name: 'Settings');
+      dev.log(
+        'resetToDefaults: secure store cleanup failed: $e',
+        name: 'Settings',
+      );
     }
     final db = ref.read(historyDatabaseProvider);
     await db.resetAppSettings();
@@ -1141,8 +1142,10 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
         await secureStore.deleteKey(secureKey);
       }
     } catch (e) {
-      dev.log('Factory reset: secure store cleanup failed: $e',
-          name: 'Settings');
+      dev.log(
+        'Factory reset: secure store cleanup failed: $e',
+        name: 'Settings',
+      );
     }
 
     // 2. Delete all database content (history, tags, projects, etc.).

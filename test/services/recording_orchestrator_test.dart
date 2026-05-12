@@ -113,9 +113,7 @@ class FakeSettingsNotifier extends SettingsNotifier {
 
   /// Test defaults keep post-processing disabled to stay focused on the
   /// transcription pipeline in these unit tests.
-  static const _testDefaults = AppSettings(
-    afterTranscription: 'nothing',
-  );
+  static const _testDefaults = AppSettings(afterTranscription: 'nothing');
 
   @override
   Future<AppSettings> build() async => _settings;
@@ -288,7 +286,7 @@ void main() {
         sttModel: 'whisper-small',
         sttLanguage: 'English',
         afterTranscription: 'nothing',
-            onboardingCompleted: true,
+        onboardingCompleted: true,
       ),
     );
 
@@ -848,7 +846,7 @@ void main() {
           sttModel: 'whisper-small',
           sttLanguage: 'English',
           afterTranscription: 'clipboard',
-                onboardingCompleted: true,
+          onboardingCompleted: true,
         ),
       );
       await container.read(settingsProvider.future);
@@ -904,7 +902,7 @@ void main() {
             sttLanguage: 'English',
             afterTranscription: 'paste',
             autoPasteDelay: 350,
-                    onboardingCompleted: true,
+            onboardingCompleted: true,
           ),
         );
         await container.read(settingsProvider.future);
@@ -937,7 +935,7 @@ void main() {
             sttLanguage: 'English',
             afterTranscription: 'paste',
             autoPasteDelay: 200,
-                    onboardingCompleted: true,
+            onboardingCompleted: true,
           ),
         );
         await container.read(settingsProvider.future);
@@ -968,7 +966,7 @@ void main() {
           sttLanguage: 'English',
           afterTranscription: 'clipboard_and_paste',
           autoPasteDelay: 125,
-                onboardingCompleted: true,
+          onboardingCompleted: true,
         ),
       );
       await container.read(settingsProvider.future);

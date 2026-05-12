@@ -40,15 +40,12 @@ class _WpSidebarSettingsButtonState extends State<WpSidebarSettingsButton> {
 
     if (widget.isActive) {
       iconColor = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-      bgColor =
-          isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
+      bgColor = isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
     } else if (_isHovered) {
-      iconColor =
-          isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+      iconColor = isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
       bgColor = isDark ? WpColorsDark.hover : WpColorsLight.hover;
     } else {
-      iconColor =
-          isDark ? WpColorsDark.textSecondary : WpColorsLight.textMuted;
+      iconColor = isDark ? WpColorsDark.textSecondary : WpColorsLight.textMuted;
       bgColor = isDark
           ? WpColorsDark.hoverTransparent
           : WpColorsLight.hoverTransparent;

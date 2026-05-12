@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -39,6 +39,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   HistorySortOrder _sortOrder = HistorySortOrder.newest;
   bool _multiSelectMode = false;
   final Set<String> _selectedIds = {};
+
   /// Tracks last clicked entry for Shift+click range selection.
   String? _lastClickedId;
 
@@ -69,8 +70,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       case HistorySortOrder.oldest:
         return entries.reversed.toList();
       case HistorySortOrder.longest:
-        return [...entries]..sort(
-            (a, b) => b.content.length.compareTo(a.content.length));
+        return [...entries]
+          ..sort((a, b) => b.content.length.compareTo(a.content.length));
     }
   }
 
@@ -81,10 +82,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         return groups;
       case HistorySortOrder.oldest:
         return groups.reversed
-            .map((g) => DateGroup(
-                  labelKey: g.labelKey,
-                  entries: g.entries.reversed.toList(),
-                ))
+            .map(
+              (g) => DateGroup(
+                labelKey: g.labelKey,
+                entries: g.entries.reversed.toList(),
+              ),
+            )
             .toList();
       case HistorySortOrder.longest:
         final all = [for (final g in groups) ...g.entries];
@@ -110,8 +113,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   void _moveFocus(int delta, List<HistoryEntry> flat) {
     if (flat.isEmpty) return;
-    final currentIdx =
-        flat.indexWhere((e) => e.id == _focusedEntryId);
+    final currentIdx = flat.indexWhere((e) => e.id == _focusedEntryId);
     final int nextIdx;
     if (currentIdx < 0) {
       nextIdx = delta > 0 ? 0 : flat.length - 1;
@@ -163,315 +165,341 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         child: Focus(
           autofocus: false,
           child: Column(
-        children: [
-          // Multi-select action bar (shown when items are selected)
-          if (_multiSelectMode && _selectedIds.isNotEmpty)
-            HistoryMultiSelectBar(
-              selectedCount: _selectedIds.length,
-              totalCount: filteredEntries.length,
-              isDark: isDark,
-              isTrashView: isTrashView,
-              isArchiveView: isArchiveView,
-              onMerge: _selectedIds.length >= 2 ? _mergeSelected : null,
-              onBatchCopy: _selectedIds.isNotEmpty
-                  ? () => _copySelectedEntries(filteredEntries)
-                  : null,
-              onArchive: !isTrashView ? _archiveSelected : null,
-              onDelete: _deleteSelected,
-              onRestore: isTrashView ? _restoreSelected : null,
-              onSelectAll: () => setState(() {
-                if (_selectedIds.length >= filteredEntries.length) {
-                  // All selected → deselect all
-                  _selectedIds.clear();
-                  _multiSelectMode = false;
-                } else {
-                  // Select all visible
-                  _selectedIds
-                    ..clear()
-                    ..addAll(filteredEntries.map((e) => e.id));
-                }
-              }),
-              onCancelSelection: () => setState(() {
-                _multiSelectMode = false;
-                _selectedIds.clear();
-              }),
-            ),
-          // Search & filter toolbar
-          if (!_multiSelectMode || _selectedIds.isEmpty)
-            HistorySearchToolbar(
-              controller: _searchController,
-              searchFocusNode: _searchFocusNode,
-              activeFilter: activeFilter,
-              isDark: isDark,
-              onFilterChanged: (f) {
-                ref.read(historyFilterProvider.notifier).set(f);
-                setState(() {
-                  _multiSelectMode = false;
-                  _selectedIds.clear();
-                  _selectedEntryId = null;
-                  _focusedEntryId = null;
-                });
-                _listFocusNode.requestFocus();
-              },
-              onSearchChanged: () {
-                ref.read(historySearchProvider.notifier).set(
-                      _searchController.text,
-                    );
-                // Clear all selection state when search changes so the detail
-                // panel closes and keyboard navigation resets.
-                setState(() {
-                  _selectedIds.clear();
-                  _multiSelectMode = false;
-                  _selectedEntryId = null;
-                  _focusedEntryId = null;
-                });
-              },
-              resultCount: filteredEntries.length,
-              viewMode: _viewMode,
-              onViewModeChanged: (m) => setState(() => _viewMode = m),
-              multiSelectMode: _multiSelectMode,
-              onToggleMultiSelect: () => setState(() {
-                _multiSelectMode = !_multiSelectMode;
-                if (!_multiSelectMode) _selectedIds.clear();
-              }),
-              sortOrder: _sortOrder,
-              onSortOrderChanged: (s) => setState(() => _sortOrder = s),
-              onEmptyTrash: isTrashView && filteredEntries.isNotEmpty
-                  ? _emptyTrash
-                  : null,
-            ),
-          // Master-detail content
-          Expanded(
-            child: groupedAsync.when(
-              data: (groups) {
-                final hasResults = groups.isNotEmpty;
-                if (!hasResults) {
-                  return _emptyStateForFilter(isDark, activeFilter);
-                }
-                final sortedGroups = _sortGroups(groups);
-                final flat = _flatEntries(groups);
-                return CallbackShortcuts(
-                  // Only modifier-combo shortcuts remain here.
-                  // Bare keys (arrows, enter, delete, backspace, escape, F)
-                  // are handled in Focus.onKeyEvent below so they can return
-                  // KeyEventResult.ignored when a text field has focus, allowing
-                  // DefaultTextEditingShortcuts to handle them for text editing.
-                  bindings: <ShortcutActivator, VoidCallback>{
-                    // Ctrl+A: Select all visible items
-                    const SingleActivator(LogicalKeyboardKey.keyA, control: true): () {
-                      if (_isTextFieldFocused()) return;
-                      setState(() {
-                        _multiSelectMode = true;
-                        _selectedIds
-                          ..clear()
-                          ..addAll(flat.map((e) => e.id));
-                      });
-                    },
-                    // Ctrl+Shift+A: Deselect all
-                    const SingleActivator(
-                      LogicalKeyboardKey.keyA, control: true, shift: true,
-                    ): () {
-                      if (_isTextFieldFocused()) return;
-                      setState(() {
-                        _selectedIds.clear();
-                        _multiSelectMode = false;
-                      });
-                    },
-                    // Ctrl+C: Copy focused/selected entry text (suppressed when editing)
-                    const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
-                      if (_isTextFieldFocused()) return;
-                      if (_multiSelectMode && _selectedIds.isNotEmpty) {
-                        _copySelectedEntries(flat);
-                      } else {
-                        final entry = selectedEntry ?? _focusedEntry(flat);
-                        if (entry != null) _copyEntry(entry);
-                      }
-                    },
-                    // Ctrl+M: Merge selected entries
-                    const SingleActivator(LogicalKeyboardKey.keyM, control: true): () {
-                      if (_isTextFieldFocused()) return;
-                      if (_multiSelectMode && _selectedIds.length >= 2) {
-                        _mergeSelected();
-                      }
-                    },
-                    const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
-                      if (_isTextFieldFocused()) return;
-                      final entry = selectedEntry ?? _focusedEntry(flat);
-                      if (entry != null) _openCommandPalette(entry);
-                    },
-                    // Ctrl+Enter: open detail panel for focused entry
-                    const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
-                      if (_isTextFieldFocused()) return;
-                      final entry = _focusedEntry(flat);
-                      if (entry != null) {
-                        setState(() {
-                          _selectedEntryId = entry.id;
-                          _lastClickedId = entry.id;
-                        });
-                      }
-                    },
+            children: [
+              // Multi-select action bar (shown when items are selected)
+              if (_multiSelectMode && _selectedIds.isNotEmpty)
+                HistoryMultiSelectBar(
+                  selectedCount: _selectedIds.length,
+                  totalCount: filteredEntries.length,
+                  isDark: isDark,
+                  isTrashView: isTrashView,
+                  isArchiveView: isArchiveView,
+                  onMerge: _selectedIds.length >= 2 ? _mergeSelected : null,
+                  onBatchCopy: _selectedIds.isNotEmpty
+                      ? () => _copySelectedEntries(filteredEntries)
+                      : null,
+                  onArchive: !isTrashView ? _archiveSelected : null,
+                  onDelete: _deleteSelected,
+                  onRestore: isTrashView ? _restoreSelected : null,
+                  onSelectAll: () => setState(() {
+                    if (_selectedIds.length >= filteredEntries.length) {
+                      // All selected → deselect all
+                      _selectedIds.clear();
+                      _multiSelectMode = false;
+                    } else {
+                      // Select all visible
+                      _selectedIds
+                        ..clear()
+                        ..addAll(filteredEntries.map((e) => e.id));
+                    }
+                  }),
+                  onCancelSelection: () => setState(() {
+                    _multiSelectMode = false;
+                    _selectedIds.clear();
+                  }),
+                ),
+              // Search & filter toolbar
+              if (!_multiSelectMode || _selectedIds.isEmpty)
+                HistorySearchToolbar(
+                  controller: _searchController,
+                  searchFocusNode: _searchFocusNode,
+                  activeFilter: activeFilter,
+                  isDark: isDark,
+                  onFilterChanged: (f) {
+                    ref.read(historyFilterProvider.notifier).set(f);
+                    setState(() {
+                      _multiSelectMode = false;
+                      _selectedIds.clear();
+                      _selectedEntryId = null;
+                      _focusedEntryId = null;
+                    });
+                    _listFocusNode.requestFocus();
                   },
-                  child: Focus(
-                    focusNode: _listFocusNode,
-                    autofocus: true,
-                    // Bare-key shortcuts are handled here via onKeyEvent so that
-                    // KeyEventResult.ignored can be returned when a text field has
-                    // focus. CallbackShortcuts always consumes matched events
-                    // (VoidCallbackAction.consumesKey == true), which would prevent
-                    // DefaultTextEditingShortcuts from processing Backspace/Enter/etc.
-                    onKeyEvent: (node, event) {
-                      if (event is! KeyDownEvent) return KeyEventResult.ignored;
-                      // Pass ALL events through when a text field is focused so
-                      // DefaultTextEditingShortcuts can handle text editing keys.
-                      if (_isTextFieldFocused()) return KeyEventResult.ignored;
-                      final key = event.logicalKey;
-                      if (key == LogicalKeyboardKey.arrowDown) {
-                        _moveFocus(1, flat);
-                        return KeyEventResult.handled;
-                      }
-                      if (key == LogicalKeyboardKey.arrowUp) {
-                        _moveFocus(-1, flat);
-                        return KeyEventResult.handled;
-                      }
-                      if (key == LogicalKeyboardKey.enter) {
-                        final entry = _focusedEntry(flat);
-                        if (entry != null) _copyEntry(entry);
-                        return KeyEventResult.handled;
-                      }
-                      if (key == LogicalKeyboardKey.delete ||
-                          key == LogicalKeyboardKey.backspace) {
-                        if (_multiSelectMode && _selectedIds.isNotEmpty) {
-                          _deleteSelected();
-                        } else {
-                          final entry = _focusedEntry(flat);
-                          if (entry != null) _deleteEntry(entry);
-                        }
-                        return KeyEventResult.handled;
-                      }
-                      // F: Toggle favourite on focused entry
-                      if (key == LogicalKeyboardKey.keyF) {
-                        final entry = _focusedEntry(flat);
-                        if (entry != null) _togglePin(entry);
-                        return KeyEventResult.handled;
-                      }
-                      if (key == LogicalKeyboardKey.escape) {
-                        if (_multiSelectMode) {
+                  onSearchChanged: () {
+                    ref
+                        .read(historySearchProvider.notifier)
+                        .set(_searchController.text);
+                    // Clear all selection state when search changes so the detail
+                    // panel closes and keyboard navigation resets.
+                    setState(() {
+                      _selectedIds.clear();
+                      _multiSelectMode = false;
+                      _selectedEntryId = null;
+                      _focusedEntryId = null;
+                    });
+                  },
+                  resultCount: filteredEntries.length,
+                  viewMode: _viewMode,
+                  onViewModeChanged: (m) => setState(() => _viewMode = m),
+                  multiSelectMode: _multiSelectMode,
+                  onToggleMultiSelect: () => setState(() {
+                    _multiSelectMode = !_multiSelectMode;
+                    if (!_multiSelectMode) _selectedIds.clear();
+                  }),
+                  sortOrder: _sortOrder,
+                  onSortOrderChanged: (s) => setState(() => _sortOrder = s),
+                  onEmptyTrash: isTrashView && filteredEntries.isNotEmpty
+                      ? _emptyTrash
+                      : null,
+                ),
+              // Master-detail content
+              Expanded(
+                child: groupedAsync.when(
+                  data: (groups) {
+                    final hasResults = groups.isNotEmpty;
+                    if (!hasResults) {
+                      return _emptyStateForFilter(isDark, activeFilter);
+                    }
+                    final sortedGroups = _sortGroups(groups);
+                    final flat = _flatEntries(groups);
+                    return CallbackShortcuts(
+                      // Only modifier-combo shortcuts remain here.
+                      // Bare keys (arrows, enter, delete, backspace, escape, F)
+                      // are handled in Focus.onKeyEvent below so they can return
+                      // KeyEventResult.ignored when a text field has focus, allowing
+                      // DefaultTextEditingShortcuts to handle them for text editing.
+                      bindings: <ShortcutActivator, VoidCallback>{
+                        // Ctrl+A: Select all visible items
+                        const SingleActivator(
+                          LogicalKeyboardKey.keyA,
+                          control: true,
+                        ): () {
+                          if (_isTextFieldFocused()) return;
+                          setState(() {
+                            _multiSelectMode = true;
+                            _selectedIds
+                              ..clear()
+                              ..addAll(flat.map((e) => e.id));
+                          });
+                        },
+                        // Ctrl+Shift+A: Deselect all
+                        const SingleActivator(
+                          LogicalKeyboardKey.keyA,
+                          control: true,
+                          shift: true,
+                        ): () {
+                          if (_isTextFieldFocused()) return;
                           setState(() {
                             _selectedIds.clear();
                             _multiSelectMode = false;
                           });
-                        } else if (_selectedEntryId != null) {
-                          setState(() => _selectedEntryId = null);
-                        } else if (_focusedEntryId != null) {
-                          setState(() => _focusedEntryId = null);
-                        }
-                        return KeyEventResult.handled;
-                      }
-                      return KeyEventResult.ignored;
-                    },
-                    child: GestureDetector(
-                      onTap: () => _listFocusNode.requestFocus(),
-                      behavior: HitTestBehavior.translucent,
-                      child: HistoryMasterDetail(
-                        groups: sortedGroups,
-                        isDark: isDark,
-                        viewMode: _viewMode,
-                        selectedEntry: selectedEntry,
-                        focusedId: _focusedEntryId,
-                        multiSelectMode: _multiSelectMode,
-                        selectedIds: _selectedIds,
-                        isTrashView: isTrashView,
-                        isArchiveView: isArchiveView,
-                        onEntryTap: (entry) {
-                          final isCtrl =
-                              HardwareKeyboard.instance.isControlPressed ||
-                                  HardwareKeyboard.instance.isMetaPressed;
-                          final isShift =
-                              HardwareKeyboard.instance.isShiftPressed;
-
-                          if (isCtrl) {
-                            // Ctrl+click: toggle individual item in multi-select
-                            setState(() {
-                              if (!_multiSelectMode) _multiSelectMode = true;
-                              if (_selectedIds.contains(entry.id)) {
-                                _selectedIds.remove(entry.id);
-                              } else {
-                                _selectedIds.add(entry.id);
-                              }
-                              _lastClickedId = entry.id;
-                            });
-                          } else if (isShift && _lastClickedId != null) {
-                            // Shift+click: range select from last clicked
-                            final flatIds =
-                                filteredEntries.map((e) => e.id).toList();
-                            final from = flatIds.indexOf(_lastClickedId!);
-                            final to = flatIds.indexOf(entry.id);
-                            if (from >= 0 && to >= 0) {
-                              final start = from < to ? from : to;
-                              final end = from < to ? to : from;
-                              setState(() {
-                                if (!_multiSelectMode) _multiSelectMode = true;
-                                for (var i = start; i <= end; i++) {
-                                  _selectedIds.add(flatIds[i]);
-                                }
-                              });
-                            }
-                          } else if (_multiSelectMode) {
-                            setState(() {
-                              if (_selectedIds.contains(entry.id)) {
-                                _selectedIds.remove(entry.id);
-                              } else {
-                                _selectedIds.add(entry.id);
-                              }
-                              _lastClickedId = entry.id;
-                            });
+                        },
+                        // Ctrl+C: Copy focused/selected entry text (suppressed when editing)
+                        const SingleActivator(
+                          LogicalKeyboardKey.keyC,
+                          control: true,
+                        ): () {
+                          if (_isTextFieldFocused()) return;
+                          if (_multiSelectMode && _selectedIds.isNotEmpty) {
+                            _copySelectedEntries(flat);
                           } else {
+                            final entry = selectedEntry ?? _focusedEntry(flat);
+                            if (entry != null) _copyEntry(entry);
+                          }
+                        },
+                        // Ctrl+M: Merge selected entries
+                        const SingleActivator(
+                          LogicalKeyboardKey.keyM,
+                          control: true,
+                        ): () {
+                          if (_isTextFieldFocused()) return;
+                          if (_multiSelectMode && _selectedIds.length >= 2) {
+                            _mergeSelected();
+                          }
+                        },
+                        const SingleActivator(
+                          LogicalKeyboardKey.keyK,
+                          control: true,
+                        ): () {
+                          if (_isTextFieldFocused()) return;
+                          final entry = selectedEntry ?? _focusedEntry(flat);
+                          if (entry != null) _openCommandPalette(entry);
+                        },
+                        // Ctrl+Enter: open detail panel for focused entry
+                        const SingleActivator(
+                          LogicalKeyboardKey.enter,
+                          control: true,
+                        ): () {
+                          if (_isTextFieldFocused()) return;
+                          final entry = _focusedEntry(flat);
+                          if (entry != null) {
                             setState(() {
                               _selectedEntryId = entry.id;
-                              _focusedEntryId = entry.id;
                               _lastClickedId = entry.id;
                             });
                           }
-                          // Ensure list focus node has focus so keyboard
-                          // shortcuts work after any click interaction.
-                          // If detail panel opens, it will subsequently
-                          // claim focus (as a descendant, so list shortcuts
-                          // still work via event bubbling).
-                          _listFocusNode.requestFocus();
                         },
-                        onCopy: _copyEntry,
-                        onPin: _togglePin,
-                        onDelete: _deleteEntry,
-                        onArchive: _archiveEntry,
-                        onRestore: _restoreEntry,
-                        onDuplicate: _duplicateEntry,
-                        onCopyMarkdown: _copyAsMarkdown,
-                        onCloseDetail: () =>
-                            setState(() => _selectedEntryId = null),
-                        onTagTap: (tag) {
-                          _searchController.text = '#$tag';
-                          ref
-                              .read(historySearchProvider.notifier)
-                              .set('#$tag');
-                          _searchFocusNode.unfocus();
-                          setState(() {
-                            _selectedEntryId = null;
-                            _focusedEntryId = null;
-                          });
+                      },
+                      child: Focus(
+                        focusNode: _listFocusNode,
+                        autofocus: true,
+                        // Bare-key shortcuts are handled here via onKeyEvent so that
+                        // KeyEventResult.ignored can be returned when a text field has
+                        // focus. CallbackShortcuts always consumes matched events
+                        // (VoidCallbackAction.consumesKey == true), which would prevent
+                        // DefaultTextEditingShortcuts from processing Backspace/Enter/etc.
+                        onKeyEvent: (node, event) {
+                          if (event is! KeyDownEvent) {
+                            return KeyEventResult.ignored;
+                          }
+                          // Pass ALL events through when a text field is focused so
+                          // DefaultTextEditingShortcuts can handle text editing keys.
+                          if (_isTextFieldFocused()) {
+                            return KeyEventResult.ignored;
+                          }
+                          final key = event.logicalKey;
+                          if (key == LogicalKeyboardKey.arrowDown) {
+                            _moveFocus(1, flat);
+                            return KeyEventResult.handled;
+                          }
+                          if (key == LogicalKeyboardKey.arrowUp) {
+                            _moveFocus(-1, flat);
+                            return KeyEventResult.handled;
+                          }
+                          if (key == LogicalKeyboardKey.enter) {
+                            final entry = _focusedEntry(flat);
+                            if (entry != null) _copyEntry(entry);
+                            return KeyEventResult.handled;
+                          }
+                          if (key == LogicalKeyboardKey.delete ||
+                              key == LogicalKeyboardKey.backspace) {
+                            if (_multiSelectMode && _selectedIds.isNotEmpty) {
+                              _deleteSelected();
+                            } else {
+                              final entry = _focusedEntry(flat);
+                              if (entry != null) _deleteEntry(entry);
+                            }
+                            return KeyEventResult.handled;
+                          }
+                          // F: Toggle favourite on focused entry
+                          if (key == LogicalKeyboardKey.keyF) {
+                            final entry = _focusedEntry(flat);
+                            if (entry != null) _togglePin(entry);
+                            return KeyEventResult.handled;
+                          }
+                          if (key == LogicalKeyboardKey.escape) {
+                            if (_multiSelectMode) {
+                              setState(() {
+                                _selectedIds.clear();
+                                _multiSelectMode = false;
+                              });
+                            } else if (_selectedEntryId != null) {
+                              setState(() => _selectedEntryId = null);
+                            } else if (_focusedEntryId != null) {
+                              setState(() => _focusedEntryId = null);
+                            }
+                            return KeyEventResult.handled;
+                          }
+                          return KeyEventResult.ignored;
                         },
+                        child: GestureDetector(
+                          onTap: () => _listFocusNode.requestFocus(),
+                          behavior: HitTestBehavior.translucent,
+                          child: HistoryMasterDetail(
+                            groups: sortedGroups,
+                            isDark: isDark,
+                            viewMode: _viewMode,
+                            selectedEntry: selectedEntry,
+                            focusedId: _focusedEntryId,
+                            multiSelectMode: _multiSelectMode,
+                            selectedIds: _selectedIds,
+                            isTrashView: isTrashView,
+                            isArchiveView: isArchiveView,
+                            onEntryTap: (entry) {
+                              final isCtrl =
+                                  HardwareKeyboard.instance.isControlPressed ||
+                                  HardwareKeyboard.instance.isMetaPressed;
+                              final isShift =
+                                  HardwareKeyboard.instance.isShiftPressed;
+
+                              if (isCtrl) {
+                                // Ctrl+click: toggle individual item in multi-select
+                                setState(() {
+                                  if (!_multiSelectMode) {
+                                    _multiSelectMode = true;
+                                  }
+                                  if (_selectedIds.contains(entry.id)) {
+                                    _selectedIds.remove(entry.id);
+                                  } else {
+                                    _selectedIds.add(entry.id);
+                                  }
+                                  _lastClickedId = entry.id;
+                                });
+                              } else if (isShift && _lastClickedId != null) {
+                                // Shift+click: range select from last clicked
+                                final flatIds = filteredEntries
+                                    .map((e) => e.id)
+                                    .toList();
+                                final from = flatIds.indexOf(_lastClickedId!);
+                                final to = flatIds.indexOf(entry.id);
+                                if (from >= 0 && to >= 0) {
+                                  final start = from < to ? from : to;
+                                  final end = from < to ? to : from;
+                                  setState(() {
+                                    if (!_multiSelectMode) {
+                                      _multiSelectMode = true;
+                                    }
+                                    for (var i = start; i <= end; i++) {
+                                      _selectedIds.add(flatIds[i]);
+                                    }
+                                  });
+                                }
+                              } else if (_multiSelectMode) {
+                                setState(() {
+                                  if (_selectedIds.contains(entry.id)) {
+                                    _selectedIds.remove(entry.id);
+                                  } else {
+                                    _selectedIds.add(entry.id);
+                                  }
+                                  _lastClickedId = entry.id;
+                                });
+                              } else {
+                                setState(() {
+                                  _selectedEntryId = entry.id;
+                                  _focusedEntryId = entry.id;
+                                  _lastClickedId = entry.id;
+                                });
+                              }
+                              // Ensure list focus node has focus so keyboard
+                              // shortcuts work after any click interaction.
+                              // If detail panel opens, it will subsequently
+                              // claim focus (as a descendant, so list shortcuts
+                              // still work via event bubbling).
+                              _listFocusNode.requestFocus();
+                            },
+                            onCopy: _copyEntry,
+                            onPin: _togglePin,
+                            onDelete: _deleteEntry,
+                            onArchive: _archiveEntry,
+                            onRestore: _restoreEntry,
+                            onDuplicate: _duplicateEntry,
+                            onCopyMarkdown: _copyAsMarkdown,
+                            onCloseDetail: () =>
+                                setState(() => _selectedEntryId = null),
+                            onTagTap: (tag) {
+                              _searchController.text = '#$tag';
+                              ref
+                                  .read(historySearchProvider.notifier)
+                                  .set('#$tag');
+                              _searchFocusNode.unfocus();
+                              setState(() {
+                                _selectedEntryId = null;
+                                _focusedEntryId = null;
+                              });
+                            },
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              },
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) => _emptyStateForFilter(isDark, activeFilter),
-            ),
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => _emptyStateForFilter(isDark, activeFilter),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      ),
+        ),
       ),
     );
   }
@@ -566,14 +594,16 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   Future<void> _exportAsText(HistoryEntry entry) async {
     try {
-      final dir = await getDownloadsDirectory() ??
+      final dir =
+          await getDownloadsDirectory() ??
           await getApplicationDocumentsDirectory();
       final safeName = (entry.title.isNotEmpty ? entry.title : 'transcription')
           .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
           .trim();
-      final timestamp =
-          DateFormat('yyyyMMdd_HHmmss').format(entry.timestamp);
-      final file = File('${dir.path}${Platform.pathSeparator}${safeName}_$timestamp.txt');
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(entry.timestamp);
+      final file = File(
+        '${dir.path}${Platform.pathSeparator}${safeName}_$timestamp.txt',
+      );
       await file.writeAsString(entry.content);
       if (!mounted) return;
       WpToast.show(
@@ -719,8 +749,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   void _duplicateEntry(HistoryEntry entry) async {
     try {
-      final dup =
-          await ref.read(historyDatabaseProvider).duplicateEntry(entry.id);
+      final dup = await ref
+          .read(historyDatabaseProvider)
+          .duplicateEntry(entry.id);
       if (!mounted || dup == null) return;
       setState(() => _selectedEntryId = dup.id);
       WpToast.show(
@@ -752,7 +783,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       md.writeln('**Tags:** ${tags.map((t) => '#$t').join(', ')}');
     }
     md.writeln(
-        '**Date:** ${DateFormat.yMMMd().add_Hm().format(entry.timestamp)}');
+      '**Date:** ${DateFormat.yMMMd().add_Hm().format(entry.timestamp)}',
+    );
     if (entry.model.isNotEmpty) {
       md.writeln('**Model:** ${entry.model}');
     }

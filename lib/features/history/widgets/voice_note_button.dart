@@ -62,8 +62,7 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
       widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
   Color get _textMuted =>
       widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-  Color get _error =>
-      widget.isDark ? WpColorsDark.error : WpColorsLight.error;
+  Color get _error => widget.isDark ? WpColorsDark.error : WpColorsLight.error;
 
   bool get _isBusy => _phase != _VoiceNotePhase.idle;
 

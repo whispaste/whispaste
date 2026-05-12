@@ -101,8 +101,10 @@ class _LogFileSink {
       _bytesWritten = _file!.existsSync() ? _file!.lengthSync() : 0;
       _rotateIfNeeded();
       _sink = _file!.openWrite(mode: FileMode.append);
-      _writeLine('--- Log session started '
-          '(${DateTime.now().toIso8601String()}) ---');
+      _writeLine(
+        '--- Log session started '
+        '(${DateTime.now().toIso8601String()}) ---',
+      );
     } catch (e) {
       // File logging is best-effort — don't crash the app.
       debugPrint('LogFileSink: init failed: $e');
@@ -222,12 +224,14 @@ Future<void> configureLogging() async {
         Level.SHOUT => SentryLevel.fatal,
         _ => SentryLevel.info,
       };
-      Sentry.addBreadcrumb(Breadcrumb(
-        message: '${record.loggerName}: ${record.message}',
-        level: sentryLevel,
-        category: record.loggerName,
-        timestamp: record.time,
-      ));
+      Sentry.addBreadcrumb(
+        Breadcrumb(
+          message: '${record.loggerName}: ${record.message}',
+          level: sentryLevel,
+          category: record.loggerName,
+          timestamp: record.time,
+        ),
+      );
     }
 
     // Auto-escalate errors/fatals to Sentry via crash reporter.

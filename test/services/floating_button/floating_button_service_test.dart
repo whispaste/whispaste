@@ -8,15 +8,14 @@ import 'package:whispaste/services/floating_button/floating_button_controller.da
 void main() {
   group('RecordingPhase → FloatingButtonVisualState mapping', () {
     // This mirrors the mapping in floating_button_service.dart
-    FloatingButtonVisualState mapPhase(RecordingPhase phase) =>
-        switch (phase) {
-          RecordingPhase.idle => FloatingButtonVisualState.idle,
-          RecordingPhase.recording => FloatingButtonVisualState.recording,
-          RecordingPhase.transcribing => FloatingButtonVisualState.transcribing,
-          RecordingPhase.processing => FloatingButtonVisualState.transcribing,
-          RecordingPhase.done => FloatingButtonVisualState.done,
-          RecordingPhase.error => FloatingButtonVisualState.error,
-        };
+    FloatingButtonVisualState mapPhase(RecordingPhase phase) => switch (phase) {
+      RecordingPhase.idle => FloatingButtonVisualState.idle,
+      RecordingPhase.recording => FloatingButtonVisualState.recording,
+      RecordingPhase.transcribing => FloatingButtonVisualState.transcribing,
+      RecordingPhase.processing => FloatingButtonVisualState.transcribing,
+      RecordingPhase.done => FloatingButtonVisualState.done,
+      RecordingPhase.error => FloatingButtonVisualState.error,
+    };
 
     test('idle maps to idle', () {
       expect(mapPhase(RecordingPhase.idle), FloatingButtonVisualState.idle);

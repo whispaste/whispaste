@@ -40,18 +40,17 @@ void main() {
     clipboardContent = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      switch (call.method) {
-        case 'Clipboard.setData':
-          clipboardContent =
-              (call.arguments as Map)['text'] as String?;
-          return null;
-        case 'Clipboard.getData':
-          if (clipboardContent == null) return null;
-          return <String, dynamic>{'text': clipboardContent};
-        default:
-          return null;
-      }
-    });
+          switch (call.method) {
+            case 'Clipboard.setData':
+              clipboardContent = (call.arguments as Map)['text'] as String?;
+              return null;
+            case 'Clipboard.getData':
+              if (clipboardContent == null) return null;
+              return <String, dynamic>{'text': clipboardContent};
+            default:
+              return null;
+          }
+        });
   });
 
   tearDown(() {
@@ -121,10 +120,7 @@ void main() {
 
       final outcome = await paster.paste(
         'hello',
-        const PasteOptions(
-          autoPasteDelayMs: 0,
-          blocklist: 'com.example.app',
-        ),
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: 'com.example.app'),
       );
 
       expect(outcome, PasteOutcome.blocked);

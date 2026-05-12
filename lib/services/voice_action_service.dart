@@ -9,10 +9,7 @@ enum VoiceActionType { note, tag, correction }
 
 /// Result of parsing a voice transcription into an actionable intent.
 class VoiceActionResult {
-  const VoiceActionResult({
-    required this.type,
-    required this.payload,
-  });
+  const VoiceActionResult({required this.type, required this.payload});
 
   /// What to do with [payload].
   final VoiceActionType type;

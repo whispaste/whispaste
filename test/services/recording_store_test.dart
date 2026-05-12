@@ -33,7 +33,9 @@ void main() {
 
   group('DriftRecordingStore', () {
     test('saves entry to database', () async {
-      final result = await store.save(makeInput(transcript: 'test transcription'));
+      final result = await store.save(
+        makeInput(transcript: 'test transcription'),
+      );
 
       expect(result.entryId, isNotEmpty);
       expect(result.processedTranscript, 'test transcription');

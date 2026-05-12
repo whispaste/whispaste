@@ -6,10 +6,7 @@ import 'package:flutter/material.dart';
 /// Dark variant: light bars + white "Whis" + cyan "paste" (for dark backgrounds).
 /// Light variant: dark bars + navy "Whis" + cyan "paste" (for light backgrounds).
 class WpBrandWordmark extends StatelessWidget {
-  const WpBrandWordmark({
-    super.key,
-    this.height = 28,
-  });
+  const WpBrandWordmark({super.key, this.height = 28});
 
   /// Logical height of the wordmark image.
   final double height;

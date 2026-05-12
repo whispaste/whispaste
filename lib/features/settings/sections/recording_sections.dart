@@ -158,7 +158,8 @@ class RecordingSafetySection extends ConsumerWidget {
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
                   .updateSettings(
-                      (s) => s.copyWith(maxRecordDuration: v.round())),
+                    (s) => s.copyWith(maxRecordDuration: v.round()),
+                  ),
             ),
           ),
         ],

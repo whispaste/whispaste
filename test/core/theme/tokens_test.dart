@@ -16,8 +16,11 @@ void main() {
         WpSpacing.xxxl,
       ];
       for (var i = 1; i < values.length; i++) {
-        expect(values[i], greaterThan(values[i - 1]),
-            reason: 'Spacing scale must be strictly increasing at index $i');
+        expect(
+          values[i],
+          greaterThan(values[i - 1]),
+          reason: 'Spacing scale must be strictly increasing at index $i',
+        );
       }
     });
 
@@ -28,15 +31,13 @@ void main() {
 
   group('WpRadius', () {
     test('numeric values are monotonically increasing (sm → xl)', () {
-      final values = [
-        WpRadius.sm,
-        WpRadius.md,
-        WpRadius.lg,
-        WpRadius.xl,
-      ];
+      final values = [WpRadius.sm, WpRadius.md, WpRadius.lg, WpRadius.xl];
       for (var i = 1; i < values.length; i++) {
-        expect(values[i], greaterThan(values[i - 1]),
-            reason: 'Radius scale must be strictly increasing at index $i');
+        expect(
+          values[i],
+          greaterThan(values[i - 1]),
+          reason: 'Radius scale must be strictly increasing at index $i',
+        );
       }
     });
 
@@ -64,8 +65,11 @@ void main() {
         WpIconSize.xxl,
       ];
       for (var i = 1; i < values.length; i++) {
-        expect(values[i], greaterThan(values[i - 1]),
-            reason: 'Icon size scale must be strictly increasing at index $i');
+        expect(
+          values[i],
+          greaterThan(values[i - 1]),
+          reason: 'Icon size scale must be strictly increasing at index $i',
+        );
       }
     });
 
@@ -108,8 +112,7 @@ void main() {
     });
 
     test('expanded sidebar is wider than collapsed', () {
-      expect(WpLayout.sidebarWidthExpanded,
-          greaterThan(WpLayout.sidebarWidth));
+      expect(WpLayout.sidebarWidthExpanded, greaterThan(WpLayout.sidebarWidth));
     });
 
     test('status bar height is compact', () {

@@ -74,10 +74,7 @@ class _FakeSttService extends SttServiceNotifier {
   }
 
   @override
-  Future<String> transcribeBytes(
-    List<int> wavBytes, {
-    String? language,
-  }) async {
+  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
     return transcriptToReturn;
   }
 
@@ -209,8 +206,7 @@ void main() {
     });
 
     test('korrektur with German umlauts in payload', () {
-      final result =
-          parseVoiceAction('korrektur: Ärger über Änderungen für Ü');
+      final result = parseVoiceAction('korrektur: Ärger über Änderungen für Ü');
       expect(result!.type, VoiceActionType.correction);
       expect(result.payload, 'Ärger über Änderungen für Ü');
     });
@@ -259,8 +255,7 @@ void main() {
     });
 
     test('correction payload may contain "tag as" without affecting type', () {
-      final result =
-          parseVoiceAction('correct: please tag as important later');
+      final result = parseVoiceAction('correct: please tag as important later');
       expect(result!.type, VoiceActionType.correction);
       expect(result.payload, 'please tag as important later');
     });
@@ -337,15 +332,17 @@ void main() {
       fakeStt = _FakeSttService();
 
       // Seed an entry so HistoryDetailNotifier can load it.
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: entryId,
-        timestamp: DateTime(2025, 7, 1, 12, 0),
-        content: const Value('Original transcript'),
-        title: const Value('Test Entry'),
-        model: const Value('whisper-small'),
-        isLocal: const Value(true),
-        durationSec: const Value(5.0),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: entryId,
+          timestamp: DateTime(2025, 7, 1, 12, 0),
+          content: const Value('Original transcript'),
+          title: const Value('Test Entry'),
+          model: const Value('whisper-small'),
+          isLocal: const Value(true),
+          durationSec: const Value(5.0),
+        ),
+      );
     });
 
     tearDown(() async {
@@ -353,9 +350,14 @@ void main() {
     });
 
     testWidgets('renders mic icon in idle state', (tester) async {
-      await tester.pumpWidget(_makeTestableButton(
-        entryId: entryId, db: db, fakeAudio: fakeAudio, fakeStt: fakeStt,
-      ));
+      await tester.pumpWidget(
+        _makeTestableButton(
+          entryId: entryId,
+          db: db,
+          fakeAudio: fakeAudio,
+          fakeStt: fakeStt,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Should find the mic icon.
@@ -366,9 +368,14 @@ void main() {
     });
 
     testWidgets('renders InkWell that is tappable', (tester) async {
-      await tester.pumpWidget(_makeTestableButton(
-        entryId: entryId, db: db, fakeAudio: fakeAudio, fakeStt: fakeStt,
-      ));
+      await tester.pumpWidget(
+        _makeTestableButton(
+          entryId: entryId,
+          db: db,
+          fakeAudio: fakeAudio,
+          fakeStt: fakeStt,
+        ),
+      );
       await tester.pumpAndSettle();
 
       final inkWell = tester.widget<InkWell>(find.byType(InkWell));
@@ -378,9 +385,14 @@ void main() {
     testWidgets('shows stop icon after tap starts recording', (tester) async {
       fakeAudio.wavPathToReturn = 'fake_path.wav';
 
-      await tester.pumpWidget(_makeTestableButton(
-        entryId: entryId, db: db, fakeAudio: fakeAudio, fakeStt: fakeStt,
-      ));
+      await tester.pumpWidget(
+        _makeTestableButton(
+          entryId: entryId,
+          db: db,
+          fakeAudio: fakeAudio,
+          fakeStt: fakeStt,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Verify initial mic icon.
@@ -395,13 +407,19 @@ void main() {
       expect(find.byIcon(LucideIcons.mic), findsNothing);
     });
 
-    testWidgets('shows error state and returns to idle on mic error',
-        (tester) async {
+    testWidgets('shows error state and returns to idle on mic error', (
+      tester,
+    ) async {
       fakeAudio.errorOnStart = true;
 
-      await tester.pumpWidget(_makeTestableButton(
-        entryId: entryId, db: db, fakeAudio: fakeAudio, fakeStt: fakeStt,
-      ));
+      await tester.pumpWidget(
+        _makeTestableButton(
+          entryId: entryId,
+          db: db,
+          fakeAudio: fakeAudio,
+          fakeStt: fakeStt,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Tap to try recording — error on start.
@@ -422,14 +440,18 @@ void main() {
       await tester.pump(); // .then() callback disposes
     });
 
-    testWidgets('does not start when main recording is active',
-        (tester) async {
+    testWidgets('does not start when main recording is active', (tester) async {
       // Simulate main dictation already recording.
       fakeAudio = _FakeAudioService();
 
-      await tester.pumpWidget(_makeTestableButton(
-        entryId: entryId, db: db, fakeAudio: fakeAudio, fakeStt: fakeStt,
-      ));
+      await tester.pumpWidget(
+        _makeTestableButton(
+          entryId: entryId,
+          db: db,
+          fakeAudio: fakeAudio,
+          fakeStt: fakeStt,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Manually set audio state to recording (simulating main dictation).
@@ -449,10 +471,15 @@ void main() {
     });
 
     testWidgets('renders correctly in light mode', (tester) async {
-      await tester.pumpWidget(_makeTestableButton(
-        entryId: entryId, db: db, fakeAudio: fakeAudio, fakeStt: fakeStt,
-        isDark: false,
-      ));
+      await tester.pumpWidget(
+        _makeTestableButton(
+          entryId: entryId,
+          db: db,
+          fakeAudio: fakeAudio,
+          fakeStt: fakeStt,
+          isDark: false,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byIcon(LucideIcons.mic), findsOneWidget);
@@ -475,15 +502,17 @@ void main() {
     setUp(() async {
       db = HistoryDatabase.forTesting(NativeDatabase.memory());
 
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: entryId,
-        timestamp: DateTime(2025, 7, 1, 12, 0),
-        content: const Value('Original content'),
-        title: const Value('Flow Test Entry'),
-        model: const Value('whisper-small'),
-        isLocal: const Value(true),
-        durationSec: const Value(5.0),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: entryId,
+          timestamp: DateTime(2025, 7, 1, 12, 0),
+          content: const Value('Original content'),
+          title: const Value('Flow Test Entry'),
+          model: const Value('whisper-small'),
+          isLocal: const Value(true),
+          durationSec: const Value(5.0),
+        ),
+      );
 
       container = ProviderContainer(
         overrides: [
@@ -500,8 +529,7 @@ void main() {
     /// Loads and returns the notifier, keeping a listener alive.
     Future<HistoryDetailNotifier> loadNotifier() async {
       container.listen(historyDetailProvider(entryId), (_, _) {});
-      final state =
-          await container.read(historyDetailProvider(entryId).future);
+      final state = await container.read(historyDetailProvider(entryId).future);
       expect(state.entry.id, entryId);
       return container.read(historyDetailProvider(entryId).notifier);
     }
@@ -519,8 +547,7 @@ void main() {
       expect(notes.first.content, 'Buy groceries tomorrow');
     });
 
-    test('tag: parseVoiceAction "tag as X" → addTag → tag persisted',
-        () async {
+    test('tag: parseVoiceAction "tag as X" → addTag → tag persisted', () async {
       final notifier = await loadNotifier();
 
       final action = parseVoiceAction('tag as important');
@@ -533,8 +560,7 @@ void main() {
       expect(tags.first.name, 'important');
     });
 
-    test('tag: parseVoiceAction "tag:work" → addTag → tag persisted',
-        () async {
+    test('tag: parseVoiceAction "tag:work" → addTag → tag persisted', () async {
       final notifier = await loadNotifier();
 
       final action = parseVoiceAction('tag:work');
@@ -547,8 +573,7 @@ void main() {
       expect(tags.first.name, 'work');
     });
 
-    test('correction: parseVoiceAction "correct: X" → updateContent',
-        () async {
+    test('correction: parseVoiceAction "correct: X" → updateContent', () async {
       final notifier = await loadNotifier();
 
       final action = parseVoiceAction('correct: Updated transcript content');
@@ -560,18 +585,20 @@ void main() {
       expect(entry!.content, 'Updated transcript content');
     });
 
-    test('correction: parseVoiceAction "korrektur: X" → updateContent',
-        () async {
-      final notifier = await loadNotifier();
+    test(
+      'correction: parseVoiceAction "korrektur: X" → updateContent',
+      () async {
+        final notifier = await loadNotifier();
 
-      final action = parseVoiceAction('korrektur: Korrigierter Inhalt');
-      expect(action!.type, VoiceActionType.correction);
+        final action = parseVoiceAction('korrektur: Korrigierter Inhalt');
+        expect(action!.type, VoiceActionType.correction);
 
-      await notifier.updateContent(action.payload);
+        await notifier.updateContent(action.payload);
 
-      final entry = await db.getEntry(entryId);
-      expect(entry!.content, 'Korrigierter Inhalt');
-    });
+        final entry = await db.getEntry(entryId);
+        expect(entry!.content, 'Korrigierter Inhalt');
+      },
+    );
 
     test('empty/null action not dispatched', () async {
       await loadNotifier();

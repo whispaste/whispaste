@@ -96,7 +96,8 @@ class _WpWaveformState extends State<WpWaveform>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final activeColor =
         widget.color ?? (isDark ? WpColorsDark.accent : WpColorsLight.accent);
-    final idleColor = widget.inactiveColor ??
+    final idleColor =
+        widget.inactiveColor ??
         (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant);
 
     return AnimatedBuilder(
@@ -170,12 +171,9 @@ class _WaveformPainter extends CustomPainter {
 
       // Three-frequency superposition: slow sway + medium flutter + fast shimmer.
       // Each bar has independent phase offsets so they move differently.
-      final slowWave =
-          math.sin((phaseA[i] + tick) * math.pi * 2) * 0.30;
-      final midWave =
-          math.sin((phaseB[i] + tick * 2.7) * math.pi * 2) * 0.20;
-      final fastWave =
-          math.sin((phaseC[i] + tick * 5.3) * math.pi * 2) * 0.10;
+      final slowWave = math.sin((phaseA[i] + tick) * math.pi * 2) * 0.30;
+      final midWave = math.sin((phaseB[i] + tick * 2.7) * math.pi * 2) * 0.20;
+      final fastWave = math.sin((phaseC[i] + tick * 5.3) * math.pi * 2) * 0.10;
 
       // Combined modulation: 0.10 base + up to ±0.60 from waves.
       final modulation = (0.10 + slowWave + midWave + fastWave).clamp(0.0, 1.0);

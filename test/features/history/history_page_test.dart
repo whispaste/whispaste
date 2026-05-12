@@ -13,10 +13,8 @@ import '../../fixtures/test_helpers.dart';
 /// matching the previous behaviour where the page loaded sample entries.
 List<Object> _sampleOverrides() {
   final all = generateSampleEntries();
-  final active =
-      all.where((e) => e.deletedAt == null && !e.archived).toList();
-  final archived =
-      all.where((e) => e.archived && e.deletedAt == null).toList();
+  final active = all.where((e) => e.deletedAt == null && !e.archived).toList();
+  final archived = all.where((e) => e.archived && e.deletedAt == null).toList();
   final trash = all.where((e) => e.deletedAt != null).toList();
   return [
     historyEntriesProvider.overrideWith((ref) => Stream.value(active)),
@@ -29,7 +27,8 @@ void main() {
   group('HistoryPage', () {
     testWidgets('renders search bar and filter chips', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Search transcriptions…'), findsOneWidget);
@@ -42,19 +41,20 @@ void main() {
 
     testWidgets('shows sample entries on load', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await tester.pumpAndSettle();
 
       // Should show date group headers
       expect(find.text('Today'), findsWidgets); // filter chip + date header
       // Should show at least one entry title
-      expect(
-          find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
+      expect(find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
     });
 
     testWidgets('filters entries by Today', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await tester.pumpAndSettle();
 
       // Find the "Today" filter chip (there are two — chip + date header)
@@ -72,7 +72,8 @@ void main() {
 
     testWidgets('filters entries by Favorites', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Favorites'));
@@ -86,7 +87,8 @@ void main() {
 
     testWidgets('search filters entries by text', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await tester.pumpAndSettle();
 
       // Type a search query
@@ -101,7 +103,8 @@ void main() {
 
     testWidgets('search with no matches shows empty state', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'zzzznonexistent');
@@ -112,7 +115,8 @@ void main() {
 
     testWidgets('entry rows show metadata', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await tester.pumpAndSettle();
 
       // Clock icon for duration in entry rows
@@ -123,7 +127,8 @@ void main() {
 
     testWidgets('hover shows action buttons', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await tester.pumpAndSettle();
 
       // Action icons are always in the tree (inside AnimatedOpacity for
@@ -142,18 +147,23 @@ void main() {
     });
 
     testWidgets('works in light theme', (tester) async {
-      await tester.pumpWidget(makeTestable(const HistoryPage(),
-          brightness: Brightness.light, overrides: _sampleOverrides()));
+      await tester.pumpWidget(
+        makeTestable(
+          const HistoryPage(),
+          brightness: Brightness.light,
+          overrides: _sampleOverrides(),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Search transcriptions…'), findsOneWidget);
-      expect(
-          find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
+      expect(find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
     });
 
     testWidgets('view mode toggle switches between views', (tester) async {
       await tester.pumpWidget(
-          makeTestable(const HistoryPage(), overrides: _sampleOverrides()));
+        makeTestable(const HistoryPage(), overrides: _sampleOverrides()),
+      );
       await tester.pumpAndSettle();
 
       // View mode toggle icons should be visible
@@ -169,8 +179,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Card view — entries visible, clock icons in card metadata
-      expect(
-          find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
+      expect(find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
       expect(find.byIcon(LucideIcons.clock), findsWidgets);
 
       // Switch to compact view
@@ -178,8 +187,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Compact view — entries visible, no clock icons (compact has none)
-      expect(
-          find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
+      expect(find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
       expect(find.byIcon(LucideIcons.clock), findsNothing);
 
       // Switch back to list view
@@ -187,8 +195,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Back to list — clock icons reappear in metadata
-      expect(
-          find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
+      expect(find.text('Meeting notes — Product roadmap Q3'), findsOneWidget);
       expect(find.byIcon(LucideIcons.clock), findsWidgets);
     });
   });

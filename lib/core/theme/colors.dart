@@ -24,6 +24,7 @@ abstract final class WpColorsDark {
   /// Variant surface for alternate rows, secondary panels
   static const Color surfaceVariant = Color(0xFF232C40);
   static const Color hover = Color(0xFF212A40);
+
   /// Transparent version of hover for smooth AnimatedContainer transitions
   /// (prevents dark flash when interpolating from transparent to hover)
   static const Color hoverTransparent = Color(0x00212A40);
@@ -213,8 +214,10 @@ abstract final class WpColorsLight {
   // -- Semantic state gradients (FAB / overlay) ----------------------------
   // Light theme uses the same state gradients (they're against white bg)
 
-  static const LinearGradient recordingGradient = WpColorsDark.recordingGradient;
-  static const LinearGradient processingGradient = WpColorsDark.processingGradient;
+  static const LinearGradient recordingGradient =
+      WpColorsDark.recordingGradient;
+  static const LinearGradient processingGradient =
+      WpColorsDark.processingGradient;
   static const LinearGradient successGradient = WpColorsDark.successGradient;
   static const LinearGradient errorGradient = WpColorsDark.errorGradient;
   static const BoxShadow elevationMd = WpColorsDark.elevationMd;

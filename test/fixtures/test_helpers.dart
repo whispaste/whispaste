@@ -16,8 +16,7 @@ Widget makeTestable(
   Size size = const Size(1280, 800),
   List overrides = const [],
 }) {
-  final theme =
-      brightness == Brightness.dark ? wpDarkTheme() : wpLightTheme();
+  final theme = brightness == Brightness.dark ? wpDarkTheme() : wpLightTheme();
 
   return ProviderScope(
     overrides: [

@@ -68,12 +68,14 @@ class KeyboardShortcutSection extends ConsumerWidget {
                           initialModifiers: settings.hotkeyModifiers,
                         );
                         if (result != null) {
-                          ref.read(settingsProvider.notifier).updateSettings(
+                          ref
+                              .read(settingsProvider.notifier)
+                              .updateSettings(
                                 (s) => s.copyWith(
-                              hotkeyKey: result.key,
-                              hotkeyModifiers: result.modifiers,
-                            ),
-                          );
+                                  hotkeyKey: result.key,
+                                  hotkeyModifiers: result.modifiers,
+                                ),
+                              );
                         }
                       },
                       child: Text(l10n.settingsChangeHotkey),
@@ -135,7 +137,8 @@ class SoundFeedbackSection extends ConsumerWidget {
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
                   .updateSettings(
-                      (s) => s.copyWith(transcriptionCompleteSound: v)),
+                    (s) => s.copyWith(transcriptionCompleteSound: v),
+                  ),
             ),
           ),
           SettingRow(
@@ -145,8 +148,7 @@ class SoundFeedbackSection extends ConsumerWidget {
               value: settings.durationWarningSound,
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
-                  .updateSettings(
-                      (s) => s.copyWith(durationWarningSound: v)),
+                  .updateSettings((s) => s.copyWith(durationWarningSound: v)),
             ),
           ),
           SettingRow(
@@ -162,9 +164,8 @@ class SoundFeedbackSection extends ConsumerWidget {
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
                   .updateSettings((s) => s.copyWith(soundVolume: v)),
-              onChangeEnd: (v) => ref
-                  .read(soundFeedbackProvider.notifier)
-                  .playVolumePreview(v),
+              onChangeEnd: (v) =>
+                  ref.read(soundFeedbackProvider.notifier).playVolumePreview(v),
             ),
           ),
         ],
@@ -211,8 +212,7 @@ class AfterTranscriptionSection extends ConsumerWidget {
                 if (v == null) return;
                 ref
                     .read(settingsProvider.notifier)
-                    .updateSettings(
-                        (s) => s.copyWith(afterTranscription: v));
+                    .updateSettings((s) => s.copyWith(afterTranscription: v));
               },
             ),
           ),
@@ -234,7 +234,8 @@ class AfterTranscriptionSection extends ConsumerWidget {
                 onChanged: (v) => ref
                     .read(settingsProvider.notifier)
                     .updateSettings(
-                        (s) => s.copyWith(autoPasteDelay: v.round())),
+                      (s) => s.copyWith(autoPasteDelay: v.round()),
+                    ),
               ),
             ),
           if (settings.afterTranscriptionAction ==
@@ -250,10 +251,7 @@ class AfterTranscriptionSection extends ConsumerWidget {
 
 /// Text field for per-app auto-paste blocklist (comma-separated bundle IDs).
 class _AutoPasteBlocklistField extends StatefulWidget {
-  const _AutoPasteBlocklistField({
-    required this.settings,
-    required this.ref,
-  });
+  const _AutoPasteBlocklistField({required this.settings, required this.ref});
 
   final AppSettings settings;
   final WidgetRef ref;
@@ -270,15 +268,15 @@ class _AutoPasteBlocklistFieldState extends State<_AutoPasteBlocklistField> {
   @override
   void initState() {
     super.initState();
-    _controller =
-        TextEditingController(text: widget.settings.autoPasteBlocklist);
+    _controller = TextEditingController(
+      text: widget.settings.autoPasteBlocklist,
+    );
   }
 
   @override
   void didUpdateWidget(_AutoPasteBlocklistField old) {
     super.didUpdateWidget(old);
-    if (old.settings.autoPasteBlocklist !=
-        widget.settings.autoPasteBlocklist) {
+    if (old.settings.autoPasteBlocklist != widget.settings.autoPasteBlocklist) {
       _controller.text = widget.settings.autoPasteBlocklist;
     }
   }
@@ -293,9 +291,9 @@ class _AutoPasteBlocklistFieldState extends State<_AutoPasteBlocklistField> {
   void _onChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 600), () {
-      widget.ref.read(settingsProvider.notifier).updateSettings(
-            (s) => s.copyWith(autoPasteBlocklist: value),
-          );
+      widget.ref
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(autoPasteBlocklist: value));
     });
   }
 

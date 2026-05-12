@@ -1498,6 +1498,30 @@ class L10nEn extends L10n {
   String get errorSttServerFailed => 'Speech engine failed to start';
 
   @override
+  String get errorSttModelIncompatibleRuntime =>
+      'Speech model is incompatible with the installed runtime. Please re-download the speech model in Settings.';
+
+  @override
+  String get errorSttModelCorruptedRedownloading =>
+      'Speech model appears corrupted — downloading a fresh copy automatically.';
+
+  @override
+  String get errorSttDllMissing =>
+      'A required system component is missing. Retrying with CPU mode.';
+
+  @override
+  String get errorSttGpuFatal =>
+      'GPU acceleration failed. Retrying with CPU mode.';
+
+  @override
+  String get errorSttHeapCorruption =>
+      'A memory error occurred. Retrying with CPU mode.';
+
+  @override
+  String get errorSttCpuFallbackFailed =>
+      'Speech engine failed on both GPU and CPU. Please restart the app or re-download the model.';
+
+  @override
   String get errorPipelineTimeout =>
       'Recording took too long. Please try a shorter recording.';
 

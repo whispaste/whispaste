@@ -31,9 +31,7 @@ class InsufficientRamScreen extends StatelessWidget {
     final l10n = L10n.of(context);
 
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: WpColorsDark.frameGradient,
-      ),
+      decoration: const BoxDecoration(gradient: WpColorsDark.frameGradient),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Center(
@@ -41,10 +39,7 @@ class InsufficientRamScreen extends StatelessWidget {
             padding: const EdgeInsets.all(WpSpacing.xxl),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
-              child: _ErrorCard(
-                detectedGb: detectedGb,
-                l10n: l10n,
-              ),
+              child: _ErrorCard(detectedGb: detectedGb, l10n: l10n),
             ),
           ),
         ),

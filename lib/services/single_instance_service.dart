@@ -40,17 +40,14 @@ class SingleInstanceService {
 
   /// Handle incoming connections from secondary instances.
   static void _handleConnection(Socket socket) {
-    socket.listen(
-      (data) {
-        final message = String.fromCharCodes(data).trim();
-        if (message == _focusCommand) {
-          _log.info('Received focus signal from second instance');
-          onSecondInstanceLaunched?.call();
-        }
-        socket.close();
-      },
-      onError: (_) => socket.destroy(),
-    );
+    socket.listen((data) {
+      final message = String.fromCharCodes(data).trim();
+      if (message == _focusCommand) {
+        _log.info('Received focus signal from second instance');
+        onSecondInstanceLaunched?.call();
+      }
+      socket.close();
+    }, onError: (_) => socket.destroy());
   }
 
   /// Signal the already-running instance to focus its window.

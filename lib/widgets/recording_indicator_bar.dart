@@ -65,7 +65,8 @@ class _WpRecordingIndicatorBarState extends State<WpRecordingIndicatorBar>
 
   @override
   Widget build(BuildContext context) {
-    final isActive = widget.phase == RecordingPhase.recording ||
+    final isActive =
+        widget.phase == RecordingPhase.recording ||
         widget.phase == RecordingPhase.transcribing ||
         widget.phase == RecordingPhase.processing;
 

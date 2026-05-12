@@ -33,8 +33,7 @@ class TextReplacementsSection extends ConsumerWidget {
           value: settings.textReplacementsEnabled,
           onChanged: (v) => ref
               .read(settingsProvider.notifier)
-              .updateSettings(
-                  (s) => s.copyWith(textReplacementsEnabled: v)),
+              .updateSettings((s) => s.copyWith(textReplacementsEnabled: v)),
         ),
       ),
     );

@@ -44,9 +44,7 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>> {
     final rows = await db.readAllReplacements();
     if (rows.isEmpty) {
       await _insertSampleData(db);
-      return (await db.readAllReplacements())
-          .map(_fromDb)
-          .toList();
+      return (await db.readAllReplacements()).map(_fromDb).toList();
     }
     return rows.map(_fromDb).toList();
   }
@@ -60,27 +58,29 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>> {
     ];
     for (final (trigger, replacement) in samples) {
       final id = '${now.millisecondsSinceEpoch}_$trigger';
-      await db.upsertReplacement(TextReplacementsCompanion(
-        id: Value(id),
-        trigger: Value(trigger),
-        replacement: Value(replacement),
-        createdAt: Value(now),
-      ));
+      await db.upsertReplacement(
+        TextReplacementsCompanion(
+          id: Value(id),
+          trigger: Value(trigger),
+          replacement: Value(replacement),
+          createdAt: Value(now),
+        ),
+      );
     }
   }
 
   Future<void> add(String trigger, String replacement) async {
     final db = ref.read(historyDatabaseProvider);
     final id = DateTime.now().millisecondsSinceEpoch.toString();
-    await db.upsertReplacement(TextReplacementsCompanion(
-      id: Value(id),
-      trigger: Value(trigger),
-      replacement: Value(replacement),
-      createdAt: Value(DateTime.now()),
-    ));
-    state = AsyncData(
-      (await db.readAllReplacements()).map(_fromDb).toList(),
+    await db.upsertReplacement(
+      TextReplacementsCompanion(
+        id: Value(id),
+        trigger: Value(trigger),
+        replacement: Value(replacement),
+        createdAt: Value(DateTime.now()),
+      ),
     );
+    state = AsyncData((await db.readAllReplacements()).map(_fromDb).toList());
   }
 
   Future<void> updateReplacement(
@@ -89,30 +89,28 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>> {
     required String replacement,
   }) async {
     final db = ref.read(historyDatabaseProvider);
-    await db.upsertReplacement(TextReplacementsCompanion(
-      id: Value(id),
-      trigger: Value(trigger),
-      replacement: Value(replacement),
-      createdAt: Value(DateTime.now()),
-    ));
-    state = AsyncData(
-      (await db.readAllReplacements()).map(_fromDb).toList(),
+    await db.upsertReplacement(
+      TextReplacementsCompanion(
+        id: Value(id),
+        trigger: Value(trigger),
+        replacement: Value(replacement),
+        createdAt: Value(DateTime.now()),
+      ),
     );
+    state = AsyncData((await db.readAllReplacements()).map(_fromDb).toList());
   }
 
   Future<void> remove(String id) async {
     final db = ref.read(historyDatabaseProvider);
     await db.deleteReplacement(id);
-    state = AsyncData(
-      (await db.readAllReplacements()).map(_fromDb).toList(),
-    );
+    state = AsyncData((await db.readAllReplacements()).map(_fromDb).toList());
   }
 
   static Replacement _fromDb(TextReplacement row) => Replacement(
-        id: row.id,
-        trigger: row.trigger,
-        replacement: row.replacement,
-      );
+    id: row.id,
+    trigger: row.trigger,
+    replacement: row.replacement,
+  );
 }
 
 final replacementsProvider =
@@ -222,7 +220,8 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
                         onChanged: (v) => ref
                             .read(settingsProvider.notifier)
                             .updateSettings(
-                                (s) => s.copyWith(textReplacementsEnabled: v)),
+                              (s) => s.copyWith(textReplacementsEnabled: v),
+                            ),
                       ),
                     ),
                     const SizedBox(width: WpSpacing.xs),
@@ -241,37 +240,37 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
                   duration: WpMotion.normal,
                   opacity: enabled ? 1.0 : 0.5,
                   child: all.isEmpty
-                    ? WpEmptyState(
-                        icon: LucideIcons.replace,
-                        title: l10n.replacementsEmpty,
-                        hint: l10n.replacementsEmptyHint,
-                        actionLabel: l10n.replacementsAddShortcut,
-                        onAction: () => _showAddEditDialog(),
-                      )
-                    : visible.isEmpty
-                    ? WpEmptyState(
-                        icon: LucideIcons.searchX,
-                        title: l10n.replacementsNoMatches,
-                        hint: l10n.replacementsNoMatchesHint,
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: WpSpacing.xl,
-                          vertical: WpSpacing.xs,
+                      ? WpEmptyState(
+                          icon: LucideIcons.replace,
+                          title: l10n.replacementsEmpty,
+                          hint: l10n.replacementsEmptyHint,
+                          actionLabel: l10n.replacementsAddShortcut,
+                          onAction: () => _showAddEditDialog(),
+                        )
+                      : visible.isEmpty
+                      ? WpEmptyState(
+                          icon: LucideIcons.searchX,
+                          title: l10n.replacementsNoMatches,
+                          hint: l10n.replacementsNoMatchesHint,
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: WpSpacing.xl,
+                            vertical: WpSpacing.xs,
+                          ),
+                          itemCount: visible.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: WpSpacing.xs),
+                          itemBuilder: (context, index) {
+                            final r = visible[index];
+                            return _ReplacementTile(
+                              replacement: r,
+                              isDark: isDark,
+                              onTap: () => _showAddEditDialog(existing: r),
+                              onDelete: () => _confirmDelete(r),
+                            );
+                          },
                         ),
-                        itemCount: visible.length,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(height: WpSpacing.xs),
-                        itemBuilder: (context, index) {
-                          final r = visible[index];
-                          return _ReplacementTile(
-                            replacement: r,
-                        isDark: isDark,
-                        onTap: () => _showAddEditDialog(existing: r),
-                        onDelete: () => _confirmDelete(r),
-                      );
-                    },
-                  ),
                 ),
               ),
             ],
@@ -292,7 +291,11 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
     final (trigger, replacement) = result;
     final notifier = ref.read(replacementsProvider.notifier);
     if (existing != null) {
-      notifier.updateReplacement(existing.id, trigger: trigger, replacement: replacement);
+      notifier.updateReplacement(
+        existing.id,
+        trigger: trigger,
+        replacement: replacement,
+      );
     } else {
       notifier.add(trigger, replacement);
     }

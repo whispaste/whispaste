@@ -18,8 +18,11 @@ void main() {
       // The watchdog detects the flutter_test zone and skips activation.
       final wd = UiThreadWatchdog.instance;
       wd.start();
-      expect(wd.isRunning, isFalse,
-          reason: 'Watchdog should stay inactive inside flutter_test');
+      expect(
+        wd.isRunning,
+        isFalse,
+        reason: 'Watchdog should stay inactive inside flutter_test',
+      );
     });
 
     test('dispose is safe to call when not running', () {

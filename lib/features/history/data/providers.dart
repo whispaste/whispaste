@@ -24,7 +24,8 @@ class HistoryFilterNotifier extends Notifier<HistoryFilter> {
 
 final historyFilterProvider =
     NotifierProvider<HistoryFilterNotifier, HistoryFilter>(
-        HistoryFilterNotifier.new);
+      HistoryFilterNotifier.new,
+    );
 
 /// Search query for the history page.
 class HistorySearchNotifier extends Notifier<String> {
@@ -34,8 +35,9 @@ class HistorySearchNotifier extends Notifier<String> {
   void set(String query) => state = query;
 }
 
-final historySearchProvider =
-    NotifierProvider<HistorySearchNotifier, String>(HistorySearchNotifier.new);
+final historySearchProvider = NotifierProvider<HistorySearchNotifier, String>(
+  HistorySearchNotifier.new,
+);
 
 /// Filtered and searched history entries— the main data source for the list.
 final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
@@ -54,7 +56,8 @@ final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
     // Fall back to in-memory while DB search loads
     final archivedAsync = ref.watch(archivedEntriesProvider);
     return archivedAsync.whenData(
-        (entries) => _applyParsedSearch(entries, parsed));
+      (entries) => _applyParsedSearch(entries, parsed),
+    );
   }
   if (filter == HistoryFilter.trash) {
     if (parsed.isEmpty) return ref.watch(trashEntriesProvider);
@@ -65,7 +68,8 @@ final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
     // Fall back to in-memory while DB search loads
     final trashAsync = ref.watch(trashEntriesProvider);
     return trashAsync.whenData(
-        (entries) => _applyParsedSearch(entries, parsed));
+      (entries) => _applyParsedSearch(entries, parsed),
+    );
   }
 
   final entriesAsync = ref.watch(historyEntriesProvider);
@@ -84,72 +88,67 @@ final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
       }
     }
     // Fall back to in-memory search while advanced search loads/errors
-    return entriesAsync.whenData((entries) =>
-        _applyFilter(_applyParsedSearch(entries, parsed), filter));
+    return entriesAsync.whenData(
+      (entries) => _applyFilter(_applyParsedSearch(entries, parsed), filter),
+    );
   }
 
   return entriesAsync.whenData((entries) => _applyFilter(entries, filter));
 });
 
 /// Advanced search (FTS5 + tag filter + lang filter) — auto-disposes on query change.
-final _advancedSearchProvider =
-    FutureProvider.autoDispose.family<List<HistoryEntry>, String>(
-  (ref, rawQuery) async {
-    final db = ref.watch(historyDatabaseProvider);
-    final parsed = parseSearchQuery(rawQuery);
-    try {
-      return await db.searchEntriesAdvanced(
-        freeText: parsed.freeText,
-        tagNames: parsed.tagNames,
-        langCode: parsed.langCode,
-      );
-    } catch (_) {
-      return [];
-    }
-  },
-);
+final _advancedSearchProvider = FutureProvider.autoDispose
+    .family<List<HistoryEntry>, String>((ref, rawQuery) async {
+      final db = ref.watch(historyDatabaseProvider);
+      final parsed = parseSearchQuery(rawQuery);
+      try {
+        return await db.searchEntriesAdvanced(
+          freeText: parsed.freeText,
+          tagNames: parsed.tagNames,
+          langCode: parsed.langCode,
+        );
+      } catch (_) {
+        return [];
+      }
+    });
 
 /// Advanced search for archived entries (FTS5 + tag join).
-final _archivedSearchProvider =
-    FutureProvider.autoDispose.family<List<HistoryEntry>, String>(
-  (ref, rawQuery) async {
-    final db = ref.watch(historyDatabaseProvider);
-    final parsed = parseSearchQuery(rawQuery);
-    try {
-      final results = await db.searchEntriesAdvanced(
-        freeText: parsed.freeText,
-        tagNames: parsed.tagNames,
-        langCode: parsed.langCode,
-        includeArchived: true,
-      );
-      // Filter to archived-only
-      return results.where((e) => e.archived && e.deletedAt == null).toList();
-    } catch (_) {
-      return [];
-    }
-  },
-);
+final _archivedSearchProvider = FutureProvider.autoDispose
+    .family<List<HistoryEntry>, String>((ref, rawQuery) async {
+      final db = ref.watch(historyDatabaseProvider);
+      final parsed = parseSearchQuery(rawQuery);
+      try {
+        final results = await db.searchEntriesAdvanced(
+          freeText: parsed.freeText,
+          tagNames: parsed.tagNames,
+          langCode: parsed.langCode,
+          includeArchived: true,
+        );
+        // Filter to archived-only
+        return results.where((e) => e.archived && e.deletedAt == null).toList();
+      } catch (_) {
+        return [];
+      }
+    });
 
 /// Advanced search for trashed entries (FTS5 + tag join).
-final _trashSearchProvider =
-    FutureProvider.autoDispose.family<List<HistoryEntry>, String>(
-  (ref, rawQuery) async {
-    final db = ref.watch(historyDatabaseProvider);
-    final parsed = parseSearchQuery(rawQuery);
-    try {
-      final results = await db.searchEntriesAdvanced(
-        freeText: parsed.freeText,
-        tagNames: parsed.tagNames,
-        langCode: parsed.langCode,
-        includeDeleted: true,
-      );
-      // Filter to trashed-only
-      return results.where((e) => e.deletedAt != null).toList();
-    } catch (_) {
-      return [];
-    }
-  },
-);
+final _trashSearchProvider = FutureProvider.autoDispose
+    .family<List<HistoryEntry>, String>((ref, rawQuery) async {
+      final db = ref.watch(historyDatabaseProvider);
+      final parsed = parseSearchQuery(rawQuery);
+      try {
+        final results = await db.searchEntriesAdvanced(
+          freeText: parsed.freeText,
+          tagNames: parsed.tagNames,
+          langCode: parsed.langCode,
+          includeDeleted: true,
+        );
+        // Filter to trashed-only
+        return results.where((e) => e.deletedAt != null).toList();
+      } catch (_) {
+        return [];
+      }
+    });
 
 /// Per-filter match counts when a search query is active.
 ///
@@ -158,8 +157,9 @@ final _trashSearchProvider =
 ///
 /// Uses SQL COUNT queries instead of in-memory filtering to avoid the O(n)
 /// per-keystroke overhead and 500-entry cap inaccuracy.
-final searchCountsProvider =
-    FutureProvider<Map<HistoryFilter, int>?>((ref) async {
+final searchCountsProvider = FutureProvider<Map<HistoryFilter, int>?>((
+  ref,
+) async {
   final rawSearch = ref.watch(historySearchProvider).trim();
   if (rawSearch.isEmpty) return null;
   final parsed = parseSearchQuery(rawSearch);
@@ -187,7 +187,9 @@ final searchCountsProvider =
       tagNames: parsed.tagNames,
       langCode: parsed.langCode,
     );
-    activeMatched = all.where((e) => !e.archived && e.deletedAt == null).toList();
+    activeMatched = all
+        .where((e) => !e.archived && e.deletedAt == null)
+        .toList();
   } catch (_) {
     activeMatched = [];
   }
@@ -198,13 +200,10 @@ final searchCountsProvider =
 
   return {
     HistoryFilter.all: activeCount,
-    HistoryFilter.today: activeMatched
-        .where((e) {
-          final d =
-              DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
-          return d == today;
-        })
-        .length,
+    HistoryFilter.today: activeMatched.where((e) {
+      final d = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
+      return d == today;
+    }).length,
     HistoryFilter.week: activeMatched
         .where((e) => e.timestamp.isAfter(weekAgo))
         .length,
@@ -219,7 +218,9 @@ final searchCountsProvider =
 /// This is the fallback path when the DB advanced search hasn't loaded yet.
 /// Checks title, content, AND entry.tags JSON field for tag name matches.
 List<HistoryEntry> _applyParsedSearch(
-    List<HistoryEntry> entries, ParsedSearchQuery parsed) {
+  List<HistoryEntry> entries,
+  ParsedSearchQuery parsed,
+) {
   return entries.where((e) {
     // Free-text match
     if (parsed.freeText.isNotEmpty) {
@@ -248,15 +249,19 @@ List<HistoryEntry> _applyParsedSearch(
 
 /// Applies date/pin filter predicates to a list of entries.
 List<HistoryEntry> _applyFilter(
-    List<HistoryEntry> entries, HistoryFilter filter) {
+  List<HistoryEntry> entries,
+  HistoryFilter filter,
+) {
   final now = DateTime.now();
   switch (filter) {
     case HistoryFilter.today:
       return entries
-          .where((e) =>
-              e.timestamp.year == now.year &&
-              e.timestamp.month == now.month &&
-              e.timestamp.day == now.day)
+          .where(
+            (e) =>
+                e.timestamp.year == now.year &&
+                e.timestamp.month == now.month &&
+                e.timestamp.day == now.day,
+          )
           .toList();
     case HistoryFilter.week:
       final weekAgo = now.subtract(const Duration(days: 7));

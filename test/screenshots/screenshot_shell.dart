@@ -136,10 +136,7 @@ class WpScreenshotShell extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ScreenshotTitleBar extends StatelessWidget {
-  const _ScreenshotTitleBar({
-    required this.isDark,
-    required this.platform,
-  });
+  const _ScreenshotTitleBar({required this.isDark, required this.platform});
 
   final bool isDark;
   final TargetPlatform platform;
@@ -163,18 +160,9 @@ class _ScreenshotTitleBar extends StatelessWidget {
             const Spacer(),
             // Windows: static window control buttons.
             if (!isMacOS) ...[
-              _StaticWindowButton(
-                icon: LucideIcons.minus,
-                isDark: isDark,
-              ),
-              _StaticWindowButton(
-                icon: LucideIcons.square,
-                isDark: isDark,
-              ),
-              _StaticWindowButton(
-                icon: LucideIcons.x,
-                isDark: isDark,
-              ),
+              _StaticWindowButton(icon: LucideIcons.minus, isDark: isDark),
+              _StaticWindowButton(icon: LucideIcons.square, isDark: isDark),
+              _StaticWindowButton(icon: LucideIcons.x, isDark: isDark),
             ],
           ],
         ),
@@ -215,10 +203,10 @@ class _TrafficDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 12,
-        height: 12,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      );
+    width: 12,
+    height: 12,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  );
 }
 
 // ---------------------------------------------------------------------------

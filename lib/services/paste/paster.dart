@@ -24,10 +24,7 @@ enum PasteOutcome {
 
 /// Configuration for a paste operation, derived from [AppSettings].
 class PasteOptions {
-  const PasteOptions({
-    required this.autoPasteDelayMs,
-    required this.blocklist,
-  });
+  const PasteOptions({required this.autoPasteDelayMs, required this.blocklist});
 
   /// User-configured delay before pasting (milliseconds).
   final int autoPasteDelayMs;

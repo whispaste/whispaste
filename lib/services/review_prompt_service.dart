@@ -31,11 +31,10 @@ class ReviewPromptState {
   ReviewPromptState copyWith({
     bool? shouldShowPrompt,
     DeployChannel? channel,
-  }) =>
-      ReviewPromptState(
-        shouldShowPrompt: shouldShowPrompt ?? this.shouldShowPrompt,
-        channel: channel ?? this.channel,
-      );
+  }) => ReviewPromptState(
+    shouldShowPrompt: shouldShowPrompt ?? this.shouldShowPrompt,
+    channel: channel ?? this.channel,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -83,8 +82,7 @@ class ReviewPromptNotifier extends Notifier<ReviewPromptState> {
 
       final lastShownMs = prefs.getInt(_keyLastShownMs) ?? 0;
       if (lastShownMs > 0) {
-        final lastShown =
-            DateTime.fromMillisecondsSinceEpoch(lastShownMs);
+        final lastShown = DateTime.fromMillisecondsSinceEpoch(lastShownMs);
         final daysSince = DateTime.now().difference(lastShown).inDays;
         if (daysSince < _minDaysBetweenPrompts) return;
       }
@@ -93,7 +91,10 @@ class ReviewPromptNotifier extends Notifier<ReviewPromptState> {
       final count = await db.countActive();
       if (count < _minRecordings) return;
 
-      dev.log('Review prompt: conditions met (recordings=$count)', name: 'ReviewPrompt');
+      dev.log(
+        'Review prompt: conditions met (recordings=$count)',
+        name: 'ReviewPrompt',
+      );
       state = state.copyWith(shouldShowPrompt: true);
     } on Exception catch (e) {
       dev.log('Review prompt check failed: $e', name: 'ReviewPrompt');
@@ -105,7 +106,10 @@ class ReviewPromptNotifier extends Notifier<ReviewPromptState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final count = (prefs.getInt(_keyShownCount) ?? 0) + 1;
-      await prefs.setInt(_keyLastShownMs, DateTime.now().millisecondsSinceEpoch);
+      await prefs.setInt(
+        _keyLastShownMs,
+        DateTime.now().millisecondsSinceEpoch,
+      );
       await prefs.setInt(_keyShownCount, count);
     } on Exception catch (e) {
       dev.log('Review prompt markShown failed: $e', name: 'ReviewPrompt');
@@ -146,5 +150,5 @@ class ReviewPromptNotifier extends Notifier<ReviewPromptState> {
 /// Global review prompt provider.
 final reviewPromptProvider =
     NotifierProvider<ReviewPromptNotifier, ReviewPromptState>(
-  ReviewPromptNotifier.new,
-);
+      ReviewPromptNotifier.new,
+    );

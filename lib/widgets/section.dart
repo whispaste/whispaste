@@ -226,10 +226,7 @@ class _CollapsibleSectionState extends State<_CollapsibleSection>
                 return Align(
                   alignment: Alignment.topLeft,
                   heightFactor: _heightFactor.value,
-                  child: Opacity(
-                    opacity: _heightFactor.value,
-                    child: child,
-                  ),
+                  child: Opacity(opacity: _heightFactor.value, child: child),
                 );
               },
               child: Padding(

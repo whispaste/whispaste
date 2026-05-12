@@ -22,11 +22,8 @@ Future<bool> showTagManagementDialog({
 }) async {
   final result = await showWpFormDialog<bool>(
     context: context,
-    builder: (ctx, animation) => _TagManagementContent(
-      animation: animation,
-      db: db,
-      isDark: isDark,
-    ),
+    builder: (ctx, animation) =>
+        _TagManagementContent(animation: animation, db: db, isDark: isDark),
   );
   return result ?? false;
 }
@@ -123,13 +120,13 @@ class _TagManagementContentState extends State<_TagManagementContent> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final accent =
-        widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final textPrimary = widget.isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
-    final textMuted =
-        widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textMuted = widget.isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
     final borderColor = widget.isDark
         ? WpColorsDark.borderSubtle
         : WpColorsLight.borderSubtle;
@@ -158,12 +155,18 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                   // Header
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
-                      WpSpacing.lg, WpSpacing.lg, WpSpacing.sm, WpSpacing.xs,
+                      WpSpacing.lg,
+                      WpSpacing.lg,
+                      WpSpacing.sm,
+                      WpSpacing.xs,
                     ),
                     child: Row(
                       children: [
-                        Icon(LucideIcons.tags, size: WpIconSize.md,
-                            color: accent),
+                        Icon(
+                          LucideIcons.tags,
+                          size: WpIconSize.md,
+                          color: accent,
+                        ),
                         const SizedBox(width: WpSpacing.sm),
                         Expanded(
                           child: Text(
@@ -176,12 +179,16 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                           ),
                         ),
                         IconButton(
-                          icon: Icon(LucideIcons.x, size: WpIconSize.sm,
-                              color: textMuted),
+                          icon: Icon(
+                            LucideIcons.x,
+                            size: WpIconSize.sm,
+                            color: textMuted,
+                          ),
                           onPressed: () =>
                               Navigator.of(context).pop(_didModify),
-                          tooltip: MaterialLocalizations.of(context)
-                              .closeButtonTooltip,
+                          tooltip: MaterialLocalizations.of(
+                            context,
+                          ).closeButtonTooltip,
                         ),
                       ],
                     ),
@@ -239,10 +246,13 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                       padding: const EdgeInsets.all(WpSpacing.sm),
                       child: TextButton.icon(
                         onPressed: _deleteUnused,
-                        icon: Icon(LucideIcons.trash2, size: WpIconSize.sm,
-                            color: widget.isDark
-                                ? WpColorsDark.error
-                                : WpColorsLight.error),
+                        icon: Icon(
+                          LucideIcons.trash2,
+                          size: WpIconSize.sm,
+                          color: widget.isDark
+                              ? WpColorsDark.error
+                              : WpColorsLight.error,
+                        ),
                         label: Text(
                           l10n.tagDeleteUnusedAction(unusedCount),
                           style: TextStyle(
@@ -292,22 +302,20 @@ class _TagRowState extends State<_TagRow> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final accent =
-        widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
+    final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final textPrimary = widget.isDark
         ? WpColorsDark.textPrimary
         : WpColorsLight.textPrimary;
-    final textMuted =
-        widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textMuted = widget.isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
         duration: WpMotion.hoverOut,
-        color: _hovered
-            ? accent.withValues(alpha: 0.06)
-            : Colors.transparent,
+        color: _hovered ? accent.withValues(alpha: 0.06) : Colors.transparent,
         padding: const EdgeInsets.symmetric(
           horizontal: WpSpacing.lg,
           vertical: WpSpacing.xs,
@@ -319,10 +327,7 @@ class _TagRowState extends State<_TagRow> {
             Expanded(
               child: Text(
                 widget.tag.name,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: textPrimary,
-                ),
+                style: TextStyle(fontSize: 14, color: textPrimary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -336,17 +341,17 @@ class _TagRowState extends State<_TagRow> {
               opacity: _hovered ? 1.0 : 0.0,
               duration: WpMotion.hoverOut,
               child: IconButton(
-                icon: Icon(LucideIcons.trash2, size: 14,
-                    color: widget.isDark
-                        ? WpColorsDark.error
-                        : WpColorsLight.error),
+                icon: Icon(
+                  LucideIcons.trash2,
+                  size: 14,
+                  color: widget.isDark
+                      ? WpColorsDark.error
+                      : WpColorsLight.error,
+                ),
                 onPressed: widget.onDelete,
                 tooltip: l10n.actionDelete,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 28,
-                  minHeight: 28,
-                ),
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               ),
             ),
           ],
