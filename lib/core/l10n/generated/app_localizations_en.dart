@@ -2310,4 +2310,12 @@ class L10nEn extends L10n {
 
   @override
   String get insufficientRamRequired => 'Required';
+
+  @override
+  String get hotkeyRegistrationFailed =>
+      'Hotkey registration failed — please re-bind your shortcut in Settings.';
+
+  @override
+  String get hotkeyRegistrationFailedDefaultActive =>
+      'Hotkey registration failed — using Ctrl+Shift+Space as fallback. Please re-bind in Settings.';
 }

@@ -4206,6 +4206,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Required'**
   String get insufficientRamRequired;
+
+  /// No description provided for @hotkeyRegistrationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Hotkey registration failed — please re-bind your shortcut in Settings.'**
+  String get hotkeyRegistrationFailed;
+
+  /// No description provided for @hotkeyRegistrationFailedDefaultActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Hotkey registration failed — using Ctrl+Shift+Space as fallback. Please re-bind in Settings.'**
+  String get hotkeyRegistrationFailedDefaultActive;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

@@ -2331,4 +2331,12 @@ class L10nDe extends L10n {
 
   @override
   String get insufficientRamRequired => 'Mindestens';
+
+  @override
+  String get hotkeyRegistrationFailed =>
+      'Hotkey-Registrierung fehlgeschlagen – bitte Tastenkombination in den Einstellungen neu belegen.';
+
+  @override
+  String get hotkeyRegistrationFailedDefaultActive =>
+      'Hotkey-Registrierung fehlgeschlagen – Strg+Umschalt+Leertaste wird als Fallback verwendet. Bitte in den Einstellungen neu belegen.';
 }
