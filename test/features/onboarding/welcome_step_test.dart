@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/features/onboarding/steps/welcome_step.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -31,7 +32,9 @@ void main() {
     testWidgets('updates locale when the language selector is tapped', (
       tester,
     ) async {
-      final notifier = FakeSettingsNotifier(const AppSettings(locale: 'en'));
+      final notifier = FakeSettingsNotifier(
+        const AppSettings(interface_: InterfaceSettings(locale: 'en')),
+      );
 
       await tester.pumpWidget(
         makeTestable(
@@ -52,7 +55,9 @@ void main() {
       tester,
     ) async {
       final notifier = FakeSettingsNotifier(
-        const AppSettings(themeMode: ThemeMode.dark),
+        const AppSettings(
+          interface_: InterfaceSettings(themeMode: ThemeMode.dark),
+        ),
       );
 
       await tester.pumpWidget(
