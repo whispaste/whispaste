@@ -14,6 +14,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../services/path_service.dart' as paths;
 
 import 'tables.dart';
@@ -77,6 +78,11 @@ class HistoryDatabase extends _$HistoryDatabase {
       // entries so that stats are correct for users upgrading from
       // a version that never wrote to DailyStats.
       await backfillDailyStats();
+      // One-time Groq removal migration (v1.2.13):
+      //   1. Drop the groq_api_key column from app_settings (SQLite ≥ 3.35).
+      //   2. Rewrite stt_provider = 'Groq' → 'On Device'.
+      await _dropGroqApiKeyColumn();
+      await _migrateGroqSttProvider();
     },
   );
 
@@ -315,6 +321,102 @@ class HistoryDatabase extends _$HistoryDatabase {
       debugPrint('[Migration] Could not add daily_stats columns: $e');
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Groq removal migration — v1.2.13
+  // ---------------------------------------------------------------------------
+
+  /// Whether the Groq STT provider was detected and migrated on this startup.
+  ///
+  /// Set by [_migrateGroqSttProvider]; consumed by [consumeGroqMigrationFlag].
+  bool _groqMigrationOccurred = false;
+
+  /// Returns `true` if the Groq migration ran this session, and resets the
+  /// flag. Used by [SettingsNotifier] to show a one-time localised toast.
+  bool consumeGroqMigrationFlag() {
+    final flag = _groqMigrationOccurred;
+    _groqMigrationOccurred = false;
+    return flag;
+  }
+
+  /// Exposed for testing — runs the Groq removal migration steps directly
+  /// against the already-open database.
+  @visibleForTesting
+  Future<void> runGroqMigrationForTesting() async {
+    await _dropGroqApiKeyColumn();
+    await _migrateGroqSttProvider();
+  }
+
+  /// Drops the `groq_api_key` column from `app_settings` — one-time cleanup.
+  ///
+  /// ONE-TIME EXCEPTION to the additive-only Drift migration convention:
+  /// `groq_api_key` is dead code after v1.2.13 and must be removed to
+  /// prevent stale plaintext credentials lingering in the DB. The column
+  /// never contained real keys (API keys moved to secure storage in an
+  /// earlier migration) so dropping it is safe. We use SQLite ≥ 3.35 native
+  /// ALTER TABLE … DROP COLUMN. On older SQLite the statement fails silently
+  /// (column stays, value is always ''); a Sentry breadcrumb records the skip.
+  Future<void> _dropGroqApiKeyColumn() async {
+    try {
+      // Check whether the column still exists before attempting to drop it.
+      final cols = await customSelect(
+        "PRAGMA table_info('app_settings')",
+      ).get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+      if (!colNames.contains('groq_api_key')) return; // already gone
+
+      await customStatement(
+        'ALTER TABLE app_settings DROP COLUMN groq_api_key',
+      );
+      debugPrint('[Migration] Dropped app_settings.groq_api_key column');
+    } catch (e) {
+      // SQLite < 3.35 does not support DROP COLUMN — log and continue.
+      // The column stays with an empty value; no user data is at risk.
+      debugPrint('[Migration] Could not drop groq_api_key column: $e');
+      Sentry.addBreadcrumb(
+        Breadcrumb(
+          message: 'groq_api_key column drop skipped (SQLite < 3.35)',
+          level: SentryLevel.warning,
+          data: {'error': e.toString()},
+        ),
+      );
+    }
+  }
+
+  /// Rewrites `stt_provider = 'Groq'` to `'On Device'` in `app_settings`.
+  ///
+  /// If a row is updated, sets [_groqMigrationOccurred] so that
+  /// [SettingsNotifier] can show the localised toast on startup.
+  Future<void> _migrateGroqSttProvider() async {
+    try {
+      // Check current value.
+      final rows = await customSelect(
+        "SELECT value FROM app_settings WHERE key = 'stt_provider'",
+      ).get();
+      if (rows.isEmpty) return;
+      final current = rows.first.data['value'] as String?;
+      if (current != 'Groq') return;
+
+      await customStatement(
+        "UPDATE app_settings SET value = 'On Device' WHERE key = 'stt_provider'",
+      );
+      _groqMigrationOccurred = true;
+      debugPrint('[Migration] Rewrote stt_provider Groq → On Device');
+
+      // Add a Sentry breadcrumb at level:info for reach analysis (no PII).
+      Sentry.addBreadcrumb(
+        Breadcrumb(
+          message: 'groq-removal-migration: stt_provider reset to On Device',
+          level: SentryLevel.info,
+          data: {'fingerprint': 'groq-removal-migration'},
+        ),
+      );
+    } catch (e) {
+      debugPrint('[Migration] _migrateGroqSttProvider failed: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
 
   /// Number of entries migrated from Go — set during reconciliation,
   /// read by the UI to show a one-time migration toast.

@@ -1057,12 +1057,6 @@ abstract class L10n {
   /// **'OpenAI API Key'**
   String get settingsOpenAiApiKey;
 
-  /// No description provided for @settingsGroqApiKey.
-  ///
-  /// In en, this message translates to:
-  /// **'Groq API Key'**
-  String get settingsGroqApiKey;
-
   /// No description provided for @settingsDeepgramApiKey.
   ///
   /// In en, this message translates to:
@@ -1134,6 +1128,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'App has been completely reset'**
   String get settingsFactoryResetSuccess;
+
+  /// No description provided for @groqRemovedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Groq STT was removed — provider reset to On-Device.'**
+  String get groqRemovedToast;
 
   /// No description provided for @migrationComplete.
   ///
@@ -1882,7 +1882,7 @@ abstract class L10n {
   /// No description provided for @aboutPrivacyCloud.
   ///
   /// In en, this message translates to:
-  /// **'Cloud providers (OpenAI, Groq, Deepgram, Anthropic, Gemini) only receive audio or text when you actively use them. Their privacy policies apply.'**
+  /// **'Cloud providers (OpenAI, Deepgram, Anthropic, Gemini) only receive audio or text when you actively use them. Their privacy policies apply.'**
   String get aboutPrivacyCloud;
 
   /// No description provided for @aboutPrivacyNoTracking.

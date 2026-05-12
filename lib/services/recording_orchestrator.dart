@@ -676,11 +676,9 @@ class RecordingOrchestrator extends Notifier<void> {
     final preferredOrder = <SttProviderType>[
       switch (settings.cloudSttProviderType) {
         CloudSttProvider.openAI => SttProviderType.openAI,
-        CloudSttProvider.groq => SttProviderType.groq,
         CloudSttProvider.deepgram => SttProviderType.deepgram,
       },
       SttProviderType.openAI,
-      SttProviderType.groq,
       SttProviderType.deepgram,
     ];
 
@@ -696,7 +694,6 @@ class RecordingOrchestrator extends Notifier<void> {
   bool _hasApiKeyForProvider(AppSettings settings, SttProviderType provider) {
     return switch (provider) {
       SttProviderType.openAI => settings.openAiApiKey.trim().isNotEmpty,
-      SttProviderType.groq => settings.groqApiKey.trim().isNotEmpty,
       SttProviderType.deepgram => settings.deepgramApiKey.trim().isNotEmpty,
       SttProviderType.onDevice => false,
     };
@@ -705,7 +702,6 @@ class RecordingOrchestrator extends Notifier<void> {
   String _cloudProviderValue(SttProviderType provider) {
     return switch (provider) {
       SttProviderType.openAI => CloudSttProvider.openAI.value,
-      SttProviderType.groq => CloudSttProvider.groq.value,
       SttProviderType.deepgram => CloudSttProvider.deepgram.value,
       SttProviderType.onDevice => CloudSttProvider.openAI.value,
     };

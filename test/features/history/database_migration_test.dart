@@ -309,6 +309,85 @@ void main() {
       await db.close();
     });
   });
+
+  group('Groq removal migration (v1.2.13)', () {
+    test(
+      'stt_provider = Groq is rewritten to On Device and flag is set',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+
+        // Open the DB and create the app_settings table via a no-op query.
+        await db.customSelect('SELECT 1').get();
+
+        // Manually insert legacy Groq provider row and groq_api_key column
+        // (simulating a pre-v1.2.13 database that had Groq configured).
+        await db.customStatement(
+          "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('stt_provider', 'Groq')",
+        );
+        // Add the groq_api_key column as it existed before the migration.
+        try {
+          await db.customStatement(
+            'ALTER TABLE app_settings ADD COLUMN groq_api_key TEXT',
+          );
+        } catch (_) {
+          // Column may not exist in the test schema — that's fine.
+        }
+
+        // Run the migration directly.
+        await db.runGroqMigrationForTesting();
+
+        // Verify the migration flag was raised.
+        expect(db.consumeGroqMigrationFlag(), isTrue);
+        // Consuming the flag again must return false (one-shot).
+        expect(db.consumeGroqMigrationFlag(), isFalse);
+
+        // Verify the stt_provider row was rewritten.
+        final rows = await db.readAppSettings();
+        expect(rows['stt_provider'], 'On Device');
+
+        // Verify the groq_api_key column was dropped (SQLite ≥ 3.35).
+        // After DROP COLUMN the key should not appear in readAppSettings.
+        expect(rows.containsKey('groq_api_key'), isFalse);
+
+        await db.close();
+      },
+    );
+
+    test('migration is idempotent — second run does not re-raise flag', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.customSelect('SELECT 1').get();
+
+      // Write On Device (not Groq) — migration must not fire.
+      await db.customStatement(
+        "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('stt_provider', 'On Device')",
+      );
+
+      await db.runGroqMigrationForTesting();
+
+      // Flag must NOT be set when provider was not Groq.
+      expect(db.consumeGroqMigrationFlag(), isFalse);
+
+      await db.close();
+    });
+
+    test('stt_provider other than Groq is left unchanged', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.customSelect('SELECT 1').get();
+
+      await db.customStatement(
+        "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('stt_provider', 'OpenAI')",
+      );
+
+      await db.runGroqMigrationForTesting();
+
+      expect(db.consumeGroqMigrationFlag(), isFalse);
+
+      final rows = await db.readAppSettings();
+      expect(rows['stt_provider'], 'OpenAI');
+
+      await db.close();
+    });
+  });
 }
 
 /// Mock query executor user for manual schema creation

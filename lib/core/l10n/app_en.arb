@@ -188,8 +188,7 @@
   "settingsCloudProviders": "Cloud Providers",
   "settingsCloudProvidersSubtitle": "API keys for online services",
   "settingsOpenAiApiKey": "OpenAI API Key",
-  "settingsGroqApiKey": "Groq API Key",
-  "settingsDeepgramApiKey": "Deepgram API Key",
+"settingsDeepgramApiKey": "Deepgram API Key",
   "settingsAdvanced": "Advanced",
   "settingsResetToDefaults": "Reset to Defaults",
   "settingsResetTitle": "Reset Settings",
@@ -201,6 +200,7 @@
   "settingsFactoryResetMessage": "This will permanently delete ALL data: dictation history, tags, projects, voice shortcuts, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.",
   "settingsFactoryResetConfirm": "Delete Everything",
   "settingsFactoryResetSuccess": "App has been completely reset",
+  "groqRemovedToast": "Groq STT was removed — provider reset to On-Device.",
   "migrationComplete": "{count, plural, one{1 dictation migrated from WhisPaste 1.x} other{{count} dictations migrated from WhisPaste 1.x}}",
   "@migrationComplete": {
     "placeholders": {
@@ -374,7 +374,7 @@
   "aboutPrivacyFirstDesc": "Local AI inference by default — your voice never leaves your device unless you choose a cloud provider.",
   "aboutPrivacy": "Privacy & Data",
   "aboutPrivacyLocal": "All transcriptions and history are stored locally on your device — never on external servers.",
-  "aboutPrivacyCloud": "Cloud providers (OpenAI, Groq, Deepgram, Anthropic, Gemini) only receive audio or text when you actively use them. Their privacy policies apply.",
+  "aboutPrivacyCloud": "Cloud providers (OpenAI, Deepgram, Anthropic, Gemini) only receive audio or text when you actively use them. Their privacy policies apply.",
   "aboutPrivacyNoTracking": "No analytics, no tracking, no user accounts. Update checks contact GitHub (version + IP only).",
   "aboutKeyboardShortcuts": "Keyboard Shortcuts",
   "aboutShortcutRecord": "Start / Stop recording",
