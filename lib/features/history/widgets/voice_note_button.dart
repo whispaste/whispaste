@@ -17,6 +17,7 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/audio_service.dart';
+import '../../../services/recording_orchestrator.dart';
 import '../../../services/stt_service.dart';
 import '../../../services/voice_action_service.dart';
 import '../../../widgets/toast.dart';
@@ -71,9 +72,21 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
   Future<void> _startVoiceNote() async {
     if (_isBusy) return;
 
-    // Prevent voice note while a main dictation is in progress.
-    final mainAudio = ref.read(audioServiceProvider);
-    if (mainAudio.isRecording) return;
+    // Acquire the orchestrator's _startInFlight lock so that all four entry
+    // points (tray, hotkey, floating button, voice-note button) share the same
+    // concurrency gate — eliminates the TOCTOU race from the previous
+    // one-shot phase read.
+    //
+    // The lock is released in the finally block below, after audio.startRecording()
+    // returns, mirroring exactly how RecordingOrchestrator.startRecording() uses it.
+    final orch = ref.read(recordingOrchestratorProvider.notifier);
+    if (!orch.tryAcquireStartLock()) {
+      _log.debug(
+        'Voice note suppressed — orchestrator lock not acquired '
+        '(already in flight or not idle)',
+      );
+      return;
+    }
 
     setState(() => _phase = _VoiceNotePhase.recording);
 
@@ -91,6 +104,10 @@ class _VoiceNoteButtonState extends ConsumerState<VoiceNoteButton> {
       _log.info('Voice note recording started for entry ${widget.entryId}');
     } on Exception catch (e) {
       _fail('$e');
+    } finally {
+      // Release the start lock now that the audio capture start-up window is
+      // complete — same timing as RecordingOrchestrator.startRecording() finally.
+      orch.releaseStartLock();
     }
   }
 

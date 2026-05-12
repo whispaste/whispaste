@@ -102,10 +102,13 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   /// Returns immediately — audio data streams to disk.
   /// Subscribe to [amplitudeStream] for level metering.
   ///
-  /// Throws [StateError] if already recording.
   Future<void> startRecording() async {
     if (state.isRecording) {
-      throw StateError('Already recording');
+      dev.log(
+        'startRecording ignored — already recording',
+        name: 'AudioService',
+      );
+      return;
     }
 
     // Lazily create a recorder instance.
