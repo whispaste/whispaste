@@ -12,8 +12,8 @@ import 'transcriber.dart';
 /// Requires `openAiApiKey` to be set in secure storage.
 class OpenAiTranscriber implements Transcriber {
   OpenAiTranscriber({required this.ref, http.Client? httpClient})
-      : _client = httpClient ?? http.Client(),
-        _ownsClient = httpClient == null;
+    : _client = httpClient ?? http.Client(),
+      _ownsClient = httpClient == null;
 
   final Ref ref;
   final http.Client _client;

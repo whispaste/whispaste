@@ -107,63 +107,60 @@ void main() {
 void _screenshotTest(_ScreenDef screen, String locale) {
   group(screen.fileName(locale), () {
     for (final goldenDevice in _devices) {
-      testGoldens(
-        goldenDevice.name,
-        (tester) async {
-          final device = goldenDevice.device;
-          final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-          final settings = AppSettings.defaults.copyWith(
-            locale: locale,
-            themeMode: screen.themeMode,
-            textReplacementsEnabled: screen.textReplacementsEnabled,
-            hotkeyEnabled: true,
-            hotkeyKey: 'D',
-            hotkeyModifiers: 'ctrl+shift',
-          );
+      testGoldens(goldenDevice.name, (tester) async {
+        final device = goldenDevice.device;
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        final settings = AppSettings.defaults.copyWith(
+          locale: locale,
+          themeMode: screen.themeMode,
+          textReplacementsEnabled: screen.textReplacementsEnabled,
+          hotkeyEnabled: true,
+          hotkeyKey: 'D',
+          hotkeyModifiers: 'ctrl+shift',
+        );
 
-          if (screen.needsDemoData) {
-            await _seedDemoData(db, locale: locale);
-          }
+        if (screen.needsDemoData) {
+          await _seedDemoData(db, locale: locale);
+        }
 
-          final app = _buildScreenshotApp(
-            device: device,
-            db: db,
-            settings: settings,
-            activePageId: screen.activePageId,
-            child: screen.builder(),
-          );
+        final app = _buildScreenshotApp(
+          device: device,
+          db: db,
+          settings: settings,
+          activePageId: screen.activePageId,
+          child: screen.builder(),
+        );
 
-          await tester.pumpWidget(app);
-          // Let providers resolve and build real content before scanning fonts.
-          await tester.pumpFrames(app, const Duration(seconds: 1));
-          // Load fonts after the widget tree is settled so icon fonts used by
-          // the actual content (Lucide, FontAwesome) are found in the scan.
-          // Explicitly include icon font families as safety net for cases where
-          // icons are not yet in the visible tree portion.
-          await tester.loadAssets(
-            alsoLoadTheseFonts: const [
-              'packages/lucide_icons_flutter/Lucide',
-              'packages/font_awesome_flutter/FontAwesomeSolid',
-              'packages/font_awesome_flutter/FontAwesomeRegular',
-              'packages/font_awesome_flutter/FontAwesomeBrands',
-              'MaterialIcons',
-              'Segoe UI',
-            ],
-          );
-          // One additional frame so widgets re-render with the loaded fonts.
+        await tester.pumpWidget(app);
+        // Let providers resolve and build real content before scanning fonts.
+        await tester.pumpFrames(app, const Duration(seconds: 1));
+        // Load fonts after the widget tree is settled so icon fonts used by
+        // the actual content (Lucide, FontAwesome) are found in the scan.
+        // Explicitly include icon font families as safety net for cases where
+        // icons are not yet in the visible tree portion.
+        await tester.loadAssets(
+          alsoLoadTheseFonts: const [
+            'packages/lucide_icons_flutter/Lucide',
+            'packages/font_awesome_flutter/FontAwesomeSolid',
+            'packages/font_awesome_flutter/FontAwesomeRegular',
+            'packages/font_awesome_flutter/FontAwesomeBrands',
+            'MaterialIcons',
+            'Segoe UI',
+          ],
+        );
+        // One additional frame so widgets re-render with the loaded fonts.
+        await tester.pump();
+
+        if (screen.arrange != null) {
+          await screen.arrange!(tester, locale);
           await tester.pump();
+          await tester.pump(const Duration(milliseconds: 450));
+        }
 
-          if (screen.arrange != null) {
-            await screen.arrange!(tester, locale);
-            await tester.pump();
-            await tester.pump(const Duration(milliseconds: 450));
-          }
-
-          await tester.expectScreenshot(device, screen.fileName(locale));
-          await tester.pumpAndSettle(const Duration(seconds: 1));
-          await db.close();
-        },
-      );
+        await tester.expectScreenshot(device, screen.fileName(locale));
+        await tester.pumpAndSettle(const Duration(seconds: 1));
+        await db.close();
+      });
     }
   });
 }
@@ -201,10 +198,7 @@ Widget _buildScreenshotApp({
               const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'Test'),
         ),
       ],
-      child: WpScreenshotShell(
-        activePageId: activePageId,
-        child: child,
-      ),
+      child: WpScreenshotShell(activePageId: activePageId, child: child),
     ),
   );
 }
@@ -217,8 +211,7 @@ Future<void> _openFirstHistoryEntry(WidgetTester tester, String locale) async {
 }
 
 Future<void> _scrollToHotkeySection(WidgetTester tester, String locale) async {
-  final sectionTitle =
-      locale == 'de' ? 'Tastenkürzel' : 'Keyboard Shortcut';
+  final sectionTitle = locale == 'de' ? 'Tastenkürzel' : 'Keyboard Shortcut';
   await tester.dragUntilVisible(
     find.text(sectionTitle),
     find.byType(Scrollable).first,
@@ -252,10 +245,7 @@ class _ScreenDef {
 // Demo data — localized, realistic entries that make screenshots look populated
 // ---------------------------------------------------------------------------
 
-Future<void> _seedDemoData(
-  HistoryDatabase db, {
-  required String locale,
-}) async {
+Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
   final now = DateTime.now();
   final isGerman = locale == 'de';
 
@@ -265,21 +255,22 @@ Future<void> _seedDemoData(
 
   final tagIds = <String, String>{};
   for (final tag in tagLabels) {
-    final id = 'tag-${tag.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}';
+    final id =
+        'tag-${tag.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}';
     tagIds[tag] = id;
-    await db.into(db.tags).insert(
-          TagsCompanion(
-            id: Value(id),
-            name: Value(tag),
-            createdAt: Value(now),
-          ),
+    await db
+        .into(db.tags)
+        .insert(
+          TagsCompanion(id: Value(id), name: Value(tag), createdAt: Value(now)),
         );
   }
 
   final entries = isGerman ? _demoEntriesDe : _demoEntriesEn;
   for (final entry in entries) {
     final ts = now.subtract(Duration(minutes: entry.minutesAgo));
-    await db.into(db.historyEntries).insert(
+    await db
+        .into(db.historyEntries)
+        .insert(
           HistoryEntriesCompanion(
             id: Value(entry.id),
             title: Value(entry.title),
@@ -297,11 +288,10 @@ Future<void> _seedDemoData(
 
     for (final tagName in entry.tags) {
       final tagId = tagIds[tagName]!;
-      await db.into(db.entryTags).insert(
-            EntryTagsCompanion(
-              entryId: Value(entry.id),
-              tagId: Value(tagId),
-            ),
+      await db
+          .into(db.entryTags)
+          .insert(
+            EntryTagsCompanion(entryId: Value(entry.id), tagId: Value(tagId)),
           );
     }
   }
@@ -309,7 +299,9 @@ Future<void> _seedDemoData(
   final replacements = isGerman ? _replacementsDe : _replacementsEn;
   for (var i = 0; i < replacements.length; i++) {
     final (trigger, replacement) = replacements[i];
-    await db.into(db.textReplacements).insert(
+    await db
+        .into(db.textReplacements)
+        .insert(
           TextReplacementsCompanion(
             id: Value('repl-$locale-$i'),
             trigger: Value(trigger),

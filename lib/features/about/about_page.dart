@@ -46,7 +46,9 @@ class AboutPage extends ConsumerWidget {
           // ── Brand hero ──
           const Center(child: WpBrandWordmark(height: 64)),
           const SizedBox(height: WpSpacing.md),
-          Center(child: Text(l10n.aboutVersion(appVersion), style: ts.bodySmall)),
+          Center(
+            child: Text(l10n.aboutVersion(appVersion), style: ts.bodySmall),
+          ),
           const SizedBox(height: WpSpacing.xs),
           Center(
             child: Text(
@@ -104,7 +106,8 @@ class AboutPage extends ConsumerWidget {
                       } else {
                         notifier.downloadUpdate();
                       }
-                    } else if (updateState.phase == UpdatePhase.readyToInstall) {
+                    } else if (updateState.phase ==
+                        UpdatePhase.readyToInstall) {
                       notifier.installUpdate();
                     } else {
                       notifier.checkForUpdate();
@@ -496,15 +499,13 @@ class _UpdateCheckActionState extends State<_UpdateCheckAction> {
     return switch (widget.updateState.phase) {
       UpdatePhase.idle => (LucideIcons.refreshCw, l10n.updateCheckNow),
       UpdatePhase.checking => (LucideIcons.refreshCw, l10n.updateCheckNow),
-      UpdatePhase.available => widget.channel == DeployChannel.portable
-          ? (
-              LucideIcons.externalLink,
-              l10n.updateViewRelease,
-            )
-          : (
-              LucideIcons.download,
-              l10n.updateAvailable(widget.updateState.latestVersion ?? ''),
-            ),
+      UpdatePhase.available =>
+        widget.channel == DeployChannel.portable
+            ? (LucideIcons.externalLink, l10n.updateViewRelease)
+            : (
+                LucideIcons.download,
+                l10n.updateAvailable(widget.updateState.latestVersion ?? ''),
+              ),
       UpdatePhase.downloading => (
         LucideIcons.download,
         l10n.updateDownloading(

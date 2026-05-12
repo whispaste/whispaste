@@ -42,8 +42,7 @@ class AudioStatus {
   bool get isRecording => captureState == AudioCaptureState.recording;
 
   @override
-  String toString() =>
-      'AudioStatus($captureState, file=$filePath)';
+  String toString() => 'AudioStatus($captureState, file=$filePath)';
 }
 
 // ---------------------------------------------------------------------------
@@ -53,14 +52,14 @@ class AudioStatus {
 /// Builds a whisper-compatible [RecordConfig], optionally targeting a
 /// specific [InputDevice]. Pass `null` to use the system default.
 RecordConfig _whisperConfig({InputDevice? device}) => RecordConfig(
-      encoder: AudioEncoder.wav,
-      sampleRate: 16000,
-      numChannels: 1,
-      autoGain: true,
-      echoCancel: false,
-      noiseSuppress: true,
-      device: device,
-    );
+  encoder: AudioEncoder.wav,
+  sampleRate: 16000,
+  numChannels: 1,
+  autoGain: true,
+  echoCancel: false,
+  noiseSuppress: true,
+  device: device,
+);
 
 // ---------------------------------------------------------------------------
 // Audio service notifier
@@ -146,19 +145,14 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
           );
         }
       } catch (e) {
-        dev.log(
-          'Failed to enumerate input devices: $e',
-          name: 'AudioService',
-        );
+        dev.log('Failed to enumerate input devices: $e', name: 'AudioService');
       }
     }
 
     // Generate a temp file path for the WAV.
     final tempDir = await getTemporaryDirectory();
-    final timestamp =
-        DateTime.now().millisecondsSinceEpoch;
-    final wavPath =
-        p.join(tempDir.path, 'whispaste_$timestamp.wav');
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final wavPath = p.join(tempDir.path, 'whispaste_$timestamp.wav');
 
     dev.log(
       'Start recording → $wavPath | '
@@ -177,27 +171,28 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     _amplitudeSub = recorder
         .onAmplitudeChanged(const Duration(milliseconds: 80))
         .listen(
-      (amp) {
-        // Convert dBFS (negative, -∞ to 0) to linear 0.0–1.0.
-        // Clamp to a useful range: -60 dB silence floor.
-        // macOS AVFoundation reports lower amplitudes than Windows WASAPI,
-        // so boost multiplier is set high enough to cover both platforms.
-        final db = amp.current;
-        if (db <= -60.0) {
-          _amplitudeController?.add(0.0);
-          return;
-        }
-        final raw = math.pow(10.0, db / 20.0).toDouble().clamp(0.0, 1.0);
-        // sqrt expansion + platform-aware boost for consistent visual presence:
-        // macOS (AVFoundation) reports lower amplitudes than Windows (WASAPI)
-        // so we use a smaller multiplier on macOS to avoid over-boosting.
-        final boosted = (math.sqrt(raw) * (Platform.isMacOS ? 1.2 : 1.8)).clamp(0.0, 1.0);
-        _amplitudeController?.add(boosted);
-      },
-      onError: (Object e) {
-        dev.log('Amplitude error: $e', name: 'AudioService');
-      },
-    );
+          (amp) {
+            // Convert dBFS (negative, -∞ to 0) to linear 0.0–1.0.
+            // Clamp to a useful range: -60 dB silence floor.
+            // macOS AVFoundation reports lower amplitudes than Windows WASAPI,
+            // so boost multiplier is set high enough to cover both platforms.
+            final db = amp.current;
+            if (db <= -60.0) {
+              _amplitudeController?.add(0.0);
+              return;
+            }
+            final raw = math.pow(10.0, db / 20.0).toDouble().clamp(0.0, 1.0);
+            // sqrt expansion + platform-aware boost for consistent visual presence:
+            // macOS (AVFoundation) reports lower amplitudes than Windows (WASAPI)
+            // so we use a smaller multiplier on macOS to avoid over-boosting.
+            final boosted = (math.sqrt(raw) * (Platform.isMacOS ? 1.2 : 1.8))
+                .clamp(0.0, 1.0);
+            _amplitudeController?.add(boosted);
+          },
+          onError: (Object e) {
+            dev.log('Amplitude error: $e', name: 'AudioService');
+          },
+        );
 
     try {
       await recorder.start(
@@ -226,10 +221,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   /// was recording.
   Future<String?> stopRecording() async {
     if (!state.isRecording) {
-      dev.log(
-        'stopRecording ignored — not recording',
-        name: 'AudioService',
-      );
+      dev.log('stopRecording ignored — not recording', name: 'AudioService');
       return null;
     }
 
@@ -298,8 +290,10 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
           }
         } on FileSystemException catch (e) {
           // File may be locked by a concurrent instance — skip it.
-          dev.log('Skipping locked WAV: ${entity.path}: $e',
-              name: 'AudioService');
+          dev.log(
+            'Skipping locked WAV: ${entity.path}: $e',
+            name: 'AudioService',
+          );
         }
       }
 
@@ -334,8 +328,8 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
 /// Global audio capture provider.
 final audioServiceProvider =
     NotifierProvider<AudioServiceNotifier, AudioStatus>(
-  AudioServiceNotifier.new,
-);
+      AudioServiceNotifier.new,
+    );
 
 /// Available audio input devices. Returns device labels for the microphone
 /// dropdown in settings. The first entry is always "Default".
@@ -346,9 +340,7 @@ final audioInputDevicesProvider = FutureProvider<List<String>>((ref) async {
       final devices = await recorder.listInputDevices();
       return [
         'Default',
-        ...devices
-            .where((d) => d.label.isNotEmpty)
-            .map((d) => d.label),
+        ...devices.where((d) => d.label.isNotEmpty).map((d) => d.label),
       ];
     } finally {
       recorder.dispose();

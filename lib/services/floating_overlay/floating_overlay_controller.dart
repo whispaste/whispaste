@@ -5,20 +5,10 @@ import 'macos_floating_overlay_controller.dart';
 import 'windows_floating_overlay_controller.dart';
 
 /// Visual state of the overlay (matches C++ OverlayVisualState).
-enum OverlayVisualState {
-  recording,
-  transcribing,
-  processing,
-  done,
-  error,
-}
+enum OverlayVisualState { recording, transcribing, processing, done, error }
 
 /// Anchor position mode for the overlay window.
-enum OverlayAnchorMode {
-  topCenter,
-  bottomCenter,
-  topLeft,
-}
+enum OverlayAnchorMode { topCenter, bottomCenter, topLeft }
 
 /// Immutable snapshot of everything the overlay needs to render.
 ///
@@ -60,21 +50,21 @@ class FloatingOverlaySnapshot {
   final double progress;
 
   Map<String, dynamic> toMap() => {
-        'visible': visible,
-        'state': state.name,
-        'isDark': isDark,
-        'compact': compact,
-        'label': label,
-        'elapsed': elapsed,
-        'hint': hint,
-        'transcript': transcript,
-        'errorMessage': errorMessage,
-        'privacyMode': privacyMode,
-        'showRetry': showRetry,
-        'doneMessage': doneMessage,
-        'processingLabel': processingLabel,
-        'progress': progress,
-      };
+    'visible': visible,
+    'state': state.name,
+    'isDark': isDark,
+    'compact': compact,
+    'label': label,
+    'elapsed': elapsed,
+    'hint': hint,
+    'transcript': transcript,
+    'errorMessage': errorMessage,
+    'privacyMode': privacyMode,
+    'showRetry': showRetry,
+    'doneMessage': doneMessage,
+    'processingLabel': processingLabel,
+    'progress': progress,
+  };
 }
 
 /// Platform-agnostic interface for the native floating overlay window.

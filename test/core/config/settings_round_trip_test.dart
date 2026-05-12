@@ -24,7 +24,10 @@ void main() {
       expect(restored.onboardingCompleted, original.onboardingCompleted);
       expect(restored.gpuAcceleration, original.gpuAcceleration);
       expect(restored.customVocabulary, original.customVocabulary);
-      expect(restored.textReplacementsEnabled, original.textReplacementsEnabled);
+      expect(
+        restored.textReplacementsEnabled,
+        original.textReplacementsEnabled,
+      );
       expect(restored.trimSilence, original.trimSilence);
       expect(restored.useVAD, original.useVAD);
     });
@@ -47,9 +50,8 @@ void main() {
     });
 
     test('unknown keys in map are ignored (forward-compat)', () {
-      final map = Map<String, String>.from(
-        AppSettings.defaults.toStorageMap(),
-      )..['unknown_future_key'] = 'some_value';
+      final map = Map<String, String>.from(AppSettings.defaults.toStorageMap())
+        ..['unknown_future_key'] = 'some_value';
 
       // Should not throw
       expect(() => AppSettings.fromStorageMap(map), returnsNormally);
@@ -61,7 +63,10 @@ void main() {
 
       expect(restored.themeMode, AppSettings.defaults.themeMode);
       expect(restored.sttModel, AppSettings.defaults.sttModel);
-      expect(restored.historyMaxEntries, AppSettings.defaults.historyMaxEntries);
+      expect(
+        restored.historyMaxEntries,
+        AppSettings.defaults.historyMaxEntries,
+      );
     });
 
     test('non-default values survive round-trip', () {

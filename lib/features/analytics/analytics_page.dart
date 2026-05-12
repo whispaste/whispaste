@@ -80,8 +80,9 @@ class _EmptyAnalytics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textSecondary =
-        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
     return WpPageShell(
       child: Center(
         child: Column(
@@ -154,11 +155,13 @@ class _AnalyticsDashboard extends StatelessWidget {
               ),
               right: _ModelUsagePanel(
                 models: data.modelUsage
-                    .map((m) => _ModelUsage(
-                          _displayNameForModel(m.model, l10n),
-                          m.count,
-                          m.fraction,
-                        ))
+                    .map(
+                      (m) => _ModelUsage(
+                        _displayNameForModel(m.model, l10n),
+                        m.count,
+                        m.fraction,
+                      ),
+                    )
                     .toList(),
                 isDark: isDark,
               ),
@@ -201,9 +204,15 @@ class _AnalyticsDashboard extends StatelessWidget {
     return [
       _DurationBucket(l10n.analyticsDurationLt15s, counts[0], frac(counts[0])),
       _DurationBucket(
-          l10n.analyticsDuration15To30s, counts[1], frac(counts[1])),
+        l10n.analyticsDuration15To30s,
+        counts[1],
+        frac(counts[1]),
+      ),
       _DurationBucket(
-          l10n.analyticsDuration30To60s, counts[2], frac(counts[2])),
+        l10n.analyticsDuration30To60s,
+        counts[2],
+        frac(counts[2]),
+      ),
       _DurationBucket(l10n.analyticsDuration1To3m, counts[3], frac(counts[3])),
       _DurationBucket(l10n.analyticsDurationGt3m, counts[4], frac(counts[4])),
     ];
@@ -579,8 +588,9 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
                 // CustomPainter TextPainter bypasses widget font inheritance.
                 // Pass fontFamily explicitly so labels render with the correct
                 // typeface in tests and on all platforms.
-                labelFontFamily:
-                    Theme.of(context).textTheme.labelSmall?.fontFamily,
+                labelFontFamily: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.fontFamily,
                 animationValue: _curve.value,
               ),
             ),
@@ -714,9 +724,7 @@ class _ModelUsagePanel extends StatelessWidget {
             '—',
             style: TextStyle(
               fontSize: 12,
-              color: isDark
-                  ? WpColorsDark.textMuted
-                  : WpColorsLight.textMuted,
+              color: isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted,
             ),
           )
         else
@@ -1015,7 +1023,6 @@ class _PeriodAndResetRow extends ConsumerStatefulWidget {
 }
 
 class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
-
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
@@ -1117,7 +1124,11 @@ class _PeriodAndResetRowState extends ConsumerState<_PeriodAndResetRow> {
         await db.resetDailyStats();
         ref.invalidate(analyticsProvider);
         if (context.mounted) {
-          WpToast.show(context, message: L10n.of(context).analyticsResetTitle, type: WpToastType.success);
+          WpToast.show(
+            context,
+            message: L10n.of(context).analyticsResetTitle,
+            type: WpToastType.success,
+          );
         }
       }
     });

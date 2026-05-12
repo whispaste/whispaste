@@ -59,12 +59,14 @@ class _WpRecordingFabState extends State<WpRecordingFab>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    _pulseScale = Tween<double>(begin: 1.0, end: 1.8).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeOut),
-    );
-    _pulseOpacity = Tween<double>(begin: 0.5, end: 0.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeOut),
-    );
+    _pulseScale = Tween<double>(
+      begin: 1.0,
+      end: 1.8,
+    ).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeOut));
+    _pulseOpacity = Tween<double>(
+      begin: 0.5,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeOut));
     // Spin animation for transcribing/processing state
     _spinController = AnimationController(
       vsync: this,
@@ -127,8 +129,8 @@ class _WpRecordingFabState extends State<WpRecordingFab>
 
     // FAB is tappable when idle (including not-ready — shows info toast)
     // or recording. Non-interactive during transcribing/processing/done/error.
-    final isInteractive = phase == RecordingPhase.idle ||
-        phase == RecordingPhase.recording;
+    final isInteractive =
+        phase == RecordingPhase.idle || phase == RecordingPhase.recording;
 
     final tooltip = notReady
         ? switch (readiness) {
@@ -142,8 +144,7 @@ class _WpRecordingFabState extends State<WpRecordingFab>
             RecordingPhase.idle => l10n.tooltipRecord,
             RecordingPhase.recording => l10n.tooltipStopRecord,
             RecordingPhase.transcribing ||
-            RecordingPhase.processing =>
-              l10n.tooltipProcessing,
+            RecordingPhase.processing => l10n.tooltipProcessing,
             RecordingPhase.done => l10n.statusTranscriptionDone,
             RecordingPhase.error => '',
           };
@@ -188,10 +189,7 @@ class _WpRecordingFabState extends State<WpRecordingFab>
                       if (phase == RecordingPhase.recording)
                         _buildPulseRing(WpLayout.fabSize, gradient),
                       // Button body with breathing scale
-                      Transform.scale(
-                        scale: bodyScale,
-                        child: child!,
-                      ),
+                      Transform.scale(scale: bodyScale, child: child!),
                     ],
                   );
                 },
@@ -207,14 +205,14 @@ class _WpRecordingFabState extends State<WpRecordingFab>
                       gradient: gradient,
                       boxShadow: WpShadows.fab,
                     ),
-                    child: notReady &&
+                    child:
+                        notReady &&
                             readiness == RecordingReadiness.serverDownloading
                         ? _buildSpinner(icon)
                         : phase == RecordingPhase.transcribing ||
-                                phase == RecordingPhase.processing
-                            ? _buildSpinner(icon)
-                            : Icon(icon,
-                                color: Colors.white, size: WpIconSize.lg),
+                              phase == RecordingPhase.processing
+                        ? _buildSpinner(icon)
+                        : Icon(icon, color: Colors.white, size: WpIconSize.lg),
                   ),
                 ),
               ),
@@ -227,8 +225,9 @@ class _WpRecordingFabState extends State<WpRecordingFab>
 
   Widget _buildPulseRing(double buttonSize, LinearGradient gradient) {
     final ringSize = buttonSize * _pulseScale.value;
-    final ringColor =
-        gradient.colors.first.withValues(alpha: _pulseOpacity.value);
+    final ringColor = gradient.colors.first.withValues(
+      alpha: _pulseOpacity.value,
+    );
     return Container(
       width: ringSize,
       height: ringSize,
@@ -248,7 +247,11 @@ class _WpRecordingFabState extends State<WpRecordingFab>
           child: child,
         );
       },
-      child: const Icon(LucideIcons.loaderCircle, color: Colors.white, size: WpIconSize.lg),
+      child: const Icon(
+        LucideIcons.loaderCircle,
+        color: Colors.white,
+        size: WpIconSize.lg,
+      ),
     );
   }
 
@@ -278,28 +281,30 @@ class _WpRecordingFabState extends State<WpRecordingFab>
   static LinearGradient _gradient(RecordingPhase phase, bool isDark) {
     return switch (phase) {
       RecordingPhase.recording => const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
-        ),
-      RecordingPhase.transcribing || RecordingPhase.processing => const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-        ),
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+      ),
+      RecordingPhase.transcribing ||
+      RecordingPhase.processing => const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+      ),
       RecordingPhase.done => const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF4ADE80), Color(0xFF16A34A)],
-        ),
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF4ADE80), Color(0xFF16A34A)],
+      ),
       RecordingPhase.error => const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFF7B7B), Color(0xFFEF4444)],
-        ),
-      RecordingPhase.idle => isDark
-          ? WpColorsDark.accentWarmGradient
-          : WpColorsLight.accentWarmGradient,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFFF7B7B), Color(0xFFEF4444)],
+      ),
+      RecordingPhase.idle =>
+        isDark
+            ? WpColorsDark.accentWarmGradient
+            : WpColorsLight.accentWarmGradient,
     };
   }
 
@@ -307,7 +312,8 @@ class _WpRecordingFabState extends State<WpRecordingFab>
     return switch (phase) {
       RecordingPhase.idle => LucideIcons.mic,
       RecordingPhase.recording => LucideIcons.square,
-      RecordingPhase.transcribing || RecordingPhase.processing => LucideIcons.loaderCircle,
+      RecordingPhase.transcribing ||
+      RecordingPhase.processing => LucideIcons.loaderCircle,
       RecordingPhase.done => LucideIcons.check,
       RecordingPhase.error => LucideIcons.triangleAlert,
     };

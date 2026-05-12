@@ -10,10 +10,7 @@ void main() {
     testWidgets('renders with title and icon', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          const WpEmptyState(
-            icon: LucideIcons.inbox,
-            title: 'Nothing here',
-          ),
+          const WpEmptyState(icon: LucideIcons.inbox, title: 'Nothing here'),
         ),
       );
 
@@ -38,10 +35,7 @@ void main() {
     testWidgets('does not show hint when null', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          const WpEmptyState(
-            icon: LucideIcons.inbox,
-            title: 'Nothing here',
-          ),
+          const WpEmptyState(icon: LucideIcons.inbox, title: 'Nothing here'),
         ),
       );
 
@@ -49,30 +43,30 @@ void main() {
       expect(find.text('Nothing here'), findsOneWidget);
     });
 
-    testWidgets('action button is visible when actionLabel and onAction provided',
-        (tester) async {
+    testWidgets(
+      'action button is visible when actionLabel and onAction provided',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            WpEmptyState(
+              icon: LucideIcons.plus,
+              title: 'Empty',
+              actionLabel: 'Add Item',
+              onAction: () {},
+            ),
+          ),
+        );
+
+        expect(find.widgetWithText(ElevatedButton, 'Add Item'), findsOneWidget);
+      },
+    );
+
+    testWidgets('action button is not shown when actionLabel is null', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         makeTestable(
-          WpEmptyState(
-            icon: LucideIcons.plus,
-            title: 'Empty',
-            actionLabel: 'Add Item',
-            onAction: () {},
-          ),
-        ),
-      );
-
-      expect(find.widgetWithText(ElevatedButton, 'Add Item'), findsOneWidget);
-    });
-
-    testWidgets('action button is not shown when actionLabel is null',
-        (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const WpEmptyState(
-            icon: LucideIcons.plus,
-            title: 'Empty',
-          ),
+          const WpEmptyState(icon: LucideIcons.plus, title: 'Empty'),
         ),
       );
 
@@ -100,10 +94,7 @@ void main() {
     testWidgets('widget is centered', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          const WpEmptyState(
-            icon: LucideIcons.inbox,
-            title: 'Nothing here',
-          ),
+          const WpEmptyState(icon: LucideIcons.inbox, title: 'Nothing here'),
         ),
       );
 

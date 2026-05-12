@@ -38,7 +38,11 @@ class ReadyStep extends ConsumerWidget {
     final hotkeyKey = settings.hotkeyKey;
     final hotkeyModifiers = settings.hotkeyModifiers;
     final modifierLabels = hotkeyModifierLabels(hotkeyModifiers, l10n: l10n);
-    final formattedHotkey = formatHotkeyShortcut(hotkeyModifiers, hotkeyKey, l10n: l10n);
+    final formattedHotkey = formatHotkeyShortcut(
+      hotkeyModifiers,
+      hotkeyKey,
+      l10n: l10n,
+    );
 
     return Column(
       mainAxisSize: MainAxisSize.min,

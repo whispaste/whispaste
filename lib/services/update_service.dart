@@ -118,11 +118,13 @@ class UpdateNotifier extends Notifier<UpdateState> {
 
   @override
   UpdateState build() {
-    _dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(minutes: 5),
-      headers: {'User-Agent': appUserAgent},
-    ));
+    _dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(minutes: 5),
+        headers: {'User-Agent': appUserAgent},
+      ),
+    );
     ref.onDispose(() {
       _cancelToken?.cancel('disposed');
       _dio.close();
@@ -152,9 +154,7 @@ class UpdateNotifier extends Notifier<UpdateState> {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         _releasesApiUrl,
-        options: Options(
-          headers: {'Accept': 'application/vnd.github.v3+json'},
-        ),
+        options: Options(headers: {'Accept': 'application/vnd.github.v3+json'}),
       );
 
       final data = response.data;
@@ -221,10 +221,7 @@ class UpdateNotifier extends Notifier<UpdateState> {
       );
     } catch (e, st) {
       _log.error('Update check failed', e, st);
-      state = UpdateState(
-        phase: UpdatePhase.error,
-        errorMessage: e.toString(),
-      );
+      state = UpdateState(phase: UpdatePhase.error, errorMessage: e.toString());
     }
   }
 
@@ -257,10 +254,7 @@ class UpdateNotifier extends Notifier<UpdateState> {
       return;
     }
 
-    state = state.copyWith(
-      phase: UpdatePhase.downloading,
-      progressPercent: 0,
-    );
+    state = state.copyWith(phase: UpdatePhase.downloading, progressPercent: 0);
 
     final tempDir = Directory.systemTemp;
     final targetPath = p.join(tempDir.path, _setupAssetName);
@@ -272,9 +266,7 @@ class UpdateNotifier extends Notifier<UpdateState> {
         cancelToken: _cancelToken,
         onReceiveProgress: (received, total) {
           if (total > 0) {
-            state = state.copyWith(
-              progressPercent: received / total,
-            );
+            state = state.copyWith(progressPercent: received / total);
           }
         },
       );
@@ -333,11 +325,9 @@ class UpdateNotifier extends Notifier<UpdateState> {
       if (Platform.isMacOS) {
         // Open the DMG — macOS mounts it and the user drags to Applications.
         // Don't exit: user needs to complete drag-install manually.
-        await Process.start(
-          'open',
-          [installerPath],
-          mode: ProcessStartMode.detached,
-        );
+        await Process.start('open', [
+          installerPath,
+        ], mode: ProcessStartMode.detached);
         state = state.copyWith(phase: UpdatePhase.idle);
         return;
       } else {

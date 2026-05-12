@@ -39,10 +39,8 @@ class _FakeProcess implements Process {
   @override
   IOSink get stdin => throw UnimplementedError();
 
-  void emitStdout(String line) =>
-      _stdoutController.add('$line\n'.codeUnits);
-  void emitStderr(String line) =>
-      _stderrController.add('$line\n'.codeUnits);
+  void emitStdout(String line) => _stdoutController.add('$line\n'.codeUnits);
+  void emitStderr(String line) => _stderrController.add('$line\n'.codeUnits);
   void exit(int code) {
     if (!_exitCodeCompleter.isCompleted) _exitCodeCompleter.complete(code);
   }
@@ -82,9 +80,7 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 
 class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
   @override
-  ModelDownloadState build() => const ModelDownloadState(
-    downloadedModels: {},
-  );
+  ModelDownloadState build() => const ModelDownloadState(downloadedModels: {});
 }
 
 // Returns 200 on /health, empty JSON on /inference
@@ -110,10 +106,7 @@ ProviderContainer _makeContainer({
       sttHttpClientProvider.overrideWithValue(httpClient),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(
-          settings ??
-              AppSettings.defaults.copyWith(
-                sttModel: 'ggml-tiny',
-              ),
+          settings ?? AppSettings.defaults.copyWith(sttModel: 'ggml-tiny'),
         ),
       ),
       modelDownloadProvider.overrideWith(_FakeModelDownloadNotifier.new),
@@ -159,39 +152,45 @@ void main() {
       container.read(sttServiceProvider.notifier).notifyRecordingStopped();
     });
 
-    test('processRunnerProvider override is wired into SttServiceNotifier',
-        () async {
-      // Verifies that the DI seam is correctly wired: the container reads the
-      // overridden ProcessRunner, not SystemProcessRunner.
-      // Note: verifying that ensureRunning() *calls* the runner requires a
-      // real whisper-server binary at whisperServerPath() — not possible in
-      // unit tests. That path is tested by the cold-start integration test.
-      final fakeProcess = _FakeProcess();
-      final container = _makeContainer(
-        fakeProcess: fakeProcess,
-        httpClient: _makeHealthyHttpClient(),
-      );
-      addTearDown(container.dispose);
+    test(
+      'processRunnerProvider override is wired into SttServiceNotifier',
+      () async {
+        // Verifies that the DI seam is correctly wired: the container reads the
+        // overridden ProcessRunner, not SystemProcessRunner.
+        // Note: verifying that ensureRunning() *calls* the runner requires a
+        // real whisper-server binary at whisperServerPath() — not possible in
+        // unit tests. That path is tested by the cold-start integration test.
+        final fakeProcess = _FakeProcess();
+        final container = _makeContainer(
+          fakeProcess: fakeProcess,
+          httpClient: _makeHealthyHttpClient(),
+        );
+        addTearDown(container.dispose);
 
-      // The override must be a _FakeProcessRunner, not SystemProcessRunner.
-      expect(
-        container.read(processRunnerProvider),
-        isA<_FakeProcessRunner>(),
-        reason: 'processRunnerProvider override must be active',
-      );
+        // The override must be a _FakeProcessRunner, not SystemProcessRunner.
+        expect(
+          container.read(processRunnerProvider),
+          isA<_FakeProcessRunner>(),
+          reason: 'processRunnerProvider override must be active',
+        );
 
-      // Calling ensureRunning() without a binary transitions to error, not
-      // stopped — proves the runner path was attempted.
-      final notifier = container.read(sttServiceProvider.notifier);
-      unawaited(notifier.ensureRunning());
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+        // Calling ensureRunning() without a binary transitions to error, not
+        // stopped — proves the runner path was attempted.
+        final notifier = container.read(sttServiceProvider.notifier);
+        unawaited(notifier.ensureRunning());
+        await Future<void>.delayed(const Duration(milliseconds: 200));
 
-      final state = container.read(sttServiceProvider).serverState;
-      expect(
-        state,
-        anyOf(SttServerState.error, SttServerState.starting, SttServerState.stopped),
-        reason: 'ensureRunning() must not crash',
-      );
-    });
+        final state = container.read(sttServiceProvider).serverState;
+        expect(
+          state,
+          anyOf(
+            SttServerState.error,
+            SttServerState.starting,
+            SttServerState.stopped,
+          ),
+          reason: 'ensureRunning() must not crash',
+        );
+      },
+    );
   });
 }

@@ -7,7 +7,11 @@ import '../fixtures/test_helpers.dart';
 void main() {
   final testItems = [
     const WpNavItem(id: 'home', icon: LucideIcons.house, label: 'Home'),
-    const WpNavItem(id: 'settings', icon: LucideIcons.settings, label: 'Settings'),
+    const WpNavItem(
+      id: 'settings',
+      icon: LucideIcons.settings,
+      label: 'Settings',
+    ),
     const WpNavItem(id: 'about', icon: LucideIcons.info, label: 'About'),
   ];
 
@@ -15,11 +19,7 @@ void main() {
     testWidgets('renders without error', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          WpSidebar(
-            items: testItems,
-            activeId: 'home',
-            onItemTap: (_) {},
-          ),
+          WpSidebar(items: testItems, activeId: 'home', onItemTap: (_) {}),
         ),
       );
 
@@ -29,11 +29,7 @@ void main() {
     testWidgets('shows expected number of navigation icons', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          WpSidebar(
-            items: testItems,
-            activeId: 'home',
-            onItemTap: (_) {},
-          ),
+          WpSidebar(items: testItems, activeId: 'home', onItemTap: (_) {}),
         ),
       );
 
@@ -47,8 +43,9 @@ void main() {
       }
     });
 
-    testWidgets('tapping a nav item calls the selection callback',
-        (tester) async {
+    testWidgets('tapping a nav item calls the selection callback', (
+      tester,
+    ) async {
       String? tappedId;
 
       await tester.pumpWidget(
@@ -66,8 +63,9 @@ void main() {
       expect(tappedId, 'settings');
     });
 
-    testWidgets('tapping a different nav item reports correct id',
-        (tester) async {
+    testWidgets('tapping a different nav item reports correct id', (
+      tester,
+    ) async {
       String? tappedId;
 
       await tester.pumpWidget(
@@ -85,11 +83,7 @@ void main() {
     });
 
     testWidgets('WpNavItem data class stores id, icon, and label', (_) async {
-      const item = WpNavItem(
-        id: 'test',
-        icon: LucideIcons.star,
-        label: 'Test',
-      );
+      const item = WpNavItem(id: 'test', icon: LucideIcons.star, label: 'Test');
       expect(item.id, 'test');
       expect(item.icon, LucideIcons.star);
       expect(item.label, 'Test');

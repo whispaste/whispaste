@@ -29,7 +29,7 @@ import 'package:whispaste/services/sound_feedback_service.dart';
 
 class FakeSettingsNotifier extends SettingsNotifier {
   FakeSettingsNotifier([AppSettings? settings])
-      : _settings = settings ?? const AppSettings();
+    : _settings = settings ?? const AppSettings();
 
   final AppSettings _settings;
 
@@ -43,9 +43,7 @@ class FakeSettingsNotifier extends SettingsNotifier {
 
 /// Creates a [ProviderContainer] with the real [soundFeedbackProvider] and
 /// a fake settings notifier returning [settings].
-ProviderContainer buildContainer({
-  AppSettings settings = const AppSettings(),
-}) {
+ProviderContainer buildContainer({AppSettings settings = const AppSettings()}) {
   return ProviderContainer(
     overrides: [
       settingsProvider.overrideWith(() => FakeSettingsNotifier(settings)),
@@ -212,9 +210,7 @@ void main() {
 
     test('multiple containers are independent', () async {
       final c1 = buildContainer();
-      final c2 = buildContainer(
-        settings: const AppSettings(soundVolume: 42.0),
-      );
+      final c2 = buildContainer(settings: const AppSettings(soundVolume: 42.0));
       addTearDown(c1.dispose);
       addTearDown(c2.dispose);
 
@@ -341,27 +337,29 @@ void main() {
       await container.read(soundFeedbackProvider.notifier).playError();
     });
 
-    test('all event toggles disabled → only playError attempts engine',
-        () async {
-      final container = buildContainer(
-        settings: const AppSettings(
-          recordStartSound: false,
-          recordStopSound: false,
-          transcriptionCompleteSound: false,
-        ),
-      );
-      addTearDown(container.dispose);
-      await container.read(settingsProvider.future);
-      final notifier = container.read(soundFeedbackProvider.notifier);
+    test(
+      'all event toggles disabled → only playError attempts engine',
+      () async {
+        final container = buildContainer(
+          settings: const AppSettings(
+            recordStartSound: false,
+            recordStopSound: false,
+            transcriptionCompleteSound: false,
+          ),
+        );
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+        final notifier = container.read(soundFeedbackProvider.notifier);
 
-      // These should all early-return without touching the engine.
-      await notifier.playRecordStart();
-      await notifier.playRecordStop();
-      await notifier.playTranscriptionComplete();
+        // These should all early-return without touching the engine.
+        await notifier.playRecordStart();
+        await notifier.playRecordStop();
+        await notifier.playTranscriptionComplete();
 
-      // Only playError should attempt engine init.
-      await notifier.playError();
-    });
+        // Only playError should attempt engine init.
+        await notifier.playError();
+      },
+    );
 
     test('mixed enabled/disabled toggles', () async {
       // Only recordStartSound enabled.

@@ -32,8 +32,7 @@ class ParsedSearchQuery {
   final String rawQuery;
 
   /// `true` when there are no search terms at all.
-  bool get isEmpty =>
-      freeText.isEmpty && tagNames.isEmpty && langCode == null;
+  bool get isEmpty => freeText.isEmpty && tagNames.isEmpty && langCode == null;
 
   @override
   String toString() =>

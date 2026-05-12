@@ -62,9 +62,9 @@ class AutostartService extends Notifier<bool> {
         await launchAtStartup.disable();
       }
       state = enabled;
-      await ref.read(settingsProvider.notifier).updateSettings(
-            (s) => s.copyWith(launchAtStartup: enabled),
-          );
+      await ref
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(launchAtStartup: enabled));
       _log.info('Autostart ${enabled ? "enabled" : "disabled"}');
     } catch (e) {
       _log.warning('Autostart set failed: $e');
@@ -72,5 +72,6 @@ class AutostartService extends Notifier<bool> {
   }
 }
 
-final autostartServiceProvider =
-    NotifierProvider<AutostartService, bool>(AutostartService.new);
+final autostartServiceProvider = NotifierProvider<AutostartService, bool>(
+  AutostartService.new,
+);

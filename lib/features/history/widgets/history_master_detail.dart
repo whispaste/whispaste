@@ -103,7 +103,8 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
       // Opening detail panel
       _displayedEntry = widget.selectedEntry;
       _anim.forward();
-    } else if (widget.selectedEntry == null && oldWidget.selectedEntry != null) {
+    } else if (widget.selectedEntry == null &&
+        oldWidget.selectedEntry != null) {
       // Closing detail panel
       _anim.reverse().then((_) {
         if (mounted) setState(() => _displayedEntry = null);
@@ -186,8 +187,9 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
       onDelete: () => widget.onDelete(entry),
       onArchive: () => widget.onArchive(entry),
       onRestore: () => widget.onRestore(entry),
-      onDuplicate:
-          widget.onDuplicate == null ? null : () => widget.onDuplicate!(entry),
+      onDuplicate: widget.onDuplicate == null
+          ? null
+          : () => widget.onDuplicate!(entry),
       onCopyMarkdown: widget.onCopyMarkdown == null
           ? null
           : () => widget.onCopyMarkdown!(entry),
@@ -196,8 +198,7 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
 
   @override
   Widget build(BuildContext context) {
-    final showDetail =
-        widget.selectedEntry != null || _displayedEntry != null;
+    final showDetail = widget.selectedEntry != null || _displayedEntry != null;
 
     if (!showDetail) {
       return _buildMasterBody();
@@ -223,14 +224,11 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
         // When detail is open, cap master so the detail gets at least
         // _minDetailRenderWidth. If there's not enough total space for
         // both panels, fall back to compact/fullscreen detail.
-        final roomForDetail =
-            totalWidth - _minMasterWidth - _dividerHitWidth;
+        final roomForDetail = totalWidth - _minMasterWidth - _dividerHitWidth;
         if (roomForDetail < _minDetailRenderWidth &&
             widget.selectedEntry != null) {
           // Not enough room for split — show full-screen detail.
-          return _buildDetailPanel(
-            widget.selectedEntry ?? _displayedEntry!,
-          );
+          return _buildDetailPanel(widget.selectedEntry ?? _displayedEntry!);
         }
 
         final maxMasterW = totalWidth * _maxMasterFraction;
@@ -249,7 +247,7 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
             );
             final detailW =
                 (totalWidth - effectiveMaster - _dividerHitWidth) *
-                    detailFraction;
+                detailFraction;
             final masterW = totalWidth - detailW - _dividerHitWidth;
 
             return Row(
@@ -270,10 +268,14 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
                       setState(() {
                         final dragMax = detailFraction > 0.05
                             ? maxMasterForDetail.clamp(
-                                _minMasterWidth, maxMasterW)
+                                _minMasterWidth,
+                                maxMasterW,
+                              )
                             : maxMasterW;
-                        _masterWidth = (_masterWidth + details.delta.dx)
-                            .clamp(_minMasterWidth, dragMax);
+                        _masterWidth = (_masterWidth + details.delta.dx).clamp(
+                          _minMasterWidth,
+                          dragMax,
+                        );
                       });
                     },
                     onHorizontalDragEnd: (_) =>
@@ -288,11 +290,15 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
                           decoration: BoxDecoration(
                             color: _isDragging
                                 ? (widget.isDark
-                                    ? WpColorsDark.accent.withValues(alpha: 0.5)
-                                    : WpColorsLight.accent.withValues(alpha: 0.5))
+                                      ? WpColorsDark.accent.withValues(
+                                          alpha: 0.5,
+                                        )
+                                      : WpColorsLight.accent.withValues(
+                                          alpha: 0.5,
+                                        ))
                                 : (widget.isDark
-                                    ? WpColorsDark.borderSubtle
-                                    : WpColorsLight.borderSubtle),
+                                      ? WpColorsDark.borderSubtle
+                                      : WpColorsLight.borderSubtle),
                             borderRadius: BorderRadius.circular(1.5),
                           ),
                         ),
@@ -302,27 +308,27 @@ class _HistoryMasterDetailState extends State<HistoryMasterDetail>
                 ),
                 SizedBox(
                   width: detailW.clamp(0.0, totalWidth - _minMasterWidth),
-                  child: detailFraction > 0.05 &&
-                          detailW >= _minDetailRenderWidth
+                  child:
+                      detailFraction > 0.05 && detailW >= _minDetailRenderWidth
                       ? ClipRect(
                           child: Opacity(
-                          opacity: detailFraction.clamp(0.0, 1.0),
-                          child: AnimatedSwitcher(
-                            duration: WpMotion.fast,
-                            switchInCurve: Curves.easeOut,
-                            switchOutCurve: Curves.easeIn,
-                            transitionBuilder: (child, animation) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: child,
-                              );
-                            },
-                            child: _buildDetailPanel(
-                              widget.selectedEntry ?? _displayedEntry!,
+                            opacity: detailFraction.clamp(0.0, 1.0),
+                            child: AnimatedSwitcher(
+                              duration: WpMotion.fast,
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              transitionBuilder: (child, animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                );
+                              },
+                              child: _buildDetailPanel(
+                                widget.selectedEntry ?? _displayedEntry!,
+                              ),
                             ),
                           ),
-                        ),
-                      )
+                        )
                       : const SizedBox.shrink(),
                 ),
               ],

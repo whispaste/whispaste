@@ -125,7 +125,8 @@ void main() {
         phase: UpdatePhase.available,
         latestVersion: '2.0.0',
         downloadUrl: 'https://example.com/setup.exe',
-        releaseNotesUrl: 'https://github.com/whispaste/whispaste/releases/tag/v2.0.0',
+        releaseNotesUrl:
+            'https://github.com/whispaste/whispaste/releases/tag/v2.0.0',
       );
       final updated = original.copyWith(phase: UpdatePhase.downloading);
       expect(updated.phase, UpdatePhase.downloading);

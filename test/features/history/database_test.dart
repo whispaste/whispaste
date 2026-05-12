@@ -19,15 +19,17 @@ void main() {
     });
 
     test('inserts and retrieves an entry', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'test-1',
-        timestamp: DateTime(2025, 1, 15, 10, 30),
-        content: const Value('Hello world transcription'),
-        title: const Value('Test Entry'),
-        model: const Value('whisper-large-v3'),
-        isLocal: const Value(true),
-        durationSec: const Value(12.5),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'test-1',
+          timestamp: DateTime(2025, 1, 15, 10, 30),
+          content: const Value('Hello world transcription'),
+          title: const Value('Test Entry'),
+          model: const Value('whisper-large-v3'),
+          isLocal: const Value(true),
+          durationSec: const Value(12.5),
+        ),
+      );
 
       final entries = await db.allEntries();
       expect(entries, hasLength(1));
@@ -38,10 +40,12 @@ void main() {
     });
 
     test('soft-delete moves entry to trash', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'del-1',
-        timestamp: DateTime(2025, 1, 15),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'del-1',
+          timestamp: DateTime(2025, 1, 15),
+        ),
+      );
 
       expect(await db.allEntries(), hasLength(1));
 
@@ -51,10 +55,12 @@ void main() {
     });
 
     test('togglePin flips pin state', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'pin-1',
-        timestamp: DateTime(2025, 1, 15),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'pin-1',
+          timestamp: DateTime(2025, 1, 15),
+        ),
+      );
 
       var entries = await db.allEntries();
       expect(entries.first.pinned, false);
@@ -69,15 +75,19 @@ void main() {
     });
 
     test('pinnedEntries returns only pinned', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'a',
-        timestamp: DateTime(2025, 1, 15),
-        pinned: const Value(true),
-      ));
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'b',
-        timestamp: DateTime(2025, 1, 16),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'a',
+          timestamp: DateTime(2025, 1, 15),
+          pinned: const Value(true),
+        ),
+      );
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'b',
+          timestamp: DateTime(2025, 1, 16),
+        ),
+      );
 
       final pinned = await db.pinnedEntries();
       expect(pinned, hasLength(1));
@@ -85,16 +95,20 @@ void main() {
     });
 
     test('entriesByProject filters correctly', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'p1',
-        timestamp: DateTime(2025, 1, 15),
-        projectId: const Value('proj-a'),
-      ));
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'p2',
-        timestamp: DateTime(2025, 1, 16),
-        projectId: const Value('proj-b'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'p1',
+          timestamp: DateTime(2025, 1, 15),
+          projectId: const Value('proj-a'),
+        ),
+      );
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'p2',
+          timestamp: DateTime(2025, 1, 16),
+          projectId: const Value('proj-b'),
+        ),
+      );
 
       final results = await db.entriesByProject('proj-a');
       expect(results, hasLength(1));
@@ -102,17 +116,21 @@ void main() {
     });
 
     test('upsertEntry updates existing entry', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'up-1',
-        timestamp: DateTime(2025, 1, 15),
-        title: const Value('Original'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'up-1',
+          timestamp: DateTime(2025, 1, 15),
+          title: const Value('Original'),
+        ),
+      );
 
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'up-1',
-        timestamp: DateTime(2025, 1, 15),
-        title: const Value('Updated'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'up-1',
+          timestamp: DateTime(2025, 1, 15),
+          title: const Value('Updated'),
+        ),
+      );
 
       final entries = await db.allEntries();
       expect(entries, hasLength(1));
@@ -120,14 +138,18 @@ void main() {
     });
 
     test('orders by timestamp descending', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'old',
-        timestamp: DateTime(2025, 1, 10),
-      ));
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'new',
-        timestamp: DateTime(2025, 1, 20),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'old',
+          timestamp: DateTime(2025, 1, 10),
+        ),
+      );
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'new',
+          timestamp: DateTime(2025, 1, 20),
+        ),
+      );
 
       final entries = await db.allEntries();
       expect(entries.first.id, 'new');
@@ -137,11 +159,13 @@ void main() {
 
   group('Projects', () {
     test('CRUD operations work', () async {
-      await db.upsertProject(ProjectsCompanion.insert(
-        id: 'proj-1',
-        name: 'My Project',
-        createdAt: DateTime(2025, 1, 1),
-      ));
+      await db.upsertProject(
+        ProjectsCompanion.insert(
+          id: 'proj-1',
+          name: 'My Project',
+          createdAt: DateTime(2025, 1, 1),
+        ),
+      );
 
       final projects = await db.allProjects();
       expect(projects, hasLength(1));
@@ -154,18 +178,22 @@ void main() {
 
   group('Notes', () {
     test('CRUD operations work', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'entry-1',
-        timestamp: DateTime(2025, 1, 15),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'entry-1',
+          timestamp: DateTime(2025, 1, 15),
+        ),
+      );
 
-      await db.upsertNote(EntryNotesCompanion.insert(
-        id: 'note-1',
-        entryId: 'entry-1',
-        content: const Value('A detailed note'),
-        createdAt: DateTime(2025, 1, 15),
-        updatedAt: DateTime(2025, 1, 15),
-      ));
+      await db.upsertNote(
+        EntryNotesCompanion.insert(
+          id: 'note-1',
+          entryId: 'entry-1',
+          content: const Value('A detailed note'),
+          createdAt: DateTime(2025, 1, 15),
+          updatedAt: DateTime(2025, 1, 15),
+        ),
+      );
 
       final notes = await db.notesForEntry('entry-1');
       expect(notes, hasLength(1));
@@ -213,14 +241,19 @@ void main() {
 
       // Original name should remain
       final all = await db.allTags();
-      expect(all.map((t) => t.name).toList(), containsAll(['existing', 'to-rename']));
+      expect(
+        all.map((t) => t.name).toList(),
+        containsAll(['existing', 'to-rename']),
+      );
     });
 
     test('deleteTag removes tag and its entry links', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'e1',
-        timestamp: DateTime(2025, 1, 15),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'e1',
+          timestamp: DateTime(2025, 1, 15),
+        ),
+      );
       final tag = await db.createTag('removable');
       await db.tagEntry('e1', tag.id);
 
@@ -231,10 +264,12 @@ void main() {
     });
 
     test('tagEntry and untagEntry link/unlink entries and tags', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'e1',
-        timestamp: DateTime(2025, 1, 15),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'e1',
+          timestamp: DateTime(2025, 1, 15),
+        ),
+      );
       final tag = await db.createTag('test-tag');
 
       await db.tagEntry('e1', tag.id);
@@ -245,10 +280,12 @@ void main() {
     });
 
     test('tagEntry is idempotent', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'e1',
-        timestamp: DateTime(2025, 1, 15),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'e1',
+          timestamp: DateTime(2025, 1, 15),
+        ),
+      );
       final tag = await db.createTag('dup-tag');
 
       await db.tagEntry('e1', tag.id);
@@ -257,12 +294,24 @@ void main() {
     });
 
     test('frequentTags orders by usage count', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'e1', timestamp: DateTime(2025, 1, 15)));
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'e2', timestamp: DateTime(2025, 1, 16)));
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'e3', timestamp: DateTime(2025, 1, 17)));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'e1',
+          timestamp: DateTime(2025, 1, 15),
+        ),
+      );
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'e2',
+          timestamp: DateTime(2025, 1, 16),
+        ),
+      );
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'e3',
+          timestamp: DateTime(2025, 1, 17),
+        ),
+      );
 
       final popular = await db.createTag('popular');
       final rare = await db.createTag('rare');
@@ -283,16 +332,20 @@ void main() {
       await db.createTag('dart');
 
       final results = await db.searchTags('fl');
-      expect(results.map((t) => t.name).toList(),
-          containsAll(['flutter', 'flow']));
+      expect(
+        results.map((t) => t.name).toList(),
+        containsAll(['flutter', 'flow']),
+      );
       expect(results.length, 2);
     });
 
     test('watchTagsForEntry emits updates', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'e1',
-        timestamp: DateTime(2025, 1, 15),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'e1',
+          timestamp: DateTime(2025, 1, 15),
+        ),
+      );
       final tag = await db.createTag('reactive');
 
       await db.tagEntry('e1', tag.id);
@@ -306,18 +359,22 @@ void main() {
 
   group('FTS search', () {
     test('searchEntries finds entries by title', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'fts-1',
-        timestamp: DateTime(2025, 1, 15),
-        title: const Value('Meeting with engineering team'),
-        content: const Value('We discussed roadmap items'),
-      ));
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'fts-2',
-        timestamp: DateTime(2025, 1, 16),
-        title: const Value('Grocery list'),
-        content: const Value('Milk, bread, eggs'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'fts-1',
+          timestamp: DateTime(2025, 1, 15),
+          title: const Value('Meeting with engineering team'),
+          content: const Value('We discussed roadmap items'),
+        ),
+      );
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'fts-2',
+          timestamp: DateTime(2025, 1, 16),
+          title: const Value('Grocery list'),
+          content: const Value('Milk, bread, eggs'),
+        ),
+      );
 
       final results = await db.searchEntries('meeting');
       expect(results, hasLength(1));
@@ -325,25 +382,29 @@ void main() {
     });
 
     test('searchEntries finds entries by content', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'fts-1',
-        timestamp: DateTime(2025, 1, 15),
-        title: const Value('Note'),
-        content: const Value('Flutter is a great framework'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'fts-1',
+          timestamp: DateTime(2025, 1, 15),
+          title: const Value('Note'),
+          content: const Value('Flutter is a great framework'),
+        ),
+      );
 
       final results = await db.searchEntries('flutter');
       expect(results, hasLength(1));
     });
 
     test('searchEntries finds entries by tags column', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'fts-1',
-        timestamp: DateTime(2025, 1, 15),
-        title: const Value('Some note'),
-        content: const Value('Content here'),
-        tags: const Value('["urgent","followup"]'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'fts-1',
+          timestamp: DateTime(2025, 1, 15),
+          title: const Value('Some note'),
+          content: const Value('Content here'),
+          tags: const Value('["urgent","followup"]'),
+        ),
+      );
 
       final results = await db.searchEntries('urgent');
       expect(results, hasLength(1));
@@ -351,12 +412,14 @@ void main() {
     });
 
     test('searchEntries handles special characters gracefully', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'fts-1',
-        timestamp: DateTime(2025, 1, 15),
-        title: const Value('Test'),
-        content: const Value('Some content'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'fts-1',
+          timestamp: DateTime(2025, 1, 15),
+          title: const Value('Test'),
+          content: const Value('Some content'),
+        ),
+      );
 
       // Should not throw on special FTS characters
       final results = await db.searchEntries('test* OR "phrase" (grouped)');
@@ -364,24 +427,28 @@ void main() {
     });
 
     test('searchEntries returns empty for no match', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'fts-1',
-        timestamp: DateTime(2025, 1, 15),
-        title: const Value('Hello'),
-        content: const Value('World'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'fts-1',
+          timestamp: DateTime(2025, 1, 15),
+          title: const Value('Hello'),
+          content: const Value('World'),
+        ),
+      );
 
       final results = await db.searchEntries('nonexistent');
       expect(results, isEmpty);
     });
 
     test('searchEntries excludes soft-deleted entries', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'fts-1',
-        timestamp: DateTime(2025, 1, 15),
-        title: const Value('Deletable note'),
-        content: const Value('This will be deleted'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'fts-1',
+          timestamp: DateTime(2025, 1, 15),
+          title: const Value('Deletable note'),
+          content: const Value('This will be deleted'),
+        ),
+      );
 
       await db.softDeleteEntry('fts-1');
 
@@ -390,12 +457,14 @@ void main() {
     });
 
     test('searchEntries uses prefix matching', () async {
-      await db.upsertEntry(HistoryEntriesCompanion.insert(
-        id: 'fts-1',
-        timestamp: DateTime(2025, 1, 15),
-        title: const Value('Engineering standup'),
-        content: const Value('Discussed progress'),
-      ));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'fts-1',
+          timestamp: DateTime(2025, 1, 15),
+          title: const Value('Engineering standup'),
+          content: const Value('Discussed progress'),
+        ),
+      );
 
       final results = await db.searchEntries('engin');
       expect(results, hasLength(1));

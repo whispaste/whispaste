@@ -56,10 +56,7 @@ const _appleGpu = GpuInfo(
   vramMB: 16384,
 );
 
-const _noGpu = GpuInfo(
-  vendor: GpuVendor.none,
-  name: 'No GPU detected',
-);
+const _noGpu = GpuInfo(vendor: GpuVendor.none, name: 'No GPU detected');
 
 void main() {
   // =========================================================================
@@ -178,8 +175,11 @@ void main() {
       });
 
       test('Upstream: blas-bin only regardless of GPU', () {
-        final patterns =
-            serverAssetPatterns(_nvidiaWithCuda, 'disabled', false);
+        final patterns = serverAssetPatterns(
+          _nvidiaWithCuda,
+          'disabled',
+          false,
+        );
         expect(patterns, ['blas-bin']);
       });
     });
@@ -269,15 +269,17 @@ void main() {
       expect(isServerBinaryCompatible(tmpDir.path, _nvidiaWithCuda), isTrue);
     });
 
-    test('returns true when binary exists with matching backend (Vulkan)',
-        () async {
-      // Use Intel/Vulkan — no DLL heuristic to complicate things.
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
-      File(p.join(tmpDir.path, 'ggml-vulkan.dll')).createSync();
-      await writeServerBinaryInfo(tmpDir.path, _intelGpu);
+    test(
+      'returns true when binary exists with matching backend (Vulkan)',
+      () async {
+        // Use Intel/Vulkan — no DLL heuristic to complicate things.
+        File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+        File(p.join(tmpDir.path, 'ggml-vulkan.dll')).createSync();
+        await writeServerBinaryInfo(tmpDir.path, _intelGpu);
 
-      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
-    });
+        expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
+      },
+    );
 
     test('returns false when metadata backend mismatches GPU', () async {
       File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
@@ -336,15 +338,17 @@ void main() {
 
     // --- Layer 3: Vulkan DLL heuristic ---
 
-    test('returns false when no ggml-vulkan.dll on Vulkan-capable GPU',
-        () async {
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
-      // CPU/OpenBLAS DLLs but no Vulkan DLL — legacy upstream download.
-      File(p.join(tmpDir.path, 'libopenblas.dll')).createSync();
-      File(p.join(tmpDir.path, 'ggml-blas.dll')).createSync();
+    test(
+      'returns false when no ggml-vulkan.dll on Vulkan-capable GPU',
+      () async {
+        File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+        // CPU/OpenBLAS DLLs but no Vulkan DLL — legacy upstream download.
+        File(p.join(tmpDir.path, 'libopenblas.dll')).createSync();
+        File(p.join(tmpDir.path, 'ggml-blas.dll')).createSync();
 
-      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
-    });
+        expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
+      },
+    );
 
     test('returns false when no Vulkan DLL on AMD GPU', () async {
       File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
@@ -353,25 +357,29 @@ void main() {
       expect(isServerBinaryCompatible(tmpDir.path, _amdGpu), isFalse);
     });
 
-    test('returns true when ggml-vulkan.dll present without metadata',
-        () async {
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
-      File(p.join(tmpDir.path, 'ggml-vulkan.dll')).createSync();
-      // No .server-info.json — relies on DLL heuristic only.
+    test(
+      'returns true when ggml-vulkan.dll present without metadata',
+      () async {
+        File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+        File(p.join(tmpDir.path, 'ggml-vulkan.dll')).createSync();
+        // No .server-info.json — relies on DLL heuristic only.
 
-      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
-    });
+        expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
+      },
+    );
 
-    test('returns true when metadata says vulkan even without DLL (static link)',
-        () async {
-      File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
-      await writeServerBinaryInfo(tmpDir.path, _intelGpu);
-      // Metadata says vulkan, GPU needs vulkan → match.
-      // No ggml-vulkan.dll because Vulkan is statically linked in the binary.
-      // L1 metadata match short-circuits — this is the exact scenario that
-      // previously caused an infinite download-delete loop.
-      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
-    });
+    test(
+      'returns true when metadata says vulkan even without DLL (static link)',
+      () async {
+        File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
+        await writeServerBinaryInfo(tmpDir.path, _intelGpu);
+        // Metadata says vulkan, GPU needs vulkan → match.
+        // No ggml-vulkan.dll because Vulkan is statically linked in the binary.
+        // L1 metadata match short-circuits — this is the exact scenario that
+        // previously caused an infinite download-delete loop.
+        expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isTrue);
+      },
+    );
   });
 
   // =========================================================================
@@ -393,35 +401,43 @@ void main() {
       File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
       File(p.join(tmpDir.path, 'cublas64_12.dll')).createSync();
       File(p.join(tmpDir.path, 'ggml-cuda.dll')).createSync();
-      File(p.join(tmpDir.path, '.server-info.json'))
-          .writeAsStringSync('{"backend":"cuda"}');
+      File(
+        p.join(tmpDir.path, '.server-info.json'),
+      ).writeAsStringSync('{"backend":"cuda"}');
 
       await deleteServerBinary(tmpDir.path);
 
-      expect(File(p.join(tmpDir.path, 'whisper-server.exe')).existsSync(),
-          isFalse);
       expect(
-          File(p.join(tmpDir.path, 'cublas64_12.dll')).existsSync(), isFalse);
+        File(p.join(tmpDir.path, 'whisper-server.exe')).existsSync(),
+        isFalse,
+      );
+      expect(
+        File(p.join(tmpDir.path, 'cublas64_12.dll')).existsSync(),
+        isFalse,
+      );
       expect(File(p.join(tmpDir.path, 'ggml-cuda.dll')).existsSync(), isFalse);
-      expect(File(p.join(tmpDir.path, '.server-info.json')).existsSync(),
-          isFalse);
+      expect(
+        File(p.join(tmpDir.path, '.server-info.json')).existsSync(),
+        isFalse,
+      );
     });
 
     test('preserves non-binary files (models, configs)', () async {
       File(p.join(tmpDir.path, 'whisper-server.exe')).createSync();
       File(p.join(tmpDir.path, 'ggml-base.bin')).createSync();
-      File(p.join(tmpDir.path, 'config.json'))
-          .writeAsStringSync('{"key":"val"}');
+      File(
+        p.join(tmpDir.path, 'config.json'),
+      ).writeAsStringSync('{"key":"val"}');
 
       await deleteServerBinary(tmpDir.path);
 
-      expect(File(p.join(tmpDir.path, 'whisper-server.exe')).existsSync(),
-          isFalse);
+      expect(
+        File(p.join(tmpDir.path, 'whisper-server.exe')).existsSync(),
+        isFalse,
+      );
       // Non-binary files must survive.
-      expect(
-          File(p.join(tmpDir.path, 'ggml-base.bin')).existsSync(), isTrue);
-      expect(
-          File(p.join(tmpDir.path, 'config.json')).existsSync(), isTrue);
+      expect(File(p.join(tmpDir.path, 'ggml-base.bin')).existsSync(), isTrue);
+      expect(File(p.join(tmpDir.path, 'config.json')).existsSync(), isTrue);
     });
 
     test('handles non-existent directory gracefully', () async {
@@ -502,8 +518,10 @@ void main() {
       final deleted = await validateAndCleanIncompatibleBinary(tmpDir.path);
       expect(deleted, isFalse);
       // Binary should still exist.
-      expect(File(p.join(tmpDir.path, 'whisper-server.exe')).existsSync(),
-          isTrue);
+      expect(
+        File(p.join(tmpDir.path, 'whisper-server.exe')).existsSync(),
+        isTrue,
+      );
     });
 
     test('deletes binary when metadata says wrong backend', () async {
@@ -521,8 +539,10 @@ void main() {
       final deleted = await validateAndCleanIncompatibleBinary(tmpDir.path);
       expect(deleted, isTrue);
       // Binary should be gone.
-      expect(File(p.join(tmpDir.path, 'whisper-server.exe')).existsSync(),
-          isFalse);
+      expect(
+        File(p.join(tmpDir.path, 'whisper-server.exe')).existsSync(),
+        isFalse,
+      );
     });
   });
 }

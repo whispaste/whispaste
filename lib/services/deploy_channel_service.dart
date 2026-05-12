@@ -80,12 +80,11 @@ const _errorSuccess = 0;
 bool _hasMsixPackageIdentity() {
   try {
     final kernel32 = DynamicLibrary.open('kernel32.dll');
-    final getCurrentPackageFullName = kernel32.lookupFunction<
-        Int32 Function(Pointer<Uint32> length, Pointer<Uint16> fullName),
-        int Function(
-            Pointer<Uint32> length, Pointer<Uint16> fullName)>(
-      'GetCurrentPackageFullName',
-    );
+    final getCurrentPackageFullName = kernel32
+        .lookupFunction<
+          Int32 Function(Pointer<Uint32> length, Pointer<Uint16> fullName),
+          int Function(Pointer<Uint32> length, Pointer<Uint16> fullName)
+        >('GetCurrentPackageFullName');
 
     final length = calloc<Uint32>();
     final nameBuffer = calloc<Uint16>(256);
@@ -114,19 +113,41 @@ const _keyRead = 0x20019; // KEY_READ
 const _regSz = 1; // REG_SZ
 
 // advapi32.dll function signatures.
-typedef _RegOpenKeyExNative = Int32 Function(
-    IntPtr hKey, Pointer<Utf16> lpSubKey, Uint32 ulOptions,
-    Uint32 samDesired, Pointer<IntPtr> phkResult);
-typedef _RegOpenKeyExDart = int Function(
-    int hKey, Pointer<Utf16> lpSubKey, int ulOptions,
-    int samDesired, Pointer<IntPtr> phkResult);
+typedef _RegOpenKeyExNative =
+    Int32 Function(
+      IntPtr hKey,
+      Pointer<Utf16> lpSubKey,
+      Uint32 ulOptions,
+      Uint32 samDesired,
+      Pointer<IntPtr> phkResult,
+    );
+typedef _RegOpenKeyExDart =
+    int Function(
+      int hKey,
+      Pointer<Utf16> lpSubKey,
+      int ulOptions,
+      int samDesired,
+      Pointer<IntPtr> phkResult,
+    );
 
-typedef _RegQueryValueExNative = Int32 Function(
-    IntPtr hKey, Pointer<Utf16> lpValueName, Pointer<Uint32> lpReserved,
-    Pointer<Uint32> lpType, Pointer<Uint8> lpData, Pointer<Uint32> lpcbData);
-typedef _RegQueryValueExDart = int Function(
-    int hKey, Pointer<Utf16> lpValueName, Pointer<Uint32> lpReserved,
-    Pointer<Uint32> lpType, Pointer<Uint8> lpData, Pointer<Uint32> lpcbData);
+typedef _RegQueryValueExNative =
+    Int32 Function(
+      IntPtr hKey,
+      Pointer<Utf16> lpValueName,
+      Pointer<Uint32> lpReserved,
+      Pointer<Uint32> lpType,
+      Pointer<Uint8> lpData,
+      Pointer<Uint32> lpcbData,
+    );
+typedef _RegQueryValueExDart =
+    int Function(
+      int hKey,
+      Pointer<Utf16> lpValueName,
+      Pointer<Uint32> lpReserved,
+      Pointer<Uint32> lpType,
+      Pointer<Uint8> lpData,
+      Pointer<Uint32> lpcbData,
+    );
 
 typedef _RegCloseKeyNative = Int32 Function(IntPtr hKey);
 typedef _RegCloseKeyDart = int Function(int hKey);
@@ -136,19 +157,22 @@ bool _hasInstallerRegistryMarker() {
   try {
     final advapi32 = DynamicLibrary.open('advapi32.dll');
 
-    final regOpenKeyEx = advapi32.lookupFunction<
-        _RegOpenKeyExNative, _RegOpenKeyExDart>('RegOpenKeyExW');
-    final regQueryValueEx = advapi32.lookupFunction<
-        _RegQueryValueExNative, _RegQueryValueExDart>('RegQueryValueExW');
-    final regCloseKey = advapi32.lookupFunction<
-        _RegCloseKeyNative, _RegCloseKeyDart>('RegCloseKey');
+    final regOpenKeyEx = advapi32
+        .lookupFunction<_RegOpenKeyExNative, _RegOpenKeyExDart>(
+          'RegOpenKeyExW',
+        );
+    final regQueryValueEx = advapi32
+        .lookupFunction<_RegQueryValueExNative, _RegQueryValueExDart>(
+          'RegQueryValueExW',
+        );
+    final regCloseKey = advapi32
+        .lookupFunction<_RegCloseKeyNative, _RegCloseKeyDart>('RegCloseKey');
 
     final subKey = r'Software\WhisPaste'.toNativeUtf16();
     final hKey = calloc<IntPtr>();
 
     try {
-      var result = regOpenKeyEx(
-          _hkeyCurrentUser, subKey, 0, _keyRead, hKey);
+      var result = regOpenKeyEx(_hkeyCurrentUser, subKey, 0, _keyRead, hKey);
       if (result != _errorSuccess) return false;
 
       final valueName = 'InstallSource'.toNativeUtf16();
@@ -159,7 +183,13 @@ bool _hasInstallerRegistryMarker() {
 
       try {
         result = regQueryValueEx(
-            hKey.value, valueName, nullptr, dataType, dataBuffer, dataSize);
+          hKey.value,
+          valueName,
+          nullptr,
+          dataType,
+          dataBuffer,
+          dataSize,
+        );
         if (result != _errorSuccess || dataType.value != _regSz) return false;
 
         // Decode the UTF-16 string (REG_SZ is null-terminated UTF-16).

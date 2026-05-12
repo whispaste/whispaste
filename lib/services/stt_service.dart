@@ -10,6 +10,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
@@ -94,6 +95,59 @@ class SttStatus {
   String toString() =>
       'SttStatus($serverState, port=$port, model=$modelId, '
       'benchmarking=$isBenchmarking, cpuFallback=$cpuFallbackActive)';
+}
+
+// ---------------------------------------------------------------------------
+// Exit-code classifier
+// ---------------------------------------------------------------------------
+
+/// Classified kind of a whisper-server subprocess exit.
+///
+/// Latent here for issue-14 lift-out to `SttExitClassifier`. Do not move
+/// this enum until issue 14 is in scope.
+///
+/// Enum values:
+/// - [modelLoad]      Exit code 3 — whisper_init_from_file failed.
+/// - [dllMissing]     Windows 0xC0000135 — STATUS_DLL_NOT_FOUND.
+/// - [dllEntryPoint]  Windows 0xC0000139 — STATUS_ENTRYPOINT_NOT_FOUND.
+/// - [gpuFatal]       Windows 0xC0000409 — STATUS_STACK_BUFFER_OVERRUN /
+///                    CUDA fatal abort.
+/// - [heapCorruption] Windows 0xC0000005 — STATUS_ACCESS_VIOLATION.
+/// - [other]          Any other exit code.
+enum SttExitKind {
+  modelLoad,
+  dllMissing,
+  dllEntryPoint,
+  gpuFatal,
+  heapCorruption,
+  other,
+}
+
+/// Maps a whisper-server process [exitCode] to a [SttExitKind].
+///
+/// Only the five Windows NTSTATUS codes listed in the issue spec are
+/// classified; all others map to [SttExitKind.other].
+///
+/// The function is pure (no side-effects) so it can be tested in isolation
+/// and later lifted to a standalone `SttExitClassifier` class (issue 14).
+SttExitKind classifySttExitCode(int exitCode) {
+  // Exit code 3: whisper_init_from_file failed (all platforms).
+  if (exitCode == 3) return SttExitKind.modelLoad;
+
+  if (!Platform.isWindows) return SttExitKind.other;
+
+  // Windows NTSTATUS codes (reported as negative signed 32-bit ints by Dart).
+  //   0xC0000135 = STATUS_DLL_NOT_FOUND       = -1073741515
+  //   0xC0000139 = STATUS_ENTRYPOINT_NOT_FOUND = -1073741511
+  //   0xC0000409 = STATUS_STACK_BUFFER_OVERRUN = -1073740791
+  //   0xC0000005 = STATUS_ACCESS_VIOLATION     = -1073741819
+  return switch (exitCode) {
+    -1073741515 => SttExitKind.dllMissing,
+    -1073741511 => SttExitKind.dllEntryPoint,
+    -1073740791 => SttExitKind.gpuFatal,
+    -1073741819 => SttExitKind.heapCorruption,
+    _ => SttExitKind.other,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -283,8 +337,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     try {
       await _start(
         modelId: modelId,
-        gpuAcceleration:
-            _gpuFallbackActive ? 'disabled' : settings.gpuAcceleration,
+        gpuAcceleration: _gpuFallbackActive
+            ? 'disabled'
+            : settings.gpuAcceleration,
       );
       _startCompleter?.complete();
     } on Exception catch (e) {
@@ -329,8 +384,9 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
       await _start(
         modelId: currentModelId,
-        gpuAcceleration:
-            _gpuFallbackActive ? 'disabled' : settings.gpuAcceleration,
+        gpuAcceleration: _gpuFallbackActive
+            ? 'disabled'
+            : settings.gpuAcceleration,
       );
       _log.info('Re-benchmark completed for $currentModelId');
     } on Exception catch (e) {
@@ -1071,112 +1127,146 @@ class SttServiceNotifier extends Notifier<SttStatus> {
             return;
           }
 
-          // Windows STATUS_DLL_NOT_FOUND (0xC0000135) indicates a binary
-          // variant mismatch — e.g. CUDA build on a system without NVIDIA.
-          final isDllNotFound = Platform.isWindows && code == -1073741515;
+          // Classify the exit code using the exit-code classifier.
+          // Fingerprint argument reserved for issue-05 Sentry integration.
+          final exitKind = classifySttExitCode(code);
+          // ignore: unused_local_variable — reserved for issue-05
+          final fingerprint = 'stt-exit-${exitKind.name}';
 
-          // Windows 0xC0000409 (STATUS_STACK_BUFFER_OVERRUN): fatal CUDA abort.
-          // Occurs when a GPU feature unsupported by the hardware is invoked at
-          // runtime — most commonly flash-attn on pre-Turing GPUs (sm_30/50/61).
-          // Also triggered by VRAM exhaustion on cards with very limited memory.
-          final isCudaFatalAbort = Platform.isWindows && code == -1073740791;
+          switch (exitKind) {
+            // ── dllMissing / dllEntryPoint: wrong binary variant ────────────
+            case SttExitKind.dllMissing:
+            case SttExitKind.dllEntryPoint:
+              _log.error(
+                'whisper-server crashed: missing DLL or entry point '
+                '(exit code $code / ${exitKind.name}). '
+                'Wrong binary variant for this GPU. '
+                'Auto-deleting incompatible binary for re-download.',
+              );
+              // Delete the wrong binary so the next download fetches the
+              // correct variant based on GPU detection.
+              unawaited(hw.deleteServerBinary(sttDir()));
+              // Activate CPU fallback if not already active so the next
+              // ensureRunning() retries with CPU backend. User settings
+              // are never mutated — this is a read-only override.
+              if (!_gpuFallbackActive) {
+                _gpuFallbackActive = true;
+                _log.warning(
+                  'DLL missing (${exitKind.name}) — CPU fallback activated for next retry.',
+                );
+                _process = null;
+                _activeModel = null;
+                _transition(
+                  const SttStatus(serverState: SttServerState.stopped),
+                );
+                return;
+              }
+              // CPU fallback was already active — surface the error.
+              _process = null;
+              _activeModel = null;
+              _transition(
+                const SttStatus(
+                  serverState: SttServerState.error,
+                  errorMessage:
+                      'Incompatible server binary for your GPU. '
+                      'Please re-download the speech model in Settings.',
+                ),
+              );
+              return;
 
-          // Exit code 3 from whisper-server = model file could not be loaded.
-          // Possible causes: corrupted/partial download that passed exists()
-          // check, or a file-format version mismatch with the bundled binary.
-          final isModelLoadError = code == 3;
-
-          if (isDllNotFound) {
-            _log.error(
-              'whisper-server crashed: missing DLL (exit code $code). '
-              'Wrong binary variant for this GPU. '
-              'Auto-deleting incompatible binary for re-download.',
-            );
-            // Delete the wrong binary so the next download fetches the
-            // correct variant based on GPU detection.
-            unawaited(hw.deleteServerBinary(sttDir()));
-          } else if (isCudaFatalAbort) {
-            if (!_gpuFallbackActive) {
-              // First GPU fatal crash: silently activate CPU fallback.
-              // The next ensureRunning() call will start the server on CPU.
-              _gpuFallbackActive = true;
-              _log.warning(
-                'GPU fatal abort (code $code / 0xC0000409) on "${gpu.name}" '
-                '— CPU fallback activated; next recording uses CPU backend.',
+            // ── gpuFatal: GPU-fatal abort (flash-attn / VRAM) ───────────────
+            case SttExitKind.gpuFatal:
+              if (!_gpuFallbackActive) {
+                // First GPU fatal crash: silently activate CPU fallback.
+                // The next ensureRunning() call will start the server on CPU.
+                _gpuFallbackActive = true;
+                _log.warning(
+                  'GPU fatal abort (code $code / ${exitKind.name}) on '
+                  '"${gpu.name}" — CPU fallback activated; next recording '
+                  'uses CPU backend.',
+                );
+                _process = null;
+                _activeModel = null;
+                // Transition to stopped so ensureRunning() restarts cleanly
+                // on the next recording without showing an error.
+                _transition(
+                  const SttStatus(serverState: SttServerState.stopped),
+                );
+                return;
+              }
+              // CPU fallback was already active — this is a real failure.
+              _log.error(
+                'whisper-server GPU fatal abort (code $code / ${exitKind.name}) '
+                'on "${gpu.name}" and CPU fallback also failed.',
               );
               _process = null;
               _activeModel = null;
-              // Transition to stopped so ensureRunning() restarts cleanly
-              // on the next recording without showing an error.
-              _transition(const SttStatus(serverState: SttServerState.stopped));
-              return;
-            }
-            // CPU fallback was already active — this is a real failure.
-            _log.error(
-              'whisper-server GPU fatal abort (code $code / 0xC0000409) on '
-              '"${gpu.name}" and CPU fallback also failed.',
-            );
-          } else if (isModelLoadError) {
-            // exit code 3 = whisper_init_from_file failed; this is most
-            // commonly caused by a partial/corrupted download.
-            // Only auto-delete when the file is demonstrably undersized (<10MB)
-            // to avoid removing a valid multi-GB model due to transient I/O
-            // or permission errors.
-            //
-            // Mark the model as load-failed so ensureRunning() fails fast on
-            // subsequent calls, preventing an infinite retry loop.
-            _modelLoadFailedIds.add(modelId);
-            final badPath = sttModelPath(modelId);
-            if (badPath != null) {
-              unawaited(() async {
-                try {
-                  final badFile = File(badPath);
-                  if (await badFile.exists()) {
-                    final sz = await badFile.length();
-                    if (sz < 10 * 1024 * 1024) {
-                      await badFile.delete();
-                      _log.error(
-                        'whisper-server failed to load model (code $code). '
-                        'Corrupt file deleted for re-download.',
-                      );
-                      return;
-                    }
-                  }
-                } catch (e) {
-                  _log.warning('Could not inspect/delete bad model file: $e');
-                }
-                _log.error(
-                  'whisper-server failed to load model (code $code). '
-                  'Model file may be corrupted — please re-download.',
-                );
-              }());
-            } else {
-              _log.error(
-                'whisper-server failed to load model (code $code). '
-                'Model file may be corrupted — please re-download.',
+              _transition(
+                SttStatus(
+                  serverState: SttServerState.error,
+                  errorMessage:
+                      'Speech engine failed on both GPU and CPU (code $code). '
+                      'Please restart the app or re-download the model.',
+                ),
               );
-            }
-          } else {
-            _log.error('whisper-server exited unexpectedly (code $code)');
+              return;
+
+            // ── heapCorruption: memory access violation ──────────────────────
+            case SttExitKind.heapCorruption:
+              if (!_gpuFallbackActive) {
+                _gpuFallbackActive = true;
+                _log.warning(
+                  'Memory error (${exitKind.name}, code $code) on '
+                  '"${gpu.name}" — CPU fallback activated.',
+                );
+                _process = null;
+                _activeModel = null;
+                _transition(
+                  const SttStatus(serverState: SttServerState.stopped),
+                );
+                return;
+              }
+              _log.error(
+                'whisper-server memory error (${exitKind.name}, code $code) '
+                'and CPU fallback also failed.',
+              );
+              _process = null;
+              _activeModel = null;
+              _transition(
+                SttStatus(
+                  serverState: SttServerState.error,
+                  errorMessage:
+                      'Speech engine failed on both GPU and CPU (code $code). '
+                      'Please restart the app or re-download the model.',
+                ),
+              );
+              return;
+
+            // ── modelLoad: exit 3 — whisper_init_from_file failed ──────────
+            case SttExitKind.modelLoad:
+              // Null-out process immediately so _waitReady's EarlyExitException
+              // guard sees _process == null and doesn't race with the async handler.
+              _process = null;
+              _activeModel = null;
+              unawaited(
+                _handleModelLoadFailure(modelId: modelId, exitCode: code),
+              );
+              return;
+
+            // ── other: unclassified exit ────────────────────────────────────
+            case SttExitKind.other:
+              _log.error('whisper-server exited unexpectedly (code $code)');
+              _process = null;
+              _activeModel = null;
+              _transition(
+                SttStatus(
+                  serverState: SttServerState.error,
+                  errorMessage:
+                      'whisper-server exited before becoming ready (code $code)',
+                ),
+              );
+              return;
           }
-          _process = null;
-          _activeModel = null;
-          _transition(
-            SttStatus(
-              serverState: SttServerState.error,
-              errorMessage: isDllNotFound
-                  ? 'Incompatible server binary for your GPU. '
-                        'Please re-download the speech model in Settings.'
-                  : isCudaFatalAbort
-                  // CPU fallback was active but also crashed.
-                  ? 'Speech engine failed on both GPU and CPU (code $code). '
-                        'Please restart the app or re-download the model.'
-                  : isModelLoadError
-                  ? 'STT model file is corrupted. '
-                        'Please re-download the model in Settings.'
-                  : 'whisper-server exited before becoming ready (code $code)',
-            ),
-          );
         }
       }),
     );
@@ -1208,6 +1298,12 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       // If the onExit handler already transitioned to error state (e.g., code 3
       // model load failure), don't overwrite it with a generic fallback message.
       if (state.serverState == SttServerState.error) return;
+      // If the exit handler already transitioned to stopped (e.g., the
+      // modelLoad handler triggered a silent re-download), suppress the
+      // EarlyExitException so it doesn't overwrite the pending re-download.
+      if (state.serverState == SttServerState.stopped && _process == null) {
+        return;
+      }
       _fail(e.message);
       return;
     }
@@ -1415,6 +1511,96 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       const SttStatus(
         serverState: SttServerState.error,
         errorMessage: _cudaOomErrorCode,
+      ),
+    );
+  }
+
+  /// Handles an exit-code-3 (modelLoad) failure from whisper-server.
+  ///
+  /// Checks the model file SHA-256 against the registry:
+  ///
+  /// - **Hash mismatch**: the file is corrupted/partial. Triggers exactly one
+  ///   silent re-download via [ModelDownloadNotifier.downloadModel]. The model
+  ///   is NOT added to [_modelLoadFailedIds] so the re-download can restart it.
+  ///
+  /// - **Hash OK / model not in registry**: the binary cannot load this model
+  ///   (runtime incompatibility, ABI mismatch). Shows an "incompatible runtime"
+  ///   error. The model is NOT blacklisted — re-downloading won't help; the
+  ///   user needs a different binary.
+  ///
+  /// User settings are never mutated by this method.
+  Future<void> _handleModelLoadFailure({
+    required String modelId,
+    required int exitCode,
+  }) async {
+    // Note: _process and _activeModel are nulled by the caller (exit handler)
+    // before this async method is scheduled, so _waitReady sees null promptly.
+    final modelInfo = findSttModel(modelId);
+    final modelPath = sttModelPath(modelId);
+
+    // If we can verify the SHA-256, do so to distinguish corruption from
+    // runtime incompatibility.
+    bool hashMismatch = false;
+    if (modelInfo != null && modelPath != null) {
+      try {
+        final file = File(modelPath);
+        if (await file.exists()) {
+          final digest = await crypto.sha256.bind(file.openRead()).first;
+          final actualHash = digest.toString();
+          hashMismatch = actualHash != modelInfo.sha256;
+          if (hashMismatch) {
+            _log.warning(
+              'Exit code $exitCode: model SHA-256 mismatch for $modelId '
+              '(expected=${modelInfo.sha256.substring(0, 8)}… '
+              'actual=${actualHash.substring(0, 8)}…). '
+              'File is corrupted — triggering silent re-download.',
+            );
+          } else {
+            _log.error(
+              'Exit code $exitCode: model SHA-256 is correct for $modelId '
+              '— runtime incompatibility (binary/model ABI mismatch).',
+            );
+          }
+        }
+      } catch (e) {
+        _log.warning('SHA-256 check failed for $modelId: $e');
+        // Treat as mismatch to be safe (trigger re-download).
+        hashMismatch = true;
+      }
+    }
+
+    if (hashMismatch) {
+      // Corrupted file: trigger one silent re-download.
+      // Do NOT blacklist the model — the re-download should fix it.
+      _log.info('Triggering silent re-download for corrupted model $modelId');
+      _transition(const SttStatus(serverState: SttServerState.stopped));
+      // Fire-and-forget; the modelDownloadProvider listener in build()
+      // will clear _modelLoadFailedIds when the download completes.
+      unawaited(
+        ref
+            .read(modelDownloadProvider.notifier)
+            .downloadModel(modelId)
+            .catchError((Object e) {
+              _log.warning('Silent re-download of $modelId failed: $e');
+            }),
+      );
+      return;
+    }
+
+    // Hash is OK (or model not in registry): runtime incompatibility.
+    // Do NOT blacklist the model so the user can try again after a
+    // binary update. Surface a clear user-facing message.
+    _log.error(
+      'whisper-server failed to load model $modelId (code $exitCode): '
+      'incompatible runtime — model file is intact but cannot be loaded '
+      'by the installed whisper-server binary.',
+    );
+    _transition(
+      const SttStatus(
+        serverState: SttServerState.error,
+        errorMessage:
+            'Speech model is incompatible with the installed runtime. '
+            'Please re-download the speech model in Settings.',
       ),
     );
   }

@@ -73,8 +73,9 @@ class MacOSFloatingButtonController extends FloatingButtonController {
   @override
   Future<({double x, double y})?> getPosition() async {
     if (_disposed) return null;
-    final result =
-        await _channel.invokeMapMethod<String, dynamic>('getPosition');
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'getPosition',
+    );
     if (result == null) return null;
     final x = (result['x'] as num?)?.toDouble();
     final y = (result['y'] as num?)?.toDouble();

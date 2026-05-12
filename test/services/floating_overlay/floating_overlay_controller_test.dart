@@ -29,10 +29,7 @@ void main() {
         'done',
         'error',
       ];
-      expect(
-        OverlayVisualState.values.map((e) => e.name).toList(),
-        expected,
-      );
+      expect(OverlayVisualState.values.map((e) => e.name).toList(), expected);
     });
   });
 
@@ -141,25 +138,22 @@ void main() {
 
       final map = snap.toMap();
       expect(map.keys, hasLength(14));
-      expect(
-        map.keys.toSet(),
-        {
-          'visible',
-          'state',
-          'isDark',
-          'compact',
-          'label',
-          'elapsed',
-          'hint',
-          'transcript',
-          'errorMessage',
-          'privacyMode',
-          'showRetry',
-          'doneMessage',
-          'processingLabel',
-          'progress',
-        },
-      );
+      expect(map.keys.toSet(), {
+        'visible',
+        'state',
+        'isDark',
+        'compact',
+        'label',
+        'elapsed',
+        'hint',
+        'transcript',
+        'errorMessage',
+        'privacyMode',
+        'showRetry',
+        'doneMessage',
+        'processingLabel',
+        'progress',
+      });
     });
 
     test('defaults are applied correctly', () {
@@ -336,7 +330,9 @@ class MockFloatingOverlayController extends FloatingOverlayController {
   Future<void> updateSnapshot(FloatingOverlaySnapshot snapshot) async {
     if (isDisposed) return;
     lastSnapshot = snapshot;
-    calls.add('updateSnapshot(${snapshot.state.name}, visible=${snapshot.visible})');
+    calls.add(
+      'updateSnapshot(${snapshot.state.name}, visible=${snapshot.visible})',
+    );
   }
 
   @override
@@ -346,11 +342,7 @@ class MockFloatingOverlayController extends FloatingOverlayController {
   }
 
   @override
-  Future<void> setPosition(
-    double x,
-    double y,
-    OverlayAnchorMode anchor,
-  ) async {
+  Future<void> setPosition(double x, double y, OverlayAnchorMode anchor) async {
     if (isDisposed) return;
     calls.add('setPosition($x, $y, ${anchor.name})');
   }

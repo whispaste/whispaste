@@ -1054,7 +1054,11 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
         await Process.run('chmod', ['+x', serverPath]);
         // macOS quarantines downloaded files, blocking execution.
         if (Platform.isMacOS) {
-          await Process.run('xattr', ['-d', 'com.apple.quarantine', serverPath]);
+          await Process.run('xattr', [
+            '-d',
+            'com.apple.quarantine',
+            serverPath,
+          ]);
         }
       }
     }
@@ -1062,9 +1066,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
     // Verify extraction produced the expected binary.
     final expectedPath = whisperServerPath();
     if (!File(expectedPath).existsSync()) {
-      throw Exception(
-        '${p.basename(expectedPath)} not found in archive',
-      );
+      throw Exception('${p.basename(expectedPath)} not found in archive');
     }
   }
 

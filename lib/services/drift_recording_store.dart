@@ -30,8 +30,10 @@ class DriftRecordingStore implements RecordingStore {
             r'(?<=\s|^)' + escaped + r'(?=\s|$|[.,;:!?])',
             caseSensitive: false,
           );
-          processedTranscript =
-              processedTranscript.replaceAll(pattern, r.replacement);
+          processedTranscript = processedTranscript.replaceAll(
+            pattern,
+            r.replacement,
+          );
         }
       } on Exception {
         // Non-fatal: save raw transcript if replacements fail.

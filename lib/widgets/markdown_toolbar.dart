@@ -34,8 +34,10 @@ class WpMarkdownToolbar extends StatelessWidget {
 
     // If already wrapped, unwrap
     if (selected.startsWith(prefix) && selected.endsWith(suffix)) {
-      final unwrapped =
-          selected.substring(prefix.length, selected.length - suffix.length);
+      final unwrapped = selected.substring(
+        prefix.length,
+        selected.length - suffix.length,
+      );
       controller.value = TextEditingValue(
         text: '$before$unwrapped$after',
         selection: TextSelection(
@@ -72,12 +74,14 @@ class WpMarkdownToolbar extends StatelessWidget {
     final lines = text.substring(actualStart, actualEnd).split('\n');
     final allPrefixed = lines.every((l) => l.startsWith(prefix));
 
-    final transformed = lines.map((l) {
-      if (allPrefixed) {
-        return l.startsWith(prefix) ? l.substring(prefix.length) : l;
-      }
-      return l.startsWith(prefix) ? l : '$prefix$l';
-    }).join('\n');
+    final transformed = lines
+        .map((l) {
+          if (allPrefixed) {
+            return l.startsWith(prefix) ? l.substring(prefix.length) : l;
+          }
+          return l.startsWith(prefix) ? l : '$prefix$l';
+        })
+        .join('\n');
 
     final before = text.substring(0, actualStart);
     final after = text.substring(actualEnd);
@@ -96,8 +100,9 @@ class WpMarkdownToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mutedColor =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final mutedColor = isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final divColor = mutedColor.withValues(alpha: 0.2);
 
@@ -107,8 +112,11 @@ class WpMarkdownToolbar extends StatelessWidget {
         vertical: WpSpacing.xxs,
       ),
       decoration: BoxDecoration(
-        color: (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
-            .withValues(alpha: 0.6),
+        color:
+            (isDark
+                    ? WpColorsDark.surfaceVariant
+                    : WpColorsLight.surfaceVariant)
+                .withValues(alpha: 0.6),
         borderRadius: WpRadius.borderSm,
       ),
       child: SingleChildScrollView(

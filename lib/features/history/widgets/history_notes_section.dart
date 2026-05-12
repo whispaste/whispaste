@@ -22,12 +22,17 @@ import 'voice_note_button.dart';
 // ---------------------------------------------------------------------------
 
 class HistoryNotesSection extends ConsumerStatefulWidget {
-  const HistoryNotesSection({super.key, required this.entryId, required this.isDark});
+  const HistoryNotesSection({
+    super.key,
+    required this.entryId,
+    required this.isDark,
+  });
   final String entryId;
   final bool isDark;
 
   @override
-  ConsumerState<HistoryNotesSection> createState() => HistoryNotesSectionState();
+  ConsumerState<HistoryNotesSection> createState() =>
+      HistoryNotesSectionState();
 }
 
 class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
@@ -56,13 +61,15 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
 
     final db = ref.read(historyDatabaseProvider);
     final now = DateTime.now();
-    db.upsertNote(EntryNotesCompanion(
-      id: Value(now.millisecondsSinceEpoch.toString()),
-      entryId: Value(widget.entryId),
-      content: Value(text),
-      createdAt: Value(now),
-      updatedAt: Value(now),
-    ));
+    db.upsertNote(
+      EntryNotesCompanion(
+        id: Value(now.millisecondsSinceEpoch.toString()),
+        entryId: Value(widget.entryId),
+        content: Value(text),
+        createdAt: Value(now),
+        updatedAt: Value(now),
+      ),
+    );
     _controller.clear();
     setState(() => _isAdding = false);
   }
@@ -70,9 +77,9 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   Future<void> _deleteNote(String noteId, String noteContent) async {
     final l10n = L10n.of(context);
     final savedNote = noteContent;
-    
+
     await ref.read(historyDatabaseProvider).deleteNote(noteId);
-    
+
     if (mounted) {
       WpToast.show(
         context,
@@ -81,15 +88,17 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
         duration: const Duration(seconds: 4),
         actionLabel: l10n.undo,
         onAction: () {
-          ref.read(historyDatabaseProvider).upsertNote(
-            EntryNotesCompanion(
-              id: Value(noteId),
-              entryId: Value(widget.entryId),
-              content: Value(savedNote),
-              createdAt: Value(DateTime.now()),
-              updatedAt: Value(DateTime.now()),
-            ),
-          );
+          ref
+              .read(historyDatabaseProvider)
+              .upsertNote(
+                EntryNotesCompanion(
+                  id: Value(noteId),
+                  entryId: Value(widget.entryId),
+                  content: Value(savedNote),
+                  createdAt: Value(DateTime.now()),
+                  updatedAt: Value(DateTime.now()),
+                ),
+              );
         },
       );
     }
@@ -117,12 +126,15 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final notes = ref.watch(entryNotesProvider(widget.entryId));
-    final textPrimary =
-        widget.isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final textSecondary =
-        widget.isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
-    final textMuted =
-        widget.isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textPrimary = widget.isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textSecondary = widget.isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+    final textMuted = widget.isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
     final accent = widget.isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final borderColor = widget.isDark
         ? WpColorsDark.borderSubtle
@@ -144,7 +156,11 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
               behavior: HitTestBehavior.opaque,
               child: Row(
                 children: [
-                  Icon(LucideIcons.stickyNote, size: WpIconSize.sm, color: accent),
+                  Icon(
+                    LucideIcons.stickyNote,
+                    size: WpIconSize.sm,
+                    color: accent,
+                  ),
                   const SizedBox(width: WpSpacing.xs),
                   Flexible(
                     child: Text(
@@ -175,7 +191,11 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                         borderRadius: WpRadius.borderSm,
                         child: Padding(
                           padding: const EdgeInsets.all(WpSpacing.xs),
-                          child: Icon(LucideIcons.plus, size: WpIconSize.md, color: accent),
+                          child: Icon(
+                            LucideIcons.plus,
+                            size: WpIconSize.md,
+                            color: accent,
+                          ),
                         ),
                       ),
                     ),
@@ -224,13 +244,21 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                       ),
                     ),
                     IconButton(
-                      icon: Icon(LucideIcons.check, size: WpIconSize.md, color: accent),
+                      icon: Icon(
+                        LucideIcons.check,
+                        size: WpIconSize.md,
+                        color: accent,
+                      ),
                       onPressed: _addNote,
                       padding: const EdgeInsets.all(WpSpacing.xs),
                       tooltip: 'Save',
                     ),
                     IconButton(
-                      icon: Icon(LucideIcons.x, size: WpIconSize.md, color: textMuted),
+                      icon: Icon(
+                        LucideIcons.x,
+                        size: WpIconSize.md,
+                        color: textMuted,
+                      ),
                       onPressed: () {
                         _controller.clear();
                         setState(() => _isAdding = false);
@@ -375,7 +403,9 @@ class _NoteItemState extends State<_NoteItem> {
                         minLines: 1,
                         textInputAction: TextInputAction.newline,
                         style: TextStyle(
-                            fontSize: 13, color: widget.textPrimary),
+                          fontSize: 13,
+                          color: widget.textPrimary,
+                        ),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(
@@ -386,15 +416,21 @@ class _NoteItemState extends State<_NoteItem> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(LucideIcons.check,
-                        size: WpIconSize.md, color: widget.accent),
+                    icon: Icon(
+                      LucideIcons.check,
+                      size: WpIconSize.md,
+                      color: widget.accent,
+                    ),
                     onPressed: widget.onSave,
                     padding: const EdgeInsets.all(WpSpacing.xxs),
                     tooltip: 'Save',
                   ),
                   IconButton(
-                    icon: Icon(LucideIcons.x,
-                        size: WpIconSize.md, color: widget.textMuted),
+                    icon: Icon(
+                      LucideIcons.x,
+                      size: WpIconSize.md,
+                      color: widget.textMuted,
+                    ),
                     onPressed: widget.onCancel,
                     padding: const EdgeInsets.all(WpSpacing.xxs),
                     tooltip: 'Cancel',
@@ -411,13 +447,17 @@ class _NoteItemState extends State<_NoteItem> {
                         Text(
                           widget.note.content,
                           style: TextStyle(
-                              fontSize: 13, color: widget.textPrimary),
+                            fontSize: 13,
+                            color: widget.textPrimary,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           _formatNoteTimestamp(widget.note),
                           style: TextStyle(
-                              fontSize: 12, color: widget.textMuted),
+                            fontSize: 12,
+                            color: widget.textMuted,
+                          ),
                         ),
                       ],
                     ),
@@ -434,8 +474,11 @@ class _NoteItemState extends State<_NoteItem> {
                           borderRadius: WpRadius.borderSm,
                           child: Padding(
                             padding: const EdgeInsets.all(WpSpacing.xs),
-                            child: Icon(LucideIcons.pencil,
-                                size: WpIconSize.sm, color: widget.textMuted),
+                            child: Icon(
+                              LucideIcons.pencil,
+                              size: WpIconSize.sm,
+                              color: widget.textMuted,
+                            ),
                           ),
                         ),
                         InkWell(
@@ -443,8 +486,11 @@ class _NoteItemState extends State<_NoteItem> {
                           borderRadius: WpRadius.borderSm,
                           child: Padding(
                             padding: const EdgeInsets.all(WpSpacing.xs),
-                            child: Icon(LucideIcons.x,
-                                size: WpIconSize.sm, color: widget.textMuted),
+                            child: Icon(
+                              LucideIcons.x,
+                              size: WpIconSize.sm,
+                              color: widget.textMuted,
+                            ),
                           ),
                         ),
                       ],

@@ -14,10 +14,7 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/page_shell.dart';
 
 /// Supabase URL — injected at build time via `--dart-define`.
-const _supabaseUrl = String.fromEnvironment(
-  'SUPABASE_URL',
-  defaultValue: '',
-);
+const _supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
 
 /// Supabase publishable key — injected at build time via `--dart-define`.
 /// Public key (replaces legacy anon key), safe for client-side use.
@@ -238,8 +235,8 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       _error == 'rate_limited'
                           ? l10n.feedbackErrorRateLimited
                           : _error == 'network_error'
-                              ? l10n.feedbackErrorNetwork
-                              : l10n.feedbackErrorServer,
+                          ? l10n.feedbackErrorNetwork
+                          : l10n.feedbackErrorServer,
                       style: ts.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.error,
                       ),
@@ -255,8 +252,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                       duration: WpMotion.fast,
                       opacity: _canSubmit && !_submitting ? 1.0 : 0.5,
                       child: ElevatedButton.icon(
-                        onPressed:
-                            _canSubmit && !_submitting ? _submit : null,
+                        onPressed: _canSubmit && !_submitting ? _submit : null,
                         icon: _submitting
                             ? const SizedBox(
                                 width: WpIconSize.sm,
@@ -332,7 +328,12 @@ class _FeedbackPageState extends State<FeedbackPage> {
       // Client-side rate limit check — avoids unnecessary network round-trips.
       if (await _isClientRateLimited()) {
         _log.info('Feedback blocked by client-side rate limit (24h cooldown)');
-        if (mounted) setState(() { _submitting = false; _error = 'rate_limited'; });
+        if (mounted) {
+          setState(() {
+            _submitting = false;
+            _error = 'rate_limited';
+          });
+        }
         return;
       }
 
@@ -342,7 +343,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
           '(rating=$_rating category=$_category)',
         );
       } else {
-        _log.info('Submitting feedback: rating=$_rating category=$_category locale=$locale');
+        _log.info(
+          'Submitting feedback: rating=$_rating category=$_category locale=$locale',
+        );
         final payload = {
           'rating': _rating,
           'feedback_text': _commentController.text.trim(),
@@ -357,10 +360,20 @@ class _FeedbackPageState extends State<FeedbackPage> {
       await _recordFeedbackSubmission();
       if (mounted) setState(() => _submitted = true);
     } on _ServerException catch (e) {
-      if (mounted) setState(() { _submitting = false; _error = e.code; });
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _error = e.code;
+        });
+      }
     } on Exception catch (e) {
       _log.warning('Feedback submission failed: $e');
-      if (mounted) setState(() { _submitting = false; _error = 'network_error'; });
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _error = 'network_error';
+        });
+      }
     }
   }
 

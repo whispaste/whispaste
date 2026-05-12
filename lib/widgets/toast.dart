@@ -120,19 +120,16 @@ class _WpToastOverlay extends StatelessWidget {
       right: WpSpacing.lg,
       left: null,
       child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 1.5),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        )),
+        position: Tween<Offset>(begin: const Offset(0, 1.5), end: Offset.zero)
+            .animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+                reverseCurve: Curves.easeInCubic,
+              ),
+            ),
         child: FadeTransition(
-          opacity: CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOut,
-          ),
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
           child: _ToastCard(
             message: message,
             type: type,
@@ -167,21 +164,21 @@ class _ToastCard extends StatelessWidget {
   (IconData, Color) _iconAndColor() {
     return switch (type) {
       WpToastType.success => (
-          LucideIcons.circleCheck,
-          isDark ? WpColorsDark.success : WpColorsLight.success,
-        ),
+        LucideIcons.circleCheck,
+        isDark ? WpColorsDark.success : WpColorsLight.success,
+      ),
       WpToastType.error => (
-          LucideIcons.circleAlert,
-          isDark ? WpColorsDark.error : WpColorsLight.error,
-        ),
+        LucideIcons.circleAlert,
+        isDark ? WpColorsDark.error : WpColorsLight.error,
+      ),
       WpToastType.warning => (
-          LucideIcons.triangleAlert,
-          isDark ? WpColorsDark.warning : WpColorsLight.warning,
-        ),
+        LucideIcons.triangleAlert,
+        isDark ? WpColorsDark.warning : WpColorsLight.warning,
+      ),
       WpToastType.info => (
-          LucideIcons.info,
-          isDark ? WpColorsDark.accent : WpColorsLight.accent,
-        ),
+        LucideIcons.info,
+        isDark ? WpColorsDark.accent : WpColorsLight.accent,
+      ),
     };
   }
 
@@ -191,10 +188,12 @@ class _ToastCard extends StatelessWidget {
     final surfaceBg = isDark
         ? WpColorsDark.surfaceElevated
         : WpColorsLight.surfaceElevated;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final borderColor =
-        isDark ? WpColorsDark.borderDefault : WpColorsLight.borderDefault;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final borderColor = isDark
+        ? WpColorsDark.borderDefault
+        : WpColorsLight.borderDefault;
 
     return Material(
       color: Colors.transparent,

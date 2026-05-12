@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -29,16 +29,18 @@ class WelcomeStep extends ConsumerWidget {
     final accentGradient = isDark
         ? WpColorsDark.accentWarmGradient
         : WpColorsLight.accentWarmGradient;
-    final borderColor =
-        isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final textSecondary =
-        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
-    final surfaceVariant = (isDark
-            ? WpColorsDark.surfaceVariant
-            : WpColorsLight.surfaceVariant)
-        .withValues(alpha: 0.55);
+    final borderColor = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+    final surfaceVariant =
+        (isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant)
+            .withValues(alpha: 0.55);
 
     void selectLocale(String locale) {
       HapticFeedback.selectionClick();
@@ -472,8 +474,8 @@ class _LangLabelState extends State<_LangLabel> {
             color: widget.isActive
                 ? widget.textPrimary
                 : (_hovered
-                    ? widget.textPrimary.withValues(alpha: 0.7)
-                    : widget.textSecondary),
+                      ? widget.textPrimary.withValues(alpha: 0.7)
+                      : widget.textSecondary),
           ),
           child: Text(widget.text),
         ),

@@ -35,9 +35,10 @@ class RecentSearchesNotifier extends Notifier<List<String>> {
   Future<void> addSearch(String query) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return;
-    final updated = [trimmed, ...state.where((s) => s != trimmed)]
-        .take(_kMaxEntries)
-        .toList();
+    final updated = [
+      trimmed,
+      ...state.where((s) => s != trimmed),
+    ].take(_kMaxEntries).toList();
     state = updated;
     await _persist(updated);
   }
@@ -57,4 +58,5 @@ class RecentSearchesNotifier extends Notifier<List<String>> {
 
 final recentSearchesProvider =
     NotifierProvider<RecentSearchesNotifier, List<String>>(
-        RecentSearchesNotifier.new);
+      RecentSearchesNotifier.new,
+    );

@@ -70,10 +70,7 @@ void main() {
         'done',
         'error',
       ];
-      expect(
-        OverlayVisualState.values.map((e) => e.name).toList(),
-        expected,
-      );
+      expect(OverlayVisualState.values.map((e) => e.name).toList(), expected);
     });
   });
 
@@ -102,10 +99,7 @@ void main() {
     });
 
     test('1 minute 30 seconds', () {
-      expect(
-        formatElapsed(const Duration(minutes: 1, seconds: 30)),
-        '1:30',
-      );
+      expect(formatElapsed(const Duration(minutes: 1, seconds: 30)), '1:30');
     });
 
     test('10 minutes', () {
@@ -135,7 +129,10 @@ void main() {
   group('FloatingOverlaySize enum', () {
     test('has expected values', () {
       expect(FloatingOverlaySize.values, hasLength(2));
-      expect(FloatingOverlaySize.values.map((e) => e.name), ['normal', 'compact']);
+      expect(FloatingOverlaySize.values.map((e) => e.name), [
+        'normal',
+        'compact',
+      ]);
     });
 
     test('value strings for persistence', () {
@@ -150,7 +147,10 @@ void main() {
     });
 
     test('fromValue with unknown returns normal', () {
-      expect(FloatingOverlaySize.fromValue('unknown'), FloatingOverlaySize.normal);
+      expect(
+        FloatingOverlaySize.fromValue('unknown'),
+        FloatingOverlaySize.normal,
+      );
     });
   });
 
@@ -180,10 +180,11 @@ void main() {
   group('OverlayStartPosition enum', () {
     test('has expected values', () {
       expect(OverlayStartPosition.values, hasLength(3));
-      expect(
-        OverlayStartPosition.values.map((e) => e.name),
-        ['topCenter', 'bottomCenter', 'lastPosition'],
-      );
+      expect(OverlayStartPosition.values.map((e) => e.name), [
+        'topCenter',
+        'bottomCenter',
+        'lastPosition',
+      ]);
     });
 
     test('fromValue roundtrips correctly', () {
@@ -410,9 +411,18 @@ void main() {
         OverlayStartPosition.lastPosition => OverlayAnchorMode.topLeft,
       };
 
-      expect(anchorFor(OverlayStartPosition.topCenter), OverlayAnchorMode.topCenter);
-      expect(anchorFor(OverlayStartPosition.bottomCenter), OverlayAnchorMode.bottomCenter);
-      expect(anchorFor(OverlayStartPosition.lastPosition), OverlayAnchorMode.topLeft);
+      expect(
+        anchorFor(OverlayStartPosition.topCenter),
+        OverlayAnchorMode.topCenter,
+      );
+      expect(
+        anchorFor(OverlayStartPosition.bottomCenter),
+        OverlayAnchorMode.bottomCenter,
+      );
+      expect(
+        anchorFor(OverlayStartPosition.lastPosition),
+        OverlayAnchorMode.topLeft,
+      );
     });
   });
 }
