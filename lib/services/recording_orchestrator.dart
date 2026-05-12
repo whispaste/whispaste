@@ -88,6 +88,44 @@ class RecordingOrchestrator extends Notifier<void> {
   // Public API
   // -------------------------------------------------------------------------
 
+  /// Returns the current [RecordingPhase] without creating a subscription.
+  RecordingPhase get currentPhase => ref.read(recordingProvider).phase;
+
+  /// Acquires the shared `_startInFlight` lock for a voice-note recording
+  /// session that runs outside the main dictation pipeline.
+  ///
+  /// Returns `true` if the lock was acquired (caller may proceed to start
+  /// audio capture). Returns `false` if the lock was already held or the
+  /// orchestrator phase is not [RecordingPhase.idle] — the caller must treat
+  /// this as a no-op and not start any recording.
+  ///
+  /// The caller **must** call [releaseStartLock] when the voice-note session
+  /// ends (success or failure), ideally in a `finally` block.
+  bool tryAcquireStartLock() {
+    if (_startInFlight) {
+      _log.debug('tryAcquireStartLock denied — already in flight');
+      return false;
+    }
+    if (ref.read(recordingProvider).phase != RecordingPhase.idle) {
+      _log.debug(
+        'tryAcquireStartLock denied — orchestrator not idle '
+        '(${ref.read(recordingProvider).phase})',
+      );
+      return false;
+    }
+    _startInFlight = true;
+    _log.debug('tryAcquireStartLock acquired (voice note)');
+    return true;
+  }
+
+  /// Releases the `_startInFlight` lock previously acquired via
+  /// [tryAcquireStartLock]. Must be called exactly once per successful
+  /// acquisition.
+  void releaseStartLock() {
+    _startInFlight = false;
+    _log.debug('releaseStartLock released (voice note)');
+  }
+
   /// Starts or stops recording based on the current phase.
   ///
   /// Idle → starts recording. Recording → stops and transcribes.
@@ -111,6 +149,15 @@ class RecordingOrchestrator extends Notifier<void> {
       return;
     }
     _startInFlight = true;
+
+    // Re-check phase immediately after acquiring the in-flight lock.
+    // A concurrent caller may have already advanced the state machine while
+    // this call was entering (e.g. two simultaneous hotkey presses).
+    if (ref.read(recordingProvider).phase != RecordingPhase.idle) {
+      _log.debug('startRecording aborted — phase not idle after lock acquired');
+      _startInFlight = false;
+      return;
+    }
 
     final notifier = ref.read(recordingProvider.notifier);
 

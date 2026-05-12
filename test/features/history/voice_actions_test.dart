@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/recording/recording_state.dart';
 // SttServerState is re-exported from stt_service.dart.
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/history/widgets/voice_note_button.dart';
@@ -454,15 +455,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Manually set audio state to recording (simulating main dictation).
+      // Manually set recording phase to recording (simulating main dictation).
+      // VoiceNoteButton guards via recordingOrchestratorProvider.currentPhase
+      // which reads recordingProvider — so we drive that directly.
       final container = ProviderScope.containerOf(
         tester.element(find.byType(VoiceNoteButton)),
       );
-      container.read(audioServiceProvider.notifier).state = const AudioStatus(
-        captureState: AudioCaptureState.recording,
-      );
+      container.read(recordingProvider.notifier).startRecording();
+      await tester.pump();
 
-      // Tap — should be ignored since main audio is recording.
+      // Tap — should be ignored since orchestrator phase is recording.
       await tester.tap(find.byType(InkWell));
       await tester.pump();
 

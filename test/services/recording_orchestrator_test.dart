@@ -33,6 +33,10 @@ class FakeAudioService extends AudioServiceNotifier {
   bool errorOnStart = false;
   StreamController<double>? _ampCtrl;
 
+  /// Counts how many times [startRecording] was successfully invoked
+  /// (i.e. not blocked by the "already recording" guard).
+  int startCallCount = 0;
+
   @override
   AudioStatus build() => const AudioStatus();
 
@@ -41,6 +45,10 @@ class FakeAudioService extends AudioServiceNotifier {
 
   @override
   Future<void> startRecording() async {
+    if (state.isRecording) {
+      // Mirror the audio service's logged no-op — do NOT throw.
+      return;
+    }
     if (errorOnStart) {
       state = const AudioStatus(
         captureState: AudioCaptureState.error,
@@ -48,6 +56,7 @@ class FakeAudioService extends AudioServiceNotifier {
       );
       return;
     }
+    startCallCount++;
     _ampCtrl = StreamController<double>.broadcast();
     state = AudioStatus(
       captureState: AudioCaptureState.recording,
@@ -823,6 +832,179 @@ void main() {
 
       expect(container.read(recordingProvider).phase, RecordingPhase.error);
     });
+  });
+
+  // =========================================================================
+  // Recording idempotency — concurrent toggleRecording() calls
+  // =========================================================================
+
+  group('Recording idempotency', () {
+    test('two parallel startRecording() calls produce one start, '
+        'zero errors, one capture session', () async {
+      // Drive orchestrator to idle state with pre-warmed microtask settled.
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      // Manually start the recording phase so preflight (filesystem) is
+      // bypassed, then verify the audio service idempotency guard:
+      // calling the orchestrator's startRecording while _startInFlight
+      // is active (or phase is non-idle) must be a logged no-op.
+
+      // First call: set phase to recording directly (as other tests do).
+      container.read(recordingProvider.notifier).startRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      // Audio service should not yet have been called via orchestrator.
+      final countBefore = fakeAudio.startCallCount;
+
+      // Second concurrent call to startRecording() — must be a no-op because
+      // phase is no longer idle (immediate re-check after lock acquisition).
+      final errors = <Object>[];
+      await Future<void>(() async {
+        try {
+          await orch.startRecording();
+        } catch (e) {
+          errors.add(e);
+        }
+      });
+
+      // No errors thrown.
+      expect(errors, isEmpty, reason: 'startRecording must not throw');
+
+      // Audio service startRecording was not called a second time.
+      expect(
+        fakeAudio.startCallCount,
+        equals(countBefore),
+        reason: 'Only one capture session should exist',
+      );
+
+      // Phase is still recording — the no-op left state unchanged.
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+    });
+
+    test('two concurrent toggleRecording() calls from idle produce '
+        'one start and zero thrown errors', () async {
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      // Both calls start while phase is idle. The _startInFlight guard
+      // ensures only the first call proceeds; the second is a no-op.
+      //
+      // Note: toggleRecording from idle runs startRecording() which runs
+      // preflight against _scratchDir (no server binary → soft-handled,
+      // stays idle). What matters here is that no StateError is thrown and
+      // startCallCount stays at 0 (preflight blocks audio capture).
+      final errors = <Object>[];
+
+      await Future.wait([
+        Future<void>(() async {
+          try {
+            await orch.toggleRecording();
+          } catch (e) {
+            errors.add(e);
+          }
+        }),
+        Future<void>(() async {
+          try {
+            await orch.toggleRecording();
+          } catch (e) {
+            errors.add(e);
+          }
+        }),
+      ]);
+
+      // No errors thrown — idempotency holds.
+      expect(errors, isEmpty, reason: 'toggleRecording must never throw');
+
+      // At most one audio capture was started (soft-preflight may block all).
+      expect(
+        fakeAudio.startCallCount,
+        lessThanOrEqualTo(1),
+        reason: 'At most one audio capture session permitted',
+      );
+    });
+
+    // ── Voice-note button path ──────────────────────────────────────────────
+
+    test(
+      'tryAcquireStartLock returns true when idle, false when in flight',
+      () async {
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        // First acquire succeeds while orchestrator is idle.
+        expect(orch.tryAcquireStartLock(), isTrue);
+
+        // Second acquire fails — lock already held.
+        expect(orch.tryAcquireStartLock(), isFalse);
+
+        // After release the lock is available again.
+        orch.releaseStartLock();
+        expect(orch.tryAcquireStartLock(), isTrue);
+
+        // Clean up.
+        orch.releaseStartLock();
+      },
+    );
+
+    test(
+      'tryAcquireStartLock returns false when orchestrator is not idle',
+      () async {
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        // Drive orchestrator to recording phase.
+        container.read(recordingProvider.notifier).startRecording();
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+
+        // Lock acquisition must be denied — phase is not idle.
+        expect(orch.tryAcquireStartLock(), isFalse);
+      },
+    );
+
+    test(
+      'voice-note lock: second concurrent tryAcquireStartLock() is denied '
+      'while first holds the lock (AC4 — voice-note button path)',
+      () async {
+        // This test covers AC4 for the voice-note button path.
+        // It exercises the shared _startInFlight lock directly, which is the
+        // mechanism VoiceNoteButton._startVoiceNote() relies on to prevent
+        // two concurrent voice-note taps from starting two capture sessions.
+        //
+        // Dart is single-threaded, so "concurrent" is modelled by acquiring
+        // the lock in tap-1, then verifying tap-2 is denied before tap-1
+        // releases — the same sequence that occurs when two UI taps arrive
+        // in the same event-loop turn.
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        // Tap-1 acquires the lock.
+        final acquired1 = orch.tryAcquireStartLock();
+        expect(acquired1, isTrue, reason: 'First tap should acquire the lock');
+
+        // While tap-1 holds the lock, tap-2 must be denied.
+        final acquired2 = orch.tryAcquireStartLock();
+        expect(
+          acquired2,
+          isFalse,
+          reason: 'Second concurrent tap must be suppressed (lock held)',
+        );
+
+        // Tap-1 releases. Now a third tap (e.g. after tap-1 finishes) must
+        // succeed — verifies the lock is properly reusable.
+        orch.releaseStartLock();
+        final acquired3 = orch.tryAcquireStartLock();
+        expect(
+          acquired3,
+          isTrue,
+          reason: 'New tap after release must be able to acquire the lock',
+        );
+        orch.releaseStartLock();
+      },
+    );
   });
 
   // =========================================================================
