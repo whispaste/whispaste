@@ -215,10 +215,18 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   /// Injectable process runner for the whisper-server subprocess.
   late final ProcessRunner _processRunner;
 
+  /// Heartbeat policy read from [sttStartupHeartbeatConfigProvider].
+  /// Overrideable in tests to speed up timeout verification.
+  late final Duration _heartbeatWindow;
+  late final int _heartbeatMaxMissedWindows;
+
   @override
   SttStatus build() {
     _httpClient = ref.read(sttHttpClientProvider);
     _processRunner = ref.read(processRunnerProvider);
+    final hbConfig = ref.read(sttStartupHeartbeatConfigProvider);
+    _heartbeatWindow = hbConfig.window;
+    _heartbeatMaxMissedWindows = hbConfig.maxMissedWindows;
 
     ref.onDispose(() {
       _idleTimer?.cancel();
@@ -762,6 +770,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
   Future<void> _runBenchmark(int port, String modelId) async {
     final tier = tierForModel(modelId);
 
+    // Guard: if provider was disposed between the unawaited() call and here,
+    // skip the benchmark entirely to avoid "Ref used after dispose" errors.
+    if (!ref.mounted) return;
+
     // Mark benchmarking as started
     state = state.copyWith(isBenchmarking: true, benchmarkingTier: tier);
 
@@ -799,17 +811,19 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
       // Store benchmark result in settings via callback/provider update
       // This will be implemented in the settings provider
-      _storeBenchmarkResult(modelId, rtf);
+      if (ref.mounted) _storeBenchmarkResult(modelId, rtf);
     } on Exception catch (e) {
       sw.stop();
       _log.debug('Benchmark failed: $e');
       // Non-fatal - benchmark is best-effort
     } finally {
-      // Mark benchmarking as done
-      state = state.copyWith(
-        isBenchmarking: false,
-        clearBenchmarkingTier: true,
-      );
+      // Mark benchmarking as done — guard against post-dispose access.
+      if (ref.mounted) {
+        state = state.copyWith(
+          isBenchmarking: false,
+          clearBenchmarkingTier: true,
+        );
+      }
     }
   }
 
@@ -819,6 +833,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
       final tier = tierForModel(modelId);
       if (tier == null) return;
 
+      if (!ref.mounted) return;
       final currentSettings = ref.read(settingsProvider).value;
       final currentRtfMap = Map<QualityTier, double>.from(
         currentSettings?.tierBenchmarkRtf ?? {},
@@ -827,6 +842,7 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
       // Generate hardware ID from GPU info
       final gpuInfo = await ref.read(hw.gpuInfoProvider.future);
+      if (!ref.mounted) return;
       final hwId = gpuInfo.vendor == hw.GpuVendor.none
           ? 'cpu'
           : '${gpuInfo.vendor.name}_${gpuInfo.vramMB ?? 0}';
@@ -1107,10 +1123,14 @@ class SttServiceNotifier extends Notifier<SttStatus> {
         .transform(const SystemEncoding().decoder)
         .transform(const LineSplitter())
         .listen((line) => _log.debug('whisper-server: $line'));
-    proc.stderr
+
+    // Broadcast the stderr stream so both the rememberStderr logger and the
+    // heartbeat watcher in _waitReady() can subscribe independently.
+    final stderrBroadcast = proc.stderr
         .transform(const SystemEncoding().decoder)
         .transform(const LineSplitter())
-        .listen(rememberStderr);
+        .asBroadcastStream();
+    stderrBroadcast.listen(rememberStderr);
 
     // Monitor for early exit (mirrors Go's waitCh).
     unawaited(
@@ -1282,8 +1302,16 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     // --- Health poll ---------------------------------------------------------
     final coldStart = Stopwatch()..start();
     try {
-      await _waitReady(port, proc);
-    } on TimeoutException catch (e) {
+      await _waitReady(
+        port,
+        proc,
+        stderrBroadcast,
+        heartbeatWindow: _heartbeatWindow,
+        maxMissedWindows: _heartbeatMaxMissedWindows,
+      );
+    } on _HeartbeatTimeoutException catch (e) {
+      // Heartbeat timeout is an environment fault (slow disk, AV scan), not a
+      // model fault. Do NOT blacklist the model. Just surface the error.
       stop();
       _fail('whisper-server not ready: $e');
       return;
@@ -1349,25 +1377,74 @@ class SttServiceNotifier extends Notifier<SttStatus> {
     );
   }
 
-  /// Progressive-backoff health polling (mirrors Go's `waitReady`).
+  /// Progressive-backoff health polling with heartbeat-based timeout.
   ///
-  /// Starts at 100 ms, multiplies by 1.5 each iteration, capped at 1 s.
-  /// Total deadline: 180 s (large models may need 60 s+ to load into VRAM).
-  Future<void> _waitReady(int port, Process proc) async {
+  /// **Timeout policy** (3 × 60 s heartbeat windows):
+  /// Each line of stderr progress output resets a 60 s window. Only after
+  /// three consecutive 60 s windows without any stderr activity is startup
+  /// considered failed. This prevents false timeouts on cold-disk or AV-scan
+  /// environments where whisper-server may be slow but still making progress.
+  ///
+  /// **Health polling**: starts at 100 ms, multiplies by 1.5 each iteration,
+  /// capped at 1 s — same as before. The heartbeat timer runs in parallel and
+  /// is reset independently of the HTTP poll cadence.
+  ///
+  /// Throws [_HeartbeatTimeoutException] when all heartbeat windows are
+  /// exhausted. Throws [_EarlyExitException] when the process exits early.
+  Future<void> _waitReady(
+    int port,
+    Process proc,
+    Stream<String> stderrLines, {
+    Duration heartbeatWindow = const Duration(seconds: 60),
+    int maxMissedWindows = 3,
+  }) async {
     final healthUrl = Uri.parse('http://127.0.0.1:$port/health');
-    final client = http.Client();
-    final deadline = DateTime.now().add(const Duration(seconds: 180));
+    // Reuse the injectable _httpClient (not a fresh client) so tests can
+    // intercept health-check requests via sttHttpClientProvider.
+    final client = _httpClient;
     var interval = const Duration(milliseconds: 100);
     const maxInterval = Duration(seconds: 1);
     var iteration = 0;
 
+    // Heartbeat state: reset by each incoming stderr line.
+    var missedWindows = 0;
+    var windowStart = DateTime.now();
+
+    // Listen to stderr to track progress heartbeats.
+    final stderrSub = stderrLines.listen((_) {
+      // Any stderr line resets the active heartbeat window.
+      windowStart = DateTime.now();
+      missedWindows = 0;
+    });
+
     try {
-      while (DateTime.now().isBefore(deadline)) {
+      while (true) {
         // Check if process exited early.
         if (_process != proc) {
           throw _EarlyExitException(
             'whisper-server exited before becoming ready',
           );
+        }
+
+        // Heartbeat check: has the current window expired?
+        final elapsed = DateTime.now().difference(windowStart);
+        if (elapsed >= heartbeatWindow) {
+          missedWindows++;
+          _log.warning(
+            'STT startup: no stderr progress for '
+            '${heartbeatWindow.inSeconds}s '
+            '(missed window $missedWindows/$maxMissedWindows)',
+          );
+          if (missedWindows >= maxMissedWindows) {
+            throw _HeartbeatTimeoutException(
+              'whisper-server made no progress for '
+              '${maxMissedWindows * heartbeatWindow.inSeconds}s '
+              '($maxMissedWindows consecutive ${heartbeatWindow.inSeconds}s '
+              'windows without stderr output)',
+            );
+          }
+          // Reset window start so the next window begins from now.
+          windowStart = DateTime.now();
         }
 
         try {
@@ -1398,10 +1475,10 @@ class SttServiceNotifier extends Notifier<SttStatus> {
         );
       }
     } finally {
-      client.close();
+      await stderrSub.cancel();
+      // Note: do NOT close client here — it is the shared _httpClient whose
+      // lifecycle is managed by the notifier's onDispose handler.
     }
-
-    throw TimeoutException('whisper-server did not become ready within 180 s');
   }
 
   /// Builds the whisper-server CLI args (mirrors Go's `sttServerArgs`).
@@ -1678,6 +1755,19 @@ class _EarlyExitException implements Exception {
   String toString() => 'EarlyExitException: $message';
 }
 
+/// Thrown internally when the heartbeat-based startup timeout expires.
+///
+/// This is an environment fault (slow disk, AV scanner, cold cache) — the
+/// model is **not** blacklisted. Distinct from [_EarlyExitException] so
+/// callers can decide not to add the model to the load-failure set.
+class _HeartbeatTimeoutException implements Exception {
+  _HeartbeatTimeoutException(this.message);
+  final String message;
+
+  @override
+  String toString() => 'HeartbeatTimeoutException: $message';
+}
+
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
@@ -1696,3 +1786,12 @@ final processRunnerProvider = Provider<ProcessRunner>(
 /// Overrideable [http.Client] for STT HTTP calls.
 /// Tests replace this with a mock client.
 final sttHttpClientProvider = Provider<http.Client>((_) => http.Client());
+
+/// Heartbeat policy for the whisper-server startup health-poll.
+///
+/// Production default: 3 windows of 60 s each (= 3 min total tolerance).
+/// Tests override this to run fast without real time passing.
+final sttStartupHeartbeatConfigProvider =
+    Provider<({Duration window, int maxMissedWindows})>(
+      (_) => (window: const Duration(seconds: 60), maxMissedWindows: 3),
+    );
