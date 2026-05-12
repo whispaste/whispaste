@@ -16,6 +16,7 @@ import 'package:http/http.dart' as http;
 
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
+import '../core/logging/crash_reporter.dart';
 import '../core/recording/recording_state.dart' show SttServerState;
 import 'hardware_info_service.dart' as hw;
 import 'model_download_service.dart';
@@ -1148,20 +1149,26 @@ class SttServiceNotifier extends Notifier<SttStatus> {
           }
 
           // Classify the exit code using the exit-code classifier.
-          // Fingerprint argument reserved for issue-05 Sentry integration.
           final exitKind = classifySttExitCode(code);
-          // ignore: unused_local_variable — reserved for issue-05
-          final fingerprint = 'stt-exit-${exitKind.name}';
+          // Unique Sentry fingerprint so each exit-code category buckets into
+          // its own issue rather than collapsing into a catch-all event.
+          final fingerprint = ['stt-exit-${exitKind.name}'];
 
           switch (exitKind) {
             // ── dllMissing / dllEntryPoint: wrong binary variant ────────────
             case SttExitKind.dllMissing:
             case SttExitKind.dllEntryPoint:
-              _log.error(
-                'whisper-server crashed: missing DLL or entry point '
-                '(exit code $code / ${exitKind.name}). '
-                'Wrong binary variant for this GPU. '
-                'Auto-deleting incompatible binary for re-download.',
+              final dllMsg =
+                  'whisper-server crashed: missing DLL or entry point '
+                  '(exit code $code / ${exitKind.name}). '
+                  'Wrong binary variant for this GPU. '
+                  'Auto-deleting incompatible binary for re-download.';
+              _log.error(dllMsg);
+              CrashReporter.instance?.captureError(
+                message: dllMsg,
+                severity: 'error',
+                type: 'stt_exit',
+                fingerprint: fingerprint,
               );
               // Delete the wrong binary so the next download fetches the
               // correct variant based on GPU detection.
@@ -1215,9 +1222,15 @@ class SttServiceNotifier extends Notifier<SttStatus> {
                 return;
               }
               // CPU fallback was already active — this is a real failure.
-              _log.error(
-                'whisper-server GPU fatal abort (code $code / ${exitKind.name}) '
-                'on "${gpu.name}" and CPU fallback also failed.',
+              final gpuFatalMsg =
+                  'whisper-server GPU fatal abort (code $code / ${exitKind.name}) '
+                  'on "${gpu.name}" and CPU fallback also failed.';
+              _log.error(gpuFatalMsg);
+              CrashReporter.instance?.captureError(
+                message: gpuFatalMsg,
+                severity: 'error',
+                type: 'stt_exit',
+                fingerprint: fingerprint,
               );
               _process = null;
               _activeModel = null;
@@ -1246,9 +1259,15 @@ class SttServiceNotifier extends Notifier<SttStatus> {
                 );
                 return;
               }
-              _log.error(
-                'whisper-server memory error (${exitKind.name}, code $code) '
-                'and CPU fallback also failed.',
+              final heapMsg =
+                  'whisper-server memory error (${exitKind.name}, code $code) '
+                  'and CPU fallback also failed.';
+              _log.error(heapMsg);
+              CrashReporter.instance?.captureError(
+                message: heapMsg,
+                severity: 'error',
+                type: 'stt_exit',
+                fingerprint: fingerprint,
               );
               _process = null;
               _activeModel = null;
@@ -1275,7 +1294,15 @@ class SttServiceNotifier extends Notifier<SttStatus> {
 
             // ── other: unclassified exit ────────────────────────────────────
             case SttExitKind.other:
-              _log.error('whisper-server exited unexpectedly (code $code)');
+              final otherMsg =
+                  'whisper-server exited unexpectedly (code $code)';
+              _log.error(otherMsg);
+              CrashReporter.instance?.captureError(
+                message: otherMsg,
+                severity: 'error',
+                type: 'stt_exit',
+                fingerprint: fingerprint,
+              );
               _process = null;
               _activeModel = null;
               _transition(

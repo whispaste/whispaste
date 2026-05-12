@@ -15,6 +15,7 @@ import 'package:http/http.dart' as http;
 import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
+import '../core/logging/crash_reporter.dart';
 import '../core/recording/recording_state.dart';
 import '../core/data/analytics_provider.dart';
 import 'audio_service.dart';
@@ -885,6 +886,15 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Dead-mic triggered: stop recording and surface error.
   Future<void> _handleDeadMic() async {
+    // Guard-fire is expected user behaviour (no microphone input), not a crash.
+    // Emit at info level with a unique fingerprint so Sentry buckets it
+    // separately from real errors and doesn't escalate to on-call noise.
+    CrashReporter.instance?.captureError(
+      message: 'guard-fire: dead-mic (no audio detected before timeout)',
+      severity: 'info',
+      type: 'guard_fire',
+      fingerprint: ['guard-fire-dead-mic'],
+    );
     try {
       _cancelAmplitude();
       final audioNotifier = ref.read(audioServiceProvider.notifier);
@@ -900,6 +910,15 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Auto-stop triggered: stop recording and run transcription pipeline.
   Future<void> _handleAutoStop() async {
+    // Guard-fire is expected user behaviour (silence after speech), not a crash.
+    // Emit at info level with a unique fingerprint so Sentry buckets it
+    // separately from real errors and doesn't escalate to on-call noise.
+    CrashReporter.instance?.captureError(
+      message: 'guard-fire: auto-stop (silence detected after speech)',
+      severity: 'info',
+      type: 'guard_fire',
+      fingerprint: ['guard-fire-auto-stop'],
+    );
     try {
       await stopRecording();
     } on Exception catch (e) {
