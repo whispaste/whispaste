@@ -64,18 +64,13 @@ class AnalyticsData {
 // Period filter
 // ---------------------------------------------------------------------------
 
-enum AnalyticsPeriod {
-  last7d,
-  last30d,
-  last90d,
-  allTime,
-}
+enum AnalyticsPeriod { last7d, last30d, last90d, allTime }
 
 /// User-selected analytics period. Defaults to all-time.
 final analyticsPeriodProvider =
     NotifierProvider<AnalyticsPeriodNotifier, AnalyticsPeriod>(
-  AnalyticsPeriodNotifier.new,
-);
+      AnalyticsPeriodNotifier.new,
+    );
 
 class AnalyticsPeriodNotifier extends Notifier<AnalyticsPeriod> {
   @override

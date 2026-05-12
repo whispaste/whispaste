@@ -39,8 +39,7 @@ class SoundFeedbackService extends Notifier<void> {
   Future<void> playRecordStart() =>
       _play('start.wav', _settings.recordStartSound);
 
-  Future<void> playRecordStop() =>
-      _play('stop.wav', _settings.recordStopSound);
+  Future<void> playRecordStop() => _play('stop.wav', _settings.recordStopSound);
 
   Future<void> playTranscriptionComplete() =>
       _play('success.wav', _settings.transcriptionCompleteSound);
@@ -194,5 +193,6 @@ class SoundFeedbackService extends Notifier<void> {
 // Provider
 // ---------------------------------------------------------------------------
 
-final soundFeedbackProvider =
-    NotifierProvider<SoundFeedbackService, void>(SoundFeedbackService.new);
+final soundFeedbackProvider = NotifierProvider<SoundFeedbackService, void>(
+  SoundFeedbackService.new,
+);

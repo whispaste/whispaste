@@ -28,8 +28,10 @@ final trashEntriesProvider = StreamProvider<List<HistoryEntry>>((ref) {
 });
 
 /// Watch notes for a specific entry.
-final entryNotesProvider =
-    StreamProvider.family<List<EntryNote>, String>((ref, entryId) {
+final entryNotesProvider = StreamProvider.family<List<EntryNote>, String>((
+  ref,
+  entryId,
+) {
   final db = ref.watch(historyDatabaseProvider);
   return db.watchNotesForEntry(entryId);
 });

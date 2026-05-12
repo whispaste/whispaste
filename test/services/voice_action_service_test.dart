@@ -82,7 +82,9 @@ void main() {
     });
 
     test('detects "korrektur:" German prefix', () {
-      final result = parseVoiceAction('korrektur: Das ist der korrigierte Text');
+      final result = parseVoiceAction(
+        'korrektur: Das ist der korrigierte Text',
+      );
       expect(result!.type, VoiceActionType.correction);
       expect(result.payload, 'Das ist der korrigierte Text');
     });

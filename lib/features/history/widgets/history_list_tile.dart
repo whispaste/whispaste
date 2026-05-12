@@ -330,10 +330,13 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                                         : MouseCursor.defer,
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 5, vertical: 1),
+                                        horizontal: 5,
+                                        vertical: 1,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: accent.withValues(
-                                            alpha: isDark ? 0.12 : 0.10),
+                                          alpha: isDark ? 0.12 : 0.10,
+                                        ),
                                         borderRadius: WpRadius.borderSm,
                                       ),
                                       child: Text(
@@ -365,7 +368,8 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
               ),
             ),
             // Quick action buttons — visible on hover/focus (desktop) or always (touch)
-            if ((_isHovered || _isTouchPlatform || widget.isFocused) && !widget.multiSelectMode)
+            if ((_isHovered || _isTouchPlatform || widget.isFocused) &&
+                !widget.multiSelectMode)
               Positioned(
                 top: 6,
                 right: WpSpacing.xs + WpSpacing.sm,

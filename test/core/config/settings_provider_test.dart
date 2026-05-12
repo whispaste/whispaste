@@ -77,7 +77,9 @@ void main() {
   });
 
   test('persists updates in drift and can reset to defaults', () async {
-    await container.read(settingsProvider.notifier).updateSettings(
+    await container
+        .read(settingsProvider.notifier)
+        .updateSettings(
           (settings) => settings.copyWith(
             themeMode: ThemeMode.light,
             locale: 'de',
@@ -111,17 +113,16 @@ void main() {
 
   group('secure API key storage', () {
     test('API keys written via updateSettings go to secure storage', () async {
-      await container.read(settingsProvider.notifier).updateSettings(
-            (s) => s.copyWith(openAiApiKey: 'sk-test-123'),
-          );
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(openAiApiKey: 'sk-test-123'));
 
       // In-memory state has the key.
       final settings = container.read(settingsProvider).value!;
       expect(settings.openAiApiKey, 'sk-test-123');
 
       // Secure storage has the key.
-      final stored =
-          await fakeSecureStore.readKey('wp_openai_api_key');
+      final stored = await fakeSecureStore.readKey('wp_openai_api_key');
       expect(stored, 'sk-test-123');
 
       // SQLite does NOT have the key (empty string).
@@ -131,8 +132,9 @@ void main() {
 
     test('migrates plaintext keys from SQLite to secure storage', () async {
       // Simulate legacy data: write a key directly to SQLite.
-      final legacyMap =
-          const AppSettings(groqApiKey: 'gsk-legacy').toStorageMap();
+      final legacyMap = const AppSettings(
+        groqApiKey: 'gsk-legacy',
+      ).toStorageMap();
       // Force the legacy key into the map (toStorageMap now writes '').
       legacyMap['groq_api_key'] = 'gsk-legacy';
       await db.writeAppSettings(legacyMap);
@@ -164,8 +166,7 @@ void main() {
       expect(settings.groqApiKey, 'gsk-legacy');
 
       // Key is now in secure storage.
-      final secureValue =
-          await fakeSecureStore.readKey('wp_groq_api_key');
+      final secureValue = await fakeSecureStore.readKey('wp_groq_api_key');
       expect(secureValue, 'gsk-legacy');
 
       // Key was cleared from SQLite.
@@ -174,30 +175,21 @@ void main() {
     });
 
     test('resetToDefaults clears API keys from secure storage', () async {
-      await container.read(settingsProvider.notifier).updateSettings(
-            (s) => s.copyWith(
-              anthropicApiKey: 'ant-key',
-              geminiApiKey: 'gem-key',
-            ),
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) =>
+                s.copyWith(anthropicApiKey: 'ant-key', geminiApiKey: 'gem-key'),
           );
 
       // Keys exist in secure storage.
-      expect(
-        await fakeSecureStore.readKey('wp_anthropic_api_key'),
-        'ant-key',
-      );
+      expect(await fakeSecureStore.readKey('wp_anthropic_api_key'), 'ant-key');
 
       await container.read(settingsProvider.notifier).resetToDefaults();
 
       // Keys are gone from secure storage.
-      expect(
-        await fakeSecureStore.readKey('wp_anthropic_api_key'),
-        isNull,
-      );
-      expect(
-        await fakeSecureStore.readKey('wp_gemini_api_key'),
-        isNull,
-      );
+      expect(await fakeSecureStore.readKey('wp_anthropic_api_key'), isNull);
+      expect(await fakeSecureStore.readKey('wp_gemini_api_key'), isNull);
     });
   });
 
@@ -219,9 +211,9 @@ void main() {
 
     test('persisted floating does not crash settings load', () async {
       // Simulate a user who had "floating" persisted from before the migration.
-      await container.read(settingsProvider.notifier).updateSettings(
-            (s) => s.copyWith(overlayMode: 'floating'),
-          );
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(overlayMode: 'floating'));
 
       final settings = container.read(settingsProvider).value!;
       // Raw value is still 'floating' in storage

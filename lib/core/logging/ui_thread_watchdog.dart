@@ -51,8 +51,10 @@ class UiThreadWatchdog {
       ..reset()
       ..start();
     _timer = Timer.periodic(_interval, _onTick);
-    _log.debug('UI thread watchdog started (interval=${_interval.inSeconds}s, '
-        'threshold=${_threshold.inMilliseconds}ms)');
+    _log.debug(
+      'UI thread watchdog started (interval=${_interval.inSeconds}s, '
+      'threshold=${_threshold.inMilliseconds}ms)',
+    );
   }
 
   /// Stops the watchdog and releases the timer.

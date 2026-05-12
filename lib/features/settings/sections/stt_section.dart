@@ -316,7 +316,11 @@ class _CustomVocabularyFieldState
         children: [
           Row(
             children: [
-              Icon(LucideIcons.bookType, size: WpIconSize.sm, color: cs.secondary),
+              Icon(
+                LucideIcons.bookType,
+                size: WpIconSize.sm,
+                color: cs.secondary,
+              ),
               const SizedBox(width: WpSpacing.sm),
               Expanded(
                 child: Column(

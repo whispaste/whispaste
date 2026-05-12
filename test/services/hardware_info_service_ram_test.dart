@@ -49,7 +49,8 @@ void main() {
 
   group('parseLinuxMemTotalMb', () {
     test('parses typical /proc/meminfo output', () {
-      const output = 'MemTotal:       16384000 kB\n'
+      const output =
+          'MemTotal:       16384000 kB\n'
           'MemFree:         1024000 kB\n';
       expect(parseLinuxMemTotalMb(output), equals(16000));
     });
@@ -82,7 +83,10 @@ void main() {
     });
 
     test('parses minimal output', () {
-      expect(parseWmicOsMemoryMb('TotalVisibleMemorySize=8388608'), equals(8192));
+      expect(
+        parseWmicOsMemoryMb('TotalVisibleMemorySize=8388608'),
+        equals(8192),
+      );
     });
 
     test('returns null when key is absent', () {

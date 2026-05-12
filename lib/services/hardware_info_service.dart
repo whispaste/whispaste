@@ -162,8 +162,9 @@ class GpuInfo {
     // GTX 16xx series: Turing architecture with GTX branding (1630/1650/1660)
     if (RegExp(r'GTX\s*16\d\d').hasMatch(upper)) return true;
     // NVIDIA datacenter/professional Turing+ cards
-    if (RegExp(r'\b(T4|A10G?|A16|A30|A40|A100|A800|L4|L40S?|H100|H200)\b')
-        .hasMatch(upper)) {
+    if (RegExp(
+      r'\b(T4|A10G?|A16|A30|A40|A100|A800|L4|L40S?|H100|H200)\b',
+    ).hasMatch(upper)) {
       return true;
     }
     // All other GTX cards (6xx Kepler, 7xx Kepler/Maxwell, 9xx Maxwell,
@@ -765,8 +766,10 @@ Future<int?> _unixRamMB() async {
   if (Platform.isMacOS) {
     // Use absolute path to avoid PATH hijack — /usr/sbin/sysctl is canonical.
     // hw.memsize returns total physical bytes (e.g. 17179869184 = 16 GB).
-    final r = await Process.run('/usr/sbin/sysctl', ['-n', 'hw.memsize'])
-        .timeout(const Duration(seconds: 5));
+    final r = await Process.run('/usr/sbin/sysctl', [
+      '-n',
+      'hw.memsize',
+    ]).timeout(const Duration(seconds: 5));
     if (r.exitCode != 0) return null;
     return parseSysctlMemsizeMb(r.stdout.toString());
   } else {
@@ -803,10 +806,12 @@ Future<int?> _windowsRamMB() async {
 
   // Fallback: wmic (deprecated but more widely available).
   try {
-    final r = await Process.run(
-      'wmic',
-      ['os', 'get', 'TotalVisibleMemorySize', '/Value'],
-    ).timeout(const Duration(seconds: 5));
+    final r = await Process.run('wmic', [
+      'os',
+      'get',
+      'TotalVisibleMemorySize',
+      '/Value',
+    ]).timeout(const Duration(seconds: 5));
     if (r.exitCode == 0) {
       final result = parseWmicOsMemoryMb(r.stdout.toString());
       if (result != null) return result;
@@ -847,8 +852,7 @@ int? parseLinuxMemTotalMb(String memInfoOutput) {
 /// Returns `null` when the key is absent or the value cannot be parsed.
 @visibleForTesting
 int? parseWmicOsMemoryMb(String wmicOutput) {
-  final match =
-      RegExp(r'TotalVisibleMemorySize=(\d+)').firstMatch(wmicOutput);
+  final match = RegExp(r'TotalVisibleMemorySize=(\d+)').firstMatch(wmicOutput);
   if (match == null) return null;
   final kb = int.tryParse(match.group(1) ?? '');
   if (kb == null || kb <= 0) return null;

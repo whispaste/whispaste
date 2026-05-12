@@ -18,7 +18,10 @@ class WpPageShell extends StatelessWidget {
     super.key,
     required this.child,
     this.padding = const EdgeInsets.fromLTRB(
-      WpSpacing.xl, WpSpacing.sm, WpSpacing.xl, WpSpacing.xl,
+      WpSpacing.xl,
+      WpSpacing.sm,
+      WpSpacing.xl,
+      WpSpacing.xl,
     ),
     this.scrollable = true,
   });
@@ -35,17 +38,11 @@ class WpPageShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (scrollable) {
-      return SingleChildScrollView(
-        padding: padding,
-        child: child,
-      );
+      return SingleChildScrollView(padding: padding, child: child);
     }
 
     // Fixed mode — wrap in Padding, child manages its own height.
-    return Padding(
-      padding: padding,
-      child: child,
-    );
+    return Padding(padding: padding, child: child);
   }
 }
 
@@ -128,10 +125,12 @@ class WpAdaptiveGrid extends StatelessWidget {
               rowChildren.add(SizedBox(width: spacing));
             }
           }
-          rows.add(Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: rowChildren,
-          ));
+          rows.add(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: rowChildren,
+            ),
+          );
           if (i + columns < children.length) {
             rows.add(SizedBox(height: runSpacing));
           }

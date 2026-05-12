@@ -46,12 +46,12 @@ List<String> hotkeyModifierLabels(String modifiers, {L10n? l10n}) {
         (modifier) => switch (modifier.toLowerCase()) {
           'ctrl' || 'control' => l10n?.modifierCtrl ?? 'Ctrl',
           'shift' => l10n?.modifierShift ?? 'Shift',
-          'alt' => isMac
-              ? (l10n?.modifierOption ?? 'Option')
-              : (l10n?.modifierAlt ?? 'Alt'),
-          'meta' || 'win' || 'super' => isMac
-              ? (l10n?.modifierCmd ?? 'Cmd')
-              : (l10n?.modifierWin ?? 'Win'),
+          'alt' =>
+            isMac
+                ? (l10n?.modifierOption ?? 'Option')
+                : (l10n?.modifierAlt ?? 'Alt'),
+          'meta' || 'win' || 'super' =>
+            isMac ? (l10n?.modifierCmd ?? 'Cmd') : (l10n?.modifierWin ?? 'Win'),
           'cmd' => l10n?.modifierCmd ?? 'Cmd',
           _ => modifier,
         },

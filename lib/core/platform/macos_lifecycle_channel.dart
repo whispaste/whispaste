@@ -21,10 +21,7 @@ class MacOSLifecycleChannel {
   static Future<void> setRegular() async {
     if (!Platform.isMacOS) return;
     try {
-      await _channel.invokeMethod(
-        'setActivationPolicy',
-        {'policy': 'regular'},
-      );
+      await _channel.invokeMethod('setActivationPolicy', {'policy': 'regular'});
     } on PlatformException {
       // Silently ignore — non-critical UX enhancement.
     }
@@ -34,10 +31,9 @@ class MacOSLifecycleChannel {
   static Future<void> setAccessory() async {
     if (!Platform.isMacOS) return;
     try {
-      await _channel.invokeMethod(
-        'setActivationPolicy',
-        {'policy': 'accessory'},
-      );
+      await _channel.invokeMethod('setActivationPolicy', {
+        'policy': 'accessory',
+      });
     } on PlatformException {
       // Silently ignore — non-critical UX enhancement.
     }

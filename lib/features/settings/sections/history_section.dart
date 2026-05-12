@@ -15,7 +15,17 @@ class HistorySection extends ConsumerWidget {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final l10n = L10n.of(context);
 
-    const maxEntriesOptions = ['0', '5', '10', '20', '50', '100', '500', '1000', '5000'];
+    const maxEntriesOptions = [
+      '0',
+      '5',
+      '10',
+      '20',
+      '50',
+      '100',
+      '500',
+      '1000',
+      '5000',
+    ];
     const autoTrashOptions = ['0', '7', '14', '30', '90'];
 
     String maxEntriesLabel(String v) {
@@ -36,33 +46,35 @@ class HistorySection extends ConsumerWidget {
       child: Column(
         children: [
           SettingRow(
-          icon: LucideIcons.listOrdered,
-          label: l10n.settingsHistoryMaxEntries,
-          trailing: settingsDropdown(
-            context: context,
-            value: settings.historyMaxEntries.toString(),
-            items: maxEntriesOptions,
-            labels: maxEntriesOptions.map(maxEntriesLabel).toList(),
-            onChanged: (v) =>
-                ref.read(settingsProvider.notifier).updateSettings(
-                      (s) => s.copyWith(historyMaxEntries: int.parse(v!)),
-                    ),
+            icon: LucideIcons.listOrdered,
+            label: l10n.settingsHistoryMaxEntries,
+            trailing: settingsDropdown(
+              context: context,
+              value: settings.historyMaxEntries.toString(),
+              items: maxEntriesOptions,
+              labels: maxEntriesOptions.map(maxEntriesLabel).toList(),
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWith(historyMaxEntries: int.parse(v!)),
+                  ),
+            ),
           ),
-        ),
-        SettingRow(
-          icon: LucideIcons.trash2,
-          label: l10n.settingsHistoryAutoTrashDays,
-          trailing: settingsDropdown(
-            context: context,
-            value: settings.historyAutoTrashDays.toString(),
-            items: autoTrashOptions,
-            labels: autoTrashOptions.map(autoTrashLabel).toList(),
-            onChanged: (v) =>
-                ref.read(settingsProvider.notifier).updateSettings(
-                      (s) => s.copyWith(historyAutoTrashDays: int.parse(v!)),
-                    ),
+          SettingRow(
+            icon: LucideIcons.trash2,
+            label: l10n.settingsHistoryAutoTrashDays,
+            trailing: settingsDropdown(
+              context: context,
+              value: settings.historyAutoTrashDays.toString(),
+              items: autoTrashOptions,
+              labels: autoTrashOptions.map(autoTrashLabel).toList(),
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWith(historyAutoTrashDays: int.parse(v!)),
+                  ),
+            ),
           ),
-        ),
         ],
       ),
     );

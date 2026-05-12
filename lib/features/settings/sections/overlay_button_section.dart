@@ -26,7 +26,8 @@ class OverlaySection extends ConsumerWidget {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final effectiveMode = settings.effectiveOverlayMode;
-    final isDesktop = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    final isDesktop =
+        Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
     return WpSection(
       title: l10n.settingsOverlayFloatingButton,
@@ -46,8 +47,9 @@ class OverlaySection extends ConsumerWidget {
                     .read(settingsProvider.notifier)
                     .updateSettings(
                       (s) => s.copyWith(
-                        overlayMode:
-                            v ? OverlayMode.floating.value : OverlayMode.off.value,
+                        overlayMode: v
+                            ? OverlayMode.floating.value
+                            : OverlayMode.off.value,
                         showOverlay: v,
                       ),
                     ),
@@ -65,9 +67,7 @@ class OverlaySection extends ConsumerWidget {
               trailing: settingsDropdown(
                 context: context,
                 value: settings.overlayStartPositionType.value,
-                items: OverlayStartPosition.values
-                    .map((e) => e.value)
-                    .toList(),
+                items: OverlayStartPosition.values.map((e) => e.value).toList(),
                 labels: [
                   l10n.settingsOverlayStartTopCenter,
                   l10n.settingsOverlayStartBottomCenter,
@@ -91,9 +91,7 @@ class OverlaySection extends ConsumerWidget {
               trailing: settingsDropdown(
                 context: context,
                 value: settings.overlaySizeType.value,
-                items: FloatingOverlaySize.values
-                    .map((e) => e.value)
-                    .toList(),
+                items: FloatingOverlaySize.values.map((e) => e.value).toList(),
                 labels: [
                   l10n.settingsOverlaySizeNormal,
                   l10n.settingsOverlaySizeCompact,
@@ -102,9 +100,7 @@ class OverlaySection extends ConsumerWidget {
                   if (v == null) return;
                   ref
                       .read(settingsProvider.notifier)
-                      .updateSettings(
-                        (s) => s.copyWith(overlaySize: v),
-                      );
+                      .updateSettings((s) => s.copyWith(overlaySize: v));
                 },
               ),
             ),
@@ -116,9 +112,7 @@ class OverlaySection extends ConsumerWidget {
               trailing: settingsDropdown(
                 context: context,
                 value: settings.overlayAutoHideType.value,
-                items: OverlayAutoHide.values
-                    .map((e) => e.value)
-                    .toList(),
+                items: OverlayAutoHide.values.map((e) => e.value).toList(),
                 labels: [
                   l10n.settingsOverlayAutoHide2s,
                   l10n.settingsOverlayAutoHide5s,
@@ -129,9 +123,7 @@ class OverlaySection extends ConsumerWidget {
                   if (v == null) return;
                   ref
                       .read(settingsProvider.notifier)
-                      .updateSettings(
-                        (s) => s.copyWith(overlayAutoHide: v),
-                      );
+                      .updateSettings((s) => s.copyWith(overlayAutoHide: v));
                 },
               ),
             ),
@@ -171,7 +163,9 @@ class FloatingButtonSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!(Platform.isWindows || Platform.isMacOS)) return const SizedBox.shrink();
+    if (!(Platform.isWindows || Platform.isMacOS)) {
+      return const SizedBox.shrink();
+    }
 
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
@@ -190,9 +184,7 @@ class FloatingButtonSection extends ConsumerWidget {
               value: settings.showFloatingButton,
               onChanged: (v) => ref
                   .read(settingsProvider.notifier)
-                  .updateSettings(
-                    (s) => s.copyWith(showFloatingButton: v),
-                  ),
+                  .updateSettings((s) => s.copyWith(showFloatingButton: v)),
             ),
           ),
           if (settings.showFloatingButton) ...[
@@ -203,9 +195,7 @@ class FloatingButtonSection extends ConsumerWidget {
               trailing: settingsDropdown(
                 context: context,
                 value: settings.floatingButtonSizeType.value,
-                items: FloatingButtonSize.values
-                    .map((e) => e.value)
-                    .toList(),
+                items: FloatingButtonSize.values.map((e) => e.value).toList(),
                 labels: [
                   l10n.settingsSizeSmall,
                   l10n.settingsSizeNormal,
@@ -215,9 +205,7 @@ class FloatingButtonSection extends ConsumerWidget {
                   if (v == null) return;
                   ref
                       .read(settingsProvider.notifier)
-                      .updateSettings(
-                        (s) => s.copyWith(floatingButtonSize: v),
-                      );
+                      .updateSettings((s) => s.copyWith(floatingButtonSize: v));
                 },
               ),
             ),

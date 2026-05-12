@@ -2815,6 +2815,42 @@ abstract class L10n {
   /// **'Speech engine failed to start'**
   String get errorSttServerFailed;
 
+  /// No description provided for @errorSttModelIncompatibleRuntime.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech model is incompatible with the installed runtime. Please re-download the speech model in Settings.'**
+  String get errorSttModelIncompatibleRuntime;
+
+  /// No description provided for @errorSttModelCorruptedRedownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech model appears corrupted — downloading a fresh copy automatically.'**
+  String get errorSttModelCorruptedRedownloading;
+
+  /// No description provided for @errorSttDllMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'A required system component is missing. Retrying with CPU mode.'**
+  String get errorSttDllMissing;
+
+  /// No description provided for @errorSttGpuFatal.
+  ///
+  /// In en, this message translates to:
+  /// **'GPU acceleration failed. Retrying with CPU mode.'**
+  String get errorSttGpuFatal;
+
+  /// No description provided for @errorSttHeapCorruption.
+  ///
+  /// In en, this message translates to:
+  /// **'A memory error occurred. Retrying with CPU mode.'**
+  String get errorSttHeapCorruption;
+
+  /// No description provided for @errorSttCpuFallbackFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech engine failed on both GPU and CPU. Please restart the app or re-download the model.'**
+  String get errorSttCpuFallbackFailed;
+
   /// No description provided for @errorPipelineTimeout.
   ///
   /// In en, this message translates to:

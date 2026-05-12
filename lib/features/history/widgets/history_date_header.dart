@@ -8,7 +8,11 @@ import '../../../core/theme/tokens.dart';
 // ---------------------------------------------------------------------------
 
 class HistoryDateHeader extends StatelessWidget {
-  const HistoryDateHeader({super.key, required this.label, required this.isDark});
+  const HistoryDateHeader({
+    super.key,
+    required this.label,
+    required this.isDark,
+  });
 
   final String label;
   final bool isDark;
@@ -16,12 +20,16 @@ class HistoryDateHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final lineColor =
-        isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
+    final lineColor = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl, WpSpacing.md, WpSpacing.xl, WpSpacing.xs,
+        WpSpacing.xl,
+        WpSpacing.md,
+        WpSpacing.xl,
+        WpSpacing.xs,
       ),
       child: Row(
         children: [
@@ -50,7 +58,11 @@ class HistoryDateHeader extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class HistoryCompactDateHeader extends StatelessWidget {
-  const HistoryCompactDateHeader({super.key, required this.label, required this.isDark});
+  const HistoryCompactDateHeader({
+    super.key,
+    required this.label,
+    required this.isDark,
+  });
 
   final String label;
   final bool isDark;
@@ -59,7 +71,10 @@ class HistoryCompactDateHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl, WpSpacing.sm, WpSpacing.xl, WpSpacing.xxs,
+        WpSpacing.xl,
+        WpSpacing.sm,
+        WpSpacing.xl,
+        WpSpacing.xxs,
       ),
       child: Text(
         label.toUpperCase(),

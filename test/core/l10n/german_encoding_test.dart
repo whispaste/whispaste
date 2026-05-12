@@ -75,24 +75,33 @@ void main() {
 
     setUpAll(() {
       final arbFile = File('lib/core/l10n/app_de.arb');
-      expect(arbFile.existsSync(), isTrue,
-          reason: 'German ARB file must exist');
+      expect(
+        arbFile.existsSync(),
+        isTrue,
+        reason: 'German ARB file must exist',
+      );
       arbDe = jsonDecode(arbFile.readAsStringSync()) as Map<String, dynamic>;
     });
 
     test('ARB DE file has actual German text (sanity check)', () {
       // Just verify the file is genuine German, not all-ASCII
       final allText = arbDe.values.whereType<String>().join(' ');
-      expect(allText.length, greaterThan(100),
-          reason: 'German ARB file should have substantial text');
+      expect(
+        allText.length,
+        greaterThan(100),
+        reason: 'German ARB file should have substantial text',
+      );
       // At least some values must contain German special characters
       final valuesWithUmlauts = arbDe.values
           .whereType<String>()
           .where((v) => _germanChars.hasMatch(v))
           .length;
-      expect(valuesWithUmlauts, greaterThan(5),
-          reason:
-              'German ARB should have multiple values with umlauts, found $valuesWithUmlauts');
+      expect(
+        valuesWithUmlauts,
+        greaterThan(5),
+        reason:
+            'German ARB should have multiple values with umlauts, found $valuesWithUmlauts',
+      );
     });
 
     test('ARB values have no broken ASCII-digraph umlauts', () {
@@ -112,9 +121,12 @@ void main() {
         }
       }
 
-      expect(violations, isEmpty,
-          reason:
-              'German ARB contains ASCII-digraph umlauts:\n${violations.join('\n')}');
+      expect(
+        violations,
+        isEmpty,
+        reason:
+            'German ARB contains ASCII-digraph umlauts:\n${violations.join('\n')}',
+      );
     });
 
     test('ARB values have no mojibake encoding corruption', () {
@@ -134,9 +146,11 @@ void main() {
         }
       }
 
-      expect(violations, isEmpty,
-          reason:
-              'German ARB contains mojibake:\n${violations.join('\n')}');
+      expect(
+        violations,
+        isEmpty,
+        reason: 'German ARB contains mojibake:\n${violations.join('\n')}',
+      );
     });
 
     test('screenshot demo data has no broken umlauts', () {
@@ -156,9 +170,11 @@ void main() {
         }
       }
 
-      expect(violations, isEmpty,
-          reason:
-              'Screenshot test has broken umlauts:\n${violations.join('\n')}');
+      expect(
+        violations,
+        isEmpty,
+        reason: 'Screenshot test has broken umlauts:\n${violations.join('\n')}',
+      );
     });
 
     test('OG image config has no broken umlauts', () {
@@ -178,8 +194,11 @@ void main() {
         }
       }
 
-      expect(violations, isEmpty,
-          reason: 'OG config has broken umlauts:\n${violations.join('\n')}');
+      expect(
+        violations,
+        isEmpty,
+        reason: 'OG config has broken umlauts:\n${violations.join('\n')}',
+      );
     });
 
     test('store screenshot config has no broken umlauts', () {
@@ -199,9 +218,11 @@ void main() {
         }
       }
 
-      expect(violations, isEmpty,
-          reason:
-              'Store config has broken umlauts:\n${violations.join('\n')}');
+      expect(
+        violations,
+        isEmpty,
+        reason: 'Store config has broken umlauts:\n${violations.join('\n')}',
+      );
     });
   });
 }

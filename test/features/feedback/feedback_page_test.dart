@@ -56,14 +56,14 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('submit button is disabled before inputs are filled',
-        (tester) async {
+    testWidgets('submit button is disabled before inputs are filled', (
+      tester,
+    ) async {
       await tester.pumpWidget(makeTestable(const FeedbackPage()));
       await tester.pumpAndSettle();
 
       // "Send Feedback" comes from l10n.feedbackSubmit (app_en.arb).
-      final submitFinder =
-          find.widgetWithText(ElevatedButton, 'Send Feedback');
+      final submitFinder = find.widgetWithText(ElevatedButton, 'Send Feedback');
       expect(submitFinder, findsOneWidget);
 
       // No rating/category/comment yet → onPressed must be null.
@@ -72,55 +72,58 @@ void main() {
     });
 
     testWidgets(
-        'submit button becomes enabled after all three inputs are filled',
-        (tester) async {
-      await tester.pumpWidget(makeTestable(const FeedbackPage()));
-      await tester.pumpAndSettle();
+      'submit button becomes enabled after all three inputs are filled',
+      (tester) async {
+        await tester.pumpWidget(makeTestable(const FeedbackPage()));
+        await tester.pumpAndSettle();
 
-      // Select the "General" category chip (l10n.feedbackCategoryGeneral).
-      await tester.tap(find.text('General'));
-      await tester.pumpAndSettle();
+        // Select the "General" category chip (l10n.feedbackCategoryGeneral).
+        await tester.tap(find.text('General'));
+        await tester.pumpAndSettle();
 
-      // Tap the 🤩 emoji (rating = 5).
-      await tester.tap(find.text('🤩'));
-      await tester.pumpAndSettle();
+        // Tap the 🤩 emoji (rating = 5).
+        await tester.tap(find.text('🤩'));
+        await tester.pumpAndSettle();
 
-      // Enter a comment so feedback_text is non-empty.
-      await tester.enterText(find.byType(TextField), 'Great app!');
-      await tester.pumpAndSettle();
+        // Enter a comment so feedback_text is non-empty.
+        await tester.enterText(find.byType(TextField), 'Great app!');
+        await tester.pumpAndSettle();
 
-      final button = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, 'Send Feedback'),
-      );
-      expect(button.onPressed, isNotNull);
-    });
+        final button = tester.widget<ElevatedButton>(
+          find.widgetWithText(ElevatedButton, 'Send Feedback'),
+        );
+        expect(button.onPressed, isNotNull);
+      },
+    );
 
     testWidgets(
-        'tapping submit when Supabase is not configured shows success state',
-        (tester) async {
-      // SUPABASE_URL is empty in tests (no --dart-define) → the "not
-      // configured" branch runs, treating the submission as successful.
-      await tester.pumpWidget(makeTestable(const FeedbackPage()));
-      await tester.pumpAndSettle();
+      'tapping submit when Supabase is not configured shows success state',
+      (tester) async {
+        // SUPABASE_URL is empty in tests (no --dart-define) → the "not
+        // configured" branch runs, treating the submission as successful.
+        await tester.pumpWidget(makeTestable(const FeedbackPage()));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('General'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('🤩'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Test feedback');
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('General'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('🤩'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'Test feedback');
+        await tester.pumpAndSettle();
 
-      // The submit button may be below the fold — scroll it into view first.
-      final submitFinder =
-          find.widgetWithText(ElevatedButton, 'Send Feedback');
-      await tester.ensureVisible(submitFinder);
-      await tester.pumpAndSettle();
-      await tester.tap(submitFinder);
-      await tester.pumpAndSettle();
+        // The submit button may be below the fold — scroll it into view first.
+        final submitFinder = find.widgetWithText(
+          ElevatedButton,
+          'Send Feedback',
+        );
+        await tester.ensureVisible(submitFinder);
+        await tester.pumpAndSettle();
+        await tester.tap(submitFinder);
+        await tester.pumpAndSettle();
 
-      // Success state: _ThankYouView shows l10n.feedbackThankYou ("Thank you!")
-      expect(find.text('Thank you!'), findsOneWidget);
-    });
+        // Success state: _ThankYouView shows l10n.feedbackThankYou ("Thank you!")
+        expect(find.text('Thank you!'), findsOneWidget);
+      },
+    );
   });
 }
-

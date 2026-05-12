@@ -28,7 +28,9 @@ import 'package:whispaste/core/theme/colors.dart';
 /// Converts a single sRGB channel (0–255) to linear light.
 double _linearize(int channel) {
   final s = channel / 255.0;
-  return s <= 0.04045 ? s / 12.92 : math.pow((s + 0.055) / 1.055, 2.4).toDouble();
+  return s <= 0.04045
+      ? s / 12.92
+      : math.pow((s + 0.055) / 1.055, 2.4).toDouble();
 }
 
 /// Relative luminance per WCAG 2.1 definition.
@@ -67,6 +69,7 @@ class _SaturationCheck {
   const _SaturationCheck(this.name, this.color, this.minSaturation);
   final String name;
   final Color color;
+
   /// Minimum HSL saturation (0.0–1.0), e.g. 0.40 = 40%.
   final double minSaturation;
 }
@@ -89,102 +92,195 @@ class _ColorPair {
 // Dark theme pairs
 final _darkPairs = [
   // Text on surface
-  const _ColorPair('dark: textPrimary on surface', WpColorsDark.textPrimary,
-      WpColorsDark.surface),
-  const _ColorPair('dark: textSecondary on surface', WpColorsDark.textSecondary,
-      WpColorsDark.surface),
   const _ColorPair(
-      'dark: textMuted on surface', WpColorsDark.textMuted, WpColorsDark.surface),
+    'dark: textPrimary on surface',
+    WpColorsDark.textPrimary,
+    WpColorsDark.surface,
+  ),
+  const _ColorPair(
+    'dark: textSecondary on surface',
+    WpColorsDark.textSecondary,
+    WpColorsDark.surface,
+  ),
+  const _ColorPair(
+    'dark: textMuted on surface',
+    WpColorsDark.textMuted,
+    WpColorsDark.surface,
+  ),
 
   // Text on elevated surface
-  const _ColorPair('dark: textPrimary on surfaceElevated', WpColorsDark.textPrimary,
-      WpColorsDark.surfaceElevated),
-  const _ColorPair('dark: textSecondary on surfaceElevated',
-      WpColorsDark.textSecondary, WpColorsDark.surfaceElevated),
-  const _ColorPair('dark: textMuted on surfaceElevated', WpColorsDark.textMuted,
-      WpColorsDark.surfaceElevated),
+  const _ColorPair(
+    'dark: textPrimary on surfaceElevated',
+    WpColorsDark.textPrimary,
+    WpColorsDark.surfaceElevated,
+  ),
+  const _ColorPair(
+    'dark: textSecondary on surfaceElevated',
+    WpColorsDark.textSecondary,
+    WpColorsDark.surfaceElevated,
+  ),
+  const _ColorPair(
+    'dark: textMuted on surfaceElevated',
+    WpColorsDark.textMuted,
+    WpColorsDark.surfaceElevated,
+  ),
 
   // Text on hover
-  const _ColorPair('dark: textPrimary on hover', WpColorsDark.textPrimary,
-      WpColorsDark.hover),
-  const _ColorPair('dark: textSecondary on hover', WpColorsDark.textSecondary,
-      WpColorsDark.hover),
   const _ColorPair(
-      'dark: textMuted on hover', WpColorsDark.textMuted, WpColorsDark.hover),
+    'dark: textPrimary on hover',
+    WpColorsDark.textPrimary,
+    WpColorsDark.hover,
+  ),
+  const _ColorPair(
+    'dark: textSecondary on hover',
+    WpColorsDark.textSecondary,
+    WpColorsDark.hover,
+  ),
+  const _ColorPair(
+    'dark: textMuted on hover',
+    WpColorsDark.textMuted,
+    WpColorsDark.hover,
+  ),
 
   // Text on background (frame)
-  const _ColorPair('dark: textPrimary on background', WpColorsDark.textPrimary,
-      WpColorsDark.background),
-  const _ColorPair('dark: textSecondary on background', WpColorsDark.textSecondary,
-      WpColorsDark.background),
+  const _ColorPair(
+    'dark: textPrimary on background',
+    WpColorsDark.textPrimary,
+    WpColorsDark.background,
+  ),
+  const _ColorPair(
+    'dark: textSecondary on background',
+    WpColorsDark.textSecondary,
+    WpColorsDark.background,
+  ),
 
   // Accent as text (large text threshold — section headers, buttons)
-  const _ColorPair('dark: accent on surface (large)', WpColorsDark.accent,
-      WpColorsDark.surface,
-      isLargeText: true),
-  const _ColorPair('dark: accent on background (large)', WpColorsDark.accent,
-      WpColorsDark.background,
-      isLargeText: true),
+  const _ColorPair(
+    'dark: accent on surface (large)',
+    WpColorsDark.accent,
+    WpColorsDark.surface,
+    isLargeText: true,
+  ),
+  const _ColorPair(
+    'dark: accent on background (large)',
+    WpColorsDark.accent,
+    WpColorsDark.background,
+    isLargeText: true,
+  ),
 
   // Status colors on surface (typically used as badges/labels — large text)
-  const _ColorPair('dark: success on surface (large)', WpColorsDark.success,
-      WpColorsDark.surface,
-      isLargeText: true),
-  const _ColorPair('dark: warning on surface (large)', WpColorsDark.warning,
-      WpColorsDark.surface,
-      isLargeText: true),
-  const _ColorPair('dark: error on surface (large)', WpColorsDark.error,
-      WpColorsDark.surface,
-      isLargeText: true),
+  const _ColorPair(
+    'dark: success on surface (large)',
+    WpColorsDark.success,
+    WpColorsDark.surface,
+    isLargeText: true,
+  ),
+  const _ColorPair(
+    'dark: warning on surface (large)',
+    WpColorsDark.warning,
+    WpColorsDark.surface,
+    isLargeText: true,
+  ),
+  const _ColorPair(
+    'dark: error on surface (large)',
+    WpColorsDark.error,
+    WpColorsDark.surface,
+    isLargeText: true,
+  ),
 ];
 
 // Light theme pairs
 final _lightPairs = [
   // Text on surface
-  const _ColorPair('light: textPrimary on surface', WpColorsLight.textPrimary,
-      WpColorsLight.surface),
-  const _ColorPair('light: textSecondary on surface', WpColorsLight.textSecondary,
-      WpColorsLight.surface),
-  const _ColorPair('light: textMuted on surface', WpColorsLight.textMuted,
-      WpColorsLight.surface),
+  const _ColorPair(
+    'light: textPrimary on surface',
+    WpColorsLight.textPrimary,
+    WpColorsLight.surface,
+  ),
+  const _ColorPair(
+    'light: textSecondary on surface',
+    WpColorsLight.textSecondary,
+    WpColorsLight.surface,
+  ),
+  const _ColorPair(
+    'light: textMuted on surface',
+    WpColorsLight.textMuted,
+    WpColorsLight.surface,
+  ),
 
   // Text on elevated surface
-  const _ColorPair('light: textPrimary on surfaceElevated', WpColorsLight.textPrimary,
-      WpColorsLight.surfaceElevated),
-  const _ColorPair('light: textSecondary on surfaceElevated',
-      WpColorsLight.textSecondary, WpColorsLight.surfaceElevated),
-  const _ColorPair('light: textMuted on surfaceElevated', WpColorsLight.textMuted,
-      WpColorsLight.surfaceElevated),
+  const _ColorPair(
+    'light: textPrimary on surfaceElevated',
+    WpColorsLight.textPrimary,
+    WpColorsLight.surfaceElevated,
+  ),
+  const _ColorPair(
+    'light: textSecondary on surfaceElevated',
+    WpColorsLight.textSecondary,
+    WpColorsLight.surfaceElevated,
+  ),
+  const _ColorPair(
+    'light: textMuted on surfaceElevated',
+    WpColorsLight.textMuted,
+    WpColorsLight.surfaceElevated,
+  ),
 
   // Text on hover
-  const _ColorPair('light: textPrimary on hover', WpColorsLight.textPrimary,
-      WpColorsLight.hover),
-  const _ColorPair('light: textSecondary on hover', WpColorsLight.textSecondary,
-      WpColorsLight.hover),
-  const _ColorPair('light: textMuted on hover', WpColorsLight.textMuted,
-      WpColorsLight.hover),
+  const _ColorPair(
+    'light: textPrimary on hover',
+    WpColorsLight.textPrimary,
+    WpColorsLight.hover,
+  ),
+  const _ColorPair(
+    'light: textSecondary on hover',
+    WpColorsLight.textSecondary,
+    WpColorsLight.hover,
+  ),
+  const _ColorPair(
+    'light: textMuted on hover',
+    WpColorsLight.textMuted,
+    WpColorsLight.hover,
+  ),
 
   // Text on background (frame)
-  const _ColorPair('light: textPrimary on background', WpColorsLight.textPrimary,
-      WpColorsLight.background),
-  const _ColorPair('light: textSecondary on background', WpColorsLight.textSecondary,
-      WpColorsLight.background),
+  const _ColorPair(
+    'light: textPrimary on background',
+    WpColorsLight.textPrimary,
+    WpColorsLight.background,
+  ),
+  const _ColorPair(
+    'light: textSecondary on background',
+    WpColorsLight.textSecondary,
+    WpColorsLight.background,
+  ),
 
   // Accent as text (large text)
-  const _ColorPair('light: accent on surface (large)', WpColorsLight.accent,
-      WpColorsLight.surface,
-      isLargeText: true),
+  const _ColorPair(
+    'light: accent on surface (large)',
+    WpColorsLight.accent,
+    WpColorsLight.surface,
+    isLargeText: true,
+  ),
 
   // Status colors on surface (large text)
-  const _ColorPair('light: success on surface (large)', WpColorsLight.success,
-      WpColorsLight.surface,
-      isLargeText: true),
-  const _ColorPair('light: warning on surface (large)', WpColorsLight.warning,
-      WpColorsLight.surface,
-      isLargeText: true),
-  const _ColorPair('light: error on surface (large)', WpColorsLight.error,
-      WpColorsLight.surface,
-      isLargeText: true),
+  const _ColorPair(
+    'light: success on surface (large)',
+    WpColorsLight.success,
+    WpColorsLight.surface,
+    isLargeText: true,
+  ),
+  const _ColorPair(
+    'light: warning on surface (large)',
+    WpColorsLight.warning,
+    WpColorsLight.surface,
+    isLargeText: true,
+  ),
+  const _ColorPair(
+    'light: error on surface (large)',
+    WpColorsLight.error,
+    WpColorsLight.surface,
+    isLargeText: true,
+  ),
 ];
 
 // ---------------------------------------------------------------------------
@@ -199,7 +295,8 @@ void main() {
         expect(
           ratio,
           greaterThanOrEqualTo(pair.requiredRatio),
-          reason: '${pair.name}: contrast ${ratio.toStringAsFixed(2)}:1 '
+          reason:
+              '${pair.name}: contrast ${ratio.toStringAsFixed(2)}:1 '
               '< required ${pair.requiredRatio}:1 '
               '(fg: #${pair.fg.toARGB32().toRadixString(16).padLeft(8, '0')}, '
               'bg: #${pair.bg.toARGB32().toRadixString(16).padLeft(8, '0')})',
@@ -215,7 +312,8 @@ void main() {
         expect(
           ratio,
           greaterThanOrEqualTo(pair.requiredRatio),
-          reason: '${pair.name}: contrast ${ratio.toStringAsFixed(2)}:1 '
+          reason:
+              '${pair.name}: contrast ${ratio.toStringAsFixed(2)}:1 '
               '< required ${pair.requiredRatio}:1 '
               '(fg: #${pair.fg.toARGB32().toRadixString(16).padLeft(8, '0')}, '
               'bg: #${pair.bg.toARGB32().toRadixString(16).padLeft(8, '0')})',
@@ -227,21 +325,27 @@ void main() {
   // Sanity: verify our contrast computation against known values
   group('contrast ratio math', () {
     test('black on white = 21:1', () {
-      final ratio =
-          contrastRatio(const Color(0xFF000000), const Color(0xFFFFFFFF));
+      final ratio = contrastRatio(
+        const Color(0xFF000000),
+        const Color(0xFFFFFFFF),
+      );
       expect(ratio, closeTo(21.0, 0.1));
     });
 
     test('white on white = 1:1', () {
-      final ratio =
-          contrastRatio(const Color(0xFFFFFFFF), const Color(0xFFFFFFFF));
+      final ratio = contrastRatio(
+        const Color(0xFFFFFFFF),
+        const Color(0xFFFFFFFF),
+      );
       expect(ratio, closeTo(1.0, 0.01));
     });
 
     test('mid-grey on white ≈ 3.95:1', () {
       // #767676 is the well-known AA boundary on white
-      final ratio =
-          contrastRatio(const Color(0xFF767676), const Color(0xFFFFFFFF));
+      final ratio = contrastRatio(
+        const Color(0xFF767676),
+        const Color(0xFFFFFFFF),
+      );
       expect(ratio, greaterThanOrEqualTo(4.5));
     });
   });
@@ -253,7 +357,11 @@ void main() {
   group('Color saturation – dark theme (accent/status ≥ 40%)', () {
     final darkAccentChecks = [
       const _SaturationCheck('dark: accent', WpColorsDark.accent, 0.40),
-      const _SaturationCheck('dark: accentHover', WpColorsDark.accentHover, 0.35),
+      const _SaturationCheck(
+        'dark: accentHover',
+        WpColorsDark.accentHover,
+        0.35,
+      ),
       const _SaturationCheck('dark: success', WpColorsDark.success, 0.40),
       const _SaturationCheck('dark: warning', WpColorsDark.warning, 0.40),
       const _SaturationCheck('dark: error', WpColorsDark.error, 0.40),
@@ -264,7 +372,8 @@ void main() {
         expect(
           sat,
           greaterThanOrEqualTo(check.minSaturation),
-          reason: '${check.name}: saturation ${(sat * 100).toStringAsFixed(1)}% '
+          reason:
+              '${check.name}: saturation ${(sat * 100).toStringAsFixed(1)}% '
               '< required ${(check.minSaturation * 100).toStringAsFixed(0)}% '
               '(color: #${check.color.toARGB32().toRadixString(16).padLeft(8, '0')})',
         );
@@ -276,8 +385,16 @@ void main() {
     final darkSurfaceChecks = [
       const _SaturationCheck('dark: background', WpColorsDark.background, 0.15),
       const _SaturationCheck('dark: surface', WpColorsDark.surface, 0.15),
-      const _SaturationCheck('dark: surfaceElevated', WpColorsDark.surfaceElevated, 0.15),
-      const _SaturationCheck('dark: surfaceVariant', WpColorsDark.surfaceVariant, 0.15),
+      const _SaturationCheck(
+        'dark: surfaceElevated',
+        WpColorsDark.surfaceElevated,
+        0.15,
+      ),
+      const _SaturationCheck(
+        'dark: surfaceVariant',
+        WpColorsDark.surfaceVariant,
+        0.15,
+      ),
       const _SaturationCheck('dark: hover', WpColorsDark.hover, 0.15),
     ];
     for (final check in darkSurfaceChecks) {
@@ -286,7 +403,8 @@ void main() {
         expect(
           sat,
           greaterThanOrEqualTo(check.minSaturation),
-          reason: '${check.name}: saturation ${(sat * 100).toStringAsFixed(1)}% '
+          reason:
+              '${check.name}: saturation ${(sat * 100).toStringAsFixed(1)}% '
               '< required ${(check.minSaturation * 100).toStringAsFixed(0)}% — '
               'surface must be tinted, not flat gray',
         );
@@ -307,7 +425,8 @@ void main() {
         expect(
           sat,
           greaterThanOrEqualTo(check.minSaturation),
-          reason: '${check.name}: saturation ${(sat * 100).toStringAsFixed(1)}% '
+          reason:
+              '${check.name}: saturation ${(sat * 100).toStringAsFixed(1)}% '
               '< required ${(check.minSaturation * 100).toStringAsFixed(0)}% '
               '(color: #${check.color.toARGB32().toRadixString(16).padLeft(8, '0')})',
         );
@@ -317,14 +436,22 @@ void main() {
 
   group('Color saturation – light theme (surfaces ≥ 15% tint)', () {
     final lightSurfaceChecks = [
-      const _SaturationCheck('light: background', WpColorsLight.background, 0.15),
+      const _SaturationCheck(
+        'light: background',
+        WpColorsLight.background,
+        0.15,
+      ),
       const _SaturationCheck('light: surface', WpColorsLight.surface, 0.15),
       const _SaturationCheck(
         'light: surfaceElevated',
         WpColorsLight.surfaceElevated,
         0.15,
       ),
-      const _SaturationCheck('light: surfaceVariant', WpColorsLight.surfaceVariant, 0.15),
+      const _SaturationCheck(
+        'light: surfaceVariant',
+        WpColorsLight.surfaceVariant,
+        0.15,
+      ),
       const _SaturationCheck('light: hover', WpColorsLight.hover, 0.15),
     ];
     for (final check in lightSurfaceChecks) {
@@ -333,7 +460,8 @@ void main() {
         expect(
           sat,
           greaterThanOrEqualTo(check.minSaturation),
-          reason: '${check.name}: saturation ${(sat * 100).toStringAsFixed(1)}% '
+          reason:
+              '${check.name}: saturation ${(sat * 100).toStringAsFixed(1)}% '
               '< required ${(check.minSaturation * 100).toStringAsFixed(0)}% — '
               'light surfaces must stay tinted, not sterile white/gray',
         );
@@ -350,7 +478,8 @@ void main() {
       expect(
         delta,
         lessThanOrEqualTo(0.04),
-        reason: 'Frame-content lightness gap: ${(delta * 100).toStringAsFixed(1)}% '
+        reason:
+            'Frame-content lightness gap: ${(delta * 100).toStringAsFixed(1)}% '
             '> allowed 4% — frame and content should feel unified',
       );
     });
@@ -362,7 +491,8 @@ void main() {
       expect(
         delta,
         lessThanOrEqualTo(0.05),
-        reason: 'Frame-content lightness gap: ${(delta * 100).toStringAsFixed(1)}% '
+        reason:
+            'Frame-content lightness gap: ${(delta * 100).toStringAsFixed(1)}% '
             '> allowed 5% — light theme should feel as unified as dark theme',
       );
     });

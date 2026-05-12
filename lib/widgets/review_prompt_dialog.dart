@@ -58,15 +58,11 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
     });
   }
 
-  Future<void> _showDialog(
-    BuildContext context,
-    DeployChannel channel,
-  ) async {
+  Future<void> _showDialog(BuildContext context, DeployChannel channel) async {
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierLabel:
-          MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       barrierColor: Colors.transparent,
       transitionDuration: WpMotion.smooth,
       pageBuilder: (_, p1, p2) => const SizedBox.shrink(),
@@ -83,10 +79,11 @@ class _ReviewPromptWatcherState extends ConsumerState<ReviewPromptWatcher> {
             children: [
               Positioned.fill(
                 child: ColoredBox(
-                  color: (isDark
-                          ? const Color(0xFF000000)
-                          : const Color(0xFFFFFFFF))
-                      .withValues(alpha: isDark ? 0.45 : 0.35),
+                  color:
+                      (isDark
+                              ? const Color(0xFF000000)
+                              : const Color(0xFFFFFFFF))
+                          .withValues(alpha: isDark ? 0.45 : 0.35),
                 ),
               ),
               _ReviewPromptDialog(
@@ -229,7 +226,10 @@ class _ReviewPromptDialog extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: WpSpacing.lg),
-                if (isStore) ..._storeButtons(l10n, theme) else ..._portableButtons(l10n, theme, isDark),
+                if (isStore)
+                  ..._storeButtons(l10n, theme)
+                else
+                  ..._portableButtons(l10n, theme, isDark),
                 const SizedBox(height: WpSpacing.sm),
                 Row(
                   children: [
@@ -264,28 +264,23 @@ class _ReviewPromptDialog extends StatelessWidget {
   }
 
   List<Widget> _storeButtons(L10n l10n, ThemeData theme) => [
-        FilledButton(
-          autofocus: true,
-          onPressed: () => onResult(_ReviewAction.rateStore),
-          child: Text(l10n.reviewPromptYes),
-        ),
-      ];
+    FilledButton(
+      autofocus: true,
+      onPressed: () => onResult(_ReviewAction.rateStore),
+      child: Text(l10n.reviewPromptYes),
+    ),
+  ];
 
-  List<Widget> _portableButtons(
-    L10n l10n,
-    ThemeData theme,
-    bool isDark,
-  ) =>
-      [
-        FilledButton(
-          autofocus: true,
-          onPressed: () => onResult(_ReviewAction.rateStore),
-          child: Text(l10n.reviewPromptRateStore),
-        ),
-        const SizedBox(height: WpSpacing.xs),
-        OutlinedButton(
-          onPressed: () => onResult(_ReviewAction.starGitHub),
-          child: Text(l10n.reviewPromptStarGitHub),
-        ),
-      ];
+  List<Widget> _portableButtons(L10n l10n, ThemeData theme, bool isDark) => [
+    FilledButton(
+      autofocus: true,
+      onPressed: () => onResult(_ReviewAction.rateStore),
+      child: Text(l10n.reviewPromptRateStore),
+    ),
+    const SizedBox(height: WpSpacing.xs),
+    OutlinedButton(
+      onPressed: () => onResult(_ReviewAction.starGitHub),
+      child: Text(l10n.reviewPromptStarGitHub),
+    ),
+  ];
 }

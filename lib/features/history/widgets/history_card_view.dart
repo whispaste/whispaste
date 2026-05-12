@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -58,10 +59,8 @@ class HistoryCardView extends StatelessWidget {
         const gap = WpSpacing.md;
         const sidePad = WpSpacing.md;
         final availableWidth = constraints.maxWidth - sidePad * 2;
-        final columns =
-            (availableWidth / minCardWidth).floor().clamp(1, 4);
-        final cardWidth =
-            (availableWidth - gap * (columns - 1)) / columns;
+        final columns = (availableWidth / minCardWidth).floor().clamp(1, 4);
+        final cardWidth = (availableWidth - gap * (columns - 1)) / columns;
 
         // Flat list: each group → 1 header + 1 wrap widget
         final flatItems = <_CardFlatItem>[];
@@ -165,20 +164,21 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     final l10n = L10n.of(context);
     final avatarCol = historyAvatarColor(widget.entry, isDark);
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final textSecondary =
-        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final surfaceElevated = isDark
         ? WpColorsDark.surfaceElevated
         : WpColorsLight.surfaceElevated;
     final borderColor = widget.isSelected
         ? accent.withValues(alpha: 0.5)
         : widget.isFocused
-            ? accent.withValues(alpha: 0.4)
-            : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle);
+        ? accent.withValues(alpha: 0.4)
+        : (isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -238,10 +238,16 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                           onTap: widget.onCopy,
                         ),
                         HistoryRowAction(
-                          faIcon: widget.entry.pinned ? FontAwesomeIcons.solidStar : null,
+                          faIcon: widget.entry.pinned
+                              ? FontAwesomeIcons.solidStar
+                              : null,
                           icon: widget.entry.pinned ? null : LucideIcons.star,
-                          activeColor: widget.entry.pinned ? Colors.amber.shade600 : null,
-                          tooltip: widget.entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop,
+                          activeColor: widget.entry.pinned
+                              ? Colors.amber.shade600
+                              : null,
+                          tooltip: widget.entry.pinned
+                              ? l10n.historyUnpin
+                              : l10n.historyPinToTop,
                           isDark: isDark,
                           onTap: widget.onPin,
                         ),
@@ -275,7 +281,11 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
               // Bottom metadata
               Row(
                 children: [
-                  Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
+                  Icon(
+                    LucideIcons.clock,
+                    size: WpIconSize.xs,
+                    color: textMuted,
+                  ),
                   const SizedBox(width: 3),
                   Text(
                     formatHistoryDuration(widget.entry.durationSec),
@@ -290,10 +300,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                   ],
                   if (widget.entry.language.isNotEmpty) ...[
                     const SizedBox(width: WpSpacing.xs),
-                    Text(
-                      '·',
-                      style: TextStyle(fontSize: 10, color: textMuted),
-                    ),
+                    Text('·', style: TextStyle(fontSize: 10, color: textMuted)),
                     const SizedBox(width: WpSpacing.xs),
                     Text(
                       widget.entry.language.toUpperCase(),
@@ -306,7 +313,11 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                   ],
                   const Spacer(),
                   if (!widget.entry.isLocal)
-                    Icon(LucideIcons.cloud, size: WpIconSize.xs, color: textMuted),
+                    Icon(
+                      LucideIcons.cloud,
+                      size: WpIconSize.xs,
+                      color: textMuted,
+                    ),
                 ],
               ),
             ],

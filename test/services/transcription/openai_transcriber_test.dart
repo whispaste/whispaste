@@ -14,9 +14,10 @@ import 'package:whispaste/services/transcription/transcriber.dart';
 ///
 /// This indirection is necessary because [Ref] is a sealed class in
 /// Riverpod 3 and cannot be implemented outside the framework.
-final _testTranscriberProvider = Provider.family<OpenAiTranscriber, http.Client>(
-  (ref, client) => OpenAiTranscriber(ref: ref, httpClient: client),
-);
+final _testTranscriberProvider =
+    Provider.family<OpenAiTranscriber, http.Client>(
+      (ref, client) => OpenAiTranscriber(ref: ref, httpClient: client),
+    );
 
 class _FakeSecureKeyStore implements SecureKeyStore {
   final Map<String, String> _store;
@@ -35,9 +36,7 @@ class _FakeSecureKeyStore implements SecureKeyStore {
   Future<Map<String, String>> readAllApiKeys() async => Map.of(_store);
 }
 
-ProviderContainer _makeContainer(
-  Map<String, String> keys,
-) {
+ProviderContainer _makeContainer(Map<String, String> keys) {
   return ProviderContainer(
     overrides: [
       secureKeyStoreProvider.overrideWithValue(_FakeSecureKeyStore(keys)),
@@ -53,10 +52,7 @@ void main() {
   group('OpenAiTranscriber', () {
     test('returns transcript on HTTP 200', () async {
       final client = MockClient(
-        (_) async => http.Response(
-          jsonEncode({'text': 'hello world'}),
-          200,
-        ),
+        (_) async => http.Response(jsonEncode({'text': 'hello world'}), 200),
       );
       final container = _makeContainer({'wp_openai_api_key': 'sk-test'});
       addTearDown(container.dispose);

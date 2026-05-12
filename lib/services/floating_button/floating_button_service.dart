@@ -21,13 +21,13 @@ final _log = AppLogger('FloatingButtonService');
 
 /// Maps [RecordingPhase] to the native button's visual state.
 FloatingButtonVisualState _mapPhase(RecordingPhase phase) => switch (phase) {
-      RecordingPhase.idle => FloatingButtonVisualState.idle,
-      RecordingPhase.recording => FloatingButtonVisualState.recording,
-      RecordingPhase.transcribing => FloatingButtonVisualState.transcribing,
-      RecordingPhase.processing => FloatingButtonVisualState.transcribing,
-      RecordingPhase.done => FloatingButtonVisualState.done,
-      RecordingPhase.error => FloatingButtonVisualState.error,
-    };
+  RecordingPhase.idle => FloatingButtonVisualState.idle,
+  RecordingPhase.recording => FloatingButtonVisualState.recording,
+  RecordingPhase.transcribing => FloatingButtonVisualState.transcribing,
+  RecordingPhase.processing => FloatingButtonVisualState.transcribing,
+  RecordingPhase.done => FloatingButtonVisualState.done,
+  RecordingPhase.error => FloatingButtonVisualState.error,
+};
 
 /// Manages the native floating button lifecycle.
 ///
@@ -214,7 +214,9 @@ class FloatingButtonService extends Notifier<void> {
 
   Future<void> _savePosition(double x, double y) async {
     try {
-      await ref.read(settingsProvider.notifier).updateSettings(
+      await ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
             (s) => s.copyWith(floatingButtonX: x, floatingButtonY: y),
           );
     } catch (e, st) {
@@ -229,9 +231,7 @@ class FloatingButtonService extends Notifier<void> {
 
     // Take the 5 most recent entries.
     final recent = entries.take(5).toList();
-    _menuEntries = recent
-        .map((e) => (id: e.id, content: e.content))
-        .toList();
+    _menuEntries = recent.map((e) => (id: e.id, content: e.content)).toList();
 
     // Action items (always shown at top).
     final actionItems = [
@@ -253,8 +253,7 @@ class FloatingButtonService extends Notifier<void> {
 
     // Separator + Quit at the bottom.
     final footerItems = [
-      if (historyItems.isNotEmpty)
-        {'id': '__sep2__', 'label': '---'},
+      if (historyItems.isNotEmpty) {'id': '__sep2__', 'label': '---'},
       {'id': '__quit__', 'label': 'Quit WhisPaste'},
     ];
 
@@ -280,6 +279,4 @@ class FloatingButtonService extends Notifier<void> {
 
 /// Provider for the floating button service (keepAlive — lives for app lifetime).
 final floatingButtonServiceProvider =
-    NotifierProvider<FloatingButtonService, void>(
-  FloatingButtonService.new,
-);
+    NotifierProvider<FloatingButtonService, void>(FloatingButtonService.new);

@@ -183,8 +183,9 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   @override
   void initState() {
     super.initState();
-    _modifierLabels =
-        HotkeyRecorderDialog.parseModifiers(widget.initialModifiers);
+    _modifierLabels = HotkeyRecorderDialog.parseModifiers(
+      widget.initialModifiers,
+    );
     _keyLabel = widget.initialKey;
   }
 
@@ -226,12 +227,10 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
 
   void _save() {
     if (_keyLabel.isEmpty) return;
-    final modString = _modifierLabels
-        .map((l) => l.toLowerCase())
-        .join('+');
-    Navigator.of(context).pop(
-      HotkeyResult(key: _keyLabel, modifiers: modString),
-    );
+    final modString = _modifierLabels.map((l) => l.toLowerCase()).join('+');
+    Navigator.of(
+      context,
+    ).pop(HotkeyResult(key: _keyLabel, modifiers: modString));
   }
 
   // ── Build ──────────────────────────────────────────────────────────
@@ -239,14 +238,16 @@ class _HotkeyRecorderDialogState extends State<HotkeyRecorderDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg =
-        isDark ? WpColorsDark.surfaceElevated : WpColorsLight.surfaceElevated;
-    final border =
-        isDark ? WpColorsDark.borderDefault : WpColorsLight.borderDefault;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final bg = isDark
+        ? WpColorsDark.surfaceElevated
+        : WpColorsLight.surfaceElevated;
+    final border = isDark
+        ? WpColorsDark.borderDefault
+        : WpColorsLight.borderDefault;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
     final l10n = L10n.of(context);
 
@@ -387,18 +388,14 @@ class _KeyComboDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
+    final textMuted = isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
 
     // Nothing recorded yet — show placeholder
     if (modifiers.isEmpty && keyLabel.isEmpty) {
       return Container(
         height: 48,
         alignment: Alignment.center,
-        child: Text(
-          '—',
-          style: TextStyle(color: textMuted, fontSize: 18),
-        ),
+        child: Text('—', style: TextStyle(color: textMuted, fontSize: 18)),
       );
     }
 
@@ -445,12 +442,15 @@ class _KeyCap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor =
-        isDark ? WpColorsDark.surfaceVariant : WpColorsLight.surfaceVariant;
-    final borderColor =
-        isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
-    final textColor =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
+    final bgColor = isDark
+        ? WpColorsDark.surfaceVariant
+        : WpColorsLight.surfaceVariant;
+    final borderColor = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
+    final textColor = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
     final accentColor = isDark ? WpColorsDark.accent : WpColorsLight.accent;
 
     return AnimatedContainer(
@@ -461,7 +461,9 @@ class _KeyCap extends StatelessWidget {
         vertical: WpSpacing.xxs + 2,
       ),
       decoration: BoxDecoration(
-        color: isPrimary ? (isDark ? WpColorsDark.active : WpColorsLight.active) : bgColor,
+        color: isPrimary
+            ? (isDark ? WpColorsDark.active : WpColorsLight.active)
+            : bgColor,
         borderRadius: BorderRadius.circular(WpRadius.sm),
         border: Border.all(
           color: isPrimary ? accentColor.withValues(alpha: 0.4) : borderColor,

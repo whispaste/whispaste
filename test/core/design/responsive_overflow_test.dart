@@ -44,7 +44,11 @@ final _pages = <MapEntry<String, Widget>>[
 ];
 
 /// Wraps page in the real theme + ProviderScope at a given size.
-Widget _testShell(Widget page, Size size, {Brightness brightness = Brightness.dark}) {
+Widget _testShell(
+  Widget page,
+  Size size, {
+  Brightness brightness = Brightness.dark,
+}) {
   final theme = brightness == Brightness.dark ? wpDarkTheme() : wpLightTheme();
   return ProviderScope(
     overrides: [
@@ -88,73 +92,84 @@ void main() {
   for (final page in _pages) {
     group('${page.key} responsive', () {
       for (final sizeEntry in _sizes) {
-        testWidgets('${sizeEntry.key} (${sizeEntry.value.width.toInt()}×${sizeEntry.value.height.toInt()})',
-            (tester) async {
-          tester.view.physicalSize = sizeEntry.value;
-          tester.view.devicePixelRatio = 1.0;
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
+        testWidgets(
+          '${sizeEntry.key} (${sizeEntry.value.width.toInt()}×${sizeEntry.value.height.toInt()})',
+          (tester) async {
+            tester.view.physicalSize = sizeEntry.value;
+            tester.view.devicePixelRatio = 1.0;
+            addTearDown(tester.view.resetPhysicalSize);
+            addTearDown(tester.view.resetDevicePixelRatio);
 
-          // Capture overflow errors that Flutter logs (but doesn't throw)
-          final overflows = <String>[];
-          final originalHandler = FlutterError.onError;
-          FlutterError.onError = (details) {
-            if (details.toString().contains('overflowed')) {
-              overflows.add(details.toString());
-            } else {
-              originalHandler?.call(details);
-            }
-          };
-          addTearDown(() => FlutterError.onError = originalHandler);
+            // Capture overflow errors that Flutter logs (but doesn't throw)
+            final overflows = <String>[];
+            final originalHandler = FlutterError.onError;
+            FlutterError.onError = (details) {
+              if (details.toString().contains('overflowed')) {
+                overflows.add(details.toString());
+              } else {
+                originalHandler?.call(details);
+              }
+            };
+            addTearDown(() => FlutterError.onError = originalHandler);
 
-          await tester.pumpWidget(
-            _testShell(page.value, sizeEntry.value),
-          );
-          await tester.pumpAndSettle();
+            await tester.pumpWidget(_testShell(page.value, sizeEntry.value));
+            await tester.pumpAndSettle();
 
-          expect(overflows, isEmpty,
-              reason: '${page.key} overflow at ${sizeEntry.key}:\n${overflows.join('\n')}');
-          expect(tester.takeException(), isNull,
-              reason: '${page.key} exception at ${sizeEntry.key}');
-        });
+            expect(
+              overflows,
+              isEmpty,
+              reason:
+                  '${page.key} overflow at ${sizeEntry.key}:\n${overflows.join('\n')}',
+            );
+            expect(
+              tester.takeException(),
+              isNull,
+              reason: '${page.key} exception at ${sizeEntry.key}',
+            );
+          },
+        );
       }
     });
   }
 
   // Extra: test History with narrow detail panel (common overflow source)
   for (final narrow in [const Size(900, 700), const Size(1024, 600)]) {
-    testWidgets('History narrow detail panel at ${narrow.width.toInt()}×${narrow.height.toInt()}',
-        (tester) async {
-      tester.view.physicalSize = narrow;
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+    testWidgets(
+      'History narrow detail panel at ${narrow.width.toInt()}×${narrow.height.toInt()}',
+      (tester) async {
+        tester.view.physicalSize = narrow;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
 
-      final overflows = <String>[];
-      final originalHandler = FlutterError.onError;
-      FlutterError.onError = (details) {
-        if (details.toString().contains('overflowed')) {
-          overflows.add(details.toString());
-        } else {
-          originalHandler?.call(details);
-        }
-      };
-      addTearDown(() => FlutterError.onError = originalHandler);
+        final overflows = <String>[];
+        final originalHandler = FlutterError.onError;
+        FlutterError.onError = (details) {
+          if (details.toString().contains('overflowed')) {
+            overflows.add(details.toString());
+          } else {
+            originalHandler?.call(details);
+          }
+        };
+        addTearDown(() => FlutterError.onError = originalHandler);
 
-      await tester.pumpWidget(
-        _testShell(const HistoryPage(), narrow),
-      );
-      await tester.pumpAndSettle();
-
-      // Tap first entry to open detail panel
-      final entries = find.byType(GestureDetector);
-      if (entries.evaluate().length > 3) {
-        await tester.tap(entries.at(3));
+        await tester.pumpWidget(_testShell(const HistoryPage(), narrow));
         await tester.pumpAndSettle();
-      }
 
-      expect(overflows, isEmpty,
-          reason: 'History detail panel overflow at ${narrow.width}×${narrow.height}:\n${overflows.join('\n')}');
-    });
+        // Tap first entry to open detail panel
+        final entries = find.byType(GestureDetector);
+        if (entries.evaluate().length > 3) {
+          await tester.tap(entries.at(3));
+          await tester.pumpAndSettle();
+        }
+
+        expect(
+          overflows,
+          isEmpty,
+          reason:
+              'History detail panel overflow at ${narrow.width}×${narrow.height}:\n${overflows.join('\n')}',
+        );
+      },
+    );
   }
 }

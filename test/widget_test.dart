@@ -30,8 +30,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('dark theme renders a Scaffold with correct background',
-        (tester) async {
+    testWidgets('dark theme renders a Scaffold with correct background', (
+      tester,
+    ) async {
       final theme = wpDarkTheme();
 
       await tester.pumpWidget(
@@ -49,7 +50,10 @@ void main() {
       final dark = wpDarkTheme();
       final light = wpLightTheme();
 
-      expect(dark.scaffoldBackgroundColor, isNot(light.scaffoldBackgroundColor));
+      expect(
+        dark.scaffoldBackgroundColor,
+        isNot(light.scaffoldBackgroundColor),
+      );
     });
 
     test('theme appBarTheme uses correct toolbar height', () {

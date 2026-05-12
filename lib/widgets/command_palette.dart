@@ -61,10 +61,7 @@ Future<String?> showWpCommandPalette({
     transitionBuilder: (ctx, animation, a2, child) {
       return _PaletteBarrier(
         animation: animation,
-        child: _PaletteContent(
-          animation: animation,
-          commands: commands,
-        ),
+        child: _PaletteContent(animation: animation, commands: commands),
       );
     },
   );
@@ -82,10 +79,7 @@ class _PaletteBarrier extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final opacity = CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOut,
-    );
+    final opacity = CurvedAnimation(parent: animation, curve: Curves.easeOut);
     final bool useBlur = !Platform.isWindows;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -105,10 +99,11 @@ class _PaletteBarrier extends StatelessWidget {
                   ? BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                       child: ColoredBox(
-                        color: (isDark
-                                ? const Color(0xFF000000)
-                                : const Color(0xFFFFFFFF))
-                            .withValues(alpha: isDark ? 0.45 : 0.35),
+                        color:
+                            (isDark
+                                    ? const Color(0xFF000000)
+                                    : const Color(0xFFFFFFFF))
+                                .withValues(alpha: isDark ? 0.45 : 0.35),
                       ),
                     )
                   : ColoredBox(color: barrierColor),
@@ -126,10 +121,7 @@ class _PaletteBarrier extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _PaletteContent extends StatefulWidget {
-  const _PaletteContent({
-    required this.animation,
-    required this.commands,
-  });
+  const _PaletteContent({required this.animation, required this.commands});
 
   final Animation<double> animation;
   final List<WpCommand> commands;
@@ -223,10 +215,7 @@ class _PaletteContentState extends State<_PaletteContent> {
     final slide = Tween<Offset>(
       begin: const Offset(0, -0.03),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: widget.animation,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: widget.animation, curve: Curves.easeOut));
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final filtered = _filtered;
@@ -234,20 +223,26 @@ class _PaletteContentState extends State<_PaletteContent> {
     final panelBg = isDark
         ? WpColorsDark.surfaceElevated.withValues(alpha: 0.97)
         : WpColorsLight.surfaceElevated.withValues(alpha: 0.97);
-    final borderColor =
-        isDark ? WpColorsDark.borderDefault : WpColorsLight.borderDefault;
-    final searchHint =
-        isDark ? WpColorsDark.textMuted : WpColorsLight.textMuted;
-    final textPrimary =
-        isDark ? WpColorsDark.textPrimary : WpColorsLight.textPrimary;
-    final textSecondary =
-        isDark ? WpColorsDark.textSecondary : WpColorsLight.textSecondary;
+    final borderColor = isDark
+        ? WpColorsDark.borderDefault
+        : WpColorsLight.borderDefault;
+    final searchHint = isDark
+        ? WpColorsDark.textMuted
+        : WpColorsLight.textMuted;
+    final textPrimary = isDark
+        ? WpColorsDark.textPrimary
+        : WpColorsLight.textPrimary;
+    final textSecondary = isDark
+        ? WpColorsDark.textSecondary
+        : WpColorsLight.textSecondary;
     final accent = isDark ? WpColorsDark.accent : WpColorsLight.accent;
-    final accentSubtle =
-        isDark ? WpColorsDark.accentSubtle : WpColorsLight.accentSubtle;
+    final accentSubtle = isDark
+        ? WpColorsDark.accentSubtle
+        : WpColorsLight.accentSubtle;
     final hoverColor = isDark ? WpColorsDark.hover : WpColorsLight.hover;
-    final dividerColor =
-        isDark ? WpColorsDark.borderSubtle : WpColorsLight.borderSubtle;
+    final dividerColor = isDark
+        ? WpColorsDark.borderSubtle
+        : WpColorsLight.borderSubtle;
 
     return Align(
       alignment: const Alignment(0, -0.3),
@@ -272,7 +267,10 @@ class _PaletteContentState extends State<_PaletteContent> {
                   // ── Search input ──────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
-                      WpSpacing.md, WpSpacing.md, WpSpacing.md, 0,
+                      WpSpacing.md,
+                      WpSpacing.md,
+                      WpSpacing.md,
+                      0,
                     ),
                     child: TextField(
                       controller: _searchController,
@@ -282,8 +280,7 @@ class _PaletteContentState extends State<_PaletteContent> {
                         hintText: L10n.of(context).commandPaletteHint,
                         hintStyle: TextStyle(color: searchHint, fontSize: 14),
                         prefixIcon: Padding(
-                          padding:
-                              const EdgeInsets.only(left: 12, right: 8),
+                          padding: const EdgeInsets.only(left: 12, right: 8),
                           child: Icon(
                             LucideIcons.search,
                             size: WpIconSize.sm,
@@ -419,8 +416,9 @@ class _CommandTile extends StatelessWidget {
                   style: TextStyle(
                     color: isSelected ? textPrimary : textSecondary,
                     fontSize: 13,
-                    fontWeight:
-                        isSelected ? FontWeight.w500 : FontWeight.normal,
+                    fontWeight: isSelected
+                        ? FontWeight.w500
+                        : FontWeight.normal,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),

@@ -67,22 +67,33 @@ IconData historyAvatarIcon(HistoryEntry entry) {
   final title = entry.title.toLowerCase();
   final tags = entry.tags.toLowerCase();
 
-  if (tags.contains('meeting') || title.contains('meeting') || title.contains('standup')) {
+  if (tags.contains('meeting') ||
+      title.contains('meeting') ||
+      title.contains('standup')) {
     return LucideIcons.users;
   }
-  if (tags.contains('email') || title.contains('email') || title.contains('follow')) {
+  if (tags.contains('email') ||
+      title.contains('email') ||
+      title.contains('follow')) {
     return LucideIcons.mail;
   }
-  if (tags.contains('blog') || tags.contains('writing') || title.contains('blog') || title.contains('draft')) {
+  if (tags.contains('blog') ||
+      tags.contains('writing') ||
+      title.contains('blog') ||
+      title.contains('draft')) {
     return LucideIcons.penLine;
   }
   if (tags.contains('personal') || tags.contains('recipe')) {
     return LucideIcons.heart;
   }
-  if (tags.contains('feedback') || title.contains('feedback') || title.contains('review')) {
+  if (tags.contains('feedback') ||
+      title.contains('feedback') ||
+      title.contains('review')) {
     return LucideIcons.messageSquare;
   }
-  if (tags.contains('project') || title.contains('project') || title.contains('brief')) {
+  if (tags.contains('project') ||
+      title.contains('project') ||
+      title.contains('brief')) {
     return LucideIcons.folderOpen;
   }
   if (tags.contains('idea') || tags.contains('team')) {

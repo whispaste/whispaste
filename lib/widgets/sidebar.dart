@@ -4,11 +4,7 @@ import '../core/theme/tokens.dart';
 
 /// Navigation item data for the sidebar.
 class WpNavItem {
-  const WpNavItem({
-    required this.id,
-    required this.icon,
-    required this.label,
-  });
+  const WpNavItem({required this.id, required this.icon, required this.label});
 
   final String id;
   final IconData icon;
@@ -117,60 +113,56 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
         preferBelow: false,
         waitDuration: const Duration(milliseconds: 400),
         child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
-            child: SizedBox(
-              width: WpLayout.sidebarWidth,
-              height: 42,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Left accent indicator bar for active item
-                  if (widget.isActive)
-                    Positioned(
-                      left: 0,
-                      child: Container(
-                        width: 3,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          gradient: widget.isDark
-                              ? WpColorsDark.accentWarmGradient
-                              : WpColorsLight.accentWarmGradient,
-                          borderRadius: const BorderRadius.only(
-                            topRight: Radius.circular(WpRadius.sm),
-                            bottomRight: Radius.circular(WpRadius.sm),
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
+              child: SizedBox(
+                width: WpLayout.sidebarWidth,
+                height: 42,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Left accent indicator bar for active item
+                    if (widget.isActive)
+                      Positioned(
+                        left: 0,
+                        child: Container(
+                          width: 3,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            gradient: widget.isDark
+                                ? WpColorsDark.accentWarmGradient
+                                : WpColorsLight.accentWarmGradient,
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(WpRadius.sm),
+                              bottomRight: Radius.circular(WpRadius.sm),
+                            ),
                           ),
                         ),
                       ),
+                    // Icon pill
+                    AnimatedContainer(
+                      duration: WpMotion.hoverIn,
+                      curve: WpMotion.defaultCurve,
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(WpRadius.md),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(widget.item.icon, color: iconColor, size: 21),
                     ),
-                   // Icon pill
-                   AnimatedContainer(
-                     duration: WpMotion.hoverIn,
-                     curve: WpMotion.defaultCurve,
-                     width: 38,
-                     height: 38,
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                      borderRadius: BorderRadius.circular(WpRadius.md),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      widget.item.icon,
-                      color: iconColor,
-                      size: 21,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
       ),
     );
   }

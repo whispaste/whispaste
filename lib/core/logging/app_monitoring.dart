@@ -107,8 +107,10 @@ class AppMonitoring {
       // Re-entrancy guard: a secondary error triggered by the handler
       // itself (e.g., Sentry tree walk hitting a deactivated widget).
       if (inHandler) {
-        debugPrint('[CascadeGuard] Re-entrant error suppressed: '
-            '${details.exceptionAsString().split('\n').first}');
+        debugPrint(
+          '[CascadeGuard] Re-entrant error suppressed: '
+          '${details.exceptionAsString().split('\n').first}',
+        );
         return;
       }
 
@@ -120,8 +122,10 @@ class AppMonitoring {
       }
       count++;
       if (count > _cascadeMax) {
-        debugPrint('[CascadeGuard] Suppressed (${count}x): '
-            '${details.exceptionAsString().split('\n').first}');
+        debugPrint(
+          '[CascadeGuard] Suppressed (${count}x): '
+          '${details.exceptionAsString().split('\n').first}',
+        );
         return;
       }
 
@@ -145,8 +149,10 @@ class AppMonitoring {
 
     platformDispatcher.onError = (Object error, StackTrace stack) {
       if (inHandler) {
-        debugPrint('[CascadeGuard] Re-entrant platform error suppressed: '
-            '${error.toString().split('\n').first}');
+        debugPrint(
+          '[CascadeGuard] Re-entrant platform error suppressed: '
+          '${error.toString().split('\n').first}',
+        );
         return true; // handled — prevent process termination
       }
 
@@ -157,8 +163,10 @@ class AppMonitoring {
       }
       count++;
       if (count > _cascadeMax) {
-        debugPrint('[CascadeGuard] Platform error suppressed (${count}x): '
-            '${error.toString().split('\n').first}');
+        debugPrint(
+          '[CascadeGuard] Platform error suppressed (${count}x): '
+          '${error.toString().split('\n').first}',
+        );
         return true;
       }
 
