@@ -534,7 +534,22 @@ class L10nDe extends L10n {
   String get settingsOpenAiApiKey => 'OpenAI API-Schlüssel';
 
   @override
+  String get settingsOpenAiFreeHint =>
+      'API-Key holen → platform.openai.com/api-keys';
+
+  @override
+  String get settingsOpenAiFreeHintUrl =>
+      'https://platform.openai.com/api-keys';
+
+  @override
   String get settingsDeepgramApiKey => 'Deepgram API-Schlüssel';
+
+  @override
+  String get settingsDeepgramFreeHint =>
+      '\$200 Startguthaben ohne Kreditkarte → console.deepgram.com';
+
+  @override
+  String get settingsDeepgramFreeHintUrl => 'https://console.deepgram.com';
 
   @override
   String get settingsAdvanced => 'Erweitert';
