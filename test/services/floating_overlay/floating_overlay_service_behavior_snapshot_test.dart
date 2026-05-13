@@ -1,9 +1,7 @@
 /// Behavior-snapshot tests for [FloatingOverlayService].
 ///
 /// Locks the controller lifecycle, event-stream wiring, and cleanup contracts
-/// before the base-class extraction refactor of the overlay service (issue 11).
-/// These tests must survive that migration unchanged — only import paths may
-/// change.
+/// after the base-class migration (issue 11).
 ///
 /// The seam is [FloatingOverlayController]: a [_FakeController] is injected via
 /// the provider override so no real platform channels are opened.
@@ -14,9 +12,8 @@
 ///   3. Cleanup — subscription cancelled, then controller disposed
 ///   4. Null-platform guard — service handles null controller gracefully
 ///
-/// NOTE: [FloatingOverlayService] is NOT migrated to [FloatingPlatformServiceBase]
-/// in this issue (issue 10). That migration is issue 11. These tests lock the
-/// current behaviour so issue 11 can verify nothing regresses.
+/// NOTE: [FloatingOverlayService] now extends [FloatingPlatformServiceBase]
+/// (issue 11). The injection seam is [createController] (base class contract).
 library;
 
 import 'dart:async';
@@ -91,13 +88,13 @@ class _TestableService extends FloatingOverlayService {
   final _FakeController _fake;
 
   @override
-  FloatingOverlayController? createControllerForTest() => _fake;
+  FloatingOverlayController? createController() => _fake;
 }
 
 /// Variant that simulates a platform with no overlay support.
 class _NullControllerService extends FloatingOverlayService {
   @override
-  FloatingOverlayController? createControllerForTest() => null;
+  FloatingOverlayController? createController() => null;
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

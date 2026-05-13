@@ -10,6 +10,7 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/recording/recording_state.dart';
 import '../../core/recording/recording_helpers.dart';
+import '../floating_platform_service_base.dart';
 import '../recording_orchestrator.dart';
 import 'floating_overlay_controller.dart';
 import 'floating_overlay_events.dart';
@@ -17,114 +18,118 @@ import '../../widgets/recording_behavior.dart' show localizeRecordingError;
 
 final _log = AppLogger('FloatingOverlayService');
 
+// ── FloatingPlatformHost note ─────────────────────────────────────────────────
+//
+// Initialization ordering of the two floating-window services:
+//
+//   floatingButtonServiceProvider  (FAB)
+//   floatingOverlayServiceProvider (Overlay)
+//
+// Both are keepAlive Notifier providers that are read once during app startup
+// in main.dart / app.dart.  The Riverpod dependency graph does NOT impose an
+// ordering between them — they are independent.
+//
+// Race conditions are not possible in practice because each service owns a
+// separate native window and communicates with it via its own platform channel.
+// The only shared resource is the Riverpod container, which is thread-safe.
+//
+// If a strict ordering ever becomes necessary (e.g. a shared native host
+// process), introduce a `FloatingPlatformHostProvider` that both services
+// `ref.watch`, making it a hard dependency node in the graph.  For now the
+// comment above is the explicit documentation of the deliberate choice.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
 /// Manages the native floating overlay window lifecycle.
 ///
 /// Layer 3 — business logic. Watches recording state, settings, and theme,
 /// builds fully-localized [FloatingOverlaySnapshot]s, and sends them to the
 /// native overlay window via the platform controller (Layer 2).
 ///
-/// Follows the same pattern as [FloatingButtonService]: Riverpod Notifier
-/// with keepAlive, ref.listen for reactive updates, generation-guarded timers.
-class FloatingOverlayService extends Notifier<void> {
-  FloatingOverlayController? _controller;
-  StreamSubscription<FloatingOverlayEvent>? _eventSub;
+/// Extends [FloatingPlatformServiceBase] which handles controller creation,
+/// event-stream subscription, and cleanup in [ref.onDispose].
+class FloatingOverlayService
+    extends
+        FloatingPlatformServiceBase<
+          FloatingOverlayController,
+          FloatingOverlayEvent
+        > {
   Timer? _autoHideTimer;
   Timer? _audioThrottleTimer;
 
-  /// Generation counter to prevent stale auto-hide callbacks from dismissing
-  /// a new recording session's overlay.
   int _generation = 0;
-
-  /// Tracks the last phase we sent to the overlay, so we know when to
-  /// trigger show/hide transitions.
   RecordingPhase _lastPhase = RecordingPhase.idle;
-
-  /// Cached L10n — updated whenever settings change (locale could change).
   L10n? _l10n;
 
-  /// Factory hook — override in tests to inject a fake controller.
-  ///
-  /// Production code uses [FloatingOverlayController.create] (platform default).
-  /// Tests subclass this service and return a fake from this method.
-  @visibleForTesting
-  FloatingOverlayController? createControllerForTest() =>
+  double _pendingLevel = 0.0;
+  bool _levelThrottled = false;
+
+  // ── FloatingPlatformServiceBase contract ──────────────────────────────────
+
+  @override
+  FloatingOverlayController? createController() =>
       FloatingOverlayController.create();
 
   @override
-  void build() {
-    _controller = createControllerForTest();
-    if (_controller == null) {
-      _log.debug('Platform does not support native floating overlay');
-      return;
-    }
+  Stream<FloatingOverlayEvent> eventsFrom(FloatingOverlayController c) =>
+      c.events;
 
-    _eventSub = _controller!.events.listen(_onEvent);
+  @override
+  Future<void> disposeController(FloatingOverlayController c) => c.dispose();
 
+  @override
+  void onEvent(FloatingOverlayEvent event) => _onEvent(event);
+
+  @override
+  void onControllerReady(FloatingOverlayController controller) {
     ref.onDispose(() {
       _autoHideTimer?.cancel();
       _audioThrottleTimer?.cancel();
-      _eventSub?.cancel();
-      _controller?.dispose();
-      _controller = null;
     });
 
-    // Watch settings for overlay configuration changes.
     ref.listen(settingsProvider, (_, next) {
       next.whenData((s) => _syncSettings(s));
     });
-
-    // Watch recording phase for state transitions.
     ref.listen(recordingPhaseProvider, (prev, next) {
       _onPhaseChanged(prev ?? RecordingPhase.idle, next);
     });
-
-    // Watch audio level for waveform during recording.
     ref.listen(audioLevelProvider, (_, next) {
       _onAudioLevel(next);
     });
-
-    // Watch elapsed for timer updates during recording.
     ref.listen(recordingElapsedProvider, (_, next) {
       _onElapsedChanged(next);
     });
 
-    // Apply initial settings if already loaded.
     final settings = ref.read(settingsProvider);
     settings.whenData((s) => _syncSettings(s));
   }
 
-  // ── Settings sync ─────────────────────────────────────────────────
+  // ── Settings sync ─────────────────────────────────────────────────────────
 
   void _syncSettings(AppSettings s) {
-    if (_controller == null) return;
+    final c = controller;
+    if (c == null) return;
 
-    // Only active when overlay mode is floating.
     final active = s.effectiveOverlayMode == OverlayMode.floating;
     if (!active) {
       _hideOverlay();
       return;
     }
 
-    // Cache L10n for snapshot building (English fallback if not available).
     _l10n = _resolveL10n();
-
-    // Send context menu items with localized strings.
     _sendContextMenuItems();
+    c.setOpacity(s.floatingOverlayOpacity);
 
-    // Apply opacity setting to native window.
-    _controller!.setOpacity(s.floatingOverlayOpacity);
-
-    // If currently in a non-idle phase, re-send snapshot with updated settings.
     final phase = ref.read(recordingPhaseProvider);
     if (phase != RecordingPhase.idle) {
       _sendSnapshot(s, phase);
     }
   }
 
-  // ── Phase transitions ─────────────────────────────────────────────
+  // ── Phase transitions ─────────────────────────────────────────────────────
 
   Future<void> _onPhaseChanged(RecordingPhase prev, RecordingPhase next) async {
-    if (_controller == null) return;
+    if (controller == null) return;
 
     final settings = ref.read(settingsProvider).value;
     if (settings == null) return;
@@ -134,9 +139,6 @@ class FloatingOverlayService extends Notifier<void> {
 
     switch (next) {
       case RecordingPhase.idle:
-        // If transitioning from done while the auto-hide timer is still counting
-        // down, let it fire naturally — hiding here would cancel the timer and
-        // the user would never see the configured auto-hide delay.
         if (prev == RecordingPhase.done &&
             (_autoHideTimer?.isActive ?? false)) {
           return;
@@ -144,12 +146,8 @@ class FloatingOverlayService extends Notifier<void> {
         _hideOverlay();
 
       case RecordingPhase.recording:
-        // New recording session — bump generation to invalidate stale timers.
-        // These run synchronously before any await, preserving immediate effect.
         _generation++;
         _autoHideTimer?.cancel();
-        // Await position so C++ moves the window before the snapshot makes it
-        // visible — without await, the overlay would flash at the old position.
         if (prev == RecordingPhase.idle) {
           await _setStartPosition(settings);
         }
@@ -164,18 +162,14 @@ class FloatingOverlayService extends Notifier<void> {
 
       case RecordingPhase.error:
         _sendSnapshot(settings, next);
-        // Errors persist — no auto-hide. Only manual dismiss or 30s timeout.
         _scheduleErrorTimeout();
     }
   }
 
-  // ── Audio level (throttled to ~20Hz) ──────────────────────────────
-
-  double _pendingLevel = 0.0;
-  bool _levelThrottled = false;
+  // ── Audio level (throttled to ~20 Hz) ────────────────────────────────────
 
   void _onAudioLevel(double level) {
-    if (_controller == null) return;
+    if (controller == null) return;
     if (_lastPhase != RecordingPhase.recording) return;
 
     _pendingLevel = level;
@@ -184,14 +178,14 @@ class FloatingOverlayService extends Notifier<void> {
     _levelThrottled = true;
     _audioThrottleTimer = Timer(const Duration(milliseconds: 50), () {
       _levelThrottled = false;
-      _controller?.setAudioLevel(_pendingLevel);
+      controller?.setAudioLevel(_pendingLevel);
     });
   }
 
-  // ── Elapsed timer updates ─────────────────────────────────────────
+  // ── Elapsed timer updates ─────────────────────────────────────────────────
 
   void _onElapsedChanged(Duration elapsed) {
-    if (_controller == null) return;
+    if (controller == null) return;
     if (_lastPhase != RecordingPhase.recording) return;
 
     final settings = ref.read(settingsProvider).value;
@@ -201,10 +195,11 @@ class FloatingOverlayService extends Notifier<void> {
     _sendSnapshot(settings, RecordingPhase.recording);
   }
 
-  // ── Snapshot building ─────────────────────────────────────────────
+  // ── Snapshot building ─────────────────────────────────────────────────────
 
   void _sendSnapshot(AppSettings s, RecordingPhase phase) {
-    if (_controller == null) return;
+    final c = controller;
+    if (c == null) return;
 
     final l10n = _l10n ?? _resolveL10n();
     final isDark = _computeIsDark(s);
@@ -213,7 +208,6 @@ class FloatingOverlayService extends Notifier<void> {
     final recording = ref.read(recordingProvider);
     final isLocal = s.sttProviderType.isLocal;
 
-    // Compute recording progress (0.0 = unlimited, 0.0–1.0 = limited)
     double progress = 0.0;
     if (phase == RecordingPhase.recording && s.maxRecordDuration > 0) {
       progress = elapsed.inSeconds / s.maxRecordDuration;
@@ -241,13 +235,14 @@ class FloatingOverlayService extends Notifier<void> {
       progress: progress,
     );
 
-    _controller!.updateSnapshot(snapshot).catchError((e, st) {
+    c.updateSnapshot(snapshot).catchError((e, st) {
       _log.error('Failed to send overlay snapshot', e, st);
     });
   }
 
   void _hideOverlay() {
-    if (_controller == null) return;
+    final c = controller;
+    if (c == null) return;
     _autoHideTimer?.cancel();
 
     const hidden = FloatingOverlaySnapshot(
@@ -258,12 +253,12 @@ class FloatingOverlayService extends Notifier<void> {
       label: '',
     );
 
-    _controller!.updateSnapshot(hidden).catchError((e, st) {
+    c.updateSnapshot(hidden).catchError((e, st) {
       _log.error('Failed to hide overlay', e, st);
     });
   }
 
-  // ── Auto-hide ─────────────────────────────────────────────────────
+  // ── Auto-hide ─────────────────────────────────────────────────────────────
 
   void _scheduleAutoHide(AppSettings s) {
     _autoHideTimer?.cancel();
@@ -273,9 +268,6 @@ class FloatingOverlayService extends Notifier<void> {
 
     final gen = _generation;
     _autoHideTimer = Timer(Duration(seconds: autoHide.seconds), () {
-      // Only dismiss if we're still in the same generation (no new recording).
-      // By the time this fires, _lastPhase is already idle (orchestrator reset),
-      // so we can't use it as a guard — the generation is sufficient.
       if (_generation == gen) {
         _hideOverlay();
       }
@@ -286,7 +278,6 @@ class FloatingOverlayService extends Notifier<void> {
     _autoHideTimer?.cancel();
 
     final gen = _generation;
-    // Error auto-dismisses after 30s if no user interaction.
     _autoHideTimer = Timer(const Duration(seconds: 30), () {
       if (_generation == gen && _lastPhase == RecordingPhase.error) {
         _hideOverlay();
@@ -294,10 +285,11 @@ class FloatingOverlayService extends Notifier<void> {
     });
   }
 
-  // ── Start position ────────────────────────────────────────────────
+  // ── Start position ────────────────────────────────────────────────────────
 
   Future<void> _setStartPosition(AppSettings s) async {
-    if (_controller == null) return;
+    final c = controller;
+    if (c == null) return;
 
     try {
       final pos = s.overlayStartPositionType;
@@ -305,7 +297,7 @@ class FloatingOverlayService extends Notifier<void> {
       if (pos == OverlayStartPosition.lastPosition &&
           s.floatingOverlayX >= 0 &&
           s.floatingOverlayY >= 0) {
-        await _controller!.setPosition(
+        await c.setPosition(
           s.floatingOverlayX,
           s.floatingOverlayY,
           OverlayAnchorMode.topLeft,
@@ -314,22 +306,22 @@ class FloatingOverlayService extends Notifier<void> {
         final anchor = pos == OverlayStartPosition.bottomCenter
             ? OverlayAnchorMode.bottomCenter
             : OverlayAnchorMode.topCenter;
-        // x=-1, y=-1 signals C++ to compute centered position.
-        await _controller!.setPosition(-1, -1, anchor);
+        await c.setPosition(-1, -1, anchor);
       }
     } catch (e, st) {
       _log.error('Failed to set overlay start position', e, st);
     }
   }
 
-  // ── Context menu ──────────────────────────────────────────────────
+  // ── Context menu ──────────────────────────────────────────────────────────
 
   void _sendContextMenuItems() {
-    if (_controller == null) return;
+    final c = controller;
+    if (c == null) return;
     final l10n = _l10n;
     if (l10n == null) return;
 
-    _controller!
+    c
         .setContextMenuItems([
           (id: 'cancel', label: l10n.overlayContextCancel),
           (id: 'switch_normal', label: l10n.overlayContextSwitchNormal),
@@ -341,7 +333,7 @@ class FloatingOverlayService extends Notifier<void> {
         });
   }
 
-  // ── Event handling ────────────────────────────────────────────────
+  // ── Event handling ────────────────────────────────────────────────────────
 
   void _onEvent(FloatingOverlayEvent event) {
     switch (event) {
@@ -354,7 +346,6 @@ class FloatingOverlayService extends Notifier<void> {
 
       case OverlayRetryClicked():
         _log.debug('Overlay retry clicked → toggleRecording');
-        // Reset to idle, then the user can start a new recording.
         ref.read(recordingProvider.notifier).reset();
         _hideOverlay();
 
@@ -370,11 +361,9 @@ class FloatingOverlayService extends Notifier<void> {
   void _onCloseClicked() {
     final phase = ref.read(recordingPhaseProvider);
     if (phase == RecordingPhase.recording) {
-      // During recording, ✕ = stop recording (same as toggling).
       _log.debug('Overlay close during recording → stopRecording');
       ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
     } else {
-      // After completion or during processing, ✕ = dismiss.
       _log.debug('Overlay close → dismiss');
       _hideOverlay();
     }
@@ -432,7 +421,7 @@ class FloatingOverlayService extends Notifier<void> {
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   static OverlayVisualState _mapPhase(RecordingPhase phase) => switch (phase) {
     RecordingPhase.idle => OverlayVisualState.recording,
@@ -485,14 +474,10 @@ class FloatingOverlayService extends Notifier<void> {
   }
 
   L10n? _resolveL10n() {
-    // L10n is available from the widget tree. Since we're in a service
-    // (not a widget), we use the platform dispatcher locale to look up
-    // the correct localization delegate.
     final locale = WidgetsBinding.instance.platformDispatcher.locale;
     try {
       return lookupL10n(locale);
     } catch (_) {
-      // Fallback to English if locale not supported.
       try {
         return lookupL10n(const Locale('en'));
       } catch (_) {
