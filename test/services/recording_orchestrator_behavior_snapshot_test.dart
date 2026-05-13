@@ -30,7 +30,7 @@ import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' show sttDirOverride;
 import 'package:whispaste/services/recording_orchestrator.dart';
-import 'package:whispaste/services/stt_service.dart';
+import 'package:whispaste/services/stt/stt_bundle.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes (re-defined; test files are not exported)
@@ -81,7 +81,7 @@ class _FakeAudioService extends AudioServiceNotifier {
   void emitLevel(double level) => _ampCtrl?.add(level);
 }
 
-class _FakeSttService extends SttServiceNotifier {
+class _FakeSttService extends SttServerStateNotifier {
   String transcriptToReturn = 'Hello world';
   bool ensureRunningThrows = false;
   bool transcribeThrows = false;
@@ -245,7 +245,7 @@ void main() {
           return db;
         }),
         audioServiceProvider.overrideWith(() => fakeAudio),
-        sttServiceProvider.overrideWith(() => fakeStt),
+        localSttBundleProvider.overrideWith(() => fakeStt),
         settingsProvider.overrideWith(() => _FakeSettingsNotifier(settings)),
         secureKeyStoreProvider.overrideWith((ref) => _FakeSecureKeyStore()),
         desktopPasteControllerProvider.overrideWith((ref) => fakePaste),

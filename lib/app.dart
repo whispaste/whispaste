@@ -33,7 +33,7 @@ import 'core/recording/recording_state.dart';
 import 'core/data/database.dart';
 import 'core/logging/crash_reporter.dart';
 import 'services/recording_orchestrator.dart';
-import 'services/stt_service.dart';
+import 'services/stt/stt_bundle.dart';
 import 'services/tray_service.dart';
 import 'services/update_service.dart';
 import 'services/deploy_channel_service.dart';
@@ -268,7 +268,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
 
     // User opted for "close = quit": kill subprocesses then destroy.
     try {
-      ref.read(sttServiceProvider.notifier).stop();
+      ref.read(localSttBundleProvider.notifier).stop();
     } catch (_) {}
 
     try {
@@ -291,7 +291,7 @@ class _AppShellState extends ConsumerState<_AppShell> with WindowListener {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = L10n.of(context);
     final navItems = wpNavItems(l10n);
-    final sttStatus = ref.watch(sttServiceProvider);
+    final sttStatus = ref.watch(localSttBundleProvider);
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
     final updateState = ref.watch(updateProvider);
     final deployChannel = ref.watch(deployChannelProvider);

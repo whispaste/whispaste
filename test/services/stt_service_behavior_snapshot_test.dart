@@ -1,4 +1,4 @@
-/// Behavior-snapshot tests for SttServiceNotifier.
+/// Behavior-snapshot tests for SttServerStateNotifier.
 ///
 /// Captures observable behaviour across all five responsibilities:
 ///   1. Subprocess lifecycle (start / stop / restart-on-model-change)
@@ -31,7 +31,7 @@ import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' as paths;
 import 'package:whispaste/services/process_runner.dart';
-import 'package:whispaste/services/stt_service.dart';
+import 'package:whispaste/services/stt/stt_bundle.dart';
 
 // ── Fake helpers ─────────────────────────────────────────────────────────────
 
@@ -133,7 +133,7 @@ class _TrackingModelDownloadNotifier extends ModelDownloadNotifier {
   Future<void> downloadModel(String modelId) async {
     downloadCallCount++;
     _downloadedIds.add(modelId);
-    // Simulate the download completing so the listener in stt_service can
+    // Simulate the download completing so the listener in SttServerStateNotifier can
     // clear _modelLoadFailedIds.
     state = ModelDownloadState(downloadedModels: {modelId});
   }
@@ -283,7 +283,7 @@ void main() {
       await container.read(settingsProvider.future);
       fakeProcess.emitStderr('[whisper] model loaded');
 
-      await container.read(sttServiceProvider.notifier).ensureRunning();
+      await container.read(localSttBundleProvider.notifier).ensureRunning();
 
       expect(
         runner.startCallCount,
@@ -291,7 +291,7 @@ void main() {
         reason: 'ProcessRunner.start must be called by ensureRunning()',
       );
       expect(
-        container.read(sttServiceProvider).serverState,
+        container.read(localSttBundleProvider).serverState,
         SttServerState.ready,
         reason: 'Server must be ready after successful ensureRunning()',
       );
@@ -317,18 +317,18 @@ void main() {
       await container.read(settingsProvider.future);
       fakeProcess.emitStderr('[whisper] model loaded');
 
-      final notifier = container.read(sttServiceProvider.notifier);
+      final notifier = container.read(localSttBundleProvider.notifier);
       await notifier.ensureRunning();
 
       expect(
-        container.read(sttServiceProvider).serverState,
+        container.read(localSttBundleProvider).serverState,
         SttServerState.ready,
       );
 
       notifier.stop();
 
       expect(
-        container.read(sttServiceProvider).serverState,
+        container.read(localSttBundleProvider).serverState,
         SttServerState.stopped,
         reason: 'stop() must transition server to stopped state',
       );
@@ -363,12 +363,12 @@ void main() {
       });
 
       await container.read(settingsProvider.future);
-      final notifier = container.read(sttServiceProvider.notifier);
+      final notifier = container.read(localSttBundleProvider.notifier);
 
       // First start.
       await notifier.ensureRunning();
       expect(
-        container.read(sttServiceProvider).serverState,
+        container.read(localSttBundleProvider).serverState,
         SttServerState.ready,
       );
       final startCountAfterFirst = runner.startCallCount;
@@ -400,7 +400,7 @@ void main() {
         reason: 'ProcessRunner.start must be called again after model change',
       );
       expect(
-        container.read(sttServiceProvider).modelId,
+        container.read(localSttBundleProvider).modelId,
         'whisper-base',
         reason: 'Server must report the new model ID after restart',
       );
@@ -462,7 +462,7 @@ void main() {
 
         // Run ensureRunning() and capture intermediate state quickly.
         final ensureFuture = container
-            .read(sttServiceProvider.notifier)
+            .read(localSttBundleProvider.notifier)
             .ensureRunning();
 
         // Give a tiny moment for the transition to starting.
@@ -470,7 +470,7 @@ void main() {
 
         // At this point the server should be in starting state.
         // (It may already be ready if timing is tight — that is also valid.)
-        final midState = container.read(sttServiceProvider).serverState;
+        final midState = container.read(localSttBundleProvider).serverState;
         expect(
           midState,
           anyOf(SttServerState.starting, SttServerState.ready),
@@ -481,7 +481,7 @@ void main() {
         await ensureFuture;
 
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           SttServerState.ready,
           reason: 'Server must be ready once health check returns 200',
         );
@@ -510,9 +510,9 @@ void main() {
         });
 
         await container.read(settingsProvider.future);
-        await container.read(sttServiceProvider.notifier).ensureRunning();
+        await container.read(localSttBundleProvider.notifier).ensureRunning();
 
-        final status = container.read(sttServiceProvider);
+        final status = container.read(localSttBundleProvider);
         expect(status.serverState, SttServerState.ready);
         expect(
           status.port,
@@ -568,7 +568,9 @@ void main() {
         await container.read(settingsProvider.future);
 
         // Start ensureRunning() without awaiting — we'll trigger the exit below.
-        unawaited(container.read(sttServiceProvider.notifier).ensureRunning());
+        unawaited(
+          container.read(localSttBundleProvider.notifier).ensureRunning(),
+        );
 
         // Wait for the notifier to register the process.
         await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -614,7 +616,9 @@ void main() {
 
         await container.read(settingsProvider.future);
 
-        unawaited(container.read(sttServiceProvider.notifier).ensureRunning());
+        unawaited(
+          container.read(localSttBundleProvider.notifier).ensureRunning(),
+        );
         await Future<void>.delayed(const Duration(milliseconds: 50));
 
         fakeProcess.exit(3);
@@ -622,7 +626,7 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 300));
 
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           anyOf(SttServerState.stopped, SttServerState.error),
           reason: 'After Exit 3 the server must not remain in starting state',
         );
@@ -680,7 +684,9 @@ void main() {
 
         await container.read(settingsProvider.future);
 
-        unawaited(container.read(sttServiceProvider.notifier).ensureRunning());
+        unawaited(
+          container.read(localSttBundleProvider.notifier).ensureRunning(),
+        );
         await Future<void>.delayed(const Duration(milliseconds: 50));
 
         // Emit gpuFatal NTSTATUS code.
@@ -691,7 +697,7 @@ void main() {
         // After the first GPU fatal, the service must silently activate CPU
         // fallback (stopped state) and NOT transition to error yet.
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           SttServerState.stopped,
           reason:
               'First gpuFatal exit must activate CPU fallback silently (stopped, not error)',
@@ -700,10 +706,10 @@ void main() {
         // A subsequent ensureRunning() must start the CPU-fallback server;
         // if it succeeds, cpuFallbackActive is true in the ready state.
         processes.last.emitStderr('[whisper] cpu mode');
-        await container.read(sttServiceProvider.notifier).ensureRunning();
+        await container.read(localSttBundleProvider.notifier).ensureRunning();
 
         expect(
-          container.read(sttServiceProvider).cpuFallbackActive,
+          container.read(localSttBundleProvider).cpuFallbackActive,
           isTrue,
           reason: 'cpuFallbackActive must be true after GPU crash recovery',
         );
@@ -742,7 +748,9 @@ void main() {
 
         await container.read(settingsProvider.future);
 
-        unawaited(container.read(sttServiceProvider.notifier).ensureRunning());
+        unawaited(
+          container.read(localSttBundleProvider.notifier).ensureRunning(),
+        );
         await Future<void>.delayed(const Duration(milliseconds: 50));
 
         processes.last.exit(-1073741819); // STATUS_ACCESS_VIOLATION
@@ -750,7 +758,7 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 200));
 
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           SttServerState.stopped,
           reason:
               'First heapCorruption exit must activate CPU fallback (stopped)',
@@ -778,7 +786,9 @@ void main() {
 
       await container.read(settingsProvider.future);
 
-      unawaited(container.read(sttServiceProvider.notifier).ensureRunning());
+      unawaited(
+        container.read(localSttBundleProvider.notifier).ensureRunning(),
+      );
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       // Exit code 99 → SttExitKind.other on all platforms.
@@ -786,7 +796,7 @@ void main() {
 
       await Future<void>.delayed(const Duration(milliseconds: 200));
 
-      final status = container.read(sttServiceProvider);
+      final status = container.read(localSttBundleProvider);
       expect(
         status.serverState,
         SttServerState.error,
@@ -815,7 +825,7 @@ void main() {
         fakeProcess.exit(0);
       });
 
-      final notifier = container.read(sttServiceProvider.notifier);
+      final notifier = container.read(localSttBundleProvider.notifier);
 
       // These must not throw — they exercise the idle-timer guard paths.
       notifier.notifyRecordingStarted();
@@ -823,7 +833,7 @@ void main() {
 
       // State must not change by these calls alone (server not running).
       expect(
-        container.read(sttServiceProvider).serverState,
+        container.read(localSttBundleProvider).serverState,
         SttServerState.stopped,
         reason:
             'Idle timer calls must not change server state when server is stopped',
@@ -850,7 +860,7 @@ void main() {
           fakeProcess.exit(0);
         });
 
-        final notifier = container.read(sttServiceProvider.notifier);
+        final notifier = container.read(localSttBundleProvider.notifier);
 
         // Calling notifyRecordingStarted and notifyRecordingStopped while
         // the server is stopped must not throw and must leave state unchanged.
@@ -860,7 +870,7 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
 
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           SttServerState.stopped,
         );
       },
@@ -880,7 +890,7 @@ void main() {
           fakeProcess.exit(0);
         });
 
-        final notifier = container.read(sttServiceProvider.notifier);
+        final notifier = container.read(localSttBundleProvider.notifier);
 
         // Start → complete transcription → check no exception thrown.
         notifier.notifyRecordingStarted();
@@ -888,7 +898,7 @@ void main() {
 
         // Server is stopped (never started) — state must still be stopped.
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           SttServerState.stopped,
         );
       },
@@ -939,17 +949,18 @@ void main() {
         });
 
         await container.read(settingsProvider.future);
-        await container.read(sttServiceProvider.notifier).ensureRunning();
+        await container.read(localSttBundleProvider.notifier).ensureRunning();
 
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           SttServerState.error,
           reason: 'Heartbeat timeout must produce error state',
         );
 
         // Model must NOT be blacklisted — a second attempt must not immediately
         // fail with "model corrupted".
-        final errorMsg = container.read(sttServiceProvider).errorMessage ?? '';
+        final errorMsg =
+            container.read(localSttBundleProvider).errorMessage ?? '';
         expect(
           errorMsg,
           isNot(contains('corrupted')),
@@ -1009,10 +1020,10 @@ void main() {
         });
         addTearDown(timer.cancel);
 
-        await container.read(sttServiceProvider.notifier).ensureRunning();
+        await container.read(localSttBundleProvider.notifier).ensureRunning();
 
         expect(
-          container.read(sttServiceProvider).serverState,
+          container.read(localSttBundleProvider).serverState,
           SttServerState.ready,
           reason:
               'Continuous heartbeat must keep startup alive until health 200',

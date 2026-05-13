@@ -2,7 +2,7 @@ import 'dart:io';
 
 /// Injectable abstraction over [Process.start].
 ///
-/// Exists solely to make [SttServiceNotifier._start] testable without
+/// Exists solely to make [SttServerStateNotifier._start] testable without
 /// spawning a real subprocess. The system implementation delegates directly;
 /// tests supply a fake.
 abstract class ProcessRunner {
